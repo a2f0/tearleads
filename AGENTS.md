@@ -59,6 +59,8 @@ Run the smallest command that matches the handoff risk:
   fixtures; included in `check:fast`.
 - `bun run test:static-analysis`: Git snapshot, source-shape baseline, and
   ShellCheck inventory fixtures; included in `check:fast` and pre-push.
+- `bun run lint:doc-links`: Markdown links, fragments, and linked code
+  references (`-- --fix`, `-- --external`); see the `validate-docs` skill.
 - `bun run lint:canonical-ordering`: bans `localeCompare` without a locale and
   `Intl.Collator` in hash-adjacent code (`packages/crypto/src`,
   `packages/client-sdk/src/data`); sort with `compareCanonicalStrings`.

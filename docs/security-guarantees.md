@@ -528,17 +528,17 @@ when that descendant-only member cannot unwrap the ancestor KEKs.
 
 The server validates the signed artifacts' shape, length equality, and hash
 commitments but cannot validate their plaintext without a KEK. A malicious
-authorized writer can therefore sign undecryptable ciphertext and deny access
-to predecessor history. This is an explicit availability limitation with a
-bounded blast radius, not a confidentiality bypass: a poisoned keyring is
-rebuilt from the bridge log; a poisoned bridge orphans only the epochs below
-it for members who joined after it, because cross-epoch recipient wraps are
-retained forever (a stated protocol invariant) and any member present at an
-earlier epoch can recover that epoch's KEK from server state alone and
-re-anchor a repair rekey. The composition of these recovery paths is model
-checked in `formal/container-keying/KeyringReachability.tla`. Supported
-clients generate fresh successor keys and round-trip both artifacts before
-sending a mutation.
+authorized writer can therefore sign undecryptable ciphertext and deny access to
+predecessor history. This is an explicit availability limitation with a bounded
+blast radius, not a confidentiality bypass: a poisoned keyring is rebuilt from
+the bridge log; a poisoned bridge orphans only the epochs below it for members
+who joined after it, because cross-epoch recipient wraps are retained forever (a
+stated protocol invariant) and any member present at an earlier epoch can
+recover that epoch's KEK from server state alone and re-anchor a repair rekey.
+The composition of these recovery paths is model checked in
+[`formal/container-keying/KeyringReachability.tla`](../formal/container-keying/KeyringReachability.tla).
+Supported clients generate fresh successor keys and round-trip both artifacts
+before sending a mutation.
 
 That recovery backstop is bounded by which envelopes the kek-log will serve.
 Principal key rotations and membership changes atomically rematerialize every

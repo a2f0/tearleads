@@ -14,14 +14,15 @@ Production uses `tearleads.com`, `app.tearleads.com`, `demo.tearleads.com`, and
 `api-staging.tearleads.com`. The demo hosts serve the two-pane demo variant of
 the same bundle. Realtime events share each tier's API hostname at `/events`.
 
-Production web hosts are indexable, and the demo hosts' shell names the app
-root as its canonical URL. Staging web hosts name no canonical URL and send
+Production web hosts are indexable, and the demo hosts' shell names the app root
+as its canonical URL. Staging web hosts name no canonical URL and send
 `X-Robots-Tag: noindex, nofollow` with a matching robots meta tag. The website
-build adds these for `PUBLIC_ENVIRONMENT=staging` (see the
-[website guide](../../packages/website/README.md#search-and-link-previews)).
-`packages/app-web/scripts/deployAppWeb.sh` builds the app with `APP_WEB_TIER`,
-which `scripts/injectTierMeta.ts` reads, then adds the header while staging
-the assets and refuses a build whose tags do not match its tier.
+build adds these for `PUBLIC_ENVIRONMENT=staging` (see the [website
+guide](../../packages/website/README.md#search-and-link-previews)).
+[`packages/app-web/scripts/deployAppWeb.sh`](../../packages/app-web/scripts/deployAppWeb.sh)
+builds the app with `APP_WEB_TIER`, which `scripts/injectTierMeta.ts` reads,
+then adds the header while staging the assets and refuses a build whose tags do
+not match its tier.
 
 Every proxied tearleads.com host, staging and continuity included, answers
 `http://` with a 301 to `https://` before any Worker runs. That is the zone's
@@ -93,16 +94,17 @@ backend.
 
 Each tier is four Cloudflare Workers plus independent Terraform stacks:
 
-- `packages/api` deploys `tearleads-platform-api-<tier>`: the Hono API, two
-  SQLite Durable Objects (`KeyValueStore`, which holds sessions and tickets,
-  and `RealtimeHub`, which owns every WebSocket), and the Cron Triggers that
-  run blob garbage collection hourly and billing maintenance every minute.
-  A placement hint keeps it near PlanetScale Postgres in `us-east-1`, because
-  registration performs many sequential database queries inside one
-  transaction and cross-region round trips exceed Cloudflare's response
-  timeout even though the write commits.
-- `packages/app-web` deploys `tearleads-app-<tier>` and `tearleads-demo-<tier>`
-  as Workers Static Assets, and `packages/website` deploys the marketing site.
+- [`packages/api`](../../packages/api/) deploys `tearleads-platform-api-<tier>`:
+  the Hono API, two SQLite Durable Objects (`KeyValueStore`, which holds
+  sessions and tickets, and `RealtimeHub`, which owns every WebSocket), and the
+  Cron Triggers that run blob garbage collection hourly and billing maintenance
+  every minute. A placement hint keeps it near PlanetScale Postgres in
+  `us-east-1`, because registration performs many sequential database queries
+  inside one transaction and cross-region round trips exceed Cloudflare's
+  response timeout even though the write commits.
+- [`packages/app-web`](../../packages/app-web/) deploys `tearleads-app-<tier>`
+  and `tearleads-demo-<tier>` as Workers Static Assets, and
+  [`packages/website`](../../packages/website/) deploys the marketing site.
 - `terraform/stacks/<tier>/postgres` owns the tier's PlanetScale Postgres and
   Hyperdrive configuration, `terraform/stacks/<tier>/storage` its R2 blob
   bucket and API credentials, and `terraform/stacks/<tier>/edge` the custom
@@ -126,16 +128,20 @@ ignoring any AWS profile or session. That pair is the R2 S3 key of a token
 limited to the state bucket: the token ID and the SHA-256 of the token value.
 No stack uses the AWS provider.
 
-`scripts/deploy/deployStaging.sh` and `scripts/deploy/deployProduction.sh` run
-the whole sequence: storage, database, API migrations and Worker, app bundles,
-edge hostnames (which need the Workers to exist), API verification, then
-website. Staging applies its storage and Postgres stacks on every full deploy;
-production only checks that they are already provisioned. `--skip-terraform`
-skips every Terraform apply. `packages/api/scripts/deployApi.sh` migrates with
-the PlanetScale migration login, syncs the Worker secrets from the Terraform
-outputs and the `.secrets/<tier>/` env files, and publishes with the build
-constants from `packages/api/scripts/workerDefines.ts`. The document sync
-cursor HMAC key is generated once per tier into `.secrets/<tier>/worker.env`.
+[`scripts/deploy/deployStaging.sh`](../../scripts/deploy/deployStaging.sh) and
+[`scripts/deploy/deployProduction.sh`](../../scripts/deploy/deployProduction.sh)
+run the whole sequence: storage, database, API migrations and Worker, app
+bundles, edge hostnames (which need the Workers to exist), API verification,
+then website. Staging applies its storage and Postgres stacks on every full
+deploy; production only checks that they are already provisioned.
+`--skip-terraform` skips every Terraform apply.
+[`packages/api/scripts/deployApi.sh`](../../packages/api/scripts/deployApi.sh)
+migrates with the PlanetScale migration login, syncs the Worker secrets from the
+Terraform outputs and the `.secrets/<tier>/` env files, and publishes with the
+build constants from
+[`packages/api/scripts/workerDefines.ts`](../../packages/api/scripts/workerDefines.ts).
+The document sync cursor HMAC key is generated once per tier into
+`.secrets/<tier>/worker.env`.
 
 Neither tier deployment applies the downloads stack. After a teardown, apply it
 from a saved plan before publishing a desktop release. The wrapper runs
@@ -147,12 +153,15 @@ terraform/scripts/run-downloads-stack.sh "$TIER" plan -out="$RUN_DIR/downloads.t
 terraform/scripts/run-downloads-stack.sh "$TIER" apply "$RUN_DIR/downloads.tfplan"
 ```
 
-`scripts/deploy/destroyStaging.sh` and `scripts/deploy/destroyProduction.sh`
+[`scripts/deploy/destroyStaging.sh`](../../scripts/deploy/destroyStaging.sh) and
+[`scripts/deploy/destroyProduction.sh`](../../scripts/deploy/destroyProduction.sh)
 remove every resource of their tier, including the downloads bucket and the
-website, through `scripts/deploy/destroyTier.sh`, timing each step. The
-production script asks for the domain unless given `--auto-approve`; the
-production teardown steps refuse to run outside it. The stack wrappers refuse
-a production `destroy`; the teardown applies saved destroy plans.
+website, through
+[`scripts/deploy/destroyTier.sh`](../../scripts/deploy/destroyTier.sh), timing
+each step. The production script asks for the domain unless given
+`--auto-approve`; the production teardown steps refuse to run outside it. The
+stack wrappers refuse a production `destroy`; the teardown applies saved destroy
+plans.
 
 The deployed API allows browser requests from every origin (`API_CORS_ORIGINS=*`)
 for SDK hosts, with explicit bearer-token and protocol headers and no cookie
@@ -170,11 +179,12 @@ Cloudflare deployment token needs Hyperdrive Edit.
 
 The API deploy reads `hyperdrive_id` from Terraform and fills the selected
 environment's binding in a temporary Wrangler configuration beside
-`packages/api/wrangler.jsonc`, removed on exit. After publishing, it deletes
-any Worker secret the deploy does not manage, so an integration disabled in the
-tier's env file stays disabled. Only the deploy host receives the migration
-login, which connects directly on port 5432. Run the tier deployment scripts to
-resolve the binding; a bare `wrangler deploy` has no configuration ID.
+[`packages/api/wrangler.jsonc`](../../packages/api/wrangler.jsonc), removed on
+exit. After publishing, it deletes any Worker secret the deploy does not manage,
+so an integration disabled in the tier's env file stays disabled. Only the
+deploy host receives the migration login, which connects directly on port 5432.
+Run the tier deployment scripts to resolve the binding; a bare `wrangler deploy`
+has no configuration ID.
 
 `POSTGRES_REQUEST_SCOPED` gives each request its own pool of up to four
 connections (`POSTGRES_POOL_MAX`): Workers cannot share sockets across

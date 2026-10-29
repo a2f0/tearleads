@@ -3,14 +3,14 @@
 The conventions that keep the app's chrome consistent across web (desktop
 browser), iPad, and phone. Full paths are relative to the repository root;
 short paths such as `shell/...` and `components/...` are relative to
-`packages/app/src`.
+[`packages/app/src`](../packages/app/src/).
 
 ## Two shells, three tiers
 
 The app renders one React tree with two interchangeable shells, selected by
 `@tearleads/windowing`'s navigation mode
-(`packages/windowing/src/launcher/navigationMode.ts`) from the host profile's
-`preferredNavigationMode`:
+([`packages/windowing/src/launcher/navigationMode.ts`](../packages/windowing/src/launcher/navigationMode.ts))
+from the host profile's `preferredNavigationMode`:
 
 - **windowed** — the desktop window-manager UI (`@tearleads/windowing`,
   `shell/pane/*`). Available through the lower-right layout switch.
@@ -29,10 +29,11 @@ Inside the routed shell there are two tiers, split at 760px:
   bottom sheet, freeing the rail's width for content.
 
 The tablet breakpoint lives in
-`packages/windowing/src/launcher/breakpoints.ts`
+[`packages/windowing/src/launcher/breakpoints.ts`](../packages/windowing/src/launcher/breakpoints.ts)
 (`ROUTED_TABLET_BREAKPOINT_PX = 760`). CSS cannot read TS constants, so
 `RoutedPane.css` mirrors the 760px line in a media query;
-`packages/windowing/src/routed/breakpoints.test.ts` fails if the two drift.
+[`packages/windowing/src/routed/breakpoints.test.ts`](../packages/windowing/src/routed/breakpoints.test.ts)
+fails if the two drift.
 
 The switch between shells never remounts the runtime-owning subtrees — see the
 comment in `shell/layout/Layout.tsx`. A user can also switch between
@@ -52,7 +53,8 @@ sizes until they choose windowed mode. Stamping the root element also lets
 portaled menus and modals inherit the sizing.
 
 Three Apple HIG rules drive the values (see the comment block in
-`packages/ui/src/styles.routed.css`, which holds every routed-mode override):
+[`packages/ui/src/styles.routed.css`](../packages/ui/src/styles.routed.css),
+which holds every routed-mode override):
 
 1. **44px minimum hit target.** `--control-height` resolves to `2.75rem` under
    `data-navigation-mode="routed"` (dense desktop default is `2rem`). Every
@@ -69,12 +71,15 @@ Three Apple HIG rules drive the values (see the comment block in
 
 ## Safe areas
 
-All builds opt into `viewport-fit=cover` (`packages/app-capacitor/index.html`,
-`packages/app-web/src/index.html`), so the app paints edge-to-edge on notched
-devices and must pad by the cutout insets. The insets are tokenized in
-`packages/ui/src/styles.css` (`--safe-area-top/right/bottom/left`, wrapping
-`env(safe-area-inset-*)`; 0 everywhere else). Policy: **the chrome element that
-touches a screen edge absorbs that edge's inset**:
+All builds opt into `viewport-fit=cover`
+([`packages/app-capacitor/index.html`](../packages/app-capacitor/index.html),
+[`packages/app-web/src/index.html`](../packages/app-web/src/index.html)), so the
+app paints edge-to-edge on notched devices and must pad by the cutout insets.
+The insets are tokenized in
+[`packages/ui/src/styles.css`](../packages/ui/src/styles.css)
+(`--safe-area-top/right/bottom/left`, wrapping `env(safe-area-inset-*)`; 0
+everywhere else). Policy: **the chrome element that touches a screen edge
+absorbs that edge's inset**:
 
 - top — the frame header (`.tearleads-header`);
 - bottom — the routed taskbar and bottom sheet (`RoutedPane.css`), and the
@@ -86,33 +91,35 @@ touches a screen edge absorbs that edge's inset**:
 Vertical sizing uses `100dvh` (with a `100vh` fallback) so iOS Safari's
 collapsing toolbars never hide the bottom taskbar.
 
-On native, `packages/app-capacitor/src/device/statusBar.ts` syncs the status-bar
-style with the theme: it keys the icon style off `<html data-theme-scheme>`
-(dark icons over a light theme, light icons over a dark one), and Android
-additionally paints the bar with the resolved `--color-muted` app-bar color, so
-every theme matches without being listed there.
+On native,
+[`packages/app-capacitor/src/device/statusBar.ts`](../packages/app-capacitor/src/device/statusBar.ts)
+syncs the status-bar style with the theme: it keys the icon style off `<html
+data-theme-scheme>` (dark icons over a light theme, light icons over a dark
+one), and Android additionally paints the bar with the resolved `--color-muted`
+app-bar color, so every theme matches without being listed there.
 
 ## Tokens and theming
 
-`packages/ui/src/styles.css` is the single token sheet: color roles
-(`--color-*`, `--emphasis-*`, `--tearleads-*` chrome bands), typography scale,
-spacing scale (`--space-2xs` through `--space-md`), control sizing
-(`--control-height`, `--control-padding-*`, `--form-measure`), row-height
-rhythm, borders (`--border`, `--border-strong`), opacity scale, overlays, and
-motion. Rules:
+[`packages/ui/src/styles.css`](../packages/ui/src/styles.css) is the single
+token sheet: color roles (`--color-*`, `--emphasis-*`, `--tearleads-*` chrome
+bands), typography scale, spacing scale (`--space-2xs` through `--space-md`),
+control sizing (`--control-height`, `--control-padding-*`, `--form-measure`),
+row-height rhythm, borders (`--border`, `--border-strong`), opacity scale,
+overlays, and motion. Rules:
 
 - No raw hex colors, no magic pixel values in feature CSS — always the tokens.
   (The only sanctioned literals are structural one-offs like resize-handle hit
   zones, each with a comment.)
-- Themes override only the color tokens, under `:root[data-theme="<id>"]`.
-  The registry is `packages/app/src/theme/themes.ts` (Light, Dark, and
-  Dusk, whose block lives in the companion `styles.dusk.css`), which each host
-  profile offers; the windowing package's `ThemeProvider` stamps
-  `<html data-theme>` and `<html data-theme-scheme>` (`light` | `dark`). A
-  rule that only cares whether surfaces are dark keys off the scheme, never a
-  theme id. Structural tokens are theme-independent by
-  design. Dusk uses slate-blue surfaces, ivory text, and muted blue emphasis;
-  it has no decorative text effects.
+- Themes override only the color tokens, under `:root[data-theme="<id>"]`. The
+  registry is
+  [`packages/app/src/theme/themes.ts`](../packages/app/src/theme/themes.ts)
+  (Light, Dark, and Dusk, whose block lives in the companion `styles.dusk.css`),
+  which each host profile offers; the windowing package's `ThemeProvider` stamps
+  `<html data-theme>` and `<html data-theme-scheme>` (`light` | `dark`). A rule
+  that only cares whether surfaces are dark keys off the scheme, never a theme
+  id. Structural tokens are theme-independent by design. Dusk uses slate-blue
+  surfaces, ivory text, and muted blue emphasis; it has no decorative text
+  effects.
 - Each component ships a sibling `.css` file imported by its `.tsx`; class
   names are composed with `classNames` from `components/shared/classNames`.
 
@@ -184,7 +191,7 @@ a field, and it strands a left-aligned label a screen away from the caret, so
 
 ## Component policy
 
-The de-facto component library is `packages/app/src/components`:
+The de-facto component library is [`packages/app/src/components`](../packages/app/src/components/):
 
 - **Buttons**: use `MiniAppButton`
   (`components/mini-app/controls/MiniAppButton.tsx`) for every content-surface
@@ -219,11 +226,11 @@ The de-facto component library is `packages/app/src/components`:
 
 ## Per-app chrome registration
 
-Screens never build their own top bar. Each mini-app registers its toolbar
-and Back actions through `@tearleads/windowing`'s window hooks
+Screens never build their own top bar. Each mini-app registers its toolbar and
+Back actions through `@tearleads/windowing`'s window hooks
 (`useWindowTitleBarAction`, `useWindowBackAction`, and related hooks in
-`packages/windowing/src/window/WindowMenuContext.tsx`), usually from its
-`*RoutedChrome.tsx`. BOTH
-the windowed title bar and the routed app bar read those registrations, so a
-screen gets correct chrome in either shell. In-body section headings use
-`MiniAppHeader`, which is layered under the shell title by design.
+[`packages/windowing/src/window/WindowMenuContext.tsx`](../packages/windowing/src/window/WindowMenuContext.tsx)),
+usually from its `*RoutedChrome.tsx`. BOTH the windowed title bar and the routed
+app bar read those registrations, so a screen gets correct chrome in either
+shell. In-body section headings use `MiniAppHeader`, which is layered under the
+shell title by design.

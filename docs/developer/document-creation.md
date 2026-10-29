@@ -64,15 +64,15 @@ let the document store compose them.
 ## Tests and contract changes
 
 New headless document-store behavior tests belong beside the SDK store in
-`packages/client-sdk/src/stores/documents/documentStore`. The similarly named
-app directory contains existing integration tests using public SDK exports
-and app fixtures. Keep tests for React providers and app wiring in the app;
-rebuild the SDK before running them.
+[`packages/client-sdk/src/stores/documents/documentStore`](../../packages/client-sdk/src/stores/documents/documentStore/).
+The similarly named app directory contains existing integration tests using
+public SDK exports and app fixtures. Keep tests for React providers and app
+wiring in the app; rebuild the SDK before running them.
 
-For a new create-request field, update the shared operation/request contract
-in `packages/validators`, run `bun run generate:openapi`, and update the typed
-API client, SDK create-plan builder, and API workflow validation that consume
-it. Add boundary tests, rebuild the SDK, and run the relevant focused suites.
-Run `lint:openapi:compatibility`, `lint:architecture`, and the broader handoff
-checks in [verification](verification.md); a focused suite does not replace
-those gates.
+For a new create-request field, update the shared operation/request contract in
+[`packages/validators`](../../packages/validators/), run `bun run
+generate:openapi`, and update the typed API client, SDK create-plan builder, and
+API workflow validation that consume it. Add boundary tests, rebuild the SDK,
+and run the relevant focused suites. Run `lint:openapi:compatibility`,
+`lint:architecture`, and the broader handoff checks in
+[verification](verification.md); a focused suite does not replace those gates.

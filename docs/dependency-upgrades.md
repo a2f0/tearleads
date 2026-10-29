@@ -18,14 +18,15 @@ The CI build lane selects Node 24.22.1 LTS explicitly and includes its version
 in `CI_TOOLCHAIN`, so a runner's ambient Node cannot determine or cache those
 build results. The nightly `Uncached tests` workflow reuses that lane.
 
-Shared agent workflows use an exact npm version of `@a2f0/agent-tool`.
-After changing it, run `bun run agents:sync` and commit the lockfile, the managed
+Shared agent workflows use an exact npm version of `@a2f0/agent-tool`. After
+changing it, run `bun run agents:sync` and commit the lockfile, the managed
 skill and permission manifests, the skills, and the generated
-`.claude/settings.json` and `.codex/rules/agent-tool.rules` together. Check hook
-installation and the branch, commit, CI-gate, and release-policy fixtures; the
-repository's own Turbo verification and Java/TLA toolchain checks stay in place.
-Run `bun run test:static-analysis` and `bun run test:npm-publish` before the
-normal full gate.
+[`.claude/settings.json`](../.claude/settings.json) and
+[`.codex/rules/agent-tool.rules`](../.codex/rules/agent-tool.rules) together.
+Check hook installation and the branch, commit, CI-gate, and release-policy
+fixtures; the repository's own Turbo verification and Java/TLA toolchain checks
+stay in place. Run `bun run test:static-analysis` and `bun run test:npm-publish`
+before the normal full gate.
 
 ## Current constraints
 
@@ -99,20 +100,22 @@ Terraform and Wrangler upgrades and record the reason in the PR.
 Bundle builds and mocked Terraform tests validate code only.
 
 Terraform provider updates require reviewed plans and lockfiles for Linux amd64
-and macOS arm64. SQLite archive updates require a verified checksum and a rebuilt
-wasm artifact. Preserve encrypted databases across SQLite runtime updates:
-`packages/sqlite-worker/tests/cipherUpgrade.test.ts` opens historical encrypted
-bytes through the production loader, checks the wrong-key boundary, and verifies
-reads and writes after reopening. Keep that fixture when upgrading. The
-pinned SQLite3MultipleCiphers 2.6.1
-[ChaCha20 parameter table](https://github.com/utelle/SQLite3MultipleCiphers/blob/v2.6.1/src/cipher_chacha20.c#L14-L48)
+and macOS arm64. SQLite archive updates require a verified checksum and a
+rebuilt wasm artifact. Preserve encrypted databases across SQLite runtime
+updates:
+[`packages/sqlite-worker/tests/cipherUpgrade.test.ts`](../packages/sqlite-worker/tests/cipherUpgrade.test.ts)
+opens historical encrypted bytes through the production loader, checks the
+wrong-key boundary, and verifies reads and writes after reopening. Keep that
+fixture when upgrading. The pinned SQLite3MultipleCiphers 2.6.1 [ChaCha20
+parameter
+table](https://github.com/utelle/SQLite3MultipleCiphers/blob/v2.6.1/src/cipher_chacha20.c#L14-L48)
 keeps legacy mode 0 and 64007 key-derivation iterations; check those defaults
-and persisted-file compatibility before changing the cipher or its version.
-The memory OPFS shim exercises the real codec; browser OPFS checks remain
-necessary for changes to the browser storage integration.
-Native updates require their platform builds in addition to the
-workspace checks. Deployments use the reviewed source and lockfiles; dependency
-updates do not implicitly reset application databases.
+and persisted-file compatibility before changing the cipher or its version. The
+memory OPFS shim exercises the real codec; browser OPFS checks remain necessary
+for changes to the browser storage integration. Native updates require their
+platform builds in addition to the workspace checks. Deployments use the
+reviewed source and lockfiles; dependency updates do not implicitly reset
+application databases.
 
 Keep this document and the linked audit notes current: reconcile constraints
 against the final dependency graph, update rationale and removal checks in

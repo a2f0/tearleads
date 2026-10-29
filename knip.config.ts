@@ -321,10 +321,12 @@ const productionConfig = {
     },
     "packages/website": {
       // Knip reads astro.config.ts as plugin configuration rather than as a
-      // production root, so list the build integration it loads explicitly.
+      // production root, so list the build integration and Markdown plugin it
+      // loads explicitly.
       entry: [
         "astro.config.ts!",
         "src/pages/**/*.astro!",
+        "src/rehypeDocLinks.ts!",
         "src/seoIntegration.ts!",
       ],
       project: ["src/**/*.{astro,ts,tsx}!", "!src/**/*.test.ts"],

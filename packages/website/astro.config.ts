@@ -1,5 +1,6 @@
 import react from "@astrojs/react";
 import { defineConfig } from "astro/config";
+import { rehypeDocLinks } from "./src/rehypeDocLinks";
 import { seoIntegration } from "./src/seoIntegration";
 
 // PUBLIC_ENVIRONMENT (production or staging) selects the crawler files. Build
@@ -11,6 +12,11 @@ export default defineConfig({
   output: "static",
   publicDir: WEBSITE_PUBLIC_DIR ?? "./public",
   integrations: [react(), seoIntegration(PUBLIC_ENVIRONMENT)],
+  markdown: {
+    // The site is grayscale; code blocks render as plain monospace text.
+    syntaxHighlight: false,
+    rehypePlugins: [rehypeDocLinks],
+  },
   server: {
     port: 4322,
   },

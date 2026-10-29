@@ -1,0 +1,55 @@
+---
+import { getCollection, render } from "astro:content";
+import PageHeader from "../../components/PageHeader.astro";
+import Layout from "../../layouts/Layout.astro";
+import { docForSlug, sourceUrl, type TechnicalDoc } from "../../technicalDocs";
+import "../../styles/docs.css";
+
+export async function getStaticPaths() {
+  const entries = await getCollection("docs");
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const doc: TechnicalDoc = docForSlug(entry.id);
+// rehypeDocLinks drops the document's own h1; the header renders doc.title.
+const { Content, headings } = await render(entry);
+const title = doc.title;
+const contents = headings.filter((heading) => heading.depth === 2);
+---
+
+<Layout title={`${title} | Tearleads`} description={doc.summary}>
+  <article class="site-page docs-page" aria-labelledby="page-title">
+    <PageHeader title={title} lede={doc.summary}>
+      <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
+        <ol role="list">
+          <li><a href="/security/">Security</a></li>
+          <li><a href="/docs/">Technical documents</a></li>
+          <li aria-current="page">{doc.title}</li>
+        </ol>
+      </nav>
+      <p class="docs-source">
+        Published from{" "}
+        <a class="site-link" href={sourceUrl(doc.source)}>
+          {doc.source}<span aria-hidden="true"> ↗</span><span class="visually-hidden"> (GitHub)</span>
+        </a>
+      </p>
+    </PageHeader>
+    {contents.length > 2 && (
+      <nav class="docs-contents" aria-label="On this page">
+        <h2 class="docs-contents-title">On this page</h2>
+        <ol role="list">
+          {contents.map((heading) => (
+            <li><a href={`#${heading.slug}`}>{heading.text}</a></li>
+          ))}
+        </ol>
+      </nav>
+    )}
+    <div class="site-prose docs-prose">
+      <Content />
+    </div>
+  </article>
+</Layout>

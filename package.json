@@ -60,6 +60,7 @@
     "lint:branch-name": "agent-tool branch check",
     "lint:canonical-ordering": "bun scripts/checks/lintCanonicalOrdering.ts",
     "lint:commit-msg": "sh scripts/git/hooks/commit-msg",
+    "lint:doc-links": "bun scripts/checks/lintDocLinks.ts",
     "lint:files": "ls-lint",
     "lint:infrastructure-parity": "bash scripts/checks/checkInfrastructureParity.sh",
     "lint:knip:all": "knip",

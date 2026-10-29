@@ -562,10 +562,11 @@ historical principal-key envelopes by design
 ([protocol-specification.md](./protocol-specification.md#container-access-and-kek-protocol)).
 The only wholly unrecoverable case is a sole-ever member destroying their own
 history.
-`formal/container-keying/KeyringReachability.tla` model checks this composition:
-the log alone recovers everything while bridges are intact, severance damage is
-bounded to epochs below the broken link, an honest current keyring implies full
-recoverability, and retained wraps backstop a poisoned snapshot.
+[`formal/container-keying/KeyringReachability.tla`](../formal/container-keying/KeyringReachability.tla)
+model checks this composition: the log alone recovers everything while bridges
+are intact, severance damage is bounded to epochs below the broken link, an
+honest current keyring implies full recoverability, and retained wraps backstop
+a poisoned snapshot.
 
 The server cannot prove that sealed rotation artifacts actually decrypt to the
 keys their ids commit to. An authorized writer that deliberately signs

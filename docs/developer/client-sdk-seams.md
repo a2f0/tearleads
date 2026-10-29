@@ -1,10 +1,10 @@
 # Client SDK seams
 
-How components inside `packages/client-sdk` meet, so each can be read, tested,
-and changed on its own. Apply these patterns when adding a collaborator to a
-component, extracting a component, or touching an existing seam. The
-`isolate-sdk-component` skill is the step-by-step workflow; this page is the
-reference it follows.
+How components inside [`packages/client-sdk`](../../packages/client-sdk/) meet,
+so each can be read, tested, and changed on its own. Apply these patterns when
+adding a collaborator to a component, extracting a component, or touching an
+existing seam. The `isolate-sdk-component` skill is the step-by-step workflow;
+this page is the reference it follows.
 
 ## Vocabulary
 
@@ -35,8 +35,9 @@ reference it follows.
 ## Where code goes
 
 `data/`, `workflows/`, and `client/` hold folders, not loose modules, and each
-folder maps to a subsystem in `scripts/architecture/subsystems.ts` or names one
-shared role.
+folder maps to a subsystem in
+[`scripts/architecture/subsystems.ts`](../../scripts/architecture/subsystems.ts)
+or names one shared role.
 
 In `data/`, the root holds only its README; `bun run lint:files` rejects any
 other file there.
@@ -189,17 +190,18 @@ call.
 
 ## Subsystem surfaces
 
-Each subsystem in `scripts/architecture/clientSdkSubsystems.ts` declares a
-`surface`, listed in `clientSdkSurfaces.ts`: the files other subsystems may
-import. It holds the subsystem's facade indexes, the contract modules it means
-to share, such as types, errors, document kinds, and its main persistence
-module, and the capabilities other subsystems build on, such as keying
-checkpoint persistence or admin-signer verification. SQLite Runtime and SDK
-Shared Utilities declare none, so any of their files may be imported.
+Each subsystem in
+[`scripts/architecture/clientSdkSubsystems.ts`](../../scripts/architecture/clientSdkSubsystems.ts)
+declares a `surface`, listed in `clientSdkSurfaces.ts`: the files other
+subsystems may import. It holds the subsystem's facade indexes, the contract
+modules it means to share, such as types, errors, document kinds, and its main
+persistence module, and the capabilities other subsystems build on, such as
+keying checkpoint persistence or admin-signer verification. SQLite Runtime and
+SDK Shared Utilities declare none, so any of their files may be imported.
 
 `bun run lint:architecture` fails when an import enters another subsystem
 outside its surface, type-only imports included. Tolerated deep imports are
-listed by target file in `scripts/architecture/subsystemSurfaceBaseline.json`.
+listed by target file in [`scripts/architecture/subsystemSurfaceBaseline.json`](../../scripts/architecture/subsystemSurfaceBaseline.json).
 The check also fails on an entry whose import is gone, so the list only
 shrinks.
 
@@ -212,7 +214,7 @@ shrinks.
 ### Table ownership
 
 Each SQLite table belongs to one subsystem, listed by its `sqliteTable` export
-name in the subsystem's `tables` (`scripts/architecture/clientSdkTables.ts`).
+name in the subsystem's `tables` ([`scripts/architecture/clientSdkTables.ts`](../../scripts/architecture/clientSdkTables.ts)).
 Only the owner writes a table. Others read only the tables the owner lists in
 `readableTables`, the way a surface exposes files; Document Store, for example,
 exposes the document tables Container Contents' read model joins on. Anything
@@ -248,14 +250,14 @@ so is the schema SQLite Runtime passes to `drizzle`, whose `db.query` reads are
 checked where they happen. The surface check sees none of this: schema imports
 land in SQLite Runtime, which declares no surface, and raw SQL imports nothing.
 Tolerated uses are listed by table in
-`scripts/architecture/subsystemTableBaseline.json`, which only shrinks like the
-surface baseline.
+[`scripts/architecture/subsystemTableBaseline.json`](../../scripts/architecture/subsystemTableBaseline.json),
+which only shrinks like the surface baseline.
 
 ## Enforcing a boundary
 
 Client SDK dependency rules live in
-`scripts/architecture/dependencyCruiserClientSdkRules.ts`. An extracted
-component gets:
+[`scripts/architecture/dependencyCruiserClientSdkRules.ts`](../../scripts/architecture/dependencyCruiserClientSdkRules.ts).
+An extracted component gets:
 
 - a declared entry: other code imports the component's `index.ts`, not its
   internals. A whole subsystem gets this from its surface; a component inside
@@ -280,12 +282,13 @@ Probe each new rule with a temporary violating import before relying on it.
   `tsc --build` can report success while a dependent still uses the old shape.
 - A renamed option on an exported function is a public API change even when no
   export name changes. Call it out in the pull request.
-- Formal abstraction maps under `formal/` name production seams, and
-  `bun run lint:formal-maps` fails when a named function disappears. Update the
-  map in the same change.
-- Moving files means searching scripts, docs, and `formal/` for every old
-  path, tests included. Protocol projection scripts such as
-  `scripts/protocol/checkRestartProbeProjection.ts` run scenario tests by path.
+- Formal abstraction maps under [`formal/`](../../formal/) name production
+  seams, and `bun run lint:formal-maps` fails when a named function disappears.
+  Update the map in the same change.
+- Moving files means searching scripts, docs, and [`formal/`](../../formal/) for
+  every old path, tests included. Protocol projection scripts such as
+  [`scripts/protocol/checkRestartProbeProjection.ts`](../../scripts/protocol/checkRestartProbeProjection.ts)
+  run scenario tests by path.
 - When a refactor changes behavior, even only the keying, add a test that fails
   under the old behavior and confirm it fails before relying on it.
 

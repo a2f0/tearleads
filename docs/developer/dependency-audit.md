@@ -9,8 +9,9 @@ classify each finding. Run the full audit so build, deploy, and test tools remai
 visible. A development dependency can still process hostile input or run with
 deployment credentials.
 
-For the Ruby graph, install the audit tool with `gem install bundler-audit`, then
-run `bundle-audit check --update` from `packages/app-capacitor` against its
+For the Ruby graph, install the audit tool with `gem install bundler-audit`,
+then run `bundle-audit check --update` from
+[`packages/app-capacitor`](../../packages/app-capacitor/) against its
 `Gemfile.lock`. Keep those results with the review too.
 
 Prioritize reachable production findings and high/critical findings in every
@@ -67,37 +68,39 @@ override checks do not establish live binding, route, or migration safety.
 Markdownlint CLI 0.24.0 parses TOML configuration with Smol-TOML 1.9.1, which
 returns null-prototype objects. Unpatched, Markdownlint 0.42.0 discards those
 nested rule options, silently changing line-length limits and enabling disabled
-rules. `patches/markdownlint@0.42.0.patch` accepts them while handling ordinary
-objects as before. The CLI regression in
-`scripts/checks/staticAnalysis/markdownlintToml.test.ts` fails without the
-patch; it also checks glob ignores and malformed configuration. Remove the
-patch when upstream preserves null-prototype rule options and that regression
-passes without it. Owner: repository maintainers; review by **2026-11-07**.
+rules.
+[`patches/markdownlint@0.42.0.patch`](../../patches/markdownlint@0.42.0.patch)
+accepts them while handling ordinary objects as before. The CLI regression in
+[`scripts/checks/staticAnalysis/markdownlintToml.test.ts`](../../scripts/checks/staticAnalysis/markdownlintToml.test.ts)
+fails without the patch; it also checks glob ignores and malformed
+configuration. Remove the patch when upstream preserves null-prototype rule
+options and that regression passes without it. Owner: repository maintainers;
+review by **2026-11-07**.
 
 ## Stripe client and server compatibility
 
 Stripe.js 10 (`@stripe/stripe-js` 10.1.0 is locked) loads the Endive API
-version; see its
-[10.0 release notes](https://github.com/stripe/stripe-js/releases/tag/v10.0.0).
-The checkout does not use the Payment Request Button or the Elements
-`paymentMethodTypes` option, both removed in 10.0.
-`packages/app-web/src/webDirectCheckout.ts` uses the pure loader, a Payment
-Element with a server-created client secret, and `confirmPayment`; it does not
-use Elements with Checkout Sessions. Email collection is disabled only when the
-checkout supplies that email in confirmation's
-`payment_method_data.billing_details`, which the checkout test covers. Review
-the [Endive changes](https://docs.stripe.com/changelog/endive) against that
-flow when changing its integration. When upgrading, compile the checkout and
-keep its injected-loader tests for application lifecycle and error handling;
-they do not exercise Stripe's remote SDK. Live payment validation is
+version; see its [10.0 release
+notes](https://github.com/stripe/stripe-js/releases/tag/v10.0.0). The checkout
+does not use the Payment Request Button or the Elements `paymentMethodTypes`
+option, both removed in 10.0.
+[`packages/app-web/src/webDirectCheckout.ts`](../../packages/app-web/src/webDirectCheckout.ts)
+uses the pure loader, a Payment Element with a server-created client secret, and
+`confirmPayment`; it does not use Elements with Checkout Sessions. Email
+collection is disabled only when the checkout supplies that email in
+confirmation's `payment_method_data.billing_details`, which the checkout test
+covers. Review the [Endive changes](https://docs.stripe.com/changelog/endive)
+against that flow when changing its integration. When upgrading, compile the
+checkout and keep its injected-loader tests for application lifecycle and error
+handling; they do not exercise Stripe's remote SDK. Live payment validation is
 unavailable without a test account.
 
 The server pins REST API version 2024-06-20 (`STRIPE_API_VERSION` in
-`packages/api/src/billing/stripeHttp.ts`). Stripe.js uses its own release's API
-version; Stripe's
-[versioning guidance](https://docs.stripe.com/sdks/stripejs-versioning) permits
-gradual server upgrades. A server API migration needs separate webhook, invoice,
-and subscription validation before changing that contract.
+[`packages/api/src/billing/stripeHttp.ts`](../../packages/api/src/billing/stripeHttp.ts)).
+Stripe.js uses its own release's API version; Stripe's [versioning
+guidance](https://docs.stripe.com/sdks/stripejs-versioning) permits gradual
+server upgrades. A server API migration needs separate webhook, invoice, and
+subscription validation before changing that contract.
 
 ## Remaining exceptions
 

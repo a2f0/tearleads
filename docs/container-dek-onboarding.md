@@ -155,9 +155,10 @@ ML-KEM-1024, and decrypts the wrapped key via AES-256-GCM.
 ## Request And Response Shapes
 
 The shapes below summarize the validators in
-`packages/validators/src/request/organizationProvisioning.ts` and
-`packages/validators/src/response/organizationProvisioning.ts`, which
-registration shares with creating an additional organization.
+[`packages/validators/src/request/organizationProvisioning.ts`](../packages/validators/src/request/organizationProvisioning.ts)
+and
+[`packages/validators/src/response/organizationProvisioning.ts`](../packages/validators/src/response/organizationProvisioning.ts),
+which registration shares with creating an additional organization.
 
 ### `POST /auth/register` request
 
@@ -252,7 +253,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 The excerpt omits operational columns such as `is_root` and `suspended_at`.
 `users_fingerprint_unique` is the auth lookup path for challenge verification
-(`verifyChallenge` in `packages/api/src/services/auth/verifyChallenge.ts`):
+(`verifyChallenge` in [`packages/api/src/services/auth/verifyChallenge.ts`](../packages/api/src/services/auth/verifyChallenge.ts)):
 PostgreSQL backs the unique constraint with a btree index, so each challenge
 verification can load the canonical signing key by fingerprint without
 scanning `users`.

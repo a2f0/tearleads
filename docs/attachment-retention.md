@@ -111,18 +111,20 @@ for what signed write headers do and do not detect.
 ## Operations
 
 The API Worker's hourly Cron Trigger (`0 * * * *` in
-`packages/api/wrangler.jsonc`) runs blob maintenance through
-`packages/api/src/worker/maintenance.ts`; the trigger deploys with the Worker,
-so there is no separate timer to verify. Each tier keeps its
-`BLOB_GC_HEALTHCHECK_URL` in `.secrets/<tier>/healthchecks.env`; the API deploy
-refuses to run without an `https` URL and syncs it as a Worker secret. Only the
-ping URL is deployed, not a Healthchecks management API key.
-`packages/api/src/worker/healthchecks.ts` sends the start, success, and failure
-pings around each run. A run that throws sends the failure signal; a missing
-success signal also detects a disabled trigger or a terminated run.
-Healthchecks requests are best-effort, so an unavailable monitoring provider
-cannot prevent reclamation, and they carry no blob identifiers or application
-data.
+[`packages/api/wrangler.jsonc`](../packages/api/wrangler.jsonc)) runs blob
+maintenance through
+[`packages/api/src/worker/maintenance.ts`](../packages/api/src/worker/maintenance.ts);
+the trigger deploys with the Worker, so there is no separate timer to verify.
+Each tier keeps its `BLOB_GC_HEALTHCHECK_URL` in
+`.secrets/<tier>/healthchecks.env`; the API deploy refuses to run without an
+`https` URL and syncs it as a Worker secret. Only the ping URL is deployed, not
+a Healthchecks management API key.
+[`packages/api/src/worker/healthchecks.ts`](../packages/api/src/worker/healthchecks.ts)
+sends the start, success, and failure pings around each run. A run that throws
+sends the failure signal; a missing success signal also detects a disabled
+trigger or a terminated run. Healthchecks requests are best-effort, so an
+unavailable monitoring provider cannot prevent reclamation, and they carry no
+blob identifiers or application data.
 
 A failed run is reported as a background failure to the API's error reporting
 and rejects, so the Cron run is recorded as failed. Object-store cleanup

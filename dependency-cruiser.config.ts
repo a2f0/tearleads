@@ -90,8 +90,9 @@ const standardRules = [
       // example Astro's `.astro/types.d.ts`) before their build has run.
       preCompilationOnly: false,
       // The Workers runtime provides `cloudflare:workers` to the bundle; it is
-      // declared ambiently in packages/api/src/worker/cloudflare.d.ts.
-      pathNot: "^cloudflare:",
+      // declared ambiently in packages/api/src/worker/cloudflare.d.ts. Astro
+      // provides its virtual modules (`astro:content`) to the website build.
+      pathNot: "^(cloudflare|astro):",
     },
   },
   {

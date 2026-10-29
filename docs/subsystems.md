@@ -15,9 +15,10 @@ See AGENTS.md "## Subsystems" for the related axes.
 
 ## How it is kept honest
 
-- `scripts/architecture/subsystems.ts` is the machine-readable manifest: each
-  subsystem lists the path prefixes and exact files it owns. The client SDK's
-  rows live in `scripts/architecture/clientSdkSubsystems.ts`.
+- [`scripts/architecture/subsystems.ts`](../scripts/architecture/subsystems.ts)
+  is the machine-readable manifest: each subsystem lists the path prefixes and
+  exact files it owns. The client SDK's rows live in
+  [`scripts/architecture/clientSdkSubsystems.ts`](../scripts/architecture/clientSdkSubsystems.ts).
 - The `subsystem-registry-covers-every-source-file` architecture check requires
   every production source file in a registered package to map to **exactly one**
   subsystem, so a newly added file that finds no home fails `bun run
@@ -27,14 +28,15 @@ See AGENTS.md "## Subsystems" for the related axes.
 - `subsystem-imports-use-declared-surface` enforces surfaces; see
   [SDK seams](developer/client-sdk-seams.md#subsystem-surfaces).
 
-Registered packages: `packages/api`, `packages/client-sdk`, and
-`packages/app`.
+Registered packages: [`packages/api`](../packages/api/),
+[`packages/client-sdk`](../packages/client-sdk/), and
+[`packages/app`](../packages/app/).
 
 ## Registry
 
 <!-- subsystems:start -->
 
-### API — `packages/api/src/`
+### API — [`packages/api/src/`](../packages/api/src/)
 
 | Subsystem | Owns | Public seam | Source paths |
 | --- | --- | --- | --- |
@@ -54,7 +56,7 @@ Registered packages: `packages/api`, `packages/client-sdk`, and
 | **Workers Runtime** | The Cloudflare Workers composition root: the fetch and scheduled entry, environment binding into process.env, the SQLite Durable Object key/value store, the realtime hub Durable Object that hosts the gateway, scheduled maintenance, and the Loro WebAssembly alias. | `worker/index.ts` (Wrangler main); adapters reach it through `worker/environment.ts` | `worker/` |
 | **Shared Utilities** | Package-neutral helpers reused across subsystems: arrays, canonical JSON, cursor encoding, SHA-256, server secrets, manifest dependency traversal, bounded verification caching, SQL dialect, database error classification, and best-effort event publishing. | `utils/*` direct import | `utils/array.ts`, `utils/byteBudgetCache.ts`, `utils/canonicalJson.ts`, `utils/cursor.ts`, `utils/databaseErrors.ts`, `utils/publishBestEffort.ts`, `utils/record.ts`, `utils/serverSecrets.ts`, `utils/sha256.ts`, `utils/sqlDialect.ts`, `utils/storedAccessEventVerification.ts`, `utils/storedManifestGraph.ts` |
 
-### Client SDK — `packages/client-sdk/src/`
+### Client SDK — [`packages/client-sdk/src/`](../packages/client-sdk/src/)
 
 | Subsystem | Owns | Public seam | Source paths |
 | --- | --- | --- | --- |
@@ -76,7 +78,7 @@ Registered packages: `packages/api`, `packages/client-sdk`, and
 | **SDK Shared Utilities** | Helpers every layer uses with no subsystem of their own: error messages, record readers, User Timing measures, timestamp selection, and the workflow runtime input contract. | direct import | `data/shared/errorMessage.ts`, `data/shared/recordReaders.ts`, `data/shared/userTiming.ts`, `data/persistence/latestTimestamp.ts`, `workflows/shared/` |
 | **SDK Runtime & Composition Root** | The `Tearleads` facade that wires every SDK subsystem object, the runtime-snapshot projector, the SQLite database handle, the events/network/API-version state, logging, the platform I/O capability contracts (`NetworkStatusSource`, `FileSaver`), and the package root entry point. | `new Tearleads(options)`; the package root index | `Tearleads.ts`, `TearleadsOptions.ts`, `client/index.ts`, `client/runtime/`, `client/host/`, `index.ts` |
 
-### App — `packages/app/src/`
+### App — [`packages/app/src/`](../packages/app/src/)
 
 | Subsystem | Owns | Public seam | Source paths |
 | --- | --- | --- | --- |
@@ -105,9 +107,10 @@ Registered packages: `packages/api`, `packages/client-sdk`, and
 
 ## Adding or changing a subsystem
 
-1. Edit `scripts/architecture/subsystems.ts` (or `clientSdkSubsystems.ts` for
-   the client SDK) so the owning subsystem's `paths` claim the new file, or add
-   a new subsystem entry.
+1. Edit
+   [`scripts/architecture/subsystems.ts`](../scripts/architecture/subsystems.ts)
+   (or `clientSdkSubsystems.ts` for the client SDK) so the owning subsystem's
+   `paths` claim the new file, or add a new subsystem entry.
 2. Mirror the change in the table above.
 3. Run `bun run lint:architecture`. The coverage check tells you about any file
    that maps to zero or more than one subsystem; the docs check tells you about

@@ -3,11 +3,13 @@
   "extends": ["//"],
   "tasks": {
     "test": {
-      "description": "The build tests render the agent-tool website image target from assets/brand before building, as prebuild does.",
+      "description": "The build tests render the agent-tool website image target from assets/brand before building, as prebuild does, and publish the repository documents named in src/technicalDocs.ts.",
       "inputs": [
         "$TURBO_EXTENDS$",
         "$TURBO_ROOT$/assets/brand/**",
-        "$TURBO_ROOT$/agent-tool.json"
+        "$TURBO_ROOT$/agent-tool.json",
+        "$TURBO_ROOT$/docs/*.md",
+        "$TURBO_ROOT$/formal/*.md"
       ]
     },
     "build": {
@@ -15,7 +17,9 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/.screenshots/**",
         "$TURBO_ROOT$/assets/brand/**",
-        "$TURBO_ROOT$/agent-tool.json"
+        "$TURBO_ROOT$/agent-tool.json",
+        "$TURBO_ROOT$/docs/*.md",
+        "$TURBO_ROOT$/formal/*.md"
       ]
     }
   }

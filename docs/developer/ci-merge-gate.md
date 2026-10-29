@@ -56,14 +56,15 @@ A job starting is not itself evidence of a cache miss, because a cache hit
 still runs the job and replays the task log. The web application build is
 uncached because it embeds the current Git commit.
 
-`scripts/checks/ciPolicy.ts` owns path selection. The shared `agent-tool ci gate`
-command evaluates `scripts/checks/ciGate.json`, which declares required jobs and
-binds conditional jobs to the classifier’s exact outputs. A platform job may
-be skipped only when successful change detection explicitly marked it
-irrelevant. A failed, cancelled, missing, or unexpectedly skipped job fails the
-gate. Changes to workflows, CI scripts, tool pins, `package.json`, or `bun.lock`
-exercise every lane. CI runs on pull requests and `main` pushes only, so a
-feature-branch push does not duplicate the pull-request run.
+[`scripts/checks/ciPolicy.ts`](../../scripts/checks/ciPolicy.ts) owns path
+selection. The shared `agent-tool ci gate` command evaluates
+[`scripts/checks/ciGate.json`](../../scripts/checks/ciGate.json), which declares
+required jobs and binds conditional jobs to the classifier’s exact outputs. A
+platform job may be skipped only when successful change detection explicitly
+marked it irrelevant. A failed, cancelled, missing, or unexpectedly skipped job
+fails the gate. Changes to workflows, CI scripts, tool pins, `package.json`, or
+`bun.lock` exercise every lane. CI runs on pull requests and `main` pushes only,
+so a feature-branch push does not duplicate the pull-request run.
 
 Require the aggregate gate rather than a path-filtered workflow: GitHub leaves
 checks from skipped workflows pending, while skipped jobs can count as passing.

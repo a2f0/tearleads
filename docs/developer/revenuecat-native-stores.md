@@ -332,8 +332,9 @@ sandbox testing there will look like a webhook that silently does nothing.
   always sent the field, and a redelivered old event must keep its paid meaning.
 
 Because this is a tier-level policy synced as a Worker secret by
-`packages/api/scripts/deployApi.sh`, it only reaches a deployed tier through
-the API deploy step, like the webhook secret.
+[`packages/api/scripts/deployApi.sh`](../../packages/api/scripts/deployApi.sh),
+it only reaches a deployed tier through the API deploy step, like the webhook
+secret.
 
 ## Product and organization policy
 

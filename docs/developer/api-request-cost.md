@@ -9,8 +9,9 @@ Server-Timing: total;dur=182.4, db;dur=171.9
 ```
 
 The deployed Workers also log one JSON line per request, because
-`packages/api/wrangler.jsonc` sets `API_REQUEST_COST_LOG=true` for staging and
-production. Tests and local servers stay quiet unless that variable is set.
+[`packages/api/wrangler.jsonc`](../../packages/api/wrangler.jsonc) sets
+`API_REQUEST_COST_LOG=true` for staging and production. Tests and local servers
+stay quiet unless that variable is set.
 
 ```json
 {"event":"api.request.cost","method":"POST","route":"/documents/{documentId}/sync","status":200,"statements":44,"wallMs":182.4,"dbMs":171.9}
@@ -26,7 +27,7 @@ production. Tests and local servers stay quiet unless that variable is set.
 | `wallMs`     | Time from after CORS until the handler returned.          |
 | `dbMs`       | Time spent in database driver calls.                      |
 
-The middleware lives in `packages/api/src/diagnostics/requestCost.ts`.
+The middleware lives in [`packages/api/src/diagnostics/requestCost.ts`](../../packages/api/src/diagnostics/requestCost.ts).
 
 ## What the numbers mean
 
@@ -64,7 +65,7 @@ In the Cloudflare dashboard, open the API Worker's Observability tab
 the fields of JSON log lines, so averages and percentiles of `wallMs`, `dbMs`,
 and `statements` are available per route. For a live view, run
 `bunx wrangler tail tearleads-platform-api-prod --format json` from
-`packages/api`.
+[`packages/api`](../../packages/api/).
 
 In a browser, the DevTools Network panel shows the header under each request's
 Timing tab, which separates server time from network time.

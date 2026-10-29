@@ -71,6 +71,25 @@ instructions for [macOS](../app-electrobun/README.md#macos-releases),
 [Linux from Docker](../app-electrobun/README.md#linux-releases-from-docker), and
 [Windows](../app-electrobun/README.md#windows-releases-from-github-actions).
 
+## Technical documents
+
+`/docs/` publishes the repository documents listed in `src/technicalDocs.ts`
+(security guarantees, keying design, protocol specification, cipher suites,
+protocol models, limits, and glossary). The Markdown under `docs/` and
+`formal/` stays the source of truth: the `docs` content collection
+(`src/content.config.ts`) reads it from the repository root at build time, and
+`src/rehypeDocLinks.ts` rewrites each relative link to the published page when
+its target is listed, or to the file on GitHub's `main` otherwise. It also
+drops each document's h1 (the page header renders the listed title) and wraps
+tables in a scrollable region. Code blocks render unhighlighted to suit the
+grayscale theme. To publish another document, add it to `technicalDocs` and,
+if it lives outside `docs/*.md` and `formal/*.md`, to the `build` and `test`
+inputs in `turbo.json`. Astro caches rendered entries in
+`node_modules/.astro/data-store.json` and does not notice edits to the plugin's
+source; delete that file after changing `rehypeDocLinks.ts`.
+`bun run lint:doc-links` validates the links in the source Markdown; see
+[documentation links](../../docs/developer/static-analysis.md#documentation-links).
+
 ## Search and link previews
 
 Every page carries Open Graph and Twitter card tags and the `og-image.png`

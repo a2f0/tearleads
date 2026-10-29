@@ -6,6 +6,7 @@ import SecurityCryptography from "../components/SecurityCryptography.astro";
 import SecurityLimits from "../components/SecurityLimits.astro";
 import SecuritySharingDiagram from "../components/SecuritySharingDiagram.astro";
 import Layout from "../layouts/Layout.astro";
+import { docPath, technicalDocs } from "../technicalDocs";
 import "../styles/security.css";
 import "../styles/securityDiagrams.css";
 
@@ -17,35 +18,6 @@ const contents = [
   { href: "#cryptography", label: "Cryptography" },
   { href: "#trust-boundaries", label: "Scope" },
   { href: "#documents", label: "Technical documents" },
-];
-
-const docsBaseUrl = "https://github.com/a2f0/tearleads/blob/main";
-const documents = [
-  {
-    title: "Security guarantees",
-    path: "docs/security-guarantees.md",
-    body: "What each property protects, the threat model, and the known gaps.",
-  },
-  {
-    title: "Keying design",
-    path: "docs/keying-design.md",
-    body: "How content keys, container keys, and recipients fit together.",
-  },
-  {
-    title: "Protocol specification",
-    path: "docs/protocol-specification.md",
-    body: "Messages, proofs, validation rules, and failure semantics.",
-  },
-  {
-    title: "Cipher suites",
-    path: "docs/cipher-suites.md",
-    body: "The cryptographic primitives and where each one is used.",
-  },
-  {
-    title: "Protocol models (TLA+)",
-    path: "formal/README.md",
-    body: "Bounded models of protocol safety rules that complement, not replace, tests.",
-  },
 ];
 ---
 
@@ -184,19 +156,17 @@ const documents = [
         index="06"
         titleId="documents-title"
         title="Technical documents"
-        lede="These documents in the public Tearleads repository on GitHub define the verification rules, assumptions, and remaining gaps in more detail."
+        lede="These documents, published from the public Tearleads repository on GitHub, define the verification rules, assumptions, and remaining gaps in more detail."
       />
       <dl class="site-spec site-spec--wide-key security-documents">
-        {documents.map((doc) => (
+        {technicalDocs.map((doc) => (
           <div>
             <dt>
-              <a class="site-link" href={`${docsBaseUrl}/${doc.path}`}>
-                {doc.title}<span aria-hidden="true"> ↗</span><span class="visually-hidden"> (GitHub)</span>
-              </a>
+              <a class="site-link" href={docPath(doc)}>{doc.title}</a>
             </dt>
             <dd>
-              {doc.body}
-              <span class="security-documents-path">{doc.path}</span>
+              {doc.summary}
+              <span class="security-documents-path">{doc.source}</span>
             </dd>
           </div>
         ))}
