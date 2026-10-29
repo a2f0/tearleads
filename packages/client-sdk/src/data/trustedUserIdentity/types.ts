@@ -65,8 +65,16 @@ export interface TrustedUserIdentityService {
   resolvePinned(userId: string): Promise<TrustedUserIdentity | null>;
   /** An existing pin established by a verified link or this device's keys. */
   resolveVerified(userId: string): Promise<TrustedUserIdentity | null>;
-  /** Like `resolveVerified`, but throws `UnverifiedUserIdentityError`. */
-  requireVerified(userId: string): Promise<TrustedUserIdentity>;
+  /**
+   * Like `resolveVerified`, but throws `UnverifiedUserIdentityError`. An
+   * admission passes the database its mutation captured: a trust store that
+   * is not, or stops being, that database fails with `DatabaseUnavailableError`
+   * instead of admitting against another scope.
+   */
+  requireVerified(
+    userId: string,
+    admittingExecSql: ExecSql | null,
+  ): Promise<TrustedUserIdentity>;
   /** The user this device's trust store already binds a signing key to. */
   boundUserId(signingKeyFingerprint: string): Promise<string | null>;
   pinLocal(

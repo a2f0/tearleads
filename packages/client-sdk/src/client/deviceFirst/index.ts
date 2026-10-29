@@ -337,11 +337,16 @@ function logReconciliationFailure(
 export function createDeviceFirstWorkflowRuntime(
   runtimeService: InternalRuntime,
 ): ContainerContentsStoreWorkflowRuntime {
+  const input = runtimeService.workflowInput();
   return createContainerContentsStoreWorkflowRuntime(
-    runtimeService.workflowInput(),
+    input,
     runtimeService.adoptRootContainer,
     async (userId) => {
-      await runtimeService.identityLinks.requireVerified(userId);
+      // Admit against the trust store of the database this runtime writes.
+      await runtimeService.identityLinks.requireVerified(
+        userId,
+        input.infra.execSql,
+      );
     },
   );
 }

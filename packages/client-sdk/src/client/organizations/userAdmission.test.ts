@@ -4,6 +4,8 @@ import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
 } from "../../../test/helpers/internalRuntimeFixtures";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "../../data/trustedUserIdentity";
 import {
   identityLinkFixture,
@@ -90,6 +92,93 @@ test("a folder share refuses a recipient whose pin was only observed", async () 
     await trust.verifyLink(fixture.link);
     // Admitted; the offline store then declines the share without throwing.
     await expect(share()).resolves.toBe(false);
+  } finally {
+    close();
+  }
+});
+
+// The active database switches while the admission check is reading the pin:
+// the link-verified pin in the first database must not admit a write that the
+// second database would perform.
+async function switchingAdmissionRuntime(name: string) {
+  const first = await createTestExecSql(`${name}-first`);
+  const second = await createTestExecSql(`${name}-second`);
+  const fixture = await identityLinkFixture();
+  let current: ExecSql = first.execSql;
+  let switchAfterNextRead = false;
+  const trust = createTrustedUserIdentityService({
+    // Hands out the first database once more, then makes the second current,
+    // as a database swap landing during the pin read does.
+    getExecSql: () => {
+      const value = current;
+      if (switchAfterNextRead) {
+        switchAfterNextRead = false;
+        current = second.execSql;
+      }
+      return value;
+    },
+    getLocalUserId: () => null,
+    getLocalIdentity: () => null,
+    identityTrustDomain: LINK_TRUST_DOMAIN,
+    remoteSource: { invalidate: () => {}, load: async () => fixture.remote },
+  });
+  const runtime = createInternalRuntimeFixture(() =>
+    createWorkflowInputFixture({
+      apiClient: createMockApiClient({}),
+      auth: { organizationId: ORGANIZATION_ID, userId: "admin" },
+      execSql: current,
+      online: false,
+    }),
+  );
+  Object.assign(runtime, { identityLinks: trust });
+  await trust.verifyLink(fixture.link);
+  return {
+    armSwitch: () => {
+      switchAfterNextRead = true;
+    },
+    close: () => {
+      first.close();
+      second.close();
+    },
+    runtime,
+  };
+}
+
+test("a group add admitted in one database cannot proceed in another", async () => {
+  const { armSwitch, close, runtime } = await switchingAdmissionRuntime(
+    "admission-group-add-switch",
+  );
+  try {
+    const organizations = createOrganizations(
+      runtime,
+      {} as ContainerContents,
+      () => {
+        throw new Error("No organization is resumed in this test");
+      },
+    );
+    armSwitch();
+    await expect(
+      organizations.addUserToGroup({
+        expectedGroupName: "Members",
+        groupId: "group-1",
+        targetUserId: LINK_USER_ID,
+      }),
+    ).rejects.toBeInstanceOf(DatabaseUnavailableError);
+  } finally {
+    close();
+  }
+});
+
+test("a folder share admitted in one database cannot proceed in another", async () => {
+  const { armSwitch, close, runtime } = await switchingAdmissionRuntime(
+    "admission-user-share-switch",
+  );
+  try {
+    const tree = createContainerContents(runtime).openTree();
+    armSwitch();
+    await expect(
+      tree.shareWithUser("container-1", LINK_USER_ID),
+    ).rejects.toBeInstanceOf(DatabaseUnavailableError);
   } finally {
     close();
   }

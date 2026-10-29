@@ -51,14 +51,16 @@ test("a pin observed on first sight cannot admit, and a matching link upgrades i
     expect(await storedProvenance(execSql)).toBe("observed");
     expect(await service.resolvePinned(LINK_USER_ID)).toEqual(observed);
     expect(await service.resolveVerified(LINK_USER_ID)).toBeNull();
-    await expect(service.requireVerified(LINK_USER_ID)).rejects.toBeInstanceOf(
-      UnverifiedUserIdentityError,
-    );
+    await expect(
+      service.requireVerified(LINK_USER_ID, execSql),
+    ).rejects.toBeInstanceOf(UnverifiedUserIdentityError);
 
     const linked = await service.verifyLink(fixture.link);
     expect(await storedProvenance(execSql)).toBe("link");
     expect(await service.resolveVerified(LINK_USER_ID)).toEqual(linked);
-    expect(await service.requireVerified(LINK_USER_ID)).toEqual(linked);
+    expect(await service.requireVerified(LINK_USER_ID, execSql)).toEqual(
+      linked,
+    );
 
     // A later first-sight resolution of the same keys never lowers it.
     await service.resolve(LINK_USER_ID);
@@ -75,7 +77,7 @@ test("an unpinned user is unverified", async () => {
   try {
     expect(await service.resolveVerified(LINK_USER_ID)).toBeNull();
     const refusal = await service
-      .requireVerified(LINK_USER_ID)
+      .requireVerified(LINK_USER_ID, execSql)
       .catch((error: unknown) => error);
     expect(refusal).toBeInstanceOf(UnverifiedUserIdentityError);
     expect(refusal).toMatchObject({

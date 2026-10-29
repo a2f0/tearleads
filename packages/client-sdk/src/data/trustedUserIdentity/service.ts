@@ -249,6 +249,12 @@ async function verifyIdentityLink(
   }
 }
 
+function admissionScopeChanged(): DatabaseUnavailableError {
+  return new DatabaseUnavailableError(
+    "The active database changed while admitting this user. Try again.",
+  );
+}
+
 /** Reads that admit a user: only `self` and `link` pins qualify. */
 function verifiedPinReaders(
   dependencies: TrustedUserIdentityServiceDependencies,
@@ -260,10 +266,15 @@ function verifiedPinReaders(
   };
   return {
     resolveVerified,
-    async requireVerified(userId) {
-      const identity = await resolveVerified(userId);
-      if (!identity) throw new UnverifiedUserIdentityError(userId);
-      return identity;
+    async requireVerified(userId, admittingExecSql) {
+      const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
+      if (execSql !== admittingExecSql) throw admissionScopeChanged();
+      const pin = await loadPin({ execSql, identityTrustDomain, userId });
+      if (dependencies.getExecSql() !== execSql) throw admissionScopeChanged();
+      if (!pin || pin.provenance === "observed") {
+        throw new UnverifiedUserIdentityError(userId);
+      }
+      return pin.identity;
     },
   };
 }
