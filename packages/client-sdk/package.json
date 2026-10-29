@@ -34,7 +34,7 @@
     "package": "bun scripts/buildPackage.ts",
     "package:smoke": "bun scripts/smokePackage.ts",
     "publish:npm": "bash ../../scripts/release/publishNpmPackage.sh client-sdk",
-    "test": "bun test src scripts --max-concurrency=4 --pass-with-no-tests"
+    "test": "bun test src scripts --max-concurrency=4 --parallel=2 --no-isolate --pass-with-no-tests"
   },
   "dependencies": {
     "@tearleads/api-client": "workspace:*",
