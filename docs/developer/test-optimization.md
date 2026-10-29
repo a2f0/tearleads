@@ -131,10 +131,17 @@ bug the test correctly detected.
   that same snapshot. The runtime settle point tracks proxied traffic and quiet
   time, while the client counts a request until its response resolves, so
   Explorer queries could still be in flight right after settling.
-- An unexplained failure mode remains in the same-identity file:
-  `Primary session did not materialize the new organization profile name`.
-  It has not reproduced locally, and its CI DOM dumps are truncated before the
-  organization selector.
+- An unexplained failure mode in the same-identity file,
+  `Primary session did not materialize the new organization profile name`,
+  failed CI twice, both on `main` on 2026-10-14, and in no failed or retried
+  CI attempt among the roughly 370 runs since. Neither log shows
+  `ECONNREFUSED`, the signature of the SQLite fetch swap above, and the flake
+  stopped two weeks before that fix, so the swap does not explain it. The
+  file's own log section holds only the timeout, React's act-environment
+  warnings, and a DOM dump truncated before the organization selector. On
+  current `main` the file passed 50 of 50 local runs (20 alone, 30 in six
+  concurrent loops). If it returns, capture the selector's options and the
+  organization runtime state at the timeout.
 
 ## Approaches that did not pay off
 
