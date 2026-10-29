@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, posix } from "node:path";
+import { join, posix } from "node:path";
 import { headingAnchors, markdownTargets } from "./markdownScan";
 
 /**
@@ -221,22 +221,17 @@ function checkFragment(
 ): string | null {
   const lineRange = /^L(\d+)(?:C\d+)?(?:-L(\d+)(?:C\d+)?)?$/.exec(fragment);
   if (lineRange !== null) {
-    const lineCount = readFileSync(join(repo.root, file), "utf8").split(
-      "\n",
-    ).length;
+    const lines = readFileSync(join(repo.root, file), "utf8").split("\n");
+    // A final newline ends the last line rather than starting another.
+    const lineCount = lines.at(-1) === "" ? lines.length - 1 : lines.length;
     const last = Number(lineRange[2] ?? lineRange[1]);
     return last <= lineCount
       ? null
       : `line ${last} is past the end of ${file} (${lineCount} lines)`;
   }
   if (!/\.md$/i.test(file)) return null;
-  const anchor = decodePath(fragment).toLowerCase();
-  const anchors = anchorsOf(file);
-  return anchors.has(anchor) || anchors.has(decodePath(fragment))
+  // Fragments are case-sensitive: #Short-Answer misses id="short-answer".
+  return anchorsOf(file).has(decodePath(fragment))
     ? null
     : `no heading or anchor #${fragment} in ${file}`;
-}
-
-export function repositoryRoot(): string {
-  return dirname(dirname(import.meta.dir));
 }

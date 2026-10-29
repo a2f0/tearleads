@@ -91,6 +91,7 @@ test("broken files, fragments, lines, and repository URLs fail", () => {
       "[ok](./other.md#second-part) [dir](../src/) [line](../src/a.ts#L2)",
       "[missing](./nope.md) [anchor](./other.md#nope) [self](#nope)",
       "[past](../src/a.ts#L9) [escape](../../outside.md)",
+      "[phantom](../src/a.ts#L3) [case](./other.md#Second-Part)",
       "[remote](https://github.com/a2f0/tearleads/blob/main/docs/gone.md)",
       "",
     ].join("\n"),
@@ -107,10 +108,14 @@ test("broken files, fragments, lines, and repository URLs fail", () => {
     "no heading or anchor #nope in docs/guide.md",
   );
   expect(result.output).toContain("line 9 is past the end of src/a.ts");
+  expect(result.output).toContain(
+    "line 3 is past the end of src/a.ts (2 lines)",
+  );
+  expect(result.output).toContain("no heading or anchor #Second-Part");
   expect(result.output).toContain("link leaves the repository");
   expect(result.output).toContain("docs/gone.md: target does not exist");
   expect(result.output).not.toContain("second-part:");
-  expect(result.output).toContain("6 documentation link problem(s)");
+  expect(result.output).toContain("8 documentation link problem(s)");
 });
 
 test("code references in published docs must be links, and --fix links them", () => {
