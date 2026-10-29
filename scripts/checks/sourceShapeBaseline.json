@@ -59,8 +59,8 @@
       "bytes": 19301
     },
     "docs/keying-design.md": {
-      "lines": 1185,
-      "bytes": 58217
+      "lines": 1189,
+      "bytes": 58535
     },
     "docs/limits.md": {
       "lines": 195,
@@ -79,8 +79,8 @@
       "bytes": 39297
     },
     "docs/security-guarantees.md": {
-      "lines": 839,
-      "bytes": 48704
+      "lines": 843,
+      "bytes": 48975
     },
     "docs/subsystems.md": {
       "lines": 114,

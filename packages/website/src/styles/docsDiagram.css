@@ -4,7 +4,7 @@
  * from the --docs-diagram-* theme properties the component sets. Font sizes
  * are SVG user units and must match the source, which positions text by them.
  *
- * Class vocabulary: canvas band rule title sub colhead lane lanesub box kbox
+ * Class vocabulary: canvas band rule sub colhead lane lanesub box kbox
  * name meta mono key keymono edge kedge elabel klabel step stepnum foot
  * foothead arrowhead arrowhead-key. docsDiagram.test.ts fails when a diagram
  * uses a class this file does not style.
@@ -12,7 +12,7 @@
 
 .docs-diagram {
   min-width: 0;
-  margin: 0;
+  margin: var(--site-space-6) 0 0;
 }
 
 .docs-diagram-scroll {
@@ -120,12 +120,6 @@
 }
 
 /* --- Text --- */
-
-.docs-diagram .title {
-  fill: var(--docs-diagram-ink);
-  font-size: 22px;
-  font-weight: 600;
-}
 
 .docs-diagram .sub {
   fill: var(--docs-diagram-ink-muted);
