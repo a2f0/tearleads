@@ -128,7 +128,7 @@ const currentAppTestProcessState =
 // file, and without isolation the worker's next file reuses this module graph
 // and its API runtime, so closing here would hand that file a closed PGlite.
 // A worker ends with the run, which releases the in-memory database.
-const runsAfterAllPerFile = process.env.BUN_TEST_WORKER_ID !== undefined;
+const runsAfterAllPerFile = "BUN_TEST_WORKER_ID" in process.env;
 
 afterAll(async () => {
   if (
