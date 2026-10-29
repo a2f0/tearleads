@@ -45,7 +45,17 @@ async function forwardLines(
 async function runDatabaseTests(
   database: ApiTestDatabase,
 ): Promise<TestResult> {
-  const command = ["bun", "test", "src", "--max-concurrency=4", ...testArgs];
+  // Two workers per backend, each keeping one global across its files as the
+  // serial run did (see docs/developer/test-optimization.md).
+  const command = [
+    "bun",
+    "test",
+    "src",
+    "--max-concurrency=4",
+    "--parallel=2",
+    "--no-isolate",
+    ...testArgs,
+  ];
   const startedAt = performance.now();
 
   console.log(`[api:test] ${database}: ${command.join(" ")}`);
