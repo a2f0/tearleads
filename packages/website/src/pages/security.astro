@@ -111,8 +111,9 @@ const documents = [
           different depths of the container hierarchy, and those grants add up.
         </p>
         <p>
-          Unlike Zanzibar, no server makes the decision. Each relationship is a
-          signed record that every client verifies before it reads or encrypts,
+          Unlike Zanzibar, clients do not take the server's answer on trust. The
+          API enforces access, but each relationship is also a signed record
+          that every client verifies for itself before it reads or encrypts,
           and Tearleads uses a fixed set of relationships rather than
           Zanzibar's configurable rewrite rules. Keys follow the same paths in
           reverse: a container's key opens the keys of the containers,
