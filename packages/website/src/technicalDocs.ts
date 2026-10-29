@@ -1,7 +1,7 @@
 /**
  * Repository documents the website publishes under /docs/. The Markdown in the
  * repository stays the source of truth: the `docs` content collection loads
- * these files at build time, and `rehypeDocLinks` rewrites their relative
+ * these files at build time, and `docLinksPlugin` rewrites their relative
  * links (to another published document, or to GitHub for everything else).
  */
 

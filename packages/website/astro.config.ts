@@ -1,6 +1,7 @@
+import { satteri } from "@astrojs/markdown-satteri";
 import react from "@astrojs/react";
 import { defineConfig } from "astro/config";
-import { freshDocsCache, rehypeDocLinks } from "./src/rehypeDocLinks";
+import { docLinksPlugin, freshDocsCache } from "./src/docLinksPlugin";
 import { seoIntegration } from "./src/seoIntegration";
 
 // PUBLIC_ENVIRONMENT (production or staging) selects the crawler files. Build
@@ -15,7 +16,7 @@ export default defineConfig({
   markdown: {
     // The site is grayscale; code blocks render as plain monospace text.
     syntaxHighlight: false,
-    rehypePlugins: [rehypeDocLinks],
+    processor: satteri({ hastPlugins: [docLinksPlugin] }),
   },
   server: {
     port: 4322,

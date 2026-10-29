@@ -15,7 +15,7 @@ export async function getStaticPaths() {
 
 const { entry } = Astro.props;
 const doc: TechnicalDoc = docForSlug(entry.id);
-// rehypeDocLinks drops the document's own h1; the header renders doc.title.
+// docLinksPlugin replaces the document's own h1; the header renders doc.title.
 const { Content, headings } = await render(entry);
 const title = doc.title;
 const contents = headings.filter((heading) => heading.depth === 2);

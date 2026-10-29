@@ -75,19 +75,22 @@ instructions for [macOS](../app-electrobun/README.md#macos-releases),
 
 `/docs/` publishes the repository documents listed in `src/technicalDocs.ts`
 (security guarantees, keying design, protocol specification, cipher suites,
-protocol models, limits, and glossary). The Markdown under `docs/` and
-`formal/` stays the source of truth: the `docs` content collection
+protocol models, limits, and glossary). The Markdown under `docs/` and `formal/`
+stays the source of truth: the `docs` content collection
 (`src/content.config.ts`) reads it from the repository root at build time, and
-`src/rehypeDocLinks.ts` rewrites each relative link to the published page when
-its target is listed, or to the file on GitHub's `main` otherwise. It also
-drops each document's h1 (the page header renders the listed title) and wraps
-tables in a scrollable region. Code blocks render unhighlighted to suit the
-grayscale theme. To publish another document, add it to `technicalDocs` and,
-if it lives outside `docs/*.md` and `formal/*.md`, to the `build` and `test`
-inputs in `turbo.json`. Astro caches rendered entries by source digest and
-would not notice a plugin or registry change, so `freshDocsCache` drops that
-cache at the start of every build. `bun run lint:doc-links` validates the
-links in the source Markdown; see [documentation
+`src/docLinksPlugin.ts`, a hast plugin on Astro's default Sätteri processor,
+rewrites each relative link to the published page when its target is listed, or
+to the file on GitHub's `main` otherwise. It also gives headings GitHub's ids,
+so fragments behave as on GitHub, replaces each document's h1 with an anchor
+(the page header renders the listed title), and wraps tables in a scrollable
+region. Code blocks render unhighlighted to suit the grayscale theme.
+`src/docsBuild.test.ts` builds the site and checks the rendered links. To
+publish another document, add it to `technicalDocs` and, if it lives outside
+`docs/*.md` and `formal/*.md`, to the `build` and `test` inputs in `turbo.json`.
+Astro caches rendered entries by source digest and would not notice a plugin or
+registry change, so `freshDocsCache` drops that cache at the start of every
+build. `bun run lint:doc-links` validates the links in the source Markdown; see
+[documentation
 links](../../docs/developer/static-analysis.md#documentation-links).
 
 ## Search and link previews
