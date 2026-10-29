@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 export const PURGE_SCOPE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {

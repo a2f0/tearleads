@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const ANCESTOR_RECOVERY_MODULE = "formal/container-keying/AncestorRecovery.tla";
 const ANCESTOR_RECOVERY_CONFIG = "formal/container-keying/AncestorRecovery.cfg";

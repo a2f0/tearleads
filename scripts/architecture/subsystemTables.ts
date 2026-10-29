@@ -1,15 +1,12 @@
 import { readFile } from "node:fs/promises";
 import * as ts from "typescript";
 import { listProductionSourceFiles } from "./checkFactories";
-import {
-  registeredSubsystemSourcePaths,
-  type Subsystem,
-  subsystems,
-} from "./subsystems";
+import { registeredSubsystemSourcePaths, subsystems } from "./subsystems";
 import {
   findTableUsesInProgram,
   type SubsystemTableUse,
 } from "./subsystemTableUses";
+import type { Subsystem } from "./subsystemTypes";
 
 export const subsystemTableBaselinePath =
   "scripts/architecture/subsystemTableBaseline.json";

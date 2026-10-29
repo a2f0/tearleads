@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const MODULE = "formal/container-keying/ContainerDepth.tla";
 const CONFIG = "formal/container-keying/ContainerDepth.cfg";

@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const RAW_HISTORY_MODULE = "formal/document-sync/RawHistoryRecovery.tla";
 const RAW_HISTORY_CONFIG = "formal/document-sync/RawHistoryRecovery.cfg";

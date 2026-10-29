@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const STAGE_PROMOTION_MODULE = "formal/blob-attachments/StagePromotion.tla";
 const STAGE_PROMOTION_CONFIG = "formal/blob-attachments/StagePromotion.cfg";

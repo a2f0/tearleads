@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const BASELINE_DOMINANCE_MODULE = "formal/document-sync/BaselineDominance.tla";
 const BASELINE_DOMINANCE_CONFIG = "formal/document-sync/BaselineDominance.cfg";

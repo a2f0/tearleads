@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const RESTART_PROBE_MODULE = "formal/document-sync/RestartProbeConvergence.tla";
 const RESTART_PROBE_CONFIG = "formal/document-sync/RestartProbeConvergence.cfg";

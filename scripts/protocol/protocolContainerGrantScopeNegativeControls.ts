@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const MODULE = "formal/container-keying/ContainerGrantScope.tla";
 const CONFIG = "formal/container-keying/ContainerGrantScope.cfg";

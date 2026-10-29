@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const CONTENT_WRITE_MODULE = "formal/document-sync/ContentWriteAuthority.tla";
 const CONTENT_WRITE_CONFIG = "formal/document-sync/ContentWriteAuthority.cfg";
