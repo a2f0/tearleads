@@ -6,6 +6,7 @@ import {
   loadTrustedUserIdentityPin,
   TrustedUserIdentityPinMismatchError,
 } from "../persistence/trustedUserIdentityPinPersistence";
+import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "./admission";
 import {
   identityLinkFixture,
@@ -152,6 +153,35 @@ test("a pin table without provenance is an obsolete local database", async () =>
         userId: LINK_USER_ID,
       }),
     ).rejects.toThrow("reset the local database");
+  } finally {
+    close();
+  }
+});
+
+test("an account switch during a remote lookup cannot turn server keys into self", async () => {
+  const { close, execSql } = await createTestExecSql("pin-provenance-switch");
+  const fixture = await identityLinkFixture();
+  let localUserId: string | null = null;
+  const service = createTrustedUserIdentityService({
+    getExecSql: () => execSql,
+    getLocalUserId: () => localUserId,
+    getLocalIdentity: () => null,
+    identityTrustDomain: LINK_TRUST_DOMAIN,
+    remoteSource: {
+      invalidate: () => {},
+      // The requested user becomes the active account before the endpoint
+      // answers with keys this device never held.
+      load: async () => {
+        localUserId = LINK_USER_ID;
+        return fixture.remote;
+      },
+    },
+  });
+  try {
+    await expect(service.resolve(LINK_USER_ID)).rejects.toBeInstanceOf(
+      DatabaseUnavailableError,
+    );
+    expect(await storedProvenance(execSql)).toBeNull();
   } finally {
     close();
   }

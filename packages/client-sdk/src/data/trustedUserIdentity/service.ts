@@ -117,11 +117,19 @@ async function compareWithDurablePin(input: {
   }
 }
 
+/**
+ * The candidate for `userId` and where it came from: this device's own keys
+ * (`self`) or the identity endpoint (`observed`). Provenance follows the
+ * source, never the account that happens to be active once a lookup returns.
+ */
 async function resolveCandidate(
   dependencies: TrustedUserIdentityServiceDependencies,
   userId: string,
   identityTrustDomain: string,
-): Promise<ValidatedUserIdentityCandidate | null> {
+): Promise<{
+  readonly identity: ValidatedUserIdentityCandidate;
+  readonly source: "self" | "observed";
+} | null> {
   const localUserId = dependencies.getLocalUserId();
   if (userId === localUserId) {
     const localIdentity = dependencies.getLocalIdentity(userId);
@@ -131,21 +139,41 @@ async function resolveCandidate(
         "Authoritative local identity keys are unavailable",
       );
     }
-    return validateLocalUserIdentity({
-      candidate: localIdentity,
-      identityTrustDomain,
-      userId,
-    });
+    return {
+      identity: await validateLocalUserIdentity({
+        candidate: localIdentity,
+        identityTrustDomain,
+        userId,
+      }),
+      source: "self",
+    };
   }
 
   const remoteIdentity = await dependencies.remoteSource.load(userId);
   return remoteIdentity
-    ? validateRemoteUserIdentity({
-        candidate: remoteIdentity,
-        identityTrustDomain,
-        requestedUserId: userId,
-      })
+    ? {
+        identity: await validateRemoteUserIdentity({
+          candidate: remoteIdentity,
+          identityTrustDomain,
+          requestedUserId: userId,
+        }),
+        source: "observed",
+      }
     : null;
+}
+
+/** The trust store and account a lookup started under must still be active. */
+function assertResolutionScope(
+  dependencies: TrustedUserIdentityServiceDependencies,
+  scope: { readonly execSql: ExecSql; readonly localUserId: string | null },
+  message: string,
+): void {
+  if (
+    dependencies.getExecSql() !== scope.execSql ||
+    dependencies.getLocalUserId() !== scope.localUserId
+  ) {
+    throw new DatabaseUnavailableError(message);
+  }
 }
 
 async function pinIdentity(input: {
@@ -222,26 +250,24 @@ async function verifyIdentityLink(
   }
   const localUserId = dependencies.getLocalUserId();
   try {
-    const identity = await resolveCandidate(
+    const candidate = await resolveCandidate(
       dependencies,
       expectation.userId,
       identityTrustDomain,
     );
-    if (!identity) throw new Error("The identity in this link is unavailable.");
-    await assertIdentityLinkMatches(expectation, identity);
-    if (
-      dependencies.getExecSql() !== execSql ||
-      dependencies.getLocalUserId() !== localUserId
-    ) {
-      throw new DatabaseUnavailableError(
-        "The active identity changed. Open the identity link again.",
-      );
-    }
+    if (!candidate)
+      throw new Error("The identity in this link is unavailable.");
+    await assertIdentityLinkMatches(expectation, candidate.identity);
+    assertResolutionScope(
+      dependencies,
+      { execSql, localUserId },
+      "The active identity changed. Open the identity link again.",
+    );
     return await pinIdentity({
       dependencies,
       execSql,
-      identity,
-      provenance: expectation.userId === localUserId ? "self" : "link",
+      identity: candidate.identity,
+      provenance: candidate.source === "self" ? "self" : "link",
     });
   } catch (error) {
     dependencies.remoteSource.invalidate(expectation.userId);
@@ -329,21 +355,26 @@ export function createTrustedUserIdentityService(
     async resolve(userId) {
       assertTrustedUserIdentityUserId(userId);
       const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
+      const localUserId = dependencies.getLocalUserId();
       try {
-        const identity = await resolveCandidate(
+        const candidate = await resolveCandidate(
           dependencies,
           userId,
           identityTrustDomain,
         );
-        if (!identity) {
+        if (!candidate) {
           return null;
         }
+        assertResolutionScope(
+          dependencies,
+          { execSql, localUserId },
+          "The active identity changed while resolving this user.",
+        );
         return await pinIdentity({
           dependencies,
           execSql,
-          identity,
-          provenance:
-            userId === dependencies.getLocalUserId() ? "self" : "observed",
+          identity: candidate.identity,
+          provenance: candidate.source,
         });
       } catch (error) {
         dependencies.remoteSource.invalidate(userId);
