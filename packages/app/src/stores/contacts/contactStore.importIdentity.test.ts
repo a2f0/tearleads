@@ -12,7 +12,7 @@ async function countDocuments(
   );
   if (tables.length === 0) return 0;
   const [row] = await execSql("SELECT COUNT(*) AS count FROM documents");
-  return Number(row?.count ?? 0);
+  return Number(row ? Object.values(row)[0] : 0);
 }
 
 test("contact imports retain identity across fresh devices and isolate address books", async () => {
