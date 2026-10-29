@@ -26,6 +26,10 @@ test("links to published documents stay on the site", () => {
   expect(resolveDocHref("../formal/README.md", "docs/keying-design.md")).toBe(
     "/docs/protocol-models/",
   );
+  // Line anchors exist only on GitHub.
+  expect(resolveDocHref("./limits.md#L12", "docs/glossary.md")).toBe(
+    "https://github.com/a2f0/tearleads/blob/main/docs/limits.md#L12",
+  );
 });
 
 test("other repository links go to GitHub", () => {

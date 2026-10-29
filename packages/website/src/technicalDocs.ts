@@ -103,7 +103,10 @@ export function resolveDocHref(href: string, fromSource: string): string {
   const target = resolveRepositoryPath(fromSource, path);
   if (target === null) return href;
   const doc = docForSource(target);
-  if (doc !== undefined) return `${docPath(doc)}${fragment}`;
+  // Published pages have no line anchors; keep #L<n> links on GitHub.
+  if (doc !== undefined && !/^#L\d/.test(fragment)) {
+    return `${docPath(doc)}${fragment}`;
+  }
   return `${sourceUrl(target, directory)}${fragment}`;
 }
 

@@ -116,7 +116,9 @@ external URL once and fails only on answers that prove a link dead (404, 410,
 or an unknown host); authorization walls, rate limits, and server errors are
 printed as unverified. External probing needs the network, so it is not part of
 any gate; run it when editing links and before a documentation release. Name
-documents as arguments to check only those. The `validate-docs` skill walks
+documents as arguments to check only those. The scanner reads a link's
+destination from the line holding its `](`, so keep each destination on that
+line. The `validate-docs` skill walks
 through a full documentation review.
 
 The website publishes the documents listed in
