@@ -1,4 +1,6 @@
 ---
+import accessKeyingSvg from "../../../../docs/diagrams/access-and-keying.svg?raw";
+import DocsDiagram from "../components/DocsDiagram.astro";
 import PageHeader from "../components/PageHeader.astro";
 import SectionHeader from "../components/SectionHeader.astro";
 import SecurityArchitectureDiagram from "../components/SecurityArchitectureDiagram.astro";
@@ -6,7 +8,7 @@ import SecurityCryptography from "../components/SecurityCryptography.astro";
 import SecurityLimits from "../components/SecurityLimits.astro";
 import SecuritySharingDiagram from "../components/SecuritySharingDiagram.astro";
 import Layout from "../layouts/Layout.astro";
-import { docPath, technicalDocs } from "../technicalDocs";
+import { docPath, sourceUrl, technicalDocs } from "../technicalDocs";
 import "../styles/security.css";
 import "../styles/securityDiagrams.css";
 
@@ -15,6 +17,7 @@ const contents = [
   { href: "#threat-model", label: "Assumptions" },
   { href: "#device-boundary", label: "Device and service" },
   { href: "#verified-sharing", label: "Verified sharing" },
+  { href: "#access-keying", label: "Access and keys" },
   { href: "#cryptography", label: "Cryptography" },
   { href: "#trust-boundaries", label: "Scope" },
   { href: "#documents", label: "Technical documents" },
@@ -146,14 +149,34 @@ const contents = [
         </div>
       </div>
     </section>
+  </div>
 
+  <section class="site-section security-section security-section--bleed" id="access-keying" aria-labelledby="access-keying-title">
+    <div class="site-page">
+      <SectionHeader
+        index="04"
+        titleId="access-keying-title"
+        title="Access lookup and keying"
+        lede="One read decision, traced both ways: lookup runs up from a file to the people who may read it, and keys unwrap down from a user key to the content they open."
+      />
+    </div>
+    <DocsDiagram svg={accessKeyingSvg} label="Access lookup and keying diagram" captionId="access-keying-caption">
+      <span class="security-figure-label">Fig. 3</span> Bob can read Blob B because it is
+      bound to Doc D, which links Inbox (C3), where Bob holds a direct write grant.
+      Solid lines are signed lookup relationships; dashed lines are key unwraps.
+      The <a class="site-link" href={sourceUrl("docs/access-plane.md")}>access plane document</a>
+      describes each rule.
+    </DocsDiagram>
+  </section>
+
+  <div class="site-page">
     <SecurityCryptography />
 
     <SecurityLimits />
 
     <section class="site-section security-section" id="documents" aria-labelledby="documents-title">
       <SectionHeader
-        index="06"
+        index="07"
         titleId="documents-title"
         title="Technical documents"
         lede="These documents, published from the public Tearleads repository on GitHub, define the verification rules, assumptions, and remaining gaps in more detail."

@@ -1,0 +1,37 @@
+---
+/**
+ * A docs/diagrams SVG inlined at the full width of the main column. The theme
+ * maps the diagram's class vocabulary (docsDiagram.css) onto colors; the
+ * default reads the site tokens, so it follows light, dark, and print. Below
+ * the diagram's minimum legible width it scrolls sideways instead of
+ * shrinking. The caption slot sits on the page column.
+ */
+import {
+  type DocsDiagramTheme,
+  docsDiagramThemeStyle,
+  inlineDocsDiagram,
+} from "../docsDiagram";
+import "../styles/docsDiagram.css";
+
+interface Props {
+  /** Raw SVG source, imported with `?raw`. */
+  svg: string;
+  /** Accessible name for the scroll region. */
+  label: string;
+  /** Overrides for the default site theme. */
+  theme?: Partial<DocsDiagramTheme>;
+  captionId?: string;
+}
+
+const { svg, label, theme, captionId } = Astro.props;
+const markup = inlineDocsDiagram(svg);
+---
+
+<figure class="docs-diagram" style={docsDiagramThemeStyle(theme)} aria-labelledby={captionId}>
+  <div class="docs-diagram-scroll" role="region" aria-label={label} tabindex="0">
+    <Fragment set:html={markup} />
+  </div>
+  <figcaption id={captionId}>
+    <div class="docs-diagram-caption"><slot /></div>
+  </figcaption>
+</figure>
