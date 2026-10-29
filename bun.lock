@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.80",
+      "version": "0.1.81",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -212,7 +212,7 @@
     },
     "packages/bob-and-alice": {
       "name": "@tearleads/bob-and-alice",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "devDependencies": {
         "@tearleads/api": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
@@ -223,7 +223,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.111",
+      "version": "0.1.112",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -351,7 +351,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.32",
+      "version": "0.1.33",
       "dependencies": {
         "@a2f0/ct-client": "0.1.5",
         "@astrojs/react": "7.1.1",
