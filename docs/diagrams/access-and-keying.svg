@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1080" viewBox="0 0 1500 1080" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1340" viewBox="0 0 1000 1340" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
   <title>Tearleads access lookup and keying</title>
   <defs>
     <marker id="access-keying-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -8,26 +8,26 @@
       <path d="M0,0 L10,5 L0,10 z" class="arrowhead-key"/>
     </marker>
     <style>
-      .title { font-size: 20px; font-weight: 600; fill: #111827; }
-      .sub { font-size: 13px; fill: #4b5563; }
+      .title { font-size: 22px; font-weight: 600; fill: #111827; }
+      .sub { font-size: 13.5px; fill: #4b5563; }
       .colhead { font-size: 13px; font-weight: 600; fill: #111827; letter-spacing: 0.04em; text-transform: uppercase; }
-      .lane { font-size: 14px; font-weight: 600; fill: #111827; }
-      .lanesub { font-size: 11.5px; fill: #6b7280; }
+      .lane { font-size: 15px; font-weight: 600; fill: #111827; }
+      .lanesub { font-size: 12px; fill: #6b7280; }
       .box { fill: #ffffff; stroke: #4b5563; stroke-width: 1.25; }
       .kbox { fill: #ffffff; stroke: #b45309; stroke-width: 1.25; stroke-dasharray: 5 3; }
-      .name { font-size: 13px; font-weight: 600; fill: #111827; }
-      .meta { font-size: 11.5px; fill: #4b5563; }
-      .mono { font-size: 11px; fill: #374151; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-      .key { font-size: 11.5px; fill: #b45309; font-weight: 600; }
-      .keymono { font-size: 11px; fill: #92400e; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .name { font-size: 14px; font-weight: 600; fill: #111827; }
+      .meta { font-size: 12px; fill: #4b5563; }
+      .mono { font-size: 12px; fill: #374151; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .key { font-size: 12px; fill: #b45309; font-weight: 600; }
+      .keymono { font-size: 12px; fill: #92400e; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
       .edge { fill: none; stroke: #4b5563; stroke-width: 1.25; }
       .kedge { fill: none; stroke: #b45309; stroke-width: 1.25; stroke-dasharray: 5 3; }
-      .elabel { font-size: 11px; fill: #374151; }
-      .klabel { font-size: 11px; fill: #92400e; }
+      .elabel { font-size: 12px; fill: #374151; }
+      .klabel { font-size: 12px; fill: #92400e; }
       .step { fill: #1d4ed8; }
-      .stepnum { font-size: 10.5px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
-      .foot { font-size: 12px; fill: #374151; }
-      .foothead { font-size: 12px; font-weight: 600; fill: #111827; }
+      .stepnum { font-size: 12px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
+      .foot { font-size: 13px; fill: #374151; }
+      .foothead { font-size: 13px; font-weight: 600; fill: #111827; }
       .canvas { fill: #ffffff; }
       .band { fill: #f8fafc; }
       .rule { stroke: #d1d5db; stroke-width: 1; }
@@ -36,238 +36,252 @@
     </style>
   </defs>
 
-  <rect x="0" y="0" width="1500" height="1080" class="canvas"/>
+  <rect x="0" y="0" width="1000" height="1340" class="canvas"/>
 
   <!-- Header -->
-  <text x="24" y="34" class="title">Access lookup and keying: containers, documents, updates, blobs</text>
-  <text x="24" y="56" class="sub">Authority comes from signed manifests. Lookup runs up from the resource to principals; keys unwrap down from the principal to the content.</text>
+  <text x="16" y="36" class="title">Access lookup and keying: containers, documents, updates, blobs</text>
+  <text x="16" y="60" class="sub">Authority comes from signed manifests. Lookup runs up from the resource to principals;</text>
+  <text x="16" y="78" class="sub">keys unwrap down from the principal to the content.</text>
 
   <!-- Lane bands -->
-  <rect x="0" y="96" width="1500" height="164" class="band"/>
-  <rect x="0" y="260" width="1500" height="250" class="canvas"/>
-  <rect x="0" y="510" width="1500" height="135" class="band"/>
-  <rect x="0" y="645" width="1500" height="110" class="canvas"/>
-  <rect x="0" y="755" width="1500" height="125" class="band"/>
+  <rect x="0" y="120" width="1000" height="180" class="band"/>
+  <rect x="0" y="300" width="1000" height="266" class="canvas"/>
+  <rect x="0" y="566" width="1000" height="154" class="band"/>
+  <rect x="0" y="720" width="1000" height="140" class="canvas"/>
+  <rect x="0" y="860" width="1000" height="130" class="band"/>
   <g class="rule">
-    <line x1="0" y1="96" x2="1500" y2="96"/>
-    <line x1="0" y1="260" x2="1500" y2="260"/>
-    <line x1="0" y1="510" x2="1500" y2="510"/>
-    <line x1="0" y1="645" x2="1500" y2="645"/>
-    <line x1="0" y1="755" x2="1500" y2="755"/>
-    <line x1="0" y1="880" x2="1500" y2="880"/>
-    <line x1="150" y1="72" x2="150" y2="880"/>
-    <line x1="1010" y1="72" x2="1010" y2="880"/>
+    <line x1="0" y1="120" x2="1000" y2="120"/>
+    <line x1="0" y1="300" x2="1000" y2="300"/>
+    <line x1="0" y1="566" x2="1000" y2="566"/>
+    <line x1="0" y1="720" x2="1000" y2="720"/>
+    <line x1="0" y1="860" x2="1000" y2="860"/>
+    <line x1="0" y1="990" x2="1000" y2="990"/>
+    <line x1="120" y1="96" x2="120" y2="990"/>
+    <line x1="640" y1="96" x2="640" y2="990"/>
   </g>
 
   <!-- Column headings -->
-  <text x="170" y="88" class="colhead">Relationship lookup</text>
-  <text x="365" y="88" class="sub">query: can Bob read Blob B?</text>
-  <text x="1030" y="88" class="colhead">Keying (where it applies)</text>
+  <text x="136" y="112" class="colhead">Relationship lookup</text>
+  <text x="330" y="112" class="sub">query: can Bob read Blob B?</text>
+  <text x="656" y="112" class="colhead">Keying (where it applies)</text>
 
   <!-- Lane labels -->
-  <text x="20" y="172" class="lane">Principals</text>
-  <text x="20" y="190" class="lanesub">users · groups</text>
-  <text x="20" y="378" class="lane">Containers</text>
-  <text x="20" y="396" class="lanesub">manifests · grants</text>
-  <text x="20" y="572" class="lane">Documents</text>
-  <text x="20" y="590" class="lanesub">link-set manifests</text>
-  <text x="20" y="696" class="lane">Updates</text>
-  <text x="20" y="714" class="lanesub">Loro, encrypted</text>
-  <text x="20" y="812" class="lane">Blobs</text>
-  <text x="20" y="830" class="lanesub">attachments</text>
+  <text x="16" y="204" class="lane">Principals</text>
+  <text x="16" y="222" class="lanesub">users · groups</text>
+  <text x="16" y="420" class="lane">Containers</text>
+  <text x="16" y="438" class="lanesub">manifests</text>
+  <text x="16" y="453" class="lanesub">and grants</text>
+  <text x="16" y="630" class="lane">Documents</text>
+  <text x="16" y="648" class="lanesub">link-set</text>
+  <text x="16" y="663" class="lanesub">manifests</text>
+  <text x="16" y="784" class="lane">Updates</text>
+  <text x="16" y="802" class="lanesub">Loro, encrypted</text>
+  <text x="16" y="920" class="lane">Blobs</text>
+  <text x="16" y="938" class="lanesub">attachments</text>
 
   <!-- ============ LOOKUP COLUMN ============ -->
 
   <!-- Principals -->
-  <rect x="185" y="140" width="180" height="50" rx="4" class="box"/>
-  <text x="197" y="160" class="name">Engineering</text>
-  <text x="197" y="178" class="meta">group · signed group policy</text>
+  <rect x="136" y="166" width="194" height="52" rx="4" class="box"/>
+  <text x="148" y="186" class="name">Engineering</text>
+  <text x="148" y="204" class="meta">group · signed group policy</text>
 
-  <rect x="505" y="140" width="150" height="50" rx="4" class="box"/>
-  <text x="517" y="160" class="name">Alice</text>
-  <text x="517" y="178" class="meta">user</text>
+  <rect x="370" y="166" width="110" height="52" rx="4" class="box"/>
+  <text x="382" y="186" class="name">Alice</text>
+  <text x="382" y="204" class="meta">user</text>
 
-  <rect x="810" y="140" width="150" height="50" rx="4" class="box"/>
-  <text x="822" y="160" class="name">Bob</text>
-  <text x="822" y="178" class="meta">user</text>
+  <rect x="510" y="166" width="110" height="52" rx="4" class="box"/>
+  <text x="522" y="186" class="name">Bob</text>
+  <text x="522" y="204" class="meta">user</text>
 
   <!-- group membership: Engineering includes Bob -->
-  <path d="M275,140 V120 H885 V136" class="edge" marker-end="url(#access-keying-arrow)"/>
-  <text x="380" y="114" class="elabel">includes (member set in signed group policy)</text>
-  <circle cx="740" cy="120" r="9" class="step"/><text x="740" y="124" class="stepnum">6</text>
+  <path d="M233,166 V146 H565 V162" class="edge" marker-end="url(#access-keying-arrow)"/>
+  <text x="245" y="140" class="elabel">includes (signed group policy)</text>
+  <circle cx="505" cy="146" r="10" class="step"/><text x="505" y="150" class="stepnum">6</text>
 
   <!-- Containers -->
-  <rect x="480" y="282" width="200" height="66" rx="4" class="box"/>
-  <text x="492" y="302" class="name">C1 · org root</text>
-  <text x="492" y="320" class="mono">grants · parent: none</text>
-  <text x="492" y="338" class="key">KEK C1</text>
+  <rect x="335" y="322" width="180" height="66" rx="4" class="box"/>
+  <text x="347" y="342" class="name">C1 · org root</text>
+  <text x="347" y="360" class="mono">grants · parent: none</text>
+  <text x="347" y="378" class="key">KEK C1</text>
 
-  <rect x="230" y="410" width="200" height="66" rx="4" class="box"/>
-  <text x="242" y="430" class="name">C2 · Projects</text>
-  <text x="242" y="448" class="mono">grants · parent: C1</text>
-  <text x="242" y="466" class="key">KEK C2</text>
+  <rect x="136" y="480" width="170" height="66" rx="4" class="box"/>
+  <text x="148" y="500" class="name">C2 · Projects</text>
+  <text x="148" y="518" class="mono">grants · parent: C1</text>
+  <text x="148" y="536" class="key">KEK C2</text>
 
-  <rect x="730" y="410" width="200" height="66" rx="4" class="box"/>
-  <text x="742" y="430" class="name">C3 · Inbox</text>
-  <text x="742" y="448" class="mono">grants · parent: C1</text>
-  <text x="742" y="466" class="key">KEK C3</text>
+  <rect x="455" y="480" width="170" height="66" rx="4" class="box"/>
+  <text x="467" y="500" class="name">C3 · Inbox</text>
+  <text x="467" y="518" class="mono">grants · parent: C1</text>
+  <text x="467" y="536" class="key">KEK C3</text>
 
   <!-- parent path (child -> parent) -->
-  <path d="M330,410 V379 H830 V410" class="edge"/>
-  <path d="M580,379 V352" class="edge" marker-end="url(#access-keying-arrow)"/>
-  <text x="600" y="372" class="elabel">parent (path to root)</text>
-  <circle cx="455" cy="379" r="9" class="step"/><text x="455" y="383" class="stepnum">4</text>
+  <path d="M270,480 V440 H600 V480" class="edge"/>
+  <path d="M425,440 V392" class="edge" marker-end="url(#access-keying-arrow)"/>
+  <text x="435" y="433" class="elabel">parent (to root)</text>
+  <circle cx="330" cy="440" r="10" class="step"/><text x="330" y="444" class="stepnum">4</text>
 
   <!-- grants (container -> principal) -->
-  <path d="M275,410 V194" class="edge" marker-end="url(#access-keying-arrow)"/>
-  <circle cx="275" cy="330" r="9" class="step"/><text x="275" y="334" class="stepnum">5</text>
-  <text x="290" y="334" class="elabel">grant · read</text>
+  <path d="M233,480 V222" class="edge" marker-end="url(#access-keying-arrow)"/>
+  <circle cx="233" cy="460" r="10" class="step"/><text x="233" y="464" class="stepnum">5</text>
+  <text x="219" y="464" class="elabel" text-anchor="end">grant · read</text>
 
-  <path d="M580,282 V194" class="edge" marker-end="url(#access-keying-arrow)"/>
-  <circle cx="580" cy="238" r="9" class="step"/><text x="580" y="242" class="stepnum">5</text>
-  <text x="595" y="242" class="elabel">grant · admin</text>
+  <path d="M425,322 V222" class="edge" marker-end="url(#access-keying-arrow)"/>
+  <circle cx="425" cy="262" r="10" class="step"/><text x="425" y="266" class="stepnum">5</text>
+  <text x="441" y="266" class="elabel">grant · admin</text>
 
-  <path d="M885,410 V194" class="edge" marker-end="url(#access-keying-arrow)"/>
-  <circle cx="885" cy="330" r="9" class="step"/><text x="885" y="334" class="stepnum">5</text>
-  <text x="870" y="334" class="elabel" text-anchor="end">grant · write</text>
+  <path d="M565,480 V222" class="edge" marker-end="url(#access-keying-arrow)"/>
+  <circle cx="565" cy="460" r="10" class="step"/><text x="565" y="464" class="stepnum">5</text>
+  <text x="549" y="464" class="elabel" text-anchor="end">grant · write</text>
 
   <!-- Documents -->
-  <rect x="450" y="552" width="260" height="72" rx="4" class="box"/>
-  <text x="462" y="572" class="name">Doc D · link-set manifest</text>
-  <text x="462" y="590" class="mono">linkedContainerIds: [C2, C3]</text>
-  <text x="462" y="610" class="key">content key</text>
+  <rect x="305" y="600" width="240" height="76" rx="4" class="box"/>
+  <text x="317" y="620" class="name">Doc D · link-set manifest</text>
+  <text x="317" y="638" class="mono">linkedContainerIds: [C2, C3]</text>
+  <text x="317" y="658" class="key">content key</text>
 
   <!-- document links (doc -> containers) -->
-  <path d="M520,552 V532 H330 V480" class="edge" marker-end="url(#access-keying-arrow)"/>
-  <path d="M640,552 V532 H830 V480" class="edge" marker-end="url(#access-keying-arrow)"/>
-  <circle cx="425" cy="532" r="9" class="step"/><text x="425" y="536" class="stepnum">3</text>
-  <circle cx="735" cy="532" r="9" class="step"/><text x="735" y="536" class="stepnum">3</text>
-  <text x="345" y="526" class="elabel">linked</text>
-  <text x="770" y="526" class="elabel">linked</text>
+  <path d="M365,600 V582 H250 V550" class="edge" marker-end="url(#access-keying-arrow)"/>
+  <path d="M485,600 V582 H540 V550" class="edge" marker-end="url(#access-keying-arrow)"/>
+  <circle cx="330" cy="582" r="10" class="step"/><text x="330" y="586" class="stepnum">3</text>
+  <circle cx="512" cy="582" r="10" class="step"/><text x="512" y="586" class="stepnum">3</text>
+  <text x="258" y="577" class="elabel">linked</text>
+  <text x="548" y="577" class="elabel">linked</text>
 
   <!-- Updates -->
-  <rect x="335" y="675" width="150" height="60" rx="4" class="box"/>
-  <text x="347" y="695" class="name">Loro update u1</text>
-  <text x="347" y="712" class="mono">vv span, ciphertext</text>
-  <text x="347" y="727" class="key">signed write header</text>
+  <rect x="176" y="764" width="146" height="80" rx="4" class="box"/>
+  <text x="186" y="784" class="name">Loro update u1</text>
+  <text x="186" y="801" class="mono">vv span</text>
+  <text x="186" y="816" class="mono">ciphertext</text>
+  <text x="186" y="834" class="key">signed write header</text>
 
-  <rect x="505" y="675" width="150" height="60" rx="4" class="box"/>
-  <text x="517" y="695" class="name">Loro update u2</text>
-  <text x="517" y="712" class="mono">vv span, ciphertext</text>
-  <text x="517" y="727" class="key">signed write header</text>
+  <rect x="330" y="764" width="146" height="80" rx="4" class="box"/>
+  <text x="340" y="784" class="name">Loro update u2</text>
+  <text x="340" y="801" class="mono">vv span</text>
+  <text x="340" y="816" class="mono">ciphertext</text>
+  <text x="340" y="834" class="key">signed write header</text>
 
-  <rect x="675" y="675" width="150" height="60" rx="4" class="box"/>
-  <text x="687" y="695" class="name">Loro update u3</text>
-  <text x="687" y="712" class="mono">vv span, ciphertext</text>
-  <text x="687" y="727" class="key">signed write header</text>
+  <rect x="484" y="764" width="146" height="80" rx="4" class="box"/>
+  <text x="494" y="784" class="name">Loro update u3</text>
+  <text x="494" y="801" class="mono">vv span</text>
+  <text x="494" y="816" class="mono">ciphertext</text>
+  <text x="494" y="834" class="key">signed write header</text>
 
-  <path d="M410,675 V660 H750 V675" class="edge"/>
-  <path d="M580,675 V628" class="edge" marker-end="url(#access-keying-arrow)"/>
-  <text x="590" y="652" class="elabel">update of</text>
+  <path d="M249,764 V748 H557 V764" class="edge"/>
+  <path d="M403,764 V680" class="edge" marker-end="url(#access-keying-arrow)"/>
+  <text x="413" y="736" class="elabel">update of</text>
 
   <!-- Blobs -->
-  <rect x="400" y="790" width="200" height="60" rx="4" class="box"/>
-  <text x="412" y="810" class="name">Attachment binding</text>
-  <text x="412" y="827" class="mono">slotId, signed bind event</text>
-  <text x="412" y="842" class="meta">active = authority</text>
+  <rect x="180" y="890" width="180" height="80" rx="4" class="box"/>
+  <text x="192" y="910" class="name">Attachment binding</text>
+  <text x="192" y="927" class="mono">slotId</text>
+  <text x="192" y="942" class="mono">signed bind event</text>
+  <text x="192" y="960" class="meta">active = authority</text>
 
-  <rect x="720" y="790" width="200" height="60" rx="4" class="box"/>
-  <text x="732" y="810" class="name">Blob B</text>
-  <text x="732" y="827" class="mono">encrypted bytes (S3/R2)</text>
-  <text x="732" y="842" class="key">blob content key</text>
+  <rect x="460" y="890" width="170" height="80" rx="4" class="box"/>
+  <text x="472" y="910" class="name">Blob B</text>
+  <text x="472" y="927" class="mono">encrypted bytes</text>
+  <text x="472" y="942" class="mono">(S3/R2)</text>
+  <text x="472" y="960" class="key">blob content key</text>
 
-  <path d="M720,820 H604" class="edge" marker-end="url(#access-keying-arrow)"/>
-  <circle cx="662" cy="820" r="9" class="step"/><text x="662" y="824" class="stepnum">1</text>
-  <text x="662" y="806" class="elabel" text-anchor="middle">bound by</text>
+  <path d="M460,925 H364" class="edge" marker-end="url(#access-keying-arrow)"/>
+  <circle cx="412" cy="925" r="10" class="step"/><text x="412" y="929" class="stepnum">1</text>
+  <text x="412" y="909" class="elabel" text-anchor="middle">bound by</text>
 
-  <path d="M400,820 H290 V588 H446" class="edge" marker-end="url(#access-keying-arrow)"/>
-  <circle cx="290" cy="700" r="9" class="step"/><text x="290" y="704" class="stepnum">2</text>
-  <text x="304" y="770" class="elabel">binds to</text>
+  <path d="M180,930 H150 V650 H301" class="edge" marker-end="url(#access-keying-arrow)"/>
+  <circle cx="150" cy="790" r="10" class="step"/><text x="150" y="794" class="stepnum">2</text>
+  <text x="160" y="880" class="elabel">binds to</text>
 
   <!-- ============ KEYING COLUMN ============ -->
 
   <!-- Principals -->
-  <rect x="1040" y="116" width="410" height="48" rx="4" class="kbox"/>
-  <text x="1052" y="135" class="name">User key</text>
-  <text x="1052" y="153" class="meta">ML-KEM key pair; the private decapsulation key opens wraps</text>
+  <rect x="656" y="134" width="304" height="66" rx="4" class="kbox"/>
+  <text x="668" y="154" class="name">User key</text>
+  <text x="668" y="172" class="meta">ML-KEM key pair; the private decapsulation</text>
+  <text x="668" y="188" class="meta">key opens wraps</text>
 
-  <rect x="1040" y="200" width="410" height="48" rx="4" class="kbox"/>
-  <text x="1052" y="219" class="name">Group epoch key</text>
-  <text x="1052" y="237" class="meta">a member envelope wraps it to each member's user key</text>
+  <rect x="656" y="232" width="304" height="62" rx="4" class="kbox"/>
+  <text x="668" y="252" class="name">Group epoch key</text>
+  <text x="668" y="270" class="meta">a member envelope wraps it to each</text>
+  <text x="668" y="286" class="meta">member's user key</text>
 
-  <path d="M1070,164 V196" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
-  <text x="1080" y="185" class="klabel">opens member envelope</text>
+  <path d="M686,200 V228" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
+  <text x="696" y="219" class="klabel">opens member envelope</text>
 
   <!-- Containers -->
-  <rect x="1040" y="290" width="410" height="112" rx="4" class="kbox"/>
-  <text x="1052" y="309" class="name">Container KEK (one per container key epoch)</text>
-  <text x="1052" y="327" class="meta">wrapped to each direct grantee (user or group key)</text>
-  <text x="1052" y="343" class="meta">and to the parent KEK, so ancestor access flows down</text>
-  <text x="1052" y="363" class="keymono">KEK C1 → Alice</text>
-  <text x="1052" y="378" class="keymono">KEK C2 → Engineering, KEK C1</text>
-  <text x="1052" y="393" class="keymono">KEK C3 → Bob, KEK C1</text>
+  <rect x="656" y="336" width="304" height="134" rx="4" class="kbox"/>
+  <text x="668" y="356" class="name">Container KEK (one per key epoch)</text>
+  <text x="668" y="374" class="meta">wrapped to each direct grantee (user or</text>
+  <text x="668" y="390" class="meta">group key) and to the parent KEK, so</text>
+  <text x="668" y="406" class="meta">ancestor access flows down</text>
+  <text x="668" y="426" class="keymono">KEK C1 → Alice</text>
+  <text x="668" y="442" class="keymono">KEK C2 → Engineering, KEK C1</text>
+  <text x="668" y="458" class="keymono">KEK C3 → Bob, KEK C1</text>
 
-  <path d="M1450,140 H1464 V346 H1454" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
-  <text x="1478" y="243" class="klabel" text-anchor="middle" transform="rotate(90 1478 243)">direct grant</text>
-  <path d="M1070,248 V286" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
-  <text x="1080" y="272" class="klabel">opens KEK wrap (user or group recipient)</text>
+  <path d="M960,167 H974 V403 H964" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
+  <text x="986" y="285" class="klabel" text-anchor="middle" transform="rotate(90 986 285)">direct grant</text>
+  <path d="M686,294 V332" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
+  <text x="696" y="318" class="klabel">opens KEK wrap (user or group recipient)</text>
 
   <!-- Documents -->
-  <rect x="1040" y="545" width="360" height="74" rx="4" class="kbox"/>
-  <text x="1052" y="564" class="name">Document content key</text>
-  <text x="1052" y="582" class="meta">one bundle per key epoch, wrapped to the current</text>
-  <text x="1052" y="597" class="meta">KEK of every linked container</text>
-  <text x="1052" y="612" class="keymono">→ KEK C2, KEK C3 · documentKeyTargetHash</text>
+  <rect x="656" y="584" width="254" height="116" rx="4" class="kbox"/>
+  <text x="668" y="604" class="name">Document content key</text>
+  <text x="668" y="622" class="meta">one bundle per key epoch, wrapped</text>
+  <text x="668" y="638" class="meta">to the current KEK of every linked</text>
+  <text x="668" y="654" class="meta">container</text>
+  <text x="668" y="674" class="keymono">→ KEK C2, KEK C3</text>
+  <text x="668" y="690" class="keymono">documentKeyTargetHash</text>
 
-  <path d="M1070,402 V541" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
-  <text x="1080" y="470" class="klabel">opens content-key bundle</text>
+  <path d="M686,470 V580" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
+  <text x="696" y="529" class="klabel">opens content-key bundle</text>
 
   <!-- Updates -->
-  <rect x="1040" y="668" width="360" height="66" rx="4" class="kbox"/>
-  <text x="1052" y="687" class="name">Update ciphertext</text>
-  <text x="1052" y="705" class="meta">AEAD under the document content key; the signed</text>
-  <text x="1052" y="720" class="meta">header commits the manifest hash and target hash</text>
+  <rect x="656" y="744" width="254" height="84" rx="4" class="kbox"/>
+  <text x="668" y="764" class="name">Update ciphertext</text>
+  <text x="668" y="782" class="meta">AEAD under the document content</text>
+  <text x="668" y="798" class="meta">key; the signed header commits the</text>
+  <text x="668" y="814" class="meta">manifest hash and target hash</text>
 
-  <path d="M1070,619 V664" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
-  <text x="1080" y="645" class="klabel">decrypts</text>
+  <path d="M686,700 V740" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
+  <text x="696" y="732" class="klabel">decrypts</text>
 
   <!-- Blobs -->
-  <rect x="1040" y="785" width="410" height="76" rx="4" class="kbox"/>
-  <text x="1052" y="804" class="name">Blob content key</text>
-  <text x="1052" y="822" class="meta">wrapped to the union of KEK targets of every bound doc;</text>
-  <text x="1052" y="837" class="meta">bytes are encrypted once and rewrapping needs no restage</text>
-  <text x="1052" y="851" class="keymono">→ KEK C2, KEK C3 (via Doc D)</text>
+  <rect x="656" y="878" width="304" height="100" rx="4" class="kbox"/>
+  <text x="668" y="898" class="name">Blob content key</text>
+  <text x="668" y="916" class="meta">wrapped to the union of KEK targets of</text>
+  <text x="668" y="932" class="meta">every bound doc; bytes are encrypted once</text>
+  <text x="668" y="948" class="meta">and rewrapping needs no restage</text>
+  <text x="668" y="966" class="keymono">→ KEK C2, KEK C3 (via Doc D)</text>
 
-  <path d="M1425,402 V781" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
-  <text x="1442" y="592" class="klabel" text-anchor="middle" transform="rotate(90 1442 592)">opens blob key (not via the doc key)</text>
+  <path d="M935,470 V874" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
+  <text x="948" y="672" class="klabel" text-anchor="middle" transform="rotate(90 948 672)">opens blob key (not via the doc key)</text>
 
   <!-- ============ FOOTER ============ -->
-  <text x="24" y="910" class="foothead">Lookup steps (resource → authority)</text>
+  <text x="16" y="1022" class="foothead">Lookup steps (resource → authority)</text>
   <g class="foot">
-    <circle cx="32" cy="930" r="8" class="step"/><text x="32" y="934" class="stepnum">1</text>
-    <text x="48" y="934">Blob → its active signed attachment bindings</text>
-    <circle cx="32" cy="952" r="8" class="step"/><text x="32" y="956" class="stepnum">2</text>
-    <text x="48" y="956">Binding → document → its verified link-set manifest</text>
-    <circle cx="32" cy="974" r="8" class="step"/><text x="32" y="978" class="stepnum">3</text>
-    <text x="48" y="978">Link-set → every linked container (C2, C3); the doc has no ACL of its own</text>
-    <circle cx="32" cy="996" r="8" class="step"/><text x="32" y="1000" class="stepnum">4</text>
-    <text x="48" y="1000">Each linked container → verified manifest path to its root (C2→C1, C3→C1)</text>
-    <circle cx="32" cy="1018" r="8" class="step"/><text x="32" y="1022" class="stepnum">5</text>
-    <text x="48" y="1022">Collect direct grants along each path, additively: Alice·admin, Engineering·read, Bob·write</text>
-    <circle cx="32" cy="1040" r="8" class="step"/><text x="32" y="1044" class="stepnum">6</text>
-    <text x="48" y="1044">Expand groups via signed group policy (Engineering ∋ Bob). Read: any path grants read.</text>
-    <text x="48" y="1062">Write: one write path is enough (Bob via C3), but every write encrypts to all linked containers' KEKs.</text>
+    <circle cx="26" cy="1043" r="10" class="step"/><text x="26" y="1047" class="stepnum">1</text>
+    <text x="46" y="1048">Blob → its active signed attachment bindings</text>
+    <circle cx="26" cy="1067" r="10" class="step"/><text x="26" y="1071" class="stepnum">2</text>
+    <text x="46" y="1072">Binding → document → its verified link-set manifest</text>
+    <circle cx="26" cy="1091" r="10" class="step"/><text x="26" y="1095" class="stepnum">3</text>
+    <text x="46" y="1096">Link-set → every linked container (C2, C3); the doc has no ACL of its own</text>
+    <circle cx="26" cy="1115" r="10" class="step"/><text x="26" y="1119" class="stepnum">4</text>
+    <text x="46" y="1120">Each linked container → verified manifest path to its root (C2→C1, C3→C1)</text>
+    <circle cx="26" cy="1139" r="10" class="step"/><text x="26" y="1143" class="stepnum">5</text>
+    <text x="46" y="1144">Collect direct grants along each path, additively: Alice·admin, Engineering·read, Bob·write</text>
+    <circle cx="26" cy="1163" r="10" class="step"/><text x="26" y="1167" class="stepnum">6</text>
+    <text x="46" y="1168">Expand groups via signed group policy (Engineering ∋ Bob). Read: any path grants read.</text>
+    <text x="46" y="1188">Write: one write path is enough (Bob via C3), but every write encrypts to all linked containers' KEKs.</text>
   </g>
 
-  <text x="1030" y="910" class="foothead">Legend</text>
-  <path d="M1032,930 H1080" class="edge" marker-end="url(#access-keying-arrow)"/>
-  <text x="1092" y="934" class="foot">lookup edge (signed relationship)</text>
-  <path d="M1032,952 H1080" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
-  <text x="1092" y="956" class="foot">key unwrap (holder of upper key opens lower)</text>
-  <text x="1032" y="978" class="key">KEK C1</text>
-  <text x="1100" y="978" class="foot">key material held or applied at that object</text>
-  <circle cx="1040" cy="996" r="8" class="step"/><text x="1040" y="1000" class="stepnum">n</text>
-  <text x="1092" y="1000" class="foot">lookup step, in order</text>
-  <text x="1032" y="1030" class="meta">The server stores ciphertext, wrapped keys and manifests;</text>
-  <text x="1032" y="1046" class="meta">clients re-verify every manifest before deciding or encrypting.</text>
+  <text x="16" y="1228" class="foothead">Legend</text>
+  <path d="M16,1250 H64" class="edge" marker-end="url(#access-keying-arrow)"/>
+  <text x="76" y="1254" class="foot">lookup edge (signed relationship)</text>
+  <path d="M16,1276 H64" class="kedge" marker-end="url(#access-keying-arrow-key)"/>
+  <text x="76" y="1280" class="foot">key unwrap (holder of upper key opens lower)</text>
+  <text x="500" y="1254" class="key">KEK C1</text>
+  <text x="560" y="1254" class="foot">key material held or applied at that object</text>
+  <circle cx="510" cy="1276" r="10" class="step"/><text x="510" y="1280" class="stepnum">n</text>
+  <text x="560" y="1280" class="foot">lookup step, in order</text>
+  <text x="16" y="1312" class="meta">The server stores ciphertext, wrapped keys and manifests; clients re-verify every manifest before deciding or encrypting.</text>
 </svg>
