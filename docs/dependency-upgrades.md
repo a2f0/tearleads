@@ -19,11 +19,13 @@ in `CI_TOOLCHAIN`, so a runner's ambient Node cannot determine or cache those
 build results. The nightly `Uncached tests` workflow reuses that lane.
 
 Shared agent workflows use an exact npm version of `@a2f0/agent-tool`.
-After changing it, run `bun run agents:sync` and commit the lockfile and managed
-skill manifest with the skills. Check hook installation and the branch, commit,
-CI-gate, and release-policy fixtures; the repository's own Turbo verification
-and Java/TLA toolchain checks stay in place. Run `bun run test:static-analysis`
-and `bun run test:npm-publish` before the normal full gate.
+After changing it, run `bun run agents:sync` and commit the lockfile, the managed
+skill and permission manifests, the skills, and the generated
+`.claude/settings.json` and `.codex/rules/agent-tool.rules` together. Check hook
+installation and the branch, commit, CI-gate, and release-policy fixtures; the
+repository's own Turbo verification and Java/TLA toolchain checks stay in place.
+Run `bun run test:static-analysis` and `bun run test:npm-publish` before the
+normal full gate.
 
 ## Current constraints
 

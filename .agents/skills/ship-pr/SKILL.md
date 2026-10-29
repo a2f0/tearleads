@@ -52,7 +52,9 @@ do not reduce test scope, skip checks, silence warnings, or mask failures.
    reply with `pr threads reply <comment-id>` (body file or stdin), and use
    `pr threads resolve <thread-id>` only for fully addressed findings.
    Validate, commit, push, and independently review every feedback or CI repair.
-   Wait with `agent-tool pr checks --wait --head <reviewed-head>`, then run
+   Wait with `agent-tool pr checks --wait --head <reviewed-head>`, whose limit
+   defaults to `agent-tool.json` `merge.checksTimeoutSeconds`; when a job
+   fails, read its log with `agent-tool pr logs --head <reviewed-head>`. Then run
    `agent-tool pr preflight <reviewed-head> <base-branch> <reviewed-base>` to
    recheck CI, live base, PR identity, local state, and explicit version policy.
    A changed base requires integration, validation, and another review. When

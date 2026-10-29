@@ -31,8 +31,8 @@
     "agent:logs": "agent-tool logs",
     "agent:run": "agent-tool run",
     "agent-tool": "agent-tool",
-    "agents:check": "bun run agent-tool skills check",
-    "agents:sync": "bun run agent-tool skills install --apply",
+    "agents:check": "bun run agent-tool skills check && bun run agent-tool permissions check",
+    "agents:sync": "bun run agent-tool skills install --apply && bun run agent-tool permissions install --apply",
     "build:packages": "bun run build:runtime && bun run --cwd packages/app-electrobun prepare:devkit",
     "build:runtime": "turbo run build --filter=@tearleads/sqlite-instance --filter=@tearleads/client-sdk",
     "build:website": "bun run screenshots && bun run --cwd packages/website build",
@@ -143,7 +143,7 @@
     "*.md": "bun --bun x markdownlint-cli2 --fix"
   },
   "devDependencies": {
-    "@a2f0/agent-tool": "0.1.23",
+    "@a2f0/agent-tool": "0.1.28",
     "@azure/storage-blob": "12.30.0",
     "@biomejs/biome": "2.5.15",
     "@commitlint/cli": "21.2.4",

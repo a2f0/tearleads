@@ -47,6 +47,14 @@
   "binaries": {
     "allow": []
   },
+  "permissions": {
+    "executables": {
+      "cap": "local",
+      "commitlint": "local",
+      "tsc": "local",
+      "wrangler": "release"
+    }
+  },
   "hooks": {
     "files": [
       {

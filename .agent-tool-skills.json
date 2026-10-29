@@ -2,16 +2,16 @@
   "schemaVersion": 1,
   "files": {
     ".agents/skills/cross-agent-review/SKILL.md": "b153d5442a2267fb59d40ab7c0e0100d54630bf7d7a8ddab951cd3dec39ef7f8",
-    ".agents/skills/open-pr/SKILL.md": "09a7a1f2a144e2d12c23e9b5dcae66a70a4aa944d38fcec9b153527f9bbd4cb1",
+    ".agents/skills/open-pr/SKILL.md": "d6e6b8c60abe46c50a6f4333a23b7f1e0ebb14904e732d8aec2d6e2155663124",
     ".agents/skills/reset/SKILL.md": "6c4bdc678ce772d646d0b82467b411eae22424707f2ef73538dcfab50ac5546f",
-    ".agents/skills/ship-pr/SKILL.md": "e90535e7ffe3a50915b77cc74311e87c92e38ba8bdcd8e9e35c9a7a7dde0f945",
+    ".agents/skills/ship-pr/SKILL.md": "3b160854c1b5f578867a450f53273eca78154c0eac43ab8e2ee4c87a025cb582",
     ".agents/skills/squash-merge/SKILL.md": "27e95958086f53cea0ae1ccea5cad113feb08d0d546424daa01915dfeb7b0ff4",
     ".claude/skills/cross-agent-review/SKILL.md": "b153d5442a2267fb59d40ab7c0e0100d54630bf7d7a8ddab951cd3dec39ef7f8",
-    ".claude/skills/open-pr/SKILL.md": "09a7a1f2a144e2d12c23e9b5dcae66a70a4aa944d38fcec9b153527f9bbd4cb1",
+    ".claude/skills/open-pr/SKILL.md": "d6e6b8c60abe46c50a6f4333a23b7f1e0ebb14904e732d8aec2d6e2155663124",
     ".claude/skills/reset/SKILL.md": "6c4bdc678ce772d646d0b82467b411eae22424707f2ef73538dcfab50ac5546f",
-    ".claude/skills/ship-pr/SKILL.md": "e90535e7ffe3a50915b77cc74311e87c92e38ba8bdcd8e9e35c9a7a7dde0f945",
+    ".claude/skills/ship-pr/SKILL.md": "3b160854c1b5f578867a450f53273eca78154c0eac43ab8e2ee4c87a025cb582",
     ".claude/skills/squash-merge/SKILL.md": "27e95958086f53cea0ae1ccea5cad113feb08d0d546424daa01915dfeb7b0ff4",
-    ".agents/skills/update-dependencies/SKILL.md": "f7cff2431d598fab3daf3aee79e135f749a819b5a0cbb48cdc5ba199cbb8305b",
-    ".claude/skills/update-dependencies/SKILL.md": "f7cff2431d598fab3daf3aee79e135f749a819b5a0cbb48cdc5ba199cbb8305b"
+    ".agents/skills/update-dependencies/SKILL.md": "902d08f7e1a35acc9c93f06c9ac28d1a035604819f5ead22a6e61333a5824589",
+    ".claude/skills/update-dependencies/SKILL.md": "902d08f7e1a35acc9c93f06c9ac28d1a035604819f5ead22a6e61333a5824589"
   }
 }
