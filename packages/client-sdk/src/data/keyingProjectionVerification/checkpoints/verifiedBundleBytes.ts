@@ -1,5 +1,7 @@
-import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
-import { readCanonicalJson } from "../../keying/canonicalJson";
+import {
+  readKeyingCanonicalJson,
+  serializeKeyingCanonicalJson,
+} from "@tearleads/crypto";
 
 // The exact bytes each manifest was verified from, keyed by the verified
 // result. A later projection can hit the same verified hash while serving
@@ -10,7 +12,7 @@ const verifiedBundleBytes = new WeakMap<object, string>();
 function canonicalBytes(bundle: unknown): string | null {
   try {
     return serializeKeyingCanonicalJson(
-      readCanonicalJson(bundle, "Verified manifest bundle"),
+      readKeyingCanonicalJson(bundle, "Verified manifest bundle"),
     );
   } catch {
     return null;

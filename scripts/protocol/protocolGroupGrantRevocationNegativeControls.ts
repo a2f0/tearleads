@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const GROUP_GRANT_MODULE = "formal/container-keying/GroupGrantRevocation.tla";
 const GROUP_GRANT_CONFIG = "formal/container-keying/GroupGrantRevocation.cfg";

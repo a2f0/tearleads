@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { blobContentKeyTargets } from "@tearleads/api-shared/schema";
-import { normalizeDocumentAccessEventBody } from "@tearleads/crypto";
+import {
+  normalizeDocumentAccessEventBody,
+  readKeyingCanonicalJson,
+} from "@tearleads/crypto";
 import { createTestUser } from "@tearleads/test-utils";
 import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
@@ -25,7 +28,6 @@ import {
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getCurrentAccessManifestHead } from "../../access/read/accessManifestStore";
 import { routeApp } from "../../routeApp";
-import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
 
 test("link and unlink atomically cover active blob bindings and retain prior wraps", async () => {
   const owner = createTestUser();

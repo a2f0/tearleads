@@ -28,7 +28,7 @@ import {
   syncEngineTables,
 } from "./clientSdkTables";
 import { packageSourcePath } from "./dependencySourceRoots";
-import type { Subsystem } from "./subsystems";
+import type { Subsystem } from "./subsystemTypes";
 
 const sdk = packageSourcePath.clientSdk;
 

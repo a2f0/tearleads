@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
+import { readKeyingCanonicalJson } from "@tearleads/crypto";
 import { createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -18,7 +19,6 @@ import {
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getLatestBlobContentKeyBundle } from "../../access/read/blobContentKeyStore";
 import { routeApp } from "../../routeApp";
-import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
 
 test("linking one document preserves another document's wraps for their shared blob", async () => {
   const owner = createTestUser();

@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
-import { verifySignedAccessEvent } from "@tearleads/crypto";
+import {
+  readKeyingCanonicalJson,
+  verifySignedAccessEvent,
+} from "@tearleads/crypto";
 import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
-import { readCanonicalJson } from "../../keying/canonicalJson";
 import {
   signBlobAttachmentDetachEvent,
   signBlobAttachmentEvent,
@@ -51,7 +53,7 @@ test("attachment bind and detach sign every authorization path head exactly once
     expect(
       (
         await verifySignedAccessEvent({
-          body: readCanonicalJson(body, "Attachment event test body"),
+          body: readKeyingCanonicalJson(body, "Attachment event test body"),
           event,
           signerPublicKey: signingPublicKey,
         })

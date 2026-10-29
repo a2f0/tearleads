@@ -14,11 +14,11 @@ import { basename, dirname, join } from "node:path";
 import { runFailFastPool } from "./failFastPool";
 import {
   NEGATIVE_CONTROLS,
-  type NegativeControl,
   parseConfig,
   renderNegativeControlConfig,
   violationPattern,
 } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 import { resolveTlcTools, runTlcAsync, tlcParallelism } from "./tlcTools";
 
 function fail(message: string): never {

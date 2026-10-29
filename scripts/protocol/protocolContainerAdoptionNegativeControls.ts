@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const MODULE = "formal/local-trust/ContainerCreateAdoption.tla";
 const CONFIG = "formal/local-trust/ContainerCreateAdoption.cfg";

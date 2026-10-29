@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import * as ts from "typescript";
-import type { Subsystem } from "./subsystems";
 import { findTableViolations } from "./subsystemTables";
 import {
   findTableUsesInProgram,
   rawSqlTableAccess,
 } from "./subsystemTableUses";
+import type { Subsystem } from "./subsystemTypes";
 
 function subsystem(
   name: string,

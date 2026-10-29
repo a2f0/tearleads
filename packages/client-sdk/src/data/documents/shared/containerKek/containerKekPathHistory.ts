@@ -6,13 +6,11 @@ import {
   normalizeContainerAccessEventBody,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
+  readKeyingCanonicalJson,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import {
-  readCanonicalJson,
-  readCanonicalRecord,
-} from "../../../keying/canonicalJson";
+import { readCanonicalRecord } from "../../../keying/canonicalJson";
 import { readContainerKeyEpoch } from "../../../keyingProjectionVerification/readers";
 import { readManifestContainerId } from "../readers";
 import type { UnwrappedContainerKek } from "../types";
@@ -94,7 +92,7 @@ async function assertKeyringCommitment(input: {
     `${projectionKekLabel(input.index)} keyring event`,
   );
   const eventBody = normalizeContainerAccessEventBody(
-    readCanonicalJson(
+    readKeyingCanonicalJson(
       Reflect.get(eventBundle, "body"),
       `${projectionKekLabel(input.index)} keyring event body`,
     ),

@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import {
   MiniAppButton,
-  MiniAppInput,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
@@ -20,6 +19,7 @@ import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { DATA_USAGE_LABELS } from "../../shared/dataUsageLabels";
 import { useRootPage } from "../organizations/useRootPage";
+import { OrganizationSearchForm } from "./OrganizationSearchForm";
 
 const COLUMNS = [
   { id: "id", header: "Organization ID" },
@@ -33,7 +33,6 @@ export function DataUsageReportView({
   onSelectOrganization: (organizationId: string) => void;
 }) {
   const tearleads = useTearleads();
-  const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
   const request = useCallback(
     async (cursor: string | null) => {
@@ -64,30 +63,12 @@ export function DataUsageReportView({
         {DATA_USAGE_LABELS.usageDefinition} Shared data is counted for each
         organization it is attributed to. Organizations are listed newest first.
       </MiniAppStatus>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (search === draft.trim()) refresh();
-          else setSearch(draft.trim());
-        }}
-      >
-        <MiniAppToolbar wrap>
-          <MiniAppInput
-            aria-label="Search organizations"
-            placeholder="Organization ID"
-            value={draft}
-            maxLength={200}
-            onChange={(event) => setDraft(event.target.value)}
-            className="root-console-filter"
-          />
-          <MiniAppButton type="submit" disabled={loading}>
-            Search
-          </MiniAppButton>
-          <MiniAppButton disabled={loading} onClick={refresh}>
-            {loading ? "Loading..." : "Refresh"}
-          </MiniAppButton>
-        </MiniAppToolbar>
-      </form>
+      <OrganizationSearchForm
+        search={search}
+        loading={loading}
+        onSearch={setSearch}
+        onRefresh={refresh}
+      />
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
       <MiniAppTableFrame>
         <MiniAppTable aria-label="Data usage by organization" columns={COLUMNS}>

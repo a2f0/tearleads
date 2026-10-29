@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const MODULE = "formal/backup-restore/TerminalAnchors.tla";
 const CONFIG = "formal/backup-restore/TerminalAnchors.cfg";

@@ -2,9 +2,11 @@ import type {
   ApiDatabase,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import { verifyAttachmentDetachEvent } from "@tearleads/crypto";
+import {
+  readKeyingCanonicalJson,
+  verifyAttachmentDetachEvent,
+} from "@tearleads/crypto";
 import { storeVerifiedAttachmentDetachInTransaction } from "../../../access/write/attachmentBindingStore";
-import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
   applyAttachmentContainerRekeys,

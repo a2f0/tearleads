@@ -52,6 +52,37 @@ function createBlobStore(): BlobStore {
   };
 }
 
+type LoadBlobInfo = (
+  input?: BlobInfoInput,
+) => Promise<{ rows: BlobInfo[]; totalCount: number }>;
+
+function renderBlobBrowser(loadBlobInfo: LoadBlobInfo) {
+  return render(
+    <ExplorerBlobBrowserPanel
+      blobStore={createBlobStore()}
+      loadBlobInfo={loadBlobInfo}
+      nodes={[]}
+      online={true}
+      onCancelBlobPick={() => undefined}
+      openDocumentInfoRoute={() => undefined}
+      route={{ blobId: null, storageKey: null }}
+      selectDocumentProjection={() => undefined}
+    />,
+  );
+}
+
+/** Scroll the blob table far enough to request the window at offset 12. */
+function scrollBlobTable(view: ReturnType<typeof render>) {
+  const frame = view.container.querySelector<HTMLDivElement>(
+    ".explorer-blob-browser-table-wrap",
+  );
+  if (!frame) {
+    throw new Error("Blob browser table frame was not rendered.");
+  }
+  frame.scrollTop = 720;
+  fireEvent.scroll(frame);
+}
+
 function createBlobReference(
   overrides: Partial<BlobInfoDocumentReference> = {},
 ): BlobInfoDocumentReference {
@@ -86,18 +117,7 @@ test("blob browser opens list rows in the detail screen", async () => {
       totalCount: rows.length,
     };
   };
-  const view = render(
-    <ExplorerBlobBrowserPanel
-      blobStore={createBlobStore()}
-      loadBlobInfo={loadBlobInfo}
-      nodes={[]}
-      online={true}
-      onCancelBlobPick={() => undefined}
-      openDocumentInfoRoute={() => undefined}
-      route={{ blobId: null, storageKey: null }}
-      selectDocumentProjection={() => undefined}
-    />,
-  );
+  const view = renderBlobBrowser(loadBlobInfo);
 
   // List screen: the table is visible, the detail metadata heading is not.
   await waitFor(() => {
@@ -216,18 +236,7 @@ test("blob browser requests a new blob window when the table scrolls", async () 
       totalCount: rows.length,
     };
   };
-  const view = render(
-    <ExplorerBlobBrowserPanel
-      blobStore={createBlobStore()}
-      loadBlobInfo={loadBlobInfo}
-      nodes={[]}
-      online={true}
-      onCancelBlobPick={() => undefined}
-      openDocumentInfoRoute={() => undefined}
-      route={{ blobId: null, storageKey: null }}
-      selectDocumentProjection={() => undefined}
-    />,
-  );
+  const view = renderBlobBrowser(loadBlobInfo);
 
   await waitFor(() => {
     expect(calls).toEqual([
@@ -240,16 +249,7 @@ test("blob browser requests a new blob window when the table scrolls", async () 
     ]);
   });
 
-  const frame = view.container.querySelector<HTMLDivElement>(
-    ".explorer-blob-browser-table-wrap",
-  );
-  expect(frame).toBeTruthy();
-  if (!frame) {
-    throw new Error("Blob browser table frame was not rendered.");
-  }
-
-  frame.scrollTop = 720;
-  fireEvent.scroll(frame);
+  scrollBlobTable(view);
 
   await waitFor(() => {
     expect(calls.at(-1)).toEqual({
@@ -284,31 +284,11 @@ test("blob browser keeps current rows visible while the next scroll window loads
       resolveScrolledWindow = resolve;
     });
   };
-  const view = render(
-    <ExplorerBlobBrowserPanel
-      blobStore={createBlobStore()}
-      loadBlobInfo={loadBlobInfo}
-      nodes={[]}
-      online={true}
-      onCancelBlobPick={() => undefined}
-      openDocumentInfoRoute={() => undefined}
-      route={{ blobId: null, storageKey: null }}
-      selectDocumentProjection={() => undefined}
-    />,
-  );
+  const view = renderBlobBrowser(loadBlobInfo);
 
   expect(await view.findByRole("button", { name: "blob-1" })).toBeTruthy();
 
-  const frame = view.container.querySelector<HTMLDivElement>(
-    ".explorer-blob-browser-table-wrap",
-  );
-  expect(frame).toBeTruthy();
-  if (!frame) {
-    throw new Error("Blob browser table frame was not rendered.");
-  }
-
-  frame.scrollTop = 720;
-  fireEvent.scroll(frame);
+  scrollBlobTable(view);
 
   await waitFor(() => {
     expect(calls.at(-1)?.offset).toBe(12);
@@ -348,33 +328,13 @@ test("blob browser resets the blob window when sorting changes", async () => {
       totalCount: rows.length,
     };
   };
-  const view = render(
-    <ExplorerBlobBrowserPanel
-      blobStore={createBlobStore()}
-      loadBlobInfo={loadBlobInfo}
-      nodes={[]}
-      online={true}
-      onCancelBlobPick={() => undefined}
-      openDocumentInfoRoute={() => undefined}
-      route={{ blobId: null, storageKey: null }}
-      selectDocumentProjection={() => undefined}
-    />,
-  );
+  const view = renderBlobBrowser(loadBlobInfo);
 
   await waitFor(() => {
     expect(calls.length).toBe(1);
   });
 
-  const frame = view.container.querySelector<HTMLDivElement>(
-    ".explorer-blob-browser-table-wrap",
-  );
-  expect(frame).toBeTruthy();
-  if (!frame) {
-    throw new Error("Blob browser table frame was not rendered.");
-  }
-
-  frame.scrollTop = 720;
-  fireEvent.scroll(frame);
+  scrollBlobTable(view);
   await waitFor(() => {
     expect(calls.at(-1)?.offset).toBe(12);
   });

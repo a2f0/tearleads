@@ -43,6 +43,15 @@
           }
         }
       },
+      "suspicious": {
+        // dependency-cruiser's no-circular covers package source only; this
+        // also covers scripts/ and test helpers. Type-only imports count too,
+        // since they still tangle the modules a reader has to hold together.
+        "noImportCycles": {
+          "level": "error",
+          "options": { "ignoreTypes": false }
+        }
+      },
       "style": {
         // Component variants intentionally group selectors by behavior; preserve
         // their cascade instead of adopting Biome 2.5 specificity ordering.

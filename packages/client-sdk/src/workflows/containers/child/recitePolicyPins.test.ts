@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  readKeyingCanonicalJson,
   verifyContainerAccessManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
@@ -12,7 +13,6 @@ import {
   USER_ID,
 } from "../../../../test/helpers/principalReciteFixtures";
 import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
-import { readCanonicalJson } from "../../../data/keying/canonicalJson";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
 import {
   readAccessEvent,
@@ -109,7 +109,7 @@ test.each(["before-pass", "in-flight"] as const)(
             const previousManifest = path.at(-1);
             if (!previousManifest) throw new Error("Expected prior descendant");
             const event = await verifySignedAccessEvent({
-              body: readCanonicalJson(request.body, "Recitation body"),
+              body: readKeyingCanonicalJson(request.body, "Recitation body"),
               event: readAccessEvent(request.event, "Recitation event"),
               signerPublicKey: fixture.signingPublicKey,
             });

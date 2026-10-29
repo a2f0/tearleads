@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 export const TOMBSTONE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {

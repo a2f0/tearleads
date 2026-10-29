@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { findSurfaceViolations } from "./subsystemSurfaces";
-import type { Subsystem } from "./subsystems";
+import type { Subsystem } from "./subsystemTypes";
 
 function subsystem(
   name: string,

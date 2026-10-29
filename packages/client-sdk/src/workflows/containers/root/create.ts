@@ -12,6 +12,7 @@ import {
   computeContainerKeyEpochHash,
   deriveContainerKekWrappingPublicKey,
   normalizeContainerAccessEventBody,
+  readKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
@@ -37,7 +38,6 @@ import type {
   MaterializedContainerCreatePlan,
 } from "../../../data/containers/shared/types";
 import {
-  readCanonicalJson,
   readCanonicalRecord,
   readCanonicalRecords,
 } from "../../../data/keying/canonicalJson";
@@ -260,7 +260,10 @@ function normalizedRootCreateBody(
   input: Parameters<typeof buildRootContainerCreateBody>[0],
 ): ContainerCreateAccessEventBody {
   const body = normalizeContainerAccessEventBody(
-    readCanonicalJson(buildRootContainerCreateBody(input), "Root create body"),
+    readKeyingCanonicalJson(
+      buildRootContainerCreateBody(input),
+      "Root create body",
+    ),
   );
   if (body.eventType !== "container.create")
     throw new Error("Expected root creation body");

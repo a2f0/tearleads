@@ -133,6 +133,9 @@ checks are worth running by hand rather than discovering minutes into a push:
 - `bun run lint:architecture` after adding or moving an `import`. A cycle is
   easy to create by importing a shared symbol back from a module that already
   imports you; extract the symbol into its own module instead.
+  dependency-cruiser's `no-circular` rule covers package source; Biome's
+  `noImportCycles` (with type-only imports counted) covers every file it
+  checks, including `scripts/`, so `bun run lint:biome` reports one there too.
 
 Before a push, prefer `bun run check:fast` over a hand-picked subset. It covers
 the static half of the gate in a few minutes; sampling a few of its checks
