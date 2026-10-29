@@ -81,6 +81,12 @@ base's effective rules include an active strict status rule that the
 authenticated actor cannot bypass. Update `agent-tool.json` together with the
 ruleset when a required check name changes.
 
+`agent-tool pr checks --wait` waits up to `merge.checksTimeoutSeconds`, set to
+3600. Uncached, the app and API `Test (...)` jobs each take about 20 minutes
+and gate `CI gate`, so a whole run outlasts agent-tool's 15-minute default; a
+wait that times out leaves checks pending and is not a CI failure. Pass
+`--timeout <seconds>` only to override the policy for one wait.
+
 When renaming or adding a required check, first verify that a PR reports it
 under the new name, then update the ruleset and `agent-tool.json`. Open PRs
 must merge the workflow change before they can satisfy the new gate. Preserve
