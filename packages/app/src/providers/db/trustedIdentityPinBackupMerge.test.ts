@@ -13,6 +13,7 @@ const columns = [
   "encapsulation_public_key",
   "encapsulation_key_fingerprint",
   "first_seen_at",
+  "provenance",
 ] as const;
 
 function row(overrides: Partial<BackupSqlRow> = {}): BackupSqlRow {
@@ -27,6 +28,7 @@ function row(overrides: Partial<BackupSqlRow> = {}): BackupSqlRow {
     encapsulation_public_key: "kem-a",
     encapsulation_key_fingerprint: "b".repeat(64),
     first_seen_at: "2026-07-15T12:00:00.000Z",
+    provenance: "observed",
     ...overrides,
   };
 }
@@ -129,4 +131,53 @@ test("backup restore rejects non-current trusted identity rows", () => {
       restored: table([row({ signing_key_fingerprint: "not-a-hash" })]),
     }),
   ).toThrow("invalid signing_key_fingerprint");
+});
+
+test("backup provenance only rises on an overlapping pin", () => {
+  expect(
+    mergeTrustedIdentityPinBackupTables({
+      current: table([row()]),
+      restored: table([row({ provenance: "link" })]),
+    })?.rows,
+  ).toEqual([row({ provenance: "link" })]);
+  expect(
+    mergeTrustedIdentityPinBackupTables({
+      current: table([row({ provenance: "link" })]),
+      restored: table([row({ provenance: "observed" })]),
+    })?.rows,
+  ).toEqual([row({ provenance: "link" })]);
+  expect(
+    mergeTrustedIdentityPinBackupTables({
+      current: table([row({ provenance: "self" })]),
+      restored: table([row({ provenance: "link" })]),
+    })?.rows,
+  ).toEqual([row({ provenance: "self" })]);
+});
+
+test("a linked backup pin with other keys still aborts the restore", () => {
+  expect(() =>
+    mergeTrustedIdentityPinBackupTables({
+      current: table([row()]),
+      restored: table([
+        row({ provenance: "link", signing_public_key: "signing-substituted" }),
+      ]),
+    }),
+  ).toThrow("Backup conflicts with a trusted identity pin");
+});
+
+test("backup restore rejects pins without provenance or with an unknown one", () => {
+  const legacy: BackupTable = {
+    ...table([]),
+    columns: columns.filter((column) => column !== "provenance"),
+    rows: [],
+  };
+  expect(() =>
+    mergeTrustedIdentityPinBackupTables({ current: null, restored: legacy }),
+  ).toThrow();
+  expect(() =>
+    mergeTrustedIdentityPinBackupTables({
+      current: null,
+      restored: table([row({ provenance: "trusted" })]),
+    }),
+  ).toThrow("unsupported provenance");
 });

@@ -4,5 +4,7 @@ export { peerPaneLabel, selfPaneLabel } from "./paneLabels";
 export type { PaneSide } from "./types";
 export { useDualPane } from "./useDualPane";
 export { usePaneSide, usePaneSideOptional } from "./usePaneSide";
+export { usePeerIdentityLink } from "./usePeerIdentityLink";
 export { usePeerUserId } from "./usePeerUserId";
+export { usePublishIdentityLink } from "./usePublishIdentityLink";
 export { useRegisterUserId } from "./useRegisterUserId";

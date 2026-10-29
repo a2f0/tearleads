@@ -92,7 +92,7 @@ test("contacts store promotes a deferred self contact on later ensure", async ()
     userId: "self-user",
   };
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async () => {
+    resolveVerified: async () => {
       throw new Error("unexpected remote self key fetch");
     },
     logError: (message, cause) => {
@@ -151,7 +151,7 @@ test("signed-out ensure preserves a promoted self contact without a deferred edi
     userId: "self-user",
   };
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async () => {
+    resolveVerified: async () => {
       throw new Error("unexpected remote self key fetch");
     },
     logError: (message, cause) => {

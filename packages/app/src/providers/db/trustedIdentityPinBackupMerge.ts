@@ -25,7 +25,30 @@ export const TRUSTED_IDENTITY_PIN_COLUMNS: ReadonlyArray<string> = [
   ...scopeColumns,
   ...immutableColumns,
   "first_seen_at",
+  "provenance",
 ];
+
+// Pin provenance only rises: a link or the user's own keys outrank a pin
+// observed on first sight, and `self` outranks `link`.
+const provenanceRank: Readonly<Record<string, number>> = {
+  observed: 0,
+  link: 1,
+  self: 2,
+};
+
+function requireProvenance(row: BackupSqlRow): string {
+  const provenance = requireBackupString(
+    row,
+    "provenance",
+    "Trusted identity pin",
+  );
+  if (provenanceRank[provenance] === undefined) {
+    throw new Error(
+      "Trusted identity pin backup has an unsupported provenance value",
+    );
+  }
+  return provenance;
+}
 
 function validateRow(row: BackupSqlRow): void {
   for (const column of scopeColumns) {
@@ -67,6 +90,7 @@ function validateRow(row: BackupSqlRow): void {
     "Trusted identity pin",
   );
   requireBackupTimestamp(row, "first_seen_at", "Trusted identity pin");
+  requireProvenance(row);
 }
 
 function validateTable(table: BackupTable): void {
@@ -116,7 +140,11 @@ function assertOneUserPerSigningKey(rows: Iterable<BackupSqlRow>): void {
   }
 }
 
-/** Merge backup pins without resetting an existing TOFU decision. */
+/**
+ * Merge backup pins without resetting an existing trust decision. Keys never
+ * change; an overlapping pin keeps the higher provenance of the two, so a
+ * backup can confirm a link but never demote one.
+ */
 export function mergeTrustedIdentityPinBackupTables(input: {
   readonly current: BackupTable | null;
   readonly restored: BackupTable | null;
@@ -155,6 +183,13 @@ export function mergeTrustedIdentityPinBackupTables(input: {
     const current = currentRows.get(key);
     if (current) {
       assertSameIdentity(current, restored);
+      const restoredProvenance = requireProvenance(restored);
+      if (
+        (provenanceRank[restoredProvenance] ?? 0) >
+        (provenanceRank[requireProvenance(current)] ?? 0)
+      ) {
+        currentRows.set(key, { ...current, provenance: restoredProvenance });
+      }
     } else {
       currentRows.set(
         key,

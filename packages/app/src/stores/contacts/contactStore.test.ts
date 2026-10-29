@@ -87,7 +87,7 @@ test("contacts store persists contacts as documents with app-owned projections",
     userId: "peer-user-1",
   };
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async (userId) =>
+    resolveVerified: async (userId) =>
       userId === peerKey.userId ? peerKey : null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
@@ -108,8 +108,8 @@ test("contacts store persists contacts as documents with app-owned projections",
       userId: "ada-user",
     });
     const [importedContactId, repeatedImportId] = await Promise.all([
-      store.importKey(peerKey.userId),
-      store.importKey(peerKey.userId),
+      store.importVerifiedUser(peerKey.userId),
+      store.importVerifiedUser(peerKey.userId),
     ]);
 
     if (!createdContactId) {
@@ -211,7 +211,7 @@ test("contacts store imports self keys without a synthetic nickname", async () =
     userId: "self-user",
   };
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async (userId) =>
+    resolveVerified: async (userId) =>
       userId === selfKey.userId ? selfKey : null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
@@ -225,7 +225,7 @@ test("contacts store imports self keys without a synthetic nickname", async () =
       "Contacts store did not initialize.",
     );
 
-    const contactId = await store.importKey(selfKey.userId);
+    const contactId = await store.importVerifiedUser(selfKey.userId);
     if (!contactId) throw new Error("Self contact import returned no id.");
     expect(contactId).not.toBe(selfKey.userId);
 
@@ -273,7 +273,7 @@ test("contacts store ensures self contact from deterministic local identity", as
     userId: "self-user",
   };
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async () => {
+    resolveVerified: async () => {
       throw new Error("unexpected remote self key fetch");
     },
     getLocalUserIdentity: async (userId) =>
@@ -357,7 +357,7 @@ test("contacts store does not reseed a You nickname for existing self contacts",
     userId: "self-user",
   };
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async (userId) =>
+    resolveVerified: async (userId) =>
       userId === selfKey.userId ? selfKey : null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
@@ -379,7 +379,7 @@ test("contacts store does not reseed a You nickname for existing self contacts",
     });
     expect(existingContactId).not.toBeNull();
 
-    const importedContactId = await store.importKey(selfKey.userId);
+    const importedContactId = await store.importVerifiedUser(selfKey.userId);
     expect(importedContactId).toBe(existingContactId);
 
     await waitForCondition(
@@ -408,7 +408,7 @@ test("contacts store does not reseed a You nickname for existing self contacts",
 test("contacts store keeps live snapshots in projection order", async () => {
   const runtime = await createContactsRuntime();
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async () => null,
+    resolveVerified: async () => null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },

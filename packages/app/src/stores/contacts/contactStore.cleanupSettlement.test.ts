@@ -52,7 +52,7 @@ test("an edit queued during duplicate deletion keeps its retained-contact target
     },
   };
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async () => null,
+    resolveVerified: async () => null,
     logError: () => {},
   });
   try {

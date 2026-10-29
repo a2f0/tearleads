@@ -109,7 +109,7 @@ interface ContactDraftsInput {
   openImportContactRoute: () => void;
   canWrite: boolean;
   createContact: ReturnType<typeof useContacts>["createContact"];
-  importKey: ReturnType<typeof useContacts>["importKey"];
+  importVerifiedUser: ReturnType<typeof useContacts>["importVerifiedUser"];
   isAuthenticated: boolean;
   logError: ReturnType<typeof useLog>["logError"];
   ready: boolean;
@@ -120,7 +120,7 @@ export function useContactDrafts(input: ContactDraftsInput) {
   const {
     canWrite,
     createContact,
-    importKey,
+    importVerifiedUser,
     isAuthenticated,
     logError,
     ready,
@@ -132,7 +132,7 @@ export function useContactDrafts(input: ContactDraftsInput) {
   const [draftUserId, setDraftUserId] = useIdentityLinkDraft(
     input.identityLinkToken,
   );
-  const { verifyLink, resolvePinned } = useIdentityLinks();
+  const { verifyLink, resolveVerified } = useIdentityLinks();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const canCreate =
@@ -162,8 +162,8 @@ export function useContactDrafts(input: ContactDraftsInput) {
   });
   const importContactByUserId = useImportContactByUserId({
     ...input,
-    resolvePinned,
-    onUnpinnedIdentity: input.openImportContactRoute,
+    resolveVerified,
+    onUnverifiedIdentity: input.openImportContactRoute,
     isImportReady,
     isSubmittingRef,
     setIsSubmitting,
@@ -173,7 +173,7 @@ export function useContactDrafts(input: ContactDraftsInput) {
       logError,
       draft: draftUserId,
       identityScope: input.identityScope,
-      importKey,
+      importVerifiedUser,
       isImportReady,
       isSubmittingRef,
       setIsSubmitting,

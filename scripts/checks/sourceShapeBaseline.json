@@ -59,8 +59,8 @@
       "bytes": 19301
     },
     "docs/keying-design.md": {
-      "lines": 1189,
-      "bytes": 58535
+      "lines": 1191,
+      "bytes": 58634
     },
     "docs/limits.md": {
       "lines": 195,
@@ -79,8 +79,8 @@
       "bytes": 39297
     },
     "docs/security-guarantees.md": {
-      "lines": 843,
-      "bytes": 48975
+      "lines": 847,
+      "bytes": 49304
     },
     "docs/subsystems.md": {
       "lines": 114,
@@ -247,8 +247,8 @@
       "bytes": 18913
     },
     "packages/client-sdk/src/data/sqlite/schema/index.ts": {
-      "lines": 671,
-      "bytes": 26459
+      "lines": 679,
+      "bytes": 26778
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 577,
@@ -263,8 +263,8 @@
       "bytes": 19610
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 453,
-      "bytes": 32203
+      "lines": 455,
+      "bytes": 32397
     },
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
       "lines": 572,

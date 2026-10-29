@@ -177,7 +177,7 @@ test("planDemoPeerRosterSeed is idle once the peer is a member-group user", () =
   ).toEqual({ kind: "idle" });
 });
 
-test("planDemoPeerRosterSeed plans an import-and-add when the peer is unknown", () => {
+test("planDemoPeerRosterSeed plans an add when the peer is unknown", () => {
   const self = directoryUser({
     userId: "self",
     isSelf: true,
@@ -195,11 +195,10 @@ test("planDemoPeerRosterSeed plans an import-and-add when the peer is unknown", 
     kind: "add-to-member-group",
     memberGroupId: "member-group",
     peerUserId: "peer",
-    requiresImport: true,
   });
 });
 
-test("planDemoPeerRosterSeed skips import for a known-but-unseeded peer", () => {
+test("planDemoPeerRosterSeed adds a known-but-unseeded peer", () => {
   const self = directoryUser({ userId: "self", isSelf: true });
   const peer = directoryUser({
     userId: "peer",
@@ -215,9 +214,6 @@ test("planDemoPeerRosterSeed skips import for a known-but-unseeded peer", () => 
   });
 
   expect(plan.kind).toBe("add-to-member-group");
-  if (plan.kind === "add-to-member-group") {
-    expect(plan.requiresImport).toBe(false);
-  }
 });
 
 test("planDemoPeerRosterSeed does not trust the projected admin flag", () => {
@@ -248,18 +244,14 @@ function directoryAndGroups(input: {
   };
 }
 
-const importedPeer = { userId: "peer" };
-
 function fakeRosterSeedActions(overrides: {
   directoryAndGroups?: OrganizationDirectoryAndGroups | null;
   members?: OrganizationGroupMembers | null;
-  importedUser?: { readonly userId: string } | null;
   ensuredUser?: OrganizationDirectoryUser | null;
 }) {
   const calls = {
     addUserToGroup: 0,
     ensureRosterProfileDocument: 0,
-    importUserById: 0,
   };
   let ensureArgs: { userId: string; nickname: string | undefined } | null =
     null;
@@ -272,10 +264,6 @@ function fakeRosterSeedActions(overrides: {
     loadDirectoryAndGroups: () =>
       Promise.resolve(overrides.directoryAndGroups ?? null),
     loadGroupMembers: () => Promise.resolve(overrides.members ?? null),
-    importUserById: () => {
-      calls.importUserById += 1;
-      return Promise.resolve(overrides.importedUser ?? null);
-    },
     addUserToGroup: (groupId, targetUserId, groupName) => {
       calls.addUserToGroup += 1;
       addArgs = { groupId, targetUserId, groupName };
@@ -303,13 +291,11 @@ test("seedPeerRosterEntry adds the peer to the member group, then retries", asyn
       memberGroupId: "mg",
     }),
     members: members([member({ userId: "self" })]),
-    importedUser: importedPeer,
   });
 
   // Phase 1 issues the membership write but does not settle: the roster entry
   // is not in this directory snapshot yet, so the caller must retry.
   expect(await seedPeerRosterEntry(actions, "peer", "Peer 2")).toBe(false);
-  expect(calls.importUserById).toBe(1);
   expect(calls.addUserToGroup).toBe(1);
   expect(getAddArgs()).toEqual({
     groupId: "mg",
@@ -400,20 +386,6 @@ test("seedPeerRosterEntry waits when directory, members, or peer import is unava
     false,
   );
   expect(noMembers.calls.addUserToGroup).toBe(0);
-
-  const unimportablePeer = fakeRosterSeedActions({
-    directoryAndGroups: directoryAndGroups({
-      users: [self],
-      memberGroupId: "mg",
-    }),
-    members: members([member({ userId: "self" })]),
-    importedUser: null,
-  });
-  expect(
-    await seedPeerRosterEntry(unimportablePeer.actions, "peer", "Peer 2"),
-  ).toBe(false);
-  expect(unimportablePeer.calls.addUserToGroup).toBe(0);
-  expect(unimportablePeer.calls.importUserById).toBe(1);
 });
 
 test("attemptPeerRosterSeed retries ordinary failures but preserves integrity failures", async () => {

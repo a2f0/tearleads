@@ -3,6 +3,10 @@ import { ApiClient } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { quietLogger } from "../test/helpers/clientTestSupport";
+import {
+  identityLinkFixture,
+  LINK_TRUST_DOMAIN,
+} from "./data/trustedUserIdentity/identityLink.testFixtures";
 import { Tearleads } from "./Tearleads";
 
 test("Tearleads wires workflow security incidents to durable host callbacks", async () => {
@@ -11,7 +15,7 @@ test("Tearleads wires workflow security incidents to durable host callbacks", as
   );
   const callbackCodes: string[] = [];
   const sdk = new Tearleads({
-    apiBaseUrl: "https://api.example.test",
+    apiBaseUrl: LINK_TRUST_DOMAIN,
     database: { execSql },
     logger: quietLogger,
     onSecurityIncident: (incident) => callbackCodes.push(incident.code),
@@ -27,15 +31,14 @@ test("Tearleads wires workflow security incidents to durable host callbacks", as
 
   try {
     expect("reportSecurityIncident" in sdk.runtime.input().util).toBe(false);
-    await expect(
-      sdk.userIdentities.resolve("11111111-1111-4111-8111-111111111111"),
-    ).rejects.toBe(error);
+    const { link } = await identityLinkFixture();
+    await expect(sdk.userIdentities.verifyLink(link)).rejects.toBe(error);
 
     expect(callbackCodes).toEqual(["equivocation"]);
     expect(await sdk.securityIncidents.list()).toEqual([
       expect.objectContaining({
         code: "equivocation",
-        operation: "user.identity.resolve",
+        operation: "user.identity.verify_link",
       }),
     ]);
   } finally {

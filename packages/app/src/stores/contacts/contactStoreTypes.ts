@@ -46,7 +46,11 @@ export interface ContactsStore {
   createContact: (patch: ContactEntryPatch) => Promise<string | null>;
   ensureSelfContact: (input: EnsureSelfContactInput) => Promise<string | null>;
   getSnapshot: () => ContactsSnapshot;
-  importKey: (userId: string) => Promise<string | null>;
+  /**
+   * Adds a contact for a user whose identity a verified identity link (or
+   * this device's own keys) established; `null` for any other user.
+   */
+  importVerifiedUser: (userId: string) => Promise<string | null>;
   removeContact: (contactId: string) => Promise<void>;
   removeContactAvatar: (contactId: string) => Promise<void>;
   setContactAvatar: (
@@ -59,7 +63,8 @@ export interface ContactsStore {
 }
 
 export interface ContactsStoreDependencies {
-  resolveUserIdentity: (userId: string) => Promise<ResolvedUserIdentity | null>;
+  /** `userIdentities.resolveVerified`: never trusts an observed pin. */
+  resolveVerified: (userId: string) => Promise<ResolvedUserIdentity | null>;
   getLocalUserIdentity?:
     | ((userId: string) => Promise<ResolvedUserIdentity | null>)
     | undefined;

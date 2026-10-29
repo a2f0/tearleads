@@ -29,7 +29,6 @@ import {
   buildRemoveGroupUserPolicyRequest,
 } from "../groupPolicy/groupPolicyRequests";
 import { deleteOrganizationGroup } from "../groups/deleteOrganizationGroup";
-import { importOrganizationUser } from "../organizationUserImport";
 import { createOrganizationGroup } from "./index";
 
 function policySignerPublicKeys(input: {
@@ -45,31 +44,6 @@ function policySignerPublicKeys(input: {
     },
   ];
 }
-
-test("importOrganizationUser resolves a trusted identity by id", async () => {
-  const userId = crypto.randomUUID();
-  const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const signingKeyPair = generateSigningSeedAndKeyPair();
-  const signingKeyFingerprint = await toFingerprint(
-    signingKeyPair.signingPublicKey,
-  );
-  const identity = createTestTrustedUserIdentity({
-    encapsulationKeyFingerprint: await toFingerprint(
-      encapsulationKeyPair.publicKey,
-    ),
-    encapsulationPublicKey: encapsulationKeyPair.publicKey,
-    signingKeyFingerprint,
-    signingPublicKey: signingKeyPair.signingPublicKey,
-    userId,
-  });
-  const imported = await importOrganizationUser({
-    resolveTrustedUserIdentity: async (requestedUserId) =>
-      requestedUserId === userId ? identity : null,
-    userId: ` ${userId} `,
-  });
-
-  expect(imported).toEqual({ userId });
-});
 
 test("group creation and deletion persist authenticated organization directory successors", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();

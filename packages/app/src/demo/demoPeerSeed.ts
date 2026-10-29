@@ -31,7 +31,7 @@ export interface DemoPeerSeedInput {
 }
 
 // The in-flight key for a peer import. Exposed so the executor can tell whether
-// a contact is mid-import (importKey has already added it, still unnamed) before
+// a contact is mid-import (importVerifiedUser has already added it, still unnamed) before
 // it issues a redundant nickname write the import itself is about to make.
 export function importPeerActionKey(userId: string): string {
   return `import-peer:${userId}`;
@@ -45,7 +45,7 @@ export function demoPeerSeedActionKey(action: DemoPeerSeedAction): string {
     : `set-nickname:${action.contactId}:${action.nickname}`;
 }
 
-// Suppress a set-nickname whose target contact is mid-import: importKey has
+// Suppress a set-nickname whose target contact is mid-import: importVerifiedUser has
 // already inserted the (still unnamed) contact, so planDemoPeerSeed emits a
 // nickname write for it, but the in-flight import will set that same nickname
 // itself. Skipping here avoids a redundant, racing write.
@@ -89,8 +89,8 @@ export function planDemoPeerSeed(
   }
 
   // Behavior 1: import the opposite pane as a contact, named by its peer label.
-  // Needs an authenticated session (importKey fetches the peer key from the
-  // server) and the peer's user id (published once the peer pane registers).
+  // Needs an authenticated session and the peer's user id, which the bootstrap
+  // supplies only once it has verified the peer pane's identity link.
   if (input.isAuthenticated && input.peerUserId) {
     const peerLabel = peerPaneLabel(input.side);
     const existingPeer = input.entries.find(

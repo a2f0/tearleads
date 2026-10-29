@@ -458,6 +458,9 @@ class ContainerContentsService implements ContainerContents {
     return createContainerContentsStoreWorkflowRuntime(
       this.runtimeService.workflowInput(),
       this.runtimeService.adoptRootContainer,
+      async (userId) => {
+        await this.runtimeService.identityLinks.requireVerified(userId);
+      },
     );
   }
 }

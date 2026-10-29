@@ -340,5 +340,8 @@ export function createDeviceFirstWorkflowRuntime(
   return createContainerContentsStoreWorkflowRuntime(
     runtimeService.workflowInput(),
     runtimeService.adoptRootContainer,
+    async (userId) => {
+      await runtimeService.identityLinks.requireVerified(userId);
+    },
   );
 }

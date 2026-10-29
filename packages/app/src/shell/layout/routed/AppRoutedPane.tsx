@@ -10,7 +10,10 @@ import { NavigationModeSwitch } from "../../../navigation/NavigationModeSwitch";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import { ThemeToggleButton } from "../../../theme/ThemeToggleButton";
-import { useRegisterUserId } from "../../pane/dual-pane";
+import {
+  usePublishIdentityLink,
+  useRegisterUserId,
+} from "../../pane/dual-pane";
 import { SyncStatusIndicator } from "../../pane/footer/sync-status/SyncStatusIndicator";
 import { TestSystemBanner } from "../TestSystemBanner";
 import "./AppRoutedPane.css";
@@ -36,6 +39,7 @@ export function AppRoutedPane() {
   const { userId } = useCryptoSession();
   const { navigationMode, subscribeKeyboardVisibility } = useAppHostConfig();
   useRegisterUserId(userId);
+  usePublishIdentityLink();
   const visibleNavItems = useVisibleMiniAppItems(ROUTED_MINI_APP_NAV_ITEMS);
   const appIds = useMemo<ReadonlyArray<MiniAppId>>(
     () => visibleNavItems.map(({ appId }) => appId),

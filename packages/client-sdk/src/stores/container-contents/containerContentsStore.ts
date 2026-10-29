@@ -229,8 +229,12 @@ function createContainerSharingMethods(
   syncAgent: ContainerContentsStoreSyncAgent,
 ): Pick<ContainerWriteMethods, "shareWithUser" | "shareWithGroup"> {
   return {
-    shareWithUser: (containerId, userId) =>
-      chainRemoteContainerTask(
+    shareWithUser: async (containerId, userId) => {
+      // Sharing admits the recipient, so a pin observed on first sight is not
+      // enough: a verified identity link (or this device's keys) must have
+      // established it.
+      await state.runtime.requireVerifiedRecipient(userId);
+      return chainRemoteContainerTask(
         state,
         syncAgent,
         false,
@@ -244,7 +248,8 @@ function createContainerSharingMethods(
           ),
         containerId,
         { preserveResultOnLocalWrite: true },
-      ),
+      );
+    },
     shareWithGroup: (containerId, groupId, accessLevel, options) =>
       chainRemoteContainerTask(
         state,

@@ -42,7 +42,7 @@ interface OrgManagerMembershipMutationsParams {
 
 async function addUserToSelectedGroup(
   params: OrgManagerMembershipMutationsParams,
-  identities: Pick<UserIdentities, "verifyLink" | "resolvePinned">,
+  identities: Pick<UserIdentities, "verifyLink" | "resolveVerified">,
 ): Promise<void> {
   const targetUserId = params.addUserId.trim();
   const directoryUser = params.directory?.users.find(
@@ -83,8 +83,8 @@ async function addUserToSelectedGroup(
     logError: params.logError,
     operationOrganizationId,
     run: async () => {
-      // Raw directory selections reuse any existing pin, including TOFU pins.
-      // Without a pin, this flow requires an authenticated identity link.
+      // A directory selection must already be link-verified; anyone else
+      // needs an identity link. The SDK refuses an unverified member too.
       const verifiedUser = await resolveGroupIdentity({
         directoryUser,
         value: targetUserId,
@@ -102,13 +102,11 @@ async function addUserToSelectedGroup(
         return;
       }
       const policyBundle = await addRosterUserToGroup({
-        directoryUser: verifiedDirectoryUser,
         groupId: selectedGroupId,
         groupName,
         isOperationActive: params.isOperationActive,
         operationOrganizationId,
         orgManagerActions: params.orgManagerActions,
-        setError: params.setError,
         targetUserId: verifiedUser.userId,
       });
       if (!policyBundle) {
@@ -188,12 +186,12 @@ async function removeUserFromSelectedGroup(
 export function useOrgManagerMembershipMutations(
   params: OrgManagerMembershipMutationsParams,
 ) {
-  const { verifyLink, resolvePinned } = useIdentityLinks();
+  const { verifyLink, resolveVerified } = useIdentityLinks();
   const addUser = useCallback(
-    () => addUserToSelectedGroup(params, { verifyLink, resolvePinned }),
+    () => addUserToSelectedGroup(params, { verifyLink, resolveVerified }),
     [
       verifyLink,
-      resolvePinned,
+      resolveVerified,
       params.addUserId,
       params.appData.auth.userId,
       params.appData.crypto.encapsulationKeyPair,

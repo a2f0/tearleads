@@ -35,9 +35,9 @@ export function useIdentityLinks() {
     (link: string) => sdk.userIdentities.verifyLink(link),
     [sdk],
   );
-  const resolvePinned = useCallback(
-    (userId: string) => sdk.userIdentities.resolvePinned(userId),
+  const resolveVerified = useCallback(
+    (userId: string) => sdk.userIdentities.resolveVerified(userId),
     [sdk],
   );
-  return { createLink, verifyLink, resolvePinned, linkFromToken };
+  return { createLink, verifyLink, resolveVerified, linkFromToken };
 }

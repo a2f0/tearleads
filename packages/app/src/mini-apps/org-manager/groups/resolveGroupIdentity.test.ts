@@ -2,11 +2,11 @@ import { expect, mock, test } from "bun:test";
 import type { OrganizationDirectory } from "@tearleads/client-sdk";
 import { resolveGroupIdentity } from "./resolveGroupIdentity";
 
-test("a server directory row cannot enroll an unpinned identity without a link", async () => {
+test("a server directory row cannot enroll an identity no link verified", async () => {
   const directoryUser = {
     userId: "bob",
   } as OrganizationDirectory["users"][number];
-  const resolvePinned = mock(async () => null);
+  const resolveVerified = mock(async () => null);
   const verifyLink = mock(async () => {
     throw new Error("Expected an identity link");
   });
@@ -14,15 +14,15 @@ test("a server directory row cannot enroll an unpinned identity without a link",
     resolveGroupIdentity({
       directoryUser,
       value: "bob",
-      resolvePinned,
+      resolveVerified,
       verifyLink,
     }),
   ).rejects.toThrow("identity link");
-  expect(resolvePinned).toHaveBeenCalledWith("bob");
+  expect(resolveVerified).toHaveBeenCalledWith("bob");
   expect(verifyLink).not.toHaveBeenCalled();
 });
 
-test("known roster pins are reused; new links must verify before group mutations", async () => {
+test("link-verified roster users are reused; new links must verify before group mutations", async () => {
   const identity = {
     userId: "bob",
     signingPublicKey: "signing",
@@ -33,13 +33,13 @@ test("known roster pins are reused; new links must verify before group mutations
   const directoryUser = {
     userId: "bob",
   } as OrganizationDirectory["users"][number];
-  const resolvePinned = mock(async () => identity);
+  const resolveVerified = mock(async () => identity);
   const verifyLink = mock(async () => identity);
   expect(
     await resolveGroupIdentity({
       directoryUser,
       value: "bob",
-      resolvePinned,
+      resolveVerified,
       verifyLink,
     }),
   ).toEqual(identity);
@@ -48,7 +48,7 @@ test("known roster pins are reused; new links must verify before group mutations
     await resolveGroupIdentity({
       directoryUser: undefined,
       value: "identity-link",
-      resolvePinned,
+      resolveVerified,
       verifyLink,
     }),
   ).toEqual(identity);
@@ -60,7 +60,7 @@ test("known roster pins are reused; new links must verify before group mutations
     resolveGroupIdentity({
       directoryUser: undefined,
       value: "bad-link",
-      resolvePinned,
+      resolveVerified,
       verifyLink,
     }),
   ).rejects.toThrow("do not match");

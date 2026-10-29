@@ -56,6 +56,17 @@ function primary(user: User): Device {
 }
 
 /**
+ * Admitting a user takes their identity link: `member` shares one, and the
+ * acting device verifies it, as the product's Add by Identity Link does.
+ */
+async function admit(device: Device, member: User): Promise<void> {
+  const link = await primary(member).sdk.userIdentities.createLink(
+    "https://app.example.test",
+  );
+  await device.sdk.userIdentities.verifyLink(link);
+}
+
+/**
  * Users, their devices, and the reference model, driven together. Each
  * operation runs through a real device first and is mirrored into the model
  * only once the device reports it settled, so `expectAccess` compares the
@@ -128,6 +139,7 @@ export class World {
     const directory =
       await primary(owner).sdk.organizations.loadDirectoryAndGroups();
     if (!directory) throw new Error(`${owner.name} has no directory`);
+    await admit(primary(owner), member);
     await primary(owner).sdk.organizations.addUserToGroup({
       expectedGroupName: "Members",
       groupId: directory.memberGroupId,
@@ -275,6 +287,7 @@ export class World {
     device: Device = primary(actor),
   ) {
     trace(`shareWithUser`);
+    await admit(device, recipient);
     const shared = await (await device.tree()).shareWithUser(
       folder.id,
       recipient.userId,
@@ -301,6 +314,7 @@ export class World {
   async addToGroup(actor: User, group: Group, member: User): Promise<void> {
     trace(`addToGroup`);
     const device = primary(actor);
+    await admit(device, member);
     await device.sdk.organizations.addUserToGroup({
       expectedGroupName: group.name,
       groupId: group.id,

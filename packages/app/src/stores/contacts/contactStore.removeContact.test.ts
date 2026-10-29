@@ -128,7 +128,7 @@ function createStore(
   },
 ) {
   return createContactsStore(runtime, {
-    resolveUserIdentity: async () => null,
+    resolveVerified: async () => null,
     logError,
   });
 }

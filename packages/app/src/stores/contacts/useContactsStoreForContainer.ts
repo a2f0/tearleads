@@ -124,7 +124,8 @@ function createContactsStore(
     runtime.documents.state.domainScope,
     runtime,
     {
-      resolveUserIdentity: (userId) => tearleads.userIdentities.resolve(userId),
+      resolveVerified: (userId) =>
+        tearleads.userIdentities.resolveVerified(userId),
       getLocalUserIdentity: (userId) =>
         getLocalUserIdentity({
           encapsulationKeyPair: tearleads.identity.encapsulationKeyPair,

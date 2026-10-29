@@ -323,13 +323,15 @@ export const documentPurgeCheckpoints = sqliteTable(
 );
 
 /**
- * Durable trust-on-first-use pins for remote user identity bundles.
+ * Durable pins for user identity bundles.
  *
- * The first validated identity observed for a user in a configured API trust
+ * The first validated identity accepted for a user in a configured API trust
  * domain is inserted once. Later observations must match every suite, public
- * key, and fingerprint exactly; the persistence adapter never updates these
- * rows. `firstSeenAt` records when the local trust decision was made and is
- * likewise immutable.
+ * key, and fingerprint exactly; the persistence adapter never changes those
+ * columns. `firstSeenAt` records when the local trust decision was made and is
+ * likewise immutable. `provenance` (`self`, `link`, or `observed`) records how
+ * the pin was established; only `self` and `link` admit a user, and it only
+ * rises. A table without it is an obsolete local database.
  *
  * Indexes:
  * - `(identityTrustDomain, userId)` is the primary key and scopes a user pin to
@@ -358,6 +360,9 @@ export const trustedUserIdentityPins = sqliteTable(
       "encapsulation_key_fingerprint",
     ).notNull(),
     firstSeenAt: text("first_seen_at").notNull(),
+    provenance: text("provenance", {
+      enum: ["self", "link", "observed"],
+    }).notNull(),
   },
   (table) => [
     primaryKey({
@@ -560,7 +565,10 @@ export const keyingCheckpointTables: ReadonlyArray<SqlTableSchema> = [
 ];
 
 export const trustedUserIdentityPinTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(trustedUserIdentityPins),
+  {
+    ...defineSqlTableSchema(trustedUserIdentityPins),
+    requiredColumns: ["provenance"],
+  },
 ];
 
 const securityIncidentTables: ReadonlyArray<SqlTableSchema> = [

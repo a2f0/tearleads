@@ -50,7 +50,8 @@ exploitable paths.
   Every suggested fix carries an explicit no-brick check. Prefer server-side
   enforcement at commit.
 - **Default out of scope:** equivocation and split view; cold-start rollback on
-  a device with no checkpoint; first-contact identity TOFU; key transparency,
+  a device with no checkpoint; first-sight (`observed`) identity pins of
+  referenced users; key transparency,
   witnesses, and semantic currentness (#2186 or its successor); pure
   availability or withholding; DoS and rate limits; residuals that
   `docs/security-guarantees.md` already accepts.

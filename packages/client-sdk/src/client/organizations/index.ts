@@ -6,7 +6,6 @@ import {
   claimNativeOrganizationSubscription,
   createStripeCheckout,
   createStripeCheckoutSession,
-  importOrganizationUser,
   listLocalOrganizations,
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
@@ -60,7 +59,6 @@ import {
 } from "./principalMutations";
 
 export type {
-  ImportedOrganizationUser,
   LocalOrganizationSummary,
   OrganizationBilling,
   OrganizationBillingHistory,
@@ -140,6 +138,9 @@ class OrganizationsService implements Organizations {
   }
 
   async addUserToGroup(input: AddOrganizationGroupUserInput) {
+    // Group membership admits a user: only a verified identity link or this
+    // device's own keys can establish the identity it is granted to.
+    await this.runtimeService.identityLinks.requireVerified(input.targetUserId);
     return addUserToOrganizationGroup({
       ...input,
       containerContents: this.containerContents,
@@ -186,14 +187,6 @@ class OrganizationsService implements Organizations {
     return deleteGroupForOrganization({
       groupId,
       ...currentOrganizationMutation(this.runtimeService),
-    });
-  }
-
-  importUserById(userId: string) {
-    const runtime = this.runtimeService.workflowInput();
-    return importOrganizationUser({
-      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-      userId,
     });
   }
 

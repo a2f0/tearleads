@@ -27,7 +27,11 @@ type Adapter =
 function adaptedLease(internalRuntime: InternalRuntime, adapter: Adapter) {
   const input = internalRuntime.workflowInput();
   const containers = () =>
-    createContainerContentsStoreWorkflowRuntime(input, () => false);
+    createContainerContentsStoreWorkflowRuntime(
+      input,
+      () => false,
+      async () => undefined,
+    );
   const runtime =
     adapter === "document-links"
       ? createContainerContents(internalRuntime).documentLinks()

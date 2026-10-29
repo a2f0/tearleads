@@ -16,11 +16,11 @@ const identity: ResolvedUserIdentity = {
 function inputs() {
   return {
     identityScope: "alice",
-    importKey: mock(async (_userId: string) => "contact-bob"),
-    resolvePinned: mock(
+    importVerifiedUser: mock(async (_userId: string) => "contact-bob"),
+    resolveVerified: mock(
       async (_userId: string): Promise<ResolvedUserIdentity | null> => null,
     ),
-    onUnpinnedIdentity: mock(() => {}),
+    onUnverifiedIdentity: mock(() => {}),
     isImportReady: true,
     isSubmittingRef: { current: false },
     logError: mock(() => {}),
@@ -29,32 +29,32 @@ function inputs() {
   };
 }
 
-test("a roster message cannot import an unpinned contact by user ID", async () => {
+test("a roster message cannot import a contact without a verified identity link", async () => {
   const input = inputs();
   const view = renderHook(() => useImportContactByUserId(input));
   await act(async () => {
     await view.result.current("bob");
   });
-  expect(input.importKey).not.toHaveBeenCalled();
-  expect(input.onUnpinnedIdentity).toHaveBeenCalled();
+  expect(input.importVerifiedUser).not.toHaveBeenCalled();
+  expect(input.onUnverifiedIdentity).toHaveBeenCalled();
 });
 
-test("a roster message reuses a pinned contact", async () => {
+test("a roster message imports a link-verified contact", async () => {
   const input = inputs();
-  input.resolvePinned.mockImplementation(async () => identity);
+  input.resolveVerified.mockImplementation(async () => identity);
   const view = renderHook(() => useImportContactByUserId(input));
   await act(async () => {
     await view.result.current("bob");
   });
-  expect(input.importKey).toHaveBeenCalledWith("bob");
+  expect(input.importVerifiedUser).toHaveBeenCalledWith("bob");
   expect(input.setSelectedContactId).toHaveBeenCalledWith("contact-bob");
-  expect(input.onUnpinnedIdentity).not.toHaveBeenCalled();
+  expect(input.onUnverifiedIdentity).not.toHaveBeenCalled();
 });
 
-test("a pending pin lookup cannot import after the active identity switches", async () => {
+test("a pending verified-identity lookup cannot import after the active identity switches", async () => {
   const input = inputs();
   const gate = Promise.withResolvers<ResolvedUserIdentity | null>();
-  input.resolvePinned.mockImplementation(() => gate.promise);
+  input.resolveVerified.mockImplementation(() => gate.promise);
   const view = renderHook((props) => useImportContactByUserId(props), {
     initialProps: input,
   });
@@ -67,6 +67,6 @@ test("a pending pin lookup cannot import after the active identity switches", as
     gate.resolve(identity);
     await pending;
   });
-  expect(input.importKey).not.toHaveBeenCalled();
-  expect(input.onUnpinnedIdentity).not.toHaveBeenCalled();
+  expect(input.importVerifiedUser).not.toHaveBeenCalled();
+  expect(input.onUnverifiedIdentity).not.toHaveBeenCalled();
 });

@@ -12,16 +12,30 @@ export function DualPaneProvider({
 }: DualPaneProviderProps) {
   const [leftUserId, setLeftUserId] = useState<string | null>(null);
   const [rightUserId, setRightUserId] = useState<string | null>(null);
+  const [leftIdentityLink, setLeftIdentityLink] = useState<string | null>(null);
+  const [rightIdentityLink, setRightIdentityLink] = useState<string | null>(
+    null,
+  );
 
   const value = useMemo(
     () => ({
+      leftIdentityLink,
       leftUserId,
       peerUserIdsEnabled,
+      rightIdentityLink,
       rightUserId,
+      setLeftIdentityLink,
       setLeftUserId,
+      setRightIdentityLink,
       setRightUserId,
     }),
-    [leftUserId, peerUserIdsEnabled, rightUserId],
+    [
+      leftIdentityLink,
+      leftUserId,
+      peerUserIdsEnabled,
+      rightIdentityLink,
+      rightUserId,
+    ],
   );
 
   return (

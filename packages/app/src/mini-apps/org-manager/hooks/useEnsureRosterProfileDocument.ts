@@ -1,8 +1,9 @@
-import type {
-  DomainScope,
-  OrganizationDirectory,
-  OrganizationDirectoryUser,
-  OrganizationUserDetail,
+import {
+  type DomainScope,
+  type OrganizationDirectory,
+  type OrganizationDirectoryUser,
+  type OrganizationUserDetail,
+  UnverifiedUserIdentityError,
 } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
@@ -159,6 +160,10 @@ function observeProfileCreation(context: ProfileCreationContext): void {
         !context.cancelled.current &&
         context.selectedUserIdRef.current === context.selectedRosterUser.userId
       ) {
+        if (error instanceof UnverifiedUserIdentityError) {
+          context.setError(ORG_MANAGER_LABELS.profileNeedsIdentityLink);
+          return;
+        }
         setUnknownError(context.setError, error);
       }
     })

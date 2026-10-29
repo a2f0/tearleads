@@ -60,8 +60,7 @@ async function createBirthRuntime(): Promise<
 test("a created or imported contact queues its fields as one update", async () => {
   const runtime = await createBirthRuntime();
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async (userId) =>
-      userId === PEER.userId ? PEER : null,
+    resolveVerified: async (userId) => (userId === PEER.userId ? PEER : null),
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },
@@ -86,7 +85,7 @@ test("a created or imported contact queues its fields as one update", async () =
       lastName: "Lovelace",
       nickname: "",
     });
-    const importedId = await store.importKey(PEER.userId);
+    const importedId = await store.importVerifiedUser(PEER.userId);
     if (!createdId || !importedId) {
       throw new Error("Expected a created and an imported contact.");
     }

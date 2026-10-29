@@ -250,11 +250,11 @@ async function updateContactFromRuntime(
   );
 }
 
-async function importKeyFromRuntime(
+async function importUserFromRuntime(
   state: ContactsStoreState,
   userId: string,
 ): Promise<string | null> {
-  const userIdentity = await state.dependencies.resolveUserIdentity(userId);
+  const userIdentity = await state.dependencies.resolveVerified(userId);
   if (!userIdentity) {
     return null;
   }
@@ -460,7 +460,7 @@ export function createContactsStore(
     createContact: (patch) => createContactFromRuntime(state, patch),
     ensureSelfContact: (input) => ensureSelfContactFromRuntime(state, input),
     getSnapshot: () => state.snapshot,
-    importKey: (userId) => importKeyFromRuntime(state, userId),
+    importVerifiedUser: (userId) => importUserFromRuntime(state, userId),
     removeContact: (contactId) => removeContactFromRuntime(state, contactId),
     removeContactAvatar: (contactId) =>
       removeContactAvatarInStore(state, contactId),

@@ -71,7 +71,6 @@ async function importRosterIdentityLink(
       if (!isOperationActive(operationOrganizationId)) return;
       const targetUserId = identity.userId;
       const targetUser = await prepareRosterImport({
-        directory,
         isOperationActive,
         memberGroupId,
         operationOrganizationId,

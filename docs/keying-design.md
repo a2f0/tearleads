@@ -90,12 +90,13 @@ Second, user identity keys need an authority outside mutable API rows, such as:
 
 Production clients implement the first option as
 [identity links](./developer/trusted-user-identity.md#identity-links): a link
-binds the user ID, trust domain, algorithms, and both public keys, and the
-client checks it before the first pin when adding a contact, roster user, or
-group member. Other lookups, such as signer resolution and Explorer sharing,
-rely on a durable trust-on-first-use pin, so first-contact key substitution
-remains possible for an identity no link has verified. No object keying
-algorithm can fully fix that by itself.
+binds the user ID, trust domain, algorithms, and both public keys. Every
+admission (contact, roster user, group member, share recipient, roster
+profile) requires a pin that a link or the device's own keys established; pin
+provenance keeps a first-sight pin from standing in. Signer resolution and
+other verification of referenced users still pin on first sight, so
+first-contact key substitution remains possible for an identity no link has
+verified. No object keying algorithm can fully fix that by itself.
 
 Organization administration uses reserved groups: `Admins` authorizes admins,
 and `Members` drives the roster. `Admins` is not nested into `Members`; instead
@@ -936,7 +937,8 @@ Minimum:
 - clients persist highest-seen access manifest epoch/hash per object;
 - clients refuse to move backwards without explicit recovery UX.
 
-Production uses an exact durable identity TOFU pin plus two checkpoints:
+Production uses an exact durable identity pin (with provenance) plus two
+checkpoints:
 
 - `PrincipalPolicyCheckpoint`: `principalType`, `principalId`, `version`,
  `stateHash`.
@@ -1082,7 +1084,7 @@ Projection/cache tables include:
 - `access_manifest_document_link_projection`
 - `attachment_bindings`
 
-Identity TOFU pins and monotonic checkpoints live in client-local storage; the
+Identity pins and monotonic checkpoints live in client-local storage; the
 server has no identity-state or transparency-log tables.
 
 Projection tables are caches. The verifier must be able to reject a projection

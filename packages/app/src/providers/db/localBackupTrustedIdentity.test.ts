@@ -22,6 +22,7 @@ interface IdentityPin {
   readonly firstSeenAt: string;
   readonly formatVersion: number;
   readonly identityTrustDomain: string;
+  readonly provenance: "self" | "link" | "observed";
   readonly signingKeyFingerprint: string;
   readonly signingPublicKey: string;
   readonly signingSuite: string;
@@ -55,6 +56,7 @@ function identityPin(overrides: Partial<IdentityPin> = {}): IdentityPin {
     firstSeenAt: BACKUP_FIRST_SEEN,
     formatVersion: 1,
     identityTrustDomain: TRUST_DOMAIN,
+    provenance: "observed",
     signingKeyFingerprint: "a".repeat(64),
     signingPublicKey: "signing-public-key-a",
     signingSuite: "ML-DSA-87",
@@ -76,6 +78,7 @@ async function createIdentityPinTable(execSql: ExecSql): Promise<void> {
       encapsulation_public_key TEXT NOT NULL,
       encapsulation_key_fingerprint TEXT NOT NULL,
       first_seen_at TEXT NOT NULL,
+      provenance TEXT NOT NULL,
       PRIMARY KEY (identity_trust_domain, user_id)
     )
   `);
@@ -96,8 +99,9 @@ async function insertIdentityPin(
        encapsulation_suite,
        encapsulation_public_key,
        encapsulation_key_fingerprint,
-       first_seen_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       first_seen_at,
+       provenance
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       pin.identityTrustDomain,
       pin.userId,
@@ -109,6 +113,7 @@ async function insertIdentityPin(
       pin.encapsulationPublicKey,
       pin.encapsulationKeyFingerprint,
       pin.firstSeenAt,
+      pin.provenance,
     ],
   );
 }
@@ -122,12 +127,17 @@ async function createPayload(execSql: ExecSql) {
   });
 }
 
-test("real backup restore preserves current first-seen time and imports backup-only pins", async () => {
+test("real backup restore preserves current first-seen time, raises provenance, and imports backup-only pins", async () => {
   const source = await createTestExecSql("backup-identity-merge-source");
   const target = await createTestExecSql("backup-identity-merge-target");
   try {
     await createIdentityPinTable(source.execSql);
-    await insertIdentityPin(source.execSql, identityPin());
+    // The backup's copy was confirmed by an identity link; the target only
+    // observed the same keys.
+    await insertIdentityPin(
+      source.execSql,
+      identityPin({ provenance: "link" }),
+    );
     await insertIdentityPin(
       source.execSql,
       identityPin({
@@ -157,14 +167,19 @@ test("real backup restore preserves current first-seen time and imports backup-o
 
     await expect(
       target.execSql(
-        `SELECT user_id, first_seen_at
+        `SELECT user_id, first_seen_at, provenance
          FROM trusted_user_identity_pins
          ORDER BY user_id`,
       ),
     ).resolves.toEqual([
-      { first_seen_at: CURRENT_FIRST_SEEN, user_id: CURRENT_USER_ID },
+      {
+        first_seen_at: CURRENT_FIRST_SEEN,
+        provenance: "link",
+        user_id: CURRENT_USER_ID,
+      },
       {
         first_seen_at: "2026-07-10T12:00:00.000Z",
+        provenance: "observed",
         user_id: BACKUP_ONLY_USER_ID,
       },
     ]);

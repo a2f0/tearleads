@@ -38,6 +38,7 @@ test("signed-out runtime reads and network notifications preserve local write cu
       createContainerContentsStoreWorkflowRuntime(
         runtime.workflowInput(),
         runtime.adoptRootContainer,
+        async () => undefined,
       );
     const initial = read();
     expect(didContainerWriteRuntimeChange(initial, read())).toBe(false);

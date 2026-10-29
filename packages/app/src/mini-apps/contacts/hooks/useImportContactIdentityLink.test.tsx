@@ -18,7 +18,7 @@ function inputs() {
     draft: "https://app.example.test/app/contacts/import/bob-link",
     identityScope: "alice",
     logError: mock((_message: string, _cause: unknown) => {}),
-    importKey: mock(async (_userId: string) => "bob-contact"),
+    importVerifiedUser: mock(async (_userId: string) => "bob-contact"),
     isImportReady: true,
     isSubmittingRef: { current: false },
     setIsSubmitting: mock((_busy: boolean) => {}),
@@ -36,14 +36,14 @@ test("contact onboarding verifies before writing and reports a mismatch without 
   const { result } = renderHook(() => useImportContactIdentityLink(input));
   await act(() => result.current.importContact());
   expect(result.current.error).toBe("Keys do not match the link.");
-  expect(input.importKey).not.toHaveBeenCalled();
+  expect(input.importVerifiedUser).not.toHaveBeenCalled();
   expect(input.onImported).not.toHaveBeenCalled();
   input.verifyLink.mockImplementation(async () => {
-    expect(input.importKey).not.toHaveBeenCalled();
+    expect(input.importVerifiedUser).not.toHaveBeenCalled();
     return identity;
   });
   await act(() => result.current.importContact());
-  expect(input.importKey).toHaveBeenCalledWith("bob");
+  expect(input.importVerifiedUser).toHaveBeenCalledWith("bob");
   expect(input.onImported).toHaveBeenCalledWith("bob-contact");
   expect(result.current.error).toBeNull();
 });
@@ -65,12 +65,12 @@ test("a contact link waits for sign-in and permits only one concurrent verificat
   });
   await act(() => result.current.importContact());
   expect(input.verifyLink).toHaveBeenCalledTimes(1);
-  expect(input.importKey).not.toHaveBeenCalled();
+  expect(input.importVerifiedUser).not.toHaveBeenCalled();
   await act(async () => {
     gate.resolve(identity);
     await pending;
   });
-  expect(input.importKey).toHaveBeenCalledTimes(1);
+  expect(input.importVerifiedUser).toHaveBeenCalledTimes(1);
 });
 
 test("identity switches and unmounts during verification prevent contact writes", async () => {
@@ -92,7 +92,7 @@ test("identity switches and unmounts during verification prevent contact writes"
       gate.resolve(identity);
       await pending;
     });
-    expect(input.importKey).not.toHaveBeenCalled();
+    expect(input.importVerifiedUser).not.toHaveBeenCalled();
     expect(input.onImported).not.toHaveBeenCalled();
     view.unmount();
   }
