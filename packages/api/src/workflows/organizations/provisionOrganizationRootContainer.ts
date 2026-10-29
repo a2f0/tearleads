@@ -3,6 +3,7 @@ import {
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
   type ContainerUserRecipientKey,
+  readKeyingCanonicalJson,
   type VerifiedAccessEvent,
   type VerifiedContainerAccessManifest,
   verifyContainerAccessManifest,
@@ -21,7 +22,6 @@ import {
   readProjectionString,
   readProjectionValue,
 } from "../../keyingProjectionRecords";
-import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
 import { isKekRecipientKind } from "../containers/mutations/shared/containerKekRecords";
 import { assertPrincipalPoliciesCurrent } from "../containers/mutations/shared/principalPolicies";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";

@@ -83,6 +83,16 @@ Some of that cost is deliberate:
   multi-file run, because suite setup can mask a missing scope when a file runs
   alone.
 
+- **Run the client SDK's files in two workers.** `bun test` otherwise runs a
+  package's files one after another in a single process. The SDK suite passes
+  `--parallel=2 --no-isolate`: each worker keeps one global across the files it
+  runs, as the serial run did, so CPU time stays the same while wall time
+  halves (528 s to 257 s locally, 3,996 tests either way). Plain `--parallel`
+  implies `--isolate` and cost about 2.4 times the CPU. The app suite fails
+  with the same flags: its request-count, runtime-idle, and autopilot tests
+  depend on which files ran before them in the same process, so it stays
+  serial until that shared state is found.
+
 ## Explaining flakes
 
 Widen a suspected race in an untracked probe copy (for example, delay the

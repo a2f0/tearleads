@@ -4,6 +4,7 @@ import {
   computeBlobContentKeyTargetHash,
   computeDocumentContentKeyTargetHash,
   normalizeDocumentAccessEventBody,
+  readKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
@@ -22,10 +23,7 @@ import {
 import { createLinkSetResponseFromRequest } from "../../../../test/helpers/documentFixtures";
 import { contentKeyTargetReference } from "../../../data/blobs/attachments/readers";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
-import {
-  readCanonicalJson,
-  readCanonicalRecord,
-} from "../../../data/keying/canonicalJson";
+import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { decryptDocumentAttachmentBlob } from "../../blobs/hydration/decrypt";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
@@ -112,7 +110,7 @@ test("a signed link carries attachment keys usable with only the destination KEK
   if (!result || !primed[0])
     throw new Error("Expected signed link and primed projection");
   const body = normalizeDocumentAccessEventBody(
-    readCanonicalJson(result.plan.request.body, "link body"),
+    readKeyingCanonicalJson(result.plan.request.body, "link body"),
   );
   const rewrap = body.blobRewraps[0];
   expect(body.blobRewraps).toHaveLength(1);

@@ -13,6 +13,7 @@ import {
   computeAccessManifestHash,
   computeContainerKekMaterialId,
   deriveContainerAccessManifest,
+  readKeyingCanonicalJson,
   signAccessEvent,
   type UnsignedAccessEvent,
 } from "@tearleads/crypto";
@@ -20,7 +21,6 @@ import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { readCanonicalJson } from "../../keying/canonicalJson";
 import { uniqueSortedManifestHashes } from "./projection";
 import type {
   ContainerCreatePlan,
@@ -66,7 +66,7 @@ export async function signContainerCreateEvent(input: {
   signedAt: string;
 }): Promise<Pick<ContainerCreatePlan, "event" | "eventHash">> {
   const bodyHash = await computeAccessEventBodyHash(
-    readCanonicalJson(input.body, "Container create body"),
+    readKeyingCanonicalJson(input.body, "Container create body"),
   );
   const unsignedEvent: UnsignedAccessEvent = {
     version: 1,
@@ -114,7 +114,7 @@ export async function signContainerMutationEvent(input: {
   >
 > {
   const bodyHash = await computeAccessEventBodyHash(
-    readCanonicalJson(input.body, "Container mutation body"),
+    readKeyingCanonicalJson(input.body, "Container mutation body"),
   );
   const unsignedEvent: UnsignedAccessEvent = {
     version: 1,

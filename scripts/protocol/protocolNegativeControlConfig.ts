@@ -1,7 +1,7 @@
 import type {
   ExpectedViolation,
   NegativeControl,
-} from "./protocolNegativeControls";
+} from "./protocolNegativeControlTypes";
 
 export interface ParsedConfig {
   readonly specification: string;

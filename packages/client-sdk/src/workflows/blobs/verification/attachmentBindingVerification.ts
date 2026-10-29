@@ -1,12 +1,10 @@
 import {
   KeyingVerificationError,
+  readKeyingCanonicalJson,
   verifyAttachmentBindingEvent,
 } from "@tearleads/crypto";
 import type { DecryptDocumentAttachmentBlobInput } from "../../../data/blobs/attachments/types";
-import {
-  readCanonicalJson,
-  readCanonicalRecord,
-} from "../../../data/keying/canonicalJson";
+import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import {
   type DocumentWriterProjectionAuthorization,
   type ProjectionUserKeyResolver,
@@ -72,7 +70,7 @@ export async function assertAttachmentBindingVerified(input: {
   const verified = await verifyAttachmentBindingEvent({
     authorizationMembership: "referenced",
     authorizingContainerPaths: dependencyContainerPaths,
-    body: readCanonicalJson(
+    body: readKeyingCanonicalJson(
       readRequiredRecordValue(
         eventBundle,
         "body",

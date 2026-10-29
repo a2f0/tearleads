@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 export const CONTAINER_INTEREST_NEGATIVE_CONTROLS: readonly NegativeControl[] =
   [

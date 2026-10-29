@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 export const SESSION_RETRY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {

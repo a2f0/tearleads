@@ -3,7 +3,10 @@ import type {
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import { organizationBilling, users } from "@tearleads/api-shared/schema";
-import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
+import {
+  readKeyingCanonicalJson,
+  serializeKeyingCanonicalJson,
+} from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import {
@@ -11,7 +14,6 @@ import {
   isCreateOrganizationResponse,
 } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
-import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
 import { sha256Hex } from "../../utils/sha256";
 import { lockRowForUpdate } from "../../utils/sqlDialect";
 import {

@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import {
   blobContentMetadataHash,
+  readKeyingCanonicalJson,
   verifyAttachmentBindingEvent,
   verifyWriteHeader,
 } from "@tearleads/crypto";
@@ -14,7 +15,6 @@ import {
   storeBlobContentKeyBundleInTransaction,
   storeBlobContentWriteHeader,
 } from "../../../access/write/blobContentKeyStore";
-import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
   type AttachmentAuthorizationProof,

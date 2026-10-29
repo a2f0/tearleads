@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 import {
+  readKeyingCanonicalJson,
   type VerifiedContainerAccessManifest,
   verifyContainerAccessManifest,
   verifySignedAccessEvent,
@@ -12,10 +13,7 @@ import {
   heldContainerSnapshot,
   rememberAcknowledgedContainerHead,
 } from "../../src/data/containers/shared/heldContainerHeads";
-import {
-  readCanonicalJson,
-  readCanonicalRecord,
-} from "../../src/data/keying/canonicalJson";
+import { readCanonicalRecord } from "../../src/data/keying/canonicalJson";
 import { verifyContainerWriterProjection } from "../../src/data/keyingProjectionVerification";
 import {
   readAccessEvent,
@@ -80,7 +78,7 @@ export async function createContainerReciteScenario(extraChildren = 0) {
   ): Promise<ContainerReciteResponse> => {
     requests.push(request);
     const event = await verifySignedAccessEvent({
-      body: readCanonicalJson(request.body, "Test recitation body"),
+      body: readKeyingCanonicalJson(request.body, "Test recitation body"),
       event: readAccessEvent(request.event, "Test recitation event"),
       signerPublicKey: parent.signingPublicKey,
     });

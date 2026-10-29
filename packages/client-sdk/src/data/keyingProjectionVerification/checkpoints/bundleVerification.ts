@@ -1,12 +1,12 @@
 import {
   KeyingVerificationError,
+  readKeyingCanonicalJson,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import type { AccessEventBundleWireResponse } from "@tearleads/validators/util";
 import {
   canonicalKeyingJsonString,
-  readCanonicalJson,
   readCanonicalRecord,
 } from "../../keying/canonicalJson";
 import { ProjectionDependencyUnavailableError } from "../dependencyUnavailable";
@@ -77,7 +77,7 @@ function readStandaloneEventBundle(
       readRequiredRecordValue(eventBundle, "event", `${label} event bundle`),
       `${label} signed event`,
     );
-    const body = readCanonicalJson(
+    const body = readKeyingCanonicalJson(
       readRequiredRecordValue(eventBundle, "body", `${label} event bundle`),
       `${label} event body`,
     );

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import {
+  readKeyingCanonicalJson,
   verifyContainerAccessManifest,
   verifyContainerKekState,
   verifySignedAccessEvent,
@@ -15,7 +16,6 @@ import {
   heldContainerSnapshot,
   rememberVerifiedContainerHeads,
 } from "../../../../data/containers/shared/heldContainerHeads";
-import { readCanonicalJson } from "../../../../data/keying/canonicalJson";
 import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification";
 import { recoverPrincipalPolicyHistory } from "../../../principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { buildMaterializedContainerSharePlan } from "./shareMaterialization";
@@ -108,7 +108,7 @@ test("a paged policy survives held-head cloning and signs a verifiable share pla
       },
     ]);
     const event = await verifySignedAccessEvent({
-      body: readCanonicalJson(plan.body, "Share body"),
+      body: readKeyingCanonicalJson(plan.body, "Share body"),
       event: plan.event,
       signerPublicKey: fixture.signingPublicKey,
     });

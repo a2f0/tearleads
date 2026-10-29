@@ -2,11 +2,8 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, normalize } from "node:path";
 import * as ts from "typescript";
 import { listProductionSourceFiles } from "./checkFactories";
-import {
-  registeredSubsystemSourcePaths,
-  type Subsystem,
-  subsystems,
-} from "./subsystems";
+import { registeredSubsystemSourcePaths, subsystems } from "./subsystems";
+import type { Subsystem } from "./subsystemTypes";
 
 export const subsystemSurfaceBaselinePath =
   "scripts/architecture/subsystemSurfaceBaseline.json";

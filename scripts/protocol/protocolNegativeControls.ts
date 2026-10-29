@@ -13,6 +13,7 @@ import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeC
 import { GROUP_GRANT_REVOCATION_NEGATIVE_CONTROLS } from "./protocolGroupGrantRevocationNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 import { NO_BRICK_NEGATIVE_CONTROLS } from "./protocolNoBrickNegativeControls";
 import { PURGE_SCOPE_NEGATIVE_CONTROLS } from "./protocolPurgeScopeNegativeControls";
 import { READ_MODEL_STAMP_NEGATIVE_CONTROLS } from "./protocolReadModelStampNegativeControls";
@@ -30,23 +31,6 @@ import { TOMBSTONE_NEGATIVE_CONTROLS } from "./protocolTombstoneNegativeControls
  * control disables a production guard and names the exact violation required
  * by checkProtocolNegativeControls.ts; positive runs check the intact rules.
  */
-
-export type ExpectedViolation =
-  | { readonly kind: "invariant"; readonly name: string }
-  | { readonly kind: "action"; readonly name: string }
-  | { readonly kind: "liveness"; readonly name: string };
-
-export interface NegativeControl {
-  readonly id: string;
-  /** Repository-relative module path. */
-  readonly module: string;
-  /** Repository-relative registered configuration the control derives from. */
-  readonly config: string;
-  /** Constant assignments that replace the registered values. */
-  readonly constants: Readonly<Record<string, string>>;
-  readonly expect: ExpectedViolation;
-  readonly why: string;
-}
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...ACKNOWLEDGEMENT_NEGATIVE_CONTROLS,

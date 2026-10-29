@@ -2,6 +2,7 @@ import {
   computeAccessEventBodyHash,
   type DocumentPurgeAccessEventBody,
   KeyingVerificationError,
+  readKeyingCanonicalJson,
   signAccessEvent,
   type UnsignedAccessEvent,
 } from "@tearleads/crypto";
@@ -24,10 +25,7 @@ import type {
   DocumentCreateAuthor,
   DocumentSyncApi,
 } from "../../../data/documents/shared/types";
-import {
-  readCanonicalJson,
-  readCanonicalRecord,
-} from "../../../data/keying/canonicalJson";
+import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
@@ -194,7 +192,7 @@ export async function buildDocumentPurgeRequest(input: {
     previousManifestHash: input.writerProjection.documentManifest.manifestHash,
     dependencyManifestHashes: authorizingContainerManifestHashes,
     bodyHash: await computeAccessEventBodyHash(
-      readCanonicalJson(body, "Document purge body"),
+      readKeyingCanonicalJson(body, "Document purge body"),
     ),
     signerUserId: input.author.signerUserId,
     signerDeviceId: input.author.signerDeviceId,

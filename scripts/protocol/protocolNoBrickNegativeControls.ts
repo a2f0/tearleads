@@ -1,4 +1,4 @@
-import type { NegativeControl } from "./protocolNegativeControls";
+import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const NO_BRICK_MODULE = "formal/container-keying/NoBrickedDevice.tla";
 const NO_BRICK_HONEST = "formal/container-keying/NoBrickedDevice.cfg";
