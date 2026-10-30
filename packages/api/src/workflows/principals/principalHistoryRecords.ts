@@ -10,7 +10,10 @@ import {
   serializeUnsignedPrincipalState,
   toFingerprint,
 } from "@tearleads/crypto";
-import { readPrincipalHistoryPage } from "../../access/read/principalHistoryProgress";
+import {
+  readPrincipalHistoryEntriesAtVersions,
+  readPrincipalHistoryPage,
+} from "../../access/read/principalHistoryProgress";
 import { canonicalJsonEquals } from "../../utils/canonicalJson";
 import { loadSignerPublicKey, type SignerCache } from "../signerPublicKey";
 import { PrincipalPolicyError, toPrincipalStateResponse } from "./shared";
@@ -39,6 +42,23 @@ export function principalHistoryError(
   );
 }
 
+type StoredHistoryEntry = Awaited<
+  ReturnType<typeof readPrincipalHistoryPage>
+>[number];
+
+function toPrincipalHistoryEntry(
+  entry: StoredHistoryEntry,
+): PrincipalPolicyStateChainEntry {
+  return {
+    state: toPrincipalStateResponse(entry.state),
+    projection: entry.projection.map(({ userId, role }) => ({ userId, role })),
+    grants: entry.grants.map(({ containerId, accessLevel }) => ({
+      containerId,
+      accessLevel,
+    })),
+  };
+}
+
 export async function readPrincipalHistoryEntry(
   executor: DatabaseSession,
   scope: Pick<ReferencedPrincipalHead, "principalType" | "principalId">,
@@ -52,14 +72,29 @@ export async function readPrincipalHistoryEntry(
   });
   if (!entry)
     throw principalHistoryError(kind, "principal history entry is missing");
-  return {
-    state: toPrincipalStateResponse(entry.state),
-    projection: entry.projection.map(({ userId, role }) => ({ userId, role })),
-    grants: entry.grants.map(({ containerId, accessLevel }) => ({
-      containerId,
-      accessLevel,
-    })),
-  };
+  return toPrincipalHistoryEntry(entry);
+}
+
+/**
+ * Read several entries of one principal by version in one set read. A missing
+ * version is absent from the map, so the caller raises it at its citation.
+ */
+export async function readPrincipalHistoryEntries(
+  executor: DatabaseSession,
+  scope: Pick<ReferencedPrincipalHead, "principalType" | "principalId">,
+  versions: readonly number[],
+): Promise<Map<number, PrincipalPolicyStateChainEntry>> {
+  const entries = await readPrincipalHistoryEntriesAtVersions(executor, {
+    principalType: scope.principalType,
+    principalId: scope.principalId,
+    versions,
+  });
+  return new Map(
+    entries.map((entry) => [
+      entry.state.version,
+      toPrincipalHistoryEntry(entry),
+    ]),
+  );
 }
 
 export async function principalHistorySigner(

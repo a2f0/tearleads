@@ -151,6 +151,7 @@ export async function runGetOrganizationBillingWorkflow(
     // is still in flight must not look ownerless and re-offer checkout.
     const persisted = await loadOrganizationBilling(tx, organizationId);
     const billing = applyBillingLapse(persisted, now);
+    let knownMemberGroupId: string | undefined;
     if (billing.status === "deleting" || billing.status === "purged") {
       const [retainedMember] = await tx
         .select({ id: organizationRosterEntries.id })
@@ -167,15 +168,17 @@ export async function runGetOrganizationBillingWorkflow(
         throw new OrganizationManagerError("Organization access denied", 403);
       }
     } else {
-      await requireDirectOrganizationAccess({
+      const access = await requireDirectOrganizationAccess({
         executor: tx,
         organizationId,
         userId: sessionUserId,
       });
+      knownMemberGroupId = access.organization.memberGroupId;
     }
     const activeMemberCount = await countActiveOrganizationMembers(
       tx,
       organizationId,
+      knownMemberGroupId,
     );
     const pendingSeatCount = await resolvePendingNativeSeatCount(
       tx,
@@ -288,10 +291,30 @@ async function resolvePendingNativeSeatCount(
   return resolution ? null : pendingTier.seatLimit;
 }
 
+/**
+ * `knownMemberGroupId` is the immutable id an access check in this
+ * transaction already read; without it the organization row is read here.
+ */
 async function countActiveOrganizationMembers(
   executor: DatabaseSession,
   organizationId: string,
+  knownMemberGroupId?: string,
 ): Promise<number> {
+  const memberGroupId =
+    knownMemberGroupId ??
+    (await readOrganizationMemberGroupId(executor, organizationId));
+  return (
+    await listUsersReachableFromCurrentGroup({
+      executor,
+      groupId: memberGroupId,
+    })
+  ).length;
+}
+
+async function readOrganizationMemberGroupId(
+  executor: DatabaseSession,
+  organizationId: string,
+): Promise<string> {
   const [organization] = await executor
     .select({ memberGroupId: organizations.memberGroupId })
     .from(organizations)
@@ -300,12 +323,7 @@ async function countActiveOrganizationMembers(
   if (!organization) {
     throw new OrganizationManagerError("Organization not found", 404);
   }
-  return (
-    await listUsersReachableFromCurrentGroup({
-      executor,
-      groupId: organization.memberGroupId,
-    })
-  ).length;
+  return organization.memberGroupId;
 }
 
 /**
