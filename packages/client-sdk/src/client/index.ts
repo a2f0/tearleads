@@ -120,9 +120,10 @@ export {
   IDENTITY_KEY_PACKAGE_FORMAT,
   type IdentityKeyPackage,
 } from "./identity/keyPackage";
-export type {
-  ResolvedUserIdentity,
-  UserIdentities,
+export {
+  type ResolvedUserIdentity,
+  UnverifiedUserIdentityError,
+  type UserIdentities,
 } from "./identity/userIdentities";
 export type {
   BrowserLocalKeyringOptions,
@@ -181,7 +182,6 @@ export type {
   AbandonOrganizationPolicyMutationInput,
   AddOrganizationGroupUserInput,
   DiscardUnreadableOrganizationPolicyMutationInput,
-  ImportedOrganizationUser,
   LocalOrganizationSummary,
   OrganizationBilling,
   OrganizationBillingHistory,

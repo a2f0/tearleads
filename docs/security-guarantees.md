@@ -48,9 +48,11 @@ and `userId`. The reverse signing-fingerprint-to-user binding is also unique
 within that trust domain and checked in the same durable transaction. A new
 session without restored acknowledgments cannot bind a known signing identity
 to a different user. Later substitutions hard-fail, and policy verification
-also checks the signing fingerprint in signed state. Resolution uses
-TOFU; independently exchanged identity links authenticate both keys before
-pinning. Neither mechanism proves global currentness.
+also checks the signing fingerprint in signed state. Verifying signed state
+pins a referenced user on first sight (`observed`); only an independently
+exchanged identity link (`link`) or the device's own keys (`self`) admit a user
+as a contact, roster or group member, or share recipient. Neither mechanism
+proves global currentness.
 
 ## Root And System Destinations
 
@@ -631,8 +633,8 @@ access manifest heads. Deleted containers retain their metadata-document
 reservation, and organization purge is terminal (the organization's mutations
 stay refused and a replacement receives a fresh organization id), so a
 checkpointed `(kind, organization, id)` is never recreated from version 1.
-User identity trust uses an exact durable full-bundle TOFU pin: any later
-change to either public key, fingerprint, suite, or format is rejected. Logout
+User identity trust uses an exact durable full-bundle pin: any later change to
+either public key, fingerprint, suite, or format is rejected. Logout
 and session recreation retain these pins. An intentional fresh-data environment
 reset must explicitly recreate the local trust store too; an authentication
 response cannot authorize clearing it.
@@ -657,17 +659,19 @@ still exercising the cold-start rollback limit above.
 
 ### First-Contact Identity-Key Substitution
 
-Signer lookups, Explorer sharing, Org Manager roster profile creation, and the
-SDK's `userIdentities.resolve` use TOFU, which cannot authenticate an unpinned
-stranger's keys.
+Signer lookups and other verification of users that signed state references
+pin on first sight (`observed`), which cannot authenticate a stranger's keys.
 
-Contacts, Roster, and group membership verify an independently exchanged
-[identity link](developer/trusted-user-identity.md#identity-links)
-before pinning or adding a user who has no pin. It binds the service, user ID,
-algorithms, and both keys. Adding a user who already has a pin reuses it, even
-a pin that TOFU established. Pin conflicts fail closed. Deliver links through
-an authenticated channel; they prove no revocation, freshness, or global
-consistency.
+Admitting a user requires an independently exchanged
+[identity link](developer/trusted-user-identity.md#identity-links) or the
+device's own keys: adding a contact or roster user, adding a group member,
+sharing a folder, and creating a roster profile. A link binds the service, user
+ID, algorithms, and both keys. Pins record their provenance, so an `observed`
+pin cannot stand in for a link; the SDK refuses group adds and user shares for
+such a target. Pin conflicts fail closed. Deliver links through an
+authenticated channel; they prove no revocation, freshness, or global
+consistency. An unencrypted backup can seed `link` provenance, so restoring one
+trusts the file's origin.
 
 ### Projection Rows Are Not A Security Boundary
 

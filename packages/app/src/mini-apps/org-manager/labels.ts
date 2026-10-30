@@ -170,6 +170,8 @@ export const ORG_MANAGER_LABELS = {
   failedLoadOrganizations: "Failed to load organizations.",
   failedLoadUserDetail: "Failed to load user detail.",
   failedCreateProfileDocument: "Failed to create profile document.",
+  profileNeedsIdentityLink:
+    "Verify this person's identity link to create their roster profile.",
   failedCreateOrganization: "Failed to create organization.",
   failedUpdateRosterEntry: "Failed to update roster entry.",
   firstName: "First name",

@@ -6,6 +6,7 @@ import type {
 import type { BlobStore } from "../../src/data/blobs/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { createDomainScope } from "../../src/data/shared/domainScope";
+import { UnverifiedUserIdentityError } from "../../src/data/trustedUserIdentity";
 import type { PrincipalMutationRecoveryApi } from "../../src/workflows/organizations/principalMutations/principalMutationJournalManagement";
 import { principalMutationApiFixture } from "./principalMutationApiFixture";
 
@@ -95,6 +96,10 @@ export function createInternalRuntimeFixture(
     adoptRootContainer: overrides.adoptRootContainer ?? (() => false),
     identityLinks: {
       resolvePinned: async () => null,
+      resolveVerified: async () => null,
+      requireVerified: async (userId) => {
+        throw new UnverifiedUserIdentityError(userId);
+      },
       createLink: async () => {
         throw new Error("Identity links are not configured in this fixture.");
       },

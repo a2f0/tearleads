@@ -60,7 +60,7 @@ for (const reconnect of ["before", "after", "database"] as const) {
       },
     };
     const store = createContactsStore(runtime, {
-      resolveUserIdentity: async () => {
+      resolveVerified: async () => {
         throw new Error("Unexpected remote key lookup");
       },
       logError: (message, cause) => {
@@ -164,7 +164,7 @@ test("offline self bootstrap retains synced duplicates without calling purge or 
     },
   };
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async () => {
+    resolveVerified: async () => {
       requests += 1;
       return null;
     },
@@ -257,7 +257,7 @@ test.each([false, true])(
       },
     };
     const store = createContactsStore(runtime, {
-      resolveUserIdentity: async () => null,
+      resolveVerified: async () => null,
       logError: (message) => {
         errors.push(String(message));
       },
@@ -370,7 +370,7 @@ test.each([false, true])(
       },
     };
     const store = createContactsStore(runtime, {
-      resolveUserIdentity: async () => null,
+      resolveVerified: async () => null,
       logError: () => {},
     });
     try {

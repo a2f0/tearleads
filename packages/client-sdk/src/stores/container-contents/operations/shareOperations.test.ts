@@ -255,6 +255,7 @@ test("a group share reports a signed-name mismatch as a security incident", asyn
               },
             },
             () => false,
+            async () => undefined,
           ),
           defaultContainerContentsPersistence,
         );

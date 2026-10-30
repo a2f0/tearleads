@@ -2,11 +2,7 @@ import { useEffect, useRef } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../providers/sdk/TearleadsProvider";
-import {
-  peerPaneLabel,
-  usePaneSide,
-  usePeerUserId,
-} from "../shell/pane/dual-pane";
+import { peerPaneLabel, usePaneSide } from "../shell/pane/dual-pane";
 import {
   ContactsProvider,
   useContacts,
@@ -25,10 +21,14 @@ import {
   isSupersededByPendingImport,
   planDemoPeerSeed,
 } from "./demoPeerSeed";
+import { useVerifiedPeerUserId } from "./useVerifiedPeerUserId";
 
 async function runDemoPeerSeedAction(
   action: DemoPeerSeedAction,
-  contacts: Pick<ReturnType<typeof useContacts>, "importKey" | "updateContact">,
+  contacts: Pick<
+    ReturnType<typeof useContacts>,
+    "importVerifiedUser" | "updateContact"
+  >,
 ): Promise<void> {
   if (action.kind === "set-nickname") {
     await contacts.updateContact(action.contactId, {
@@ -37,7 +37,7 @@ async function runDemoPeerSeedAction(
     return;
   }
 
-  const contactId = await contacts.importKey(action.userId);
+  const contactId = await contacts.importVerifiedUser(action.userId);
   if (contactId) {
     await contacts.updateContact(contactId, { nickname: action.nickname });
   }
@@ -50,13 +50,15 @@ async function runDemoPeerSeedAction(
 // while its earlier attempt is still resolving.
 function DemoPeerContactSeeder({
   enabled,
+  peerUserId,
 }: {
   readonly enabled: boolean;
+  readonly peerUserId: string | null;
 }): null {
   const side = usePaneSide();
-  const peerUserId = usePeerUserId();
   const { isAuthenticated } = useCryptoSession();
-  const { canWrite, entries, importKey, ready, updateContact } = useContacts();
+  const { canWrite, entries, importVerifiedUser, ready, updateContact } =
+    useContacts();
   const { logError } = useLog();
   const pendingActionsRef = useRef<Set<string>>(new Set());
 
@@ -83,7 +85,7 @@ function DemoPeerContactSeeder({
       }
 
       pendingActionsRef.current.add(key);
-      void runDemoPeerSeedAction(action, { importKey, updateContact })
+      void runDemoPeerSeedAction(action, { importVerifiedUser, updateContact })
         .catch((error: unknown) => {
           logError("Demo peer bootstrap: failed to seed contact.", error);
         })
@@ -95,7 +97,7 @@ function DemoPeerContactSeeder({
     canWrite,
     enabled,
     entries,
-    importKey,
+    importVerifiedUser,
     isAuthenticated,
     logError,
     peerUserId,
@@ -108,16 +110,14 @@ function DemoPeerContactSeeder({
 }
 
 // How many times to re-attempt the roster seed, and how long to wait between
-// attempts. The peer's user id is published over the client-side dual-pane
-// channel independently of the server-side user-identity registration, so
-// the first attempt can race ahead of the peer's key becoming queryable; a
-// bounded retry closes that gap without polling forever if the peer never
-// finishes registering.
+// attempts. The peer's verified identity can arrive before the roster
+// projection reflects the member-group write; a bounded retry closes that gap
+// without polling forever.
 const ROSTER_SEED_MAX_ATTEMPTS = 10;
 const ROSTER_SEED_RETRY_MS = 2000;
 
 // Headless seeder: once this pane is authenticated with its personal org and the
-// peer's user id is known, adds the peer to the pane's own member group so the
+// peer's identity link is verified, adds the peer to the pane's own member group so the
 // peer appears on the pane's roster and gives the peer's roster entry a friendly
 // nickname ("Peer 2"). Retries a bounded number of times while the preconditions
 // (directory, member list, peer key, roster sync) settle. Idempotent by
@@ -126,11 +126,12 @@ const ROSTER_SEED_RETRY_MS = 2000;
 // superseded effect run so only the latest retry loop stays live.
 function DemoPeerRosterSeeder({
   enabled,
+  peerUserId,
 }: {
   readonly enabled: boolean;
+  readonly peerUserId: string | null;
 }): null {
   const side = usePaneSide();
-  const peerUserId = usePeerUserId();
   const runtime = useTearleadsRuntime();
   const orgManagerActions = useOrgManagerActions();
   const { logError } = useLog();
@@ -242,13 +243,15 @@ export function DemoPeerBootstrap({
 }: {
   readonly enabled?: boolean | undefined;
 }) {
+  // The peer is admitted only through its verified identity link.
+  const peerUserId = useVerifiedPeerUserId(enabled);
   return (
     <>
       <ContactsProvider>
-        <DemoPeerContactSeeder enabled={enabled} />
+        <DemoPeerContactSeeder enabled={enabled} peerUserId={peerUserId} />
       </ContactsProvider>
       <OrgManagerProvider>
-        <DemoPeerRosterSeeder enabled={enabled} />
+        <DemoPeerRosterSeeder enabled={enabled} peerUserId={peerUserId} />
       </OrgManagerProvider>
     </>
   );

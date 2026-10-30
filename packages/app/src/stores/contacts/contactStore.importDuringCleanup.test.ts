@@ -53,7 +53,7 @@ test("importing a self key during purge retains the surviving unnamed contact", 
     },
   };
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async () => ({
+    resolveVerified: async () => ({
       userId: "self-user",
       encapsulationPublicKey: "self-key",
       encapsulationKeyFingerprint: "self-kem-fingerprint",
@@ -66,7 +66,7 @@ test("importing a self key during purge retains the surviving unnamed contact", 
     store.updateRuntime(runtime);
     await started.promise;
     let imported: string | null | undefined;
-    const importing = store.importKey("self-user").then((id) => {
+    const importing = store.importVerifiedUser("self-user").then((id) => {
       imported = id;
     });
     await waitForCondition(

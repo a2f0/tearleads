@@ -5,7 +5,7 @@ interface ContactIdentityLinkImport {
   draft: string;
   identityScope: string;
   logError: (message: string, cause: unknown) => void;
-  importKey: (userId: string) => Promise<string | null>;
+  importVerifiedUser: (userId: string) => Promise<string | null>;
   isImportReady: boolean;
   isSubmittingRef: { current: boolean };
   setIsSubmitting: (value: boolean) => void;
@@ -42,7 +42,7 @@ export function useImportContactIdentityLink(input: ContactIdentityLinkImport) {
       return;
     const active = () =>
       live.current?.identityScope === input.identityScope &&
-      live.current.importKey === input.importKey &&
+      live.current.importVerifiedUser === input.importVerifiedUser &&
       live.current.isImportReady;
     input.isSubmittingRef.current = true;
     input.setIsSubmitting(true);
@@ -50,7 +50,7 @@ export function useImportContactIdentityLink(input: ContactIdentityLinkImport) {
     try {
       const identity = await input.verifyLink(input.draft);
       if (!active()) return;
-      const contactId = await input.importKey(identity.userId);
+      const contactId = await input.importVerifiedUser(identity.userId);
       if (!active()) return;
       if (!contactId)
         throw new Error(
@@ -75,7 +75,7 @@ export function useImportContactIdentityLink(input: ContactIdentityLinkImport) {
     input.draft,
     input.identityScope,
     input.logError,
-    input.importKey,
+    input.importVerifiedUser,
     input.isImportReady,
     input.isSubmittingRef,
     input.onImported,

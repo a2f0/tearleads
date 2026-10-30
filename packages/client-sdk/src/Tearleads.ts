@@ -156,9 +156,6 @@ export class Tearleads {
       getOrganizationId: () => this.session.organizationId,
       reportSecurityIncident: security.report,
       identityLinks: runtime.identityLinks,
-      log: this.log,
-      resolveTrustedUserIdentity: (userId) =>
-        runtime.workflowInput().resolveTrustedUserIdentity(userId),
     });
 
     this.configureApiClientCallbacks();

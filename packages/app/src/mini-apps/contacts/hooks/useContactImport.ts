@@ -11,13 +11,14 @@ import type { useLog } from "../../../providers/logging/LogProvider";
 import type { useContacts } from "../../../stores/contacts/ContactsProvider";
 import { useMiniAppMessage } from "../../bus";
 
-// Roster messages reuse any durable pin, including pins established by TOFU.
-// Directory rows alone grant no trust; unpinned users need the link form.
+// Roster messages import only users whose identity a verified identity link (or
+// this device's own keys) established. A pin observed on first sight is not
+// enough, and directory rows grant no trust: anyone else needs the link form.
 export function useImportContactByUserId(input: {
   identityScope: string;
-  importKey: ReturnType<typeof useContacts>["importKey"];
-  resolvePinned: UserIdentities["resolvePinned"];
-  onUnpinnedIdentity: () => void;
+  importVerifiedUser: ReturnType<typeof useContacts>["importVerifiedUser"];
+  resolveVerified: UserIdentities["resolveVerified"];
+  onUnverifiedIdentity: () => void;
   isImportReady: boolean;
   isSubmittingRef: { current: boolean };
   logError: ReturnType<typeof useLog>["logError"];
@@ -26,9 +27,9 @@ export function useImportContactByUserId(input: {
 }) {
   const {
     identityScope,
-    importKey,
-    resolvePinned,
-    onUnpinnedIdentity,
+    importVerifiedUser,
+    resolveVerified,
+    onUnverifiedIdentity,
     isImportReady,
     isSubmittingRef,
     logError,
@@ -57,18 +58,18 @@ export function useImportContactByUserId(input: {
       isSubmittingRef.current = true;
       setIsSubmitting(true);
       try {
-        const pinned = await resolvePinned(trimmedUserId);
+        const verified = await resolveVerified(trimmedUserId);
         if (
           live.current?.identityScope !== identityScope ||
-          live.current.importKey !== importKey ||
+          live.current.importVerifiedUser !== importVerifiedUser ||
           !live.current.isImportReady
         )
           return null;
-        if (!pinned) {
-          onUnpinnedIdentity();
+        if (!verified) {
+          onUnverifiedIdentity();
           return null;
         }
-        const contactId = await importKey(trimmedUserId);
+        const contactId = await importVerifiedUser(trimmedUserId);
         if (contactId) {
           setSelectedContactId(contactId);
         }
@@ -82,10 +83,10 @@ export function useImportContactByUserId(input: {
       }
     },
     [
-      importKey,
+      importVerifiedUser,
       identityScope,
-      resolvePinned,
-      onUnpinnedIdentity,
+      resolveVerified,
+      onUnverifiedIdentity,
       isImportReady,
       isSubmittingRef,
       logError,

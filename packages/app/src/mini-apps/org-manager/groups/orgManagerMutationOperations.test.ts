@@ -46,7 +46,6 @@ function createActions(
 
   return {
     addUserToGroup: unusedAsync,
-    importUserById: unusedAsync,
     loadGroupMembers: unusedAsync,
     ...overrides,
   };
@@ -90,17 +89,15 @@ test("group mutation refresh reloads details through the local coordinator", asy
 test("roster import does not write after its organization changes during lookup", async () => {
   let active = true;
   const isOperationActive = () => active;
-  const imported = deferred<{ userId: string } | null>();
+  const members = deferred<typeof MEMBERS | null>();
   const addUserToGroup = mock(async () => undefined as never);
   const actions = createActions({
     addUserToGroup,
-    importUserById: mock(() => imported.promise),
-    loadGroupMembers: mock(async () => MEMBERS),
+    loadGroupMembers: mock(() => members.promise),
   });
   const { observed, setError } = createErrorSetter();
 
   const resultPromise = prepareRosterImport({
-    directory: DIRECTORY,
     isOperationActive,
     memberGroupId: MEMBERS.groupId,
     operationOrganizationId: DIRECTORY.organizationId,
@@ -109,7 +106,7 @@ test("roster import does not write after its organization changes during lookup"
     targetUserId: TARGET_USER.userId,
   });
   active = false;
-  imported.resolve(TARGET_USER);
+  members.resolve(MEMBERS);
 
   expect(await resultPromise).toBeNull();
   expect(addUserToGroup).not.toHaveBeenCalled();
@@ -125,12 +122,10 @@ test("roster import reports no result when the organization changes during its m
   });
   const actions = createActions({
     addUserToGroup,
-    importUserById: mock(async () => TARGET_USER),
     loadGroupMembers: mock(async () => MEMBERS),
   });
 
   const result = await prepareRosterImport({
-    directory: DIRECTORY,
     isOperationActive,
     memberGroupId: MEMBERS.groupId,
     operationOrganizationId: DIRECTORY.organizationId,
@@ -148,33 +143,6 @@ test("roster import reports no result when the organization changes during its m
   expect(result).toBeNull();
 });
 
-test("adding a roster user stops before the write when an import resolves in a stale organization", async () => {
-  let active = true;
-  const isOperationActive = () => active;
-  const imported = deferred<{ userId: string } | null>();
-  const addUserToGroup = mock(async () => undefined as never);
-  const actions = createActions({
-    addUserToGroup,
-    importUserById: mock(() => imported.promise),
-  });
-
-  const resultPromise = addRosterUserToGroup({
-    directoryUser: undefined,
-    groupId: "custom-group",
-    groupName: "Operators",
-    isOperationActive,
-    operationOrganizationId: DIRECTORY.organizationId,
-    orgManagerActions: actions,
-    setError: createErrorSetter().setError,
-    targetUserId: TARGET_USER.userId,
-  });
-  active = false;
-  imported.resolve(TARGET_USER);
-
-  expect(await resultPromise).toBeNull();
-  expect(addUserToGroup).not.toHaveBeenCalled();
-});
-
 test("adding a roster user reports a stale result when the organization changes during the write", async () => {
   let active = true;
   const isOperationActive = () => active;
@@ -182,19 +150,14 @@ test("adding a roster user reports a stale result when the organization changes 
     active = false;
     return undefined as never;
   });
-  const actions = createActions({
-    addUserToGroup,
-    importUserById: mock(async () => TARGET_USER),
-  });
+  const actions = createActions({ addUserToGroup });
 
   const result = await addRosterUserToGroup({
-    directoryUser: undefined,
     groupId: "custom-group",
     groupName: "Operators",
     isOperationActive,
     operationOrganizationId: DIRECTORY.organizationId,
     orgManagerActions: actions,
-    setError: createErrorSetter().setError,
     targetUserId: TARGET_USER.userId,
   });
 
@@ -216,13 +179,11 @@ test.each(["admins", "custom-group"])(
     const actions = createActions({ addUserToGroup });
     await expect(
       addRosterUserToGroup({
-        directoryUser: { ...TARGET_USER } as never,
         groupId,
         groupName: "Target group",
         isOperationActive: () => true,
         operationOrganizationId: DIRECTORY.organizationId,
         orgManagerActions: actions,
-        setError: createErrorSetter().setError,
         targetUserId: TARGET_USER.userId,
       }),
     ).rejects.toThrow("policy write failed");

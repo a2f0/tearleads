@@ -234,14 +234,21 @@ function createContainerSharingMethods(
         state,
         syncAgent,
         false,
-        (isCurrent) =>
-          shareContainerWithUser(
+        async (isCurrent) => {
+          // Sharing admits the recipient, so a pin observed on first sight is
+          // not enough: a verified identity link (or this device's keys) must
+          // have established it. The check runs inside the write scope, which
+          // must still be current once it returns.
+          await state.runtime.requireVerifiedRecipient(userId);
+          if (!isCurrent()) return false;
+          return shareContainerWithUser(
             state,
             syncAgent,
             containerId,
             userId,
             isCurrent,
-          ),
+          );
+        },
         containerId,
         { preserveResultOnLocalWrite: true },
       ),

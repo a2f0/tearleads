@@ -78,6 +78,7 @@ test("standalone runtime inputs carry private history custody through every publ
     const store = createContainerContentsStoreWorkflowRuntime(
       { ...host, withPrincipalHistoryProtection: lease },
       () => false,
+      async () => undefined,
     );
     const runtimes = [
       documents,

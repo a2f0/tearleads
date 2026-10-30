@@ -38,6 +38,7 @@ import type { ExplorerAttributionProfileHydrationRequester } from "./hooks/explo
 import { useExplorerDocumentDownload } from "./hooks/useExplorerDocumentDownload";
 import { useExplorerModel } from "./hooks/useExplorerModel";
 import { useExplorerOrganizationPresentation } from "./hooks/useExplorerOrganizationPresentation";
+import { usePeerShareAdmission } from "./hooks/usePeerShareAdmission";
 import { EXPLORER_LABELS } from "./labels";
 import { ExplorerModalLayer } from "./modal/view";
 import { ExplorerPurgeProgressModal } from "./purge-progress/ExplorerPurgeProgressModal";
@@ -244,7 +245,7 @@ function ExplorerContent() {
   // own Back stack, in the routed shell it is browser history.
   const { canGoBack: historyCanGoBack } = useMiniAppRouteSegments("explorer");
   const hostConfig = useAppHostConfig();
-  const explorer = useExplorer();
+  const explorer = usePeerShareAdmission(useExplorer());
   const { setSidebar } = useWindowSidebar();
   const peerUserId = usePeerUserId();
   // Surface a failed SQLite boot (e.g. an offline reload where the worker/wasm

@@ -61,7 +61,7 @@ async function createContactsRuntime(): Promise<
 test("contacts store binds, reads back, and removes a contact avatar", async () => {
   const runtime = await createContactsRuntime();
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: () => Promise.resolve(null),
+    resolveVerified: () => Promise.resolve(null),
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },

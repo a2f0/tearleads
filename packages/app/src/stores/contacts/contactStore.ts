@@ -47,6 +47,7 @@ import type {
   ContactsStoreState,
 } from "./contactStoreTypes";
 import {
+  captureContactsScope,
   contactsRuntimeWritable,
   queueContactWrite,
 } from "./contactStoreWriteQueue";
@@ -250,24 +251,23 @@ async function updateContactFromRuntime(
   );
 }
 
-async function importKeyFromRuntime(
+async function importUserFromRuntime(
   state: ContactsStoreState,
   userId: string,
 ): Promise<string | null> {
-  const userIdentity = await state.dependencies.resolveUserIdentity(userId);
-  if (!userIdentity) {
-    return null;
-  }
-
-  if (!(await contactsRuntimeWritable(state))) {
-    return null;
-  }
+  // Verify in, and later write to, this store's own database.
+  const stillScoped = captureContactsScope(state);
+  const scope = state.runtime.documents.state.domainScope;
+  const userIdentity = await state.dependencies.resolveVerified(userId, scope);
+  if (!userIdentity || !stillScoped()) return null;
+  if (!(await contactsRuntimeWritable(state)) || !stillScoped()) return null;
 
   const isSelf = userIdentity.userId === state.runtime.documents.auth.userId;
   const contactId = await queueContactWrite(
     state,
     "Contacts: failed to import user key.",
     async () => {
+      if (!stillScoped()) return null;
       const containerId = state.runtime.documents.state.containerId;
       if (!containerId) return null;
       // Scope imports to their address book while retaining create idempotency
@@ -460,7 +460,7 @@ export function createContactsStore(
     createContact: (patch) => createContactFromRuntime(state, patch),
     ensureSelfContact: (input) => ensureSelfContactFromRuntime(state, input),
     getSnapshot: () => state.snapshot,
-    importKey: (userId) => importKeyFromRuntime(state, userId),
+    importVerifiedUser: (userId) => importUserFromRuntime(state, userId),
     removeContact: (contactId) => removeContactFromRuntime(state, contactId),
     removeContactAvatar: (contactId) =>
       removeContactAvatarInStore(state, contactId),

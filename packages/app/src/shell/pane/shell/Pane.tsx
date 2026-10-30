@@ -23,7 +23,7 @@ import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFea
 import { ThemeToggleButton } from "../../../theme/ThemeToggleButton";
 import { AppRoutedPane } from "../../layout/routed/AppRoutedPane";
 import { TestSystemBanner } from "../../layout/TestSystemBanner";
-import { useRegisterUserId } from "../dual-pane";
+import { usePublishIdentityLink, useRegisterUserId } from "../dual-pane";
 import { PaneFooter } from "../footer/PaneFooter";
 import { SyncStatusIndicator } from "../footer/sync-status/SyncStatusIndicator";
 import "./Pane.css";
@@ -38,6 +38,7 @@ function PaneInner({
 }) {
   const { userId } = useCryptoSession();
   useRegisterUserId(userId);
+  usePublishIdentityLink();
   const { windows } = useWindowStateData();
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
 

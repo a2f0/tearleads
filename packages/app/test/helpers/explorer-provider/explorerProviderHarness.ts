@@ -490,5 +490,8 @@ export async function createSqlRuntime(): Promise<TestRuntime> {
     ...runtime,
     adoptRootContainer: () => false,
     close: runtimeBase.close,
+    // Share recipients here stand for link-verified users; the SDK's own
+    // tests cover the refusal of unverified ones.
+    requireVerifiedRecipient: async () => undefined,
   };
 }

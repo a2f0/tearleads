@@ -74,7 +74,11 @@ export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
 export interface InternalRuntime {
   identityLinks: Pick<
     TrustedUserIdentityService,
-    "createLink" | "verifyLink" | "resolvePinned"
+    | "createLink"
+    | "verifyLink"
+    | "resolvePinned"
+    | "resolveVerified"
+    | "requireVerified"
   >;
   retirePrincipalHistoryProtection(): void;
   readonly sessionGeneration: number;

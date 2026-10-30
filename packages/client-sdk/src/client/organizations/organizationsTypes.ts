@@ -7,7 +7,6 @@ import type {
   createOrganizationGroup,
   createStripeCheckout,
   createStripeCheckoutSession,
-  importOrganizationUser,
   LocalOrganizationSummary,
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
@@ -56,7 +55,6 @@ export interface Organizations {
   deleteGroup: (
     groupId: string,
   ) => ReturnType<typeof deleteGroupForOrganization>;
-  importUserById: (userId: string) => ReturnType<typeof importOrganizationUser>;
   loadBilling: () => ReturnType<typeof loadOrganizationBilling>;
   /** Billing for an organization the session is not currently switched to. */
   loadBillingForOrganization: (

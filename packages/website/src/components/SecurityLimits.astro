@@ -12,7 +12,7 @@ import SectionHeader from "./SectionHeader.astro";
 const limits = [
   {
     term: "First contact establishes trust",
-    body: "Each device pins the first identity bundle it accepts and rejects later changes. Adding someone to Contacts, the roster, or a group with their identity link checks their keys against the link before that first pin, so send links through a channel you already trust. Other first lookups, such as sharing a folder with a user or checking a signer, trust the service's answer, and a server that substitutes a key there can still establish a false identity. A link does not prove that a key is still current.",
+    body: "Each device pins the first identity bundle it accepts and rejects later changes. Adding someone to Contacts, the roster, or a group, or sharing a folder with them, requires their identity link, whose keys are checked before anything is added, so send links through a channel you already trust. Checking a signer still trusts the service's first answer, and a server that substitutes a key there can show a false signer, though that key cannot be used to add anyone. A link does not prove that a key is still current.",
   },
   {
     term: "Checkpoints cover what a device has seen",

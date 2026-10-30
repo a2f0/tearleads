@@ -16,6 +16,24 @@ import {
 } from "../trustedUserIdentity/types";
 import { runTrustedUserIdentityPinTransaction } from "./trustedUserIdentityPinTransaction";
 
+/**
+ * How this device came to trust a pin. `self` is the user's own local keys,
+ * `link` an independently exchanged identity link, and `observed` the first
+ * server answer for a user already referenced by signed state. Only `self` and
+ * `link` admit a user; provenance only ever rises, and never changes the keys.
+ */
+export type TrustedUserIdentityPinProvenance = "self" | "link" | "observed";
+
+const provenanceRank: Readonly<
+  Record<TrustedUserIdentityPinProvenance, number>
+> = { observed: 0, link: 1, self: 2 };
+
+function isTrustedUserIdentityPinProvenance(
+  value: unknown,
+): value is TrustedUserIdentityPinProvenance {
+  return value === "self" || value === "link" || value === "observed";
+}
+
 export interface TrustedUserIdentityPin {
   readonly identityTrustDomain: string;
   readonly userId: string;
@@ -27,6 +45,7 @@ export interface TrustedUserIdentityPin {
   readonly encapsulationPublicKey: string;
   readonly encapsulationKeyFingerprint: string;
   readonly firstSeenAt: string;
+  readonly provenance: TrustedUserIdentityPinProvenance;
 }
 
 type ComparedPinField =
@@ -192,6 +211,9 @@ function validationFailure(value: unknown): string | null {
   ) {
     return "firstSeenAt must be a valid timestamp";
   }
+  if (!isTrustedUserIdentityPinProvenance(Reflect.get(value, "provenance"))) {
+    return "provenance must be self, link, or observed";
+  }
   return null;
 }
 
@@ -212,6 +234,14 @@ function validatedFormatVersion(value: object): number {
     throw new TypeError("Validated pin formatVersion is not a number");
   }
   return formatVersion;
+}
+
+function validatedProvenance(value: object): TrustedUserIdentityPinProvenance {
+  const provenance = Reflect.get(value, "provenance");
+  if (!isTrustedUserIdentityPinProvenance(provenance)) {
+    throw new TypeError("Validated pin provenance is not a provenance");
+  }
+  return provenance;
 }
 
 function assertCandidatePin(pin: TrustedUserIdentityPin): void {
@@ -252,6 +282,7 @@ function parseStoredPin(
       "encapsulationKeyFingerprint",
     ),
     firstSeenAt: validatedStringField(value, "firstSeenAt"),
+    provenance: validatedProvenance(value),
   };
   if (
     pin.identityTrustDomain !== scope.identityTrustDomain ||
@@ -341,12 +372,14 @@ export async function loadTrustedUserIdForSigningKey(input: {
 }
 
 /**
- * Atomically establishes or verifies a trust-on-first-use identity pin.
+ * Atomically establishes or verifies a durable identity pin.
  *
  * The immediate transaction serializes first contact across SDK instances that
  * share the SQLite database. Conflict handling never replaces the existing
- * row: the winning pin is re-read and every identity field is compared before
- * this function returns.
+ * keys: the winning pin is re-read and every identity field is compared before
+ * this function returns. When the keys match and the candidate's provenance
+ * ranks higher (an identity link confirming an observed pin), only the
+ * provenance is raised; it is never lowered.
  */
 export async function compareOrInsertTrustedUserIdentityPin(input: {
   readonly execSql: ExecSql;
@@ -415,7 +448,26 @@ export async function compareOrInsertTrustedUserIdentityPin(input: {
             differingFields,
           );
         }
-        return stored;
+        if (
+          provenanceRank[input.pin.provenance] <=
+          provenanceRank[stored.provenance]
+        ) {
+          return stored;
+        }
+        await tx
+          .update(trustedUserIdentityPins)
+          .set({ provenance: input.pin.provenance })
+          .where(
+            and(
+              eq(
+                trustedUserIdentityPins.identityTrustDomain,
+                input.pin.identityTrustDomain,
+              ),
+              eq(trustedUserIdentityPins.userId, input.pin.userId),
+            ),
+          )
+          .run();
+        return { ...stored, provenance: input.pin.provenance };
       },
       { behavior: "immediate" },
     );

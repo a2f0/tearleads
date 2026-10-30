@@ -88,7 +88,7 @@ Client capabilities:
 | `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, exact-head history from verified policy storage, server-authoritative billing eligibility, and the user's own memberships with per-organization sync pauses (`memberships`; see [organization memberships](../organization-memberships.md)) |
 | `tearleads.root` | platform-operator identity and organization lookups (paged directories and rosters, sessions, billing with the latest 50 billing events, data usage), the ops-health report, RevenueCat webhook deliveries, the root audit trail, and identity suspension, offered only when the session is root |
-| `tearleads.userIdentities` | TOFU `resolve`; `resolvePinned`; identity-link `createLink` / `verifyLink` |
+| `tearleads.userIdentities` | identity-link `createLink` / `verifyLink`; `resolveVerified` (link- or self-established pins only); the only way to admit a user |
 | `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
 Prefer instance services so document and container stores share the active
