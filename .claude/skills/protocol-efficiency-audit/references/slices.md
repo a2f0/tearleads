@@ -84,12 +84,12 @@ carries the last sync failure, #2539), `document_history_checkpoints`,
 `document_orphan_blob_reclaims`.
 
 - One small file costs create, stage (which returns the first parts' upload
-  sources), the part upload, bind (which completes the stage), and three sync
-  posts before policy reads (#2534). Trace each sync post (pre-attachment
-  probe, post-bind follow-up, content). Which could be one request while
-  keeping the signed write header, the staged SHA-256 check, and
-  lost-response adoption? A stage created by its bytes was declined: production
-  uploads go to R2 through presigned URLs, not through the API.
+  sources), the part upload, bind (which completes the stage), one content
+  sync, and three policy reads: 8 requests at 6f3193489 (#2697). Could bind
+  carry the first content update while keeping the signed write header, the
+  staged SHA-256 check, and lost-response adoption? A stage created by its
+  bytes was declined: production uploads go to R2 through presigned URLs,
+  not through the API.
 - Writer projections carry each manifest bundle once and omit bundles the
   client cites in `x-known-manifests` (#2535). List what still travels on
   every read and which call site consumes it: policy evidence, the KEK
@@ -125,8 +125,9 @@ name and icon since #2539).
   Every artifact is signed and self-verifying: what could a hint carry (the
   signed event, the manifest head, update ids) so the client verifies and
   applies it without HTTP? Answer the constraints that retired A1 to A3 in
-  the closeout: replay authorization, atomic durability, retention,
-  acknowledgement, and ordered local application. Measure requests per hint
+  the closeout (now `docs/request-budgets.md#design-decisions`): replay
+  authorization, atomic durability, retention, acknowledgement, and ordered
+  local application. Measure requests per hint
   today with the sharing canary.
 - Reconnect clears projection caches and runs a full reconciliation. Count
   its requests for the fixture tree and for a fifty-container tree; could one
@@ -229,9 +230,9 @@ group-membership head tables in #2532),
 
 ## `bootstrap-and-session`
 
-- Personal bootstrap measures 37 requests after #2529 and #2531, against 25
-  in the September closeout. Attribute the rest per endpoint and name the
-  mechanism that adds each class of request.
+- Personal bootstrap measures 31 requests at 6f3193489 (93 at #2522), with 7
+  document syncs, 6 policy reads, and 4 writer projections. Attribute each
+  class per endpoint and per pane, and name the mechanism that adds it.
 - Registration commits in one transaction, and provisioning primes the
   discovery heads and policy stages the client just signed (#2531). What does
   the client still fetch that the registration response could have returned?

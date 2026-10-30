@@ -21,6 +21,15 @@ launch the remaining queue just because time remains.
 - `full` mode may run up to three auditors concurrently, because slices are
   read-only and independent. Verification stays sequential, and concurrent
   auditors never share a scratch directory or a scratch database.
+- In `full` mode, after every slice's first pass, run one follow-up
+  auditor per slice with unchecked paths, briefed with those paths and the
+  coordinator's measurements. Without it every slice stays partial; the
+  follow-up pass on 2026-10-30 found more than some first passes.
+- Launch auditors as foreground Agent calls, up to three in one message.
+  In a headless `claude -p` run, background subagents and shell tasks stop
+  shortly after the coordinator's turn ends, leaving their slices partial.
+  Do not end a turn while an auditor or command this batch launched is
+  still running; the stop rules below still decide how many batches run.
 - A resumed batch reuses baseline notes, captures, and the snapshot.
 - Independently verify at most two proposals per batch, with at most one
   new probe and one harness-repair attempt per proposal. An inconclusive
