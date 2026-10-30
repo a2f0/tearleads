@@ -216,6 +216,8 @@ function toReadableContainerAccessResult(
 export async function resolveReadableContainerAccessBatch(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerIds: readonly string[];
+  /** Policies this request already verified, reused instead of reloaded. */
+  readonly evidence?: readonly PrincipalPolicyAuthorization[];
   readonly executor: DatabaseSession;
   readonly userId: string;
 }): Promise<Map<string, ReadableContainerAccessResult>> {
@@ -225,6 +227,7 @@ export async function resolveReadableContainerAccessBatch(input: {
     minimumAccessLevel: "read",
     userId: input.userId,
     ...(input.context ? { context: input.context } : {}),
+    ...(input.evidence ? { evidence: input.evidence } : {}),
   });
 
   return new Map(
@@ -248,23 +251,26 @@ export async function resolveReadableDocumentAccess(input: {
     throw new KeyingReadAccessError("Document manifest mismatch", 409);
   }
 
+  // One batch resolves every linked container; reading its results in link
+  // order keeps the first refusal other than 403 the one that is raised.
+  const accessResults = await resolveReadableContainerAccessBatch({
+    containerIds: linkSet.state.linkedContainerIds,
+    context,
+    executor: input.executor,
+    userId: input.userId,
+  });
   const accessPaths: ContainerAccessProjection[] = [];
-
   for (const containerId of linkSet.state.linkedContainerIds) {
-    try {
-      accessPaths.push(
-        await resolveReadableContainerAccess({
-          containerId,
-          context,
-          executor: input.executor,
-          userId: input.userId,
-        }),
-      );
-    } catch (error) {
-      if (error instanceof KeyingReadAccessError && error.status === 403) {
-        continue;
-      }
-      throw error;
+    const result = accessResults.get(containerId);
+    if (!result) {
+      throw new Error("Readable container access batch omitted a container");
+    }
+    if (result.status === "fulfilled") {
+      accessPaths.push(result.value);
+      continue;
+    }
+    if (result.reason.status !== 403) {
+      throw result.reason;
     }
   }
 

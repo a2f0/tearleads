@@ -30,7 +30,7 @@ function principalIdentityKey(input: {
   return `${input.principalType}:${input.principalId}`;
 }
 
-function collectReferencedPrincipalHeads(
+export function collectReferencedPrincipalHeads(
   paths: readonly (readonly VerifiedContainerAccessManifest[])[],
 ): ReferencedPrincipalHead[] {
   const headsByReference = new Map<string, ReferencedPrincipalHead>();
@@ -122,7 +122,7 @@ export async function loadPrincipalAuthorizationPoliciesForContainerPaths(
   );
 }
 
-async function loadPrincipalPoliciesForReferences(
+export async function loadPrincipalPoliciesForReferences(
   executor: DatabaseSession,
   references: readonly ReferencedPrincipalHead[],
 ): Promise<PrincipalPolicyAuthorization[]> {
