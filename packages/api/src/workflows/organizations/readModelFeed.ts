@@ -11,8 +11,9 @@ import type {
   OrganizationReadModelOrganizationPolicyResponse,
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
-import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
+import type { StoredPrincipalState } from "../../access/read/principalStateStore";
 import {
+  type OrganizationGroupIds,
   requireDirectOrganizationAccess,
   requireOrganizationAccessCandidate,
 } from "./access";
@@ -42,7 +43,14 @@ function toReadModelDirectory(
 interface ReadModelResponseContext {
   readonly isOrgAdmin: boolean;
   readonly nextCursor: string;
+  readonly organization: OrganizationGroupIds;
   readonly organizationId: string;
+  /**
+   * The organization head access verified after the shared head lock. Every
+   * organization policy write updates that head row in its transaction, so
+   * this transaction cannot observe a newer state.
+   */
+  readonly organizationState: StoredPrincipalState;
   readonly sessionUserId: string;
   readonly tx: DatabaseTransaction;
 }
@@ -80,18 +88,10 @@ async function loadDirectoryLane(
   );
 }
 
-async function loadOrganizationPolicyLane(
+function loadOrganizationPolicyLane(
   input: ReadModelResponseContext,
-): Promise<OrganizationReadModelOrganizationPolicyResponse> {
-  const currentState = await getCurrentPrincipalState(
-    "organization",
-    input.organizationId,
-    input.tx,
-  );
-  if (!currentState) {
-    throw new Error("Organization policy state is missing");
-  }
-
+): OrganizationReadModelOrganizationPolicyResponse {
+  const currentState = input.organizationState;
   return {
     organizationId: input.organizationId,
     currentState: {
@@ -111,13 +111,14 @@ async function loadSnapshotResponse(
   const grants = await loadGrantsLane(input);
   const groups = await loadOrganizationGroupsInTransaction({
     executor: input.tx,
+    organization: input.organization,
     organizationId: input.organizationId,
   });
   const groupMemberships = await loadOrganizationGroupMembershipsInTransaction({
     executor: input.tx,
     organizationId: input.organizationId,
   });
-  const organizationPolicy = await loadOrganizationPolicyLane(input);
+  const organizationPolicy = loadOrganizationPolicyLane(input);
   return {
     version: 6,
     mode: "snapshot",
@@ -154,6 +155,7 @@ async function loadDeltaResponse(
   if (changed("groups")) {
     lanes.groups = await loadOrganizationGroupsInTransaction({
       executor: input.tx,
+      organization: input.organization,
       organizationId: input.organizationId,
     });
   }
@@ -169,7 +171,7 @@ async function loadDeltaResponse(
       });
   }
   if (changed("organizationPolicy")) {
-    lanes.organizationPolicy = await loadOrganizationPolicyLane(input);
+    lanes.organizationPolicy = loadOrganizationPolicyLane(input);
   }
   return {
     version: 6,
@@ -217,7 +219,9 @@ async function getReadModelInTransaction(input: {
       input.organizationId,
       head.cursor,
     ),
+    organization: access.organization,
     organizationId: input.organizationId,
+    organizationState: access.organizationState,
     sessionUserId: input.sessionUserId,
     tx: input.tx,
   };

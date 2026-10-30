@@ -11,7 +11,9 @@ import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyRe
 import { readPrincipalHistoryPage } from "../shared/internal/principalHistoryPage";
 import {
   getCurrentPrincipalStates,
+  getCurrentPrincipalStatesFor,
   listPrincipalStateHistory,
+  principalCurrentStateKey,
 } from "../shared/internal/principalStateStore";
 
 async function seed(principalType: "group" | "organization") {
@@ -190,6 +192,58 @@ test("bulk current heads transfer one row per principal, not full histories", as
   expect(heads.size).toBe(2);
   expect(queries).toHaveLength(1);
   expect(queries[0]).toHaveLength(2);
+  expect([...heads.keys()]).toEqual(
+    [fixture.principalId, fixture.otherId].sort(),
+  );
+});
+
+test("current heads of mixed principal types read 100 principals per statement", async () => {
+  const fixture = await seed("group");
+  const first = fixture.rows[0];
+  if (!first) throw new Error("Missing head fixture");
+  const organizationId = crypto.randomUUID();
+  await db.insert(principalStates).values({
+    ...first,
+    id: crypto.randomUUID(),
+    principalType: "organization",
+    principalId: organizationId,
+    version: 1,
+    stateHash: crypto.randomUUID(),
+  });
+  const absent = Array.from({ length: 99 }, () => ({
+    principalType: "group" as const,
+    principalId: crypto.randomUUID(),
+  }));
+  const queries: unknown[][] = [];
+  const heads = await getCurrentPrincipalStatesFor(
+    [
+      { principalType: "group", principalId: fixture.principalId },
+      { principalType: "organization", principalId: organizationId },
+      // The same id under the other type is a different principal.
+      { principalType: "organization", principalId: fixture.principalId },
+      ...absent,
+    ],
+    observeQueries(db, queries),
+  );
+  // 102 principals in sorted key order: 100 groups, then both organizations.
+  expect(queries.map((rows) => rows.length)).toEqual([1, 1]);
+  expect(heads.size).toBe(2);
+  expect(
+    heads.get(
+      principalCurrentStateKey({
+        principalType: "group",
+        principalId: fixture.principalId,
+      }),
+    )?.version,
+  ).toBe(101);
+  expect(
+    heads.get(
+      principalCurrentStateKey({
+        principalType: "organization",
+        principalId: organizationId,
+      }),
+    )?.version,
+  ).toBe(1);
 });
 
 test.each([50, 101])(

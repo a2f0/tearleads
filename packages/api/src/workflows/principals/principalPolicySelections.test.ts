@@ -38,6 +38,10 @@ test("historical authorization yields cold work and reuses bounded public eviden
     expect(prepared.complete).toBe(batch === 2);
   }
   const reads = spyOn(historyReads, "readPrincipalHistoryPage");
+  const citedReads = spyOn(
+    historyReads,
+    "readPrincipalHistoryEntriesAtVersions",
+  );
   try {
     const policies = await load();
     expect(policies).toHaveLength(1);
@@ -51,12 +55,18 @@ test("historical authorization yields cold work and reuses bounded public eviden
       ).toEqual([1, 65]);
     for (const reference of [first, head])
       expect(principalPolicyMatchesReference({ policy, reference })).toBe(true);
-    expect(reads.mock.calls.length).toBeGreaterThan(0);
+    // Older citations are read as one set of exactly the cited versions; the
+    // head citation reuses the entry preparation authenticated.
+    expect(citedReads.mock.calls.length).toBeGreaterThan(0);
+    for (const [, cited] of citedReads.mock.calls)
+      expect([...new Set(cited.versions)]).toEqual([1]);
+    // Only the saved prefix's final-entry re-read remains a one-version range.
     expect(reads.mock.calls.length).toBeLessThan(10);
     for (const [, page] of reads.mock.calls)
       expect(page.throughVersion - page.afterVersion).toBe(1);
   } finally {
     reads.mockRestore();
+    citedReads.mockRestore();
   }
 });
 
@@ -138,3 +148,36 @@ test("historical citations continue beyond a single proof batch", async () => {
       ),
     ).toBe(true);
 }, 15_000);
+
+test("a cited older entry missing from storage fails at its citation", async () => {
+  const { head, entries } = await principalHistoryPreparationFixture({
+    versions: 3,
+  });
+  const [first, second] = entries.map((entry) => entry.state);
+  if (!first || !second) throw new Error("Missing historical fixture");
+  // A saved prefix lets the resumed walk skip the deleted row; only the cited
+  // set read can notice it.
+  expect(
+    (
+      await preparePrincipalHistory(db, {
+        head,
+        budget: principalHistoryPreparationBudget(),
+      })
+    ).complete,
+  ).toBe(true);
+  await db
+    .delete(principalStates)
+    .where(
+      and(
+        eq(principalStates.principalId, head.principalId),
+        eq(principalStates.version, 2),
+      ),
+    );
+  for (const citations of [
+    [second, head],
+    [head, first, second],
+  ])
+    await expect(
+      loadPrincipalAuthorizationPoliciesForReferences(db, citations, []),
+    ).rejects.toThrow("principal history entry is missing");
+});

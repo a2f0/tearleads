@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import {
+  db,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
 import { principalHistoryProgress } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { principalHistoryPreparationFixture } from "../../../test/helpers/principalHistoryPreparation";
@@ -7,6 +10,11 @@ import {
   preparePrincipalHistory,
   principalHistoryPreparationBudget,
 } from "./preparePrincipalHistory";
+import {
+  discardBufferedPrincipalHistoryProgress,
+  selectBufferedPrincipalHistoryProgress,
+} from "./principalHistoryCache";
+import { principalHistoryProtection } from "./principalHistoryProtection";
 
 test("transaction-local progress advances without writing hints until commit", async () => {
   const { head } = await principalHistoryPreparationFixture({ versions: 3 });
@@ -107,4 +115,51 @@ test("a corrupt hint can be discarded even when its reader rolls back", async ()
       })
     ).complete,
   ).toBe(true);
+});
+
+test("one transaction reads each stored hint once and still honors its discard", async () => {
+  const { head } = await principalHistoryPreparationFixture({ versions: 2 });
+  await preparePrincipalHistory(db, {
+    head,
+    budget: principalHistoryPreparationBudget(),
+  });
+  const local = principalHistoryProtection(
+    {
+      principalType: head.principalType,
+      principalId: head.principalId,
+      retainedReferences: [],
+    },
+    "policy",
+  );
+  const counted = async <T>(work: () => Promise<T>) => {
+    const counter = { statements: 0 };
+    const result = await withDatabaseStatementCounter(counter, work);
+    return { result, statements: counter.statements };
+  };
+  try {
+    await db.transaction(async (tx) => {
+      const select = (throughVersion: number) =>
+        counted(() =>
+          selectBufferedPrincipalHistoryProgress(tx, {
+            ...local.scope,
+            throughVersion,
+          }),
+        );
+      const first = await select(head.version);
+      expect(first.statements).toBe(1);
+      expect(first.result?.version).toBe(head.version);
+      const repeat = await select(head.version);
+      expect(repeat.statements).toBe(0);
+      expect(repeat.result).toBe(first.result);
+      // Another version bound is another read.
+      expect((await select(head.version - 1)).statements).toBe(1);
+      if (!first.result) throw new Error("Missing stored hint");
+      await discardBufferedPrincipalHistoryProgress(tx, first.result);
+      const discarded = await select(head.version);
+      expect(discarded.statements).toBe(0);
+      expect(discarded.result).toBeNull();
+    });
+  } finally {
+    local.protection.localKey.fill(0);
+  }
 });

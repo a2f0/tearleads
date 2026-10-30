@@ -3,10 +3,7 @@ import type {
   DatabaseSession,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import {
-  groups as groupsTable,
-  organizations,
-} from "@tearleads/api-shared/schema";
+import { groups as groupsTable } from "@tearleads/api-shared/schema";
 import type { DeleteOrganizationGroupRequest } from "@tearleads/validators/request";
 import type {
   DeleteOrganizationGroupResponse,
@@ -18,7 +15,7 @@ import { and, asc, eq, notInArray } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
   getCurrentPrincipalStates,
-  listCurrentPrincipalProjectionMembers,
+  listProjectionMembersForState,
 } from "../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { lockGroupReferenceExclusiveInTransaction } from "../principals/groupReferenceLock";
@@ -33,7 +30,10 @@ import {
   PrincipalPolicyError,
   toPrincipalPolicyError,
 } from "../principals/shared";
-import { requireDirectOrganizationAccess } from "./access";
+import {
+  type OrganizationGroupIds,
+  requireDirectOrganizationAccess,
+} from "./access";
 import { OrganizationManagerError } from "./errors";
 import {
   deleteOrganizationGroupRows,
@@ -74,6 +74,8 @@ async function requireGroupInOrganization(input: {
 
 export async function loadOrganizationGroupsInTransaction(input: {
   readonly executor: DatabaseSession;
+  /** The immutable reserved group ids the caller's access check read. */
+  readonly organization: OrganizationGroupIds;
   readonly organizationId: string;
 }): Promise<ListOrganizationGroupsResponse> {
   const groupSummaries =
@@ -213,22 +215,11 @@ export async function runDeleteOrganizationGroupWorkflow(
 }
 
 async function listOrganizationGroupSummariesInTransaction(input: {
-  executor: DatabaseSession;
-  organizationId: string;
+  readonly executor: DatabaseSession;
+  readonly organization: OrganizationGroupIds;
+  readonly organizationId: string;
 }): Promise<OrganizationGroupSummariesResult> {
-  const [organization] = await input.executor
-    .select({
-      adminGroupId: organizations.adminGroupId,
-      memberGroupId: organizations.memberGroupId,
-    })
-    .from(organizations)
-    .where(eq(organizations.id, input.organizationId))
-    .limit(1);
-
-  if (!organization) {
-    throw new OrganizationManagerError("Organization not found", 404);
-  }
-
+  const { organization } = input;
   const groupRows = await input.executor
     .select({
       groupId: groupsTable.id,
@@ -291,9 +282,11 @@ async function listOrganizationGroupMembersInTransaction(input: {
     throw new OrganizationManagerError("Group policy not found", 404);
   }
 
-  const projection = await listCurrentPrincipalProjectionMembers(
+  // The members of the head just read, rather than of a second head read.
+  const projection = await listProjectionMembersForState(
     "group",
     input.groupId,
+    currentState.stateHash,
     input.executor,
   );
   const usersById = await loadUsersById(
