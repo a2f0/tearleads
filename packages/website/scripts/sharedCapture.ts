@@ -48,7 +48,7 @@ function describeCapture(raw: string): string {
   }
   if (
     typeof record.commit !== "string" ||
-    !/^[0-9a-f]{40}([0-9a-f]{24})?$/.test(record.commit)
+    !/^[0-9a-f]{40}$/.test(record.commit)
   ) {
     throw new Error(
       "The shared screenshot capture record names no commit; recapture.",

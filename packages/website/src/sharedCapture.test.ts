@@ -106,6 +106,11 @@ test("a complete record without a commit or clean-tree flag is refused", async (
     ],
     ["no commit", withoutCommit, "names no commit"],
     ["short commit", { ...COMPLETE, commit: "0123456" }, "names no commit"],
+    [
+      "64-hex commit",
+      { ...COMPLETE, commit: "0".repeat(64) },
+      "names no commit",
+    ],
     ["commit not a string", { ...COMPLETE, commit: 7 }, "names no commit"],
   ] as const) {
     const dir = await screenshotsDir(record);
