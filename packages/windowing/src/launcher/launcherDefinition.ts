@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { WindowingIcon } from "../icons/windowingIcon";
+import type { WindowSize } from "../window/WindowStateProvider";
 
 /** One app a launcher opens: in a window, or as the routed shell's page. */
 export interface MiniAppDefinition {
@@ -17,6 +18,11 @@ export interface MiniAppDefinition {
    */
   initialShowSidebar?: boolean | undefined;
   title: string;
+  /**
+   * The size a new window opens at, in CSS pixels. Defaults to the
+   * stylesheet's window size.
+   */
+  windowSize?: WindowSize | undefined;
 }
 
 /**
