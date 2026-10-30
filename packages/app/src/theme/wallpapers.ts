@@ -6,13 +6,26 @@ import {
   type WallpaperDefinition,
 } from "@tearleads/windowing";
 
-// The pane desktop's wallpapers, in the order Display Properties lists them.
-// Each is a windowing tessellation painted in the theme's own colors, so every
-// wallpaper suits Light, Dark, and Dusk alike.
+import {
+  FACET_WALLPAPER,
+  LOOM_WALLPAPER,
+  TIDAL_WALLPAPER,
+} from "./designedWallpapers";
 
-export type WallpaperId = "blocks" | "honeycomb" | "triangles" | "plain";
+// Host-designed artwork leads; existing saved choices keep their ids and art.
+export type WallpaperId =
+  | "tidal"
+  | "facet"
+  | "loom"
+  | "blocks"
+  | "honeycomb"
+  | "triangles"
+  | "plain";
 
 export const APP_WALLPAPERS: readonly WallpaperDefinition<WallpaperId>[] = [
+  TIDAL_WALLPAPER,
+  FACET_WALLPAPER,
+  LOOM_WALLPAPER,
   BLOCKS_WALLPAPER,
   HONEYCOMB_WALLPAPER,
   TRIANGLES_WALLPAPER,
@@ -20,4 +33,4 @@ export const APP_WALLPAPERS: readonly WallpaperDefinition<WallpaperId>[] = [
 ];
 
 /** The wallpaper until the user picks one. */
-export const DEFAULT_WALLPAPER: WallpaperId = "blocks";
+export const DEFAULT_WALLPAPER: WallpaperId = "tidal";
