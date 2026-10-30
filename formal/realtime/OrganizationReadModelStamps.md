@@ -13,7 +13,7 @@ exceeds `c`. See the
 | `AdvanceHead` | `advanceOrganizationReadModelHead` increments the cursor and stamps head-row lanes in one update that holds the head row lock until commit |
 | `GroupStamp` | `stampGroupMembershipChanges` stamps group rows and tombstones with the cursor that update returned |
 | `Commit` / `Abort` | `appendOrganizationReadModelChangeInTransaction` runs in the source mutation's transaction, which commits or rolls back its domain rows, head, and stamps together |
-| `Reconcile` | `lockOrganizationReadModelHeadInTransaction` reads the head and lane stamps under the shared lock, `loadDeltaResponse` reloads every lane stamped after the cursor, and `applyOrganizationReadModelResponse` applies the page and cursor atomically |
+| `Reconcile` | `lockOrganizationReadModelHeadInTransaction` reads the head and lane stamps under the shared lock, `loadDeltaResponse` reloads every lane stamped after the cursor (the organization-policy lane serves the head `requireDirectOrganizationAccess` verified under that lock), and `applyOrganizationReadModelResponse` applies the page and cursor atomically |
 | `CursorCoversChanges` | `loadDeltaResponse` never lets `applyOrganizationReadModelResponse` adopt a cursor that covers a change the page did not carry |
 | `CaughtUpClientIsCurrent` | After `applyOrganizationReadModelResponse` adopts the head cursor, the local projection equals the server's current lanes |
 | `Begin` with `promotes` / `StampDirectoryOnAdminsChange` | `appendPolicyReadModelChanges` stamps the `directory` lane when `isOrganizationAdminsGroup` names the changed group |

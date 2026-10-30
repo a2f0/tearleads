@@ -16,7 +16,7 @@ import { readBufferedPrincipalHistoryNode } from "./principalHistoryCache";
 import {
   principalHistoryError,
   principalHistoryHead,
-  readPrincipalHistoryEntry,
+  readPrincipalHistoryEntries,
 } from "./principalHistoryRecords";
 import { PrincipalPolicyReferenceError } from "./shared";
 
@@ -66,19 +66,26 @@ export async function selectStoredPrincipalHistoryReferences(
     nodes.set(hash, pending);
     return pending;
   };
+  // Preparation just read and authenticated the current entry (including
+  // when resuming a saved prefix). Reuse that exact result for a head citation;
+  // older citations still require their stored artifacts and inclusion proof,
+  // read here as one set (the selection is bounded to 128 citations).
+  const headVersion = history.currentEntry.state.version;
+  const stored = await readPrincipalHistoryEntries(
+    executor,
+    history.currentEntry.state,
+    requested
+      .map((reference) => reference.version)
+      .filter((version) => version !== headVersion),
+  );
   for (const reference of requested) {
-    // Preparation just read and authenticated the current entry (including
-    // when resuming a saved prefix). Reuse that exact result for a head citation;
-    // older citations still require their stored artifacts and inclusion proof.
     const entry =
-      reference.version === history.currentEntry.state.version
+      reference.version === headVersion
         ? history.currentEntry
-        : await readPrincipalHistoryEntry(
-            executor,
-            history.currentEntry.state,
-            reference.version,
-            kind,
-          );
+        : stored.get(reference.version);
+    // Raised at the citation's position, so error order is unchanged.
+    if (!entry)
+      throw principalHistoryError(kind, "principal history entry is missing");
     let proof: TransparencyInclusionProof;
     try {
       proof = await createPrincipalHistoryIndexProof({

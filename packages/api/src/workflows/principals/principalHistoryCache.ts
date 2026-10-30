@@ -26,6 +26,15 @@ interface ProgressBuffer {
   readonly nodes: Map<string, PrincipalHistoryIndexNode>;
   readonly saved: Map<string, ProgressRow>;
   readonly discarded: Map<string, string>;
+  /**
+   * Stored hints already read in this transaction, by scope and version
+   * bound. Transactions never write the hint table (writes are deferred to
+   * the root executor after commit), so a repeat read could only differ by a
+   * hint another transaction committed meanwhile. Hints are untrusted and are
+   * restored and finished on every use, so reuse changes at most how much
+   * history is re-walked.
+   */
+  readonly stored: Map<string, ProgressRow | null>;
 }
 const buffers = new WeakMap<DatabaseSession, ProgressBuffer>();
 
@@ -50,6 +59,7 @@ function transactionBuffer(
     discarded: new Map(),
     nodes: new Map(),
     resets: new Map(),
+    stored: new Map(),
   };
   buffers.set(executor, buffer);
   const completion = databaseTransactionCompletion(executor);
@@ -107,7 +117,7 @@ export async function selectBufferedPrincipalHistoryProgress(
       latest = row;
   if (latest?.version === input.throughVersion) return latest;
   if (buffer.resets.has(key)) return latest;
-  const stored = await selectPrincipalHistoryProgress(executor, input);
+  const stored = await readStoredProgressOnce(executor, buffer, key, input);
   if (
     stored &&
     buffer.discarded.get(stored.id) !== stored.progress &&
@@ -115,6 +125,20 @@ export async function selectBufferedPrincipalHistoryProgress(
   )
     return stored;
   return latest;
+}
+
+async function readStoredProgressOnce(
+  executor: DatabaseSession,
+  buffer: ProgressBuffer,
+  key: string,
+  input: Selection,
+): Promise<ProgressRow | null> {
+  const storedKey = JSON.stringify([key, input.throughVersion]);
+  const cached = buffer.stored.get(storedKey);
+  if (cached !== undefined) return cached;
+  const stored = await selectPrincipalHistoryProgress(executor, input);
+  buffer.stored.set(storedKey, stored);
+  return stored;
 }
 
 async function discardProgressChunk(
