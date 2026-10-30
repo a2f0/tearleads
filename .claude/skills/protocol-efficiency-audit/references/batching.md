@@ -32,7 +32,8 @@ launch the remaining queue just because time remains.
 - Launch auditors as foreground Agent calls, up to three in one message.
   In a headless `claude -p` run, background subagents and shell tasks stop
   shortly after the coordinator's turn ends, leaving their slices partial.
-  Do not end a turn while queued work remains.
+  Do not end a turn while an auditor or command this batch launched is
+  still running; the stop rules below still decide how many batches run.
 - The coordinator uses at most 20 tool calls per batch for baseline, dispatch,
   verification, and reporting, reserving the last five for the checkpoint. If
   setup consumes the budget, save a setup-only batch without launching an

@@ -73,6 +73,11 @@ line per request to a file named by an environment variable, with:
   same request sent (an echo) or that the same pane already received earlier
   (a redelivery).
 
+Track requests by their index in the recorder list and process each once:
+some canaries print an overall window (the sharing canary's `test total`)
+that overlaps earlier phases, and counting it again would report every
+response in it as a redelivery.
+
 Run it like the profile, from `packages/app`:
 
 ```sh
