@@ -372,7 +372,7 @@ export async function loadTrustedUserIdForSigningKey(input: {
 }
 
 /**
- * One committed read answers an exact repeat of a pin that alone holds its
+ * One read answers an exact repeat of a pin that alone holds its
  * key and ranks at or above the candidate; anything else returns null for the
  * write transaction. Pins are never deleted, keys never change, and
  * provenance only rises, so a match is what the transaction would return.
@@ -380,7 +380,7 @@ export async function loadTrustedUserIdForSigningKey(input: {
 const pins = trustedUserIdentityPins;
 
 async function matchingPin(
-  db: ClientSQLiteDatabase,
+  db: ClientSQLiteTransactionScope,
   pin: TrustedUserIdentityPin,
 ): Promise<TrustedUserIdentityPin | null> {
   const [row, other] = await db
@@ -423,8 +423,9 @@ export async function compareOrInsertTrustedUserIdentityPin(input: {
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   return runTrustedUserIdentityPinTransaction(async () => {
     await ensureSqlTables(input.execSql, trustedUserIdentityPinTables);
-    // Queued behind open mutations, so it never reads an uncommitted pin.
-    const pinned = await runtime.runMutation((db) => matchingPin(db, pin));
+    // Like the write path's BEGIN, this read's BEGIN retries while any adapter
+    // holds the connection's transaction, so it never sees uncommitted pins.
+    const pinned = await runtime.transaction((tx) => matchingPin(tx, pin));
     if (pinned) return pinned;
     return runtime.transaction(
       async (tx) => {

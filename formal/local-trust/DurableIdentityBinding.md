@@ -6,7 +6,7 @@ another user in the same trust domain.
 
 | Model action or predicate | Production seam |
 | --- | --- |
-| `Login` / `CheckPinCompare` | `compareOrInsertTrustedUserIdentityPin` compares or inserts the pin in one immediate transaction; an exact repeat of a sole-owner pin is answered by one committed read |
+| `Login` / `CheckPinCompare` | `compareOrInsertTrustedUserIdentityPin` compares or inserts the pin in one immediate transaction; an exact repeat of a sole-owner pin is answered by one read in a deferred transaction |
 | `CheckReverseBinding` | `compareOrInsertTrustedUserIdentityPin` refuses a signing key already bound to another user; `trustedUserIdentityPins` backs it with a unique index |
 | `Reboot` | `SessionIdentityAcknowledgments` holds only in-memory acknowledgments, while `trustedUserIdentityPins` persist |
 | `SigningFingerprintsHaveOneUser` | `loadTrustedUserIdForSigningKey` finds at most one user per signing key |

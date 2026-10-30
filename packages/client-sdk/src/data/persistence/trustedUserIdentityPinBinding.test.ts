@@ -187,7 +187,8 @@ test("a repeat verification of a pinned identity reads once without the write lo
     const linked = createPin({ provenance: "link" });
     await verify(linked);
     // First contact took the transaction (after the fast path's empty read).
-    // A repeat, and a lower-ranked observation, is one read (was 5 statements).
+    // A repeat, and a lower-ranked observation, is one read in a deferred
+    // transaction (was 5 statements under the write lock).
     for (const pin of [
       linked,
       createPin(),
@@ -195,8 +196,11 @@ test("a repeat verification of a pinned identity reads once without the write lo
     ]) {
       const repeat = await verify(pin);
       expect(repeat.result).toEqual(linked);
-      expect(repeat.statements).toHaveLength(1);
-      expect(repeat.statements[0]).toStartWith("select");
+      expect(repeat.statements).toEqual([
+        "begin",
+        expect.stringMatching(/^select/),
+        "commit",
+      ]);
     }
     // A raise, a mismatch, an alias and first contact still take the
     // transaction, with the results and errors it always returned.
@@ -237,45 +241,62 @@ test("a repeat verification of a pinned identity reads once without the write lo
   }
 });
 
-test("the repeat read never answers from another mutation's uncommitted pin", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "identity-pin-fast-rollback",
-  );
-  try {
-    const pin = createPin({ provenance: "link" });
-    await ensureSqlTables(execSql, trustedUserIdentityPinTables);
-    const runtime = getClientSQLitePersistenceRuntime(execSql);
-    let release = () => {};
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    let inserted = () => {};
-    const insertedPin = new Promise<void>((resolve) => {
-      inserted = resolve;
-    });
-    const rolledBack = runtime
-      .transaction(async (tx) => {
-        await tx.insert(trustedUserIdentityPins).values(pin).run();
-        inserted();
-        await held;
-        throw new Error("roll back the uncommitted pin");
-      })
-      .catch(() => "rolled back");
-    await insertedPin;
-    let answered = false;
-    const repeat = compareOrInsertTrustedUserIdentityPin({
-      execSql,
-      pin: createPin(),
-    }).finally(() => {
-      answered = true;
-    });
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(answered).toBe(false);
-    release();
-    expect(await rolledBack).toBe("rolled back");
-    // The rolled-back link pin is gone; the queued call is first contact.
-    expect(await repeat).toEqual(createPin());
-  } finally {
-    close();
-  }
-});
+test.each([false, true])(
+  "the repeat read never answers from an uncommitted pin: second adapter=%s",
+  async (secondAdapter) => {
+    const { close, execSql } = await createTestExecSql(
+      "identity-pin-fast-rollback",
+    );
+    try {
+      const pin = createPin({ provenance: "link" });
+      await ensureSqlTables(execSql, trustedUserIdentityPinTables);
+      const runtime = getClientSQLitePersistenceRuntime(execSql);
+      let release = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let inserted = () => {};
+      const insertedPin = new Promise<void>((resolve) => {
+        inserted = resolve;
+      });
+      const rolledBack = runtime
+        .transaction(async (tx) => {
+          await tx.insert(trustedUserIdentityPins).values(pin).run();
+          inserted();
+          await held;
+          throw new Error("roll back the uncommitted pin");
+        })
+        .catch(() => "rolled back");
+      await insertedPin;
+      // A second adapter over the same connection has its own mutation queue.
+      const reader = secondAdapter
+        ? createExecSql({
+            async exec({ sql, bind, rowMode }) {
+              return {
+                rows: await execSql(
+                  sql,
+                  bind,
+                  rowMode ? { rowMode } : undefined,
+                ),
+              };
+            },
+          })
+        : execSql;
+      let answered = false;
+      const repeat = compareOrInsertTrustedUserIdentityPin({
+        execSql: reader,
+        pin: createPin(),
+      }).finally(() => {
+        answered = true;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(answered).toBe(false);
+      release();
+      expect(await rolledBack).toBe("rolled back");
+      // The rolled-back link pin is gone; the waiting call is first contact.
+      expect(await repeat).toEqual(createPin());
+    } finally {
+      close();
+    }
+  },
+);
