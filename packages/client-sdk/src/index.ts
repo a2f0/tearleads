@@ -68,7 +68,6 @@ export type {
   IdentityListener,
   IdentityOptions,
   IdentitySnapshot,
-  ImportedOrganizationUser,
   IndexedDbLocalKeyringManifestStoreOptions,
   IndexedDbWrappingKeyKeystoreOptions,
   LinkDocumentToContainerInput,
@@ -231,6 +230,7 @@ export {
   type SyncPurchaseResult,
   type SyncSubscriptionOption,
   serializeLocalKeyringManifest,
+  UnverifiedUserIdentityError,
   WRAPPED_LOCAL_SECRET_FORMAT,
 } from "./client";
 export type {
@@ -480,7 +480,6 @@ export {
   GroupShareNameMismatchError,
   getOrganizationProfileDocumentLocalId,
   getRosterProfileDocumentLocalId,
-  importOrganizationUser,
   loadLocalOrganizationDataUsage,
   loadLocalOrganizationDirectoryAndGroups,
   loadOrganizationBilling,

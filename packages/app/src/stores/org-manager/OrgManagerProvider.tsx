@@ -1,7 +1,8 @@
-import type {
-  ContainerNode,
-  OrganizationDirectoryUser,
-  Organizations,
+import {
+  type ContainerNode,
+  type OrganizationDirectoryUser,
+  type Organizations,
+  UnverifiedUserIdentityError,
 } from "@tearleads/client-sdk";
 import {
   createContext,
@@ -54,7 +55,6 @@ type OrgManagerOrganizationActions = Pick<
   | "discardUnreadablePolicyMutation"
   | "createGroup"
   | "deleteGroup"
-  | "importUserById"
   | "loadDataUsage"
   | "loadDirectoryAndGroups"
   | "loadDirectoryAndGroupsAfterMutation"
@@ -100,7 +100,6 @@ const organizationActionKeys =
     "discardUnreadablePolicyMutation",
     "createGroup",
     "deleteGroup",
-    "importUserById",
     "loadDataUsage",
     "loadLocalDataUsage",
     "loadDirectoryAndGroups",
@@ -215,9 +214,14 @@ function useEnsureRosterProfileDocument(
         return null;
       }
 
-      const trustedIdentity = await userIdentities.resolve(user.userId);
-      if (!trustedIdentity || !isOperationScopeActive(operationScope)) {
+      // A roster profile carries the user's keys, so only an identity a
+      // verified link (or this device's own keys) established may seed one.
+      const trustedIdentity = await userIdentities.resolveVerified(user.userId);
+      if (!isOperationScopeActive(operationScope)) {
         return null;
+      }
+      if (!trustedIdentity) {
+        throw new UnverifiedUserIdentityError(user.userId);
       }
 
       const profileDocumentId = await createRosterProfileDocument({

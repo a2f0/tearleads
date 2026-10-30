@@ -205,6 +205,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         signingKeyFingerprint: "a".repeat(64),
         signingPublicKey: "signing-public-key",
         signingSuite: "ML-DSA-87",
+        provenance: "link",
         userId: "11111111-1111-4111-8111-111111111111",
       });
       await tx.insert(localIntents).values({

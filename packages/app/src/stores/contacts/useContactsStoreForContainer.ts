@@ -124,7 +124,13 @@ function createContactsStore(
     runtime.documents.state.domainScope,
     runtime,
     {
-      resolveUserIdentity: (userId) => tearleads.userIdentities.resolve(userId),
+      // The SDK reads whichever trust store is active, so the store's own
+      // scope must be active before and after the lookup.
+      resolveVerified: async (userId, scope) => {
+        if (tearleads.domainScope !== scope) return null;
+        const identity = await tearleads.userIdentities.resolveVerified(userId);
+        return tearleads.domainScope === scope ? identity : null;
+      },
       getLocalUserIdentity: (userId) =>
         getLocalUserIdentity({
           encapsulationKeyPair: tearleads.identity.encapsulationKeyPair,

@@ -1,9 +1,10 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import type {
-  DomainScope,
-  OrganizationDirectory,
-  OrganizationDirectoryUser,
-  OrganizationUserDetail,
+import {
+  type DomainScope,
+  type OrganizationDirectory,
+  type OrganizationDirectoryUser,
+  type OrganizationUserDetail,
+  UnverifiedUserIdentityError,
 } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { Dispatch, SetStateAction } from "react";
@@ -204,4 +205,37 @@ test("roster profile setup reuses pending work across a layout remount", async (
 
   await waitFor(() => expect(directoryUpdates).toHaveLength(1));
   expect(ensureRosterProfileDocument).toHaveBeenCalledTimes(1);
+});
+
+test("roster profile setup asks for an identity link instead of trusting an observed pin", async () => {
+  const ensureRosterProfileDocument = mock(async () => {
+    throw new UnverifiedUserIdentityError(ROSTER_USER.userId);
+  });
+  const directoryUpdates: unknown[] = [];
+  const setError = mock((_update: SetStateAction<string | null>) => {});
+  renderHook(() =>
+    useEnsureRosterProfileDocument({
+      appData: runtimeForOrganization("org-unverified"),
+      canLoadAuthenticatedOrgData: true,
+      canUpdateSelectedRosterEntry: true,
+      domainScope: {} as DomainScope,
+      orgManagerActions: {
+        ensureRosterProfileDocument,
+      } as unknown as EnsureParams["orgManagerActions"],
+      scopeKey: "org-unverified",
+      selectedRosterUser: ROSTER_USER,
+      selectedUserIdRef: { current: ROSTER_USER.userId },
+      setDirectory: (update) => directoryUpdates.push(update),
+      setError,
+      setMutating: () => {},
+      setUserDetail: () => {},
+    }),
+  );
+
+  await waitFor(() =>
+    expect(setError).toHaveBeenLastCalledWith(
+      "Verify this person's identity link to create their roster profile.",
+    ),
+  );
+  expect(directoryUpdates).toEqual([]);
 });

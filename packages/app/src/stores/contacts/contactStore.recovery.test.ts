@@ -29,7 +29,7 @@ test("named recovered self contact remains under its remote local id", async () 
     userId: selfKey.userId,
   });
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async () => {
+    resolveVerified: async () => {
       throw new Error("unexpected remote self key fetch");
     },
     logError: (message, cause) => {
@@ -103,7 +103,7 @@ test("late recovered self contact replaces a promoted local fallback", async () 
     userId,
   });
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async () => null,
+    resolveVerified: async () => null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },
@@ -202,7 +202,7 @@ test("late recovered self contact purges a remotely synced fallback", async () =
     },
   };
   const store = createContactsStore(runtime, {
-    resolveUserIdentity: async () => null,
+    resolveVerified: async () => null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },
@@ -275,7 +275,7 @@ test("late self reconciliation stops after an identity lookup crosses runtimes",
     userId: "replacement-user",
   });
   const store = createContactsStore(staleRuntime, {
-    resolveUserIdentity: async () => null,
+    resolveVerified: async () => null,
     getLocalUserIdentity: async () => {
       lookupStarted.resolve(undefined);
       return lookupResult.promise;
@@ -362,7 +362,7 @@ test("late self reconciliation rechecks its runtime inside the write chain", asy
     userId: "queued-replacement-user",
   });
   const store = createContactsStore(blockedStaleRuntime, {
-    resolveUserIdentity: async () => {
+    resolveVerified: async () => {
       throw new Error("unexpected self key fetch");
     },
     logError: (message, cause) => {

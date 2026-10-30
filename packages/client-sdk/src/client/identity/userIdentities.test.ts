@@ -7,12 +7,16 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { identityLinkFixture } from "../../data/trustedUserIdentity/identityLink.testFixtures";
 import { createUserIdentities } from "./userIdentities";
 
-test("user identity resolution returns the verified trusted bundle", async () => {
+function unused(): never {
+  throw new Error("unused");
+}
+
+test("resolveVerified returns only the identity the trust service verified", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const logs: string[] = [];
   const signingKeyFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
@@ -23,79 +27,70 @@ test("user identity resolution returns the verified trusted bundle", async () =>
     getOrganizationId: () => null,
     reportSecurityIncident: async () => {},
     identityLinks: {
-      resolvePinned: async () => null,
-      createLink: async () => {
-        throw new Error("unused");
-      },
-      verifyLink: async () => {
-        throw new Error("unused");
-      },
+      resolveVerified: async (userId) =>
+        userId === "user-1"
+          ? createTestTrustedUserIdentity({
+              encapsulationKeyFingerprint,
+              encapsulationPublicKey: encapsulationKeyPair.publicKey,
+              signingKeyFingerprint,
+              signingPublicKey: signingKeyPair.signingPublicKey,
+              userId,
+            })
+          : null,
+      createLink: async () => unused(),
+      verifyLink: async () => unused(),
     },
-    log: (message) => logs.push(message),
-    resolveTrustedUserIdentity: async (userId) =>
-      createTestTrustedUserIdentity({
-        encapsulationKeyFingerprint,
-        encapsulationPublicKey: encapsulationKeyPair.publicKey,
-        signingKeyFingerprint,
-        signingPublicKey: signingKeyPair.signingPublicKey,
-        userId,
-      }),
   });
 
-  await expect(userIdentities.resolve("user-1")).resolves.toEqual({
+  await expect(userIdentities.resolveVerified("user-1")).resolves.toEqual({
     encapsulationKeyFingerprint,
     encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
     signingKeyFingerprint,
     signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
     userId: "user-1",
   });
-  expect(logs).toEqual(["Loading user identity for userId: user-1"]);
+  await expect(userIdentities.resolveVerified("user-2")).resolves.toBeNull();
 });
 
-test("user identity resolution returns null when the trusted resolver has no identity", async () => {
-  const logs: string[] = [];
+test("the public surface offers no user-ID lookup that trusts on first use", () => {
   const userIdentities = createUserIdentities({
     getOrganizationId: () => null,
     reportSecurityIncident: async () => {},
     identityLinks: {
-      resolvePinned: async () => null,
-      createLink: async () => {
-        throw new Error("unused");
-      },
-      verifyLink: async () => {
-        throw new Error("unused");
-      },
+      resolveVerified: async () => null,
+      createLink: async () => unused(),
+      verifyLink: async () => unused(),
     },
-    log: (message) => logs.push(message),
-    resolveTrustedUserIdentity: async () => null,
   });
 
-  await expect(userIdentities.resolve("user-1")).resolves.toBeNull();
-  expect(logs).toEqual(["Loading user identity for userId: user-1"]);
+  expect(Object.keys(userIdentities).sort()).toEqual([
+    "createLink",
+    "resolveVerified",
+    "verifyLink",
+  ]);
 });
 
-test("user identity resolution preserves typed integrity failures", async () => {
+test("verifyLink reports and preserves typed integrity failures", async () => {
   const mismatch = new KeyingVerificationError(
     "equivocation",
     "Trusted user identity changed",
   );
+  const reported: string[] = [];
+  const { link } = await identityLinkFixture();
   const userIdentities = createUserIdentities({
     getOrganizationId: () => null,
-    reportSecurityIncident: async () => {},
-    identityLinks: {
-      resolvePinned: async () => null,
-      createLink: async () => {
-        throw new Error("unused");
-      },
-      verifyLink: async () => {
-        throw new Error("unused");
-      },
+    reportSecurityIncident: async (_error, context) => {
+      reported.push(context.operation);
     },
-    log: () => undefined,
-    resolveTrustedUserIdentity: async () => {
-      throw mismatch;
+    identityLinks: {
+      resolveVerified: async () => null,
+      createLink: async () => unused(),
+      verifyLink: async () => {
+        throw mismatch;
+      },
     },
   });
 
-  await expect(userIdentities.resolve("user-1")).rejects.toBe(mismatch);
+  await expect(userIdentities.verifyLink(link)).rejects.toBe(mismatch);
+  expect(reported).toEqual(["user.identity.verify_link"]);
 });

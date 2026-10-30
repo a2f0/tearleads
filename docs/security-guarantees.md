@@ -15,7 +15,8 @@ The system does not provide a universal guarantee that an honest client can
 detect every compromised-server behavior. A compromised server can still deny
 service, omit state, replay older valid state when the client has no
 checkpoint, show split views to different clients without gossip or
-witnessing, or substitute identity keys on first contact.
+witnessing, or substitute identity keys on first contact with a user whose
+identity link the client has not verified.
 
 The confidentiality boundary is:
 
@@ -47,9 +48,11 @@ and `userId`. The reverse signing-fingerprint-to-user binding is also unique
 within that trust domain and checked in the same durable transaction. A new
 session without restored acknowledgments cannot bind a known signing identity
 to a different user. Later substitutions hard-fail, and policy verification
-also checks the signing fingerprint in signed state. Resolution uses
-TOFU; independently exchanged identity links authenticate both keys before
-pinning. Neither mechanism proves global currentness.
+also checks the signing fingerprint in signed state. Verifying signed state
+pins a referenced user on first sight (`observed`); only an independently
+exchanged identity link (`link`) or the device's own keys (`self`) admit a user
+as a contact, roster or group member, or share recipient. Neither mechanism
+proves global currentness.
 
 ## Root And System Destinations
 
@@ -630,8 +633,8 @@ access manifest heads. Deleted containers retain their metadata-document
 reservation, and organization purge is terminal (the organization's mutations
 stay refused and a replacement receives a fresh organization id), so a
 checkpointed `(kind, organization, id)` is never recreated from version 1.
-User identity trust uses an exact durable full-bundle TOFU pin: any later
-change to either public key, fingerprint, suite, or format is rejected. Logout
+User identity trust uses an exact durable full-bundle pin: any later change to
+either public key, fingerprint, suite, or format is rejected. Logout
 and session recreation retain these pins. An intentional fresh-data environment
 reset must explicitly recreate the local trust store too; an authentication
 response cannot authorize clearing it.
@@ -656,14 +659,19 @@ still exercising the cold-start rollback limit above.
 
 ### First-Contact Identity-Key Substitution
 
-Signer lookups, SDK user-ID imports, and Explorer sharing use TOFU,
-which cannot authenticate an unpinned stranger's keys.
+Signer lookups and other verification of users that signed state references
+pin on first sight (`observed`), which cannot authenticate a stranger's keys.
 
-Contacts and Roster can verify an independently exchanged
-[identity link](developer/trusted-user-identity.md#identity-links)
-before pinning or adding a user. It binds the service, user ID, algorithms,
-and both keys. Pin conflicts fail closed. Deliver links through an authenticated
-channel; they prove no revocation, freshness, or global consistency.
+Admitting a user requires an independently exchanged
+[identity link](developer/trusted-user-identity.md#identity-links) or the
+device's own keys: adding a contact or roster user, adding a group member,
+sharing a folder, and creating a roster profile. A link binds the service, user
+ID, algorithms, and both keys. Pins record their provenance, so an `observed`
+pin cannot stand in for a link; the SDK refuses group adds and user shares for
+such a target. Pin conflicts fail closed. Deliver links through an
+authenticated channel; they prove no revocation, freshness, or global
+consistency. An unencrypted backup can seed `link` provenance, so restoring one
+trusts the file's origin.
 
 ### Projection Rows Are Not A Security Boundary
 
@@ -823,9 +831,9 @@ Result: not reliably detected without prior trust in the identity key binding.
 - Durable full-bundle identity pins detect identity changes after first use;
   local checkpoints detect replayed or conflicting principal policy and access
   manifest heads after a client has seen newer state.
-- First-contact key substitution, withholding, and split views without a
-  pinned checkpoint, witness, or gossip peer remain outside the guarantee
-  boundary.
+- First-contact key substitution for identities not verified by an identity
+  link, withholding, and split views without a pinned checkpoint, witness, or
+  gossip peer remain outside the guarantee boundary.
 
 ## Strengthening The Boundary
 

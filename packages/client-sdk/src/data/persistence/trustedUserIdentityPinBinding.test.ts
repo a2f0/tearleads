@@ -135,8 +135,9 @@ test("the unique index refuses a second user on one signing key by itself", asyn
         `INSERT INTO trusted_user_identity_pins (
            identity_trust_domain, user_id, format_version, signing_suite,
            signing_public_key, signing_key_fingerprint, encapsulation_suite,
-           encapsulation_public_key, encapsulation_key_fingerprint, first_seen_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           encapsulation_public_key, encapsulation_key_fingerprint, first_seen_at,
+           provenance
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           alias.identityTrustDomain,
           alias.userId,
@@ -148,6 +149,7 @@ test("the unique index refuses a second user on one signing key by itself", asyn
           alias.encapsulationPublicKey,
           alias.encapsulationKeyFingerprint,
           alias.firstSeenAt,
+          alias.provenance,
         ],
       ),
     ).rejects.toThrow(/UNIQUE/);

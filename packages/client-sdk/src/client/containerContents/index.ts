@@ -455,9 +455,17 @@ class ContainerContentsService implements ContainerContents {
   }
 
   workflowRuntime(): ContainerContentsStoreWorkflowRuntime {
+    const input = this.runtimeService.workflowInput();
     return createContainerContentsStoreWorkflowRuntime(
-      this.runtimeService.workflowInput(),
+      input,
       this.runtimeService.adoptRootContainer,
+      async (userId) => {
+        // Admit against the trust store of the database this runtime writes.
+        await this.runtimeService.identityLinks.requireVerified(
+          userId,
+          input.infra.execSql,
+        );
+      },
     );
   }
 }

@@ -290,9 +290,11 @@ Seed phrase generation/import lives on the `tearleads.identity` client facade.
 The phrase derives identity key pairs only; product backup/restore UX and any
 session/container recovery metadata stay in host/app code.
 
-The `tearleads.userIdentities` gateway's `resolve` uses TOFU; `createLink`
-encodes keys; `verifyLink` checks before pinning; `resolvePinned` reads any pin,
-including TOFU
+The `tearleads.userIdentities` gateway's `createLink` encodes keys; `verifyLink`
+checks before pinning with `link` provenance; `resolveVerified` reads only a
+`link` or `self` pin. There is no public user-ID lookup that trusts on first
+use: `organizations.addUserToGroup` and a store's `shareWithUser` throw
+`UnverifiedUserIdentityError` for a target no link verified
 ([trust scope](../../../../docs/developer/trusted-user-identity.md#identity-links)).
 Workflows accept opaque trusted bundles or gateway-resolved user IDs. Raw API
 identity and directory responses must not reach signature or encryption

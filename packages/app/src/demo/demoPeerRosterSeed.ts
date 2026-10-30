@@ -1,5 +1,4 @@
 import type {
-  ImportedOrganizationUser,
   OrganizationDirectory,
   OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
@@ -66,17 +65,14 @@ type DemoPeerRosterSeedPlan =
       readonly kind: "add-to-member-group";
       readonly memberGroupId: string;
       readonly peerUserId: string;
-      // Unknown users must be imported before the membership write. Known
-      // directory users can go straight to the SDK's trusted identity gateway.
-      readonly requiresImport: boolean;
     };
 
 /**
  * Decides whether this pane still owes a member-group add to surface the peer on
  * its roster. Pure and idempotent: returns `idle` when the directory/member
  * group is unavailable, or once the peer is already an active roster user or a
- * member-group member. Otherwise returns the user-id-only add descriptor; the
- * SDK resolves all cryptographic recipient material behind its trust boundary.
+ * member-group member. Otherwise returns the add descriptor. The caller passes
+ * only a peer whose identity link it verified; the SDK refuses any other.
  */
 export function planDemoPeerRosterSeed(input: {
   readonly directory: OrganizationDirectory | null;
@@ -95,14 +91,10 @@ export function planDemoPeerRosterSeed(input: {
     return { kind: "idle" };
   }
 
-  const existing =
-    directory.users.find((user) => user.userId === peerUserId) ?? null;
-
   return {
     kind: "add-to-member-group",
     memberGroupId,
     peerUserId,
-    requiresImport: existing === null,
   };
 }
 
@@ -119,9 +111,6 @@ export interface DemoRosterSeedActions {
     user: OrganizationDirectoryUser,
     nickname?: string | undefined,
   ) => Promise<OrganizationDirectoryUser | null>;
-  readonly importUserById: (
-    userId: string,
-  ) => Promise<ImportedOrganizationUser | null>;
   readonly loadDirectoryAndGroups: () => Promise<
     OrganizationDirectoryAndGroups | null | undefined
   >;
@@ -184,15 +173,9 @@ export async function seedPeerRosterEntry(
       peerUserId,
     });
     if (plan.kind === "add-to-member-group") {
-      const importedUser = plan.requiresImport
-        ? await actions.importUserById(peerUserId)
-        : { userId: peerUserId };
-      if (!importedUser) {
-        return false;
-      }
       await actions.addUserToGroup(
         plan.memberGroupId,
-        importedUser.userId,
+        plan.peerUserId,
         RESERVED_ORGANIZATION_GROUP_NAMES.members,
       );
     }

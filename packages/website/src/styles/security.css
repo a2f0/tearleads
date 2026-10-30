@@ -1,7 +1,7 @@
 /*
  * /security page layout: header note, contents, comparison pairs, crypto
- * tables, limits, and technical documents. Fig. 1 and Fig. 2 live in
- * securityDiagrams.css. Colors come from tokens.css only.
+ * tables, limits, and technical documents. Fig. 1 lives in docsDiagram.css,
+ * Fig. 2 and Fig. 3 in securityDiagrams.css. Colors come from tokens.css only.
  *
  * Reading text stays at --site-measure; figures, tables, and spec lists may
  * use up to 60rem of the page column.
@@ -25,30 +25,11 @@
   margin-top: var(--site-space-7);
 }
 
-/* Section 04 sits outside .site-page so its figure spans the main column;
-   the section rule and spacing move onto its header column to line up with
-   the other sections. */
-.site-section.security-section--bleed {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.security-section--bleed > .site-page {
-  padding-top: var(--site-space-7);
-  border-top: 1px solid var(--site-line);
-}
-
-@media (max-width: 699px) {
-  .security-section--bleed > .site-page {
-    padding-top: var(--site-space-6);
-  }
-}
-
 .security-section h3[id] {
   scroll-margin-top: var(--site-space-5);
 }
 
-/* --- Two-column comparisons (sections 02 and 03) --- */
+/* --- Two-column comparisons (sections 03 and 04) --- */
 
 .security-pair {
   display: grid;

@@ -2,7 +2,7 @@
 import SectionHeader from "./SectionHeader.astro";
 
 /**
- * Section 05 on /security. Sources: docs/security-guarantees.md "Threat
+ * Section 06 on /security. Sources: docs/security-guarantees.md "Threat
  * Model", "Boundaries", "Recovery Key Disclosure", "Content Confidentiality",
  * "Held descendant re-citation"; docs/keying-design.md "Current access is
  * history-inclusive"; docs/developer/trusted-user-identity.md (pins are per
@@ -12,7 +12,7 @@ import SectionHeader from "./SectionHeader.astro";
 const limits = [
   {
     term: "First contact establishes trust",
-    body: "Each device pins the first identity bundle it accepts and rejects later changes. A server that substitutes a key on that first lookup can still establish a false identity. Matching a key to its fingerprint in signed state does not prove who controls it. The app shows signing-key fingerprints, but it has no step for confirming a key out of band before it pins that key.",
+    body: "Each device pins the first identity bundle it accepts and rejects later changes. Adding someone to Contacts, the roster, or a group, or sharing a folder with them, requires their identity link, whose keys are checked before anything is added, so send links through a channel you already trust. Checking a signer still trusts the service's first answer, and a server that substitutes a key there can show a false signer, though that key cannot be used to add anyone. A link does not prove that a key is still current.",
   },
   {
     term: "Checkpoints cover what a device has seen",

@@ -93,6 +93,7 @@ test("local deletion evicts a cached device-first summary until disposal", async
   const runtime = createContainerContentsStoreWorkflowRuntime(
     workflowInput,
     adoptRootContainer,
+    async () => undefined,
   );
   const runtimeService = createInternalRuntimeFixture(() => workflowInput, {
     adoptRootContainer,

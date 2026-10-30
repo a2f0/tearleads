@@ -5,7 +5,7 @@ export interface ContactsContextValue
   extends Pick<
     ContactsStore,
     | "createContact"
-    | "importKey"
+    | "importVerifiedUser"
     | "removeContact"
     | "removeContactAvatar"
     | "setContactAvatar"

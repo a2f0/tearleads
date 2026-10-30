@@ -3,6 +3,18 @@ import { defaultDocumentsPersistence } from "@tearleads/client-sdk";
 import { createRecoveryContactsRuntime } from "../../../test/helpers/contactStoreRecovery";
 import { createContactsStore } from "./contactStore";
 
+// A database the store never initialized has no documents table yet.
+async function countDocuments(
+  execSql: (sql: string) => Promise<Array<Record<string, unknown>>>,
+): Promise<number> {
+  const tables = await execSql(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'documents'",
+  );
+  if (tables.length === 0) return 0;
+  const [row] = await execSql("SELECT COUNT(*) AS count FROM documents");
+  return Number(row ? Object.values(row)[0] : 0);
+}
+
 test("contact imports retain identity across fresh devices and isolate address books", async () => {
   const runtimes = await Promise.all(
     ["address-book-a", "address-book-a", "address-book-b"].map(
@@ -19,7 +31,7 @@ test("contact imports retain identity across fresh devices and isolate address b
     const ids: Array<string | null> = [];
     for (const runtime of runtimes) {
       const store = createContactsStore(runtime, {
-        resolveUserIdentity: async (userId) => ({
+        resolveVerified: async (userId) => ({
           userId,
           encapsulationPublicKey: "peer-key",
           encapsulationKeyFingerprint: "peer-kem-fingerprint",
@@ -31,9 +43,9 @@ test("contact imports retain identity across fresh devices and isolate address b
         },
       });
       store.updateRuntime(runtime);
-      const id = await store.importKey("peer-user");
+      const id = await store.importVerifiedUser("peer-user");
       expect(id).not.toBeNull();
-      expect(await store.importKey("peer-user")).toBe(id);
+      expect(await store.importVerifiedUser("peer-user")).toBe(id);
       expect(
         await defaultDocumentsPersistence.listDocuments(
           runtime.documents.infra.execSql,
@@ -45,5 +57,79 @@ test("contact imports retain identity across fresh devices and isolate address b
     expect(ids[0]).not.toBe(ids[2]);
   } finally {
     for (const runtime of runtimes) runtime.close();
+  }
+});
+
+test("a user whose identity no link verified is not imported", async () => {
+  const runtime = await createRecoveryContactsRuntime({
+    containerId: "address-book-a",
+    runtimeKey: "contact-import-unverified",
+    signingFingerprint: "owner-signing-key",
+    userId: "owner-user",
+  });
+  try {
+    const requested: string[] = [];
+    const store = createContactsStore(runtime, {
+      // `userIdentities.resolveVerified` answers null for a pin that was only
+      // observed on first sight, exactly as for an unknown user.
+      resolveVerified: async (userId) => {
+        requested.push(userId);
+        return null;
+      },
+      // An empty address book has no tables to load yet.
+      logError: () => {},
+    });
+    store.updateRuntime(runtime);
+    expect(await store.importVerifiedUser("peer-user")).toBeNull();
+    expect(requested).toEqual(["peer-user"]);
+    expect(store.getSnapshot().entries).toEqual([]);
+    expect(
+      await runtime.documents.infra.execSql(
+        "SELECT COUNT(*) AS count FROM documents",
+      ),
+    ).toEqual([{ count: 0 }]);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("an import verified while the store's database changes is not written", async () => {
+  const [runtime, replacement] = await Promise.all(
+    ["contact-import-switch-a", "contact-import-switch-b"].map((runtimeKey) =>
+      createRecoveryContactsRuntime({
+        containerId: "address-book-a",
+        runtimeKey,
+        signingFingerprint: "owner-signing-key",
+        userId: "owner-user",
+      }),
+    ),
+  );
+  if (!runtime || !replacement) throw new Error("Missing test runtime");
+  try {
+    const scopes: unknown[] = [];
+    const store = createContactsStore(runtime, {
+      // The lookup finishes after the store moved to another database.
+      resolveVerified: async (userId, scope) => {
+        scopes.push(scope);
+        store.updateRuntime(replacement);
+        return {
+          userId,
+          encapsulationPublicKey: "peer-key",
+          encapsulationKeyFingerprint: "peer-kem-fingerprint",
+          signingPublicKey: "peer-signing-key",
+          signingKeyFingerprint: "peer-signing-fingerprint",
+        };
+      },
+      logError: () => {},
+    });
+    store.updateRuntime(runtime);
+    expect(await store.importVerifiedUser("peer-user")).toBeNull();
+    expect(scopes).toEqual([runtime.documents.state.domainScope]);
+    for (const candidate of [runtime, replacement]) {
+      expect(await countDocuments(candidate.documents.infra.execSql)).toBe(0);
+    }
+  } finally {
+    runtime?.close();
+    replacement?.close();
   }
 });

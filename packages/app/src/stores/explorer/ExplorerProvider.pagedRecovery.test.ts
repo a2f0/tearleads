@@ -88,6 +88,7 @@ test("Explorer retries signed hydration after private and public policy pages re
         },
       },
       () => false,
+      async () => undefined,
     );
     const persistence = defaultContainerContentsPersistence;
     await persistence.ensureSchema(coldDb.execSql);

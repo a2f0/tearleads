@@ -44,7 +44,7 @@ export const securitySummary: readonly SecuritySummaryRow[] = [
   },
   {
     // docs/security-guarantees.md "Local At-Rest Key Wrapping" (the host
-    // wrapping key, as named in Fig. 1 on /security; a PIN is optional).
+    // wrapping key, as named in Fig. 2 on /security; a PIN is optional).
     id: "your-device",
     title: "Encrypted at rest",
     protection:

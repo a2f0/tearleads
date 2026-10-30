@@ -81,7 +81,8 @@ from production evidence. Then give a short "checked and looked sound" list.
 ```
 
 Default `<EXCLUSIONS>`: equivocation and split view; cold-start rollback on a
-device with no checkpoint; first-contact identity TOFU; key transparency,
+device with no checkpoint; first-sight (`observed`) pins of signers and other
+referenced users no identity link verified; key transparency,
 witnesses, and semantic currentness (#2186 or its successor); pure availability
 or withholding; DoS and rate limits; residuals documented as accepted in
 `docs/security-guarantees.md`; plus any exclusions the user added.

@@ -22,6 +22,15 @@ export async function contactsRuntimeWritable(
   );
 }
 
+/** True while the store still has the database and identity it had now. */
+export function captureContactsScope(state: ContactsStoreState): () => boolean {
+  const { domainScope } = state.runtime.documents.state;
+  const { execSql } = state.runtime.documents.infra;
+  return () =>
+    state.runtime.documents.state.domainScope === domainScope &&
+    state.runtime.documents.infra.execSql === execSql;
+}
+
 /**
  * Appends `work` to the store's serialized write chain, funneling its failure
  * into the store log; resolves once the queued write settles.

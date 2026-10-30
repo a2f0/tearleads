@@ -1,7 +1,4 @@
-import type {
-  OrganizationDirectory,
-  OrganizationGroupMutationReceipt,
-} from "@tearleads/client-sdk";
+import type { OrganizationGroupMutationReceipt } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { RESERVED_ORGANIZATION_GROUP_NAMES } from "../../../utils/organizationGroupNames";
@@ -10,7 +7,7 @@ import type { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefresh
 
 type OrgManagerActions = Pick<
   ReturnType<typeof useOrgManagerActions>,
-  "addUserToGroup" | "importUserById" | "loadGroupMembers"
+  "addUserToGroup" | "loadGroupMembers"
 >;
 type IsOperationActive = (organizationId: string) => boolean;
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
@@ -41,30 +38,6 @@ export async function refreshAfterGroupMutation(input: {
   if (input.refreshSelectedUserDetail && input.selectedUserIdRef) {
     await input.refreshSelectedUserDetail(input.selectedUserIdRef.current);
   }
-}
-
-// Resolves the target user from the directory, importing them by id when the
-// roster does not know them yet.
-async function resolveRosterTargetUser(input: {
-  directoryUser: OrganizationDirectory["users"][number] | undefined;
-  isOperationActive: IsOperationActive;
-  operationOrganizationId: string;
-  orgManagerActions: OrgManagerActions;
-  setError: Dispatch<SetStateAction<string | null>>;
-  targetUserId: string;
-}): Promise<{ userId: string } | null> {
-  const targetUser = input.directoryUser
-    ? { userId: input.directoryUser.userId }
-    : await input.orgManagerActions.importUserById(input.targetUserId);
-  if (!input.isOperationActive(input.operationOrganizationId)) {
-    return null;
-  }
-  if (!targetUser) {
-    input.setError(ORG_MANAGER_LABELS.userNotFound);
-    return null;
-  }
-
-  return targetUser;
 }
 
 // Adds the user to the group unless they already belong to it. Returns null
@@ -106,8 +79,9 @@ async function ensureRosterUserInGroup(input: {
     : null;
 }
 
+// `targetUserId` comes from a verified identity link: admission never starts
+// from a bare user ID, and the SDK refuses an unverified member regardless.
 export async function prepareRosterImport(input: {
-  directory: OrganizationDirectory;
   isOperationActive: IsOperationActive;
   memberGroupId: string;
   operationOrganizationId: string;
@@ -115,44 +89,27 @@ export async function prepareRosterImport(input: {
   setError: Dispatch<SetStateAction<string | null>>;
   targetUserId: string;
 }): Promise<{ userId: string } | null> {
-  const targetUser = await resolveRosterTargetUser({
-    ...input,
-    directoryUser: input.directory.users.find(
-      (user) => user.userId === input.targetUserId,
-    ),
-  });
-  if (!targetUser) {
-    return null;
-  }
-
   const membership = await ensureRosterUserInGroup({
     ...input,
     groupId: input.memberGroupId,
     groupName: RESERVED_ORGANIZATION_GROUP_NAMES.members,
-    userId: targetUser.userId,
+    userId: input.targetUserId,
   });
 
-  return membership ? targetUser : null;
+  return membership ? { userId: input.targetUserId } : null;
 }
 
 export async function addRosterUserToGroup(input: {
-  directoryUser: OrganizationDirectory["users"][number] | undefined;
   groupId: string;
   groupName: string;
   isOperationActive: IsOperationActive;
   operationOrganizationId: string;
   orgManagerActions: OrgManagerActions;
-  setError: Dispatch<SetStateAction<string | null>>;
   targetUserId: string;
 }): Promise<OrganizationGroupMutationReceipt | null> {
-  const targetUser = await resolveRosterTargetUser(input);
-  if (!targetUser) {
-    return null;
-  }
-
   const bundle = await input.orgManagerActions.addUserToGroup(
     input.groupId,
-    targetUser.userId,
+    input.targetUserId,
     input.groupName,
   );
   return input.isOperationActive(input.operationOrganizationId) ? bundle : null;

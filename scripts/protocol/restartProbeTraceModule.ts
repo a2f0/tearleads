@@ -4,8 +4,10 @@
  * one recorded trace into a TLC module whose next-state relation conjoins the
  * model's own action (plus recorded observation bits) per step. The
  * orchestration — running the scenario tests, invoking TLC, negative
- * controls — lives in scripts/protocol/checkRestartProbeProjection.ts.
+ * controls — lives in scripts/protocol/checkRestartProbeProjection.ts and
+ * scripts/protocol/traceProjectionRunner.ts.
  */
+import { ProjectionError, projectionFail } from "./traceProjectionRunner";
 
 export const RESTART_PROBE_MODEL_PATH =
   "formal/document-sync/RestartProbeConvergence.tla";
@@ -37,11 +39,8 @@ export const ACTION_TEMPLATES: Readonly<Record<string, string>> = {
   Restart: "Restart",
 };
 
-export class ProjectionError extends Error {}
-
-export function projectionFail(message: string): never {
-  throw new ProjectionError(message);
-}
+// Re-exported so the trace tests keep importing them from this module.
+export { ProjectionError, projectionFail };
 
 export function parseRecordedTrace(
   name: string,

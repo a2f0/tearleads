@@ -61,7 +61,7 @@ type ContactsContextStoreFacade = Pick<
 const contactsContextStoreKeys = defineFacadeKeys<ContactsContextStoreFacade>()(
   [
     "createContact",
-    "importKey",
+    "importVerifiedUser",
     "removeContact",
     "removeContactAvatar",
     "setContactAvatar",

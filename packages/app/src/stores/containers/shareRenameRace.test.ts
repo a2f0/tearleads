@@ -56,6 +56,10 @@ test("a committed share racing a local rename preserves both after reconciliatio
     if (!rootId || !userId) throw new Error("Registration did not finish");
     const directory = await owner.organizations.loadDirectoryAndGroups();
     if (!directory) throw new Error("Organization directory is missing");
+    // Admitting the peer, as a member and as a share recipient, takes its link.
+    await owner.userIdentities.verifyLink(
+      await peer.userIdentities.createLink("http://localhost:3000"),
+    );
     await owner.organizations.addUserToGroup({
       expectedGroupName: "Members",
       groupId: directory.memberGroupId,

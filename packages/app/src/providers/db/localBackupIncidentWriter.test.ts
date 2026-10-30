@@ -8,6 +8,22 @@ import {
   restoreBackupDatabase,
 } from "./localBackupDatabase";
 
+const PEER_USER_ID = "11111111-1111-4111-8111-111111111111";
+
+// A well-formed link for the peer; the injected API failure precedes any
+// comparison with its fingerprint.
+function peerIdentityLink(): string {
+  const token = Buffer.from(
+    JSON.stringify([
+      1,
+      "https://api.example.test",
+      PEER_USER_ID,
+      "a".repeat(64),
+    ]),
+  ).toString("base64url");
+  return `https://app.example.test/app/contacts/import/${token}`;
+}
+
 test("real SDK incident evidence and its index survive preflight and database restore", async () => {
   const database = createNativeTestExecSql();
   const sdk = new Tearleads({
@@ -27,7 +43,7 @@ test("real SDK incident evidence and its index survive preflight and database re
   });
   try {
     await expect(
-      sdk.userIdentities.resolve("11111111-1111-4111-8111-111111111111"),
+      sdk.userIdentities.verifyLink(peerIdentityLink()),
     ).rejects.toBe(failure);
     const before = await sdk.securityIncidents.list();
     expect(before).toHaveLength(1);
@@ -54,7 +70,7 @@ test("real SDK incident evidence and its index survive preflight and database re
       "another observation",
     );
     await expect(
-      sdk.userIdentities.resolve("11111111-1111-4111-8111-111111111111"),
+      sdk.userIdentities.verifyLink(peerIdentityLink()),
     ).rejects.toBe(failure);
     expect((await sdk.securityIncidents.list())?.[0]?.occurrenceCount).toBe(2);
   } finally {

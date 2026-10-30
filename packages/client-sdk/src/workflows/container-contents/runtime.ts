@@ -100,9 +100,18 @@ export interface ContainerContentsWorkflowRuntime
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
+/**
+ * Refuses a share recipient whose identity no verified identity link (or this
+ * device's own keys) established. Sharing admits a user.
+ */
+export type ContainerContentsVerifiedRecipientGuard = (
+  userId: string,
+) => Promise<void>;
+
 export interface ContainerContentsStoreWorkflowRuntime
   extends ContainerContentsWorkflowRuntime {
   readonly adoptRootContainer: ContainerContentsRootAdopter;
+  readonly requireVerifiedRecipient: ContainerContentsVerifiedRecipientGuard;
 }
 
 export interface ContainerContentsWorkflowSqlRuntime {
@@ -174,6 +183,7 @@ export function createContainerContentsWorkflowRuntime(
 export function createContainerContentsStoreWorkflowRuntime(
   input: ContainerContentsWorkflowRuntimeInput,
   adoptRootContainer: ContainerContentsRootAdopter,
+  requireVerifiedRecipient: ContainerContentsVerifiedRecipientGuard,
 ): ContainerContentsStoreWorkflowRuntime {
   return inheritPrincipalHistoryProtection(input, {
     ...createContainerContentsWorkflowRuntimeWithRootAdopter(
@@ -181,5 +191,6 @@ export function createContainerContentsStoreWorkflowRuntime(
       adoptRootContainer,
     ),
     adoptRootContainer,
+    requireVerifiedRecipient,
   });
 }

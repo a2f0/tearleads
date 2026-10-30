@@ -63,8 +63,8 @@
       "bytes": 19301
     },
     "docs/keying-design.md": {
-      "lines": 1186,
-      "bytes": 58270
+      "lines": 1192,
+      "bytes": 58688
     },
     "docs/limits.md": {
       "lines": 195,
@@ -83,12 +83,12 @@
       "bytes": 39613
     },
     "docs/security-guarantees.md": {
-      "lines": 839,
-      "bytes": 48758
+      "lines": 847,
+      "bytes": 49358
     },
     "docs/subsystems.md": {
       "lines": 117,
-      "bytes": 20880
+      "bytes": 20873
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -251,8 +251,8 @@
       "bytes": 18913
     },
     "packages/client-sdk/src/data/sqlite/schema/index.ts": {
-      "lines": 671,
-      "bytes": 26459
+      "lines": 679,
+      "bytes": 26778
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 577,
@@ -267,8 +267,8 @@
       "bytes": 19610
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 453,
-      "bytes": 32203
+      "lines": 455,
+      "bytes": 32397
     },
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
       "lines": 572,

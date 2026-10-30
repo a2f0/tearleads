@@ -15,13 +15,16 @@ import "../styles/securityDiagrams.css";
 // Section ids are linked from Home, Features, and older URLs: keep them stable.
 const contents = [
   { href: "#threat-model", label: "Assumptions" },
+  { href: "#access-keying", label: "Access and keys" },
   { href: "#device-boundary", label: "Device and service" },
   { href: "#verified-sharing", label: "Verified sharing" },
-  { href: "#access-keying", label: "Access and keys" },
   { href: "#cryptography", label: "Cryptography" },
   { href: "#trust-boundaries", label: "Scope" },
   { href: "#documents", label: "Technical documents" },
 ];
+
+const zanzibarPaperUrl =
+  "https://www.usenix.org/conference/atc19/presentation/pang";
 ---
 
 <Layout
@@ -63,9 +66,45 @@ const contents = [
       </p>
     </section>
 
-    <section class="site-section security-section" id="device-boundary" aria-labelledby="device-title">
+    <section class="site-section security-section" id="access-keying" aria-labelledby="access-keying-title">
       <SectionHeader
         index="02"
+        titleId="access-keying-title"
+        title="Access lookup and keying"
+        lede="Authority comes from signed manifests. Access is looked up from a resource up to the people it is shared with; keys unwrap the other way, from a user key down to the content."
+      />
+      <div class="site-prose">
+        <p>
+          The permission structure draws on Google's <a href={zanzibarPaperUrl}>Zanzibar</a>:
+          access is recorded as relationships, and a check starts at the resource and
+          walks upward. A file is reachable through the documents it is attached
+          to, a document through every container (a folder in Explorer) it is
+          linked into, and a container through its parents up to the root. One
+          document can therefore be shared through a mix of grants applied at
+          different depths of the container hierarchy, and those grants add up.
+        </p>
+        <p>
+          Unlike Zanzibar, clients do not take the server's answer on trust. The
+          API enforces access, but each relationship is also a signed record
+          that every client verifies for itself before it reads or encrypts,
+          and Tearleads uses a fixed set of relationships rather than
+          Zanzibar's configurable rewrite rules. Keys follow the same paths in
+          reverse: a container's key opens the keys of the containers,
+          documents, and files beneath it.
+        </p>
+      </div>
+      <DocsDiagram svg={accessKeyingSvg} label="Access lookup and keying diagram" captionId="access-keying-caption">
+        <span class="security-figure-label">Fig. 1</span> Bob can read Blob B because it is
+        bound to Doc D, which links Inbox (C3), where Bob holds a direct write grant.
+        Solid lines are signed lookup relationships; dashed lines are key unwraps.
+        The <a class="site-link" href={sourceUrl("docs/access-plane.md")}>access plane document</a>
+        describes each rule.
+      </DocsDiagram>
+    </section>
+
+    <section class="site-section security-section" id="device-boundary" aria-labelledby="device-title">
+      <SectionHeader
+        index="03"
         titleId="device-title"
         title="Your device and the sync service"
         lede="Local encryption protects data stored on your device. End-to-end content encryption lets the service sync documents and files without the keys needed to read them."
@@ -121,7 +160,7 @@ const contents = [
 
     <section class="site-section security-section" id="verified-sharing" aria-labelledby="sharing-title">
       <SectionHeader
-        index="03"
+        index="04"
         titleId="sharing-title"
         title="Verified sharing"
         lede="A container (a folder in Explorer) groups content and its access rules. Clients derive who can receive its keys from verified access manifests and signed group policies. Editing a server-side membership row is not enough to grant access."
@@ -149,27 +188,7 @@ const contents = [
         </div>
       </div>
     </section>
-  </div>
 
-  <section class="site-section security-section security-section--bleed" id="access-keying" aria-labelledby="access-keying-title">
-    <div class="site-page">
-      <SectionHeader
-        index="04"
-        titleId="access-keying-title"
-        title="Access lookup and keying"
-        lede="One read decision, traced both ways: lookup runs up from a file to the people who may read it, and keys unwrap down from a user key to the content they open."
-      />
-    </div>
-    <DocsDiagram svg={accessKeyingSvg} label="Access lookup and keying diagram" captionId="access-keying-caption">
-      <span class="security-figure-label">Fig. 3</span> Bob can read Blob B because it is
-      bound to Doc D, which links Inbox (C3), where Bob holds a direct write grant.
-      Solid lines are signed lookup relationships; dashed lines are key unwraps.
-      The <a class="site-link" href={sourceUrl("docs/access-plane.md")}>access plane document</a>
-      describes each rule.
-    </DocsDiagram>
-  </section>
-
-  <div class="site-page">
     <SecurityCryptography />
 
     <SecurityLimits />

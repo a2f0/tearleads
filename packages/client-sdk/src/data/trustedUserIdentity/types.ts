@@ -9,7 +9,7 @@ const trustedUserIdentityBrandValue = true;
 
 /**
  * A complete user identity bundle that has passed strict key validation and
- * the durable trust-on-first-use comparison for its trust domain.
+ * the durable pin comparison for its trust domain.
  *
  * The nominal brand keeps raw API and organization response objects from being
  * accepted at cryptographic boundaries by structural typing. Its private
@@ -61,13 +61,27 @@ export interface LocalUserIdentityCandidate {
 export interface TrustedUserIdentityService {
   createLink(appUrl: string): Promise<string>;
   verifyLink(link: string): Promise<TrustedUserIdentity>;
+  /** Any existing pin, including one observed on first sight. Never admits. */
   resolvePinned(userId: string): Promise<TrustedUserIdentity | null>;
+  /** An existing pin established by a verified link or this device's keys. */
+  resolveVerified(userId: string): Promise<TrustedUserIdentity | null>;
+  /**
+   * Like `resolveVerified`, but throws `UnverifiedUserIdentityError`. An
+   * admission passes the database its mutation captured: a trust store that
+   * is not, or stops being, that database fails with `DatabaseUnavailableError`
+   * instead of admitting against another scope.
+   */
+  requireVerified(
+    userId: string,
+    admittingExecSql: ExecSql | null,
+  ): Promise<TrustedUserIdentity>;
   /** The user this device's trust store already binds a signing key to. */
   boundUserId(signingKeyFingerprint: string): Promise<string | null>;
   pinLocal(
     userId: string,
     candidate: LocalUserIdentityCandidate,
   ): Promise<TrustedUserIdentity>;
+  /** Pins on first sight as `observed`; for users signed state references. */
   resolve(userId: string): Promise<TrustedUserIdentity | null>;
 }
 

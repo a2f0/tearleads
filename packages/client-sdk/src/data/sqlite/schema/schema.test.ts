@@ -201,6 +201,12 @@ test("client sqlite schema creates tables and indexes", async () => {
         pk: 0,
         type: "TEXT",
       },
+      provenance: {
+        defaultValue: null,
+        notNull: 1,
+        pk: 0,
+        type: "TEXT",
+      },
     });
 
     const organizationReadModelState = await readTableColumns(

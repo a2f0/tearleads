@@ -80,7 +80,8 @@ describe("Tearleads", () => {
     expect("apiClient" in sdk.runtime.input()).toBe(false);
     expect("workflowInput" in sdk.runtime).toBe(false);
     expect(sdk.session.isAuthenticated).toBe(false);
-    expect(sdk.userIdentities.resolve).toBeFunction();
+    expect(sdk.userIdentities.resolveVerified).toBeFunction();
+    expect("resolve" in sdk.userIdentities).toBe(false);
   });
 
   test("uses apiBaseUrl for internal api requests", async () => {

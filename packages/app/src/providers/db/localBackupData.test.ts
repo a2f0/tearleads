@@ -152,7 +152,7 @@ test.each(["test-password", undefined])(
         signingFingerprint: "fingerprint-source",
       });
 
-      expect(payload.version).toBe(13);
+      expect(payload.version).toBe(14);
       expect(payload.summary.rowCount).toBe(5);
       expect(payload.summary.blobCount).toBe(2);
       expect(payload.database.indexes.map((index) => index.name)).toContain(

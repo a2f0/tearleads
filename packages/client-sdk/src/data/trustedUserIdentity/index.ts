@@ -1,3 +1,4 @@
+export { UnverifiedUserIdentityError } from "./admission";
 export { createApiUserIdentitySource } from "./apiAdapter";
 export { parseIdentityLink } from "./identityLink";
 export { requireTrustedUserIdentityResolver } from "./requiredResolver";

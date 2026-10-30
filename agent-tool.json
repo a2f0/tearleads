@@ -25,7 +25,8 @@
       { "name": "Postgres concurrency", "workflow": "CI" },
       { "name": "windows / Windows CEF persistence", "workflow": "CI" }
     ],
-    "requireStrictBaseFreshness": true
+    "requireStrictBaseFreshness": true,
+    "checksTimeoutSeconds": 3600
   },
   "versions": {
     "bundles": ["packages/client-sdk"],

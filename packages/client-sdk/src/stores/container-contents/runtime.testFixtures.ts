@@ -1,8 +1,10 @@
 import type { ListContainersResponse } from "@tearleads/validators/response";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { UnverifiedUserIdentityError } from "../../data/trustedUserIdentity";
 import type { BlobStore } from "../../workflows/blobs";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import {
+  type ContainerContentsVerifiedRecipientGuard,
   type ContainerContentsWorkflowRuntimeInput,
   createContainerContentsStoreWorkflowRuntime,
 } from "../../workflows/container-contents/runtime";
@@ -11,8 +13,15 @@ type ExecSql = Parameters<
   typeof defaultContainerContentsPersistence.ensureSchema
 >[0];
 
+// Store tests admit no share recipient unless they opt in, as with an empty
+// trust store.
+async function refuseRecipient(userId: string): Promise<void> {
+  throw new UnverifiedUserIdentityError(userId);
+}
+
 export function createContainerContentsStoreTestRuntime(
   input: ContainerContentsWorkflowRuntimeInput,
+  requireVerifiedRecipient: ContainerContentsVerifiedRecipientGuard = refuseRecipient,
 ) {
   return createContainerContentsStoreWorkflowRuntime(
     {
@@ -23,6 +32,7 @@ export function createContainerContentsStoreTestRuntime(
       },
     },
     () => false,
+    requireVerifiedRecipient,
   );
 }
 

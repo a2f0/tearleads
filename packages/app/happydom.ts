@@ -123,8 +123,18 @@ appTestProcessState.__tearleadsAppTestProcessState ??= {
 const currentAppTestProcessState =
   appTestProcessState.__tearleadsAppTestProcessState;
 
+// A serial run calls a preload's afterAll once, after the last file. A
+// `--parallel` worker (which sets BUN_TEST_WORKER_ID) calls it after every
+// file, and without isolation the worker's next file reuses this module graph
+// and its API runtime, so closing here would hand that file a closed PGlite.
+// A worker ends with the run, which releases the in-memory database.
+const runsAfterAllPerFile = "BUN_TEST_WORKER_ID" in process.env;
+
 afterAll(async () => {
-  if (!currentAppTestProcessState.hasLoadedApiRuntimeModule) {
+  if (
+    runsAfterAllPerFile ||
+    !currentAppTestProcessState.hasLoadedApiRuntimeModule
+  ) {
     return;
   }
 
