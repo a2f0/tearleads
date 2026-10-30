@@ -1,6 +1,5 @@
 import {
   KeyingVerificationError,
-  type PrincipalPolicyHistoryReferenceProof,
   type PrincipalPolicyStateChainEntry,
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
@@ -11,7 +10,7 @@ import {
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
+import { loadPrincipalHistoryReferences } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { principalHistoryEvidenceScopeId } from "../../../data/principals/principalHistoryPrefixProtection";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { loadVerifiedPrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";
@@ -71,28 +70,28 @@ async function readPage(
     throw new PrincipalHistoryRecoveryRaceError(
       "Principal checkpoint advanced beyond the selected display history",
     );
-  const load = (version: number) =>
-    loadPageReference({
-      execSql: options.execSql,
-      scopeId,
-      history,
-      version,
-    });
   const firstVersion = Math.max(
     1,
     beforeVersion - PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE,
   );
-  const references: PrincipalPolicyHistoryReferenceProof[] = [];
+  const pageVersions: number[] = [];
   for (
     let version = Math.max(1, firstVersion - 1);
     version < beforeVersion;
     version += 1
-  ) {
-    assertProjectionVerificationCurrent(current);
-    references.push(await load(version));
-  }
+  )
+    pageVersions.push(version);
+  assertProjectionVerificationCurrent(current);
+  const loaded = await loadPageReferences({
+    execSql: options.execSql,
+    scopeId,
+    history,
+    versions: checkpoint ? [...pageVersions, checkpoint.version] : pageVersions,
+  });
+  assertProjectionVerificationCurrent(current);
+  const references = loaded.slice(0, pageVersions.length);
   const checkpointReference = checkpoint
-    ? await load(checkpoint.version)
+    ? loaded[pageVersions.length]
     : undefined;
   if (
     checkpointReference &&
@@ -143,11 +142,11 @@ async function assertDisplayCheckpointCurrent(
     );
 }
 
-async function loadPageReference(
-  input: Parameters<typeof loadPrincipalHistoryReference>[0],
+async function loadPageReferences(
+  input: Parameters<typeof loadPrincipalHistoryReferences>[0],
 ) {
   try {
-    return await loadPrincipalHistoryReference(input);
+    return await loadPrincipalHistoryReferences(input);
   } catch (error) {
     if (error instanceof KeyingVerificationError)
       throw new PrincipalHistoryEvidenceUnavailableError(error);

@@ -7,6 +7,7 @@ export {
   getCurrentPrincipalEpochKeys,
   getCurrentPrincipalState,
   getCurrentPrincipalStates,
+  getCurrentPrincipalStatesFor,
   getPrincipalStatePayloadForState,
   getPrincipalStatesForReferences,
   listContainerGrantsForState,
@@ -14,5 +15,6 @@ export {
   listPrincipalProjectionMembersForStates,
   listPrincipalStateHistory,
   listProjectionMembersForState,
+  principalCurrentStateKey,
   principalStateReferenceKey,
 } from "../shared/internal/principalStateStore";

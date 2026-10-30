@@ -1,9 +1,15 @@
 import { expect, test } from "bun:test";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type {
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import { principalPolicyCacheKey } from "./principalPolicies";
+import {
+  loadPrincipalPoliciesForAccessPaths,
+  principalPolicyCacheKey,
+  principalPolicyReferenceCacheKey,
+} from "./principalPolicies";
+import type { PrincipalPolicyReferenceCache } from "./types";
 
 function createManifestReference(
   overrides: Partial<
@@ -99,4 +105,70 @@ test("principal policy cache keys match historical referenced policy heads", () 
       ],
     }),
   ).toBe("group:group-1:1:1:state-hash-1:key-fingerprint");
+});
+
+/** Any read fails with this executor, so a test sees whether one was tried. */
+const failingExecutor = {
+  select: () => {
+    throw new Error("own load");
+  },
+} as unknown as DatabaseSession;
+
+function pathCiting(
+  reference: VerifiedContainerAccessManifest["state"]["referencedPrincipalHeads"][number],
+): VerifiedContainerAccessManifest[] {
+  return [
+    { state: { referencedPrincipalHeads: [reference] } },
+  ] as VerifiedContainerAccessManifest[];
+}
+
+test("a request policy cache lends a loaded reference without a read", async () => {
+  const reference = createManifestReference();
+  const policy = createPolicy();
+  const cache: PrincipalPolicyReferenceCache = new Map([
+    [principalPolicyReferenceCacheKey(reference), Promise.resolve(policy)],
+  ]);
+
+  await expect(
+    loadPrincipalPoliciesForAccessPaths(
+      failingExecutor,
+      [pathCiting(reference)],
+      [],
+      cache,
+    ),
+  ).resolves.toEqual([policy]);
+});
+
+test("a borrower loads a reference itself when the lending load failed", async () => {
+  const reference = createManifestReference();
+  const lent = Promise.reject(new Error("another lane's load"));
+  lent.catch(() => undefined);
+  const cache: PrincipalPolicyReferenceCache = new Map([
+    [principalPolicyReferenceCacheKey(reference), lent],
+  ]);
+
+  // The caller fails only on its own load, never on another lane's failure.
+  await expect(
+    loadPrincipalPoliciesForAccessPaths(
+      failingExecutor,
+      [pathCiting(reference)],
+      [],
+      cache,
+    ),
+  ).rejects.toThrow("own load");
+});
+
+test("a failed policy load is evicted from the request cache", async () => {
+  const reference = createManifestReference();
+  const cache: PrincipalPolicyReferenceCache = new Map();
+
+  await expect(
+    loadPrincipalPoliciesForAccessPaths(
+      failingExecutor,
+      [pathCiting(reference)],
+      [],
+      cache,
+    ),
+  ).rejects.toThrow("own load");
+  expect(cache.size).toBe(0);
 });

@@ -5,7 +5,11 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { PrincipalPolicyAuthorization } from "@tearleads/crypto";
 import { and, eq, or, sql } from "drizzle-orm";
-import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
+import {
+  getCurrentPrincipalStatesFor,
+  principalCurrentStateKey,
+  type StoredPrincipalState,
+} from "../../access/read/principalStateStore";
 import { currentPrincipalStateHashSql } from "../principals/currentPrincipalStateSql";
 import { getVerifiedPrincipalPolicyForStateWithExecutor } from "../principals/getCurrentPrincipalPolicy";
 import { PrincipalPolicyError } from "../principals/shared";
@@ -15,8 +19,18 @@ import {
   parseOrganizationAuthorityDescriptor,
 } from "./organizationAuthorityDescriptor";
 
+/** The organization's immutable reserved group ids. */
+export interface OrganizationGroupIds {
+  readonly adminGroupId: string;
+  readonly memberGroupId: string;
+}
+
 interface OrganizationAccess {
   isOrgAdmin: boolean;
+  /** Never updated after creation, so callers may reuse them in the transaction. */
+  readonly organization: OrganizationGroupIds;
+  /** The organization head this decision verified, read in this transaction. */
+  readonly organizationState: StoredPrincipalState;
 }
 
 function requireOrganizationDescriptorScope(input: {
@@ -40,11 +54,11 @@ function requireOrganizationDescriptorScope(input: {
 }
 
 function principalStateMatchesGroupHead(
-  state: Awaited<ReturnType<typeof getCurrentPrincipalState>>,
+  state: StoredPrincipalState | undefined,
   head: OrganizationGroupHead | undefined,
 ): boolean {
   return (
-    state !== null &&
+    state !== undefined &&
     head !== undefined &&
     state.principalId === head.principalId &&
     state.version === head.version &&
@@ -62,22 +76,28 @@ async function loadVerifiedOrganizationAccessPolicies(input: {
 }): Promise<{
   readonly adminPolicy: PrincipalPolicyAuthorization;
   readonly memberPolicy: PrincipalPolicyAuthorization;
+  readonly organizationState: StoredPrincipalState;
 }> {
-  const adminState = await getCurrentPrincipalState(
-    "group",
-    input.adminGroupId,
+  const admin = {
+    principalType: "group",
+    principalId: input.adminGroupId,
+  } as const;
+  const member = {
+    principalType: "group",
+    principalId: input.memberGroupId,
+  } as const;
+  const organization = {
+    principalType: "organization",
+    principalId: input.organizationId,
+  } as const;
+  // One statement reads all three heads, from one snapshot.
+  const states = await getCurrentPrincipalStatesFor(
+    [admin, member, organization],
     input.executor,
   );
-  const memberState = await getCurrentPrincipalState(
-    "group",
-    input.memberGroupId,
-    input.executor,
-  );
-  const organizationState = await getCurrentPrincipalState(
-    "organization",
-    input.organizationId,
-    input.executor,
-  );
+  const adminState = states.get(principalCurrentStateKey(admin));
+  const memberState = states.get(principalCurrentStateKey(member));
+  const organizationState = states.get(principalCurrentStateKey(organization));
   if (!adminState || !memberState || !organizationState) {
     throw new OrganizationManagerError(
       "Organization access policy is missing",
@@ -128,7 +148,7 @@ async function loadVerifiedOrganizationAccessPolicies(input: {
         input.executor,
         memberState,
       );
-    return { adminPolicy, memberPolicy };
+    return { adminPolicy, memberPolicy, organizationState };
   } catch (error) {
     if (error instanceof PrincipalPolicyError) {
       throw new OrganizationManagerError(
@@ -158,7 +178,7 @@ async function loadOrganizationAccess(input: {
     throw new OrganizationManagerError("Organization not found", 404);
   }
 
-  const { adminPolicy, memberPolicy } =
+  const { adminPolicy, memberPolicy, organizationState } =
     await loadVerifiedOrganizationAccessPolicies({
       adminGroupId: organization.adminGroupId,
       executor: input.executor,
@@ -172,11 +192,8 @@ async function loadOrganizationAccess(input: {
     (member) => member.userId === input.userId,
   );
 
-  if (isAdmin) {
-    return { isOrgAdmin: true };
-  }
-  if (isMember) {
-    return { isOrgAdmin: false };
+  if (isAdmin || isMember) {
+    return { isOrgAdmin: isAdmin, organization, organizationState };
   }
 
   return null;
