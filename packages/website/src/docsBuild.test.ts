@@ -46,11 +46,13 @@ beforeAll(async () => {
       stderr: "pipe",
     },
   );
-  const [code, stderr] = await Promise.all([
+  // Drain both pipes so a full stdout buffer cannot stall the build.
+  const [code, stdout, stderr] = await Promise.all([
     child.exited,
+    new Response(child.stdout).text(),
     new Response(child.stderr).text(),
   ]);
-  expect(code, stderr).toBe(0);
+  expect(code, `${stdout}\n${stderr}`).toBe(0);
   for (const path of ["/docs/", "/security/", ...technicalDocs.map(docPath)]) {
     pages.set(
       path,
