@@ -7,6 +7,7 @@ import {
 import { users } from "@tearleads/api-shared/schema";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
+import { withPrincipalHistoryRequest } from "../utils/principalHistoryWork";
 import { loadSignerPublicKey } from "./signerPublicKey";
 
 class SignerAccessError extends Error {
@@ -133,6 +134,73 @@ test("a transaction does not remember a signer that was missing", async () => {
       );
       await insertSigner(fingerprint, signingPublicKey, tx, userId);
       await expect(loadSignerPublicKey(tx, input)).resolves.toEqual(
+        signingPublicKey,
+      );
+    });
+  } finally {
+    await db.delete(users).where(eq(users.id, userId));
+  }
+});
+
+test("an authenticated request reads each signer row once on the root executor", async () => {
+  const fingerprint = `signer-${crypto.randomUUID()}`;
+  const signingPublicKey = new Uint8Array([6, 7]);
+  const userId = await insertSigner(fingerprint, signingPublicKey);
+  const input = { error: signerAccessError, fingerprint, userId };
+
+  try {
+    await withPrincipalHistoryRequest(undefined, async () => {
+      const counter = { statements: 0 };
+      await withDatabaseStatementCounter(counter, async () => {
+        await expect(loadSignerPublicKey(db, input)).resolves.toEqual(
+          signingPublicKey,
+        );
+        await expect(loadSignerPublicKey(db, input)).resolves.toEqual(
+          signingPublicKey,
+        );
+        await expect(
+          loadSignerPublicKey(db, { ...input, fingerprint: "other" }),
+        ).rejects.toEqual(new SignerAccessError("Forbidden", 403));
+      });
+      expect(counter.statements).toBe(1);
+
+      // A transaction keeps its own memo and never reads the request's rows,
+      // so an in-transaction signer check still reads its row.
+      await db.transaction(async (tx) => {
+        const transactionCounter = { statements: 0 };
+        await withDatabaseStatementCounter(transactionCounter, () =>
+          loadSignerPublicKey(tx, input),
+        );
+        expect(transactionCounter.statements).toBe(1);
+      });
+    });
+
+    // Another request starts with nothing.
+    await withPrincipalHistoryRequest(undefined, async () => {
+      const counter = { statements: 0 };
+      await withDatabaseStatementCounter(counter, () =>
+        loadSignerPublicKey(db, input),
+      );
+      expect(counter.statements).toBe(1);
+    });
+  } finally {
+    await db.delete(users).where(eq(users.id, userId));
+  }
+});
+
+test("an authenticated request does not remember a signer that was missing", async () => {
+  const fingerprint = `signer-${crypto.randomUUID()}`;
+  const signingPublicKey = new Uint8Array([8]);
+  const userId = crypto.randomUUID();
+  const input = { error: signerAccessError, fingerprint, userId };
+
+  try {
+    await withPrincipalHistoryRequest(undefined, async () => {
+      await expect(loadSignerPublicKey(db, input)).rejects.toEqual(
+        new SignerAccessError("Forbidden", 403),
+      );
+      await insertSigner(fingerprint, signingPublicKey, db, userId);
+      await expect(loadSignerPublicKey(db, input)).resolves.toEqual(
         signingPublicKey,
       );
     });

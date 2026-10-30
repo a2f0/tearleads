@@ -4,7 +4,8 @@ import "./tokens.css";
 // hooks, the menu and sidebar primitives the chrome renders with, a taskbar's
 // start menu and theme switch, the icons the chrome draws, a launcher of
 // mini-apps that shows them in windows or in the routed (iPad / phone) shell,
-// and desktop icons that open them, with a storage adapter for their layout.
+// and desktop icons that open them, with a storage adapter for their layout,
+// over a wallpaper chosen in Display Properties.
 export {
   createRequiredContext,
   type RequiredContext,
@@ -24,6 +25,7 @@ export {
   type DesktopStateStorage,
   type OpfsDesktopStateStorageOptions,
 } from "./desktop/desktopStateStorage";
+export { DisplayProperties } from "./display/DisplayProperties";
 export {
   type WindowingIcons,
   WindowingIconsProvider,
@@ -125,6 +127,27 @@ export type {
   ThemeDefinition,
   ThemeScheme,
 } from "./theme/themes";
+export {
+  DesktopWallpaper,
+  type DesktopWallpaperProps,
+} from "./wallpaper/DesktopWallpaper";
+export {
+  BLOCKS_WALLPAPER,
+  CHEVRON_WALLPAPER,
+  HARLEQUIN_WALLPAPER,
+  HONEYCOMB_WALLPAPER,
+  PLAIN_WALLPAPER,
+  TRIANGLES_WALLPAPER,
+} from "./wallpaper/tessellations";
+export {
+  useOptionalWallpaper,
+  useWallpaper,
+  WallpaperProvider,
+} from "./wallpaper/WallpaperProvider";
+export type {
+  WallpaperDefinition,
+  WallpaperTile,
+} from "./wallpaper/wallpapers";
 export {
   CurrentWindowProvider,
   useCurrentWindow,

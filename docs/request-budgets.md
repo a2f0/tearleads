@@ -130,7 +130,10 @@ cryptographic work. Listing is batched instead:
 `POST /containers/documents/query` lists up to 32 container lanes
 (`MAX_CONTAINER_DOCUMENT_LANES`) per request, each through the singular listing
 with its own readable-container gate, access resolver, watermark and page
-bound. That saves requests, not statements.
+bound. The lanes share one request-scoped cache of verified principal policies
+by reference, and a lane's linked containers reuse the policies its gate
+loaded, so batching also saves statements; every container path is still
+verified.
 
 ### Separate projection reads
 

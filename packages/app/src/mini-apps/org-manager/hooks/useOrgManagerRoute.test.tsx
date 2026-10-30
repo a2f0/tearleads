@@ -13,6 +13,10 @@ const EmptyMiniApp = () => null;
 const TEST_MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
   "backup-restore": { createComponent: () => EmptyMiniApp, title: "Backup" },
   contacts: { createComponent: () => EmptyMiniApp, title: "Contacts" },
+  "display-properties": {
+    createComponent: () => EmptyMiniApp,
+    title: "Display",
+  },
   explorer: { createComponent: () => EmptyMiniApp, title: "Explorer" },
   "identity-manager": { createComponent: () => EmptyMiniApp, title: "ID" },
   notes: { createComponent: () => EmptyMiniApp, title: "Notes" },

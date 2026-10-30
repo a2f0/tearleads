@@ -18,6 +18,10 @@ export function createMiniApps(
       createComponent: () => contactsComponent,
       title: "Contacts",
     },
+    "display-properties": {
+      createComponent: () => EmptyMiniApp,
+      title: "Display Properties",
+    },
     explorer: {
       createComponent: () => EmptyMiniApp,
       title: "Explorer",
