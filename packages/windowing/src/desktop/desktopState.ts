@@ -148,12 +148,14 @@ export function resolveDesktopIconPositions(
   stored: DesktopState["icons"],
   surface: DesktopSurfaceSize,
 ): Record<string, DesktopIconPosition> {
+  // A row fits while the icon's own box does; the cell's spacing below the
+  // last one may fall off the surface.
   const rows = Math.max(
     1,
     Math.floor(
-      (surface.height - DESKTOP_ICON_GRID.originY) /
+      (surface.height - DESKTOP_ICON_GRID.originY - DESKTOP_ICON_SIZE.height) /
         DESKTOP_ICON_GRID.cellHeight,
-    ),
+    ) + 1,
   );
   const positions: Record<string, DesktopIconPosition> = {};
   const taken: DesktopIconPosition[] = [];

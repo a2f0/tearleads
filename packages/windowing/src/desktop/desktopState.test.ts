@@ -55,6 +55,16 @@ test("icons without a stored position fill free grid slots in order", () => {
   });
 });
 
+test("a column holds every icon whose box fits", () => {
+  // 12 + 96 + 88 = 196: a second icon fits a 200px surface.
+  expect(
+    resolveDesktopIconPositions(["a", "b"], {}, { height: 200, width: 120 }),
+  ).toEqual({
+    a: { x: originX, y: originY },
+    b: { x: originX, y: originY + cellHeight },
+  });
+});
+
 test("an unmeasured surface lays icons out in one row", () => {
   expect(
     resolveDesktopIconPositions(["a", "b"], {}, { height: 0, width: 0 }),
