@@ -229,7 +229,7 @@ export async function getAccessManifestBundle(
 export async function getAccessManifestBundles(
   manifestHashes: readonly string[],
   executor: DatabaseSession,
-  omitIncomplete = false,
+  omitUnreadable = false,
 ): Promise<Map<string, StoredAccessManifestBundle>> {
   const uniqueManifestHashes = unique(manifestHashes);
   if (uniqueManifestHashes.length === 0) {
@@ -248,21 +248,21 @@ export async function getAccessManifestBundles(
     .where(inArray(accessManifests.manifestHash, uniqueManifestHashes));
   const bundles = new Map<string, StoredAccessManifestBundle>();
   for (const { manifest, event } of rows) {
-    if (!event) {
-      if (omitIncomplete) continue;
-      throw new Error("Access event not found");
+    try {
+      if (!event) throw new Error("Access event not found");
+      bundles.set(manifest.manifestHash, {
+        event: toStoredAccessEvent(event),
+        manifest: toStoredAccessManifest(manifest),
+        manifestHash: manifest.manifestHash,
+        state: readKeyingCanonicalJson(
+          manifest.state,
+          "stored access manifest state",
+        ),
+        verificationMac: manifest.verificationMac,
+      });
+    } catch (error) {
+      if (!omitUnreadable) throw error;
     }
-
-    bundles.set(manifest.manifestHash, {
-      event: toStoredAccessEvent(event),
-      manifest: toStoredAccessManifest(manifest),
-      manifestHash: manifest.manifestHash,
-      state: readKeyingCanonicalJson(
-        manifest.state,
-        "stored access manifest state",
-      ),
-      verificationMac: manifest.verificationMac,
-    });
   }
 
   return bundles;

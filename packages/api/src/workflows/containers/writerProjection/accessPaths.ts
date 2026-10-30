@@ -7,7 +7,10 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { resolveContainerPathUserAccessLevel } from "@tearleads/crypto";
-import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
+import {
+  type AccessManifestBundleWireResponse,
+  CONTAINER_NOT_FOUND_ERROR_CODE,
+} from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { eq, inArray } from "drizzle-orm";
 import {
@@ -251,8 +254,9 @@ async function prefetchCurrentContainerManifestBundles(
     (manifestHash) => !context.manifestBundleByHash.has(manifestHash),
   );
   for (const batch of prefetchBatches(uncachedHashes)) {
-    // An incomplete bundle stays uncached: the walk that reaches it reloads it
-    // and fails exactly as it would have without the prefetch.
+    // An incomplete, unreadable, or non-container bundle stays uncached: the
+    // walk that reaches it reloads it and fails exactly as it would have
+    // without the prefetch, inside that container's own error handling.
     const bundles = await getAccessManifestBundles(
       batch,
       context.executor,
@@ -260,10 +264,13 @@ async function prefetchCurrentContainerManifestBundles(
     );
     for (const [manifestHash, bundle] of bundles) {
       if (bundle.manifest.objectKind !== "container") continue;
-      context.manifestBundleByHash.set(
-        manifestHash,
-        Promise.resolve(toManifestBundleResponse(bundle)),
-      );
+      let response: AccessManifestBundleWireResponse;
+      try {
+        response = toManifestBundleResponse(bundle);
+      } catch {
+        continue;
+      }
+      context.manifestBundleByHash.set(manifestHash, Promise.resolve(response));
       context.verificationMarkers.seed(bundle);
     }
   }
