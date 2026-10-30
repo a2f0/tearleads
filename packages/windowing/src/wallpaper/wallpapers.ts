@@ -21,9 +21,10 @@ export interface WallpaperTile {
 
 /**
  * A desktop wallpaper a host offers: a base color and, optionally, a pattern
- * repeated over it in an ink color. Both colors default to the theme's
- * `--desktop-wallpaper-base` and `--desktop-wallpaper-ink` tokens (see
- * `tokens.css`), so a wallpaper follows the theme unless it names its own.
+ * repeated over it in an ink color. Unless it names its own, the colors come
+ * from the theme: the `--desktop-wallpaper-base` and `--desktop-wallpaper-ink`
+ * tokens where a host sets them, else the desk color (`--desktop-background`,
+ * then `--color-light`) under a faint wash of `--color-dark`.
  */
 export interface WallpaperDefinition<Id extends string = string> {
   /** A CSS color under the pattern. */
@@ -36,6 +37,13 @@ export interface WallpaperDefinition<Id extends string = string> {
   /** The repeating pattern. Without one the wallpaper is its base alone. */
   readonly tile?: WallpaperTile | undefined;
 }
+
+// The theme's colors, resolved on the wallpaper's own element, so a theme
+// scoped below the document root reaches the desktop and the previews alike.
+const THEME_BASE =
+  "var(--desktop-wallpaper-base, var(--desktop-background, var(--color-light)))";
+const THEME_INK =
+  "var(--desktop-wallpaper-ink, color-mix(in srgb, var(--color-dark) 12%, transparent))";
 
 type WallpaperStyle = CSSProperties & {
   "--wallpaper-base": string;
@@ -55,8 +63,8 @@ export function wallpaperTileUrl(tile: WallpaperTile): string {
  */
 export function wallpaperStyle(wallpaper: WallpaperDefinition): WallpaperStyle {
   const style: WallpaperStyle = {
-    "--wallpaper-base": wallpaper.base ?? "var(--desktop-wallpaper-base)",
-    "--wallpaper-ink": wallpaper.ink ?? "var(--desktop-wallpaper-ink)",
+    "--wallpaper-base": wallpaper.base ?? THEME_BASE,
+    "--wallpaper-ink": wallpaper.ink ?? THEME_INK,
   };
   if (wallpaper.tile) {
     style["--wallpaper-mask"] = wallpaperTileUrl(wallpaper.tile);

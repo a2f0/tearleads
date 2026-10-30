@@ -65,8 +65,10 @@ describe("wallpaperStyle", () => {
       throw new Error("honeycomb has no tile");
     }
     expect(wallpaperStyle(HONEYCOMB_WALLPAPER)).toEqual({
-      "--wallpaper-base": "var(--desktop-wallpaper-base)",
-      "--wallpaper-ink": "var(--desktop-wallpaper-ink)",
+      "--wallpaper-base":
+        "var(--desktop-wallpaper-base, var(--desktop-background, var(--color-light)))",
+      "--wallpaper-ink":
+        "var(--desktop-wallpaper-ink, color-mix(in srgb, var(--color-dark) 12%, transparent))",
       "--wallpaper-mask": wallpaperTileUrl(tile),
       "--wallpaper-size": `${tile.width}px ${tile.height}px`,
     });

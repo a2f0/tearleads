@@ -68,15 +68,6 @@
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
-
-  /* The desktop wallpaper's colors (see DesktopWallpaper): the host's desk
-     color, else the light surface, under a faint wash of the foreground. */
-  --desktop-wallpaper-base: var(--desktop-background, var(--color-light));
-  --desktop-wallpaper-ink: color-mix(
-    in srgb,
-    var(--color-dark) 12%,
-    transparent
-  );
 }
 
 /*

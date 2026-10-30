@@ -369,10 +369,12 @@ A host offers its own desktop wallpapers. A `WallpaperDefinition` is
 `{ id, label, tile?, base?, ink? }`: `tile` is one cell of a repeating
 pattern, as SVG markup with its `width` and `height` in CSS pixels. The tile's
 SVG is a mask rather than a picture: opaque shapes paint the ink, translucent
-ones (`fill-opacity`) a share of it, and the base shows elsewhere. The colors
-default to the `--desktop-wallpaper-base` and `--desktop-wallpaper-ink`
-tokens, which derive from the theme (the base from a host's
-`--desktop-background`, else `--color-light`), so one tile suits every theme.
+ones (`fill-opacity`) a share of it, and the base shows elsewhere. Unless a
+wallpaper names its colors, they come from the theme, resolved on the
+wallpaper's own element: the `--desktop-wallpaper-base` and
+`--desktop-wallpaper-ink` tokens where a host sets them, else the desk color
+(`--desktop-background`, then `--color-light`) under a faint wash of
+`--color-dark`. So one tile suits every theme.
 A wallpaper without a tile is its base alone.
 
 The package ships quiet tessellations to choose from: `BLOCKS_WALLPAPER`,
