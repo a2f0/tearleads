@@ -36,8 +36,8 @@ export interface DesktopIconsProps<AppId extends string = string> {
   storage?: DesktopStateStorage | undefined;
 }
 
-// An icon's box at most (DesktopIcons.css), for keeping a stored position on
-// a surface smaller than the one it was saved on.
+// An icon's box (DesktopIcons.css), for keeping a stored position on a
+// surface smaller than the one it was saved on.
 const DESKTOP_ICON_SIZE: DesktopIconSize = { height: 88, width: 80 };
 
 const NO_MENU_ITEMS: ReadonlyArray<DesktopIconMenuItem> = [];

@@ -10,7 +10,8 @@
   pointer-events: none;
 }
 
-/* At most 80px wide and 88px tall: DesktopIcons.tsx clamps with that size. */
+/* 80px wide and 88px tall: DesktopIcons.tsx clamps a stored position with
+   that size, and a drag measures the same box. */
 .desktop-icon {
   position: absolute;
   display: flex;
@@ -19,7 +20,7 @@
   gap: var(--space-xs);
   box-sizing: border-box;
   width: 80px;
-  max-height: 88px;
+  height: 88px;
   padding: var(--space-xs);
   border: 0;
   border-radius: var(--app-radius-control);
