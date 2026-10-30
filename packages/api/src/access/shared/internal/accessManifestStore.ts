@@ -222,16 +222,14 @@ export async function getAccessManifestBundle(
   manifestHash: string,
   executor: DatabaseSession,
 ): Promise<StoredAccessManifestBundle | null> {
-  return (
-    (await getAccessManifestBundles([manifestHash], executor)).get(
-      manifestHash,
-    ) ?? null
-  );
+  const bundles = await getAccessManifestBundles([manifestHash], executor);
+  return bundles.get(manifestHash) ?? null;
 }
 
 export async function getAccessManifestBundles(
   manifestHashes: readonly string[],
   executor: DatabaseSession,
+  omitIncomplete = false,
 ): Promise<Map<string, StoredAccessManifestBundle>> {
   const uniqueManifestHashes = unique(manifestHashes);
   if (uniqueManifestHashes.length === 0) {
@@ -251,6 +249,7 @@ export async function getAccessManifestBundles(
   const bundles = new Map<string, StoredAccessManifestBundle>();
   for (const { manifest, event } of rows) {
     if (!event) {
+      if (omitIncomplete) continue;
       throw new Error("Access event not found");
     }
 

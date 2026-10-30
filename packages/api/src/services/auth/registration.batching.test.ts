@@ -66,8 +66,10 @@ for (const full of [false, true]) {
     // the database efficiency audit, 393 / 883 once signer rows are read once
     // per transaction and fresh manifests skip their no-op projection deletes.
     // Batched current payload/envelopes remove another 20 / 44 statements.
-    // Leave room for dialect differences while rejecting the repeated reads.
-    expect(counter.statements).toBeLessThanOrEqual(full ? 856 : 385);
+    // 373 / 841 on PGlite and 365 / 827 on SQLite, then 370 / 838 and
+    // 362 / 824 once the principal state signer read joined the transaction's
+    // signer memo; Postgres also counts its two transaction controls.
+    expect(counter.statements).toBeLessThanOrEqual(full ? 840 : 372);
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
     const stored = await db

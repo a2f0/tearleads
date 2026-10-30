@@ -51,6 +51,15 @@ export type ContainerAccessProjectionResult =
       readonly status: "rejected";
     };
 
+/**
+ * Verified principal policies by principal reference, shared by the contexts
+ * of one root-executor request. A transaction never carries one.
+ */
+export type PrincipalPolicyReferenceCache = Map<
+  string,
+  Promise<PrincipalPolicyAuthorization | undefined>
+>;
+
 export interface ContainerWriterProjectionContext {
   readonly containerKekStateByCacheKey: Map<
     string,
@@ -67,6 +76,8 @@ export interface ContainerWriterProjectionContext {
     Promise<AccessManifestBundleWireResponse>
   >;
   readonly principalPolicyAuthorizationEvidence: readonly PrincipalPolicyAuthorization[];
+  /** Set only by root-executor listings; see `PrincipalPolicyReferenceCache`. */
+  readonly principalPolicyByReference?: PrincipalPolicyReferenceCache;
   readonly verifiedManifestByHash: Map<string, VerifiedContainerAccessManifest>;
   readonly verificationMarkers: AccessManifestVerificationMarkerStore;
   readonly signerByUserId: SignerCache;

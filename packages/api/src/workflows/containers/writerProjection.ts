@@ -21,6 +21,7 @@ import {
   asContainerWriterProjectionError,
   buildContainerAccessProjection,
   loadContainerAccessPath,
+  prefetchContainerAccessPaths,
   principalPoliciesForAccessPath,
   resolveSingleContainerAccessProjection,
 } from "./writerProjection/accessPaths";
@@ -172,19 +173,48 @@ export async function resolveContainerAccessProjection(input: {
   return projection;
 }
 
+async function loadAccessPathPrincipalPolicies(
+  context: ContainerWriterProjectionContext,
+  accessPath: ContainerAccessPath,
+  evidence: readonly PrincipalPolicyAuthorization[],
+): Promise<PrincipalPolicyAuthorization[]> {
+  const policies = await loadPrincipalPoliciesForAccessPaths(
+    context.executor,
+    [accessPath.verifiedPath],
+    evidence,
+    context.principalPolicyByReference,
+  );
+  if (evidence.length === 0) return policies;
+  // Evidence can cover principals this path never cites; keep only its own.
+  return principalPoliciesForAccessPath(
+    new Map(
+      policies.flatMap((policy) =>
+        verifiedPrincipalPolicyReferenceCacheKeys(policy).map(
+          (referenceKey) => [referenceKey, policy] as const,
+        ),
+      ),
+    ),
+    accessPath,
+  );
+}
+
 export async function resolveContainerAccessProjectionBatch(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerIds: readonly string[];
+  /** Policies this request already verified, reused instead of reloaded. */
+  readonly evidence?: readonly PrincipalPolicyAuthorization[];
   readonly executor: DatabaseSession;
   readonly minimumAccessLevel: ContainerAccessLevel;
   readonly userId: string;
 }): Promise<Map<string, ContainerAccessProjectionResult>> {
   const context =
     input.context ?? createContainerWriterProjectionContext(input.executor);
+  const evidence = input.evidence ?? [];
   const containerIds = uniqueSortedStrings(input.containerIds);
   const results = new Map<string, ContainerAccessProjectionResult>();
   const accessPaths = new Map<string, ContainerAccessPath>();
 
+  await prefetchContainerAccessPaths(context, containerIds);
   const pathResults = await gatherWithExecutor(
     context.executor,
     containerIds,
@@ -228,6 +258,8 @@ export async function resolveContainerAccessProjectionBatch(input: {
           accessPaths.values(),
           (accessPath) => accessPath.verifiedPath,
         ),
+        evidence,
+        context.principalPolicyByReference,
       );
       sharedPrincipalPoliciesByReference = new Map(
         sharedPrincipalPolicies.flatMap((policy) =>
@@ -251,9 +283,7 @@ export async function resolveContainerAccessProjectionBatch(input: {
             sharedPrincipalPoliciesByReference,
             accessPath,
           )
-        : await loadPrincipalPoliciesForAccessPaths(context.executor, [
-            accessPath.verifiedPath,
-          ]);
+        : await loadAccessPathPrincipalPolicies(context, accessPath, evidence);
       results.set(containerId, {
         status: "fulfilled",
         value: buildContainerAccessProjection({
