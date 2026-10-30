@@ -12,7 +12,7 @@
     "test:e2e": "bun run e2e",
     "predev": "bun run build:client-sdk",
     "dev": "sh ../../scripts/lib/withBuildInfoEnv.sh bun --hot src/servers/devServer.ts",
-    "prescreenshots": "bun run --cwd ../.. screenshots:seed",
+    "prescreenshots": "bun screenshots/sharedStore.ts && bun run --cwd ../.. screenshots:seed",
     "screenshots": "env -u NO_COLOR -u FORCE_COLOR playwright test --config=playwright.screenshots.config.ts",
     "prebuild": "bun run build:client-sdk",
     "build": "export NODE_ENV=production && rm -rf dist && sh ../../scripts/lib/withBuildInfoEnv.sh bun scripts/buildApp.ts && bun scripts/buildStaticAssets.ts && agent-tool --repo ../.. images build app-web && bun scripts/injectFaviconLinks.ts && bun scripts/injectTierMeta.ts && bun scripts/buildServiceWorker.ts",

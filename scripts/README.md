@@ -71,9 +71,10 @@ missing or stale provenance; regenerate with `bun run screenshots:seed`.
 before capturing desktop, tablet, and phone layouts in both themes. Household
 detail captures assert decoded family/equipment photos and receipts, inventory
 fields, and tracker table rows and graph points. The browser locale and time
-zone are pinned so the dated readings render consistently.
-It writes below the gitignored `.screenshots`, which links to the
-`matrix-artifacts` store shared by every clone. `bun run build:website` only
+zone are pinned so the dated readings render consistently. It writes below the
+gitignored `.screenshots`, which links to the `matrix-artifacts` store shared by
+every clone; in a linked clone it runs only under that store's
+`artifacts capture`, which records the capture. `bun run build:website` only
 stages the existing captures into the website gallery; it never captures (see
 [local website screenshots](../packages/website/README.md#local-website-screenshots)).
 

@@ -1,4 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import { assertSharedCaptureRecorded } from "./screenshots/sharedStore";
+
+// Direct Playwright runs skip prescreenshots; refuse them in a linked clone too.
+assertSharedCaptureRecorded();
 
 const WEB_API_BASE_URL = "http://127.0.0.1:32001";
 const MOBILE_API_BASE_URL = "http://127.0.0.1:32002";
