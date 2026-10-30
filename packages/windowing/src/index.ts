@@ -2,12 +2,28 @@ import "./tokens.css";
 
 // The public windowing API: window state, window chrome and its registration
 // hooks, the menu and sidebar primitives the chrome renders with, a taskbar's
-// start menu and theme switch, the icons the chrome draws, and a launcher of
-// mini-apps that shows them in windows or in the routed (iPad / phone) shell.
+// start menu and theme switch, the icons the chrome draws, a launcher of
+// mini-apps that shows them in windows or in the routed (iPad / phone) shell,
+// and desktop icons that open them, with a storage adapter for their layout.
 export {
   createRequiredContext,
   type RequiredContext,
 } from "./createRequiredContext";
+export type { DesktopIconMenuItem } from "./desktop/DesktopIconMenu";
+export {
+  DesktopIcons,
+  type DesktopIconsProps,
+} from "./desktop/DesktopIcons";
+export type {
+  DesktopIconPosition,
+  DesktopState,
+} from "./desktop/desktopState";
+export {
+  createMemoryDesktopStateStorage,
+  createOpfsDesktopStateStorage,
+  type DesktopStateStorage,
+  type OpfsDesktopStateStorageOptions,
+} from "./desktop/desktopStateStorage";
 export {
   type WindowingIcons,
   WindowingIconsProvider,

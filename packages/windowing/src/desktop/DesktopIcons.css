@@ -1,0 +1,69 @@
+/*
+ * Desktop icons sit on a layer that fills the window surface beneath the
+ * windows. The layer itself takes no pointer input, so presses on the bare
+ * desktop still reach the surface (a host's own desktop menu, for one).
+ */
+.desktop-icons {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* 80px wide and 88px tall: DESKTOP_ICON_SIZE in desktopState.ts, which keeps
+   a stored position on the surface, and a drag measures the same box. */
+.desktop-icon {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  box-sizing: border-box;
+  width: 80px;
+  height: 88px;
+  padding: var(--space-xs);
+  border: 0;
+  border-radius: var(--app-radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: default;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.desktop-icon:hover {
+  background: color-mix(in srgb, var(--color-dark) 8%, transparent);
+}
+
+.desktop-icon[aria-selected="true"] {
+  background: color-mix(in srgb, var(--emphasis-surface) 18%, transparent);
+}
+
+.desktop-icon:focus-visible {
+  outline: 2px solid var(--emphasis-surface);
+  outline-offset: 1px;
+}
+
+.desktop-icon[data-dragging] {
+  z-index: 1;
+  opacity: var(--opacity-subtle);
+}
+
+.desktop-icon-glyph {
+  flex: 0 0 auto;
+}
+
+.desktop-icon-label {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}

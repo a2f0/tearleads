@@ -26,6 +26,7 @@ import {
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
+import { organizationSwitcherOptions } from "../../../../test/helpers/organizationSwitcherOptions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 
@@ -202,11 +203,10 @@ test.each([0, 40])(
           return false;
         }
         primaryOrganizationCountBefore =
-          within(primaryPane).queryAllByRole("option").length;
-        primaryUntitledCountBefore = within(primaryPane).queryAllByRole(
-          "option",
-          { name: "Untitled organization" },
-        ).length;
+          organizationSwitcherOptions(primaryPane).length;
+        primaryUntitledCountBefore = organizationSwitcherOptions(primaryPane, {
+          name: "Untitled organization",
+        }).length;
         return primaryOrganizationCountBefore > 0;
       },
       "Primary session did not load its initial organizations.",
@@ -240,12 +240,11 @@ test.each([0, 40])(
         if (!ensureOrganizationOptionsOpen(primaryPane)) {
           return false;
         }
-        const options = within(primaryPane).queryAllByRole("option");
+        const options = organizationSwitcherOptions(primaryPane);
         primaryOrganizationCountAfter = options.length;
-        primaryUntitledCountAfter = within(primaryPane).queryAllByRole(
-          "option",
-          { name: "Untitled organization" },
-        ).length;
+        primaryUntitledCountAfter = organizationSwitcherOptions(primaryPane, {
+          name: "Untitled organization",
+        }).length;
         return (
           options.length > primaryOrganizationCountBefore &&
           within(primaryPane).queryByRole("option", {
