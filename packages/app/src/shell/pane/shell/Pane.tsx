@@ -27,6 +27,7 @@ import { usePublishIdentityLink, useRegisterUserId } from "../dual-pane";
 import { PaneFooter } from "../footer/PaneFooter";
 import { SyncStatusIndicator } from "../footer/sync-status/SyncStatusIndicator";
 import "./Pane.css";
+import { PaneDesktopIcons } from "./PaneDesktopIcons";
 import { PaneMenu } from "./PaneMenu";
 
 function PaneInner({
@@ -57,6 +58,7 @@ function PaneInner({
     >
       <SystemMonitorProvider>
         <div className="pane-main">
+          <PaneDesktopIcons />
           <SystemMonitorPinned />
           {windows.map((w) => (
             <MiniAppWindow

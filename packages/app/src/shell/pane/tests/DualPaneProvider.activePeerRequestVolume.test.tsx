@@ -35,6 +35,7 @@ import {
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
+import { organizationSwitcherOptions } from "../../../../test/helpers/organizationSwitcherOptions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import type { PaneSide } from "../dual-pane";
 
@@ -99,7 +100,7 @@ async function switchMountedOrgManagerToForeignOrganization(input: {
     fireEvent.click(organizationSelect);
   });
   const foreignOrganizationOption = await waitFor(() => {
-    const options = within(input.pane).getAllByRole("option");
+    const options = organizationSwitcherOptions(input.pane);
     expect(options.length).toBeGreaterThanOrEqual(2);
     const option = options.find(
       (candidate) => candidate.getAttribute("aria-selected") === "false",

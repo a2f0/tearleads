@@ -249,6 +249,40 @@ pointer, and not an iPad. Pass the mode to
 `<html data-navigation-mode>`; the routed touch sizes key off it (see
 [Styles](#styles)), and `useRoutedLayoutActive` reads it back.
 
+## Desktop icons
+
+`DesktopIcons` shows launcher apps as icons on the windowed desktop, beneath
+its windows. Render it inside `LauncherNavigationProvider`, as the first child
+of the positioned surface the windows lay out on, and name the apps it shows:
+
+```tsx
+const storage = createOpfsDesktopStateStorage({ fileName: "desktop.json" });
+
+<div className="desktop-surface">
+  <DesktopIcons appIds={["notes", "contacts"]} storage={storage} />
+  {windows.map((entry) => (
+    <MiniAppWindow key={entry.id} windowId={entry.id} />
+  ))}
+</div>;
+```
+
+The icons are options of a listbox named "Desktop" (`label` renames it). A
+press selects an icon and a drag moves it; double-click or Enter opens its app
+with `openMiniApp`, or with `onOpen` when given; arrow keys, Home, and End move
+the selection. Right-click or the context-menu key offers Open, then any items
+`menuItems(appId)` returns. Icons without a saved position fill the free cells
+of a grid from the top-left corner, down then across.
+
+Positions persist through a `DesktopStateStorage` adapter, which reads and
+writes one JSON string, so the host chooses where it lives:
+`createOpfsDesktopStateStorage` keeps a file in the origin private file system,
+`createMemoryDesktopStateStorage` keeps it in memory (the default), and a host
+can wrap its own store, as Tearleads wraps each identity's encrypted blob store
+in `packages/app/src/shell/pane/shell/usePaneDesktopStateStorage.ts`. Keep the
+adapter stable: a new adapter reloads the layout from what it holds. Moves made
+before the load finishes win and are saved with the stored layout; when the
+read fails, moves stay in memory and nothing is written.
+
 ## Routed shell
 
 `RoutedPane` is the routed shell, the iPad / phone layout: one mini-app at a
