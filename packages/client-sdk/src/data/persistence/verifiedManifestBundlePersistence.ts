@@ -26,11 +26,13 @@ import {
   verifiedAccessManifestBundles as bundles,
   verifiedManifestBundleTables,
 } from "../sqlite/schema/verifiedManifestBundleSchema";
+import { sqliteInsertBatchSize } from "../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteDatabase,
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
+import { excludedValue } from "../sqlite/sqliteUpsert";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 
 /**
@@ -54,11 +56,17 @@ function sha256Hex(text: string): Promise<string> {
   return toFingerprint(new TextEncoder().encode(text));
 }
 
-function batches<T>(values: readonly T[]): T[][] {
+const BUNDLE_WRITE_BATCH_SIZE = sqliteInsertBatchSize(bundles);
+
+function slices<T>(values: readonly T[], size: number): T[][] {
   const result: T[][] = [];
-  for (let index = 0; index < values.length; index += STATEMENT_BATCH)
-    result.push(values.slice(index, index + STATEMENT_BATCH));
+  for (let index = 0; index < values.length; index += size)
+    result.push(values.slice(index, index + size));
   return result;
+}
+
+function batches<T>(values: readonly T[]): T[][] {
+  return slices(values, STATEMENT_BATCH);
 }
 
 async function pruneInTransaction(
@@ -135,15 +143,29 @@ export async function writeVerifiedManifestBundlesInTransaction(
       .set({ verifiedAt })
       .where(inArray(bundles.manifestHash, batch))
       .run();
-  for (const row of rows) {
-    if (stored.get(row.manifestHash) === row.bundleDigest) continue;
-    const verified = { ...row, verifiedAt };
+  // A repeated hash keeps its last changed row, as sequential upserts would.
+  const changed = new Map(
+    rows
+      .filter((row) => stored.get(row.manifestHash) !== row.bundleDigest)
+      .map((row) => [row.manifestHash, { ...row, verifiedAt }]),
+  );
+  for (const batch of slices([...changed.values()], BUNDLE_WRITE_BATCH_SIZE))
     await tx
       .insert(bundles)
-      .values(verified)
-      .onConflictDoUpdate({ target: bundles.manifestHash, set: verified })
+      .values(batch)
+      .onConflictDoUpdate({
+        target: bundles.manifestHash,
+        set: {
+          organizationId: excludedValue(bundles.organizationId),
+          objectKind: excludedValue(bundles.objectKind),
+          objectId: excludedValue(bundles.objectId),
+          epoch: excludedValue(bundles.epoch),
+          bundleJson: excludedValue(bundles.bundleJson),
+          bundleDigest: excludedValue(bundles.bundleDigest),
+          verifiedAt: excludedValue(bundles.verifiedAt),
+        },
+      })
       .run();
-  }
   await pruneInTransaction(tx);
 }
 

@@ -10,7 +10,10 @@ import {
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
+import {
+  loadPrincipalHistoryReference,
+  loadPrincipalHistoryReferences,
+} from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { PrincipalHistoryEvidenceUnavailableError } from "../historyRecovery/principalHistoryRecoveryReferences";
@@ -31,17 +34,13 @@ async function selectBatch(
   versions: readonly number[],
   checkpointReference: PrincipalPolicyHistoryReferenceProof | undefined,
 ) {
-  const proofs: PrincipalPolicyHistoryReferenceProof[] = [];
-  for (const version of versions) {
-    assertProjectionVerificationCurrent(input.stillCurrent);
-    proofs.push(
-      await loadPrincipalHistoryReference({
-        execSql: input.execSql,
-        ...input.recovered,
-        version,
-      }),
-    );
-  }
+  assertProjectionVerificationCurrent(input.stillCurrent);
+  const proofs = await loadPrincipalHistoryReferences({
+    execSql: input.execSql,
+    ...input.recovered,
+    versions,
+  });
+  assertProjectionVerificationCurrent(input.stillCurrent);
   const selected = await verifyPrincipalPolicyHistoryReferences({
     history: input.recovered.history,
     references: proofs,

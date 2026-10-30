@@ -158,3 +158,76 @@ test("the unique index refuses a second user on one signing key by itself", asyn
     close();
   }
 });
+
+test("a repeat verification of a pinned identity reads once without the write lock", async () => {
+  const { close, execSql } = await createTestExecSql("identity-pin-fast-path");
+  const statements: string[] = [];
+  const traced = createExecSql({
+    async exec({ sql, bind, rowMode }) {
+      statements.push(sql.toLowerCase());
+      return {
+        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
+      };
+    },
+  });
+  const verify = async (pin: ReturnType<typeof createPin>) => {
+    statements.length = 0;
+    const result = await compareOrInsertTrustedUserIdentityPin({
+      execSql: traced,
+      pin,
+    }).catch((error: unknown) => error);
+    return { result, statements: [...statements] };
+  };
+  try {
+    const linked = createPin({ provenance: "link" });
+    await verify(linked);
+    // First contact took the transaction (after the fast path's empty read).
+    // A repeat, and a lower-ranked observation, is one read (was 5 statements).
+    for (const pin of [
+      linked,
+      createPin(),
+      createPin({ firstSeenAt: "2026-07-16T12:00:00.000Z" }),
+    ]) {
+      const repeat = await verify(pin);
+      expect(repeat.result).toEqual(linked);
+      expect(repeat.statements).toHaveLength(1);
+      expect(repeat.statements[0]).toStartWith("select");
+    }
+    // A raise, a mismatch, an alias and first contact still take the
+    // transaction, with the results and errors it always returned.
+    const raised = await verify(createPin({ provenance: "self" }));
+    expect(raised.result).toEqual(createPin({ provenance: "self" }));
+    expect(raised.statements).toContain("begin immediate");
+    const mismatch = await verify(
+      createPin({ encapsulationPublicKey: "encapsulation-public-key-b" }),
+    );
+    expect(mismatch.result).toMatchObject({
+      code: "trusted_user_identity_pin_mismatch",
+      differingFields: ["encapsulationPublicKey"],
+    });
+    expect(mismatch.statements).toContain("begin immediate");
+    const alias = await verify(createPin({ userId: "server-alias" }));
+    expect(alias.result).toMatchObject({
+      code: "trusted_user_identity_pin_mismatch",
+      differingFields: ["userId"],
+    });
+    expect(alias.statements).toContain("begin immediate");
+    const other = createPin({
+      userId: "user-2",
+      signingKeyFingerprint: "signing-fingerprint-2",
+    });
+    expect((await verify(other)).statements).toContain("begin immediate");
+    await execSql(
+      `UPDATE trusted_user_identity_pins SET signing_public_key = ''
+       WHERE user_id = ?`,
+      [other.userId],
+    );
+    const corrupt = await verify(other);
+    expect(corrupt.result).toMatchObject({
+      code: "trusted_user_identity_pin_corrupt",
+    });
+    expect(corrupt.statements).toContain("begin immediate");
+  } finally {
+    close();
+  }
+});

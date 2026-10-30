@@ -1,12 +1,11 @@
 import {
   KeyingVerificationError,
   type PrincipalPolicyCheckpoint,
-  type PrincipalPolicyHistoryReferenceProof,
   type VerifiedPrincipalPolicyHistory,
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
+import { loadPrincipalHistoryReferences } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 
@@ -31,32 +30,28 @@ async function selectReferences(input: {
 }): Promise<VerifiedPrincipalPolicyHistory> {
   const { options, scopeId, history } = input;
   const current = () => !options.signal?.aborted && options.stillCurrent();
-  const base = { execSql: options.execSql, scopeId, history };
-  const references: PrincipalPolicyHistoryReferenceProof[] = [];
-  for (const reference of options.retainedReferences ?? []) {
-    assertProjectionVerificationCurrent(current);
-    references.push(
-      await loadPrincipalHistoryReference({
-        ...base,
-        version: reference.version,
-      }),
-    );
-  }
-  const versions = new Set(
-    (options.retainedReferences ?? []).map((reference) => reference.version),
+  const versions = (options.retainedReferences ?? []).map(
+    (reference) => reference.version,
   );
+  const cited = new Set(versions);
   for (const version of options.retainedVersions ?? []) {
-    if (versions.has(version)) continue;
-    versions.add(version);
-    assertProjectionVerificationCurrent(current);
-    references.push(await loadPrincipalHistoryReference({ ...base, version }));
+    if (cited.has(version)) continue;
+    cited.add(version);
+    versions.push(version);
   }
   assertProjectionVerificationCurrent(current);
+  const loaded = await loadPrincipalHistoryReferences({
+    execSql: options.execSql,
+    scopeId,
+    history,
+    versions: input.checkpoint
+      ? [...versions, input.checkpoint.version]
+      : versions,
+  });
+  assertProjectionVerificationCurrent(current);
+  const references = loaded.slice(0, versions.length);
   const checkpointReference = input.checkpoint
-    ? await loadPrincipalHistoryReference({
-        ...base,
-        version: input.checkpoint.version,
-      })
+    ? loaded[versions.length]
     : undefined;
   const selected = await verifyPrincipalPolicyHistoryReferences({
     history,

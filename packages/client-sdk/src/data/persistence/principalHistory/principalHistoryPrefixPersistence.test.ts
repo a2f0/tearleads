@@ -1,8 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
 import { isProjectionVerificationCancelledError } from "../../keyingProjectionVerification/types";
 import { principalHistoryRootOwners } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
+import { principalKeyEnvelopeArchive } from "../../sqlite/schema/principalHistoryRetentionSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import { createExecSql } from "../../sqlite/sqlSchema";
 import {
   discardPrincipalHistoryPrefix,
   loadPrincipalHistoryPrefix,
@@ -223,3 +226,45 @@ test.each(["save", "discard"] as const)(
     }
   },
 );
+
+test("an identical completion archives its key envelopes once", async () => {
+  const sqlite = await createTestExecSql("principal-prefix-archive-once");
+  const archives: string[] = [];
+  const execSql = createExecSql({
+    async exec({ sql, bind, rowMode }) {
+      if (sql.startsWith('insert into "principal_key_envelope_archive"'))
+        archives.push(sql);
+      return {
+        rows: await sqlite.execSql(
+          sql,
+          bind,
+          rowMode ? { rowMode } : undefined,
+        ),
+      };
+    },
+  });
+  try {
+    const { bundle } = await signedRecoveryHistory(2);
+    const completed = {
+      ...prefix(bundle.currentState.version),
+      currentJson: JSON.stringify(bundle),
+    };
+    const input = {
+      indexRootHash: "verified-index-root",
+      execSql,
+      stillCurrent: () => true,
+    };
+    await savePrincipalHistoryPrefix({ ...input, prefix: completed });
+    expect(archives).toHaveLength(1);
+    archives.length = 0;
+    await savePrincipalHistoryPrefix({ ...input, prefix: completed });
+    // The previous prefix's archive repeated this one's (was 2).
+    expect(archives).toHaveLength(1);
+    const { db } = getClientSQLitePersistenceRuntime(sqlite.execSql);
+    expect(await db.select().from(principalKeyEnvelopeArchive)).toMatchObject([
+      { version: bundle.currentState.version },
+    ]);
+  } finally {
+    sqlite.close();
+  }
+});
