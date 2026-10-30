@@ -51,6 +51,9 @@ Insights quirks, observed against this account:
   `rowsAffected`, and `rowsReturned`.
 - `from` and `to` are ISO timestamps with milliseconds and must fall on hour
   boundaries for ranges over 25 hours. `period` accepts `15m` to `2d`.
+  A `from`/`to` window from branch creation to the last whole hour was
+  accepted at up to 11 days on 2026-10-30; prefer it over a two-day
+  `period`.
 - Bursts return the plain-text body `Retry later`. Validate each file as
   JSON and retry after a pause.
 

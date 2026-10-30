@@ -25,6 +25,14 @@ launch the remaining queue just because time remains.
 - `full` mode may run up to three auditors concurrently, each with the same
   ceiling, because slices are read-only and independent. Verification stays
   sequential, and a concurrent auditor never shares a scratch directory.
+- In `full` mode, after every slice's first pass, run one follow-up
+  auditor per slice with unchecked paths, briefed with those paths and the
+  coordinator's measurements (pane attribution, field echo). On 2026-10-30
+  the second pass found more than the first.
+- Launch auditors as foreground Agent calls, up to three in one message.
+  In a headless `claude -p` run, background subagents and shell tasks stop
+  shortly after the coordinator's turn ends, leaving their slices partial.
+  Do not end a turn while queued work remains.
 - The coordinator uses at most 20 tool calls per batch for baseline, dispatch,
   verification, and reporting, reserving the last five for the checkpoint. If
   setup consumes the budget, save a setup-only batch without launching an

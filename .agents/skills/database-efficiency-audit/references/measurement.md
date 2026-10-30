@@ -40,16 +40,27 @@ can wrap it to record each statement without changing repository code. Write
 this file into the audit directory, replacing `<REPO_ROOT>`:
 
 ```ts
+import { createHash } from "node:crypto";
 import { appendFileSync } from "node:fs";
 import { beforeEach } from "bun:test";
 import { databaseStatementLogger } from "<REPO_ROOT>/packages/api-shared/src/adapters/databaseStatementCounter.ts";
 
 const out = process.env.SQL_CAPTURE_OUT;
 if (!out) throw new Error("SQL_CAPTURE_OUT is required");
+const hashParams = process.env.SQL_CAPTURE_PARAM_HASH === "1";
 const capture = globalThis as { sqlCaptureLabel?: string };
 let testNumber = 0;
 const write = (entry: object) =>
   appendFileSync(out, `${JSON.stringify(entry)}\n`);
+const paramHash = (params: unknown[]) =>
+  createHash("sha256")
+    .update(
+      JSON.stringify(params, (_key, value) =>
+        typeof value === "bigint" ? value.toString() : value,
+      ),
+    )
+    .digest("hex")
+    .slice(0, 12);
 
 beforeEach(() => {
   testNumber += 1;
@@ -63,6 +74,7 @@ Object.assign(databaseStatementLogger, {
       label: capture.sqlCaptureLabel ?? `test-${testNumber}`,
       sql: query ?? "<transaction control>",
       params: params?.length ?? 0,
+      ...(hashParams && params ? { paramHash: paramHash(params) } : {}),
     });
     count.call(databaseStatementLogger);
   },
@@ -99,7 +111,10 @@ whichever test runs next. Use per-test totals as evidence only from a run
 of one test (`-t`). A probe sets `globalThis.sqlCaptureLabel` around the
 call it measures, after awaiting any background work its setup started, and
 clears it after, so fixture setup is labelled separately. Bind values are
-never recorded, only their count. Transaction controls reach the logger only on
+never recorded. With `SQL_CAPTURE_PARAM_HASH=1` each entry also carries a
+short hash of its values, which proves that a repeated statement reads the
+same key rather than a different one; keep the hashes in the scratch
+directory, never in the issue. Transaction controls reach the logger only on
 `API_DATABASE=sqlite` and `postgres`: PGlite's native transaction method
 bypasses it, so a PGlite capture (including every canary) has no
 transaction count. Summarize with `jq`, for example the most repeated
@@ -109,6 +124,12 @@ statements for one label:
 jq -r 'select(.label == "<label>") | .sql | gsub("\\s+"; " ")' <file> \
   | sort | uniq -c | sort -rn | head -20
 ```
+
+`jq -r` prints multi-line SQL across several lines, so `jq -r ... | wc -l`
+over-counts; count records with `jq -c` or `jq -s length`. Agent shells may
+be zsh, which does not split an unquoted variable into words: run a file
+list or a set of globs through a shell function or a `for` loop over
+literal arguments, never `rg $GLOBS`.
 
 The counter alone, `withDatabaseStatementCounter(counter, work)`, counts
 without text. Its scope must contain the awaited work: pass an `async`
@@ -125,7 +146,11 @@ ceilings, with PGlite and SQLite measurements in a comment, are in
 ## Scenario set
 
 Capture once per revision, in the background, and keep one log and one
-capture file per run:
+capture file per run. When the protocol audit runs at the same revision,
+run the canaries once for both: set `DUAL_PANE_REQUEST_PROFILE=1` and
+`DUAL_PANE_REQUEST_PROFILE_DETAIL=1` beside the capture preload, so one log
+holds the request profile and one file the statements (about two minutes
+for all eight on 2026-10-30).
 
 - The eight request-volume canaries listed in the `protocol-efficiency-audit`
   measurement reference (upload, organization bootstrap, folder and group
@@ -209,7 +234,12 @@ as `drizzle-orm` (`<REPO_ROOT>/packages/api-shared/node_modules/drizzle-orm/inde
 because a bare specifier does not resolve from outside the checkout. Run
 them with `<REPO_ROOT>/node_modules/.bin/agent-tool run -- bun test <absolute path>`
 from the owning package directory with the package's preloads. Never change
-constants, ceilings, or schema in the checkout to measure. Remove scratch
+constants, ceilings, or schema in the checkout to measure. A probe reads its
+output path and scratch database name from environment variables rather
+than hard-coding them, so a verification re-run writes beside the
+auditor's evidence instead of over it. Give every run, re-runs included, a
+fresh scratch database: rows left by another probe skew counts and buffers
+and can fail a purge test that passes on a fresh database. Remove scratch
 files with a guarded path (`rm -rf -- "${PROBE_DIR:?}"`), never a bare
 variable that could expand to nothing.
 
