@@ -47,7 +47,7 @@ API project slugs default to `tearleads-api-staging` and
 
 ## Deployment and releases
 
-`scripts/deploy/deployStaging.sh` and `scripts/deploy/deployProduction.sh`
+[`scripts/deploy/deployStaging.sh`](../../scripts/deploy/deployStaging.sh) and [`scripts/deploy/deployProduction.sh`](../../scripts/deploy/deployProduction.sh)
 publish the API Worker and web app. The API deploy syncs `API_SENTRY_DSN`,
 builds once with its tier and commit, uploads the matching source map to Sentry,
 then publishes that bundle and map to Cloudflare. Configured diagnostics require
@@ -81,8 +81,9 @@ Capacitor packaging. Publishing maps requires a clean Git checkout; staged,
 modified, or untracked sources stop the release before building. Upload failures
 stop packaging. Debug and local Android APK/sideload builds stay local. The root
 native `scripts/release/*Release.sh` wrappers, which
-`scripts/deploy/deployEverything.sh` also runs, reach this step through
-Fastlane; no separate source-map command is required.
+[`scripts/deploy/deployEverything.sh`](../../scripts/deploy/deployEverything.sh)
+also runs, reach this step through Fastlane; no separate source-map command is
+required.
 
 ## Collection policy
 
@@ -263,18 +264,19 @@ and adds references to uploaded artifacts; matching release, dist, and canonical
 URLs provide symbolication without transmitting debug metadata.
 
 Electrobun events use `tearleads-electrobun@<git-sha>` and a dist per build
-target, `<tier>-app-<os>-<arch>`, as a commit's builds share URLs. The target
-is Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`, `linux-x64`,
+target, `<tier>-app-<os>-<arch>`, as a commit's builds share URLs. The target is
+Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`, `linux-x64`,
 `linux-arm64`, `win-x64`; others stop). `ELECTROBUN_RELEASE_TIER` selects
 `staging` or `production`; unset is a local build that reads no secrets and
 reports nothing. Release from the repository root with
 `scripts/release/{build,upload}{Macos,Linux}{,Staging}Release.sh`.
-`packages/app-electrobun/scripts/withSentryReleaseEnv.ts` resolves that tier's
-DSN and full commit into the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` defines for
-the Electrobun build and its inherited `postBuild` packaging hook. It drops
-every inherited Sentry name first, so exported configuration cannot reroute
-events and the token never reaches a bundle. A configured tier with a missing
-or malformed DSN stops the build.
+[`packages/app-electrobun/scripts/withSentryReleaseEnv.ts`](../../packages/app-electrobun/scripts/withSentryReleaseEnv.ts)
+resolves that tier's DSN and full commit into the public
+`BUN_PUBLIC_SENTRY_ELECTROBUN_*` defines for the Electrobun build and its
+inherited `postBuild` packaging hook. It drops every inherited Sentry name
+first, so exported configuration cannot reroute events and the token never
+reaches a bundle. A configured tier with a missing or malformed DSN stops the
+build.
 
 Release builds emit external maps for the renderer chunk and the main-process
 bundle. The main process reads its configuration from a build-time define with
@@ -312,13 +314,17 @@ directory and, before publishing, uploads it via `uploadDeferredSourceMaps.ts`
 (`BUILD_GIT_SHA` must be the clean `HEAD`; exactly two regular-file pairs under
 the `linux-x64` dist).
 
-Before changing this integration, run the tests in `packages/diagnostics/src`,
-the `diagnostics` folders of `packages/app-capacitor/src`, `packages/api/src`,
-and `packages/app-electrobun/src`, `packages/app-electrobun/scripts/sentry*.test.ts`,
-the privacy tests in `packages/app-web/scripts/sentry*.test.ts`, the real
-browser test `packages/app-web/e2e/diagnostics.spec.ts`, and the app
-boundary/logging tests. They inspect emitted envelopes with synthetic private
-values; live verification needs the account configuration above.
+Before changing this integration, run the tests in
+[`packages/diagnostics/src`](../../packages/diagnostics/src/), the `diagnostics`
+folders of [`packages/app-capacitor/src`](../../packages/app-capacitor/src/),
+[`packages/api/src`](../../packages/api/src/), and
+[`packages/app-electrobun/src`](../../packages/app-electrobun/src/),
+`packages/app-electrobun/scripts/sentry*.test.ts`, the privacy tests in
+`packages/app-web/scripts/sentry*.test.ts`, the real browser test
+[`packages/app-web/e2e/diagnostics.spec.ts`](../../packages/app-web/e2e/diagnostics.spec.ts),
+and the app boundary/logging tests. They inspect emitted envelopes with
+synthetic private values; live verification needs the account configuration
+above.
 
 Verify staging before enabling production. After a client release uploads its
 maps, trigger a new handled failure in each process; Sentry does not

@@ -39,11 +39,11 @@ uses the separate Actions build and local publication workflow below.
 
 | Target | Staging script | Production script | Current destination |
 | --- | --- | --- | --- |
-| macOS ARM64 | `scripts/release/uploadMacosStagingRelease.sh` | `scripts/release/uploadMacosRelease.sh` | Signed/notarized DMG and update archive in tier's R2 download bucket |
-| Linux x64 | `scripts/release/uploadLinuxStagingRelease.sh` | `scripts/release/uploadLinuxRelease.sh` | Tested installer and update archive in tier's R2 download bucket |
+| macOS ARM64 | [`scripts/release/uploadMacosStagingRelease.sh`](../../scripts/release/uploadMacosStagingRelease.sh) | [`scripts/release/uploadMacosRelease.sh`](../../scripts/release/uploadMacosRelease.sh) | Signed/notarized DMG and update archive in tier's R2 download bucket |
+| Linux x64 | [`scripts/release/uploadLinuxStagingRelease.sh`](../../scripts/release/uploadLinuxStagingRelease.sh) | [`scripts/release/uploadLinuxRelease.sh`](../../scripts/release/uploadLinuxRelease.sh) | Tested installer and update archive in tier's R2 download bucket |
 | Windows x64 | `scripts/release/windowsRelease.sh upload staging RUN_ID` | `scripts/release/windowsRelease.sh upload production RUN_ID` | Verified Actions ZIP and update archive in tier's R2 download bucket |
-| iOS | `scripts/release/uploadIosStagingRelease.sh` | `scripts/release/uploadIosRelease.sh` | TestFlight internal |
-| Android | `scripts/release/uploadAndroidStagingRelease.sh` | `scripts/release/uploadAndroidRelease.sh` | Google Play internal |
+| iOS | [`scripts/release/uploadIosStagingRelease.sh`](../../scripts/release/uploadIosStagingRelease.sh) | [`scripts/release/uploadIosRelease.sh`](../../scripts/release/uploadIosRelease.sh) | TestFlight internal |
+| Android | [`scripts/release/uploadAndroidStagingRelease.sh`](../../scripts/release/uploadAndroidStagingRelease.sh) | [`scripts/release/uploadAndroidRelease.sh`](../../scripts/release/uploadAndroidRelease.sh) | Google Play internal |
 
 Verify the current store lane settings before upload and report their actual
 destinations. “Production app” describes the app identity; it does not request
@@ -51,8 +51,10 @@ a public store rollout. If a new supported target has acquired a release wrapper
 include it or report the scope decision. The current desktop targets are
 macOS ARM64, Linux x64, and Windows x64.
 
-`scripts/deploy/deployEverything.sh` deploys both environments and uploads both
-mobile tiers, but omits desktop uploads. `scripts/release/uploadAllReleases.sh`
+[`scripts/deploy/deployEverything.sh`](../../scripts/deploy/deployEverything.sh)
+deploys both environments and uploads both mobile tiers, but omits desktop
+uploads.
+[`scripts/release/uploadAllReleases.sh`](../../scripts/release/uploadAllReleases.sh)
 uploads only production mobile builds and redeploys web artifacts for both
 tiers. Neither script alone completes this matrix. Prefer individual tier
 deployments before store uploads so both environments regain service sooner.
@@ -116,8 +118,9 @@ signing key even when it is unlocked. Inspect the signing failure; the OS log
 may report `CSSMERR_CSP_NO_USER_INTERACTION`. First repeat a minimal signing and
 verification probe on a private disposable binary in the owner's Terminal. If
 that works, run the release there without changing keychain permissions.
-`scripts/keychain/authorizeCodesignPartitionList.sh` requires the owner's
-interactive Terminal. Never request or capture a keychain password in chat.
+[`scripts/keychain/authorizeCodesignPartitionList.sh`](../../scripts/keychain/authorizeCodesignPartitionList.sh)
+requires the owner's interactive Terminal. Never request or capture a keychain
+password in chat.
 
 When interactive key access is needed, prepare a reviewable `.command` wrapper
 in this run's private directory: change to this checkout, select pinned tools,
@@ -158,7 +161,9 @@ independent targets.
    acceptance. Query Google Play's selected track and confirm its exact version
    code. Wait for processing/visibility without re-uploading while pending.
 6. After all three desktop releases for a tier, run
-   `scripts/deploy/deployStagingWebsite.sh` or `scripts/deploy/deployProductionWebsite.sh`.
+   [`scripts/deploy/deployStagingWebsite.sh`](../../scripts/deploy/deployStagingWebsite.sh)
+   or
+   [`scripts/deploy/deployProductionWebsite.sh`](../../scripts/deploy/deployProductionWebsite.sh).
    Website download links are resolved at build time and may silently use an old
    offline fallback if discovery fails. Parse the served HTML and require the
    exact current installer and checksum links for all three desktop platforms.

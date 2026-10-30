@@ -13,11 +13,11 @@ it does not test a clean install, compilation, or bug-fix quality.
 
 | Location | Contents |
 | --- | --- |
-| `scripts/dev/scope.ts` | Repository command entrypoint |
-| `scripts/dev/scope/pins.json` | Scope revision, tool versions, model and local ports |
+| [`scripts/dev/scope.ts`](../../scripts/dev/scope.ts) | Repository command entrypoint |
+| [`scripts/dev/scope/pins.json`](../../scripts/dev/scope/pins.json) | Scope revision, tool versions, model and local ports |
 | `scripts/dev/scope/*.py`, `loopback.cjs` | Native installation and service lifecycle |
-| `scripts/dev/scope/judge/` | Codex CLI Judge adapter and verdict validation tests |
-| `scripts/dev/scope/benchmarks/` | Versioned prompts and evaluation criteria |
+| [`scripts/dev/scope/judge/`](../../scripts/dev/scope/judge/) | Codex CLI Judge adapter and verdict validation tests |
+| [`scripts/dev/scope/benchmarks/`](../../scripts/dev/scope/benchmarks/) | Versioned prompts and evaluation criteria |
 | `.scope/` (ignored) | Registration IDs, databases, downloads, logs, PIDs, snapshots and receipts |
 | `~/.local/share/scope/source` | Pinned upstream Scope checkout and its dependencies |
 | Host CLI login stores | Claude Code and Codex authentication; never committed |

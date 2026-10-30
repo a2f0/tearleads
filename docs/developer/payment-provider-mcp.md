@@ -179,7 +179,7 @@ Treat provider configuration as a declarative reconciliation job:
    packages, and webhooks; deployed environment variables.
 5. Verify product price, period, capacity metadata, package attachment,
    entitlement attachment, webhook target, and environment after each write.
-6. Deploy the API Worker before clients. `packages/api/scripts/deployApi.sh`
+6. Deploy the API Worker before clients. [`packages/api/scripts/deployApi.sh`](../../packages/api/scripts/deployApi.sh)
    syncs the billing secrets, and the Worker's Cron Trigger runs seat sync.
 7. Test purchase, tier change, cancellation, expiration, restore, and webhook
    redelivery in staging before enabling live checkout.

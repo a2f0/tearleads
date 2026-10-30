@@ -269,7 +269,7 @@ loopback deadline proxy, excluding the SDK client and fixture objects. They
 record sampled peaks and initial/final RSS and JavaScript heap after explicit GC
 for each server process. RSS includes native allocations and need not shrink
 after GC; neither a short run nor one allocator sample proves a universal memory
-bound. A diagnostic invocation from `packages/api` is:
+bound. A diagnostic invocation from [`packages/api`](../packages/api/) is:
 
 ```sh
 API_DATABASE=sqlite API_SQLITE_PATH=/tmp/history-probe.sqlite \

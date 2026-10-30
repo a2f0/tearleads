@@ -70,10 +70,10 @@ continuous automatic retries during an outage.
 
 ## Regression tests
 
-- `packages/api/src/services/blobs/multipartStageCleanup.pg.test.ts`
-- `packages/api-client/src/ApiClient.attachmentRefresh.test.ts`
-- `packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentUploadResume.test.ts`
-- `packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentUploadStageRecovery.test.ts`
-- `packages/client-sdk/src/workflows/blobs/upload/multipartUpload.failureCodes.test.ts`
+- [`packages/api/src/services/blobs/multipartStageCleanup.pg.test.ts`](../packages/api/src/services/blobs/multipartStageCleanup.pg.test.ts)
+- [`packages/api-client/src/ApiClient.attachmentRefresh.test.ts`](../packages/api-client/src/ApiClient.attachmentRefresh.test.ts)
+- [`packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentUploadResume.test.ts`](../packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentUploadResume.test.ts)
+- [`packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentUploadStageRecovery.test.ts`](../packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentUploadStageRecovery.test.ts)
+- [`packages/client-sdk/src/workflows/blobs/upload/multipartUpload.failureCodes.test.ts`](../packages/client-sdk/src/workflows/blobs/upload/multipartUpload.failureCodes.test.ts)
 
 The PostgreSQL cleanup tests run in `bun run test:postgres-concurrency`.

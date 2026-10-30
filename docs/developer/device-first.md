@@ -236,7 +236,7 @@ mutations, `view` (`LocalProjectionView`) owns the subscribable read
 projection, and `reconciler` (`ReconciliationService`) owns background
 discovery. `dispose()` stops every scope's reconciler.
 
-## App-side consumption (`packages/app`)
+## App-side consumption ([`packages/app`](../../packages/app/))
 
 The app subscribes rather than orchestrating network:
 

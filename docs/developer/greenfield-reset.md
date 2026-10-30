@@ -22,10 +22,11 @@ The application buckets are `tearleads-blobs-prod` and
 `tearleads-blobs-staging`. The `tearleads-downloads-prod` and
 `tearleads-downloads-staging` buckets are release dependencies. Resolve and
 compare bucket identities from the selected stack before any object deletion.
-Never broaden an application reset into account-wide bucket or resource
-cleanup. `scripts/deploy/destroyProduction.sh` is a complete production
-teardown, wider than this reset: it also deletes the downloads bucket with
-every published release, and the website. Do not use it for a reset.
+Never broaden an application reset into account-wide bucket or resource cleanup.
+[`scripts/deploy/destroyProduction.sh`](../../scripts/deploy/destroyProduction.sh)
+is a complete production teardown, wider than this reset: it also deletes the
+downloads bucket with every published release, and the website. Do not use it
+for a reset.
 
 Authoritative details:
 [API persistence](api-persistence.md),
@@ -99,10 +100,12 @@ temporary lifecycle override. Keep the wrapper's ordinary protections intact.
 derives the protected addresses from the stack's configuration, writes the
 override, applies the saved destroy plan, and removes the override however it
 exits; an override already present stops it. It and the other production
-teardown helpers (`drop-postgres-owned.sh`, `empty-r2-bucket.sh`, and the
-Worker deletion scripts) refuse `prod` unless `TEARLEADS_TEARDOWN_TIER=prod` is
-exported, which `scripts/deploy/destroyProduction.sh` does once confirmed. An
-authorized production reset exports it in the reset's own shell.
+teardown helpers (`drop-postgres-owned.sh`, `empty-r2-bucket.sh`, and the Worker
+deletion scripts) refuse `prod` unless `TEARLEADS_TEARDOWN_TIER=prod` is
+exported, which
+[`scripts/deploy/destroyProduction.sh`](../../scripts/deploy/destroyProduction.sh)
+does once confirmed. An authorized production reset exports it in the reset's
+own shell.
 
 ## Destroy one environment
 
@@ -126,7 +129,7 @@ terraform/scripts/run-edge-stack.sh "$TIER" apply "$RUN_DIR/$TIER-edge-destroy.t
 
 Production refuses `destroy` through the edge wrapper; an authorized complete
 production reset applies the inspected destroy plan as above. Then, from
-`packages/api`, delete the Worker:
+[`packages/api`](../../packages/api/), delete the Worker:
 
 ```bash
 bunx --no-install wrangler delete --env "$TIER" --force
@@ -203,13 +206,15 @@ connection verifies TLS. Use client connection evidence with
 a different transport leg and cannot establish client TLS. Verify there are no
 application tables before baseline initialization, and no old blobs in storage.
 
-Run `scripts/deploy/deployProduction.sh` or `scripts/deploy/deployStaging.sh`.
+Run
+[`scripts/deploy/deployProduction.sh`](../../scripts/deploy/deployProduction.sh)
+or [`scripts/deploy/deployStaging.sh`](../../scripts/deploy/deployStaging.sh).
 The staging script applies its database and storage stacks itself; the
-production script requires both to exist already. The API deploy initializes
-the baseline schema with the migration login, syncs the Worker secrets, and
-publishes the Worker; the edge stack then reattaches the hostnames. A fresh
-tier starts with an empty key/value Durable Object, so no old session can
-survive the reset. The document sync cursor HMAC key persists in
+production script requires both to exist already. The API deploy initializes the
+baseline schema with the migration login, syncs the Worker secrets, and
+publishes the Worker; the edge stack then reattaches the hostnames. A fresh tier
+starts with an empty key/value Durable Object, so no old session can survive the
+reset. The document sync cursor HMAC key persists in
 `.secrets/<tier>/worker.env`; delete that file before the rebuild when the reset
 should rotate it.
 

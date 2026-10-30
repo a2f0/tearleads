@@ -1,18 +1,23 @@
 # Protocol Specification
 
 This document specifies messages, proofs, encrypted payload boundaries, and
-validation rules across `@tearleads/client-sdk`, `packages/api`, and shared
-`@tearleads/*` packages for identity, access, document sync, blob staging,
-attachment binding, and slots.
+validation rules across `@tearleads/client-sdk`,
+[`packages/api`](../packages/api/), and shared `@tearleads/*` packages for
+identity, access, document sync, blob staging, attachment binding, and slots.
 
 The executable contract is layered:
 
-- `packages/validators/src/{request,response,operation}` defines wire grammar
-  and HTTP metadata.
-- `packages/crypto/src/keying.ts` defines canonical cryptographic checks.
-- `packages/api/src/workflows` defines authorized transactional transitions.
-- `packages/client-sdk/src/workflows` defines local decisions and fail-closed
-  response verification.
+- [`packages/validators/src/request`](../packages/validators/src/request/),
+  [`packages/validators/src/response`](../packages/validators/src/response/),
+  and
+  [`packages/validators/src/operation`](../packages/validators/src/operation/)
+  define wire grammar and HTTP metadata.
+- [`packages/crypto/src/keying.ts`](../packages/crypto/src/keying.ts) defines
+  canonical cryptographic checks.
+- [`packages/api/src/workflows`](../packages/api/src/workflows/) defines
+  authorized transactional transitions.
+- [`packages/client-sdk/src/workflows`](../packages/client-sdk/src/workflows/)
+  defines local decisions and fail-closed response verification.
 
 For document sync, `DocumentSyncRequestSchema` and `DocumentSyncResponseSchema`
 are normative wire grammar and derive TS types; request and response predicates

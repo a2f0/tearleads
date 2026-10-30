@@ -34,10 +34,12 @@ Protocol planes are a domain model, not a source-tree layout rule.
 
 ## HTTP Protocol Surface
 
-The executable route and validator shapes are defined by the operation
-contracts in `packages/validators/src/operation` and their registrations under
-`packages/api/src/routes`; `docs/openapi.json` is generated from them and lists
-every route. Documentation treats those sources as the source of truth.
+The executable route and validator shapes are defined by the operation contracts
+in [`packages/validators/src/operation`](../packages/validators/src/operation/)
+and their registrations under
+[`packages/api/src/routes`](../packages/api/src/routes/);
+[`docs/openapi.json`](openapi.json) is generated from them and lists every
+route. Documentation treats those sources as the source of truth.
 
 Write surfaces:
 
@@ -143,12 +145,12 @@ The API is organized in these layers, enforced by `bun run lint:architecture`.
 
 These are the top-level process and app bindings.
 
-- `packages/api/src/worker/index.ts`
+- [`packages/api/src/worker/index.ts`](../packages/api/src/worker/index.ts)
   - the Cloudflare Workers entry that deployed tiers run
-- `packages/api/src/index.ts`
+- [`packages/api/src/index.ts`](../packages/api/src/index.ts)
   - the Bun local development server
   - owns the HTTP server binding and websocket upgrade handling
-- `packages/api/src/routeApp.ts`
+- [`packages/api/src/routeApp.ts`](../packages/api/src/routeApp.ts)
   - the reusable HTTP app that both entries serve
   - owns route registration, but not the outer server process
 
@@ -182,7 +184,7 @@ This is the route-facing use-case facade:
 
 - `packages/api/src/services/{auth,billing,blobs,containers,documents}/**`
 - `packages/api/src/services/{organizations,principals,root}/**`
-- `packages/api/src/services/runtime.ts`
+- [`packages/api/src/services/runtime.ts`](../packages/api/src/services/runtime.ts)
 
 This layer:
 
@@ -191,11 +193,12 @@ This layer:
 - delegates transaction orchestration to workflows
 
 App tests that need real backend behavior call `useTestApiAppHandlers`
-(`packages/app/test/helpers/mswServer.ts`), which proxies every API request
-into `createRouteApp`, so they exercise these services without a second
-backend implementation. The multi-party scenarios in `packages/bob-and-alice`
-serve the same route app over real HTTP through the `@tearleads/api/test-runtime`
-export and drive full SDK clients against it.
+([`packages/app/test/helpers/mswServer.ts`](../packages/app/test/helpers/mswServer.ts)),
+which proxies every API request into `createRouteApp`, so they exercise these
+services without a second backend implementation. The multi-party scenarios in
+[`packages/bob-and-alice`](../packages/bob-and-alice/) serve the same route app
+over real HTTP through the `@tearleads/api/test-runtime` export and drive full
+SDK clients against it.
 
 ### 4. Workflow Layer
 
@@ -222,20 +225,20 @@ This code models protocol and domain rules, not HTTP transport.
 
 This is the lowest layer:
 
-- `packages/api-shared/src/adapters/postgres.ts`
-- `packages/api/src/adapters/keyValueStore.ts`
-- `packages/api/src/adapters/pubSub.ts`
-- `packages/api/src/adapters/blobObjectStore.ts`
-- `packages/api/src/adapters/s3BlobObjectStore.ts`
-- session token creation in `packages/api/src/middleware/session.ts`
+- [`packages/api-shared/src/adapters/postgres.ts`](../packages/api-shared/src/adapters/postgres.ts)
+- [`packages/api/src/adapters/keyValueStore.ts`](../packages/api/src/adapters/keyValueStore.ts)
+- [`packages/api/src/adapters/pubSub.ts`](../packages/api/src/adapters/pubSub.ts)
+- [`packages/api/src/adapters/blobObjectStore.ts`](../packages/api/src/adapters/blobObjectStore.ts)
+- [`packages/api/src/adapters/s3BlobObjectStore.ts`](../packages/api/src/adapters/s3BlobObjectStore.ts)
+- session token creation in [`packages/api/src/middleware/session.ts`](../packages/api/src/middleware/session.ts)
 
 This layer exposes capabilities, not use-case policy.
 
 ## Service Runtime
 
 The service runtime boundary is `ApiServiceRuntime` in
-`packages/api/src/services/runtime.ts`. It injects the infrastructure that
-application services need:
+[`packages/api/src/services/runtime.ts`](../packages/api/src/services/runtime.ts).
+It injects the infrastructure that application services need:
 
 - database access
 - blob object storage
@@ -295,9 +298,9 @@ mapping.
 
 The container mutation workflow creates container metadata documents and
 persists them through the helpers under
-`packages/api/src/workflows/containers/mutations/shared/`. Auth registration
-and `POST /containers/with-metadata-document` reach that workflow code without
-importing from `routes/**`.
+[`packages/api/src/workflows/containers/mutations/shared/`](../packages/api/src/workflows/containers/mutations/shared/).
+Auth registration and `POST /containers/with-metadata-document` reach that
+workflow code without importing from `routes/**`.
 
 API route tests, API integration helpers, and in-process API integration tests
 call `routeApp` directly instead of importing a server entry point.

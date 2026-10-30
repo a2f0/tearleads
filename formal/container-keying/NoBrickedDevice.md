@@ -93,8 +93,9 @@ dishonest server can simply withhold. The run explores 687,018 generated and
 ## Negative controls
 
 `bun run check:protocol-negative-controls` (part of `check:fast`) derives one
-configuration per entry in `scripts/protocol/protocolNegativeControls.ts`, flips
-a single rule, and requires TLC to report exactly the named violation:
+configuration per entry in
+[`scripts/protocol/protocolNegativeControls.ts`](../../scripts/protocol/protocolNegativeControls.ts),
+flips a single rule, and requires TLC to report exactly the named violation:
 
 - `ServeDeletedAuthority = FALSE` violates `HonestServerNeverRefused`:
   deleting the group must not remove public proofs needed by a fresh reader.
@@ -126,8 +127,9 @@ registered configurations only if the liveness run still passes.
 
 `bun run check:no-brick-projection` (part of `check:fast`) replays recorded
 implementation runs through this model. Four scenario tests in
-`packages/client-sdk` drive the real verifiers and record each run as a
-sequence of the model's actions with the outcome the verifier produced:
+[`packages/client-sdk`](../../packages/client-sdk/) drive the real verifiers and
+record each run as a sequence of the model's actions with the outcome the
+verifier produced:
 
 - `src/data/keyingProjectionVerification/noBrickContainerProjection.test.ts`
   drives `verifyContainerManifestPath` against a device's persisted
@@ -146,7 +148,7 @@ sequence of the model's actions with the outcome the verifier produced:
   before and after deletion. A signed revoke removes the live grant before
   deletion; the current path verifies through its retained, group-citing
   predecessor. The real API + SDK counterpart is
-  `packages/api/src/routes/principals/historicalPolicyProjection.test.ts`.
+  [`packages/api/src/routes/principals/historicalPolicyProjection.test.ts`](../../packages/api/src/routes/principals/historicalPolicyProjection.test.ts).
 - `.../noBrickPolicyProjection.test.ts` drives `verifyPrincipalPolicyBundle`
   through the stale-chain shape: a group successor by a since-removed admin
   citing the older Admins head is accepted after Admins advances, a later
@@ -155,18 +157,18 @@ sequence of the model's actions with the outcome the verifier produced:
   them, and a rollback below the checkpoint are refused.
 
 Each recorded verification becomes one `HonestSync` or `Verify` step whose
-projection the recorder derives from the served bundles: the head's epoch,
-how far its chain agrees with the honest chain, the root head its event
-cites, its signer, and the served root's epoch. The generated module
-(`scripts/protocol/noBrickTraceModule.ts`) conjoins the model's own action, the
-model's `WellFormed` bound on what a server can serve, and the recorded
-outcome per step, and pins the device's initial checkpoint; a sequence, a
-served shape, or an outcome the model's rules disagree with deadlocks TLC and
-fails the check. Six negative controls run every time — a flipped final
-outcome in each late-delivery trace and a dropped revocation in both container
-traces — so the oracle
-cannot silently go vacuous. Each trace validates one recorded interleaving,
-not the state space; the registered bounded runs remain the exploration.
+projection the recorder derives from the served bundles: the head's epoch, how
+far its chain agrees with the honest chain, the root head its event cites, its
+signer, and the served root's epoch. The generated module
+([`scripts/protocol/noBrickTraceModule.ts`](../../scripts/protocol/noBrickTraceModule.ts))
+conjoins the model's own action, the model's `WellFormed` bound on what a server
+can serve, and the recorded outcome per step, and pins the device's initial
+checkpoint; a sequence, a served shape, or an outcome the model's rules disagree
+with deadlocks TLC and fails the check. Six negative controls run every time — a
+flipped final outcome in each late-delivery trace and a dropped revocation in
+both container traces — so the oracle cannot silently go vacuous. Each trace
+validates one recorded interleaving, not the state space; the registered bounded
+runs remain the exploration.
 
 ## Boundary
 

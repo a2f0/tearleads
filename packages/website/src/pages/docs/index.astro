@@ -1,0 +1,41 @@
+---
+import PageHeader from "../../components/PageHeader.astro";
+import Layout from "../../layouts/Layout.astro";
+import { docPath, technicalDocs } from "../../technicalDocs";
+import "../../styles/docs.css";
+---
+
+<Layout
+  title="Technical documents | Tearleads"
+  description="The Tearleads security guarantees, keying design, protocol specification, cipher suites, protocol models, limits, and glossary."
+>
+  <div class="site-page docs-page">
+    <PageHeader
+      title="Technical documents"
+      lede="The rules behind the summary on the security page: what each guarantee protects, how keys and access records fit together, and the known gaps."
+    >
+      <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
+        <ol role="list">
+          <li><a href="/security/">Security</a></li>
+          <li aria-current="page">Technical documents</li>
+        </ol>
+      </nav>
+      <p class="docs-source">
+        Each page is published from the Markdown source in the public Tearleads
+        repository on GitHub.
+      </p>
+    </PageHeader>
+
+    <dl class="site-spec site-spec--wide-key docs-index">
+      {technicalDocs.map((doc) => (
+        <div>
+          <dt><a class="site-link" href={docPath(doc)}>{doc.title}</a></dt>
+          <dd>
+            {doc.summary}
+            <span class="docs-index-path">{doc.source}</span>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  </div>
+</Layout>

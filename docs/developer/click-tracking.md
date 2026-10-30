@@ -29,11 +29,12 @@ days. The dashboard and read API require an administrator session; registration
 is disabled and accounts are provisioned through CT's CLI. See the
 [CT repository](https://github.com/a2f0/ct) for administration and retention.
 
-`packages/app-web/e2e/click-tracking.spec.ts` tests all six origins and privacy
-signals with real browser clicks and intercepted HTTP requests. The website's
-publication test (`packages/website/src/legalPublication.test.ts`) checks that
-built pages load the CT initializer and publish the full privacy notice.
-Frontend-only deployment
-uses `packages/app-web/scripts/deployAppWeb.sh <prod|staging>` and
-`packages/website/scripts/deployWebsite.sh <prod|staging> --skip-terraform`.
-The collector's registered origins must be deployed before these clients.
+[`packages/app-web/e2e/click-tracking.spec.ts`](../../packages/app-web/e2e/click-tracking.spec.ts)
+tests all six origins and privacy signals with real browser clicks and
+intercepted HTTP requests. The website's publication test
+([`packages/website/src/legalPublication.test.ts`](../../packages/website/src/legalPublication.test.ts))
+checks that built pages load the CT initializer and publish the full privacy
+notice. Frontend-only deployment uses `packages/app-web/scripts/deployAppWeb.sh
+<prod|staging>` and `packages/website/scripts/deployWebsite.sh <prod|staging>
+--skip-terraform`. The collector's registered origins must be deployed before
+these clients.

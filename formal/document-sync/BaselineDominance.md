@@ -47,25 +47,25 @@ named invariant:
 
 ## Trace bridge
 
-The invariants are stated with the same `Dominated`/`Older` operators that
-guard the action, so TLC alone verifies the redirect decision relative to those
+The invariants are stated with the same `Dominated`/`Older` operators that guard
+the action, so TLC alone verifies the redirect decision relative to those
 definitions — not the dominance definition itself. That same-predicate blind
 spot is closed by the trace bridge:
 [`BaselineDominanceTraceExport.tla`](./BaselineDominanceTraceExport.tla)
 (registered alongside the base model) prints every served behavior of a bounded
 configuration, `bun run generate:protocol-traces` canonicalizes those behaviors
 into the committed fixture
-[`BaselineDominanceTraces.json`](./BaselineDominanceTraces.json), and
-`bun run check:protocol-traces` fails `check:fast` when the fixture drifts
-from the model. The TypeScript replay suite
-`packages/api/src/documents/documentBaselineDominanceTraceReplay.test.ts` then
-drives every exported behavior through the real
+[`BaselineDominanceTraces.json`](./BaselineDominanceTraces.json), and `bun run
+check:protocol-traces` fails `check:fast` when the fixture drifts from the
+model. The TypeScript replay suite
+[`packages/api/src/documents/documentBaselineDominanceTraceReplay.test.ts`](../../packages/api/src/documents/documentBaselineDominanceTraceReplay.test.ts)
+then drives every exported behavior through the real
 `selectServedSyncUpdates`/`isDocumentUpdateDominatedByBaseline` kernels with
 real Loro version vectors and through an independent componentwise-counter
-oracle. A mutation that weakens `VectorCovers`, deletes the older-epoch
-conjunct from `Dominated`, or bypasses raw-mode completeness changes the
-exported behaviors, so it fails the fixture drift check — and, if the fixture
-is regenerated, the kernel replay. The dominance semantics therefore have two
+oracle. A mutation that weakens `VectorCovers`, deletes the older-epoch conjunct
+from `Dominated`, or bypasses raw-mode completeness changes the exported
+behaviors, so it fails the fixture drift check — and, if the fixture is
+regenerated, the kernel replay. The dominance semantics therefore have two
 independent executable ground truths: the parity suite below and the replayed
 TLC artifact, both run on every push and pull request via
 `test:protocol-conformance`.
@@ -75,14 +75,14 @@ TLC artifact, both run on every push and pull request via
 The checked configuration bounds the state space to two peers, counters from
 zero through two, three content-key epochs, and two arbitrary updates. The
 TypeScript bounded-parity test
-`packages/api/src/documents/documentBaselineDominance.test.ts` independently
-constructs real Loro version vectors for the same bounds. It checks 729
-predicate cases, 39,366 normal and raw serve cases, and 4,374 missing-baseline
-cases. It also checks ordering, which the set-based TLA+ model omits. The trace
-fixture uses a smaller export bound (two peers, counters zero and one, two
-epochs, two updates: 2,048 behaviors) so the committed artifact stays
-reviewable; the parity suite retains exhaustive coverage at the full registered
-bound.
+[`packages/api/src/documents/documentBaselineDominance.test.ts`](../../packages/api/src/documents/documentBaselineDominance.test.ts)
+independently constructs real Loro version vectors for the same bounds. It
+checks 729 predicate cases, 39,366 normal and raw serve cases, and 4,374
+missing-baseline cases. It also checks ordering, which the set-based TLA+ model
+omits. The trace fixture uses a smaller export bound (two peers, counters zero
+and one, two epochs, two updates: 2,048 behaviors) so the committed artifact
+stays reviewable; the parity suite retains exhaustive coverage at the full
+registered bound.
 
 ## Assumptions and model boundary
 

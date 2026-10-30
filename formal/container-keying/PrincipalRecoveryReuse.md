@@ -55,9 +55,10 @@ two steps as well: a value handed out to one collection may outlive its
 producer, so the use checks the composite lifetime and is cancelled if the
 producer expired. Admission also rechecks durable pins at the use.
 
-The positive configuration explores three heads, three operations and two
-hints. Ten negative controls in
-`scripts/protocol/protocolHistoryNegativeControls.ts` disable one guard each:
+The positive configuration explores three heads, three operations and two hints.
+Ten negative controls in
+[`scripts/protocol/protocolHistoryNegativeControls.ts`](../../scripts/protocol/protocolHistoryNegativeControls.ts)
+disable one guard each:
 
 - `DiscoverEachOperation = FALSE` (with hints disabled) violates
   `FreshPerOperation`: trusting the newest completed local head instead of

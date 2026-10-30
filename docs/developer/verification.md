@@ -75,12 +75,12 @@ the SDK build replaces output that dependent tests consume.
 
 ## Multi-party scenarios
 
-`packages/bob-and-alice` checks keying behavior end to end. Each device is a
-full `Tearleads` client with its own SQLite database, talking over HTTP to the
-API served in-process from `@tearleads/api/test-runtime`. A reference model of
-grants, parent pointers, group memberships, and document links decides who
-should read and write each document, and every scenario compares each device's
-reads with it.
+[`packages/bob-and-alice`](../../packages/bob-and-alice/) checks keying behavior
+end to end. Each device is a full `Tearleads` client with its own SQLite
+database, talking over HTTP to the API served in-process from
+`@tearleads/api/test-runtime`. A reference model of grants, parent pointers,
+group memberships, and document links decides who should read and write each
+document, and every scenario compares each device's reads with it.
 
 Add a scenario when a change can alter who reads or writes a document:
 sharing, group membership, revocation, moves, links, key rotation, or reading
@@ -104,7 +104,7 @@ review. Do not disable trust globally to work around a shell startup error.
 | Command | Prerequisites beyond the checkout |
 | --- | --- |
 | `check:package @tearleads/api` or `check:package @tearleads/client-sdk` | Pinned Bun, `bun install --frozen-lockfile`, and the SQLite download tools below. No Electrobun devkit, protocol-model, OpenAPI-compatibility, or Ruby lint gate runs in these focused checks. |
-| `check:fast` | Installed dependencies and pinned mise tools, including Java/TLA+, oasdiff, ShellCheck and Ruby; run `bundle install` in `packages/app-capacitor` for Ruby lint dependencies. Prepares the Electrobun devkit and SDK declarations. |
+| `check:fast` | Installed dependencies and pinned mise tools, including Java/TLA+, oasdiff, ShellCheck and Ruby; run `bundle install` in [`packages/app-capacitor`](../../packages/app-capacitor/) for Ruby lint dependencies. Prepares the Electrobun devkit and SDK declarations. |
 | `check`, `check:affected`, or pre-push | The static-gate prerequisites plus package builds, TypeScript, and the selected test suites; browser E2E also requires the Playwright browsers. |
 
 `build:runtime` downloads the pinned SQLite WASM archive when uncached and
@@ -134,8 +134,9 @@ checks are worth running by hand rather than discovering minutes into a push:
   easy to create by importing a shared symbol back from a module that already
   imports you; extract the symbol into its own module instead.
   dependency-cruiser's `no-circular` rule covers package source; Biome's
-  `noImportCycles` (with type-only imports counted) covers every file it
-  checks, including `scripts/`, so `bun run lint:biome` reports one there too.
+  `noImportCycles` (with type-only imports counted) covers every file it checks,
+  including [`scripts/`](../../scripts/), so `bun run lint:biome` reports one
+  there too.
 
 Before a push, prefer `bun run check:fast` over a hand-picked subset. It covers
 the static half of the gate in a few minutes; sampling a few of its checks

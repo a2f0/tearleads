@@ -16,11 +16,12 @@ Use `API_DATABASE` to select the database adapter:
   the deployment migration command.
 
 Each dialect has one generated `0000_greenfield_baseline` migration
-(`packages/api-shared/drizzle/` for Postgres, `drizzle-sqlite/` for SQLite and
-Turso) with all current schema definitions. The deployment's `migrate` command
-initializes an empty database from that baseline and records it in Drizzle's
-journal; repeating it on a current database is idempotent. There are no
-incremental schema upgrades, data backfills, or content scans.
+([`packages/api-shared/drizzle/`](../../packages/api-shared/drizzle/) for
+Postgres, `drizzle-sqlite/` for SQLite and Turso) with all current schema
+definitions. The deployment's `migrate` command initializes an empty database
+from that baseline and records it in Drizzle's journal; repeating it on a
+current database is idempotent. There are no incremental schema upgrades, data
+backfills, or content scans.
 
 Production and staging use PlanetScale PostgreSQL and independent Cloudflare R2
 buckets for encrypted blobs. Runtime database roles and schema initialization
@@ -287,7 +288,7 @@ blob buckets allow cross-origin GETs and PUTs from any origin to support web,
 desktop, and mobile clients; valid signatures are still required. Deploy the
 storage stack's CORS configuration before the API and clients that depend on
 it. For other S3 providers, apply the equivalent GET/PUT rule in
-`scripts/localstack/blobTransferCors.json`.
+[`scripts/localstack/blobTransferCors.json`](../../scripts/localstack/blobTransferCors.json).
 
 LocalStack helper:
 

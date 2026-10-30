@@ -321,14 +321,22 @@ const productionConfig = {
     },
     "packages/website": {
       // Knip reads astro.config.ts as plugin configuration rather than as a
-      // production root, so list the build integration it loads explicitly.
+      // production root, so list the build integration and Markdown plugin it
+      // loads explicitly.
       entry: [
         "astro.config.ts!",
         "src/pages/**/*.astro!",
+        "src/docLinksPlugin.ts!",
         "src/seoIntegration.ts!",
       ],
       project: ["src/**/*.{astro,ts,tsx}!", "!src/**/*.test.ts"],
-      ignoreDependencies: ["@astrojs/react", "react-dom"],
+      // Imported only by astro.config.ts, which the production pass does not
+      // trace (see above).
+      ignoreDependencies: [
+        "@astrojs/markdown-satteri",
+        "@astrojs/react",
+        "react-dom",
+      ],
     },
     "packages/sqlite-instance": { project: productionProject },
     "packages/sqlite-worker": { project: productionProject },

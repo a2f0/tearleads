@@ -14,7 +14,7 @@ retry.
 
 ## Measurement
 
-`measureWorkflowRequests` (`packages/app/test/helpers/workflowRequestBudget.ts`)
+`measureWorkflowRequests` ([`packages/app/test/helpers/workflowRequestBudget.ts`](../packages/app/test/helpers/workflowRequestBudget.ts))
 waits for the pane runtime to settle, runs the operation, waits until every
 expected mutation has committed with status 200, settles again, and then checks
 the budget. Local-first actions can return before their durable queue
@@ -24,17 +24,18 @@ count only when it validates and an identical request later commits, and only
 up to the mutation's `maxPreparations` allowance.
 
 `expectProxiedApiRequestBudget`
-(`packages/app/test/helpers/proxiedApiRequestBudget.ts`) compares the recorded
-requests with a `ProxiedApiRequestBudget`: a `total`, `byRequest` ceilings keyed
-by method and route template (`POST /documents/:documentId/sync`), and optional
-`bodyBytes` ceilings. The recorder counts completed proxied HTTP calls and exact
-uncompressed body bytes, and classifies each document sync as read-only or
-write-bearing from its `outgoingUpdates`. Headers, WebSocket traffic, TLS,
-compression, network latency and database CPU are outside the measurement.
+([`packages/app/test/helpers/proxiedApiRequestBudget.ts`](../packages/app/test/helpers/proxiedApiRequestBudget.ts))
+compares the recorded requests with a `ProxiedApiRequestBudget`: a `total`,
+`byRequest` ceilings keyed by method and route template (`POST
+/documents/:documentId/sync`), and optional `bodyBytes` ceilings. The recorder
+counts completed proxied HTTP calls and exact uncompressed body bytes, and
+classifies each document sync as read-only or write-bearing from its
+`outgoingUpdates`. Headers, WebSocket traffic, TLS, compression, network latency
+and database CPU are outside the measurement.
 
 To print per-phase profiles, build the SDK at the repository root with
 `bun run --filter='@tearleads/client-sdk' build`, then run a budget test from
-`packages/app` with `DUAL_PANE_REQUEST_PROFILE=1`:
+[`packages/app`](../packages/app/) with `DUAL_PANE_REQUEST_PROFILE=1`:
 
 ```sh
 DUAL_PANE_REQUEST_PROFILE=1 DUAL_PANE_REQUEST_PROFILE_DETAIL=1 \
@@ -50,7 +51,9 @@ ceiling.
 
 ## Operation budgets
 
-Tests live in `packages/app/src/shell/pane/tests/` unless noted.
+Tests live in
+[`packages/app/src/shell/pane/tests/`](../packages/app/src/shell/pane/tests/)
+unless noted.
 
 | Test | Operation | Request ceiling | Other pinned limits |
 | --- | --- | ---: | --- |
@@ -68,7 +71,7 @@ Tests live in `packages/app/src/shell/pane/tests/` unless noted.
 | `DualPaneProvider.groupsRequestVolume.test.tsx` | Open Org Manager and select Admins | 3 | One read-model, one organization-policy and one Admins-policy read |
 | `DualPaneProvider.groupsRequestVolume.test.tsx` | Add a new peer to Admins, including peer convergence | 76, plus each validated preparation response (at most one) | 160,000 request and 2,650,000 response bytes; 20 organization-policy, 3 group-policy and 7 history reads; 9 document projections (10 after a real stale-target `409`); 12 syncs, all read-only; 2 recitations; 1 policy commit; no standalone share |
 | `DualPaneProvider.sharing.test.tsx` (root grant after attachment writes) | Create a folder and a note with an attachment, share the root with an active roster peer, and settle the peer's discovery; measured after provisioning and roster import | 66 | 130,000 request and 2,250,000 response bytes; 18 syncs (1-2 write-bearing, at most 16 read-only); 9 document projections; 11 parent-lane queries; 4 listings; 23 organization-policy reads; 4 recitations; 1 share |
-| `packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx` | Upload one small image from Explorer | 9 | One document create, one multipart stage, one part upload, one attachment binding, three syncs; no per-part authorization or stage-completion request |
+| [`packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx`](../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx) | Upload one small image from Explorer | 9 | One document create, one multipart stage, one part upload, one attachment binding, three syncs; no per-part authorization or stage-completion request |
 | `DualPaneProvider.activePeerRequestVolume.test.tsx` | An active peer reconciles an ungranted custom-group change | Exactly 4 | One read-model read, two organization-policy reads and one group-policy read; no container or document request and no Admins-policy read |
 | `DeviceFirstOfflineRequestVolume.test.tsx` | Offline folder create, cached note edit, and move to Trash | 0 each | After reconnect the queued create, link and unlink commit |
 
@@ -90,7 +93,7 @@ These choices keep request counts above the minimum on purpose.
 
 Realtime events are volatile hints. Interest routes them to the right lanes but
 grants no access, and a hint can be lost. Recovery therefore comes from
-authoritative reconciliation (`packages/client-sdk/src/sync/reconciliation/`),
+authoritative reconciliation ([`packages/client-sdk/src/sync/reconciliation/`](../packages/client-sdk/src/sync/reconciliation/)),
 not from replaying a durable delta log, which would need its own replay
 authorization, atomic event durability, retention, acknowledgements and
 ordered local application.
@@ -106,9 +109,9 @@ ordered local application.
   automatic retries.
 - A reconnect drops cached writer projections, installs and acknowledges the
   current interest set, and then runs reconciliation
-  (`packages/app/src/providers/sdk/serverEventsBinding.ts`). Distinct login
-  sessions of the same identity receive each other's events, so session
-  origin alone cannot suppress a sibling client's read-model refresh.
+  ([`packages/app/src/providers/sdk/serverEventsBinding.ts`](../packages/app/src/providers/sdk/serverEventsBinding.ts)).
+  Distinct login sessions of the same identity receive each other's events, so
+  session origin alone cannot suppress a sibling client's read-model refresh.
 - Explicit Refresh or Sync is a recovery signal. Opened documents probe on
   startup, acknowledged reconnect or forced invalidation; unopened ordinary
   documents stay lazy, and system projections are eager.

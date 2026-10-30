@@ -14,7 +14,7 @@ authorizes an object.
 
 | Requirement | Production behavior and regression |
 | --- | --- |
-| Revocation beyond 16,384 versions | `packages/api/test/slow/principalHistoryAvailability.test.ts` constructs complete signed group and directory histories through 16,384, commits a compound membership revocation to 16,385, and denies the removed reader. |
+| Revocation beyond 16,384 versions | [`packages/api/test/slow/principalHistoryAvailability.test.ts`](../packages/api/test/slow/principalHistoryAvailability.test.ts) constructs complete signed group and directory histories through 16,384, commits a compound membership revocation to 16,385, and denies the removed reader. |
 | Cold historical access | The same test removes verification hints, restarts the API and creates a fresh SDK database. The surviving member recovers historical document plaintext without another device or a repair write. |
 | Bounded HTTP work | A separate loopback proxy enforces 15 seconds through every response body, including mutation requests. Each request must use fewer than 1,024 SQL statements; mutation responses stay below 200 KB and recovery responses below 400 KB for the fixture's fixed policy sizes. |
 | Interrupted preparation | The isolated fixture kills the API after its first completed preparation response. Durable progress survives, and the original compound mutation completes once after restart. |
@@ -29,8 +29,8 @@ local bundle cannot replace private runtime recovery.
 
 ## Reproduction
 
-Build the SDK before API tests. From `packages/api`, use a dedicated fixture
-database and run:
+Build the SDK before API tests. From [`packages/api`](../packages/api/), use a
+dedicated fixture database and run:
 
 ```sh
 API_DATABASE=sqlite API_SQLITE_PATH=/tmp/history-acceptance.sqlite \
@@ -39,10 +39,10 @@ API_DATABASE=sqlite API_SQLITE_PATH=/tmp/history-acceptance.sqlite \
 ```
 
 For networked PostgreSQL, initialize a dedicated database with
-`packages/api-shared/drizzle/0000_greenfield_baseline.sql`, set
-`API_DATABASE=postgres` and `DATABASE_URL`, and run the same test.
-Omit `PRINCIPAL_HISTORY_THROUGH_VERSION` to exercise 16,384 signed predecessors;
-a smaller value is a short diagnostic, not boundary acceptance. The regular API
+[`packages/api-shared/drizzle/0000_greenfield_baseline.sql`](../packages/api-shared/drizzle/0000_greenfield_baseline.sql),
+set `API_DATABASE=postgres` and `DATABASE_URL`, and run the same test. Omit
+`PRINCIPAL_HISTORY_THROUGH_VERSION` to exercise 16,384 signed predecessors; a
+smaller value is a short diagnostic, not boundary acceptance. The regular API
 suite runs a 64-version isolated SQLite case in
 `principalHistoryProcessRecovery.test.ts`.
 

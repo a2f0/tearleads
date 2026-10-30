@@ -31,14 +31,15 @@ in deterministic registry order.
 
 Model documentation that maps abstract actions to production seams does so in
 `Model action … | Production …` tables; the registry in
-`scripts/protocol/lintFormalAbstractionMaps.ts` pins which documents carry them.
-`bun run lint:formal-maps` (part of `check:fast`) verifies every backticked
-model token is declared in the module the table documents and every backticked
-production seam occurs in production package source code, so a rename or
-removal on either side fails the check instead of leaving the map prose-only.
-The check proves that names exist, not that an action and its implementation
-are semantically equivalent. `AncestorRecovery` documents its seams in prose
-in the [model index](./models.md) and carries no map table.
+[`scripts/protocol/lintFormalAbstractionMaps.ts`](../scripts/protocol/lintFormalAbstractionMaps.ts)
+pins which documents carry them. `bun run lint:formal-maps` (part of
+`check:fast`) verifies every backticked model token is declared in the module
+the table documents and every backticked production seam occurs in production
+package source code, so a rename or removal on either side fails the check
+instead of leaving the map prose-only. The check proves that names exist, not
+that an action and its implementation are semantically equivalent.
+`AncestorRecovery` documents its seams in prose in the [model
+index](./models.md) and carries no map table.
 
 ## Trace bridges
 
@@ -70,10 +71,11 @@ large, so `bun run check:protocol-proofs` runs in its own CI job, not in
 
 ## Negative controls
 
-`bun run check:protocol-negative-controls` (part of `check:fast`) checks selected
-properties for sensitivity to faults: each entry in
-`scripts/protocol/protocolNegativeControls.ts` flips one rule or lock in a
-registered configuration and requires TLC to report exactly the named violation.
+`bun run check:protocol-negative-controls` (part of `check:fast`) checks
+selected properties for sensitivity to faults: each entry in
+[`scripts/protocol/protocolNegativeControls.ts`](../scripts/protocol/protocolNegativeControls.ts)
+flips one rule or lock in a registered configuration and requires TLC to report
+exactly the named violation.
 
 A control shows that removing one rule produces a failing path. It does not show
 that every other property in the model is meaningful, that every action is

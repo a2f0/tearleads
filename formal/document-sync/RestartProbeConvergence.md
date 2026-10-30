@@ -74,13 +74,13 @@ implementation runs through this model. Two scenario tests drive the real
 seams with fault injection and record each run as a sequence of the model's
 actions:
 
-- `packages/client-sdk/src/stores/documents/documentStore/sync/restartProbeProjection.test.ts`
+- [`packages/client-sdk/src/stores/documents/documentStore/sync/restartProbeProjection.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/sync/restartProbeProjection.test.ts)
   drives the probe-signal kernels (`handleDocumentRemoteEvents`,
   `clearConsumedRemoteUpdateSignal`, the arming helpers) through delivered and
   echoed hints, a mid-flight hint, a restart, and the post-ack revalidation,
   recording the implementation-projected `probeRequested` bit after each step.
-- `packages/app/src/providers/sdk/restartProbeProjection.test.ts` drives the
-  interest-barrier seams (`routeIncomingWsMessage`,
+- [`packages/app/src/providers/sdk/restartProbeProjection.test.ts`](../../packages/app/src/providers/sdk/restartProbeProjection.test.ts)
+  drives the interest-barrier seams (`routeIncomingWsMessage`,
   `startContainerInterestDeclaration`) through a disconnect, reconnect socket
   open, authoritative declaration, a stale-acknowledgement refusal, and the
   matching acknowledgement, recording the observed frame ordering.

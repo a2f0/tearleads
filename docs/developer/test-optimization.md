@@ -1,10 +1,11 @@
 # Test optimization findings
 
-The `optimize-tests` skill (in `.agents/skills` for Codex and `.claude/skills`
-for Claude) ranks measured test costs, preserves unique regressions, and
-requires a coverage map before deleting a test. This page records what earlier
-passes learned: where the suites spend their time, which techniques to reuse,
-and which approaches did not pay off. Re-measure before acting on any of it.
+The `optimize-tests` skill (in [`.agents/skills`](../../.agents/skills/) for
+Codex and [`.claude/skills`](../../.claude/skills/) for Claude) ranks measured
+test costs, preserves unique regressions, and requires a coverage map before
+deleting a test. This page records what earlier passes learned: where the suites
+spend their time, which techniques to reuse, and which approaches did not pay
+off. Re-measure before acting on any of it.
 
 ## Where the time goes
 
@@ -59,19 +60,20 @@ Some of that cost is deliberate:
   The deep cases create 18 descendants and assert the 16-repair prefix
   boundary.
 - **Settle the app runtime in short `act` slices.** React holds commits
-  scheduled inside an async `act` scope until the scope exits. A wait inside
-  one long scope can therefore block the commit it waits for: Org Manager keeps
-  its `mutating` flag, defers its own organization hint, leaves
+  scheduled inside an async `act` scope until the scope exits. A wait inside one
+  long scope can therefore block the commit it waits for: Org Manager keeps its
+  `mutating` flag, defers its own organization hint, leaves
   `organizationPending` true, and the wait runs to its 30 s timeout. A real
   browser commits immediately. `settleAppTestRuntimeInAct` in
-  `packages/app/test/helpers/appRuntimeIdle.tsx` waits in slices of 250 ms, or
-  twice the combined sync and API quiet windows when that is longer, and logs a
-  timeout only for the final slice. `importPeerIntoRoster`,
-  `addPeerToAdminsGroup`, and `shareContainerWithGroup` use it and assert the
-  result, so a stall fails at the step that caused it. Other call sites
-  wrap `waitForAppTestRuntimeToSettle` in one `act` scope; a stall there shows
-  up as `App runtime settle timed out` in the app log. The short timeouts in
-  `organizationReadModelRealtime.idle.test.ts` emit that diagnostic on purpose.
+  [`packages/app/test/helpers/appRuntimeIdle.tsx`](../../packages/app/test/helpers/appRuntimeIdle.tsx)
+  waits in slices of 250 ms, or twice the combined sync and API quiet windows
+  when that is longer, and logs a timeout only for the final slice.
+  `importPeerIntoRoster`, `addPeerToAdminsGroup`, and `shareContainerWithGroup`
+  use it and assert the result, so a stall fails at the step that caused it.
+  Other call sites wrap `waitForAppTestRuntimeToSettle` in one `act` scope; a
+  stall there shows up as `App runtime settle timed out` in the app log. The
+  short timeouts in `organizationReadModelRealtime.idle.test.ts` emit that
+  diagnostic on purpose.
 - **Sign a single successor in-process.** `test/helpers/longPrincipalHistory.ts`
   in the API signs one new principal version in the test process and starts
   signing workers only for longer histories, including the opt-in 16,384-version
@@ -87,13 +89,14 @@ Some of that cost is deliberate:
 - **Run the client SDK, app, and API files in two workers.** `bun test`
   otherwise runs a package's files one after another in a single process. All
   three suites pass `--parallel=2 --no-isolate` (the API passes it to each
-  backend in `packages/api/scripts/testAllDatabases.ts`): each worker keeps one
-  global across the files it runs, as the serial run did, so CPU time stays the
-  same while wall time halves (SDK 528 s to 257 s locally, 3,996 tests either
-  way; app 890 s to 402 s back to back on a shared host, 2,838 tests either
-  way; API 996 s to 510 s, 2,191 tests per backend either way). Plain
-  `--parallel` implies `--isolate` and cost about 2.4 times the CPU for the
-  SDK, 1.5 times for the app, and 2 times for the API (880 s wall). CI's
+  backend in
+  [`packages/api/scripts/testAllDatabases.ts`](../../packages/api/scripts/testAllDatabases.ts)):
+  each worker keeps one global across the files it runs, as the serial run did,
+  so CPU time stays the same while wall time halves (SDK 528 s to 257 s locally,
+  3,996 tests either way; app 890 s to 402 s back to back on a shared host,
+  2,838 tests either way; API 996 s to 510 s, 2,191 tests per backend either
+  way). Plain `--parallel` implies `--isolate` and cost about 2.4 times the CPU
+  for the SDK, 1.5 times for the app, and 2 times for the API (880 s wall). CI's
   4-vCPU runner fits the API's two backends times two workers.
 - **Keep worker-safe preload hooks.** In a `--parallel` run Bun calls a
   preload's `afterAll` after every file, not once per run, while

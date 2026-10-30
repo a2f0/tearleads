@@ -718,7 +718,7 @@ bun run --filter='@tearleads/client-sdk' build
 - App code uses SDK root services instead of importing SDK workflow or store
   facades directly.
 - Product window vocabulary such as `OrgManager` and `mini-app` stays in
-  `packages/app`; SDK source uses platform workflow names.
+  [`packages/app`](../../packages/app/); SDK source uses platform workflow names.
 
 ## Document persistence notifications
 

@@ -1,0 +1,180 @@
+/*
+ * Technical documents (/docs/): Markdown rendered from the repository, plus
+ * the document index. Rendered Markdown carries no classes, so rules here
+ * select elements inside .docs-prose.
+ */
+
+.docs-source {
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.6 var(--site-font-mono);
+  overflow-wrap: anywhere;
+}
+
+/* --- Index --- */
+
+.docs-index {
+  max-width: var(--site-wide);
+  margin-top: var(--site-space-7);
+}
+
+.docs-index-path {
+  display: block;
+  margin-top: var(--site-space-1);
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+  overflow-wrap: anywhere;
+}
+
+/* --- On this page --- */
+
+.docs-contents {
+  max-width: var(--site-wide);
+  margin-top: var(--site-space-6);
+  padding-block: var(--site-space-4);
+  border-block: 1px solid var(--site-line);
+}
+
+.docs-contents-title {
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+}
+
+.docs-contents ol {
+  margin: var(--site-space-2) 0 0;
+  padding-left: 1.5rem;
+  font-size: var(--site-text-small);
+  line-height: 1.6;
+}
+
+.docs-contents li {
+  margin-bottom: var(--site-space-1);
+  break-inside: avoid;
+}
+
+@media (min-width: 900px) {
+  .docs-contents ol {
+    columns: 2;
+    column-gap: var(--site-space-7);
+  }
+}
+
+/* --- Rendered Markdown --- */
+
+/* Text keeps the reading measure; tables may use the wider column. */
+.docs-prose.site-prose {
+  max-width: var(--site-wide);
+  margin-top: var(--site-space-6);
+  overflow-wrap: break-word;
+}
+
+.docs-prose > :is(p, ul, ol, blockquote, dl) {
+  max-width: var(--site-measure);
+}
+
+.docs-prose > * + * {
+  margin-top: var(--site-space-4);
+}
+
+.docs-prose > h2:first-child {
+  margin-top: 0;
+}
+
+.docs-prose h2 {
+  max-width: none;
+  margin-top: var(--site-space-7);
+  padding-top: var(--site-space-5);
+  border-top: 1px solid var(--site-line);
+  font-size: var(--site-text-h2);
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.docs-prose h3 {
+  margin-top: var(--site-space-6);
+  font-size: var(--site-text-h3);
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.docs-prose h4,
+.docs-prose h5,
+.docs-prose h6 {
+  margin-top: var(--site-space-5);
+  font-size: var(--site-text-body);
+  font-weight: 650;
+}
+
+.docs-prose :is(h1, h2, h3, h4, h5, h6) {
+  scroll-margin-top: var(--site-space-6);
+}
+
+.docs-prose :is(ul, ol) {
+  padding-left: 1.5rem;
+}
+
+.docs-prose li + li,
+.docs-prose li > :is(ul, ol) {
+  margin-top: var(--site-space-2);
+}
+
+.docs-prose blockquote {
+  padding-left: var(--site-space-4);
+  border-left: 2px solid var(--site-line-strong);
+  color: var(--site-ink-2);
+}
+
+.docs-prose hr {
+  border: 0;
+  border-top: 1px solid var(--site-line);
+}
+
+.docs-prose pre {
+  padding: var(--site-space-3) var(--site-space-4);
+  border: 1px solid var(--site-line-strong);
+  border-radius: var(--site-radius-sm);
+  background: var(--site-surface);
+  font: 400 0.8125rem / 1.6 var(--site-font-mono);
+  overflow-x: auto;
+  tab-size: 2;
+}
+
+.docs-prose pre code {
+  font: inherit;
+}
+
+/* Wide tables scroll inside their region (docLinksPlugin adds the wrapper). */
+.docs-prose .docs-table {
+  overflow-x: auto;
+}
+
+.docs-prose .docs-table:focus-visible {
+  outline: 2px solid var(--site-focus);
+  outline-offset: 2px;
+}
+
+.docs-prose table {
+  min-width: 100%;
+  border-collapse: collapse;
+  border-top: 1px solid var(--site-ink);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.docs-prose :is(th, td) {
+  min-width: 8rem;
+  padding: var(--site-space-3) var(--site-space-4) var(--site-space-3) 0;
+  border-bottom: 1px solid var(--site-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.docs-prose thead th {
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+}
+
+@media print {
+  .docs-contents {
+    display: none;
+  }
+}

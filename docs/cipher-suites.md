@@ -32,12 +32,12 @@ conventional SSH host keys (Ed25519, and RSA/ECDSA in the Terraform stacks).
 
 | Use | Location |
 | --- | --- |
-| KEM envelope primitive: encapsulate, then AES-GCM-wrap a DEK to a recipient key | `packages/crypto/src/encapsulation/{wrapDek,unwrapDek,decryptAsRecipient}.ts` |
-| Wrap container KEK to a parent derived public key | `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm-parent-kek` — `packages/crypto/src/keying/containerKekWrapping.ts`, `packages/client-sdk/src/data/containers/shared/projection.ts` |
-| Wrap container KEK to a user or managed principal | `packages/client-sdk/src/data/containers/shared/projection.ts` |
-| Wrap principal (group/org) secret keys to members | `packages/client-sdk/src/workflows/organizations/{principalPolicy,groupPolicy}/` |
-| Identity key-package probe envelope | `packages/client-sdk/src/client/identity/keyPackage.ts` |
-| Identity keypair generation | `packages/crypto/src/encapsulation/generateKeyPair.ts` |
+| KEM envelope primitive: encapsulate, then AES-GCM-wrap a DEK to a recipient key | [`packages/crypto/src/encapsulation/wrapDek.ts`](../packages/crypto/src/encapsulation/wrapDek.ts), [`packages/crypto/src/encapsulation/unwrapDek.ts`](../packages/crypto/src/encapsulation/unwrapDek.ts), [`packages/crypto/src/encapsulation/decryptAsRecipient.ts`](../packages/crypto/src/encapsulation/decryptAsRecipient.ts) |
+| Wrap container KEK to a parent derived public key | `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm-parent-kek` — [`packages/crypto/src/keying/containerKekWrapping.ts`](../packages/crypto/src/keying/containerKekWrapping.ts), [`packages/client-sdk/src/data/containers/shared/projection.ts`](../packages/client-sdk/src/data/containers/shared/projection.ts) |
+| Wrap container KEK to a user or managed principal | [`packages/client-sdk/src/data/containers/shared/projection.ts`](../packages/client-sdk/src/data/containers/shared/projection.ts) |
+| Wrap principal (group/org) secret keys to members | [`packages/client-sdk/src/workflows/organizations/principalPolicy/`](../packages/client-sdk/src/workflows/organizations/principalPolicy/), [`packages/client-sdk/src/workflows/organizations/groupPolicy/`](../packages/client-sdk/src/workflows/organizations/groupPolicy/) |
+| Identity key-package probe envelope | [`packages/client-sdk/src/client/identity/keyPackage.ts`](../packages/client-sdk/src/client/identity/keyPackage.ts) |
+| Identity keypair generation | [`packages/crypto/src/encapsulation/generateKeyPair.ts`](../packages/crypto/src/encapsulation/generateKeyPair.ts) |
 
 Container-KEK-to-principal wrap suite: `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`.
 Document and blob content keys are not ML-KEM-wrapped directly to recipients —
@@ -50,47 +50,48 @@ public keys are committed by signed container events and manifests.
 
 | Use | Location |
 | --- | --- |
-| Sign principal (group/org) policy state | `packages/crypto/src/principalState.ts` |
-| Sign document/blob write headers | `packages/crypto/src/keying/writeHeader.ts` |
-| Sign access events (grant, revoke, link, bind, ...) | `packages/crypto/src/keying/accessEvent.ts` |
-| Sign transparency tree heads | `packages/crypto/src/keying/transparency.ts` |
-| Sign auth challenges | `packages/crypto/src/challenge.ts` |
-| Sign / verify primitives | `packages/crypto/src/signing/{sign,verify}.ts` |
+| Sign principal (group/org) policy state | [`packages/crypto/src/principalState.ts`](../packages/crypto/src/principalState.ts) |
+| Sign document/blob write headers | [`packages/crypto/src/keying/writeHeader.ts`](../packages/crypto/src/keying/writeHeader.ts) |
+| Sign access events (grant, revoke, link, bind, ...) | [`packages/crypto/src/keying/accessEvent.ts`](../packages/crypto/src/keying/accessEvent.ts) |
+| Sign transparency tree heads | [`packages/crypto/src/keying/transparency.ts`](../packages/crypto/src/keying/transparency.ts) |
+| Sign auth challenges | [`packages/crypto/src/challenge.ts`](../packages/crypto/src/challenge.ts) |
+| Sign / verify primitives | [`packages/crypto/src/signing/sign.ts`](../packages/crypto/src/signing/sign.ts), [`packages/crypto/src/signing/verify.ts`](../packages/crypto/src/signing/verify.ts) |
 
 ### AES-256-GCM (symmetric)
 
 | Use | Suite / location |
 | --- | --- |
-| Document & blob content records (per-record HKDF key) | `aes-256-gcm-hkdf-sha256-record-key` — `packages/client-sdk/src/data/documents/shared/crypto.ts`, `packages/client-sdk/src/data/blobs/attachments/chunkedBlobCrypto.ts` |
-| Wrap content key to container KEK | `tearleads.{document,blob}.content-key-wrap.aes-256-gcm-container-kek` — `packages/crypto/src/contentKeyEnvelope.ts`; AAD binds the suite, document or blob id, content-key epoch, container id and container key epoch id |
-| Wrap predecessor container KEK to successor KEK | `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` — `packages/crypto/src/keying/containerKekPredecessor.ts`; suite and version are persisted per bridge row |
-| Seal container KEK history keyring under current KEK | `tearleads.container-kek-keyring.aes-256-gcm-current-kek` — `packages/crypto/src/keying/containerKekKeyring.ts`; fixed-width plaintext (8-byte header + 64 bytes per predecessor epoch) makes the sealed length an equality in the epoch number |
-| DEK wrapping under a KEM shared secret | `packages/crypto/src/encapsulation/wrapDek.ts` |
-| Local keyring root-key wrapping (`account-root` envelope) | `packages/client-sdk/src/client/localKeyring/aesGcmWrapping.ts` |
-| Local identity package at rest | `packages/app/src/providers/identity/localIdentityPackageCrypto.ts` |
-| Local OPFS blob store at rest (authenticated 5 MiB chunks) | `packages/client-sdk/src/data/blobs/encryptedBlobStore.ts`, `.../encryptedBlobByteSource.ts` |
+| Document & blob content records (per-record HKDF key) | `aes-256-gcm-hkdf-sha256-record-key` — [`packages/client-sdk/src/data/documents/shared/crypto.ts`](../packages/client-sdk/src/data/documents/shared/crypto.ts), [`packages/client-sdk/src/data/blobs/attachments/chunkedBlobCrypto.ts`](../packages/client-sdk/src/data/blobs/attachments/chunkedBlobCrypto.ts) |
+| Wrap content key to container KEK | `tearleads.{document,blob}.content-key-wrap.aes-256-gcm-container-kek` — [`packages/crypto/src/contentKeyEnvelope.ts`](../packages/crypto/src/contentKeyEnvelope.ts); AAD binds the suite, document or blob id, content-key epoch, container id and container key epoch id |
+| Wrap predecessor container KEK to successor KEK | `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` — [`packages/crypto/src/keying/containerKekPredecessor.ts`](../packages/crypto/src/keying/containerKekPredecessor.ts); suite and version are persisted per bridge row |
+| Seal container KEK history keyring under current KEK | `tearleads.container-kek-keyring.aes-256-gcm-current-kek` — [`packages/crypto/src/keying/containerKekKeyring.ts`](../packages/crypto/src/keying/containerKekKeyring.ts); fixed-width plaintext (8-byte header + 64 bytes per predecessor epoch) makes the sealed length an equality in the epoch number |
+| DEK wrapping under a KEM shared secret | [`packages/crypto/src/encapsulation/wrapDek.ts`](../packages/crypto/src/encapsulation/wrapDek.ts) |
+| Local keyring root-key wrapping (`account-root` envelope) | [`packages/client-sdk/src/client/localKeyring/aesGcmWrapping.ts`](../packages/client-sdk/src/client/localKeyring/aesGcmWrapping.ts) |
+| Local identity package at rest | [`packages/app/src/providers/identity/localIdentityPackageCrypto.ts`](../packages/app/src/providers/identity/localIdentityPackageCrypto.ts) |
+| Local OPFS blob store at rest (authenticated 5 MiB chunks) | [`packages/client-sdk/src/data/blobs/encryptedBlobStore.ts`](../packages/client-sdk/src/data/blobs/encryptedBlobStore.ts), `.../encryptedBlobByteSource.ts` |
 
-Core helpers: `packages/crypto/src/symmetric.ts` (32-byte key, 12-byte IV,
-16-byte tag).
+Core helpers:
+[`packages/crypto/src/symmetric.ts`](../packages/crypto/src/symmetric.ts)
+(32-byte key, 12-byte IV, 16-byte tag).
 
 Note: the principal policy payload carries a `cipherSuite: "aes-256-gcm"` label
-(`PrincipalStatePayloadCipherSuite` in `packages/crypto/src/principalStateTypes.ts`),
+(`PrincipalStatePayloadCipherSuite` in [`packages/crypto/src/principalStateTypes.ts`](../packages/crypto/src/principalStateTypes.ts)),
 but the payload itself is base64 JSON the server can read. The organization
 authority descriptor and the built-in `Admins`/`Members` role markers are
 plaintext; only a custom group's name is AES-256-GCM-encrypted inside it, under
 an HKDF-SHA-256 key derived from the organization metadata container KEK
-(`packages/crypto/src/groupMetadata.ts`).
+([`packages/crypto/src/groupMetadata.ts`](../packages/crypto/src/groupMetadata.ts)).
 
 ### Key derivation
 
 | KDF | Use | Location |
 | --- | --- | --- |
-| HKDF-SHA-256 | Identity signing/KEM seeds from BIP39 entropy | `packages/crypto/src/identitySeedPhrase.ts` |
-| HKDF-SHA-256 | Per-purpose local keys (sqlite, blob-store, identity-persistence) from the random root | `packages/client-sdk/src/client/localKeyring/rootKey.ts` |
-| HKDF-SHA-256 | Per-content-record AES-GCM keys | `packages/client-sdk/src/data/documents/shared/crypto.ts`, `packages/client-sdk/src/data/blobs/attachments/blobRecordCrypto.ts` |
-| PBKDF2-SHA-256 | PIN-code wrapping key (310k iters) | `packages/client-sdk/src/client/localKeyring/localKeyringPinCodeSupport.ts` |
-| PBKDF2-SHA-256 | Local blob-store key from passphrase (310k iters) | `packages/client-sdk/src/data/blobs/encryptedBlobStore.ts` |
-| PBKDF2-SHA-256 | Password-protected local DB backup key (250k iters) | `packages/app/src/providers/db/localBackupFormat.ts` |
+| HKDF-SHA-256 | Identity signing/KEM seeds from BIP39 entropy | [`packages/crypto/src/identitySeedPhrase.ts`](../packages/crypto/src/identitySeedPhrase.ts) |
+| HKDF-SHA-256 | Per-purpose local keys (sqlite, blob-store, identity-persistence) from the random root | [`packages/client-sdk/src/client/localKeyring/rootKey.ts`](../packages/client-sdk/src/client/localKeyring/rootKey.ts) |
+| HKDF-SHA-256 | Per-content-record AES-GCM keys | [`packages/client-sdk/src/data/documents/shared/crypto.ts`](../packages/client-sdk/src/data/documents/shared/crypto.ts), [`packages/client-sdk/src/data/blobs/attachments/blobRecordCrypto.ts`](../packages/client-sdk/src/data/blobs/attachments/blobRecordCrypto.ts) |
+| PBKDF2-SHA-256 | PIN-code wrapping key (310k iters) | [`packages/client-sdk/src/client/localKeyring/localKeyringPinCodeSupport.ts`](../packages/client-sdk/src/client/localKeyring/localKeyringPinCodeSupport.ts) |
+| PBKDF2-SHA-256 | Local blob-store key from passphrase (310k iters) | [`packages/client-sdk/src/data/blobs/encryptedBlobStore.ts`](../packages/client-sdk/src/data/blobs/encryptedBlobStore.ts) |
+| PBKDF2-SHA-256 | Password-protected local DB backup key (250k iters) | [`packages/app/src/providers/db/localBackupFormat.ts`](../packages/app/src/providers/db/localBackupFormat.ts) |
 
 PIN-code wrap suite: `pin-code-pbkdf2-sha256-aes-256-gcm`.
 
@@ -98,19 +99,19 @@ PIN-code wrap suite: `pin-code-pbkdf2-sha256-aes-256-gcm`.
 
 | Primitive | Use | Location |
 | --- | --- | --- |
-| SHA-256 | Public-key fingerprints, canonical keying hashes | `packages/crypto/src/{fingerprint,keying/canonical}.ts` |
-| SHA-256 | Streamed blob ciphertext integrity | `packages/crypto/src/incrementalSha256.ts`, `packages/api/src/utils/sha256.ts` |
-| SHA-256 + `timingSafeEqual` | RevenueCat webhook shared-secret compare (constant-time, not HMAC) | `packages/api/src/routes/billing/revenuecatWebhook.ts` |
-| SHA-1 | Deterministic v5-style document / child-container ids (non-security) | `packages/client-sdk/src/data/keying/stableUuid.ts` |
-| HMAC-SHA-256 | Deterministic container system-slot ids | `packages/client-sdk/src/workflows/container-contents/systemSlot.ts` |
-| HMAC-SHA-256 | Stripe webhook signature verification | `packages/api/src/billing/stripeWebhook.ts` |
+| SHA-256 | Public-key fingerprints, canonical keying hashes | [`packages/crypto/src/fingerprint.ts`](../packages/crypto/src/fingerprint.ts), [`packages/crypto/src/keying/canonical.ts`](../packages/crypto/src/keying/canonical.ts) |
+| SHA-256 | Streamed blob ciphertext integrity | [`packages/crypto/src/incrementalSha256.ts`](../packages/crypto/src/incrementalSha256.ts), [`packages/api/src/utils/sha256.ts`](../packages/api/src/utils/sha256.ts) |
+| SHA-256 + `timingSafeEqual` | RevenueCat webhook shared-secret compare (constant-time, not HMAC) | [`packages/api/src/routes/billing/revenuecatWebhook.ts`](../packages/api/src/routes/billing/revenuecatWebhook.ts) |
+| SHA-1 | Deterministic v5-style document / child-container ids (non-security) | [`packages/client-sdk/src/data/keying/stableUuid.ts`](../packages/client-sdk/src/data/keying/stableUuid.ts) |
+| HMAC-SHA-256 | Deterministic container system-slot ids | [`packages/client-sdk/src/workflows/container-contents/systemSlot.ts`](../packages/client-sdk/src/workflows/container-contents/systemSlot.ts) |
+| HMAC-SHA-256 | Stripe webhook signature verification | [`packages/api/src/billing/stripeWebhook.ts`](../packages/api/src/billing/stripeWebhook.ts) |
 
 ### At-rest database
 
 | Primitive | Use | Location |
 | --- | --- | --- |
-| ChaCha20 (active) | SQLite file encryption; the app always boots with `cipher: "chacha20"` | `packages/app/src/providers/db/bootSQLiteRuntime.ts` |
-| SQLCipher / AES-CBC / Ascon-128 (supported, unused) | Alternate codecs the lower-level worker API accepts but the app does not select | `packages/sqlite-worker/src/{types,loadSqlite3}.ts` |
+| ChaCha20 (active) | SQLite file encryption; the app always boots with `cipher: "chacha20"` | [`packages/app/src/providers/db/bootSQLiteRuntime.ts`](../packages/app/src/providers/db/bootSQLiteRuntime.ts) |
+| SQLCipher / AES-CBC / Ascon-128 (supported, unused) | Alternate codecs the lower-level worker API accepts but the app does not select | [`packages/sqlite-worker/src/types.ts`](../packages/sqlite-worker/src/types.ts), [`packages/sqlite-worker/src/loadSqlite3.ts`](../packages/sqlite-worker/src/loadSqlite3.ts) |
 
 The SQLite cipher key is an HKDF-derived key from the local keyring (`sqliteKey`).
 
@@ -122,8 +123,8 @@ provide an additional application-managed encryption layer.
 
 | OPFS data | Protection | Location |
 | --- | --- | --- |
-| SQLite database | SQLite3MultipleCiphers with the active ChaCha20 codec; its key is the HKDF-derived `sqlite` local-keyring key | `packages/app/src/providers/db/bootSQLiteRuntime.ts`, `packages/client-sdk/src/client/localKeyring/session.ts` |
-| Blob files | Encrypted-blob-store v2: AES-256-GCM in authenticated 5 MiB chunks, with the namespace, storage key, chunk index, and serialized envelope bound as additional authenticated data | `packages/client-sdk/src/data/blobs/{encryptedBlobStore,encryptedBlobEnvelope,encryptedBlobByteSource}.ts` |
+| SQLite database | SQLite3MultipleCiphers with the active ChaCha20 codec; its key is the HKDF-derived `sqlite` local-keyring key | [`packages/app/src/providers/db/bootSQLiteRuntime.ts`](../packages/app/src/providers/db/bootSQLiteRuntime.ts), [`packages/client-sdk/src/client/localKeyring/session.ts`](../packages/client-sdk/src/client/localKeyring/session.ts) |
+| Blob files | Encrypted-blob-store v2: AES-256-GCM in authenticated 5 MiB chunks, with the namespace, storage key, chunk index, and serialized envelope bound as additional authenticated data | [`packages/client-sdk/src/data/blobs/encryptedBlobStore.ts`](../packages/client-sdk/src/data/blobs/encryptedBlobStore.ts), [`packages/client-sdk/src/data/blobs/encryptedBlobEnvelope.ts`](../packages/client-sdk/src/data/blobs/encryptedBlobEnvelope.ts), [`packages/client-sdk/src/data/blobs/encryptedBlobByteSource.ts`](../packages/client-sdk/src/data/blobs/encryptedBlobByteSource.ts) |
 
 Each encrypted blob has a fresh 96-bit base IV. Chunk IVs are derived from that
 base IV and the chunk index, and each ciphertext chunk includes the 16-byte

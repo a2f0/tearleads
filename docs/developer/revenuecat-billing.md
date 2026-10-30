@@ -184,8 +184,9 @@ applied without seat reconciliation, and logged for operator repair instead of
 returning an unbounded 503.
 
 - The server value comes from `.secrets/<tier>/shared.env` and is synced as a
-  Worker secret by `packages/api/scripts/deployApi.sh`, so it reaches a
-  deployed tier on every API deploy.
+  Worker secret by
+  [`packages/api/scripts/deployApi.sh`](../../packages/api/scripts/deployApi.sh),
+  so it reaches a deployed tier on every API deploy.
 - Register the endpoint in the RevenueCat dashboard, or via the v2 API
   (`POST /v2/projects/{project_id}/integrations/webhooks`), with the `Authorization`
   value set to match `REVENUECAT_WEBHOOK_AUTH_HEADER`.
@@ -322,8 +323,8 @@ subscription `active` or `trialing`; a `past_due` subscription backs off without
 creating another charge.
 
 The API Worker's per-minute Cron Trigger (`* * * * *` in
-`packages/api/wrangler.jsonc`) runs these phases through
-`src/worker/maintenance.ts`;
+[`packages/api/wrangler.jsonc`](../../packages/api/wrangler.jsonc)) runs these
+phases through `src/worker/maintenance.ts`;
 [`stripeSeatSync.ts`](../../packages/api/scripts/stripeSeatSync.ts) is the
 out-of-process entrypoint for local or on-demand runs (`--limit <n>`). By
 default each run processes up to 100 trial expiries, 25 purge candidates, and
