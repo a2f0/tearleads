@@ -76,7 +76,9 @@ line per request to a file named by an environment variable, with:
 Track requests by their index in the recorder list and process each once:
 some canaries print an overall window (the sharing canary's `test total`)
 that overlaps earlier phases, and counting it again would report every
-response in it as a redelivery.
+response in it as a redelivery. Reset that index and the per-pane history in
+a `beforeEach`: `resetMockServer()` clears the recorder between tests, so
+indexes restart in each test.
 
 Run it like the profile, from `packages/app`:
 
