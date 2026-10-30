@@ -4,6 +4,7 @@ const DIAGNOSTIC_AREAS = [
   "app",
   "backup-restore",
   "contacts",
+  "display-properties",
   "explorer",
   "identity-manager",
   "notes",

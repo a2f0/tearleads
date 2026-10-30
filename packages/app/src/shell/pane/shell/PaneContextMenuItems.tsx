@@ -2,7 +2,11 @@ import { KeyIcon } from "@phosphor-icons/react/dist/csr/Key";
 import { LockIcon } from "@phosphor-icons/react/dist/csr/Lock";
 import { LockOpenIcon } from "@phosphor-icons/react/dist/csr/LockOpen";
 import { MenuItem, type MenuPosition } from "@tearleads/windowing";
-import { MINI_APP_MENU_ITEMS } from "../../../mini-apps/catalog";
+import {
+  MINI_APP_ICONS,
+  MINI_APP_MENU_ITEMS,
+  MINI_APP_TITLES,
+} from "../../../mini-apps/catalog";
 import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItems";
 
 import { usePaneLockMenuAction } from "./usePaneLockMenuAction";
@@ -64,6 +68,11 @@ export function PaneContextMenuItems({
             onClick={() => openMiniApp(appId)}
           />
         ))}
+      <MenuItem
+        icon={MINI_APP_ICONS["display-properties"]}
+        label={MINI_APP_TITLES["display-properties"]}
+        onClick={() => openMiniApp("display-properties")}
+      />
     </>
   );
 }

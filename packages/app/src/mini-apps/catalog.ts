@@ -5,6 +5,7 @@ import { BuildingOfficeIcon } from "@phosphor-icons/react/dist/csr/BuildingOffic
 import { BuildingsIcon } from "@phosphor-icons/react/dist/csr/Buildings";
 import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
 import { IdentificationCardIcon } from "@phosphor-icons/react/dist/csr/IdentificationCard";
+import { MonitorIcon } from "@phosphor-icons/react/dist/csr/Monitor";
 import { NoteIcon } from "@phosphor-icons/react/dist/csr/Note";
 import { ShieldCheckIcon } from "@phosphor-icons/react/dist/csr/ShieldCheck";
 import { SystemMonitorIcon } from "./system-monitor/icon";
@@ -18,6 +19,7 @@ import type { MiniAppId } from "./types";
 export const MINI_APP_TITLES: Readonly<Record<MiniAppId, string>> = {
   "backup-restore": "Backup / Restore",
   contacts: "Contacts",
+  "display-properties": "Display Properties",
   explorer: "Explorer",
   "identity-manager": "Identity Manager",
   notes: "Notes",
@@ -33,6 +35,7 @@ export const MINI_APP_TITLES: Readonly<Record<MiniAppId, string>> = {
 export const MINI_APP_ICONS: Readonly<Record<MiniAppId, Icon>> = {
   "backup-restore": ArchiveIcon,
   contacts: AddressBookIcon,
+  "display-properties": MonitorIcon,
   explorer: FolderIcon,
   "identity-manager": IdentificationCardIcon,
   notes: NoteIcon,
@@ -48,6 +51,8 @@ interface MiniAppMenuItem {
   label: string;
 }
 
+// Display Properties opens only from the desktop's context menu, so it is
+// left out of the menu order and the routed shell's navigation.
 export const MINI_APP_ORDER = [
   "explorer",
   "contacts",

@@ -1,0 +1,31 @@
+/*
+ * A wallpaper paints from the custom properties wallpaperStyle() sets: the
+ * base color fills the element, and a layer of ink above it shows through the
+ * tile's mask, repeated at the tile's size. A wallpaper with no tile has no
+ * data-pattern, and so no ink layer.
+ */
+.wallpaper-pattern {
+  background: var(--wallpaper-base);
+}
+
+.wallpaper-pattern[data-pattern]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--wallpaper-ink);
+  -webkit-mask-image: var(--wallpaper-mask);
+  mask-image: var(--wallpaper-mask);
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: var(--wallpaper-size);
+  mask-size: var(--wallpaper-size);
+}
+
+/* The desktop's wallpaper fills the window surface beneath the icons and
+   windows, and lets presses through to the surface. */
+.desktop-wallpaper {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}

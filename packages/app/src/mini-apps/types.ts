@@ -8,6 +8,7 @@ import type { OrgManagerMiniAppMessage } from "./org-manager/messages";
 const MINI_APP_IDS = [
   "backup-restore",
   "contacts",
+  "display-properties",
   "explorer",
   "identity-manager",
   "notes",
