@@ -9,12 +9,11 @@ scripts, and Git commands that run hooks, through
 output in a private log, preserves the exit status, and prints a compact
 receipt, with a bounded excerpt of the log on failure. Read more with
 `bun run agent:logs <log-path>`, raising `--tail-lines` or `--max-bytes` as
-needed, or with a targeted search of the log. A zero exit does not rule out
-warnings: inspect required warnings, timings, and artifacts before accepting a
-check. Run reviews, version preparation, audits, infrastructure previews, and
-run-group checks directly so their results stay visible, and run interactive
-tools and servers directly too. Never narrow a suite or silence warnings to
-reduce output.
+needed, or with a targeted search. A zero exit does not rule out warnings:
+inspect required warnings, timings, and artifacts before accepting a check.
+Run reviews, version preparation, audits, infrastructure previews, run-group
+checks, interactive tools, and servers directly so their results stay visible.
+Never narrow a suite or silence warnings to reduce output.
 
 Keep verification evidence visible: a receipt does not replace the per-run
 reports in the [verification guide](docs/developer/verification.md).
@@ -222,7 +221,7 @@ Registered: `packages/api`, `packages/client-sdk`, and `packages/app`.
 
 ### Boundary vocabulary axes
 
-These are distinct axes — do not conflate them:
+Do not conflate these distinct axes:
 
 - **Lane** — a package (`packages/<name>/src`); the coarsest ownership boundary.
 - **Layer** — an intra-package directional tier (api `routes -> services ->
@@ -236,11 +235,11 @@ These are distinct axes — do not conflate them:
 
 ### Overloaded nouns (same word, different layer per package)
 
-Read these layer nouns by their package, not the bare word:
+Read these layer nouns by their package:
 
 - **workflow** — api: the _low_ transaction-orchestration layer **below**
   services. client-sdk: the _top_ public domain-operations facade. Opposite ends
-  of the two stacks; the name is kept on both by decision.
+  of the two stacks; the name is kept on both.
 - **store** — app: a React/UI state container. client-sdk: a headless,
   React-free state machine. api `access`: a low-level persistence sink.
 - **runtime** — api `ApiServiceRuntime`: an infrastructure-injection dependency
@@ -299,8 +298,9 @@ CI filters, tests, native build references, and Turbo inputs together. Helpers
 belong beside the command group they serve; `scripts/lib` is for shared helpers.
 Root README covers setup and normal usage. Detailed validation lives in the
 [verification guide](docs/developer/verification.md), analysis policy in the
-[static-analysis guide](docs/developer/static-analysis.md), and deployment policy
-in the [infrastructure guide](docs/developer/infrastructure.md).
+[static-analysis guide](docs/developer/static-analysis.md), and deployment
+policy in the [infrastructure guide](docs/developer/infrastructure.md). Capture
+and check shared screenshots with the `take-screenshots` skill.
 
 ## Agent Tooling And Shipping
 
@@ -315,10 +315,10 @@ not edit them; change the shared skill upstream instead. After changing the pin
 or `agent-tool.json`, run `bun run agents:sync`, which also writes the [harness
 permissions](docs/developer/static-analysis.md#harness-permissions), and commit
 the lockfile, skills, rules, and manifests together. The Markdown linter skips
-the exact managed skill paths, preserving their upstream formatting; project
-skills follow local rules. `bun run agents:check`, part of `check:fast`, fails
-on missing, outdated, or edited managed skills or rules. Project skills keep a
-Claude copy in `.claude/skills` and a Codex copy in `.agents/skills`.
+managed skill paths; project skills follow local rules. `bun run agents:check`,
+part of `check:fast`, fails on missing, outdated, or edited managed skills or
+rules. Project skills keep a Claude copy in `.claude/skills` and a Codex copy
+in `.agents/skills`.
 
 Shipping rules on top of the shared skills:
 

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { copyFile, mkdir, open, readdir, readFile, rm } from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { withSharedCapture } from "./sharedCapture";
 
 // Stages the captured screenshots as static site assets. The capture run writes
 // to `<repoRoot>/.screenshots/<captureProject>/<theme>/<name>.png` (see
@@ -13,6 +14,9 @@ import { fileURLToPath } from "node:url";
 //
 // A no-op-friendly empty manifest is written when `.screenshots/` is absent, so
 // `astro build` still succeeds in CI without a prior `bun run screenshots`.
+// This never captures: `.screenshots` links to the shared matrix-artifacts
+// store, and withSharedCapture (./sharedCapture.ts) refuses a running, failed,
+// or uncommitted capture there, or one that starts while this copies.
 //
 // This script lives at packages/website/scripts/, so the repo root is three
 // levels up. SCREENSHOTS_CAPTURE_DIR and SCREENSHOTS_OUTPUT_DIR redirect the
@@ -174,66 +178,81 @@ function compareScreens(a: string, b: string): number {
   return rankDelta !== 0 ? rankDelta : a.localeCompare(b);
 }
 
-const entries: ScreenshotEntry[] = [];
-const themesPresent = new Set<string>();
-const screensPresent = new Set<string>();
+// Returns the staging summary, or an empty string when nothing was captured.
+async function stageGallery(): Promise<string> {
+  const entries: ScreenshotEntry[] = [];
+  const themesPresent = new Set<string>();
+  const screensPresent = new Set<string>();
 
-for (const project of PROJECTS) {
-  for (const theme of THEMES) {
-    const files = (await listDir(capturePath(project, theme))).sort();
-    for (const file of files) {
-      if (!file.endsWith(".png")) {
-        continue;
+  for (const project of PROJECTS) {
+    for (const theme of THEMES) {
+      const files = (await listDir(capturePath(project, theme))).sort();
+      for (const file of files) {
+        if (!file.endsWith(".png")) {
+          continue;
+        }
+        const name = file.slice(0, -".png".length);
+        if (!CANONICAL_SCREENS.has(name)) {
+          continue;
+        }
+        const source = capturePath(project, theme, file);
+        themesPresent.add(theme);
+        screensPresent.add(name);
+        entries.push({
+          project,
+          theme,
+          name,
+          src: `${IMG_URL_PREFIX}${project}/${theme}/${file}?v=${await contentVersion(source)}`,
+          ...(await pngDimensions(source)),
+        });
       }
-      const name = file.slice(0, -".png".length);
-      if (!CANONICAL_SCREENS.has(name)) {
-        continue;
-      }
-      const source = capturePath(project, theme, file);
-      themesPresent.add(theme);
-      screensPresent.add(name);
-      entries.push({
-        project,
-        theme,
-        name,
-        src: `${IMG_URL_PREFIX}${project}/${theme}/${file}?v=${await contentVersion(source)}`,
-        ...(await pngDimensions(source)),
-      });
     }
   }
-}
 
-const manifest = {
-  projects: PROJECTS.filter((project) =>
-    entries.some((entry) => entry.project === project),
-  ),
-  themes: THEMES.filter((theme) => themesPresent.has(theme)),
-  screens: [...screensPresent].sort(compareScreens),
-  entries,
-};
+  const manifest = {
+    projects: PROJECTS.filter((project) =>
+      entries.some((entry) => entry.project === project),
+    ),
+    themes: THEMES.filter((theme) => themesPresent.has(theme)),
+    screens: [...screensPresent].sort(compareScreens),
+    entries,
+  };
 
-// Rewrite the whole gallery dir so a removed screenshot never lingers.
-await rm(OUTPUT_DIR, { force: true, recursive: true });
-await mkdir(OUTPUT_DIR, { recursive: true });
-if (entries.length > 0) {
-  for (const entry of entries) {
-    const relativePath = path.join(
-      entry.project,
-      entry.theme,
-      `${entry.name}.png`,
-    );
-    const destination = path.join(IMG_DIR, relativePath);
-    await mkdir(path.dirname(destination), { recursive: true });
-    await copyFile(
-      capturePath(entry.project, entry.theme, `${entry.name}.png`),
-      destination,
-    );
+  // Rewrite the whole gallery dir so a removed screenshot never lingers.
+  await rm(OUTPUT_DIR, { force: true, recursive: true });
+  await mkdir(OUTPUT_DIR, { recursive: true });
+  if (entries.length > 0) {
+    for (const entry of entries) {
+      const relativePath = path.join(
+        entry.project,
+        entry.theme,
+        `${entry.name}.png`,
+      );
+      const destination = path.join(IMG_DIR, relativePath);
+      await mkdir(path.dirname(destination), { recursive: true });
+      await copyFile(
+        capturePath(entry.project, entry.theme, `${entry.name}.png`),
+        destination,
+      );
+    }
   }
+  await Bun.write(MANIFEST_PATH, JSON.stringify(manifest));
+  return entries.length > 0
+    ? `${entries.length} screenshot(s) across ${manifest.projects.join(", ")}`
+    : "";
 }
-await Bun.write(MANIFEST_PATH, JSON.stringify(manifest));
+
+let staged: string;
+try {
+  staged = await withSharedCapture(SCREENSHOTS_DIR, stageGallery);
+} catch (error) {
+  // Never leave a gallery copied from an overlapping capture for Astro to use.
+  await rm(OUTPUT_DIR, { force: true, recursive: true });
+  throw error;
+}
 
 console.log(
-  entries.length > 0
-    ? `Staged ${entries.length} screenshot(s) across ${manifest.projects.join(", ")} into public/screenshot-gallery/.`
+  staged
+    ? `Staged ${staged} into public/screenshot-gallery/.`
     : "No screenshots found (.screenshots/ is empty); wrote an empty gallery manifest.",
 );

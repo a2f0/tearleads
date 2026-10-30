@@ -15,7 +15,7 @@ export function cacheFixture() {
     if (existsSync(join(root, workspace, "turbo.json")))
       copy(`${workspace}/turbo.json`);
   }
-  repo.write(".gitignore", "node_modules/\n.turbo/\n.screenshots/\n");
+  repo.write(".gitignore", "node_modules/\n.turbo/\n.screenshots\n");
   repo.commit();
 
   const hashes = (env: Record<string, string> = {}) => {
