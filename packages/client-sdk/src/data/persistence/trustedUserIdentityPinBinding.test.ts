@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createPin } from "../../../test/helpers/trustedUserIdentityPin";
-import { createExecSql } from "../sqlite/sqlSchema";
+import {
+  trustedUserIdentityPins,
+  trustedUserIdentityPinTables,
+} from "../sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
+import { createExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 import {
   compareOrInsertTrustedUserIdentityPin,
   loadTrustedUserIdentityPin,
@@ -227,6 +232,49 @@ test("a repeat verification of a pinned identity reads once without the write lo
       code: "trusted_user_identity_pin_corrupt",
     });
     expect(corrupt.statements).toContain("begin immediate");
+  } finally {
+    close();
+  }
+});
+
+test("the repeat read never answers from another mutation's uncommitted pin", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "identity-pin-fast-rollback",
+  );
+  try {
+    const pin = createPin({ provenance: "link" });
+    await ensureSqlTables(execSql, trustedUserIdentityPinTables);
+    const runtime = getClientSQLitePersistenceRuntime(execSql);
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let inserted = () => {};
+    const insertedPin = new Promise<void>((resolve) => {
+      inserted = resolve;
+    });
+    const rolledBack = runtime
+      .transaction(async (tx) => {
+        await tx.insert(trustedUserIdentityPins).values(pin).run();
+        inserted();
+        await held;
+        throw new Error("roll back the uncommitted pin");
+      })
+      .catch(() => "rolled back");
+    await insertedPin;
+    let answered = false;
+    const repeat = compareOrInsertTrustedUserIdentityPin({
+      execSql,
+      pin: createPin(),
+    }).finally(() => {
+      answered = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(answered).toBe(false);
+    release();
+    expect(await rolledBack).toBe("rolled back");
+    // The rolled-back link pin is gone; the queued call is first contact.
+    expect(await repeat).toEqual(createPin());
   } finally {
     close();
   }

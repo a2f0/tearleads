@@ -373,14 +373,13 @@ export async function loadTrustedUserIdForSigningKey(input: {
 
 /**
  * One committed read answers an exact repeat of a pin that alone holds its
- * signing key and ranks at or above the candidate; anything else (first
- * contact, alias, mismatch, corrupt row, raise) returns null for the write
- * transaction. Pins are never deleted, keys never change, and provenance only
- * rises, so a match is what the transaction would return.
+ * key and ranks at or above the candidate; anything else returns null for the
+ * write transaction. Pins are never deleted, keys never change, and
+ * provenance only rises, so a match is what the transaction would return.
  */
 const pins = trustedUserIdentityPins;
 
-async function selectMatchingStoredPin(
+async function matchingPin(
   db: ClientSQLiteDatabase,
   pin: TrustedUserIdentityPin,
 ): Promise<TrustedUserIdentityPin | null> {
@@ -400,10 +399,9 @@ async function selectMatchingStoredPin(
   if (other || row?.userId !== pin.userId || validationFailure(row))
     return null;
   const stored = parseStoredPin(row, pin);
-  const matches = differingPinFields(stored, pin).length === 0;
-  const ranked =
-    provenanceRank[pin.provenance] <= provenanceRank[stored.provenance];
-  return matches && ranked ? stored : null;
+  const rank = provenanceRank;
+  if (differingPinFields(stored, pin).length > 0) return null;
+  return rank[pin.provenance] <= rank[stored.provenance] ? stored : null;
 }
 
 /**
@@ -425,7 +423,8 @@ export async function compareOrInsertTrustedUserIdentityPin(input: {
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   return runTrustedUserIdentityPinTransaction(async () => {
     await ensureSqlTables(input.execSql, trustedUserIdentityPinTables);
-    const pinned = await selectMatchingStoredPin(runtime.db, pin);
+    // Queued behind open mutations, so it never reads an uncommitted pin.
+    const pinned = await runtime.runMutation((db) => matchingPin(db, pin));
     if (pinned) return pinned;
     return runtime.transaction(
       async (tx) => {
