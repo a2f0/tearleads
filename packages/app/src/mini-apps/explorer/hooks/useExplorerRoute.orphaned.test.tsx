@@ -76,6 +76,10 @@ function EmptyMiniApp() {
 const TEST_MINI_APPS = {
   "backup-restore": { createComponent: () => EmptyMiniApp, title: "Backup" },
   contacts: { createComponent: () => EmptyMiniApp, title: "Contacts" },
+  "display-properties": {
+    createComponent: () => EmptyMiniApp,
+    title: "Display",
+  },
   explorer: { createComponent: () => EmptyMiniApp, title: "Explorer" },
   "identity-manager": {
     createComponent: () => EmptyMiniApp,

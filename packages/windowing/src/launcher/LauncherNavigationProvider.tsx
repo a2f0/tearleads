@@ -328,6 +328,7 @@ function useLauncherNavigationActionValue(
           appId,
           initialShowSidebar: app.initialShowSidebar,
           ...(pathSegments ? { pathSegments } : {}),
+          ...(app.windowSize ? { size: app.windowSize } : {}),
         },
       );
     },
