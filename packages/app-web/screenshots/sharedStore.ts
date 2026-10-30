@@ -1,4 +1,5 @@
-import { lstatSync, readFileSync } from "node:fs";
+import { lstatSync, readFileSync, realpathSync } from "node:fs";
+import { hostname } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,7 +9,9 @@ import { fileURLToPath } from "node:url";
 // writes a `running` record to `.screenshots/capture.json` before it runs
 // `bun run screenshots`, so website builds can refuse an unfinished or
 // overlapping capture. A direct capture into the store would replace images
-// under the previous `complete` record, so it is refused. An unlinked clone
+// under the previous `complete` record, or under another clone's running
+// capture, so it is refused unless the running record names this clone and
+// host. An unlinked clone
 // keeps a plain local `.screenshots` directory and captures directly.
 
 const REPO_ROOT = path.resolve(
@@ -29,12 +32,25 @@ function isSymlink(file: string): boolean {
   }
 }
 
-function recordStatus(screenshotsDir: string): string | undefined {
+function resolved(file: string): string | undefined {
   try {
-    const record: { status?: string } = JSON.parse(
+    return realpathSync(file);
+  } catch {
+    return undefined;
+  }
+}
+
+interface CaptureRecord {
+  status?: string;
+  checkout?: string;
+  host?: string;
+}
+
+function readRecord(screenshotsDir: string): CaptureRecord | undefined {
+  try {
+    return JSON.parse(
       readFileSync(path.join(screenshotsDir, "capture.json"), "utf8"),
     );
-    return record.status;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return undefined;
@@ -49,7 +65,13 @@ export function assertSharedCaptureRecorded(repoRoot = REPO_ROOT): void {
   if (!isSymlink(screenshotsDir)) {
     return;
   }
-  if (recordStatus(screenshotsDir) !== "running") {
+  const record = readRecord(screenshotsDir);
+  if (
+    record?.status !== "running" ||
+    record.host !== hostname() ||
+    typeof record.checkout !== "string" ||
+    resolved(record.checkout) !== resolved(repoRoot)
+  ) {
     throw new Error(
       ".screenshots links to the shared screenshot store; capture through its `artifacts capture`, which locks the store and records the capture.",
     );
