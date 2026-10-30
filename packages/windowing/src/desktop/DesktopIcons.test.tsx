@@ -245,3 +245,45 @@ test("a failed load keeps moves in memory and writes nothing", async () => {
   await act(async () => {});
   expect(storage.writes).toEqual([]);
 });
+
+test("a new storage adapter reloads its own layout and keeps the old one's out", async () => {
+  const first = deferredStorage();
+  const second = deferredStorage();
+  const props = { appIds: ["explorer", "notes"] as const };
+  const tree = (storage: DesktopStateStorage) => (
+    <WindowStateProvider>
+      <LauncherNavigationProvider definition={LAUNCHER} mode="windowed">
+        <DesktopIcons appIds={props.appIds} storage={storage} />
+      </LauncherNavigationProvider>
+    </WindowStateProvider>
+  );
+  const view = render(tree(first));
+  drag(icon(view, "Explorer"), 100, 150);
+
+  // Another identity's store arrives before the first read finishes: the
+  // move belonged to the old layout, and the old read lands too late.
+  view.rerender(tree(second));
+  expect(icon(view, "Explorer").style.left).toBe(`${originX}px`);
+  await act(async () =>
+    second.resolveRead(
+      JSON.stringify({ icons: { notes: { x: 400, y: 40 } }, version: 1 }),
+    ),
+  );
+  await act(async () =>
+    first.resolveRead(
+      JSON.stringify({ icons: { explorer: { x: 900, y: 900 } }, version: 1 }),
+    ),
+  );
+  expect(icon(view, "Explorer").style.left).toBe(`${originX}px`);
+  expect(icon(view, "Notes").style.left).toBe("400px");
+  expect(first.writes).toEqual([]);
+  expect(second.writes).toEqual([]);
+
+  drag(icon(view, "Explorer"), 100, 130);
+  await waitFor(() => expect(second.writes).toHaveLength(1));
+  expect(JSON.parse(second.writes[0] ?? "null").icons).toEqual({
+    explorer: { x: originX + 30, y: originY + 30 },
+    notes: { x: 400, y: 40 },
+  });
+  expect(first.writes).toEqual([]);
+});
