@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import {
   DESKTOP_ICON_GRID,
+  DESKTOP_ICON_SIZE,
   EMPTY_DESKTOP_STATE,
   parseDesktopState,
   resolveDesktopIconPositions,
@@ -44,7 +45,7 @@ test("icons without a stored position fill free grid slots in order", () => {
   const positions = resolveDesktopIconPositions(
     ["a", "b", "c", "d"],
     { b: { x: originX, y: originY } },
-    surfaceHeight,
+    { height: surfaceHeight, width: 0 },
   );
   expect(positions).toEqual({
     a: { x: originX, y: originY + cellHeight },
@@ -55,9 +56,31 @@ test("icons without a stored position fill free grid slots in order", () => {
 });
 
 test("an unmeasured surface lays icons out in one row", () => {
-  expect(resolveDesktopIconPositions(["a", "b"], {}, 0)).toEqual({
+  expect(
+    resolveDesktopIconPositions(["a", "b"], {}, { height: 0, width: 0 }),
+  ).toEqual({
     a: { x: originX, y: originY },
     b: { x: originX + cellWidth, y: originY },
+  });
+});
+
+test("icons saved on a larger surface move onto it without stacking", () => {
+  const surface = { height: 400, width: 600 };
+  const positions = resolveDesktopIconPositions(
+    ["a", "b", "c"],
+    {
+      a: { x: 900, y: 50 },
+      b: { x: 1200, y: 60 },
+      c: { x: 300, y: 900 },
+    },
+    surface,
+  );
+  // a is clamped to the right edge; b would land on it there, so it takes
+  // the first free grid slot instead; c is clamped to the bottom edge.
+  expect(positions).toEqual({
+    a: { x: 600 - DESKTOP_ICON_SIZE.width, y: 50 },
+    b: { x: originX, y: originY },
+    c: { x: 300, y: 400 - DESKTOP_ICON_SIZE.height },
   });
 });
 

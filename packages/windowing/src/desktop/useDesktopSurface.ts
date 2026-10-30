@@ -1,20 +1,11 @@
 import { useCallback, useLayoutEffect, useState } from "react";
-import type { DesktopIconPosition } from "./desktopState";
-import type { DesktopIconSize } from "./useDesktopIconDrag";
+import {
+  clampDesktopIconPosition,
+  type DesktopIconPosition,
+  type DesktopSurfaceSize,
+} from "./desktopState";
 
-interface SurfaceSize {
-  height: number;
-  width: number;
-}
-
-const UNMEASURED: SurfaceSize = { height: 0, width: 0 };
-
-function clampAxis(value: number, extent: number, surface: number): number {
-  if (surface <= 0) {
-    return Math.max(0, value);
-  }
-  return Math.max(0, Math.min(value, surface - extent));
-}
+const UNMEASURED: DesktopSurfaceSize = { height: 0, width: 0 };
 
 /**
  * The surface the icons lie on, measured from the icon layer, which fills
@@ -41,11 +32,9 @@ export function useDesktopSurface(layer: HTMLElement | null) {
   }, [layer]);
 
   const clamp = useCallback(
-    (position: DesktopIconPosition, size: DesktopIconSize) => ({
-      x: clampAxis(position.x, size.width, surface.width),
-      y: clampAxis(position.y, size.height, surface.height),
-    }),
-    [surface.height, surface.width],
+    (position: DesktopIconPosition, size: DesktopSurfaceSize) =>
+      clampDesktopIconPosition(position, size, surface),
+    [surface],
   );
 
   return { clamp, surface };

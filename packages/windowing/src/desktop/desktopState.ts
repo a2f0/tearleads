@@ -96,28 +96,78 @@ function overlaps(a: DesktopIconPosition, b: DesktopIconPosition): boolean {
   );
 }
 
+// Whether one icon hides most of another: their boxes are offset by less than
+// half a grid cell on both axes.
+function buries(a: DesktopIconPosition, b: DesktopIconPosition): boolean {
+  return (
+    Math.abs(a.x - b.x) < DESKTOP_ICON_GRID.cellWidth / 2 &&
+    Math.abs(a.y - b.y) < DESKTOP_ICON_GRID.cellHeight / 2
+  );
+}
+
+/** The surface's size; zero while it is not laid out yet. */
+export interface DesktopSurfaceSize {
+  height: number;
+  width: number;
+}
+
+/** An icon's box (DesktopIcons.css). */
+export const DESKTOP_ICON_SIZE: DesktopSurfaceSize = { height: 88, width: 80 };
+
+function clampAxis(value: number, extent: number, surface: number): number {
+  if (surface <= 0) {
+    return Math.max(0, value);
+  }
+  return Math.max(0, Math.min(value, surface - extent));
+}
+
 /**
- * Where every icon sits: its stored position, or else the first grid slot,
- * filled top to bottom then left to right, that no other icon covers. The
+ * Keeps an icon of `size` on the surface. An unmeasured (zero) surface only
+ * keeps it off negative coordinates.
+ */
+export function clampDesktopIconPosition(
+  position: DesktopIconPosition,
+  size: DesktopSurfaceSize,
+  surface: DesktopSurfaceSize,
+): DesktopIconPosition {
+  return {
+    x: clampAxis(position.x, size.width, surface.width),
+    y: clampAxis(position.y, size.height, surface.height),
+  };
+}
+
+/**
+ * Where every icon sits on the surface. A stored position is kept, moved onto
+ * the surface if it was saved on a larger one, unless an icon earlier in
+ * `appIds` already buries it there. Every other icon takes the first grid
+ * slot, filled top to bottom then left to right, that no icon covers. The
  * surface height sets how many rows a column holds (at least one).
  */
 export function resolveDesktopIconPositions(
   appIds: ReadonlyArray<string>,
   stored: DesktopState["icons"],
-  surfaceHeight: number,
+  surface: DesktopSurfaceSize,
 ): Record<string, DesktopIconPosition> {
   const rows = Math.max(
     1,
     Math.floor(
-      (surfaceHeight - DESKTOP_ICON_GRID.originY) /
+      (surface.height - DESKTOP_ICON_GRID.originY) /
         DESKTOP_ICON_GRID.cellHeight,
     ),
   );
   const positions: Record<string, DesktopIconPosition> = {};
   const taken: DesktopIconPosition[] = [];
   for (const appId of appIds) {
-    const position = stored[appId];
-    if (position) {
+    const saved = stored[appId];
+    if (!saved) {
+      continue;
+    }
+    const position = clampDesktopIconPosition(
+      saved,
+      DESKTOP_ICON_SIZE,
+      surface,
+    );
+    if (!taken.some((other) => buries(other, position))) {
       positions[appId] = position;
       taken.push(position);
     }

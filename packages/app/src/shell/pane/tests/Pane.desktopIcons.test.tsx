@@ -3,6 +3,7 @@ import { createMemoryBlobStore } from "@tearleads/client-sdk";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import {
   cleanupPaneTestEnvironment,
+  clickPaneAppMenuItem,
   generateIdentityAndWaitForDb,
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
   renderPane,
@@ -24,23 +25,37 @@ test("the desktop layout reads back what it wrote to the blob store", async () =
 });
 
 test(
-  "the desktop shows Explorer once the pane has an identity",
+  "the desktop shows Explorer once the pane has an identity and the monitor is unpinned",
   async () => {
     const view = renderPane();
-    expect(view.queryByRole("listbox", { name: "Desktop" })).toBeNull();
-
-    await generateIdentityAndWaitForDb(view);
-    const desktop = await view.findByRole("listbox", { name: "Desktop" });
-    const options = within(desktop).getAllByRole("option");
-    expect(options.map((option) => option.textContent)).toEqual(["Explorer"]);
-
-    const explorer = within(desktop).getByRole("option", { name: "Explorer" });
+    const desktop = () => view.queryByRole("listbox", { name: "Desktop" });
     const windowTitles = () =>
       Array.from(
         view.baseElement.querySelectorAll(".window-titlebar-title"),
         (title) => title.textContent,
       );
-    expect(windowTitles()).toEqual([]);
+    expect(desktop()).toBeNull();
+
+    // The pinned System Monitor fills the desktop, so the icons stay hidden
+    // until it moves into a window.
+    await generateIdentityAndWaitForDb(view);
+    expect(desktop()).toBeNull();
+    await act(async () => {
+      fireEvent.contextMenu(view.getByRole("application"), {
+        clientX: 200,
+        clientY: 200,
+      });
+    });
+    await act(async () => {
+      clickPaneAppMenuItem(view, "System Monitor");
+    });
+    await waitFor(() => expect(windowTitles()).toEqual(["System Monitor"]));
+
+    const icons = await view.findByRole("listbox", { name: "Desktop" });
+    const options = within(icons).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual(["Explorer"]);
+
+    const explorer = within(icons).getByRole("option", { name: "Explorer" });
     await act(async () => {
       fireEvent.contextMenu(explorer, { clientX: 40, clientY: 40 });
     });
@@ -51,7 +66,9 @@ test(
         within(menu ?? view.baseElement).getByRole("button", { name: "Open" }),
       );
     });
-    await waitFor(() => expect(windowTitles()).toEqual(["Explorer"]));
+    await waitFor(() =>
+      expect(windowTitles()).toEqual(["System Monitor", "Explorer"]),
+    );
     view.unmount();
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,

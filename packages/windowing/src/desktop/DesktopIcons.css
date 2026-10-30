@@ -10,8 +10,8 @@
   pointer-events: none;
 }
 
-/* 80px wide and 88px tall: DesktopIcons.tsx clamps a stored position with
-   that size, and a drag measures the same box. */
+/* 80px wide and 88px tall: DESKTOP_ICON_SIZE in desktopState.ts, which keeps
+   a stored position on the surface, and a drag measures the same box. */
 .desktop-icon {
   position: absolute;
   display: flex;

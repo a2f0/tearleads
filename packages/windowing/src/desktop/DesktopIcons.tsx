@@ -12,7 +12,6 @@ import {
   createMemoryDesktopStateStorage,
   type DesktopStateStorage,
 } from "./desktopStateStorage";
-import type { DesktopIconSize } from "./useDesktopIconDrag";
 import { useDesktopIconSelection } from "./useDesktopIconSelection";
 import { useDesktopIconState } from "./useDesktopIconState";
 import { useDesktopSurface } from "./useDesktopSurface";
@@ -35,10 +34,6 @@ export interface DesktopIconsProps<AppId extends string = string> {
    */
   storage?: DesktopStateStorage | undefined;
 }
-
-// An icon's box (DesktopIcons.css), for keeping a stored position on a
-// surface smaller than the one it was saved on.
-const DESKTOP_ICON_SIZE: DesktopIconSize = { height: 88, width: 80 };
 
 const NO_MENU_ITEMS: ReadonlyArray<DesktopIconMenuItem> = [];
 
@@ -74,8 +69,8 @@ export function DesktopIcons<AppId extends string>({
   const { closeContextMenu, contextMenu, openContextMenu } =
     useContextMenuState<AppId>({ onOpen: setSelected });
   const positions = useMemo(
-    () => resolveDesktopIconPositions(shownIds, icons, surface.height),
-    [icons, shownIds, surface.height],
+    () => resolveDesktopIconPositions(shownIds, icons, surface),
+    [icons, shownIds, surface],
   );
   const open = useCallback(
     (appId: AppId) => (onOpen ? onOpen(appId) : openMiniApp({ appId })),
@@ -106,7 +101,7 @@ export function DesktopIcons<AppId extends string>({
             onOpen={() => open(appId)}
             onSelect={() => setSelected(appId)}
             onStep={(direction) => step(appId, direction)}
-            position={clamp(position, DESKTOP_ICON_SIZE)}
+            position={position}
             selected={selected === appId}
             tabbable={tabbableId === appId}
             title={app.title}

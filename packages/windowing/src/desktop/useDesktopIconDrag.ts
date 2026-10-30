@@ -1,5 +1,5 @@
 import { type PointerEvent, useRef, useState } from "react";
-import type { DesktopIconPosition } from "./desktopState";
+import type { DesktopIconPosition, DesktopSurfaceSize } from "./desktopState";
 
 // A press becomes a drag once the pointer travels this far, so a slightly
 // shaky click or double-click does not move the icon.
@@ -13,18 +13,13 @@ interface DragStart {
   startY: number;
 }
 
-export interface DesktopIconSize {
-  height: number;
-  width: number;
-}
-
 /** Keeps a position on the surface, given the icon's rendered size. */
 export type ClampDesktopIcon = (
   position: DesktopIconPosition,
-  size: DesktopIconSize,
+  size: DesktopSurfaceSize,
 ) => DesktopIconPosition;
 
-function sizeOf(element: HTMLElement): DesktopIconSize {
+function sizeOf(element: HTMLElement): DesktopSurfaceSize {
   return { height: element.offsetHeight, width: element.offsetWidth };
 }
 
