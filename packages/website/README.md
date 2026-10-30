@@ -129,33 +129,44 @@ build test fails on a root-relative link that would redirect or miss a file.
 
 ### Local website screenshots
 
-From the repository root, build the website with fresh screenshots:
+Screenshots are captured once and shared by every clone: the gitignored
+`.screenshots` at the repository root is a symlink into the local
+`matrix-artifacts` store (`~/github/matrix-artifacts/tearleads/screenshots`), so
+a website build or deploy from any clone publishes the newest capture. Builds
+never capture. From the repository root, capture and then build:
 
 ```sh
 bun install --frozen-lockfile
+bun run screenshots
 bun run build:website
 bun run --cwd packages/website preview
 ```
 
-`build:website` builds the SDK and SQLite prerequisites, creates an encrypted
-backup from the commit-pinned `@a2f0/continuity` development dependency, restores
-it through the app, and captures desktop, phone, and tablet in light and dark
-themes. Phone and tablet captures are saved as device screens, with the
-display's rounded corners transparent and without the in-app test banner; the
-home page frames phone captures in a device bezel. Contacts include portraits;
-document details include the fictional driver's license, passport, credit card
-(front and back), and birth certificate.
+`bun run screenshots` builds the SDK and SQLite prerequisites, creates an
+encrypted backup from the commit-pinned `@a2f0/continuity` development
+dependency, restores it through the app, and captures desktop, phone, and tablet
+in light and dark themes. Phone and tablet captures are saved as device screens,
+with the display's rounded corners transparent and without the in-app test
+banner; the home page frames phone captures in a device bezel. Contacts include
+portraits; document details include the fictional driver's license, passport,
+credit card (front and back), and birth certificate.
 Family photos, tools and appliances with multiple photos and purchase receipts,
 and populated weight and blood pressure charts are captured as well.
 Capture assertions use Continuity's expected names, note text, document titles,
 and image counts. The separate two-peer authorship captures still exercise the
 collaboration demo.
 
-Astro stages these local `.screenshots/` files into its gallery and homepage
-figures, then writes the site to `packages/website/dist/`. This command runs
-locally and does not publish anything. For a site-only rebuild using the last
-captures, run `bun run --cwd packages/website build`; without captures that
-command renders the existing empty gallery state.
+The capture writes `.screenshots/<layout>/<theme>/<screen>.png`, with layouts
+`web`, `ipad`, and `mobile` and themes `light` and `dark`; it replaces files
+inside `.screenshots` and never removes the directory itself.
+`bun run build:website` (the same as `bun run --cwd packages/website build`)
+stages those files into its gallery and homepage figures, then writes the site
+to `packages/website/dist/`. It runs locally and does not publish anything;
+without captures it renders the empty gallery state. A shared capture records
+`.screenshots/capture.json`; staging prints that capture's commit and fails
+while a capture is running, after one failed, when it was taken from
+uncommitted changes, or when a capture starts during the copy. A missing
+record, as in CI or after a direct capture, is allowed.
 
 Use `bun run screenshots --project=web` for a desktop-only recapture or
 `bun run screenshots:seed` to generate just `tearleads-seed.tlbackup.json` for

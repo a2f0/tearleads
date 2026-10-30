@@ -35,7 +35,7 @@
     "agents:sync": "bun run agent-tool skills install --apply && bun run agent-tool permissions install --apply",
     "build:packages": "bun run build:runtime && bun run --cwd packages/app-electrobun prepare:devkit",
     "build:runtime": "turbo run build --filter=@tearleads/sqlite-instance --filter=@tearleads/client-sdk",
-    "build:website": "bun run screenshots && bun run --cwd packages/website build",
+    "build:website": "bun run --cwd packages/website build",
     "check": "bun scripts/testing/runVerification.ts full",
     "check:affected": "bun scripts/testing/runVerification.ts affected",
     "check:package": "bun scripts/testing/runVerification.ts package",

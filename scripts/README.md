@@ -72,7 +72,10 @@ before capturing desktop, tablet, and phone layouts in both themes. Household
 detail captures assert decoded family/equipment photos and receipts, inventory
 fields, and tracker table rows and graph points. The browser locale and time
 zone are pinned so the dated readings render consistently.
-`bun run build:website` also stages these captures into the website gallery.
+It writes below the gitignored `.screenshots`, which links to the
+`matrix-artifacts` store shared by every clone. `bun run build:website` only
+stages the existing captures into the website gallery; it never captures (see
+[local website screenshots](../packages/website/README.md#local-website-screenshots)).
 
 Add canonical facts and photographic assets in
 [a2f0/continuity](https://github.com/a2f0/continuity), regenerate and ship them

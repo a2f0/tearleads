@@ -190,3 +190,44 @@ test("wallet detail and specimen captures are staged for every platform and them
   expect(manifest.projects).toEqual(["windowed", "mobile", "tablet"]);
   expect(manifest.themes).toEqual(["light", "dark"]);
 });
+
+test("staging refuses an unfinished or uncommitted shared capture", async () => {
+  for (const [label, record, message] of [
+    ["running", { status: "running" }, "capture is running"],
+    ["failed", { status: "failed" }, "capture is failed"],
+    [
+      "dirty",
+      { status: "complete", commit: "0123456789abcdef", dirty: true },
+      "captured from uncommitted changes",
+    ],
+  ] as const) {
+    const { code, log, output } = await stageScreenshots({
+      "web/light/explorer.png": pngHeader(2880, 1658),
+      "capture.json": new TextEncoder().encode(JSON.stringify(record)),
+    });
+    expect(code, label).not.toBe(0);
+    expect(log, label).toContain(message);
+    expect(existsSync(join(output, "manifest.json")), label).toBe(false);
+  }
+});
+
+test("staging a complete shared capture logs its commit", async () => {
+  const { code, log, output } = await stageScreenshots({
+    "web/light/explorer.png": pngHeader(2880, 1658),
+    "capture.json": new TextEncoder().encode(
+      JSON.stringify({
+        status: "complete",
+        commit: "0123456789abcdef",
+        dirty: false,
+        finishedAt: "2026-10-30T12:00:00.000Z",
+      }),
+    ),
+  });
+  expect(code, log).toBe(0);
+  expect(log).toContain(
+    "Screenshots from 0123456789, captured 2026-10-30T12:00:00.000Z.",
+  );
+  expect(existsSync(join(output, "img/windowed/light/explorer.png"))).toBe(
+    true,
+  );
+});

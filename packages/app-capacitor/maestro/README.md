@@ -92,7 +92,9 @@ against production. Its first run creates one production screenshot identity;
 later runs reuse it. Set `IOS_SCREENSHOT_RUNTIME_VERSION` to override the tested
 iOS 18.0 runtime, or `IOS_SCREENSHOT_DEVICE_UDID` to select an existing dedicated
 simulator with that exact name, model, and runtime. Set
-`SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR` to change the output directory. Override
+`SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR` to change the output directory. By
+default the files land in the shared screenshot store that `.screenshots` links
+to, beside the website captures; the runner replaces only its own files. Override
 `VITE_API_BASE_URL` only when a different public API environment is intentional;
 dev-only URLs are rejected before simulator state changes. Tests can point
 `SUBSCRIPTION_SCREENSHOT_REVENUECAT_ENV_FILE` at an isolated dotenv fixture.
