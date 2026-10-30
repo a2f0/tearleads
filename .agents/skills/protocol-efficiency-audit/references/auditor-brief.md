@@ -71,7 +71,8 @@ file:line evidence, with the request, table, or statement they remove named
 exactly. For every removed request, name the verifier, cache miss, or
 scheduler decision that issues it today. For every removed table, run the
 reader and writer census (non-test `rg` for the table's Drizzle export) and
-record the sites. Try to refute each candidate: is the data needed for a
+record the sites. SDK tables are Drizzle `sqliteTable(` definitions under
+packages/client-sdk/src/data/sqlite, not `CREATE TABLE` strings. Try to refute each candidate: is the data needed for a
 capability above, does a security audit finding (#2266, #2329, #2365, #2485,
 #2491) depend on it, does the saving merely move work to another route?
 List plausible but untraced ideas separately as Estimated.
@@ -118,8 +119,9 @@ the user added.
 
 Fill `<KNOWN_DISPOSITIONS>` with slice-relevant entries from the saved index:
 the closeout dispositions (A1 to A3 durable deltas, B batched probes, C
-inline projections), #2203, #2512 and its fix #2515, #2521, #1281, #1672,
-the #2522 proposals already implemented or declined, and project memory.
+inline projections; now in `docs/request-budgets.md#design-decisions`), and
+issues #2203, #2512 and its fix #2515, #2521, #1281, #1672, the proposals
+from #2522 and #2697 already implemented or declined, and project memory.
 Fill `<RECENT_COMMITS>` with commits relevant to the work item since the last
 measurement and one line on what each changed. Fill
 `<WORK_ITEM>` with exact paths, tables, and saved coverage or next steps on
@@ -178,3 +180,7 @@ repository's own request budgets or schema at the time of writing.
 - **Double persistence of one byte stream.** A snapshot and an update log
   holding the same bytes; projection text split from the row it projects
   without a query that needs the split.
+- **Echo of the client's own request.** A write response that returns the
+  signed event, manifest, or key material the client just sent, where a
+  hash or version would let it confirm the commit. Unlike over-fetch, the
+  client never needed the bytes; measure it with the field-echo probe.

@@ -114,14 +114,19 @@ inspect bounded excerpts with `bun run agent:logs <path>`.
    `docs/client-sync-ordering.md`, `docs/request-budgets.md`, and the
    "Request costs" section of `docs/developer/current-principal-consumers.md`.
    Save a compact baseline with source references for later batches.
+   Compare each measured scenario with the ceilings its canary asserts and
+   with the counts the docs and source comments quote; a ceiling far above
+   the measurement is ceiling drift, a finding the issue reports so a later
+   regression cannot hide under it.
 5. Build the inventories from `references/measurement.md`: routes, API tables,
    SDK tables, and the mechanism list. Record counts; the issue reports them.
-6. Build a compact known-dispositions index from project memory, the closeout
-   document, and the issues it names (#1281, #1512, #1672, #2203, #2512,
-   #2521), the first efficiency audit (#2522: its implemented proposals and
-   the ones it declined with evidence), plus the security audit issues
-   above. A disposition is context for an auditor, not a reason to skip a
-   candidate.
+6. Build a compact known-dispositions index from project memory, the design
+   decisions in `docs/request-budgets.md` (the September closeout document is
+   gone; its decisions live there), the issues behind them (#1281, #1512,
+   #1672, #2203, #2512, #2521), each earlier efficiency audit (#2522 and
+   #2697: implemented proposals and the ones declined with evidence), plus
+   the security audit issues above. A disposition is context for an
+   auditor, not a reason to skip a candidate.
 7. Size the surface with non-test TypeScript line counts per directory so
    slices stay balanced. Queue smaller parts of an oversized slice for later
    batches rather than creating more auditors in this invocation.

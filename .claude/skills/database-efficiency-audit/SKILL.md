@@ -216,6 +216,11 @@ Impact:
 - **Low:** a smaller measured saving, a redundant index on a cold table, or
   a code-only simplification.
 
+Mark a High that holds only on a rare path (organization purge, remote
+reset, stage cleanup, retention) as **High (rare)** and rank it after the
+High proposals on ordinary paths: the per-row-loop rule makes such paths
+High although they seldom run.
+
 Risk, reported beside impact: **Low** reshapes a read or adds or drops an
 index with no change to transaction scope or lock order; **Medium** changes
 statement order or scope inside a transaction, an isolation-dependent read,

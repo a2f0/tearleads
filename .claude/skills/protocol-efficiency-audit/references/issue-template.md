@@ -47,6 +47,11 @@ Write the body in this order:
    guarantee, so the next audit knows the coverage.
 9. **Not measured.** Scenarios, routes, or sizes the audit did not measure
    and why.
+10. **Database leads.** Findings that change only query shape, statement
+    batching, transaction scope, or indexes, unranked, for
+    `database-efficiency-audit`. Put them in the issue even when that audit
+    runs at the same time: the other session may have ended before this one
+    publishes, so the issue is the hand-off.
 
 Keep each proposal readable on its own. Use short paragraphs and bullets,
 and cross-reference related proposals by number. Reference prior efficiency
@@ -59,5 +64,5 @@ without `--title` the command prompts and fails in a non-interactive session.
 
 GitHub rejects issue bodies over 65,536 characters. Measure the draft first.
 If it is too long, keep sections 1 to 5 and 7 in the body and post sections 6,
-8, and 9 as the first comment (`gh issue comment <n> --body-file <path>`),
+8, 9, and 10 as the first comment (`gh issue comment <n> --body-file <path>`),
 with a pointer in the body. Do not drop evidence to fit.
