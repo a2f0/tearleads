@@ -87,6 +87,8 @@ test("the initial window fits every wallpaper and theme without scrolling", asyn
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const display = await openDisplayProperties(page);
+  await expect(display).toHaveCSS("width", "500px");
+  await expect(display).toHaveCSS("height", "340px");
   const scroller = display.locator(".window-body-content-scroll");
   const sizes = await scroller.evaluate((element) => ({
     height: element.clientHeight,

@@ -1,5 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import {
+  copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -8,6 +11,7 @@ import {
 } from "node:fs";
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { assertSharedCaptureRecorded } from "../screenshots/sharedStore";
 
 const roots: string[] = [];
@@ -65,6 +69,72 @@ function writeCapture(
     }),
   );
 }
+
+function screenshotConfigClone() {
+  const clone = linkedClone();
+  const appWeb = join(clone.repo, "packages/app-web");
+  mkdirSync(join(appWeb, "screenshots"), { recursive: true });
+  mkdirSync(join(appWeb, "probe"));
+  writeFileSync(join(appWeb, "package.json"), '{"type":"module"}');
+  symlinkSync(
+    fileURLToPath(new URL("../node_modules", import.meta.url)),
+    join(appWeb, "node_modules"),
+  );
+  for (const file of [
+    "playwright.screenshots.config.ts",
+    "screenshots/sharedStore.ts",
+  ]) {
+    copyFileSync(new URL(`../${file}`, import.meta.url), join(appWeb, file));
+  }
+  return { ...clone, appWeb };
+}
+
+test("linked screenshot configuration can be inspected without starting a capture", () => {
+  const clone = screenshotConfigClone();
+  const result = spawnSync(
+    process.execPath,
+    ["-e", 'await import("./playwright.screenshots.config.ts")'],
+    { cwd: clone.appWeb, encoding: "utf8" },
+  );
+  expect(result.stderr).toBe("");
+  expect(result.status).toBe(0);
+});
+
+test("Playwright checks the capture lock before executing any capture test", () => {
+  const clone = screenshotConfigClone();
+  writeFileSync(
+    join(clone.appWeb, "probe.config.ts"),
+    `import config from "./playwright.screenshots.config";
+export default { ...config, testDir: "./probe", projects: undefined, webServer: undefined };`,
+  );
+  writeFileSync(
+    join(clone.appWeb, "probe/capture.spec.ts"),
+    `import { test } from "@playwright/test";
+import { writeFileSync } from "node:fs";
+test("capture", () => writeFileSync("capture-ran", "yes"));`,
+  );
+  const run = () =>
+    spawnSync(
+      "node",
+      [
+        fileURLToPath(
+          new URL("../node_modules/@playwright/test/cli.js", import.meta.url),
+        ),
+        "test",
+        "--config=probe.config.ts",
+      ],
+      { cwd: clone.appWeb, encoding: "utf8" },
+    );
+  const refused = run();
+  expect(refused.status).not.toBe(0);
+  expect(refused.stdout + refused.stderr).toContain(refusal);
+  expect(existsSync(join(clone.appWeb, "capture-ran"))).toBe(false);
+  writeCapture(clone, { lock: { pid: process.pid } });
+  const admitted = run();
+  expect(admitted.stdout + admitted.stderr).not.toContain(refusal);
+  expect(admitted.status, admitted.stdout + admitted.stderr).toBe(0);
+  expect(existsSync(join(clone.appWeb, "capture-ran"))).toBe(true);
+}, 30_000);
 
 const refusal = "capture through its `artifacts capture`";
 
