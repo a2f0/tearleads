@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { countingExecSql } from "../../../../test/helpers/statementCounting";
 import { defaultContainerContentsPersistence as persistence } from "../containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "../documentQueries";
 import { saveTestSyncedContainer } from "../documentQueries/documentQueries.testFixtures";
@@ -54,6 +55,55 @@ test("recovery distinguishes a queued folder move from an inaccessible shared pa
     });
     expect(await queries.listRecoveryFolderMoveIds(scope)).toEqual([]);
     expect(await queries.hasOrphanedDocuments(scope)).toBe(false);
+  } finally {
+    await close();
+  }
+});
+
+test("orphan visibility is one statement with or without an organization", async () => {
+  const { execSql, close } = await createTestExecSql("orphan-visibility-count");
+  try {
+    await persistence.ensureSchema(execSql);
+    await saveTestSyncedContainer({
+      execSql,
+      id: "moving",
+      name: "moving",
+      organizationId: "org",
+      parentId: "missing",
+      timestamp: "2026-01-01T00:00:00.000Z",
+    });
+    const counted = countingExecSql(execSql);
+    const queries = createContainerDocumentQueriesFromRuntime({
+      infra: { execSql: counted.execSql },
+    });
+    const scope = { currentOrganizationId: "org" };
+    // Warm the per-connection schema ensure.
+    await queries.hasOrphanedDocuments(scope);
+    await queries.hasOrphanedDocuments({ currentOrganizationId: null });
+    // The orphan, retained-metadata and recovery-move probes (was 3).
+    expect(await counted.count(() => queries.hasOrphanedDocuments(scope))).toBe(
+      1,
+    );
+    expect(
+      await counted.count(() =>
+        queries.hasOrphanedDocuments({ currentOrganizationId: null }),
+      ),
+    ).toBe(1);
+    const moving = await persistence.loadContainerMetadataState(
+      execSql,
+      "moving",
+    );
+    if (!moving?.record) throw new Error("Missing folder metadata");
+    await persistence.saveContainer(execSql, moving.container, moving.record, {
+      moveIntent: {
+        parentContainerId: "missing",
+        previousParentContainerId: "previous",
+      },
+    });
+    expect(await queries.hasOrphanedDocuments(scope)).toBe(true);
+    expect(
+      await queries.hasOrphanedDocuments({ currentOrganizationId: "other" }),
+    ).toBe(false);
   } finally {
     await close();
   }

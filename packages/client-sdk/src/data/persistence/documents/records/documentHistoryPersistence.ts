@@ -5,15 +5,18 @@ import {
   importSnapshot,
   satisfiesVersionVector,
 } from "@tearleads/loro";
-import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, eq, exists, inArray, isNull, ne, sql } from "drizzle-orm";
 import {
   documentHistoryCheckpoints,
   documentHistoryUpdates,
   documentTables,
 } from "../../../sqlite/schema";
+import { sqliteInsertBatchSize } from "../../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../../sqlite/sqlSchema";
 import type { DocumentScope } from "./documentPersistenceTypes";
+
+const HISTORY_INSERT_BATCH_SIZE = sqliteInsertBatchSize(documentHistoryUpdates);
 
 /**
  * Compaction thresholds: once the tail carries this many rows or bytes, the
@@ -75,18 +78,24 @@ export async function appendDocumentHistoryUpdates(
   await ensureSqlTables(execSql, documentTables);
   const createdAt = new Date().toISOString();
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    // Chunked: a catch-up pull can carry thousands of updates, and a single
-    // multi-row insert would exceed SQLite's bound-variable limit.
-    for (let index = 0; index < updates.length; index += HISTORY_ROW_CHUNK) {
+    // A pull page carries at most 64 updates, which fits one statement; the
+    // chunking keeps any longer append within SQLite's bind budget.
+    for (
+      let index = 0;
+      index < updates.length;
+      index += HISTORY_INSERT_BATCH_SIZE
+    ) {
       await db.insert(documentHistoryUpdates).values(
-        updates.slice(index, index + HISTORY_ROW_CHUNK).map((updateData) => ({
-          id: crypto.randomUUID(),
-          appKind: scope.appKind,
-          localId: scope.localId,
-          updateData,
-          origin,
-          createdAt,
-        })),
+        updates
+          .slice(index, index + HISTORY_INSERT_BATCH_SIZE)
+          .map((updateData) => ({
+            id: crypto.randomUUID(),
+            appKind: scope.appKind,
+            localId: scope.localId,
+            updateData,
+            origin,
+            createdAt,
+          })),
       );
     }
   });
@@ -164,26 +173,29 @@ export async function readDocumentHistoryTailSize(
 ): Promise<{ byteLength: number; hasCheckpoint: boolean; rowCount: number }> {
   await ensureSqlTables(execSql, documentTables);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
+  // One statement: an aggregate without GROUP BY always returns one row, and
+  // the checkpoint probe rides along as an EXISTS column.
   const [totals] = await db
     .select({
       byteLength: sql<number>`coalesce(sum(length(${documentHistoryUpdates.updateData})), 0)`,
+      hasCheckpoint: sql<number>`${exists(
+        db
+          .select({ localId: documentHistoryCheckpoints.localId })
+          .from(documentHistoryCheckpoints)
+          .where(
+            and(
+              eq(documentHistoryCheckpoints.appKind, scope.appKind),
+              eq(documentHistoryCheckpoints.localId, scope.localId),
+            ),
+          ),
+      )}`,
       rowCount: sql<number>`count(*)`,
     })
     .from(documentHistoryUpdates)
     .where(compactableTailInScope(scope));
-  const [checkpoint] = await db
-    .select({ localId: documentHistoryCheckpoints.localId })
-    .from(documentHistoryCheckpoints)
-    .where(
-      and(
-        eq(documentHistoryCheckpoints.appKind, scope.appKind),
-        eq(documentHistoryCheckpoints.localId, scope.localId),
-      ),
-    )
-    .limit(1);
   return {
     byteLength: Number(totals?.byteLength ?? 0),
-    hasCheckpoint: checkpoint !== undefined,
+    hasCheckpoint: Number(totals?.hasCheckpoint ?? 0) !== 0,
     rowCount: Number(totals?.rowCount ?? 0),
   };
 }
@@ -217,6 +229,7 @@ export async function listDocumentHistoryTailEntries(
   );
 }
 
+/** Covered-tail ids per delete; the scope adds only a few binds. */
 const HISTORY_ROW_CHUNK = 400;
 
 /**

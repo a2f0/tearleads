@@ -8,7 +8,11 @@ import {
   localIntents,
 } from "../../sqlite/schema";
 import { documentIntentLinkTargets } from "../../sqlite/schema/documentPlacementIntentSchema";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
+import {
+  type ClientSQLiteTransactionScope,
+  getClientSQLitePersistenceRuntime,
+} from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   ensureSqlTables,
@@ -18,10 +22,49 @@ import {
   enqueueDocumentLinkIntent,
   enqueueDocumentMoveIntent,
   enqueueDocumentUnlinkIntent,
-  loadDocumentIntentLinkTargets,
 } from "./documentPlacementIntentEnqueue";
 
+type DocumentIntentLinkTarget = {
+  containerId: string;
+  operation: "link" | "unlink";
+};
+
 export const DOCUMENT_MOVE_INTENT_TYPE = "document.move";
+const INTENT_IDS_PER_STATEMENT = sqliteRowsPerStatement(1);
+
+/** Every listed intent's link targets, one keyed read per bind budget. */
+async function loadLinkTargetsByIntent(
+  tx: ClientSQLiteTransactionScope,
+  intentIds: readonly string[],
+): Promise<ReadonlyMap<string, readonly DocumentIntentLinkTarget[]>> {
+  const targetsByIntent = new Map<string, DocumentIntentLinkTarget[]>();
+  const uniqueIds = [...new Set(intentIds)];
+  for (
+    let index = 0;
+    index < uniqueIds.length;
+    index += INTENT_IDS_PER_STATEMENT
+  ) {
+    const rows = await tx
+      .select({
+        containerId: documentIntentLinkTargets.containerId,
+        intentId: documentIntentLinkTargets.intentId,
+        operation: documentIntentLinkTargets.operation,
+      })
+      .from(documentIntentLinkTargets)
+      .where(
+        inArray(
+          documentIntentLinkTargets.intentId,
+          uniqueIds.slice(index, index + INTENT_IDS_PER_STATEMENT),
+        ),
+      );
+    for (const { intentId, ...target } of rows) {
+      const targets = targetsByIntent.get(intentId) ?? [];
+      targets.push(target);
+      targetsByIntent.set(intentId, targets);
+    }
+  }
+  return targetsByIntent;
+}
 const placementLane = inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement);
 export const DOCUMENT_LINK_INTENT_TYPE = "document.link";
 const DOCUMENT_PLACEMENT_INTENT_TYPES = [
@@ -197,27 +240,26 @@ export const sqlDocumentMoveIntentPersistence = {
             )
             .orderBy(asc(localIntents.createdAt));
 
-          return Promise.all(
-            rows.map(async (row) => {
-              const targets = await loadDocumentIntentLinkTargets(
-                lockedExecSql,
-                row.id ?? "",
-              );
-              const added = targets
-                .filter((target) => target.operation === "link")
-                .map((target) => target.containerId)
-                .sort();
-              const removed = targets
-                .filter((target) => target.operation === "unlink")
-                .map((target) => target.containerId)
-                .sort();
-              return {
-                ...mapDocumentMoveIntentRecord(row),
-                ...(added.length ? { additionalLinkContainerIds: added } : {}),
-                ...(removed.length ? { removedLinkContainerIds: removed } : {}),
-              };
-            }),
+          const targetsByIntent = await loadLinkTargetsByIntent(
+            tx,
+            rows.map((row) => row.id ?? ""),
           );
+          return rows.map((row) => {
+            const targets = targetsByIntent.get(row.id ?? "") ?? [];
+            const added = targets
+              .filter((target) => target.operation === "link")
+              .map((target) => target.containerId)
+              .sort();
+            const removed = targets
+              .filter((target) => target.operation === "unlink")
+              .map((target) => target.containerId)
+              .sort();
+            return {
+              ...mapDocumentMoveIntentRecord(row),
+              ...(added.length ? { additionalLinkContainerIds: added } : {}),
+              ...(removed.length ? { removedLinkContainerIds: removed } : {}),
+            };
+          });
         },
       );
     });

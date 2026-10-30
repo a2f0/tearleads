@@ -279,9 +279,18 @@ async function prepareContainerMutationWrite(input: {
     mutation.saveOptions?.localUpdatedAt ??
     mutation.saveOptions?.updatedAt ??
     new Date().toISOString();
+  // Nothing below writes local intents, so one read answers both checks.
+  let pendingStructuralIntent: boolean | undefined;
+  const hasStructuralIntent = async () => {
+    pendingStructuralIntent ??= await hasPendingStructuralIntent(
+      tx,
+      mutation.container.id,
+    );
+    return pendingStructuralIntent;
+  };
   const preserveDurableStructure =
     mutation.preserveDurableStructureWhenPending === true &&
-    (await hasPendingStructuralIntent(tx, mutation.container.id));
+    (await hasStructuralIntent());
   // Syncing metadata is not a local edit. Preserve the durable edit clock,
   // including an edit another pane made while this request was in flight.
   const localUpdatedAt =
@@ -294,7 +303,7 @@ async function prepareContainerMutationWrite(input: {
   const didSettleOutgoing =
     mutation.acceptedPendingUpdateIds.length > 0 &&
     !(await hasPendingUpdates(tx, mutation.container.id)) &&
-    !(await hasPendingStructuralIntent(tx, mutation.container.id));
+    !(await hasStructuralIntent());
   // Only container responses establish the server's structural clock. A
   // metadata acknowledgement supplies no such timestamp; marking it with our
   // wall clock would make later valid listings appear stale forever.

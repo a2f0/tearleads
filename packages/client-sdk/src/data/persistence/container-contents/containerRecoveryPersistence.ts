@@ -192,19 +192,18 @@ export async function discardRetainedContainerMetadata(
   );
 }
 
-export async function hasRetainedContainerMetadata(
-  execSql: ExecSql,
-  organizationId: string | null,
-): Promise<boolean> {
-  if (!organizationId) return false;
-  await sqlContainerContentsPersistence.ensureSchema(execSql);
-  const rows = await execSql(
-    `SELECT 1 FROM dormant_container_metadata d
-    WHERE d.organization_id = ? AND NOT EXISTS (SELECT 1 FROM containers c WHERE c.id = d.container_id) LIMIT 1`,
-    [organizationId],
-  );
-  return rows.length > 0;
-}
+/** Retained metadata of an organization's absent folders; binds the org. */
+export const RETAINED_CONTAINER_METADATA_SQL = `SELECT 1 FROM dormant_container_metadata d
+    WHERE d.organization_id = ? AND NOT EXISTS (SELECT 1 FROM containers c WHERE c.id = d.container_id)`;
+
+/**
+ * An organization's local folders whose queued move points at an unavailable
+ * parent; binds the move lane, then the organization.
+ */
+export const RECOVERY_FOLDER_MOVES_SQL = `SELECT c.id FROM containers c JOIN local_intents i
+    ON i.lane = ? AND i.subject_id = c.id AND i.target_container_id = c.parent_id
+    WHERE c.organization_id = ? AND i.sync_status IN ('pending', 'blocked')
+    AND NOT EXISTS (SELECT 1 FROM containers p WHERE p.id = c.parent_id)`;
 
 /** Existing local folders whose queued move points at an unavailable parent. */
 export async function listRecoveryFolderMoveIds(
@@ -213,13 +212,9 @@ export async function listRecoveryFolderMoveIds(
 ): Promise<string[]> {
   if (!organizationId) return [];
   await sqlContainerContentsPersistence.ensureSchema(execSql);
-  const rows = await execSql(
-    `SELECT c.id FROM containers c JOIN local_intents i
-    ON i.lane = ? AND i.subject_id = c.id AND i.target_container_id = c.parent_id
-    WHERE c.organization_id = ? AND i.sync_status IN ('pending', 'blocked')
-    AND NOT EXISTS (SELECT 1 FROM containers p WHERE p.id = c.parent_id)
-    ORDER BY c.id`,
-    [LOCAL_INTENT_LANES.containerMove, organizationId],
-  );
+  const rows = await execSql(`${RECOVERY_FOLDER_MOVES_SQL} ORDER BY c.id`, [
+    LOCAL_INTENT_LANES.containerMove,
+    organizationId,
+  ]);
   return rows.map((row) => String(Reflect.get(row, "id")));
 }

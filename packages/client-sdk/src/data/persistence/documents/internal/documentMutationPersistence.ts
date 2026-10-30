@@ -21,7 +21,6 @@ import {
   insertDocumentPendingUpdateWithHistoryInTransaction,
   settleQueuedDocumentUpdatesInTransaction,
 } from "../records/documentPendingUpdatePersistence";
-import { clearDocumentSyncFailureInTransaction } from "../records/documentSyncFailurePersistence";
 import type { DocumentsPersistence, StoredDocumentRecord } from "../types";
 import {
   applyStoredAttachmentRemoval,
@@ -31,7 +30,8 @@ import {
   sameDocumentSecurityIdentity,
   sameNullableDocumentValue,
 } from "./documentRecordIdentity";
-import { resolveDocumentSaveTimestamp, saveDocumentRows } from "./documentRows";
+import { documentSaveTimestampFrom, saveDocumentRows } from "./documentRows";
+import { loadStoredDocumentState } from "./rowQueryPersistence";
 
 function sameRecoveryGeneration(
   current: StoredDocumentRecord,
@@ -280,13 +280,13 @@ async function applyStoredDocumentMutation(input: {
   mutation: CommitDocumentMutationInput;
   saveClientProjection: SaveClientProjection;
   tx: ClientSQLiteTransactionScope;
-  loadDocument: DocumentsPersistence["loadDocument"];
 }) {
   const { lockedExecSql, mutation, tx } = input;
-  const currentRecord = await input.loadDocument(
+  const currentState = await loadStoredDocumentState(
     lockedExecSql,
     mutation.document.id,
   );
+  const currentRecord = currentState?.record ?? null;
   if (mutation.stillCurrent && !mutation.stillCurrent()) {
     return { committed: false as const, currentRecord };
   }
@@ -320,22 +320,24 @@ async function applyStoredDocumentMutation(input: {
     mutation.document.id,
     mutation.acceptedPendingUpdateIds,
   );
-  if (mutation.clearSyncFailure) {
-    await clearDocumentSyncFailureInTransaction(tx, {
-      appKind: DOCUMENTS_APP_KIND,
-      localId: mutation.document.id,
-    });
-  }
-  const updatedAt = await resolveDocumentSaveTimestamp({
-    document: mutation.document,
-    options:
-      mutation.updatedAt === undefined
-        ? undefined
-        : { updatedAt: mutation.updatedAt },
-    tx,
-  });
+  // Nothing above writes the document or projection rows, so the state read
+  // at the top of this transaction still decides the save timestamp.
+  const updatedAt =
+    mutation.updatedAt ||
+    documentSaveTimestampFrom(
+      {
+        projection: currentState?.projection ?? null,
+        snapshotEndVersion: currentRecord.snapshotEndVersion,
+      },
+      mutation.document,
+    );
   if (
-    !(await saveDocumentRows({ document: mutation.document, tx, updatedAt }))
+    !(await saveDocumentRows({
+      clearSyncFailure: mutation.clearSyncFailure === true,
+      document: mutation.document,
+      tx,
+      updatedAt,
+    }))
   ) {
     throw new Error(
       "Document recovery generation changed before mutation save",

@@ -4,10 +4,11 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../../data/documents/documentSummary";
+import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
 import {
-  hasRetainedContainerMetadata,
-  listRecoveryFolderMoveIds,
+  RECOVERY_FOLDER_MOVES_SQL,
+  RETAINED_CONTAINER_METADATA_SQL,
 } from "../../../data/persistence/container-contents/containerRecoveryPersistence";
 import {
   containerContentsSyncLane,
@@ -19,7 +20,10 @@ import {
   sqlDocumentsPersistence,
   upsertDiscoveredDocuments,
 } from "../../../data/persistence/documents/documentsPersistence";
-import { localIntentTables } from "../../../data/sqlite/schema";
+import {
+  LOCAL_INTENT_LANES,
+  localIntentTables,
+} from "../../../data/sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import {
   listPendingWrites,
@@ -217,15 +221,27 @@ async function hasOrphanedDocuments(
   currentOrganizationId: string | null,
 ): Promise<boolean> {
   await sqlDocumentsPersistence.ensureSchema(execSql);
+  // One statement for all three probes; the folder probes need an
+  // organization, as their standalone readers do.
+  const folderProbes = currentOrganizationId
+    ? `OR EXISTS(${RETAINED_CONTAINER_METADATA_SQL}) OR EXISTS(${RECOVERY_FOLDER_MOVES_SQL})`
+    : "";
+  if (currentOrganizationId)
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
   const rows = await execSql(
-    getOrphanedDocumentExistsSql(),
-    getOrphanedDocumentQueryBind(currentOrganizationId),
+    `SELECT (EXISTS(${getOrphanedDocumentExistsSql()}) ${folderProbes}) AS found`,
+    [
+      ...getOrphanedDocumentQueryBind(currentOrganizationId),
+      ...(currentOrganizationId
+        ? [
+            currentOrganizationId,
+            LOCAL_INTENT_LANES.containerMove,
+            currentOrganizationId,
+          ]
+        : []),
+    ],
   );
-  return (
-    rows.length > 0 ||
-    (await hasRetainedContainerMetadata(execSql, currentOrganizationId)) ||
-    (await listRecoveryFolderMoveIds(execSql, currentOrganizationId)).length > 0
-  );
+  return Number(Object.values(rows[0] ?? {})[0] ?? 0) !== 0;
 }
 
 async function listContainerDocumentSidebarWindow(
