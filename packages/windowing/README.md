@@ -363,6 +363,66 @@ the browser paints and removes them on unmount; under a dark scheme,
 `tokens.css` sets `color-scheme: dark`. Tearleads sets its themes per host
 profile in `packages/app/src/host/AppHostConfig.ts`.
 
+## Wallpapers and Display Properties
+
+A host offers its own desktop wallpapers. A `WallpaperDefinition` is
+`{ id, label, tile?, base?, ink? }`: `tile` is one cell of a repeating
+pattern, as SVG markup with its `width` and `height` in CSS pixels. The tile's
+SVG is a mask rather than a picture: opaque shapes paint the ink, translucent
+ones (`fill-opacity`) a share of it, and the base shows elsewhere. Unless a
+wallpaper names its colors, they come from the theme, resolved on the
+wallpaper's own element: the `--desktop-wallpaper-base` and
+`--desktop-wallpaper-ink` tokens where a host sets them, else the desk color
+(`--desktop-background`, then `--color-light`) under a faint wash of
+`--color-dark`. So one tile suits every theme.
+A wallpaper without a tile is its base alone.
+
+The package ships quiet tessellations to choose from: `BLOCKS_WALLPAPER`,
+`HONEYCOMB_WALLPAPER`, `TRIANGLES_WALLPAPER`, `HARLEQUIN_WALLPAPER`,
+`CHEVRON_WALLPAPER`, and `PLAIN_WALLPAPER` (no pattern). List them with the
+host's own in a `WallpaperProvider`, and render `DesktopWallpaper` as the
+first child of the desktop surface, before `DesktopIcons`:
+
+```tsx
+const BRICKS: WallpaperDefinition<"bricks"> = {
+  id: "bricks",
+  label: "Bricks",
+  tile: {
+    height: 24,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="24">…</svg>`,
+    width: 48,
+  },
+};
+const WALLPAPERS = [BRICKS, HONEYCOMB_WALLPAPER, PLAIN_WALLPAPER];
+
+<WallpaperProvider
+  defaultWallpaper="bricks"
+  storageKey="notes.wallpaper"
+  wallpapers={WALLPAPERS}
+>
+  <div style={{ position: "relative", isolation: "isolate", height: "100%" }}>
+    <DesktopWallpaper />
+    <DesktopIcons appIds={APP_IDS} />
+    {windows}
+  </div>
+</WallpaperProvider>;
+```
+
+The wallpaper paints on a layer below everything on the surface, including
+content laid out in flow, so the surface must be a stacking context: give it
+`isolation: isolate` beside its `position`. The wallpaper takes no pointer
+input, so a right-click on it reaches the surface, where a host opens its
+desktop menu. The choice persists under
+`storageKey` like a theme's; `useWallpaper` and `useOptionalWallpaper` read
+and set it. `DesktopWallpaper` paints its `wallpaper` prop instead when given
+one, and nothing without a provider.
+
+`DisplayProperties` is the content of a host's Display Properties mini-app: a
+Background section listing the provider's wallpapers as previews, and a Theme
+section listing the theme provider's themes. Each choice applies at once; a
+section whose provider is missing, or a theme list of one, is left out. Both
+Tearleads and a2f0.net open it from their desktop's context menu.
+
 ## Styles
 
 Each component imports its own stylesheet, so a bundler that handles CSS imports

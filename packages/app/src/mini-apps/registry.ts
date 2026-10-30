@@ -7,6 +7,7 @@ import {
   MINI_APP_TITLES,
 } from "./catalog";
 import { ContactsApp } from "./contacts/ContactsApp";
+import { DisplayPropertiesApp } from "./display-properties/DisplayPropertiesApp";
 import { ExplorerApp } from "./explorer/ExplorerApp";
 import { IdentityManagerApp } from "./identity-manager/IdentityManagerApp";
 import { createNotesWindowComponent } from "./notes/NotesApp";
@@ -31,6 +32,13 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
     createComponent: () => ContactsApp,
     icon: MINI_APP_ICONS.contacts,
     title: MINI_APP_TITLES.contacts,
+  },
+  "display-properties": {
+    createComponent: () => DisplayPropertiesApp,
+    icon: MINI_APP_ICONS["display-properties"],
+    initialShowSidebar: false,
+    title: MINI_APP_TITLES["display-properties"],
+    windowSize: { height: 300, width: 500 },
   },
   explorer: {
     createComponent: () => ExplorerApp,

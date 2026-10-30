@@ -15,6 +15,7 @@ import {
   useAppFeatureFlags,
 } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import { ThemeProvider } from "../../theme/ThemeProvider";
+import { WallpaperProvider } from "../../theme/WallpaperProvider";
 import { BillingBanner } from "./BillingBanner";
 import "./Layout.css";
 import "./AppChrome.css";
@@ -155,13 +156,17 @@ function FeatureFlaggedWorkspaceLayout({ hostConfig }: LayoutProps) {
 export function Layout({ hostConfig }: LayoutProps) {
   return (
     <ThemeProvider themes={hostConfig.profile.themes}>
-      <NavigationModeOverrideProvider storageKey={NAVIGATION_MODE_STORAGE_KEY}>
-        <SystemMonitorDeveloperModeProvider>
-          <AppFeatureFlagsProvider>
-            <FeatureFlaggedWorkspaceLayout hostConfig={hostConfig} />
-          </AppFeatureFlagsProvider>
-        </SystemMonitorDeveloperModeProvider>
-      </NavigationModeOverrideProvider>
+      <WallpaperProvider>
+        <NavigationModeOverrideProvider
+          storageKey={NAVIGATION_MODE_STORAGE_KEY}
+        >
+          <SystemMonitorDeveloperModeProvider>
+            <AppFeatureFlagsProvider>
+              <FeatureFlaggedWorkspaceLayout hostConfig={hostConfig} />
+            </AppFeatureFlagsProvider>
+          </SystemMonitorDeveloperModeProvider>
+        </NavigationModeOverrideProvider>
+      </WallpaperProvider>
     </ThemeProvider>
   );
 }

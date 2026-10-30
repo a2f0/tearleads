@@ -87,6 +87,10 @@ function createMiniApps(
   return {
     "backup-restore": { createComponent: () => EmptyMiniApp, title: "Backup" },
     contacts: { createComponent: () => contactsComponent, title: "Contacts" },
+    "display-properties": {
+      createComponent: () => EmptyMiniApp,
+      title: "Display",
+    },
     explorer: { createComponent: () => EmptyMiniApp, title: "Explorer" },
     "identity-manager": { createComponent: () => EmptyMiniApp, title: "Ident" },
     notes: { createComponent: () => EmptyMiniApp, title: "Notes" },
