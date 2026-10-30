@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { withSharedCapture } from "../scripts/sharedCapture";
@@ -33,6 +33,28 @@ test("a missing capture record is allowed, as in CI", async () => {
   expect(await withSharedCapture(dir, async () => "copied")).toBe("copied");
 });
 
+test("a linked store with images but no record is refused", async () => {
+  const root = await screenshotsDir();
+  const store = join(root, "store");
+  const link = join(root, ".screenshots");
+  await mkdir(store);
+  await symlink(store, link);
+  // An empty linked store (nothing captured yet) still builds.
+  expect(await withSharedCapture(link, async () => "empty")).toBe("empty");
+  await mkdir(join(store, "web"));
+  let copied = false;
+  await expect(
+    withSharedCapture(link, async () => {
+      copied = true;
+    }),
+  ).rejects.toThrow("have no capture record");
+  expect(copied).toBe(false);
+  // A plain directory with images and no record (CI, unlinked) is allowed.
+  const plain = join(root, "plain");
+  await mkdir(join(plain, "web"), { recursive: true });
+  expect(await withSharedCapture(plain, async () => "plain")).toBe("plain");
+});
+
 test("a complete capture is copied and its commit is reported", async () => {
   const dir = await screenshotsDir({ ...COMPLETE, args: ["--project=web"] });
   const logged: string[] = [];
@@ -49,7 +71,7 @@ test("a complete capture is copied and its commit is reported", async () => {
 });
 
 test("running and failed captures are refused before copying", async () => {
-  for (const status of ["running", "failed"]) {
+  for (const status of ["running", "failed", "incomplete"]) {
     const dir = await screenshotsDir({ ...COMPLETE, status });
     let copied = false;
     await expect(

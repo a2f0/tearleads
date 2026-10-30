@@ -169,9 +169,10 @@ stages those files into its gallery and homepage figures, then writes the site
 to `packages/website/dist/`. It runs locally and does not publish anything;
 without captures it renders the empty gallery state. A shared capture records
 `.screenshots/capture.json`; staging prints that capture's commit and fails
-while a capture is running, after one failed, when it was taken from
-uncommitted changes, or when a capture starts during the copy. A missing
-record, as in CI or after a direct capture, is allowed.
+unless the capture is complete and was taken from a commit, or when a capture
+starts during the copy. Without a record, a plain `.screenshots` directory (CI,
+or an unlinked clone) stages as before, but a linked store that holds images is
+refused, since their commit is unknown until a capture records them.
 
 Use `bun run screenshots --project=web` for a desktop-only recapture or
 `bun run screenshots:seed` to generate just `tearleads-seed.tlbackup.json` for

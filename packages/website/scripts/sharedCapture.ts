@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { lstat, readdir, readFile } from "node:fs/promises";
 import * as path from "node:path";
 
 // `.screenshots` is a symlink into the shared matrix-artifacts store, which
@@ -7,9 +7,11 @@ import * as path from "node:path";
 // record before it touches any image. A build that copies screenshots refuses
 // a capture that is unfinished, failed, or taken from uncommitted changes, and
 // compares the raw record before and after copying: an unchanged `complete`
-// record on both sides proves no capture overlapped the copy. A missing record
-// means a direct local capture or none at all (CI has no store), which is
-// allowed.
+// record on both sides proves no capture overlapped the copy. Only `complete`
+// is accepted (others include `running`, `failed`, and `incomplete`). Without
+// a record, a plain `.screenshots` directory (CI, or a clone not yet linked)
+// builds as before, but a linked, non-empty store is refused: its images have
+// no known commit until one capture through the skill records them.
 
 interface CaptureRecord {
   status?: string;
@@ -50,12 +52,32 @@ function describeCapture(raw: string): string {
   return `Screenshots from ${record.commit?.slice(0, 10)}, captured ${record.finishedAt}${partial}.`;
 }
 
+async function isSymlink(file: string): Promise<boolean> {
+  try {
+    return (await lstat(file)).isSymbolicLink();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
 /** Runs `copy` only against a finished, committed capture that no capture overlapped. */
 export async function withSharedCapture<T>(
   screenshotsDir: string,
   copy: () => Promise<T>,
 ): Promise<T> {
   const before = await readCapture(screenshotsDir);
+  if (
+    before === undefined &&
+    (await isSymlink(screenshotsDir)) &&
+    (await readdir(screenshotsDir)).length > 0
+  ) {
+    throw new Error(
+      "The shared screenshots have no capture record; capture once through the take-screenshots skill.",
+    );
+  }
   if (before !== undefined) {
     console.log(describeCapture(before));
   }
