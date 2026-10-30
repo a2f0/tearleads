@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.81",
+      "version": "0.1.82",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -375,7 +375,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.22",
+      "version": "0.2.23",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",
