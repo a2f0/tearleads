@@ -132,8 +132,12 @@ build test fails on a root-relative link that would redirect or miss a file.
 Screenshots are captured once and shared by every clone: the gitignored
 `.screenshots` at the repository root is a symlink into the local
 `matrix-artifacts` store (`~/github/matrix-artifacts/tearleads/screenshots`), so
-a website build or deploy from any clone publishes the newest capture. Builds
-never capture. From the repository root, capture and then build:
+a website build or deploy from any clone publishes the newest capture. The
+matrix workspace's `artifacts link` creates that link and its
+`artifacts capture` records each capture in `.screenshots/capture.json`; a clone
+that is not linked keeps a plain local `.screenshots` directory and builds from
+it as before. Builds never capture. From the repository root, capture and then
+build:
 
 ```sh
 bun install --frozen-lockfile
