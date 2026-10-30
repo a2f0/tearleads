@@ -207,11 +207,13 @@ test("a page of history references reads one node set per level and one entry se
     expect(serial.statements).toBe(267);
     // Seven node levels over 66 leaves, then one entries read (was 267).
     expect(batched.statements).toBe(8);
+    // A typical recovery's three references (was 19).
     const recovery = [1, 33, 66];
-    expect((await stored.batched(recovery)).proofs).toEqual(
-      (await stored.serial(recovery)).proofs,
-    );
-    expect((await stored.batched(recovery)).statements).toBe(8);
+    const serialRecovery = await stored.serial(recovery);
+    const batchedRecovery = await stored.batched(recovery);
+    expect(batchedRecovery.proofs).toEqual(serialRecovery.proofs);
+    expect(serialRecovery.statements).toBe(19);
+    expect(batchedRecovery.statements).toBe(8);
     // A single version costs what it always did: one node per level and its entry.
     expect((await stored.batched([16])).statements).toBe(
       (await stored.serial([16])).statements,
