@@ -392,9 +392,9 @@ export const subsystems: readonly Subsystem[] = [
     name: "Theming",
     package: "app",
     responsibility:
-      "Color themes: the app's theme list for windowing's ThemeProvider (persisted selection, the `<html data-theme>` stamp) and the footer toggle. The per-theme token blocks live in @tearleads/ui's styles.css.",
-    seam: "theme/ThemeProvider; theme/themes",
-    paths: [`${app}/theme/`],
+      "Color themes and desktop wallpapers: the app's theme list for windowing's ThemeProvider (persisted selection, the `<html data-theme>` stamp), the footer toggle, the wallpaper list for windowing's WallpaperProvider, and the Display Properties mini-app that picks both. The per-theme token blocks live in @tearleads/ui's styles.css.",
+    seam: "theme/ThemeProvider; theme/themes; theme/WallpaperProvider; mini-apps/display-properties",
+    paths: [`${app}/theme/`, `${app}/mini-apps/display-properties/`],
   },
   {
     name: "App Identity Provisioning",

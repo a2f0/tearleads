@@ -21,11 +21,14 @@
   mask-size: var(--wallpaper-size);
 }
 
-/* The desktop's wallpaper fills the window surface beneath the icons and
-   windows, and lets presses through to the surface. */
+/* The desktop's wallpaper fills the window surface beneath everything on it,
+   positioned or not (icons, windows, and content laid out in flow, such as a
+   pinned panel), and lets presses through to the surface. Its negative layer
+   needs the surface to be a stacking context (`isolation: isolate`), or it
+   falls behind the surface's own background. */
 .desktop-wallpaper {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
 }

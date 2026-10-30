@@ -11,8 +11,10 @@ export interface DesktopWallpaperProps {
  * The wallpaper behind the desktop's icons and windows: the nearest
  * {@link WallpaperProvider}'s choice, or `wallpaper`. Render it as the first
  * child of the positioned surface the windows lay out on, before
- * `DesktopIcons`. It takes no pointer input, so presses reach the surface.
- * Without a provider or a `wallpaper` it renders nothing.
+ * `DesktopIcons`, and make that surface a stacking context (`isolation:
+ * isolate`): the wallpaper sits on a layer below the surface's content. It
+ * takes no pointer input, so presses reach the surface. Without a provider or
+ * a `wallpaper` it renders nothing.
  */
 export function DesktopWallpaper({ wallpaper }: DesktopWallpaperProps) {
   const context = useOptionalWallpaper();

@@ -398,7 +398,7 @@ const WALLPAPERS = [BRICKS, HONEYCOMB_WALLPAPER, PLAIN_WALLPAPER];
   storageKey="notes.wallpaper"
   wallpapers={WALLPAPERS}
 >
-  <div className="desktop-surface">
+  <div style={{ position: "relative", isolation: "isolate", height: "100%" }}>
     <DesktopWallpaper />
     <DesktopIcons appIds={APP_IDS} />
     {windows}
@@ -406,8 +406,11 @@ const WALLPAPERS = [BRICKS, HONEYCOMB_WALLPAPER, PLAIN_WALLPAPER];
 </WallpaperProvider>;
 ```
 
-The wallpaper takes no pointer input, so a right-click on it reaches the
-surface, where a host opens its desktop menu. The choice persists under
+The wallpaper paints on a layer below everything on the surface, including
+content laid out in flow, so the surface must be a stacking context: give it
+`isolation: isolate` beside its `position`. The wallpaper takes no pointer
+input, so a right-click on it reaches the surface, where a host opens its
+desktop menu. The choice persists under
 `storageKey` like a theme's; `useWallpaper` and `useOptionalWallpaper` read
 and set it. `DesktopWallpaper` paints its `wallpaper` prop instead when given
 one, and nothing without a provider.
