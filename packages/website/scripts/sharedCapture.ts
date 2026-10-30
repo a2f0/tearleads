@@ -41,15 +41,23 @@ function describeCapture(raw: string): string {
       `The shared screenshot capture is ${record.status}; wait for it or recapture.`,
     );
   }
-  if (record.dirty) {
+  if (record.dirty !== false) {
     throw new Error(
       "The shared screenshots were captured from uncommitted changes; recapture from a commit.",
+    );
+  }
+  if (
+    typeof record.commit !== "string" ||
+    !/^[0-9a-f]{40}([0-9a-f]{24})?$/.test(record.commit)
+  ) {
+    throw new Error(
+      "The shared screenshot capture record names no commit; recapture.",
     );
   }
   const partial = record.args?.length
     ? ` (partial: ${record.args.join(" ")})`
     : "";
-  return `Screenshots from ${record.commit?.slice(0, 10)}, captured ${record.finishedAt}${partial}.`;
+  return `Screenshots from ${record.commit.slice(0, 10)}, captured ${record.finishedAt}${partial}.`;
 }
 
 async function isSymlink(file: string): Promise<boolean> {

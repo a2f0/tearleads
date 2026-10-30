@@ -94,6 +94,32 @@ test("a capture from uncommitted changes is refused before copying", async () =>
   expect(copied).toBe(false);
 });
 
+test("a complete record without a commit or clean-tree flag is refused", async () => {
+  const { dirty: _dirty, ...withoutDirty } = COMPLETE;
+  const { commit: _commit, ...withoutCommit } = COMPLETE;
+  for (const [label, record, message] of [
+    ["no dirty flag", withoutDirty, "uncommitted changes"],
+    [
+      "dirty not boolean",
+      { ...COMPLETE, dirty: "false" },
+      "uncommitted changes",
+    ],
+    ["no commit", withoutCommit, "names no commit"],
+    ["short commit", { ...COMPLETE, commit: "0123456" }, "names no commit"],
+    ["commit not a string", { ...COMPLETE, commit: 7 }, "names no commit"],
+  ] as const) {
+    const dir = await screenshotsDir(record);
+    let copied = false;
+    await expect(
+      withSharedCapture(dir, async () => {
+        copied = true;
+      }),
+      label,
+    ).rejects.toThrow(message);
+    expect(copied, label).toBe(false);
+  }
+});
+
 test("a capture that starts while copying fails the build", async () => {
   const dir = await screenshotsDir(COMPLETE);
   await expect(

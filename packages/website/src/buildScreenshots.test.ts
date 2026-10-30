@@ -197,7 +197,11 @@ test("staging refuses an unfinished or uncommitted shared capture", async () => 
     ["failed", { status: "failed" }, "capture is failed"],
     [
       "dirty",
-      { status: "complete", commit: "0123456789abcdef", dirty: true },
+      {
+        status: "complete",
+        commit: "0123456789abcdef0123456789abcdef01234567",
+        dirty: true,
+      },
       "captured from uncommitted changes",
     ],
   ] as const) {
@@ -217,7 +221,7 @@ test("staging a complete shared capture logs its commit", async () => {
     "capture.json": new TextEncoder().encode(
       JSON.stringify({
         status: "complete",
-        commit: "0123456789abcdef",
+        commit: "0123456789abcdef0123456789abcdef01234567",
         dirty: false,
         finishedAt: "2026-10-30T12:00:00.000Z",
       }),
