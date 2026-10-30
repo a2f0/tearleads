@@ -5,7 +5,10 @@ import {
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { loadStoredPrincipalPolicyCheckpoint } from "./keyingCheckpointPersistence";
+import {
+  loadStoredPrincipalPolicyCheckpoints,
+  principalPolicyKey,
+} from "./keyingCheckpointPersistence";
 
 export class PrincipalAuthorizationCheckpointUnavailableError extends KeyingVerificationError {
   constructor() {
@@ -24,8 +27,9 @@ export async function validatePrincipalAuthorizationCheckpoints(
     | VerifiedPrincipalPolicyCurrent
   )[],
 ): Promise<void> {
+  const stored = await loadStoredPrincipalPolicyCheckpoints(tx, policies);
   for (const policy of policies) {
-    const checkpoint = await loadStoredPrincipalPolicyCheckpoint(tx, policy);
+    const checkpoint = stored.get(principalPolicyKey(policy));
     if (!checkpoint) continue;
     const matchingHead = policies.filter(
       (other) =>

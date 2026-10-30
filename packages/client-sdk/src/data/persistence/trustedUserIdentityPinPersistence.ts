@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import {
   trustedUserIdentityPins,
   trustedUserIdentityPinTables,
@@ -372,6 +372,39 @@ export async function loadTrustedUserIdForSigningKey(input: {
 }
 
 /**
+ * One read answers an exact repeat of a pin that alone holds its
+ * key and ranks at or above the candidate; anything else returns null for the
+ * write transaction. Pins are never deleted, keys never change, and
+ * provenance only rises, so a match is what the transaction would return.
+ */
+const pins = trustedUserIdentityPins;
+
+async function matchingPin(
+  db: ClientSQLiteTransactionScope,
+  pin: TrustedUserIdentityPin,
+): Promise<TrustedUserIdentityPin | null> {
+  const [row, other] = await db
+    .select()
+    .from(pins)
+    .where(
+      and(
+        eq(pins.identityTrustDomain, pin.identityTrustDomain),
+        or(
+          eq(pins.userId, pin.userId),
+          eq(pins.signingKeyFingerprint, pin.signingKeyFingerprint),
+        ),
+      ),
+    )
+    .limit(2);
+  if (other || row?.userId !== pin.userId || validationFailure(row))
+    return null;
+  const stored = parseStoredPin(row, pin);
+  const rank = provenanceRank;
+  if (differingPinFields(stored, pin).length > 0) return null;
+  return rank[pin.provenance] <= rank[stored.provenance] ? stored : null;
+}
+
+/**
  * Atomically establishes or verifies a durable identity pin.
  *
  * The immediate transaction serializes first contact across SDK instances that
@@ -385,36 +418,35 @@ export async function compareOrInsertTrustedUserIdentityPin(input: {
   readonly execSql: ExecSql;
   readonly pin: TrustedUserIdentityPin;
 }): Promise<TrustedUserIdentityPin> {
-  assertCandidatePin(input.pin);
+  const { pin } = input;
+  assertCandidatePin(pin);
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   return runTrustedUserIdentityPinTransaction(async () => {
     await ensureSqlTables(input.execSql, trustedUserIdentityPinTables);
+    // Like the write path's BEGIN, this read's BEGIN retries while any adapter
+    // holds the connection's transaction, so it never sees uncommitted pins.
+    const pinned = await runtime.transaction((tx) => matchingPin(tx, pin));
+    if (pinned) return pinned;
     return runtime.transaction(
       async (tx) => {
         const aliases = await tx
           .select()
-          .from(trustedUserIdentityPins)
+          .from(pins)
           .where(
             and(
-              eq(
-                trustedUserIdentityPins.identityTrustDomain,
-                input.pin.identityTrustDomain,
-              ),
-              eq(
-                trustedUserIdentityPins.signingKeyFingerprint,
-                input.pin.signingKeyFingerprint,
-              ),
+              eq(pins.identityTrustDomain, pin.identityTrustDomain),
+              eq(pins.signingKeyFingerprint, pin.signingKeyFingerprint),
             ),
           )
           .limit(1);
         const alias = aliases[0];
-        if (alias && alias.userId !== input.pin.userId) {
+        if (alias && alias.userId !== pin.userId) {
           throw new TrustedUserIdentityPinMismatchError(
             parseStoredPin(alias, {
-              identityTrustDomain: input.pin.identityTrustDomain,
+              identityTrustDomain: pin.identityTrustDomain,
               userId: alias.userId,
             }),
-            input.pin,
+            pin,
             ["userId"],
           );
         }
@@ -422,52 +454,45 @@ export async function compareOrInsertTrustedUserIdentityPin(input: {
         // but a write that would bind this key to a second user must fail at
         // the unique index rather than be silently skipped.
         await tx
-          .insert(trustedUserIdentityPins)
-          .values(input.pin)
+          .insert(pins)
+          .values(pin)
           .onConflictDoNothing({
-            target: [
-              trustedUserIdentityPins.identityTrustDomain,
-              trustedUserIdentityPins.userId,
-            ],
+            target: [pins.identityTrustDomain, pins.userId],
           })
           .run();
 
-        const stored = await selectStoredPin(tx, input.pin);
+        const stored = await selectStoredPin(tx, pin);
         if (!stored) {
           throw new TrustedUserIdentityPinCorruptError(
-            input.pin,
+            pin,
             "row is missing after compare-or-insert",
           );
         }
 
-        const differingFields = differingPinFields(stored, input.pin);
+        const differingFields = differingPinFields(stored, pin);
         if (differingFields.length > 0) {
           throw new TrustedUserIdentityPinMismatchError(
             stored,
-            input.pin,
+            pin,
             differingFields,
           );
         }
         if (
-          provenanceRank[input.pin.provenance] <=
-          provenanceRank[stored.provenance]
+          provenanceRank[pin.provenance] <= provenanceRank[stored.provenance]
         ) {
           return stored;
         }
         await tx
-          .update(trustedUserIdentityPins)
-          .set({ provenance: input.pin.provenance })
+          .update(pins)
+          .set({ provenance: pin.provenance })
           .where(
             and(
-              eq(
-                trustedUserIdentityPins.identityTrustDomain,
-                input.pin.identityTrustDomain,
-              ),
-              eq(trustedUserIdentityPins.userId, input.pin.userId),
+              eq(pins.identityTrustDomain, pin.identityTrustDomain),
+              eq(pins.userId, pin.userId),
             ),
           )
           .run();
-        return { ...stored, provenance: input.pin.provenance };
+        return { ...stored, provenance: pin.provenance };
       },
       { behavior: "immediate" },
     );

@@ -80,7 +80,15 @@ export async function savePrincipalHistoryPrefix(input: {
         // or explicitly replaced before repair can rely on the new prefix.
         prefix.progress = previous.progress;
       }
-      if (previous) await archivePrincipalHistoryKeyEnvelopes(tx, previous);
+      // Archiving reads only these three fields, so an identical previous
+      // prefix would repeat the same idempotent write.
+      if (
+        previous &&
+        (previous.organizationId !== prefix.organizationId ||
+          previous.currentJson !== prefix.currentJson ||
+          previous.version !== prefix.version)
+      )
+        await archivePrincipalHistoryKeyEnvelopes(tx, previous);
       await archivePrincipalHistoryKeyEnvelopes(tx, prefix);
       await tx
         .insert(principalHistoryPrefixes)

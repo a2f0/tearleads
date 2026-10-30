@@ -17,10 +17,15 @@ first answer.
 ## Pinning
 
 The first valid bundle for `(identityTrustDomain, userId)` is inserted into
-SQLite in an immediate transaction. Later exact observations pass. Any change
-to either key, either fingerprint, suite, or format produces a typed hard
-failure before key use or a mutation request. The current user's local keypairs
-are authoritative and seed the same pin during registration or login.
+SQLite in an immediate transaction. Later exact observations pass: a repeat
+whose stored pin matches every key field, holds the candidate's signing key
+alone, and ranks at or above its provenance is answered by one read in a
+deferred transaction, without the write lock. Pins are never deleted, keys
+never change, and provenance only rises, so that read returns what the
+transaction would; every other case takes the transaction. Any change to
+either key, either fingerprint, suite, or format produces a typed hard failure
+before key use or a mutation request. The current user's local keypairs are
+authoritative and seed the same pin during registration or login.
 
 ### Provenance
 
