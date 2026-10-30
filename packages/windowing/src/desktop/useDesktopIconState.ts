@@ -11,6 +11,24 @@ type IconPositions = DesktopState["icons"];
 
 const NO_ICONS: IconPositions = {};
 
+// Each adapter's last queued write. A desktop that remounts (a layout switch,
+// say) while a write is pending reads only after it lands, so it never loads
+// the layout from before the last move.
+const pendingWrites = new WeakMap<DesktopStateStorage, Promise<void>>();
+
+function queueWrite(storage: DesktopStateStorage, serialized: string) {
+  const write = (pendingWrites.get(storage) ?? Promise.resolve())
+    .then(() => storage.write(serialized))
+    .catch(() => {});
+  pendingWrites.set(storage, write);
+}
+
+function readAfterWrites(storage: DesktopStateStorage) {
+  return (pendingWrites.get(storage) ?? Promise.resolve()).then(() =>
+    storage.read(),
+  );
+}
+
 /**
  * The desktop's icon positions, loaded from `storage` and written back after
  * every move. A new adapter (another account's store, say) starts over from
@@ -27,21 +45,16 @@ export function useDesktopIconState(storage: DesktopStateStorage) {
   const iconsRef = useRef<IconPositions>(NO_ICONS);
   const movedRef = useRef(new Set<string>());
   const writableRef = useRef(false);
-  const writesRef = useRef<Promise<void>>(Promise.resolve());
 
   const publish = useCallback((next: IconPositions) => {
     iconsRef.current = next;
     setIcons(next);
   }, []);
 
+  // Writes run one at a time, in order, so the last move is the one kept.
   const save = useCallback(
-    (next: IconPositions) => {
-      const serialized = serializeDesktopState({ icons: next });
-      // Writes run one at a time, in order, so the last move is the one kept.
-      writesRef.current = writesRef.current
-        .then(() => storage.write(serialized))
-        .catch(() => {});
-    },
+    (next: IconPositions) =>
+      queueWrite(storage, serializeDesktopState({ icons: next })),
     [storage],
   );
 
@@ -50,7 +63,7 @@ export function useDesktopIconState(storage: DesktopStateStorage) {
     movedRef.current = new Set();
     writableRef.current = false;
     publish(NO_ICONS);
-    storage.read().then(
+    readAfterWrites(storage).then(
       (serialized) => {
         if (!current) {
           return;

@@ -11,11 +11,19 @@ const DESKTOP_STATE_STORAGE_KEY = "shell/desktop-state.json";
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
+// One adapter per blob store, so a desktop that remounts gets the same one
+// and waits for the writes its previous mount queued.
+const adapters = new WeakMap<BlobStore, DesktopStateStorage>();
+
 /** The desktop's storage adapter over a blob store, as UTF-8 JSON. */
 export function createBlobStoreDesktopStateStorage(
   blobStore: BlobStore,
 ): DesktopStateStorage {
-  return {
+  const existing = adapters.get(blobStore);
+  if (existing) {
+    return existing;
+  }
+  const adapter: DesktopStateStorage = {
     read: async () => {
       const bytes = await blobStore.readBytes(DESKTOP_STATE_STORAGE_KEY);
       return bytes ? textDecoder.decode(bytes) : null;
@@ -26,6 +34,8 @@ export function createBlobStoreDesktopStateStorage(
         textEncoder.encode(serialized),
       ),
   };
+  adapters.set(blobStore, adapter);
+  return adapter;
 }
 
 /**

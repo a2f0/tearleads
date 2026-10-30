@@ -287,3 +287,29 @@ test("a new storage adapter reloads its own layout and keeps the old one's out",
   });
   expect(first.writes).toEqual([]);
 });
+
+test("a remounted desktop reads after the writes still pending", async () => {
+  let releaseWrite: () => void = () => {};
+  let stored: string | null = null;
+  const storage: DesktopStateStorage = {
+    read: async () => stored,
+    write: (serialized) =>
+      new Promise<void>((resolve) => {
+        releaseWrite = () => {
+          stored = serialized;
+          resolve();
+        };
+      }),
+  };
+  const view = await renderLoadedDesktop({ appIds: ["explorer"], storage });
+  drag(icon(view, "Explorer"), 100, 160);
+  cleanup();
+
+  const remounted = renderDesktop({ appIds: ["explorer"], storage });
+  await act(async () => {});
+  expect(icon(remounted, "Explorer").style.left).toBe(`${originX}px`);
+  await act(async () => releaseWrite());
+  await waitFor(() =>
+    expect(icon(remounted, "Explorer").style.left).toBe(`${originX + 60}px`),
+  );
+});
