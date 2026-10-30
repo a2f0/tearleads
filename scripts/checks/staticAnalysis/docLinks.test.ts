@@ -15,6 +15,7 @@ import {
 } from "../docLinks";
 import { probeExternalLinks } from "../externalLinks";
 import { headingAnchors, markdownTargets, slugify } from "../markdownScan";
+import { isolatedGitEnv } from "./fixture.testUtils";
 
 const linter = resolve(import.meta.dir, "../lintDocLinks.ts");
 const repoRoot = resolve(import.meta.dir, "../../..");
@@ -25,11 +26,18 @@ function fixture(files: Record<string, string>) {
     mkdirSync(dirname(join(cwd, path)), { recursive: true });
     writeFileSync(join(cwd, path), source);
   }
-  Bun.spawnSync(["git", "init", "-q"], { cwd });
-  Bun.spawnSync(["git", "add", "-A"], { cwd });
+  const env = isolatedGitEnv();
+  for (const args of [
+    ["init", "-q"],
+    ["add", "-A"],
+  ]) {
+    const git = Bun.spawnSync(["git", ...args], { cwd, env, stderr: "pipe" });
+    expect(git.exitCode, git.stderr.toString()).toBe(0);
+  }
   const lint = (...args: string[]) => {
     const result = Bun.spawnSync([process.execPath, linter, ...args], {
       cwd,
+      env,
       stdout: "pipe",
       stderr: "pipe",
     });

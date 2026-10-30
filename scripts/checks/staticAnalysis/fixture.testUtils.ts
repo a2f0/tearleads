@@ -13,17 +13,24 @@ export const emptyBaseline = {
 };
 const checker = resolve(import.meta.dir, "../lintSourceShape.ts");
 
-export function fixture() {
-  const cwd = mkdtempSync(join(tmpdir(), "tearleads-static-analysis-"));
-  // Hooks export Git variables for the caller's checkout. Nested fixtures must
-  // never use that checkout's index, worktree, or object database.
-  const env = {
+/**
+ * The environment for Git and checker subprocesses in a fixture. Hooks export
+ * Git variables for the caller's checkout; nested fixtures must never use that
+ * checkout's index, worktree, or object database.
+ */
+export function isolatedGitEnv(): Record<string, string | undefined> {
+  return {
     ...Object.fromEntries(
       Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
     ),
     GIT_CONFIG_GLOBAL: "/dev/null",
     GIT_CONFIG_SYSTEM: "/dev/null",
   };
+}
+
+export function fixture() {
+  const cwd = mkdtempSync(join(tmpdir(), "tearleads-static-analysis-"));
+  const env = isolatedGitEnv();
   const git = (...args: string[]) =>
     execFileSync(
       "git",
