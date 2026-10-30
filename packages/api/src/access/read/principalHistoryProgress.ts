@@ -1,4 +1,7 @@
-export { readPrincipalHistoryPage } from "../shared/internal/principalHistoryPage";
+export {
+  readPrincipalHistoryEntriesAtVersions,
+  readPrincipalHistoryPage,
+} from "../shared/internal/principalHistoryPage";
 export {
   selectOldestPrincipalHistoryProgressId,
   selectPrincipalHistoryProgress,

@@ -62,9 +62,12 @@ test("a read-model request verifies organization access once", async () => {
   // when access was verified both before and after the head lock; 39 / 41 and
   // 28 / 30 with a one-statement screen before the lock; empty delta 27 / 29
   // once lane stamps on the locked head row replaced the change-log read;
-  // snapshot 38 / 40 once member rows stopped loading users for their keys.
-  expect(snapshot.statements).toBeLessThanOrEqual(44);
-  expect(delta.statements).toBeLessThanOrEqual(33);
+  // snapshot 38 / 40 once member rows stopped loading users for their keys;
+  // snapshot 30 / 32 and empty delta 19 / 21 later. Then 26 / 28 and 17 / 19
+  // (Postgres equals SQLite) once access read its three policy heads in one
+  // statement and the snapshot reused the organization rows and head it read.
+  expect(snapshot.statements).toBeLessThanOrEqual(28);
+  expect(delta.statements).toBeLessThanOrEqual(19);
 });
 
 test("an outsider is refused before signed access verification", async () => {

@@ -111,8 +111,8 @@
       "bytes": 18333
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 574,
-      "bytes": 18060
+      "lines": 573,
+      "bytes": 18173
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
       "lines": 637,
@@ -343,8 +343,8 @@
       "bytes": 15627
     },
     "packages/windowing/README.md": {
-      "lines": 498,
-      "bytes": 22100
+      "lines": 560,
+      "bytes": 24800
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 627,

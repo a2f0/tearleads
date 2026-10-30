@@ -1,6 +1,5 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
-  groups,
   organizationRosterEntries,
   organizations,
   principalMembershipProjection,
@@ -15,7 +14,7 @@ import {
   createContainerWriterProjectionContext,
 } from "../containers/writerProjection";
 import { resolveReadableContainerAccessBatch } from "../keyingReadAccess";
-import { wasOrganizationGroupDeleted } from "../organizations/groupTombstone";
+import { readOrganizationGroupLiveness } from "../organizations/groupTombstone";
 import {
   ancestorsOrSelf,
   isCurrentMemberOfAnyOrganizationGroup,
@@ -37,20 +36,26 @@ import { PrincipalPolicyError } from "./shared";
  */
 const MAX_VERIFIED_CANDIDATE_CONTAINERS = 64;
 const VERIFIED_CANDIDATE_BATCH_SIZE = 16;
-async function resolvePrincipalOrganizationId(
+/**
+ * The organization a policy belongs to, or null for a standalone group. A
+ * deleted organization group is refused here, in the same statement that
+ * resolves a live group's organization.
+ */
+async function resolveReadablePrincipalOrganizationId(
   executor: DatabaseSession,
-  principalType: ManagedRecipientPrincipalType,
-  principalId: string,
+  currentState: StoredPrincipalState,
 ): Promise<string | null> {
-  if (principalType === "organization") {
-    return principalId;
+  if (currentState.principalType === "organization") {
+    return currentState.principalId;
   }
-  const [group] = await executor
-    .select({ organizationId: groups.organizationId })
-    .from(groups)
-    .where(eq(groups.id, principalId))
-    .limit(1);
-  return group?.organizationId ?? null;
+  const group = await readOrganizationGroupLiveness({
+    executor,
+    groupId: currentState.principalId,
+  });
+  if (group.deleted) {
+    throw new PrincipalPolicyError("Principal policy access denied", 403);
+  }
+  return group.organizationId;
 }
 
 async function isOrganizationOrAdminsPrincipal(
@@ -245,19 +250,9 @@ export async function assertPrincipalPolicyReadable(input: {
   readonly requesterUserId: string;
 }): Promise<void> {
   const { currentState, executor, requesterUserId } = input;
-  if (
-    currentState.principalType === "group" &&
-    (await wasOrganizationGroupDeleted({
-      executor,
-      groupId: currentState.principalId,
-    }))
-  ) {
-    throw new PrincipalPolicyError("Principal policy access denied", 403);
-  }
-  const organizationId = await resolvePrincipalOrganizationId(
+  const organizationId = await resolveReadablePrincipalOrganizationId(
     executor,
-    currentState.principalType,
-    currentState.principalId,
+    currentState,
   );
   if (
     organizationId !== null &&

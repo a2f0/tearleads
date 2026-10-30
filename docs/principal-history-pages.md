@@ -195,20 +195,23 @@ transaction result. Rolled-back hints are discarded; conditional deletion of an
 invalid hint can run after rollback. Savepoint effects wait for the outer
 transaction to finish. Index nodes are published before progress that uses them.
 Publication is awaited after locks are released and adds storage latency to the
-transaction's response.
+transaction's response. Since a transaction never writes hints itself, it reads
+each stored hint once per scope and version bound and reuses that row; every use
+still restores it and rechecks the saved head.
 
 The `principal_history_index_nodes` table stores untrusted proof material keyed
-by hash. Selecting an older citation reads its entry and a logarithmic inclusion
-proof, then checks both against the private root from the locally restored
-verifier. A changed entry or signature fails verification. Missing or corrupt
-nodes trigger a rebuild from signed history; each recovery attempt removes at
-most 32 oldest progress hints from the matching scope and protection generation.
-Transaction-local resets can rebuild immediately, but publish rebuilt nodes and
-progress only after a successful outer commit. Cache loss costs verification
-work and never supplies authority or requires a principal repair write. These
-tables have no automatic pruning policy. Storage grows with retained evidence;
-unreachable nodes, superseded hints and old protection generations may also
-remain. Request-level continuation does not establish a disk quota.
+by hash. A selection reads its older cited entries as one set, then a
+logarithmic inclusion proof for each, and checks both against the private root
+from the locally restored verifier. A changed entry or signature fails
+verification. Missing or corrupt nodes trigger a rebuild from signed history;
+each recovery attempt removes at most 32 oldest progress hints from the matching
+scope and protection generation. Transaction-local resets can rebuild
+immediately, but publish rebuilt nodes and progress only after a successful
+outer commit. Cache loss costs verification work and never supplies authority or
+requires a principal repair write. These tables have no automatic pruning
+policy. Storage grows with retained evidence; unreachable nodes, superseded
+hints and old protection generations may also remain. Request-level continuation
+does not establish a disk quota.
 
 Preparation shares a preferred 32-entry, 2 MiB, five-second budget across a
 policy and its authority dependency. At least one entry can advance even if it

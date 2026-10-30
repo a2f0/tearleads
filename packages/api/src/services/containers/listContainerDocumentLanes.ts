@@ -3,7 +3,10 @@ import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
   type ListContainerDocumentLanesResponse,
 } from "@tearleads/validators/response";
-import { ContainerWriterProjectionError } from "../../workflows/containers/writerProjection/types";
+import {
+  ContainerWriterProjectionError,
+  type PrincipalPolicyReferenceCache,
+} from "../../workflows/containers/writerProjection/types";
 import { KeyingReadAccessError } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 import {
@@ -54,12 +57,14 @@ async function listContainerDocumentLane(
   runtime: ApiServiceRuntime,
   userId: string,
   lane: ContainerDocumentLane,
+  principalPolicyCache: PrincipalPolicyReferenceCache,
 ): Promise<ContainerDocumentLaneResult> {
   try {
     return {
       laneId: lane.laneId,
       page: await listContainerDocuments(runtime, lane.containerId, userId, {
         ...(lane.limit === undefined ? {} : { limit: lane.limit }),
+        principalPolicyCache,
         watermark: lane.watermark,
       }),
     };
@@ -73,7 +78,9 @@ async function listContainerDocumentLane(
 /**
  * Lists each requested container independently through the singular listing:
  * the same readable-container gate, access resolver, watermark, and page
- * bound. Batching claims fewer requests, not fewer statements per lane.
+ * bound. The lanes share one request-scoped cache of verified principal
+ * policies by reference, so a policy several lanes cite loads once; every
+ * lane still verifies its own container path.
  */
 export async function listContainerDocumentLanes(
   runtime: ApiServiceRuntime,
@@ -81,6 +88,7 @@ export async function listContainerDocumentLanes(
   request: ListContainerDocumentLanesRequest,
 ): Promise<ListContainerDocumentLanesResponse> {
   const results: ContainerDocumentLaneResult[] = [];
+  const principalPolicyCache: PrincipalPolicyReferenceCache = new Map();
   const pending = request.lanes.map((lane, index) => ({ index, lane }));
   const worker = async () => {
     for (let next = pending.shift(); next; next = pending.shift()) {
@@ -88,6 +96,7 @@ export async function listContainerDocumentLanes(
         runtime,
         userId,
         next.lane,
+        principalPolicyCache,
       );
     }
   };

@@ -1,12 +1,11 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
 import {
   type SignedPrincipalState,
   throwPrincipalPolicyValidationError,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { eq } from "drizzle-orm";
 import { isCanonicalStoredUuid } from "./canonicalStoredUuid";
+import { loadSignerRow } from "./signerRows";
 
 export async function loadPrincipalStateSigner(
   state: SignedPrincipalState,
@@ -21,15 +20,7 @@ export async function loadPrincipalStateSigner(
       "Principal state identities must be canonical UUIDs",
     );
   }
-  const [signer] = await executor
-    .select({
-      id: users.id,
-      fingerprint: users.fingerprint,
-      signingPublicKey: users.signingPublicKey,
-    })
-    .from(users)
-    .where(eq(users.id, state.signerUserId))
-    .limit(1);
+  const signer = await loadSignerRow(executor, state.signerUserId);
 
   if (!signer) {
     throwPrincipalPolicyValidationError(
@@ -47,6 +38,6 @@ export async function loadPrincipalStateSigner(
 
   return {
     signingPublicKey: base64ToBytes(signer.signingPublicKey),
-    userId: signer.id,
+    userId: state.signerUserId,
   };
 }

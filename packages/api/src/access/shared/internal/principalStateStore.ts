@@ -14,7 +14,7 @@ import {
   throwPrincipalPolicyValidationError as rejectPrincipalPolicy,
   type SignedPrincipalState,
 } from "@tearleads/crypto";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { firstPerKey, uniqueSortedStrings } from "../../../utils/array";
 import {
   ensureStoredPrincipalContainerGrantsMatch,
@@ -51,6 +51,12 @@ import {
 } from "./principalStateValidation";
 
 export { listContainerGrantsForState } from "./principalContainerGrantStore";
+export {
+  getCurrentPrincipalStates,
+  getCurrentPrincipalStatesFor,
+  principalCurrentStateKey,
+  selectCurrentPrincipalHeads,
+} from "./principalCurrentStates";
 export { listPrincipalStateHistory } from "./principalHistoryPage";
 export { listProjectionMembersForState } from "./principalProjectionStore";
 export { getPrincipalStatesForReferences } from "./principalStateLookup";
@@ -571,49 +577,6 @@ export async function getCurrentPrincipalState(
   }
 
   return toStoredPrincipalState(row);
-}
-
-export async function getCurrentPrincipalStates(
-  principalType: ManagedRecipientPrincipalType,
-  principalIds: string[],
-  executor: DatabaseSession,
-): Promise<Map<string, StoredPrincipalState>> {
-  const uniquePrincipalIds = uniqueSortedStrings(principalIds);
-
-  if (uniquePrincipalIds.length === 0) {
-    return new Map();
-  }
-
-  const heads = executor
-    .select({
-      principalId: principalStates.principalId,
-      version: sql<number>`max(${principalStates.version})`.as("head_version"),
-    })
-    .from(principalStates)
-    .where(
-      and(
-        eq(principalStates.principalType, principalType),
-        inArray(principalStates.principalId, uniquePrincipalIds),
-      ),
-    )
-    .groupBy(principalStates.principalId)
-    .as("current_principal_heads");
-  const rows = await executor
-    .select(principalStateSelect)
-    .from(principalStates)
-    .innerJoin(
-      heads,
-      and(
-        eq(principalStates.principalId, heads.principalId),
-        eq(principalStates.version, heads.version),
-      ),
-    )
-    .where(eq(principalStates.principalType, principalType))
-    .orderBy(asc(principalStates.principalId));
-
-  return new Map(
-    rows.map((row) => [row.principalId, toStoredPrincipalState(row)]),
-  );
 }
 
 export async function listCurrentPrincipalProjectionMembers(
