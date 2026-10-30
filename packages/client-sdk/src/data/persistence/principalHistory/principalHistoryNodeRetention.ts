@@ -1,5 +1,5 @@
 import type { PrincipalHistoryIndexNode } from "@tearleads/crypto";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { principalHistoryNodes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalHistoryNodeReferences } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
 import {
@@ -8,9 +8,9 @@ import {
 } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { excludedValue } from "../../sqlite/sqliteUpsert";
-import {
-  decrementPrincipalHistoryNodeReference,
-  type PrincipalHistoryNodeScope,
+import type {
+  PrincipalHistoryNodeScope,
+  PrincipalHistoryRootEdges,
 } from "./principalHistoryRootOwnership";
 
 type PrincipalHistoryNodeReference =
@@ -22,6 +22,8 @@ const REFERENCE_WRITE_BATCH_SIZE = sqliteInsertBatchSize(
 const NODE_WRITE_BATCH_SIZE = sqliteInsertBatchSize(principalHistoryNodes);
 // The scope id binds once per lookup.
 const HASH_LOOKUP_BATCH_SIZE = sqliteRowsPerStatement(1, 1);
+// The scope and organization ids bind once per statement.
+const SCOPED_HASH_BATCH_SIZE = sqliteRowsPerStatement(1, 3);
 
 function batches<T>(items: readonly T[], size: number): T[][] {
   const result: T[][] = [];
@@ -77,12 +79,14 @@ async function loadStoredNodeHashes(
  * Replays the per-node edge bookkeeping in memory: increment inserts or adds
  * one, decrement floors at zero within the scope's organization, and an edge
  * change keeps the count while marking nodes first stored here as managed.
+ * Folded root edges replay last, in the order root ownership applies them.
  */
 function replayNodeEdges(
   scope: PrincipalHistoryNodeScope,
   nodes: readonly PrincipalHistoryIndexNode[],
   loaded: ReadonlyMap<string, PrincipalHistoryNodeReference | null>,
   storedNodeHashes: Set<string>,
+  rootEdges: PrincipalHistoryRootEdges | undefined,
 ): Map<string, PrincipalHistoryNodeReference | null> {
   const references = new Map(loaded);
   const read = (hash: string) => {
@@ -140,6 +144,11 @@ function replayNodeEdges(
     }
     storedNodeHashes.add(node.hash);
   }
+  // Root ownership's edges follow the page's nodes, as its statements did.
+  if (rootEdges) {
+    increment(rootEdges.increment);
+    if (rootEdges.decrement) decrement(rootEdges.decrement);
+  }
   return references;
 }
 
@@ -158,21 +167,27 @@ function isSameNodeReference(
 
 /**
  * Register edges and store proof nodes in the given order, with the same
- * result as recording each node's edges and then upserting it. Reads the
- * touched liveness rows once, replays the bookkeeping, and writes the changed
- * rows and the nodes as multi-row upserts.
+ * result as recording each node's edges and then upserting it, followed by
+ * any folded root ownership edges. Reads the touched liveness rows once,
+ * replays the bookkeeping, and writes the changed rows and the nodes as
+ * multi-row upserts.
  */
 export async function writePrincipalHistoryNodes(
   tx: ClientSQLiteTransactionScope,
   scope: PrincipalHistoryNodeScope,
   nodes: readonly PrincipalHistoryIndexNode[],
+  rootEdges?: PrincipalHistoryRootEdges | undefined,
 ): Promise<void> {
-  if (nodes.length === 0) return;
+  if (nodes.length === 0 && !rootEdges) return;
   const loaded = new Map<string, PrincipalHistoryNodeReference | null>();
   await loadNodeReferences(
     tx,
     scope,
-    nodes.flatMap((node) => [node.hash, node.leftHash, node.rightHash]),
+    [
+      ...nodes.flatMap((node) => [node.hash, node.leftHash, node.rightHash]),
+      ...(rootEdges ? [rootEdges.increment] : []),
+      ...(rootEdges?.decrement ? [rootEdges.decrement] : []),
+    ],
     loaded,
   );
   // An edge change releases the stored row's previous children.
@@ -196,6 +211,7 @@ export async function writePrincipalHistoryNodes(
       scope,
       nodes.map((node) => node.hash),
     ),
+    rootEdges,
   );
   const changed = [...replayed].flatMap(([hash, reference]) => {
     const before = loaded.get(hash);
@@ -248,6 +264,70 @@ export async function writePrincipalHistoryNodes(
       .run();
 }
 
+/**
+ * Deletes one cascade iteration's obsolete nodes and their liveness rows, then
+ * releases their children: one decrement per distinct multiplicity, since
+ * `max(count - k, 0)` equals k successive floored decrements. A child that is
+ * itself obsolete in this iteration is deleted either way, as the per-node
+ * loop deleted it before or after decrementing it.
+ */
+async function releaseObsoleteNodes(
+  tx: ClientSQLiteTransactionScope,
+  scope: PrincipalHistoryNodeScope,
+  obsolete: readonly PrincipalHistoryNodeReference[],
+): Promise<void> {
+  const hashes = obsolete.map((node) => node.hash);
+  for (const batch of batches(hashes, SCOPED_HASH_BATCH_SIZE)) {
+    await tx
+      .delete(principalHistoryNodes)
+      .where(
+        and(
+          eq(principalHistoryNodes.scopeId, scope.scopeId),
+          eq(principalHistoryNodes.organizationId, scope.organizationId),
+          inArray(principalHistoryNodes.hash, batch),
+        ),
+      )
+      .run();
+    await tx
+      .delete(principalHistoryNodeReferences)
+      .where(
+        and(
+          eq(principalHistoryNodeReferences.scopeId, scope.scopeId),
+          inArray(principalHistoryNodeReferences.hash, batch),
+        ),
+      )
+      .run();
+  }
+  const released = new Set(hashes);
+  const multiplicity = new Map<string, number>();
+  for (const node of obsolete)
+    for (const hash of [node.leftHash, node.rightHash])
+      if (hash && !released.has(hash))
+        multiplicity.set(hash, (multiplicity.get(hash) ?? 0) + 1);
+  const byCount = new Map<number, string[]>();
+  for (const [hash, count] of multiplicity)
+    byCount.set(count, [...(byCount.get(count) ?? []), hash]);
+  for (const [count, children] of [...byCount].sort(([a], [b]) => a - b))
+    for (const batch of batches(children.sort(), SCOPED_HASH_BATCH_SIZE))
+      await tx
+        .update(principalHistoryNodeReferences)
+        .set({
+          // `count` is a positive integer computed here, inlined like the literal 1.
+          referenceCount: sql`max(${principalHistoryNodeReferences.referenceCount} - ${sql.raw(String(count))}, 0)`,
+        })
+        .where(
+          and(
+            eq(principalHistoryNodeReferences.scopeId, scope.scopeId),
+            eq(
+              principalHistoryNodeReferences.organizationId,
+              scope.organizationId,
+            ),
+            inArray(principalHistoryNodeReferences.hash, batch),
+          ),
+        )
+        .run();
+}
+
 /** A bounded cascade releases only managed proof nodes with no live incoming edge. */
 export async function reclaimPrincipalHistoryNodes(
   tx: ClientSQLiteTransactionScope,
@@ -272,30 +352,8 @@ export async function reclaimPrincipalHistoryNodes(
       .orderBy(asc(principalHistoryNodeReferences.hash))
       .limit(64 - reclaimed);
     if (obsolete.length === 0) break;
-    for (const node of obsolete) {
-      await tx
-        .delete(principalHistoryNodes)
-        .where(
-          and(
-            eq(principalHistoryNodes.scopeId, scope.scopeId),
-            eq(principalHistoryNodes.organizationId, scope.organizationId),
-            eq(principalHistoryNodes.hash, node.hash),
-          ),
-        )
-        .run();
-      await tx
-        .delete(principalHistoryNodeReferences)
-        .where(
-          and(
-            eq(principalHistoryNodeReferences.scopeId, scope.scopeId),
-            eq(principalHistoryNodeReferences.hash, node.hash),
-          ),
-        )
-        .run();
-      for (const hash of [node.leftHash, node.rightHash])
-        if (hash) await decrementPrincipalHistoryNodeReference(tx, scope, hash);
-      reclaimed += 1;
-    }
+    await releaseObsoleteNodes(tx, scope, obsolete);
+    reclaimed += obsolete.length;
   }
   return reclaimed;
 }

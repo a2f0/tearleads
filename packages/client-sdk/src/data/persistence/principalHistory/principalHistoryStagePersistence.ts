@@ -15,8 +15,10 @@ import {
 import { reclaimIncompletePrincipalHistoryStages } from "./principalHistoryIncompleteRetention";
 import { reclaimPrincipalHistoryNodes } from "./principalHistoryNodeRetention";
 import {
+  foldablePrincipalHistoryRootEdges,
+  loadPrincipalHistoryRootRetention,
   releasePrincipalHistoryRoot,
-  retainPrincipalHistoryRoot,
+  writePrincipalHistoryRootRetention,
 } from "./principalHistoryRootOwnership";
 import { reclaimUnpublishedPrincipalHistoryStages } from "./principalHistoryUnpublishedRetention";
 
@@ -88,19 +90,23 @@ export async function savePrincipalHistoryStage(input: {
         .limit(1);
       if ((previous?.progress ?? null) !== input.previousProgress)
         throw new PrincipalHistoryStageChangedError();
-      await writePrincipalHistoryEvidencePage(tx, evidence);
+      // The node write replays the root's edges after the page's own, as
+      // separate statements after it would.
+      const retention = await loadPrincipalHistoryRootRetention(tx, {
+        id: `stage:${stage.id}`,
+        scopeId: evidence.scopeId,
+        organizationId: stage.organizationId,
+        rootHash: evidence.indexRootHash,
+      });
+      const rootEdges = foldablePrincipalHistoryRootEdges(retention, evidence);
+      await writePrincipalHistoryEvidencePage(tx, evidence, rootEdges);
       const row = { ...stage, touchedAt: Date.now() };
       await tx
         .insert(principalHistoryStages)
         .values(row)
         .onConflictDoUpdate({ target: principalHistoryStages.id, set: row })
         .run();
-      await retainPrincipalHistoryRoot(tx, {
-        id: `stage:${stage.id}`,
-        scopeId: evidence.scopeId,
-        organizationId: stage.organizationId,
-        rootHash: evidence.indexRootHash,
-      });
+      await writePrincipalHistoryRootRetention(tx, retention, rootEdges);
       await reclaimIncompletePrincipalHistoryStages(tx, stage);
       await reclaimUnpublishedPrincipalHistoryStages(tx, stage);
       await reclaimPrincipalHistoryNodes(tx, evidence);

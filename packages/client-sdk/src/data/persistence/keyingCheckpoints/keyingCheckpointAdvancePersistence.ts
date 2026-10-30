@@ -18,7 +18,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import { assertContainerNotRetired } from "../principalKeys/principalGrantRetirementPersistence";
+import { loadContainerRetirementCheck } from "../principalKeys/principalGrantRetirementPersistence";
 import {
   type VerifiedManifestBundle,
   type VerifiedManifestBundleRow,
@@ -32,11 +32,11 @@ import {
 import { validateAccessManifestCheckpointEvidence } from "./keyingCheckpointEvidence";
 import {
   accessManifestObjectKey,
-  loadStoredAccessManifestCheckpoint,
-  loadStoredPrincipalPolicyCheckpoint,
+  loadAccessManifestCheckpointRows,
+  loadStoredPrincipalPolicyCheckpoints,
   principalPolicyKey,
-  upsertAccessManifestCheckpointInTransaction,
-  upsertPrincipalPolicyCheckpointInTransaction,
+  upsertAccessManifestCheckpointsInTransaction,
+  upsertPrincipalPolicyCheckpointsInTransaction,
 } from "./keyingCheckpointPersistence";
 import { validatePrincipalAuthorizationCheckpoints } from "./principalAuthorizationCheckpoints";
 
@@ -115,9 +115,15 @@ async function validateAccessAdvances(
   advances: readonly AccessManifestCheckpointAdvance[],
 ): Promise<Map<string, PendingAccessCheckpoint>> {
   const pending = new Map<string, PendingAccessCheckpoint>();
+  if (advances.length === 0) return pending;
+  // Set reads first; the checks then replay in order, so the same advance
+  // fails first with the same error.
+  const heads = advances.map((advance) => advance.head.checkpoint);
+  const assertNotRetired = await loadContainerRetirementCheck(tx, heads);
+  const stored = await loadAccessManifestCheckpointRows(tx, heads);
 
   for (const advance of advances) {
-    await assertContainerNotRetired(tx, advance.head.checkpoint);
+    assertNotRetired(advance.head.checkpoint);
     const key = accessManifestObjectKey(advance.head.checkpoint);
     if (pending.has(key)) {
       throw new KeyingVerificationError(
@@ -125,10 +131,8 @@ async function validateAccessAdvances(
         `projection declares multiple access checkpoint heads for ${key}`,
       );
     }
-    const localCheckpoint = await loadStoredAccessManifestCheckpoint(
-      tx,
-      advance.head.checkpoint,
-    );
+    const row = stored.get(key);
+    const localCheckpoint = row ? { ...advance.head.checkpoint, ...row } : null;
     pending.set(key, validateAccessAdvance(advance, localCheckpoint));
   }
 
@@ -170,6 +174,7 @@ export async function validatePrincipalPolicyCheckpointAdvances(
   }
 
   const pending = new Map<string, CheckpointPolicy>();
+  const stored = await loadStoredPrincipalPolicyCheckpoints(tx, policies);
   for (const key of [...policiesByPrincipal.keys()].sort()) {
     const candidates = policiesByPrincipal.get(key) ?? [];
     const maxVersion = Math.max(...candidates.map((policy) => policy.version));
@@ -196,7 +201,7 @@ export async function validatePrincipalPolicyCheckpointAdvances(
       }
     }
 
-    const localCheckpoint = await loadStoredPrincipalPolicyCheckpoint(tx, head);
+    const localCheckpoint = stored.get(key) ?? null;
     verifyPrincipalPolicyCheckpoint({
       chain:
         "retainedHistory" in head ? head.retainedHistory : (head.history ?? []),
@@ -214,13 +219,11 @@ async function writeAccessCheckpoints(
   pending: ReadonlyMap<string, PendingAccessCheckpoint>,
   updatedAt: string,
 ): Promise<void> {
-  for (const { checkpoint } of pending.values()) {
-    await upsertAccessManifestCheckpointInTransaction(
-      tx,
-      checkpoint,
-      updatedAt,
-    );
-  }
+  await upsertAccessManifestCheckpointsInTransaction(
+    tx,
+    [...pending.values()].map(({ checkpoint }) => checkpoint),
+    updatedAt,
+  );
 }
 
 /** Pins the heads `validatePrincipalPolicyCheckpointAdvances` returned. */
@@ -230,14 +233,12 @@ export async function writePrincipalPolicyCheckpoints(
   updatedAt: string,
   organizationId?: string | undefined,
 ): Promise<void> {
-  for (const policy of pending.values()) {
-    await upsertPrincipalPolicyCheckpointInTransaction(
-      tx,
-      policy.checkpoint,
-      updatedAt,
-      organizationId,
-    );
-  }
+  await upsertPrincipalPolicyCheckpointsInTransaction(
+    tx,
+    [...pending.values()].map((policy) => policy.checkpoint),
+    updatedAt,
+    organizationId,
+  );
 }
 
 /**
