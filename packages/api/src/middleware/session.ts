@@ -29,8 +29,10 @@ import {
   withSessionActivity,
 } from "./sessionActivity";
 import {
+  recordActivityUnlessSuspended as defaultRecordActivityUnlessSuspended,
   recordUserActivity as defaultRecordUserActivity,
   type UserActivityRecorder,
+  type UserActivityStandingRecorder,
 } from "./userActivity";
 import {
   isUserSuspended as defaultIsUserSuspended,
@@ -174,8 +176,7 @@ export const destroySession = createDestroySession(
 export function createRequireAuth(
   getSession: SessionStoreGet,
   setSessionKeepTtl: SessionStoreSetKeepTtl,
-  recordUserActivity?: UserActivityRecorder,
-  isUserSuspended?: UserSuspensionCheck,
+  recordActivityUnlessSuspended?: UserActivityStandingRecorder,
 ) {
   return createMiddleware<SessionEnv>(
     async (c: Context<SessionEnv>, next: Next) => {
@@ -220,12 +221,17 @@ export function createRequireAuth(
         ? withSessionActivity(parsed, ipAddress, now)
         : parsed;
 
-      // Refused before activity advances, so every later request re-checks.
-      // A failed check fails the request: suspension enforcement is closed.
+      // One statement checks standing and stamps `users.last_active_at`.
+      // Refused before session activity advances, so every later request
+      // re-checks. A failed statement fails the request: suspension
+      // enforcement is closed.
       if (
         shouldUpdateActivity &&
-        isUserSuspended &&
-        (await isUserSuspended(session.userId))
+        recordActivityUnlessSuspended &&
+        (await recordActivityUnlessSuspended({
+          lastActiveAt: now,
+          userId: session.userId,
+        }))
       ) {
         return c.json(
           {
@@ -238,8 +244,6 @@ export function createRequireAuth(
       if (shouldUpdateActivity) {
         await persistSessionActivity({
           key: sessionKey(token),
-          now,
-          recordUserActivity,
           session,
           setSessionKeepTtl,
         });
@@ -259,8 +263,7 @@ export function createRequireAuth(
 export const requireAuth = createRequireAuth(
   get,
   setKeepTtl,
-  defaultRecordUserActivity,
-  defaultIsUserSuspended,
+  defaultRecordActivityUnlessSuspended,
 );
 
 export function createListUserSessions(

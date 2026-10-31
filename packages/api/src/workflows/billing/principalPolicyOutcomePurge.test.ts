@@ -32,6 +32,7 @@ test("organization purge removes only its own compound and standalone policy rec
   await db.transaction((executor) =>
     deleteOrganizationRemoteRows({
       executor,
+      groupIds: [],
       organizationId,
       now: new Date(),
       scope: { blobIds: [], containerIds: [], documentIds: [] },

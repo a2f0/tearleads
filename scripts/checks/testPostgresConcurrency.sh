@@ -60,6 +60,7 @@ exec bun test \
   src/routes/documents/syncPaginationConcurrency.pg.test.ts \
   src/routes/documents/syncConcurrency.pg.test.ts \
   src/services/blobs/multipartStageCleanup.pg.test.ts \
+  src/workflows/billing/organizationPurgePrincipalLock.pg.test.ts \
   src/workflows/blobs/gc/reclaimDereferencedBlobs.test.ts \
   src/workflows/blobs/gc/reclaimDereferencedBlobs.pg.test.ts \
   src/workflows/blobs/gc/reclaimDereferencedBlobsBindRace.pg.test.ts \

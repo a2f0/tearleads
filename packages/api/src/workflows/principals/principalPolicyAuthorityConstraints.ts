@@ -5,6 +5,10 @@ import { and, eq, or } from "drizzle-orm";
 import { listCurrentPrincipalProjectionMembers } from "../../access/read/principalStateStore";
 import { parseOrganizationAuthorityDescriptor } from "../organizations/organizationAuthorityDescriptor";
 import {
+  loadGroupOrganizationDescriptor,
+  loadOrganizationDescriptor,
+} from "../organizations/organizationDescriptors";
+import {
   assertOrganizationGroupDirectoryCurrent,
   principalProjectionsEqual,
 } from "../organizations/organizationGroupDirectoryValidation";
@@ -28,12 +32,10 @@ async function assertReservedAdminsPolicyShape(
   if (input.expectedPrincipalType !== "group") {
     return;
   }
-  const [organization] = await tx
-    .select({ adminGroupId: organizations.adminGroupId })
-    .from(groups)
-    .innerJoin(organizations, eq(organizations.id, groups.organizationId))
-    .where(eq(groups.id, input.expectedPrincipalId))
-    .limit(1);
+  const organization = await loadGroupOrganizationDescriptor(
+    tx,
+    input.expectedPrincipalId,
+  );
   if (
     !organization ||
     organization.adminGroupId !== input.expectedPrincipalId
@@ -100,14 +102,10 @@ async function assertOrganizationAuthorityDescriptor(
   if (input.expectedPrincipalType !== "organization") {
     return;
   }
-  const [organization] = await tx
-    .select({
-      adminGroupId: organizations.adminGroupId,
-      memberGroupId: organizations.memberGroupId,
-    })
-    .from(organizations)
-    .where(eq(organizations.id, input.expectedPrincipalId))
-    .limit(1);
+  const organization = await loadOrganizationDescriptor(
+    tx,
+    input.expectedPrincipalId,
+  );
   if (!organization) {
     throw new PrincipalPolicyError("Organization not found", 404);
   }

@@ -29,6 +29,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { forgetTransactionAccessManifestBundles } from "../../access/write/accessManifestStore";
+import { forgetPrincipalTransactionMemo } from "../../access/write/principalStateStore";
 import { deleteDocumentRows } from "../documents/mutations/purgeDocumentRows";
 import { organizationPurgeBatches } from "./organizationPurgeBatches";
 import type { OrganizationRemotePurgeScope } from "./organizationPurgeScope";
@@ -128,12 +129,9 @@ async function deleteAccessRows(
 async function deleteOrganizationPrincipalRows(
   executor: DatabaseTransaction,
   organizationId: string,
+  groupIds: readonly string[],
 ): Promise<void> {
-  const groupRows = await executor
-    .select({ id: groups.id })
-    .from(groups)
-    .where(eq(groups.organizationId, organizationId));
-  const groupIds = groupRows.map((row) => row.id);
+  forgetPrincipalTransactionMemo(executor);
   for (const principalScope of [
     { principalIds: [organizationId], principalType: "organization" },
     { principalIds: groupIds, principalType: "group" },
@@ -169,8 +167,13 @@ async function deleteOrganizationPrincipalRows(
   }
 }
 
+/**
+ * `groupIds` are the organization's groups, read under the organization's
+ * principal lock, which every group writer takes first.
+ */
 export async function deleteOrganizationRemoteRows(input: {
   readonly executor: DatabaseTransaction;
+  readonly groupIds: readonly string[];
   readonly now: Date;
   readonly organizationId: string;
   readonly scope: OrganizationRemotePurgeScope;
@@ -211,7 +214,11 @@ export async function deleteOrganizationRemoteRows(input: {
   }
   await deleteContainerRows(input);
   await deleteAccessRows(input.executor, input.organizationId);
-  await deleteOrganizationPrincipalRows(input.executor, input.organizationId);
+  await deleteOrganizationPrincipalRows(
+    input.executor,
+    input.organizationId,
+    input.groupIds,
+  );
   await input.executor
     .delete(organizationReadModelHeads)
     .where(eq(organizationReadModelHeads.organizationId, input.organizationId));

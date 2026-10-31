@@ -1,14 +1,16 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { groups, organizations } from "@tearleads/api-shared/schema";
 import { computePrincipalStateHash } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import { eq } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../access/read/principalStateStore";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { wasOrganizationGroupDeleted } from "../organizations/groupTombstone";
+import {
+  loadGroupOrganizationDescriptor,
+  loadOrganizationDescriptor,
+} from "../organizations/organizationDescriptors";
 import { isCurrentOrganizationAdminAuthority } from "../organizations/principalPolicyExternalAuthority";
 import {
   lockOrganizationReadModelHeadForUpdateInTransaction,
@@ -34,28 +36,22 @@ export async function loadRosterSyncTargetForPrincipal(input: {
   readonly input: PutPrincipalPolicyInput;
   readonly tx: DatabaseTransaction;
 }): Promise<OrganizationPolicyTarget | null> {
-  if (input.input.expectedPrincipalType === "organization") {
-    const [organization] = await input.tx
-      .select({
-        organizationId: organizations.id,
-        memberGroupId: organizations.memberGroupId,
-      })
-      .from(organizations)
-      .where(eq(organizations.id, input.input.expectedPrincipalId))
-      .limit(1);
-    return organization ?? null;
-  }
-
-  const [organization] = await input.tx
-    .select({
-      organizationId: organizations.id,
-      memberGroupId: organizations.memberGroupId,
-    })
-    .from(groups)
-    .innerJoin(organizations, eq(organizations.id, groups.organizationId))
-    .where(eq(groups.id, input.input.expectedPrincipalId))
-    .limit(1);
-  return organization ?? null;
+  const organization =
+    input.input.expectedPrincipalType === "organization"
+      ? await loadOrganizationDescriptor(
+          input.tx,
+          input.input.expectedPrincipalId,
+        )
+      : await loadGroupOrganizationDescriptor(
+          input.tx,
+          input.input.expectedPrincipalId,
+        );
+  return organization
+    ? {
+        organizationId: organization.organizationId,
+        memberGroupId: organization.memberGroupId,
+      }
+    : null;
 }
 
 export async function isOrgAdminAuthorizedPrincipalPolicySigner(
@@ -66,15 +62,10 @@ export async function isOrgAdminAuthorizedPrincipalPolicySigner(
   if (input.expectedPrincipalType === "organization") {
     return false;
   }
-  const [group] = await tx
-    .select({
-      adminGroupId: organizations.adminGroupId,
-      organizationId: organizations.id,
-    })
-    .from(groups)
-    .innerJoin(organizations, eq(organizations.id, groups.organizationId))
-    .where(eq(groups.id, input.expectedPrincipalId))
-    .limit(1);
+  const group = await loadGroupOrganizationDescriptor(
+    tx,
+    input.expectedPrincipalId,
+  );
   return Boolean(
     group &&
       (await isCurrentOrganizationAdminAuthority({

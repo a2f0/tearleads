@@ -45,6 +45,11 @@ import {
   validatePrincipalPolicyTransition,
   validatePrincipalStateArtifacts,
 } from "./principalStateValidation";
+import {
+  forgetCurrentPrincipalStates,
+  memoizedCurrentPrincipalState,
+  rememberCurrentPrincipalState,
+} from "./principalTransactionMemo";
 
 export { listContainerGrantsForState } from "./principalContainerGrantStore";
 export {
@@ -352,6 +357,7 @@ async function insertPrincipalStateRow(input: PrincipalStateWriteContext) {
       ...principalStateSelect,
       containerGrants: principalStates.containerGrants,
     });
+  forgetCurrentPrincipalStates(input.executor);
   if (!inserted) return null;
   const { containerGrants, ...row } = inserted;
   return { containerGrants, state: toStoredPrincipalState(row) };
@@ -578,11 +584,22 @@ export async function storeVerifiedPrincipalStateInTransaction(
   return storedState;
 }
 
+/**
+ * The principal's latest state. Inside a transaction that holds the
+ * principal's mutation lock, the first read is kept until the transaction
+ * writes principal states again.
+ */
 export async function getCurrentPrincipalState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   executor: DatabaseSession,
 ): Promise<StoredPrincipalState | null> {
+  const memoized = memoizedCurrentPrincipalState(
+    executor,
+    principalType,
+    principalId,
+  );
+  if (memoized !== undefined) return memoized;
   const [row] = await executor
     .select(principalStateSelect)
     .from(principalStates)
@@ -595,11 +612,9 @@ export async function getCurrentPrincipalState(
     .orderBy(desc(principalStates.version))
     .limit(1);
 
-  if (!row) {
-    return null;
-  }
-
-  return toStoredPrincipalState(row);
+  const state = row ? toStoredPrincipalState(row) : null;
+  rememberCurrentPrincipalState(executor, principalType, principalId, state);
+  return state;
 }
 
 export async function listCurrentPrincipalProjectionMembers(
