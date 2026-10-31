@@ -51,6 +51,20 @@ async function readIndexColumns(
   return rows.map((row) => readString(row, "name"));
 }
 
+// Key columns in order, with " DESC" on descending ones.
+async function readIndexKeyColumns(
+  execSql: ExecSql,
+  indexName: string,
+): Promise<string[]> {
+  const rows = await execSql(`PRAGMA index_xinfo(${indexName})`);
+  return rows
+    .filter((row) => readNumber(row, "key") === 1)
+    .map(
+      (row) =>
+        `${readString(row, "name")}${readNumber(row, "desc") === 1 ? " DESC" : ""}`,
+    );
+}
+
 test("client sqlite schema creates tables and indexes", async () => {
   const { close, execSql } = await createTestExecSql("app-schema-test");
 
@@ -76,11 +90,12 @@ test("client sqlite schema creates tables and indexes", async () => {
       clientSqlTables.map((table) => table.name).sort(),
     );
     expect(indexNames).toEqual([
-      "document_attachment_blob_projection_mime_type_idx",
+      "containers_parent_idx",
       "document_attachment_blob_projection_storage_key_idx",
+      "document_container_projection_container_idx",
+      "document_history_updates_queued_scope_idx",
       "document_history_updates_scope_created_idx",
       "document_history_updates_update_id_idx",
-      "document_pending_attachments_mime_type_idx",
       "document_pending_attachments_storage_key_idx",
       "document_projection_container_idx",
       "document_projection_document_idx",
@@ -102,14 +117,12 @@ test("client sqlite schema creates tables and indexes", async () => {
       "principal_key_envelope_archive_fingerprint_idx",
       "principal_policies_key_fingerprint_idx",
       "principal_policy_history_key_fingerprint_idx",
-      "principal_policy_organizations_organization_idx",
       "security_incidents_trust_last_detected_idx",
       "trusted_user_identity_pins_domain_signing_fingerprint_idx",
+      "verified_access_manifest_bundles_eviction_idx",
       "verified_access_manifest_bundles_object_idx",
-      "verified_access_manifest_bundles_organization_idx",
-      "verified_access_manifest_bundles_verified_at_idx",
+      "verified_access_manifest_bundles_organization_recent_idx",
     ]);
-
     const documents = await readTableColumns(execSql, "documents");
     expect(readRecordValue(documents, "app_kind")).toEqual({
       defaultValue: null,
@@ -297,45 +310,45 @@ test("client sqlite schema creates tables and indexes", async () => {
       await readIndexColumns(execSql, "document_history_updates_update_id_idx"),
     ).toEqual(["update_id"]);
 
-    const pendingAttachmentIndexes = await readIndexList(
-      execSql,
-      "document_pending_attachments",
-    );
+    // Queued history rows only: pending counts skip settled history.
     expect(
       readRecordValue(
-        pendingAttachmentIndexes,
-        "document_pending_attachments_mime_type_idx",
+        updateLogIndexes,
+        "document_history_updates_queued_scope_idx",
       ),
-    ).toEqual({
-      partial: 0,
-      unique: 0,
-    });
+    ).toEqual({ partial: 1, unique: 0 });
     expect(
-      await readIndexColumns(
+      await readIndexKeyColumns(
         execSql,
-        "document_pending_attachments_mime_type_idx",
+        "document_history_updates_queued_scope_idx",
       ),
-    ).toEqual(["mime_type"]);
+    ).toEqual(["app_kind", "local_id", "created_at"]);
 
-    const localAttachmentIndexes = await readIndexList(
-      execSql,
-      "document_attachment_blob_projection",
-    );
+    const indexKeyColumns = {
+      containers_parent_idx: ["parent_id"],
+      document_container_projection_container_idx: [
+        "container_id",
+        "document_id",
+      ],
+      verified_access_manifest_bundles_eviction_idx: [
+        "verified_at",
+        "manifest_hash",
+      ],
+      verified_access_manifest_bundles_organization_recent_idx: [
+        "organization_id",
+        "verified_at DESC",
+        "manifest_hash",
+      ],
+    };
+    for (const [indexName, columns] of Object.entries(indexKeyColumns)) {
+      expect(await readIndexKeyColumns(execSql, indexName)).toEqual(columns);
+    }
     expect(
       readRecordValue(
-        localAttachmentIndexes,
-        "document_attachment_blob_projection_mime_type_idx",
+        await readIndexList(execSql, "containers"),
+        "containers_parent_idx",
       ),
-    ).toEqual({
-      partial: 0,
-      unique: 0,
-    });
-    expect(
-      await readIndexColumns(
-        execSql,
-        "document_attachment_blob_projection_mime_type_idx",
-      ),
-    ).toEqual(["mime_type"]);
+    ).toEqual({ partial: 1, unique: 0 });
 
     const containerSyncWatermarks = await readTableColumns(
       execSql,

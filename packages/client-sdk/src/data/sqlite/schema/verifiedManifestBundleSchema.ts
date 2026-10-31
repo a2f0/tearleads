@@ -40,11 +40,16 @@ export const verifiedAccessManifestBundles = sqliteTable(
       table.objectId,
       desc(table.epoch),
     ),
-    index("verified_access_manifest_bundles_verified_at_idx").on(
+    // Eviction order: oldest verification first, hash as the tiebreak.
+    index("verified_access_manifest_bundles_eviction_idx").on(
       table.verifiedAt,
+      table.manifestHash,
     ),
-    index("verified_access_manifest_bundles_organization_idx").on(
+    // Recent citations: an organization's newest verifications first.
+    index("verified_access_manifest_bundles_organization_recent_idx").on(
       table.organizationId,
+      desc(table.verifiedAt),
+      table.manifestHash,
     ),
   ],
 );

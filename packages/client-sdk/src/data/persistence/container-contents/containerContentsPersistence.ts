@@ -1,8 +1,12 @@
 import { eq } from "drizzle-orm";
 import {
   containerHydrationTombstones,
+  containerSyncWatermarkTables,
   containers,
+  containerTables,
   documentContainerProjectionTables,
+  documentProjectionTables,
+  documentTables,
   keyingCheckpointTables,
   localIntentTables,
 } from "../../sqlite/schema";
@@ -15,21 +19,13 @@ import {
   runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
-import {
-  enqueueDocumentPendingUpdate,
-  ensureDocumentProjectionTables,
-  ensureDocumentTables,
-} from "../documents/records";
+import { enqueueDocumentPendingUpdate } from "../documents/records";
 import {
   hasQueuedDocumentUpdates,
   settleQueuedDocumentUpdatesInTransaction,
 } from "../documents/records/documentPendingUpdatePersistence";
 import { getLatestTimestamp } from "../latestTimestamp";
-import {
-  ensureContainerTables,
-  loadContainerById,
-} from "./containerPersistence";
-import { sqlContainerSyncWatermarkPersistence } from "./containerSyncWatermarkPersistence";
+import { loadContainerById } from "./containerPersistence";
 import {
   claimDormantMetadataSweepAttempt,
   completeDormantMetadataSweepRequest,
@@ -161,16 +157,17 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
     // ensureSchema runs on every query path, and re-acquiring the lock just to
     // no-op would queue reads behind unrelated writes.
     await runOncePerConnection(execSql, "ensure:container-contents", () =>
-      runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-        await ensureContainerTables(lockedExecSql);
-        await ensureDocumentTables(lockedExecSql);
-        await ensureSqlTables(lockedExecSql, localIntentTables);
+      // One ensure, so a cold connection sends three DDL messages in total.
+      ensureSqlTables(execSql, [
+        ...containerTables,
+        ...documentTables,
+        ...localIntentTables,
         // Metadata rows consult document purge checkpoints before writing.
-        await ensureSqlTables(lockedExecSql, keyingCheckpointTables);
-        await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
-        await ensureDocumentProjectionTables(lockedExecSql);
-        await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
-      }),
+        ...keyingCheckpointTables,
+        ...documentContainerProjectionTables,
+        ...documentProjectionTables,
+        ...containerSyncWatermarkTables,
+      ]),
     );
   },
   async loadHeldContainerBinding(execSql, containerId) {

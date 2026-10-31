@@ -1,23 +1,17 @@
 import type { DocumentClientProjectionDefinition } from "@tearleads/client-sdk";
-import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { readCreditCardFieldsFromRecord } from "../document-types/credit-card/creditCardDocumentDefinition";
 import { createDocumentSqlProjection } from "./createDocumentSqlProjection";
 
-const creditCardProjection = sqliteTable(
-  "credit_card_projection",
-  {
-    localId: text("local_id").primaryKey(),
-    documentId: text("document_id"),
-    containerId: text("container_id"),
-    cardLast4: text("card_last4"),
-    expirationDate: text("expiration_date").notNull().default(""),
-    nameOnCard: text("name_on_card").notNull().default(""),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [
-    index("credit_card_projection_expiration_idx").on(table.expirationDate),
-  ],
-);
+const creditCardProjection = sqliteTable("credit_card_projection", {
+  localId: text("local_id").primaryKey(),
+  documentId: text("document_id"),
+  containerId: text("container_id"),
+  cardLast4: text("card_last4"),
+  expirationDate: text("expiration_date").notNull().default(""),
+  nameOnCard: text("name_on_card").notNull().default(""),
+  updatedAt: text("updated_at").notNull(),
+});
 
 export const creditCardClientProjection: DocumentClientProjectionDefinition =
   createDocumentSqlProjection(creditCardProjection, (input) => {
