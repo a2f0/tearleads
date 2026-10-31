@@ -58,12 +58,16 @@ request a reset.
    configuration.
 3. **Destroy and rebuild.** Process one environment through restored service
    before taking the next down. Default to staging first when both are selected;
-   respect an explicitly requested order. Remove old writers before dropping
-   data, use inspected plans, remove temporary destruction overrides, provision
-   database/storage dependencies, then run the tier's root deployment script.
-   Verify new resource identities, fresh schema, and service health before
-   continuing. Follow the infrastructure runbook's production protection and
-   resume rules.
+   respect an explicitly requested order. Hostnames never change during a
+   reset: stop old writers and empty Durable Object state with
+   `packages/api/scripts/deployApiMaintenance.sh <tier>` before dropping data,
+   and never destroy the edge stack or delete a Worker (`wrangler delete` also
+   drops its custom domain, and resolvers then cache NXDOMAIN). Use inspected
+   plans, remove temporary destruction overrides, provision database/storage
+   dependencies, then run the tier's root deployment script. Verify new resource
+   identities, fresh schema, service health, and that the hostnames resolved
+   throughout before continuing. Follow the infrastructure runbook's
+   production protection and resume rules.
 4. **Release every selected target.** Follow the release matrix and concurrency
    rules in the release runbook. Preserve the frozen source revision throughout.
    Record real exit statuses, installer hashes, and resolved store build numbers.
