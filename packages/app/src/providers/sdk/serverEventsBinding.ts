@@ -2,6 +2,7 @@ import type { Tearleads } from "@tearleads/client-sdk";
 
 import { useEffect, useState } from "react";
 import type { SubscribeConnectionRefreshFn } from "../../host/AppHostConfig";
+import { trackConnectAttempts } from "./connectAttemptTracker";
 import {
   type ContainerInterestDeclaration,
   startContainerInterestDeclaration,
@@ -185,33 +186,6 @@ function markServerEventsConnected(
   log("WebSocket connected");
 }
 
-/**
- * Opened documents defer their startup probe to the acknowledgement of the
- * connect attempt in flight. The acknowledgement (`setConnected(true)`) and a
- * socket disconnect (`setConnected(false)`) settle the attempt; `end` covers
- * every other way it stops without one. Ending a settled attempt is a no-op.
- */
-function trackConnectAttempts(tearleads: Tearleads) {
-  let attempt: number | null = null;
-  const end = (): void => {
-    if (attempt !== null) tearleads.events.endConnectAttempt(attempt);
-    attempt = null;
-  };
-  return {
-    begin: (): void => {
-      attempt = tearleads.events.beginConnectAttempt();
-    },
-    end,
-    /** Stop the loop, then end an attempt it left pending. */
-    endingWith:
-      (stop: () => void): (() => void) =>
-      () => {
-        stop();
-        end();
-      },
-  };
-}
-
 export function useServerEventsBinding(
   tearleads: Tearleads,
   wsUrl: string,
@@ -239,7 +213,7 @@ export function useServerEventsBinding(
       detachOrganizationSocket?.();
       detachOrganizationSocket = null;
     };
-    const attempts = trackConnectAttempts(tearleads);
+    const attempts = trackConnectAttempts(tearleads.events);
     const stopLoop = startServerEventsConnectionLoop({
       onAttemptStart: attempts.begin,
       onAttemptFailed: attempts.end,
@@ -301,7 +275,9 @@ export function useServerEventsBinding(
         interestHandle?.stop();
         interestHandle = startContainerInterestDeclaration(tearleads, ws);
         // An unready tree holds the declaration unboundedly: stop deferring.
-        if (!interestHandle.awaitingInitialAcknowledgement()) attempts.end();
+        if (interestHandle.awaitingInitialAcknowledgement()) {
+          attempts.awaitAcknowledgement();
+        } else attempts.end();
         detachOrganizationSocket?.();
         detachOrganizationSocket = attachOrganizationReadModelSocket(
           tearleads,
