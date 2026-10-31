@@ -114,10 +114,11 @@ function errorField(error: unknown, key: "name" | "message"): string | null {
   return typeof value === "string" ? value : null;
 }
 
-function originOf(href: string | undefined): string | null {
+/** The origin `href` resolves to against `base`; null when it cannot resolve. */
+function originOf(href: string | undefined, base?: string): string | null {
   if (!href) return null;
   try {
-    const origin = new URL(href).origin;
+    const origin = new URL(href, base).origin;
     return origin === "null" ? null : origin;
   } catch {
     return null;
@@ -207,16 +208,21 @@ export async function describeNetworkFailure(
 ): Promise<ApiNetworkError> {
   const pageHref: string | undefined = globalThis.location?.href;
   const pageOrigin = originOf(pageHref);
-  const apiOrigin = originOf(
-    input.baseUrl ? new URL(input.baseUrl, pageHref).href : pageHref,
-  );
+  const apiOrigin = originOf(input.baseUrl || pageHref, pageHref);
   const crossOrigin = pageOrigin && apiOrigin ? pageOrigin !== apiOrigin : null;
   const online = readOnline();
   let probe: ApiReachability | "not-run" = "not-run";
   let classification: ApiNetworkFailureClass =
     abortedClass(input.error, input.signal) ??
     (online === false ? "offline" : "unclassified");
-  if (classification === "unclassified" && input.probe && apiOrigin) {
+  // A same-origin probe could be answered by the page's service worker cache,
+  // so it would not show the API host is reachable.
+  if (
+    classification === "unclassified" &&
+    input.probe &&
+    apiOrigin &&
+    crossOrigin !== false
+  ) {
     probe = await input.probe(apiOrigin).catch(() => "unreachable" as const);
     classification =
       probe === "reachable" ? "cors-or-blocked" : "api-unreachable";

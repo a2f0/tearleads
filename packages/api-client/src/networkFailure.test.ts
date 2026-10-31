@@ -39,9 +39,9 @@ function failFetch(error: unknown): void {
 
 async function register(
   probe: ApiReachabilityProbe | null,
-  options: { signal?: AbortSignal; body?: string } = {},
+  options: { signal?: AbortSignal; body?: string; baseUrl?: string } = {},
 ): Promise<{ failure: RequestFailure; errors: string[] }> {
-  const runtime = new ApiRequestRuntime(apiBaseUrl, {
+  const runtime = new ApiRequestRuntime(options.baseUrl ?? apiBaseUrl, {
     getIdentity: () => null,
     metrics: new ApiRequestMetrics(),
     networkFailureProbe: probe,
@@ -118,6 +118,37 @@ test("an unreachable probe classifies the failure and logs a hint", async () => 
   expect(errors).toEqual([
     "POST /auth/register: Failed to fetch (api-unreachable: API host unreachable from this browser: check DNS, extensions/shields, or network; open https://api.example.test/ in a tab)",
   ]);
+});
+
+test("a same-origin API is not probed; the page's worker could answer", async () => {
+  failFetch(new TypeError("Failed to fetch"));
+  const probe = mock(async () => "reachable" as const);
+  for (const baseUrl of ["/api", "https://app.example.test/api"]) {
+    const { failure } = await register(probe, { baseUrl });
+    expect(failure.networkError?.details).toMatchObject({
+      apiOrigin: "https://app.example.test",
+      classification: "unclassified",
+      crossOrigin: false,
+      probe: "not-run",
+    });
+  }
+  expect(probe).not.toHaveBeenCalled();
+});
+
+test("a relative base URL with no page still reports a network failure", async () => {
+  Reflect.deleteProperty(globalThis, "location");
+  failFetch(new TypeError("Failed to fetch"));
+  const probe = mock(async () => "reachable" as const);
+  const { failure } = await register(probe, { baseUrl: "/api" });
+  expect(failure.kind).toBe("network");
+  expect(failure.message).toBe("POST /auth/register: Failed to fetch");
+  expect(failure.networkError?.details).toMatchObject({
+    apiOrigin: null,
+    classification: "unclassified",
+    crossOrigin: null,
+    pageOrigin: null,
+  });
+  expect(probe).not.toHaveBeenCalled();
 });
 
 test("a probe that throws counts as unreachable", async () => {

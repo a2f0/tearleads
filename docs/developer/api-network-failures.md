@@ -65,9 +65,10 @@ entry (`net::ERR_NAME_NOT_RESOLVED`), an extension or shield
 read as `api-unreachable`; only the browser's console or network panel names
 the cause. A `cors-or-blocked` failure can also be a connection that dropped
 after the probe succeeded. `navigator.onLine` can be true without a working
-network, which then reads as `api-unreachable`. No same-origin probe runs: the
-web app's service worker can answer same-origin requests from cache, so it
-would not prove this device has a network.
+network, which then reads as `api-unreachable`. No same-origin probe runs, and
+an API on the page's own origin is not probed: the web app's service worker can
+answer same-origin requests from cache, so neither would prove the host or this
+device is reachable. Those failures stay `unclassified`.
 
 The structured details stay on the failure for host diagnostics. Browser
 Sentry events still carry only the allowlisted fields in
