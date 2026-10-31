@@ -7,6 +7,7 @@ import {
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
   computeAccessEventHash,
+  computeContainerKekKeyringHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
 } from "@tearleads/crypto";
@@ -17,6 +18,7 @@ import type {
 import type {
   AccessManifestBundleWireResponse,
   ContainerMutationResponse,
+  ContainerReciteResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 
@@ -198,6 +200,38 @@ function deriveMutationState(input: {
   };
 }
 
+/**
+ * The acknowledgement the server returns, plus the stored bundle and KEK
+ * state it names by hash, so tests can build the next writer projection.
+ * Production code sees only the `ContainerMutationResponse` fields.
+ */
+export type ContainerMutationFixture = ContainerMutationResponse & {
+  readonly accessManifest: AccessManifestBundleWireResponse;
+  readonly containerKek: ContainerMutationResponse["containerKek"] &
+    ProjectionKek;
+};
+
+/**
+ * Recover the stored artifacts from an acknowledgement this fixture built,
+ * after it passed through code typed with the slim response.
+ */
+export function asContainerMutationFixture(
+  response:
+    | ContainerMutationResponse
+    | ContainerReciteResponse
+    | null
+    | undefined,
+): ContainerMutationFixture {
+  if (
+    !response ||
+    !("accessManifest" in response) ||
+    !("containerKek" in response)
+  ) {
+    throw new Error("Expected a container mutation fixture response");
+  }
+  return response as ContainerMutationFixture;
+}
+
 type PreviousProjection = Pick<
   ContainerWriterProjectionResponse,
   "containerKeks" | "path"
@@ -218,7 +252,7 @@ export async function createContainerMutationResponseFromRequest(
   request: ContainerMutationRequest,
   previous?: ProjectionKek | PreviousProjection | undefined,
   citedManifests: readonly AccessManifestBundleWireResponse[] = [],
-): Promise<ContainerMutationResponse> {
+): Promise<ContainerMutationFixture> {
   const previousKek =
     previous && isPreviousProjection(previous)
       ? previous.containerKeks.at(-1)
@@ -256,11 +290,28 @@ export async function createContainerMutationResponseFromRequest(
     request,
   });
 
-  const response: ContainerMutationResponse = {
+  const accessManifest: AccessManifestBundleWireResponse = {
+    event: {
+      event: request.event,
+      body: request.body as Record<string, unknown>,
+      eventHash,
+    },
+    manifest: request.manifest,
+    manifestHash: request.expectedManifestHash,
+    state: state as unknown as Record<string, unknown>,
+  };
+  // The acknowledgement names the commit by hash; register the bundle the
+  // server stored so later requests that cite it by hash resolve.
+  registerContainerManifestBundles([accessManifest]);
+  const keyEpochHash = await computeContainerKeyEpochHash(keyEpoch);
+  const keyTargetHash =
+    await computeContainerKekRecipientTargetHash(recipientTargets);
+  return {
     // The server echoes the stored slot column exactly when it is non-null.
     ...(state.systemSlot === null ? {} : { systemSlot: state.systemSlot }),
     containerId: event.objectId,
     createdAt: "2026-05-05T00:00:00.000Z",
+    eventHash,
     organizationId: event.organizationId,
     parentId: state.parentContainerId,
     updatedAt: "2026-05-05T00:00:00.000Z",
@@ -268,27 +319,21 @@ export async function createContainerMutationResponseFromRequest(
       epoch: state.epoch,
       manifestHash: request.expectedManifestHash,
     },
-    accessManifest: {
-      event: {
-        event: request.event,
-        body: request.body as Record<string, unknown>,
-        eventHash,
-      },
-      manifest: request.manifest,
-      manifestHash: request.expectedManifestHash,
-      state: state as unknown as Record<string, unknown>,
-    },
+    accessManifest,
     containerKek: {
-      containerId: event.objectId,
-      accessManifestHash: request.expectedManifestHash,
       containerKeyEpochId: keyEpoch.id,
       containerKeyEpoch: keyEpoch.keyEpoch,
-      keyEpoch: request.keyEpoch,
-      keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
-      keyTargetHash:
-        await computeContainerKekRecipientTargetHash(recipientTargets),
+      keyEpochHash,
+      keyringHash: keyring
+        ? await computeContainerKekKeyringHash(keyring)
+        : null,
+      keyTargetHash,
       parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
+      // What the server stored, as a later writer projection serves it.
+      accessManifestHash: request.expectedManifestHash,
+      containerId: event.objectId,
       containerManifestHistory,
+      keyEpoch: request.keyEpoch,
       keyring,
       recipientTargets: recipientTargets as unknown as Record<
         string,
@@ -296,10 +341,7 @@ export async function createContainerMutationResponseFromRequest(
       >[],
       wraps: request.wraps,
     },
-    referencedPrincipalHeads: [...state.referencedPrincipalHeads],
   };
-  registerContainerManifestBundles([response.accessManifest]);
-  return response;
 }
 
 function keyringFromRequest(input: {

@@ -109,7 +109,7 @@ test("an exact compound policy replay survives a later container mutation", asyn
   );
   expect(
     replay.groupPolicy.containerMutations.map(
-      (mutation) => mutation.accessManifest.manifestHash,
+      (mutation) => mutation.manifestHead.manifestHash,
     ),
   ).toEqual(
     prepared.containerMutations.map(
@@ -117,7 +117,7 @@ test("an exact compound policy replay survives a later container mutation", asyn
     ),
   );
   expect(
-    replay.groupPolicy.containerMutations[0]?.accessManifest.manifestHash,
+    replay.groupPolicy.containerMutations[0]?.manifestHead.manifestHash,
   ).toBe(prepared.rootRekey.bundle.manifestHash);
   expect(
     replay.groupPolicy.containerMutations[0]?.containerKek.containerKeyEpochId,

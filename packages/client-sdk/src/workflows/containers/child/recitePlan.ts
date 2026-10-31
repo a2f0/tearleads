@@ -12,10 +12,7 @@ import type { HeldContainerHead } from "../../../data/containers/shared/heldCont
 import { principalPolicyRef } from "../../../data/containers/shared/principalPolicies";
 import { containerManifestRef } from "../../../data/containers/shared/projection";
 import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
-import {
-  canonicalKeyingJsonString,
-  readCanonicalRecord,
-} from "../../../data/keying/canonicalJson";
+import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principals/principalPolicyEvidence";
 
 export function referencedRecitationPolicies(
@@ -108,34 +105,16 @@ export function assertContainerReciteAcknowledgement(
   plan: Awaited<ReturnType<typeof buildContainerRecitePlan>>,
   response: ContainerReciteResponse,
 ): void {
-  const bundle = response.accessManifest;
-  const signedFieldsMatch = [
-    [bundle.event.event, plan.event],
-    [bundle.event.body, plan.body],
-    [bundle.manifest, plan.manifest],
-    [bundle.state, plan.state],
-  ].every(
-    ([actual, expected]) =>
-      canonicalKeyingJsonString(actual, "Recitation response") ===
-      canonicalKeyingJsonString(expected, "Recitation plan"),
-  );
+  // The manifest hash commits to the signed event, the derived state, and
+  // the cited principal heads, so equal hashes acknowledge exactly this plan.
   if (
     response.containerId !== plan.state.containerId ||
     response.organizationId !== plan.state.organizationId ||
     response.parentId !== plan.state.parentContainerId ||
+    (response.systemSlot ?? null) !== plan.state.systemSlot ||
     response.manifestHead.epoch !== plan.state.epoch ||
     response.manifestHead.manifestHash !== plan.manifestHash ||
-    bundle.manifestHash !== plan.manifestHash ||
-    bundle.event.eventHash !== plan.eventHash ||
-    !signedFieldsMatch ||
-    canonicalKeyingJsonString(
-      response.referencedPrincipalHeads,
-      "Recitation references",
-    ) !==
-      canonicalKeyingJsonString(
-        plan.manifest.referencedPrincipalHeads,
-        "Recitation planned references",
-      )
+    response.eventHash !== plan.eventHash
   )
     throw new KeyingVerificationError(
       "object_mismatch",

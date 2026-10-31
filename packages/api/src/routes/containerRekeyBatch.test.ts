@@ -86,14 +86,14 @@ test("an inline rekey that strands a granted path refuses the whole write", asyn
   await authenticate(grantee);
   const root = await bootstrapRoot(owner);
   const upper = await createChildContainer({ parent: root, signer: owner });
-  const upperBundle = accessManifestFromContainerResponse(upper);
-  const upperKek = kekStateFromContainerResponse(upper);
+  const upperBundle = await accessManifestFromContainerResponse(upper);
+  const upperKek = await kekStateFromContainerResponse(upper);
   const lower = await createChildContainer({
     parent: { bundle: upperBundle, kekState: upperKek },
     parentPath: [root.bundle],
     signer: owner,
   });
-  const lowerBundle = accessManifestFromContainerResponse(lower);
+  const lowerBundle = await accessManifestFromContainerResponse(lower);
   const headers = {
     Authorization: `Bearer ${owner.token}`,
     "Content-Type": "application/json",
@@ -108,7 +108,7 @@ test("an inline rekey that strands a granted path refuses the whole write", asyn
           parentKekState: upperKek,
           previous: lowerBundle,
           previousContainerPath: [root.bundle, upperBundle, lowerBundle],
-          previousKekState: kekStateFromContainerResponse(lower),
+          previousKekState: await kekStateFromContainerResponse(lower),
           recipient: grantee,
           signer: owner,
         }),

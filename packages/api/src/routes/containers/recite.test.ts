@@ -9,8 +9,6 @@ import {
 import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk";
 import { createTestUser } from "@tearleads/test-utils";
 import {
-  isContainerMutationResponse,
-  isContainerReciteResponse,
   isContainerWriterProjectionResponse,
   isOrganizationReadModelResponse,
 } from "@tearleads/validators/response";
@@ -26,6 +24,10 @@ import {
 import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { decodeServedContainerProjection } from "../../../test/helpers/servedWriterProjection";
+import {
+  withStoredContainerManifest,
+  withStoredContainerMutation,
+} from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
 
 test.each(["billing_inactive", "sync_seat_unassigned"] as const)(
@@ -82,9 +84,7 @@ test("re-citing an empty child advances its manifest and preserves every KEK row
   const signed = await request({ path, signer: owner });
   const response = await post(child.containerId, owner, signed);
   expect(response.status, await response.clone().text()).toBe(200);
-  const body: unknown = await response.json();
-  if (!isContainerReciteResponse(body))
-    throw new Error("Expected recite response");
+  const body = await withStoredContainerManifest(await response.json());
   expect(body.accessManifest.manifestHash).toBe(signed.expectedManifestHash);
   expect(body.accessManifest.state).toMatchObject({
     directGrants: [],
@@ -196,9 +196,7 @@ test("an inherited write grant does not authorize re-citation", async () => {
     },
   );
   expect(granted.status, await granted.clone().text()).toBe(200);
-  const response: unknown = await granted.json();
-  if (!isContainerMutationResponse(response))
-    throw new Error("Expected granted root");
+  const response = await withStoredContainerMutation(await granted.json());
   const recited = await post(
     child.containerId,
     writer,
@@ -219,9 +217,7 @@ test("a child re-cites an advanced ancestor and rejects the old authorizing path
     await request({ path: [root.bundle], signer: owner }),
   );
   expect(rootResponse.status).toBe(200);
-  const advanced: unknown = await rootResponse.json();
-  if (!isContainerReciteResponse(advanced))
-    throw new Error("Expected advanced root");
+  const advanced = await withStoredContainerManifest(await rootResponse.json());
   const stale = await post(
     child.containerId,
     owner,

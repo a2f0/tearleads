@@ -32,8 +32,8 @@ async function grantedChild() {
   const { groupId } = await grantContainerThroughReadGroup({
     actor: owner,
     container: {
-      bundle: accessManifestFromContainerResponse(child.response),
-      kekState: kekStateFromContainerResponse(child.response),
+      bundle: await accessManifestFromContainerResponse(child.response),
+      kekState: await kekStateFromContainerResponse(child.response),
       plaintextKek: child.plaintextKek,
     },
     parentKekState: root.kekState,

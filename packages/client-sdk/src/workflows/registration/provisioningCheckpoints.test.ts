@@ -7,7 +7,10 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  asContainerMutationFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import type { CreateOrganizationResponse } from "@tearleads/validators/response";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
@@ -90,14 +93,16 @@ function expectedProvisioningHeads(
       manifestHash: request.initialRootContainer.expectedManifestHash,
     },
     response.rootMetadataDocument.accessManifest,
-    response.rosterProfileContainer.container.accessManifest,
+    asContainerMutationFixture(response.rosterProfileContainer.container)
+      .accessManifest,
     response.rosterProfileContainer.metadataDocument.accessManifest,
     response.rosterProfileDocument.accessManifest,
-    response.organizationMetadataContainer.container.accessManifest,
+    asContainerMutationFixture(response.organizationMetadataContainer.container)
+      .accessManifest,
     response.organizationMetadataContainer.metadataDocument.accessManifest,
     response.organizationProfileDocument.accessManifest,
     ...response.systemContainers.flatMap((entry) => [
-      entry.container.accessManifest,
+      asContainerMutationFixture(entry.container).accessManifest,
       entry.metadataDocument.accessManifest,
     ]),
   ];

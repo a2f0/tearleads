@@ -93,22 +93,19 @@ function createContainerMutationResponse(overrides = {}) {
     organizationId: "550e8400-e29b-41d4-a716-446655440099",
     parentId: "550e8400-e29b-41d4-a716-446655440098",
     updatedAt: new Date().toISOString(),
+    eventHash: "container-event-hash",
     manifestHead: {
       epoch: 1,
       manifestHash: "container-manifest-hash",
     },
-    accessManifest: {
-      event: {
-        event: { eventType: "container.create" },
-        body: { eventType: "container.create" },
-        eventHash: "container-event-hash",
-      },
-      manifest: { objectType: "container" },
-      manifestHash: "container-manifest-hash",
-      state: { containerId: "550e8400-e29b-41d4-a716-446655440000" },
+    containerKek: {
+      containerKeyEpoch: 1,
+      containerKeyEpochId: "key-epoch-1",
+      keyEpochHash: "key-epoch-hash",
+      keyringHash: null,
+      keyTargetHash: "key-target-hash",
+      parentContainerKeyEpochId: null,
     },
-    containerKek: createContainerKekResponse(),
-    referencedPrincipalHeads: [],
     ...overrides,
   };
 }

@@ -21,15 +21,15 @@ test("leaf rotation requires its intermediate ancestor to be repaired first", as
   const root = await bootstrapRoot(owner);
   const child = await createChildContainer({ parent: root, signer: owner });
   const childFixture = {
-    bundle: accessManifestFromContainerResponse(child),
-    kekState: kekStateFromContainerResponse(child),
+    bundle: await accessManifestFromContainerResponse(child),
+    kekState: await kekStateFromContainerResponse(child),
   };
   const leaf = await createChildContainer({
     parent: childFixture,
     parentPath: [root.bundle],
     signer: owner,
   });
-  const leafBundle = accessManifestFromContainerResponse(leaf);
+  const leafBundle = await accessManifestFromContainerResponse(leaf);
   const rotatedRoot = await buildRootContainerRekeyMutation({
     previous: root,
     signer: owner,
@@ -54,7 +54,7 @@ test("leaf rotation requires its intermediate ancestor to be repaired first", as
       childFixture.bundle,
       leafBundle,
     ],
-    previousKekState: kekStateFromContainerResponse(leaf),
+    previousKekState: await kekStateFromContainerResponse(leaf),
     signer: owner,
   });
   const rejected = await postRekey(leaf.containerId, staleLeafRequest);
@@ -81,14 +81,14 @@ test("leaf rotation requires its intermediate ancestor to be repaired first", as
   const repairedLeaf = await postRekey(
     leaf.containerId,
     await buildRekeyRequest({
-      parentKekState: kekStateFromContainerResponse(repaired),
+      parentKekState: await kekStateFromContainerResponse(repaired),
       previous: leafBundle,
       previousContainerPath: [
         rotatedRoot.bundle,
-        accessManifestFromContainerResponse(repaired),
+        await accessManifestFromContainerResponse(repaired),
         leafBundle,
       ],
-      previousKekState: kekStateFromContainerResponse(leaf),
+      previousKekState: await kekStateFromContainerResponse(leaf),
       signer: owner,
     }),
   );

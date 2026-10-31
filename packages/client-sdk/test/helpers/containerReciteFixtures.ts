@@ -13,7 +13,6 @@ import {
   heldContainerSnapshot,
   rememberAcknowledgedContainerHead,
 } from "../../src/data/containers/shared/heldContainerHeads";
-import { readCanonicalRecord } from "../../src/data/keying/canonicalJson";
 import { verifyContainerWriterProjection } from "../../src/data/keyingProjectionVerification";
 import {
   readAccessEvent,
@@ -169,19 +168,7 @@ export function reciteResponse(
     parentId: head.state.parentContainerId,
     createdAt: "2026-09-04T00:00:00.000Z",
     updatedAt: "2026-09-04T00:00:00.000Z",
+    eventHash: head.event.eventHash,
     manifestHead: { epoch: head.state.epoch, manifestHash: head.manifestHash },
-    accessManifest: {
-      event: {
-        event: readCanonicalRecord(head.event.event, "Test event response"),
-        eventHash: head.event.eventHash,
-        body: head.event.body,
-      },
-      manifest: readCanonicalRecord(head.manifest, "Test manifest response"),
-      manifestHash: head.manifestHash,
-      state: readCanonicalRecord(head.state, "Test state response"),
-    },
-    referencedPrincipalHeads: head.manifest.referencedPrincipalHeads.map(
-      (ref) => ({ ...ref }),
-    ),
   };
 }

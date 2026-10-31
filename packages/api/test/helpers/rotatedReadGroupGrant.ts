@@ -328,9 +328,9 @@ async function rotateRootGroupPolicy(input: {
     successor: input.successor,
   });
   return {
-    bundle: accessManifestFromContainerResponse(mutation),
+    bundle: await accessManifestFromContainerResponse(mutation),
     keyringEntries: rekey.keyringEntries,
-    kekState: kekStateFromContainerResponse(mutation),
+    kekState: await kekStateFromContainerResponse(mutation),
     plaintextKek: rekey.plaintextKek,
     principalPolicies: rekey.container.principalPolicies ?? [],
   };
@@ -398,8 +398,8 @@ export async function grantRootThroughRotatedReadGroup(input: {
     successor: granted,
   });
   const grantedRoot: DecryptableStoredRootFixture = {
-    bundle: accessManifestFromContainerResponse(grantMutation),
-    kekState: kekStateFromContainerResponse(grantMutation),
+    bundle: await accessManifestFromContainerResponse(grantMutation),
+    kekState: await kekStateFromContainerResponse(grantMutation),
     plaintextKek: input.root.plaintextKek,
     principalPolicies: uniquePrincipalPolicies([
       ...input.root.principalPolicies,

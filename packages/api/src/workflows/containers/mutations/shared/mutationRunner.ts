@@ -395,6 +395,8 @@ function assertMutationWithinPrelockedScope(
  * which a move's realtime hint needs and the request no longer carries.
  */
 export interface ContainerMutationOutcome {
+  /** The verified state's metadata document, which the response omits. */
+  readonly metadataDocumentId: string;
   readonly previousParentId: string | null | undefined;
   readonly response: ContainerMutationResponse;
 }
@@ -483,6 +485,7 @@ export async function mutateContainerWithExecutorOutcome(
   );
 
   return {
+    metadataDocumentId: artifacts.manifest.state.metadataDocumentId,
     previousParentId: artifacts.previousManifest?.state.parentContainerId,
     response: await persistVerifiedMutation(
       context,

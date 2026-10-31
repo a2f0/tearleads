@@ -36,14 +36,20 @@ export function createContainerMutation() {
 
 export function createContainerMutationResponse() {
   return {
-    accessManifest: createAccessManifestBundle(),
     containerId: "container-1",
-    containerKek: createContainerWriterProjectionResponse().containerKeks[0],
+    containerKek: {
+      containerKeyEpoch: 1,
+      containerKeyEpochId: "key-epoch-1",
+      keyEpochHash: "key-epoch-hash",
+      keyringHash: null,
+      keyTargetHash: "key-target-hash",
+      parentContainerKeyEpochId: null,
+    },
     createdAt: "2026-08-06T00:00:00.000Z",
+    eventHash: "event-hash",
     manifestHead: { epoch: 1, manifestHash: "manifest-hash" },
     organizationId: "organization-1",
     parentId: "parent-1",
-    referencedPrincipalHeads: [],
     updatedAt: "2026-08-06T00:00:00.000Z",
   };
 }

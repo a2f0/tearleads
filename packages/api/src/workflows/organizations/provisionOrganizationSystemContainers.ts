@@ -5,11 +5,8 @@ import type {
   ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type { ContainerCreateWithMetadataDocumentResponse } from "@tearleads/validators/response";
-import { createContainer } from "../containers/mutations/createContainer";
-import {
-  assertContainerSystemSlot,
-  readContainerMetadataDocumentId,
-} from "../containers/mutations/createContainerWithMetadataDocument";
+import { createContainerOutcome } from "../containers/mutations/createContainer";
+import { assertContainerSystemSlot } from "../containers/mutations/createContainerWithMetadataDocument";
 import { createDocumentWithExecutor } from "../documents/mutations";
 import { appendProvisionedDocumentInitialUpdate } from "../documents/mutations/syncDocument";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
@@ -27,14 +24,14 @@ async function createProvisionedSystemContainer(
     userId: string;
   },
 ): Promise<ContainerCreateWithMetadataDocumentResponse> {
-  const container = await createContainer({
-    executor: tx,
-    fingerprint: input.signer.fingerprint,
-    request: input.request.container,
-    userId: input.userId,
-  });
+  const { metadataDocumentId, response: container } =
+    await createContainerOutcome({
+      executor: tx,
+      fingerprint: input.signer.fingerprint,
+      request: input.request.container,
+      userId: input.userId,
+    });
   assertContainerSystemSlot(container, input.request.systemSlot ?? null);
-  const metadataDocumentId = readContainerMetadataDocumentId(container);
 
   const metadataDocument = await createDocumentWithExecutor({
     executor: tx,

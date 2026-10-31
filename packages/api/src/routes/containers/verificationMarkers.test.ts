@@ -2,13 +2,13 @@ import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { accessEvents, accessManifests } from "@tearleads/api-shared/schema";
 import * as crypto from "@tearleads/crypto";
-import { isContainerReciteResponse } from "@tearleads/validators/response";
 import { and, eq, isNotNull } from "drizzle-orm";
 import {
   postRecite as post,
   buildReciteRequest as request,
   createReciteScenario as scenario,
 } from "../../../test/helpers/containerRecite";
+import { withStoredContainerManifest } from "../../../test/helpers/storedContainerMutation";
 import { clearAccessManifestVerificationMarkers } from "../../../test/helpers/verificationMarkers";
 import * as manifestStore from "../../access/read/accessManifestStore";
 import { routeApp } from "../../routeApp";
@@ -34,9 +34,7 @@ async function recite(
     });
     const response = await post(child.containerId, owner, signed);
     expect(response.status, await response.clone().text()).toBe(200);
-    const body: unknown = await response.json();
-    if (!isContainerReciteResponse(body))
-      throw new Error("Expected recite response");
+    const body = await withStoredContainerManifest(await response.json());
     current = body.accessManifest;
   }
   return current;

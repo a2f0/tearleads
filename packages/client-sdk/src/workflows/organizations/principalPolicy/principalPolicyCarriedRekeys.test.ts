@@ -71,9 +71,9 @@ test("a refused group commit is retried once carrying the named rekeys", async (
           data: {
             groupPolicy: {
               ...nextGroup,
-              containerMutations: (
-                input.groupPolicy.containerMutations ?? []
-              ).map(echo) as never,
+              containerMutations: (await Promise.all(
+                (input.groupPolicy.containerMutations ?? []).map(echo),
+              )) as never,
             },
             organizationPolicy: { ...nextOrganization, containerMutations: [] },
           },

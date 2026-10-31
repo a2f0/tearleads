@@ -120,6 +120,10 @@ import {
   signPrincipalStateBundle,
 } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
+import {
+  type StoredContainerMutation,
+  withStoredContainerMutation,
+} from "../../../test/helpers/storedContainerMutation";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
   getCurrentContainerKeyEpoch,
@@ -179,13 +183,13 @@ function asVerifiedContainerManifest(
 }
 
 function accessManifestFromResponse(
-  response: ContainerMutationResponse,
+  response: StoredContainerMutation,
 ): AccessManifestBundleWire {
-  return response.accessManifest as unknown as AccessManifestBundleWire;
+  return response.accessManifest;
 }
 
 function kekStateFromResponse(
-  response: ContainerMutationResponse,
+  response: StoredContainerMutation,
 ): VerifiedContainerKekState {
   return response.containerKek as unknown as VerifiedContainerKekState;
 }
@@ -506,12 +510,12 @@ async function commitGroupGrant(input: {
   });
 }
 
-function firstCompoundMutation(
+async function firstCompoundMutation(
   result: Awaited<ReturnType<typeof putGroupPrincipalPolicy>>,
-): ContainerMutationResponse {
+): Promise<StoredContainerMutation> {
   const mutation = result.containerMutations[0];
   invariant(mutation, "expected compound principal container mutation");
-  return mutation;
+  return withStoredContainerMutation(mutation);
 }
 
 function toStoredContainerKeyEpoch(
@@ -1104,11 +1108,11 @@ async function listRootContainers(input: {
 
 async function expectMutationSuccess(
   response: Response,
-): Promise<ContainerMutationResponse> {
+): Promise<StoredContainerMutation> {
   expect(response.status).toBe(200);
   const body = await response.json();
   expect(isContainerMutationResponse(body)).toBe(true);
-  return body as ContainerMutationResponse;
+  return withStoredContainerMutation(body);
 }
 
 async function createChild(input: {
@@ -1117,7 +1121,7 @@ async function createChild(input: {
   readonly parentContainerPath?: readonly AccessManifestBundleWire[];
   readonly parentKekState: VerifiedContainerKekState;
   readonly signer: TestUser;
-}): Promise<ContainerMutationResponse> {
+}): Promise<StoredContainerMutation> {
   const request = await buildCreateRequest({
     containerId: input.containerId ?? crypto.randomUUID(),
     parent: input.parent,
@@ -1934,7 +1938,7 @@ test("POST /containers/:containerId/share allows additional root group grants", 
     containerId: rootManifest.state.containerId,
     current: group,
   });
-  const shared = firstCompoundMutation(granted);
+  const shared = await firstCompoundMutation(granted);
 
   const sharedManifest = asVerifiedContainerManifest(
     accessManifestFromResponse(shared),
@@ -2030,7 +2034,7 @@ test("POST /containers/:containerId/share avoids downstream content-key fanout f
     containerId: created.containerId,
     current: group,
   });
-  const sharedToGroup = firstCompoundMutation(granted);
+  const sharedToGroup = await firstCompoundMutation(granted);
 
   expect(await countDownstreamContentKeyRows(seededContentKeyRows)).toEqual(
     baselineCounts,
@@ -2093,12 +2097,14 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
     containerId: created.containerId,
     current: initialGroup,
   });
-  const shared = firstCompoundMutation(grantedGroup);
+  const shared = await firstCompoundMutation(grantedGroup);
 
   expect(shared.containerKek.containerKeyEpochId).toBe(
     userShared.containerKek.containerKeyEpochId,
   );
-  expect(shared.referencedPrincipalHeads).toEqual([
+  expect(
+    Reflect.get(shared.accessManifest.state, "referencedPrincipalHeads"),
+  ).toEqual([
     {
       principalType: "group",
       principalId: groupPrincipalId,
@@ -2161,7 +2167,7 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
     current: secondGroup,
     signedAt: "2026-04-30T00:00:31.000Z",
   });
-  const secondGroupShared = firstCompoundMutation(secondGrantedGroup);
+  const secondGroupShared = await firstCompoundMutation(secondGrantedGroup);
   expect(secondGroupShared.containerKek.containerKeyEpochId).toBe(
     shared.containerKek.containerKeyEpochId,
   );
@@ -2494,7 +2500,7 @@ test("group grant revoke requires and commits with principal rotation", async ()
     containerId: created.containerId,
     current: group,
   });
-  const shared = firstCompoundMutation(grantedGroup);
+  const shared = await firstCompoundMutation(grantedGroup);
 
   const recipientBaselineResponse = await listRootContainers({
     token: recipient.token,
@@ -2605,7 +2611,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
     containerId: created.containerId,
     current: group,
   });
-  const shared = firstCompoundMutation(grantedGroup);
+  const shared = await firstCompoundMutation(grantedGroup);
 
   const recipientBaselineResponse = await listRootContainers({
     token: recipient.token,
@@ -2736,7 +2742,7 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
     containerId: created.containerId,
     current: group,
   });
-  const groupShared = firstCompoundMutation(grantedGroup);
+  const groupShared = await firstCompoundMutation(grantedGroup);
 
   const recipientBaselineResponse = await listRootContainers({
     token: recipient.token,
@@ -2942,7 +2948,7 @@ test("POST /containers/:containerId/rekey materializes a writer KEK rotation", a
     childKek.containerKeyEpochId,
   );
   expect(rekeyed.containerKek.keyring).toEqual(
-    request.keyring as ContainerMutationResponse["containerKek"]["keyring"],
+    request.keyring as StoredContainerMutation["containerKek"]["keyring"],
   );
   expect(rekeyed.containerKek.recipientTargets).toEqual([
     {
@@ -3445,7 +3451,7 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
     containerId: child.containerId,
     current: group,
   });
-  const groupSharedChild = firstCompoundMutation(grantedGroup);
+  const groupSharedChild = await firstCompoundMutation(grantedGroup);
 
   const recipientBaselineResponse = await listRootContainers({
     token: recipient.token,

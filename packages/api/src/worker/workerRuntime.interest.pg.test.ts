@@ -153,8 +153,8 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime interest", () => {
       await postJson(
         `${base}/containers/${rootId}/revoke`,
         await buildRootRevokeRequest({
-          previous: accessManifestFromContainerResponse(shared),
-          previousKekState: kekStateFromContainerResponse(shared),
+          previous: await accessManifestFromContainerResponse(shared),
+          previousKekState: await kekStateFromContainerResponse(shared),
           revokedUser: recipient,
           signer: owner,
         }),

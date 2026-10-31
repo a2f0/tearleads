@@ -66,7 +66,7 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
     (await getCurrentAccessManifestHead("document", document.id, db))
       ?.manifestHash,
   ).toBe(document.accessManifest.manifestHash);
-  const childKek = kekStateFromContainerResponse(child);
+  const childKek = await kekStateFromContainerResponse(child);
   const rawTarget = bind.contentKeyBundle.targets[0];
   if (!rawTarget) throw new Error("Expected initial blob target");
   const target = {

@@ -139,8 +139,8 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     const sharedResponse =
       (await shareResponse.json()) as ContainerMutationResponse;
     const sharedRoot: StoredRootFixture = {
-      bundle: accessManifestFromContainerResponse(sharedResponse),
-      kekState: kekStateFromContainerResponse(sharedResponse),
+      bundle: await accessManifestFromContainerResponse(sharedResponse),
+      kekState: await kekStateFromContainerResponse(sharedResponse),
       principalPolicies: root.principalPolicies,
     };
     const created = await createDocument({ owner, root: sharedRoot });

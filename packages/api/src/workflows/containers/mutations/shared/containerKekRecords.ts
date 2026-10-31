@@ -22,11 +22,6 @@ import {
 } from "../../../../keyingProjectionRecords";
 import { mutationShapeError } from "../errors";
 
-export {
-  toContainerKeyEpoch as containerKeyEpochRecord,
-  toContainerKeyWrap as containerKeyWrapRecord,
-} from "../../../../access/read/containerKekStore";
-
 export function isKekRecipientKind(
   value: unknown,
 ): value is ContainerKeyWrap["recipientKind"] {
@@ -240,17 +235,6 @@ function readContainerKekRecipientTargets(
   return value.map((entry, index) =>
     readContainerKekRecipientTarget(entry, `${label}[${index}]`),
   );
-}
-
-export function containerKekRecipientTargetRecord(
-  target: ContainerKekRecipientTarget,
-): Record<string, unknown> {
-  return {
-    recipientKind: target.recipientKind,
-    recipientId: target.recipientId,
-    recipientKeyEpochId: target.recipientKeyEpochId,
-    recipientKeyFingerprint: target.recipientKeyFingerprint,
-  };
 }
 
 export function readVerifiedContainerKekState(

@@ -156,8 +156,8 @@ test("GET principal policy serves a reader granted above a child's group grant",
   const { groupId: childGroupId } = await grantContainerThroughReadGroup({
     actor: owner,
     container: {
-      bundle: accessManifestFromContainerResponse(child.response),
-      kekState: kekStateFromContainerResponse(child.response),
+      bundle: await accessManifestFromContainerResponse(child.response),
+      kekState: await kekStateFromContainerResponse(child.response),
       plaintextKek: child.plaintextKek,
     },
     parentKekState: grantedRoot.kekState,

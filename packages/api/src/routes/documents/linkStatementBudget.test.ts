@@ -31,7 +31,7 @@ test("linking a document with k attachments stays within its statement budget", 
   await authenticate(owner);
   const root = await bootstrapRoot(owner);
   const child = await createChildContainer({ parent: root, signer: owner });
-  const childKek = kekStateFromContainerResponse(child);
+  const childKek = await kekStateFromContainerResponse(child);
 
   const linkWithAttachments = async (attachments: number) => {
     const document = await createDocument({ owner, root });

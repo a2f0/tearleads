@@ -10,10 +10,7 @@ import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
-import {
-  type ContainerMutationResponse,
-  isContainerMutationResponse,
-} from "@tearleads/validators/response";
+import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
 import { createTestContainerKekMaterial } from "./containerKekMaterial";
 import { containerManifestRefs } from "./containerManifestRefs";
@@ -26,6 +23,10 @@ import {
   loadPrincipalPoliciesForContainerPath,
 } from "./keyingWriterProjectionKit";
 import { principalPolicyRefs } from "./principalPolicyRefs";
+import {
+  type StoredContainerMutation,
+  withStoredContainerMutation,
+} from "./storedContainerMutation";
 
 export interface CreateChildContainerInput {
   readonly parent: {
@@ -39,7 +40,7 @@ export interface CreateChildContainerInput {
 
 export async function createChildContainer(
   input: CreateChildContainerInput,
-): Promise<ContainerMutationResponse> {
+): Promise<StoredContainerMutation> {
   return (await createChildContainerFixture(input)).response;
 }
 
@@ -49,7 +50,7 @@ export async function createChildContainerFixture(
 ): Promise<{
   readonly containerKeyEpochId: string;
   readonly plaintextKek: Uint8Array;
-  readonly response: ContainerMutationResponse;
+  readonly response: StoredContainerMutation;
 }> {
   const parentBundle = input.parent.bundle as AccessManifestBundleWire;
   const parentContainerPath = [...(input.parentPath ?? []), parentBundle];
@@ -141,10 +142,11 @@ export async function createChildContainerFixture(
 
   expect(response.status).toBe(200);
   const created = await response.json();
-  expect(isContainerMutationResponse(created)).toBe(true);
+  if (!isContainerMutationResponse(created))
+    throw new Error("Expected a container mutation acknowledgement");
   return {
     containerKeyEpochId,
     plaintextKek,
-    response: created as ContainerMutationResponse,
+    response: await withStoredContainerMutation(created),
   };
 }

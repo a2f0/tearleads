@@ -181,8 +181,8 @@ test("purge proof retains the exact path that authorized inherited access", asyn
     throw new Error("Expected shared root response");
   }
   const sharedRoot: StoredRootFixture = {
-    bundle: accessManifestFromContainerResponse(shared),
-    kekState: kekStateFromContainerResponse(shared),
+    bundle: await accessManifestFromContainerResponse(shared),
+    kekState: await kekStateFromContainerResponse(shared),
     principalPolicies: root.principalPolicies,
   };
   const authorizingContainerPath = [sharedRoot.bundle, childFixture.bundle];

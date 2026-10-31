@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { boundedPositiveIntegerSchema, loosePlainObject } from "../schema";
 
-export const ReferencedPrincipalStateResponseShape = {
+const ReferencedPrincipalStateResponseShape = {
   keyEpoch: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
   keyFingerprint: z.string(),
   principalId: z.string(),

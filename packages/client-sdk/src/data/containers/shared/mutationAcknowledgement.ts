@@ -29,46 +29,28 @@ export interface AuthoredContainerMutationHead {
   readonly manifestHash: string;
   /**
    * The keyring the epoch already had, for mutations that keep their epoch.
-   * Its artifact is immutable, so the response must echo exactly this.
+   * Its artifact is immutable, so the acknowledged keyring hash must be its.
    */
   readonly previousKeyring?: Record<string, unknown> | null | undefined;
   readonly state: ContainerAccessManifestState;
   readonly wraps: readonly ContainerKeyWrap[];
 }
 
-function assertCanonicalMatch(input: {
-  readonly actual: unknown;
-  readonly expected: unknown;
-  readonly label: string;
-}): void {
-  if (
-    canonicalKeyingJsonString(input.actual, `${input.label} response`) !==
-    canonicalKeyingJsonString(input.expected, `${input.label} plan`)
-  ) {
-    throw new Error(`Container mutation response ${input.label} mismatch`);
-  }
-}
-
-function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
-  return [...values].sort((left, right) =>
-    compareCanonicalStrings(
-      canonicalKeyingJsonString(left, label),
-      canonicalKeyingJsonString(right, label),
-    ),
-  );
-}
-
 function expectedRecipientTargets(
   wraps: readonly ContainerKeyWrap[],
 ): ContainerKekRecipientTarget[] {
-  return sortedCanonicalValues(
-    wraps.map((wrap) => ({
+  return [
+    ...wraps.map((wrap) => ({
       recipientId: wrap.recipientId,
       recipientKeyEpochId: wrap.recipientKeyEpochId,
       recipientKeyFingerprint: wrap.recipientKeyFingerprint,
       recipientKind: wrap.recipientKind,
     })),
-    "recipient target",
+  ].sort((left, right) =>
+    compareCanonicalStrings(
+      canonicalKeyingJsonString(left, "recipient target"),
+      canonicalKeyingJsonString(right, "recipient target"),
+    ),
   );
 }
 
@@ -84,21 +66,22 @@ function assertResponseIdentity(
     throw new Error("Container mutation response object identity mismatch");
   }
   // The top-level slot column is what local system-container lookups key on,
-  // so it must echo the slot this client signed into the manifest state; an
+  // so it must name the slot this client signed into the manifest state; an
   // omitted slot is the server's spelling of null.
   if ((response.systemSlot ?? null) !== plan.state.systemSlot) {
     throw new Error("Container mutation response system slot mismatch");
   }
+  // The manifest hash commits to the signed event (by hash), the derived
+  // state, and the key target set, so equal hashes acknowledge exactly the
+  // manifest this client signed.
   if (
     response.manifestHead.epoch !== plan.state.epoch ||
     response.manifestHead.manifestHash !== plan.manifestHash ||
-    response.accessManifest.manifestHash !== plan.manifestHash
+    response.eventHash !== plan.eventHash
   ) {
     throw new Error("Container mutation response manifest head mismatch");
   }
   if (
-    response.containerKek.containerId !== plan.containerId ||
-    response.containerKek.accessManifestHash !== plan.manifestHash ||
     response.containerKek.containerKeyEpochId !== plan.keyEpoch.id ||
     response.containerKek.containerKeyEpoch !== plan.keyEpoch.keyEpoch
   ) {
@@ -113,121 +96,66 @@ function readOptionalKeyringHash(body: object): string | null {
 }
 
 /**
- * The response's keyring must be the one this client's own signed event
- * committed to. Without this a server could echo a substituted snapshot and
- * have it acknowledged into durable local state — the acknowledgement is the
- * moment the response becomes trusted, so the commitment is checked here.
+ * The keyring the server stored must be the one this client's own signed
+ * event committed to, or, for a mutation that keeps its epoch, the immutable
+ * artifact that epoch already had. The acknowledgement is the moment the
+ * response becomes trusted, so the commitment is checked here.
  */
-async function assertAcknowledgedKeyring(
+async function assertAcknowledgedKeyringHash(
   plan: AuthoredContainerMutationHead,
-  response: ContainerMutationResponse,
+  keyringHash: string | null,
 ): Promise<void> {
   const committedHash = readOptionalKeyringHash(plan.body);
-  const keyring = response.containerKek.keyring;
-  if (committedHash === null) {
-    // A non-rotating mutation keeps its epoch, so the echoed keyring must be
-    // the immutable artifact that epoch already had. Accepting anything else
-    // would let a server null or substitute the snapshot in the response that
-    // becomes the next writer projection.
-    const expected = plan.previousKeyring ?? null;
-    if (expected === null) {
-      // The epoch had no keyring, so the response must not invent one: an
-      // injected snapshot would become the next writer projection's history.
-      if (keyring) {
-        throw new Error(
-          "Container mutation response added a keyring to an unchanged epoch",
-        );
-      }
-      return;
-    }
-    if (!keyring) {
+  if (committedHash !== null) {
+    if (keyringHash !== committedHash) {
       throw new Error(
-        "Container mutation response dropped its unchanged keyring",
-      );
-    }
-    if (
-      (await computeContainerKekKeyringHash(keyring)) !==
-      (await computeContainerKekKeyringHash(expected))
-    ) {
-      throw new Error(
-        "Container mutation response replaced its unchanged keyring",
+        "Container mutation response keyring does not match its signed event",
       );
     }
     return;
   }
-  if (!keyring) {
-    throw new Error("Container mutation response is missing its keyring");
+  const previous = plan.previousKeyring ?? null;
+  if (previous === null) {
+    // The epoch had no keyring, so the response must not invent one: an
+    // injected snapshot would become the next writer projection's history.
+    if (keyringHash !== null) {
+      throw new Error(
+        "Container mutation response added a keyring to an unchanged epoch",
+      );
+    }
+    return;
   }
-  if ((await computeContainerKekKeyringHash(keyring)) !== committedHash) {
+  if (keyringHash === null) {
     throw new Error(
-      "Container mutation response keyring does not match its signed event",
+      "Container mutation response dropped its unchanged keyring",
+    );
+  }
+  if (keyringHash !== (await computeContainerKekKeyringHash(previous))) {
+    throw new Error(
+      "Container mutation response replaced its unchanged keyring",
     );
   }
 }
 
-async function assertResponseContent(
+async function assertResponseCommitments(
   plan: AuthoredContainerMutationHead,
   response: ContainerMutationResponse,
 ): Promise<void> {
-  assertCanonicalMatch({
-    actual: response.accessManifest.event.event,
-    expected: plan.event,
-    label: "event",
-  });
-  assertCanonicalMatch({
-    actual: response.accessManifest.event.body,
-    expected: plan.body,
-    label: "event body",
-  });
-  if (response.accessManifest.event.eventHash !== plan.eventHash) {
-    throw new Error("Container mutation response event hash mismatch");
-  }
-  assertCanonicalMatch({
-    actual: response.accessManifest.manifest,
-    expected: plan.manifest,
-    label: "manifest",
-  });
-  assertCanonicalMatch({
-    actual: response.accessManifest.state,
-    expected: plan.state,
-    label: "state",
-  });
-  assertCanonicalMatch({
-    actual: response.containerKek.keyEpoch,
-    expected: plan.keyEpoch,
-    label: "key epoch",
-  });
-  await assertAcknowledgedKeyring(plan, response);
-  assertCanonicalMatch({
-    actual: sortedCanonicalValues(response.containerKek.wraps, "response wrap"),
-    expected: sortedCanonicalValues(plan.wraps, "planned wrap"),
-    label: "wraps",
-  });
-  const recipientTargets = expectedRecipientTargets(plan.wraps);
-  const responseTargets = sortedCanonicalValues(
-    response.containerKek.recipientTargets,
-    "response recipient target",
-  );
-  assertCanonicalMatch({
-    actual: responseTargets,
-    expected: recipientTargets,
-    label: "recipient targets",
-  });
+  const kek = response.containerKek;
+  await assertAcknowledgedKeyringHash(plan, kek.keyringHash);
+  // The recipient target hash is how the #2158 wrong-recipient checks reach
+  // the acknowledgement: it commits to every wrap's recipient, so a server
+  // that stored a wrap for anyone else cannot match it.
   if (
-    response.containerKek.keyEpochHash !==
-      (await computeContainerKeyEpochHash(plan.keyEpoch)) ||
-    response.containerKek.keyTargetHash !==
-      (await computeContainerKekRecipientTargetHash(recipientTargets)) ||
-    response.containerKek.parentContainerKeyEpochId !==
-      plan.keyEpoch.parentContainerKeyEpochId
+    kek.keyEpochHash !== (await computeContainerKeyEpochHash(plan.keyEpoch)) ||
+    kek.keyTargetHash !==
+      (await computeContainerKekRecipientTargetHash(
+        expectedRecipientTargets(plan.wraps),
+      )) ||
+    kek.parentContainerKeyEpochId !== plan.keyEpoch.parentContainerKeyEpochId
   ) {
     throw new Error("Container mutation response KEK commitment mismatch");
   }
-  assertCanonicalMatch({
-    actual: response.referencedPrincipalHeads,
-    expected: plan.manifest.referencedPrincipalHeads,
-    label: "referenced principal heads",
-  });
 }
 
 export async function locallyAcknowledgedContainerMutationHead(input: {
@@ -235,7 +163,7 @@ export async function locallyAcknowledgedContainerMutationHead(input: {
   readonly response: ContainerMutationResponse;
 }): Promise<LocallyAcknowledgedAccessManifestHead> {
   assertResponseIdentity(input.plan, input.response);
-  await assertResponseContent(input.plan, input.response);
+  await assertResponseCommitments(input.plan, input.response);
   return {
     checkpoint: accessManifestCheckpointFromManifest({
       manifest: input.plan.manifest,

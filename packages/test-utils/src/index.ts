@@ -1,4 +1,6 @@
 export {
+  asContainerMutationFixture,
+  type ContainerMutationFixture,
   createContainerMutationResponseFromRequest,
   hasRegisteredContainerManifest,
   registerContainerManifestBundles,

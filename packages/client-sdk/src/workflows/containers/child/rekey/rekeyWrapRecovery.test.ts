@@ -6,7 +6,10 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  asContainerMutationFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
@@ -142,7 +145,7 @@ test("a keyring entry claiming an uncommitted epoch id is rejected", async () =>
   if (!rekeyed) {
     throw new Error("Expected the rotation to succeed");
   }
-  const epoch2Kek = rekeyed.response.containerKek;
+  const epoch2Kek = asContainerMutationFixture(rekeyed.response).containerKek;
 
   // Self-consistent forgery: fresh material with an id that commits to it, so
   // the material check passes. The signed history names epoch 1's real id, so

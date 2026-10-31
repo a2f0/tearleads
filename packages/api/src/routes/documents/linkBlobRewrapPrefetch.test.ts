@@ -31,7 +31,7 @@ async function setup() {
   await authenticate(owner);
   const root = await bootstrapRoot(owner);
   const child = await createChildContainer({ parent: root, signer: owner });
-  const childKek = kekStateFromContainerResponse(child);
+  const childKek = await kekStateFromContainerResponse(child);
   const post = (documentId: string, request: unknown) =>
     routeApp.request(`/documents/${documentId}/link`, {
       method: "POST",

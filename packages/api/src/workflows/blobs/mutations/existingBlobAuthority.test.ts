@@ -53,11 +53,11 @@ test("writing a destination does not authorize rebinding a private existing blob
       },
       body: JSON.stringify(
         await buildContainerGrantRequest({
-          previous: accessManifestFromContainerResponse(child),
-          previousKekState: kekStateFromContainerResponse(child),
+          previous: await accessManifestFromContainerResponse(child),
+          previousKekState: await kekStateFromContainerResponse(child),
           previousContainerPath: [
             root.bundle,
-            accessManifestFromContainerResponse(child),
+            await accessManifestFromContainerResponse(child),
           ],
           parentKekState: root.kekState,
           recipient: writer,
@@ -83,8 +83,8 @@ test("writing a destination does not authorize rebinding a private existing blob
   await bindForTest({ blobId, owner, request: original.request });
   const destination = {
     ...root,
-    bundle: accessManifestFromContainerResponse(shared),
-    kekState: kekStateFromContainerResponse(shared),
+    bundle: await accessManifestFromContainerResponse(shared),
+    kekState: await kekStateFromContainerResponse(shared),
   };
   const containerPath = [root.bundle, destination.bundle];
   const target = await createDocument({
