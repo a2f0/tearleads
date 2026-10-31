@@ -104,6 +104,13 @@ export async function listAccessibleContainersForUser(input: {
   readonly userId: string;
   readonly watermark: SyncWatermark | null;
 }): Promise<AccessibleContainerRow[]> {
+  // Applied inside each candidate set, so neither lane reads rows the page
+  // has already passed.
+  const watermark = watermarkPredicate(
+    sql`c.updated_at`,
+    textExpression(sql`c.id`),
+    input.watermark,
+  );
   const result = await input.runtime.db.execute(sql`
     -- Direct membership is the whole of reachability; principals contain only
     -- users, so there is no transitive tier to walk.
@@ -192,22 +199,22 @@ export async function listAccessibleContainersForUser(input: {
         c.created_at,
         c.updated_at,
         h.epoch,
-        h.manifest_hash,
-        m.state
-      -- From the parent's children via its index; CROSS JOIN stops SQLite
-      -- from starting at every container head. A root listing shows only
-      -- directly granted containers, so it needs no parent lane at all.
+        h.manifest_hash
+      -- From the parent's children via its (parent_id, updated_at, id) index,
+      -- starting at the watermark; CROSS JOIN stops SQLite from starting at
+      -- every container head. A root listing shows only directly granted
+      -- containers, so it needs no parent lane at all. The manifest state is
+      -- read only for the children the listing shows.
       from ${containers} c
       cross join ${accessManifestHeads} h
-      cross join ${accessManifests} m
       where ${
         input.parentId === null
           ? sql`false`
           : parentIdPredicate(sql`c.parent_id`, input.parentId)
       }
+        ${watermark}
         and h.object_kind = ${"container"}
         and h.object_id = c.id
-        and m.manifest_hash = h.manifest_hash
     ),
     directly_granted_containers as (
       select
@@ -234,9 +241,10 @@ export async function listAccessibleContainersForUser(input: {
           h.manifest_hash,
           m.state,
           row_number() over (partition by c.id order by h.epoch desc) as rn
-        -- Driven from this user's grant subjects through the subject index.
-        -- CROSS JOIN fixes SQLite's join order; it otherwise starts from
-        -- every container or head. Postgres treats these as inner joins.
+        -- The root lane, driven from this user's grant subjects through the
+        -- subject index. CROSS JOIN fixes SQLite's join order; it otherwise
+        -- starts from every container or head. Postgres treats these as
+        -- inner joins.
         from grant_subjects subject
         cross join ${accessManifestContainerGrantProjection} grant_projection
         cross join ${accessManifestHeads} h
@@ -249,52 +257,42 @@ export async function listAccessibleContainersForUser(input: {
           and h.object_kind = ${"container"}
           and c.id = h.object_id
           and m.manifest_hash = h.manifest_hash
+          ${watermark}
       ) ranked_direct_grants
       where rn = 1
     ),
-    candidate_containers as (
-      select * from parent_lane_candidate_containers
-      union all
-      select *
-      from directly_granted_containers
-      where ${input.parentId === null ? sql`true` : sql`false`}
-    ),
-    directly_granted_candidate_containers as (
-      select distinct candidate.id
-      from candidate_containers candidate
-      inner join directly_granted_containers direct_grant
-        on direct_grant.id = candidate.id
-    ),
+    -- Each lane has one row per container: a container has exactly one head
+    -- (access_manifest_heads is unique on object_kind, object_id), and the
+    -- root lane keeps one row of each container's repeated grants. A root
+    -- listing shows only directly granted containers. A parent listing
+    -- shows every child when the parent path is granted, and otherwise the
+    -- children the user holds a direct grant on. A child's own manifest_hash
+    -- is its only head, so a grant on it is exactly a direct grant on that
+    -- child, found by manifest hash rather than by reading every grant the
+    -- user holds.
     visible_candidate_containers as (
-      select
-        id,
-        system_slot,
-        organization_id,
-        parent_id,
-        depth,
-        created_at,
-        updated_at,
-        epoch,
-        manifest_hash,
-        state
-      from (
-        select
-          candidate.*,
-          row_number() over (
-            partition by candidate.id
-            order by candidate.epoch desc
-          ) as rn
-        from candidate_containers candidate
-        left join directly_granted_candidate_containers direct_grant
-          on direct_grant.id = candidate.id
-        where
-          direct_grant.id is not null
-          or (
-            ${input.parentId === null ? sql`false` : sql`true`}
-            and exists (select 1 from authorized_parent)
+      ${
+        input.parentId === null
+          ? sql`select * from directly_granted_containers`
+          : sql`
+      select candidate.*, m.state
+      from parent_lane_candidate_containers candidate
+      cross join ${accessManifests} m
+      where
+        m.manifest_hash = candidate.manifest_hash
+        and (
+          exists (select 1 from authorized_parent)
+          or exists (
+            select 1
+            from ${accessManifestContainerGrantProjection} grant_projection
+            cross join grant_subjects subject
+            where
+              grant_projection.manifest_hash = candidate.manifest_hash
+              and grant_projection.subject_type = subject.principal_type
+              and grant_projection.subject_id = subject.principal_id
           )
-      ) ranked_visible_candidates
-      where rn = 1
+        )`
+      }
     )
     select
       ${textExpression(sql`accessible.id`)} as "id",
@@ -310,12 +308,6 @@ export async function listAccessibleContainersForUser(input: {
       ${intExpression(sql`accessible.epoch`)} as "metadataAccessEpoch",
       ${textExpression(sql`accessible.manifest_hash`)} as "metadataAccessStateHash"
     from visible_candidate_containers accessible
-    where true
-      ${watermarkPredicate(
-        sql`accessible.updated_at`,
-        textExpression(sql`accessible.id`),
-        input.watermark,
-      )}
     order by
       accessible.updated_at asc,
       ${textExpression(sql`accessible.id`)} asc
