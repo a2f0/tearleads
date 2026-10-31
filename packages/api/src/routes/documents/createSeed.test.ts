@@ -19,9 +19,15 @@ import {
   createDocumentRequest,
   type StoredRootFixture,
 } from "../../../test/helpers/keyingWriterProjectionKit";
+import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { postDocumentSync } from "../../../test/helpers/staleBundleHealKit";
 import { routeApp } from "../../routeApp";
+import { OrganizationSyncDisabledError } from "../../workflows/billing/organizationSyncEligibility";
+import {
+  commitDocumentCreateSeedInTransaction,
+  createDocumentWithExecutor,
+} from "../../workflows/documents/mutations/createDocument";
 
 async function registeredRoot(): Promise<{
   readonly owner: TestUser;
@@ -98,6 +104,41 @@ test("a seeded create commits its seed in the create transaction", async () => {
   expect(created.initialSync?.acceptedOutgoingUpdateIds).toEqual([updateId]);
   expect(created.initialSync?.commitLsnMode).toBeDefined();
   expect(await storedUpdateIds(created.id)).toEqual([updateId]);
+}, 15_000);
+
+test("a seed skips its billing check only for the organization the create admitted", async () => {
+  const { owner, root } = await registeredRoot();
+  const { request } = await seededCreateRequest({ owner, root });
+  const organizationId = String(
+    Reflect.get(request.manifest, "organizationId"),
+  );
+  await setTestOrganizationBillingLocal(organizationId);
+  const seedAfterCreate = (syncEligibleOrganizationId: string) =>
+    db.transaction(async (tx) => {
+      const created = await createDocumentWithExecutor({
+        executor: tx,
+        fingerprint: owner.fingerprint,
+        request,
+        userId: owner.userId,
+      });
+      return commitDocumentCreateSeedInTransaction({
+        documentId: created.id,
+        executor: tx,
+        fingerprint: owner.fingerprint,
+        seed: request.initialSync,
+        syncEligibleOrganizationId,
+        userId: owner.userId,
+      });
+    });
+
+  // Admitting another organization does not cover this one's lapsed billing.
+  await expect(seedAfterCreate(crypto.randomUUID())).rejects.toBeInstanceOf(
+    OrganizationSyncDisabledError,
+  );
+  // The organization the caller admitted is not checked twice.
+  await expect(seedAfterCreate(organizationId)).resolves.toMatchObject({
+    insertedUpdateIds: [expect.any(String)],
+  });
 }, 15_000);
 
 test("a plain create reports no seed", async () => {

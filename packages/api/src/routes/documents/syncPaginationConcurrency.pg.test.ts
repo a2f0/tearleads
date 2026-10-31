@@ -45,8 +45,13 @@ test.skipIf(databaseKind !== "postgres")(
       );
       await lockSyncDocumentWriteFrontier({
         authorizingContainerIds: [],
-        currentTargets,
         documentId: created.id,
+        frontier: {
+          linkSetManifestHash: currentTargets.linkSetManifestHash,
+          linkedContainerIds: currentTargets.targets.map(
+            (target) => target.containerId,
+          ),
+        },
         tx,
       });
       await tx.insert(documentUpdates).values({

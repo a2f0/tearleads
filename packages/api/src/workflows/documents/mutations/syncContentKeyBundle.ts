@@ -6,7 +6,10 @@ import {
   getLatestDocumentContentKeyEpoch,
   type StoredDocumentContentKeyBundle,
 } from "../../../access/read/documentContentKeyStore";
-import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
+import {
+  DocumentKekTargetError,
+  type DocumentKekTargetsRead,
+} from "../../../access/read/documentKekTargets";
 import {
   DocumentContentKeyBundleError,
   requireAndRefreshCurrentDocumentContentKeyBundle,
@@ -33,18 +36,27 @@ function isStaleSyncStateError(error: unknown): boolean {
   );
 }
 
+/**
+ * `lockedTargets` is the transaction's post-lock target read; each check reuses
+ * it when it asks for the same parent-edge strictness and resolves again
+ * otherwise.
+ */
 export async function resolveSyncContentKeyBundle(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
+  readonly lockedTargets: DocumentKekTargetsRead;
   readonly request: DocumentSyncRequest;
 }): Promise<ResolvedSyncContentKeyBundle> {
   if (input.request.contentKeyBundle) {
     return {
       contentKeyBundle: await storeDocumentContentKeyBundleInTransaction(
-        toStoredContentKeyBundleInput(
-          input.documentId,
-          input.request.contentKeyBundle,
-        ),
+        {
+          ...toStoredContentKeyBundleInput(
+            input.documentId,
+            input.request.contentKeyBundle,
+          ),
+          resolvedTargets: input.lockedTargets,
+        },
         input.executor,
       ),
       servedStaleBundle: false,
@@ -60,6 +72,7 @@ export async function resolveSyncContentKeyBundle(input: {
         expectedTargetHash: input.request.expectedTargetHash,
         executor: input.executor,
         allowHistoricalParentEpochs: input.request.outgoingUpdates.length === 0,
+        resolvedTargets: input.lockedTargets,
       }),
       servedStaleBundle: false,
     };

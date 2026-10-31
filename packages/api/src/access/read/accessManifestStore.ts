@@ -10,6 +10,7 @@ export {
   listAccessManifestPrincipalHeadProjection,
   lockAccessManifestHeadsForShare,
   lockAccessManifestHeadsForUpdate,
+  lockUnheldAccessManifestHeads,
 } from "../shared/internal/accessManifestStore";
 export { selectAccessManifestVerificationMac } from "../shared/internal/accessManifestVerificationStore";
 export { getObjectAccessManifestBundles } from "../shared/internal/objectManifestHistory";

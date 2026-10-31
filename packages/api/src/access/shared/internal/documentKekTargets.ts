@@ -33,6 +33,16 @@ interface ResolvedDocumentKekTargets {
   readonly documentKeyTargetHash: string;
 }
 
+/**
+ * Targets a transaction already resolved under its locks, with the parent-edge
+ * strictness it resolved them with. A later check in the same transaction
+ * reuses them only when it asks for the same strictness.
+ */
+export interface DocumentKekTargetsRead {
+  readonly allowHistoricalParentEpochs: boolean;
+  readonly targets: ResolvedDocumentKekTargets;
+}
+
 interface AssertDocumentKekTargetsCurrentInput {
   readonly documentId: string;
   readonly expectedTargets?: readonly DocumentContentKeyTarget[];
@@ -40,11 +50,17 @@ interface AssertDocumentKekTargetsCurrentInput {
   readonly allowHistoricalParentEpochs?: boolean;
 }
 
-export async function resolveCurrentDocumentKekTargets(
+/** A document's current link-set head and its linked container ids. */
+export interface DocumentLinkSetFrontier {
+  readonly documentId: string;
+  readonly linkSetManifestHash: string;
+  readonly linkedContainerIds: readonly string[];
+}
+
+async function readDocumentLinkSetHead(
   documentId: string,
   executor: DatabaseSession,
-  allowHistoricalParentEpochs = false,
-): Promise<ResolvedDocumentKekTargets> {
+) {
   const current = await getCurrentDocumentHeadWithLinks(documentId, executor);
   if (!current) {
     throw new DocumentKekTargetError(
@@ -52,15 +68,42 @@ export async function resolveCurrentDocumentKekTargets(
       404,
     );
   }
-  const { head: linkSetHead, links: linkRows } = current;
-  const linkedContainerIds = linkRows.map((row) => row.containerId);
-
+  const linkedContainerIds = current.links.map((row) => row.containerId);
   if (linkedContainerIds.length === 0) {
     throw new DocumentKekTargetError(
       "Document link-set manifest has no linked containers",
       409,
     );
   }
+  return { head: current.head, linkedContainerIds };
+}
+
+/**
+ * The head and link ids alone, in one read: enough to authorize and to plan
+ * locks. The KEK targets are resolved once the heads are locked.
+ */
+export async function readDocumentLinkSetFrontier(
+  documentId: string,
+  executor: DatabaseSession,
+): Promise<DocumentLinkSetFrontier> {
+  const { head, linkedContainerIds } = await readDocumentLinkSetHead(
+    documentId,
+    executor,
+  );
+  return {
+    documentId,
+    linkSetManifestHash: head.manifestHash,
+    linkedContainerIds,
+  };
+}
+
+export async function resolveCurrentDocumentKekTargets(
+  documentId: string,
+  executor: DatabaseSession,
+  allowHistoricalParentEpochs = false,
+): Promise<ResolvedDocumentKekTargets> {
+  const { head: linkSetHead, linkedContainerIds } =
+    await readDocumentLinkSetHead(documentId, executor);
 
   const containerTargetById = await resolveCurrentContainerKekTargetsMapped(
     linkedContainerIds,
@@ -110,15 +153,35 @@ export async function resolveCurrentDocumentKekTargets(
   };
 }
 
+function reusableTargets(
+  input: AssertDocumentKekTargetsCurrentInput,
+  resolved: DocumentKekTargetsRead | undefined,
+): ResolvedDocumentKekTargets | undefined {
+  return resolved !== undefined &&
+    resolved.targets.documentId === input.documentId &&
+    resolved.allowHistoricalParentEpochs ===
+      (input.allowHistoricalParentEpochs ?? false)
+    ? resolved.targets
+    : undefined;
+}
+
+/**
+ * Check the expected targets against the current ones. `resolved` lets a
+ * caller that already resolved them in this transaction, under the locks that
+ * keep them current, skip the second resolution.
+ */
 export async function assertDocumentKekTargetsCurrent(
   input: AssertDocumentKekTargetsCurrentInput,
   executor: DatabaseSession,
+  resolved?: DocumentKekTargetsRead,
 ): Promise<ResolvedDocumentKekTargets> {
-  const currentTargets = await resolveCurrentDocumentKekTargets(
-    input.documentId,
-    executor,
-    input.allowHistoricalParentEpochs,
-  );
+  const currentTargets =
+    reusableTargets(input, resolved) ??
+    (await resolveCurrentDocumentKekTargets(
+      input.documentId,
+      executor,
+      input.allowHistoricalParentEpochs,
+    ));
   await assertExpectedTargetHashCurrent({
     currentTargetHash: currentTargets.documentKeyTargetHash,
     expectedTargetHash: input.expectedTargetHash,

@@ -14,7 +14,6 @@ import type {
   AccessManifest,
   AccessObjectKind,
   AnyVerifiedAccessManifest,
-  KeyingCanonicalJson,
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
 } from "@tearleads/crypto";
@@ -22,9 +21,18 @@ import { readKeyingCanonicalJson } from "@tearleads/crypto";
 import { and, asc, eq, inArray, lt, type SQL } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
-import { isSqliteApiDatabase } from "../../../utils/sqlDialect";
+import { recordTransactionLock } from "../../../utils/transactionLocks";
 import { toStoredAccessEvent } from "./accessEventLookup";
 import { insertAccessEvent } from "./accessEventStore";
+import {
+  type StoredAccessManifestBundle,
+  transactionAccessManifestBundles,
+} from "./accessManifestBundleCache";
+import {
+  accessManifestHeadLockKey,
+  type StoredAccessManifestHead,
+  toStoredAccessManifestHead,
+} from "./accessManifestHeadLocks";
 import {
   accessManifestReferencedHeads,
   accessManifestState,
@@ -42,21 +50,19 @@ import {
 } from "./accessManifestProjections";
 import { selectOneOrThrow } from "./selectOneOrThrow";
 
+export type { StoredAccessManifestHead } from "./accessManifestHeadLocks";
+export {
+  lockAccessManifestHeadsForShare,
+  lockAccessManifestHeadsForUpdate,
+  lockUnheldAccessManifestHeads,
+} from "./accessManifestHeadLocks";
+
 /**
  * access projection tables are derived cache only.
  *
  * Callers must verify signed access events and manifests with the crypto
  * package before trusting any row returned here for authorization decisions.
  */
-
-interface StoredAccessManifestHead {
-  readonly objectKind: AccessObjectKind;
-  readonly objectId: string;
-  readonly organizationId: string;
-  readonly epoch: number;
-  readonly manifestHash: string;
-  readonly updatedAt: Date;
-}
 
 interface StoredAccessManifestPrincipalHeadProjection
   extends ReferencedPrincipalHead {
@@ -73,28 +79,6 @@ interface StoredAccessManifestDocumentLinkProjection {
 
 interface StoreVerifiedAccessManifestInput {
   readonly verifiedManifest: AnyVerifiedAccessManifest;
-}
-
-interface StoredAccessManifestBundle {
-  readonly event: VerifiedAccessEvent;
-  readonly manifest: AccessManifest;
-  readonly manifestHash: string;
-  readonly state: KeyingCanonicalJson;
-  /** Untrusted stored-history marker; honored only after its MAC verifies. */
-  readonly verificationMac: string | null;
-}
-
-function toStoredAccessManifestHead(
-  row: typeof accessManifestHeads.$inferSelect,
-): StoredAccessManifestHead {
-  return {
-    objectKind: row.objectKind,
-    objectId: row.objectId,
-    organizationId: row.organizationId,
-    epoch: row.epoch,
-    manifestHash: row.manifestHash,
-    updatedAt: row.updatedAt,
-  };
 }
 
 export async function storeVerifiedAccessEventInTransaction(
@@ -232,19 +216,30 @@ export async function getAccessManifestBundles(
   omitUnreadable = false,
 ): Promise<Map<string, StoredAccessManifestBundle>> {
   const uniqueManifestHashes = unique(manifestHashes);
-  if (uniqueManifestHashes.length === 0) {
-    return new Map<string, StoredAccessManifestBundle>();
+  const bundles = new Map<string, StoredAccessManifestBundle>();
+  const memo = transactionAccessManifestBundles(executor);
+  const missingHashes: string[] = [];
+  for (const manifestHash of uniqueManifestHashes) {
+    const bundle = memo?.get(manifestHash);
+    if (bundle) bundles.set(manifestHash, bundle);
+    else missingHashes.push(manifestHash);
+  }
+  if (missingHashes.length === 0) {
+    return bundles;
   }
 
-  return loadAccessManifestBundles(
+  const loaded = await loadAccessManifestBundles(
     executor,
-    inArray(accessManifests.manifestHash, uniqueManifestHashes),
+    inArray(accessManifests.manifestHash, missingHashes),
     omitUnreadable,
   );
+  for (const [manifestHash, bundle] of loaded)
+    bundles.set(manifestHash, bundle);
+  return bundles;
 }
 
 /**
- * Manifests matching `where`, with their events. Both hashes are unique, so
+ * Manifests matching `where`, with their events, read from storage. Both hashes are unique, so
  * the join cannot multiply rows. Keep missing events visible: an incomplete
  * bundle is corruption, not an absent manifest.
  */
@@ -261,11 +256,14 @@ export async function loadAccessManifestBundles(
       eq(accessEvents.eventHash, accessManifests.eventHash),
     )
     .where(where);
+  // Every converted row joins the transaction's memo; see
+  // `transactionAccessManifestBundles`.
+  const memo = transactionAccessManifestBundles(executor);
   const bundles = new Map<string, StoredAccessManifestBundle>();
   for (const { manifest, event } of rows) {
     try {
       if (!event) throw new Error("Access event not found");
-      bundles.set(manifest.manifestHash, {
+      const bundle: StoredAccessManifestBundle = {
         event: toStoredAccessEvent(event),
         manifest: toStoredAccessManifest(manifest),
         manifestHash: manifest.manifestHash,
@@ -274,7 +272,9 @@ export async function loadAccessManifestBundles(
           "stored access manifest state",
         ),
         verificationMac: manifest.verificationMac,
-      });
+      };
+      bundles.set(manifest.manifestHash, bundle);
+      memo?.set(manifest.manifestHash, bundle);
     } catch (error) {
       if (!omitUnreadable) throw error;
     }
@@ -349,6 +349,13 @@ async function advanceAccessManifestHead(
     .returning();
 
   if (advancedHead) {
+    // The row this transaction inserted or updated stays locked to everyone
+    // else until it ends, as a FOR UPDATE lock would hold it.
+    recordTransactionLock(
+      executor,
+      accessManifestHeadLockKey(manifest.objectKind, manifest.objectId),
+      "exclusive",
+    );
     return toStoredAccessManifestHead(advancedHead);
   }
 
@@ -419,54 +426,6 @@ export async function getCurrentAccessManifestHead(
   executor: DatabaseSession,
 ): Promise<StoredAccessManifestHead | null> {
   return loadCurrentAccessManifestHead(objectKind, objectId, executor);
-}
-
-async function lockAccessManifestHeads(
-  objectKind: AccessObjectKind,
-  objectIds: readonly string[],
-  executor: DatabaseSession,
-  mode: "share" | "update",
-): Promise<readonly string[]> {
-  const uniqueObjectIds = unique(objectIds);
-  if (uniqueObjectIds.length === 0) {
-    return [];
-  }
-
-  const lockQuery = executor
-    .select({ objectId: accessManifestHeads.objectId })
-    .from(accessManifestHeads)
-    .where(
-      and(
-        eq(accessManifestHeads.objectKind, objectKind),
-        inArray(accessManifestHeads.objectId, uniqueObjectIds),
-      ),
-    )
-    // PostgreSQL does not preserve the input order of an IN predicate. Sort
-    // the rows before FOR SHARE/UPDATE acquires locks so overlapping mutation
-    // plans cannot take the same manifest heads in opposite orders.
-    .orderBy(asc(accessManifestHeads.objectId));
-
-  if (isSqliteApiDatabase()) {
-    return (await lockQuery).map((head) => head.objectId);
-  }
-
-  return (await lockQuery.for(mode)).map((head) => head.objectId);
-}
-
-export async function lockAccessManifestHeadsForShare(
-  objectKind: AccessObjectKind,
-  objectIds: readonly string[],
-  executor: DatabaseSession,
-): Promise<readonly string[]> {
-  return lockAccessManifestHeads(objectKind, objectIds, executor, "share");
-}
-
-export async function lockAccessManifestHeadsForUpdate(
-  objectKind: AccessObjectKind,
-  objectIds: readonly string[],
-  executor: DatabaseSession,
-): Promise<readonly string[]> {
-  return lockAccessManifestHeads(objectKind, objectIds, executor, "update");
 }
 
 export async function getCurrentAccessManifestHeads(

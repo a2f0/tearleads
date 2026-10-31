@@ -1,3 +1,4 @@
+export { forgetTransactionAccessManifestBundles } from "../shared/internal/accessManifestBundleCache";
 export {
   regenerateAccessManifestProjections,
   storeVerifiedAccessEventInTransaction,

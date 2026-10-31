@@ -18,6 +18,7 @@ import {
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { forgetTransactionAccessManifestBundles } from "../../../access/write/accessManifestStore";
 import { wallClockNowExpression } from "../../../utils/sqlDialect";
 import { DocumentMutationError } from "./errors";
 
@@ -114,6 +115,7 @@ async function deleteDocumentAccessHistory(
   documentId: string,
   executor: DatabaseTransaction,
 ): Promise<void> {
+  forgetTransactionAccessManifestBundles(executor);
   await executor
     .delete(documentManifestObservations)
     .where(eq(documentManifestObservations.documentId, documentId));

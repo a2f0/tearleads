@@ -1,6 +1,5 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import type { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import {
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
@@ -9,18 +8,15 @@ import {
 import { DocumentMutationError } from "./errors";
 
 export async function ensureCurrentDocumentAccess(input: {
-  readonly currentTargets: Awaited<
-    ReturnType<typeof resolveCurrentDocumentKekTargets>
-  >;
+  /** The document's linked container ids, in link order. */
+  readonly containerIds: readonly string[];
   readonly executor: DatabaseTransaction;
   readonly minimumAccessLevel: "read" | "write";
   readonly userId: string;
 }): Promise<void> {
   const context = createContainerWriterProjectionContext(input.executor);
 
-  for (const containerId of new Set(
-    input.currentTargets.targets.map((target) => target.containerId),
-  )) {
+  for (const containerId of new Set(input.containerIds)) {
     try {
       await resolveContainerAccessProjection({
         containerId,
@@ -45,9 +41,7 @@ export async function ensureCurrentDocumentAccess(input: {
 }
 
 export async function ensureSyncDocumentAccess(input: {
-  readonly currentTargets: Awaited<
-    ReturnType<typeof resolveCurrentDocumentKekTargets>
-  >;
+  readonly containerIds: readonly string[];
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;
   readonly userId: string;
@@ -58,7 +52,7 @@ export async function ensureSyncDocumentAccess(input: {
       ? ("write" as const)
       : ("read" as const);
   await ensureCurrentDocumentAccess({
-    currentTargets: input.currentTargets,
+    containerIds: input.containerIds,
     executor: input.executor,
     minimumAccessLevel,
     userId: input.userId,
