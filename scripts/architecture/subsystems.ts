@@ -225,7 +225,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Shared Utilities",
     package: "api",
     responsibility:
-      "Package-neutral helpers reused across subsystems: arrays, canonical JSON, cursor encoding, SHA-256, server secrets, manifest dependency traversal, bounded verification caching, SQL dialect, database error classification, and best-effort event publishing.",
+      "Package-neutral helpers reused across subsystems: arrays, canonical JSON, cursor encoding, SHA-256, server secrets, manifest dependency traversal, bounded verification caching, SQL dialect, database error classification, transaction-held lock memos, and best-effort event publishing.",
     seam: "utils/* direct import",
     paths: [
       `${api}/utils/array.ts`,
@@ -240,6 +240,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/utils/sqlDialect.ts`,
       `${api}/utils/storedAccessEventVerification.ts`,
       `${api}/utils/storedManifestGraph.ts`,
+      `${api}/utils/transactionLocks.ts`,
     ],
   },
   ...clientSdkSubsystems,

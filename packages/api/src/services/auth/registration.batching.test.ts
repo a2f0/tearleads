@@ -69,7 +69,11 @@ for (const full of [false, true]) {
     // 373 / 841 on PGlite and 365 / 827 on SQLite, then 370 / 838 and
     // 362 / 824 once the principal state signer read joined the transaction's
     // signer memo; Postgres also counts its two transaction controls.
-    expect(counter.statements).toBeLessThanOrEqual(full ? 840 : 372);
+    // The audit's sync unit (KEK targets once per sync, held locks and
+    // manifest bundles reused, the seed's pull page skipped) then took
+    // PGlite / SQLite / Postgres from 370 / 362 / 372 and 838 / 824 / 840 to
+    // 329 / 324 / 331 and 704 / 695 / 706.
+    expect(counter.statements).toBeLessThanOrEqual(full ? 706 : 331);
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
     const stored = await db

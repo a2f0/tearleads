@@ -333,8 +333,13 @@ test.skipIf(!onConcurrencyBackend)(
       );
       await lockSyncDocumentWriteFrontier({
         authorizingContainerIds: [ancestor.kekState.containerId],
-        currentTargets,
         documentId: created.id,
+        frontier: {
+          linkSetManifestHash: currentTargets.linkSetManifestHash,
+          linkedContainerIds: currentTargets.targets.map(
+            (target) => target.containerId,
+          ),
+        },
         tx,
       });
       markHeld();

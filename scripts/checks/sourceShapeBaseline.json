@@ -88,7 +88,7 @@
     },
     "docs/subsystems.md": {
       "lines": 117,
-      "bytes": 20873
+      "bytes": 20931
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -107,20 +107,20 @@
       "bytes": 67136
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
-      "lines": 574,
-      "bytes": 18333
+      "lines": 672,
+      "bytes": 21870
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 573,
-      "bytes": 18173
+      "lines": 525,
+      "bytes": 16869
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
       "lines": 637,
       "bytes": 20086
     },
     "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
-      "lines": 758,
-      "bytes": 23909
+      "lines": 764,
+      "bytes": 24201
     },
     "packages/api/src/access/shared/internal/principalStateStore.ts": {
       "lines": 692,

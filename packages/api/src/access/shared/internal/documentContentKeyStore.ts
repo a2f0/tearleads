@@ -36,6 +36,7 @@ import {
 import {
   assertDocumentKekTargetsCurrent,
   DocumentKekTargetError,
+  type DocumentKekTargetsRead,
 } from "./documentKekTargets";
 
 export type {
@@ -48,6 +49,8 @@ interface StoreDocumentContentKeyBundleInput {
   readonly documentId: string;
   readonly contentKeyEpoch: number;
   readonly linkSetManifestHash: string;
+  /** Targets this transaction resolved under its locks; see `assertDocumentKekTargetsCurrent`. */
+  readonly resolvedTargets?: DocumentKekTargetsRead;
   readonly targetHash: string;
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
 }
@@ -401,6 +404,7 @@ async function validateCurrentTargetsForBundle(
         expectedTargetHash: input.targetHash,
       },
       executor,
+      input.resolvedTargets,
     );
   } catch (error) {
     if (error instanceof DocumentKekTargetError) {
@@ -596,6 +600,7 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
   readonly expectedTargetHash: string;
   readonly allowHistoricalParentEpochs?: boolean;
   readonly executor: DatabaseSession;
+  readonly resolvedTargets?: DocumentKekTargetsRead;
 }): Promise<StoredDocumentContentKeyBundleWithTargets> {
   const { executor } = input;
   ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
@@ -608,6 +613,7 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
         : {}),
     },
     executor,
+    input.resolvedTargets,
   );
   if (
     currentTargets.linkSetManifestHash !== input.expectedLinkSetManifestHash

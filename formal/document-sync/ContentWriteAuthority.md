@@ -29,7 +29,7 @@ document is served every committed write's cited head.
 
 | Model action or predicate | Production seam |
 | --- | --- |
-| `CommitWrite` | `assertWriteHeaderPathCitations`, `resolveCurrentContainerManifestRefs` |
+| `CommitWrite` | `assertWriteHeaderPathCitations`, `resolveCurrentContainerManifestRefs` (its head pin reads the FOR SHARE rows `lockSyncDocumentWriteFrontier` returns, which stay current until commit) |
 | `CheckWriteAuthority` / `CommittedWritesAreAuthorized` | `requireWriteAccessThroughCommittedDocumentTarget` and `requireWriteAccessThroughCommittedBlobTarget` refuse a write the cited path does not authorize |
 | `ReadWrite` | `documentWriteAuthorizationForHeader`, `resolveEventContainerPaths`, `resolveSubmittedDocumentSyncResult`, `createAttachmentProofReader` |
 | `ReadCurrentMembership` | `resolveHistoricalContainerPathUserAccessLevel` |

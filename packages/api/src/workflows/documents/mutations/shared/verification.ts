@@ -44,6 +44,7 @@ import type { DocumentWriteAuthorizationProof } from "../types";
 import {
   assertCurrentContainerPathRefGroups,
   assertCurrentContainerPathRefs,
+  type LockedContainerHeadRows,
 } from "./currentContainerPaths";
 
 import { assertDocumentAccessEventDependenciesMatchRequest as assertDependencies } from "./eventDependencies";
@@ -283,10 +284,15 @@ async function resolveCurrentDocumentManifestForWrite(input: {
   return resolveStoredDocumentManifest(headManifestHash, input.executor);
 }
 
+/**
+ * `lockedContainerHeads` are the write frontier's FOR SHARE rows; the path
+ * freshness pin uses them and reads only heads the lock did not return.
+ */
 export async function verifySyncWriteAuthorizationProof(input: {
   readonly currentTargets: CurrentDocumentKekTargets;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
+  readonly lockedContainerHeads?: LockedContainerHeadRows;
   readonly request: DocumentSyncRequest;
 }): Promise<DocumentWriteAuthorizationProof | null> {
   if (input.request.outgoingUpdates.length === 0) {
@@ -305,6 +311,7 @@ export async function verifySyncWriteAuthorizationProof(input: {
     input.executor,
     input.request.authorizingContainerPathRefs,
     "authorizingContainerPathRefs",
+    input.lockedContainerHeads,
   );
   if (!authorizingContainerPaths || authorizingContainerPaths.length === 0) {
     throw new DocumentMutationError(

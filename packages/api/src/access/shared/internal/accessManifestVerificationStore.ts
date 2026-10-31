@@ -1,6 +1,7 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { accessManifests } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
+import { noteAccessManifestVerificationMac } from "./accessManifestBundleCache";
 
 /** The stored verification MAC of one manifest, or `null` when unmarked. */
 export async function selectAccessManifestVerificationMac(
@@ -33,5 +34,6 @@ export async function updateAccessManifestVerificationMacs(
       .update(accessManifests)
       .set({ verificationMac: mac })
       .where(eq(accessManifests.manifestHash, manifestHash));
+    noteAccessManifestVerificationMac(executor, manifestHash, mac);
   }
 }

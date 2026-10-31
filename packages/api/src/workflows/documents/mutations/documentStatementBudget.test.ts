@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { withDatabaseStatementCounter } from "@tearleads/api-shared/postgres";
 import { createTestUser } from "@tearleads/test-utils";
-import { isDocumentCreateResponse } from "@tearleads/validators/response";
+import type { DocumentCreateRequest } from "@tearleads/validators/request";
+import {
+  type DocumentCreateResponse,
+  isDocumentCreateResponse,
+} from "@tearleads/validators/response";
 import { MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES } from "@tearleads/validators/util";
 import invariant from "invariant";
 import { authenticate } from "../../../../test/helpers/authenticate";
@@ -75,10 +79,50 @@ test("document create, sync write, and sync pull stay within their statement bud
   // Measured with PGlite / SQLite: create 55 / 56, write 80 / 81, and pull
   // 58 / 59 before signer rows were read once per transaction, the KEK target
   // resolution stopped repeating, and the document head joined its links;
-  // 41 / 42, 64 / 65, and 46 / 47 after.
-  expect(create.statements).toBeLessThanOrEqual(43);
-  expect(write.statements).toBeLessThanOrEqual(66);
-  expect(pull.statements).toBeLessThanOrEqual(48);
+  // 41 / 42, 64 / 65, and 46 / 47 after. Then 39 / 40, 57 / 58, and 41 / 42
+  // (Postgres 41, 59, 43) before the database efficiency audit's sync unit
+  // resolved the targets once after the locks, reused the locked heads and
+  // each transaction's manifest bundles: 38 / 39, 47 / 48, and 33 / 34
+  // (Postgres 40, 49, 35). The bounds are the Postgres counts.
+  expect(create.statements).toBeLessThanOrEqual(40);
+  expect(write.statements).toBeLessThanOrEqual(49);
+  expect(pull.statements).toBeLessThanOrEqual(35);
+}, 30_000);
+
+test("a seeded document create stays within its statement budget", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const create = await createDocumentRequest({ owner, root });
+  // The seed is signed against the create's own manifest and key bundle.
+  const planned = {
+    accessManifest: { state: create.manifest },
+    contentKeyBundle: create.contentKeyBundle,
+    id: String(Reflect.get(create.manifest, "objectId")),
+  } as unknown as DocumentCreateResponse;
+  const { request: seed } = await createSignedDocumentSyncRequest({
+    created: planned,
+    owner,
+    root,
+  });
+  const [update] = seed.outgoingUpdates;
+  invariant(update, "expected a seed update");
+  const request: DocumentCreateRequest = {
+    ...create,
+    initialSync: {
+      ...seed,
+      localVersionVector: update.partialEndVersionVector,
+    },
+  };
+
+  const seeded = await counted(() => post(owner.token, "/documents", request));
+  expect(seeded.result.status).toBe(200);
+  // PGlite / SQLite / Postgres: 90 / 90 / 92 while the seed re-read the
+  // document row, re-locked heads the create held, re-read billing the create
+  // checked, built an unread pull page, and every lock and bundle read was
+  // repeated; 69 / 69 / 71 once it reused them.
+  expect(seeded.statements).toBeLessThanOrEqual(71);
 }, 30_000);
 
 test("a full pull page loads its updates as sets", async () => {
@@ -126,5 +170,7 @@ test("a full pull page loads its updates as sets", async () => {
   // Measured with PGlite / SQLite: 232 / 233 while a page loaded each update,
   // its write header, and its checkpoint separately; 44 / 45 once it sized
   // itself from stored byte lengths and loaded each as a set.
-  expect(pull.statements).toBeLessThanOrEqual(46);
+  // 41 / 42 (Postgres 43) before the sync unit of the database efficiency
+  // audit; 33 / 34 (Postgres 35) after.
+  expect(pull.statements).toBeLessThanOrEqual(35);
 }, 60_000);

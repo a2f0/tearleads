@@ -28,12 +28,22 @@ import {
  * Resolution is batched into one bundle fetch and one head fetch for the whole
  * request rather than two roundtrips per reference. Order is preserved.
  */
+/**
+ * Container heads this transaction read with the lock that still holds them;
+ * they stay current until it ends, so the freshness pin may use them.
+ */
+export type LockedContainerHeadRows = ReadonlyMap<
+  string,
+  { readonly manifestHash: string }
+>;
+
 async function resolveCurrentContainerManifestRefs(
   executor: DatabaseSession,
   flatRefs: readonly {
     readonly ref: ContainerManifestRef;
     readonly refLabel: string;
   }[],
+  lockedHeads?: LockedContainerHeadRows,
 ): Promise<VerifiedContainerAccessManifest[]> {
   // Resolve every referenced manifest from storage in one batch.
   const storedBundles = await getAccessManifestBundles(
@@ -83,10 +93,15 @@ async function resolveCurrentContainerManifestRefs(
   // Freshness pin — identical in strength to the full-bundle path
   // (assertCurrentContainerPath). Without it a writer could replay a
   // stale-but-stored manifest hash from an epoch in which they held
-  // since-revoked access (privilege escalation). Batched into one head fetch.
-  const heads = await getCurrentAccessManifestHeads(
+  // since-revoked access (privilege escalation). Batched into one head fetch,
+  // which skips heads read under a lock this transaction still holds.
+  const readHeads = await getCurrentAccessManifestHeads(
     "container",
-    resolved.map(({ manifest }) => manifest.state.containerId),
+    resolved.flatMap(({ manifest }) =>
+      lockedHeads?.has(manifest.state.containerId)
+        ? []
+        : [manifest.state.containerId],
+    ),
     executor,
   );
 
@@ -101,7 +116,9 @@ async function resolveCurrentContainerManifestRefs(
     ) {
       throw documentContainerUnavailable(refLabel);
     }
-    const head = heads.get(manifest.state.containerId);
+    const head =
+      lockedHeads?.get(manifest.state.containerId) ??
+      readHeads.get(manifest.state.containerId);
     if (!head) {
       throw new DocumentMutationError(`${refLabel} head missing`, 409);
     }
@@ -119,6 +136,7 @@ export async function assertCurrentContainerPathRefGroups(
   executor: DatabaseSession,
   groups: readonly (readonly ContainerManifestRef[])[] | undefined,
   label: string,
+  lockedHeads?: LockedContainerHeadRows,
 ): Promise<VerifiedContainerAccessManifest[][] | undefined> {
   if (groups === undefined) {
     return undefined;
@@ -134,6 +152,7 @@ export async function assertCurrentContainerPathRefGroups(
   const verifiedFlat = await resolveCurrentContainerManifestRefs(
     executor,
     flatRefs,
+    lockedHeads,
   );
 
   // Reshape the flat verified manifests back into the original group structure.

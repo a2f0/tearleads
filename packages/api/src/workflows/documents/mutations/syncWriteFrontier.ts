@@ -1,10 +1,18 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   lockAccessManifestHeadsForShare,
-  lockAccessManifestHeadsForUpdate,
+  lockUnheldAccessManifestHeads,
 } from "../../../access/read/accessManifestStore";
-import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
+import {
+  type DocumentLinkSetFrontier,
+  resolveCurrentDocumentKekTargets,
+} from "../../../access/read/documentKekTargets";
 import { documentSyncStateStale } from "./errors";
+
+/** Container head rows read by the lock that still holds them. */
+export type LockedContainerHeads = Awaited<
+  ReturnType<typeof lockUnheldAccessManifestHeads>
+>;
 
 /**
  * Serialize an old-head sync write against a concurrent link-set rotation.
@@ -14,39 +22,46 @@ import { documentSyncStateStale } from "./errors";
  * root revoke) commit under an in-flight write it no longer authorizes.
  * Container heads FOR SHARE before the document head keeps the global
  * container->document lock order shared with the link-set mutation path.
+ * The KEK targets are resolved strictly here, once, under those locks. Heads
+ * this transaction already holds (a create's seed) are not locked again, and
+ * the container head rows the lock read are returned for the write proof.
  */
 export async function lockSyncDocumentWriteFrontier(input: {
   readonly authorizingContainerIds: readonly string[];
-  readonly currentTargets: Awaited<
+  readonly documentId: string;
+  readonly frontier: Pick<
+    DocumentLinkSetFrontier,
+    "linkSetManifestHash" | "linkedContainerIds"
+  >;
+  readonly tx: DatabaseTransaction;
+}): Promise<{
+  readonly lockedContainerHeads: LockedContainerHeads;
+  readonly targets: Awaited<
     ReturnType<typeof resolveCurrentDocumentKekTargets>
   >;
-  readonly documentId: string;
-  readonly tx: DatabaseTransaction;
-}): Promise<Awaited<ReturnType<typeof resolveCurrentDocumentKekTargets>>> {
-  await lockAccessManifestHeadsForShare(
+}> {
+  const lockedContainerHeads = await lockUnheldAccessManifestHeads(
     "container",
-    [
-      ...input.currentTargets.targets.map((target) => target.containerId),
-      ...input.authorizingContainerIds,
-    ],
+    [...input.frontier.linkedContainerIds, ...input.authorizingContainerIds],
     input.tx,
+    "share",
   );
-  await lockAccessManifestHeadsForUpdate(
+  await lockUnheldAccessManifestHeads(
     "document",
     [input.documentId],
     input.tx,
+    "update",
   );
   const lockedTargets = await resolveCurrentDocumentKekTargets(
     input.documentId,
     input.tx,
   );
   if (
-    lockedTargets.linkSetManifestHash !==
-    input.currentTargets.linkSetManifestHash
+    lockedTargets.linkSetManifestHash !== input.frontier.linkSetManifestHash
   ) {
     throw documentSyncStateStale("Document manifest is stale");
   }
-  return lockedTargets;
+  return { lockedContainerHeads, targets: lockedTargets };
 }
 
 /**
