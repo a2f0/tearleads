@@ -209,6 +209,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/data/persistence/keyingCheckpoints/`,
       `${sdk}/data/persistence/organizationFounderPersistence.ts`,
       `${sdk}/data/persistence/verifiedManifestBundlePersistence.ts`,
+      `${sdk}/data/persistence/verifiedCitations/`,
     ],
     surface: keyingVerificationSurface,
     tables: keyingVerificationTables,

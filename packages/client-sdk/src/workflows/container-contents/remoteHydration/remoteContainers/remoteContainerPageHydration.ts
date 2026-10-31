@@ -104,13 +104,12 @@ async function applyRemoteContainerPage(input: {
     return { changedCount: 0, completed: false };
   }
   const prefetchedProjections = await prefetchDestinationProjections({
-    containerIds: items.flatMap((item) =>
-      seenContainerIds.has(item.id) ||
-      state.containersById.has(item.id) ||
-      expectedHydrationTombstones.get(item.id) ||
-      cachedDestinationRole(state.runtime.infra.execSql, item)
-        ? []
-        : [item.id],
+    containers: items.filter(
+      (item) =>
+        !seenContainerIds.has(item.id) &&
+        !state.containersById.has(item.id) &&
+        !expectedHydrationTombstones.get(item.id) &&
+        !cachedDestinationRole(state.runtime.infra.execSql, item),
     ),
     isCurrent: input.isCurrent,
     runtime: state.runtime,

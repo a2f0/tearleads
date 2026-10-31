@@ -9,10 +9,15 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  * verifies the rebuilt projection from scratch. Rows are neither trust nor
  * checkpoint state: a missing, evicted, or damaged row only costs bytes.
  *
+ * Container KEK levels share the table as typed rows (`objectKind`
+ * `container-kek-level`), keyed by the SHA-256 of their canonical wire bytes.
+ *
  * Columns:
- * - `manifestHash`: Manifest hash; equals the stored bundle's `manifestHash`.
+ * - `manifestHash`: Citation key: the stored bundle's `manifestHash`, or a
+ *   level row's digest.
  * - `organizationId`, `objectKind`, `objectId`, `epoch`: The verified
- *   manifest's object, used to cite the lineage relevant to a request.
+ *   manifest's object (or the level's container and key epoch), used to cite
+ *   the lineage relevant to a request.
  * - `bundleJson`: The exact verified bundle as JSON.
  * - `bundleDigest`: SHA-256 hex of `bundleJson`; a mismatch drops the row.
  * - `verifiedAt`: Latest local verification time; oldest rows evict first.

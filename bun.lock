@@ -67,7 +67,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.86",
+      "version": "0.1.87",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -240,7 +240,7 @@
     },
     "packages/crypto": {
       "name": "@tearleads/crypto",
-      "version": "0.1.22",
+      "version": "0.1.23",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@noble/post-quantum": "0.7.1",
@@ -339,7 +339,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.38",
+      "version": "0.1.39",
       "dependencies": {
         "zod": "catalog:",
       },
