@@ -159,14 +159,16 @@ the current policy and container batch, rather than the number of retained
 policy versions.
 
 The SDK compares the accepted state, payload, grants, membership, envelopes, and
-container results with the request it authored. After those checks, it appends
-one accepted state to its authenticated durable prefix and index, without
-rebuilding a complete bundle. A server-provided history array cannot replace
-that prefix. This contract covers standalone policy writes, compound group and
-organization commits, and group creation/deletion. Container and document
-projections carry scoped paged public-history sources. See [compound commit
-outcomes](developer/principal-policy-outcomes.md) for recovery after a committed
-response is lost.
+container results with the request it authored; container results carry only the
+hashes of what committed (see the protocol specification's container mutation
+acknowledgements), which the SDK recomputes from its request. After those
+checks, it appends one accepted state to its authenticated durable prefix and
+index, without rebuilding a complete bundle. A server-provided history array
+cannot replace that prefix. This contract covers standalone policy writes,
+compound group and organization commits, and group creation/deletion. Container
+and document projections carry scoped paged public-history sources. See
+[compound commit outcomes](developer/principal-policy-outcomes.md) for recovery
+after a committed response is lost.
 
 ## Public projection history
 

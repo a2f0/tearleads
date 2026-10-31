@@ -1,20 +1,15 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { containerSyncTombstones } from "@tearleads/api-shared/schema";
-import type {
-  ContainerDirectGrant,
-  VerifiedContainerAccessManifest,
+import {
+  type ContainerDirectGrant,
+  computeContainerKekKeyringHash,
+  type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../../../access/write/containerKekStore";
-import {
-  containerAccessManifestStateRecord as accessStateRecord,
-  projectionAccessManifestRecord,
-  projectionReferencedPrincipalHeadRecord,
-  projectionVerifiedAccessEventRecord,
-} from "../../../../keyingProjectionRecords";
 import {
   KeyingReadAccessError,
   resolveReadableContainerAccess,
@@ -33,17 +28,11 @@ import {
 } from "../errors";
 import type { ContainerMutationContext, StoredContainerRow } from "../types";
 import type { VerifiedContainerKekMutationState } from "./containerKek";
-import {
-  containerKekRecipientTargetRecord,
-  containerKeyEpochRecord,
-  containerKeyWrapRecord,
-} from "./containerKekRecords";
 import { persistContainerStructure } from "./containerStructure";
 import {
   directGrantKey,
   pruneAccessGrantTombstones,
 } from "./grantTombstonePruning";
-import { loadMutationContainerKekHistory } from "./mutationKekHistory";
 
 function removedDirectGrants(input: {
   readonly manifest: VerifiedContainerAccessManifest;
@@ -256,30 +245,19 @@ async function persistMoveAccessLossTombstones(input: {
     });
 }
 
-function kekResponseRecord(
+async function kekAcknowledgementRecord(
   storedKekState: Awaited<
     ReturnType<typeof storeVerifiedContainerKekStateInTransaction>
   >,
-  containerManifestHistory: Awaited<
-    ReturnType<typeof loadMutationContainerKekHistory>
-  >,
   keyring: VerifiedContainerKekMutationState["keyring"],
-): ContainerMutationResponse["containerKek"] {
+): Promise<ContainerMutationResponse["containerKek"]> {
   return {
-    containerId: storedKekState.containerId,
-    accessManifestHash: storedKekState.accessManifestHash,
     containerKeyEpochId: storedKekState.containerKeyEpochId,
     containerKeyEpoch: storedKekState.containerKeyEpoch,
-    keyEpoch: containerKeyEpochRecord(storedKekState.keyEpoch),
     keyEpochHash: storedKekState.keyEpochHash,
     keyTargetHash: storedKekState.keyTargetHash,
+    keyringHash: keyring ? await computeContainerKekKeyringHash(keyring) : null,
     parentContainerKeyEpochId: storedKekState.parentContainerKeyEpochId,
-    keyring: keyring ? { ...keyring } : null,
-    recipientTargets: storedKekState.recipientTargets.map(
-      containerKekRecipientTargetRecord,
-    ),
-    wraps: storedKekState.wraps.map(containerKeyWrapRecord),
-    containerManifestHistory,
   };
 }
 
@@ -362,12 +340,6 @@ export async function persistVerifiedMutation(
       executor,
     ),
   );
-
-  const containerManifestHistory = await loadMutationContainerKekHistory(
-    context.writerProjectionContext,
-    manifest,
-    kekState,
-  );
   await appendOrganizationReadModelChangeInTransaction(executor, {
     organizationId: manifest.state.organizationId,
     lanes: ["grants"],
@@ -384,23 +356,11 @@ export async function persistVerifiedMutation(
     organizationId: manifest.state.organizationId,
     parentId: manifest.state.parentContainerId,
     updatedAt: container.updatedAt.toISOString(),
+    eventHash: manifest.event.eventHash,
     manifestHead: {
       epoch: manifestHead.epoch,
       manifestHash: manifestHead.manifestHash,
     },
-    accessManifest: {
-      event: projectionVerifiedAccessEventRecord(manifest.event),
-      manifest: projectionAccessManifestRecord(manifest.manifest),
-      manifestHash: manifest.manifestHash,
-      state: accessStateRecord(manifest.state),
-    },
-    containerKek: kekResponseRecord(
-      storedKekState,
-      containerManifestHistory,
-      keyring,
-    ),
-    referencedPrincipalHeads: manifest.state.referencedPrincipalHeads.map(
-      projectionReferencedPrincipalHeadRecord,
-    ),
+    containerKek: await kekAcknowledgementRecord(storedKekState, keyring),
   };
 }

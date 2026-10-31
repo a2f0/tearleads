@@ -1,10 +1,16 @@
 import {
+  computeContainerKekRecipientTargetHash,
+  computeContainerKeyEpochHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   type PrincipalPolicySignerPublicKey,
   toFingerprint,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  readContainerKeyEpoch,
+  readContainerKeyWrap,
+} from "../../src/data/keyingProjectionVerification/readers";
 import {
   buildAddGroupUserPolicyRequest,
   buildSetGroupContainerGrantPolicyRequest,
@@ -191,36 +197,78 @@ export async function createRemovalFixture(
 }
 
 /**
- * The commit checks every container acknowledgement against its request field
- * by field, so each stub is a full mutation and `echoMutation` its exact echo.
+ * The commit checks every container acknowledgement's hashes against its
+ * request, so each stub carries a well-formed key epoch and `echoMutation`
+ * computes the hashes an honest server would return.
  */
+function stubHash(label: string, id: string): string {
+  return Array.from(new TextEncoder().encode(`${label}:${id}`), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  )
+    .join("")
+    .padEnd(64, "0")
+    .slice(0, 64);
+}
+
 export function stubRekeyRequest(id: string) {
   return {
     body: { eventType: "container.rekey" },
     event: { objectId: id, objectKind: "container" },
     expectedManifestHash: `manifest-${id}`,
-    keyEpoch: { id: `epoch-${id}` },
+    keyEpoch: {
+      id: `epoch-${id}`,
+      containerId: id,
+      keyEpoch: 2,
+      accessManifestHash: stubHash("m", id),
+      parentContainerKeyEpochId: null,
+      createdByEventHash: stubHash("e", id),
+      createdByManifestHash: stubHash("m", id),
+    },
     keyring: null,
-    manifest: { objectId: id },
+    manifest: { epoch: 2, eventHash: `event-${id}`, objectId: id },
     predecessorBridge: null,
     principalPolicyRefs: [],
     wraps: [],
   } as never;
 }
 
-export function echoMutation(request: {
+/** The acknowledgement an honest server returns for `request`: its hashes. */
+export async function echoMutation(request: {
   body: unknown;
   event: unknown;
+  expectedManifestHash: string;
   keyEpoch: unknown;
   manifest: unknown;
+  wraps: readonly unknown[];
 }) {
+  const keyEpoch = readContainerKeyEpoch(request.keyEpoch, "stub key epoch");
+  const targets = request.wraps
+    .map((value) => readContainerKeyWrap(value, "stub wrap"))
+    .map((wrap) => ({
+      recipientId: wrap.recipientId,
+      recipientKeyEpochId: wrap.recipientKeyEpochId,
+      recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+      recipientKind: wrap.recipientKind,
+    }));
   return {
-    accessManifest: {
-      event: { body: request.body, event: request.event },
-      manifest: request.manifest,
-    },
     containerId: String(Reflect.get(Object(request.event), "objectId")),
-    containerKek: { keyEpoch: request.keyEpoch, wraps: [] },
+    createdAt: "2026-05-05T00:00:00.000Z",
+    eventHash: String(Reflect.get(Object(request.manifest), "eventHash")),
+    manifestHead: {
+      epoch: Number(Reflect.get(Object(request.manifest), "epoch")),
+      manifestHash: request.expectedManifestHash,
+    },
+    organizationId: "stub-organization",
+    parentId: null,
+    updatedAt: "2026-05-05T00:00:00.000Z",
+    containerKek: {
+      containerKeyEpoch: keyEpoch.keyEpoch,
+      containerKeyEpochId: keyEpoch.id,
+      keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
+      keyringHash: null,
+      keyTargetHash: await computeContainerKekRecipientTargetHash(targets),
+      parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
+    },
   };
 }
 

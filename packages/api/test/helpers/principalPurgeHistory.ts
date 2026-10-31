@@ -23,6 +23,7 @@ import {
   registerAndAuthenticate,
 } from "./principalPolicyReadFixtures";
 import { projectionRouteRequest } from "./projectionRouteHistory";
+import { withStoredContainerMutation } from "./storedContainerMutation";
 
 export async function createLongPurgeHistoryFixture(versions: number) {
   const owner = createTestUser();
@@ -91,12 +92,12 @@ export async function createLongPurgeHistoryFixture(versions: number) {
     },
   );
   expect(refreshed.status, await refreshed.clone().text()).toBe(200);
-  const refreshedBody = ContainerMutationResponseSchema.parse(
-    await refreshed.json(),
+  const refreshedBody = await withStoredContainerMutation(
+    ContainerMutationResponseSchema.parse(await refreshed.json()),
   );
   const root = {
-    bundle: accessManifestFromContainerResponse(refreshedBody),
-    kekState: kekStateFromContainerResponse(refreshedBody),
+    bundle: await accessManifestFromContainerResponse(refreshedBody),
+    kekState: await kekStateFromContainerResponse(refreshedBody),
     principalPolicies: [await loadVerifiedPrincipalPolicy(db, "group", id)],
   };
   const created = await createDocument({ owner, root });

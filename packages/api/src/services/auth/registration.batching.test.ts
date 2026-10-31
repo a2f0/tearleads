@@ -74,8 +74,9 @@ for (const full of [false, true]) {
     // its evidence in one statement. The audit's sync unit (KEK targets once
     // per sync, held locks and manifest bundles reused, the seed's pull page
     // skipped) then took them to 304 / 655, 299 / 646,
-    // and 306 / 657.
-    expect(counter.statements).toBeLessThanOrEqual(full ? 657 : 306);
+    // and 306 / 657. Hash acknowledgements skip each created container's KEK
+    // history read: 303 / 652, 298 / 643, and 305 / 654.
+    expect(counter.statements).toBeLessThanOrEqual(full ? 654 : 305);
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
     const stored = await db

@@ -13,7 +13,10 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  asContainerMutationFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerMutationResponse,
@@ -152,8 +155,10 @@ test("repeated shares submit every same-container manifest needed by retained wr
         },
         containerId: shared.response.containerId,
         organizationId: shared.response.organizationId,
-        path: [shared.response.accessManifest],
-        containerKeks: [shared.response.containerKek],
+        path: [asContainerMutationFixture(shared.response).accessManifest],
+        containerKeks: [
+          asContainerMutationFixture(shared.response).containerKek,
+        ],
       };
     }
 

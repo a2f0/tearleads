@@ -43,10 +43,44 @@ export function createContainerCreateWithMetadataDocumentRequest(): ContainerCre
   };
 }
 
+function createContainerManifestBundle(): ContainerWriterProjectionResponse["path"][number] {
+  return {
+    event: {
+      event: { eventType: "container.create" },
+      body: { eventType: "container.create" },
+      eventHash: "container-event-hash",
+    },
+    manifest: { objectId: "container-1", objectKind: "container" },
+    manifestHash: "container-manifest-hash",
+    state: { containerId: "container-1" },
+  };
+}
+
+function createContainerKek(): ContainerWriterProjectionResponse["containerKeks"][number] {
+  return {
+    containerId: "container-1",
+    accessManifestHash: "container-manifest-hash",
+    containerKeyEpochId: "container-key-epoch-id",
+    containerKeyEpoch: 1,
+    keyring: null,
+    keyEpoch: {
+      containerId: "container-1",
+      containerKeyEpochId: "container-key-epoch-id",
+    },
+    keyEpochHash: "key-epoch-hash",
+    keyTargetHash: "key-target-hash",
+    containerManifestHistory: [],
+    parentContainerKeyEpochId: null,
+    recipientTargets: [{ recipientKind: "user" }],
+    wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
+  };
+}
+
 export function createContainerMutationResponse(): ContainerMutationResponse {
   return {
     containerId: "container-1",
     createdAt: "2026-05-06T18:00:00.000Z",
+    eventHash: "container-event-hash",
     organizationId: "organization-1",
     parentId: "parent-1",
     updatedAt: "2026-05-06T18:00:00.000Z",
@@ -54,34 +88,14 @@ export function createContainerMutationResponse(): ContainerMutationResponse {
       epoch: 1,
       manifestHash: "container-manifest-hash",
     },
-    accessManifest: {
-      event: {
-        event: { eventType: "container.create" },
-        body: { eventType: "container.create" },
-        eventHash: "container-event-hash",
-      },
-      manifest: { objectId: "container-1", objectKind: "container" },
-      manifestHash: "container-manifest-hash",
-      state: { containerId: "container-1" },
-    },
     containerKek: {
-      containerId: "container-1",
-      accessManifestHash: "container-manifest-hash",
       containerKeyEpochId: "container-key-epoch-id",
       containerKeyEpoch: 1,
-      keyring: null,
-      keyEpoch: {
-        containerId: "container-1",
-        containerKeyEpochId: "container-key-epoch-id",
-      },
       keyEpochHash: "key-epoch-hash",
+      keyringHash: null,
       keyTargetHash: "key-target-hash",
-      containerManifestHistory: [],
       parentContainerKeyEpochId: null,
-      recipientTargets: [{ recipientKind: "user" }],
-      wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
     },
-    referencedPrincipalHeads: [],
   };
 }
 
@@ -103,8 +117,8 @@ export function createContainerWriterProjectionResponse(): ContainerWriterProjec
     },
     containerId: mutationResponse.containerId,
     organizationId: mutationResponse.organizationId,
-    path: [mutationResponse.accessManifest],
-    containerKeks: [mutationResponse.containerKek],
+    path: [createContainerManifestBundle()],
+    containerKeks: [createContainerKek()],
   };
 }
 
@@ -149,7 +163,7 @@ export function createDocumentPurgeRequest(): DocumentPurgeRequest {
 }
 
 export function createDocumentPurgeResponse(): DocumentPurgeResponse {
-  const authorizingContainer = createContainerMutationResponse().accessManifest;
+  const authorizingContainer = createContainerManifestBundle();
   return {
     authorizingContainerPath: [authorizingContainer],
     documentContainerManifestHistory: [],

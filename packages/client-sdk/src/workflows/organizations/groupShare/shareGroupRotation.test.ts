@@ -3,7 +3,10 @@ import {
   computeContainerKekRecipientTargetHash,
   makeVerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  asContainerMutationFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
@@ -406,7 +409,12 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
     expect(
       Array.from(coldKeks.get(initialKek.containerKeyEpochId) ?? []),
     ).toEqual(Array.from(originalContainerKey));
-    expect(response.referencedPrincipalHeads).toContainEqual({
+    expect(
+      Reflect.get(
+        asContainerMutationFixture(response).accessManifest.state,
+        "referencedPrincipalHeads",
+      ),
+    ).toContainEqual({
       principalType: "group",
       principalId: nextPolicy.principalId,
       version: nextPolicy.version,

@@ -59,9 +59,9 @@ test.each(["carry", "stale"] as const)(
               previous: fixture.getCurrentPolicy(),
               mutation: request.groupPolicy,
             })),
-            containerMutations: (
-              request.groupPolicy.containerMutations ?? []
-            ).map(echoMutation) as never,
+            containerMutations: (await Promise.all(
+              (request.groupPolicy.containerMutations ?? []).map(echoMutation),
+            )) as never,
           },
           organizationPolicy: await policyBundleAfterMutation({
             previous: fixture.getOrganizationPolicy(),

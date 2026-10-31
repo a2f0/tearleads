@@ -36,28 +36,22 @@ test("acknowledgement compares signed fields but permits bundle metadata", async
     const response = await scenario.reciteContainer("held-child", plan.request);
     const enriched = {
       ...response,
-      accessManifest: {
-        ...response.accessManifest,
-        transportMetadata: "not part of the signed bundle",
-        event: { ...response.accessManifest.event, storedAt: "metadata" },
-      },
+      transportMetadata: "not part of the acknowledgement",
     };
     expect(() =>
       assertContainerReciteAcknowledgement(plan, enriched),
     ).not.toThrow();
-    for (const accessManifest of [
-      { ...enriched.accessManifest, manifestHash: "wrong-hash" },
+    for (const tampered of [
       {
-        ...enriched.accessManifest,
-        event: { ...enriched.accessManifest.event, eventHash: "wrong-hash" },
+        ...enriched,
+        manifestHead: { ...enriched.manifestHead, manifestHash: "wrong-hash" },
       },
-      { ...enriched.accessManifest, state: { ...plan.state, epoch: 99 } },
+      { ...enriched, eventHash: "wrong-hash" },
+      { ...enriched, manifestHead: { ...enriched.manifestHead, epoch: 99 } },
+      { ...enriched, parentId: "another-parent" },
     ]) {
       expect(() =>
-        assertContainerReciteAcknowledgement(plan, {
-          ...enriched,
-          accessManifest,
-        }),
+        assertContainerReciteAcknowledgement(plan, tampered),
       ).toThrow("does not match the signed plan");
     }
   } finally {
@@ -133,15 +127,15 @@ test("held descendants re-cite full current paths parent-first without changing 
         childResponse.manifestHead.manifestHash,
       ]),
     });
-    expect(childResponse.accessManifest.state).toMatchObject({
-      directGrants: [],
+    // The acknowledgement names the recitation the client signed; that
+    // request kept the child's key epoch.
+    expect<string | undefined>(childResponse.manifestHead.manifestHash).toBe(
+      scenario.requests[0]?.expectedManifestHash,
+    );
+    expect(scenario.requests[0]?.body).toMatchObject({
       containerKeyEpochId: Reflect.get(
         scenario.child.bundle.state,
         "containerKeyEpochId",
-      ),
-      parentManifestHash: Reflect.get(
-        scenario.child.bundle.state,
-        "parentManifestHash",
       ),
     });
     expect((await checkpoint(scenario, "held-child"))?.manifestHash).toBe(
@@ -155,7 +149,7 @@ test("held descendants re-cite full current paths parent-first without changing 
   }
 });
 
-test.each(["refused", "throws", "mismatched", "injected-grants"] as const)(
+test.each(["refused", "throws", "mismatched", "substituted-head"] as const)(
   "a %s re-cite neither retries nor blocks another held descendant",
   async (failure) => {
     const scenario = await createContainerReciteScenario();
@@ -175,22 +169,15 @@ test.each(["refused", "throws", "mismatched", "injected-grants"] as const)(
               return scenario.reciteContainer(id, request);
             if (failure === "refused") return null;
             if (failure === "throws") throw new Error("offline");
-            if (failure === "injected-grants") {
+            if (failure === "substituted-head") {
+              // A server that stored some other manifest (injected grants,
+              // say) can only name that manifest's hash.
               const response = await scenario.reciteContainer(id, request);
               return {
                 ...response,
-                accessManifest: {
-                  ...response.accessManifest,
-                  state: {
-                    ...response.accessManifest.state,
-                    directGrants: [
-                      {
-                        subjectType: "user",
-                        subjectId: "intruder",
-                        accessLevel: "admin",
-                      },
-                    ],
-                  },
+                manifestHead: {
+                  ...response.manifestHead,
+                  manifestHash: "substituted-manifest-hash",
                 },
               };
             }
@@ -203,7 +190,7 @@ test.each(["refused", "throws", "mismatched", "injected-grants"] as const)(
       });
       expect(attempts).toEqual(["held-child", "held-grandchild"]);
       expect(incidents).toHaveLength(
-        failure === "mismatched" || failure === "injected-grants" ? 1 : 0,
+        failure === "mismatched" || failure === "substituted-head" ? 1 : 0,
       );
       if (incidents.length) {
         expect(incidents[0]).toMatchObject({
@@ -220,7 +207,7 @@ test.each(["refused", "throws", "mismatched", "injected-grants"] as const)(
       // A bad acknowledgement may hide a committed child head. The honest API
       // then rejects the old child path instead of accepting a stale grandchild.
       expect((await checkpoint(scenario, "held-grandchild"))?.epoch).toBe(
-        failure === "mismatched" || failure === "injected-grants" ? 1 : 2,
+        failure === "mismatched" || failure === "substituted-head" ? 1 : 2,
       );
     } finally {
       await scenario.close();

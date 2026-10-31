@@ -54,7 +54,7 @@ test("linking one document preserves another document's wraps for their shared b
       "test wrap",
     ),
   };
-  const childKek = kekStateFromContainerResponse(child);
+  const childKek = await kekStateFromContainerResponse(child);
   const link = await buildDocumentLinkRequest({
     child,
     createdDocument: first,

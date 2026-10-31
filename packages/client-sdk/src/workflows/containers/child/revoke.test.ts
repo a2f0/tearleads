@@ -15,7 +15,10 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  asContainerMutationFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import {
@@ -120,7 +123,9 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
     parent.parentKekState.containerKeyEpochId,
   );
   const mutationResponse = mutationResponses[0];
-  const responseKeyring = mutationResponse?.containerKek.keyring;
+  if (!mutationResponse) throw new Error("Expected the revoke response");
+  const responseKeyring =
+    asContainerMutationFixture(mutationResponse).containerKek.keyring;
   if (!responseKeyring) {
     throw new Error("Expected rotated container KEK keyring in the response");
   }

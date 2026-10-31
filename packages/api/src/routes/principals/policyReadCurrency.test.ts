@@ -2,10 +2,7 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationRosterEntries } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
-import type { AccessManifestBundleWire } from "@tearleads/validators/request";
-import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
-import invariant from "invariant";
 import {
   bootstrapRoot,
   buildRootGrantRequest,
@@ -23,6 +20,7 @@ import {
   grantRootThroughRotatedReadGroup,
   rotateRootGroupMembership,
 } from "../../../test/helpers/rotatedReadGroupGrant";
+import { withStoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
 
 // The read authorization accepts only CURRENT evidence: an active roster
@@ -129,8 +127,7 @@ test("a grant revoked from the container's current head no longer authorizes", a
     }),
   );
   expect(shareResponse.status, await shareResponse.clone().text()).toBe(200);
-  const shared: unknown = await shareResponse.json();
-  invariant(isContainerMutationResponse(shared), "expected a share response");
+  const shared = await withStoredContainerMutation(await shareResponse.json());
   await stripOrganizationMembership(organizationId, peer.userId);
   expect((await getPolicy(peer, "group", adminGroupId)).status).toBe(200);
 
@@ -139,7 +136,7 @@ test("a grant revoked from the container's current head no longer authorizes", a
     owner,
     `/containers/${root.kekState.containerId}/revoke`,
     await buildRootRevokeRequest({
-      previous: shared.accessManifest as unknown as AccessManifestBundleWire,
+      previous: shared.accessManifest,
       previousKekState: root.kekState,
       revokedUser: peer,
       signer: owner,

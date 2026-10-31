@@ -98,21 +98,11 @@ test("container mutation operation guards derive from canonical schemas", () => 
   expect(
     isContainerMutationOperationResponse(createContainerMutationResponse()),
   ).toBe(true);
-  expect(
-    isContainerMutationOperationResponse({
-      ...createContainerMutationResponse(),
-      referencedPrincipalHeads: [
-        {
-          keyEpoch: 1,
-          keyFingerprint: "organization-key-fingerprint",
-          principalId: "organization-1",
-          principalType: "organization",
-          stateHash: "organization-state-hash",
-          version: 1,
-        },
-      ],
-    }),
-  ).toBe(false);
+  // An acknowledgement names its commit by hash; one without the event hash
+  // acknowledges nothing the client can compare.
+  const { eventHash: _eventHash, ...withoutEventHash } =
+    createContainerMutationResponse();
+  expect(isContainerMutationOperationResponse(withoutEventHash)).toBe(false);
 
   const metadataRequest = createContainerWithMetadataDocumentRequest();
   expect(
@@ -189,7 +179,7 @@ test("OpenAPI declares the container keyring runtime-only invariant", () => {
     containerKek: {
       ...createContainerMutationResponse().containerKek,
       containerKeyEpoch: 2,
-      keyring: null,
+      keyringHash: null,
     },
   });
 

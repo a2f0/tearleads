@@ -1,3 +1,4 @@
+import type { ContainerAccessManifestState } from "@tearleads/crypto";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   ContainerMutationResponse,
@@ -9,10 +10,10 @@ import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjec
 import { errorMessage } from "../../../data/shared/errorMessage";
 import {
   type AppliedContainerMove,
-  readContainerMutationMetadataDocumentId,
-  referencedPrincipalHeadsFromContainerMutationResponse,
   replayRemoteContainerMove,
   shareRemoteContainer as shareRemoteContainerMutation,
+  signedContainerMetadataDocumentId,
+  signedContainerReferencedPrincipalHeads,
 } from "../../containers";
 import { resolveDocumentCreateAuthor } from "../../documents";
 import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadata/groupMetadataRuntime";
@@ -75,9 +76,15 @@ export async function createRemoteContainer(input: {
   return createRemoteContainerWithMetadataDocument(input);
 }
 
+/** An acknowledged mutation: the server's commitments and the signed plan. */
+interface AcknowledgedContainerMutation {
+  readonly plan: { readonly state: ContainerAccessManifestState };
+  readonly response: ContainerMutationResponse;
+}
+
 function sharedRemoteContainerStateFromMutation(
   previousProjection: ContainerWriterProjectionResponse,
-  response: ContainerMutationResponse,
+  { plan, response }: AcknowledgedContainerMutation,
 ): SharedRemoteContainerState {
   if (
     response.containerId !== previousProjection.containerId ||
@@ -88,9 +95,8 @@ function sharedRemoteContainerStateFromMutation(
     accessManifestHash: response.manifestHead.manifestHash,
     accessEpoch: response.manifestHead.epoch,
     createdAt: response.createdAt,
-    metadataDocumentId: readContainerMutationMetadataDocumentId({ response }),
-    referencedPrincipalHeads:
-      referencedPrincipalHeadsFromContainerMutationResponse({ response }),
+    metadataDocumentId: signedContainerMetadataDocumentId(plan),
+    referencedPrincipalHeads: signedContainerReferencedPrincipalHeads(plan),
     updatedAt: response.updatedAt,
     // The next read obtains the post-commit proof. A failed read cannot undo
     // acknowledgement of this successful mutation.
@@ -139,7 +145,7 @@ export async function shareRemoteContainer(input: {
 
   return sharedRemoteContainerStateFromMutation(
     input.previousProjection,
-    shared.response,
+    shared,
   );
 }
 
@@ -200,7 +206,7 @@ export async function shareRemoteContainerWithGroup(input: {
 
   return sharedRemoteContainerStateFromMutation(
     input.previousProjection,
-    shared.response,
+    shared,
   );
 }
 
@@ -243,7 +249,7 @@ export async function moveRemoteContainer(input: {
     return replayed;
   }
 
-  const { response } = replayed;
+  const { plan, response } = replayed;
   return {
     moved: {
       createdAt: response.createdAt,
@@ -251,11 +257,11 @@ export async function moveRemoteContainer(input: {
       id: response.containerId,
       organizationId: response.organizationId,
       parentId: response.parentId,
-      metadataDocumentId: readContainerMutationMetadataDocumentId({ response }),
+      metadataDocumentId: signedContainerMetadataDocumentId(plan),
       metadataAccessEpoch: response.manifestHead.epoch,
       metadataAccessStateHash: response.manifestHead.manifestHash,
       metadataReferencedPrincipals:
-        referencedPrincipalHeadsFromContainerMutationResponse({ response }),
+        signedContainerReferencedPrincipalHeads(plan),
       updatedAt: response.updatedAt,
     },
   };

@@ -6,6 +6,7 @@ import {
   openContainerKekKeyring,
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
+import { asContainerMutationFixture } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   createMutationResponseFromRequest,
@@ -75,7 +76,8 @@ test("an honest rebuilt override seals across relocated history", async () => {
     },
   ]);
   const repaired = await repair;
-  const keyring = repaired?.response.containerKek.keyring;
+  const keyring = asContainerMutationFixture(repaired?.response).containerKek
+    .keyring;
   if (!repaired || !keyring) throw new Error("Expected a sealed repair");
   expect(submitted).toHaveLength(1);
   const entries = await openContainerKekKeyring({

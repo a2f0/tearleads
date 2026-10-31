@@ -7,6 +7,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
+  asContainerMutationFixture,
   createContainerParentLaneBatchMock,
   createMockApiClient,
 } from "@tearleads/test-utils";
@@ -238,7 +239,7 @@ test("explorer store moves authenticated child containers locally before backgro
                   metadataAccessStateHash: response.manifestHead.manifestHash,
                   metadataDocumentId: String(
                     Reflect.get(
-                      response.accessManifest.state,
+                      asContainerMutationFixture(response).accessManifest.state,
                       "metadataDocumentId",
                     ),
                   ),

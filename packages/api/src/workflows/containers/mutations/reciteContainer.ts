@@ -4,12 +4,6 @@ import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot
 import type { ContainerReciteRequest } from "@tearleads/validators/request";
 import type { ContainerReciteResponse } from "@tearleads/validators/response";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
-import {
-  containerAccessManifestStateRecord,
-  projectionAccessManifestRecord,
-  projectionReferencedPrincipalHeadRecord,
-  projectionVerifiedAccessEventRecord,
-} from "../../../keyingProjectionRecords";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import {
   appendOrganizationReadModelChangeInTransaction,
@@ -123,19 +117,11 @@ async function persistRecitation(
     parentId: manifest.state.parentContainerId,
     createdAt: container.createdAt.toISOString(),
     updatedAt: container.updatedAt.toISOString(),
+    eventHash: manifest.event.eventHash,
     manifestHead: {
       epoch: manifestHead.epoch,
       manifestHash: manifestHead.manifestHash,
     },
-    accessManifest: {
-      event: projectionVerifiedAccessEventRecord(manifest.event),
-      manifest: projectionAccessManifestRecord(manifest.manifest),
-      manifestHash: manifest.manifestHash,
-      state: containerAccessManifestStateRecord(manifest.state),
-    },
-    referencedPrincipalHeads: manifest.state.referencedPrincipalHeads.map(
-      projectionReferencedPrincipalHeadRecord,
-    ),
   };
 }
 

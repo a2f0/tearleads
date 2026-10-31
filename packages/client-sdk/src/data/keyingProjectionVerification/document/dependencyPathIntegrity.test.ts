@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
+  asContainerMutationFixture,
   createContainerWriterProjectionFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
@@ -264,14 +265,17 @@ test("a stale dependency path never replaces the authorizing path for its leaf",
       ...child.projection,
       containerKeks: [
         {
-          ...shared.response.containerKek,
+          ...asContainerMutationFixture(shared.response).containerKek,
           // The response fixture re-encodes the previous head; serve the same
           // bundle the stale path carries so the two are not equivocal.
           containerManifestHistory: [rootFirstHead],
         },
         childKek,
       ],
-      path: [shared.response.accessManifest, child.bundle],
+      path: [
+        asContainerMutationFixture(shared.response).accessManifest,
+        child.bundle,
+      ],
     };
     const childStale = child.projection;
     // The owner creates the document in the child.

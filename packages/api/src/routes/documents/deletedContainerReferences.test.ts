@@ -24,7 +24,7 @@ test("document create rejects a retained manifest belonging to a deleted contain
     root: {
       ...root,
       bundle: child.accessManifest,
-      kekState: kekStateFromContainerResponse(child),
+      kekState: await kekStateFromContainerResponse(child),
     },
     containerPath: [root.bundle, child.accessManifest],
   });
@@ -34,7 +34,7 @@ test("document create rejects a retained manifest belonging to a deleted contain
     root: {
       ...root,
       bundle: child.accessManifest,
-      kekState: kekStateFromContainerResponse(child),
+      kekState: await kekStateFromContainerResponse(child),
     },
   });
   const deleted = await routeApp.request(`/containers/${child.containerId}`, {

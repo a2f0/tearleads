@@ -25,7 +25,7 @@ export async function createContainerDepthFixture(depth: number) {
     });
     chain.push({
       bundle: child.accessManifest,
-      kekState: kekStateFromContainerResponse(child),
+      kekState: await kekStateFromContainerResponse(child),
       principalPolicies: root.principalPolicies,
     });
   }

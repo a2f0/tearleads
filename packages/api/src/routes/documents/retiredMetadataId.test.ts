@@ -38,7 +38,7 @@ test("a deleted container's metadata document ID cannot start a new document his
       root: {
         ...root,
         bundle: child.accessManifest,
-        kekState: kekStateFromContainerResponse(child),
+        kekState: await kekStateFromContainerResponse(child),
       },
       containerPath: [root.bundle, child.accessManifest],
     }),

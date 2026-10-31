@@ -80,9 +80,10 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // paths. A discovery read naming a held directory head receives that head
   // alone (about 300 bytes instead of 17–34 KB): 0.91 MB, 1.33 MB before.
   // Prefetches of unstored folders cite their listed parent's held bundles
-  // and projections cite held KEK levels by digest: 0.80 MB received; keep
-  // about 10% headroom.
-  bodyBytes: { request: 160_000, response: 885_000 },
+  // and projections cite held KEK levels by digest: 0.80 MB received.
+  // Container acknowledgements carry hashes, not echoes (the policy commit
+  // 192 KB -> 73 KB): 0.67 MB received; keep about 10% headroom.
+  bodyBytes: { request: 160_000, response: 740_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,

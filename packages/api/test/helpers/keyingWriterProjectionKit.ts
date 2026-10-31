@@ -34,6 +34,7 @@ import type {
 } from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
+  type ContainerReciteResponse,
   type DocumentCreateResponse,
   isDocumentCreateResponse,
 } from "@tearleads/validators/response";
@@ -47,6 +48,11 @@ import {
 import { routeApp } from "../../src/routeApp";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
+import {
+  type StoredContainerMutation,
+  storedContainerManifestBundle,
+  withStoredContainerMutation,
+} from "./storedContainerMutation";
 
 export { buildRootGrantRequest } from "./containerGrantMutation";
 
@@ -310,16 +316,28 @@ export async function bootstrapRoot(
   };
 }
 
-export function accessManifestFromContainerResponse(
-  response: ContainerMutationResponse,
-): AccessManifestBundleWire {
-  return response.accessManifest as unknown as AccessManifestBundleWire;
+/**
+ * Acknowledgements name the committed manifest by hash; tests chaining the
+ * next mutation read the signed bundle back from the store.
+ */
+export async function accessManifestFromContainerResponse(
+  response:
+    | Pick<ContainerReciteResponse, "manifestHead">
+    | Pick<StoredContainerMutation, "accessManifest" | "manifestHead">,
+): Promise<AccessManifestBundleWire> {
+  if ("accessManifest" in response) return response.accessManifest;
+  return storedContainerManifestBundle(response.manifestHead.manifestHash);
 }
 
-export function kekStateFromContainerResponse(
-  response: ContainerMutationResponse,
-): VerifiedContainerKekState {
-  return response.containerKek as unknown as VerifiedContainerKekState;
+/** The committed KEK state an acknowledgement names, read from the store. */
+export async function kekStateFromContainerResponse(
+  response: ContainerMutationResponse | StoredContainerMutation,
+): Promise<VerifiedContainerKekState> {
+  const stored =
+    "wraps" in response.containerKek
+      ? response
+      : await withStoredContainerMutation(response);
+  return stored.containerKek as unknown as VerifiedContainerKekState;
 }
 
 export async function createContainerManifestBundle(

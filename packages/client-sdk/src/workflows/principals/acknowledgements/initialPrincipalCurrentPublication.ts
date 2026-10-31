@@ -42,7 +42,7 @@ export async function prepareInitialGroupCurrentPublication(
       "object_mismatch",
       "Initial group publication must begin at its exact genesis",
     );
-  checks.assertReceipt({ expectedHead, request, response });
+  await checks.assertReceipt({ expectedHead, request, response });
   const keys = await collectPrincipalPolicySignerPublicKeys({
     bundle: { currentState: response.currentState, previousStates: [] },
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,

@@ -87,8 +87,8 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
     throw new Error("Expected shared container response");
   }
   const sharedFirstChild: StoredRootFixture = {
-    bundle: accessManifestFromContainerResponse(shared),
-    kekState: kekStateFromContainerResponse(shared),
+    bundle: await accessManifestFromContainerResponse(shared),
+    kekState: await kekStateFromContainerResponse(shared),
     principalPolicies: root.principalPolicies,
   };
   const firstPath = [root.bundle, sharedFirstChild.bundle];

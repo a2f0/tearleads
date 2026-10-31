@@ -57,7 +57,7 @@ test("a warm client moves an uploaded attachment on its first attempt", async ()
         "source wrap",
       ),
     };
-    const childKek = kekStateFromContainerResponse(child);
+    const childKek = await kekStateFromContainerResponse(child);
     const destinationTarget = {
       ...target,
       containerId: child.containerId,
