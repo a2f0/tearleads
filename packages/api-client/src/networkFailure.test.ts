@@ -313,4 +313,12 @@ test("URL redaction keeps origin and path and bounds the length", () => {
     "see wss://h.test/events now",
   );
   expect(redactUrls("x".repeat(300))).toHaveLength(203);
+  for (const raw of [
+    "https://h.test/x?token=abc)secret",
+    "https://h.test/x?token=a,b;c(secret)",
+    "https://h.test/x#frag)secret",
+    "https://user:secret@h.test/x",
+  ]) {
+    expect(redactUrls(`failed (${raw}) now`)).not.toContain("secret");
+  }
 });
