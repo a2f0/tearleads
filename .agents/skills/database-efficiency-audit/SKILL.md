@@ -66,6 +66,10 @@ audit. Confirm before creating the issue unless the user already asked for
 one. The repository is public: the issue carries normalized SQL, counts, and
 plans, never row data, credentials, role names, or hostnames.
 
+Before any audit work, start the
+[usage receipt](../../../docs/developer/audit-usage-receipts.md#start-and-checkpoint).
+Every published report includes it, even when counters are unavailable.
+
 ## Arguments
 
 - Optional focus: slice names from [`references/slices.md`](references/slices.md),
@@ -254,6 +258,11 @@ For each verified proposal:
 5. Order proposals by dependency, and mark protocol leads for hand-off.
 
 ## 6. Report
+
+Before publishing, checkpoint usage and follow
+[receipt publication](../../../docs/developer/audit-usage-receipts.md#publish-and-reconcile).
+Include the receipt in the issue body and verify the exact readback; keep the
+issue and receipt URLs in the checkpoint or durable notes.
 
 1. Update the checkpoint before returning. Print a short batch summary with
    completed, partial, and pending coverage, verified proposals, deferred

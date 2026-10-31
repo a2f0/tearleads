@@ -23,6 +23,9 @@ machine-readable receipts and review findings visible by running `versions
 prepare`, `review`, and other commands whose output drives a decision directly.
 Prefer documented compact test reporters when they preserve required evidence;
 do not reduce test scope, skip checks, silence warnings, or mask failures.
+Start servers, watchers, and other long-running processes with
+`agent-tool proc start --label <name> -- <command>`, never a backgrounded shell
+command, so they can be found and stopped.
 
 1. Finish the requested change on a feature branch. Use
    `agent-tool branch create <branch> --base <base-branch> --remote <remote>`
@@ -73,8 +76,15 @@ do not reduce test scope, skip checks, silence warnings, or mask failures.
    live checks. Report deployment failures
    separately from a successful merge; follow project policy for repairs.
 
+Before the final report, run `agent-tool teardown` in each repository this work
+touched. Stop what the work started (`teardown --apply`, `proc stop`), stop any
+untracked process it started, and remove worktrees it added. Report what
+remains and why; the work is not done while teardown fails for anything it
+started.
+
 Never infer a clean review from process success alone or carry a review across
 content changes. Do not weaken configured CI policy to get a merge through.
 If a step fails, preserve useful intermediate work and report the concrete
 remaining issue. Report PR link, merged commit, review verdict, validation, final
-checkout state, and whether the shipped local branch was pruned or preserved.
+checkout state, the teardown result, and whether the shipped local branch was
+pruned or preserved.

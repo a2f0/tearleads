@@ -46,6 +46,10 @@ scratch probes outside the checkout. Do not implement proposals, create an
 implementation branch, apply fixes, push, or open PRs as part of the audit.
 Confirm before creating the issue unless the user already asked for one.
 
+Before any audit work, start the
+[usage receipt](../../../docs/developer/audit-usage-receipts.md#start-and-checkpoint).
+Every published report includes it, even when counters are unavailable.
+
 ## Arguments
 
 - Optional focus: slice names from
@@ -212,6 +216,11 @@ For each verified proposal:
    shape change lists that change as a prerequisite.
 
 ## 5. Report
+
+Before publishing, checkpoint usage and follow
+[receipt publication](../../../docs/developer/audit-usage-receipts.md#publish-and-reconcile).
+Include the receipt in the issue body and verify the exact readback; keep the
+issue and receipt URLs in the checkpoint or durable notes.
 
 1. Update the checkpoint before returning. Print a short batch summary with
    completed, partial, and pending coverage, verified proposals, deferred
