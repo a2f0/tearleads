@@ -84,7 +84,7 @@ test("a purged document ID cannot become a new container's metadata document", a
   const created = await createDocument({ owner, root });
   const purged = await postDocumentPurge({
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner,
     root,
   });

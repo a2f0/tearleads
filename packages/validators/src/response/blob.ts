@@ -125,24 +125,72 @@ export type ListDocumentAttachmentsResponse = z.infer<
   typeof ListDocumentAttachmentsResponseSchema
 >;
 
+/**
+ * A bind acknowledges by hash: the signed binding event's hash, the stored
+ * content-key epoch, and the verified write header's hash, beside the
+ * server-resolved KEK targets. It never echoes the signed event, the
+ * content-key wraps, the write header, or the write authorization (which a
+ * staged upload's bind stores as exactly those targets); the client compares
+ * each with what it signed.
+ */
 export const BlobAttachmentBindResponseSchema = loosePlainObject({
-  bindingEvent: AccessEventBundleWireResponseSchema,
   bindingId: z.string(),
   blobId: z.string(),
   blobKekTargets: BlobKekTargetsResponseSchema,
-  contentKeyBundle: BlobContentKeyBundleResponseSchema,
+  contentKeyEpoch: positiveIntegerSchema,
   documentId: z.string(),
   documentManifestHash: z.string(),
+  eventHash: nonEmptyStringSchema,
   previousBindingId: z.string().nullable(),
   slotId: z.string(),
-  writeAuthorization: BlobKekTargetsResponseSchema,
-  writeHeader: plainObjectSchema,
   writeHeaderHash: z.string(),
 });
 
 export type BlobAttachmentBindResponse = z.infer<
   typeof BlobAttachmentBindResponseSchema
 >;
+
+/**
+ * The listing entry a staged upload's bind committed, rebuilt from the
+ * request it acknowledged: the bind stores exactly the signed event,
+ * content-key bundle, and write header the request carried, with the
+ * resolved KEK targets as the write authorization. Callers must first have
+ * matched the acknowledgement against that request.
+ */
+export function blobAttachmentSummaryFromStagedBind(
+  request: {
+    readonly body: unknown;
+    readonly contentKeyBundle: {
+      readonly targetHash: string;
+      readonly targets: readonly BlobContentKeyTargetEnvelopeResponse[];
+    };
+    readonly event: Record<string, unknown>;
+    readonly stagedBlob: { readonly writeHeader: Record<string, unknown> };
+  },
+  response: BlobAttachmentBindResponse,
+): BlobAttachmentSummary {
+  return {
+    bindingEvent: {
+      body: request.body,
+      event: request.event,
+      eventHash: response.eventHash,
+    },
+    bindingId: response.bindingId,
+    blobId: response.blobId,
+    blobKekTargets: response.blobKekTargets,
+    contentKeyBundle: {
+      blobId: response.blobId,
+      contentKeyEpoch: response.contentKeyEpoch,
+      targetHash: request.contentKeyBundle.targetHash,
+      targets: [...request.contentKeyBundle.targets],
+    },
+    documentManifestHash: response.documentManifestHash,
+    previousBindingId: response.previousBindingId,
+    slotId: response.slotId,
+    writeAuthorization: response.blobKekTargets,
+    writeHeader: request.stagedBlob.writeHeader,
+  };
+}
 
 export const BlobAttachmentDetachResponseSchema = loosePlainObject({
   bindingId: z.string(),

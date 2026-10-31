@@ -43,9 +43,7 @@ test("a failed read write-back is reported, not returned", async () => {
 /** A stored manifest with no marker anywhere, as after a rotated secret. */
 async function storedManifestHash(): Promise<string> {
   const { registration } = await registerServiceUser();
-  const manifestHash = String(
-    registration.rootMetadataDocument.accessManifest.manifestHash,
-  );
+  const manifestHash = String(registration.rootMetadataDocument.manifestHash);
   await db
     .update(accessManifests)
     .set({ verificationMac: null })

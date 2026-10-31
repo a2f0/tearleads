@@ -18,6 +18,7 @@ import type {
   AccessManifestBundleWireResponse,
   DocumentContentKeyBundleResponse,
   DocumentKekTargetsResponse,
+  DocumentLinkSetMutationResponse,
 } from "@tearleads/validators/response";
 import type {
   StoredDocumentContentKeyBundle,
@@ -57,6 +58,26 @@ export function documentManifestBundleRecord(
     manifest: projectionAccessManifestRecord(manifest.manifest),
     manifestHash: manifest.manifestHash,
     state: documentLinkSetStateRecord(manifest.state),
+  };
+}
+
+/**
+ * The hash acknowledgement of a committed document create or link-set
+ * mutation: the signed event and manifest hashes, the stored content-key
+ * epoch, and the KEK target hash this transaction resolved.
+ */
+export function documentMutationAcknowledgement(
+  manifest: VerifiedDocumentLinkSetManifest,
+  contentKeyBundle: {
+    readonly contentKeyEpoch: number;
+    readonly currentTargets: { readonly documentKeyTargetHash: string };
+  },
+): Omit<DocumentLinkSetMutationResponse, "id"> {
+  return {
+    contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
+    eventHash: manifest.event.eventHash,
+    manifestHash: manifest.manifestHash,
+    targetHash: contentKeyBundle.currentTargets.documentKeyTargetHash,
   };
 }
 

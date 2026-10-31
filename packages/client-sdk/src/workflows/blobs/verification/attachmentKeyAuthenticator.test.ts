@@ -56,7 +56,7 @@ test("link rewrap authenticates multi-chunk bytes without buffering the response
     });
     expect(result).toHaveLength(1);
     expect(result[0]?.targets[0]?.wrappedKey).not.toBe(
-      fixture.uploaded.response.contentKeyBundle.targets[0]?.wrappedKey,
+      fixture.uploaded.request.contentKeyBundle.targets[0]?.wrappedKey,
     );
     expect(buffer).not.toHaveBeenCalled();
   } finally {

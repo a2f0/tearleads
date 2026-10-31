@@ -4,7 +4,6 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   ContainerMutationResponse,
-  DocumentLinkSetMutationResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
@@ -19,7 +18,7 @@ type DocumentMutationOrigin = {
 };
 type Publish = (event: PublishedRealtimeEvent) => Promise<void>;
 
-function listDocumentKekTargetContainerIds(
+export function documentKekTargetContainerIds(
   documentKekTargets: DocumentSyncResponse["documentKekTargets"],
 ): string[] {
   return documentKekTargets.targets.flatMap((target) => {
@@ -32,14 +31,15 @@ function listDocumentKekTargetContainerIds(
 export function createDocumentMutationCreatedEvent(input: {
   readonly documentId: string;
   readonly eventType: DocumentLinkSetEventType;
+  /** The document's KEK target containers after the mutation. */
+  readonly linkedContainerIds: readonly string[];
   readonly origin: DocumentMutationOrigin;
   readonly request: DocumentLinkSetMutationRequest;
-  readonly response: DocumentLinkSetMutationResponse;
 }): PublishedRealtimeEvent {
   const mutationTargetContainerId =
     input.request.targetContainerPathRefs.at(-1)?.containerId;
   const containerIds = [
-    ...listDocumentKekTargetContainerIds(input.response.documentKekTargets),
+    ...input.linkedContainerIds,
     ...(mutationTargetContainerId ? [mutationTargetContainerId] : []),
   ];
   return {
@@ -54,10 +54,10 @@ export function createDocumentMutationCreatedEvent(input: {
 export async function publishDocumentMutationCreatedEvent(input: {
   readonly documentId: string;
   readonly eventType: DocumentLinkSetEventType;
+  readonly linkedContainerIds: readonly string[];
   readonly origin: DocumentMutationOrigin;
   readonly publish: Publish;
   readonly request: DocumentLinkSetMutationRequest;
-  readonly response: DocumentLinkSetMutationResponse;
 }): Promise<void> {
   await publishBestEffort(
     input.publish,
@@ -67,14 +67,14 @@ export async function publishDocumentMutationCreatedEvent(input: {
 }
 
 export function createDocumentUpdateCreatedEvent(input: {
+  readonly containerIds: readonly string[];
   readonly documentId: string;
-  readonly documentKekTargets: DocumentSyncResponse["documentKekTargets"];
   readonly origin: DocumentMutationOrigin;
   readonly updateIds: readonly string[];
 }): PublishedRealtimeEvent {
   return {
     type: "document_update_created",
-    containerIds: listDocumentKekTargetContainerIds(input.documentKekTargets),
+    containerIds: [...input.containerIds],
     documentId: input.documentId,
     updateIds: [...input.updateIds],
     origin: input.origin,
@@ -82,8 +82,8 @@ export function createDocumentUpdateCreatedEvent(input: {
 }
 
 export async function publishDocumentUpdateCreatedEvent(input: {
+  readonly containerIds: readonly string[];
   readonly documentId: string;
-  readonly documentKekTargets: DocumentSyncResponse["documentKekTargets"];
   readonly origin: DocumentMutationOrigin;
   readonly publish: Publish;
   readonly updateIds: readonly string[];

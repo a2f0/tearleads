@@ -16,6 +16,7 @@ import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
+import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -196,7 +197,7 @@ test("repairing a legacy profile link set emits a directory upsert", async () =>
 
   const unlinkRequest = await buildDocumentUnlinkRequest({
     child: extraContainer,
-    linkedDocument: linked,
+    linkedDocument: withDocumentMutationArtifacts(linkRequest, linked),
     owner: actor,
     root,
   });

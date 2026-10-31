@@ -79,8 +79,8 @@
       "bytes": 2773161
     },
     "docs/protocol-specification.md": {
-      "lines": 786,
-      "bytes": 42491
+      "lines": 797,
+      "bytes": 43176
     },
     "docs/security-guarantees.md": {
       "lines": 847,
@@ -103,8 +103,8 @@
       "bytes": 550577
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 2103,
-      "bytes": 67556
+      "lines": 2127,
+      "bytes": 68545
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 672,
@@ -159,11 +159,11 @@
       "bytes": 126294
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1232,
+      "lines": 1240,
       "bytes": 40967
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2277,
+      "lines": 2281,
       "bytes": 73975
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
@@ -247,8 +247,8 @@
       "bytes": 13767
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 563,
-      "bytes": 18913
+      "lines": 565,
+      "bytes": 18949
     },
     "packages/client-sdk/src/data/sqlite/schema/index.ts": {
       "lines": 691,
@@ -335,8 +335,8 @@
       "bytes": 1009099
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 593,
-      "bytes": 20752
+      "lines": 594,
+      "bytes": 20791
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 508,

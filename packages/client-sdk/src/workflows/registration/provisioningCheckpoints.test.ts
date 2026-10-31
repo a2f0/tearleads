@@ -35,6 +35,22 @@ const SYSTEM_CONTAINER = {
   },
 } as const;
 
+function requireRequest<T>(value: T | undefined): T {
+  if (value === undefined) throw new Error("Expected a provisioning request");
+  return value;
+}
+
+/** Documents acknowledge by hash; their checkpoint is the head the client signed. */
+function signedDocumentHead(request: {
+  readonly expectedManifestHash: string;
+  readonly manifest: Record<string, unknown>;
+}) {
+  return {
+    manifest: request.manifest,
+    manifestHash: request.expectedManifestHash,
+  };
+}
+
 function checkpoint(input: {
   manifest: Record<string, unknown>;
   manifestHash: string;
@@ -92,18 +108,27 @@ function expectedProvisioningHeads(
       manifest: request.initialRootContainer.manifest,
       manifestHash: request.initialRootContainer.expectedManifestHash,
     },
-    response.rootMetadataDocument.accessManifest,
+    signedDocumentHead(request.initialRootMetadataDocument),
     asContainerMutationFixture(response.rosterProfileContainer.container)
       .accessManifest,
-    response.rosterProfileContainer.metadataDocument.accessManifest,
-    response.rosterProfileDocument.accessManifest,
+    signedDocumentHead(
+      requireRequest(request.initialRosterProfileContainer).metadataDocument,
+    ),
+    signedDocumentHead(requireRequest(request.initialRosterProfileDocument)),
     asContainerMutationFixture(response.organizationMetadataContainer.container)
       .accessManifest,
-    response.organizationMetadataContainer.metadataDocument.accessManifest,
-    response.organizationProfileDocument.accessManifest,
-    ...response.systemContainers.flatMap((entry) => [
+    signedDocumentHead(
+      request.initialOrganizationMetadataContainer.metadataDocument,
+    ),
+    signedDocumentHead(
+      requireRequest(request.initialOrganizationProfileDocument),
+    ),
+    ...response.systemContainers.flatMap((entry, index) => [
       asContainerMutationFixture(entry.container).accessManifest,
-      entry.metadataDocument.accessManifest,
+      signedDocumentHead(
+        requireRequest(request.initialSystemContainers?.[index])
+          .metadataDocument,
+      ),
     ]),
   ];
   return bundles.map(checkpoint);

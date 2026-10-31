@@ -6,6 +6,7 @@ import {
 import { createTestUser } from "@tearleads/test-utils";
 import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -117,19 +118,18 @@ test("a relink racing an unlink returns retryable stale state", async () => {
       },
       body: JSON.stringify(request),
     });
-  const first = await post(
-    "link",
-    await buildDocumentLinkRequest({
-      child,
-      createdDocument: created,
-      owner,
-      root,
-    }),
-  );
+  const linkRequest = await buildDocumentLinkRequest({
+    child,
+    createdDocument: created,
+    owner,
+    root,
+  });
+  const first = await post("link", linkRequest);
   expect(first.status).toBe(200);
-  const linked = await first.json();
-  if (!isDocumentLinkSetMutationResponse(linked))
+  const linkedBody = await first.json();
+  if (!isDocumentLinkSetMutationResponse(linkedBody))
     throw new Error("Expected linked document");
+  const linked = withDocumentMutationArtifacts(linkRequest, linkedBody);
   const childBundle = child.accessManifest;
   const stale = await buildDocumentLinkRequest({
     child: target,

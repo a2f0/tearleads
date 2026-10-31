@@ -19,6 +19,7 @@ import type {
   BlobContentKeyTargetEnvelopeRequest,
 } from "@tearleads/validators/request";
 import type {
+  BlobAttachmentBindResponse,
   BlobContentKeyBundleResponse,
   BlobKekTargetsResponse,
 } from "@tearleads/validators/response";
@@ -28,7 +29,6 @@ import type {
 } from "../../../access/read/blobContentKeyStore";
 import type { resolveCurrentBlobKekTargets } from "../../../access/read/blobKekTargets";
 import {
-  projectionVerifiedAccessEventRecord,
   readProjectionAccessEvent,
   readProjectionCanonicalJson,
   readProjectionPlainRecord,
@@ -313,22 +313,18 @@ export function toBindResponse(input: {
   readonly blobId: string;
   readonly contentKeyBundle: StoredBlobContentKeyBundleWithTargets;
   readonly currentTargets: ResolvedBlobKekTargets;
-  readonly writeHeader: WriteHeader;
   readonly writeHeaderHash: string;
-  readonly writeAuthorization: BlobKekTargetsResponse;
-}) {
+}): BlobAttachmentBindResponse {
   return {
-    bindingEvent: projectionVerifiedAccessEventRecord(input.binding.event),
     bindingId: input.binding.bindingId,
     blobId: input.blobId,
+    blobKekTargets: toBlobKekTargetsResponse(input.currentTargets),
+    contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
     documentId: input.binding.documentId,
     documentManifestHash: input.binding.documentManifestHash,
+    eventHash: input.binding.event.eventHash,
     previousBindingId: input.binding.body.expectedBindingId,
     slotId: input.binding.slotId,
-    contentKeyBundle: toContentKeyBundleResponse(input.contentKeyBundle),
-    blobKekTargets: toBlobKekTargetsResponse(input.currentTargets),
-    writeHeader: { ...input.writeHeader },
     writeHeaderHash: input.writeHeaderHash,
-    writeAuthorization: { ...input.writeAuthorization },
   };
 }

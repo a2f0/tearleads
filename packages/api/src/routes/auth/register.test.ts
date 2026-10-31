@@ -381,9 +381,7 @@ test("POST /auth/register provisions root metadata", async () => {
   expect(response.status, await response.clone().text()).toBe(200);
   const body = await response.json();
   expect(body.rootMetadataDocument.id).toBe(body.rootMetadataDocumentId);
-  expect(body.rootMetadataDocument.contentKeyBundle.documentId).toBe(
-    body.rootMetadataDocumentId,
-  );
+  expect(body.rootMetadataDocument.contentKeyEpoch).toBe(1);
 
   const [metadataBinding] = await db
     .select({

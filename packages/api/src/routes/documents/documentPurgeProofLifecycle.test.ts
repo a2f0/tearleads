@@ -56,7 +56,7 @@ test("purge proof remains available after its container is deleted", async () =>
   const purgeResponse = await postDocumentPurge({
     authorizingContainerPath: containerPath,
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner,
     root: childFixture,
   });
@@ -112,7 +112,7 @@ test("document purge rejects a disconnected signed authorization path", async ()
       secondChildFixture.bundle,
     ],
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner,
     root: secondChildFixture,
   });
@@ -137,7 +137,7 @@ test("document purge rejects a signed authorization path with omitted ancestors"
   const purgeResponse = await postDocumentPurge({
     authorizingContainerPath: [childFixture.bundle],
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner,
     root: childFixture,
   });
@@ -195,7 +195,7 @@ test("purge proof retains the exact path that authorized inherited access", asyn
   const purgeResponse = await postDocumentPurge({
     authorizingContainerPath,
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner: writer,
     root: childFixture,
   });

@@ -132,9 +132,9 @@ test("ancestor rotation keeps recovery projections and document reads available 
     },
   ]);
   const read = await postSync({
-    contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
-    expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
-    expectedTargetHash: created.contentKeyBundle.targetHash,
+    contentKeyEpoch: created.contentKeyEpoch,
+    expectedLinkSetManifestHash: created.manifestHash,
+    expectedTargetHash: created.targetHash,
     localVersionVector: null,
     outgoingUpdates: [],
     supportsPullPagination: true,

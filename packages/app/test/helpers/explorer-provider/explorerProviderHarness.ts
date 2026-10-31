@@ -21,10 +21,10 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   ContainerWriterProjectionResponse,
-  DocumentCreateResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { createSqlRuntimeBase } from "../createSqlRuntime";
+import type { StoredDocumentFixture } from "../document-store/documentStoreSyncFixtures";
 import { createTestRuntimeTrustedUserIdentityResolver } from "../trustedUserIdentity";
 import {
   createExplorerContainerMutationResponse,
@@ -54,7 +54,7 @@ export function createExplorerContainerApiHarness(
       projection,
     ]),
   );
-  const createdDocuments = new Map<string, DocumentCreateResponse>();
+  const createdDocuments = new Map<string, StoredDocumentFixture>();
   const containerCreateCalls: Array<{
     containerId: string;
     metadataDocumentId: string;

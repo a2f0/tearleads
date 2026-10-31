@@ -7,7 +7,6 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   BlobAttachmentSummary,
-  DocumentCreateResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
@@ -17,6 +16,7 @@ import {
 import {
   createMaterializedSyncFixture,
   createResponseFromRequest,
+  type DocumentCreateFixture,
 } from "../../../../../test/helpers/documentFixtures";
 import {
   attachmentSummaryFromBind,
@@ -54,7 +54,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
   }> = [];
   let syncCount = 0;
   let injectedSettlementRace = false;
-  let storedDocument: DocumentCreateResponse | null = null;
+  let storedDocument: DocumentCreateFixture | null = null;
   const { getAssembledBytes, ...multipartApi } =
     createMultipartBlobStageFixture();
   const writerProjection = (): DocumentWriterProjectionResponse | null =>

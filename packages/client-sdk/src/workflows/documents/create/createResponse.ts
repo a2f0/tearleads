@@ -3,7 +3,10 @@ import type {
   DocumentCreateResponse,
 } from "@tearleads/validators/response";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
-import { persistedDocumentCreateStateFromResponse } from "../../../data/documents/shared/responses";
+import {
+  acknowledgedDocumentCreate,
+  persistedDocumentStateFromAcknowledgement,
+} from "../../../data/documents/shared/responses";
 import { acknowledgeDocumentMutation } from "../../../data/documents/shared/sync/mutationAcknowledgement";
 import type {
   CreateRemoteDocumentResult,
@@ -33,17 +36,22 @@ export async function acknowledgeRemoteDocumentCreate(
   } & ProjectionVerificationOptions,
 ): Promise<CreateRemoteDocumentResult | null> {
   const { materializedPlan, response } = input;
-  const persistedState = persistedDocumentCreateStateFromResponse(
+  const acknowledged = acknowledgedDocumentCreate(
     materializedPlan.plan,
     response,
   );
+  const persistedState =
+    persistedDocumentStateFromAcknowledgement(acknowledged);
   await acknowledgeDocumentMutation({
     execSql: input.execSql,
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
   });
   if (input.stillCurrent?.() === false) return null;
-  const writerProjection = documentWriterProjectionFromCreateResponse(input);
+  const writerProjection = documentWriterProjectionFromCreateResponse({
+    containerProjection: input.containerProjection,
+    response: acknowledged,
+  });
   try {
     const targets = await nullOnProjectionVerificationCancellation(() =>
       assertDocumentWriterProjectionConsistent(writerProjection, input),

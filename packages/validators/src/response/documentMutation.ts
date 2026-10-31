@@ -5,6 +5,7 @@ import {
   loosePlainObject,
   nonEmptyArraySchema,
   nonEmptyStringSchema,
+  positiveIntegerSchema,
 } from "../schema";
 import {
   AccessEventBundleWireResponseSchema,
@@ -62,12 +63,25 @@ export type DocumentCreateSeedResponse = z.infer<
   typeof DocumentCreateSeedResponseSchema
 >;
 
-export const DocumentCreateResponseSchema = loosePlainObject({
-  accessManifest: AccessManifestBundleWireResponseSchema,
-  contentKeyBundle: DocumentContentKeyBundleResponseSchema,
-  createdAt: z.string(),
-  documentKekTargets: DocumentKekTargetsResponseSchema,
+/**
+ * A document create or link-set mutation acknowledges by hash: the signed
+ * event's hash, the committed link-set manifest hash, the content-key epoch
+ * the server stored, and the KEK target hash it resolved. It never echoes the
+ * signed event, manifest, state, content-key wraps, or KEK targets; the client
+ * compares each hash with the plan it signed and records state built from
+ * that plan.
+ */
+const documentMutationAcknowledgementShape = {
+  contentKeyEpoch: positiveIntegerSchema,
+  eventHash: nonEmptyStringSchema,
   id: z.string(),
+  manifestHash: nonEmptyStringSchema,
+  targetHash: nonEmptyStringSchema,
+} satisfies z.ZodRawShape;
+
+export const DocumentCreateResponseSchema = loosePlainObject({
+  ...documentMutationAcknowledgementShape,
+  createdAt: z.string(),
   /** Present exactly when the request carried a seed. */
   initialSync: DocumentCreateSeedResponseSchema.optional(),
 });
@@ -76,12 +90,9 @@ export type DocumentCreateResponse = z.infer<
   typeof DocumentCreateResponseSchema
 >;
 
-export const DocumentLinkSetMutationResponseSchema = loosePlainObject({
-  accessManifest: AccessManifestBundleWireResponseSchema,
-  contentKeyBundle: DocumentContentKeyBundleResponseSchema,
-  documentKekTargets: DocumentKekTargetsResponseSchema,
-  id: z.string(),
-});
+export const DocumentLinkSetMutationResponseSchema = loosePlainObject(
+  documentMutationAcknowledgementShape,
+);
 
 export type DocumentLinkSetMutationResponse = z.infer<
   typeof DocumentLinkSetMutationResponseSchema

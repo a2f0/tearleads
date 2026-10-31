@@ -250,7 +250,7 @@ test("a bound organization profile document cannot be purged", async () => {
 
   const response = await postDocumentPurge({
     documentId: profile.id,
-    documentManifestHash: profile.accessManifest.manifestHash,
+    documentManifestHash: profile.manifestHash,
     owner: admin.actor,
     root,
   });

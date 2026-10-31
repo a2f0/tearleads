@@ -9,7 +9,8 @@ import {
   versionVectorsEqual,
 } from "@tearleads/loro";
 import type {
-  DocumentCreateResponse,
+  AccessManifestBundleWireResponse,
+  DocumentContentKeyBundleResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -110,7 +111,7 @@ async function buildStaleRecoveryBaselinePendingUpdate(
  */
 function staleBundleDocumentManifest(
   writerProjection: DocumentWriterProjectionResponse,
-): DocumentCreateResponse["accessManifest"] {
+): AccessManifestBundleWireResponse {
   const { contentKeyBundle, documentManifest } = writerProjection;
   if (contentKeyBundle.linkSetManifestHash === documentManifest.manifestHash) {
     return documentManifest;
@@ -151,9 +152,9 @@ function assertRecoveryBaselineCoversCheckpoints(
 
 interface ResolvedSyncPlanContentMaterial {
   contentKey: Uint8Array;
-  contentKeyBundle: DocumentCreateResponse["contentKeyBundle"];
+  contentKeyBundle: DocumentContentKeyBundleResponse;
   documentKekTargets: DocumentSyncResponse["documentKekTargets"];
-  documentManifest: DocumentCreateResponse["accessManifest"];
+  documentManifest: AccessManifestBundleWireResponse;
   healedStaleContentKeyBundle: boolean;
   heldBackPendingUpdateIds: readonly string[];
   pendingUpdates: readonly PendingUpdateRecord[];

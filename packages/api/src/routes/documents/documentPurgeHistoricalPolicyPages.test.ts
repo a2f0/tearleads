@@ -58,7 +58,7 @@ test("purge proof access uses the exact historical group membership", async () =
   const created = await createDocument({ owner, root });
   const purgeResponse = await postDocumentPurge({
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner,
     root,
   });
@@ -134,7 +134,7 @@ test("purge proof remains available to a later-revoked replica", async () => {
   const purgeResponse = await postDocumentPurge({
     authorizingContainerPath: sharedPath,
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner: replicaOwner,
     root: sharedChild,
   });
@@ -200,7 +200,7 @@ test("purge proof preserves historical signer membership after group deletion", 
   const created = await createDocument({ owner: writer, root: granted.root });
   const purgeResponse = await postDocumentPurge({
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner: writer,
     root: granted.root,
   });

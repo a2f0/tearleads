@@ -21,6 +21,7 @@ import type {
 import { buildDocumentCreatePlan } from "../../src/data/documents/shared/events";
 import { deriveDocumentCreateTargets } from "../../src/data/documents/shared/projection";
 import { targetEnvelopeReference } from "../../src/data/documents/shared/readers";
+import type { AcknowledgedDocumentMutation } from "../../src/data/documents/shared/responses";
 import type { DocumentCreatePlan } from "../../src/data/documents/shared/types";
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
 import type { buildDocumentSyncPlan } from "../../src/workflows/documents/syncPlan/syncPlanIdentity";
@@ -31,12 +32,26 @@ import {
 } from "./documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "./trustedUserIdentity";
 
+/**
+ * A create or link-set acknowledgement together with the material a client
+ * rebuilds from its plan, so fixtures can serve the response and seed the
+ * projections that follow it.
+ */
+export type DocumentCreateFixture = DocumentCreateResponse &
+  AcknowledgedDocumentMutation;
+export type DocumentLinkSetFixture = DocumentLinkSetMutationResponse &
+  AcknowledgedDocumentMutation;
+
 export function createResponse(
   plan: DocumentCreatePlan,
-): DocumentCreateResponse {
+): DocumentCreateFixture {
   return {
     id: plan.documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
+    contentKeyEpoch: plan.request.contentKeyBundle.contentKeyEpoch,
+    eventHash: plan.eventHash,
+    manifestHash: plan.manifestHash,
+    targetHash: plan.targetHash,
     accessManifest: {
       event: {
         event: plan.event as unknown as Record<string, unknown>,
@@ -73,7 +88,7 @@ export function createResponse(
 
 export async function createResponseFromRequest(
   request: DocumentCreateRequest,
-): Promise<DocumentCreateResponse> {
+): Promise<DocumentCreateFixture> {
   const manifest = request.manifest as Record<string, unknown>;
   const body = request.body as Record<string, unknown>;
   const documentId = String(Reflect.get(manifest, "objectId"));
@@ -86,6 +101,10 @@ export async function createResponseFromRequest(
   return {
     id: documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
+    contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
+    eventHash,
+    manifestHash: request.expectedManifestHash,
+    targetHash: request.contentKeyBundle.targetHash,
     accessManifest: {
       event: {
         event: request.event,
@@ -129,7 +148,7 @@ export async function createResponseFromRequest(
 export async function createLinkSetResponseFromRequest(
   documentId: string,
   request: DocumentLinkSetMutationRequest,
-): Promise<DocumentLinkSetMutationResponse> {
+): Promise<DocumentLinkSetFixture> {
   const body = request.body as Record<string, unknown>;
   const manifest = request.manifest as Record<string, unknown>;
   const event = request.event as unknown as AccessEvent;
@@ -146,6 +165,10 @@ export async function createLinkSetResponseFromRequest(
 
   return {
     id: documentId,
+    contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
+    eventHash,
+    manifestHash: request.expectedManifestHash,
+    targetHash: request.contentKeyBundle.targetHash,
     accessManifest: {
       event: {
         event: request.event,

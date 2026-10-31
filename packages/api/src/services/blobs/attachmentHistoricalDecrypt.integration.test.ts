@@ -17,7 +17,13 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql, createTestUser } from "@tearleads/test-utils";
+import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
+import {
+  type BlobAttachmentBindResponse,
+  blobAttachmentSummaryFromStagedBind,
+} from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { documentFixtureFromWriterProjection } from "../../../test/helpers/documentAcknowledgementFixture";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import {
   accessManifestFromContainerResponse,
@@ -30,6 +36,18 @@ import { withProjectionHistoryRecovery } from "../../../test/helpers/projectionH
 import { registerUser } from "../../../test/helpers/registerUser";
 import { withStoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
+
+function stagedUploadBinding(uploaded: {
+  readonly request: BlobAttachmentBindRequest;
+  readonly response: BlobAttachmentBindResponse;
+}) {
+  const { stagedBlob } = uploaded.request;
+  if (!stagedBlob) throw new Error("Expected a staged upload");
+  return blobAttachmentSummaryFromStagedBind(
+    { ...uploaded.request, stagedBlob },
+    uploaded.response,
+  );
+}
 
 test("SDK decrypts a historical binding after ancestor head changes and document relinking", async () => {
   const owner = createTestUser();
@@ -212,7 +230,10 @@ test("SDK decrypts a historical binding after ancestor head changes and document
           await accessManifestFromContainerResponse(child.response),
         ],
         child: await withStoredContainerMutation(other.response),
-        createdDocument: document.response,
+        createdDocument: documentFixtureFromWriterProjection(
+          document.response,
+          document.writerProjection,
+        ),
         owner,
         root: {
           bundle: await accessManifestFromContainerResponse(
@@ -278,11 +299,7 @@ test("SDK decrypts a historical binding after ancestor head changes and document
     ).toContain(bindAncestor.plan.manifestHash);
     expect(
       await decryptDocumentAttachmentBlob({
-        binding: {
-          ...uploaded.response,
-          blobKekTargets: uploaded.response.blobKekTargets,
-          slotId: "preview",
-        },
+        binding: stagedUploadBinding(uploaded),
         encryptedBytes,
         execSql,
         expectedDocumentId: document.documentId,

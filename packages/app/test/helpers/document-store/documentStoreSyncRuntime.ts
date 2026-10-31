@@ -19,7 +19,6 @@ import type {
   BlobAttachmentBindResponse,
   BlobAttachmentSummary,
   ContainerWriterProjectionResponse,
-  DocumentCreateResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../src/document-types/projectors";
@@ -28,6 +27,7 @@ import { emptyDatabaseExecSql } from "../emptyDatabaseExecSql";
 import { createTestRuntimeTrustedUserIdentityResolver } from "../trustedUserIdentity";
 import { waitForCondition } from "../waitForCondition";
 import { createDocumentStoreMultipartApi } from "./documentStoreMultipartApi";
+import type { StoredDocumentFixture } from "./documentStoreSyncFixtures";
 import {
   createDocumentAttachmentBindResponse,
   createDocumentContainerProjection,
@@ -82,7 +82,7 @@ export async function documentWorkflowRuntimePatch(input: {
   );
   let projectionPromise: Promise<ContainerWriterProjectionResponse> | null =
     null;
-  let storedDocument: DocumentCreateResponse | null = null;
+  let storedDocument: StoredDocumentFixture | null = null;
   let syncCount = 0;
   const attachments: BlobAttachmentSummary[] = [];
   const multipart = createDocumentStoreMultipartApi();
@@ -133,7 +133,7 @@ export async function documentWorkflowRuntimePatch(input: {
           input.mapBindBlobAttachmentResponse?.(responseFixture) ??
           responseFixture;
         input.attachmentBinds?.push({ blobId, request });
-        attachments.push(response);
+        attachments.push(responseFixture);
         if (stagedBlob) {
           blobs.set(blobId, {
             encryptedBytes: stagedBlob.bytes,

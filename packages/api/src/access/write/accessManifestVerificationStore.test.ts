@@ -13,11 +13,8 @@ import { updateAccessManifestVerificationMacs } from "./accessManifestStore";
 test("verification MACs live on their manifest rows and load with them", async () => {
   const { registration } = await registerServiceUser();
   const hashes = [
-    String(registration.rootMetadataDocument.accessManifest.manifestHash),
-    String(
-      registration.organizationMetadataContainer.metadataDocument.accessManifest
-        .manifestHash,
-    ),
+    registration.rootMetadataDocument.manifestHash,
+    registration.organizationMetadataContainer.metadataDocument.manifestHash,
   ];
   const absent = "0".repeat(64);
   const macs = new Map(

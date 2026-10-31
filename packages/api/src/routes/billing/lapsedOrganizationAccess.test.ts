@@ -70,9 +70,9 @@ async function createSignedDocumentSyncRequest(input: {
       organizationId,
       objectKind: "document",
       objectId: input.created.id,
-      accessManifestHash: input.created.contentKeyBundle.linkSetManifestHash,
-      contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
-      targetHash: input.created.contentKeyBundle.targetHash,
+      accessManifestHash: input.created.manifestHash,
+      contentKeyEpoch: input.created.contentKeyEpoch,
+      targetHash: input.created.targetHash,
       encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
       contentRecordId: updateId,
       nonceDomainHash: await computeContentRecordNonceDomainHash({
@@ -80,7 +80,7 @@ async function createSignedDocumentSyncRequest(input: {
         organizationId,
         objectKind: "document",
         objectId: input.created.id,
-        contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
+        contentKeyEpoch: input.created.contentKeyEpoch,
         encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
         contentRecordId: updateId,
       }),
@@ -102,10 +102,9 @@ async function createSignedDocumentSyncRequest(input: {
   );
 
   return {
-    contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
-    expectedLinkSetManifestHash:
-      input.created.contentKeyBundle.linkSetManifestHash,
-    expectedTargetHash: input.created.contentKeyBundle.targetHash,
+    contentKeyEpoch: input.created.contentKeyEpoch,
+    expectedLinkSetManifestHash: input.created.manifestHash,
+    expectedTargetHash: input.created.targetHash,
     authorizingContainerPathRefs: [
       [
         {
@@ -194,10 +193,9 @@ test("lapsed organizations can pull document sync but cannot push updates", asyn
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
-        expectedLinkSetManifestHash:
-          created.contentKeyBundle.linkSetManifestHash,
-        expectedTargetHash: created.contentKeyBundle.targetHash,
+        contentKeyEpoch: created.contentKeyEpoch,
+        expectedLinkSetManifestHash: created.manifestHash,
+        expectedTargetHash: created.targetHash,
         localVersionVector: null,
         outgoingUpdates: [],
         supportsPullPagination: true,

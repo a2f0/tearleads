@@ -19,10 +19,10 @@ import type {
   AccessManifestBundleWireResponse,
   ContainerSummary,
   ContainerWriterProjectionResponse,
-  DocumentCreateResponse,
   DocumentSyncResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import type { StoredDocumentFixture } from "../document-store/documentStoreSyncFixtures";
 import { assertAccessEvent, assertWriteHeader } from "../keyingAssertions";
 
 export type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
@@ -176,7 +176,7 @@ export async function createExplorerMetadataContainerProjection(input: {
 
 export async function createExplorerMetadataCreateResponse(
   request: DocumentCreateRequest,
-): Promise<DocumentCreateResponse> {
+): Promise<StoredDocumentFixture> {
   const manifest = request.manifest as Record<string, unknown>;
   const body = request.body as Record<string, unknown>;
   const documentId = String(Reflect.get(manifest, "objectId"));
@@ -193,6 +193,10 @@ export async function createExplorerMetadataCreateResponse(
   return {
     id: documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
+    contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
+    eventHash,
+    manifestHash: request.expectedManifestHash,
+    targetHash: request.contentKeyBundle.targetHash,
     accessManifest: {
       event: { event: { ...event }, body, eventHash },
       manifest,
@@ -232,7 +236,7 @@ export async function createExplorerMetadataCreateResponse(
 export async function createExplorerMetadataSyncResponse(input: {
   commitLsn: string;
   request: DocumentSyncRequest;
-  storedDocument: DocumentCreateResponse;
+  storedDocument: StoredDocumentFixture;
 }): Promise<DocumentSyncResponse> {
   const updates = await Promise.all(
     input.request.outgoingUpdates.map(async (update) => {

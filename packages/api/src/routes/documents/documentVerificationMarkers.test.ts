@@ -52,7 +52,7 @@ async function projectionSignatureChecks(
 
 test("a document create marks the manifest it stores", async () => {
   const { created, owner } = await setup();
-  expect(await readMarker(created.accessManifest.manifestHash)).not.toBeNull();
+  expect(await readMarker(created.manifestHash)).not.toBeNull();
   // The first read writes back markers for the unmarked provisioned root.
   expect(
     (await projectionSignatureChecks(created.id, owner.token)).status,
@@ -65,7 +65,7 @@ test("a document create marks the manifest it stores", async () => {
 
 test("a forged document marker is ignored and replaced", async () => {
   const { created, owner } = await setup();
-  const manifestHash = created.accessManifest.manifestHash;
+  const manifestHash = created.manifestHash;
   const genuine = await readMarker(manifestHash);
   await projectionSignatureChecks(created.id, owner.token);
   await db
@@ -103,7 +103,7 @@ test("marking refuses a hash that is not a stored document manifest", async () =
 
 test("deleting a document's history deletes its markers", async () => {
   const { created } = await setup();
-  const manifestHash = created.accessManifest.manifestHash;
+  const manifestHash = created.manifestHash;
   expect(await readMarker(manifestHash)).not.toBeNull();
   // A signed purge keeps its history for purge proofs; container deletion
   // and organization purge remove a document's history outright.

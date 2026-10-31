@@ -2,13 +2,14 @@ import { expect, test } from "bun:test";
 import { withDatabaseStatementCounter } from "@tearleads/api-shared/postgres";
 import { createTestUser } from "@tearleads/test-utils";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
-import {
-  type DocumentCreateResponse,
-  isDocumentCreateResponse,
-} from "@tearleads/validators/response";
+import { isDocumentCreateResponse } from "@tearleads/validators/response";
 import { MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES } from "@tearleads/validators/util";
 import invariant from "invariant";
 import { authenticate } from "../../../../test/helpers/authenticate";
+import {
+  type CreatedDocumentFixture,
+  withDocumentMutationArtifacts,
+} from "../../../../test/helpers/documentAcknowledgementFixture";
 import { createSignedDocumentSyncRequest } from "../../../../test/helpers/documentUpdateRequests";
 import {
   bootstrapRoot,
@@ -45,8 +46,9 @@ test("document create, sync write, and sync pull stay within their statement bud
     post(owner.token, "/documents", createRequest),
   );
   expect(create.result.status).toBe(200);
-  const created = await create.result.json();
-  invariant(isDocumentCreateResponse(created), "expected created document");
+  const createdBody = await create.result.json();
+  invariant(isDocumentCreateResponse(createdBody), "expected created document");
+  const created = withDocumentMutationArtifacts(createRequest, createdBody);
 
   const first = await createSignedDocumentSyncRequest({ created, owner, root });
   const second = await createSignedDocumentSyncRequest({
@@ -66,9 +68,9 @@ test("document create, sync write, and sync pull stay within their statement bud
 
   const pull = await counted(() =>
     post(owner.token, `/documents/${created.id}/sync`, {
-      contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
-      expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
-      expectedTargetHash: created.contentKeyBundle.targetHash,
+      contentKeyEpoch: created.contentKeyEpoch,
+      expectedLinkSetManifestHash: created.manifestHash,
+      expectedTargetHash: created.targetHash,
       localVersionVector: null,
       outgoingUpdates: [],
       supportsPullPagination: true,
@@ -100,8 +102,9 @@ test("a rotation baseline write and its pull stay within their statement budgets
   const createRequest = await createDocumentRequest({ owner, root });
   const createResponse = await post(owner.token, "/documents", createRequest);
   expect(createResponse.status).toBe(200);
-  const created = await createResponse.json();
-  invariant(isDocumentCreateResponse(created), "expected created document");
+  const createdBody = await createResponse.json();
+  invariant(isDocumentCreateResponse(createdBody), "expected created document");
+  const created = withDocumentMutationArtifacts(createRequest, createdBody);
 
   // A full-history baseline starts from the empty frontier, so it is the
   // document's first write here.
@@ -117,9 +120,9 @@ test("a rotation baseline write and its pull stay within their statement budgets
   expect(write.result.status).toBe(200);
   const pull = await counted(() =>
     post(owner.token, `/documents/${created.id}/sync`, {
-      contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
-      expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
-      expectedTargetHash: created.contentKeyBundle.targetHash,
+      contentKeyEpoch: created.contentKeyEpoch,
+      expectedLinkSetManifestHash: created.manifestHash,
+      expectedTargetHash: created.targetHash,
       localVersionVector: null,
       outgoingUpdates: [],
       supportsPullPagination: true,
@@ -153,7 +156,7 @@ test("a seeded document create stays within its statement budget", async () => {
     accessManifest: { state: create.manifest },
     contentKeyBundle: create.contentKeyBundle,
     id: String(Reflect.get(create.manifest, "objectId")),
-  } as unknown as DocumentCreateResponse;
+  } as unknown as CreatedDocumentFixture;
   const { request: seed } = await createSignedDocumentSyncRequest({
     created: planned,
     owner,
@@ -186,8 +189,9 @@ test("a full pull page loads its updates as sets", async () => {
   const createRequest = await createDocumentRequest({ owner, root });
   const createResponse = await post(owner.token, "/documents", createRequest);
   expect(createResponse.status).toBe(200);
-  const created = await createResponse.json();
-  invariant(isDocumentCreateResponse(created), "expected created document");
+  const createdBody = await createResponse.json();
+  invariant(isDocumentCreateResponse(createdBody), "expected created document");
+  const created = withDocumentMutationArtifacts(createRequest, createdBody);
   // One more update than a page holds, so the measured page is full.
   for (
     let index = 0;
@@ -207,9 +211,9 @@ test("a full pull page loads its updates as sets", async () => {
 
   const pull = await counted(() =>
     post(owner.token, `/documents/${created.id}/sync`, {
-      contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
-      expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
-      expectedTargetHash: created.contentKeyBundle.targetHash,
+      contentKeyEpoch: created.contentKeyEpoch,
+      expectedLinkSetManifestHash: created.manifestHash,
+      expectedTargetHash: created.targetHash,
       localVersionVector: null,
       outgoingUpdates: [],
       supportsPullPagination: true,

@@ -90,7 +90,7 @@ test("cold organization display pages pin a head and carry only 32 directories p
   if (!oldPayload) throw new Error("Missing older directory payload");
   const changed = bytesToBase64(
     new TextEncoder().encode(
-      new TextDecoder().decode(base64ToBytes(oldPayload.ciphertext)) + " ",
+      `${new TextDecoder().decode(base64ToBytes(oldPayload.ciphertext))} `,
     ),
   );
   const rowScope = and(

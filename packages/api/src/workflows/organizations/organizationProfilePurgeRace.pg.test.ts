@@ -51,7 +51,7 @@ async function createRaceFixture() {
   const profile = await createDocument({ owner, root });
   const purgeRequest = await buildDocumentPurgeRequest({
     documentId: profile.id,
-    documentManifestHash: profile.accessManifest.manifestHash,
+    documentManifestHash: profile.manifestHash,
     owner,
     root,
   });

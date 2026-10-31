@@ -12,6 +12,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildContainerGrantRequest } from "../../../test/helpers/containerGrantMutation";
+import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -112,27 +113,27 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
     root,
   });
   const secondPath = [root.bundle, secondChildFixture.bundle];
+  const linkRequest = await buildDocumentLinkRequest({
+    authorizingContainerPath: firstPath,
+    child: secondChild,
+    createdDocument: created,
+    owner,
+    root,
+  });
   const linkResponse = await routeApp.request(`/documents/${created.id}/link`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${owner.token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(
-      await buildDocumentLinkRequest({
-        authorizingContainerPath: firstPath,
-        child: secondChild,
-        createdDocument: created,
-        owner,
-        root,
-      }),
-    ),
+    body: JSON.stringify(linkRequest),
   });
   expect(linkResponse.status, await linkResponse.clone().text()).toBe(200);
-  const linked = await linkResponse.json();
-  if (!isDocumentLinkSetMutationResponse(linked)) {
+  const linkedBody = await linkResponse.json();
+  if (!isDocumentLinkSetMutationResponse(linkedBody)) {
     throw new Error("Expected linked document response");
   }
+  const linked = withDocumentMutationArtifacts(linkRequest, linkedBody);
 
   const unlinkResponse = await routeApp.request(
     `/documents/${created.id}/unlink`,
@@ -165,7 +166,7 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
   const purgeResponse = await postDocumentPurge({
     authorizingContainerPath: secondPath,
     documentId: created.id,
-    documentManifestHash: unlinked.accessManifest.manifestHash,
+    documentManifestHash: unlinked.manifestHash,
     owner,
     root: secondChildFixture,
   });
@@ -199,13 +200,10 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
     ownerProof.documentManifestPredecessors.map(
       (predecessor: { manifestHash: string }) => predecessor.manifestHash,
     ),
-  ).toEqual([
-    linked.accessManifest.manifestHash,
-    created.accessManifest.manifestHash,
-  ]);
+  ).toEqual([linked.manifestHash, created.manifestHash]);
 
   const boundedProofResponse = await routeApp.request(
-    `/documents/${created.id}/purge?documentCheckpointManifestHash=${created.accessManifest.manifestHash}`,
+    `/documents/${created.id}/purge?documentCheckpointManifestHash=${created.manifestHash}`,
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
   expect(boundedProofResponse.status).toBe(200);
@@ -217,10 +215,7 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
     boundedProof.documentManifestPredecessors.map(
       (predecessor) => predecessor.manifestHash,
     ),
-  ).toEqual([
-    linked.accessManifest.manifestHash,
-    created.accessManifest.manifestHash,
-  ]);
+  ).toEqual([linked.manifestHash, created.manifestHash]);
   for (const predecessor of boundedProof.documentManifestPredecessors) {
     expect(Reflect.get(predecessor.event.event, "eventType")).toMatch(
       /^document\.(create|link)$/,
@@ -233,15 +228,12 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
     .where(
       and(
         eq(documentManifestObservations.documentId, created.id),
-        eq(
-          documentManifestObservations.manifestHash,
-          created.accessManifest.manifestHash,
-        ),
+        eq(documentManifestObservations.manifestHash, created.manifestHash),
         eq(documentManifestObservations.userId, owner.userId),
       ),
     );
   const unobservedCheckpointResponse = await routeApp.request(
-    `/documents/${created.id}/purge?documentCheckpointManifestHash=${created.accessManifest.manifestHash}`,
+    `/documents/${created.id}/purge?documentCheckpointManifestHash=${created.manifestHash}`,
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
   expect(unobservedCheckpointResponse.status).toBe(403);

@@ -228,10 +228,9 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
     ];
     const url = `${worker.origin}/documents/${document.id}/sync`;
     const request = {
-      contentKeyEpoch: document.contentKeyBundle.contentKeyEpoch,
-      expectedLinkSetManifestHash:
-        document.contentKeyBundle.linkSetManifestHash,
-      expectedTargetHash: document.contentKeyBundle.targetHash,
+      contentKeyEpoch: document.contentKeyEpoch,
+      expectedLinkSetManifestHash: document.manifestHash,
+      expectedTargetHash: document.targetHash,
       localVersionVector: null,
       outgoingUpdates: [],
       supportsPullPagination: true,

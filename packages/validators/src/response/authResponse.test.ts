@@ -12,42 +12,12 @@ const VALID_CHALLENGE = "a".repeat(64);
 
 function createDocumentCreateResponse() {
   return {
-    id: "550e8400-e29b-41d4-a716-446655440001",
-    createdAt: new Date().toISOString(),
-    accessManifest: {
-      event: {
-        event: { eventType: "document.link" },
-        body: { eventType: "document.link" },
-        eventHash: "document-event-hash",
-      },
-      manifest: { objectType: "document", objectId: "doc-1" },
-      manifestHash: "manifest-hash",
-      state: { objectId: "doc-1" },
-    },
-    contentKeyBundle: {
-      documentId: "550e8400-e29b-41d4-a716-446655440001",
-      contentKeyEpoch: 1,
-      linkSetManifestHash: "document-link-set-hash",
-      targetHash: "target-hash",
-      targets: [
-        {
-          containerId: "550e8400-e29b-41d4-a716-446655440000",
-          containerManifestHash: "container-manifest-hash",
-          containerKeyEpochId: "container-key-epoch-id",
-          containerKeyEpoch: 1,
-          wrappedKey: "wrapped-key",
-          wrappingMetadata: {},
-        },
-      ],
-    },
-    documentKekTargets: {
-      documentId: "550e8400-e29b-41d4-a716-446655440001",
-      linkSetManifestHash: "document-link-set-hash",
-      linkedContainerManifestHashes: ["container-manifest-hash"],
-      linkedContainerKeyEpochIds: ["container-key-epoch-id"],
-      targets: [{ containerId: "550e8400-e29b-41d4-a716-446655440000" }],
-      documentKeyTargetHash: "target-hash",
-    },
+    contentKeyEpoch: 1,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    eventHash: "event-hash",
+    id: "doc-root",
+    manifestHash: "manifest-hash",
+    targetHash: "target-hash",
   };
 }
 

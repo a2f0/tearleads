@@ -34,21 +34,6 @@ export function readDocumentCreateRequestId(
     : "";
 }
 
-function readDocumentLinkedContainerIds(
-  document: DocumentCreateResponse,
-): string[] {
-  const state = document.accessManifest?.state;
-  if (!state || typeof state !== "object") {
-    return [];
-  }
-  const linkedContainerIds = Reflect.get(state, "linkedContainerIds");
-  return Array.isArray(linkedContainerIds)
-    ? linkedContainerIds.filter(
-        (value): value is string => typeof value === "string",
-      )
-    : [];
-}
-
 /**
  * Creates one provisioning profile document, verifies it landed with the
  * client-declared id and is linked to exactly its profile container, and then
@@ -75,7 +60,7 @@ async function createInitialProfileDocument(input: {
     throw new OrganizationProvisioningError(labels.missingId, 400);
   }
 
-  const created = await createDocumentWithExecutor({
+  const { created, linkedContainerIds } = await createDocumentWithExecutor({
     executor: tx,
     fingerprint: signer.fingerprint,
     request,
@@ -84,7 +69,6 @@ async function createInitialProfileDocument(input: {
   if (created.id !== requestDocumentId) {
     throw new OrganizationProvisioningError(labels.responseMismatch, 400);
   }
-  const linkedContainerIds = readDocumentLinkedContainerIds(created);
   if (
     linkedContainerIds.length !== 1 ||
     linkedContainerIds[0] !== profileContainer.containerId

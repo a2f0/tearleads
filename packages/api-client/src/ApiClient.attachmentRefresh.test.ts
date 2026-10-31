@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 import { HttpResponse, http } from "msw";
-import { createBlobAttachmentBindResponse } from "../test/helpers/apiClientTestFactories";
+import { createBlobAttachmentSummary } from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   server,
@@ -11,7 +11,7 @@ import { ApiClient } from "./ApiClient";
 testApiClient(
   "attachment recovery refresh observes remote changes and cannot hide an outage behind cached bindings",
   async () => {
-    const binding = createBlobAttachmentBindResponse();
+    const binding = createBlobAttachmentSummary();
     let bindings: (typeof binding)[] = [];
     let unavailable = false;
     let requests = 0;

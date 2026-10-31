@@ -1,8 +1,6 @@
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type {
-  BlobAttachmentBindResponse,
   BlobAttachmentSummary,
-  DocumentCreateResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -12,7 +10,9 @@ import { readWriteHeader } from "../../src/data/documents/shared/readers";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import type { DocumentsRuntime } from "../../src/stores/documents/types";
 import { createDocumentsWorkflowRuntime } from "../../src/workflows/documents";
+import type { BlobAttachmentBindFixture } from "./blobUploadFixtures";
 import type { createMaterializedSyncFixture } from "./documentFixtures";
+import type { DocumentCreateFixture } from "./documentResponseFixtures";
 
 type MaterializedSyncFixture = Awaited<
   ReturnType<typeof createMaterializedSyncFixture>
@@ -23,7 +23,7 @@ export function createEchoDocumentSyncResponse(input: {
   readonly commitLsn: string;
   readonly pullPage?: DocumentSyncResponse["pullPage"];
   readonly request: DocumentSyncRequest;
-  readonly storedDocument: DocumentCreateResponse;
+  readonly storedDocument: DocumentCreateFixture;
 }): DocumentSyncResponse {
   return {
     acceptedOutgoingUpdateIds: input.request.outgoingUpdates.map(
@@ -68,7 +68,7 @@ export function createEchoDocumentSyncResponse(input: {
 /** The writer projection a server returns for a document it just created. */
 export function createStoredDocumentWriterProjection(
   fixture: MaterializedSyncFixture,
-  storedDocument: DocumentCreateResponse,
+  storedDocument: DocumentCreateFixture,
 ): DocumentWriterProjectionResponse {
   return {
     policyEvidence: {
@@ -94,7 +94,7 @@ export function createStoredDocumentWriterProjection(
 
 /** The listing entry a server reports for a binding it accepted. */
 export function attachmentSummaryFromBind(
-  response: BlobAttachmentBindResponse,
+  response: BlobAttachmentBindFixture,
 ): BlobAttachmentSummary {
   return {
     bindingEvent: response.bindingEvent,

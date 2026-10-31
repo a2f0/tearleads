@@ -8,6 +8,7 @@ import {
 export {
   createBlobBytesResponse,
   createFixtureBinding,
+  stagedBindingSummary,
 } from "./blobHydrationFixture";
 
 const closeTestDatabases: Array<() => void> = [];

@@ -16,7 +16,9 @@ import type {
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type {
+  AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
+  DocumentContentKeyBundleResponse,
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
   DocumentPurgeProofResponse,
@@ -403,10 +405,10 @@ export interface BuildDocumentSyncPlanInput {
   author: DocumentCreateAuthor;
   authorizingContainerPathRefs?: readonly (readonly ContainerManifestRef[])[];
   containerRekeys?: DocumentSyncRequest["containerRekeys"];
-  contentKeyBundle: DocumentCreateResponse["contentKeyBundle"];
+  contentKeyBundle: DocumentContentKeyBundleResponse;
   documentId?: string | undefined;
   documentKekTargets: DocumentSyncResponse["documentKekTargets"];
-  documentManifest: DocumentCreateResponse["accessManifest"];
+  documentManifest: AccessManifestBundleWireResponse;
   historyMode?: "raw" | undefined;
   inlineRekeyCommitId?: string | undefined;
   localVersionVector: string | null;
@@ -420,14 +422,14 @@ export interface DocumentSyncPlan {
   contentKeyEpoch: number;
   documentId: string;
   documentKekTargets: DocumentSyncResponse["documentKekTargets"];
-  documentManifest: DocumentCreateResponse["accessManifest"];
+  documentManifest: AccessManifestBundleWireResponse;
   documentWriterAuthorization?: WriterAuthorization | undefined;
   expectedLinkSetManifestHash: string;
   expectedTargetHash: string;
   minLsn?: string | undefined;
   organizationId: string;
   request: DocumentSyncRequest;
-  sourceContentKeyBundle: DocumentCreateResponse["contentKeyBundle"];
+  sourceContentKeyBundle: DocumentContentKeyBundleResponse;
 }
 
 export interface MaterializedDocumentSyncPlan {

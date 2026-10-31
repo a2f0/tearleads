@@ -68,6 +68,10 @@ import { createTestContainerKekId } from "../../../test/helpers/containerKekMate
 import { containerManifestRef } from "../../../test/helpers/containerManifestRefs";
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLinks";
+import {
+  type CreatedDocumentFixture,
+  withDocumentMutationArtifacts,
+} from "../../../test/helpers/documentAcknowledgementFixture";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { buildDocumentPurgeRequest } from "../../../test/helpers/documentPurge";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
@@ -505,24 +509,28 @@ async function createDocumentRequest(input: {
 async function createDocument(input: {
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
-}): Promise<DocumentCreateResponse> {
+}): Promise<CreatedDocumentFixture> {
+  const request = await createDocumentRequest(input);
   const createResponse = await routeApp.request("/documents", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${input.owner.token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(await createDocumentRequest(input)),
+    body: JSON.stringify(request),
   });
   expect(createResponse.status).toBe(200);
   const created = await createResponse.json();
   expect(isDocumentCreateResponse(created)).toBe(true);
-  return created as DocumentCreateResponse;
+  return withDocumentMutationArtifacts(
+    request,
+    created as DocumentCreateResponse,
+  );
 }
 
 async function linkDocumentToSecondContainer(input: {
   readonly child: StoredContainerMutation;
-  readonly createdDocument: DocumentCreateResponse;
+  readonly createdDocument: CreatedDocumentFixture;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
 }): Promise<void> {
@@ -766,7 +774,7 @@ test("document purge succeeds when event publication fails", async () => {
   const response = await purgeDocumentViaRoute({
     app,
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner,
     root,
     token: owner.token,
@@ -790,7 +798,7 @@ test("document purge succeeds when event publication fails", async () => {
   expect(proof).toMatchObject({
     documentId: created.id,
     documentManifest: {
-      manifestHash: created.accessManifest.manifestHash,
+      manifestHash: created.manifestHash,
     },
     purgeEvent: purged.purgeEvent,
   });
@@ -833,7 +841,7 @@ test("purge proof retrieval rejects a database-tampered terminal event", async (
   const created = await createDocument({ owner, root });
   const purgeResponse = await purgeDocumentViaRoute({
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner,
     root,
     token: owner.token,
@@ -886,7 +894,7 @@ test("POST document purge rejects a document linked to more than one container",
 
   const response = await purgeDocumentViaRoute({
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner,
     root,
     token: owner.token,
@@ -919,7 +927,7 @@ test("POST document purge rejects callers without container write access", async
 
   const response = await purgeDocumentViaRoute({
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner,
     root,
     token: outsider.token,
@@ -964,7 +972,7 @@ test("POST document purge soft-deletes an orphaned blob and retains its bytes", 
   const created = await createDocument({ owner, root });
   const attachment = await seedExternalBlobAttachment({
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     slotId: "slot_purge_image",
   });
 
@@ -977,7 +985,7 @@ test("POST document purge soft-deletes an orphaned blob and retains its bytes", 
 
   const response = await purgeDocumentViaRoute({
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner,
     root,
     token: owner.token,
@@ -1025,12 +1033,12 @@ test("POST document purge preserves a blob shared with another document", async 
   // Bind the same blob (and the same object-store bytes) to both documents.
   const shared = await seedExternalBlobAttachment({
     documentId: documentToPurge.id,
-    documentManifestHash: documentToPurge.accessManifest.manifestHash,
+    documentManifestHash: documentToPurge.manifestHash,
     slotId: "slot_shared_image",
   });
   await seedExternalBlobAttachment({
     documentId: survivingDocument.id,
-    documentManifestHash: survivingDocument.accessManifest.manifestHash,
+    documentManifestHash: survivingDocument.manifestHash,
     slotId: "slot_shared_image",
     blobId: shared.blobId,
     storageKey: shared.storageKey,
@@ -1038,7 +1046,7 @@ test("POST document purge preserves a blob shared with another document", async 
 
   const response = await purgeDocumentViaRoute({
     documentId: documentToPurge.id,
-    documentManifestHash: documentToPurge.accessManifest.manifestHash,
+    documentManifestHash: documentToPurge.manifestHash,
     owner,
     root,
     token: owner.token,
@@ -1119,13 +1127,13 @@ test("POST document purge dereferences a blob retained only in another document'
   // The blob is actively bound on the document we purge...
   const shared = await seedExternalBlobAttachment({
     documentId: documentToPurge.id,
-    documentManifestHash: documentToPurge.accessManifest.manifestHash,
+    documentManifestHash: documentToPurge.manifestHash,
     slotId: "slot_shared_image",
   });
   // ...and only retained as a detached binding on the surviving document.
   const survivingBinding = await seedExternalBlobAttachment({
     documentId: survivingDocument.id,
-    documentManifestHash: survivingDocument.accessManifest.manifestHash,
+    documentManifestHash: survivingDocument.manifestHash,
     slotId: "slot_shared_image",
     blobId: shared.blobId,
     storageKey: shared.storageKey,
@@ -1140,7 +1148,7 @@ test("POST document purge dereferences a blob retained only in another document'
 
   const response = await purgeDocumentViaRoute({
     documentId: documentToPurge.id,
-    documentManifestHash: documentToPurge.accessManifest.manifestHash,
+    documentManifestHash: documentToPurge.manifestHash,
     owner,
     root,
     token: owner.token,
@@ -1186,20 +1194,20 @@ test("POST document purge soft-deletes detached document-only blobs", async () =
   // Original blob, later "replaced": its binding is detached but retained.
   const replaced = await seedExternalBlobAttachment({
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     slotId: "slot_replaced_image",
   });
   await markBindingDetached(replaced.bindingId);
   // The current blob occupying the slot after the replace.
   const current = await seedExternalBlobAttachment({
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     slotId: "slot_replaced_image",
   });
 
   const response = await purgeDocumentViaRoute({
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner,
     root,
     token: owner.token,

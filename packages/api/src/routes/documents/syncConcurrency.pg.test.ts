@@ -396,7 +396,7 @@ test.skipIf(!onConcurrencyBackend)(
       const [purgeResponse, syncResponse] = await Promise.all([
         postDocumentPurge({
           documentId: created.id,
-          documentManifestHash: created.accessManifest.manifestHash,
+          documentManifestHash: created.manifestHash,
           owner,
           root,
         }),

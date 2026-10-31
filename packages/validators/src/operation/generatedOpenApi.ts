@@ -3855,59 +3855,9 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             metadataDocument: {
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                contentKeyBundle: {
-                                    contentKeyEpoch: number;
-                                    documentId: string;
-                                    linkSetManifestHash: string;
-                                    targetHash: string;
-                                    targets: ({
-                                        containerId: string;
-                                        containerKeyEpoch: number;
-                                        containerKeyEpochId: string;
-                                        containerManifestHash: string;
-                                        wrappedKey: string;
-                                        wrappingMetadata: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                } & {
-                                    [key: string]: unknown;
-                                };
+                                contentKeyEpoch: number;
                                 createdAt: string;
-                                documentKekTargets: {
-                                    documentId: string;
-                                    documentKeyTargetHash: string;
-                                    linkedContainerKeyEpochIds: string[];
-                                    linkedContainerManifestHashes: string[];
-                                    linkSetManifestHash: string;
-                                    targets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                } & {
-                                    [key: string]: unknown;
-                                };
+                                eventHash: string;
                                 id: string;
                                 initialSync?: {
                                     acceptedOutgoingUpdateIds: string[];
@@ -3916,6 +3866,8 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 };
+                                manifestHash: string;
+                                targetHash: string;
                             } & {
                                 [key: string]: unknown;
                             };
@@ -3924,59 +3876,9 @@ export interface operations {
                         };
                         organizationMetadataContainerId: string;
                         organizationProfileDocument?: {
-                            accessManifest: {
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            contentKeyBundle: {
-                                contentKeyEpoch: number;
-                                documentId: string;
-                                linkSetManifestHash: string;
-                                targetHash: string;
-                                targets: ({
-                                    containerId: string;
-                                    containerKeyEpoch: number;
-                                    containerKeyEpochId: string;
-                                    containerManifestHash: string;
-                                    wrappedKey: string;
-                                    wrappingMetadata: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            contentKeyEpoch: number;
                             createdAt: string;
-                            documentKekTargets: {
-                                documentId: string;
-                                documentKeyTargetHash: string;
-                                linkedContainerKeyEpochIds: string[];
-                                linkedContainerManifestHashes: string[];
-                                linkSetManifestHash: string;
-                                targets: {
-                                    [key: string]: unknown;
-                                }[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            eventHash: string;
                             id: string;
                             initialSync?: {
                                 acceptedOutgoingUpdateIds: string[];
@@ -3985,6 +3887,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             };
+                            manifestHash: string;
+                            targetHash: string;
                         } & {
                             [key: string]: unknown;
                         };
@@ -3993,59 +3897,9 @@ export interface operations {
                         rootMetadataAccessEpoch: number;
                         rootMetadataAccessStateHash: string;
                         rootMetadataDocument: {
-                            accessManifest: {
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            contentKeyBundle: {
-                                contentKeyEpoch: number;
-                                documentId: string;
-                                linkSetManifestHash: string;
-                                targetHash: string;
-                                targets: ({
-                                    containerId: string;
-                                    containerKeyEpoch: number;
-                                    containerKeyEpochId: string;
-                                    containerManifestHash: string;
-                                    wrappedKey: string;
-                                    wrappingMetadata: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            contentKeyEpoch: number;
                             createdAt: string;
-                            documentKekTargets: {
-                                documentId: string;
-                                documentKeyTargetHash: string;
-                                linkedContainerKeyEpochIds: string[];
-                                linkedContainerManifestHashes: string[];
-                                linkSetManifestHash: string;
-                                targets: {
-                                    [key: string]: unknown;
-                                }[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            eventHash: string;
                             id: string;
                             initialSync?: {
                                 acceptedOutgoingUpdateIds: string[];
@@ -4054,6 +3908,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             };
+                            manifestHash: string;
+                            targetHash: string;
                         } & {
                             [key: string]: unknown;
                         };
@@ -4087,59 +3943,9 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             metadataDocument: {
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                contentKeyBundle: {
-                                    contentKeyEpoch: number;
-                                    documentId: string;
-                                    linkSetManifestHash: string;
-                                    targetHash: string;
-                                    targets: ({
-                                        containerId: string;
-                                        containerKeyEpoch: number;
-                                        containerKeyEpochId: string;
-                                        containerManifestHash: string;
-                                        wrappedKey: string;
-                                        wrappingMetadata: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                } & {
-                                    [key: string]: unknown;
-                                };
+                                contentKeyEpoch: number;
                                 createdAt: string;
-                                documentKekTargets: {
-                                    documentId: string;
-                                    documentKeyTargetHash: string;
-                                    linkedContainerKeyEpochIds: string[];
-                                    linkedContainerManifestHashes: string[];
-                                    linkSetManifestHash: string;
-                                    targets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                } & {
-                                    [key: string]: unknown;
-                                };
+                                eventHash: string;
                                 id: string;
                                 initialSync?: {
                                     acceptedOutgoingUpdateIds: string[];
@@ -4148,6 +3954,8 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 };
+                                manifestHash: string;
+                                targetHash: string;
                             } & {
                                 [key: string]: unknown;
                             };
@@ -4156,59 +3964,9 @@ export interface operations {
                         };
                         rosterProfileContainerId?: string;
                         rosterProfileDocument?: {
-                            accessManifest: {
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            contentKeyBundle: {
-                                contentKeyEpoch: number;
-                                documentId: string;
-                                linkSetManifestHash: string;
-                                targetHash: string;
-                                targets: ({
-                                    containerId: string;
-                                    containerKeyEpoch: number;
-                                    containerKeyEpochId: string;
-                                    containerManifestHash: string;
-                                    wrappedKey: string;
-                                    wrappingMetadata: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            contentKeyEpoch: number;
                             createdAt: string;
-                            documentKekTargets: {
-                                documentId: string;
-                                documentKeyTargetHash: string;
-                                linkedContainerKeyEpochIds: string[];
-                                linkedContainerManifestHashes: string[];
-                                linkSetManifestHash: string;
-                                targets: {
-                                    [key: string]: unknown;
-                                }[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            eventHash: string;
                             id: string;
                             initialSync?: {
                                 acceptedOutgoingUpdateIds: string[];
@@ -4217,6 +3975,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             };
+                            manifestHash: string;
+                            targetHash: string;
                         } & {
                             [key: string]: unknown;
                         };
@@ -4250,59 +4010,9 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             metadataDocument: {
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                contentKeyBundle: {
-                                    contentKeyEpoch: number;
-                                    documentId: string;
-                                    linkSetManifestHash: string;
-                                    targetHash: string;
-                                    targets: ({
-                                        containerId: string;
-                                        containerKeyEpoch: number;
-                                        containerKeyEpochId: string;
-                                        containerManifestHash: string;
-                                        wrappedKey: string;
-                                        wrappingMetadata: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                } & {
-                                    [key: string]: unknown;
-                                };
+                                contentKeyEpoch: number;
                                 createdAt: string;
-                                documentKekTargets: {
-                                    documentId: string;
-                                    documentKeyTargetHash: string;
-                                    linkedContainerKeyEpochIds: string[];
-                                    linkedContainerManifestHashes: string[];
-                                    linkSetManifestHash: string;
-                                    targets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                } & {
-                                    [key: string]: unknown;
-                                };
+                                eventHash: string;
                                 id: string;
                                 initialSync?: {
                                     acceptedOutgoingUpdateIds: string[];
@@ -4311,6 +4021,8 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 };
+                                manifestHash: string;
+                                targetHash: string;
                             } & {
                                 [key: string]: unknown;
                             };
@@ -5217,15 +4929,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        bindingEvent: {
-                            body: unknown;
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            eventHash: string;
-                        } & {
-                            [key: string]: unknown;
-                        };
                         bindingId: string;
                         blobId: string;
                         blobKekTargets: {
@@ -5243,49 +4946,12 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        contentKeyBundle: {
-                            blobId: string;
-                            contentKeyEpoch: number;
-                            targetHash: string;
-                            targets: ({
-                                bindingId: string;
-                                containerId: string;
-                                containerKeyEpoch: number;
-                                containerKeyEpochId: string;
-                                containerManifestHash: string;
-                                documentId: string;
-                                wrappedKey: string;
-                                wrappingMetadata: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                        } & {
-                            [key: string]: unknown;
-                        };
+                        contentKeyEpoch: number;
                         documentId: string;
                         documentManifestHash: string;
+                        eventHash: string;
                         previousBindingId: string | null;
                         slotId: string;
-                        writeAuthorization: {
-                            activeBindingIds: string[];
-                            blobAccessManifestHash: string;
-                            blobId: string;
-                            blobKeyTargetHash: string;
-                            documentManifestHashes: string[];
-                            linkedContainerKeyEpochIds: string[];
-                            linkedContainerManifestHashes: string[];
-                            organizationId: string;
-                            targets: {
-                                [key: string]: unknown;
-                            }[];
-                        } & {
-                            [key: string]: unknown;
-                        };
-                        writeHeader: {
-                            [key: string]: unknown;
-                        };
                         writeHeaderHash: string;
                     } & {
                         [key: string]: unknown;
@@ -9617,59 +9283,9 @@ export interface operations {
                             [key: string]: unknown;
                         };
                         metadataDocument: {
-                            accessManifest: {
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            contentKeyBundle: {
-                                contentKeyEpoch: number;
-                                documentId: string;
-                                linkSetManifestHash: string;
-                                targetHash: string;
-                                targets: ({
-                                    containerId: string;
-                                    containerKeyEpoch: number;
-                                    containerKeyEpochId: string;
-                                    containerManifestHash: string;
-                                    wrappedKey: string;
-                                    wrappingMetadata: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            contentKeyEpoch: number;
                             createdAt: string;
-                            documentKekTargets: {
-                                documentId: string;
-                                documentKeyTargetHash: string;
-                                linkedContainerKeyEpochIds: string[];
-                                linkedContainerManifestHashes: string[];
-                                linkSetManifestHash: string;
-                                targets: {
-                                    [key: string]: unknown;
-                                }[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            eventHash: string;
                             id: string;
                             initialSync?: {
                                 acceptedOutgoingUpdateIds: string[];
@@ -9678,6 +9294,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             };
+                            manifestHash: string;
+                            targetHash: string;
                         } & {
                             [key: string]: unknown;
                         };
@@ -10088,59 +9706,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        accessManifest: {
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        };
-                        contentKeyBundle: {
-                            contentKeyEpoch: number;
-                            documentId: string;
-                            linkSetManifestHash: string;
-                            targetHash: string;
-                            targets: ({
-                                containerId: string;
-                                containerKeyEpoch: number;
-                                containerKeyEpochId: string;
-                                containerManifestHash: string;
-                                wrappedKey: string;
-                                wrappingMetadata: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                        } & {
-                            [key: string]: unknown;
-                        };
+                        contentKeyEpoch: number;
                         createdAt: string;
-                        documentKekTargets: {
-                            documentId: string;
-                            documentKeyTargetHash: string;
-                            linkedContainerKeyEpochIds: string[];
-                            linkedContainerManifestHashes: string[];
-                            linkSetManifestHash: string;
-                            targets: {
-                                [key: string]: unknown;
-                            }[];
-                        } & {
-                            [key: string]: unknown;
-                        };
+                        eventHash: string;
                         id: string;
                         initialSync?: {
                             acceptedOutgoingUpdateIds: string[];
@@ -10149,6 +9717,8 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
+                        manifestHash: string;
+                        targetHash: string;
                     } & {
                         [key: string]: unknown;
                     };
@@ -10928,59 +10498,11 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        accessManifest: {
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        };
-                        contentKeyBundle: {
-                            contentKeyEpoch: number;
-                            documentId: string;
-                            linkSetManifestHash: string;
-                            targetHash: string;
-                            targets: ({
-                                containerId: string;
-                                containerKeyEpoch: number;
-                                containerKeyEpochId: string;
-                                containerManifestHash: string;
-                                wrappedKey: string;
-                                wrappingMetadata: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                        } & {
-                            [key: string]: unknown;
-                        };
-                        documentKekTargets: {
-                            documentId: string;
-                            documentKeyTargetHash: string;
-                            linkedContainerKeyEpochIds: string[];
-                            linkedContainerManifestHashes: string[];
-                            linkSetManifestHash: string;
-                            targets: {
-                                [key: string]: unknown;
-                            }[];
-                        } & {
-                            [key: string]: unknown;
-                        };
+                        contentKeyEpoch: number;
+                        eventHash: string;
                         id: string;
+                        manifestHash: string;
+                        targetHash: string;
                     } & {
                         [key: string]: unknown;
                     };
@@ -12324,59 +11846,11 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        accessManifest: {
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        };
-                        contentKeyBundle: {
-                            contentKeyEpoch: number;
-                            documentId: string;
-                            linkSetManifestHash: string;
-                            targetHash: string;
-                            targets: ({
-                                containerId: string;
-                                containerKeyEpoch: number;
-                                containerKeyEpochId: string;
-                                containerManifestHash: string;
-                                wrappedKey: string;
-                                wrappingMetadata: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                        } & {
-                            [key: string]: unknown;
-                        };
-                        documentKekTargets: {
-                            documentId: string;
-                            documentKeyTargetHash: string;
-                            linkedContainerKeyEpochIds: string[];
-                            linkedContainerManifestHashes: string[];
-                            linkSetManifestHash: string;
-                            targets: {
-                                [key: string]: unknown;
-                            }[];
-                        } & {
-                            [key: string]: unknown;
-                        };
+                        contentKeyEpoch: number;
+                        eventHash: string;
                         id: string;
+                        manifestHash: string;
+                        targetHash: string;
                     } & {
                         [key: string]: unknown;
                     };
@@ -15560,59 +15034,9 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             metadataDocument: {
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                contentKeyBundle: {
-                                    contentKeyEpoch: number;
-                                    documentId: string;
-                                    linkSetManifestHash: string;
-                                    targetHash: string;
-                                    targets: ({
-                                        containerId: string;
-                                        containerKeyEpoch: number;
-                                        containerKeyEpochId: string;
-                                        containerManifestHash: string;
-                                        wrappedKey: string;
-                                        wrappingMetadata: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                } & {
-                                    [key: string]: unknown;
-                                };
+                                contentKeyEpoch: number;
                                 createdAt: string;
-                                documentKekTargets: {
-                                    documentId: string;
-                                    documentKeyTargetHash: string;
-                                    linkedContainerKeyEpochIds: string[];
-                                    linkedContainerManifestHashes: string[];
-                                    linkSetManifestHash: string;
-                                    targets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                } & {
-                                    [key: string]: unknown;
-                                };
+                                eventHash: string;
                                 id: string;
                                 initialSync?: {
                                     acceptedOutgoingUpdateIds: string[];
@@ -15621,6 +15045,8 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 };
+                                manifestHash: string;
+                                targetHash: string;
                             } & {
                                 [key: string]: unknown;
                             };
@@ -15629,59 +15055,9 @@ export interface operations {
                         };
                         organizationMetadataContainerId: string;
                         organizationProfileDocument?: {
-                            accessManifest: {
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            contentKeyBundle: {
-                                contentKeyEpoch: number;
-                                documentId: string;
-                                linkSetManifestHash: string;
-                                targetHash: string;
-                                targets: ({
-                                    containerId: string;
-                                    containerKeyEpoch: number;
-                                    containerKeyEpochId: string;
-                                    containerManifestHash: string;
-                                    wrappedKey: string;
-                                    wrappingMetadata: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            contentKeyEpoch: number;
                             createdAt: string;
-                            documentKekTargets: {
-                                documentId: string;
-                                documentKeyTargetHash: string;
-                                linkedContainerKeyEpochIds: string[];
-                                linkedContainerManifestHashes: string[];
-                                linkSetManifestHash: string;
-                                targets: {
-                                    [key: string]: unknown;
-                                }[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            eventHash: string;
                             id: string;
                             initialSync?: {
                                 acceptedOutgoingUpdateIds: string[];
@@ -15690,6 +15066,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             };
+                            manifestHash: string;
+                            targetHash: string;
                         } & {
                             [key: string]: unknown;
                         };
@@ -15712,59 +15090,9 @@ export interface operations {
                         rootMetadataAccessEpoch: number;
                         rootMetadataAccessStateHash: string;
                         rootMetadataDocument: {
-                            accessManifest: {
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            contentKeyBundle: {
-                                contentKeyEpoch: number;
-                                documentId: string;
-                                linkSetManifestHash: string;
-                                targetHash: string;
-                                targets: ({
-                                    containerId: string;
-                                    containerKeyEpoch: number;
-                                    containerKeyEpochId: string;
-                                    containerManifestHash: string;
-                                    wrappedKey: string;
-                                    wrappingMetadata: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            contentKeyEpoch: number;
                             createdAt: string;
-                            documentKekTargets: {
-                                documentId: string;
-                                documentKeyTargetHash: string;
-                                linkedContainerKeyEpochIds: string[];
-                                linkedContainerManifestHashes: string[];
-                                linkSetManifestHash: string;
-                                targets: {
-                                    [key: string]: unknown;
-                                }[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            eventHash: string;
                             id: string;
                             initialSync?: {
                                 acceptedOutgoingUpdateIds: string[];
@@ -15773,6 +15101,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             };
+                            manifestHash: string;
+                            targetHash: string;
                         } & {
                             [key: string]: unknown;
                         };
@@ -15806,59 +15136,9 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             metadataDocument: {
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                contentKeyBundle: {
-                                    contentKeyEpoch: number;
-                                    documentId: string;
-                                    linkSetManifestHash: string;
-                                    targetHash: string;
-                                    targets: ({
-                                        containerId: string;
-                                        containerKeyEpoch: number;
-                                        containerKeyEpochId: string;
-                                        containerManifestHash: string;
-                                        wrappedKey: string;
-                                        wrappingMetadata: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                } & {
-                                    [key: string]: unknown;
-                                };
+                                contentKeyEpoch: number;
                                 createdAt: string;
-                                documentKekTargets: {
-                                    documentId: string;
-                                    documentKeyTargetHash: string;
-                                    linkedContainerKeyEpochIds: string[];
-                                    linkedContainerManifestHashes: string[];
-                                    linkSetManifestHash: string;
-                                    targets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                } & {
-                                    [key: string]: unknown;
-                                };
+                                eventHash: string;
                                 id: string;
                                 initialSync?: {
                                     acceptedOutgoingUpdateIds: string[];
@@ -15867,6 +15147,8 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 };
+                                manifestHash: string;
+                                targetHash: string;
                             } & {
                                 [key: string]: unknown;
                             };
@@ -15875,59 +15157,9 @@ export interface operations {
                         };
                         rosterProfileContainerId?: string;
                         rosterProfileDocument?: {
-                            accessManifest: {
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            contentKeyBundle: {
-                                contentKeyEpoch: number;
-                                documentId: string;
-                                linkSetManifestHash: string;
-                                targetHash: string;
-                                targets: ({
-                                    containerId: string;
-                                    containerKeyEpoch: number;
-                                    containerKeyEpochId: string;
-                                    containerManifestHash: string;
-                                    wrappedKey: string;
-                                    wrappingMetadata: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            contentKeyEpoch: number;
                             createdAt: string;
-                            documentKekTargets: {
-                                documentId: string;
-                                documentKeyTargetHash: string;
-                                linkedContainerKeyEpochIds: string[];
-                                linkedContainerManifestHashes: string[];
-                                linkSetManifestHash: string;
-                                targets: {
-                                    [key: string]: unknown;
-                                }[];
-                            } & {
-                                [key: string]: unknown;
-                            };
+                            eventHash: string;
                             id: string;
                             initialSync?: {
                                 acceptedOutgoingUpdateIds: string[];
@@ -15936,6 +15168,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             };
+                            manifestHash: string;
+                            targetHash: string;
                         } & {
                             [key: string]: unknown;
                         };
@@ -15969,59 +15203,9 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             metadataDocument: {
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                contentKeyBundle: {
-                                    contentKeyEpoch: number;
-                                    documentId: string;
-                                    linkSetManifestHash: string;
-                                    targetHash: string;
-                                    targets: ({
-                                        containerId: string;
-                                        containerKeyEpoch: number;
-                                        containerKeyEpochId: string;
-                                        containerManifestHash: string;
-                                        wrappedKey: string;
-                                        wrappingMetadata: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                } & {
-                                    [key: string]: unknown;
-                                };
+                                contentKeyEpoch: number;
                                 createdAt: string;
-                                documentKekTargets: {
-                                    documentId: string;
-                                    documentKeyTargetHash: string;
-                                    linkedContainerKeyEpochIds: string[];
-                                    linkedContainerManifestHashes: string[];
-                                    linkSetManifestHash: string;
-                                    targets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                } & {
-                                    [key: string]: unknown;
-                                };
+                                eventHash: string;
                                 id: string;
                                 initialSync?: {
                                     acceptedOutgoingUpdateIds: string[];
@@ -16030,6 +15214,8 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 };
+                                manifestHash: string;
+                                targetHash: string;
                             } & {
                                 [key: string]: unknown;
                             };

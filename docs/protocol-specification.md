@@ -199,7 +199,7 @@ version `1`, use key epoch `1`, be signed by the registering user, project only
 the registering user as admin, and carry a version-2 authority descriptor
 committing the exact initial heads of both reserved groups.
 
-The response returns each created container and document head; containers are
+The response returns each created container and document head, each
 acknowledged by hash as described under container mutation conflicts below. The
 client checks every one against the request it signed before pinning it as a
 local verification checkpoint. The acknowledged heads of the roster and organization
@@ -483,6 +483,17 @@ plan; any mismatch refuses the acknowledgement. The manifest hash commits to
 the derived state, and `keyTargetHash` commits to every wrap recipient, so a
 wrap stored for anyone else cannot match. Later writer projections still verify
 what the server stored.
+
+Document creates (including a with-metadata-document's metadata document and
+every provisioning document) and link-set mutations acknowledge the same way:
+`id`, the signed `eventHash`, the committed `manifestHash`, the stored
+`contentKeyEpoch`, the resolved KEK `targetHash`, and, for a create,
+`createdAt` and the seed's `initialSync`. The client records the manifest,
+content-key bundle, and KEK targets from its plan. An attachment bind returns
+the binding identity, `eventHash`, `contentKeyEpoch`, `writeHeaderHash`, and
+the resolved `blobKekTargets`; it no longer echoes the event, wraps, write
+header, or write authorization, which a staged upload's bind stores as exactly
+those targets.
 
 Behavior-bearing container mutation conflicts use stable tags. A stale parent
 or concurrent mutation returns `409 container_mutation_state_stale`; a

@@ -22,17 +22,17 @@ import type {
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
-import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { routeApp } from "../../src/routeApp";
 import { currentDocumentLinkRows } from "./currentDocumentLinks";
+import type { CreatedDocumentFixture } from "./documentAcknowledgementFixture";
 import type { StoredRootFixture } from "./keyingWriterProjectionKit";
 
 async function createSignedOrdinaryUpdate(input: {
   readonly root: Pick<StoredRootFixture, "bundle">;
   readonly checkpoint: boolean;
-  readonly contentKeyBundle?: DocumentCreateResponse["contentKeyBundle"];
-  readonly created: DocumentCreateResponse;
+  readonly contentKeyBundle?: CreatedDocumentFixture["contentKeyBundle"];
+  readonly created: CreatedDocumentFixture;
   readonly owner: TestUser;
 }) {
   const contentKeyBundle =
@@ -116,8 +116,8 @@ export async function createSignedDocumentSyncRequest(input: {
    * to post-revoke targets. Pair with includeContentKeyBundle to carry the
    * bundle in the request so the server stores it.
    */
-  readonly contentKeyBundle?: DocumentCreateResponse["contentKeyBundle"];
-  readonly created: DocumentCreateResponse;
+  readonly contentKeyBundle?: CreatedDocumentFixture["contentKeyBundle"];
+  readonly created: CreatedDocumentFixture;
   readonly includeContentKeyBundle?: boolean;
   readonly owner: TestUser;
   readonly root: Pick<StoredRootFixture, "bundle" | "kekState">;

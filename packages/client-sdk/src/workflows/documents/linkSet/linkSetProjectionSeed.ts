@@ -2,10 +2,10 @@ import type {
   AccessManifestBundleWireResponse,
   ContainerKeyingPathResponse,
   ContainerWriterProjectionResponse,
-  DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
+import type { AcknowledgedDocumentMutation } from "../../../data/documents/shared/responses";
 import type { DocumentLinkSetMutationOperation } from "../../../data/documents/shared/types";
 import { mergeProjectionPolicyEvidence } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -98,7 +98,7 @@ function documentProjectionContainerHistory(input: {
 function linkSetWriterProjectionFromResponse(input: {
   operation: DocumentLinkSetMutationOperation;
   priorProjection: DocumentWriterProjectionResponse;
-  response: DocumentLinkSetMutationResponse;
+  response: AcknowledgedDocumentMutation;
   targetContainerId: string;
   targetContainerProjection: ContainerWriterProjectionResponse;
 }): DocumentWriterProjectionResponse {
@@ -152,7 +152,7 @@ export async function seedLinkSetWriterProjection(input: {
   execSql?: ExecSql | undefined;
   operation: DocumentLinkSetMutationOperation;
   priorProjection: DocumentWriterProjectionResponse;
-  response: DocumentLinkSetMutationResponse;
+  response: AcknowledgedDocumentMutation;
   targetContainerId: string;
   targetContainerProjection: ContainerWriterProjectionResponse;
   stillCurrent?: (() => boolean) | undefined;

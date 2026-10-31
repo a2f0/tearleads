@@ -24,7 +24,7 @@ test("terminal history grants bind the purge, organization and original reader",
     owner,
     root,
     documentId: document.id,
-    documentManifestHash: document.accessManifest.manifestHash,
+    documentManifestHash: document.manifestHash,
   });
   expect(purged.status, await purged.clone().text()).toBe(200);
   const proof = DocumentPurgeProofResponseSchema.parse(await purged.json());

@@ -106,7 +106,7 @@ export async function createLongPurgeHistoryFixture(versions: number) {
       owner,
       root,
       documentId: created.id,
-      documentManifestHash: created.accessManifest.manifestHash,
+      documentManifestHash: created.manifestHash,
     }),
   );
   return {

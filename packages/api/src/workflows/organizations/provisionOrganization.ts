@@ -207,7 +207,7 @@ async function createInitialRootMetadataDocument(
     );
   }
 
-  const created = await createDocumentWithExecutor({
+  const { created } = await createDocumentWithExecutor({
     executor: tx,
     fingerprint: signer.fingerprint,
     request: input.initialRootMetadataDocument,

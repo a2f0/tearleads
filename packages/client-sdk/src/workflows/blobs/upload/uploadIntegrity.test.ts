@@ -50,50 +50,87 @@ function createUploadApi(input: {
   };
 }
 
-test("uploadDocumentAttachment rejects bind responses with tampered target material", async () => {
-  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
-    await createMaterializedSyncFixture();
-  const blobId = "550e8400-e29b-41d4-a716-446655440551";
-  const bindingId = "550e8400-e29b-41d4-a716-446655440552";
-  const slotId = "tampered-response-slot";
-  const { close, execSql } = await createTestExecSql(
-    "blob-upload-tampered-bind-response",
-  );
+const bindAcknowledgementTampers: readonly {
+  readonly label: string;
+  readonly message: string;
+  readonly tamper: (
+    response: BlobAttachmentBindResponse,
+  ) => BlobAttachmentBindResponse;
+}[] = [
+  {
+    label: "binding event hash",
+    message: "Blob attachment bind response did not match request",
+    tamper: (response) => ({ ...response, eventHash: "0".repeat(64) }),
+  },
+  {
+    label: "content-key epoch",
+    message: "Blob attachment bind response did not match request",
+    tamper: (response) => ({
+      ...response,
+      contentKeyEpoch: response.contentKeyEpoch + 1,
+    }),
+  },
+  {
+    label: "write header hash",
+    message: "Blob attachment bind response did not match request",
+    tamper: (response) => ({ ...response, writeHeaderHash: "0".repeat(64) }),
+  },
+  {
+    label: "KEK target hash",
+    message: "Blob attachment bind response KEK summary mismatch",
+    tamper: (response) => ({
+      ...response,
+      blobKekTargets: {
+        ...response.blobKekTargets,
+        blobKeyTargetHash: "0".repeat(64),
+      },
+    }),
+  },
+  {
+    label: "KEK targets",
+    message: "Blob attachment bind response KEK targets mismatch",
+    tamper: (response) => ({
+      ...response,
+      blobKekTargets: { ...response.blobKekTargets, targets: [] },
+    }),
+  },
+];
 
-  try {
-    await expect(
-      uploadDocumentAttachment({
-        apiClient: createUploadApi({
-          mapBindResponse: (response) => ({
-            ...response,
-            contentKeyBundle: {
-              ...response.contentKeyBundle,
-              targets: response.contentKeyBundle.targets.map((target, index) =>
-                index === 0
-                  ? { ...target, wrappedKey: "tampered-wrapped-key" }
-                  : target,
-              ),
-            },
-          }),
-          writerProjection,
-        }).apiClient,
-        author,
-        bindingId,
-        blobId,
-        bytes: new TextEncoder().encode("tampered response bytes") as BlobBytes,
-        documentId: writerProjection.documentId,
-        execSql,
-        expectedBindingId: null,
-        resolveProjectionUserKey,
-        signedAt: "2026-04-27T00:00:01.000Z",
-        slotId,
-        targetSecretKey: secretKey,
-      }),
-    ).rejects.toThrow("content-key bundle mismatch");
-  } finally {
-    close();
-  }
-});
+for (const { label, message, tamper } of bindAcknowledgementTampers) {
+  test(`uploadDocumentAttachment rejects a bind acknowledgement with a tampered ${label}`, async () => {
+    const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+      await createMaterializedSyncFixture();
+    const { close, execSql } = await createTestExecSql(
+      "blob-upload-tampered-bind-response",
+    );
+
+    try {
+      await expect(
+        uploadDocumentAttachment({
+          apiClient: createUploadApi({
+            mapBindResponse: tamper,
+            writerProjection,
+          }).apiClient,
+          author,
+          bindingId: "550e8400-e29b-41d4-a716-446655440552",
+          blobId: "550e8400-e29b-41d4-a716-446655440551",
+          bytes: new TextEncoder().encode(
+            "tampered response bytes",
+          ) as BlobBytes,
+          documentId: writerProjection.documentId,
+          execSql,
+          expectedBindingId: null,
+          resolveProjectionUserKey,
+          signedAt: "2026-04-27T00:00:01.000Z",
+          slotId: "tampered-response-slot",
+          targetSecretKey: secretKey,
+        }),
+      ).rejects.toThrow(message);
+    } finally {
+      close();
+    }
+  });
+}
 
 test("uploadDocumentAttachment binds a reused nonce seed to the plaintext", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =

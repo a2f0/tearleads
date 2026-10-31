@@ -134,7 +134,7 @@ function containerDocumentMoveResult(input: {
 }): MoveRemoteContainerDocumentResult {
   return {
     accessEpoch: input.document.plan.state.epoch,
-    accessStateHash: input.document.response.accessManifest.manifestHash,
+    accessStateHash: input.document.response.manifestHash,
     linkedContainerIds: input.document.linkedContainerIds,
     nextContainerId: input.nextContainerId,
     remoteState: input.document.persistedState,

@@ -1,4 +1,10 @@
 import { createTestExecSql } from "@tearleads/test-utils";
+import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
+import {
+  type BlobAttachmentBindResponse,
+  type BlobAttachmentSummary,
+  blobAttachmentSummaryFromStagedBind,
+} from "@tearleads/validators/response";
 import type { BlobBytes } from "../../src/data/blobs/blobContracts";
 import { attachmentContentSha256 } from "../../src/data/documents/attachmentContentIdentity";
 import type { DocumentAttachment } from "../../src/data/documents/documentContent";
@@ -137,17 +143,19 @@ export async function createUploadedAttachmentFixture(input?: {
 type UploadedAttachmentFixture = Awaited<
   ReturnType<typeof createUploadedAttachmentFixture>
 >;
+/** The listing entry a staged upload's acknowledged bind committed. */
+export function stagedBindingSummary(uploaded: {
+  readonly request: BlobAttachmentBindRequest;
+  readonly response: BlobAttachmentBindResponse;
+}): BlobAttachmentSummary {
+  const { stagedBlob } = uploaded.request;
+  if (!stagedBlob) throw new Error("Expected a staged upload");
+  return blobAttachmentSummaryFromStagedBind(
+    { ...uploaded.request, stagedBlob },
+    uploaded.response,
+  );
+}
+
 export function createFixtureBinding(fixture: UploadedAttachmentFixture) {
-  return {
-    bindingEvent: fixture.uploaded.response.bindingEvent,
-    bindingId: fixture.bindingId,
-    blobId: fixture.blobId,
-    blobKekTargets: fixture.uploaded.response.blobKekTargets,
-    contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
-    documentManifestHash: fixture.uploaded.response.documentManifestHash,
-    previousBindingId: fixture.uploaded.response.previousBindingId,
-    slotId: fixture.attachment.slotId,
-    writeAuthorization: fixture.uploaded.response.writeAuthorization,
-    writeHeader: fixture.uploaded.response.writeHeader,
-  };
+  return stagedBindingSummary(fixture.uploaded);
 }

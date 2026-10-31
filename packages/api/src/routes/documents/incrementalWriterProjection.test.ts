@@ -18,6 +18,7 @@ import {
 } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { writerResolver } from "../../../test/helpers/coldSdkRematerialization";
+import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createHeldManifestCitations } from "../../../test/helpers/heldManifestCitations";
 import {
@@ -103,7 +104,11 @@ test("real document projections cite held manifests through links, rotations and
     });
     if (!created?.response) throw new Error("Expected encrypted document");
     const createdResponse = created.response;
-    let current = createdResponse;
+    if (!created.plan) throw new Error("Expected a fresh create plan");
+    let current = withDocumentMutationArtifacts(
+      created.plan.request,
+      createdResponse,
+    );
     const linkChild = async () => {
       const child = await createRemoteContainer({
         ...common,
@@ -132,7 +137,7 @@ test("real document projections cite held manifests through links, rotations and
           containerKeyEpochId: target.containerKeyEpochId,
         },
       );
-      const linked = await client.linkDocument(created.documentId, {
+      const signedRequest = {
         ...request,
         contentKeyBundle: {
           ...request.contentKeyBundle,
@@ -149,9 +154,16 @@ test("real document projections cite held manifests through links, rotations and
               : entry,
           ),
         },
-      });
+      };
+      const linked = await client.linkDocument(
+        created.documentId,
+        signedRequest,
+      );
       if (!linked) throw new Error("Expected document link");
-      current = { ...linked, createdAt: createdResponse.createdAt };
+      current = withDocumentMutationArtifacts(signedRequest, {
+        ...linked,
+        createdAt: createdResponse.createdAt,
+      });
     };
     const read = async (apiClient = client, context = device) => {
       apiClient.clearWriterProjectionCaches();
