@@ -34,9 +34,13 @@
     // `scheduled` branches on the cron.
     "crons": ["* * * * *", "0 * * * *"]
   },
-  "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["KeyValueStore", "RealtimeHub"] }
-  ],
+  // Declarative Durable Object lifecycle: a deploy creates a missing namespace
+  // and keeps an existing one. A greenfield reset deletes both through the
+  // tombstones in wrangler.maintenance.jsonc instead of deleting the Worker.
+  "exports": {
+    "KeyValueStore": { "type": "durable-object", "storage": "sqlite" },
+    "RealtimeHub": { "type": "durable-object", "storage": "sqlite" }
+  },
   // API_PUBLIC_ORIGIN, API_CORS_ORIGINS and API_BILLING_RETURN_ORIGINS are passed by
   // packages/api/scripts/deployApi.sh from TF_VAR_domain.
   "env": {
