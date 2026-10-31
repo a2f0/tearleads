@@ -22,7 +22,7 @@ import {
 /**
  * Every epoch column except the sealed keyring. The keyring is O(its epoch)
  * bytes, so hot paths — projections, target checks, current-epoch lookups —
- * must never select it; `getContainerKeyEpochKeyring` is the sole reader.
+ * must never select it; `getContainerKeyEpochWithKeyring` is the sole reader.
  */
 export const EPOCH_COLUMNS_WITHOUT_KEYRING = {
   accessManifestHash: containerKeyEpochs.accessManifestHash,
@@ -43,17 +43,31 @@ export const EPOCH_COLUMNS_WITHOUT_KEYRING = {
   wrappedPredecessorKey: containerKeyEpochs.wrappedPredecessorKey,
 } as const;
 
-/** Reads one epoch's sealed keyring — the only place the blob is selected. */
-export async function getContainerKeyEpochKeyring(
+/**
+ * Reads one epoch row with its sealed keyring — with
+ * `getContainerKeyEpochKeyring`, the only place the blob is selected.
+ */
+export async function getContainerKeyEpochWithKeyring(
   containerKeyEpochId: string,
   executor: DatabaseSession,
-): Promise<ContainerKekKeyring | null> {
+): Promise<StoredContainerKeyEpoch | null> {
   const [row] = await executor
     .select()
     .from(containerKeyEpochs)
     .where(eq(containerKeyEpochs.id, containerKeyEpochId))
     .limit(1);
-  return row ? toStoredContainerKeyEpoch(row).keyring : null;
+  return row ? toStoredContainerKeyEpoch(row) : null;
+}
+
+/** Reads one epoch's sealed keyring. */
+export async function getContainerKeyEpochKeyring(
+  containerKeyEpochId: string,
+  executor: DatabaseSession,
+): Promise<ContainerKekKeyring | null> {
+  return (
+    (await getContainerKeyEpochWithKeyring(containerKeyEpochId, executor))
+      ?.keyring ?? null
+  );
 }
 
 /**

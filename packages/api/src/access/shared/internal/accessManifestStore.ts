@@ -19,7 +19,7 @@ import type {
   VerifiedAccessEvent,
 } from "@tearleads/crypto";
 import { readKeyingCanonicalJson } from "@tearleads/crypto";
-import { and, asc, eq, inArray, lt } from "drizzle-orm";
+import { and, asc, eq, inArray, lt, type SQL } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { isSqliteApiDatabase } from "../../../utils/sqlDialect";
@@ -236,8 +236,23 @@ export async function getAccessManifestBundles(
     return new Map<string, StoredAccessManifestBundle>();
   }
 
-  // Both hashes are unique, so this join cannot multiply rows. Keep missing
-  // events visible: an incomplete bundle is corruption, not an absent manifest.
+  return loadAccessManifestBundles(
+    executor,
+    inArray(accessManifests.manifestHash, uniqueManifestHashes),
+    omitUnreadable,
+  );
+}
+
+/**
+ * Manifests matching `where`, with their events. Both hashes are unique, so
+ * the join cannot multiply rows. Keep missing events visible: an incomplete
+ * bundle is corruption, not an absent manifest.
+ */
+export async function loadAccessManifestBundles(
+  executor: DatabaseSession,
+  where: SQL | undefined,
+  omitUnreadable = false,
+): Promise<Map<string, StoredAccessManifestBundle>> {
   const rows = await executor
     .select({ manifest: accessManifests, event: accessEvents })
     .from(accessManifests)
@@ -245,7 +260,7 @@ export async function getAccessManifestBundles(
       accessEvents,
       eq(accessEvents.eventHash, accessManifests.eventHash),
     )
-    .where(inArray(accessManifests.manifestHash, uniqueManifestHashes));
+    .where(where);
   const bundles = new Map<string, StoredAccessManifestBundle>();
   for (const { manifest, event } of rows) {
     try {
