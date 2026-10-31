@@ -1,7 +1,8 @@
 # Greenfield environment reset
 
 Operational reference for the `greenfield-reset` skill in Codex and Claude.
-This procedure replaces the selected environment's application data and Workers.
+This procedure replaces the selected environment's application data and
+redeploys its Workers in place, under unchanged hostnames.
 Use current repository scripts and live resource identities. Never reuse Worker
 versions, credentials, build numbers, or Terraform plans from a previous run.
 
@@ -12,8 +13,9 @@ versions, credentials, build numbers, or Terraform plans from a previous run.
 | Production database | Replace the independent PlanetScale database and its runtime/migration roles. |
 | Staging database | Replace the staging PlanetScale database and its roles, then initialize the current baseline. |
 | Encrypted blobs | Empty and replace only the selected application bucket and its bucket-scoped R2 credentials. |
-| Worker state | Delete the API Worker (`wrangler delete --env <tier>`) before redeploying it: sessions, tickets, and hibernated socket state live in its Durable Objects' SQLite storage, which a plain redeploy keeps. Deleting the Worker drops both objects; the redeploy recreates them empty. |
-| Website, web app, demos | Redeploy; retain their domain/account identities. |
+| Worker state | Publish the API maintenance Worker, whose `exports` tombstones delete both Durable Object namespaces (sessions, tickets, and hibernated socket state), then redeploy the API, which recreates them empty. A plain redeploy keeps that state. Never delete the API Worker. |
+| Hostnames | Retain. The API, app, and demo hostnames stay attached throughout; a reset changes no edge stack resource. |
+| Website, web app, demos | Redeploy in place; retain their domain/account identities. |
 | Desktop/mobile releases | Build and publish selected tiers using the release matrix. |
 | Terraform backend and release buckets | Retain, including historical immutable downloads. |
 | Signing, store and payment-provider resources | Retain; reconcile external records separately when requested. |
@@ -100,8 +102,9 @@ temporary lifecycle override. Keep the wrapper's ordinary protections intact.
 derives the protected addresses from the stack's configuration, writes the
 override, applies the saved destroy plan, and removes the override however it
 exits; an override already present stops it. It and the other production
-teardown helpers (`drop-postgres-owned.sh`, `empty-r2-bucket.sh`, and the Worker
-deletion scripts) refuse `prod` unless `TEARLEADS_TEARDOWN_TIER=prod` is
+teardown helpers (`drop-postgres-owned.sh`, `empty-r2-bucket.sh`,
+`deployApiMaintenance.sh`, and the Worker deletion scripts) refuse `prod` unless
+`TEARLEADS_TEARDOWN_TIER=prod` is
 exported, which
 [`scripts/deploy/destroyProduction.sh`](../../scripts/deploy/destroyProduction.sh)
 does once confirmed. An authorized production reset exports it in the reset's
@@ -113,33 +116,49 @@ Use the selected tier's wrappers. `TIER` must be exactly `prod` or `staging`;
 `RUN_DIR` must be the absolute path of this run's private directory.
 Run examples from the repository root.
 
-### 1. Remove old writers
+### 1. Stop old writers in place
 
-Detach the tier's hostnames so no client can reach the old deployment, then
-delete the API Worker. Deleting the Worker also deletes its Durable Objects:
-every session, login challenge, and WebSocket ticket.
-It also stops API writes, blob garbage collection, and the billing
-maintenance Cron Trigger.
+A reset never changes a hostname. Leave the edge stack and the app and demo
+Workers alone, and never delete the API Worker: `wrangler delete` also removes
+the Worker's custom domain and its DNS record (observed with Wrangler 4.123.0).
+A detached hostname answers NXDOMAIN, which resolvers and browsers keep caching
+after the rebuild: after the 2026-10-31 production reset detached the
+hostnames, Brave kept failing `POST /auth/register` with "Failed to fetch"
+until its host cache was cleared.
 
-```bash
-terraform/scripts/run-edge-stack.sh "$TIER" plan -destroy \
-  -out="$RUN_DIR/$TIER-edge-destroy.tfplan"
-terraform/scripts/run-edge-stack.sh "$TIER" apply "$RUN_DIR/$TIER-edge-destroy.tfplan"
-```
-
-Production refuses `destroy` through the edge wrapper; an authorized complete
-production reset applies the inspected destroy plan as above. Then, from
-[`packages/api`](../../packages/api/), delete the Worker:
+Stop the API in place instead, by publishing the maintenance Worker:
 
 ```bash
-bunx --no-install wrangler delete --env "$TIER" --force
+packages/api/scripts/deployApiMaintenance.sh "$TIER"
 ```
 
-After deleting the Worker, Wrangler lists the account's KV namespaces to remove
-legacy Workers Sites storage, so the token needs Workers KV Storage Read; without
-it the delete succeeds but the command exits non-zero. Confirm the Worker and
-its Durable Object namespaces are gone before touching its database or blob
-storage.
+It deploys
+[`packages/api/wrangler.maintenance.jsonc`](../../packages/api/wrangler.maintenance.jsonc)
+under the tier's API Worker name, so the custom domain stays bound. In that one
+deploy:
+
+- every API request answers 503 with `Retry-After` and
+  `x-tearleads-maintenance: reset`; CORS preflights still succeed, so browsers
+  read the refusal instead of reporting a network error;
+- the billing and blob garbage-collection Cron Triggers are removed;
+- its `exports` `deleted` tombstones delete the `KeyValueStore` and
+  `RealtimeHub` Durable Object namespaces with all their storage: every
+  session, login challenge, WebSocket ticket, and hibernated socket.
+
+Wrangler prints `Deleted: KeyValueStore` and `Deleted: RealtimeHub` under
+"Durable Object exports reconciliation"; a rerun reports stale tombstones and
+changes nothing. The script then waits until the public hostname serves the
+maintenance response, and drains for 15.5 minutes: invocations the old version
+started keep running, a Cron invocation for up to 15 minutes and `waitUntil`
+work for 30 seconds past its response. HTTP requests have no duration limit, so
+the data phases fence any that outlive the drain: `DROP OWNED` waits for their
+open transactions and leaves nothing for later ones to write to, deleting the
+runtime role and Hyperdrive configuration ends their database access, and R2
+refuses to delete a bucket a straggler wrote into, which stops the teardown
+visibly. Confirm both, and that `dig +short` for the API, app, and
+demo hostnames through a public resolver still answers, before touching the
+database or blob storage. The app and demo Workers keep serving their old
+bundles, whose API calls now receive the 503.
 
 ### 2. Remove the application database
 
@@ -189,11 +208,12 @@ terraform/scripts/run-storage-stack.sh "$TIER" apply \
 
 Production needs the temporary bucket override described above. R2 refuses
 nonempty bucket deletion in either tier; `empty-r2-bucket.sh "$TIER" storage`
-empties the bucket after its Worker is removed. Verify removal of the bucket and
-account token, then remove any storage override. The tier teardown scripts also
-destroy the Workers, the desktop downloads bucket (emptied first by
-`empty-r2-bucket.sh "$TIER" downloads`), and the independently hosted website;
-use individual stacks for this workflow's database/blob/Worker boundary.
+empties the bucket once the maintenance Worker has stopped its writers. Verify
+removal of the bucket and account token, then remove any storage override. The
+tier teardown scripts are a complete teardown, not a reset: they also detach the
+hostnames, delete the Workers, the desktop downloads bucket (emptied first by
+`empty-r2-bucket.sh "$TIER" downloads`), and the independently hosted website.
+Use individual stacks for this workflow's database/blob boundary.
 
 ## Rebuild and resume
 
@@ -212,9 +232,13 @@ or [`scripts/deploy/deployStaging.sh`](../../scripts/deploy/deployStaging.sh).
 The staging script applies its database and storage stacks itself; the
 production script requires both to exist already. The API deploy initializes the
 baseline schema with the migration login, syncs the Worker secrets, and
-publishes the Worker; the edge stack then reattaches the hostnames. A fresh tier
-starts with an empty key/value Durable Object, so no old session can survive the
-reset. The document sync cursor HMAC key persists in
+publishes the Worker, which ends maintenance; its `exports` entries recreate
+both Durable Object namespaces empty (Wrangler prints `Created:` for each), so
+no old session can survive the reset. The edge stack apply in those scripts
+changes nothing, because the hostnames stayed attached; a plan that would
+create or replace a custom domain means something detached one. Record
+`dig +short api.<domain> @1.1.1.1` (and the app and demo hostnames) before,
+during, and after the reset. The document sync cursor HMAC key persists in
 `.secrets/<tier>/worker.env`; delete that file before the rebuild when the reset
 should rotate it.
 

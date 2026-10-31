@@ -243,6 +243,8 @@ const productionConfig = {
         "src/index.ts!",
         "src/worker/loro/index.ts!",
         "src/worker/stubs/*.ts!",
+        // Published by scripts/deployApiMaintenance.sh from its own config.
+        "src/worker/maintenanceModeWorker.ts!",
         "scripts/blobGc.ts!",
         "scripts/stripeSeatSync.ts!",
         "scripts/workerDefines.ts!",
