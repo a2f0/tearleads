@@ -1,5 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import {
+  type DatabaseTransaction,
   db,
   withDatabaseStatementCounter,
 } from "@tearleads/api-shared/postgres";
@@ -36,21 +37,13 @@ async function runPhases(
 test("an idle billing pass is one statement", async () => {
   const counter = { statements: 0 };
   let summary: Record<string, unknown> | undefined;
-  // Other files share this database, so empty the billing tables inside a
-  // transaction that is rolled back afterwards.
-  await db
-    .transaction(async (tx) => {
-      await tx.delete(organizationBillingStripeSeats);
-      await tx.delete(organizationBilling);
-      const runtime = createServiceTestRuntime(tx);
-      summary = await withDatabaseStatementCounter(counter, async () =>
-        runPhases(await billingMaintenancePhases(runtime, () => {}, NOW)),
-      );
-      throw new Rollback();
-    })
-    .catch((error: unknown) => {
-      if (!(error instanceof Rollback)) throw error;
-    });
+  // Other files share this database, so run on emptied billing tables.
+  await withEmptyBillingTables(async (tx) => {
+    const runtime = createServiceTestRuntime(tx);
+    summary = await withDatabaseStatementCounter(counter, async () =>
+      runPhases(await billingMaintenancePhases(runtime, () => {}, NOW)),
+    );
+  });
   expect(counter.statements).toBe(1);
   expect(summary).toEqual({
     organizationPurge: { claimed: 0, failed: 0, purged: 0 },
@@ -58,6 +51,22 @@ test("an idle billing pass is one statement", async () => {
     trialExpiry: { attentionRequired: 0, examined: 0, expired: 0, failed: 0 },
   });
 });
+
+/** Runs `work` on billing tables emptied inside a transaction rolled back after. */
+async function withEmptyBillingTables(
+  work: (tx: DatabaseTransaction) => Promise<void>,
+) {
+  await db
+    .transaction(async (tx) => {
+      await tx.delete(organizationBillingStripeSeats);
+      await tx.delete(organizationBilling);
+      await work(tx);
+      throw new Rollback();
+    })
+    .catch((error: unknown) => {
+      if (!(error instanceof Rollback)) throw error;
+    });
+}
 
 test("the probe reads each phase's own candidates", async () => {
   const [trialing, disabled, deleting, seat, notDue] = Array.from(
@@ -68,31 +77,35 @@ test("the probe reads each phase's own candidates", async () => {
     throw new Error("Missing fixture ids");
   const past = new Date(NOW.getTime() - 1_000);
   const future = new Date(NOW.getTime() + 60_000);
-  await db.insert(organizationBilling).values([
-    { organizationId: trialing, status: "trialing", trialEndsAt: past },
-    { organizationId: disabled, purgeAfter: past, status: "disabled" },
-    { organizationId: deleting, status: "deleting" },
-    { organizationId: seat, status: "active" },
-    { organizationId: notDue, status: "trialing", trialEndsAt: future },
-  ]);
-  await db.insert(organizationBillingStripeSeats).values({
-    nextAttemptAt: past,
-    organizationId: seat,
-    priceId: "price_probe",
-    subscriptionId: `sub_${seat}`,
-    subscriptionItemId: `si_${seat}`,
-  });
+  let probe: probeModule.BillingMaintenanceProbe | undefined;
   const counter = { statements: 0 };
-  const probe = await withDatabaseStatementCounter(counter, () =>
-    probeBillingMaintenance(db, NOW),
-  );
+  // Other files leave due rows behind, which would crowd these out of the
+  // probe's limits.
+  await withEmptyBillingTables(async (tx) => {
+    await tx.insert(organizationBilling).values([
+      { organizationId: trialing, status: "trialing", trialEndsAt: past },
+      { organizationId: disabled, purgeAfter: past, status: "disabled" },
+      { organizationId: deleting, status: "deleting" },
+      { organizationId: seat, status: "active" },
+      { organizationId: notDue, status: "trialing", trialEndsAt: future },
+    ]);
+    await tx.insert(organizationBillingStripeSeats).values({
+      nextAttemptAt: past,
+      organizationId: seat,
+      priceId: "price_probe",
+      subscriptionId: `sub_${seat}`,
+      subscriptionItemId: `si_${seat}`,
+    });
+    probe = await withDatabaseStatementCounter(counter, () =>
+      probeBillingMaintenance(tx, NOW),
+    );
+  });
   expect(counter.statements).toBe(1);
-  expect(probe.trialOrganizationIds).toContain(trialing);
-  expect(probe.trialOrganizationIds).not.toContain(notDue);
-  expect(probe.purgeOrganizationIds).toContain(disabled);
-  expect(probe.purgeOrganizationIds).toContain(deleting);
-  expect(probe.purgeOrganizationIds).not.toContain(trialing);
-  expect(probe.seatSyncDue).toBe(true);
+  expect(probe?.trialOrganizationIds).toEqual([trialing]);
+  expect([...(probe?.purgeOrganizationIds ?? [])].sort()).toEqual(
+    [disabled, deleting].sort(),
+  );
+  expect(probe?.seatSyncDue).toBe(true);
 });
 
 function stubPhases() {
