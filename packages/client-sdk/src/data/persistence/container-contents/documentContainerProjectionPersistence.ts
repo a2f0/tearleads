@@ -9,6 +9,7 @@ import {
   localIntents,
 } from "../../sqlite/schema";
 import { documentIntentLinkTargets } from "../../sqlite/schema/documentPlacementIntentSchema";
+import { sqliteInsertBatchSize } from "../../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -25,6 +26,10 @@ import {
   type DocumentPlacementWriteOptions,
   filterWritableDocumentPlacements,
 } from "./documentPlacement";
+
+const LINK_INSERT_BATCH_SIZE = sqliteInsertBatchSize(
+  documentContainerProjection,
+);
 
 interface DocumentContainerProjectionPersistence {
   ensureSchema: (execSql: ExecSql) => Promise<void>;
@@ -260,8 +265,18 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
               updatedAt,
             })),
         );
-        if (rows.length > 0)
-          await tx.insert(documentContainerProjection).values(rows).run();
+        // A lane page of multi-link documents can carry more link rows than
+        // one statement may bind.
+        for (
+          let index = 0;
+          index < rows.length;
+          index += LINK_INSERT_BATCH_SIZE
+        ) {
+          await tx
+            .insert(documentContainerProjection)
+            .values(rows.slice(index, index + LINK_INSERT_BATCH_SIZE))
+            .run();
+        }
       };
       if (options?.stillCurrent) {
         await runtime.guardedTransaction(replace, options.stillCurrent);

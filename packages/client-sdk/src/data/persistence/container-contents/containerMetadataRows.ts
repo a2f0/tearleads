@@ -2,7 +2,11 @@ import { base64ToBytes } from "@tearleads/encoding";
 import { getImportBlobMetadata } from "@tearleads/loro";
 import { and, eq } from "drizzle-orm";
 import { serializeDocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
-import { documentHistoryCheckpoints, documents } from "../../sqlite/schema";
+import {
+  containers,
+  documentHistoryCheckpoints,
+  documents,
+} from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -26,6 +30,9 @@ import { saveContainerCreateIntent } from "./containerIntentPersistence";
 import { saveContainerMoveIntent } from "./containerMoveIntentRows";
 import {
   type ContainerRecord,
+  containerListOrder,
+  containerRecordSelection,
+  mapSelectedContainerRecord,
   saveContainerRows,
 } from "./containerPersistence";
 import {
@@ -228,4 +235,52 @@ export async function selectContainerMetadataRecord(
     ...mapSelectedDocumentRecord(recordRow),
     metadataUpdates: metadataUpdates ?? "",
   };
+}
+
+/**
+ * Every container with its metadata record, in container-list order, from ONE
+ * joined statement: the list and each record it pairs with come from one
+ * snapshot instead of one read per container.
+ */
+export async function selectContainersWithMetadataRecords(
+  execSql: ExecSql,
+): Promise<
+  Array<{ container: ContainerRecord; record: ContainerMetadataRecord | null }>
+> {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const rows = await db
+    .select({
+      container: containerRecordSelection,
+      metadataUpdates: documentHistoryCheckpoints.snapshot,
+      // Drizzle returns a left-joined table's object as null when its row is
+      // absent.
+      record: documentRecordSelection,
+    })
+    .from(containers)
+    .leftJoin(
+      documents,
+      and(
+        eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
+        eq(documents.localId, containers.id),
+      ),
+    )
+    .leftJoin(
+      documentHistoryCheckpoints,
+      and(
+        eq(documentHistoryCheckpoints.appKind, CONTAINER_METADATA_APP_KIND),
+        eq(documentHistoryCheckpoints.localId, documents.localId),
+      ),
+    )
+    .orderBy(containerListOrder);
+  return rows.map((row) => {
+    const container = mapSelectedContainerRecord(row.container);
+    if (!row.record) return { container, record: null };
+    return {
+      container,
+      record: {
+        ...mapSelectedDocumentRecord(row.record),
+        metadataUpdates: row.metadataUpdates ?? "",
+      },
+    };
+  });
 }

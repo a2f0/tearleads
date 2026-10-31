@@ -100,7 +100,7 @@ function applyContainerTimestampDefaults(
   };
 }
 
-function mapSelectedContainerRecord(
+export function mapSelectedContainerRecord(
   row: SelectedContainerRecord,
 ): ContainerRecord {
   const systemSlot = isContainerSystemSlot(row.systemSlot)
@@ -176,27 +176,35 @@ export async function saveContainerRows(input: {
   return nextRecord;
 }
 
+/** The ONE select shape for a container record list. */
+export const containerRecordSelection = {
+  effectiveAccessLevel: containers.effectiveAccessLevel,
+  id: containers.id,
+  organizationId: containers.organizationId,
+  parentId: containers.parentId,
+  metadataDocumentId: containers.metadataDocumentId,
+  systemSlot: containers.systemSlot,
+  name: containerDisplayName,
+  icon: containers.icon,
+  localCreatedAt: containers.localCreatedAt,
+  localUpdatedAt: containers.localUpdatedAt,
+  serverCreatedAt: containers.serverCreatedAt,
+  serverUpdatedAt: containers.serverUpdatedAt,
+};
+
+/** Container lists sort by display name, case-insensitively. */
+export const containerListOrder = asc(
+  sql`${containerDisplayName} COLLATE NOCASE`,
+);
+
 export async function loadContainers(
   execSql: ExecSql,
 ): Promise<ContainerRecord[]> {
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
-    .select({
-      effectiveAccessLevel: containers.effectiveAccessLevel,
-      id: containers.id,
-      organizationId: containers.organizationId,
-      parentId: containers.parentId,
-      metadataDocumentId: containers.metadataDocumentId,
-      systemSlot: containers.systemSlot,
-      name: containerDisplayName,
-      icon: containers.icon,
-      localCreatedAt: containers.localCreatedAt,
-      localUpdatedAt: containers.localUpdatedAt,
-      serverCreatedAt: containers.serverCreatedAt,
-      serverUpdatedAt: containers.serverUpdatedAt,
-    })
+    .select(containerRecordSelection)
     .from(containers)
-    .orderBy(asc(sql`${containerDisplayName} COLLATE NOCASE`));
+    .orderBy(containerListOrder);
 
   return rows.map((row) => mapSelectedContainerRecord(row));
 }

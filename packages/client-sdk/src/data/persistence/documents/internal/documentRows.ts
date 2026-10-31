@@ -3,7 +3,10 @@ import {
   DEFAULT_DOCUMENT_KIND,
   DOCUMENTS_APP_KIND,
 } from "../../../documents/documentConstants";
-import { deriveStoredDocumentTitle } from "../../../documents/documentKinds";
+import {
+  deriveStoredDocumentTitle,
+  type StoredDocumentKind,
+} from "../../../documents/documentKinds";
 import { serializeDocumentSyncPullContinuation } from "../../../documents/shared/sync/pullContinuation";
 import { normalizeEffectiveAccessLevel } from "../../../keying/accessLevel";
 import {
@@ -17,6 +20,7 @@ import {
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { DocumentScope } from "../records";
+import { CLEARED_DOCUMENT_SYNC_FAILURE } from "../records/documentSyncFailurePersistence";
 import type { StoredDocumentRecord } from "../types";
 import {
   getProjectionDocumentKind,
@@ -150,12 +154,17 @@ export async function createDocumentRowsIfAbsent(input: {
 }
 
 export async function saveDocumentRows(input: {
+  /** Clears the recorded sync failure in the same guarded upsert. */
+  clearSyncFailure?: boolean;
   document: StoredDocumentRecord;
   tx: ClientSQLiteTransactionScope;
   updatedAt: string;
 }): Promise<boolean> {
   const { document, tx, updatedAt } = input;
-  const documentRow = toDocumentRecordRow({ document, updatedAt });
+  const documentRow = {
+    ...toDocumentRecordRow({ document, updatedAt }),
+    ...(input.clearSyncFailure ? CLEARED_DOCUMENT_SYNC_FAILURE : {}),
+  };
   // The recovery-generation fence rides on the upsert: a stored row from a
   // newer recovery generation is left untouched and returns no row, so a
   // stale writer skips the projection writes without a separate read.
@@ -233,17 +242,44 @@ export async function resolveDocumentSaveTimestamp(input: {
       ),
     )
     .limit(1);
-  const existingProjection =
-    existing?.documentKind != null &&
-    existing.title != null &&
-    existing.updatedAt != null
+  return documentSaveTimestampFrom(
+    existing
       ? {
-          documentKind: existing.documentKind,
-          text: existing.text,
-          title: existing.title,
-          updatedAt: existing.updatedAt,
+          projection:
+            existing.documentKind != null &&
+            existing.title != null &&
+            existing.updatedAt != null
+              ? {
+                  documentKind: existing.documentKind,
+                  text: existing.text,
+                  title: existing.title,
+                  updatedAt: existing.updatedAt,
+                }
+              : null,
+          snapshotEndVersion: existing.snapshotEndVersion,
         }
-      : undefined;
+      : null,
+    document,
+  );
+}
+
+/**
+ * The save timestamp from rows already read in the saving transaction: the
+ * stored time survives only when the content is unchanged.
+ */
+export function documentSaveTimestampFrom(
+  existing: {
+    projection: {
+      documentKind: StoredDocumentKind;
+      text: string | null;
+      title: string;
+      updatedAt: string;
+    } | null;
+    snapshotEndVersion: string;
+  } | null,
+  document: StoredDocumentRecord,
+): string {
+  const existingProjection = existing?.projection ?? undefined;
   const now = new Date().toISOString();
   return didStoredDocumentContentChange(
     existing
