@@ -19,9 +19,6 @@ export const principalPolicyOrganizations = sqliteTable(
   },
   (table) => [
     primaryKey({ columns: [table.principalType, table.principalId] }),
-    index("principal_policy_organizations_organization_idx").on(
-      table.organizationId,
-    ),
   ],
 );
 

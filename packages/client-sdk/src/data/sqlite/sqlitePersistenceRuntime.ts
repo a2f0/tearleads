@@ -5,6 +5,10 @@ import type {
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import { clientSQLiteSchema } from "./schema";
 import {
+  closeTransactionSchemaMemoScope,
+  openTransactionSchemaMemoScope,
+} from "./sqlExec";
+import {
   assertClientSQLiteCommitAllowed,
   beginClientSQLiteCommitGuards,
   captureClientSQLiteCommitGuards,
@@ -15,7 +19,6 @@ import {
   createExecSql,
   type ExecSql,
   type ExecSqlClientLike,
-  resetConnectionSchemaMemo,
   resolveCanonicalExecSql,
   runSerializedSqlMutation,
   type SqlArrayRow,
@@ -182,10 +185,13 @@ async function runNestedSavepointScope<T>(
       transactionDepthByCanonicalExecSql.set(canonical, depth + 1);
       const savepoint = `runtime_transaction_sp_${depth}`;
       const discardNestedGuards = captureClientSQLiteCommitGuards(canonical);
+      openTransactionSchemaMemoScope(canonical);
+      let released = false;
       try {
         await lockedExecSql(`SAVEPOINT ${savepoint}`);
         const result = await operation();
         await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`);
+        released = true;
         return result;
       } catch (error: unknown) {
         await lockedExecSql(`ROLLBACK TO SAVEPOINT ${savepoint}`).then(
@@ -195,9 +201,10 @@ async function runNestedSavepointScope<T>(
         await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`).catch(
           () => undefined,
         );
-        resetConnectionSchemaMemo(canonical);
         throw error;
       } finally {
+        // The savepoint's rollback undid only the schema it first ensured.
+        closeTransactionSchemaMemoScope(canonical, released);
         transactionDepthByCanonicalExecSql.set(canonical, depth);
         if (chains.get(depthAtEntry) === tracked) {
           chains.delete(depthAtEntry);
@@ -255,17 +262,18 @@ function createRuntimeForExecSql(
 
           transactionDepthByCanonicalExecSql.set(canonical, 1);
           beginClientSQLiteCommitGuards(canonical);
+          openTransactionSchemaMemoScope(canonical);
+          let committed = false;
           try {
-            return await db.transaction(operation, config);
+            const result = await db.transaction(operation, config);
+            committed = true;
+            return result;
           } catch (error: unknown) {
-            // The rollback undid any DDL this transaction ran, but the
-            // per-connection ensure memo still claims it exists — reset it
-            // so later operations re-ensure instead of hitting missing
-            // tables.
-            resetConnectionSchemaMemo(canonical);
             rethrowClientSQLiteCommitGuardFailure(canonical);
             throw error;
           } finally {
+            // A rollback forgets the ensures it undid (see sqlExec).
+            closeTransactionSchemaMemoScope(canonical, committed);
             clearClientSQLiteCommitGuards(canonical);
             transactionDepthByCanonicalExecSql.delete(canonical);
           }
@@ -284,12 +292,13 @@ function createRuntimeForExecSql(
 
           transactionDepthByCanonicalExecSql.set(canonical, 1);
           beginClientSQLiteCommitGuards(canonical);
+          openTransactionSchemaMemoScope(canonical);
+          let committed = false;
           try {
             await lockedExecSql(transactionBeginStatement(config));
             const result = await operation(db);
             if (!canCommit()) {
               await lockedExecSql("ROLLBACK");
-              resetConnectionSchemaMemo(canonical);
               return { committed: false, result: null };
             }
             // The guard passed in THIS synchronous slice and the COMMIT is
@@ -300,13 +309,14 @@ function createRuntimeForExecSql(
             assertClientSQLiteCommitAllowed(lockedExecSql);
             const commit = lockedExecSql("COMMIT");
             await commit;
+            committed = true;
             return { committed: true, result };
           } catch (error: unknown) {
             await lockedExecSql("ROLLBACK").catch(() => undefined);
-            resetConnectionSchemaMemo(canonical);
             rethrowClientSQLiteCommitGuardFailure(canonical);
             throw error;
           } finally {
+            closeTransactionSchemaMemoScope(canonical, committed);
             clearClientSQLiteCommitGuards(canonical);
             transactionDepthByCanonicalExecSql.delete(canonical);
           }
