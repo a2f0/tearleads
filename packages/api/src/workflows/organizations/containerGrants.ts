@@ -69,8 +69,9 @@ export async function listOrganizationContainerGrantRows(input: {
       containerId: containers.id,
       createdAt: containers.createdAt,
       depth: containers.depth,
+      // Ordinary containers have a null slot, so the predicate can be null.
       isBuiltin: booleanExpression(
-        sql`${and(
+        sql`coalesce(${and(
           eq(accessManifestContainerGrantProjection.subjectType, "group"),
           or(
             and(
@@ -85,7 +86,7 @@ export async function listOrganizationContainerGrantRows(input: {
               ),
             ),
           ),
-        )}`,
+        )}, false)`,
       ),
       metadataAccessEpoch: accessManifestHeads.epoch,
       metadataAccessStateHash: accessManifestHeads.manifestHash,

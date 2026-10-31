@@ -3,8 +3,14 @@ import {
   db,
   withDatabaseStatementCounter,
 } from "@tearleads/api-shared/postgres";
-import { organizations } from "@tearleads/api-shared/schema";
+import {
+  accessManifestHeads,
+  accessManifests,
+  containers,
+  organizations,
+} from "@tearleads/api-shared/schema";
 import type {
+  ContainerAccessManifestState,
   ContainerDirectGrant,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
@@ -12,8 +18,10 @@ import { createTestUser } from "@tearleads/test-utils";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
+import { storeChildContainerAccessManifest } from "../../../../../test/helpers/containerManifests";
 import { getDefaultOrganizationId } from "../../../../../test/helpers/organizationMembership";
 import { registerUser } from "../../../../../test/helpers/registerUser";
+import { listOrganizationContainerGrantRows } from "../../../organizations/containerGrants";
 import { assertContainerBuiltinGrantPolicyPreserved } from "./builtinGrants";
 
 type Grant = Pick<
@@ -57,7 +65,7 @@ async function registeredOrganization() {
     .from(organizations)
     .where(eq(organizations.id, organizationId));
   invariant(organization, "expected organization row");
-  return { ...organization, organizationId, ownerId: owner.userId };
+  return { ...organization, organizationId, owner, ownerId: owner.userId };
 }
 
 function guard(next: VerifiedContainerAccessManifest, previous: Grant[]) {
@@ -259,4 +267,63 @@ test("the derived metadata grants are refused through the reserved-root check", 
       }),
     ),
   ).toBe(1);
+});
+
+test("reserved groups on an ordinary container list as not built-in", async () => {
+  const org = await registeredOrganization();
+  const childContainerId = crypto.randomUUID();
+  await db.insert(containers).values({
+    depth: 1,
+    id: childContainerId,
+    organizationId: org.organizationId,
+    parentId: org.rootContainerId,
+  });
+  const [rootHead] = await db
+    .select({
+      manifestHash: accessManifestHeads.manifestHash,
+      state: accessManifests.state,
+    })
+    .from(accessManifestHeads)
+    .innerJoin(
+      accessManifests,
+      eq(accessManifests.manifestHash, accessManifestHeads.manifestHash),
+    )
+    .where(eq(accessManifestHeads.objectId, org.rootContainerId));
+  invariant(rootHead, "expected root manifest head");
+  // The root's only grant is Admins, so its principal heads cover the child's.
+  const rootState = rootHead.state as unknown as ContainerAccessManifestState;
+  await storeChildContainerAccessManifest({
+    childContainerId,
+    dependencyManifestHashes: [rootHead.manifestHash],
+    directGrants: [
+      {
+        accessLevel: "admin",
+        subjectId: org.adminGroupId,
+        subjectType: "group",
+      },
+    ],
+    metadataDocumentId: crypto.randomUUID(),
+    organizationId: org.organizationId,
+    owner: org.owner,
+    parentContainerId: org.rootContainerId,
+    parentManifestHash: rootHead.manifestHash,
+    referencedPrincipalHeads: rootState.referencedPrincipalHeads,
+  });
+
+  const rows = await listOrganizationContainerGrantRows({
+    executor: db,
+    organizationId: org.organizationId,
+  });
+  // A null system slot makes the derivation null unless it is coalesced; the
+  // flag must stay a boolean.
+  expect(
+    rows
+      .filter((row) => row.containerId === childContainerId)
+      .map((row) => row.isBuiltin),
+  ).toEqual([false]);
+  expect(
+    rows
+      .filter((row) => row.containerId === org.rootContainerId)
+      .map((row) => [row.subjectId, row.isBuiltin]),
+  ).toContainEqual([org.adminGroupId, true]);
 });
