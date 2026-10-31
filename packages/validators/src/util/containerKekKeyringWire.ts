@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { registerJsonSchemaFragment } from "../jsonSchema";
 import { boundedStringSchema, loosePlainObject } from "../schema";
+import { base64Length } from "./protocol";
 
 /**
  * Shared wire arithmetic for sealed container KEK keyrings.
@@ -23,10 +24,6 @@ export function sealedContainerKekKeyringBytes(keyEpoch: number): number {
     (keyEpoch - 1) * SEALED_CONTAINER_KEK_KEYRING_ENTRY_BYTES +
     SEALED_CONTAINER_KEK_KEYRING_AEAD_OVERHEAD_BYTES
   );
-}
-
-function base64Length(bytes: number): number {
-  return Math.ceil(bytes / 3) * 4;
 }
 
 /** Parse ceiling: the base64 length of a keyring sealed at the epoch cap. */

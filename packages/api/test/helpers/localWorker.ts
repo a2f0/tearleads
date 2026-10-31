@@ -7,6 +7,7 @@ import {
   sign,
   toFingerprint,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type { TestUser } from "@tearleads/test-utils";
 
 /**
@@ -278,7 +279,7 @@ export async function loginThroughWorker(
   const verified = await expectJson(
     await postJson(`${origin}/auth/verify`, {
       fingerprint,
-      signature: Array.from(signature),
+      signature: bytesToBase64(signature),
     }),
     200,
   );

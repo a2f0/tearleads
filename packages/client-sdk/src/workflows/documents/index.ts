@@ -57,6 +57,10 @@ export {
   mergePersistedDocumentHistory,
 } from "./historyContent";
 export { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
+export {
+  createLinkSetAttachmentReuse,
+  type LinkSetAttachmentReuse,
+} from "./linkSet/linkSetBlobRewraps";
 export { relinkRemoteDocument } from "./linkSet/linkSetRemote";
 export {
   enqueuePendingDocumentUpdate,

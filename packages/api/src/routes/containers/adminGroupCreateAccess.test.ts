@@ -34,6 +34,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
+import { parentKekRef } from "../../../test/helpers/containerKeying";
 import { containerManifestRef } from "../../../test/helpers/containerManifestRefs";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
@@ -346,7 +347,7 @@ async function buildChildCreateRequest(input: {
     keyring: null,
     predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
+    parentKekRef: parentKekRef(input.parentKekState),
     userRecipientKeys: [],
   };
 }

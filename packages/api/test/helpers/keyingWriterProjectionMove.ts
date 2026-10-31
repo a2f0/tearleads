@@ -18,6 +18,7 @@ import {
   createTestContainerKekPredecessorBridge,
   createTestRotationKeyring,
 } from "./containerKekMaterial";
+import { parentKekRef } from "./containerKeying";
 import {
   containerManifestRef,
   containerManifestRefs,
@@ -147,10 +148,7 @@ export async function buildContainerMoveRequest(input: {
     keyring: keyring as unknown as Record<string, unknown>,
     predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: [wrap as unknown as Record<string, unknown>],
-    parentKekState: input.destinationParentKekState as unknown as Record<
-      string,
-      unknown
-    >,
+    parentKekRef: parentKekRef(input.destinationParentKekState),
     userRecipientKeys: [],
   };
 }

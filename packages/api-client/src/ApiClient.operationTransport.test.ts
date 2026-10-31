@@ -5,6 +5,7 @@ import {
   ML_DSA87_SIGNATURE_BYTES,
   verify,
 } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import { BILLING_ERROR_CODES } from "@tearleads/validators/billing";
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
@@ -91,11 +92,13 @@ testApiClient(
     expect(JSON.parse(calls[0]?.body ?? "null")).toEqual({ fingerprint });
     const verifyBody = JSON.parse(calls[1]?.body ?? "null");
     expect(verifyBody).toMatchObject({ fingerprint });
-    expect(verifyBody.signature).toHaveLength(ML_DSA87_SIGNATURE_BYTES);
+    expect(base64ToBytes(verifyBody.signature)).toHaveLength(
+      ML_DSA87_SIGNATURE_BYTES,
+    );
     // The client signs for the API it addressed, never a relaying one.
     const signedFor = (apiOrigin: string) =>
       verify(
-        new Uint8Array(verifyBody.signature),
+        base64ToBytes(verifyBody.signature),
         authChallengeSigningBytes({
           apiOrigin,
           challengeHex: challenge,
@@ -138,8 +141,8 @@ testApiClient(
         registration.userId,
         registration.organizationId,
         registration.rootContainerId,
-        new Uint8Array(registration.signingPublicKey),
-        new Uint8Array(registration.encapsulationPublicKey),
+        base64ToBytes(registration.signingPublicKey),
+        base64ToBytes(registration.encapsulationPublicKey),
         registration.initialAdminGroup,
         registration.initialMemberGroup,
         registration.initialOrganizationPolicy,

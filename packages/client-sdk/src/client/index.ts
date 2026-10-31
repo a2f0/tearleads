@@ -201,6 +201,7 @@ export type {
   OrganizationGroupMember,
   OrganizationGroupMembers,
   OrganizationGroupMutationReceipt,
+  OrganizationGroupMutationResult,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
   OrganizationLeaveRequestResult,

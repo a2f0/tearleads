@@ -68,6 +68,7 @@ test("group mutation refresh reloads details through the local coordinator", asy
   await refreshAfterGroupMutation({
     invalidateSelectedGroupDetails,
     isOperationActive: () => true,
+    mutationResult: null,
     operationOrganizationId: DIRECTORY.organizationId,
     refreshDirectoryAndGroups: mock(async () => ({
       didLoad: true as const,

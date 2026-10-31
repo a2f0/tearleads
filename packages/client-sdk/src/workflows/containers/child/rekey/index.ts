@@ -22,6 +22,7 @@ import {
 } from "../../../../data/containers/shared/events";
 import {
   asContainerManifestBundle,
+  containerKekParentRef,
   type getParentKekForTarget,
   type getTargetContainerContext,
   type readContainerState,
@@ -48,7 +49,6 @@ import {
 import {
   containerMutationRequestCore,
   previousPathRequestFields,
-  readCanonicalRecordOrNull,
 } from "../mutationRequestCore";
 import {
   resolveRotationContext,
@@ -388,10 +388,9 @@ function buildContainerRekeyPlan(input: {
         "Container rekey predecessor bridge",
       ),
       keyring: readCanonicalRecord(input.keyring, "Container rekey keyring"),
-      parentKekState: readCanonicalRecordOrNull(
-        input.parentKek,
-        "Container rekey parent KEK state",
-      ),
+      parentKekRef: input.parentKek
+        ? containerKekParentRef(input.parentKek)
+        : null,
     },
     state: input.state,
     userRecipientKeys: input.userRecipientKeys,

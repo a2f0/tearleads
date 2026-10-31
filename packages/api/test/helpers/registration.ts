@@ -47,6 +47,7 @@ import type {
   ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { parentKekRef } from "./containerKeying";
 import { containerManifestRefs } from "./containerManifestRefs";
 import { principalPolicyRef } from "./principalPolicyRefs";
 import {
@@ -768,7 +769,7 @@ async function createChildContainerArtifacts(input: {
       predecessorBridge: null,
       keyring: null,
       wraps: toWireRecords(wraps, "child container request wraps"),
-      parentKekState: toWireRecord(parentKek, "child container parent KEK"),
+      parentKekRef: parentKekRef(parentKek),
       userRecipientKeys: [],
     },
     state,

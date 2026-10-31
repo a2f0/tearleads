@@ -13,7 +13,8 @@ interface VerifyChallengeInput {
   apiOrigin: string;
   fingerprint: string;
   ipAddress?: string | null | undefined;
-  signature: number[];
+  /** Canonical base64 of the ML-DSA-87 signature. */
+  signature: string;
 }
 
 interface VerifyChallengeResult {
@@ -117,7 +118,7 @@ export async function verifyChallenge(
     challengeHex,
     fingerprint: input.fingerprint,
   });
-  const signatureBytes = new Uint8Array(input.signature);
+  const signatureBytes = base64ToBytes(input.signature);
 
   if (!verify(signatureBytes, challengeBytes, publicKey)) {
     throw new VerifyChallengeError("Invalid signature", "invalid_signature");

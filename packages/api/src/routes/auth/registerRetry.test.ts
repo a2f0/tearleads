@@ -6,6 +6,7 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import { createRegistrationRequestBody } from "../../../test/helpers/api";
@@ -22,7 +23,7 @@ afterAll(async () => {
 });
 
 async function register(body: RegistrationRequest) {
-  fingerprints.add(await toFingerprint(new Uint8Array(body.signingPublicKey)));
+  fingerprints.add(await toFingerprint(base64ToBytes(body.signingPublicKey)));
   return routeApp.request("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

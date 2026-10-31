@@ -4,6 +4,7 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -217,7 +218,7 @@ test("registerIdentity settles acknowledged profiles", async () => {
         throw new Error("Expected provisioned profile requests");
       }
       captured = {
-        encapsulationPublicKey: Array.from(encapsulationPublicKey),
+        encapsulationPublicKey: bytesToBase64(encapsulationPublicKey),
         initialAdminGroup,
         initialMemberGroup,
         initialOrganizationMetadataContainer,
@@ -230,7 +231,7 @@ test("registerIdentity settles acknowledged profiles", async () => {
         initialSystemContainers,
         organizationId,
         rootContainerId,
-        signingPublicKey: Array.from(signingPublicKey),
+        signingPublicKey: bytesToBase64(signingPublicKey),
         userId,
       };
       return respondToRegistration(args);

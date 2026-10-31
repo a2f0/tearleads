@@ -17,7 +17,10 @@ import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { containerManifestRef } from "../../../../data/containers/shared/projection";
+import {
+  containerKekParentRef,
+  containerManifestRef,
+} from "../../../../data/containers/shared/projection";
 import type {
   ContainerMovePlan,
   MaterializedContainerMovePlan,
@@ -58,10 +61,7 @@ function buildContainerMoveRequest(input: {
       "Container move predecessor bridge",
     ),
     keyring: readCanonicalRecord(input.keyring, "Container move keyring"),
-    parentKekState: readCanonicalRecord(
-      input.destinationParentKek,
-      "Container move destination parent KEK state",
-    ),
+    parentKekRef: containerKekParentRef(input.destinationParentKek),
   };
 }
 

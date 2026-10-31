@@ -19,9 +19,10 @@ import {
 } from "./index";
 
 const VALID_FINGERPRINT = "a".repeat(64);
-const VALID_SIGNATURE = Array.from(
-  { length: ML_DSA87_SIGNATURE_BYTES },
-  (_, index) => index % 256,
+const signatureBytes = (length: number) =>
+  Buffer.from(Array.from({ length }, (_, index) => index % 256));
+const VALID_SIGNATURE = signatureBytes(ML_DSA87_SIGNATURE_BYTES).toString(
+  "base64",
 );
 
 test("isUpdateOrganizationRosterEntryRequest", () => {
@@ -93,6 +94,20 @@ test("isVerifyRequest", () => {
   expect(isVerifyRequest({ fingerprint: VALID_FINGERPRINT })).toBe(false);
   expect(isVerifyRequest({ signature: [1, 2] })).toBe(false);
   expect(isVerifyRequest(null)).toBe(false);
+  // Signatures travel as canonical base64: no number arrays, no missing
+  // padding, and no nonzero bits after the last byte (one encoding per value).
+  const refused = [
+    Array.from(signatureBytes(ML_DSA87_SIGNATURE_BYTES)),
+    VALID_SIGNATURE.replace(/=+$/u, ""),
+    `${VALID_SIGNATURE.slice(0, -3)}B==`,
+    signatureBytes(ML_DSA87_SIGNATURE_BYTES - 1).toString("base64"),
+    `${VALID_SIGNATURE.slice(0, -4)}*A==`,
+  ];
+  for (const signature of refused) {
+    expect(isVerifyRequest({ fingerprint: VALID_FINGERPRINT, signature })).toBe(
+      false,
+    );
+  }
 });
 
 test("isInitiateMultipartBlobStageRequest", () => {

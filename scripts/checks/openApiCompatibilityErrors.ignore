@@ -1,766 +1,302 @@
-# Issue #2697 proposal 3 (greenfield flag day): container mutation
-# acknowledgements carry hashes and server-assigned fields instead of echoing
-# the signed event, manifest, state, key epoch, wraps, keyring, recipient
-# targets, KEK history, and referenced principal heads. Remove these exact
-# diagnostics as soon as main contains the new contract.
-POST /auth/register removed the required property `organizationMetadataContainer/container/accessManifest` from the response with the `200` status
+# Issue #2697 proposal 18 (greenfield flag day): registration keys and the
+# login signature travel as canonical padded base64 instead of JSON number
+# arrays. Remove these exact diagnostics as soon as main contains the new
+# contract.
+POST /auth/register the `encapsulationPublicKey` request property's maxLength was set to `2092`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 18: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `organizationMetadataContainer/container/containerKek/accessManifestHash` from the response with the `200` status
+POST /auth/register the `signingPublicKey` request property's maxLength was set to `3456`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 18: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `organizationMetadataContainer/container/containerKek/containerId` from the response with the `200` status
+POST /auth/register the `encapsulationPublicKey` request property's minLength was set to `2092`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 18: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `organizationMetadataContainer/container/containerKek/containerManifestHistory` from the response with the `200` status
+POST /auth/register the `signingPublicKey` request property's minLength was set to `3456`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 18: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `organizationMetadataContainer/container/containerKek/keyEpoch` from the response with the `200` status
+POST /auth/register added the pattern `^(?:[A-Za-z0-9+/]{4}){522}[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=$` to the request property `encapsulationPublicKey`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 18: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `organizationMetadataContainer/container/containerKek/keyring` from the response with the `200` status
+POST /auth/register added the pattern `^(?:[A-Za-z0-9+/]{4}){864}$` to the request property `signingPublicKey`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 18: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `organizationMetadataContainer/container/containerKek/recipientTargets` from the response with the `200` status
+POST /auth/register the `encapsulationPublicKey` request property `type` changed from `array<integer>` to `string`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 18: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `organizationMetadataContainer/container/containerKek/wraps` from the response with the `200` status
+POST /auth/register the `signingPublicKey` request property `type` changed from `array<integer>` to `string`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 18: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `organizationMetadataContainer/container/referencedPrincipalHeads` from the response with the `200` status
+POST /auth/verify the `signature` request property's maxLength was set to `6172`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 18: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `rosterProfileContainer/container/accessManifest` from the response with the `200` status
+POST /auth/verify the `signature` request property's minLength was set to `6172`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 18: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `rosterProfileContainer/container/containerKek/accessManifestHash` from the response with the `200` status
+POST /auth/verify added the pattern `^(?:[A-Za-z0-9+/]{4}){1542}[A-Za-z0-9+/][AQgw]==$` to the request property `signature`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 18: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `rosterProfileContainer/container/containerKek/containerId` from the response with the `200` status
+POST /auth/verify the `signature` request property `type` changed from `array<integer>` to `string`
 
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `rosterProfileContainer/container/containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `rosterProfileContainer/container/containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `rosterProfileContainer/container/containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `rosterProfileContainer/container/containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `rosterProfileContainer/container/containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `rosterProfileContainer/container/referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `systemContainers/items/container/accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `systemContainers/items/container/containerKek/accessManifestHash` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `systemContainers/items/container/containerKek/containerId` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `systemContainers/items/container/containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `systemContainers/items/container/containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `systemContainers/items/container/containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `systemContainers/items/container/containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `systemContainers/items/container/containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /auth/register removed the required property `systemContainers/items/container/referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers removed the required property `accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers removed the required property `containerKek/accessManifestHash` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers removed the required property `containerKek/containerId` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers removed the required property `containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers removed the required property `containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers removed the required property `containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers removed the required property `containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers removed the required property `containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers removed the required property `referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/with-metadata-document removed the required property `container/accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/with-metadata-document removed the required property `container/containerKek/accessManifestHash` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/with-metadata-document removed the required property `container/containerKek/containerId` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/with-metadata-document removed the required property `container/containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/with-metadata-document removed the required property `container/containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/with-metadata-document removed the required property `container/containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/with-metadata-document removed the required property `container/containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/with-metadata-document removed the required property `container/containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/with-metadata-document removed the required property `container/referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerKek/accessManifestHash` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerKek/containerId` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerRekeys/items/accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerRekeys/items/containerKek/accessManifestHash` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerRekeys/items/containerKek/containerId` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerRekeys/items/containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerRekeys/items/containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerRekeys/items/containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerRekeys/items/containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerRekeys/items/containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `containerRekeys/items/referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move removed the required property `referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/recite removed the required property `accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/recite removed the required property `referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerKek/accessManifestHash` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerKek/containerId` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerRekeys/items/accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerRekeys/items/containerKek/accessManifestHash` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerRekeys/items/containerKek/containerId` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerRekeys/items/containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerRekeys/items/containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerRekeys/items/containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerRekeys/items/containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerRekeys/items/containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `containerRekeys/items/referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey removed the required property `referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerKek/accessManifestHash` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerKek/containerId` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerRekeys/items/accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerRekeys/items/containerKek/accessManifestHash` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerRekeys/items/containerKek/containerId` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerRekeys/items/containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerRekeys/items/containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerRekeys/items/containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerRekeys/items/containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerRekeys/items/containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `containerRekeys/items/referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke removed the required property `referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/share removed the required property `accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/share removed the required property `containerKek/accessManifestHash` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/share removed the required property `containerKek/containerId` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/share removed the required property `containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/share removed the required property `containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/share removed the required property `containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/share removed the required property `containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/share removed the required property `containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/share removed the required property `referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `organizationMetadataContainer/container/accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `organizationMetadataContainer/container/containerKek/accessManifestHash` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `organizationMetadataContainer/container/containerKek/containerId` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `organizationMetadataContainer/container/containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `organizationMetadataContainer/container/containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `organizationMetadataContainer/container/containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `organizationMetadataContainer/container/containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `organizationMetadataContainer/container/containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `organizationMetadataContainer/container/referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `rosterProfileContainer/container/accessManifest` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `rosterProfileContainer/container/containerKek/accessManifestHash` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `rosterProfileContainer/container/containerKek/containerId` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `rosterProfileContainer/container/containerKek/containerManifestHistory` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `rosterProfileContainer/container/containerKek/keyEpoch` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `rosterProfileContainer/container/containerKek/keyring` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `rosterProfileContainer/container/containerKek/recipientTargets` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `rosterProfileContainer/container/containerKek/wraps` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `rosterProfileContainer/container/referencedPrincipalHeads` from the response with the `200` status
-
-# Issue #2697 proposal 3: see above.
-# Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `systemContainers/items/container/accessManifest` from the response with the `200` status
+# Issue #2697 proposal 17 (greenfield flag day): container mutations cite the
+# parent KEK state as `parentKekRef` instead of carrying `parentKekState`.
+# Remove these exact diagnostics as soon as main contains the new contract.
+POST /auth/register removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `systemContainers/items/container/containerKek/accessManifestHash` from the response with the `200` status
+POST /auth/register removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `systemContainers/items/container/containerKek/containerId` from the response with the `200` status
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/container/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `systemContainers/items/container/containerKek/containerManifestHistory` from the response with the `200` status
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `systemContainers/items/container/containerKek/keyEpoch` from the response with the `200` status
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `systemContainers/items/container/containerKek/keyring` from the response with the `200` status
+POST /auth/register removed the request property `initialOrganizationPolicy/containerMutations/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `systemContainers/items/container/containerKek/recipientTargets` from the response with the `200` status
+POST /auth/register removed the request property `initialOrganizationProfileDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `systemContainers/items/container/containerKek/wraps` from the response with the `200` status
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations removed the required property `systemContainers/items/container/referencedPrincipalHeads` from the response with the `200` status
+POST /auth/register removed the request property `initialRootContainer/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the required property `organizationPolicy/containerMutations/items/accessManifest` from the response with the `200` status
+POST /auth/register removed the request property `initialRootMetadataDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the required property `organizationPolicy/containerMutations/items/containerKek/accessManifestHash` from the response with the `200` status
+POST /auth/register removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the required property `organizationPolicy/containerMutations/items/containerKek/containerId` from the response with the `200` status
+POST /auth/register removed the request property `initialRosterProfileContainer/container/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the required property `organizationPolicy/containerMutations/items/containerKek/containerManifestHistory` from the response with the `200` status
+POST /auth/register removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the required property `organizationPolicy/containerMutations/items/containerKek/keyEpoch` from the response with the `200` status
+POST /auth/register removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the required property `organizationPolicy/containerMutations/items/containerKek/keyring` from the response with the `200` status
+POST /auth/register removed the request property `initialRosterProfileDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the required property `organizationPolicy/containerMutations/items/containerKek/recipientTargets` from the response with the `200` status
+POST /auth/register removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the required property `organizationPolicy/containerMutations/items/containerKek/wraps` from the response with the `200` status
+POST /auth/register removed the request property `initialSystemContainers/items/container/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /organizations/{organizationId}/groups removed the required property `organizationPolicy/containerMutations/items/referencedPrincipalHeads` from the response with the `200` status
+POST /auth/register removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /organizations/{organizationId}/groups/{groupId} removed the required property `organizationPolicy/containerMutations/items/accessManifest` from the response with the `200` status
+POST /auth/register removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /organizations/{organizationId}/groups/{groupId} removed the required property `organizationPolicy/containerMutations/items/containerKek/accessManifestHash` from the response with the `200` status
+POST /blobs/{blobId}/attachment-bindings removed the request property `containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /organizations/{organizationId}/groups/{groupId} removed the required property `organizationPolicy/containerMutations/items/containerKek/containerId` from the response with the `200` status
+POST /blobs/{blobId}/attachment-bindings/{bindingId}/detach removed the request property `containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /organizations/{organizationId}/groups/{groupId} removed the required property `organizationPolicy/containerMutations/items/containerKek/containerManifestHistory` from the response with the `200` status
+POST /containers removed the request property `parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /organizations/{organizationId}/groups/{groupId} removed the required property `organizationPolicy/containerMutations/items/containerKek/keyEpoch` from the response with the `200` status
+POST /containers/with-metadata-document removed the request property `container/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /organizations/{organizationId}/groups/{groupId} removed the required property `organizationPolicy/containerMutations/items/containerKek/keyring` from the response with the `200` status
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /organizations/{organizationId}/groups/{groupId} removed the required property `organizationPolicy/containerMutations/items/containerKek/recipientTargets` from the response with the `200` status
+POST /containers/with-metadata-document removed the request property `metadataDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /organizations/{organizationId}/groups/{groupId} removed the required property `organizationPolicy/containerMutations/items/containerKek/wraps` from the response with the `200` status
+POST /containers/{containerId}/move removed the request property `containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /organizations/{organizationId}/groups/{groupId} removed the required property `organizationPolicy/containerMutations/items/referencedPrincipalHeads` from the response with the `200` status
+POST /containers/{containerId}/move removed the request property `parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `groupPolicy/containerMutations/items/accessManifest` from the response with the `200` status
+POST /containers/{containerId}/rekey removed the request property `containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `groupPolicy/containerMutations/items/containerKek/accessManifestHash` from the response with the `200` status
+POST /containers/{containerId}/rekey removed the request property `parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `groupPolicy/containerMutations/items/containerKek/containerId` from the response with the `200` status
+POST /containers/{containerId}/revoke removed the request property `containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `groupPolicy/containerMutations/items/containerKek/containerManifestHistory` from the response with the `200` status
+POST /containers/{containerId}/revoke removed the request property `parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `groupPolicy/containerMutations/items/containerKek/keyEpoch` from the response with the `200` status
+POST /containers/{containerId}/share removed the request property `parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `groupPolicy/containerMutations/items/containerKek/keyring` from the response with the `200` status
+POST /documents removed the request property `containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `groupPolicy/containerMutations/items/containerKek/recipientTargets` from the response with the `200` status
+POST /documents removed the request property `initialSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `groupPolicy/containerMutations/items/containerKek/wraps` from the response with the `200` status
+POST /documents/{documentId}/link removed the request property `containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `groupPolicy/containerMutations/items/referencedPrincipalHeads` from the response with the `200` status
+POST /documents/{documentId}/sync removed the request property `containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `memberPolicy/containerMutations/items/accessManifest` from the response with the `200` status
+POST /documents/{documentId}/unlink removed the request property `containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `memberPolicy/containerMutations/items/containerKek/accessManifestHash` from the response with the `200` status
+POST /organizations removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `memberPolicy/containerMutations/items/containerKek/containerId` from the response with the `200` status
+POST /organizations removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `memberPolicy/containerMutations/items/containerKek/containerManifestHistory` from the response with the `200` status
+POST /organizations removed the request property `initialOrganizationMetadataContainer/container/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `memberPolicy/containerMutations/items/containerKek/keyEpoch` from the response with the `200` status
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `memberPolicy/containerMutations/items/containerKek/keyring` from the response with the `200` status
+POST /organizations removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `memberPolicy/containerMutations/items/containerKek/recipientTargets` from the response with the `200` status
+POST /organizations removed the request property `initialOrganizationPolicy/containerMutations/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `memberPolicy/containerMutations/items/containerKek/wraps` from the response with the `200` status
+POST /organizations removed the request property `initialOrganizationProfileDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `memberPolicy/containerMutations/items/referencedPrincipalHeads` from the response with the `200` status
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `organizationPolicy/containerMutations/items/accessManifest` from the response with the `200` status
+POST /organizations removed the request property `initialRootContainer/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `organizationPolicy/containerMutations/items/containerKek/accessManifestHash` from the response with the `200` status
+POST /organizations removed the request property `initialRootMetadataDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `organizationPolicy/containerMutations/items/containerKek/containerId` from the response with the `200` status
+POST /organizations removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `organizationPolicy/containerMutations/items/containerKek/containerManifestHistory` from the response with the `200` status
+POST /organizations removed the request property `initialRosterProfileContainer/container/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `organizationPolicy/containerMutations/items/containerKek/keyEpoch` from the response with the `200` status
+POST /organizations removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `organizationPolicy/containerMutations/items/containerKek/keyring` from the response with the `200` status
+POST /organizations removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `organizationPolicy/containerMutations/items/containerKek/recipientTargets` from the response with the `200` status
+POST /organizations removed the request property `initialRosterProfileDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `organizationPolicy/containerMutations/items/containerKek/wraps` from the response with the `200` status
+POST /organizations removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `organizationPolicy/containerMutations/items/referencedPrincipalHeads` from the response with the `200` status
+POST /organizations removed the request property `initialSystemContainers/items/container/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /principals/{principalType}/{principalId}/policy removed the required property `containerMutations/items/accessManifest` from the response with the `200` status
+POST /organizations removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /principals/{principalType}/{principalId}/policy removed the required property `containerMutations/items/containerKek/accessManifestHash` from the response with the `200` status
+POST /organizations removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /principals/{principalType}/{principalId}/policy removed the required property `containerMutations/items/containerKek/containerId` from the response with the `200` status
+POST /organizations/{organizationId}/groups removed the request property `initialGroupPolicy/containerMutations/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /principals/{principalType}/{principalId}/policy removed the required property `containerMutations/items/containerKek/containerManifestHistory` from the response with the `200` status
+POST /organizations/{organizationId}/groups removed the request property `organizationPolicy/containerMutations/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /principals/{principalType}/{principalId}/policy removed the required property `containerMutations/items/containerKek/keyEpoch` from the response with the `200` status
+DELETE /organizations/{organizationId}/groups/{groupId} removed the request property `organizationPolicy/containerMutations/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /principals/{principalType}/{principalId}/policy removed the required property `containerMutations/items/containerKek/keyring` from the response with the `200` status
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `groupPolicy/containerMutations/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /principals/{principalType}/{principalId}/policy removed the required property `containerMutations/items/containerKek/recipientTargets` from the response with the `200` status
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `memberPolicy/containerMutations/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /principals/{principalType}/{principalId}/policy removed the required property `containerMutations/items/containerKek/wraps` from the response with the `200` status
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `organizationPolicy/containerMutations/items/parentKekState`
 
-# Issue #2697 proposal 3: see above.
+# Issue #2697 proposal 17: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-PUT /principals/{principalType}/{principalId}/policy removed the required property `containerMutations/items/referencedPrincipalHeads` from the response with the `200` status
+PUT /principals/{principalType}/{principalId}/policy removed the request property `containerMutations/items/parentKekState`

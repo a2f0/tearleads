@@ -13,6 +13,7 @@ import type {
 import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
 import { createTestContainerKekMaterial } from "./containerKekMaterial";
+import { parentKekRef } from "./containerKeying";
 import { containerManifestRefs } from "./containerManifestRefs";
 import {
   asVerifiedContainerManifest,
@@ -128,7 +129,7 @@ export async function createChildContainerFixture(
     keyring: null,
     predecessorBridge: null,
     wraps: [wrap as unknown as Record<string, unknown>],
-    parentKekState: input.parent.kekState as unknown as Record<string, unknown>,
+    parentKekRef: parentKekRef(input.parent.kekState),
     userRecipientKeys: [],
   };
   const response = await routeApp.request("/containers", {

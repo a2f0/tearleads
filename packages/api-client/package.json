@@ -15,6 +15,7 @@
   "dependencies": {
     "@noble/hashes": "2.4.0",
     "@tearleads/crypto": "workspace:*",
+    "@tearleads/encoding": "workspace:*",
     "@tearleads/validators": "workspace:*"
   },
   "devDependencies": {

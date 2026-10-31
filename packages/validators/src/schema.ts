@@ -7,8 +7,10 @@ import {
 } from "./jsonSchema";
 import {
   AUTH_CHALLENGE_HEX_LENGTH,
+  base64Length,
+  canonicalBase64Pattern,
   isAuthChallengeHexString,
-  isByteArrayOfLength,
+  isCanonicalBase64OfLength,
   isSha256HexString,
   SHA256_HEX_LENGTH,
 } from "./util/protocol";
@@ -57,18 +59,16 @@ export const uuidStringSchema = registerJsonSchemaFragment(
   },
 );
 
-export function fixedLengthByteArraySchema(length: number) {
+/** Binary auth fields travel as canonical, padded base64 of a fixed length. */
+export function fixedLengthBase64BytesSchema(bytes: number) {
+  const length = base64Length(bytes);
   return registerJsonSchemaFragment(
-    z.custom<number[]>((value) => isByteArrayOfLength(value, length)),
+    z.custom<string>((value) => isCanonicalBase64OfLength(value, bytes)),
     {
-      items: {
-        maximum: 255,
-        minimum: 0,
-        type: "integer",
-      },
-      maxItems: length,
-      minItems: length,
-      type: "array",
+      maxLength: length,
+      minLength: length,
+      pattern: canonicalBase64Pattern(bytes),
+      type: "string",
     },
   );
 }

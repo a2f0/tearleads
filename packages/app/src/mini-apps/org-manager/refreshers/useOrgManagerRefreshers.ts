@@ -23,6 +23,7 @@ import {
   directoryLoadOptions,
   type GroupDetailsEffectKey,
   getRefreshBehavior,
+  loadAfterOptionalMutation,
   type RefreshBehaviorOptions,
   runScopedRefresher,
   setLoadingIfManaged,
@@ -236,7 +237,10 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       isCurrentRequest: () => boolean,
       options: Pick<
         DirectoryRefreshOptions,
-        "afterMutation" | "localOnly" | "skipNextGroupDetailsEffect"
+        | "afterMutation"
+        | "localOnly"
+        | "mutationResult"
+        | "skipNextGroupDetailsEffect"
       > = {},
     ): Promise<DirectoryRefreshResult> => {
       if (!appData.auth.organizationId || !appData.auth.isAuthenticated) {
@@ -304,9 +308,10 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
         }
       }
 
-      const nextDirectoryState = options.afterMutation
-        ? await orgManagerActions.loadDirectoryAndGroupsAfterMutation()
-        : await orgManagerActions.loadDirectoryAndGroups();
+      const nextDirectoryState = await loadAfterOptionalMutation(
+        orgManagerActions,
+        options,
+      );
       if (!isCurrentRequest()) {
         return { didLoad: false, groupId: null };
       }

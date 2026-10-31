@@ -39,6 +39,70 @@ interface BlobRewrap {
   targets: DocumentLinkAccessEventBody["blobRewraps"][number]["targets"][number][];
 }
 
+type BlobRewraps = DocumentLinkAccessEventBody["blobRewraps"];
+
+/**
+ * One move or trash workflow lists a document's attachments once. After a leg
+ * commits, `committed` holds the document-scoped envelopes it signed, which
+ * are exactly what the server now stores for this document; the next leg
+ * starts from them instead of listing again.
+ */
+export interface LinkSetAttachmentReuse {
+  committed: BlobRewraps | null;
+}
+
+export function createLinkSetAttachmentReuse(): LinkSetAttachmentReuse {
+  return { committed: null };
+}
+
+/**
+ * Re-cite the previous leg's envelopes for this leg's targets. Every envelope
+ * was authenticated or wrapped by this device before that leg signed it, so a
+ * reuse propagates no key to a new scope; any target the previous leg did not
+ * wrap returns null and the leg lists and authenticates as usual. A bind or
+ * detach in between makes the server refuse the blob set, and the caller
+ * re-lists.
+ */
+export function reuseCommittedBlobRewraps(input: {
+  committed: BlobRewraps;
+  documentId: string;
+  targets: readonly DocumentContentKeyTarget[];
+}): BlobRewraps | null {
+  const rewraps: BlobRewrap[] = [];
+  for (const rewrap of input.committed) {
+    const bindingIds = [
+      ...new Set(rewrap.targets.map((target) => target.bindingId)),
+    ];
+    const targets: BlobRewrap["targets"] = [];
+    for (const bindingId of bindingIds) {
+      for (const target of input.targets) {
+        const previous = rewrap.targets.find(
+          (candidate) =>
+            candidate.bindingId === bindingId &&
+            candidate.documentId === input.documentId &&
+            candidate.containerId === target.containerId &&
+            candidate.containerKeyEpochId === target.containerKeyEpochId,
+        );
+        if (!previous) return null;
+        targets.push({
+          ...previous,
+          ...target,
+          wrappingMetadata: readKeyingCanonicalJson(
+            previous.wrappingMetadata,
+            "Attachment wrap metadata",
+          ),
+        });
+      }
+    }
+    rewraps.push({
+      blobId: rewrap.blobId,
+      contentKeyEpoch: rewrap.contentKeyEpoch,
+      targets,
+    });
+  }
+  return rewraps.sort(compareBlobIds);
+}
+
 /** Authenticate the existing bytes before propagating their DEK to a new scope. */
 export async function prepareDocumentLinkBlobRewraps(
   input: {

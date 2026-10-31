@@ -101,7 +101,7 @@ async function addUserToSelectedGroup(
         params.setError(ORG_MANAGER_LABELS.userNotFound);
         return;
       }
-      const policyBundle = await addRosterUserToGroup({
+      const mutationResult = await addRosterUserToGroup({
         groupId: selectedGroupId,
         groupName,
         isOperationActive: params.isOperationActive,
@@ -109,13 +109,14 @@ async function addUserToSelectedGroup(
         orgManagerActions: params.orgManagerActions,
         targetUserId: verifiedUser.userId,
       });
-      if (!policyBundle) {
+      if (!mutationResult) {
         return;
       }
       params.setAddUserId("");
       await refreshAfterGroupMutation({
         invalidateSelectedGroupDetails: params.invalidateSelectedGroupDetails,
         isOperationActive: params.isOperationActive,
+        mutationResult,
         operationOrganizationId,
         refreshDirectoryAndGroups: params.refreshDirectoryAndGroups,
         refreshSelectedGroupDetails: params.refreshSelectedGroupDetails,
@@ -162,7 +163,7 @@ async function removeUserFromSelectedGroup(
     logError: params.logError,
     operationOrganizationId,
     run: async () => {
-      await params.orgManagerActions.removeUserFromGroup(
+      const mutationResult = await params.orgManagerActions.removeUserFromGroup(
         selectedGroupId,
         removedUserId,
         groupName,
@@ -173,6 +174,7 @@ async function removeUserFromSelectedGroup(
       await refreshAfterGroupMutation({
         invalidateSelectedGroupDetails: params.invalidateSelectedGroupDetails,
         isOperationActive: params.isOperationActive,
+        mutationResult,
         operationOrganizationId,
         refreshDirectoryAndGroups: params.refreshDirectoryAndGroups,
         refreshSelectedGroupDetails: params.refreshSelectedGroupDetails,
