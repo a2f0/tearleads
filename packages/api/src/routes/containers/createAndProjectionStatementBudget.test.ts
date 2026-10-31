@@ -64,7 +64,8 @@ test("container create and writer projections stay within their statement budget
     // read twice, manifest history took two reads, and policy evidence
     // re-read the organization state; 19 / 21 / 21, 33 / 35 / 35, and
     // 44 / 46 / 46 after.
-    expect(create.statements).toBeLessThanOrEqual(49);
+    // Acknowledged by hash, so no KEK history read (Postgres 47 -> 46).
+    expect(create.statements).toBeLessThanOrEqual(46);
     expect(root.statements).toBeLessThanOrEqual(21);
     expect(nested.statements).toBeLessThanOrEqual(35);
     expect(documentProjection.statements).toBeLessThanOrEqual(46);

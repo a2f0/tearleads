@@ -68,13 +68,13 @@ function isAuthoredSuccessorConsistent(
   );
 }
 
-export function buildAcknowledgedGroupPolicyBundle(input: {
+export async function buildAcknowledgedGroupPolicyBundle(input: {
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly expectedHead: ReferencedPrincipalHead;
   readonly request: PutPrincipalPolicyRequest;
   readonly response: PrincipalPolicyMutationResponse;
-}): PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse {
-  assertPrincipalPolicyReceiptArtifacts(input);
+}): Promise<PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse> {
+  await assertPrincipalPolicyReceiptArtifacts(input);
   return {
     ...input.response,
     previousStates: historyWithCurrent(input.currentPolicy),

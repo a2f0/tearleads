@@ -14,7 +14,6 @@ import type {
   DocumentLinkSetMutationRequest,
 } from "@tearleads/validators/request";
 import type {
-  ContainerMutationResponse,
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
 } from "@tearleads/validators/response";
@@ -27,19 +26,20 @@ import {
   kekStateFromContainerResponse,
   type StoredRootFixture,
 } from "./keyingWriterProjectionKit";
+import type { StoredContainerMutation } from "./storedContainerMutation";
 
 export async function buildDocumentLinkRequest(input: {
   readonly blobRewraps?: DocumentLinkAccessEventBody["blobRewraps"];
   readonly authorizingContainerPath?:
     | readonly AccessManifestBundleWire[]
     | undefined;
-  readonly child: ContainerMutationResponse;
+  readonly child: StoredContainerMutation;
   readonly createdDocument: DocumentCreateResponse;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
 }): Promise<DocumentLinkSetMutationRequest> {
-  const childBundle = accessManifestFromContainerResponse(input.child);
-  const childKek = kekStateFromContainerResponse(input.child);
+  const childBundle = await accessManifestFromContainerResponse(input.child);
+  const childKek = await kekStateFromContainerResponse(input.child);
   const previousState = input.createdDocument.accessManifest.state;
   const documentId = input.createdDocument.id;
   const authorizingContainerPath = input.authorizingContainerPath ?? [
@@ -151,7 +151,7 @@ export async function buildDocumentLinkRequest(input: {
 
 export async function buildDocumentUnlinkRequest(input: {
   readonly blobRewraps?: DocumentLinkAccessEventBody["blobRewraps"];
-  readonly child: ContainerMutationResponse;
+  readonly child: StoredContainerMutation;
   readonly linkedDocument: DocumentLinkSetMutationResponse;
   readonly owner: TestUser;
   readonly remainingContainer?: StoredRootFixture | undefined;
@@ -165,8 +165,8 @@ export async function buildDocumentUnlinkRequest(input: {
     | readonly AccessManifestBundleWire[]
     | undefined;
 }): Promise<DocumentLinkSetMutationRequest> {
-  const childBundle = accessManifestFromContainerResponse(input.child);
-  const childKek = kekStateFromContainerResponse(input.child);
+  const childBundle = await accessManifestFromContainerResponse(input.child);
+  const childKek = await kekStateFromContainerResponse(input.child);
   const childFixture: StoredRootFixture = {
     bundle: childBundle,
     kekState: childKek,

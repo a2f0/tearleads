@@ -72,7 +72,7 @@ function enqueueCitedHeads(
   }
 }
 
-export async function loadContainerKekManifestHistory(input: {
+async function loadContainerKekManifestHistory(input: {
   readonly context: ContainerWriterProjectionContext;
   readonly currentManifest: VerifiedContainerAccessManifest;
   readonly keyEpoch: ReturnType<typeof toContainerKeyEpoch>;

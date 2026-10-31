@@ -66,26 +66,26 @@ async function createSharedChild(input: {
     await buildContainerGrantRequest({
       accessLevel: input.accessLevel,
       parentKekState: root.kekState,
-      previous: accessManifestFromContainerResponse(child),
+      previous: await accessManifestFromContainerResponse(child),
       previousContainerPath: [
         root.bundle,
-        accessManifestFromContainerResponse(child),
+        await accessManifestFromContainerResponse(child),
       ],
-      previousKekState: kekStateFromContainerResponse(child),
+      previousKekState: await kekStateFromContainerResponse(child),
       recipient: input.recipient,
       signer: owner,
     }),
   );
 }
 
-function asDestination(
+async function asDestination(
   root: StoredRootFixture,
   shared: ContainerMutationResponse,
 ) {
   return {
     ...root,
-    bundle: accessManifestFromContainerResponse(shared),
-    kekState: kekStateFromContainerResponse(shared),
+    bundle: await accessManifestFromContainerResponse(shared),
+    kekState: await kekStateFromContainerResponse(shared),
   };
 }
 
@@ -113,7 +113,7 @@ test("a source reader binds only its destination and cannot replace foreign wrap
     root,
   });
   root = await bootstrapRoot(owner);
-  const source = asDestination(root, readable);
+  const source = await asDestination(root, readable);
   const sourcePath = [root.bundle, source.bundle];
   const bound = await createDocument({
     owner,
@@ -131,7 +131,7 @@ test("a source reader binds only its destination and cannot replace foreign wrap
   });
   await bindForTest({ blobId, owner, request: original.request });
 
-  const destination = asDestination(root, writable);
+  const destination = await asDestination(root, writable);
   const destinationPath = [root.bundle, destination.bundle];
   const target = await createDocument({
     containerPath: destinationPath,

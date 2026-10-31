@@ -69,8 +69,8 @@ test("writer projections retain the old principal citation of an unchanged key w
     throw new Error("Missing shared root");
   const root = {
     ...granted.root,
-    bundle: accessManifestFromContainerResponse(shared),
-    kekState: kekStateFromContainerResponse(shared),
+    bundle: await accessManifestFromContainerResponse(shared),
+    kekState: await kekStateFromContainerResponse(shared),
   };
   const previous = asVerifiedContainerManifest(root.bundle);
   const reference = previous.state.referencedPrincipalHeads.find(

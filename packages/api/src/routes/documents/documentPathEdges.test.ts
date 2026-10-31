@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { documents } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
-import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildContainerGrantRequest } from "../../../test/helpers/containerGrantMutation";
@@ -13,6 +12,7 @@ import {
   kekStateFromContainerResponse,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { withStoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
 import {
   assertCurrentContainerPathRefGroups,
@@ -34,7 +34,7 @@ test("current references cannot borrow a sibling's write grant to create a docum
     parentKekState: root.kekState,
     previous: donor.accessManifest,
     previousContainerPath: [root.bundle, donor.accessManifest],
-    previousKekState: kekStateFromContainerResponse(donor),
+    previousKekState: await kekStateFromContainerResponse(donor),
     recipient: writer,
     signer: owner,
   });
@@ -50,9 +50,7 @@ test("current references cannot borrow a sibling's write grant to create a docum
     },
   );
   expect(granted.status, await granted.clone().text()).toBe(200);
-  const donorHead: unknown = await granted.json();
-  if (!isContainerMutationResponse(donorHead))
-    throw new Error("Expected granted sibling");
+  const donorHead = await withStoredContainerMutation(await granted.json());
   const documentId = crypto.randomUUID();
   const request = await createDocumentRequest({
     owner: writer,
@@ -60,7 +58,7 @@ test("current references cannot borrow a sibling's write grant to create a docum
     root: {
       ...root,
       bundle: victim.accessManifest,
-      kekState: kekStateFromContainerResponse(victim),
+      kekState: await kekStateFromContainerResponse(victim),
     },
     // Every head is current and signed. The writer has authority only in the
     // donor sibling, which is not an ancestor of the target victim.

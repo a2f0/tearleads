@@ -250,7 +250,7 @@ export async function commitGroupPolicyMutation(input: {
     request: input.request,
     response: storedPolicy.currentState,
   });
-  const groupBundle = buildAcknowledgedGroupPolicyBundle({
+  const groupBundle = await buildAcknowledgedGroupPolicyBundle({
     currentPolicy: input.currentPolicy,
     expectedHead: input.expectedHead,
     request: input.request,
@@ -265,7 +265,7 @@ export async function commitGroupPolicyMutation(input: {
     request: input.organizationRequest,
     response: stored.organizationPolicy.currentState,
   });
-  const organizationBundle = buildAcknowledgedGroupPolicyBundle({
+  const organizationBundle = await buildAcknowledgedGroupPolicyBundle({
     currentPolicy: input.organizationPolicy,
     expectedHead: organizationHead,
     request: input.organizationRequest,

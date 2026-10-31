@@ -1,5 +1,7 @@
 import {
   compareCanonicalStrings,
+  computeContainerKekRecipientTargetHash,
+  computeContainerKeyEpochHash,
   normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
   type ReferencedPrincipalHead,
@@ -11,6 +13,10 @@ import type {
   PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../../../data/keying/canonicalJson";
+import {
+  readContainerKeyEpoch,
+  readContainerKeyWrap,
+} from "../../../data/keyingProjectionVerification/readers";
 
 function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
   return [...values].sort((left, right) =>
@@ -46,12 +52,16 @@ export function assertGroupPolicyEnvelopesMatchAcknowledgement(
   }
 }
 
-function assertContainerMutationAcknowledgements(input: {
+/**
+ * Each rematerialized container's acknowledgement names its commit by hash;
+ * match every hash against the request this client authored.
+ */
+async function assertContainerMutationAcknowledgements(input: {
   readonly requests: readonly NonNullable<
     PutPrincipalPolicyRequest["containerMutations"]
   >[number][];
   readonly responses: readonly ContainerMutationResponse[] | undefined;
-}): void {
+}): Promise<void> {
   if (!input.responses || input.responses.length !== input.requests.length) {
     throw new Error(
       "Group policy container acknowledgement batch is incomplete",
@@ -64,32 +74,32 @@ function assertContainerMutationAcknowledgements(input: {
         "Group policy container acknowledgement batch is incomplete",
       );
     }
-    const expected = {
-      body: request.body,
-      event: request.event,
-      keyEpoch: request.keyEpoch,
-      manifest: request.manifest,
-      wraps: sortedCanonicalValues(request.wraps, "authored container wrap"),
-    };
-    const observed = {
-      body: response.accessManifest.event.body,
-      event: response.accessManifest.event.event,
-      keyEpoch: response.containerKek.keyEpoch,
-      manifest: response.accessManifest.manifest,
-      wraps: sortedCanonicalValues(
-        response.containerKek.wraps,
-        "stored container wrap",
-      ),
-    };
+    const label = "authored group policy container mutation";
+    const keyEpoch = readContainerKeyEpoch(request.keyEpoch, label);
+    const recipientTargets = sortedCanonicalValues(
+      request.wraps.map((value) => {
+        const wrap = readContainerKeyWrap(value, label);
+        return {
+          recipientId: wrap.recipientId,
+          recipientKeyEpochId: wrap.recipientKeyEpochId,
+          recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+          recipientKind: wrap.recipientKind,
+        };
+      }),
+      "authored recipient target",
+    );
+    // The request carries this client's own hash of the manifest it signed,
+    // and that manifest names its epoch and event by hash.
     if (
-      canonicalKeyingJsonString(
-        observed,
-        "stored group policy container mutation",
-      ) !==
-      canonicalKeyingJsonString(
-        expected,
-        "authored group policy container mutation",
-      )
+      response.manifestHead.manifestHash !== request.expectedManifestHash ||
+      response.manifestHead.epoch !== Reflect.get(request.manifest, "epoch") ||
+      response.eventHash !== Reflect.get(request.manifest, "eventHash") ||
+      response.containerKek.containerKeyEpochId !== keyEpoch.id ||
+      response.containerKek.containerKeyEpoch !== keyEpoch.keyEpoch ||
+      response.containerKek.keyEpochHash !==
+        (await computeContainerKeyEpochHash(keyEpoch)) ||
+      response.containerKek.keyTargetHash !==
+        (await computeContainerKekRecipientTargetHash(recipientTargets))
     ) {
       throw new Error("Group policy container acknowledgement mismatch");
     }
@@ -97,12 +107,12 @@ function assertContainerMutationAcknowledgements(input: {
 }
 
 /** Compare receipt artifacts without manufacturing predecessor history or pins. */
-export function assertPrincipalPolicyReceiptArtifacts(input: {
+export async function assertPrincipalPolicyReceiptArtifacts(input: {
   readonly expectedHead: ReferencedPrincipalHead;
   readonly request: PutPrincipalPolicyRequest;
   readonly response: PrincipalPolicyMutationResponse;
-}): void {
-  assertContainerMutationAcknowledgements({
+}): Promise<void> {
+  await assertContainerMutationAcknowledgements({
     requests: input.request.containerMutations ?? [],
     responses: input.response.containerMutations,
   });

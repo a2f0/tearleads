@@ -23,6 +23,7 @@ import {
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
+import { withStoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
 
 test("real document projections cite held manifests through links, rotations and cold recovery", async () => {
@@ -100,7 +101,7 @@ test("real document projections cite held manifests through links, rotations and
       });
       if (!child) throw new Error("Expected encrypted child");
       const request = await buildDocumentLinkRequest({
-        child: child.response,
+        child: await withStoredContainerMutation(child.response),
         createdDocument: current,
         owner,
         root,

@@ -88,7 +88,7 @@ export async function loadExactReplayMutationResponses(input: {
       !canonicalJsonEquals(storedRequest, request) ||
       !isContainerMutationResponse(storedResponse) ||
       storedResponse.containerId !== row.containerId ||
-      storedResponse.accessManifest.manifestHash !== row.manifestHash
+      storedResponse.manifestHead.manifestHash !== row.manifestHash
     ) {
       throw new PrincipalPolicyError(
         "Principal policy container replay does not match its committed acknowledgement",

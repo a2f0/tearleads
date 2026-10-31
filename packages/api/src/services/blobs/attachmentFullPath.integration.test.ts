@@ -30,7 +30,7 @@ test("nested attachment bind and detach require exactly their signed full path",
   const leaf = {
     ...root,
     bundle: child.accessManifest,
-    kekState: kekStateFromContainerResponse(child),
+    kekState: await kekStateFromContainerResponse(child),
   };
   const containerPath = [root.bundle, child.accessManifest];
   const document = await createDocument({ owner, root: leaf, containerPath });

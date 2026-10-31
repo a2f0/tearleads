@@ -15,6 +15,7 @@ import {
 import { buildRootRevokeRequest } from "./keyingWriterProjectionRevoke";
 import { registerUser } from "./registerUser";
 import { decodeServedDocumentProjection } from "./servedWriterProjection";
+import { withStoredContainerMutation } from "./storedContainerMutation";
 
 /**
  * Shares the root with a throwaway recipient and immediately revokes them,
@@ -47,12 +48,13 @@ export async function shareAndRevokeRoot(input: {
     },
   );
   expect(shareResponse.status).toBe(200);
-  const shared = await shareResponse.json();
-  expect(isContainerMutationResponse(shared)).toBe(true);
+  const sharedBody = await shareResponse.json();
+  expect(isContainerMutationResponse(sharedBody)).toBe(true);
+  const shared = await withStoredContainerMutation(sharedBody);
 
   const revokeRequest = await buildRootRevokeRequest({
-    previous: accessManifestFromContainerResponse(shared),
-    previousKekState: kekStateFromContainerResponse(shared),
+    previous: await accessManifestFromContainerResponse(shared),
+    previousKekState: await kekStateFromContainerResponse(shared),
     revokedUser: recipient,
     signer: input.owner,
   });
@@ -68,8 +70,9 @@ export async function shareAndRevokeRoot(input: {
     },
   );
   expect(revokeResponse.status).toBe(200);
-  const revoked = await revokeResponse.json();
-  expect(isContainerMutationResponse(revoked)).toBe(true);
+  const revokedBody = await revokeResponse.json();
+  expect(isContainerMutationResponse(revokedBody)).toBe(true);
+  const revoked = await withStoredContainerMutation(revokedBody);
   // The revoke rotated the container key epoch; the document's stored bundle
   // still points at the pre-revoke epoch.
   expect(revoked.containerKek.containerKeyEpochId).not.toBe(
@@ -77,8 +80,8 @@ export async function shareAndRevokeRoot(input: {
   );
 
   return {
-    revokedKek: kekStateFromContainerResponse(revoked),
-    revokedManifest: accessManifestFromContainerResponse(revoked),
+    revokedKek: await kekStateFromContainerResponse(revoked),
+    revokedManifest: await accessManifestFromContainerResponse(revoked),
   };
 }
 
@@ -125,7 +128,9 @@ export async function postDocumentSync(
  */
 export async function buildHealedContentKeyBundle(input: {
   readonly created: DocumentCreateResponse;
-  readonly revokedKek: ReturnType<typeof kekStateFromContainerResponse>;
+  readonly revokedKek: Awaited<
+    ReturnType<typeof kekStateFromContainerResponse>
+  >;
   readonly revokedManifestHash: string;
 }): Promise<DocumentCreateResponse["contentKeyBundle"]> {
   const targets = [

@@ -55,8 +55,8 @@ export { buildMaterializedContainerSharePlan } from "./child/share/shareMaterial
 export { referencedPrincipalHeadFromPolicy } from "./child/share/sharePlanCore";
 export { resolveShareProjection } from "./child/share/shareProjection";
 export {
-  readContainerMutationMetadataDocumentId,
-  referencedPrincipalHeadsFromContainerMutationResponse,
+  signedContainerMetadataDocumentId,
+  signedContainerReferencedPrincipalHeads,
 } from "./mutationResponse";
 export {
   buildRootContainerCreatePlan,

@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  asContainerMutationFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import { createMutationResponseFromRequest } from "../../../../../test/helpers/containerFixtures";
 import { buildRotatedDocumentContentKeyBundle } from "../../../../data/documents/shared/projection";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
@@ -69,10 +72,14 @@ test("raw rotation reports unavailable predecessor history after its persisted-s
     });
     if (!rekeyed) throw new Error("Expected the container rekey to succeed");
     const currentTarget = {
-      containerId: rekeyed.response.containerKek.containerId,
-      containerKeyEpoch: rekeyed.response.containerKek.containerKeyEpoch,
-      containerKeyEpochId: rekeyed.response.containerKek.containerKeyEpochId,
-      containerManifestHash: rekeyed.response.accessManifest.manifestHash,
+      containerId: asContainerMutationFixture(rekeyed.response).containerKek
+        .containerId,
+      containerKeyEpoch: asContainerMutationFixture(rekeyed.response)
+        .containerKek.containerKeyEpoch,
+      containerKeyEpochId: asContainerMutationFixture(rekeyed.response)
+        .containerKek.containerKeyEpochId,
+      containerManifestHash: asContainerMutationFixture(rekeyed.response)
+        .accessManifest.manifestHash,
     };
     const documentKekTargets = {
       ...fixture.writerProjection.documentKekTargets,
@@ -87,12 +94,12 @@ test("raw rotation reports unavailable predecessor history after its persisted-s
       ...fixture.projection,
       containerKeks: [
         {
-          ...rekeyed.response.containerKek,
+          ...asContainerMutationFixture(rekeyed.response).containerKek,
           containerManifestHistory: [...fixture.projection.path],
           keyring: null,
         },
       ],
-      path: [rekeyed.response.accessManifest],
+      path: [asContainerMutationFixture(rekeyed.response).accessManifest],
     };
     const rotatedProjection = {
       ...fixture.writerProjection,

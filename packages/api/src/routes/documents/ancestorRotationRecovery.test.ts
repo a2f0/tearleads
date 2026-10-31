@@ -31,8 +31,8 @@ test("ancestor rotation keeps recovery projections and document reads available 
   const root = await bootstrapRoot(owner);
   const child = await createChildContainer({ parent: root, signer: owner });
   const childFixture = {
-    bundle: accessManifestFromContainerResponse(child),
-    kekState: kekStateFromContainerResponse(child),
+    bundle: await accessManifestFromContainerResponse(child),
+    kekState: await kekStateFromContainerResponse(child),
     principalPolicies: root.principalPolicies,
   };
   const created = await createDocument({

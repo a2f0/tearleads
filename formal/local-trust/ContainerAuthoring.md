@@ -9,7 +9,7 @@ not. The server may echo any plan the client signs without checking authority.
 | --- | --- |
 | `FetchVerifiedProjection` | `unwrapContainerKekPath` verifies the signed path before exposing keys to the materialized planners |
 | `CanAuthor` / `SignMutation` / `CheckAuthorAccess` | `assertContainerAuthorAccess` checks current membership in the verified path before creating a signed event |
-| `EchoAcknowledgement` / `AcknowledgementsHaveAuthority` | `acknowledgeContainerMutation` and `acknowledgeDocumentMutation` may trust matching local plans only after authoring checked permission |
+| `EchoAcknowledgement` / `AcknowledgementsHaveAuthority` | `acknowledgeContainerMutation` (which matches the response's hashes against the plan) and `acknowledgeDocumentMutation` may trust matching local plans only after authoring checked permission |
 | `RefuseMutation` / `DocumentRefusalsAreVisible` | `recordDocumentAuthorAccessFailure` records the local permission denial as a terminal 403 for pending document creation |
 
 The bounded choices cover read, write, and admin grants; child, system, and

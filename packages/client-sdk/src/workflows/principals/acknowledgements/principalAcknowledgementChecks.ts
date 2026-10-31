@@ -22,7 +22,7 @@ export interface PrincipalAcknowledgementChecks {
     readonly expectedHead: ReferencedPrincipalHead;
     readonly request: PutPrincipalPolicyRequest;
     readonly response: PrincipalPolicyMutationResponse;
-  }) => void;
+  }) => Promise<void>;
   /** The acknowledged state is the authored successor of the verified predecessor. */
   readonly acknowledgeSuccessor: (input: {
     readonly verifiedCurrentPolicy: VerifiedPrincipalPolicyCurrent;

@@ -30,17 +30,9 @@ import {
   OmittedManifestBundlesSchema,
   refineManifestBundleReferences,
 } from "./manifestBundleReferences";
-import {
-  ReferencedPrincipalStateResponseSchema,
-  ReferencedPrincipalStateResponseShape,
-} from "./principalReference";
+import { ReferencedPrincipalStateResponseSchema } from "./principalReference";
 import { ProjectionPolicyEvidenceResponseSchema } from "./projectionPolicyEvidence";
 import { SyncWatermarkSchema } from "./syncWatermark";
-
-const ContainerGrantPrincipalStateResponseSchema = loosePlainObject({
-  ...ReferencedPrincipalStateResponseShape,
-  principalType: z.literal("group"),
-});
 
 /**
  * The container's sealed predecessor key history. Opening it under the
@@ -155,32 +147,51 @@ export function isContainerKekLogResponse(
   return ContainerKekLogResponseSchema.safeParse(value).success;
 }
 
+/**
+ * A container mutation's acknowledgement names what the server committed by
+ * hash and adds only the fields it assigned (timestamps). The client compares
+ * the hashes with its own signed plan and persists state built from the plan,
+ * so the signed event, manifest, state, key epoch, and wraps are never echoed.
+ */
 const ContainerManifestMutationResponseShape = {
-  accessManifest: AccessManifestBundleWireResponseSchema,
   containerId: z.string(),
   createdAt: z.string(),
+  eventHash: nonEmptyStringSchema,
   manifestHead: loosePlainObject({
     epoch: z.number(),
     manifestHash: z.string(),
   }),
   organizationId: z.string(),
   parentId: z.string().nullable(),
-  referencedPrincipalHeads: arraySchema(
-    ContainerGrantPrincipalStateResponseSchema,
-  ),
   systemSlot: ContainerSystemSlotSchema.nullable().optional(),
   updatedAt: z.string(),
 };
 
-// Preserve the canonical generated field order while sharing the signed-head shape.
-const { accessManifest, containerId, ...containerMutationResponseFields } =
-  ContainerManifestMutationResponseShape;
+/** The committed key epoch, by hash: no epoch, wrap, or keyring bytes. */
+const ContainerMutationKekAcknowledgementSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject({
+      containerKeyEpoch: positiveIntegerSchema,
+      containerKeyEpochId: nonEmptyStringSchema,
+      keyEpochHash: nonEmptyStringSchema,
+      keyringHash: nonEmptyStringSchema.nullable(),
+      keyTargetHash: nonEmptyStringSchema,
+      parentContainerKeyEpochId: z.string().nullable(),
+    }).superRefine((value, context) => {
+      if ((value.keyringHash === null) !== (value.containerKeyEpoch === 1)) {
+        context.addIssue({
+          code: "custom",
+          message: "container keyring hash must be null exactly at epoch 1",
+          path: ["keyringHash"],
+        });
+      }
+    }),
+    [organizationProvisioningContainerKeyringRefinement],
+  );
 
 const containerMutationResponseShape = {
-  accessManifest,
-  containerId,
-  containerKek: ContainerKekResponseSchema,
-  ...containerMutationResponseFields,
+  ...ContainerManifestMutationResponseShape,
+  containerKek: ContainerMutationKekAcknowledgementSchema,
 };
 
 export const ContainerMutationResponseSchema = loosePlainObject(

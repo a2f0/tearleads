@@ -9,7 +9,6 @@ import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { routeApp } from "../../src/routeApp";
 import {
@@ -34,6 +33,10 @@ import {
   signGroupSuccessor,
   submitSuccessor,
 } from "./rotatedReadGroupGrant";
+import {
+  type StoredContainerMutation,
+  withStoredContainerMutation,
+} from "./storedContainerMutation";
 
 export interface GrantableContainerFixture {
   readonly bundle: AccessManifestBundleWire;
@@ -141,7 +144,7 @@ export async function grantContainerThroughReadGroup(input: {
   readonly parentPath: readonly AccessManifestBundleWire[];
 }): Promise<{
   readonly groupId: string;
-  readonly response: ContainerMutationResponse;
+  readonly response: StoredContainerMutation;
 }> {
   const organizationId = asVerifiedContainerManifest(input.container.bundle)
     .state.organizationId;
@@ -193,5 +196,5 @@ export async function grantContainerThroughReadGroup(input: {
     organizationId,
     successor: granted,
   });
-  return { groupId, response };
+  return { groupId, response: await withStoredContainerMutation(response) };
 }

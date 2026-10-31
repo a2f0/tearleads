@@ -11,10 +11,7 @@ import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
-import {
-  type ContainerMutationResponse,
-  isContainerMutationResponse,
-} from "@tearleads/validators/response";
+import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
 import {
   createTestContainerKekMaterial,
@@ -35,6 +32,10 @@ import {
   uniquePrincipalPolicies,
 } from "./keyingWriterProjectionKit";
 import { principalPolicyRefs } from "./principalPolicyRefs";
+import {
+  type StoredContainerMutation,
+  withStoredContainerMutation,
+} from "./storedContainerMutation";
 
 async function loadPrincipalPoliciesForContainerPaths(
   paths: readonly (readonly AccessManifestBundleWire[])[],
@@ -162,7 +163,7 @@ export async function moveContainer(input: {
   readonly previousContainerPath: readonly AccessManifestBundleWire[];
   readonly previousKekState: VerifiedContainerKekState;
   readonly signer: TestUser;
-}): Promise<ContainerMutationResponse> {
+}): Promise<StoredContainerMutation> {
   const previous = asVerifiedContainerManifest(input.previous);
   const response = await routeApp.request(
     `/containers/${previous.state.containerId}/move`,
@@ -178,6 +179,7 @@ export async function moveContainer(input: {
 
   expect(response.status, await response.clone().text()).toBe(200);
   const moved = await response.json();
-  expect(isContainerMutationResponse(moved)).toBe(true);
-  return moved as ContainerMutationResponse;
+  if (!isContainerMutationResponse(moved))
+    throw new Error("Expected a container move acknowledgement");
+  return withStoredContainerMutation(moved);
 }

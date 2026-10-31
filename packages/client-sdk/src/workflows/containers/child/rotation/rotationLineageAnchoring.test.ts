@@ -3,6 +3,7 @@ import {
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
 } from "@tearleads/crypto";
+import { asContainerMutationFixture } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "../../../../../test/helpers/containerFixtures";
@@ -156,7 +157,8 @@ test("an honest revoke over relocated history still re-seals", async () => {
     },
     revokedSubject: { subjectId: GRANTEE_ID, subjectType: "user" },
   });
-  const keyring = revoked?.response.containerKek.keyring;
+  const keyring = asContainerMutationFixture(revoked?.response).containerKek
+    .keyring;
   if (!revoked || !keyring) throw new Error("Expected a sealed revoke");
   expect(submitted).toHaveLength(1);
   const entries = await openContainerKekKeyring({

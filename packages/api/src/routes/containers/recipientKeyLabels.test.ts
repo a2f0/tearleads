@@ -45,8 +45,8 @@ test("a writer cannot relabel user KEK recipients and poison the shared head", a
   if (!isContainerMutationResponse(shared)) throw new Error("Missing share");
   const rekey = await buildRootContainerRekeyMutation({
     previous: {
-      bundle: accessManifestFromContainerResponse(shared),
-      kekState: kekStateFromContainerResponse(shared),
+      bundle: await accessManifestFromContainerResponse(shared),
+      kekState: await kekStateFromContainerResponse(shared),
       principalPolicies: root.principalPolicies,
     },
     signer: writer,

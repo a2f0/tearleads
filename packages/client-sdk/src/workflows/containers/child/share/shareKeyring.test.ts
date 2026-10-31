@@ -37,7 +37,7 @@ test("shareRemoteContainer rejects a response that drops the unchanged keyring",
     ),
   };
 
-  // A share keeps its epoch, so the response must echo that exact keyring.
+  // A share keeps its epoch, so the response must name that exact keyring.
   // A server that drops it is rewriting immutable state.
   await expect(
     shareRemoteContainer({
@@ -50,7 +50,7 @@ test("shareRemoteContainer rejects a response that drops the unchanged keyring",
           const response = await createMutationResponseFromRequest(request);
           return {
             ...response,
-            containerKek: { ...response.containerKek, keyring: null },
+            containerKek: { ...response.containerKek, keyringHash: null },
           };
         },
       },
@@ -103,7 +103,11 @@ test("shareRemoteContainer rejects a keyring injected into an epoch that had non
           const response = await createMutationResponseFromRequest(request);
           return {
             ...response,
-            containerKek: { ...response.containerKek, keyring: injected },
+            containerKek: {
+              ...response.containerKek,
+              // Any keyring at all: the epoch had none to name.
+              keyringHash: injected.iv.toLowerCase().repeat(4),
+            },
           };
         },
       },

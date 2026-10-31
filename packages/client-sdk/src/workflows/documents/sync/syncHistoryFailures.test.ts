@@ -7,7 +7,10 @@ import {
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  asContainerMutationFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
 import {
   createMaterializedSyncFixture,
@@ -224,18 +227,22 @@ test("authenticated raw history reports a retained epoch with no predecessor key
       ...fixture.projection,
       containerKeks: [
         {
-          ...rekeyed.response.containerKek,
+          ...asContainerMutationFixture(rekeyed.response).containerKek,
           containerManifestHistory: [...fixture.projection.path],
           keyring: null,
         },
       ],
-      path: [rekeyed.response.accessManifest],
+      path: [asContainerMutationFixture(rekeyed.response).accessManifest],
     };
     const currentTarget = {
-      containerId: rekeyed.response.containerKek.containerId,
-      containerKeyEpoch: rekeyed.response.containerKek.containerKeyEpoch,
-      containerKeyEpochId: rekeyed.response.containerKek.containerKeyEpochId,
-      containerManifestHash: rekeyed.response.accessManifest.manifestHash,
+      containerId: asContainerMutationFixture(rekeyed.response).containerKek
+        .containerId,
+      containerKeyEpoch: asContainerMutationFixture(rekeyed.response)
+        .containerKek.containerKeyEpoch,
+      containerKeyEpochId: asContainerMutationFixture(rekeyed.response)
+        .containerKek.containerKeyEpochId,
+      containerManifestHash: asContainerMutationFixture(rekeyed.response)
+        .accessManifest.manifestHash,
     };
     const writerProjectionWithUnavailableHistory = {
       ...fixture.writerProjection,

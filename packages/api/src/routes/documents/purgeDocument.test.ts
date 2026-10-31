@@ -50,7 +50,6 @@ import type {
   DocumentCreateRequest,
 } from "@tearleads/validators/request";
 import {
-  type ContainerMutationResponse,
   type DocumentCreateResponse,
   isContainerMutationResponse,
   isDocumentCreateResponse,
@@ -75,6 +74,10 @@ import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPoli
 import { principalPolicyRefs } from "../../../test/helpers/principalPolicyRefs";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createFailingRuntime } from "../../../test/helpers/serviceRuntime";
+import {
+  type StoredContainerMutation,
+  withStoredContainerMutation,
+} from "../../../test/helpers/storedContainerMutation";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
   getCurrentContainerKeyEpoch,
@@ -345,7 +348,7 @@ async function loadPrincipalPoliciesForContainerPath(
 async function createChildContainer(input: {
   readonly parent: StoredRootFixture;
   readonly signer: TestUser;
-}): Promise<ContainerMutationResponse> {
+}): Promise<StoredContainerMutation> {
   const containerId = crypto.randomUUID();
   const containerKeyEpochId = await createTestContainerKekId(containerId, 1);
   const parentManifest = asVerifiedContainerManifest(input.parent.bundle);
@@ -430,7 +433,7 @@ async function createChildContainer(input: {
   expect(response.status).toBe(200);
   const created = await response.json();
   expect(isContainerMutationResponse(created)).toBe(true);
-  return created as ContainerMutationResponse;
+  return withStoredContainerMutation(created);
 }
 
 async function createDocumentRequest(input: {
@@ -518,7 +521,7 @@ async function createDocument(input: {
 }
 
 async function linkDocumentToSecondContainer(input: {
-  readonly child: ContainerMutationResponse;
+  readonly child: StoredContainerMutation;
   readonly createdDocument: DocumentCreateResponse;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;

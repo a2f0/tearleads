@@ -6,6 +6,7 @@ import {
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { computeAccessEventHash } from "@tearleads/crypto";
 import {
+  type ContainerMutationFixture,
   createContainerMutationResponseFromRequest,
   createContainerWriterProjectionFixture,
 } from "@tearleads/test-utils";
@@ -16,7 +17,6 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   AccessManifestBundleWireResponse,
-  ContainerMutationResponse,
   ContainerSummary,
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
@@ -301,7 +301,7 @@ export function readRequestString(
 export async function createExplorerContainerMutationResponse(
   request: ContainerMutationRequest,
   previousProjection?: ContainerWriterProjectionResponse | undefined,
-): Promise<ContainerMutationResponse> {
+): Promise<ContainerMutationFixture> {
   const previousKek = previousProjection?.containerKeks.at(-1);
   // Requests cite the previous head and history by hash; resolve them from the
   // projection the caller mutated, as the server resolves them from its store.

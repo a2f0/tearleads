@@ -199,9 +199,10 @@ version `1`, use key epoch `1`, be signed by the registering user, project only
 the registering user as admin, and carry a version-2 authority descriptor
 committing the exact initial heads of both reserved groups.
 
-The response returns each created container and document head. The client
-checks every one against the request it signed before pinning it as a local
-verification checkpoint. The acknowledged heads of the roster and organization
+The response returns each created container and document head; containers are
+acknowledged by hash as described under container mutation conflicts below. The
+client checks every one against the request it signed before pinning it as a
+local verification checkpoint. The acknowledged heads of the roster and organization
 profile documents also seed discovery evidence, and the founding policy heads
 seed verified recovery progress, so the device fetches neither those documents'
 writer projections nor the founding groups' history. Creating an additional
@@ -450,6 +451,22 @@ maximal anti-resurrection fence, document listing treats the lane as
 unavailable, and restoration sweeps may purge retained dormant metadata. A bare,
 malformed, unknown, or wrong-status tag is not deletion authority and fails
 closed.
+
+A successful container mutation (create, share, revoke, rekey, move, recite,
+with-metadata-document, the carried `containerRekeys`, and each
+`containerMutations` entry of a principal policy commit) acknowledges by hash.
+The response carries the identity the client signed (`containerId`,
+`organizationId`, `parentId`, `systemSlot`), the server-assigned `createdAt` and
+`updatedAt`, `eventHash`, `manifestHead`, and, except for a recitation,
+`containerKek` with `containerKeyEpochId`, `containerKeyEpoch`, `keyEpochHash`,
+`keyTargetHash`, `keyringHash` (null exactly at epoch 1), and
+`parentContainerKeyEpochId`. It never echoes the signed event, body, manifest,
+state, key epoch, wraps, keyring, recipient targets, or KEK history. The client
+compares each hash with the plan it signed and records state built from that
+plan; any mismatch refuses the acknowledgement. The manifest hash commits to
+the derived state, and `keyTargetHash` commits to every wrap recipient, so a
+wrap stored for anyone else cannot match. Later writer projections still verify
+what the server stored.
 
 Behavior-bearing container mutation conflicts use stable tags. A stale parent
 or concurrent mutation returns `409 container_mutation_state_stale`; a

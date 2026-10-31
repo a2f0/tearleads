@@ -85,7 +85,7 @@ test("move refuses a leaf beyond the readable path depth", async () => {
     destinationParentPath: fixture.chain.map((entry) => entry.bundle),
     previous: leaf.accessManifest,
     previousContainerPath: [fixture.root.bundle, leaf.accessManifest],
-    previousKekState: kekStateFromContainerResponse(leaf),
+    previousKekState: await kekStateFromContainerResponse(leaf),
     signer: fixture.owner,
   });
   const before = await loadStructure(leaf.containerId);
@@ -108,7 +108,7 @@ test("move accounts for the entire subtree before changing depths", async () => 
   const child = await createChildContainer({
     parent: {
       bundle: parent.accessManifest,
-      kekState: kekStateFromContainerResponse(parent),
+      kekState: await kekStateFromContainerResponse(parent),
     },
     parentPath: [fixture.root.bundle],
     signer: fixture.owner,
@@ -121,7 +121,7 @@ test("move accounts for the entire subtree before changing depths", async () => 
       .map((entry) => entry.bundle),
     previous: parent.accessManifest,
     previousContainerPath: [fixture.root.bundle, parent.accessManifest],
-    previousKekState: kekStateFromContainerResponse(parent),
+    previousKekState: await kekStateFromContainerResponse(parent),
     signer: fixture.owner,
   });
   const parentBefore = await loadStructure(parent.containerId);
@@ -148,7 +148,7 @@ test("move permits a subtree whose deepest child reaches the readable limit", as
   const child = await createChildContainer({
     parent: {
       bundle: parent.accessManifest,
-      kekState: kekStateFromContainerResponse(parent),
+      kekState: await kekStateFromContainerResponse(parent),
     },
     parentPath: [fixture.root.bundle],
     signer: fixture.owner,
@@ -161,7 +161,7 @@ test("move permits a subtree whose deepest child reaches the readable limit", as
       .map((entry) => entry.bundle),
     previous: parent.accessManifest,
     previousContainerPath: [fixture.root.bundle, parent.accessManifest],
-    previousKekState: kekStateFromContainerResponse(parent),
+    previousKekState: await kekStateFromContainerResponse(parent),
     signer: fixture.owner,
   });
   const response = await submit(

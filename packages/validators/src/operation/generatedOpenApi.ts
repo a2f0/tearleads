@@ -3828,79 +3828,19 @@ export interface operations {
                         organizationId: string;
                         organizationMetadataContainer: {
                             container: {
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
                                 containerId: string;
                                 containerKek: {
-                                    accessManifestHash: string;
-                                    containerId: string;
                                     containerKeyEpoch: number;
                                     containerKeyEpochId: string;
-                                    containerManifestHistory: ({
-                                        event: {
-                                            body: unknown;
-                                            event: {
-                                                [key: string]: unknown;
-                                            };
-                                            eventHash: string;
-                                        } & {
-                                            [key: string]: unknown;
-                                        };
-                                        manifest: {
-                                            [key: string]: unknown;
-                                        };
-                                        manifestHash: string;
-                                        state: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                    keyEpoch: {
-                                        [key: string]: unknown;
-                                    };
                                     keyEpochHash: string;
-                                    keyring: ({
-                                        containerId: string;
-                                        containerKeyEpochId: string;
-                                        iv: string;
-                                        sealed: string;
-                                        sealingSuite: string;
-                                        /** @constant */
-                                        version: 1;
-                                    } & {
-                                        [key: string]: unknown;
-                                    }) | null;
+                                    keyringHash: string | null;
                                     keyTargetHash: string;
                                     parentContainerKeyEpochId: string | null;
-                                    recipientTargets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                    wraps: {
-                                        [key: string]: unknown;
-                                    }[];
                                 } & {
                                     [key: string]: unknown;
                                 };
                                 createdAt: string;
+                                eventHash: string;
                                 manifestHead: {
                                     epoch: number;
                                     manifestHash: string;
@@ -3909,17 +3849,6 @@ export interface operations {
                                 };
                                 organizationId: string;
                                 parentId: string | null;
-                                referencedPrincipalHeads: ({
-                                    keyEpoch: number;
-                                    keyFingerprint: string;
-                                    principalId: string;
-                                    /** @constant */
-                                    principalType: "group";
-                                    stateHash: string;
-                                    version: number;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
                                 systemSlot?: string | null;
                                 updatedAt: string;
                             } & {
@@ -4131,79 +4060,19 @@ export interface operations {
                         rootMetadataDocumentId: string;
                         rosterProfileContainer?: {
                             container: {
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
                                 containerId: string;
                                 containerKek: {
-                                    accessManifestHash: string;
-                                    containerId: string;
                                     containerKeyEpoch: number;
                                     containerKeyEpochId: string;
-                                    containerManifestHistory: ({
-                                        event: {
-                                            body: unknown;
-                                            event: {
-                                                [key: string]: unknown;
-                                            };
-                                            eventHash: string;
-                                        } & {
-                                            [key: string]: unknown;
-                                        };
-                                        manifest: {
-                                            [key: string]: unknown;
-                                        };
-                                        manifestHash: string;
-                                        state: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                    keyEpoch: {
-                                        [key: string]: unknown;
-                                    };
                                     keyEpochHash: string;
-                                    keyring: ({
-                                        containerId: string;
-                                        containerKeyEpochId: string;
-                                        iv: string;
-                                        sealed: string;
-                                        sealingSuite: string;
-                                        /** @constant */
-                                        version: 1;
-                                    } & {
-                                        [key: string]: unknown;
-                                    }) | null;
+                                    keyringHash: string | null;
                                     keyTargetHash: string;
                                     parentContainerKeyEpochId: string | null;
-                                    recipientTargets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                    wraps: {
-                                        [key: string]: unknown;
-                                    }[];
                                 } & {
                                     [key: string]: unknown;
                                 };
                                 createdAt: string;
+                                eventHash: string;
                                 manifestHead: {
                                     epoch: number;
                                     manifestHash: string;
@@ -4212,17 +4081,6 @@ export interface operations {
                                 };
                                 organizationId: string;
                                 parentId: string | null;
-                                referencedPrincipalHeads: ({
-                                    keyEpoch: number;
-                                    keyFingerprint: string;
-                                    principalId: string;
-                                    /** @constant */
-                                    principalType: "group";
-                                    stateHash: string;
-                                    version: number;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
                                 systemSlot?: string | null;
                                 updatedAt: string;
                             } & {
@@ -4365,79 +4223,19 @@ export interface operations {
                         rosterProfileDocumentId?: string;
                         systemContainers: ({
                             container: {
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
                                 containerId: string;
                                 containerKek: {
-                                    accessManifestHash: string;
-                                    containerId: string;
                                     containerKeyEpoch: number;
                                     containerKeyEpochId: string;
-                                    containerManifestHistory: ({
-                                        event: {
-                                            body: unknown;
-                                            event: {
-                                                [key: string]: unknown;
-                                            };
-                                            eventHash: string;
-                                        } & {
-                                            [key: string]: unknown;
-                                        };
-                                        manifest: {
-                                            [key: string]: unknown;
-                                        };
-                                        manifestHash: string;
-                                        state: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                    keyEpoch: {
-                                        [key: string]: unknown;
-                                    };
                                     keyEpochHash: string;
-                                    keyring: ({
-                                        containerId: string;
-                                        containerKeyEpochId: string;
-                                        iv: string;
-                                        sealed: string;
-                                        sealingSuite: string;
-                                        /** @constant */
-                                        version: 1;
-                                    } & {
-                                        [key: string]: unknown;
-                                    }) | null;
+                                    keyringHash: string | null;
                                     keyTargetHash: string;
                                     parentContainerKeyEpochId: string | null;
-                                    recipientTargets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                    wraps: {
-                                        [key: string]: unknown;
-                                    }[];
                                 } & {
                                     [key: string]: unknown;
                                 };
                                 createdAt: string;
+                                eventHash: string;
                                 manifestHead: {
                                     epoch: number;
                                     manifestHash: string;
@@ -4446,17 +4244,6 @@ export interface operations {
                                 };
                                 organizationId: string;
                                 parentId: string | null;
-                                referencedPrincipalHeads: ({
-                                    keyEpoch: number;
-                                    keyFingerprint: string;
-                                    principalId: string;
-                                    /** @constant */
-                                    principalType: "group";
-                                    stateHash: string;
-                                    version: number;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
                                 systemSlot?: string | null;
                                 updatedAt: string;
                             } & {
@@ -6768,79 +6555,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        accessManifest: {
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        };
                         containerId: string;
                         containerKek: {
-                            accessManifestHash: string;
-                            containerId: string;
                             containerKeyEpoch: number;
                             containerKeyEpochId: string;
-                            containerManifestHistory: ({
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                            keyEpoch: {
-                                [key: string]: unknown;
-                            };
                             keyEpochHash: string;
-                            keyring: ({
-                                containerId: string;
-                                containerKeyEpochId: string;
-                                iv: string;
-                                sealed: string;
-                                sealingSuite: string;
-                                /** @constant */
-                                version: 1;
-                            } & {
-                                [key: string]: unknown;
-                            }) | null;
+                            keyringHash: string | null;
                             keyTargetHash: string;
                             parentContainerKeyEpochId: string | null;
-                            recipientTargets: {
-                                [key: string]: unknown;
-                            }[];
-                            wraps: {
-                                [key: string]: unknown;
-                            }[];
                         } & {
                             [key: string]: unknown;
                         };
                         createdAt: string;
+                        eventHash: string;
                         manifestHead: {
                             epoch: number;
                             manifestHash: string;
@@ -6849,17 +6576,6 @@ export interface operations {
                         };
                         organizationId: string;
                         parentId: string | null;
-                        referencedPrincipalHeads: ({
-                            keyEpoch: number;
-                            keyFingerprint: string;
-                            principalId: string;
-                            /** @constant */
-                            principalType: "group";
-                            stateHash: string;
-                            version: number;
-                        } & {
-                            [key: string]: unknown;
-                        })[];
                         systemSlot?: string | null;
                         updatedAt: string;
                     } & {
@@ -7479,152 +7195,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        accessManifest: {
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        };
                         containerId: string;
                         containerKek: {
-                            accessManifestHash: string;
-                            containerId: string;
                             containerKeyEpoch: number;
                             containerKeyEpochId: string;
-                            containerManifestHistory: ({
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                            keyEpoch: {
-                                [key: string]: unknown;
-                            };
                             keyEpochHash: string;
-                            keyring: ({
-                                containerId: string;
-                                containerKeyEpochId: string;
-                                iv: string;
-                                sealed: string;
-                                sealingSuite: string;
-                                /** @constant */
-                                version: 1;
-                            } & {
-                                [key: string]: unknown;
-                            }) | null;
+                            keyringHash: string | null;
                             keyTargetHash: string;
                             parentContainerKeyEpochId: string | null;
-                            recipientTargets: {
-                                [key: string]: unknown;
-                            }[];
-                            wraps: {
-                                [key: string]: unknown;
-                            }[];
                         } & {
                             [key: string]: unknown;
                         };
                         containerRekeys?: ({
-                            accessManifest: {
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            };
                             containerId: string;
                             containerKek: {
-                                accessManifestHash: string;
-                                containerId: string;
                                 containerKeyEpoch: number;
                                 containerKeyEpochId: string;
-                                containerManifestHistory: ({
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                                keyEpoch: {
-                                    [key: string]: unknown;
-                                };
                                 keyEpochHash: string;
-                                keyring: ({
-                                    containerId: string;
-                                    containerKeyEpochId: string;
-                                    iv: string;
-                                    sealed: string;
-                                    sealingSuite: string;
-                                    /** @constant */
-                                    version: 1;
-                                } & {
-                                    [key: string]: unknown;
-                                }) | null;
+                                keyringHash: string | null;
                                 keyTargetHash: string;
                                 parentContainerKeyEpochId: string | null;
-                                recipientTargets: {
-                                    [key: string]: unknown;
-                                }[];
-                                wraps: {
-                                    [key: string]: unknown;
-                                }[];
                             } & {
                                 [key: string]: unknown;
                             };
                             createdAt: string;
+                            eventHash: string;
                             manifestHead: {
                                 epoch: number;
                                 manifestHash: string;
@@ -7633,23 +7228,13 @@ export interface operations {
                             };
                             organizationId: string;
                             parentId: string | null;
-                            referencedPrincipalHeads: ({
-                                keyEpoch: number;
-                                keyFingerprint: string;
-                                principalId: string;
-                                /** @constant */
-                                principalType: "group";
-                                stateHash: string;
-                                version: number;
-                            } & {
-                                [key: string]: unknown;
-                            })[];
                             systemSlot?: string | null;
                             updatedAt: string;
                         } & {
                             [key: string]: unknown;
                         })[];
                         createdAt: string;
+                        eventHash: string;
                         manifestHead: {
                             epoch: number;
                             manifestHash: string;
@@ -7658,17 +7243,6 @@ export interface operations {
                         };
                         organizationId: string;
                         parentId: string | null;
-                        referencedPrincipalHeads: ({
-                            keyEpoch: number;
-                            keyFingerprint: string;
-                            principalId: string;
-                            /** @constant */
-                            principalType: "group";
-                            stateHash: string;
-                            version: number;
-                        } & {
-                            [key: string]: unknown;
-                        })[];
                         systemSlot?: string | null;
                         updatedAt: string;
                     } & {
@@ -7860,28 +7434,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        accessManifest: {
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        };
                         containerId: string;
                         createdAt: string;
+                        eventHash: string;
                         manifestHead: {
                             epoch: number;
                             manifestHash: string;
@@ -7890,17 +7445,6 @@ export interface operations {
                         };
                         organizationId: string;
                         parentId: string | null;
-                        referencedPrincipalHeads: ({
-                            keyEpoch: number;
-                            keyFingerprint: string;
-                            principalId: string;
-                            /** @constant */
-                            principalType: "group";
-                            stateHash: string;
-                            version: number;
-                        } & {
-                            [key: string]: unknown;
-                        })[];
                         systemSlot?: string | null;
                         updatedAt: string;
                     } & {
@@ -8213,152 +7757,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        accessManifest: {
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        };
                         containerId: string;
                         containerKek: {
-                            accessManifestHash: string;
-                            containerId: string;
                             containerKeyEpoch: number;
                             containerKeyEpochId: string;
-                            containerManifestHistory: ({
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                            keyEpoch: {
-                                [key: string]: unknown;
-                            };
                             keyEpochHash: string;
-                            keyring: ({
-                                containerId: string;
-                                containerKeyEpochId: string;
-                                iv: string;
-                                sealed: string;
-                                sealingSuite: string;
-                                /** @constant */
-                                version: 1;
-                            } & {
-                                [key: string]: unknown;
-                            }) | null;
+                            keyringHash: string | null;
                             keyTargetHash: string;
                             parentContainerKeyEpochId: string | null;
-                            recipientTargets: {
-                                [key: string]: unknown;
-                            }[];
-                            wraps: {
-                                [key: string]: unknown;
-                            }[];
                         } & {
                             [key: string]: unknown;
                         };
                         containerRekeys?: ({
-                            accessManifest: {
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            };
                             containerId: string;
                             containerKek: {
-                                accessManifestHash: string;
-                                containerId: string;
                                 containerKeyEpoch: number;
                                 containerKeyEpochId: string;
-                                containerManifestHistory: ({
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                                keyEpoch: {
-                                    [key: string]: unknown;
-                                };
                                 keyEpochHash: string;
-                                keyring: ({
-                                    containerId: string;
-                                    containerKeyEpochId: string;
-                                    iv: string;
-                                    sealed: string;
-                                    sealingSuite: string;
-                                    /** @constant */
-                                    version: 1;
-                                } & {
-                                    [key: string]: unknown;
-                                }) | null;
+                                keyringHash: string | null;
                                 keyTargetHash: string;
                                 parentContainerKeyEpochId: string | null;
-                                recipientTargets: {
-                                    [key: string]: unknown;
-                                }[];
-                                wraps: {
-                                    [key: string]: unknown;
-                                }[];
                             } & {
                                 [key: string]: unknown;
                             };
                             createdAt: string;
+                            eventHash: string;
                             manifestHead: {
                                 epoch: number;
                                 manifestHash: string;
@@ -8367,23 +7790,13 @@ export interface operations {
                             };
                             organizationId: string;
                             parentId: string | null;
-                            referencedPrincipalHeads: ({
-                                keyEpoch: number;
-                                keyFingerprint: string;
-                                principalId: string;
-                                /** @constant */
-                                principalType: "group";
-                                stateHash: string;
-                                version: number;
-                            } & {
-                                [key: string]: unknown;
-                            })[];
                             systemSlot?: string | null;
                             updatedAt: string;
                         } & {
                             [key: string]: unknown;
                         })[];
                         createdAt: string;
+                        eventHash: string;
                         manifestHead: {
                             epoch: number;
                             manifestHash: string;
@@ -8392,17 +7805,6 @@ export interface operations {
                         };
                         organizationId: string;
                         parentId: string | null;
-                        referencedPrincipalHeads: ({
-                            keyEpoch: number;
-                            keyFingerprint: string;
-                            principalId: string;
-                            /** @constant */
-                            principalType: "group";
-                            stateHash: string;
-                            version: number;
-                        } & {
-                            [key: string]: unknown;
-                        })[];
                         systemSlot?: string | null;
                         updatedAt: string;
                     } & {
@@ -8846,152 +8248,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        accessManifest: {
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        };
                         containerId: string;
                         containerKek: {
-                            accessManifestHash: string;
-                            containerId: string;
                             containerKeyEpoch: number;
                             containerKeyEpochId: string;
-                            containerManifestHistory: ({
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                            keyEpoch: {
-                                [key: string]: unknown;
-                            };
                             keyEpochHash: string;
-                            keyring: ({
-                                containerId: string;
-                                containerKeyEpochId: string;
-                                iv: string;
-                                sealed: string;
-                                sealingSuite: string;
-                                /** @constant */
-                                version: 1;
-                            } & {
-                                [key: string]: unknown;
-                            }) | null;
+                            keyringHash: string | null;
                             keyTargetHash: string;
                             parentContainerKeyEpochId: string | null;
-                            recipientTargets: {
-                                [key: string]: unknown;
-                            }[];
-                            wraps: {
-                                [key: string]: unknown;
-                            }[];
                         } & {
                             [key: string]: unknown;
                         };
                         containerRekeys?: ({
-                            accessManifest: {
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            };
                             containerId: string;
                             containerKek: {
-                                accessManifestHash: string;
-                                containerId: string;
                                 containerKeyEpoch: number;
                                 containerKeyEpochId: string;
-                                containerManifestHistory: ({
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                                keyEpoch: {
-                                    [key: string]: unknown;
-                                };
                                 keyEpochHash: string;
-                                keyring: ({
-                                    containerId: string;
-                                    containerKeyEpochId: string;
-                                    iv: string;
-                                    sealed: string;
-                                    sealingSuite: string;
-                                    /** @constant */
-                                    version: 1;
-                                } & {
-                                    [key: string]: unknown;
-                                }) | null;
+                                keyringHash: string | null;
                                 keyTargetHash: string;
                                 parentContainerKeyEpochId: string | null;
-                                recipientTargets: {
-                                    [key: string]: unknown;
-                                }[];
-                                wraps: {
-                                    [key: string]: unknown;
-                                }[];
                             } & {
                                 [key: string]: unknown;
                             };
                             createdAt: string;
+                            eventHash: string;
                             manifestHead: {
                                 epoch: number;
                                 manifestHash: string;
@@ -9000,23 +8281,13 @@ export interface operations {
                             };
                             organizationId: string;
                             parentId: string | null;
-                            referencedPrincipalHeads: ({
-                                keyEpoch: number;
-                                keyFingerprint: string;
-                                principalId: string;
-                                /** @constant */
-                                principalType: "group";
-                                stateHash: string;
-                                version: number;
-                            } & {
-                                [key: string]: unknown;
-                            })[];
                             systemSlot?: string | null;
                             updatedAt: string;
                         } & {
                             [key: string]: unknown;
                         })[];
                         createdAt: string;
+                        eventHash: string;
                         manifestHead: {
                             epoch: number;
                             manifestHash: string;
@@ -9025,17 +8296,6 @@ export interface operations {
                         };
                         organizationId: string;
                         parentId: string | null;
-                        referencedPrincipalHeads: ({
-                            keyEpoch: number;
-                            keyFingerprint: string;
-                            principalId: string;
-                            /** @constant */
-                            principalType: "group";
-                            stateHash: string;
-                            version: number;
-                        } & {
-                            [key: string]: unknown;
-                        })[];
                         systemSlot?: string | null;
                         updatedAt: string;
                     } & {
@@ -9271,79 +8531,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        accessManifest: {
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        };
                         containerId: string;
                         containerKek: {
-                            accessManifestHash: string;
-                            containerId: string;
                             containerKeyEpoch: number;
                             containerKeyEpochId: string;
-                            containerManifestHistory: ({
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                            keyEpoch: {
-                                [key: string]: unknown;
-                            };
                             keyEpochHash: string;
-                            keyring: ({
-                                containerId: string;
-                                containerKeyEpochId: string;
-                                iv: string;
-                                sealed: string;
-                                sealingSuite: string;
-                                /** @constant */
-                                version: 1;
-                            } & {
-                                [key: string]: unknown;
-                            }) | null;
+                            keyringHash: string | null;
                             keyTargetHash: string;
                             parentContainerKeyEpochId: string | null;
-                            recipientTargets: {
-                                [key: string]: unknown;
-                            }[];
-                            wraps: {
-                                [key: string]: unknown;
-                            }[];
                         } & {
                             [key: string]: unknown;
                         };
                         createdAt: string;
+                        eventHash: string;
                         manifestHead: {
                             epoch: number;
                             manifestHash: string;
@@ -9352,17 +8552,6 @@ export interface operations {
                         };
                         organizationId: string;
                         parentId: string | null;
-                        referencedPrincipalHeads: ({
-                            keyEpoch: number;
-                            keyFingerprint: string;
-                            principalId: string;
-                            /** @constant */
-                            principalType: "group";
-                            stateHash: string;
-                            version: number;
-                        } & {
-                            [key: string]: unknown;
-                        })[];
                         systemSlot?: string | null;
                         updatedAt: string;
                     } & {
@@ -10398,79 +9587,19 @@ export interface operations {
                 content: {
                     "application/json": {
                         container: {
-                            accessManifest: {
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            };
                             containerId: string;
                             containerKek: {
-                                accessManifestHash: string;
-                                containerId: string;
                                 containerKeyEpoch: number;
                                 containerKeyEpochId: string;
-                                containerManifestHistory: ({
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                                keyEpoch: {
-                                    [key: string]: unknown;
-                                };
                                 keyEpochHash: string;
-                                keyring: ({
-                                    containerId: string;
-                                    containerKeyEpochId: string;
-                                    iv: string;
-                                    sealed: string;
-                                    sealingSuite: string;
-                                    /** @constant */
-                                    version: 1;
-                                } & {
-                                    [key: string]: unknown;
-                                }) | null;
+                                keyringHash: string | null;
                                 keyTargetHash: string;
                                 parentContainerKeyEpochId: string | null;
-                                recipientTargets: {
-                                    [key: string]: unknown;
-                                }[];
-                                wraps: {
-                                    [key: string]: unknown;
-                                }[];
                             } & {
                                 [key: string]: unknown;
                             };
                             createdAt: string;
+                            eventHash: string;
                             manifestHead: {
                                 epoch: number;
                                 manifestHash: string;
@@ -10479,17 +9608,6 @@ export interface operations {
                             };
                             organizationId: string;
                             parentId: string | null;
-                            referencedPrincipalHeads: ({
-                                keyEpoch: number;
-                                keyFingerprint: string;
-                                principalId: string;
-                                /** @constant */
-                                principalType: "group";
-                                stateHash: string;
-                                version: number;
-                            } & {
-                                [key: string]: unknown;
-                            })[];
                             systemSlot?: string | null;
                             updatedAt: string;
                         } & {
@@ -16409,79 +15527,19 @@ export interface operations {
                         organizationId: string;
                         organizationMetadataContainer: {
                             container: {
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
                                 containerId: string;
                                 containerKek: {
-                                    accessManifestHash: string;
-                                    containerId: string;
                                     containerKeyEpoch: number;
                                     containerKeyEpochId: string;
-                                    containerManifestHistory: ({
-                                        event: {
-                                            body: unknown;
-                                            event: {
-                                                [key: string]: unknown;
-                                            };
-                                            eventHash: string;
-                                        } & {
-                                            [key: string]: unknown;
-                                        };
-                                        manifest: {
-                                            [key: string]: unknown;
-                                        };
-                                        manifestHash: string;
-                                        state: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                    keyEpoch: {
-                                        [key: string]: unknown;
-                                    };
                                     keyEpochHash: string;
-                                    keyring: ({
-                                        containerId: string;
-                                        containerKeyEpochId: string;
-                                        iv: string;
-                                        sealed: string;
-                                        sealingSuite: string;
-                                        /** @constant */
-                                        version: 1;
-                                    } & {
-                                        [key: string]: unknown;
-                                    }) | null;
+                                    keyringHash: string | null;
                                     keyTargetHash: string;
                                     parentContainerKeyEpochId: string | null;
-                                    recipientTargets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                    wraps: {
-                                        [key: string]: unknown;
-                                    }[];
                                 } & {
                                     [key: string]: unknown;
                                 };
                                 createdAt: string;
+                                eventHash: string;
                                 manifestHead: {
                                     epoch: number;
                                     manifestHash: string;
@@ -16490,17 +15548,6 @@ export interface operations {
                                 };
                                 organizationId: string;
                                 parentId: string | null;
-                                referencedPrincipalHeads: ({
-                                    keyEpoch: number;
-                                    keyFingerprint: string;
-                                    principalId: string;
-                                    /** @constant */
-                                    principalType: "group";
-                                    stateHash: string;
-                                    version: number;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
                                 systemSlot?: string | null;
                                 updatedAt: string;
                             } & {
@@ -16726,79 +15773,19 @@ export interface operations {
                         rootMetadataDocumentId: string;
                         rosterProfileContainer?: {
                             container: {
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
                                 containerId: string;
                                 containerKek: {
-                                    accessManifestHash: string;
-                                    containerId: string;
                                     containerKeyEpoch: number;
                                     containerKeyEpochId: string;
-                                    containerManifestHistory: ({
-                                        event: {
-                                            body: unknown;
-                                            event: {
-                                                [key: string]: unknown;
-                                            };
-                                            eventHash: string;
-                                        } & {
-                                            [key: string]: unknown;
-                                        };
-                                        manifest: {
-                                            [key: string]: unknown;
-                                        };
-                                        manifestHash: string;
-                                        state: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                    keyEpoch: {
-                                        [key: string]: unknown;
-                                    };
                                     keyEpochHash: string;
-                                    keyring: ({
-                                        containerId: string;
-                                        containerKeyEpochId: string;
-                                        iv: string;
-                                        sealed: string;
-                                        sealingSuite: string;
-                                        /** @constant */
-                                        version: 1;
-                                    } & {
-                                        [key: string]: unknown;
-                                    }) | null;
+                                    keyringHash: string | null;
                                     keyTargetHash: string;
                                     parentContainerKeyEpochId: string | null;
-                                    recipientTargets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                    wraps: {
-                                        [key: string]: unknown;
-                                    }[];
                                 } & {
                                     [key: string]: unknown;
                                 };
                                 createdAt: string;
+                                eventHash: string;
                                 manifestHead: {
                                     epoch: number;
                                     manifestHash: string;
@@ -16807,17 +15794,6 @@ export interface operations {
                                 };
                                 organizationId: string;
                                 parentId: string | null;
-                                referencedPrincipalHeads: ({
-                                    keyEpoch: number;
-                                    keyFingerprint: string;
-                                    principalId: string;
-                                    /** @constant */
-                                    principalType: "group";
-                                    stateHash: string;
-                                    version: number;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
                                 systemSlot?: string | null;
                                 updatedAt: string;
                             } & {
@@ -16960,79 +15936,19 @@ export interface operations {
                         rosterProfileDocumentId?: string;
                         systemContainers: ({
                             container: {
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
                                 containerId: string;
                                 containerKek: {
-                                    accessManifestHash: string;
-                                    containerId: string;
                                     containerKeyEpoch: number;
                                     containerKeyEpochId: string;
-                                    containerManifestHistory: ({
-                                        event: {
-                                            body: unknown;
-                                            event: {
-                                                [key: string]: unknown;
-                                            };
-                                            eventHash: string;
-                                        } & {
-                                            [key: string]: unknown;
-                                        };
-                                        manifest: {
-                                            [key: string]: unknown;
-                                        };
-                                        manifestHash: string;
-                                        state: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                    keyEpoch: {
-                                        [key: string]: unknown;
-                                    };
                                     keyEpochHash: string;
-                                    keyring: ({
-                                        containerId: string;
-                                        containerKeyEpochId: string;
-                                        iv: string;
-                                        sealed: string;
-                                        sealingSuite: string;
-                                        /** @constant */
-                                        version: 1;
-                                    } & {
-                                        [key: string]: unknown;
-                                    }) | null;
+                                    keyringHash: string | null;
                                     keyTargetHash: string;
                                     parentContainerKeyEpochId: string | null;
-                                    recipientTargets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                    wraps: {
-                                        [key: string]: unknown;
-                                    }[];
                                 } & {
                                     [key: string]: unknown;
                                 };
                                 createdAt: string;
+                                eventHash: string;
                                 manifestHead: {
                                     epoch: number;
                                     manifestHash: string;
@@ -17041,17 +15957,6 @@ export interface operations {
                                 };
                                 organizationId: string;
                                 parentId: string | null;
-                                referencedPrincipalHeads: ({
-                                    keyEpoch: number;
-                                    keyFingerprint: string;
-                                    principalId: string;
-                                    /** @constant */
-                                    principalType: "group";
-                                    stateHash: string;
-                                    version: number;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
                                 systemSlot?: string | null;
                                 updatedAt: string;
                             } & {
@@ -19123,79 +18028,19 @@ export interface operations {
                         };
                         organizationPolicy: {
                             containerMutations: ({
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
                                 containerId: string;
                                 containerKek: {
-                                    accessManifestHash: string;
-                                    containerId: string;
                                     containerKeyEpoch: number;
                                     containerKeyEpochId: string;
-                                    containerManifestHistory: ({
-                                        event: {
-                                            body: unknown;
-                                            event: {
-                                                [key: string]: unknown;
-                                            };
-                                            eventHash: string;
-                                        } & {
-                                            [key: string]: unknown;
-                                        };
-                                        manifest: {
-                                            [key: string]: unknown;
-                                        };
-                                        manifestHash: string;
-                                        state: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                    keyEpoch: {
-                                        [key: string]: unknown;
-                                    };
                                     keyEpochHash: string;
-                                    keyring: ({
-                                        containerId: string;
-                                        containerKeyEpochId: string;
-                                        iv: string;
-                                        sealed: string;
-                                        sealingSuite: string;
-                                        /** @constant */
-                                        version: 1;
-                                    } & {
-                                        [key: string]: unknown;
-                                    }) | null;
+                                    keyringHash: string | null;
                                     keyTargetHash: string;
                                     parentContainerKeyEpochId: string | null;
-                                    recipientTargets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                    wraps: {
-                                        [key: string]: unknown;
-                                    }[];
                                 } & {
                                     [key: string]: unknown;
                                 };
                                 createdAt: string;
+                                eventHash: string;
                                 manifestHead: {
                                     epoch: number;
                                     manifestHash: string;
@@ -19204,17 +18049,6 @@ export interface operations {
                                 };
                                 organizationId: string;
                                 parentId: string | null;
-                                referencedPrincipalHeads: ({
-                                    keyEpoch: number;
-                                    keyFingerprint: string;
-                                    principalId: string;
-                                    /** @constant */
-                                    principalType: "group";
-                                    stateHash: string;
-                                    version: number;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
                                 systemSlot?: string | null;
                                 updatedAt: string;
                             } & {
@@ -19618,79 +18452,19 @@ export interface operations {
                         organizationId: string;
                         organizationPolicy: {
                             containerMutations: ({
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
                                 containerId: string;
                                 containerKek: {
-                                    accessManifestHash: string;
-                                    containerId: string;
                                     containerKeyEpoch: number;
                                     containerKeyEpochId: string;
-                                    containerManifestHistory: ({
-                                        event: {
-                                            body: unknown;
-                                            event: {
-                                                [key: string]: unknown;
-                                            };
-                                            eventHash: string;
-                                        } & {
-                                            [key: string]: unknown;
-                                        };
-                                        manifest: {
-                                            [key: string]: unknown;
-                                        };
-                                        manifestHash: string;
-                                        state: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                    keyEpoch: {
-                                        [key: string]: unknown;
-                                    };
                                     keyEpochHash: string;
-                                    keyring: ({
-                                        containerId: string;
-                                        containerKeyEpochId: string;
-                                        iv: string;
-                                        sealed: string;
-                                        sealingSuite: string;
-                                        /** @constant */
-                                        version: 1;
-                                    } & {
-                                        [key: string]: unknown;
-                                    }) | null;
+                                    keyringHash: string | null;
                                     keyTargetHash: string;
                                     parentContainerKeyEpochId: string | null;
-                                    recipientTargets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                    wraps: {
-                                        [key: string]: unknown;
-                                    }[];
                                 } & {
                                     [key: string]: unknown;
                                 };
                                 createdAt: string;
+                                eventHash: string;
                                 manifestHead: {
                                     epoch: number;
                                     manifestHash: string;
@@ -19699,17 +18473,6 @@ export interface operations {
                                 };
                                 organizationId: string;
                                 parentId: string | null;
-                                referencedPrincipalHeads: ({
-                                    keyEpoch: number;
-                                    keyFingerprint: string;
-                                    principalId: string;
-                                    /** @constant */
-                                    principalType: "group";
-                                    stateHash: string;
-                                    version: number;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
                                 systemSlot?: string | null;
                                 updatedAt: string;
                             } & {
@@ -20522,79 +19285,19 @@ export interface operations {
                     "application/json": {
                         groupPolicy: {
                             containerMutations: ({
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
                                 containerId: string;
                                 containerKek: {
-                                    accessManifestHash: string;
-                                    containerId: string;
                                     containerKeyEpoch: number;
                                     containerKeyEpochId: string;
-                                    containerManifestHistory: ({
-                                        event: {
-                                            body: unknown;
-                                            event: {
-                                                [key: string]: unknown;
-                                            };
-                                            eventHash: string;
-                                        } & {
-                                            [key: string]: unknown;
-                                        };
-                                        manifest: {
-                                            [key: string]: unknown;
-                                        };
-                                        manifestHash: string;
-                                        state: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                    keyEpoch: {
-                                        [key: string]: unknown;
-                                    };
                                     keyEpochHash: string;
-                                    keyring: ({
-                                        containerId: string;
-                                        containerKeyEpochId: string;
-                                        iv: string;
-                                        sealed: string;
-                                        sealingSuite: string;
-                                        /** @constant */
-                                        version: 1;
-                                    } & {
-                                        [key: string]: unknown;
-                                    }) | null;
+                                    keyringHash: string | null;
                                     keyTargetHash: string;
                                     parentContainerKeyEpochId: string | null;
-                                    recipientTargets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                    wraps: {
-                                        [key: string]: unknown;
-                                    }[];
                                 } & {
                                     [key: string]: unknown;
                                 };
                                 createdAt: string;
+                                eventHash: string;
                                 manifestHead: {
                                     epoch: number;
                                     manifestHash: string;
@@ -20603,17 +19306,6 @@ export interface operations {
                                 };
                                 organizationId: string;
                                 parentId: string | null;
-                                referencedPrincipalHeads: ({
-                                    keyEpoch: number;
-                                    keyFingerprint: string;
-                                    principalId: string;
-                                    /** @constant */
-                                    principalType: "group";
-                                    stateHash: string;
-                                    version: number;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
                                 systemSlot?: string | null;
                                 updatedAt: string;
                             } & {
@@ -20706,79 +19398,19 @@ export interface operations {
                         };
                         memberPolicy?: {
                             containerMutations: ({
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
                                 containerId: string;
                                 containerKek: {
-                                    accessManifestHash: string;
-                                    containerId: string;
                                     containerKeyEpoch: number;
                                     containerKeyEpochId: string;
-                                    containerManifestHistory: ({
-                                        event: {
-                                            body: unknown;
-                                            event: {
-                                                [key: string]: unknown;
-                                            };
-                                            eventHash: string;
-                                        } & {
-                                            [key: string]: unknown;
-                                        };
-                                        manifest: {
-                                            [key: string]: unknown;
-                                        };
-                                        manifestHash: string;
-                                        state: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                    keyEpoch: {
-                                        [key: string]: unknown;
-                                    };
                                     keyEpochHash: string;
-                                    keyring: ({
-                                        containerId: string;
-                                        containerKeyEpochId: string;
-                                        iv: string;
-                                        sealed: string;
-                                        sealingSuite: string;
-                                        /** @constant */
-                                        version: 1;
-                                    } & {
-                                        [key: string]: unknown;
-                                    }) | null;
+                                    keyringHash: string | null;
                                     keyTargetHash: string;
                                     parentContainerKeyEpochId: string | null;
-                                    recipientTargets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                    wraps: {
-                                        [key: string]: unknown;
-                                    }[];
                                 } & {
                                     [key: string]: unknown;
                                 };
                                 createdAt: string;
+                                eventHash: string;
                                 manifestHead: {
                                     epoch: number;
                                     manifestHash: string;
@@ -20787,17 +19419,6 @@ export interface operations {
                                 };
                                 organizationId: string;
                                 parentId: string | null;
-                                referencedPrincipalHeads: ({
-                                    keyEpoch: number;
-                                    keyFingerprint: string;
-                                    principalId: string;
-                                    /** @constant */
-                                    principalType: "group";
-                                    stateHash: string;
-                                    version: number;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
                                 systemSlot?: string | null;
                                 updatedAt: string;
                             } & {
@@ -20890,79 +19511,19 @@ export interface operations {
                         };
                         organizationPolicy: {
                             containerMutations: ({
-                                accessManifest: {
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                };
                                 containerId: string;
                                 containerKek: {
-                                    accessManifestHash: string;
-                                    containerId: string;
                                     containerKeyEpoch: number;
                                     containerKeyEpochId: string;
-                                    containerManifestHistory: ({
-                                        event: {
-                                            body: unknown;
-                                            event: {
-                                                [key: string]: unknown;
-                                            };
-                                            eventHash: string;
-                                        } & {
-                                            [key: string]: unknown;
-                                        };
-                                        manifest: {
-                                            [key: string]: unknown;
-                                        };
-                                        manifestHash: string;
-                                        state: {
-                                            [key: string]: unknown;
-                                        };
-                                    } & {
-                                        [key: string]: unknown;
-                                    })[];
-                                    keyEpoch: {
-                                        [key: string]: unknown;
-                                    };
                                     keyEpochHash: string;
-                                    keyring: ({
-                                        containerId: string;
-                                        containerKeyEpochId: string;
-                                        iv: string;
-                                        sealed: string;
-                                        sealingSuite: string;
-                                        /** @constant */
-                                        version: 1;
-                                    } & {
-                                        [key: string]: unknown;
-                                    }) | null;
+                                    keyringHash: string | null;
                                     keyTargetHash: string;
                                     parentContainerKeyEpochId: string | null;
-                                    recipientTargets: {
-                                        [key: string]: unknown;
-                                    }[];
-                                    wraps: {
-                                        [key: string]: unknown;
-                                    }[];
                                 } & {
                                     [key: string]: unknown;
                                 };
                                 createdAt: string;
+                                eventHash: string;
                                 manifestHead: {
                                     epoch: number;
                                     manifestHash: string;
@@ -20971,17 +19532,6 @@ export interface operations {
                                 };
                                 organizationId: string;
                                 parentId: string | null;
-                                referencedPrincipalHeads: ({
-                                    keyEpoch: number;
-                                    keyFingerprint: string;
-                                    principalId: string;
-                                    /** @constant */
-                                    principalType: "group";
-                                    stateHash: string;
-                                    version: number;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
                                 systemSlot?: string | null;
                                 updatedAt: string;
                             } & {
@@ -22510,79 +21060,19 @@ export interface operations {
                 content: {
                     "application/json": {
                         containerMutations: ({
-                            accessManifest: {
-                                event: {
-                                    body: unknown;
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    eventHash: string;
-                                } & {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            };
                             containerId: string;
                             containerKek: {
-                                accessManifestHash: string;
-                                containerId: string;
                                 containerKeyEpoch: number;
                                 containerKeyEpochId: string;
-                                containerManifestHistory: ({
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                                keyEpoch: {
-                                    [key: string]: unknown;
-                                };
                                 keyEpochHash: string;
-                                keyring: ({
-                                    containerId: string;
-                                    containerKeyEpochId: string;
-                                    iv: string;
-                                    sealed: string;
-                                    sealingSuite: string;
-                                    /** @constant */
-                                    version: 1;
-                                } & {
-                                    [key: string]: unknown;
-                                }) | null;
+                                keyringHash: string | null;
                                 keyTargetHash: string;
                                 parentContainerKeyEpochId: string | null;
-                                recipientTargets: {
-                                    [key: string]: unknown;
-                                }[];
-                                wraps: {
-                                    [key: string]: unknown;
-                                }[];
                             } & {
                                 [key: string]: unknown;
                             };
                             createdAt: string;
+                            eventHash: string;
                             manifestHead: {
                                 epoch: number;
                                 manifestHash: string;
@@ -22591,17 +21081,6 @@ export interface operations {
                             };
                             organizationId: string;
                             parentId: string | null;
-                            referencedPrincipalHeads: ({
-                                keyEpoch: number;
-                                keyFingerprint: string;
-                                principalId: string;
-                                /** @constant */
-                                principalType: "group";
-                                stateHash: string;
-                                version: number;
-                            } & {
-                                [key: string]: unknown;
-                            })[];
                             systemSlot?: string | null;
                             updatedAt: string;
                         } & {

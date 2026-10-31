@@ -36,7 +36,7 @@ export async function assertAuthoredPrincipalPolicyReceipt(
     throw new Error(
       "Principal mutation receipt state differs from the authored request",
     );
-  assertPrincipalPolicyReceiptArtifacts({
+  await assertPrincipalPolicyReceiptArtifacts({
     request: expected,
     response: observed,
     expectedHead: { ...observed.currentState, stateHash },

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import {
+  asContainerMutationFixture,
   createContainerMutationResponseFromRequest,
   createTestExecSql,
 } from "@tearleads/test-utils";
@@ -35,9 +36,12 @@ function projectionAfterShare(
     ...previous,
     containerKeks: [
       ...previous.containerKeks.slice(0, -1),
-      response.containerKek,
+      asContainerMutationFixture(response).containerKek,
     ],
-    path: [...previous.path.slice(0, -1), response.accessManifest],
+    path: [
+      ...previous.path.slice(0, -1),
+      asContainerMutationFixture(response).accessManifest,
+    ],
   };
 }
 

@@ -231,7 +231,7 @@ export async function commitCreatedGroupToDirectory(input: {
     request: organizationRequest,
     response: stored.organizationPolicy.currentState,
   });
-  const organizationBundle = buildAcknowledgedGroupPolicyBundle({
+  const organizationBundle = await buildAcknowledgedGroupPolicyBundle({
     currentPolicy: input.externalAdminPolicy.bundle,
     expectedHead: organizationHead,
     request: organizationRequest,

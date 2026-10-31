@@ -7,7 +7,7 @@ import {
   documentCreateSeedResponse,
 } from "../../documents/mutations/createDocument";
 import { DocumentMutationError } from "../../documents/mutations/errors";
-import { createContainer } from "./createContainer";
+import { createContainerOutcome } from "./createContainer";
 import { ContainerMutationError, toMutationError } from "./errors";
 import type { ApiDatabase } from "./types";
 
@@ -21,26 +21,6 @@ export interface ContainerCreateWithMetadataDocumentWorkflowResult {
   /** Metadata seed update ids this create inserted, for the update broadcast. */
   readonly insertedMetadataUpdateIds: readonly string[];
   readonly response: ContainerCreateWithMetadataDocumentResponse;
-}
-
-export function readContainerMetadataDocumentId(
-  response: ContainerCreateWithMetadataDocumentResponse["container"],
-): string {
-  const metadataDocumentId = Reflect.get(
-    response.accessManifest.state,
-    "metadataDocumentId",
-  );
-  if (
-    typeof metadataDocumentId !== "string" ||
-    metadataDocumentId.length === 0
-  ) {
-    throw new ContainerMutationError(
-      "Container create response is missing metadata document state",
-      400,
-    );
-  }
-
-  return metadataDocumentId;
 }
 
 /** The mutation verifier already enforces signed root-child and admin authority. */
@@ -62,14 +42,14 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
 ): Promise<ContainerCreateWithMetadataDocumentWorkflowResult> {
   try {
     const { response, seed } = await db.transaction(async (tx) => {
-      const container = await createContainer({
-        executor: tx,
-        fingerprint: input.fingerprint,
-        request: input.request.container,
-        userId: input.userId,
-      });
+      const { metadataDocumentId, response: container } =
+        await createContainerOutcome({
+          executor: tx,
+          fingerprint: input.fingerprint,
+          request: input.request.container,
+          userId: input.userId,
+        });
       assertContainerSystemSlot(container, input.request.systemSlot ?? null);
-      const metadataDocumentId = readContainerMetadataDocumentId(container);
 
       const metadataDocument = await createDocumentWithExecutor({
         executor: tx,

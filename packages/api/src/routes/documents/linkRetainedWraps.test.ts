@@ -56,7 +56,7 @@ test("a retained blob wrap with extra metadata is rejected on relink", async () 
 
   // Exactly what a client reads back and hands to the link mutation.
   const retained = { ...rawTarget, wrappingMetadata };
-  const childKek = kekStateFromContainerResponse(child);
+  const childKek = await kekStateFromContainerResponse(child);
   const link = await buildDocumentLinkRequest({
     child,
     createdDocument: document,

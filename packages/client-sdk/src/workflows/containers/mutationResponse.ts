@@ -1,48 +1,32 @@
-import {
-  isReferencedPrincipalStateResponse,
-  type ReferencedPrincipalStateResponse,
-} from "@tearleads/validators/response";
+import type { ContainerAccessManifestState } from "@tearleads/crypto";
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 
-export function readContainerMutationMetadataDocumentId(input: {
-  response: {
-    accessManifest: { state: Record<string, unknown> };
-  };
+/**
+ * Acknowledgements carry hashes, not the signed state, so the state a client
+ * records after one comes from the plan it signed and the hashes it matched.
+ */
+export function signedContainerMetadataDocumentId(input: {
+  readonly state: Pick<ContainerAccessManifestState, "metadataDocumentId">;
 }): string {
-  const metadataDocumentId = Reflect.get(
-    input.response.accessManifest.state,
-    "metadataDocumentId",
-  );
-  if (
-    typeof metadataDocumentId !== "string" ||
-    metadataDocumentId.length === 0
-  ) {
-    throw new Error("Container mutation response is missing metadata state");
+  const { metadataDocumentId } = input.state;
+  if (metadataDocumentId.length === 0) {
+    throw new Error("Container mutation plan is missing metadata state");
   }
-
   return metadataDocumentId;
 }
 
-export function referencedPrincipalHeadsFromContainerMutationResponse(input: {
-  response: { referencedPrincipalHeads: readonly unknown[] };
+export function signedContainerReferencedPrincipalHeads(input: {
+  readonly state: Pick<
+    ContainerAccessManifestState,
+    "referencedPrincipalHeads"
+  >;
 }): ReferencedPrincipalStateResponse[] {
-  return input.response.referencedPrincipalHeads.flatMap((head) => {
-    if (
-      !isReferencedPrincipalStateResponse(head) ||
-      !Number.isInteger(head.version) ||
-      !Number.isSafeInteger(head.keyEpoch)
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        principalType: head.principalType,
-        principalId: head.principalId,
-        version: head.version,
-        keyEpoch: head.keyEpoch,
-        stateHash: head.stateHash,
-        keyFingerprint: head.keyFingerprint,
-      },
-    ];
-  });
+  return input.state.referencedPrincipalHeads.map((head) => ({
+    principalType: head.principalType,
+    principalId: head.principalId,
+    version: head.version,
+    keyEpoch: head.keyEpoch,
+    stateHash: head.stateHash,
+    keyFingerprint: head.keyFingerprint,
+  }));
 }

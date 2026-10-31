@@ -1,9 +1,13 @@
 import { expect, test } from "bun:test";
 import {
+  computeContainerKekKeyringHash,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
 } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  asContainerMutationFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerKekLogResponse,
@@ -49,7 +53,7 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
   if (!rekeyed) {
     throw new Error("Expected the initial rekey to succeed");
   }
-  const epoch2Kek = rekeyed.response.containerKek;
+  const epoch2Kek = asContainerMutationFixture(rekeyed.response).containerKek;
   const epoch1Id = parent.projection.containerKeks.at(-1)?.containerKeyEpochId;
   if (!epoch1Id || !epoch2Kek.keyring) {
     throw new Error("Expected a rotated KEK with a sealed keyring");
@@ -60,7 +64,7 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
   // history failure and the repair plan can proceed.
   const epoch2Projection: ContainerWriterProjectionResponse = {
     ...parent.projection,
-    path: [rekeyed.response.accessManifest],
+    path: [asContainerMutationFixture(rekeyed.response).accessManifest],
     containerKeks: [
       {
         ...epoch2Kek,
@@ -134,7 +138,8 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
     throw new Error("Expected the repair rekey to succeed");
   }
 
-  const repairedKeyring = repaired.response.containerKek.keyring;
+  const repairedKeyring = asContainerMutationFixture(repaired.response)
+    .containerKek.keyring;
   if (!repairedKeyring) {
     throw new Error("Expected the repair to seal a keyring");
   }
@@ -205,10 +210,13 @@ test("a severed bridge is recovered through the retained historical wrap", async
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     targetSecretKey: parent.secretKey,
   });
-  if (!rekeyed?.response.containerKek.keyring) {
+  if (
+    !rekeyed ||
+    !asContainerMutationFixture(rekeyed.response).containerKek.keyring
+  ) {
     throw new Error("Expected the rotation to seal a keyring");
   }
-  const epoch2Kek = rekeyed.response.containerKek;
+  const epoch2Kek = asContainerMutationFixture(rekeyed.response).containerKek;
 
   // The log arrives with the epoch-2 bridge DESTROYED: log-based rebuild
   // fails closed on the missing link.
@@ -262,7 +270,7 @@ test("a severed bridge is recovered through the retained historical wrap", async
   // repaired keyring restores the FULL history (epochs 1 and 2).
   const epoch2Projection: ContainerWriterProjectionResponse = {
     ...parent.projection,
-    path: [rekeyed.response.accessManifest],
+    path: [asContainerMutationFixture(rekeyed.response).accessManifest],
     containerKeks: [
       {
         ...epoch2Kek,
@@ -288,13 +296,16 @@ test("a severed bridge is recovered through the retained historical wrap", async
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     targetSecretKey: parent.secretKey,
   });
-  if (!repaired?.response.containerKek.keyring) {
+  if (
+    !repaired ||
+    !asContainerMutationFixture(repaired.response).containerKek.keyring
+  ) {
     throw new Error("Expected the repair to seal a keyring");
   }
   const entries = await openContainerKekKeyring({
     keyEpoch: 3,
     keyring: normalizeContainerKekKeyring(
-      repaired.response.containerKek.keyring,
+      asContainerMutationFixture(repaired.response).containerKek.keyring,
     ),
     successorContainerKey: repaired.containerKey,
   });
@@ -320,8 +331,8 @@ test("a substituted keyring is rejected at acknowledgement", async () => {
             request,
             parent.projection,
           );
-          // A hostile server echoes a different sealed blob than the one this
-          // client's signed event committed to.
+          // A hostile server stores a different sealed blob than the one this
+          // client's signed event committed to, and names it by hash.
           const served = response.containerKek.keyring;
           if (!served) {
             throw new Error(
@@ -332,8 +343,8 @@ test("a substituted keyring is rejected at acknowledgement", async () => {
             ...response,
             containerKek: {
               ...response.containerKek,
-              keyring: tamperSealedKeyring(
-                normalizeContainerKekKeyring(served),
+              keyringHash: await computeContainerKekKeyringHash(
+                tamperSealedKeyring(normalizeContainerKekKeyring(served)),
               ),
             },
           };

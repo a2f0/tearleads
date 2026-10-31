@@ -79,8 +79,9 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Each document carries one shared proof bundle for all of its authorizing
   // paths. A discovery read naming a held directory head receives that head
   // alone (about 300 bytes instead of 17–34 KB): 0.90–0.91 MB received, 1.33
-  // MB before; keep about 10% headroom.
-  bodyBytes: { request: 160_000, response: 1_000_000 },
+  // MB before. Container acknowledgements carry hashes, not echoes (the
+  // policy-commit 192 KB -> 73 KB): 0.78 MB received; keep about 10% headroom.
+  bodyBytes: { request: 160_000, response: 860_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,
