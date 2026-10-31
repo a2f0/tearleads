@@ -10,9 +10,11 @@ require a receipt.
 ## Start and checkpoint
 
 Before baseline work or launching an auditor, create a private `usage.md`
-beside the checkpoint (or durable notes for the full-scope Codex security
-skill). Use a fresh random run ID, not a path or a provider session ID. A
-resume keeps that run ID but gets a new batch ID. Record:
+beside the checkpoint. The `.agents`
+[full-scope security skill](../../.agents/skills/protocol-security-audit/SKILL.md)
+keeps it in the same durable private directory as its slice notes, outside
+scratch scheduled for deletion. Use a fresh random run ID, not a path or a
+provider session ID. A resume keeps that run ID but gets a new batch ID. Record:
 
 - Audited repository and full commit; requested scope, exclusions, and whether
   this is a batch, full run, or resume. Record the actual skill copy used

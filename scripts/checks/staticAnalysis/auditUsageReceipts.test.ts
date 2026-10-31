@@ -143,7 +143,11 @@ for (const harness of [".claude", ".agents"]) {
       expect(text.lastIndexOf(reference)).toBeGreaterThan(
         text.indexOf(". Report"),
       );
-      for (const file of ["SKILL.md", "references/issue-template.md"]) {
+      const files = ["SKILL.md", "references/issue-template.md"];
+      if (harness !== ".agents" || skill !== "protocol-security-audit") {
+        files.push("references/batching.md");
+      }
+      for (const file of files) {
         const path = `${root}/${directory}/${file}`;
         const content = readFileSync(path, "utf8");
         const matches = [...content.matchAll(/\]\(([^)]+audit-usage[^)]*)\)/g)];
