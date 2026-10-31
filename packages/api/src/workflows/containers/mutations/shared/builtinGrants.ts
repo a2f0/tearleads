@@ -107,7 +107,7 @@ function readBuiltinGrantMutation(
  * admin and the Members group at read. Returns the fixed level, or null when
  * the subject holds no built-in grant on the container.
  */
-export function builtinContainerGrantAccessLevel(input: {
+function builtinContainerGrantAccessLevel(input: {
   readonly containerId: string;
   readonly isMetadataRoot: boolean;
   readonly organization: OrganizationBuiltinGrantSubjects;
