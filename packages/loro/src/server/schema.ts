@@ -1,4 +1,4 @@
-import type { InferSelectModel } from "drizzle-orm";
+import { type InferSelectModel, sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -39,6 +39,10 @@ export const documentUpdates = pgTable(
     partialStartVersionVector: text("partial_start_version_vector").notNull(),
     partialEndVersionVector: text("partial_end_version_vector").notNull(),
     plaintextHash: text("plaintext_hash").notNull(),
+    // Set only on a rotation baseline: the Loro source version vector its
+    // signed checkpoint metadata declares it covers. The checkpoint and
+    // payload kinds are the rotation constants, so they are not stored.
+    baselineSourceVersionVector: text("baseline_source_version_vector"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
@@ -46,6 +50,9 @@ export const documentUpdates = pgTable(
       table.documentId,
       table.sequence,
     ),
+    index("document_updates_baseline_idx")
+      .on(table.documentId, table.sequence)
+      .where(sql`${table.baselineSourceVersionVector} is not null`),
   ],
 );
 

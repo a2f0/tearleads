@@ -1,5 +1,5 @@
 {
-  "id": "6ecaed15-6aaa-46f5-8342-04a3c3a7b5bb",
+  "id": "561a6523-7115-4c13-8c22-fc5657436ed1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1746,106 +1746,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.container_builtin_grants": {
-      "name": "container_builtin_grants",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "container_id": {
-          "name": "container_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "access_level": {
-          "name": "access_level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "subject_type": {
-          "name": "subject_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "subject_id": {
-          "name": "subject_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "container_builtin_grants_org_idx": {
-          "name": "container_builtin_grants_org_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "container_builtin_grants_identity_idx": {
-          "name": "container_builtin_grants_identity_idx",
-          "columns": [
-            {
-              "expression": "container_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "subject_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "subject_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.container_document_sync_tombstones": {
       "name": "container_document_sync_tombstones",
       "schema": "",
@@ -2600,59 +2500,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.document_baselines": {
-      "name": "document_baselines",
-      "schema": "",
-      "columns": {
-        "baseline_update_id": {
-          "name": "baseline_update_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "document_id": {
-          "name": "document_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "checkpoint_kind": {
-          "name": "checkpoint_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_version_vector": {
-          "name": "source_version_vector",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "document_baselines_document_idx": {
-          "name": "document_baselines_document_idx",
-          "columns": [
-            {
-              "expression": "document_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.document_content_key_epochs": {
       "name": "document_content_key_epochs",
       "schema": "",
@@ -3333,6 +3180,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "baseline_source_version_vector": {
+          "name": "baseline_source_version_vector",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -3359,6 +3212,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "document_updates_baseline_idx": {
+          "name": "document_updates_baseline_idx",
+          "columns": [
+            {
+              "expression": "document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sequence",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"document_updates\".\"baseline_source_version_vector\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -5033,6 +4908,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "root_container_id": {
+          "name": "root_container_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "profile_document_id": {
           "name": "profile_document_id",
           "type": "uuid",
@@ -5195,102 +5076,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.principal_epoch_keys": {
-      "name": "principal_epoch_keys",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "principal_type": {
-          "name": "principal_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "principal_id": {
-          "name": "principal_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "epoch": {
-          "name": "epoch",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "introduced_by_state_hash": {
-          "name": "introduced_by_state_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "encapsulation_public_key": {
-          "name": "encapsulation_public_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "key_fingerprint": {
-          "name": "key_fingerprint",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "principal_epoch_keys_principal_epoch_idx": {
-          "name": "principal_epoch_keys_principal_epoch_idx",
-          "columns": [
-            {
-              "expression": "principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "principal_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "epoch",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "principal_epoch_keys_epoch_range": {
-          "name": "principal_epoch_keys_epoch_range",
-          "value": "\"principal_epoch_keys\".\"epoch\" >= 1 AND \"principal_epoch_keys\".\"epoch\" <= 9007199254740991 AND \"principal_epoch_keys\".\"epoch\" = CAST(\"principal_epoch_keys\".\"epoch\" AS BIGINT)"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.principal_history_index_nodes": {

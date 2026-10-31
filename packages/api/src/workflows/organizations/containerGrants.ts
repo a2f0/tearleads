@@ -3,14 +3,15 @@ import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
   accessManifests,
-  containerBuiltinGrants,
   containers,
+  organizations,
 } from "@tearleads/api-shared/schema";
+import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   isOrganizationGroupContainerAccessLevel,
   type OrganizationGroupContainerResponse,
 } from "@tearleads/validators/response";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, or, sql } from "drizzle-orm";
 import { booleanExpression, jsonTextProperty } from "../../utils/sqlDialect";
 
 export interface OrganizationContainerGrantRow {
@@ -49,18 +50,43 @@ export function toOrganizationGroupContainerResponse(
   };
 }
 
-export function listOrganizationContainerGrantRows(input: {
+/**
+ * Lists the organization's current container grants. `isBuiltin` is derived
+ * from the organization row: the Admins group on the root container, and the
+ * Admins and Members groups on the derived metadata slot.
+ */
+export async function listOrganizationContainerGrantRows(input: {
   executor: DatabaseSession;
   organizationId: string;
 }): Promise<OrganizationContainerGrantRow[]> {
+  const metadataSlot = await deriveOrganizationMetadataContainerSystemSlot({
+    organizationId: input.organizationId,
+  });
+  const subjectId = accessManifestContainerGrantProjection.subjectId;
   return input.executor
     .select({
       accessLevel: accessManifestContainerGrantProjection.accessLevel,
       containerId: containers.id,
       createdAt: containers.createdAt,
       depth: containers.depth,
+      // Ordinary containers have a null slot, so the predicate can be null.
       isBuiltin: booleanExpression(
-        sql`${containerBuiltinGrants.id} is not null`,
+        sql`coalesce(${and(
+          eq(accessManifestContainerGrantProjection.subjectType, "group"),
+          or(
+            and(
+              eq(containers.id, organizations.rootContainerId),
+              eq(subjectId, organizations.adminGroupId),
+            ),
+            and(
+              eq(containers.systemSlot, metadataSlot),
+              or(
+                eq(subjectId, organizations.adminGroupId),
+                eq(subjectId, organizations.memberGroupId),
+              ),
+            ),
+          ),
+        )}, false)`,
       ),
       metadataAccessEpoch: accessManifestHeads.epoch,
       metadataAccessStateHash: accessManifestHeads.manifestHash,
@@ -95,23 +121,7 @@ export function listOrganizationContainerGrantRows(input: {
       containers,
       eq(containers.id, accessManifestContainerGrantProjection.containerId),
     )
-    .leftJoin(
-      containerBuiltinGrants,
-      and(
-        eq(
-          containerBuiltinGrants.containerId,
-          accessManifestContainerGrantProjection.containerId,
-        ),
-        eq(
-          containerBuiltinGrants.subjectType,
-          accessManifestContainerGrantProjection.subjectType,
-        ),
-        eq(
-          containerBuiltinGrants.subjectId,
-          accessManifestContainerGrantProjection.subjectId,
-        ),
-      ),
-    )
+    .leftJoin(organizations, eq(organizations.id, containers.organizationId))
     .where(eq(containers.organizationId, input.organizationId))
     .orderBy(
       asc(accessManifestContainerGrantProjection.subjectType),

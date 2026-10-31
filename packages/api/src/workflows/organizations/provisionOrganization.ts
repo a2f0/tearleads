@@ -1,6 +1,5 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
-  containerBuiltinGrants,
   containerMetadataDocuments,
   groups,
   organizationReadModelHeads,
@@ -109,6 +108,7 @@ async function createOrganizationRow(
     adminGroupId: string;
     memberGroupId: string;
     organizationId: string;
+    rootContainerId: string;
   },
 ) {
   const [org] = await tx
@@ -117,6 +117,7 @@ async function createOrganizationRow(
       adminGroupId: input.adminGroupId,
       id: input.organizationId,
       memberGroupId: input.memberGroupId,
+      rootContainerId: input.rootContainerId,
     })
     .returning({ id: organizations.id });
   if (!org) {
@@ -159,20 +160,6 @@ async function storeInitialPolicy(
     },
     tx,
   );
-}
-
-async function createInitialBuiltinGrants(
-  tx: DatabaseTransaction,
-  input: OrganizationProvisioningRequest,
-  organizationId: string,
-): Promise<void> {
-  await tx.insert(containerBuiltinGrants).values({
-    accessLevel: "admin",
-    containerId: input.rootContainerId,
-    organizationId,
-    subjectId: input.initialAdminGroup.groupId,
-    subjectType: "group",
-  });
 }
 
 async function assertProvisionedGroupGrantIndex(
@@ -315,6 +302,7 @@ async function provisionOrganizationAuthorityAndBilling(
     adminGroupId: input.initialAdminGroup.groupId,
     memberGroupId: input.initialMemberGroup.groupId,
     organizationId: input.organizationId,
+    rootContainerId: input.rootContainerId,
   });
   const initialBilling = await createInitialOrganizationBillingRow(
     tx,
@@ -370,7 +358,6 @@ export async function provisionOrganizationInTransaction(
   const { organizationId, rootContainerId } =
     await provisionOrganizationAuthorityAndBilling(tx, input, options);
   const rootMetadata = await storeInitialRootContainer(tx, input, signer);
-  await createInitialBuiltinGrants(tx, input, organizationId);
   const rootMetadataDocument = await createInitialRootMetadataDocument(
     tx,
     input,

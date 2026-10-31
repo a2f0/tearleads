@@ -6,8 +6,7 @@ import { bigint, index, pgTable, timestamp, uuid } from "./columns";
  *
  * Groups are managed recipient principals. This table keeps the lightweight
  * group identity record; signed group membership, roles, and key material
- * live in `principalStates`, `principalMembershipProjection`, and
- * `principalEpochKeys`.
+ * live in `principalStates` and `principalMembershipProjection`.
  *
  * Columns:
  * - `id`: Stable group id.

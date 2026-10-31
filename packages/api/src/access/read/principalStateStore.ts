@@ -3,8 +3,6 @@ export type {
   StoredPrincipalState,
 } from "../shared/internal/principalStateStore";
 export {
-  getCurrentPrincipalEpochKey,
-  getCurrentPrincipalEpochKeys,
   getCurrentPrincipalState,
   getCurrentPrincipalStates,
   getCurrentPrincipalStatesFor,

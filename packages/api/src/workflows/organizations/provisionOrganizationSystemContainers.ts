@@ -1,5 +1,4 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { containerBuiltinGrants } from "@tearleads/api-shared/schema";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   OrganizationProvisioningRequest,
@@ -15,36 +14,6 @@ import { OrganizationProvisioningError } from "./provisionOrganizationError";
 interface SystemContainerSigner {
   readonly fingerprint: string;
   readonly signingPublicKey: Uint8Array;
-}
-
-/**
- * Reserve both metadata-root grants: Admins manage the root and every Members
- * recipient can decrypt organization and group labels. Grant guards reject
- * removal or access-level changes, while permitting re-wraps on key rotation.
- * The local grant projection also uses these rows to mark the grants built-in.
- */
-async function createOrganizationMetadataBuiltinGrants(
-  tx: DatabaseTransaction,
-  input: OrganizationProvisioningRequest,
-  organizationId: string,
-  metadataContainerId: string,
-): Promise<void> {
-  await tx.insert(containerBuiltinGrants).values([
-    {
-      accessLevel: "admin",
-      containerId: metadataContainerId,
-      organizationId,
-      subjectId: input.initialAdminGroup.groupId,
-      subjectType: "group",
-    },
-    {
-      accessLevel: "read",
-      containerId: metadataContainerId,
-      organizationId,
-      subjectId: input.initialMemberGroup.groupId,
-      subjectType: "group",
-    },
-  ]);
 }
 
 async function createProvisionedSystemContainer(
@@ -124,18 +93,14 @@ export async function createInitialOrganizationMetadataContainer(
       400,
     );
   }
-  const metadataContainer = await createProvisionedSystemContainer(tx, {
+  // Both metadata-root grants are built-in by derivation from the slot and the
+  // reserved groups: grant guards reject their removal or access-level change
+  // and permit re-wraps on key rotation.
+  return createProvisionedSystemContainer(tx, {
     request: input.initialOrganizationMetadataContainer,
     signer,
     userId: input.userId,
   });
-  await createOrganizationMetadataBuiltinGrants(
-    tx,
-    input,
-    input.organizationId,
-    metadataContainer.container.containerId,
-  );
-  return metadataContainer;
 }
 
 export async function createProvisionedSystemContainers(

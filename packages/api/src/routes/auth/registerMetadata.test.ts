@@ -1,11 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import {
-  containerBuiltinGrants,
-  containers,
-  organizations,
-  users,
-} from "@tearleads/api-shared/schema";
+import { containers, organizations, users } from "@tearleads/api-shared/schema";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -17,6 +12,7 @@ import invariant from "invariant";
 import { createRegistrationRequestBody } from "../../../test/helpers/api";
 import { del } from "../../adapters/keyValueStore";
 import { routeApp } from "../../routeApp";
+import { listOrganizationContainerGrantRows } from "../../workflows/organizations/containerGrants";
 
 const fingerprints: string[] = [];
 afterAll(async () => {
@@ -78,16 +74,21 @@ test.each([false, true])(
       expect(body.organizationProfileDocumentId).toBeUndefined();
     }
 
-    const builtinGrants = await db
-      .select({
-        accessLevel: containerBuiltinGrants.accessLevel,
-        containerId: containerBuiltinGrants.containerId,
-        organizationId: containerBuiltinGrants.organizationId,
-        subjectId: containerBuiltinGrants.subjectId,
-        subjectType: containerBuiltinGrants.subjectType,
+    // Built-in grants are derived from the organization row.
+    const builtinGrants = (
+      await listOrganizationContainerGrantRows({
+        executor: db,
+        organizationId: body.organizationId,
       })
-      .from(containerBuiltinGrants)
-      .where(eq(containerBuiltinGrants.organizationId, body.organizationId));
+    )
+      .filter((row) => row.isBuiltin)
+      .map((row) => ({
+        accessLevel: row.accessLevel,
+        containerId: row.containerId,
+        organizationId: body.organizationId,
+        subjectId: row.subjectId,
+        subjectType: row.subjectType,
+      }));
 
     // The personal root and independent metadata root retain reserved grants.
     expect(builtinGrants).toContainEqual({

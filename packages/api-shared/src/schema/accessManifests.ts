@@ -354,35 +354,3 @@ export const accessManifestContainerGrantProjection = pgTable(
     ),
   ],
 );
-
-/**
- * Organization-defined container grants whose subject and access level are
- * fixed product policy.
- *
- * The signed access manifest remains the source of authority for whether the
- * grant is active. A built-in grant cannot be revoked or assigned a different
- * access level through normal container mutation flows, but its cryptographic
- * wrap and referenced principal head may be refreshed at the same level after
- * a recipient key rotation. Registration seeds the bootstrap Admins -> root
- * container admin grant here.
- */
-export const containerBuiltinGrants = pgTable(
-  "container_builtin_grants",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id").notNull(),
-    containerId: uuid("container_id").notNull(),
-    accessLevel: text("access_level").notNull(),
-    subjectType: text("subject_type").notNull(),
-    subjectId: uuid("subject_id").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [
-    index("container_builtin_grants_org_idx").on(table.organizationId),
-    uniqueIndex("container_builtin_grants_identity_idx").on(
-      table.containerId,
-      table.subjectType,
-      table.subjectId,
-    ),
-  ],
-);

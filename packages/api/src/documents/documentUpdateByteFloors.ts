@@ -1,6 +1,5 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
-  documentBaselines,
   documentContentWriteHeaders,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
@@ -41,15 +40,11 @@ export async function listDocumentUpdateResponseByteFloors(
         + ${textBytes(documentUpdates.partialStartVersionVector)}
         + ${textBytes(documentUpdates.partialEndVersionVector)}
         + ${textBytes(documentUpdates.plaintextHash)}
-        + coalesce(${textBytes(documentBaselines.sourceVersionVector)}, 0)
+        + coalesce(${textBytes(documentUpdates.baselineSourceVersionVector)}, 0)
         + coalesce(${jsonBytes(documentContentWriteHeaders.header)}, 0)
         + coalesce(${jsonBytes(documentContentWriteHeaders.authorizationTargets)}, 0)`,
     })
     .from(documentUpdates)
-    .leftJoin(
-      documentBaselines,
-      eq(documentBaselines.baselineUpdateId, documentUpdates.id),
-    )
     // A missing header is the response's own integrity failure to report.
     .leftJoin(
       documentContentWriteHeaders,

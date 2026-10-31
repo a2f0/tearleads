@@ -3,7 +3,6 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationRosterEntries,
   organizations,
-  principalEpochKeys,
   principalMemberEnvelopes,
   principalStatePayloads,
   users,
@@ -122,11 +121,7 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
   expect(await getCurrentPrincipalState("group", groupId, db)).toEqual(
     createdState,
   );
-  const [epochKeys, envelopes, payloads] = await Promise.all([
-    db
-      .select()
-      .from(principalEpochKeys)
-      .where(eq(principalEpochKeys.principalId, groupId)),
+  const [envelopes, payloads] = await Promise.all([
     db
       .select()
       .from(principalMemberEnvelopes)
@@ -136,7 +131,6 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
       .from(principalStatePayloads)
       .where(eq(principalStatePayloads.principalId, groupId)),
   ]);
-  expect(epochKeys).toEqual([]);
   expect(envelopes).toEqual([]);
   expect(payloads).toEqual([]);
   const retainedPolicyResponse = await routeApp.request(

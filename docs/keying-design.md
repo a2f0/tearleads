@@ -1065,7 +1065,6 @@ Core server tables:
 - `principal_states`
 - `principal_state_payloads`
 - `principal_membership_projection`
-- `principal_epoch_keys`
 - `principal_member_envelopes`
 - `access_events`
 - `access_manifests`

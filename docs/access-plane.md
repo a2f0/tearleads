@@ -63,7 +63,6 @@ are managed principals with signed policy state:
   committed container-grant set, checked against the signed `grantRoot`)
 - `principal_state_payloads`
 - `principal_membership_projection`
-- `principal_epoch_keys`
 - `principal_member_envelopes`
 
 Group container grants require referenced signed group-policy heads.
@@ -139,6 +138,19 @@ Organizations also carry two reserved group pointers:
  this group have organization-admin authority.
 - `memberGroupId` points to the reserved `Members` group. Users reachable
  through this group belong to the organization.
+
+A managed principal's recipient key is the key of its current signed state. No
+per-epoch key table backs it: the policy transition rule refuses a key change
+without a new epoch and a new epoch without new key material, and each state
+must succeed the current one by exactly one version, so every epoch keeps one
+key.
+
+Built-in container grants are derived, not stored. The organization row also
+records `rootContainerId`, and a grant is built-in exactly when it is `Admins`
+at `admin` on that root, or `Admins` at `admin` or `Members` at `read` on the
+organization metadata container (the derived system slot). Container
+mutations refuse revoking a built-in grant or changing its level, but rotation
+may rewrap it at the same level.
 
 Registration creates both groups atomically, seeding each with the single
 registering user, and commits both initial heads in the organization policy.

@@ -29,8 +29,6 @@ test("SQLite principal key epochs round-trip the safe range and reject overflow"
       version, key_epoch, state_hash, key_fingerprint
     ) VALUES ('head', 'fixture', 'container', 'container', 'group', 'principal',
       1, 1, 'fixture', 'fixture')`);
-    client.exec(`INSERT INTO principal_epoch_keys (id, principal_type, principal_id, epoch, introduced_by_state_hash, encapsulation_public_key, key_fingerprint)
-      VALUES ('key', 'group', 'principal', 1, 'fixture', 'fixture', 'fixture')`);
     client.exec(`INSERT INTO principal_member_envelopes (id, principal_type, principal_id, state_hash, epoch, user_id, member_key_fingerprint, kem_cipher_text, wrapped_key)
       VALUES ('envelope', 'group', 'principal', 'fixture', 1, 'user', 'fixture', 'fixture', 'fixture')`);
     client.exec(`INSERT INTO principal_history_progress (id, principal_type, principal_id, verification_kind, protection_id, input_hash, version, state_hash, key_epoch, key_fingerprint, progress)
@@ -38,7 +36,6 @@ test("SQLite principal key epochs round-trip the safe range and reject overflow"
     for (const [table, column] of [
       ["principal_states", "key_epoch"],
       ["access_manifest_principal_head_projection", "key_epoch"],
-      ["principal_epoch_keys", "epoch"],
       ["principal_member_envelopes", "epoch"],
       ["principal_history_progress", "key_epoch"],
     ]) {
