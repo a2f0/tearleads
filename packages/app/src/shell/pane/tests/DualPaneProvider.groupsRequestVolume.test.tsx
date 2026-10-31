@@ -64,11 +64,12 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // meant to close.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Private metadata-root authority adds one directory discovery read per
-  // operation and the first read of each new head. Batched discovery lists
-  // each reconciliation pass's lanes in one request. Measured completed calls
-  // are 70–73; allow three more bounded reads. Preparation continuations are
-  // counted below.
-  total: 76,
+  // operation (one per pass for hydration, discovery and move workflows) and
+  // the first read of each new head. Batched discovery lists each
+  // reconciliation pass's lanes in one request. Measured completed calls are
+  // 55 (56 before pass-scoped discovery, 70–73 before #2537); allow three more
+  // bounded reads. Preparation continuations are counted below.
+  total: 58,
   // Container mutations cite stored manifests by hash and principal policies
   // by head: 134 KB sent with one descendant recitation (193 KB when they
   // carried each ~9.8 KB policy, 389.5 KB when they also echoed path
@@ -76,8 +77,10 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Completing child hydration adds the peer's system-slot proofs and their
   // metadata paths and private current policy proofs: 2.44–2.54 MB received.
   // Each document carries one shared proof bundle for all of its authorizing
-  // paths.
-  bodyBytes: { request: 160_000, response: 2_650_000 },
+  // paths. A discovery read naming a held directory head receives that head
+  // alone (about 300 bytes instead of 17–34 KB): 0.90–0.91 MB received, 1.33
+  // MB before; keep about 10% headroom.
+  bodyBytes: { request: 160_000, response: 1_000_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,
@@ -98,7 +101,8 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
     "GET /organizations/:organizationId/billing": 1,
-    "GET /principals/organization/:organizationId/policy": 20,
+    // Measured 15–16 discovery reads, nearly all answered with a bare head.
+    "GET /principals/organization/:organizationId/policy": 17,
     "POST /containers/:containerId/share": 0,
     "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 1,
     "POST /containers/:containerId/recite": 2,

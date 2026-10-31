@@ -73,17 +73,21 @@ rejection.
 
 Private metadata-root authority and scoped projection recovery add bounded
 directory and group reads. A completed stage of the exact pinned head is used
-without a confirmation read, and one workflow operation (one policy warmer)
-discovers the directory once and shares the recovered view across its
-collections. That view never outlives the operation; an organization read-model
-hint, a durable pin past a head it names, or the end of the producing lease
-evicts it first. Every operation still observes the server-current head and live
-read authorization of the organization policy; see [warm projection request
-cost](principal-history-transport.md#warm-projection-request-cost). Mutation
-flows keep a fresh batch per authority load, so their reads after a commit or a
-refused predecessor still rediscover. The current per-workflow budgets are
-listed under [current-policy request
-costs](developer/current-principal-consumers.md#request-costs).
+without a confirmation read, and one operation discovers the directory once and
+shares the recovered view across its collections. An operation is one
+reconciliation pass (container hydration, document discovery) or one user
+workflow (a document move's link and unlink legs) that mints an operation token,
+or otherwise one policy warmer. That view never outlives the operation; an
+organization read-model hint, a durable pin past a head it names, or the end of
+the producing lease evicts it first. Every operation still observes the
+server-current head and live read authorization of the organization policy; see
+[warm projection request
+cost](principal-history-transport.md#warm-projection-request-cost). Discovery
+names the directory head the device holds, so an unchanged head costs a bare
+head reply instead of a page. Principal mutation flows keep a fresh batch per
+authority load, so their reads after a commit or a refused predecessor still
+rediscover. The current per-workflow budgets are listed under [current-policy
+request costs](developer/current-principal-consumers.md#request-costs).
 
 `principalPolicyCacheForVerifiedPolicies` retains signatures and exact
 references but does not bind entries to an organization, dependency set or live
@@ -111,5 +115,8 @@ bounds.
 The worker limits apply per API process, not across replicas. Retained signed
 evidence and exact outcome receipts grow with accepted history. Disposable index
 nodes and old protection generations have no automatic reclamation. Discovery
-reads remain one per operation; sharing them across operations would need a
-freshness argument that the per-operation read supplies.
+reads remain one per pass or workflow operation. Freshness is established at
+the start of the pass rather than of each step: a change during a pass is
+caught by hint eviction, durable pins, and the server's refusal of a stale
+principal-policy reference on every write. Sharing a view across passes would
+need a freshness argument that the per-pass read supplies.

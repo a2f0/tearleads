@@ -5,11 +5,15 @@ plus the artifacts for one pinned signed head. The initial request chooses the
 current head; subsequent requests send its `stateHash` and the returned
 `historyPage.nextAfterVersion` as `afterVersion`. A null next cursor means the
 entire prefix before that head has been delivered. A later policy update does
-not move the requested pin. Every page rechecks current read authorization and
-verifies the current policy before reading historical data; historical
-membership does not restore revoked access. Each returned historical entry is
-checked against the server's locally authenticated prefix and inclusion index;
-see [incremental
+not move the requested pin. An unpinned read may instead name the head its
+client holds as `ifVersion` and `ifStateHash`; when that pair is the live head,
+the reply is `{unchanged: true, head}` with no artifacts or history. Any other
+live head gets the ordinary first page. The pair is refused together with
+`stateHash` or `afterVersion`, or alone. Every page rechecks current read
+authorization and verifies the current policy before reading historical data;
+historical membership does not restore revoked access. Each returned historical
+entry is checked against the server's locally authenticated prefix and inclusion
+index; see [incremental
 verification](principal-history-pages.md#api-verified-progress).
 
 The API client rejects head/artifact changes, gaps, reordered entries, repeated
@@ -199,15 +203,22 @@ exact-head recovery takes the same local path while online. An incomplete stage,
 a new head, or lost proof material still reads the bounded pages it needs; each
 returned head artifact is checked against the private root.
 
-Server currency comes from the organization discovery read, a bare
+Server currency comes from the organization discovery read, a
 `GET /principals/organization/:organizationId/policy` without `stateHash`. Every
-workflow operation that needs private policy authority issues it once. It
-selects the server-current directory head and applies live read authorization to
-the organization policy. A group revocation rotates the group and commits a
-directory successor with it, so the next operation recovers that successor.
-Within one operation, later projection collections reuse its recovered directory
-until an organization hint, a durable pin past a memoized head, or the end of
-the producing lease evicts it; see [current-policy
+reconciliation pass or user workflow operation that needs private policy
+authority issues it once. It selects the server-current directory head and
+applies live read authorization and verification to the organization policy.
+When the device holds a completed verified prefix of the directory, discovery
+names that head (`ifVersion`, `ifStateHash`). An `unchanged` reply naming
+exactly the held head lets recovery reuse the held prefix, whose current
+artifacts are verified against the authenticated history and whose checkpoint is
+reloaded as for any completed stage; a reply naming any other head, or a held
+prefix that cannot be loaded, falls back to the unconditional read. The reply is
+about 300 bytes, against 17–34 KB for the first page. A group revocation rotates
+the group and commits a directory successor with it, so the next operation
+recovers that successor. Within one operation, later projection collections
+reuse its recovered directory until an organization hint, a durable pin past a
+memoized head, or the end of the producing lease evicts it; see [current-policy
 consumers](developer/current-principal-consumers.md) for the batch rules.
 
 Skipping the confirmation read removes only refusals of evidence the device
@@ -217,7 +228,8 @@ rollback, fork or checkpoint checks, or extend write authority, which the API
 still decides against live state. Stored current artifacts that fail their
 signed-history check discard the stage and replay signed history online once
 rather than refusing (no-brick). The remaining policy reads are one discovery
-read per operation and reads of heads that are new to the device. Provisioning
+read per pass or operation, usually answered with the bare head, and reads of
+heads that are new to the device. Provisioning
 primes the founding heads the device signed, so a new organization's Admins and
 Members heads are not new to it. Per-workflow budgets are listed under
 [current-policy request

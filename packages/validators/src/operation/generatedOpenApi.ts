@@ -22060,6 +22060,8 @@ export interface operations {
         parameters: {
             query?: {
                 afterVersion?: number;
+                ifStateHash?: string;
+                ifVersion?: number;
                 stateHash?: string;
             };
             header?: never;
@@ -22077,7 +22079,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         currentGrants: ({
                             /** @enum {string} */
                             accessLevel: "admin" | "read" | "write";
@@ -22224,6 +22226,20 @@ export interface operations {
                         })[];
                     } & {
                         [key: string]: unknown;
+                    }) | {
+                        head: {
+                            keyEpoch: number;
+                            keyFingerprint: string;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        /** @constant */
+                        unchanged: true;
                     };
                 };
             };

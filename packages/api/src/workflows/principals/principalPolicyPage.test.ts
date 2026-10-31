@@ -15,7 +15,10 @@ type ReadInput = Parameters<typeof runReadCurrentPrincipalPolicyWorkflow>[1];
 async function readPrepared(input: ReadInput) {
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
-      return await runReadCurrentPrincipalPolicyWorkflow(db, input);
+      const result = await runReadCurrentPrincipalPolicyWorkflow(db, input);
+      if (!isPrincipalPolicyPageResponse(result))
+        throw new Error("Unconditional reads return a policy page");
+      return result;
     } catch (error) {
       if (!(error instanceof PrincipalHistoryContinuation)) throw error;
     }

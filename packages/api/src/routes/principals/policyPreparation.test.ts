@@ -96,6 +96,7 @@ for (const method of ["GET", "PUT"] as const) {
           ? getPrincipalPolicyOperation
           : putPrincipalPolicyOperation;
       const result = operation.responses[200].parse(await response.json());
+      if ("unchanged" in result) throw new Error("Expected a policy page");
       expect(result.currentState.version).toBe(method === "PUT" ? 66 : 65);
       if (method === "PUT") expect(result).not.toHaveProperty("previousStates");
       expect(progress.size).toBeGreaterThan(0);
