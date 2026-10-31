@@ -33,6 +33,10 @@ PRs as part of the audit. The repository is public: confirm before creating
 the issue unless the user already asked for one, and say that it discloses
 exploitable paths.
 
+Before any audit work, start the
+[usage receipt](../../../docs/developer/audit-usage-receipts.md#start-and-checkpoint).
+Every published report includes it, even when counters are unavailable.
+
 ## Arguments
 
 - Optional focus: slice names from
@@ -70,7 +74,9 @@ excerpts with `bun run agent:logs <path>` instead of loading successful logs.
    paths. Audit committed code only.
 2. Create a scratch directory outside the checkout with
    `mktemp -d "${TMPDIR:-/tmp}/tearleads-audit.XXXXXX"` for notes, probes, and
-   the issue draft.
+   the issue draft. Save usage snapshots after each slice and retain the
+   ledger, evidence, and issue/receipt URLs in durable private notes before
+   interruption or exit; scratch cleanup must not discard receipt evidence.
 3. Start the existing formal checks from
    [`references/formal-models.md`](references/formal-models.md), logging to
    the scratch directory. Run them in the background if the session supports
@@ -194,13 +200,18 @@ implemented or model-checked fixes; label their validation status explicitly.
 
 ## 5. Report
 
+Before publishing, save usage in durable private notes and follow
+[receipt publication](../../../docs/developer/audit-usage-receipts.md#publish-and-reconcile).
+Include the receipt in the issue body and verify the exact readback; keep the
+issue and receipt URLs in those durable notes.
+
 1. Print a summary grouped by invariant (parity, A, B) and ranked by severity.
    Give each finding its label, a one-line mechanism, `file:line`, and TLA+
    status. End with what looked sound and the recommended fix order.
 2. Draft the issue from
    [`references/issue-template.md`](references/issue-template.md) in the
    scratch directory. After confirmation, or if the user asked for an issue,
-   create it with `gh issue create --label bug --body-file <path>`.
+   create it with `gh issue create --label bug --title "<title>" --body-file <path>`.
 3. Include actionable TLA+ follow-up recommendations and their validation
    gaps. State that no production or formal-model fixes were implemented as
    part of the audit.

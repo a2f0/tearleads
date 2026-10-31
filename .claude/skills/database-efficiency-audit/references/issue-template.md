@@ -17,7 +17,12 @@ The repository is public. The body carries normalized SQL, counts, plans,
 and index definitions only: no row data, bind values, credentials, role
 names, hostnames, or connection strings.
 
-Write the body in this order:
+Include an **Audit usage receipt** in the body using the shared
+[receipt template](../../../../docs/developer/audit-usage-receipts.md#cutoff-and-public-template),
+including for zero findings or partial reports. Keep it in the body when
+splitting overflow into comments; preserve its run marker on resume.
+
+Write the rest of the body in this order:
 
 1. **Scope.** The four rules (behavior preserved, dialect parity,
    greenfield, measure before claiming), the units, the exclusions, the

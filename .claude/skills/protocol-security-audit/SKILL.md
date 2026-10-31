@@ -40,6 +40,10 @@ PRs as part of the audit. The repository is public: confirm before creating
 the issue unless the user already asked for one, and say that it discloses
 exploitable paths.
 
+Before any audit work, start the
+[usage receipt](../../../docs/developer/audit-usage-receipts.md#start-and-checkpoint).
+Every published report includes it, even when counters are unavailable.
+
 ## Arguments
 
 - Optional focus: slice names from
@@ -229,6 +233,11 @@ implemented or model-checked fixes; label their validation status explicitly.
 
 ## 5. Report
 
+Before publishing, checkpoint usage and follow
+[receipt publication](../../../docs/developer/audit-usage-receipts.md#publish-and-reconcile).
+Include the receipt in the issue body and verify the exact readback; keep the
+issue and receipt URLs in the checkpoint or durable notes.
+
 1. Update the checkpoint before returning. Print a short batch summary with
    completed, partial, and pending coverage, verified findings, deferred
    candidates, and formal-review status. Include the absolute checkpoint
@@ -238,8 +247,8 @@ implemented or model-checked fixes; label their validation status explicitly.
    audit directory. Group findings by invariant (parity, A, B) and severity;
    include labels, evidence, TLA+ status, and fix order. Only the coordinator
    may publish: after confirmation, or if the user asked for an issue, create
-   it with `gh issue create --label bug --body-file <path>`. An explicitly
-   requested interim issue must identify its incomplete coverage.
+   it with `gh issue create --label bug --title "<title>" --body-file <path>`.
+   An explicitly requested interim issue must identify incomplete coverage.
 3. Include actionable TLA+ follow-up recommendations and their validation
    gaps. State that no production or formal-model fixes were implemented as
    part of the audit.
