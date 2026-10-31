@@ -141,8 +141,11 @@ export async function cleanupExpiredBlobStages(
     }
   }
 
-  for (const stage of claimed) {
+  for (const [index, stage] of claimed.entries()) {
     try {
+      // The check before the claim covers the first stage; every later one
+      // re-fences, so a worker that lost its lease mid-batch stops deleting.
+      if (index > 0) await hooks?.assertObjectDeletionLease();
       assertBlobStorageKeyOrganization(stage.storageKey, stage.organizationId);
       if (stage.completedAt === null) {
         await runtime.blobObjectStore.abortMultipartUpload({
