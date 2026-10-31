@@ -2,6 +2,7 @@ import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
 import { getPrincipalPolicyOperation } from "@tearleads/validators/operation";
 import {
   isPrincipalPolicyPageResponse,
+  isPrincipalPolicyUnchangedResponse,
   type PrincipalPolicyBundleResponse,
   type PrincipalPolicyPageResponse,
   type PrincipalPolicyReadResponse,
@@ -281,19 +282,24 @@ export async function readPrincipalPolicyDiscovery(
   });
   if (!result.ok) return result;
   const response = result.data;
-  const valid =
-    "unchanged" in response
-      ? ifHead !== undefined &&
-        response.head.principalType === principalType &&
-        response.head.principalId === principalId
-      : validPage(response, {
-          principalType,
-          principalId,
-          stateHash: undefined,
-          pinnedBytes: undefined,
-          bytes: "",
-          afterVersion: 0,
-        });
+  // Exactly one variant: the strict bare-head reply, only to a conditional
+  // read and only for the requested principal, or a valid first page.
+  const unchanged = isPrincipalPolicyUnchangedResponse(response);
+  const page = isPrincipalPolicyPageResponse(response);
+  const valid = unchanged
+    ? !page &&
+      ifHead !== undefined &&
+      response.head.principalType === principalType &&
+      response.head.principalId === principalId
+    : page &&
+      validPage(response, {
+        principalType,
+        principalId,
+        stateHash: undefined,
+        pinnedBytes: undefined,
+        bytes: "",
+        afterVersion: 0,
+      });
   return valid
     ? result
     : pageFailure(

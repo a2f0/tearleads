@@ -4,7 +4,11 @@ import {
   type ReferencedPrincipalHead,
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
-import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
+import {
+  isPrincipalPolicyPageResponse,
+  isPrincipalPolicyUnchangedResponse,
+  type PrincipalPolicyPageResponse,
+} from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import {
@@ -160,10 +164,13 @@ async function discoverConditionally(
   if (!result.ok) throw new PrincipalPolicyHistoryReadError(result);
   assertDiscoveryCurrent(input);
   const reply = result.data;
-  if (!("unchanged" in reply))
-    return discoveredPage(input, { ok: true, data: reply });
-  return held && principalHeadMatchesReference(reply.head, held.head)
-    ? { ...held, historyReader: input.historyReader }
+  if (isPrincipalPolicyUnchangedResponse(reply))
+    return held && principalHeadMatchesReference(reply.head, held.head)
+      ? { ...held, historyReader: input.historyReader }
+      : null;
+  // Anything but the strict bare head must be a page; otherwise read again.
+  return isPrincipalPolicyPageResponse(reply)
+    ? discoveredPage(input, { ok: true, data: reply })
     : null;
 }
 
