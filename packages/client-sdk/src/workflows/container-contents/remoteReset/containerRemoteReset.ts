@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   deleteDocumentPlacementRowsByContainerIds,
   deleteDocumentPlacementRowsByDocumentIds,
@@ -224,23 +224,32 @@ export async function resetContainerServerIdentity(input: {
       supersededAt: now,
     });
   }
-  for (const row of input.containerRows) {
+  // One update per batch: SQLite evaluates every SET value against the old
+  // row, and no earlier reset step writes `parent_id`, so COALESCE re-homes
+  // exactly the root folders the snapshot read with a null parent.
+  for (const rowBatch of remoteResetBatches(input.containerRows)) {
     await tx
       .update(containers)
       .set({
         metadataDocumentId: null,
         organizationId:
           reset.replacement?.organizationId ?? reset.organizationId,
-        parentId:
-          reset.replacement && row.parentId === null
-            ? reset.replacement.rootContainerId
-            : row.parentId,
+        ...(reset.replacement
+          ? {
+              parentId: sql`coalesce(${containers.parentId}, ${reset.replacement.rootContainerId})`,
+              systemSlot: null,
+            }
+          : {}),
         serverCreatedAt: null,
         serverUpdatedAt: null,
-        ...(reset.replacement ? { systemSlot: null } : {}),
         localUpdatedAt: now,
       })
-      .where(eq(containers.id, row.id))
+      .where(
+        inArray(
+          containers.id,
+          rowBatch.map((row) => row.id),
+        ),
+      )
       .run();
   }
 }
