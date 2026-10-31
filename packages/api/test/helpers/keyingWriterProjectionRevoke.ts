@@ -161,7 +161,7 @@ export async function buildRootRevokeRequest(input: {
     predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     keyring: keyring as unknown as Record<string, unknown>,
     wraps: kekState.wraps as unknown as Record<string, unknown>[],
-    parentKekState: null,
+    parentKekRef: null,
     userRecipientKeys: userRecipientKeysFromKekTargets(
       kekState,
     ) as unknown as Record<string, unknown>[],

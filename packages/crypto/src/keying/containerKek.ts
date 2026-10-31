@@ -6,10 +6,7 @@ import {
   assertContainerKeyEpochMatchesManifest,
   assertContainerKeyEpochParentBinding,
 } from "./containerKekEpochBinding";
-import {
-  type ContainerKekParentBinding,
-  resolveContainerKekParentBinding,
-} from "./containerKekParent";
+import { resolveContainerKekParentBinding } from "./containerKekParent";
 import { normalizeContainerUserRecipientKey } from "./containerUserRecipientKey";
 import {
   assertExactKeys,
@@ -27,6 +24,7 @@ import {
 import type {
   ContainerAccessManifestState,
   ContainerDirectGrant,
+  ContainerKekParentBinding,
   ContainerKekRecipientTarget,
   ContainerKeyEpoch,
   ContainerKeyWrap,

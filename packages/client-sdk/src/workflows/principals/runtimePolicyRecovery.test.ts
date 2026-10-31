@@ -5,6 +5,7 @@ import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import {
   commitProjectionCheckpoints,
@@ -171,16 +172,14 @@ test("a cached dependency behind a new durable pin triggers fresh scoped recover
     const directory = await history.advanceDirectory(history.directory, admin);
     f.policies.set(admin.currentState.principalId, admin);
     f.policies.set(directory.currentState.principalId, directory);
-    await f.db
-      .insert(principalPolicyCheckpoints)
-      .values({
-        principalType: "group",
-        principalId: admin.currentState.principalId,
-        version: 67,
-        stateHash: admin.currentState.stateHash,
-        updatedAt: admin.currentState.createdAt,
-      })
-      .run();
+    await pinPrincipalPolicyCheckpoint(f.db, {
+      principalType: "group",
+      principalId: admin.currentState.principalId,
+      version: 67,
+      stateHash: admin.currentState.stateHash,
+      updatedAt: admin.currentState.createdAt,
+      organizationId: history.organizationId,
+    });
     const recovered = await f.collect(cache);
     expect(recovered.context.policies.map((policy) => policy.version)).toEqual([
       67, 67, 66,
@@ -201,16 +200,14 @@ test.each(["target", "dependency"] as const)(
       const operation = f.createWarmer();
       await f.collect(cache, operation);
       const policy = kind === "target" ? history.group : history.admin;
-      await f.db
-        .insert(principalPolicyCheckpoints)
-        .values({
-          principalType: "group",
-          principalId: policy.currentState.principalId,
-          version: 66,
-          stateHash: "f".repeat(64),
-          updatedAt: policy.currentState.createdAt,
-        })
-        .run();
+      await pinPrincipalPolicyCheckpoint(f.db, {
+        principalType: "group",
+        principalId: policy.currentState.principalId,
+        version: 66,
+        stateHash: "f".repeat(64),
+        updatedAt: policy.currentState.createdAt,
+        organizationId: history.organizationId,
+      });
       const requests = f.requests.length;
       await expect(f.collect(cache, operation)).rejects.toMatchObject({
         code: "equivocation",
@@ -280,16 +277,14 @@ test("a newly admitted intermediate dependency pin is retained on cache refresh"
     await f.collect(cache);
     const state = history.admin.previousStates[31]?.state;
     if (!state) throw new Error("Missing signed intermediate state");
-    await f.db
-      .insert(principalPolicyCheckpoints)
-      .values({
-        principalType: "group",
-        principalId: state.principalId,
-        version: state.version,
-        stateHash: state.stateHash,
-        updatedAt: state.createdAt,
-      })
-      .run();
+    await pinPrincipalPolicyCheckpoint(f.db, {
+      principalType: "group",
+      principalId: state.principalId,
+      version: state.version,
+      stateHash: state.stateHash,
+      updatedAt: state.createdAt,
+      organizationId: history.organizationId,
+    });
     f.state.online = false;
     const count = f.requests.length;
     const result = await f.collect(cache);

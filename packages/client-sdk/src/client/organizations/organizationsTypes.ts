@@ -37,6 +37,19 @@ import type {
 /** Exact current artifacts and container receipts; no historical prefix. */
 export type OrganizationGroupMutationReceipt = PrincipalPolicyMutationResponse;
 
+/**
+ * A membership change and the read model the SDK reconciled after it
+ * committed. `undefined` means that reconcile was declined without I/O
+ * (offline or database not ready); `null` means an authoritative denial
+ * purged the projection.
+ */
+export interface OrganizationGroupMutationResult {
+  readonly directoryAndGroups: Awaited<
+    ReturnType<OrganizationReadModelCoordinator["reconcileAfterMutation"]>
+  >;
+  readonly receipt: OrganizationGroupMutationReceipt;
+}
+
 export interface Organizations {
   discardUnreadablePolicyMutation: (
     input: DiscardUnreadableOrganizationPolicyMutationInput,
@@ -50,7 +63,7 @@ export interface Organizations {
   ) => Promise<boolean>;
   addUserToGroup: (
     input: AddOrganizationGroupUserInput,
-  ) => Promise<OrganizationGroupMutationReceipt>;
+  ) => Promise<OrganizationGroupMutationResult>;
   createGroup: (name: string) => ReturnType<typeof createOrganizationGroup>;
   deleteGroup: (
     groupId: string,
@@ -134,7 +147,7 @@ export interface Organizations {
   ) => ReturnType<typeof updateOrganizationProfile>;
   removeUserFromGroup: (
     input: RemoveOrganizationGroupUserInput,
-  ) => Promise<OrganizationGroupMutationReceipt>;
+  ) => Promise<OrganizationGroupMutationResult>;
   revokeGrant: (
     grant: OrganizationGrantRef,
   ) => Promise<

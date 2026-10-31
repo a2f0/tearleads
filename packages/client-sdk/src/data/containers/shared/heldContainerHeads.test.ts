@@ -8,6 +8,7 @@ import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
 } from "../../keyingProjectionVerification/checkpoints/checkpointContext";
+import { clientSqlTables } from "../../sqlite/schema";
 import {
   createExecSql,
   runSerializedSqlMutation,
@@ -23,7 +24,25 @@ const seed = createContainerManifestFixture({
   directGrants: [],
   organizationId: "cache-org",
 });
-const executor = () => createExecSql({ exec: async () => ({ rows: [] }) });
+// An empty database that reports every required column, so table ensures pass.
+const requiredColumns = new Map(
+  clientSqlTables.map((table) => [table.name, table.requiredColumns ?? []]),
+);
+const executor = () =>
+  createExecSql({
+    exec: async ({ sql, bind }) => ({
+      rows: sql.includes("pragma_table_info")
+        ? (Array.isArray(bind) ? bind : []).flatMap((name: unknown, index) =>
+            index % 2 === 0
+              ? (requiredColumns.get(String(name)) ?? []).map((column) => ({
+                  table_name: String(name),
+                  name: column,
+                }))
+              : [],
+          )
+        : [],
+    }),
+  });
 
 // Isolated cache/graph tests model the already-verified caller boundary. These
 // structural variants are never passed to cryptographic authorization.

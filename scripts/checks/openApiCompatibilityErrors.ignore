@@ -1,0 +1,302 @@
+# Issue #2697 proposal 18 (greenfield flag day): registration keys and the
+# login signature travel as canonical padded base64 instead of JSON number
+# arrays. Remove these exact diagnostics as soon as main contains the new
+# contract.
+POST /auth/register the `encapsulationPublicKey` request property's maxLength was set to `2092`
+
+# Issue #2697 proposal 18: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register the `signingPublicKey` request property's maxLength was set to `3456`
+
+# Issue #2697 proposal 18: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register the `encapsulationPublicKey` request property's minLength was set to `2092`
+
+# Issue #2697 proposal 18: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register the `signingPublicKey` request property's minLength was set to `3456`
+
+# Issue #2697 proposal 18: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register added the pattern `^(?:[A-Za-z0-9+/]{4}){522}[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=$` to the request property `encapsulationPublicKey`
+
+# Issue #2697 proposal 18: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register added the pattern `^(?:[A-Za-z0-9+/]{4}){864}$` to the request property `signingPublicKey`
+
+# Issue #2697 proposal 18: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register the `encapsulationPublicKey` request property `type` changed from `array<integer>` to `string`
+
+# Issue #2697 proposal 18: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register the `signingPublicKey` request property `type` changed from `array<integer>` to `string`
+
+# Issue #2697 proposal 18: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/verify the `signature` request property's maxLength was set to `6172`
+
+# Issue #2697 proposal 18: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/verify the `signature` request property's minLength was set to `6172`
+
+# Issue #2697 proposal 18: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/verify added the pattern `^(?:[A-Za-z0-9+/]{4}){1542}[A-Za-z0-9+/][AQgw]==$` to the request property `signature`
+
+# Issue #2697 proposal 18: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/verify the `signature` request property `type` changed from `array<integer>` to `string`
+
+# Issue #2697 proposal 17 (greenfield flag day): container mutations cite the
+# parent KEK state as `parentKekRef` instead of carrying `parentKekState`.
+# Remove these exact diagnostics as soon as main contains the new contract.
+POST /auth/register removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/container/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationPolicy/containerMutations/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialRootContainer/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/container/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/container/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the request property `containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings/{bindingId}/detach removed the request property `containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers removed the request property `parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/with-metadata-document removed the request property `container/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/with-metadata-document removed the request property `metadataDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/move removed the request property `containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/move removed the request property `parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/share removed the request property `parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents removed the request property `containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents removed the request property `initialSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/link removed the request property `containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/sync removed the request property `containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/unlink removed the request property `containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/container/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialOrganizationPolicy/containerMutations/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialRootContainer/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/container/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/container/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `initialGroupPolicy/containerMutations/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `organizationPolicy/containerMutations/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+DELETE /organizations/{organizationId}/groups/{groupId} removed the request property `organizationPolicy/containerMutations/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `groupPolicy/containerMutations/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `memberPolicy/containerMutations/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `organizationPolicy/containerMutations/items/parentKekState`
+
+# Issue #2697 proposal 17: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+PUT /principals/{principalType}/{principalId}/policy removed the request property `containerMutations/items/parentKekState`

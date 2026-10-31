@@ -84,6 +84,7 @@ async function importRosterIdentityLink(
 
       await refreshDirectoryAndGroups({
         afterMutation: true,
+        mutationResult: targetUser.mutationResult,
         skipNextGroupDetailsEffect: true,
       });
       if (!isOperationActive(operationOrganizationId)) {

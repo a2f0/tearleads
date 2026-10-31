@@ -49,18 +49,33 @@ export const principalHistoryEntries = sqliteTable(
   ],
 );
 
-/** Untrusted proof material, checked against a locally restored private root. */
+/**
+ * One row per hash a scope's graph mentions. Child hashes are set once the
+ * node itself is stored: that untrusted proof material is checked against a
+ * locally restored private root. A row without them is a liveness placeholder
+ * for a referenced hash, such as a leaf or a root not stored yet. The count and
+ * `managed` flag are disposable liveness hints for reclamation.
+ */
 export const principalHistoryNodes = sqliteTable(
   "principal_history_nodes",
   {
     scopeId: text("scope_id").notNull(),
     organizationId: text("organization_id").notNull(),
     hash: text("hash").notNull(),
-    leftHash: text("left_hash").notNull(),
-    rightHash: text("right_hash").notNull(),
+    referenceCount: integer("reference_count").notNull(),
+    managed: integer("managed", { mode: "boolean" }).notNull(),
+    leftHash: text("left_hash"),
+    rightHash: text("right_hash"),
   },
   (table) => [
     primaryKey({ columns: [table.scopeId, table.hash] }),
+    index("principal_history_nodes_reclaim_idx").on(
+      table.scopeId,
+      table.organizationId,
+      table.managed,
+      table.referenceCount,
+      table.hash,
+    ),
     index("principal_history_nodes_organization_idx").on(table.organizationId),
   ],
 );
@@ -72,5 +87,8 @@ export const principalHistoryEvidenceTables = [
     requiredColumns: ["current_json"],
   },
   defineSqlTableSchema(principalHistoryEntries),
-  defineSqlTableSchema(principalHistoryNodes),
+  {
+    ...defineSqlTableSchema(principalHistoryNodes),
+    requiredColumns: ["reference_count"],
+  },
 ];

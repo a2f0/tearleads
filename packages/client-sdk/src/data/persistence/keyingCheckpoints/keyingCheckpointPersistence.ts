@@ -22,10 +22,7 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { excludedValue } from "../../sqlite/sqliteUpsert";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import {
-  recordPrincipalPolicyOrganizationInTransaction,
-  recordPrincipalPolicyOrganizationsInTransaction,
-} from "../principalPolicy/principalPolicyOrganizationPersistence";
+import { writePrincipalPolicyCheckpointRowsInTransaction } from "./principalPolicyOrganizationPersistence";
 
 type CheckpointHandle = ClientSQLiteDatabase | ClientSQLiteTransactionScope;
 
@@ -77,6 +74,23 @@ async function loadAccessManifestCheckpointRow(
   return rows[0] ?? null;
 }
 
+/**
+ * The pin a stored row carries: an owned-but-unpinned row is no checkpoint,
+ * and a half-written pin is refused rather than read as either.
+ */
+function storedPrincipalPolicyPin(row: {
+  readonly version: number | null;
+  readonly stateHash: string | null;
+}): Pick<PrincipalPolicyCheckpoint, "version" | "stateHash"> | null {
+  if (row.version === null && row.stateHash === null) return null;
+  if (row.version === null || row.stateHash === null)
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "principal policy checkpoint is malformed",
+    );
+  return { version: row.version, stateHash: row.stateHash };
+}
+
 async function loadPrincipalPolicyCheckpointRow(
   handle: CheckpointHandle,
   identity: PrincipalPolicyCheckpointIdentity,
@@ -94,7 +108,7 @@ async function loadPrincipalPolicyCheckpointRow(
       ),
     )
     .limit(1);
-  return rows[0] ?? null;
+  return rows[0] ? storedPrincipalPolicyPin(rows[0]) : null;
 }
 
 // An access lookup binds its kind and organization once; a policy lookup its type.
@@ -102,9 +116,6 @@ const ACCESS_LOOKUP_BATCH_SIZE = sqliteRowsPerStatement(1, 2);
 const POLICY_LOOKUP_BATCH_SIZE = sqliteRowsPerStatement(1, 1);
 const ACCESS_WRITE_BATCH_SIZE = sqliteInsertBatchSize(
   accessManifestCheckpoints,
-);
-const POLICY_WRITE_BATCH_SIZE = sqliteInsertBatchSize(
-  principalPolicyCheckpoints,
 );
 
 /** Splits `values` into consecutive slices of at most `size`. */
@@ -174,7 +185,8 @@ export async function loadAccessManifestCheckpointRows(
 
 /**
  * Every stored policy checkpoint for `identities`, keyed by
- * `principalPolicyKey`: one read per principal type.
+ * `principalPolicyKey`: one read per principal type. Owned principals without
+ * a pin are absent.
  */
 export async function loadStoredPrincipalPolicyCheckpoints(
   handle: CheckpointHandle,
@@ -202,11 +214,12 @@ export async function loadStoredPrincipalPolicyCheckpoints(
           ),
         );
       for (const row of rows) {
+        const pin = storedPrincipalPolicyPin(row);
+        if (!pin) continue;
         const checkpoint = {
           principalType: first.principalType,
           principalId: row.principalId,
-          version: row.version,
-          stateHash: row.stateHash,
+          ...pin,
         };
         stored.set(principalPolicyKey(checkpoint), checkpoint);
       }
@@ -240,18 +253,6 @@ export async function loadStoredPrincipalPolicyCheckpoint(
     : null;
 }
 
-/** Every principal with a durable policy checkpoint. */
-export function listPrincipalPolicyCheckpointPrincipals(
-  handle: CheckpointHandle,
-): Promise<{ id: string; type: string }[]> {
-  return handle
-    .selectDistinct({
-      id: principalPolicyCheckpoints.principalId,
-      type: principalPolicyCheckpoints.principalType,
-    })
-    .from(principalPolicyCheckpoints);
-}
-
 export async function upsertAccessManifestCheckpointInTransaction(
   tx: ClientSQLiteTransactionScope,
   checkpoint: AccessManifestCheckpoint,
@@ -272,29 +273,22 @@ export async function upsertAccessManifestCheckpointInTransaction(
     .run();
 }
 
+/**
+ * Pins one checkpoint and records its owner in the same row; a principal
+ * already owned by another organization is refused.
+ */
 export async function upsertPrincipalPolicyCheckpointInTransaction(
   tx: ClientSQLiteTransactionScope,
   checkpoint: PrincipalPolicyCheckpoint,
   updatedAt: string,
   organizationId?: string | undefined,
 ): Promise<void> {
-  await recordPrincipalPolicyOrganizationInTransaction(tx, {
+  await writePrincipalPolicyCheckpointRowsInTransaction(
+    tx,
+    [checkpoint],
+    updatedAt,
     organizationId,
-    principalId: checkpoint.principalId,
-    principalType: checkpoint.principalType,
-  });
-  const row = { ...checkpoint, updatedAt };
-  await tx
-    .insert(principalPolicyCheckpoints)
-    .values(row)
-    .onConflictDoUpdate({
-      target: [
-        principalPolicyCheckpoints.principalType,
-        principalPolicyCheckpoints.principalId,
-      ],
-      set: row,
-    })
-    .run();
+  );
 }
 
 /**
@@ -342,9 +336,10 @@ export async function upsertAccessManifestCheckpointsInTransaction(
 }
 
 /**
- * Records every checkpoint's cache ownership, failing on the first conflict in
- * order as `upsertPrincipalPolicyCheckpointInTransaction` would, then upserts
- * the checkpoints in multi-row statements.
+ * Records every checkpoint's cache ownership with its pin, failing on the
+ * first conflict in order as `upsertPrincipalPolicyCheckpointInTransaction`
+ * would, in multi-row statements; a repeated identity keeps its last
+ * checkpoint.
  */
 export async function upsertPrincipalPolicyCheckpointsInTransaction(
   tx: ClientSQLiteTransactionScope,
@@ -352,45 +347,12 @@ export async function upsertPrincipalPolicyCheckpointsInTransaction(
   updatedAt: string,
   organizationId?: string | undefined,
 ): Promise<void> {
-  await recordPrincipalPolicyOrganizationsInTransaction(
+  await writePrincipalPolicyCheckpointRowsInTransaction(
     tx,
-    checkpoints.map((checkpoint) => ({
-      organizationId,
-      principalId: checkpoint.principalId,
-      principalType: checkpoint.principalType,
-    })),
+    checkpoints,
+    updatedAt,
+    organizationId,
   );
-  const rows = new Map(
-    checkpoints.map((checkpoint) => [
-      principalPolicyKey(checkpoint),
-      {
-        principalType: checkpoint.principalType,
-        principalId: checkpoint.principalId,
-        version: checkpoint.version,
-        stateHash: checkpoint.stateHash,
-        updatedAt,
-      },
-    ]),
-  );
-  for (const batch of checkpointBatches(
-    [...rows.values()],
-    POLICY_WRITE_BATCH_SIZE,
-  ))
-    await tx
-      .insert(principalPolicyCheckpoints)
-      .values(batch)
-      .onConflictDoUpdate({
-        target: [
-          principalPolicyCheckpoints.principalType,
-          principalPolicyCheckpoints.principalId,
-        ],
-        set: {
-          version: excludedValue(principalPolicyCheckpoints.version),
-          stateHash: excludedValue(principalPolicyCheckpoints.stateHash),
-          updatedAt: excludedValue(principalPolicyCheckpoints.updatedAt),
-        },
-      })
-      .run();
 }
 
 // Lazily create the checkpoint tables on first access. Every load/save below

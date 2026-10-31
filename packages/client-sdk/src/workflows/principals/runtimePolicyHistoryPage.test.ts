@@ -4,6 +4,7 @@ import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { principalHistoryEntries } from "../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
@@ -132,16 +133,14 @@ test.each(["missing", "substituted"] as const)(
     };
     try {
       await f.resolve(request);
-      await f.db
-        .insert(principalPolicyCheckpoints)
-        .values({
-          principalType: reference.principalType,
-          principalId: reference.principalId,
-          version: reference.version,
-          stateHash: reference.stateHash,
-          updatedAt: history.group.currentState.createdAt,
-        })
-        .run();
+      await pinPrincipalPolicyCheckpoint(f.db, {
+        principalType: reference.principalType,
+        principalId: reference.principalId,
+        version: reference.version,
+        stateHash: reference.stateHash,
+        updatedAt: history.group.currentState.createdAt,
+        organizationId: history.organizationId,
+      });
       const pins = await f.db.select().from(principalPolicyCheckpoints);
       const rows = await f.db.select().from(principalHistoryEntries);
       const lost = rows.find((row) => {

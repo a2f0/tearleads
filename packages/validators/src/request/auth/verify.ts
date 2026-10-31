@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import {
-  fixedLengthByteArraySchema,
+  fixedLengthBase64BytesSchema,
   loosePlainObject,
   sha256HexStringSchema,
 } from "../../schema";
@@ -8,7 +8,7 @@ import { ML_DSA87_SIGNATURE_BYTES } from "../../util";
 
 export const VerifyRequestSchema = loosePlainObject({
   fingerprint: sha256HexStringSchema,
-  signature: fixedLengthByteArraySchema(ML_DSA87_SIGNATURE_BYTES),
+  signature: fixedLengthBase64BytesSchema(ML_DSA87_SIGNATURE_BYTES),
 });
 
 export type VerifyRequest = z.infer<typeof VerifyRequestSchema>;

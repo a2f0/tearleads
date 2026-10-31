@@ -1,4 +1,4 @@
-import type { OrganizationGroupMutationReceipt } from "@tearleads/client-sdk";
+import type { OrganizationGroupMutationResult } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { RESERVED_ORGANIZATION_GROUP_NAMES } from "../../../utils/organizationGroupNames";
@@ -15,6 +15,8 @@ type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 export async function refreshAfterGroupMutation(input: {
   invalidateSelectedGroupDetails: Refreshers["invalidateSelectedGroupDetails"];
   isOperationActive: IsOperationActive;
+  /** The mutation's own post-commit read model, applied without a re-read. */
+  mutationResult: OrganizationGroupMutationResult | null;
   operationOrganizationId: string;
   refreshDirectoryAndGroups: Refreshers["refreshDirectoryAndGroups"];
   refreshSelectedGroupDetails: Refreshers["refreshSelectedGroupDetails"];
@@ -23,6 +25,7 @@ export async function refreshAfterGroupMutation(input: {
 }): Promise<void> {
   const refreshedDirectory = await input.refreshDirectoryAndGroups({
     afterMutation: true,
+    mutationResult: input.mutationResult,
     skipNextGroupDetailsEffect: true,
   });
   if (!input.isOperationActive(input.operationOrganizationId)) {
@@ -50,7 +53,7 @@ async function ensureRosterUserInGroup(input: {
   orgManagerActions: OrgManagerActions;
   setError: Dispatch<SetStateAction<string | null>>;
   userId: string;
-}): Promise<"added" | "already-member" | null> {
+}): Promise<OrganizationGroupMutationResult | "already-member" | null> {
   const groupMembers = await input.orgManagerActions.loadGroupMembers(
     input.groupId,
   );
@@ -68,15 +71,13 @@ async function ensureRosterUserInGroup(input: {
   if (alreadyMember) {
     return "already-member";
   }
-  await input.orgManagerActions.addUserToGroup(
+  const result = await input.orgManagerActions.addUserToGroup(
     input.groupId,
     input.userId,
     input.groupName,
   );
 
-  return input.isOperationActive(input.operationOrganizationId)
-    ? "added"
-    : null;
+  return input.isOperationActive(input.operationOrganizationId) ? result : null;
 }
 
 // `targetUserId` comes from a verified identity link: admission never starts
@@ -88,7 +89,10 @@ export async function prepareRosterImport(input: {
   orgManagerActions: OrgManagerActions;
   setError: Dispatch<SetStateAction<string | null>>;
   targetUserId: string;
-}): Promise<{ userId: string } | null> {
+}): Promise<{
+  mutationResult: OrganizationGroupMutationResult | null;
+  userId: string;
+} | null> {
   const membership = await ensureRosterUserInGroup({
     ...input,
     groupId: input.memberGroupId,
@@ -96,7 +100,11 @@ export async function prepareRosterImport(input: {
     userId: input.targetUserId,
   });
 
-  return membership ? { userId: input.targetUserId } : null;
+  if (!membership) return null;
+  return {
+    mutationResult: membership === "already-member" ? null : membership,
+    userId: input.targetUserId,
+  };
 }
 
 export async function addRosterUserToGroup(input: {
@@ -106,11 +114,11 @@ export async function addRosterUserToGroup(input: {
   operationOrganizationId: string;
   orgManagerActions: OrgManagerActions;
   targetUserId: string;
-}): Promise<OrganizationGroupMutationReceipt | null> {
-  const bundle = await input.orgManagerActions.addUserToGroup(
+}): Promise<OrganizationGroupMutationResult | null> {
+  const result = await input.orgManagerActions.addUserToGroup(
     input.groupId,
     input.targetUserId,
     input.groupName,
   );
-  return input.isOperationActive(input.operationOrganizationId) ? bundle : null;
+  return input.isOperationActive(input.operationOrganizationId) ? result : null;
 }

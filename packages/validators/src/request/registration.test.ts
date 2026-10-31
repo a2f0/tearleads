@@ -11,14 +11,12 @@ import {
 } from "./index";
 import { createDocumentContentKeyBundle } from "./requestTestFixtures";
 
-const VALID_SIGNING_PUBLIC_KEY = Array.from(
-  { length: ML_DSA87_PUBLIC_KEY_BYTES },
-  (_, index) => index % 256,
-);
-const VALID_ENCAPSULATION_PUBLIC_KEY = Array.from(
-  { length: ML_KEM1024_PUBLIC_KEY_BYTES },
-  (_, index) => index % 256,
-);
+const base64Bytes = (length: number) =>
+  Buffer.from(Array.from({ length }, (_, index) => index % 256)).toString(
+    "base64",
+  );
+const VALID_SIGNING_PUBLIC_KEY = base64Bytes(ML_DSA87_PUBLIC_KEY_BYTES);
+const VALID_ENCAPSULATION_PUBLIC_KEY = base64Bytes(ML_KEM1024_PUBLIC_KEY_BYTES);
 
 test("isRegistrationRequest", () => {
   const userId = "550e8400-e29b-41d4-a716-446655440001";
@@ -323,6 +321,24 @@ test("isRegistrationRequest", () => {
   expect(
     isRegistrationRequest(
       createValidRequest({ signingPublicKey: [], encapsulationPublicKey: [] }),
+    ),
+  ).toBe(false);
+  // The retired number-array encoding is refused, as is a key one byte short.
+  expect(
+    isRegistrationRequest(
+      createValidRequest({
+        signingPublicKey: Array.from(
+          { length: ML_DSA87_PUBLIC_KEY_BYTES },
+          () => 1,
+        ),
+      }),
+    ),
+  ).toBe(false);
+  expect(
+    isRegistrationRequest(
+      createValidRequest({
+        encapsulationPublicKey: base64Bytes(ML_KEM1024_PUBLIC_KEY_BYTES - 1),
+      }),
     ),
   ).toBe(false);
   expect(

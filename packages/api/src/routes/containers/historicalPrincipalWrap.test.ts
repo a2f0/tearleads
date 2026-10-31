@@ -206,7 +206,7 @@ test("writer projections retain the old principal citation of an unchanged key w
             ),
             newWrap,
           ].map((wrap) => ({ ...wrap })),
-          parentKekState: null,
+          parentKekRef: null,
           userRecipientKeys: userRecipientKeysFromKekTargets(root.kekState).map(
             (key) => ({ ...key }),
           ),

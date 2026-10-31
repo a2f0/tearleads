@@ -1,7 +1,6 @@
 import type { PrincipalHistoryIndexNode } from "@tearleads/crypto";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { principalHistoryNodes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
-import { principalHistoryNodeReferences } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
 import {
   sqliteInsertBatchSize,
   sqliteRowsPerStatement,
@@ -13,12 +12,8 @@ import type {
   PrincipalHistoryRootEdges,
 } from "./principalHistoryRootOwnership";
 
-type PrincipalHistoryNodeReference =
-  typeof principalHistoryNodeReferences.$inferSelect;
+type PrincipalHistoryNodeRow = typeof principalHistoryNodes.$inferSelect;
 
-const REFERENCE_WRITE_BATCH_SIZE = sqliteInsertBatchSize(
-  principalHistoryNodeReferences,
-);
 const NODE_WRITE_BATCH_SIZE = sqliteInsertBatchSize(principalHistoryNodes);
 // The scope id binds once per lookup.
 const HASH_LOOKUP_BATCH_SIZE = sqliteRowsPerStatement(1, 1);
@@ -36,33 +31,13 @@ async function loadNodeReferences(
   tx: ClientSQLiteTransactionScope,
   scope: PrincipalHistoryNodeScope,
   hashes: readonly string[],
-  into: Map<string, PrincipalHistoryNodeReference | null>,
+  into: Map<string, PrincipalHistoryNodeRow | null>,
 ): Promise<void> {
   const missing = [...new Set(hashes)].filter((hash) => !into.has(hash));
   for (const batch of batches(missing, HASH_LOOKUP_BATCH_SIZE)) {
     for (const hash of batch) into.set(hash, null);
     const rows = await tx
       .select()
-      .from(principalHistoryNodeReferences)
-      .where(
-        and(
-          eq(principalHistoryNodeReferences.scopeId, scope.scopeId),
-          inArray(principalHistoryNodeReferences.hash, batch),
-        ),
-      );
-    for (const row of rows) into.set(row.hash, row);
-  }
-}
-
-async function loadStoredNodeHashes(
-  tx: ClientSQLiteTransactionScope,
-  scope: PrincipalHistoryNodeScope,
-  hashes: readonly string[],
-): Promise<Set<string>> {
-  const stored = new Set<string>();
-  for (const batch of batches([...new Set(hashes)], HASH_LOOKUP_BATCH_SIZE)) {
-    const rows = await tx
-      .select({ hash: principalHistoryNodes.hash })
       .from(principalHistoryNodes)
       .where(
         and(
@@ -70,24 +45,24 @@ async function loadStoredNodeHashes(
           inArray(principalHistoryNodes.hash, batch),
         ),
       );
-    for (const row of rows) stored.add(row.hash);
+    for (const row of rows) into.set(row.hash, row);
   }
-  return stored;
 }
 
 /**
  * Replays the per-node edge bookkeeping in memory: increment inserts or adds
  * one, decrement floors at zero within the scope's organization, and an edge
- * change keeps the count while marking nodes first stored here as managed.
- * Folded root edges replay last, in the order root ownership applies them.
+ * change keeps the count while marking nodes first stored here as managed. A
+ * row is a stored node once it carries child hashes; before that it is only a
+ * placeholder for a referenced hash. Folded root edges replay last, in the
+ * order root ownership applies them.
  */
 function replayNodeEdges(
   scope: PrincipalHistoryNodeScope,
   nodes: readonly PrincipalHistoryIndexNode[],
-  loaded: ReadonlyMap<string, PrincipalHistoryNodeReference | null>,
-  storedNodeHashes: Set<string>,
+  loaded: ReadonlyMap<string, PrincipalHistoryNodeRow | null>,
   rootEdges: PrincipalHistoryRootEdges | undefined,
-): Map<string, PrincipalHistoryNodeReference | null> {
+): Map<string, PrincipalHistoryNodeRow | null> {
   const references = new Map(loaded);
   const read = (hash: string) => {
     const reference = references.get(hash);
@@ -125,7 +100,7 @@ function replayNodeEdges(
       previous?.leftHash !== node.leftHash ||
       previous.rightHash !== node.rightHash
     ) {
-      const managed = previous?.managed || !storedNodeHashes.has(node.hash);
+      const managed = !previous || previous.managed || !isStoredNode(previous);
       increment(node.leftHash);
       increment(node.rightHash);
       const current = read(node.hash);
@@ -142,7 +117,6 @@ function replayNodeEdges(
       for (const hash of [previous?.leftHash, previous?.rightHash])
         if (hash) decrement(hash);
     }
-    storedNodeHashes.add(node.hash);
   }
   // Root ownership's edges follow the page's nodes, as its statements did.
   if (rootEdges) {
@@ -152,9 +126,13 @@ function replayNodeEdges(
   return references;
 }
 
+function isStoredNode(row: PrincipalHistoryNodeRow): boolean {
+  return row.leftHash !== null && row.rightHash !== null;
+}
+
 function isSameNodeReference(
-  left: PrincipalHistoryNodeReference,
-  right: PrincipalHistoryNodeReference,
+  left: PrincipalHistoryNodeRow,
+  right: PrincipalHistoryNodeRow,
 ): boolean {
   return (
     left.organizationId === right.organizationId &&
@@ -167,10 +145,10 @@ function isSameNodeReference(
 
 /**
  * Register edges and store proof nodes in the given order, with the same
- * result as recording each node's edges and then upserting it, followed by
- * any folded root ownership edges. Reads the touched liveness rows once,
- * replays the bookkeeping, and writes the changed rows and the nodes as
- * multi-row upserts.
+ * result as recording each node's edges one at a time, followed by any folded
+ * root ownership edges. Reads the touched rows once, replays the bookkeeping,
+ * and writes only the changed rows as multi-row upserts: a node whose stored
+ * edges already match costs no write.
  */
 export async function writePrincipalHistoryNodes(
   tx: ClientSQLiteTransactionScope,
@@ -179,7 +157,7 @@ export async function writePrincipalHistoryNodes(
   rootEdges?: PrincipalHistoryRootEdges | undefined,
 ): Promise<void> {
   if (nodes.length === 0 && !rootEdges) return;
-  const loaded = new Map<string, PrincipalHistoryNodeReference | null>();
+  const loaded = new Map<string, PrincipalHistoryNodeRow | null>();
   await loadNodeReferences(
     tx,
     scope,
@@ -202,61 +180,22 @@ export async function writePrincipalHistoryNodes(
     }),
     loaded,
   );
-  const replayed = replayNodeEdges(
-    scope,
-    nodes,
-    loaded,
-    await loadStoredNodeHashes(
-      tx,
-      scope,
-      nodes.map((node) => node.hash),
-    ),
-    rootEdges,
-  );
+  const replayed = replayNodeEdges(scope, nodes, loaded, rootEdges);
   const changed = [...replayed].flatMap(([hash, reference]) => {
     const before = loaded.get(hash);
     return reference && !(before && isSameNodeReference(before, reference))
       ? [reference]
       : [];
   });
-  for (const batch of batches(changed, REFERENCE_WRITE_BATCH_SIZE))
-    await tx
-      .insert(principalHistoryNodeReferences)
-      .values(batch)
-      .onConflictDoUpdate({
-        target: [
-          principalHistoryNodeReferences.scopeId,
-          principalHistoryNodeReferences.hash,
-        ],
-        set: {
-          referenceCount: excludedValue(
-            principalHistoryNodeReferences.referenceCount,
-          ),
-          managed: excludedValue(principalHistoryNodeReferences.managed),
-          leftHash: excludedValue(principalHistoryNodeReferences.leftHash),
-          rightHash: excludedValue(principalHistoryNodeReferences.rightHash),
-        },
-      })
-      .run();
-  const nodeRows = new Map(
-    nodes.map((node) => [
-      node.hash,
-      {
-        ...scope,
-        hash: node.hash,
-        leftHash: node.leftHash,
-        rightHash: node.rightHash,
-      },
-    ]),
-  );
-  for (const batch of batches([...nodeRows.values()], NODE_WRITE_BATCH_SIZE))
+  for (const batch of batches(changed, NODE_WRITE_BATCH_SIZE))
     await tx
       .insert(principalHistoryNodes)
       .values(batch)
       .onConflictDoUpdate({
         target: [principalHistoryNodes.scopeId, principalHistoryNodes.hash],
         set: {
-          organizationId: excludedValue(principalHistoryNodes.organizationId),
+          referenceCount: excludedValue(principalHistoryNodes.referenceCount),
+          managed: excludedValue(principalHistoryNodes.managed),
           leftHash: excludedValue(principalHistoryNodes.leftHash),
           rightHash: excludedValue(principalHistoryNodes.rightHash),
         },
@@ -265,8 +204,7 @@ export async function writePrincipalHistoryNodes(
 }
 
 /**
- * Deletes one cascade iteration's obsolete nodes and their liveness rows, then
- * releases their children: one decrement per distinct multiplicity, since
+ * Deletes one cascade iteration's obsolete rows, then releases their children: one decrement per distinct multiplicity, since
  * `max(count - k, 0)` equals k successive floored decrements. A child that is
  * itself obsolete in this iteration is deleted either way, as the per-node
  * loop deleted it before or after decrementing it.
@@ -274,10 +212,10 @@ export async function writePrincipalHistoryNodes(
 async function releaseObsoleteNodes(
   tx: ClientSQLiteTransactionScope,
   scope: PrincipalHistoryNodeScope,
-  obsolete: readonly PrincipalHistoryNodeReference[],
+  obsolete: readonly PrincipalHistoryNodeRow[],
 ): Promise<void> {
   const hashes = obsolete.map((node) => node.hash);
-  for (const batch of batches(hashes, SCOPED_HASH_BATCH_SIZE)) {
+  for (const batch of batches(hashes, SCOPED_HASH_BATCH_SIZE))
     await tx
       .delete(principalHistoryNodes)
       .where(
@@ -288,16 +226,6 @@ async function releaseObsoleteNodes(
         ),
       )
       .run();
-    await tx
-      .delete(principalHistoryNodeReferences)
-      .where(
-        and(
-          eq(principalHistoryNodeReferences.scopeId, scope.scopeId),
-          inArray(principalHistoryNodeReferences.hash, batch),
-        ),
-      )
-      .run();
-  }
   const released = new Set(hashes);
   const multiplicity = new Map<string, number>();
   for (const node of obsolete)
@@ -310,19 +238,16 @@ async function releaseObsoleteNodes(
   for (const [count, children] of [...byCount].sort(([a], [b]) => a - b))
     for (const batch of batches(children.sort(), SCOPED_HASH_BATCH_SIZE))
       await tx
-        .update(principalHistoryNodeReferences)
+        .update(principalHistoryNodes)
         .set({
           // `count` is a positive integer computed here, inlined like the literal 1.
-          referenceCount: sql`max(${principalHistoryNodeReferences.referenceCount} - ${sql.raw(String(count))}, 0)`,
+          referenceCount: sql`max(${principalHistoryNodes.referenceCount} - ${sql.raw(String(count))}, 0)`,
         })
         .where(
           and(
-            eq(principalHistoryNodeReferences.scopeId, scope.scopeId),
-            eq(
-              principalHistoryNodeReferences.organizationId,
-              scope.organizationId,
-            ),
-            inArray(principalHistoryNodeReferences.hash, batch),
+            eq(principalHistoryNodes.scopeId, scope.scopeId),
+            eq(principalHistoryNodes.organizationId, scope.organizationId),
+            inArray(principalHistoryNodes.hash, batch),
           ),
         )
         .run();
@@ -337,19 +262,16 @@ export async function reclaimPrincipalHistoryNodes(
   while (reclaimed < 64) {
     const obsolete = await tx
       .select()
-      .from(principalHistoryNodeReferences)
+      .from(principalHistoryNodes)
       .where(
         and(
-          eq(principalHistoryNodeReferences.scopeId, scope.scopeId),
-          eq(
-            principalHistoryNodeReferences.organizationId,
-            scope.organizationId,
-          ),
-          eq(principalHistoryNodeReferences.managed, true),
-          eq(principalHistoryNodeReferences.referenceCount, 0),
+          eq(principalHistoryNodes.scopeId, scope.scopeId),
+          eq(principalHistoryNodes.organizationId, scope.organizationId),
+          eq(principalHistoryNodes.managed, true),
+          eq(principalHistoryNodes.referenceCount, 0),
         ),
       )
-      .orderBy(asc(principalHistoryNodeReferences.hash))
+      .orderBy(asc(principalHistoryNodes.hash))
       .limit(64 - reclaimed);
     if (obsolete.length === 0) break;
     await releaseObsoleteNodes(tx, scope, obsolete);

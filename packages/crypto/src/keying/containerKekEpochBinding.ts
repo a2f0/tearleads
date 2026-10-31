@@ -2,12 +2,10 @@ import {
   computeContainerKekPublicCommitment,
   isContainerKekMaterialId,
 } from "./containerKekMaterial";
-import {
-  type ContainerKekParentBinding,
-  creationParentEpochId,
-} from "./containerKekParent";
+import { creationParentEpochId } from "./containerKekParent";
 import { throwVerification } from "./shared";
 import type {
+  ContainerKekParentBinding,
   ContainerKeyEpoch,
   VerifiedContainerAccessManifest,
 } from "./types";

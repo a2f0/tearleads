@@ -6,6 +6,7 @@ import {
   sign,
   toFingerprint,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import {
@@ -40,7 +41,7 @@ async function signedVerifyInput(
     input: {
       apiOrigin: API_ORIGIN,
       fingerprint,
-      signature: Array.from(signature),
+      signature: bytesToBase64(signature),
     },
     userId,
   };

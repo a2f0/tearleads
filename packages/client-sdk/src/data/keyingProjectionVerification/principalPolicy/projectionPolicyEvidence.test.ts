@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { computePrincipalStatePayloadCiphertextHash } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
@@ -180,18 +181,14 @@ for (const fork of [false, true]) {
       });
       await loadPrincipalPolicyCheckpoint(execSql, "group", state.principalId);
       const stateHash = fork ? "f".repeat(64) : state.stateHash;
-      await execSql(
-        `INSERT INTO principal_policy_checkpoints
-          (principal_type, principal_id, version, state_hash, updated_at)
-          VALUES (?, ?, ?, ?, ?)`,
-        [
-          "group",
-          state.principalId,
-          state.version,
-          stateHash,
-          "2026-09-26T00:00:00.000Z",
-        ],
-      );
+      await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+        "group",
+        state.principalId,
+        state.version,
+        stateHash,
+        "2026-09-26T00:00:00.000Z",
+        data.organizationId,
+      ]);
       const verification = verifyProjectionPolicyEvidence({
         ...input,
         warmReferencedPrincipalPolicies: warmer(execSql),

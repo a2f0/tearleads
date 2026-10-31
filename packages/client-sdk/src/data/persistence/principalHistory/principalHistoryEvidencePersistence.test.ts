@@ -147,6 +147,25 @@ test("missing proof nodes cannot establish a citation", async () => {
   }
 });
 
+test("liveness placeholders are not proof nodes", async () => {
+  const stored = await evidenceFixture();
+  try {
+    // Every row stays for its reference count, but none is a stored node.
+    await stored.runtime.db
+      .update(principalHistoryNodes)
+      .set({ leftHash: null, rightHash: null })
+      .run();
+    expect(
+      await stored.runtime.db.select().from(principalHistoryNodes),
+    ).not.toEqual([]);
+    await expect(stored.select()).rejects.toMatchObject({
+      code: "missing_dependency",
+    });
+  } finally {
+    stored.close();
+  }
+});
+
 test("historical selection reads only a logarithmic path and one entry", async () => {
   const stored = await evidenceFixture();
   try {

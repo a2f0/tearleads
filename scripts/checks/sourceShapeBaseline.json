@@ -79,8 +79,8 @@
       "bytes": 2773161
     },
     "docs/protocol-specification.md": {
-      "lines": 786,
-      "bytes": 42491
+      "lines": 792,
+      "bytes": 42899
     },
     "docs/security-guarantees.md": {
       "lines": 847,
@@ -107,8 +107,8 @@
       "bytes": 550577
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 2103,
-      "bytes": 67556
+      "lines": 2104,
+      "bytes": 67618
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 672,
@@ -163,8 +163,8 @@
       "bytes": 126294
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1232,
-      "bytes": 40967
+      "lines": 1233,
+      "bytes": 41011
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
       "lines": 2277,
@@ -264,15 +264,15 @@
     },
     "packages/client-sdk/src/index.ts": {
       "lines": 615,
-      "bytes": 18189
+      "bytes": 18191
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 559,
       "bytes": 19610
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 455,
-      "bytes": 32397
+      "lines": 459,
+      "bytes": 32698
     },
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
       "lines": 572,
@@ -281,6 +281,10 @@
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery/documentDiscovery.test.ts": {
       "lines": 946,
       "bytes": 28741
+    },
+    "packages/client-sdk/src/workflows/container-contents/documentLinks/index.ts": {
+      "lines": 512,
+      "bytes": 17960
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries/documentQueries.test.ts": {
       "lines": 521,
@@ -331,12 +335,16 @@
       "bytes": 13564
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1038,
-      "bytes": 32167
+      "lines": 1048,
+      "bytes": 32525
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
       "lines": 24890,
       "bytes": 1009099
+    },
+    "packages/validators/src/operation/openApi.test.ts": {
+      "lines": 511,
+      "bytes": 17079
     },
     "packages/validators/src/response/index.ts": {
       "lines": 593,

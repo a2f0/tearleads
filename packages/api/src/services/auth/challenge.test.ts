@@ -86,7 +86,7 @@ test("verifyChallenge returns a session token for a valid signature", async () =
   const result = await verifyChallenge(runtime, {
     apiOrigin: API_ORIGIN,
     fingerprint,
-    signature: Array.from(signature),
+    signature: bytesToBase64(signature),
   });
 
   expect(result.token).toBe("test-session");
@@ -100,7 +100,7 @@ test("registered users can log in after their registration challenge is lost", a
   const result = await verifyChallenge(runtime, {
     apiOrigin: API_ORIGIN,
     fingerprint,
-    signature: Array.from(
+    signature: bytesToBase64(
       sign(
         authChallengeSigningBytes({
           apiOrigin: API_ORIGIN,
@@ -124,7 +124,7 @@ test("verifyChallenge rejects raw challenge signatures without the auth domain",
     verifyChallenge(runtime, {
       apiOrigin: API_ORIGIN,
       fingerprint,
-      signature: Array.from(signature),
+      signature: bytesToBase64(signature),
     }),
   );
 
@@ -152,7 +152,7 @@ test("verifyChallenge ignores a signing key planted in the key/value store", asy
     verifyChallenge(runtime, {
       apiOrigin: API_ORIGIN,
       fingerprint,
-      signature: Array.from(staleSignature),
+      signature: bytesToBase64(staleSignature),
     }),
   );
   expect(staleError.reason).toBe("invalid_signature");
@@ -170,7 +170,7 @@ test("verifyChallenge ignores a signing key planted in the key/value store", asy
   const result = await verifyChallenge(runtime, {
     apiOrigin: API_ORIGIN,
     fingerprint,
-    signature: Array.from(canonicalSignature),
+    signature: bytesToBase64(canonicalSignature),
   });
   expect(result.token).toBe("test-session");
 });
@@ -202,7 +202,7 @@ test("verifyChallenge rejects challenges backed only by key/value entries", asyn
     verifyChallenge(runtime, {
       apiOrigin: API_ORIGIN,
       fingerprint,
-      signature: Array.from(signature),
+      signature: bytesToBase64(signature),
     }),
   );
 
@@ -216,7 +216,7 @@ test("verifyChallenge throws service errors for auth failures", async () => {
     verifyChallenge(runtime, {
       apiOrigin: API_ORIGIN,
       fingerprint: "missing-challenge",
-      signature: Array.from(new Uint8Array(32)),
+      signature: bytesToBase64(new Uint8Array(32)),
     }),
   );
   expect(missingChallenge.reason).toBe("challenge_not_found");
@@ -235,7 +235,7 @@ test("verifyChallenge throws service errors for auth failures", async () => {
     verifyChallenge(runtime, {
       apiOrigin: API_ORIGIN,
       fingerprint,
-      signature: Array.from(invalidSignature),
+      signature: bytesToBase64(invalidSignature),
     }),
   );
   expect(badSignature.reason).toBe("invalid_signature");

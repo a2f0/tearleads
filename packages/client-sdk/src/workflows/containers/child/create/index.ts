@@ -26,6 +26,7 @@ import {
 } from "../../../../data/containers/shared/events";
 import { acknowledgeContainerMutation } from "../../../../data/containers/shared/mutationAcknowledgement";
 import {
+  containerKekParentRef,
   containerManifestRef,
   getParentCreateContext,
   readContainerState,
@@ -46,7 +47,6 @@ import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
 } from "../../../../data/documents/shared/types";
-import { readCanonicalRecord } from "../../../../data/keying/canonicalJson";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
@@ -101,10 +101,7 @@ function buildContainerCreateRequest(input: {
       input.parentProjection.path.map(containerManifestRef),
     predecessorBridge: null,
     keyring: null,
-    parentKekState: readCanonicalRecord(
-      input.parentKek,
-      "Container create parent KEK state",
-    ),
+    parentKekRef: containerKekParentRef(input.parentKek),
   };
 }
 

@@ -12,7 +12,6 @@ import {
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
   principalPolicyCheckpoints,
-  principalPolicyOrganizations,
   supersededContainerBindings,
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
@@ -279,23 +278,6 @@ test("remote reset clears owned policy caches without read-model rows", async ()
       previousStatesJson: "[]",
       updatedAt: STALE,
     });
-    await db.insert(principalPolicyOrganizations).values([
-      {
-        principalType: "group",
-        principalId: "group-old",
-        organizationId: "org-old",
-      },
-      {
-        principalType: "group",
-        principalId: "group-keep",
-        organizationId: "org-keep",
-      },
-      {
-        principalType: "group",
-        principalId: "org-old",
-        organizationId: "org-keep",
-      },
-    ]);
     await db
       .insert(principalPolicies)
       .values([
@@ -346,6 +328,7 @@ test("remote reset clears owned policy caches without read-model rows", async ()
       {
         principalType: "group",
         principalId: "group-old",
+        organizationId: "org-old",
         version: 2,
         stateHash: "old-head",
         updatedAt: STALE,
@@ -353,6 +336,7 @@ test("remote reset clears owned policy caches without read-model rows", async ()
       {
         principalType: "group",
         principalId: "group-keep",
+        organizationId: "org-keep",
         version: 2,
         stateHash: "keep-head",
         updatedAt: STALE,
@@ -360,6 +344,7 @@ test("remote reset clears owned policy caches without read-model rows", async ()
       {
         principalType: "group",
         principalId: "org-old",
+        organizationId: "org-keep",
         version: 2,
         stateHash: "collision-head",
         updatedAt: STALE,
@@ -371,12 +356,8 @@ test("remote reset clears owned policy caches without read-model rows", async ()
     });
 
     expect(result.clearedPrincipalPolicyCount).toBe(1);
-    for (const table of [
-      principalPolicyCheckpoints,
-      principalPolicyOrganizations,
-    ] as const) {
-      expect(await db.select().from(table)).toHaveLength(3);
-    }
+    // Every pin survives with its owner.
+    expect(await db.select().from(principalPolicyCheckpoints)).toHaveLength(3);
     for (const table of [
       principalPolicies,
       principalPolicyBundleHistory,

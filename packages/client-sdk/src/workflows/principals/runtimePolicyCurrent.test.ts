@@ -3,6 +3,7 @@ import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { assertCurrentMatchesVerifiedPolicy } from "../../data/persistence/principalPolicy/verifiedPrincipalPolicyCurrent";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
@@ -133,16 +134,14 @@ test("a conflicting durable pin blocks local current reuse without an online ret
     const reference = principalPolicyHead(history.group);
     await f.read(true, reference);
     const count = f.requests.length;
-    await f.db
-      .insert(principalPolicyCheckpoints)
-      .values({
-        principalType: reference.principalType,
-        principalId: reference.principalId,
-        version: reference.version,
-        stateHash: "f".repeat(64),
-        updatedAt: history.group.currentState.createdAt,
-      })
-      .run();
+    await pinPrincipalPolicyCheckpoint(f.db, {
+      principalType: reference.principalType,
+      principalId: reference.principalId,
+      version: reference.version,
+      stateHash: "f".repeat(64),
+      updatedAt: history.group.currentState.createdAt,
+      organizationId: history.organizationId,
+    });
     await expect(f.read(true, reference)).rejects.toMatchObject({
       code: "equivocation",
     });

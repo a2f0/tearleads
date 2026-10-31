@@ -44,7 +44,6 @@ export const organizationReadModelTables = [
 export const principalPolicyTables = [
   "principalGrantRetirements",
   "principalHistoryEntries",
-  "principalHistoryNodeReferences",
   "principalHistoryNodes",
   "principalHistoryPrefixes",
   "principalHistoryRootOwners",
@@ -54,7 +53,6 @@ export const principalPolicyTables = [
   "principalPolicies",
   "principalPolicyBundleHistory",
   "principalPolicyBundleReferences",
-  "principalPolicyOrganizations",
 ];
 
 export const identityTables = ["trustedUserIdentityPins"];

@@ -32,6 +32,7 @@ import {
 import { isStaleParentContainerPathFailure } from "../../../data/containers/shared/mutationFailures";
 import {
   asContainerManifestBundle,
+  containerKekParentRef,
   uniqueSortedManifestHashes,
 } from "../../../data/containers/shared/projection";
 import type {
@@ -55,7 +56,6 @@ import { buildContainerRotationArtifacts } from "./move/moveRotation";
 import {
   containerMutationRequestCore,
   previousPathRequestFields,
-  readCanonicalRecordOrNull,
 } from "./mutationRequestCore";
 import {
   submitAcknowledgedContainerMutation,
@@ -96,10 +96,9 @@ function buildContainerRevokeRequest(input: {
       "Container revoke predecessor bridge",
     ),
     keyring: readCanonicalRecord(input.keyring, "Container revoke keyring"),
-    parentKekState: readCanonicalRecordOrNull(
-      input.parentKek,
-      "Container revoke parent KEK state",
-    ),
+    parentKekRef: input.parentKek
+      ? containerKekParentRef(input.parentKek)
+      : null,
   };
 }
 

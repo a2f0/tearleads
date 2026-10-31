@@ -3,22 +3,18 @@ import {
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
-  principalPolicyOrganizations,
 } from "../../sqlite/schema";
 import {
   principalHistoryEntries,
   principalHistoryNodes,
   principalHistoryPrefixes,
 } from "../../sqlite/schema/principalHistoryEvidenceSchema";
-import {
-  principalHistoryNodeReferences,
-  principalHistoryRootOwners,
-} from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
+import { principalHistoryRootOwners } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
 import { principalKeyEnvelopeArchive } from "../../sqlite/schema/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import { remoteResetBatches } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { listPrincipalPolicyCheckpointPrincipals } from "../keyingCheckpoints/keyingCheckpointPersistence";
+import { listPrincipalPolicyOwners } from "../keyingCheckpoints/principalPolicyOrganizationPersistence";
 
 export interface RemoteResetPrincipalKey {
   readonly principalId: string;
@@ -45,8 +41,9 @@ export async function loadRemoteResetPrincipalScope(
         type: principalPolicies.principalType,
       })
       .from(principalPolicies),
-    Promise.all([
-      ...[principalPolicyBundleHistory, principalPolicyBundleReferences].map(
+    // Every checkpoint row names its owner, so only the caches need a check.
+    Promise.all(
+      [principalPolicyBundleHistory, principalPolicyBundleReferences].map(
         (table) =>
           tx
             .selectDistinct({
@@ -55,15 +52,8 @@ export async function loadRemoteResetPrincipalScope(
             })
             .from(table),
       ),
-      listPrincipalPolicyCheckpointPrincipals(tx),
-    ]),
-    tx
-      .select({
-        organizationId: principalPolicyOrganizations.organizationId,
-        principalId: principalPolicyOrganizations.principalId,
-        principalType: principalPolicyOrganizations.principalType,
-      })
-      .from(principalPolicyOrganizations),
+    ),
+    listPrincipalPolicyOwners(tx),
   ]);
   const owners = new Map(
     ownershipRows.map((row) => [
@@ -124,7 +114,6 @@ export async function clearRemoteResetPrincipalRows(input: {
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   for (const table of [
-    principalHistoryNodeReferences,
     principalHistoryRootOwners,
     principalHistoryEntries,
     principalHistoryNodes,

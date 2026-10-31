@@ -1,16 +1,15 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type { AccessEventType } from "@tearleads/crypto";
 import {
+  type ContainerKekParentBinding,
   computeContainerKeyEpochHash,
   type VerifiedContainerAccessManifest,
-  type VerifiedContainerKekState,
 } from "@tearleads/crypto";
 import {
   getCurrentContainerKeyEpoch,
   toContainerKeyEpoch,
 } from "../../../../access/read/containerKekStore";
 import { resolveCurrentContainerKekTargetsMapped } from "../../../../access/read/containerKekTargets";
-import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
 import {
   ancestorRekeysRequired,
   ContainerMutationError,
@@ -21,10 +20,15 @@ import {
 const NON_MINTING_EVENT_TYPES: ReadonlySet<AccessEventType> =
   new Set<AccessEventType>(["container.grant", "container.recite"]);
 
+/**
+ * The request cites the parent KEK state by id and hash; the server compares
+ * that citation with the parent's current epoch from its own store, so the
+ * verifier below binds the child's epoch and parent wrap to the stored head.
+ */
 export async function assertParentKekStateCurrent(
   executor: DatabaseTransaction,
   manifest: VerifiedContainerAccessManifest,
-  parentKekState: VerifiedContainerKekState | null,
+  parentKekState: ContainerKekParentBinding | null,
   previousManifest: VerifiedContainerAccessManifest | null = null,
 ): Promise<void> {
   if (!manifest.state.parentContainerId) {
@@ -86,8 +90,7 @@ export async function assertParentKekStateCurrent(
 
   if (
     parentKekState.containerKeyEpochId !== currentParentKeyEpoch.id ||
-    parentKekState.keyEpochHash !== currentParentKeyEpochHash ||
-    !canonicalJsonEquals(parentKekState.keyEpoch, currentParentKeyEpoch)
+    parentKekState.keyEpochHash !== currentParentKeyEpochHash
   ) {
     throw mutationStateStale("Parent KEK state is stale");
   }

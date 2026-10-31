@@ -160,7 +160,6 @@ export const principalPolicySurface = [
   `${sdk}/data/persistence/principalKeys/principalGrantRetirementPersistence.ts`,
   `${sdk}/data/persistence/principalMutationJournalPersistence.ts`,
   `${sdk}/data/persistence/principalPolicy/locallyAcknowledgedPrincipalPolicyPersistence.ts`,
-  `${sdk}/data/persistence/principalPolicy/principalPolicyOrganizationPersistence.ts`,
   `${sdk}/data/persistence/principalPolicy/principalPolicyPersistence.ts`,
   `${sdk}/data/persistence/principalPolicy/principalPolicyRemoteReset.ts`,
   `${sdk}/data/persistence/principalPolicy/principalPolicyReferencePersistence.ts`,
@@ -226,6 +225,7 @@ export const keyingVerificationSurface = [
   `${sdk}/data/persistence/keyingCheckpoints/keyingCheckpointPersistence.ts`,
   `${sdk}/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence.ts`,
   `${sdk}/data/persistence/keyingCheckpoints/organizationReplacementCheckpointPersistence.ts`,
+  `${sdk}/data/persistence/keyingCheckpoints/principalPolicyOrganizationPersistence.ts`,
   `${sdk}/data/persistence/organizationFounderPersistence.ts`,
   `${sdk}/data/persistence/verifiedManifestBundlePersistence.ts`,
 ];

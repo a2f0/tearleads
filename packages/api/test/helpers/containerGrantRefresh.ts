@@ -8,7 +8,7 @@ import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
-import { createContainerKeyWrap } from "./containerKeying";
+import { createContainerKeyWrap, parentKekRef } from "./containerKeying";
 import {
   containerManifestRef,
   containerManifestRefs,
@@ -107,7 +107,7 @@ export async function buildPrincipalGrantRefreshRequest(input: {
     keyring: null,
     predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
+    parentKekRef: parentKekRef(input.parentKekState),
     userRecipientKeys: refreshed.userRecipientKeys as unknown as Record<
       string,
       unknown

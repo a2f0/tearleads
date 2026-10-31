@@ -3,6 +3,7 @@ import { createContainerManifestFixture } from "@tearleads/crypto/test-fixtures"
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { manifestBundle } from "../../../../test/helpers/ancestorCitationScenario";
 import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
 import {
@@ -104,16 +105,14 @@ for (const persistVerificationCheckpoints of [false, true]) {
   test(`public authorization rechecks a conflicting local pin during ${persistVerificationCheckpoints ? "admission" : "validation"}`, async () => {
     const f = await fixture();
     try {
-      await f.execSql(
-        `INSERT INTO principal_policy_checkpoints (principal_type, principal_id, version, state_hash, updated_at) VALUES (?, ?, ?, ?, ?)`,
-        [
-          "group",
-          f.data.created.currentState.principalId,
-          1,
-          "f".repeat(64),
-          "2026-10-06T00:00:00.000Z",
-        ],
-      );
+      await f.execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+        "group",
+        f.data.created.currentState.principalId,
+        1,
+        "f".repeat(64),
+        "2026-10-06T00:00:00.000Z",
+        f.data.organizationId,
+      ]);
       await expect(
         finalizeProjectionCheckpoints(f.context, {
           persistVerificationCheckpoints,
@@ -147,16 +146,14 @@ for (const persistVerificationCheckpoints of [false, true]) {
 test("a newer pin acquired after recovery is unavailable and leaves the complete batch unchanged", async () => {
   const f = await fixture();
   try {
-    await f.execSql(
-      `INSERT INTO principal_policy_checkpoints (principal_type, principal_id, version, state_hash, updated_at) VALUES (?, ?, ?, ?, ?)`,
-      [
-        "group",
-        f.data.created.currentState.principalId,
-        3,
-        "f".repeat(64),
-        "2026-10-06T00:00:00.000Z",
-      ],
-    );
+    await f.execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+      "group",
+      f.data.created.currentState.principalId,
+      3,
+      "f".repeat(64),
+      "2026-10-06T00:00:00.000Z",
+      f.data.organizationId,
+    ]);
     await expect(
       finalizeProjectionCheckpoints(f.context, {}),
     ).rejects.toMatchObject({ name: "ProjectionDependencyUnavailableError" });

@@ -12,7 +12,7 @@ export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
  * verified manifest bundle cache; v9 changed the organization read-model table
  * shapes.
  */
-export const BACKUP_FORMAT_VERSION = 14;
+export const BACKUP_FORMAT_VERSION = 15;
 
 export type BackupSqlValue = string | number | null;
 export type BackupSqlRow = Record<string, BackupSqlValue>;
