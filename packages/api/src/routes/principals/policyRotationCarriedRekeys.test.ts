@@ -35,20 +35,22 @@ test("a policy rotation carries the levels above a granted container", async () 
   let tree: {
     lower: string;
     upper: string;
-    upperBundle: ReturnType<typeof accessManifestFromContainerResponse>;
-    upperKek: ReturnType<typeof kekStateFromContainerResponse>;
+    upperBundle: Awaited<
+      ReturnType<typeof accessManifestFromContainerResponse>
+    >;
+    upperKek: Awaited<ReturnType<typeof kekStateFromContainerResponse>>;
   } | null = null;
   const prepared = await prepareRotation({
     beforeSigning: async (owner, root) => {
       const upper = await createChildContainer({ parent: root, signer: owner });
-      const upperBundle = accessManifestFromContainerResponse(upper);
-      const upperKek = kekStateFromContainerResponse(upper);
+      const upperBundle = await accessManifestFromContainerResponse(upper);
+      const upperKek = await kekStateFromContainerResponse(upper);
       const lower = await createChildContainer({
         parent: { bundle: upperBundle, kekState: upperKek },
         parentPath: [root.bundle],
         signer: owner,
       });
-      const lowerBundle = accessManifestFromContainerResponse(lower);
+      const lowerBundle = await accessManifestFromContainerResponse(lower);
       const granted = await routeApp.request(
         `/containers/${lower.containerId}/share`,
         {
@@ -62,7 +64,7 @@ test("a policy rotation carries the levels above a granted container", async () 
               parentKekState: upperKek,
               previous: lowerBundle,
               previousContainerPath: [root.bundle, upperBundle, lowerBundle],
-              previousKekState: kekStateFromContainerResponse(lower),
+              previousKekState: await kekStateFromContainerResponse(lower),
               recipient: grantee,
               signer: owner,
             }),
@@ -152,15 +154,15 @@ test("a policy rotation carries the levels above a granted container", async () 
 
 async function prepareWithUpper(rotateKey: boolean) {
   let upper: {
-    bundle: ReturnType<typeof accessManifestFromContainerResponse>;
-    kekState: ReturnType<typeof kekStateFromContainerResponse>;
+    bundle: Awaited<ReturnType<typeof accessManifestFromContainerResponse>>;
+    kekState: Awaited<ReturnType<typeof kekStateFromContainerResponse>>;
   } | null = null;
   const prepared = await prepareRotation({
     beforeSigning: async (owner, root) => {
       const child = await createChildContainer({ parent: root, signer: owner });
       upper = {
-        bundle: accessManifestFromContainerResponse(child),
-        kekState: kekStateFromContainerResponse(child),
+        bundle: await accessManifestFromContainerResponse(child),
+        kekState: await kekStateFromContainerResponse(child),
       };
       return root;
     },

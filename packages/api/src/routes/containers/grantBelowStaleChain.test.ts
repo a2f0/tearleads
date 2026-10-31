@@ -39,14 +39,14 @@ test("a first grant is refused below a stale chain", async () => {
 
   const root = await bootstrapRoot(owner);
   const upper = await createChildContainer({ parent: root, signer: owner });
-  const upperBundle = accessManifestFromContainerResponse(upper);
-  const upperKek = kekStateFromContainerResponse(upper);
+  const upperBundle = await accessManifestFromContainerResponse(upper);
+  const upperKek = await kekStateFromContainerResponse(upper);
   const lower = await createChildContainer({
     parent: { bundle: upperBundle, kekState: upperKek },
     parentPath: [root.bundle],
     signer: owner,
   });
-  const lowerBundle = accessManifestFromContainerResponse(lower);
+  const lowerBundle = await accessManifestFromContainerResponse(lower);
 
   // Nothing below the root is granted, so it may rotate alone.
   const rotation = await buildRootContainerRekeyMutation({
@@ -71,7 +71,7 @@ test("a first grant is refused below a stale chain", async () => {
       parentKekState: upperKek,
       previous: lowerBundle,
       previousContainerPath: [rotation.bundle, upperBundle, lowerBundle],
-      previousKekState: kekStateFromContainerResponse(lower),
+      previousKekState: await kekStateFromContainerResponse(lower),
       recipient,
       signer: owner,
     }),

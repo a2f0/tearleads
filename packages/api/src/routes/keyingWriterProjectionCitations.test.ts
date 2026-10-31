@@ -3,7 +3,6 @@ import type { VerifiedContainerKekState } from "@tearleads/crypto";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
-  isContainerMutationResponse,
   isContainerWriterProjectionResponse,
   isDocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -21,6 +20,7 @@ import {
   decodeServedContainerProjection,
   decodeServedDocumentProjection,
 } from "../../test/helpers/servedWriterProjection";
+import { withStoredContainerMutation } from "../../test/helpers/storedContainerMutation";
 import { routeApp } from "../routeApp";
 
 // A container manifest pins the parent manifest it was created under, and
@@ -39,10 +39,8 @@ interface StoredContainer {
   readonly kekState: VerifiedContainerKekState;
 }
 
-function storedContainer(response: unknown): StoredContainer {
-  if (!isContainerMutationResponse(response)) {
-    throw new Error("Expected a container mutation response");
-  }
+async function storedContainer(value: unknown): Promise<StoredContainer> {
+  const response = await withStoredContainerMutation(value);
   return {
     bundle: response.accessManifest as AccessManifestBundleWire,
     containerId: response.containerId,
@@ -84,7 +82,7 @@ async function postShare(input: ShareInput): Promise<Response> {
 async function shareContainer(input: ShareInput): Promise<StoredContainer> {
   const response = await postShare(input);
   expect(response.status, await response.clone().text()).toBe(200);
-  return storedContainer(await response.json());
+  return await storedContainer(await response.json());
 }
 
 async function registerReader(): Promise<TestUser> {
@@ -102,10 +100,10 @@ async function createLineage(root: StoredRootFixture, owner: TestUser) {
     containerId: root.kekState.containerId,
     kekState: root.kekState,
   };
-  const parent1 = storedContainer(
+  const parent1 = await storedContainer(
     await createChildContainer({ parent: root, signer: owner }),
   );
-  const child1 = storedContainer(
+  const child1 = await storedContainer(
     await createChildContainer({
       parent: { bundle: parent1.bundle, kekState: parent1.kekState },
       parentPath: [rootContainer.bundle],
@@ -205,10 +203,10 @@ test(
     await authenticate(owner);
     const bob = await registerReader();
     const root = await bootstrapRoot(owner);
-    const parent1 = storedContainer(
+    const parent1 = await storedContainer(
       await createChildContainer({ parent: root, signer: owner }),
     );
-    const child1 = storedContainer(
+    const child1 = await storedContainer(
       await createChildContainer({
         parent: { bundle: parent1.bundle, kekState: parent1.kekState },
         parentPath: [root.bundle],
@@ -285,10 +283,10 @@ test("POST /containers/:containerId/share refuses a path that does not start at 
   await registerUser(owner);
   await authenticate(owner);
   const root = await bootstrapRoot(owner);
-  const parent = storedContainer(
+  const parent = await storedContainer(
     await createChildContainer({ parent: root, signer: owner }),
   );
-  const child = storedContainer(
+  const child = await storedContainer(
     await createChildContainer({
       parent: { bundle: parent.bundle, kekState: parent.kekState },
       parentPath: [root.bundle],
@@ -342,17 +340,17 @@ test("a child can be moved after its parent's head advanced and its projection s
   await authenticate(owner);
   const root = await bootstrapRoot(owner);
   const reader = await registerReader();
-  const parent1 = storedContainer(
+  const parent1 = await storedContainer(
     await createChildContainer({ parent: root, signer: owner }),
   );
-  const child = storedContainer(
+  const child = await storedContainer(
     await createChildContainer({
       parent: { bundle: parent1.bundle, kekState: parent1.kekState },
       parentPath: [root.bundle],
       signer: owner,
     }),
   );
-  const destination = storedContainer(
+  const destination = await storedContainer(
     await createChildContainer({ parent: root, signer: owner }),
   );
   const parent2 = await shareContainer({
@@ -364,7 +362,7 @@ test("a child can be moved after its parent's head advanced and its projection s
   });
 
   // The source path is the current one, which the child never pinned.
-  const moved = storedContainer(
+  const moved = await storedContainer(
     await moveContainer({
       destinationParent: destination.bundle,
       destinationParentKekState: destination.kekState,

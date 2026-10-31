@@ -78,8 +78,8 @@ test("a root writer can create folders but cannot mint a system destination", as
   invariant(isContainerMutationResponse(shared), "expected shared root");
   const sharedRoot = {
     ...root,
-    bundle: accessManifestFromContainerResponse(shared),
-    kekState: kekStateFromContainerResponse(shared),
+    bundle: await accessManifestFromContainerResponse(shared),
+    kekState: await kekStateFromContainerResponse(shared),
   };
   for (const systemSlot of [null, `sys_v1_${"a".repeat(43)}`]) {
     const response = await routeApp.request("/containers", {
@@ -147,8 +147,8 @@ test("a read-only root recipient can verify destination roles", async () => {
       await buildChildCreateRequest({
         root: {
           ...root,
-          bundle: accessManifestFromContainerResponse(shared),
-          kekState: kekStateFromContainerResponse(shared),
+          bundle: await accessManifestFromContainerResponse(shared),
+          kekState: await kekStateFromContainerResponse(shared),
         },
         signer: reader,
         systemSlot: null,

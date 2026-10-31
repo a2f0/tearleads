@@ -95,7 +95,7 @@ export async function deleteOrganizationGroup(input: {
     request: organizationRequest,
     response: stored.organizationPolicy.currentState,
   });
-  const organizationBundle = buildAcknowledgedGroupPolicyBundle({
+  const organizationBundle = await buildAcknowledgedGroupPolicyBundle({
     currentPolicy: externalAdminPolicy.bundle,
     expectedHead: organizationHead,
     request: organizationRequest,

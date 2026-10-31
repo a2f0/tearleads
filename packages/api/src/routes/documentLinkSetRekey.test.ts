@@ -3,7 +3,6 @@ import { db } from "@tearleads/api-shared/postgres";
 import type { ContainerAccessManifestState } from "@tearleads/crypto";
 import { createTestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../test/helpers/authenticate";
 import { buildRekeyRequest } from "../../test/helpers/containerMutationRotations";
@@ -20,14 +19,15 @@ import {
   kekStateFromContainerResponse,
 } from "../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../test/helpers/registerUser";
+import type { StoredContainerMutation } from "../../test/helpers/storedContainerMutation";
 import { getCurrentContainerKeyEpoch } from "../access/read/containerKekStore";
 import { routeApp } from "../routeApp";
 
 function rekeyedChildFixture(
-  previous: ContainerMutationResponse,
+  previous: StoredContainerMutation,
   request: ContainerMutationRequest,
-): ContainerMutationResponse {
-  const previousBundle = accessManifestFromContainerResponse(previous);
+): StoredContainerMutation {
+  const previousBundle = previous.accessManifest;
   const previousState = asVerifiedContainerManifest(previousBundle).state;
   const body = request.body as {
     containerKeyEpochId: string;
@@ -44,7 +44,7 @@ function rekeyedChildFixture(
     previousManifestHash: previousBundle.manifestHash,
     referencedPrincipalHeads: body.referencedPrincipalHeads,
   };
-  const previousKek = kekStateFromContainerResponse(previous);
+  const previousKek = previous.containerKek;
   return {
     ...previous,
     accessManifest: {
@@ -56,14 +56,14 @@ function rekeyedChildFixture(
       manifest: request.manifest,
       manifestHash: request.expectedManifestHash,
       state: state as unknown as Record<string, unknown>,
-    } as unknown as ContainerMutationResponse["accessManifest"],
+    } as unknown as StoredContainerMutation["accessManifest"],
     containerKek: {
       ...previousKek,
       accessManifestHash: request.expectedManifestHash,
       containerKeyEpoch: previousKek.containerKeyEpoch + 1,
       containerKeyEpochId: body.containerKeyEpochId,
       containerKeyPublicKey: body.containerKeyPublicKey,
-    } as unknown as ContainerMutationResponse["containerKek"],
+    } as unknown as StoredContainerMutation["containerKek"],
   };
 }
 
@@ -76,12 +76,12 @@ test("document link-set mutations can rekey their changed child container", asyn
   const created = await createDocument({ owner, root });
   const linkRekeyRequest = await buildRekeyRequest({
     parentKekState: root.kekState,
-    previous: accessManifestFromContainerResponse(child),
+    previous: await accessManifestFromContainerResponse(child),
     previousContainerPath: [
       root.bundle,
-      accessManifestFromContainerResponse(child),
+      await accessManifestFromContainerResponse(child),
     ],
-    previousKekState: kekStateFromContainerResponse(child),
+    previousKekState: await kekStateFromContainerResponse(child),
     signer: owner,
   });
   const linkChild = rekeyedChildFixture(child, linkRekeyRequest);
@@ -109,12 +109,12 @@ test("document link-set mutations can rekey their changed child container", asyn
 
   const unlinkRekeyRequest = await buildRekeyRequest({
     parentKekState: root.kekState,
-    previous: accessManifestFromContainerResponse(linkChild),
+    previous: await accessManifestFromContainerResponse(linkChild),
     previousContainerPath: [
       root.bundle,
-      accessManifestFromContainerResponse(linkChild),
+      await accessManifestFromContainerResponse(linkChild),
     ],
-    previousKekState: kekStateFromContainerResponse(linkChild),
+    previousKekState: await kekStateFromContainerResponse(linkChild),
     signer: owner,
   });
   const unlinkChild = rekeyedChildFixture(linkChild, unlinkRekeyRequest);
@@ -143,6 +143,6 @@ test("document link-set mutations can rekey their changed child container", asyn
   });
   expect(isDocumentLinkSetMutationResponse(unlinked)).toBe(true);
   expect((await getCurrentContainerKeyEpoch(child.containerId, db))?.id).toBe(
-    kekStateFromContainerResponse(unlinkChild).containerKeyEpochId,
+    (await kekStateFromContainerResponse(unlinkChild)).containerKeyEpochId,
   );
 });

@@ -4,7 +4,10 @@ import {
   generateKemSeedAndKeyPair,
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  asContainerMutationFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { rekeyRemoteContainer } from "../../src/workflows/containers/child/rekey/rekeyRemote";
@@ -68,12 +71,12 @@ async function shareChildWithGrantee(input: {
     ...input.child.projection,
     path: [
       ...input.child.projection.path.slice(0, -1),
-      shared.response.accessManifest,
+      asContainerMutationFixture(shared.response).accessManifest,
     ],
     containerKeks: [
       ...input.child.projection.containerKeks.slice(0, -1),
       {
-        ...shared.response.containerKek,
+        ...asContainerMutationFixture(shared.response).containerKek,
         containerManifestHistory: [
           input.child.bundle,
           ...childKek.containerManifestHistory,
@@ -144,12 +147,12 @@ export async function relocatedChildHistory(
   const relocatedHashes = new Set(
     epoch1Manifests.map((bundle) => bundle.manifestHash),
   );
-  const epoch2Kek = rekeyed.response.containerKek;
+  const epoch2Kek = asContainerMutationFixture(rekeyed.response).containerKek;
   const projection: ContainerWriterProjectionResponse = {
     ...epoch1Projection,
     path: [
       ...epoch1Projection.path.slice(0, -1),
-      rekeyed.response.accessManifest,
+      asContainerMutationFixture(rekeyed.response).accessManifest,
     ],
     containerKeks: [
       {

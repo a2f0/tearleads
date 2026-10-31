@@ -20,6 +20,7 @@ import { createTestExecSql, createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import {
+  accessManifestFromContainerResponse,
   asVerifiedContainerManifest,
   bootstrapRoot,
   kekStateFromContainerResponse,
@@ -27,6 +28,7 @@ import {
 import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
 import { withProjectionHistoryRecovery } from "../../../test/helpers/projectionHistoryRecovery";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { withStoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
 
 test("SDK decrypts a historical binding after ancestor head changes and document relinking", async () => {
@@ -186,7 +188,9 @@ test("SDK decrypts a historical binding after ancestor head changes and document
       projection: destination,
       secretKey: owner.kem.secretKey,
     });
-    const destinationState = kekStateFromContainerResponse(other.response);
+    const destinationState = await kekStateFromContainerResponse(
+      other.response,
+    );
     const destinationKey = destinationKeys.get(
       destinationState.containerKeyEpochId,
     );
@@ -204,15 +208,19 @@ test("SDK decrypts a historical binding after ancestor head changes and document
       document.documentId,
       await buildDocumentLinkRequest({
         authorizingContainerPath: [
-          currentAncestor.response.accessManifest,
-          child.response.accessManifest,
+          await accessManifestFromContainerResponse(currentAncestor.response),
+          await accessManifestFromContainerResponse(child.response),
         ],
-        child: other.response,
+        child: await withStoredContainerMutation(other.response),
         createdDocument: document.response,
         owner,
         root: {
-          bundle: currentAncestor.response.accessManifest,
-          kekState: kekStateFromContainerResponse(currentAncestor.response),
+          bundle: await accessManifestFromContainerResponse(
+            currentAncestor.response,
+          ),
+          kekState: await kekStateFromContainerResponse(
+            currentAncestor.response,
+          ),
           principalPolicies: root.principalPolicies,
         },
         blobRewraps: [

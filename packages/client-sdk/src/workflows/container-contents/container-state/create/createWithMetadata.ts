@@ -20,7 +20,7 @@ import {
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   type buildMaterializedContainerCreatePlan,
-  readContainerMutationMetadataDocumentId,
+  signedContainerMetadataDocumentId,
 } from "../../../containers";
 import { repairContainerCreateFailure } from "../../../containers/child/create/createSubmission";
 import {
@@ -234,9 +234,11 @@ async function settleContainerWithMetadataCreate(input: {
   if (parentId === null) {
     throw new Error("A container create must commit under a parent");
   }
-  const metadataDocumentId = readContainerMutationMetadataDocumentId({
-    response: input.response.container,
-  });
+  // The acknowledgement carries no state: the metadata document is the one
+  // this client signed into the container, matched by the manifest hash.
+  const metadataDocumentId = signedContainerMetadataDocumentId(
+    input.containerPlan.plan,
+  );
   if (
     metadataDocumentId !== input.containerPlan.plan.metadataDocumentId ||
     input.response.metadataDocument.id !==

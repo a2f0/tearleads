@@ -78,6 +78,10 @@ import {
   decodeServedContainerProjection,
   decodeServedDocumentProjection,
 } from "../../test/helpers/servedWriterProjection";
+import {
+  type StoredContainerMutation,
+  withStoredContainerMutation,
+} from "../../test/helpers/storedContainerMutation";
 import { getCurrentContainerKeyEpoch } from "../access/read/containerKekStore";
 import { routeApp } from "../routeApp";
 
@@ -198,8 +202,8 @@ async function buildDocumentLinkRequest(input: {
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
 }): Promise<DocumentLinkSetMutationRequest> {
-  const childBundle = accessManifestFromContainerResponse(input.child);
-  const childKek = kekStateFromContainerResponse(input.child);
+  const childBundle = await accessManifestFromContainerResponse(input.child);
+  const childKek = await kekStateFromContainerResponse(input.child);
   const previousState = input.createdDocument.accessManifest.state;
   const documentId = input.createdDocument.id;
   const body: DocumentLinkAccessEventBody = {
@@ -308,7 +312,7 @@ async function buildDocumentUnlinkRequest(input: {
   readonly rotationBaselineSourceVersionVector?: string;
   readonly root: StoredRootFixture;
 }): Promise<DocumentLinkSetMutationRequest> {
-  const childBundle = accessManifestFromContainerResponse(input.child);
+  const childBundle = await accessManifestFromContainerResponse(input.child);
   const previousState = input.linkedDocument.accessManifest.state;
   const documentId = input.linkedDocument.id;
   const body: DocumentAccessEventBody = {
@@ -484,21 +488,21 @@ test("GET /containers/:containerId/writer-projection includes historical parent 
     parent: root,
     signer: owner,
   });
-  const parentABundle = accessManifestFromContainerResponse(parentA);
-  const parentAKek = kekStateFromContainerResponse(parentA);
+  const parentABundle = await accessManifestFromContainerResponse(parentA);
+  const parentAKek = await kekStateFromContainerResponse(parentA);
   const movedChildCreateBundle =
-    accessManifestFromContainerResponse(movedChild);
+    await accessManifestFromContainerResponse(movedChild);
   const movedUnderParentA = await moveContainer({
     destinationParent: parentABundle,
     destinationParentKekState: parentAKek,
     destinationParentPath: [root.bundle, parentABundle],
     previous: movedChildCreateBundle,
     previousContainerPath: [root.bundle, movedChildCreateBundle],
-    previousKekState: kekStateFromContainerResponse(movedChild),
+    previousKekState: await kekStateFromContainerResponse(movedChild),
     signer: owner,
   });
   const movedUnderParentABundle =
-    accessManifestFromContainerResponse(movedUnderParentA);
+    await accessManifestFromContainerResponse(movedUnderParentA);
   const movedBackToRoot = await moveContainer({
     destinationParent: root.bundle,
     destinationParentKekState: root.kekState,
@@ -509,7 +513,7 @@ test("GET /containers/:containerId/writer-projection includes historical parent 
       parentABundle,
       movedUnderParentABundle,
     ],
-    previousKekState: kekStateFromContainerResponse(movedUnderParentA),
+    previousKekState: await kekStateFromContainerResponse(movedUnderParentA),
     signer: owner,
   });
 
@@ -529,7 +533,7 @@ test("GET /containers/:containerId/writer-projection includes historical parent 
     body.path.map((entry: { manifestHash: string }) => entry.manifestHash),
   ).toEqual([
     root.bundle.manifestHash,
-    accessManifestFromContainerResponse(movedBackToRoot).manifestHash,
+    (await accessManifestFromContainerResponse(movedBackToRoot)).manifestHash,
   ]);
 
   const movedChildHistoryHashes =
@@ -602,7 +606,7 @@ test("container projections and mutations preserve current KEKs across damaged h
   expect(childProjection.containerKeks).toHaveLength(2);
   expect(childProjection.containerKeks[0]?.keyring).toEqual(
     firstRekey.request
-      .keyring as unknown as ContainerMutationResponse["containerKek"]["keyring"],
+      .keyring as unknown as StoredContainerMutation["containerKek"]["keyring"],
   );
   expect(childProjection.containerKeks[1]?.containerKeyEpochId).toBe(
     child.containerKek.containerKeyEpochId,
@@ -624,13 +628,12 @@ test("container projections and mutations preserve current KEKs across damaged h
     },
   );
   expect(secondResponse.status).toBe(200);
-  const secondMutation = await secondResponse.json();
-  expect(isContainerMutationResponse(secondMutation)).toBe(true);
-  expect(
-    (secondMutation as ContainerMutationResponse).containerKek.keyring,
-  ).toEqual(
+  const secondMutationBody = await secondResponse.json();
+  expect(isContainerMutationResponse(secondMutationBody)).toBe(true);
+  const secondMutation = await withStoredContainerMutation(secondMutationBody);
+  expect(secondMutation.containerKek.keyring).toEqual(
     secondRekey.request
-      .keyring as ContainerMutationResponse["containerKek"]["keyring"],
+      .keyring as StoredContainerMutation["containerKek"]["keyring"],
   );
 });
 
@@ -884,8 +887,9 @@ test("GET /documents/:documentId/writer-projection blocks revoked users after ro
     },
   );
   expect(shareResponse.status).toBe(200);
-  const shared = await shareResponse.json();
-  expect(isContainerMutationResponse(shared)).toBe(true);
+  const sharedBody = await shareResponse.json();
+  expect(isContainerMutationResponse(sharedBody)).toBe(true);
+  const shared = await withStoredContainerMutation(sharedBody);
 
   const recipientSharedProjectionResponse = await routeApp.request(
     `/containers/${root.kekState.containerId}/writer-projection`,
@@ -898,8 +902,8 @@ test("GET /documents/:documentId/writer-projection blocks revoked users after ro
   expect(recipientSharedProjectionResponse.status).toBe(200);
 
   const revokeRequest = await buildRootRevokeRequest({
-    previous: accessManifestFromContainerResponse(shared),
-    previousKekState: kekStateFromContainerResponse(shared),
+    previous: await accessManifestFromContainerResponse(shared),
+    previousKekState: await kekStateFromContainerResponse(shared),
     revokedUser: recipient,
     signer: owner,
   });
@@ -915,8 +919,9 @@ test("GET /documents/:documentId/writer-projection blocks revoked users after ro
     },
   );
   expect(revokeResponse.status).toBe(200);
-  const revoked = await revokeResponse.json();
-  expect(isContainerMutationResponse(revoked)).toBe(true);
+  const revokedBody = await revokeResponse.json();
+  expect(isContainerMutationResponse(revokedBody)).toBe(true);
+  const revoked = await withStoredContainerMutation(revokedBody);
   expect(revoked.containerKek.containerKeyEpochId).not.toBe(
     shared.containerKek.containerKeyEpochId,
   );
@@ -924,8 +929,8 @@ test("GET /documents/:documentId/writer-projection blocks revoked users after ro
   const created = await createDocument({
     owner,
     root: {
-      bundle: accessManifestFromContainerResponse(revoked),
-      kekState: kekStateFromContainerResponse(revoked),
+      bundle: await accessManifestFromContainerResponse(revoked),
+      kekState: await kekStateFromContainerResponse(revoked),
       principalPolicies: root.principalPolicies,
     },
   });
@@ -1526,8 +1531,9 @@ test("GET /documents/:documentId/writer-projection refreshes same-epoch root sha
   );
 
   expect(shareResponse.status).toBe(200);
-  const shared = await shareResponse.json();
-  expect(isContainerMutationResponse(shared)).toBe(true);
+  const sharedBody = await shareResponse.json();
+  expect(isContainerMutationResponse(sharedBody)).toBe(true);
+  const shared = await withStoredContainerMutation(sharedBody);
   const [storedBundleBeforeProjection] = await db
     .select({
       linkSetManifestHash: documentContentKeyEpochs.linkSetManifestHash,
@@ -1831,22 +1837,24 @@ test("GET /documents/:documentId/writer-projection returns multi-linked containe
     signer: owner,
   });
   const movedChild = await moveContainer({
-    destinationParent: accessManifestFromContainerResponse(destinationParent),
-    destinationParentKekState: kekStateFromContainerResponse(destinationParent),
+    destinationParent:
+      await accessManifestFromContainerResponse(destinationParent),
+    destinationParentKekState:
+      await kekStateFromContainerResponse(destinationParent),
     destinationParentPath: [
       root.bundle,
-      accessManifestFromContainerResponse(destinationParent),
+      await accessManifestFromContainerResponse(destinationParent),
     ],
-    previous: accessManifestFromContainerResponse(child),
+    previous: await accessManifestFromContainerResponse(child),
     previousContainerPath: [
       root.bundle,
-      accessManifestFromContainerResponse(child),
+      await accessManifestFromContainerResponse(child),
     ],
-    previousKekState: kekStateFromContainerResponse(child),
+    previousKekState: await kekStateFromContainerResponse(child),
     signer: owner,
   });
-  const movedChildKekId =
-    kekStateFromContainerResponse(movedChild).containerKeyEpochId;
+  const movedChildKekId = (await kekStateFromContainerResponse(movedChild))
+    .containerKeyEpochId;
   const [storedMovedChildEpoch] = await db
     .select({
       wrappedPredecessorKey: containerKeyEpochs.wrappedPredecessorKey,

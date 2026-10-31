@@ -71,7 +71,7 @@ async function preparePublication(
     predecessorIndexRootHash,
   } = await restoreAcknowledgedPrincipalPredecessor(options, predecessor);
   const expectedHead = await checks.authoredHead(request);
-  checks.assertReceipt({ expectedHead, request, response });
+  await checks.assertReceipt({ expectedHead, request, response });
   const keys = await collectPrincipalPolicySignerPublicKeys({
     bundle: { currentState: response.currentState, previousStates: [] },
     resolveTrustedUserIdentity: options.resolveTrustedUserIdentity,

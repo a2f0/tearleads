@@ -72,9 +72,10 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // extra document projections. Discovery reads naming a held directory head
   // receive that head alone (0.74 MB, 1.18 MB before). The peer's prefetch of
   // an unstored folder cites its listed parent's held bundles, and every
-  // projection cites held KEK levels by digest: 0.59 MB received; keep about
-  // 10% headroom.
-  bodyBytes: { request: 130_000, response: 650_000 },
+  // projection cites held KEK levels by digest: 0.59 MB received. Share,
+  // recite, and create acknowledgements carry hashes, not echoes (the share
+  // 35 KB -> 0.8 KB): 0.51 MB received; keep about 10% headroom.
+  bodyBytes: { request: 130_000, response: 560_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,

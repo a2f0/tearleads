@@ -79,8 +79,8 @@
       "bytes": 2773161
     },
     "docs/protocol-specification.md": {
-      "lines": 769,
-      "bytes": 41322
+      "lines": 786,
+      "bytes": 42491
     },
     "docs/security-guarantees.md": {
       "lines": 847,
@@ -155,16 +155,16 @@
       "bytes": 19305
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3790,
-      "bytes": 126082
+      "lines": 3796,
+      "bytes": 126294
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1229,
-      "bytes": 40880
+      "lines": 1232,
+      "bytes": 40967
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2269,
-      "bytes": 73448
+      "lines": 2277,
+      "bytes": 73975
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 652,
@@ -349,6 +349,10 @@
     "scripts/architecture/subsystems.ts": {
       "lines": 627,
       "bytes": 24074
+    },
+    "scripts/checks/openApiCompatibilityErrors.ignore": {
+      "lines": 766,
+      "bytes": 52056
     }
   },
   "suppressions": {

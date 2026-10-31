@@ -41,8 +41,8 @@ test("a child share succeeds after its parent head advanced", async () => {
 
   const root = await bootstrapRoot(owner);
   const child = await createChildContainer({ parent: root, signer: owner });
-  const childBundle = accessManifestFromContainerResponse(child);
-  const childKek = kekStateFromContainerResponse(child);
+  const childBundle = await accessManifestFromContainerResponse(child);
+  const childKek = await kekStateFromContainerResponse(child);
 
   const rootShare = await share(
     owner.token,
@@ -60,13 +60,13 @@ test("a child share succeeds after its parent head advanced", async () => {
   if (!isContainerMutationResponse(rootResponse)) {
     throw new Error("Expected a root mutation response");
   }
-  const advancedRoot = accessManifestFromContainerResponse(rootResponse);
+  const advancedRoot = await accessManifestFromContainerResponse(rootResponse);
 
   const childShare = await share(
     owner.token,
     child.containerId,
     await buildContainerGrantRequest({
-      parentKekState: kekStateFromContainerResponse(rootResponse),
+      parentKekState: await kekStateFromContainerResponse(rootResponse),
       previous: childBundle,
       previousContainerPath: [advancedRoot, childBundle],
       previousKekState: childKek,
@@ -94,7 +94,7 @@ test("a warm-cache child share succeeds after its parent head advanced", async (
 
   const root = await bootstrapRoot(owner);
   const child = await createChildContainer({ parent: root, signer: owner });
-  const childBundle = accessManifestFromContainerResponse(child);
+  const childBundle = await accessManifestFromContainerResponse(child);
 
   const warm = await share(
     owner.token,
@@ -103,7 +103,7 @@ test("a warm-cache child share succeeds after its parent head advanced", async (
       parentKekState: root.kekState,
       previous: childBundle,
       previousContainerPath: [root.bundle, childBundle],
-      previousKekState: kekStateFromContainerResponse(child),
+      previousKekState: await kekStateFromContainerResponse(child),
       recipient: first,
       signer: owner,
     }),
@@ -137,13 +137,13 @@ test("a warm-cache child share succeeds after its parent head advanced", async (
     child.containerId,
     await buildContainerGrantRequest({
       containerManifestHistory: [childBundle],
-      parentKekState: kekStateFromContainerResponse(rootResponse),
-      previous: accessManifestFromContainerResponse(warmedResponse),
+      parentKekState: await kekStateFromContainerResponse(rootResponse),
+      previous: await accessManifestFromContainerResponse(warmedResponse),
       previousContainerPath: [
-        accessManifestFromContainerResponse(rootResponse),
-        accessManifestFromContainerResponse(warmedResponse),
+        await accessManifestFromContainerResponse(rootResponse),
+        await accessManifestFromContainerResponse(warmedResponse),
       ],
-      previousKekState: kekStateFromContainerResponse(warmedResponse),
+      previousKekState: await kekStateFromContainerResponse(warmedResponse),
       recipient: second,
       signer: owner,
     }),
@@ -172,7 +172,7 @@ test("a child share succeeds after its parent head advanced twice", async () => 
 
   const root = await bootstrapRoot(owner);
   const child = await createChildContainer({ parent: root, signer: owner });
-  const childBundle = accessManifestFromContainerResponse(child);
+  const childBundle = await accessManifestFromContainerResponse(child);
 
   // root_v1 -> root_v2
   const s1 = await share(
@@ -197,9 +197,9 @@ test("a child share succeeds after its parent head advanced twice", async () => 
     await buildContainerGrantRequest({
       containerManifestHistory: [root.bundle],
       parentKekState: null,
-      previous: accessManifestFromContainerResponse(v2),
-      previousContainerPath: [accessManifestFromContainerResponse(v2)],
-      previousKekState: kekStateFromContainerResponse(v2),
+      previous: await accessManifestFromContainerResponse(v2),
+      previousContainerPath: [await accessManifestFromContainerResponse(v2)],
+      previousKekState: await kekStateFromContainerResponse(v2),
       recipient: r2,
       signer: owner,
     }),
@@ -214,13 +214,13 @@ test("a child share succeeds after its parent head advanced twice", async () => 
     owner.token,
     child.containerId,
     await buildContainerGrantRequest({
-      parentKekState: kekStateFromContainerResponse(v3),
+      parentKekState: await kekStateFromContainerResponse(v3),
       previous: childBundle,
       previousContainerPath: [
-        accessManifestFromContainerResponse(v3),
+        await accessManifestFromContainerResponse(v3),
         childBundle,
       ],
-      previousKekState: kekStateFromContainerResponse(child),
+      previousKekState: await kekStateFromContainerResponse(child),
       recipient: r3,
       signer: owner,
     }),
@@ -245,7 +245,7 @@ test("a child share succeeds after a projection read warmed the cache", async ()
 
   const root = await bootstrapRoot(owner);
   const child = await createChildContainer({ parent: root, signer: owner });
-  const childBundle = accessManifestFromContainerResponse(child);
+  const childBundle = await accessManifestFromContainerResponse(child);
 
   const warmed = await routeApp.request(
     `/containers/${child.containerId}/writer-projection`,
@@ -274,13 +274,13 @@ test("a child share succeeds after a projection read warmed the cache", async ()
     owner.token,
     child.containerId,
     await buildContainerGrantRequest({
-      parentKekState: kekStateFromContainerResponse(rootResponse),
+      parentKekState: await kekStateFromContainerResponse(rootResponse),
       previous: childBundle,
       previousContainerPath: [
-        accessManifestFromContainerResponse(rootResponse),
+        await accessManifestFromContainerResponse(rootResponse),
         childBundle,
       ],
-      previousKekState: kekStateFromContainerResponse(child),
+      previousKekState: await kekStateFromContainerResponse(child),
       recipient: second,
       signer: owner,
     }),

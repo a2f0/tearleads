@@ -46,8 +46,8 @@ test("a fresh and then pinned SDK accepts API purge history with an old group-on
   const grouped = await grantContainerThroughReadGroup({
     actor: owner,
     container: {
-      bundle: accessManifestFromContainerResponse(groupedChild.response),
-      kekState: kekStateFromContainerResponse(groupedChild.response),
+      bundle: await accessManifestFromContainerResponse(groupedChild.response),
+      kekState: await kekStateFromContainerResponse(groupedChild.response),
       plaintextKek: groupedChild.plaintextKek,
     },
     parentKekState: root.kekState,

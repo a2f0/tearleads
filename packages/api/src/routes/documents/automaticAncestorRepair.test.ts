@@ -18,6 +18,7 @@ import {
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { withStoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
 
 test.each([
@@ -71,14 +72,22 @@ test.each([
         });
         if (!child) throw new Error("Expected child");
         descendantIds.push(child.containerId);
+        const stored = await withStoredContainerMutation(child.response);
         // Reuse acknowledged setup data; repair still starts in a fresh cold SDK.
         parentProjection = {
           ...parentProjection,
           containerId: child.containerId,
-          path: [...parentProjection.path, child.response.accessManifest],
+          path: [
+            ...parentProjection.path,
+            stored.accessManifest as unknown as (typeof parentProjection.path)[number],
+          ],
           containerKeks: [
             ...parentProjection.containerKeks,
-            child.response.containerKek,
+            // A fresh child has no predecessor manifest history.
+            {
+              ...stored.containerKek,
+              containerManifestHistory: [],
+            } as unknown as (typeof parentProjection.containerKeks)[number],
           ],
         };
       }

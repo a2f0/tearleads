@@ -27,16 +27,16 @@ testApiClient(
         containerKeyEpochId: "epoch-1",
       },
       event: {},
-      manifest: response.accessManifest.manifest,
-      expectedManifestHash: response.accessManifest.manifestHash,
+      manifest: { objectId: "container-1", objectKind: "container" },
+      expectedManifestHash: response.manifestHead.manifestHash,
       previousManifestRef: {
         containerId: "container-1",
-        manifestHash: response.accessManifest.manifestHash,
+        manifestHash: response.manifestHead.manifestHash,
       },
       previousContainerPathRefs: [
         {
           containerId: "container-1",
-          manifestHash: response.accessManifest.manifestHash,
+          manifestHash: response.manifestHead.manifestHash,
         },
       ],
       principalPolicyRefs: [],

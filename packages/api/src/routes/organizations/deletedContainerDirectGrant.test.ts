@@ -22,8 +22,8 @@ test("a deleted folder direct grant does not block roster removal", async () => 
     parent: { bundle: root.bundle, kekState: root.kekState },
     signer: owner,
   });
-  const childBundle = accessManifestFromContainerResponse(child.response);
-  const childKek = kekStateFromContainerResponse(child.response);
+  const childBundle = await accessManifestFromContainerResponse(child.response);
+  const childKek = await kekStateFromContainerResponse(child.response);
   const share = await routeApp.request(
     `/containers/${childKek.containerId}/share`,
     {

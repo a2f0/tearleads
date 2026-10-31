@@ -121,8 +121,8 @@ test("purge proof remains available to a later-revoked replica", async () => {
     throw new Error("Expected shared container response");
   }
   const sharedChild: StoredRootFixture = {
-    bundle: accessManifestFromContainerResponse(shared),
-    kekState: kekStateFromContainerResponse(shared),
+    bundle: await accessManifestFromContainerResponse(shared),
+    kekState: await kekStateFromContainerResponse(shared),
     principalPolicies: root.principalPolicies,
   };
   const sharedPath = [root.bundle, sharedChild.bundle];
@@ -169,11 +169,11 @@ test("purge proof remains available to a later-revoked replica", async () => {
   );
   expect(proofResponse.status).toBe(200);
   const proof = await assertPurgePolicyPages(proofResponse, replicaOwner);
+  const revokedHash = (await accessManifestFromContainerResponse(revoked))
+    .manifestHash;
   expect(
     proof.documentContainerManifestHistory.some(
-      (bundle) =>
-        bundle.manifestHash ===
-        accessManifestFromContainerResponse(revoked).manifestHash,
+      (bundle) => bundle.manifestHash === revokedHash,
     ),
   ).toBe(false);
 });

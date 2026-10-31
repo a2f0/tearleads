@@ -5,10 +5,8 @@ import {
   unwrapContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
-import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
   type ContainerKekLogResponse,
-  type ContainerMutationResponse,
   isContainerKekLogResponse,
 } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -19,6 +17,7 @@ import {
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { buildRootRevokeRequest } from "../../../test/helpers/keyingWriterProjectionRevoke";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { withStoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
 
 /**
@@ -387,12 +386,12 @@ test("the kek-log omits a removed member's retained envelope", async () => {
     },
   );
   expect(grantResponse.status).toBe(200);
-  const granted = (await grantResponse.json()) as ContainerMutationResponse;
+  const granted = await withStoredContainerMutation(await grantResponse.json());
 
   // Revoke: the epoch rotates and the removed member's OLD envelope stays
   // retained, which is the post-revocation disclosure this filter prevents.
   const revokeRequest = await buildRootRevokeRequest({
-    previous: granted.accessManifest as unknown as AccessManifestBundleWire,
+    previous: granted.accessManifest,
     previousKekState: root.kekState,
     revokedUser: removed,
     signer: owner,

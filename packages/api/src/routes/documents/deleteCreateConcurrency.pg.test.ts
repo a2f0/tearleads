@@ -31,7 +31,7 @@ for (const first of ["create", "delete"] as const) {
         root: {
           ...root,
           bundle: child.accessManifest,
-          kekState: kekStateFromContainerResponse(child),
+          kekState: await kekStateFromContainerResponse(child),
         },
         containerPath: [root.bundle, child.accessManifest],
       });
