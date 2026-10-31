@@ -5,7 +5,6 @@ import {
   accessManifestCheckpoints,
   clientSqlTables,
   principalPolicyCheckpoints,
-  principalPolicyOrganizations,
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../sqlite/sqlTableSchema";
@@ -34,12 +33,13 @@ for (const conflict of ["root", "policy", "owner"] as const) {
         await db.insert(principalPolicyCheckpoints).values({
           principalType: "group",
           principalId: authorization.memberGroupId,
+          organizationId,
           version: 1,
           stateHash: "e".repeat(64),
           updatedAt: "2026-09-28",
         });
       if (conflict === "owner")
-        await db.insert(principalPolicyOrganizations).values({
+        await db.insert(principalPolicyCheckpoints).values({
           principalType: "group",
           principalId: authorization.memberGroupId,
           organizationId: crypto.randomUUID(),
@@ -48,7 +48,6 @@ for (const conflict of ["root", "policy", "owner"] as const) {
         Promise.all([
           db.select().from(accessManifestCheckpoints),
           db.select().from(principalPolicyCheckpoints),
-          db.select().from(principalPolicyOrganizations),
         ]);
       const before = await snapshot();
       await expect(
@@ -61,7 +60,7 @@ for (const conflict of ["root", "policy", "owner"] as const) {
   });
 }
 
-test("replacement replay preserves later checkpoints and restores authenticated ownership", async () => {
+test("replacement replay preserves later checkpoints and their ownership", async () => {
   const { authorization } = await createReplacementAuthorizationFixture();
   const { execSql, close } = await createTestExecSql("replacement-pin-later");
   try {
@@ -78,6 +77,7 @@ test("replacement replay preserves later checkpoints and restores authenticated 
     await db.insert(principalPolicyCheckpoints).values({
       principalType: "group",
       principalId: authorization.adminGroupId,
+      organizationId: authorization.organizationId,
       version: 4,
       stateHash: "f".repeat(64),
       updatedAt: "2026-09-28",
@@ -110,9 +110,13 @@ test("replacement replay preserves later checkpoints and restores authenticated 
         }),
       ]),
     );
-    expect(await db.select().from(principalPolicyOrganizations)).toHaveLength(
-      3,
-    );
+    const owners = await db.select().from(principalPolicyCheckpoints);
+    expect(owners).toHaveLength(3);
+    expect(
+      owners.every(
+        (row) => row.organizationId === authorization.organizationId,
+      ),
+    ).toBe(true);
   } finally {
     close();
   }
@@ -135,7 +139,6 @@ test("an identity change refuses the entire replacement checkpoint transaction",
     ).toBe(false);
     expect(await db.select().from(accessManifestCheckpoints)).toEqual([]);
     expect(await db.select().from(principalPolicyCheckpoints)).toEqual([]);
-    expect(await db.select().from(principalPolicyOrganizations)).toEqual([]);
   } finally {
     close();
   }

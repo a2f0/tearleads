@@ -30,7 +30,7 @@ credentials are separate.
 Schema changes update the Drizzle definitions and regenerate both baselines.
 They require fresh server and client databases. Local database startup checks
 the current table shape and refuses an obsolete one with a "reset the local
-database" error, and backup imports require format version 13. Request
+database" error, and backup imports require format version 15. Request
 validation and signed-history verification enforce the active protocol
 throughout normal operation.
 

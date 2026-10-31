@@ -2,8 +2,6 @@ import { expect, test } from "bun:test";
 import {
   ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME,
   mergeAccessManifestCheckpointBackupTables,
-  mergePrincipalPolicyCheckpointBackupTables,
-  PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME,
 } from "./keyingCheckpointBackupMerge";
 import type { BackupSqlRow, BackupTable } from "./localBackupFormat";
 
@@ -21,14 +19,6 @@ const accessColumns = [
   "updated_at",
 ] as const;
 
-const principalColumns = [
-  "principal_type",
-  "principal_id",
-  "version",
-  "state_hash",
-  "updated_at",
-] as const;
-
 function accessRow(overrides: Partial<BackupSqlRow> = {}): BackupSqlRow {
   return {
     object_kind: "document",
@@ -41,32 +31,12 @@ function accessRow(overrides: Partial<BackupSqlRow> = {}): BackupSqlRow {
   };
 }
 
-function principalRow(overrides: Partial<BackupSqlRow> = {}): BackupSqlRow {
-  return {
-    principal_type: "group",
-    principal_id: "group-1",
-    version: 3,
-    state_hash: HASH_A,
-    updated_at: CURRENT_TIME,
-    ...overrides,
-  };
-}
-
 function accessTable(rows: ReadonlyArray<BackupSqlRow>): BackupTable {
   return {
     columns: accessColumns,
     name: ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME,
     rows,
     sql: "CREATE TABLE access_manifest_checkpoints (...) ",
-  };
-}
-
-function principalTable(rows: ReadonlyArray<BackupSqlRow>): BackupTable {
-  return {
-    columns: principalColumns,
-    name: PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME,
-    rows,
-    sql: "CREATE TABLE principal_policy_checkpoints (...) ",
   };
 }
 
@@ -114,41 +84,8 @@ test("access checkpoint merge rejects same-epoch equivocation", () => {
   ).toThrow("Backup conflicts with an access manifest checkpoint");
 });
 
-test("principal checkpoint merge retains the highest version", () => {
-  const current = principalRow();
-  const older = principalRow({ version: 2, updated_at: RESTORED_TIME });
-  const newer = principalRow({
-    state_hash: HASH_B,
-    updated_at: RESTORED_TIME,
-    version: 4,
-  });
-
-  expect(
-    mergePrincipalPolicyCheckpointBackupTables({
-      current: principalTable([current]),
-      restored: principalTable([older]),
-    })?.rows,
-  ).toEqual([current]);
-  expect(
-    mergePrincipalPolicyCheckpointBackupTables({
-      current: principalTable([current]),
-      restored: principalTable([newer]),
-    })?.rows,
-  ).toEqual([newer]);
-});
-
-test("principal checkpoint merge rejects same-version equivocation", () => {
-  expect(() =>
-    mergePrincipalPolicyCheckpointBackupTables({
-      current: principalTable([principalRow()]),
-      restored: principalTable([principalRow({ state_hash: HASH_B })]),
-    }),
-  ).toThrow("Backup conflicts with a principal policy checkpoint");
-});
-
 test("checkpoint merge preserves lazy missing-table semantics", () => {
   const access = accessTable([accessRow()]);
-  const principal = principalTable([principalRow()]);
 
   expect(
     mergeAccessManifestCheckpointBackupTables({
@@ -157,13 +94,7 @@ test("checkpoint merge preserves lazy missing-table semantics", () => {
     }),
   ).toEqual(access);
   expect(
-    mergePrincipalPolicyCheckpointBackupTables({
-      current: null,
-      restored: principal,
-    }),
-  ).toEqual(principal);
-  expect(
-    mergePrincipalPolicyCheckpointBackupTables({
+    mergeAccessManifestCheckpointBackupTables({
       current: null,
       restored: null,
     }),
@@ -182,16 +113,4 @@ test("checkpoint merge rejects malformed and duplicate restored rows", () => {
   ).toThrow(
     "Access manifest checkpoint backup is missing the manifest_hash column",
   );
-  expect(() =>
-    mergePrincipalPolicyCheckpointBackupTables({
-      current: null,
-      restored: principalTable([principalRow(), principalRow()]),
-    }),
-  ).toThrow("Principal policy checkpoint backup contains a duplicate scope");
-  expect(() =>
-    mergePrincipalPolicyCheckpointBackupTables({
-      current: null,
-      restored: principalTable([principalRow({ version: 0 })]),
-    }),
-  ).toThrow("Principal policy checkpoint backup has an invalid version value");
 });

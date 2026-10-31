@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { projectionPolicySource } from "../../../../test/helpers/projectionPolicyHistory";
 import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
@@ -25,18 +26,14 @@ test("purge rejects unrelated policy evidence before consulting its checkpoint",
       unrelatedState.principalType,
       unrelatedState.principalId,
     );
-    await execSql(
-      `INSERT INTO principal_policy_checkpoints
-         (principal_type, principal_id, version, state_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        unrelatedState.principalType,
-        unrelatedState.principalId,
-        unrelatedState.version,
-        "f".repeat(64),
-        "2026-08-27T00:00:00.000Z",
-      ],
-    );
+    await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+      unrelatedState.principalType,
+      unrelatedState.principalId,
+      unrelatedState.version,
+      "f".repeat(64),
+      "2026-08-27T00:00:00.000Z",
+      fixture.author.organizationId,
+    ]);
 
     await expect(
       verifyDocumentPurgeProof({

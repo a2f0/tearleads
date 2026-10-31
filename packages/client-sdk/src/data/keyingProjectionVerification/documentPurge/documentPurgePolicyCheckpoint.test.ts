@@ -13,6 +13,7 @@ import {
   createResponse,
 } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { verifyPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshotVerification";
 import { createProjectionPolicyEvidence } from "../../../../test/helpers/projectionPolicyEvidence";
@@ -178,18 +179,14 @@ for (const supersededPath of [false, true]) {
         raced.principalType,
         raced.principalId,
       );
-      await execSql(
-        `INSERT INTO principal_policy_checkpoints
-         (principal_type, principal_id, version, state_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-        [
-          raced.principalType,
-          raced.principalId,
-          raced.version,
-          "d".repeat(64),
-          "2026-08-27T00:00:00.000Z",
-        ],
-      );
+      await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+        raced.principalType,
+        raced.principalId,
+        raced.version,
+        "d".repeat(64),
+        "2026-08-27T00:00:00.000Z",
+        fixture.organizationId,
+      ]);
 
       if (supersededPath) {
         const root = fixture.proof.authorizingContainerPath[0]?.state;

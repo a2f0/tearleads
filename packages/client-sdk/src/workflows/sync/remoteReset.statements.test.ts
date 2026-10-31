@@ -113,6 +113,8 @@ test("remote reset rewrites server identity once per batch", async () => {
     }
   }
   // One containers update and one documents update per 50-row batch; the
-  // per-row updates took 59 / 170 / 283 statements.
-  expect(counts).toEqual({ children1: 58, children51: 71, children101: 86 });
+  // per-row updates took 59 / 170 / 283 statements. Folding node liveness and
+  // policy ownership into their tables saved one read and one delete (was
+  // 58 / 71 / 86).
+  expect(counts).toEqual({ children1: 56, children51: 69, children101: 84 });
 });

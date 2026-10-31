@@ -4,11 +4,11 @@ import {
   createRecoveryFixture,
   signedRecoveryHistory,
 } from "../../../../test/helpers/principalHistoryRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { isProjectionVerificationCancelledError } from "../../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
@@ -278,16 +278,14 @@ test("resumes checked progress that has not yet reached the local checkpoint", a
     );
     const checkpoint = history.bundle.previousStates[39]?.state;
     if (!checkpoint) throw new Error("Missing checkpoint fixture");
-    await fixture.db
-      .insert(principalPolicyCheckpoints)
-      .values({
-        principalType: "group",
-        principalId: checkpoint.principalId,
-        version: checkpoint.version,
-        stateHash: checkpoint.stateHash,
-        updatedAt: checkpoint.createdAt,
-      })
-      .run();
+    await pinPrincipalPolicyCheckpoint(fixture.db, {
+      principalType: "group",
+      principalId: checkpoint.principalId,
+      version: checkpoint.version,
+      stateHash: checkpoint.stateHash,
+      updatedAt: checkpoint.createdAt,
+      organizationId: fixture.options.organizationId,
+    });
     fixture.controls.failAfterVersion = 32;
     await expect(
       recoverPrincipalPolicyHistory(fixture.options),
@@ -314,16 +312,14 @@ test("a checkpoint change while consuming the final page prevents publication", 
         historyReader: {
           async *getPrincipalPolicyPages(...args) {
             yield* client.getPrincipalPolicyPages(...args);
-            await fixture.db
-              .insert(principalPolicyCheckpoints)
-              .values({
-                principalType: "group",
-                principalId: history.expectedHead.principalId,
-                version: history.expectedHead.version,
-                stateHash: history.expectedHead.stateHash,
-                updatedAt: history.bundle.currentState.createdAt,
-              })
-              .run();
+            await pinPrincipalPolicyCheckpoint(fixture.db, {
+              principalType: "group",
+              principalId: history.expectedHead.principalId,
+              version: history.expectedHead.version,
+              stateHash: history.expectedHead.stateHash,
+              updatedAt: history.bundle.currentState.createdAt,
+              organizationId: fixture.options.organizationId,
+            });
           },
         },
       }),

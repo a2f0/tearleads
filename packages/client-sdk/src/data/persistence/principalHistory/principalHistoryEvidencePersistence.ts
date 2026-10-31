@@ -13,7 +13,7 @@ import {
   isPrincipalPolicyStateChainEntryResponse,
   type PrincipalPolicyStateChainEntryResponse,
 } from "@tearleads/validators/response";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import {
   principalHistoryEntries,
   principalHistoryEvidenceTables,
@@ -114,7 +114,6 @@ export async function writePrincipalHistoryEvidencePage(
   );
 }
 
-type PrincipalHistoryNodeRow = typeof principalHistoryNodes.$inferSelect;
 type ResolvedPrincipalHistoryProof = Awaited<
   ReturnType<typeof resolvePrincipalHistoryIndexProof>
 >;
@@ -135,6 +134,39 @@ function hashBatches(hashes: readonly string[]): string[][] {
 }
 
 /**
+ * Reads `hashes` into `into`, absent ones as null. Only stored nodes are proof
+ * material; a liveness placeholder without child hashes reads as absent.
+ */
+async function loadStoredPrincipalHistoryNodes(
+  db: ClientSQLiteDatabase,
+  scopeId: string,
+  hashes: ReadonlySet<string>,
+  into: Map<string, PrincipalHistoryIndexNode | null>,
+): Promise<void> {
+  for (const batch of hashBatches([...hashes])) {
+    for (const hash of batch) into.set(hash, null);
+    const rows = await db
+      .select({
+        hash: principalHistoryNodes.hash,
+        leftHash: principalHistoryNodes.leftHash,
+        rightHash: principalHistoryNodes.rightHash,
+      })
+      .from(principalHistoryNodes)
+      .where(
+        and(
+          eq(principalHistoryNodes.scopeId, scopeId),
+          inArray(principalHistoryNodes.hash, batch),
+          isNotNull(principalHistoryNodes.leftHash),
+          isNotNull(principalHistoryNodes.rightHash),
+        ),
+      );
+    for (const { hash, leftHash, rightHash } of rows)
+      if (leftHash !== null && rightHash !== null)
+        into.set(hash, { hash, leftHash, rightHash });
+  }
+}
+
+/**
  * Resolves every version's index path level by level: each pass walks every
  * unfinished version over the nodes read so far, and one set read per level
  * supplies the nodes the walks stopped at. A node absent after its read stays
@@ -148,7 +180,7 @@ async function resolvePrincipalHistoryProofs(
     readonly versions: readonly number[];
   },
 ): Promise<({ value: ResolvedPrincipalHistoryProof } | { error: unknown })[]> {
-  const nodes = new Map<string, PrincipalHistoryNodeRow | null>();
+  const nodes = new Map<string, PrincipalHistoryIndexNode | null>();
   const results: (
     | { value: ResolvedPrincipalHistoryProof }
     | { error: unknown }
@@ -181,19 +213,7 @@ async function resolvePrincipalHistoryProofs(
         unfinished.push(index);
       }
     }
-    for (const batch of hashBatches([...needed])) {
-      for (const hash of batch) nodes.set(hash, null);
-      const rows = await db
-        .select()
-        .from(principalHistoryNodes)
-        .where(
-          and(
-            eq(principalHistoryNodes.scopeId, input.scopeId),
-            inArray(principalHistoryNodes.hash, batch),
-          ),
-        );
-      for (const row of rows) nodes.set(row.hash, row);
-    }
+    await loadStoredPrincipalHistoryNodes(db, input.scopeId, needed, nodes);
     pending = unfinished;
   }
   return results;

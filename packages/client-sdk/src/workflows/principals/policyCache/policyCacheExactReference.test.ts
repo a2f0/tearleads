@@ -9,6 +9,7 @@ import {
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/policyCacheFixtures";
 import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
@@ -107,18 +108,14 @@ test("referenced policy warming fetches once when the exact local chain is behin
       "2026-07-18T00:00:00Z",
       "org-1",
     );
-    await execSql(
-      `INSERT INTO principal_policy_checkpoints
-         (principal_type, principal_id, version, state_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        bundle.currentState.principalType,
-        bundle.currentState.principalId,
-        bundle.currentState.version,
-        bundle.currentState.stateHash,
-        "2026-07-18T00:01:00Z",
-      ],
-    );
+    await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+      bundle.currentState.principalType,
+      bundle.currentState.principalId,
+      bundle.currentState.version,
+      bundle.currentState.stateHash,
+      "2026-07-18T00:01:00Z",
+      null,
+    ]);
     let policyGetCount = 0;
 
     await cacheReferencedPolicies({
@@ -153,18 +150,14 @@ test("referenced policy warming leaves stale local state unchanged when the cano
       "2026-07-18T00:00:00Z",
       "org-1",
     );
-    await execSql(
-      `INSERT INTO principal_policy_checkpoints
-         (principal_type, principal_id, version, state_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        bundle.currentState.principalType,
-        bundle.currentState.principalId,
-        bundle.currentState.version,
-        bundle.currentState.stateHash,
-        "2026-07-18T00:01:00Z",
-      ],
-    );
+    await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+      bundle.currentState.principalType,
+      bundle.currentState.principalId,
+      bundle.currentState.version,
+      bundle.currentState.stateHash,
+      "2026-07-18T00:01:00Z",
+      null,
+    ]);
     let policyGetCount = 0;
 
     await cacheReferencedPolicies({
@@ -215,18 +208,14 @@ test("referenced policy warming hard-fails and leaves stale local state unchange
       "2026-07-18T00:00:00Z",
       "org-1",
     );
-    await execSql(
-      `INSERT INTO principal_policy_checkpoints
-         (principal_type, principal_id, version, state_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        bundle.currentState.principalType,
-        bundle.currentState.principalId,
-        bundle.currentState.version,
-        bundle.currentState.stateHash,
-        "2026-07-18T00:01:00Z",
-      ],
-    );
+    await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+      bundle.currentState.principalType,
+      bundle.currentState.principalId,
+      bundle.currentState.version,
+      bundle.currentState.stateHash,
+      "2026-07-18T00:01:00Z",
+      null,
+    ]);
     let policyGetCount = 0;
 
     await expect(

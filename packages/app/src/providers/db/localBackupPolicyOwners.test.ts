@@ -29,26 +29,21 @@ async function pin(
   version: number,
 ) {
   await execSql(
-    "INSERT INTO principal_policy_checkpoints VALUES (?, ?, ?, ?, ?)",
-    ["group", groupId, version, "a".repeat(64), "2026-09-28"],
+    "INSERT INTO principal_policy_checkpoints VALUES (?, ?, ?, ?, ?, ?)",
+    ["group", groupId, owner, version, "a".repeat(64), "2026-09-28"],
   );
-  await execSql("INSERT INTO principal_policy_organizations VALUES (?, ?, ?)", [
-    "group",
-    groupId,
-    owner,
-  ]);
 }
 
-for (const ownerTable of ["absent", "empty"] as const) {
-  test(`restore retains current policy ownership and permits recovery (owner table=${ownerTable})`, async () => {
+for (const checkpointTable of ["absent", "empty"] as const) {
+  test(`restore retains current policy ownership and permits recovery (backup table=${checkpointTable})`, async () => {
     const source = createNativeTestExecSql();
     const target = createNativeTestExecSql();
     try {
       await initialize(source.execSql);
       await initialize(target.execSql);
       await pin(target.execSql, "current-only", "org", 2);
-      if (ownerTable === "absent")
-        await source.execSql("DROP TABLE principal_policy_organizations");
+      if (checkpointTable === "absent")
+        await source.execSql("DROP TABLE principal_policy_checkpoints");
       const payload = await createBackupPayload({
         blobStore,
         execSql: source.execSql,
@@ -62,7 +57,9 @@ for (const ownerTable of ["absent", "empty"] as const) {
         securityIncidents: unexpectedSecurityIncidents,
       });
       expect(
-        await target.execSql("SELECT * FROM principal_policy_organizations"),
+        await target.execSql(
+          "SELECT principal_type, principal_id, organization_id FROM principal_policy_checkpoints",
+        ),
       ).toEqual([
         {
           principal_type: "group",
@@ -107,7 +104,7 @@ test("restore merges backup-only policy owners with live checkpoint owners", asy
     });
     expect(
       await target.execSql(
-        "SELECT principal_id, organization_id FROM principal_policy_organizations ORDER BY principal_id",
+        "SELECT principal_id, organization_id FROM principal_policy_checkpoints ORDER BY principal_id",
       ),
     ).toEqual([
       { principal_id: "backup-only", organization_id: "backup-org" },
@@ -152,54 +149,56 @@ test("conflicting policy ownership refuses restore before replacing the live dat
     );
     expect(
       await target.execSql(
-        "SELECT organization_id FROM principal_policy_organizations",
+        "SELECT organization_id, version FROM principal_policy_checkpoints",
       ),
-    ).toEqual([{ organization_id: "org" }]);
-    expect(
-      await target.execSql("SELECT version FROM principal_policy_checkpoints"),
-    ).toEqual([{ version: 2 }]);
+    ).toEqual([{ organization_id: "org", version: 2 }]);
   } finally {
     source.close();
     target.close();
   }
 });
 
-for (const ownerTable of ["absent", "empty"] as const) {
-  test(`an unowned backup checkpoint refuses restore (${ownerTable})`, async () => {
-    const source = createNativeTestExecSql();
-    const target = createNativeTestExecSql();
-    try {
-      await initialize(source.execSql);
-      await initialize(target.execSql);
-      await pin(source.execSql, "unowned", "backup-org", 1);
-      await pin(target.execSql, "current", "org", 2);
-      await source.execSql(
-        ownerTable === "absent"
-          ? "DROP TABLE principal_policy_organizations"
-          : "DELETE FROM principal_policy_organizations",
-      );
-      const payload = await createBackupPayload({
+test("a backup checkpoint table without owners refuses restore", async () => {
+  const source = createNativeTestExecSql();
+  const target = createNativeTestExecSql();
+  try {
+    await initialize(source.execSql);
+    await initialize(target.execSql);
+    await pin(target.execSql, "current", "org", 2);
+    // The pre-merge shape kept ownership in another table.
+    await source.execSql("DROP TABLE principal_policy_checkpoints");
+    await source.execSql(`CREATE TABLE principal_policy_checkpoints (
+      principal_type TEXT NOT NULL, principal_id TEXT NOT NULL,
+      version INTEGER NOT NULL, state_hash TEXT NOT NULL,
+      updated_at TEXT NOT NULL, PRIMARY KEY (principal_type, principal_id)
+    )`);
+    await source.execSql(
+      "INSERT INTO principal_policy_checkpoints VALUES (?, ?, ?, ?, ?)",
+      ["group", "unowned", 1, "a".repeat(64), "2026-09-28"],
+    );
+    const payload = await createBackupPayload({
+      blobStore,
+      execSql: source.execSql,
+      databaseId: null,
+      signingFingerprint: null,
+    });
+    await expect(
+      restoreBackupPayload({
         blobStore,
-        execSql: source.execSql,
-        databaseId: null,
-        signingFingerprint: null,
-      });
-      await expect(
-        restoreBackupPayload({
-          blobStore,
-          execSql: target.execSql,
-          payload,
-          securityIncidents: unexpectedSecurityIncidents,
-        }),
-      ).rejects.toThrow("Backup contains an unowned group policy checkpoint");
-      expect(
-        await target.execSql(
-          "SELECT principal_id FROM principal_policy_checkpoints",
-        ),
-      ).toEqual([{ principal_id: "current" }]);
-    } finally {
-      source.close();
-      target.close();
-    }
-  });
-}
+        execSql: target.execSql,
+        payload,
+        securityIncidents: unexpectedSecurityIncidents,
+      }),
+    ).rejects.toThrow(
+      "Principal policy checkpoint backup is missing the organization_id column",
+    );
+    expect(
+      await target.execSql(
+        "SELECT principal_id FROM principal_policy_checkpoints",
+      ),
+    ).toEqual([{ principal_id: "current" }]);
+  } finally {
+    source.close();
+    target.close();
+  }
+});

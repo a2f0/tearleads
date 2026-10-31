@@ -70,10 +70,6 @@ class PausingBlobStore extends RecordingBlobStore {
 }
 
 async function createCheckpointTables(execSql: ExecSql): Promise<void> {
-  await execSql(`CREATE TABLE principal_policy_organizations (
-    principal_type TEXT NOT NULL, principal_id TEXT NOT NULL,
-    organization_id TEXT NOT NULL, PRIMARY KEY (principal_type, principal_id)
-  )`);
   await execSql(`
     CREATE TABLE access_manifest_checkpoints (
       object_kind TEXT NOT NULL,
@@ -89,9 +85,10 @@ async function createCheckpointTables(execSql: ExecSql): Promise<void> {
     CREATE TABLE principal_policy_checkpoints (
       principal_type TEXT NOT NULL,
       principal_id TEXT NOT NULL,
-      version INTEGER NOT NULL,
-      state_hash TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
+      organization_id TEXT NOT NULL,
+      version INTEGER,
+      state_hash TEXT,
+      updated_at TEXT,
       PRIMARY KEY (principal_type, principal_id)
     )
   `);
@@ -130,15 +127,18 @@ async function insertPrincipalCheckpoint(
 ): Promise<void> {
   await execSql(
     `INSERT INTO principal_policy_checkpoints (
-       principal_type, principal_id, version, state_hash, updated_at
-     ) VALUES (?, ?, ?, ?, ?)`,
-    ["group", input.principalId, input.version, input.hash, UPDATED_AT],
+       principal_type, principal_id, organization_id, version, state_hash,
+       updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      "group",
+      input.principalId,
+      "organization-1",
+      input.version,
+      input.hash,
+      UPDATED_AT,
+    ],
   );
-  await execSql("INSERT INTO principal_policy_organizations VALUES (?, ?, ?)", [
-    "group",
-    input.principalId,
-    "organization-1",
-  ]);
 }
 
 async function createPayload(

@@ -9,19 +9,6 @@ import {
 
 import { principalStateFingerprintJson } from "../principalKeyFingerprintJson";
 
-/** Durable organization ownership for every managed-principal cache. */
-export const principalPolicyOrganizations = sqliteTable(
-  "principal_policy_organizations",
-  {
-    principalType: text("principal_type").notNull(),
-    principalId: text("principal_id").notNull(),
-    organizationId: text("organization_id").notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.principalType, table.principalId] }),
-  ],
-);
-
 function principalPolicyBundleColumns() {
   return {
     principalType: text("principal_type").notNull(),
@@ -93,15 +80,21 @@ export const principalPolicyBundleReferences = sqliteTable(
   ],
 );
 
-/** Monotonic anti-rollback pin for each verified managed principal. */
+/**
+ * Durable organization ownership for every managed-principal cache, and its
+ * monotonic anti-rollback pin. Policy caching records the owner before any
+ * pin, so a row with a null version, state hash, and update time is owned but
+ * not pinned; the pin readers treat it as no checkpoint.
+ */
 export const principalPolicyCheckpoints = sqliteTable(
   "principal_policy_checkpoints",
   {
     principalType: text("principal_type").notNull(),
     principalId: text("principal_id").notNull(),
-    version: integer("version").notNull(),
-    stateHash: text("state_hash").notNull(),
-    updatedAt: text("updated_at").notNull(),
+    organizationId: text("organization_id").notNull(),
+    version: integer("version"),
+    stateHash: text("state_hash"),
+    updatedAt: text("updated_at"),
   },
   (table) => [
     primaryKey({ columns: [table.principalType, table.principalId] }),

@@ -11,7 +11,6 @@ import { sqlContainerContentsPersistence } from "../../../data/persistence/conta
 import {
   accessManifestCheckpoints,
   principalPolicyCheckpoints,
-  principalPolicyOrganizations,
 } from "../../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { createOrganization } from "./createOrganization";
@@ -151,7 +150,7 @@ test("two devices adopt the same winning replacement organization", async () => 
       }),
     ]);
     expect(await db.select().from(principalPolicyCheckpoints)).toHaveLength(3);
-    expect(await db.select().from(principalPolicyOrganizations)).toEqual(
+    expect(await db.select().from(principalPolicyCheckpoints)).toEqual(
       expect.arrayContaining(
         [
           authorization.organizationId,
