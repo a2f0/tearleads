@@ -30,7 +30,6 @@ export {
   createSyncFixture,
   createSyncResponse,
   type DocumentCreateFixture,
-  type DocumentLinkSetFixture,
   getOnlyTarget,
   projectionPathRefs,
 } from "./documentResponseFixtures";

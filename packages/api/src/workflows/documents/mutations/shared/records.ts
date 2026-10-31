@@ -15,7 +15,6 @@ import type {
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type {
-  AccessManifestBundleWireResponse,
   DocumentContentKeyBundleResponse,
   DocumentKekTargetsResponse,
   DocumentLinkSetMutationResponse,
@@ -26,9 +25,6 @@ import type {
 } from "../../../../access/read/documentContentKeyStore";
 import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
 import {
-  documentLinkSetStateRecord,
-  projectionAccessManifestRecord,
-  projectionVerifiedAccessEventRecord,
   readProjectionCanonicalJson,
   readProjectionPlainRecord,
   readProjectionPositiveInteger,
@@ -48,17 +44,6 @@ function isContentRecordEncryptionSuite(
   value: unknown,
 ): value is ContentRecordEncryptionSuite {
   return value === CONTENT_RECORD_ENCRYPTION_SUITE;
-}
-
-export function documentManifestBundleRecord(
-  manifest: VerifiedDocumentLinkSetManifest,
-): AccessManifestBundleWireResponse {
-  return {
-    event: projectionVerifiedAccessEventRecord(manifest.event),
-    manifest: projectionAccessManifestRecord(manifest.manifest),
-    manifestHash: manifest.manifestHash,
-    state: documentLinkSetStateRecord(manifest.state),
-  };
 }
 
 /**
