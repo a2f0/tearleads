@@ -188,10 +188,10 @@ The Admins enrollment fixture in `DualPaneProvider.groupsRequestVolume.test.tsx`
 measures 55 completed requests; its ceiling is 58, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 17,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
-160,000 request bytes and 860,000 response bytes (0.78 MB measured). The root
+160,000 request bytes and 740,000 response bytes (0.67 MB measured). The root
 attachment-sharing fixture in `DualPaneProvider.sharing.test.tsx` measures 59
-requests and permits 66, with body ceilings of 130,000 request bytes and 725,000
-response bytes (0.66 MB measured). Container mutation acknowledgements carry
+requests and permits 66, with body ceilings of 130,000 request bytes and 560,000
+response bytes (0.51 MB measured). Container mutation acknowledgements carry
 hashes rather than echoes, which keeps the policy commit at about 73 KB.
 Container mutations cite stored manifests by `{containerId, manifestHash}` and
 principal policies by head rather than echoing path bundles or policies.
