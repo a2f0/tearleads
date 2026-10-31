@@ -30,6 +30,7 @@ import {
   principalStates,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray } from "drizzle-orm";
+import { forgetTransactionAccessManifestBundles } from "../../access/write/accessManifestStore";
 import { deleteDocumentRows } from "../documents/mutations/purgeDocumentRows";
 import { organizationPurgeBatches } from "./organizationPurgeBatches";
 import type { OrganizationRemotePurgeScope } from "./organizationPurgeScope";
@@ -86,6 +87,7 @@ async function deleteAccessRows(
   executor: DatabaseTransaction,
   organizationId: string,
 ): Promise<void> {
+  forgetTransactionAccessManifestBundles(executor);
   const manifests = await executor
     .select({ hash: accessManifests.manifestHash })
     .from(accessManifests)

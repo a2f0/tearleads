@@ -35,3 +35,22 @@ test("principal history cursors are safe integers without a lifetime page cap", 
     false,
   );
 });
+
+test("a conditional read names a positive head version and an exact hash", () => {
+  const ifStateHash = "b".repeat(64);
+  expect(
+    PrincipalPolicyPageQuerySchema.parse({ ifVersion: "3", ifStateHash }),
+  ).toEqual({ ifVersion: 3, ifStateHash });
+  for (const ifVersion of [0, "0", -1, "01", 1.5]) {
+    expect(
+      PrincipalPolicyPageQuerySchema.safeParse({ ifVersion, ifStateHash })
+        .success,
+    ).toBe(false);
+  }
+  expect(
+    PrincipalPolicyPageQuerySchema.safeParse({
+      ifVersion: 1,
+      ifStateHash: "untrusted-head",
+    }).success,
+  ).toBe(false);
+});

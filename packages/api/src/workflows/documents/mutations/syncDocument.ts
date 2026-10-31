@@ -11,7 +11,7 @@ import {
   getDocumentContentKeyBundle,
   type StoredDocumentContentKeyBundle,
 } from "../../../access/read/documentContentKeyStore";
-import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
+import type { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import {
   readCommitLsnMode,
   readCurrentCommitLsn,
@@ -21,238 +21,48 @@ import {
   readDocumentUpdateUpperBound,
   resolveDocumentUpdateCursorBounds,
 } from "../../../documents/documentUpdateStore";
-import { assertDocumentSyncBillingAllowed } from "../../billing/organizationSyncEligibility";
-import {
-  type AppliedContainerRekey,
-  applyContainerRekeys,
-} from "../../containers/mutations";
+import type { AppliedContainerRekey } from "../../containers/mutations";
 import { loadSignerPublicKey } from "../../signerPublicKey";
-import { appendDocumentUpdates } from "./appendOutgoingUpdates";
-import {
-  DocumentMutationError,
-  documentSyncStateStale,
-  toMutationError,
-} from "./errors";
-import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
-import { touchDocumentAndLinkedContainers } from "./shared/documentRows";
+import type { appendDocumentUpdates } from "./appendOutgoingUpdates";
+import { DocumentMutationError, toMutationError } from "./errors";
 import { assertProvisionedDocumentInitialUpdate } from "./shared/provisionedInitialUpdate";
 import {
   toContentKeyBundleResponse,
   toDocumentKekTargetsResponse,
 } from "./shared/records";
-import { verifySyncWriteAuthorizationProof } from "./shared/verification";
-import { ensureSyncDocumentAccess } from "./syncAccess";
-import { resolveSyncContentKeyBundle } from "./syncContentKeyBundle";
 import { resolveSyncPullPagePlan } from "./syncPullPagination";
 import {
   buildPaginatedSyncPullResponse,
   listMissingSyncUpdatesForResponse,
 } from "./syncPullResponse";
-import { assertSyncRotationBaselinesSound } from "./syncRotationAdvance";
-import { prepareSyncDocumentTransaction } from "./syncTransactionPreparation";
 import {
-  lockSyncDocumentPullWatermark,
-  lockSyncDocumentWriteFrontier,
-} from "./syncWriteFrontier";
-import type {
-  DocumentWriteAuthorizationProof,
-  SyncDocumentInput,
-} from "./types";
+  type CreateSeedContext,
+  commitSyncDocumentWrites,
+  type SyncDocumentWriteInput,
+  touchAcceptedSyncTargets,
+} from "./syncWriteCommit";
+import type { SyncDocumentInput } from "./types";
 
-// Updates are stamped with the epoch of the manifest that authorized the write;
-// a read-only pull never inserts, so it falls back to the current link set.
-function resolveSyncAccessEpoch(input: {
-  readonly currentTargets: Awaited<
-    ReturnType<typeof resolveCurrentDocumentKekTargets>
-  >;
-  readonly writeAuthorization: DocumentWriteAuthorizationProof | null;
-}): number {
-  return input.writeAuthorization
-    ? input.writeAuthorization.documentManifest.state.epoch
-    : input.currentTargets.linkSetEpoch;
-}
-
-async function touchAcceptedSyncTargets(input: {
-  readonly currentTargets: Awaited<
-    ReturnType<typeof resolveCurrentDocumentKekTargets>
-  >;
-  readonly documentId: string;
-  readonly executor: DatabaseTransaction;
-  readonly insertedUpdateIds: ReadonlySet<string>;
-}) {
-  if (input.insertedUpdateIds.size === 0) {
-    return;
-  }
-
-  await touchDocumentAndLinkedContainers(input.executor, {
-    documentId: input.documentId,
-    incrementAttributionRevision: true,
-    linkedContainerIds: input.currentTargets.targets.map(
-      (target) => target.containerId,
-    ),
-  });
-}
-
-// The wire schema deliberately accepts any non-empty container id, so the
-// refs are UUID-validated (mirroring the link-set lock plan) before they
-// reach the uuid-typed lock query, where a malformed id would surface as an
-// uncaught SQLSTATE 22P02 500 instead of a 400.
-function syncAuthorizingContainerIds(request: DocumentSyncRequest): string[] {
-  return uniqueSortedContainerIds(
-    (request.authorizingContainerPathRefs ?? []).flatMap((path) =>
-      path.map((ref) => ref.containerId),
-    ),
-  );
-}
-
-async function lockSyncDocumentFrontier(input: {
-  readonly currentTargets: Awaited<
-    ReturnType<typeof resolveCurrentDocumentKekTargets>
-  >;
-  readonly documentId: string;
-  readonly request: DocumentSyncRequest;
-  readonly tx: DatabaseTransaction;
-}) {
-  if (input.request.outgoingUpdates.length > 0) {
-    return lockSyncDocumentWriteFrontier({
-      authorizingContainerIds: syncAuthorizingContainerIds(input.request),
-      currentTargets: input.currentTargets,
-      documentId: input.documentId,
-      tx: input.tx,
-    });
-  }
-  if (input.request.supportsPullPagination !== true) {
-    return input.currentTargets;
-  }
-
-  await lockSyncDocumentPullWatermark({
-    documentId: input.documentId,
-    tx: input.tx,
-  });
-  const lockedTargets = await resolveCurrentDocumentKekTargets(
-    input.documentId,
-    input.tx,
-    input.request.outgoingUpdates.length === 0,
-  );
-  if (
-    lockedTargets.linkSetManifestHash !==
-    input.currentTargets.linkSetManifestHash
-  ) {
-    throw documentSyncStateStale(
-      "Document manifest changed while freezing the pull watermark",
-    );
-  }
-  return lockedTargets;
-}
-
-function documentSyncHasWrites(request: DocumentSyncRequest): boolean {
-  return (
-    request.outgoingUpdates.length > 0 ||
-    (request.containerRekeys?.length ?? 0) > 0
-  );
-}
-
-async function syncDocumentTransaction(input: {
-  readonly cursorHmacKey: string | null;
-  readonly documentId: string;
-  readonly enforceSyncEligibility: boolean;
-  readonly fingerprint: string;
-  readonly request: DocumentSyncRequest;
-  readonly signingPublicKey: Uint8Array;
-  readonly tx: DatabaseTransaction;
-  readonly userId: string;
-}) {
-  const preRekeyTargets = await prepareSyncDocumentTransaction(input);
-  // Run signed container.rekey payloads before resolving document KEK targets;
-  // content-key validation then compares the write against the updated target
-  // set, while transaction rollback keeps failed writes from publishing rekeys.
-  const containerRekeys = await applyContainerRekeys({
-    executor: input.tx,
-    fingerprint: input.fingerprint,
-    requests: input.request.containerRekeys,
-    userId: input.userId,
-  });
-  // Without rekeys nothing has changed heads, links, or epochs since the
-  // preflight resolution. A write still gets the strict parent-edge check:
-  // the write frontier re-resolves strictly once its heads are locked.
-  let currentTargets =
-    containerRekeys.length === 0
-      ? preRekeyTargets
-      : await resolveCurrentDocumentKekTargets(
-          input.documentId,
-          input.tx,
-          input.request.outgoingUpdates.length === 0,
-        );
-  // Serialize writes against rekeys and serialize paginated watermark capture
-  // against update-sequence allocation.
-  currentTargets = await lockSyncDocumentFrontier({
-    currentTargets,
-    documentId: input.documentId,
-    request: input.request,
-    tx: input.tx,
-  });
-  await ensureSyncDocumentAccess({
-    currentTargets,
-    executor: input.tx,
-    request: input.request,
-    userId: input.userId,
-  });
-  if (input.enforceSyncEligibility) {
-    await assertDocumentSyncBillingAllowed(input.tx, {
-      organizationId: currentTargets.organizationId,
-      requireWriteEntitlement: documentSyncHasWrites(input.request),
-      userId: input.userId,
-    });
-  }
-  const writeAuthorization = await verifySyncWriteAuthorizationProof({
-    currentTargets,
+async function syncDocumentTransaction(
+  input: SyncDocumentWriteInput & { readonly cursorHmacKey: string },
+) {
+  const committed = await commitSyncDocumentWrites(input);
+  const result = await buildSyncDocumentTransactionResult({
+    ...committed,
+    cursorHmacKey: input.cursorHmacKey,
     documentId: input.documentId,
     executor: input.tx,
     request: input.request,
   });
-  // Must run before the bundle store below advances the latest epoch and
-  // before the append inserts any baseline row.
-  await assertSyncRotationBaselinesSound({
-    documentId: input.documentId,
-    executor: input.tx,
-    request: input.request,
-  });
-  const { contentKeyBundle, servedStaleBundle } =
-    await resolveSyncContentKeyBundle({
-      documentId: input.documentId,
-      executor: input.tx,
-      request: input.request,
-    });
-  const appendResult = await appendDocumentUpdates({
-    accessEpoch: resolveSyncAccessEpoch({ currentTargets, writeAuthorization }),
-    documentId: input.documentId,
-    executor: input.tx,
-    fingerprint: input.fingerprint,
-    organizationId: currentTargets.organizationId,
-    request: input.request,
-    signingPublicKey: input.signingPublicKey,
-    userId: input.userId,
-    writeAuthorization,
-  });
+  // Touch the linked containers last, so their rows stay locked only from
+  // here to commit rather than through the pull page.
   await touchAcceptedSyncTargets({
-    currentTargets,
+    currentTargets: committed.currentTargets,
     documentId: input.documentId,
     executor: input.tx,
-    insertedUpdateIds: appendResult.insertedUpdateIds,
+    insertedUpdateIds: committed.appendResult.insertedUpdateIds,
   });
-  return {
-    ...(await buildSyncDocumentTransactionResult({
-      appendResult,
-      contentKeyBundle,
-      cursorHmacKey: input.cursorHmacKey,
-      currentTargets,
-      documentId: input.documentId,
-      executor: input.tx,
-      request: input.request,
-      servedStaleBundle,
-    })),
-    containerRekeys,
-  };
+  return { ...result, containerRekeys: committed.containerRekeys };
 }
 
 async function buildSyncDocumentTransactionResult(input: {
@@ -369,28 +179,71 @@ export interface DocumentCreateSeedResult {
   readonly insertedUpdateIds: readonly string[];
 }
 
+/**
+ * The seed's response keeps only its accepted ids, so it skips the pull page
+ * and keeps the page's request checks: the minimum commit position, the
+ * pagination requirement, and the pull cursor, which never authenticates
+ * without a signing key.
+ */
+async function assertCreateSeedPullRequest(input: {
+  readonly contentKeyBundle: StoredDocumentContentKeyBundle;
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly request: DocumentSyncRequest;
+}): Promise<void> {
+  if (input.request.supportsPullPagination === true) {
+    await assertMinLsnSatisfied(input.executor, input.request.minLsn);
+  }
+  const plan = await resolveSyncPullPagePlan({
+    cursorHmacKey: null,
+    identity: {
+      contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
+      documentId: input.documentId,
+      linkSetManifestHash: input.contentKeyBundle.linkSetManifestHash,
+      targetHash: input.contentKeyBundle.targetHash,
+    },
+    request: input.request,
+    resolveCursorBounds: () =>
+      Promise.reject(new Error("A create seed's pull cursor never verifies")),
+    upperBound: null,
+  });
+  if (plan === null) {
+    throw new DocumentMutationError(
+      "Paginated document pull support is required",
+      400,
+    );
+  }
+}
+
 async function commitDocumentCreateSeed(
-  input: DocumentCreateSeedInput & { readonly enforceSyncEligibility: boolean },
+  input: DocumentCreateSeedInput & {
+    readonly enforceSyncEligibility: boolean;
+    readonly seed: CreateSeedContext;
+  },
 ): Promise<DocumentCreateSeedResult> {
   assertProvisionedDocumentInitialUpdate(input.request);
 
   try {
-    const result = await syncDocumentTransaction({
-      // The seed is the document's only update and the request's frontier is
-      // its end, so the transaction cannot expose a paginated continuation.
-      cursorHmacKey: null,
-      documentId: input.documentId,
-      enforceSyncEligibility: input.enforceSyncEligibility,
-      fingerprint: input.fingerprint,
-      request: input.request,
-      signingPublicKey: input.signingPublicKey,
+    const committed = await commitSyncDocumentWrites({
+      ...input,
       tx: input.executor,
-      userId: input.userId,
+    });
+    await assertCreateSeedPullRequest({
+      contentKeyBundle: committed.contentKeyBundle,
+      documentId: input.documentId,
+      executor: input.executor,
+      request: input.request,
+    });
+    await touchAcceptedSyncTargets({
+      currentTargets: committed.currentTargets,
+      documentId: input.documentId,
+      executor: input.executor,
+      insertedUpdateIds: committed.appendResult.insertedUpdateIds,
     });
     return {
       acceptedOutgoingUpdateIds:
-        result.responseWithoutCommit.acceptedOutgoingUpdateIds,
-      insertedUpdateIds: result.insertedUpdateIds,
+        committed.appendResult.acceptedOutgoingUpdateIds,
+      insertedUpdateIds: [...committed.appendResult.insertedUpdateIds],
     };
   } catch (error) {
     const mutationError = toMutationError(error);
@@ -410,18 +263,30 @@ async function commitDocumentCreateSeed(
 export async function appendProvisionedDocumentInitialUpdate(
   input: DocumentCreateSeedInput,
 ): Promise<void> {
-  await commitDocumentCreateSeed({ ...input, enforceSyncEligibility: false });
+  await commitDocumentCreateSeed({
+    ...input,
+    enforceSyncEligibility: false,
+    seed: { syncEligibleOrganizationId: null },
+  });
 }
 
 /**
  * Commits an ordinary create's seed in the create transaction. It is held to
  * the same sync eligibility and write checks as the standalone sync it
  * replaces, so a seed the sync would refuse fails the create instead.
+ * `syncEligibleOrganizationId` is the organization the create already
+ * admitted with `assertOrganizationCanSync` in this transaction.
  */
 export function appendDocumentCreateSeed(
-  input: DocumentCreateSeedInput,
+  input: DocumentCreateSeedInput & {
+    readonly syncEligibleOrganizationId: string;
+  },
 ): Promise<DocumentCreateSeedResult> {
-  return commitDocumentCreateSeed({ ...input, enforceSyncEligibility: true });
+  return commitDocumentCreateSeed({
+    ...input,
+    enforceSyncEligibility: true,
+    seed: { syncEligibleOrganizationId: input.syncEligibleOrganizationId },
+  });
 }
 
 export async function runDocumentSyncWorkflow(

@@ -27,7 +27,11 @@ import {
   createContainerDocumentTombstoneVerifier,
   createDocumentHeadLinkSetLoader,
 } from "../../workflows/container-contents/tombstones/documentTombstoneEvidence";
-import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
+import {
+  createPrincipalPolicyOperation,
+  createRuntimePrincipalPolicyWarmer,
+  type PrincipalPolicyOperation,
+} from "../../workflows/principals/runtimePolicyWarmer";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 
 export type { ContainerDocumentDiscoveryOutcome } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryLanes";
@@ -50,6 +54,8 @@ function createDiscoveryLane(input: {
     typeof createDocumentDiscoveryEvidenceStore
   >;
   readonly execSql: ExecSql;
+  /** The discovery pass's token: its lanes share one directory discovery. */
+  readonly policyOperation: PrincipalPolicyOperation;
   readonly queries: ReturnType<
     typeof createContainerDocumentQueriesFromRuntime
   >;
@@ -57,9 +63,15 @@ function createDiscoveryLane(input: {
   readonly runtime: ContainerContentsWorkflowRuntime;
 }): ContainerDocumentDiscoveryLane {
   const { containerOrganizationId, execSql, request, runtime } = input;
-  const warmReferencedPrincipalPolicies =
-    createRuntimePrincipalPolicyWarmer(runtime);
-  const loadHead = createDocumentHeadLinkSetLoader(runtime);
+  const warmReferencedPrincipalPolicies = createRuntimePrincipalPolicyWarmer(
+    runtime,
+    { operation: input.policyOperation },
+  );
+  const loadHead = createDocumentHeadLinkSetLoader(
+    runtime,
+    undefined,
+    input.policyOperation,
+  );
   const loadEpoch = (documentId: string) =>
     loadLocalDocumentAccessEpoch(execSql, documentId);
   return {
@@ -136,6 +148,7 @@ export async function discoverContainerDocumentLanesForRuntime({
   const syncPauses = getOrCreateOrganizationSyncPauses(input.state.domainScope);
   await syncPauses.load(execSql);
   const lanes: ContainerDocumentDiscoveryLane[] = [];
+  const policyOperation = createPrincipalPolicyOperation();
   for (const request of requests) {
     const stored =
       await sqlContainerContentsPersistence.loadContainerMetadataState(
@@ -157,6 +170,7 @@ export async function discoverContainerDocumentLanesForRuntime({
           isContainerPaused,
           evidenceStore,
           execSql,
+          policyOperation,
           queries,
           request,
           runtime,

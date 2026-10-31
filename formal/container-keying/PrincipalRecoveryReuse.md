@@ -28,7 +28,7 @@ recovery still discovers and only skips the confirmation read.
 | `FinishPrime` | `createProvisionedPrincipalHistoryPrimer` captures the provisioning scope before any await, reads the founder's existing trust pin without writing, and passes that scope into every guarded progress write; its private batch memo is discarded |
 | `Interrupt` | `savePrincipalHistoryStage` persists an incomplete page boundary |
 | `StoreRejectedCurrent` | `acceptPage` saves a completed stage before `verifyPrincipalPolicyCurrent` checks its current artifacts |
-| `BeginOperation` / `EndOperation` | `createRuntimePrincipalPolicyWarmer` creates one operation memo, discarded with the warmer |
+| `BeginOperation` / `EndOperation` | a pass or workflow root mints a `createPrincipalPolicyOperation` token, and every `createRuntimePrincipalPolicyWarmer` given it shares the coordinator's batch for that token; a warmer without a token is its own operation. The batch is discarded with the token |
 | `MemoUsable` | `reusableEntry` checks the hint epoch and producer lease before and after `directoryMemoValidity` pin coverage; `resolveReferencedPrincipalPolicy` always resolves through the warmer, so this is the only reuse of scoped evidence |
 | `BeginReuse` | `memoPrincipalRecovery` rechecks `entryLive` synchronously and hands out the value with the consumer's and producer's lifetime |
 | `ExpireProducer` | the producing call's `stillCurrent` (lease or caller lifetime) ends |
@@ -37,7 +37,7 @@ recovery still discovers and only skips the confirmation read.
 | `BeginDerive` | `readMemoizedDirectory` and `readMemoizedAdmins` derive a citation from a reused entry and pass its epoch as `sourceEpoch` |
 | `FinishCollect` | `readRecoveryPages` skips the read for a completed stage of the pinned head; `StoredPrincipalCurrentRejectedError` discards the stage and replays online; the entry is stored with the observed epoch |
 | `AbortCollect` | `PrincipalHistoryRecoveryRaceError` when the durable pin changes during recovery |
-| `FreshPerOperation` | the bare discovery read in `discoverDirectoryHead` runs once per operation |
+| `FreshPerOperation` | the discovery read in `discoverDirectoryHead` runs once per operation; naming the held head (`ifVersion`, `ifStateHash`) only shrinks the reply, and an `unchanged` reply naming exactly that head selects the same pin |
 | `NoStaleAfterHint` | `PrincipalPolicyCoordinator.recoveryEpoch` changes after a hint, so a collection that begins later rediscovers |
 | `NoRollback` | the checkpoint reload in `finishRecovery` and admission's pin checks in `commitProjectionCheckpoints` |
 | `ReuseCoversPin` | `directoryMemoValidity` reloads every named head's durable pin through `loadPrincipalPolicyCheckpoint` |

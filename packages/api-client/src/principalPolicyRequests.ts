@@ -16,7 +16,9 @@ import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
 import {
   collectPrincipalPolicyPages,
+  type PrincipalPolicyDiscoveryOptions,
   type PrincipalPolicyPageReadOptions,
+  readPrincipalPolicyDiscovery,
   readPrincipalPolicyPages,
 } from "./principalPolicyPages";
 import { readProjectionPolicyHistoryPages } from "./projectionPolicyHistoryPages";
@@ -51,6 +53,19 @@ export class PrincipalPolicyRequests {
     options: PrincipalPolicyPageReadOptions = {},
   ) {
     return readPrincipalPolicyPages(
+      this.runtime,
+      principalType,
+      principalId,
+      options,
+    );
+  }
+
+  discover(
+    principalType: "group" | "organization",
+    principalId: string,
+    options: PrincipalPolicyDiscoveryOptions = {},
+  ) {
+    return readPrincipalPolicyDiscovery(
       this.runtime,
       principalType,
       principalId,

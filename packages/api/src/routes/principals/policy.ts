@@ -7,7 +7,7 @@ import {
 import type {
   CommitOrganizationGroupPolicyResponse,
   PrincipalPolicyMutationResponse,
-  PrincipalPolicyPageResponse,
+  PrincipalPolicyReadResponse,
 } from "@tearleads/validators/response";
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
@@ -233,7 +233,7 @@ function registerPolicyReadRoute(
           requesterUserId: c.get("session").userId,
         });
         c.header("Cache-Control", "private, no-store");
-        return c.json<PrincipalPolicyPageResponse>(result);
+        return c.json<PrincipalPolicyReadResponse>(result);
       } catch (error) {
         const response = toPrincipalPolicyErrorResponse(error);
         if (response) {

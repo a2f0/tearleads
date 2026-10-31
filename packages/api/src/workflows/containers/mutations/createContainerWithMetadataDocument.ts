@@ -97,6 +97,7 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
           executor: tx,
           fingerprint: input.fingerprint,
           seed: input.request.initialMetadataSync,
+          syncEligibleOrganizationId: container.organizationId,
           userId: input.userId,
         }),
       };

@@ -10,12 +10,19 @@ import type { ApiClient } from "@tearleads/api-client";
 export interface PrincipalPolicyHistoryReader {
   readonly getPrincipalPolicyPages: ApiClient["getPrincipalPolicyPages"];
   readonly getProjectionPolicyHistoryPages: ApiClient["getProjectionPolicyHistoryPages"];
+  /**
+   * Conditional unpinned discovery. Readers that replay local or already
+   * fetched pages omit it, so discovery reads their first page instead.
+   */
+  readonly getPrincipalPolicyDiscovery?:
+    | ApiClient["getPrincipalPolicyDiscovery"]
+    | undefined;
 }
 
 /** Reads one principal's own policy history. */
 export type PrincipalPolicyPageReader = Pick<
   PrincipalPolicyHistoryReader,
-  "getPrincipalPolicyPages"
+  "getPrincipalPolicyPages" | "getPrincipalPolicyDiscovery"
 >;
 
 /** Reads an organization's public projection policy history. */
@@ -30,7 +37,11 @@ export function apiPrincipalPolicyPageReader(
 ): PrincipalPolicyPageReader | undefined {
   const getPrincipalPolicyPages =
     apiClient.getPrincipalPolicyPages?.bind(apiClient);
-  return getPrincipalPolicyPages ? { getPrincipalPolicyPages } : undefined;
+  const getPrincipalPolicyDiscovery =
+    apiClient.getPrincipalPolicyDiscovery?.bind(apiClient);
+  return getPrincipalPolicyPages
+    ? { getPrincipalPolicyPages, getPrincipalPolicyDiscovery }
+    : undefined;
 }
 
 /** The API client as a projection reader, or undefined when it has none. */

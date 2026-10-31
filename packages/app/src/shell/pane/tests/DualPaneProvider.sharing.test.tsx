@@ -69,8 +69,10 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // by head, so the share and its recitations echo neither path bundles nor
   // ~9.8 KB policies: 120 KB sent with create seeds (180 KB with policies,
   // 352 KB with bundles). Keep the same ~8% request headroom and room for two
-  // extra document projections.
-  bodyBytes: { request: 130_000, response: 2_250_000 },
+  // extra document projections. Discovery reads naming a held directory head
+  // receive that head alone: 0.73–0.74 MB received (1.18 MB before); keep
+  // about 10% headroom.
+  bodyBytes: { request: 130_000, response: 820_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,
@@ -91,7 +93,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /organizations/:organizationId/billing": 0,
     "GET /organizations/:organizationId/read-model": 6,
     "GET /principals/group/:groupId/policy": 0,
-    "GET /principals/organization/:organizationId/policy": 23,
+    // Measured 16–17, one per operation or pass.
+    "GET /principals/organization/:organizationId/policy": 19,
     "GET /organizations/:organizationId/groups": 0,
     "POST /containers/with-metadata-document": 1,
     "POST /containers/:containerId/share": 1,
