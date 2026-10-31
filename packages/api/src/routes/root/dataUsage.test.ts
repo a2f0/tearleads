@@ -38,6 +38,7 @@ beforeAll(async () => {
   await db.insert(organizations).values({
     id: emptyId,
     memberGroupId: randomUUID(),
+    rootContainerId: crypto.randomUUID(),
     adminGroupId: randomUUID(),
   });
   expected = await seedOrganizationDataUsage({ actor: member, organizationId });
@@ -118,6 +119,7 @@ test("batched usage scopes metadata and deduplicates shared blobs per organizati
   await db.insert(organizations).values({
     id: sharedId,
     memberGroupId: randomUUID(),
+    rootContainerId: crypto.randomUUID(),
     adminGroupId: randomUUID(),
   });
   const usedBaseline = await seedOrganizationDataUsage({

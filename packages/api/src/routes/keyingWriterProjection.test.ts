@@ -7,7 +7,6 @@ import {
   containerKeyEpochs,
   containerKeyWraps,
   containers,
-  documentBaselines,
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
@@ -82,24 +81,25 @@ import { getCurrentContainerKeyEpoch } from "../access/read/containerKekStore";
 import { routeApp } from "../routeApp";
 
 async function loadDocumentWriteRows(documentId: string) {
-  const [updates, writeHeaders, baselines] = await Promise.all([
+  const [rows, writeHeaders] = await Promise.all([
     db
-      .select({ id: documentUpdates.id })
+      .select({
+        id: documentUpdates.id,
+        sourceVersionVector: documentUpdates.baselineSourceVersionVector,
+      })
       .from(documentUpdates)
       .where(eq(documentUpdates.documentId, documentId)),
     db
       .select({ updateId: documentContentWriteHeaders.updateId })
       .from(documentContentWriteHeaders)
       .where(eq(documentContentWriteHeaders.documentId, documentId)),
-    db
-      .select({
-        baselineUpdateId: documentBaselines.baselineUpdateId,
-        checkpointKind: documentBaselines.checkpointKind,
-        sourceVersionVector: documentBaselines.sourceVersionVector,
-      })
-      .from(documentBaselines)
-      .where(eq(documentBaselines.documentId, documentId)),
   ]);
+  const updates = rows.map(({ id }) => ({ id }));
+  const baselines = rows.flatMap(({ id, sourceVersionVector }) =>
+    sourceVersionVector === null
+      ? []
+      : [{ baselineUpdateId: id, sourceVersionVector }],
+  );
 
   return { baselines, updates, writeHeaders };
 }
@@ -1057,7 +1057,6 @@ test("POST /documents/:documentId/sync records a baseline once across a retried 
   expect(baselines).toEqual([
     {
       baselineUpdateId: updateId,
-      checkpointKind: "rotate_baseline",
       sourceVersionVector: outgoing.sourceVersionVector,
     },
   ]);

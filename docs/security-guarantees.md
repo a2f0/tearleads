@@ -559,7 +559,7 @@ material cases are:
   recovery-key login can therefore recover the still-granted container without
   a repair action by another user. **Recoverable.**
 - **Group deleted.** `deleteOrganizationGroupRows` purges the group's encrypted
-  payloads, epoch keys, and member envelopes. It retains only signed public
+  payloads and member envelopes. It retains only signed public
   state and committed membership/grant projections so terminal purge proofs
   remain verifiable. The key material is gone from the server, so a later
   recovery cannot reconstruct it. **Permanently unrecoverable from server

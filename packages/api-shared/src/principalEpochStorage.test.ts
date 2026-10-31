@@ -6,7 +6,6 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import {
   accessManifestPrincipalHeadProjection,
-  principalEpochKeys,
   principalHistoryProgress,
   principalMemberEnvelopes,
   principalStates,
@@ -68,18 +67,6 @@ test.skipIf(isSqliteSchemaDialect())(
           })
           .returning();
         expect(head?.keyEpoch).toBe(keyEpoch);
-        const [key] = await database
-          .insert(principalEpochKeys)
-          .values({
-            principalType: "group",
-            principalId,
-            epoch: keyEpoch,
-            introducedByStateHash: String(keyEpoch),
-            encapsulationPublicKey: "fixture",
-            keyFingerprint: "fixture",
-          })
-          .returning();
-        expect(key?.epoch).toBe(keyEpoch);
         const [envelope] = await database
           .insert(principalMemberEnvelopes)
           .values({
@@ -135,17 +122,6 @@ test.skipIf(isSqliteSchemaDialect())(
             code: "23514",
             constraint:
               "access_manifest_principal_head_projection_key_epoch_range",
-          },
-        });
-        await expect(
-          database
-            .update(principalEpochKeys)
-            .set({ epoch: keyEpoch })
-            .execute(),
-        ).rejects.toMatchObject({
-          cause: {
-            code: "23514",
-            constraint: "principal_epoch_keys_epoch_range",
           },
         });
         await expect(

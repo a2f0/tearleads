@@ -6,7 +6,6 @@ import {
   accessManifests,
   attachmentBindings,
   blobs,
-  documentBaselines,
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
@@ -45,9 +44,6 @@ async function deleteDocumentContentRows(
   await executor
     .delete(documentInlineRekeyCommits)
     .where(inArray(documentInlineRekeyCommits.documentId, [...documentIds]));
-  await executor
-    .delete(documentBaselines)
-    .where(inArray(documentBaselines.documentId, [...documentIds]));
   await executor
     .delete(documentUpdateSpans)
     .where(inArray(documentUpdateSpans.documentId, [...documentIds]));

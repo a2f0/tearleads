@@ -22,8 +22,12 @@ const postgresLoroSql = `
     partial_start_version_vector TEXT NOT NULL,
     partial_end_version_vector TEXT NOT NULL,
     plaintext_hash TEXT NOT NULL,
+    baseline_source_version_vector TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
+  CREATE INDEX IF NOT EXISTS document_updates_baseline_idx
+    ON document_updates (document_id, sequence)
+    WHERE baseline_source_version_vector IS NOT NULL;
   CREATE TABLE IF NOT EXISTS document_update_spans (
     document_id UUID NOT NULL,
     update_id UUID NOT NULL,
@@ -61,8 +65,12 @@ const sqliteLoroSql = `
     partial_start_version_vector TEXT NOT NULL,
     partial_end_version_vector TEXT NOT NULL,
     plaintext_hash TEXT NOT NULL,
+    baseline_source_version_vector TEXT,
     created_at INTEGER NOT NULL DEFAULT (${sqliteNow})
   );
+  CREATE INDEX IF NOT EXISTS document_updates_baseline_idx
+    ON document_updates (document_id, sequence)
+    WHERE baseline_source_version_vector IS NOT NULL;
   CREATE TABLE IF NOT EXISTS document_update_spans (
     document_id TEXT NOT NULL,
     update_id TEXT NOT NULL,

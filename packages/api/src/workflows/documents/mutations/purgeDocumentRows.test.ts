@@ -38,10 +38,11 @@ async function countPurge(
 }
 
 test("deleting documents costs the same statements for one or many", async () => {
-  // Budget: 10 statements with history retained, 14 without, for any batch.
+  // Budget: 10 statements with history retained, 13 without (14 before the
+  // baseline markers moved onto the update rows), for any batch.
   for (const count of [1, 3]) {
     const ids = await insertDocuments(count);
-    expect(await countPurge(ids, false)).toBe(14);
+    expect(await countPurge(ids, false)).toBe(13);
     expect(
       await db.select().from(documents).where(inArray(documents.id, ids)),
     ).toEqual([]);

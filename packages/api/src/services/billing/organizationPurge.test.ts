@@ -10,7 +10,6 @@ import {
   organizationBilling,
   organizationRosterEntries,
   organizations,
-  principalEpochKeys,
   principalMemberEnvelopes,
   principalMembershipProjection,
   principalStatePayloads,
@@ -73,17 +72,7 @@ test("organization purge removes one organization's remote state and retains its
         eq(principalStates.principalId, untouchedOrganizationId),
       ),
     );
-  const untouchedPrincipalEpochKeys = await db
-    .select()
-    .from(principalEpochKeys)
-    .where(
-      and(
-        eq(principalEpochKeys.principalType, "organization"),
-        eq(principalEpochKeys.principalId, untouchedOrganizationId),
-      ),
-    );
   expect(untouchedPrincipalStates).not.toEqual([]);
-  expect(untouchedPrincipalEpochKeys).not.toEqual([]);
   const principalIds = [
     organizationId,
     organization.adminGroupId,
@@ -236,20 +225,8 @@ test("organization purge removes one organization's remote state and retains its
         ),
       ),
   ).toEqual(untouchedPrincipalStates);
-  expect(
-    await db
-      .select()
-      .from(principalEpochKeys)
-      .where(
-        and(
-          eq(principalEpochKeys.principalType, "organization"),
-          eq(principalEpochKeys.principalId, untouchedOrganizationId),
-        ),
-      ),
-  ).toEqual(untouchedPrincipalEpochKeys);
   for (const table of [
     principalStatePayloads,
-    principalEpochKeys,
     principalMemberEnvelopes,
     principalMembershipProjection,
     principalStates,

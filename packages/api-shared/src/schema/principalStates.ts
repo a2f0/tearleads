@@ -43,7 +43,9 @@ import {
  * - `encapsulationPublicKey`: Public KEM key for the principal at `keyEpoch`.
  *   Members encrypt/rewrap principal key material to this public key.
  * - `keyFingerprint`: Fingerprint of `encapsulationPublicKey`; verified before
- *   storage and copied into `principalEpochKeys` for recipient lookup.
+ *   storage. The current state's key is the recipient key; the transition
+ *   rule (a key change requires a new epoch and a new epoch requires new key
+ *   material) on this linear chain keeps one key per epoch.
  * - `membershipMode`: How direct members are represented. Only `projection` is
  *   currently supported.
  * - `membershipRoot`: Canonical hash of the normalized direct member list that
@@ -282,76 +284,14 @@ export const principalMembershipProjection = pgTable(
 );
 
 /**
- * Recipient key material for managed principal key epochs.
- *
- * Indexes the principal's signed KEM key and fingerprint by epoch for wrapping.
- *
- * Key epochs are historical and monotonic. Additive policy changes may reuse an
- * existing epoch and key material; membership shrink, container grant removal
- * or key material changes require a new epoch. Replays for an existing epoch
- * must provide matching key material.
- *
- * Columns:
- * - `id`: Surrogate database primary key. Domain identity is
- *   `(principalType, principalId, epoch)`.
- * - `principalType`: Managed principal kind whose recipient key this is,
- *   currently `organization` or `group`.
- * - `principalId`: Stable id of the managed principal.
- * - `epoch`: Principal key epoch. Current recipient lookup uses the highest
- *   epoch for the principal.
- * - `introducedByStateHash`: State hash of the first signed principal state
- *   that introduced this epoch. If later state versions reuse the same epoch,
- *   this remains pointed at the original introducing state.
- * - `encapsulationPublicKey`: Public KEM key for this principal epoch.
- * - `keyFingerprint`: Fingerprint of `encapsulationPublicKey`; copied from the
- *   verified signed state and used by writers to confirm they wrapped to the
- *   expected recipient key.
- * - `createdAt`: Server-side insertion timestamp. It is not part of the signed
- *   principal state or key fingerprint.
- *
- * Indexes:
- * - `(principalType, principalId)` supports current-key lookup by ordering
- *   epochs descending.
- * - `(principalType, principalId, epoch)` is unique because each epoch has one
- *   accepted key. A replay for the same epoch must match the stored key
- *   material.
- */
-export const principalEpochKeys = pgTable(
-  "principal_epoch_keys",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    principalType: text("principal_type")
-      .$type<ManagedRecipientPrincipalType>()
-      .notNull(),
-    principalId: uuid("principal_id").notNull(),
-    epoch: bigint("epoch", { mode: "number" }).notNull(),
-    introducedByStateHash: text("introduced_by_state_hash").notNull(),
-    encapsulationPublicKey: text("encapsulation_public_key").notNull(),
-    keyFingerprint: text("key_fingerprint").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [
-    check(
-      "principal_epoch_keys_epoch_range",
-      sql`${table.epoch} >= 1 AND ${table.epoch} <= 9007199254740991 AND ${table.epoch} = CAST(${table.epoch} AS BIGINT)`,
-    ),
-    uniqueIndex("principal_epoch_keys_principal_epoch_idx").on(
-      table.principalType,
-      table.principalId,
-      table.epoch,
-    ),
-  ],
-);
-
-/**
  * Wrapped principal key material for the current direct members of a principal.
  *
  * Principal state defines who the direct members are, and
  * `principalMembershipProjection` makes that membership queryable. This table
  * stores the encrypted key envelopes that let each direct member open the
  * managed principal's current key material. User members use their row in
- * `users` as the recipient key source; group members use their current
- * `principalEpochKeys` row.
+ * `users` as the recipient key source; group members use the key of their
+ * current `principalStates` row.
  *
  * Envelopes are immutable and scoped to an exact `stateHash`. Their canonical
  * exact root is signed into that state. Initial insertion verifies that every

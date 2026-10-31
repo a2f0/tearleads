@@ -84,9 +84,61 @@ test("document create, sync write, and sync pull stay within their statement bud
   // 59 and pull 41 / 42 / 43 before the database efficiency audit's sync unit
   // resolved the targets once after the locks and reused the locked heads and
   // each transaction's manifest bundles: create 36 / 37 / 38,
-  // write 47 / 48 / 49, pull 33 / 34 / 35. Bounds are Postgres.
+  // write 47 / 48 / 49, pull 33 / 34 / 35. Checkpoints riding on the update
+  // rows then dropped the response's checkpoint read: write 46 / 47 / 48,
+  // pull 32 / 33 / 34. Bounds are Postgres.
   expect(create.statements).toBeLessThanOrEqual(38);
-  expect(write.statements).toBeLessThanOrEqual(49);
+  expect(write.statements).toBeLessThanOrEqual(48);
+  expect(pull.statements).toBeLessThanOrEqual(34);
+}, 30_000);
+
+test("a rotation baseline write and its pull stay within their statement budgets", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const createRequest = await createDocumentRequest({ owner, root });
+  const createResponse = await post(owner.token, "/documents", createRequest);
+  expect(createResponse.status).toBe(200);
+  const created = await createResponse.json();
+  invariant(isDocumentCreateResponse(created), "expected created document");
+
+  // A full-history baseline starts from the empty frontier, so it is the
+  // document's first write here.
+  const { request: baseline } = await createSignedDocumentSyncRequest({
+    checkpoint: true,
+    created,
+    owner,
+    root,
+  });
+  const write = await counted(() =>
+    post(owner.token, `/documents/${created.id}/sync`, baseline),
+  );
+  expect(write.result.status).toBe(200);
+  const pull = await counted(() =>
+    post(owner.token, `/documents/${created.id}/sync`, {
+      contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
+      expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
+      expectedTargetHash: created.contentKeyBundle.targetHash,
+      localVersionVector: null,
+      outgoingUpdates: [],
+      supportsPullPagination: true,
+    }),
+  );
+  expect(pull.result.status).toBe(200);
+  const pulled = await pull.result.json();
+  expect(
+    pulled.updates.filter(
+      (update: { checkpointKind?: string }) =>
+        update.checkpointKind === "rotate_baseline",
+    ),
+  ).toHaveLength(1);
+
+  // PGlite / SQLite / Postgres: write 50 / 51 / 52 and pull 34 / 35 / 36
+  // while a baseline took a second insert into its own table and the pull
+  // read that table for checkpoints; 48 / 49 / 50 and 33 / 34 / 35 once the
+  // update row carries the baseline's source version vector.
+  expect(write.statements).toBeLessThanOrEqual(50);
   expect(pull.statements).toBeLessThanOrEqual(35);
 }, 30_000);
 
@@ -172,6 +224,7 @@ test("a full pull page loads its updates as sets", async () => {
   // its write header, and its checkpoint separately; 44 / 45 once it sized
   // itself from stored byte lengths and loaded each as a set.
   // 41 / 42 (Postgres 43) before the sync unit of the database efficiency
-  // audit; 33 / 34 (Postgres 35) after.
-  expect(pull.statements).toBeLessThanOrEqual(35);
+  // audit; 33 / 34 (Postgres 35) after; 32 / 33 (Postgres 34) once
+  // checkpoints rode on the update rows.
+  expect(pull.statements).toBeLessThanOrEqual(34);
 }, 60_000);

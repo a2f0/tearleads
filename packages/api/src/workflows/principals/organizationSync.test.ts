@@ -12,6 +12,7 @@ test("an entitled organization policy remains writable without a user seat", asy
     id: organizationId,
     adminGroupId: crypto.randomUUID(),
     memberGroupId: crypto.randomUUID(),
+    rootContainerId: crypto.randomUUID(),
   });
   await db.insert(organizationBilling).values({
     organizationId,

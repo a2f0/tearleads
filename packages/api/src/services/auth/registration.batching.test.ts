@@ -74,8 +74,9 @@ for (const full of [false, true]) {
     // its evidence in one statement. The audit's sync unit (KEK targets once
     // per sync, held locks and manifest bundles reused, the seed's pull page
     // skipped) then took them to 304 / 655, 299 / 646,
-    // and 306 / 657.
-    expect(counter.statements).toBeLessThanOrEqual(full ? 657 : 306);
+    // and 306 / 657. Deriving built-in grants and dropping the principal
+    // epoch-key copy took them to 299 / 650, 294 / 641, and 301 / 652.
+    expect(counter.statements).toBeLessThanOrEqual(full ? 652 : 301);
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
     const stored = await db

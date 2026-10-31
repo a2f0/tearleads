@@ -59,8 +59,8 @@ The stored shapes enforce:
   content-key epoch, and target as AES-GCM associated data.
 - Signed write headers are the write-integrity mechanism (see
   [document write integrity](../document-rekey-and-audit-history.md#write-integrity));
-  there is no server-side audit hash chain. `document_baselines` keeps only the
-  baseline metadata its readers consume, and
+  there is no server-side audit hash chain. A rotation baseline's update row
+  keeps only the source version vector its readers consume, and
   `access_events.dependency_manifest_hashes` is the only copy of an event's
   dependency citations.
 - The client SDK's outbound write queue lives in `document_history_updates`

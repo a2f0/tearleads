@@ -62,6 +62,7 @@ test("fresh seat capacity assigns an active administrator before other members",
     id: organizationId,
     adminGroupId,
     memberGroupId,
+    rootContainerId: crypto.randomUUID(),
   });
   await db.insert(organizationBilling).values({
     organizationId,
@@ -113,6 +114,7 @@ test("an active zero-capacity row initializes and assigns a fixed tier", async (
     id: organizationId,
     adminGroupId,
     memberGroupId,
+    rootContainerId: crypto.randomUUID(),
   });
   await db.insert(organizationBilling).values({
     organizationId,
