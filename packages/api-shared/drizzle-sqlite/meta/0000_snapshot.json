@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "53292067-00df-4452-8930-33f88dd6dda5",
+  "id": "19b80185-05a0-49c2-b5e8-4b2371a51c8f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_events": {
@@ -151,9 +151,9 @@
           "columns": ["object_kind", "object_id"],
           "isUnique": false
         },
-        "access_events_signer_idx": {
-          "name": "access_events_signer_idx",
-          "columns": ["signer_user_id", "signer_key_fingerprint"],
+        "access_events_organization_idx": {
+          "name": "access_events_organization_idx",
+          "columns": ["organization_id"],
           "isUnique": false
         }
       },
@@ -621,6 +621,11 @@
           "name": "access_manifests_object_epoch_idx",
           "columns": ["object_kind", "object_id", "epoch"],
           "isUnique": true
+        },
+        "access_manifests_organization_idx": {
+          "name": "access_manifests_organization_idx",
+          "columns": ["organization_id"],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -705,16 +710,6 @@
         "attachment_bindings_blob_idx": {
           "name": "attachment_bindings_blob_idx",
           "columns": ["blob_id"],
-          "isUnique": false
-        },
-        "attachment_bindings_previous_binding_id_idx": {
-          "name": "attachment_bindings_previous_binding_id_idx",
-          "columns": ["previous_binding_id"],
-          "isUnique": false
-        },
-        "attachment_bindings_attachment_event_hash_idx": {
-          "name": "attachment_bindings_attachment_event_hash_idx",
-          "columns": ["attachment_event_hash"],
           "isUnique": false
         },
         "attachment_bindings_document_slot_active_idx": {
@@ -812,6 +807,11 @@
         }
       },
       "indexes": {
+        "blob_audit_objects_organization_idx": {
+          "name": "blob_audit_objects_organization_idx",
+          "columns": ["organization_id"],
+          "isUnique": false
+        },
         "blob_audit_objects_pending_delete_idx": {
           "name": "blob_audit_objects_pending_delete_idx",
           "columns": ["object_delete_attempted_at", "pruned_at", "blob_id"],
@@ -877,11 +877,6 @@
           "name": "blob_content_key_epochs_blob_epoch_idx",
           "columns": ["blob_id", "content_key_epoch"],
           "isUnique": true
-        },
-        "blob_content_key_epochs_target_idx": {
-          "name": "blob_content_key_epochs_target_idx",
-          "columns": ["target_hash"],
-          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -979,16 +974,6 @@
         }
       },
       "indexes": {
-        "blob_content_key_targets_binding_idx": {
-          "name": "blob_content_key_targets_binding_idx",
-          "columns": ["binding_id"],
-          "isUnique": false
-        },
-        "blob_content_key_targets_container_epoch_idx": {
-          "name": "blob_content_key_targets_container_epoch_idx",
-          "columns": ["container_key_epoch_id"],
-          "isUnique": false
-        },
         "blob_content_key_targets_epoch_binding_container_idx": {
           "name": "blob_content_key_targets_epoch_binding_container_idx",
           "columns": [
@@ -1546,16 +1531,6 @@
           "columns": ["container_id", "key_epoch"],
           "isUnique": true
         },
-        "container_key_epochs_access_manifest_idx": {
-          "name": "container_key_epochs_access_manifest_idx",
-          "columns": ["access_manifest_hash"],
-          "isUnique": false
-        },
-        "container_key_epochs_parent_idx": {
-          "name": "container_key_epochs_parent_idx",
-          "columns": ["parent_container_key_epoch_id"],
-          "isUnique": false
-        },
         "container_key_epochs_predecessor_idx": {
           "name": "container_key_epochs_predecessor_idx",
           "columns": ["predecessor_container_key_epoch_id"],
@@ -1661,11 +1636,6 @@
         "container_key_wraps_recipient_idx": {
           "name": "container_key_wraps_recipient_idx",
           "columns": ["recipient_kind", "recipient_id"],
-          "isUnique": false
-        },
-        "container_key_wraps_manifest_idx": {
-          "name": "container_key_wraps_manifest_idx",
-          "columns": ["wrap_manifest_hash"],
           "isUnique": false
         }
       },
@@ -1800,6 +1770,11 @@
             "updated_at",
             "container_id"
           ],
+          "isUnique": false
+        },
+        "container_sync_tombstones_organization_idx": {
+          "name": "container_sync_tombstones_organization_idx",
+          "columns": ["organization_id"],
           "isUnique": false
         }
       },
@@ -2002,11 +1977,6 @@
           "name": "document_content_key_epochs_document_epoch_idx",
           "columns": ["document_id", "content_key_epoch"],
           "isUnique": true
-        },
-        "document_content_key_epochs_target_idx": {
-          "name": "document_content_key_epochs_target_idx",
-          "columns": ["target_hash"],
-          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -2083,11 +2053,6 @@
         }
       },
       "indexes": {
-        "document_content_key_targets_container_epoch_idx": {
-          "name": "document_content_key_targets_container_epoch_idx",
-          "columns": ["container_key_epoch_id"],
-          "isUnique": false
-        },
         "document_content_key_targets_epoch_container_idx": {
           "name": "document_content_key_targets_epoch_container_idx",
           "columns": ["document_content_key_epoch_id", "container_id"],
@@ -3891,6 +3856,11 @@
         "organizations_profile_document_idx": {
           "name": "organizations_profile_document_idx",
           "columns": ["profile_document_id"],
+          "isUnique": false
+        },
+        "organizations_admin_group_idx": {
+          "name": "organizations_admin_group_idx",
+          "columns": ["admin_group_id"],
           "isUnique": false
         }
       },

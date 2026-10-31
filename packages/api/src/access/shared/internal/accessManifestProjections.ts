@@ -52,6 +52,13 @@ export async function insertAccessManifestPrincipalProjection(
   if (referencedPrincipalHeads.length === 0) {
     return;
   }
+  // Document manifests always commit to an empty head list, so document purge
+  // never deletes projection rows by document; refuse a row it would orphan.
+  if (manifest.objectKind === "document") {
+    throw new Error(
+      "Document access manifests cannot reference principal heads",
+    );
+  }
 
   await executor.insert(accessManifestPrincipalHeadProjection).values(
     referencedPrincipalHeads.map((principalHead) => ({

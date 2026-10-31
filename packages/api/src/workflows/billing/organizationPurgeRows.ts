@@ -195,9 +195,11 @@ export async function deleteOrganizationRemoteRows(input: {
     .update(organizationRosterEntries)
     .set({ profileDocumentId: null, updatedAt: input.now })
     .where(eq(organizationRosterEntries.organizationId, input.organizationId));
-  for (const documentId of input.scope.documentIds) {
+  for (const documentBatch of organizationPurgeBatches(
+    input.scope.documentIds,
+  )) {
     await deleteDocumentRows({
-      documentId,
+      documentIds: documentBatch,
       executor: input.executor,
       orphanedBlobIds: [],
       retainAccessHistory: false,

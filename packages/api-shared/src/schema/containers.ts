@@ -119,5 +119,8 @@ export const containerSyncTombstones = pgTable(
       table.updatedAt,
       table.containerId,
     ),
+    index("container_sync_tombstones_organization_idx").on(
+      table.organizationId,
+    ),
   ],
 );

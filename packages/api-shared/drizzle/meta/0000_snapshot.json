@@ -1,5 +1,5 @@
 {
-  "id": "135e8935-aa6b-4d5a-8094-2764e47cf501",
+  "id": "6ecaed15-6aaa-46f5-8342-04a3c3a7b5bb",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -171,17 +171,11 @@
           "method": "btree",
           "with": {}
         },
-        "access_events_signer_idx": {
-          "name": "access_events_signer_idx",
+        "access_events_organization_idx": {
+          "name": "access_events_organization_idx",
           "columns": [
             {
-              "expression": "signer_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "signer_key_fingerprint",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -847,6 +841,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "access_manifests_organization_idx": {
+          "name": "access_manifests_organization_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -938,36 +947,6 @@
           "columns": [
             {
               "expression": "blob_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "attachment_bindings_previous_binding_id_idx": {
-          "name": "attachment_bindings_previous_binding_id_idx",
-          "columns": [
-            {
-              "expression": "previous_binding_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "attachment_bindings_attachment_event_hash_idx": {
-          "name": "attachment_bindings_attachment_event_hash_idx",
-          "columns": [
-            {
-              "expression": "attachment_event_hash",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1081,6 +1060,21 @@
         }
       },
       "indexes": {
+        "blob_audit_objects_organization_idx": {
+          "name": "blob_audit_objects_organization_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "blob_audit_objects_pending_delete_idx": {
           "name": "blob_audit_objects_pending_delete_idx",
           "columns": [
@@ -1182,21 +1176,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "blob_content_key_epochs_target_idx": {
-          "name": "blob_content_key_epochs_target_idx",
-          "columns": [
-            {
-              "expression": "target_hash",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {},
@@ -1286,36 +1265,6 @@
         }
       },
       "indexes": {
-        "blob_content_key_targets_binding_idx": {
-          "name": "blob_content_key_targets_binding_idx",
-          "columns": [
-            {
-              "expression": "binding_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "blob_content_key_targets_container_epoch_idx": {
-          "name": "blob_content_key_targets_container_epoch_idx",
-          "columns": [
-            {
-              "expression": "container_key_epoch_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "blob_content_key_targets_epoch_binding_container_idx": {
           "name": "blob_content_key_targets_epoch_binding_container_idx",
           "columns": [
@@ -2103,36 +2052,6 @@
           "method": "btree",
           "with": {}
         },
-        "container_key_epochs_access_manifest_idx": {
-          "name": "container_key_epochs_access_manifest_idx",
-          "columns": [
-            {
-              "expression": "access_manifest_hash",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "container_key_epochs_parent_idx": {
-          "name": "container_key_epochs_parent_idx",
-          "columns": [
-            {
-              "expression": "parent_container_key_epoch_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "container_key_epochs_predecessor_idx": {
           "name": "container_key_epochs_predecessor_idx",
           "columns": [
@@ -2273,21 +2192,6 @@
             },
             {
               "expression": "recipient_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "container_key_wraps_manifest_idx": {
-          "name": "container_key_wraps_manifest_idx",
-          "columns": [
-            {
-              "expression": "wrap_manifest_hash",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2484,6 +2388,21 @@
             },
             {
               "expression": "container_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "container_sync_tombstones_organization_idx": {
+          "name": "container_sync_tombstones_organization_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2805,21 +2724,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "document_content_key_epochs_target_idx": {
-          "name": "document_content_key_epochs_target_idx",
-          "columns": [
-            {
-              "expression": "target_hash",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {},
@@ -2891,21 +2795,6 @@
         }
       },
       "indexes": {
-        "document_content_key_targets_container_epoch_idx": {
-          "name": "document_content_key_targets_container_epoch_idx",
-          "columns": [
-            {
-              "expression": "container_key_epoch_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "document_content_key_targets_epoch_container_idx": {
           "name": "document_content_key_targets_epoch_container_idx",
           "columns": [
@@ -5164,6 +5053,21 @@
           "columns": [
             {
               "expression": "profile_document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "organizations_admin_group_idx": {
+          "name": "organizations_admin_group_idx",
+          "columns": [
+            {
+              "expression": "admin_group_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

@@ -59,6 +59,7 @@ export const blobAuditObjects = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
+    index("blob_audit_objects_organization_idx").on(table.organizationId),
     index("blob_audit_objects_pending_delete_idx")
       .on(table.objectDeleteAttemptedAt, table.prunedAt, table.blobId)
       .where(
