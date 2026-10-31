@@ -79,8 +79,8 @@
       "bytes": 2773161
     },
     "docs/protocol-specification.md": {
-      "lines": 803,
-      "bytes": 43584
+      "lines": 826,
+      "bytes": 45201
     },
     "docs/security-guarantees.md": {
       "lines": 847,
@@ -115,8 +115,8 @@
       "bytes": 21870
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 547,
-      "bytes": 17566
+      "lines": 548,
+      "bytes": 17599
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
       "lines": 637,
@@ -251,8 +251,8 @@
       "bytes": 13767
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 565,
-      "bytes": 18949
+      "lines": 567,
+      "bytes": 19075
     },
     "packages/client-sdk/src/data/sqlite/schema/index.ts": {
       "lines": 691,

@@ -612,6 +612,9 @@ Binding uses:
 - optional `containerRekeys[]`
 - blob content-key bundle
 - optional `stagedBlob` with `stageId` and signed blob write header
+- optional `documentSync`: the document's deferred first update, held to the
+  same shape as a create's `initialSync` seed (one outgoing update from an
+  empty start, no container rekeys, within the sync request limit)
 
 The bind body commits to `bindingId`, `blobId`, `documentId`, `slotId`,
 `expectedBindingId`, and `documentManifestHash`. The event uses
@@ -638,6 +641,26 @@ content-key targets merged with the exact stored envelopes of all other bindings
 under the blob row lock, recomputes the merged target hash, stores the blob
 write header, registers the blob in `blob_audit_objects`, and touches the
 document plus linked containers for sync discovery.
+
+When the request carries `documentSync`, the API then commits it in the same
+transaction, after the binding row, under every check a standalone sync makes
+(write header, target and link-set expectations, billing, minimum commit
+position). The bind writes no link-set manifest, so the update's
+`expectedLinkSetManifestHash` is checked against the head the bind locked. A
+`documentSync` the sync route would refuse fails the whole bind. To keep the
+global container head -> document head -> blob row lock order, a bind carrying
+`documentSync` locks the document head `FOR UPDATE` (instead of `FOR SHARE`)
+and the update's authorizing container heads before any blob row, and the
+update's write refuses with `409` rather than lock a head the bind did not
+already hold. The response's `documentSync` names the accepted update ids, the
+commit position read after commit, and its mode, as a create's `initialSync`
+does; the bind's realtime hint names the update ids. Explorer import sends the
+document's held-back first update this way when its create and its only
+attachment's bind run in one pass. The client settles its queued row only when
+the acknowledgement names it; a bind refused with `400`, `403`, `404`, or `409`
+is sent once more without `documentSync`, and the row then syncs on its own. A
+lost response leaves the row queued; binding adoption by slot and update-id
+recovery are unchanged.
 
 Detach uses:
 

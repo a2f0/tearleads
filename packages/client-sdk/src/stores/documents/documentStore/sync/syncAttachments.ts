@@ -29,11 +29,15 @@ import {
 import type { AttachmentUploadResume } from "../attachmentUpload/attachmentUploadResume";
 import type {
   DocumentAttachmentBinding,
-  DocumentState,
   DocumentStoreState,
   EncapsulationKeyPair,
   PendingMutationSyncResult,
 } from "../state";
+import {
+  type CarriedFirstUpdate,
+  ensureRemoteDocumentCarryingFirstUpdate,
+  uploadCarryingFirstUpdate,
+} from "./carriedFirstUpdate";
 import {
   isNewPendingAttachmentSlot,
   removeSettledPendingAttachment,
@@ -44,7 +48,6 @@ import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
-import { ensureRemoteDocument } from "./syncShared";
 
 // Preserve transient failures for retry. Drop irrecoverable missing bytes so a
 // pending attachment cannot wedge the document sync lane across restarts.
@@ -85,13 +88,19 @@ export async function syncPendingAttachments(
     return { completed: false, nextRecord };
   }
 
-  const currentRecord = await ensureRemoteDocumentForAttachmentSync(
-    state,
-    currentDoc,
-    nextRecord,
-    encapsulationKeyPair,
-    attachmentGeneration,
-  );
+  let carriedFirstUpdate: CarriedFirstUpdate | undefined;
+  const currentRecord = nextRecord.documentId
+    ? nextRecord
+    : await ensureRemoteDocumentCarryingFirstUpdate({
+        currentDoc,
+        encapsulationKeyPair,
+        generation: attachmentGeneration,
+        nextRecord,
+        onCarried: (carried) => {
+          carriedFirstUpdate = carried;
+        },
+        state,
+      });
   if (!currentRecord?.documentId) {
     return { completed: false, nextRecord };
   }
@@ -128,11 +137,14 @@ export async function syncPendingAttachments(
     const outcome = await syncPendingAttachmentUpload({
       activeBindingBySlotId: progress.activeBindingBySlotId,
       attachmentGeneration,
+      carriedFirstUpdate,
       encapsulationKeyPair,
       pendingAttachment,
       remoteDocumentId,
       state,
     });
+    // Only the first bind may carry it; a failed one leaves the row queued.
+    carriedFirstUpdate = undefined;
     if (outcome === "retry") {
       rearmStaleAttachmentSync(state, attachmentGeneration);
       return {
@@ -216,29 +228,10 @@ async function loadRemoteAttachmentBindings(input: {
   return true;
 }
 
-async function ensureRemoteDocumentForAttachmentSync(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  nextRecord: DocumentRecord,
-  encapsulationKeyPair: EncapsulationKeyPair,
-  generation?: DocumentStoreSyncGeneration,
-): Promise<DocumentRecord | null> {
-  if (nextRecord.documentId) {
-    return nextRecord;
-  }
-
-  return ensureRemoteDocument(
-    state,
-    currentDoc,
-    nextRecord,
-    encapsulationKeyPair,
-    generation,
-  );
-}
-
 interface PendingAttachmentUploadInput {
   activeBindingBySlotId: Map<string, DocumentAttachmentBinding>;
   attachmentGeneration: DocumentStoreSyncGeneration;
+  carriedFirstUpdate?: CarriedFirstUpdate | undefined;
   encapsulationKeyPair: EncapsulationKeyPair;
   pendingAttachment: PendingAttachmentRecord;
   remoteDocumentId: string;
@@ -301,6 +294,7 @@ function createAttachmentBaseUploadInput(input: {
     contentKey: input.resume.contentKey,
     contentKeyEpoch: input.resume.contentKeyEpoch,
     documentId: input.pendingUpload.remoteDocumentId,
+    documentSync: input.pendingUpload.carriedFirstUpdate?.request,
     execSql: state.runtime.infra.execSql,
     expectedBindingId:
       input.pendingUpload.activeBindingBySlotId.get(pendingAttachment.slotId)
@@ -339,10 +333,18 @@ async function uploadPendingAttachmentBytes(input: {
   const writerProjectionGeneration = state.writerProjectionGeneration;
 
   try {
-    const uploadAttempt = await uploadAttachmentWithWriterProjectionRetry({
-      baseUploadInput: input.baseUploadInput,
+    const uploadAttempt = await uploadCarryingFirstUpdate({
+      attachmentGeneration: input.pendingUpload.attachmentGeneration,
+      carried: input.pendingUpload.carriedFirstUpdate,
+      committed: (attempt) => attempt.uploaded?.response.documentSync,
+      remoteDocumentId: input.pendingUpload.remoteDocumentId,
       state,
-      writerProjection,
+      upload: () =>
+        uploadAttachmentWithWriterProjectionRetry({
+          baseUploadInput: input.baseUploadInput,
+          state,
+          writerProjection,
+        }),
     });
     const { error: uploadError, remoteSyncBlocked, uploaded } = uploadAttempt;
     if (!uploaded) {

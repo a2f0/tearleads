@@ -178,6 +178,28 @@ export async function createSignedDocumentSyncRequest(input: {
   };
 }
 
+/**
+ * A document's first update as a create or an attachment bind carries it:
+ * one signed update from empty, its end as the local version.
+ */
+export async function createFirstUpdateSyncRequest(input: {
+  readonly document: CreatedDocumentFixture;
+  readonly owner: TestUser;
+  readonly root: Pick<StoredRootFixture, "bundle" | "kekState">;
+}): Promise<{ readonly id: string; readonly request: DocumentSyncRequest }> {
+  const { request, updateId } = await createSignedDocumentSyncRequest({
+    created: input.document,
+    owner: input.owner,
+    root: input.root,
+  });
+  const [update] = request.outgoingUpdates;
+  if (!update) throw new Error("Expected one update");
+  return {
+    id: updateId,
+    request: { ...request, localVersionVector: update.partialEndVersionVector },
+  };
+}
+
 export async function createSignedAtomicRotationBaseline(input: {
   readonly dependencyManifestHashes: readonly string[];
   readonly accessManifestHash: string;

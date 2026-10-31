@@ -15,6 +15,11 @@ import {
   storeBlobContentKeyBundleInTransaction,
   storeBlobContentWriteHeader,
 } from "../../../access/write/blobContentKeyStore";
+import {
+  readCommitLsnMode,
+  readCurrentCommitLsn,
+} from "../../../documents/commitLsn";
+import { appendAttachmentBindDocumentSync } from "../../documents/mutations";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
   type AttachmentAuthorizationProof,
@@ -256,6 +261,7 @@ function lockBindAttachmentAuthorization(
     blobId: input.blobId,
     contentKeyTargets: input.request.contentKeyBundle.targets,
     documentId,
+    documentSync: input.request.documentSync,
     executor: tx,
     proof,
     request: input.request,
@@ -273,12 +279,45 @@ function storeBindingKeys(
   );
 }
 
+/**
+ * The document's deferred first update commits after the binding row, so no
+ * reader sees content naming an attachment the server has not bound. The bind
+ * writes no link-set manifest, so the update's expected manifest hash is
+ * checked against the head this transaction locked.
+ */
+async function appendCarriedDocumentSync(carried: {
+  readonly input: BindBlobAttachmentInput;
+  readonly proof: AttachmentAuthorizationProof;
+  readonly signingPublicKey: Uint8Array;
+  readonly tx: DatabaseTransaction;
+}): Promise<readonly string[] | null> {
+  const { input } = carried;
+  if (!input.request.documentSync) return null;
+  const { documentId, organizationId } = carried.proof.documentManifest.state;
+  const committed = await appendAttachmentBindDocumentSync({
+    documentId,
+    executor: carried.tx,
+    fingerprint: input.fingerprint,
+    request: input.request.documentSync,
+    signingPublicKey: carried.signingPublicKey,
+    syncEligibleOrganizationId: organizationId,
+    userId: input.userId,
+  });
+  return committed.acceptedOutgoingUpdateIds;
+}
+
+interface BindTransactionResult {
+  /** The carried document sync's accepted ids; null when none was carried. */
+  readonly acceptedOutgoingUpdateIds: readonly string[] | null;
+  readonly response: BlobAttachmentBindResponse;
+}
+
 async function bindBlobAttachmentTransaction(
   input: BindBlobAttachmentInput & {
     readonly prevalidatedMultipartStage: PrevalidatedMultipartBlobStage | null;
   },
   tx: DatabaseTransaction,
-): Promise<BlobAttachmentBindResponse> {
+): Promise<BindTransactionResult> {
   const { bindBody, event } = readBindRequestSession(input);
   await applyAttachmentContainerRekeys({
     executor: tx,
@@ -357,13 +396,21 @@ async function bindBlobAttachmentTransaction(
     executor: tx,
     linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
   });
-  return toBindResponse({
-    binding: verifiedBinding,
-    blobId: input.blobId,
-    contentKeyBundle,
-    currentTargets,
-    writeHeaderHash: writeHeaderHash ?? storedWriteHeader.headerHash,
-  });
+  return {
+    acceptedOutgoingUpdateIds: await appendCarriedDocumentSync({
+      input,
+      proof,
+      signingPublicKey,
+      tx,
+    }),
+    response: toBindResponse({
+      binding: verifiedBinding,
+      blobId: input.blobId,
+      contentKeyBundle,
+      currentTargets,
+      writeHeaderHash: writeHeaderHash ?? storedWriteHeader.headerHash,
+    }),
+  };
 }
 
 export async function runBindBlobAttachmentWorkflow(
@@ -373,16 +420,27 @@ export async function runBindBlobAttachmentWorkflow(
   },
 ): Promise<BlobAttachmentBindResponse> {
   try {
-    return await db.transaction(async (tx) => {
-      const result = await bindBlobAttachmentTransaction(
+    const { acceptedOutgoingUpdateIds, response } = await db.transaction((tx) =>
+      bindBlobAttachmentTransaction(
         {
           ...input,
           prevalidatedMultipartStage: input.prevalidatedMultipartStage ?? null,
         },
         tx,
-      );
-      return result;
-    });
+      ),
+    );
+    if (acceptedOutgoingUpdateIds === null) {
+      return response;
+    }
+    // Read after commit, as a standalone sync reports its commit position.
+    return {
+      ...response,
+      documentSync: {
+        acceptedOutgoingUpdateIds: [...acceptedOutgoingUpdateIds],
+        commitLsn: await readCurrentCommitLsn(db),
+        commitLsnMode: readCommitLsnMode(),
+      },
+    };
   } catch (error) {
     const mutationError = toMutationError(error);
     if (mutationError) {

@@ -13,6 +13,7 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
   BlobContentKeyBundleRequest,
+  DocumentSyncRequest,
   InitiateMultipartBlobStageRequest,
 } from "@tearleads/validators/request";
 import type {
@@ -177,6 +178,12 @@ export interface UploadDocumentAttachmentInput {
   contentKey?: Uint8Array | undefined;
   contentKeyEpoch?: number | undefined;
   documentId: string;
+  /**
+   * The document's deferred first update for the bind to commit after its
+   * binding. A bind refused with it is sent once more without it, and the
+   * caller's queued row then syncs on its own.
+   */
+  documentSync?: DocumentSyncRequest | undefined;
   eventId?: string | undefined;
   execSql: ExecSql;
   expectedBindingId: string | null;

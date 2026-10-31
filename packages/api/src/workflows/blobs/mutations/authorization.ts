@@ -10,7 +10,9 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
   BlobContentKeyTargetEnvelopeRequest,
+  DocumentSyncRequest,
 } from "@tearleads/validators/request";
+import { isUuidV4String } from "@tearleads/validators/util";
 import { eq } from "drizzle-orm";
 import { listBlobContentWriteHeaders } from "../../../access/read/blobContentKeyStore";
 import {
@@ -133,6 +135,20 @@ export async function assertAttachmentOrganizationCanSync(
     proof.documentManifest.state.organizationId,
     userId,
   );
+}
+
+// UUID-validated (as the sync itself does) before reaching the uuid-typed
+// lock query, where a malformed id would surface as a 500 instead of a 400.
+function documentSyncAuthorizingContainerIds(
+  documentSync: DocumentSyncRequest | undefined,
+): string[] {
+  const containerIds = (
+    documentSync?.authorizingContainerPathRefs ?? []
+  ).flatMap((path) => path.map((ref) => ref.containerId));
+  if (containerIds.some((containerId) => !isUuidV4String(containerId))) {
+    throw new BlobMutationError("Document container id is invalid", 400);
+  }
+  return containerIds;
 }
 
 export function createAttachmentAuthorizationLockPlan(input: {
@@ -286,10 +302,13 @@ export async function lockAttachmentAuthorizationForShare(input: {
   readonly blobId?: string;
   readonly contentKeyTargets?: readonly BlobContentKeyTargetEnvelopeRequest[];
   readonly documentId: string;
+  /** The bind's validated carried sync; detach never passes one. */
+  readonly documentSync?: DocumentSyncRequest | undefined;
   readonly executor: DatabaseTransaction;
   readonly proof: AttachmentAuthorizationProof;
   readonly request: BlobAttachmentBindRequest | BlobAttachmentDetachRequest;
 }): Promise<void> {
+  const { documentSync } = input;
   const existingBlobResolution =
     input.blobId === undefined || input.contentKeyTargets === undefined
       ? { concealed: false, targets: [] }
@@ -327,8 +346,15 @@ export async function lockAttachmentAuthorizationForShare(input: {
       input.executor,
       mapContainerKekTargetError,
     );
+  // A carried document sync locks the document's linked heads (already in
+  // the plan) and its own authorizing paths, which may name other ancestors.
+  // Take them here, ahead of the blob rows, with the document head FOR UPDATE:
+  // the sync then locks nothing new after the bind's blob-row locks.
   const lockPlan = createAttachmentAuthorizationLockPlan({
-    authorizingContainerIds,
+    authorizingContainerIds: [
+      ...authorizingContainerIds,
+      ...documentSyncAuthorizingContainerIds(documentSync),
+    ],
     containerKekTargetClosureIds,
     documentId: input.documentId,
     existingBlobTargets,
@@ -336,6 +362,7 @@ export async function lockAttachmentAuthorizationForShare(input: {
   });
   await lockAttachmentAuthorizationHeadsForShare({
     ...lockPlan,
+    exclusiveDocumentId: documentSync ? input.documentId : undefined,
     executor: input.executor,
   });
 

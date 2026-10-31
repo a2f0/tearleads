@@ -10,6 +10,7 @@ import {
 import type {
   BlobAttachmentBindRequest,
   BlobContentKeyBundleRequest,
+  DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
 import type { BlobSourceSnapshot } from "../../../data/blobs/attachments/blobSourceSnapshot";
@@ -162,6 +163,57 @@ function blobAttachmentBindRequest(input: {
   };
 }
 
+/**
+ * Whether the server refused the bind outright (a client error other than a
+ * billing pause or an expired session), which rolled back the binding with
+ * the update it carried.
+ */
+function bindRefusedCarriedSync(
+  apiClient: BlobAttachmentApi,
+  blobId: string,
+): boolean {
+  const failure = apiClient.getRequestFailure?.({
+    method: "POST",
+    path: `/blobs/${encodeURIComponent(blobId)}/attachment-bindings`,
+  });
+  return (
+    failure?.kind === "http" &&
+    failure.status !== null &&
+    [400, 403, 404, 409].includes(failure.status)
+  );
+}
+
+/**
+ * The carried update adds no failure mode: a refused carry binds once more
+ * without it, and the caller's queued row then syncs on its own.
+ */
+async function bindCarryingDocumentSync(input: {
+  readonly apiClient: BlobAttachmentApi;
+  readonly blobId: string;
+  readonly documentSync: DocumentSyncRequest | undefined;
+  readonly organizationId: string;
+  readonly plainRequest: BlobAttachmentBindRequest;
+}): Promise<{
+  readonly request: BlobAttachmentBindRequest;
+  readonly response: BlobAttachmentBindResponse | null;
+}> {
+  const bind = (request: BlobAttachmentBindRequest) =>
+    input.apiClient.bindBlobAttachment(input.blobId, request, {
+      expectedPaymentRequiredOrganizationId: input.organizationId,
+    });
+  if (input.documentSync) {
+    const request = { ...input.plainRequest, documentSync: input.documentSync };
+    const response = await bind(request);
+    if (response || !bindRefusedCarriedSync(input.apiClient, input.blobId)) {
+      return { request, response };
+    }
+  }
+  return {
+    request: input.plainRequest,
+    response: await bind(input.plainRequest),
+  };
+}
+
 async function stageAndBindBlobAttachment(input: {
   apiClient: BlobAttachmentApi;
   author: DocumentCreateAuthor;
@@ -169,6 +221,7 @@ async function stageAndBindBlobAttachment(input: {
   blobId: string;
   contentKeyEpoch: number;
   documentId: string;
+  documentSync?: DocumentSyncRequest | undefined;
   eventId: string;
   expectedBindingId: string | null;
   material: BlobAttachmentMaterial;
@@ -226,21 +279,20 @@ async function stageAndBindBlobAttachment(input: {
     return null;
   }
 
-  const request = blobAttachmentBindRequest({
+  const plainRequest = blobAttachmentBindRequest({
     body,
     event,
     material: input.material,
     stageId,
     writeHeader,
   });
-  const response = await input.apiClient.bindBlobAttachment(
-    input.blobId,
-    request,
-    {
-      expectedPaymentRequiredOrganizationId:
-        input.material.manifestIdentity.organizationId,
-    },
-  );
+  const { request, response } = await bindCarryingDocumentSync({
+    apiClient: input.apiClient,
+    blobId: input.blobId,
+    documentSync: input.documentSync,
+    organizationId: input.material.manifestIdentity.organizationId,
+    plainRequest,
+  });
   if (!response) {
     return null;
   }
@@ -288,6 +340,7 @@ async function uploadDocumentAttachmentImpl({
   contentKey = crypto.getRandomValues(new Uint8Array(32)),
   contentKeyEpoch = 1,
   documentId,
+  documentSync,
   eventId = crypto.randomUUID(),
   execSql,
   expectedBindingId,
@@ -367,6 +420,7 @@ async function uploadDocumentAttachmentImpl({
     blobId,
     contentKeyEpoch,
     documentId,
+    documentSync,
     eventId,
     expectedBindingId,
     material,

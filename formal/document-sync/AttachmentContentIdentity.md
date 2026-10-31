@@ -47,7 +47,12 @@ forever. `CheckContentDigest` still governs every replacement: a held copy is
 never overwritten or deleted for a mismatching served binding, and that
 binding is remembered per (slot, binding, intent) so it is downloaded once.
 The uploader also pushes the content update in the same sync pass as the bind,
-narrowing the window to a crash between two consecutive requests.
+narrowing the window to a crash between two consecutive requests. A new
+document's first update, held back for its only attachment, rides in that bind
+as `documentSync` and commits after the binding row in the same transaction,
+which closes the window for that update; the model's states are unchanged,
+since the bind still precedes the content update and a refused carry falls
+back to the two writes.
 
 Pending upload rows persist the staging digest with the bytes and slot metadata.
 `recoverDroppedAttachmentSlots` restores that local intent without reading the

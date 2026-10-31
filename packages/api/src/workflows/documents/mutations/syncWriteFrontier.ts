@@ -1,5 +1,6 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
+  listUnheldAccessManifestHeads,
   lockAccessManifestHeadsForShare,
   lockUnheldAccessManifestHeads,
 } from "../../../access/read/accessManifestStore";
@@ -33,6 +34,12 @@ export async function lockSyncDocumentWriteFrontier(input: {
     DocumentLinkSetFrontier,
     "linkSetManifestHash" | "linkedContainerIds"
   >;
+  /**
+   * The carrying transaction (an attachment bind) already took blob-row locks
+   * after locking every head this write needs, so locking one here would
+   * invert the container -> document -> blob order: refuse instead.
+   */
+  readonly requireHeldHeads?: boolean | undefined;
   readonly tx: DatabaseTransaction;
 }): Promise<{
   readonly lockedContainerHeads: LockedContainerHeads;
@@ -40,9 +47,28 @@ export async function lockSyncDocumentWriteFrontier(input: {
     ReturnType<typeof resolveCurrentDocumentKekTargets>
   >;
 }> {
+  const containerIds = [
+    ...input.frontier.linkedContainerIds,
+    ...input.authorizingContainerIds,
+  ];
+  if (
+    input.requireHeldHeads === true &&
+    (listUnheldAccessManifestHeads("container", containerIds, input.tx, "share")
+      .length > 0 ||
+      listUnheldAccessManifestHeads(
+        "document",
+        [input.documentId],
+        input.tx,
+        "update",
+      ).length > 0)
+  ) {
+    throw documentSyncStateStale(
+      "Document sync needs heads its carrying transaction did not lock",
+    );
+  }
   const lockedContainerHeads = await lockUnheldAccessManifestHeads(
     "container",
-    [...input.frontier.linkedContainerIds, ...input.authorizingContainerIds],
+    containerIds,
     input.tx,
     "share",
   );
