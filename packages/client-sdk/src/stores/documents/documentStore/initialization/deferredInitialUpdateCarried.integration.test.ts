@@ -30,12 +30,13 @@ import {
 import { createDocumentStore } from "../index";
 import { PDF_FIELDS, PDF_UPLOAD } from "./deferredInitialUpdate.testFixtures";
 
-type BindOutcome = "acknowledge" | "omit" | "refuse-carry";
+type BindOutcome = "acknowledge" | "omit" | "refuse-carry" | "relink";
 
 /**
  * An online deferred import whose server commits a carried update in the
- * bind (`acknowledge`), binds without reporting it (`omit`), or refuses the
- * first, carrying bind (`refuse-carry`).
+ * bind (`acknowledge`), binds without reporting it (`omit`), refuses the
+ * first, carrying bind (`refuse-carry`), or acknowledges it after the store
+ * relinked to another document mid-bind (`relink`).
  */
 async function runDeferredImport(name: string, outcome: BindOutcome) {
   const fixture = await createMaterializedSyncFixture();
@@ -45,6 +46,7 @@ async function runDeferredImport(name: string, outcome: BindOutcome) {
   const attachments: BlobAttachmentSummary[] = [];
   let storedDocument: DocumentCreateResponse | null = null;
   let refusedBlobId: string | null = null;
+  let relinkMidBind: (() => Promise<unknown>) | null = null;
   const apiClient = createMockApiClient({
     ...createMultipartBlobStageFixture(),
     async bindBlobAttachment(
@@ -66,7 +68,8 @@ async function runDeferredImport(name: string, outcome: BindOutcome) {
       const carried = request.documentSync?.outgoingUpdates.map(
         (update) => update.id,
       );
-      return outcome === "acknowledge" && carried
+      if (outcome === "relink" && carried) await relinkMidBind?.();
+      return outcome !== "omit" && carried
         ? {
             ...response,
             documentSync: {
@@ -121,6 +124,13 @@ async function runDeferredImport(name: string, outcome: BindOutcome) {
     "pdf",
     { deferInitialUpdate: true },
   );
+  relinkMidBind = () =>
+    store.relink({
+      accessEpoch: 1,
+      containerId: fixture.projection.containerId,
+      documentId: "relinked-document",
+      localId: name,
+    });
   try {
     expect(await store.ensureInitialized()).toBe(true);
     await store.setStructuredFields("pdf", PDF_FIELDS, {
@@ -171,6 +181,20 @@ test("a carried birth the bind does not acknowledge syncs on its own", async () 
     5_000,
   );
   expect(syncedUpdateIds).toEqual([carriedId]);
+}, 10_000);
+
+test("a relink during the carrying bind keeps the birth queued", async () => {
+  const { binds, pending, store } = await runDeferredImport(
+    "deferred-birth-relinked",
+    "relink",
+  );
+
+  const carriedId = binds[0]?.documentSync?.outgoingUpdates[0]?.id ?? "";
+  expect(carriedId).not.toBe("");
+  expect(store.getSnapshot().documentId).toBe("relinked-document");
+  // The acknowledgement describes the old document, so it settles nothing
+  // under the new identity.
+  expect(pending.map((update) => update.id)).toContain(carriedId);
 }, 10_000);
 
 test("a refused carrying bind binds plainly and the birth syncs alone", async () => {

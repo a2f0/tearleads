@@ -149,6 +149,8 @@ export async function persistBindCarriedSeed(input: {
   readonly currentDoc: DocumentState;
   readonly generation: DocumentStoreSyncGeneration;
   readonly state: DocumentStoreState;
+  /** Rechecked as the durable mutation starts. */
+  readonly stillCurrent: () => boolean;
   readonly update: PendingUpdateRecord;
 }): Promise<boolean> {
   const { state } = input;
@@ -163,7 +165,7 @@ export async function persistBindCarriedSeed(input: {
     state,
     input.currentDoc,
     settlement.patch,
-    settlement.options,
+    { ...settlement.options, stillCurrent: input.stillCurrent },
     input.generation,
   );
   if (!persisted) return false;

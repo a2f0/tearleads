@@ -6,6 +6,7 @@ import {
   documentCreateSeedCandidate,
   type PendingUpdateRecord,
 } from "../../../../workflows/documents";
+import { chainIdentityWrite } from "../identityWriteChain";
 import { listPendingUpdates } from "../persistence";
 import type {
   DocumentState,
@@ -24,6 +25,7 @@ import {
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import { ensureRemoteDocument } from "./syncShared";
+import { documentSyncContextMatches } from "./syncUpdateImport";
 
 /**
  * The document's deferred first update, signed by the create that preceded
@@ -101,21 +103,33 @@ async function settleCarriedFirstUpdate(input: {
   readonly attachmentGeneration: DocumentStoreSyncGeneration;
   readonly carried: CarriedFirstUpdate;
   readonly committed: DocumentCreateSeedResponse | undefined;
+  readonly remoteDocumentId: string;
+  readonly requestRecord: DocumentRecord | null;
   readonly state: DocumentStoreState;
 }): Promise<boolean> {
-  const { state } = input;
-  if (
-    !state.doc ||
-    !isDocumentStoreSyncGenerationCurrent(state, input.attachmentGeneration)
-  ) {
-    return false;
-  }
-  return persistBindCarriedSeed({
-    committed: input.committed,
-    currentDoc: state.doc,
-    generation: input.attachmentGeneration,
-    state,
-    update: input.carried.update,
+  const { requestRecord, state } = input;
+  if (!requestRecord) return false;
+  // A relink during the bind leaves the attachment generation current, but
+  // the acknowledgement describes the old document: settle only while the
+  // identity and security context the bind ran under are still live, on the
+  // identity-write chain so a relink cannot interleave.
+  const contextCurrent = () =>
+    isDocumentStoreSyncGenerationCurrent(state, input.attachmentGeneration) &&
+    documentSyncContextMatches(
+      state.record,
+      requestRecord,
+      input.remoteDocumentId,
+    );
+  return chainIdentityWrite(state, async () => {
+    if (!state.doc || !contextCurrent()) return false;
+    return persistBindCarriedSeed({
+      committed: input.committed,
+      currentDoc: state.doc,
+      generation: input.attachmentGeneration,
+      state,
+      stillCurrent: contextCurrent,
+      update: input.carried.update,
+    });
   });
 }
 
@@ -131,11 +145,13 @@ export async function uploadCarryingFirstUpdate<Result>(input: {
   readonly committed: (
     result: Result,
   ) => DocumentCreateSeedResponse | undefined;
+  readonly remoteDocumentId: string;
   readonly state: DocumentStoreState;
   readonly upload: () => Promise<Result>;
 }): Promise<Result> {
   const { carried, state } = input;
   if (!carried) return input.upload();
+  const requestRecord = state.record;
   const registeredIds: string[] = [];
   preRegisterMaterializedDocumentSyncUpdateIds(state, registeredIds, [
     carried.update.id,
@@ -153,6 +169,8 @@ export async function uploadCarryingFirstUpdate<Result>(input: {
         attachmentGeneration: input.attachmentGeneration,
         carried,
         committed: input.committed(result),
+        remoteDocumentId: input.remoteDocumentId,
+        requestRecord,
         state,
       }),
   );

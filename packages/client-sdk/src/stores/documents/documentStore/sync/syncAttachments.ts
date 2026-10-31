@@ -337,6 +337,7 @@ async function uploadPendingAttachmentBytes(input: {
       attachmentGeneration: input.pendingUpload.attachmentGeneration,
       carried: input.pendingUpload.carriedFirstUpdate,
       committed: (attempt) => attempt.uploaded?.response.documentSync,
+      remoteDocumentId: input.pendingUpload.remoteDocumentId,
       state,
       upload: () =>
         uploadAttachmentWithWriterProjectionRetry({
