@@ -3,11 +3,11 @@ import {
   createRecoveryFixture,
   signedRecoveryHistory,
 } from "../../../../test/helpers/principalHistoryRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { verifiedPrincipalPolicyMeetsCheckpoint } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCheckpointSelection";
 import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;
@@ -33,17 +33,11 @@ async function storeCheckpoint(
     version: state.version,
     stateHash: state.stateHash,
   };
-  await fixture.db
-    .insert(principalPolicyCheckpoints)
-    .values({ ...checkpoint, updatedAt: state.createdAt })
-    .onConflictDoUpdate({
-      target: [
-        principalPolicyCheckpoints.principalType,
-        principalPolicyCheckpoints.principalId,
-      ],
-      set: { version: state.version, stateHash: state.stateHash },
-    })
-    .run();
+  await pinPrincipalPolicyCheckpoint(fixture.db, {
+    ...checkpoint,
+    updatedAt: state.createdAt,
+    organizationId: fixture.options.organizationId,
+  });
   return checkpoint;
 }
 

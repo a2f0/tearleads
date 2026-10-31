@@ -7,7 +7,6 @@ import {
   principalHistoryNodes,
 } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import {
-  principalHistoryNodeReferences,
   principalHistoryNodeRetentionTables,
   principalHistoryRootOwners,
 } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
@@ -32,7 +31,6 @@ import {
 } from "./principalHistoryRootOwnership";
 
 type Reclaim = typeof reclaimPrincipalHistoryNodes;
-type NodeReference = typeof principalHistoryNodeReferences.$inferInsert;
 type NodeRow = typeof principalHistoryNodes.$inferInsert;
 type OwnerRow = typeof principalHistoryRootOwners.$inferInsert;
 
@@ -42,19 +40,16 @@ const reclaimOneNodeAtATime: Reclaim = async (tx, scope) => {
   while (reclaimed < 64) {
     const obsolete = await tx
       .select()
-      .from(principalHistoryNodeReferences)
+      .from(principalHistoryNodes)
       .where(
         and(
-          eq(principalHistoryNodeReferences.scopeId, scope.scopeId),
-          eq(
-            principalHistoryNodeReferences.organizationId,
-            scope.organizationId,
-          ),
-          eq(principalHistoryNodeReferences.managed, true),
-          eq(principalHistoryNodeReferences.referenceCount, 0),
+          eq(principalHistoryNodes.scopeId, scope.scopeId),
+          eq(principalHistoryNodes.organizationId, scope.organizationId),
+          eq(principalHistoryNodes.managed, true),
+          eq(principalHistoryNodes.referenceCount, 0),
         ),
       )
-      .orderBy(asc(principalHistoryNodeReferences.hash))
+      .orderBy(asc(principalHistoryNodes.hash))
       .limit(64 - reclaimed);
     if (obsolete.length === 0) break;
     for (const node of obsolete) {
@@ -65,15 +60,6 @@ const reclaimOneNodeAtATime: Reclaim = async (tx, scope) => {
             eq(principalHistoryNodes.scopeId, scope.scopeId),
             eq(principalHistoryNodes.organizationId, scope.organizationId),
             eq(principalHistoryNodes.hash, node.hash),
-          ),
-        )
-        .run();
-      await tx
-        .delete(principalHistoryNodeReferences)
-        .where(
-          and(
-            eq(principalHistoryNodeReferences.scopeId, scope.scopeId),
-            eq(principalHistoryNodeReferences.hash, node.hash),
           ),
         )
         .run();
@@ -96,7 +82,6 @@ function seededRandom(seed: number): () => number {
 }
 
 interface Seed {
-  readonly references: NodeReference[];
   readonly nodes: NodeRow[];
   readonly owners?: OwnerRow[];
 }
@@ -124,18 +109,8 @@ async function retentionDatabase(key: string) {
     counter,
     async seed(seed: Seed) {
       await runtime.transaction(async (tx) => {
-        for (const table of [
-          principalHistoryNodeReferences,
-          principalHistoryNodes,
-          principalHistoryRootOwners,
-        ])
+        for (const table of [principalHistoryNodes, principalHistoryRootOwners])
           await tx.delete(table).run();
-        for (const reference of seed.references)
-          await tx
-            .insert(principalHistoryNodeReferences)
-            .values(reference)
-            .onConflictDoNothing()
-            .run();
         for (const node of seed.nodes)
           await tx
             .insert(principalHistoryNodes)
@@ -161,13 +136,6 @@ async function retentionDatabase(key: string) {
     },
     async snapshot() {
       return {
-        references: await runtime.db
-          .select()
-          .from(principalHistoryNodeReferences)
-          .orderBy(
-            asc(principalHistoryNodeReferences.scopeId),
-            asc(principalHistoryNodeReferences.hash),
-          ),
         nodes: await runtime.db
           .select()
           .from(principalHistoryNodes)
@@ -192,9 +160,9 @@ const scope: PrincipalHistoryNodeScope = {
 function randomGraph(random: () => number, size: number): Seed {
   const hashes = Array.from({ length: size }, (_, index) => `h${index}`);
   const pick = () => hashes[Math.floor(random() * hashes.length)] ?? "h0";
-  const references = hashes
+  const nodes = hashes
     .filter(() => random() < 0.8)
-    .map((hash): NodeReference => {
+    .map((hash): NodeRow => {
       const internal = random() < 0.7;
       return {
         // Another scope or organization sharing a hash is never touched.
@@ -207,19 +175,7 @@ function randomGraph(random: () => number, size: number): Seed {
         rightHash: internal ? pick() : null,
       };
     });
-  const nodes = references
-    .filter(() => random() < 0.8)
-    .map(
-      (reference): NodeRow => ({
-        scopeId: reference.scopeId,
-        organizationId:
-          random() < 0.1 ? "org-2" : (reference.organizationId ?? ""),
-        hash: reference.hash,
-        leftHash: reference.leftHash ?? "leaf",
-        rightHash: reference.rightHash ?? "leaf",
-      }),
-    );
-  return { references, nodes };
+  return { nodes };
 }
 
 test("set reclamation leaves the same table contents as the per-node loop after every pass", async () => {
@@ -265,7 +221,7 @@ test("reclaiming 64 obsolete nodes takes a constant number of statements", async
       rightHash: index % 2 === 0 ? "shared-leaf" : `leaf-${index}`,
     }));
     const seed: Seed = {
-      references: [
+      nodes: [
         ...obsolete.map((node) => ({
           ...node,
           referenceCount: 0,
@@ -279,7 +235,6 @@ test("reclaiming 64 obsolete nodes takes a constant number of statements", async
         })),
         { ...scope, hash: "shared-leaf", referenceCount: 40, managed: false },
       ],
-      nodes: obsolete,
     };
     await reference.seed(seed);
     await batched.seed(seed);
@@ -292,10 +247,11 @@ test("reclaiming 64 obsolete nodes takes a constant number of statements", async
     expect(actual.result).toBe(64);
     expect(expected.result).toBe(64);
     expect(await batched.snapshot()).toEqual(await reference.snapshot());
-    // One select, then 4 statements per node; the bound ends the pass.
-    expect(expected.statements).toBe(257);
-    // One select, two deletes, one decrement per multiplicity (1, 2 and 32).
-    expect(actual.statements).toBe(6);
+    // One select, then 3 statements per node; the bound ends the pass.
+    expect(expected.statements).toBe(193);
+    // One select, one delete, one decrement per multiplicity (1, 2 and 32);
+    // was 6 while liveness rows had their own delete.
+    expect(actual.statements).toBe(5);
   } finally {
     reference.close();
     batched.close();
@@ -379,7 +335,7 @@ test("a stage save folds its root increment and previous-root decrement", async 
     const page = { ...scope, indexRootHash: "root-2", entries: [], nodes };
     const owner = { ...scope, id: "stage:1", rootHash: "root-2" };
     const seed: Seed = {
-      references: [
+      nodes: [
         {
           ...scope,
           hash: "root-1",
@@ -388,9 +344,6 @@ test("a stage save folds its root increment and previous-root decrement", async 
           leftHash: "leaf-1",
           rightHash: "leaf-2",
         },
-      ],
-      nodes: [
-        { ...scope, hash: "root-1", leftHash: "leaf-1", rightHash: "leaf-2" },
       ],
       owners: [{ ...owner, rootHash: "root-1" }],
     };

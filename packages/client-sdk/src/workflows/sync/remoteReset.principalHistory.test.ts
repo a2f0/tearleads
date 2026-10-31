@@ -6,10 +6,7 @@ import {
   principalHistoryNodes,
   principalHistoryPrefixes,
 } from "../../data/sqlite/schema/principalHistoryEvidenceSchema";
-import {
-  principalHistoryNodeReferences,
-  principalHistoryRootOwners,
-} from "../../data/sqlite/schema/principalHistoryNodeRetentionSchema";
+import { principalHistoryRootOwners } from "../../data/sqlite/schema/principalHistoryNodeRetentionSchema";
 import { principalKeyEnvelopeArchive } from "../../data/sqlite/schema/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../data/sqlite/schema/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
@@ -43,14 +40,6 @@ test("organization reset discards only its principal history stages and evidence
         id: `stage:${organizationId}`,
         rootHash: "node-hash",
       });
-      await db.insert(principalHistoryNodeReferences).values({
-        ...scope,
-        hash: "node-hash",
-        referenceCount: 1,
-        managed: true,
-        leftHash: "left",
-        rightHash: "right",
-      });
       await db
         .insert(principalKeyEnvelopeArchive)
         .values({
@@ -81,6 +70,8 @@ test("organization reset discards only its principal history stages and evidence
         .values({
           ...scope,
           hash: "node-hash",
+          referenceCount: 1,
+          managed: true,
           leftHash: "left",
           rightHash: "right",
         })
@@ -94,7 +85,6 @@ test("organization reset discards only its principal history stages and evidence
     ).toEqual([{ organizationId: "org-2" }]);
     for (const table of [
       principalHistoryRootOwners,
-      principalHistoryNodeReferences,
       principalHistoryPrefixes,
       principalHistoryEntries,
       principalHistoryNodes,

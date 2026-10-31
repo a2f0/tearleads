@@ -12,6 +12,7 @@ import {
   referencedPrincipalStateFromBundle,
   referencedPrincipalStateFromPolicyState,
 } from "../../../../test/helpers/policyCacheFixtures";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { advanceKeyingCheckpointsAtomically } from "../../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
@@ -255,18 +256,14 @@ test("filterUncachedPrincipalPolicyReferences accepts an in-memory chain extendi
       previousState.principalType,
       previousState.principalId,
     );
-    await execSql(
-      `INSERT INTO principal_policy_checkpoints
-         (principal_type, principal_id, version, state_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        previousState.principalType,
-        previousState.principalId,
-        previousState.version,
-        previousState.stateHash,
-        "2026-04-08T00:01:00.000Z",
-      ],
-    );
+    await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+      previousState.principalType,
+      previousState.principalId,
+      previousState.version,
+      previousState.stateHash,
+      "2026-04-08T00:01:00.000Z",
+      "org-1",
+    ]);
 
     await expect(
       filterUncachedPrincipalPolicyReferences({
@@ -303,18 +300,14 @@ test("filterUncachedPrincipalPolicyReferences rejects an in-memory chain that co
       previousState.principalType,
       previousState.principalId,
     );
-    await execSql(
-      `INSERT INTO principal_policy_checkpoints
-         (principal_type, principal_id, version, state_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        previousState.principalType,
-        previousState.principalId,
-        previousState.version,
-        "f".repeat(64),
-        "2026-04-08T00:01:00.000Z",
-      ],
-    );
+    await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+      previousState.principalType,
+      previousState.principalId,
+      previousState.version,
+      "f".repeat(64),
+      "2026-04-08T00:01:00.000Z",
+      "org-1",
+    ]);
 
     await expect(
       filterUncachedPrincipalPolicyReferences({
@@ -347,18 +340,14 @@ test("filterUncachedPrincipalPolicyReferences re-warms a cache behind the durabl
       "org-1",
     );
     await loadPrincipalPolicyCheckpoint(execSql, "group", "group-1");
-    await execSql(
-      `INSERT INTO principal_policy_checkpoints
-         (principal_type, principal_id, version, state_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        "group",
-        "group-1",
-        newerBundle.currentState.version,
-        newerBundle.currentState.stateHash,
-        "2026-04-08T00:01:00.000Z",
-      ],
-    );
+    await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+      "group",
+      "group-1",
+      newerBundle.currentState.version,
+      newerBundle.currentState.stateHash,
+      "2026-04-08T00:01:00.000Z",
+      "org-1",
+    ]);
 
     await expect(
       filterUncachedPrincipalPolicyReferences({

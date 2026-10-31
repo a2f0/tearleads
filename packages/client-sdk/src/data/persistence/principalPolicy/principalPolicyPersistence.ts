@@ -17,11 +17,11 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { loadStoredPrincipalPolicyCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
-import { assertSameHeadPrincipalPolicyBundle } from "./principalPolicyBundleIntegrity";
 import {
   recordPrincipalPolicyBundleOrganizationInTransaction,
   recordPrincipalPolicyOrganizationInTransaction,
-} from "./principalPolicyOrganizationPersistence";
+} from "../keyingCheckpoints/principalPolicyOrganizationPersistence";
+import { assertSameHeadPrincipalPolicyBundle } from "./principalPolicyBundleIntegrity";
 import { indexPrincipalPolicyBundleInTransaction } from "./principalPolicyReferenceIndexPersistence";
 import { storedPrincipalPolicyBundleFromJson } from "./storedPrincipalPolicyBundle";
 

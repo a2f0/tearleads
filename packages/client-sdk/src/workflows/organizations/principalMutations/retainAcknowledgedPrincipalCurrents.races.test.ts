@@ -43,7 +43,7 @@ test("a second-policy checkpoint failure rolls back both current publications an
     const before = await snapshot(f);
     await f.options.execSql(`CREATE TRIGGER reject_second_current_checkpoint
       BEFORE INSERT ON principal_policy_checkpoints
-      WHEN NEW.principal_type = 'organization'
+      WHEN NEW.principal_type = 'organization' AND NEW.version IS NOT NULL
       BEGIN SELECT RAISE(ABORT, 'injected second checkpoint failure'); END`);
     const grant = f.input.request.grants[0];
     if (!grant) throw new Error("Missing signed grant");

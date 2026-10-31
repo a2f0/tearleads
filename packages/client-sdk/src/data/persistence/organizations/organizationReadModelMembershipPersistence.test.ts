@@ -10,6 +10,7 @@ import type {
   OrganizationReadModelOrganizationPolicyResponse,
   OrganizationReadModelSnapshotResponse,
 } from "@tearleads/validators/response";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { loadPrincipalPolicyCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
 import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMemberLoad";
@@ -455,12 +456,14 @@ test("purge clears membership rows without deleting verified policy checkpoints"
   try {
     await applySnapshot(execSql);
     await loadPrincipalPolicyCheckpoint(execSql, "group", "verified-group");
-    await execSql(
-      `INSERT INTO principal_policy_checkpoints
-        (principal_type, principal_id, version, state_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      ["group", "verified-group", 3, "verified-state", CREATED_AT],
-    );
+    await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+      "group",
+      "verified-group",
+      3,
+      "verified-state",
+      CREATED_AT,
+      ORGANIZATION_ID,
+    ]);
 
     await purgeOrganizationReadModelProjection(execSql, ORGANIZATION_ID);
 

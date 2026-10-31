@@ -31,6 +31,7 @@ import type {
   ListContainersResponse,
 } from "@tearleads/validators/response";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../src/document-types/projectors";
+import { emptyDatabaseExecSql } from "../emptyDatabaseExecSql";
 import { assertAccessEvent, assertWriteHeader } from "../keyingAssertions";
 import { createTestRuntimeTrustedUserIdentityResolver } from "../trustedUserIdentity";
 
@@ -135,7 +136,7 @@ export function createDocumentsRuntimeInput(
       blobStore: createMemoryBlobStore(),
       dbStatus: "ready",
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-      execSql: async () => [],
+      execSql: emptyDatabaseExecSql,
       ...overrides.infra,
     },
     resolveTrustedUserIdentity:

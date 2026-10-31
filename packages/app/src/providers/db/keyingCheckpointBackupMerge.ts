@@ -11,8 +11,6 @@ import type { BackupSqlRow, BackupTable } from "./localBackupFormat";
 
 export const ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME =
   "access_manifest_checkpoints";
-export const PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME =
-  "principal_policy_checkpoints";
 
 interface MonotonicCheckpointDefinition {
   readonly conflictMessage: string;
@@ -131,14 +129,6 @@ export const ACCESS_MANIFEST_CHECKPOINT_COLUMNS: ReadonlyArray<string> = [
   "manifest_hash",
   "updated_at",
 ];
-export const PRINCIPAL_POLICY_CHECKPOINT_COLUMNS: ReadonlyArray<string> = [
-  "principal_type",
-  "principal_id",
-  "version",
-  "state_hash",
-  "updated_at",
-];
-
 const accessCheckpointDefinition: MonotonicCheckpointDefinition = {
   conflictMessage: "Backup conflicts with an access manifest checkpoint",
   hashColumn: "manifest_hash",
@@ -167,39 +157,9 @@ const accessCheckpointDefinition: MonotonicCheckpointDefinition = {
   },
 };
 
-const principalCheckpointDefinition: MonotonicCheckpointDefinition = {
-  conflictMessage: "Backup conflicts with a principal policy checkpoint",
-  hashColumn: "state_hash",
-  label: "Principal policy checkpoint",
-  positionColumn: "version",
-  requiredColumns: PRINCIPAL_POLICY_CHECKPOINT_COLUMNS,
-  scopeColumns: ["principal_type", "principal_id"],
-  tableName: PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME,
-  validateScope: (row) => {
-    const principalType = requireBackupString(
-      row,
-      "principal_type",
-      "Principal policy checkpoint",
-    );
-    if (principalType !== "group" && principalType !== "organization") {
-      throw new Error(
-        "Principal policy checkpoint backup has an invalid principal_type value",
-      );
-    }
-    requireBackupString(row, "principal_id", "Principal policy checkpoint");
-  },
-};
-
 export function mergeAccessManifestCheckpointBackupTables(input: {
   readonly current: BackupTable | null;
   readonly restored: BackupTable | null;
 }): BackupTable | null {
   return mergeCheckpointTables(input, accessCheckpointDefinition);
-}
-
-export function mergePrincipalPolicyCheckpointBackupTables(input: {
-  readonly current: BackupTable | null;
-  readonly restored: BackupTable | null;
-}): BackupTable | null {
-  return mergeCheckpointTables(input, principalCheckpointDefinition);
 }
