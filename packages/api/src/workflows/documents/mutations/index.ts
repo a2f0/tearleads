@@ -15,6 +15,7 @@ export {
   loadCurrentDocumentManifest,
 } from "./shared/verification";
 export {
+  appendAttachmentBindDocumentSync,
   type DocumentSyncWorkflowResult,
   runDocumentSyncWorkflow,
 } from "./syncDocument";

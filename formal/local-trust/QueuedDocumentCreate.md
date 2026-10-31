@@ -45,6 +45,15 @@ submission; both break `PeerEditIsPulled`. The implementation regressions are in
 `documentStore/sync/remoteCreateAfterPurge.test.ts` and
 `documentStore/sync/syncSeededCreate.test.ts`.
 
+A document whose first update waits for its only attachment's bind maps onto
+the same actions: `createRemoteDocument` signs that row against the create plan
+without sending it (`deferredSeedUpdate`), the bind carries it as
+`documentSync`, `persistBindCarriedSeed` settles it only when the bind's
+acknowledgement names it (`RequireSeedAcknowledgement`), and a refused carry
+binds plainly so the row syncs as an ordinary update (`SubmitPlain`,
+`SyncQueuedRow`). The tests are in
+`documentStore/initialization/deferredInitialUpdateCarried.integration.test.ts`.
+
 The durable read and its continuation are separate actions. Purge can happen
 before, during, or after them. The no-create guarantee covers a purge visible to
 that read, including a note deleted while waiting in a long import queue. A purge

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { attachmentBindDocumentSyncRefinement } from "../documentCreateSeedRefinements";
+import { documentSyncRequestRuntimeRefinements } from "../documentSyncRefinements";
 import {
   BlobAttachmentBindRequestSchema,
   BlobAttachmentDetachRequestSchema,
@@ -63,6 +65,10 @@ export const bindBlobAttachmentOperation = defineJsonOperation({
   responses: {
     200: BlobAttachmentBindResponseSchema,
   },
+  runtimeRefinements: [
+    attachmentBindDocumentSyncRefinement,
+    ...documentSyncRequestRuntimeRefinements,
+  ],
 });
 
 export const detachBlobAttachmentOperation = defineJsonOperation({

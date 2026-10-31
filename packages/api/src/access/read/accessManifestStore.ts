@@ -8,6 +8,7 @@ export {
   getCurrentAccessManifestHead,
   getCurrentAccessManifestHeads,
   listAccessManifestPrincipalHeadProjection,
+  listUnheldAccessManifestHeads,
   lockAccessManifestHeadsForShare,
   lockAccessManifestHeadsForUpdate,
   lockUnheldAccessManifestHeads,

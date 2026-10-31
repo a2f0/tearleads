@@ -50,13 +50,19 @@ function listBlobKekTargetContainerIds(
 }
 
 export function createAttachmentBindDocumentEvent(
-  response: Pick<BlobAttachmentBindResponse, "blobKekTargets" | "documentId">,
+  response: Pick<
+    BlobAttachmentBindResponse,
+    "blobKekTargets" | "documentId" | "documentSync"
+  >,
   origin: AttachmentMutationOrigin,
 ): PublishedRealtimeEvent {
+  const updateIds = response.documentSync?.acceptedOutgoingUpdateIds;
   return {
     type: "document_update_created",
     containerIds: listBlobKekTargetContainerIds(response.blobKekTargets),
     documentId: response.documentId,
+    // A carried document sync names its update, as a sync's event does.
+    ...(updateIds ? { updateIds: [...updateIds] } : {}),
     // Tag the authoring session so the ws router does not echo this bind back
     // over the author's own socket, the same way document sync events are
     // tagged (routes/documents/mutations.ts). The router strips `origin` before

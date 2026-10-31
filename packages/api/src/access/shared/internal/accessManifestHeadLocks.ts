@@ -96,6 +96,23 @@ async function lockAccessManifestHeads(
   return rows.map((head) => head.objectId);
 }
 
+/** The heads this transaction does not already hold in a covering mode. */
+export function listUnheldAccessManifestHeads(
+  objectKind: AccessObjectKind,
+  objectIds: readonly string[],
+  executor: DatabaseSession,
+  mode: "share" | "update",
+): string[] {
+  return objectIds.filter(
+    (objectId) =>
+      !transactionHoldsLock(
+        executor,
+        accessManifestHeadLockKey(objectKind, objectId),
+        heldLockMode(mode),
+      ),
+  );
+}
+
 /**
  * Lock the heads this transaction does not already hold in a covering mode.
  * Re-locking a held row never waits, so the skipped ids change no lock order.
@@ -109,13 +126,11 @@ export async function lockUnheldAccessManifestHeads(
   executor: DatabaseSession,
   mode: "share" | "update",
 ): Promise<Map<string, StoredAccessManifestHead>> {
-  const unheld = objectIds.filter(
-    (objectId) =>
-      !transactionHoldsLock(
-        executor,
-        accessManifestHeadLockKey(objectKind, objectId),
-        heldLockMode(mode),
-      ),
+  const unheld = listUnheldAccessManifestHeads(
+    objectKind,
+    objectIds,
+    executor,
+    mode,
   );
   const rows = await lockAccessManifestHeadRows(
     objectKind,

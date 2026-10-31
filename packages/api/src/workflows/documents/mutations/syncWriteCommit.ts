@@ -78,6 +78,7 @@ async function lockSyncDocumentFrontier(input: {
   readonly documentId: string;
   readonly frontier: DocumentLinkSetFrontier;
   readonly request: DocumentSyncRequest;
+  readonly requireHeldHeads: boolean;
   readonly tx: DatabaseTransaction;
 }): Promise<{
   readonly lockedContainerHeads?: LockedContainerHeads;
@@ -88,6 +89,7 @@ async function lockSyncDocumentFrontier(input: {
       authorizingContainerIds: syncAuthorizingContainerIds(input.request),
       documentId: input.documentId,
       frontier: input.frontier,
+      requireHeldHeads: input.requireHeldHeads,
       tx: input.tx,
     });
     return {
@@ -143,8 +145,18 @@ export interface SyncDocumentWriteInput {
   readonly userId: string;
 }
 
-/** What a create's seed may reuse from the create in its transaction. */
+/**
+ * What a seed may reuse from the transaction that carries it: a create's, or
+ * an attachment bind's for the document's deferred first update.
+ */
 export interface CreateSeedContext {
+  /** A create inserted the document row itself; a bind's document exists. */
+  readonly documentInsertedInTransaction: boolean;
+  /**
+   * A bind holds every head the write locks and has since locked blob rows,
+   * so the write must refuse rather than lock a head late.
+   */
+  readonly headLocksHeld?: boolean | undefined;
   /**
    * The organization this transaction already admitted with
    * `assertOrganizationCanSync`; null when the caller checked none.
@@ -185,7 +197,8 @@ export async function commitSyncDocumentWrites(
 ): Promise<CommittedSyncDocumentWrites> {
   const frontier = await prepareSyncDocumentTransaction({
     ...input,
-    documentInsertedInTransaction: input.seed !== undefined,
+    documentInsertedInTransaction:
+      input.seed?.documentInsertedInTransaction ?? false,
   });
   // Run signed container.rekey payloads before resolving document KEK targets;
   // content-key validation then compares the write against the updated target
@@ -205,6 +218,7 @@ export async function commitSyncDocumentWrites(
       documentId: input.documentId,
       frontier,
       request: input.request,
+      requireHeldHeads: input.seed?.headLocksHeld === true,
       tx: input.tx,
     });
   const currentTargets = lockedTargets.targets;

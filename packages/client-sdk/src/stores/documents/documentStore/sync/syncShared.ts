@@ -23,6 +23,7 @@ import {
 import { installDocumentWriterProjection } from "../writerProjectionGeneration";
 import {
   type CreateSeed,
+  type DeferredBindSeed,
   persistCreatedRemoteDocument,
 } from "./createdDocumentPersistence";
 import {
@@ -213,6 +214,7 @@ export async function ensureRemoteDocument(
   encapsulationKeyPair: EncapsulationKeyPair,
   generation?: DocumentStoreSyncGeneration,
   seed?: CreateSeed,
+  deferredSeed?: DeferredBindSeed,
 ): Promise<DocumentRecord | null> {
   const generationIsCurrent = () =>
     !generation || isDocumentStoreSyncGenerationCurrent(state, generation);
@@ -265,6 +267,7 @@ export async function ensureRemoteDocument(
     apiClient: runtime.apiClient,
     author,
     containerId: runtime.state.containerId,
+    deferredSeedUpdate: seed ? undefined : deferredSeed?.update,
     // Derive the remote id from the stable local id so a retry after a lost
     // create response re-sends the same id and adopts the existing remote
     // document instead of creating a duplicate.
@@ -325,6 +328,9 @@ export async function ensureRemoteDocument(
       seed,
       state,
     });
+    if (persisted && created.deferredSeed) {
+      deferredSeed?.onSigned(created.deferredSeed);
+    }
     return persisted?.record ?? state.record ?? nextRecord;
   });
 }

@@ -8,6 +8,7 @@ import {
 } from "../schema";
 import { AccessEventBundleWireResponseSchema } from "../util";
 import { MultipartBlobPartUploadSchema } from "../util/blobTransferSchemas";
+import { DocumentCreateSeedResponseSchema } from "./documentMutation";
 
 export const MultipartBlobStagePartSchema = loosePlainObject({
   byteLength: positiveIntegerSchema,
@@ -138,6 +139,8 @@ export const BlobAttachmentBindResponseSchema = loosePlainObject({
   writeAuthorization: BlobKekTargetsResponseSchema,
   writeHeader: plainObjectSchema,
   writeHeaderHash: z.string(),
+  /** Present exactly when the request carried `documentSync`. */
+  documentSync: DocumentCreateSeedResponseSchema.optional(),
 });
 
 export type BlobAttachmentBindResponse = z.infer<

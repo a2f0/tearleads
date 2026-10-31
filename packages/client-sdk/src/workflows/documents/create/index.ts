@@ -214,6 +214,12 @@ interface RemoteDocumentCreateInput {
   containerProjection?: ContainerWriterProjectionResponse | undefined;
   contentKey?: Uint8Array | undefined;
   contentKeyEpoch?: number | undefined;
+  /**
+   * The queued row holding the new document's whole content when its first
+   * attachment must bind before it: the create does not send it but returns
+   * it signed as `deferredSeed`, for that bind to carry.
+   */
+  deferredSeedUpdate?: PendingUpdateRecord | undefined;
   documentId?: string | undefined;
   eventId?: string | undefined;
   execSql: ExecSql;
@@ -363,6 +369,28 @@ async function submitPlannedDocumentCreate(
   return { createPlan, submission };
 }
 
+/**
+ * Signs the deferred first update against the plan the server just accepted,
+ * without sending it, so the attachment bind that must precede it can carry
+ * it. One that would not fit a sync request is left to sync on its own.
+ */
+async function withDeferredSeed(
+  created: CreateRemoteDocumentResult,
+  createPlan: MaterializedDocumentCreatePlanWithProjection,
+  input: RemoteDocumentCreateInput,
+): Promise<CreateRemoteDocumentResult> {
+  if (!input.deferredSeedUpdate) return created;
+  const deferredSeed = await buildDocumentCreateSeedRequest({
+    author: input.author,
+    containerProjection: createPlan.containerProjection,
+    materializedDocument: createPlan.materializedPlan,
+    pendingUpdate: input.deferredSeedUpdate,
+  });
+  return documentCreateSeedFits(deferredSeed)
+    ? { ...created, deferredSeed }
+    : created;
+}
+
 export async function createRemoteDocument(
   input: RemoteDocumentCreateInput,
 ): Promise<CreateRemoteDocumentResult | null> {
@@ -386,13 +414,17 @@ export async function createRemoteDocument(
   }
   const { createPlan, submission } = plannedSubmission;
   if (input.stillCurrent?.() === false) return null;
-  if (submission.ok)
-    return acknowledgeRemoteDocumentCreate({
+  if (submission.ok) {
+    const created = await acknowledgeRemoteDocumentCreate({
       ...input,
       ...createPlan,
       resolveProjectionUserKey,
       response: submission.data,
     });
+    return created && input.deferredSeedUpdate
+      ? withDeferredSeed(created, createPlan, input)
+      : created;
+  }
 
   // A stable documentId means a retry after a lost create response re-submits
   // the same id; the server then reports the manifest already exists. That is
