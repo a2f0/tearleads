@@ -203,13 +203,27 @@ export interface NetworkFailureInput {
   readonly online?: boolean | null | undefined;
 }
 
+/** A host reading that throws must not turn a failure into a rejection. */
+function readHostOnline(
+  isOnline: (() => boolean | null) | undefined,
+): boolean | null {
+  try {
+    return isOnline?.() ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** The probe's answer, or null once the caller's signal aborts first. */
 async function probeUnlessAborted(
   probe: (apiOrigin: string) => Promise<ApiReachability>,
   apiOrigin: string,
   signal: AbortSignal | undefined,
 ): Promise<ApiReachability | null> {
-  const answer = probe(apiOrigin).catch(() => "unreachable" as const);
+  // `then` also turns a probe that throws synchronously into "unreachable".
+  const answer = Promise.resolve(apiOrigin)
+    .then(probe)
+    .catch(() => "unreachable" as const);
   if (!signal) return answer;
   let onAbort: (() => void) | undefined;
   const aborted = new Promise<null>((resolve) => {
@@ -268,7 +282,7 @@ export async function settleNetworkFailure(
   readonly cancelled: boolean;
   readonly networkError: ApiNetworkError;
 }> {
-  const online = input.isOnline?.() ?? null;
+  const online = readHostOnline(input.isOnline);
   const cancelledAtFailure = input.signal?.aborted === true;
   if (!cancelledAtFailure) input.onNetworkError();
   const networkError = await describeNetworkFailure({

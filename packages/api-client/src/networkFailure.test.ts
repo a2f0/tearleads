@@ -165,6 +165,25 @@ test("a probe that throws counts as unreachable", async () => {
   expect(failure.networkError?.details.classification).toBe("api-unreachable");
 });
 
+test("host callbacks that throw synchronously still yield a failure", async () => {
+  failFetch(new TypeError("Failed to fetch"));
+  const { failure } = await register(
+    () => {
+      throw new Error("probe threw synchronously");
+    },
+    {
+      isOnline: () => {
+        throw new Error("connectivity source threw");
+      },
+    },
+  );
+  expect(failure.kind).toBe("network");
+  expect(failure.networkError?.details).toMatchObject({
+    classification: "api-unreachable",
+    online: true,
+  });
+});
+
 test("a reachable host points at CORS, a blocking rule, or a dropped call", async () => {
   failFetch(new TypeError("NetworkError when attempting to fetch resource."));
   const { failure } = await register(async () => "reachable");
