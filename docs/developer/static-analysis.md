@@ -52,10 +52,9 @@ is authoritative for the pre-push trailer check after Git's cleanup.
 Binary and source-shape checks still inspect each pushed tree range.
 
 OpenAPI compatibility exceptions expire when the comparison base contains the
-new contract. Remove their entries from
-`scripts/checks/openApiCompatibilityErrors.ignore` (present only while an
-exception is active) at that point; an unused exception deliberately fails both
-gates.
+new contract. Remove their entries from `openApiCompatibilityErrors.ignore` in
+[`scripts/checks`](../../scripts/checks/) (present only while an exception is
+active) at that point; an unused exception deliberately fails both gates.
 
 ## Harness permissions
 

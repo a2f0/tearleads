@@ -10,7 +10,10 @@ import {
 } from "../../data/keyingProjectionVerification/types";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
-import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
+import {
+  getOrCreatePrincipalPolicyCoordinator,
+  type PrincipalPolicyCoordinator,
+} from "../../data/principals/principalPolicyCoordinator";
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
@@ -66,6 +69,39 @@ interface PrincipalPolicyCurrentRequest
   readonly historyPage?: { readonly beforeVersion?: number } | undefined;
 }
 
+type PrincipalCurrentRecoveryBatch = ReturnType<
+  typeof createPrincipalCurrentRecoveryBatch
+>;
+
+/**
+ * Operation batches belong to the database's coordinator, keyed by the
+ * operation token, so every resolver and warmer one operation creates for that
+ * database shares one authenticated view. A batch dies with its token (the end
+ * of the pass or workflow) and its entries with any organization hint.
+ */
+const operationBatches = new WeakMap<
+  PrincipalPolicyCoordinator,
+  WeakMap<object, PrincipalCurrentRecoveryBatch>
+>();
+
+function operationRecoveryBatch(
+  coordinator: PrincipalPolicyCoordinator,
+  operation: object | undefined,
+): PrincipalCurrentRecoveryBatch {
+  if (!operation) return createPrincipalCurrentRecoveryBatch();
+  let batches = operationBatches.get(coordinator);
+  if (!batches) {
+    batches = new WeakMap();
+    operationBatches.set(coordinator, batches);
+  }
+  let batch = batches.get(operation);
+  if (!batch) {
+    batch = createPrincipalCurrentRecoveryBatch();
+    batches.set(operation, batch);
+  }
+  return batch;
+}
+
 /** One recovery attempt for a resolver request through the operation's batch. */
 function recoverPolicyCurrent(
   batch: ReturnType<typeof createPrincipalCurrentRecoveryBatch>,
@@ -99,83 +135,70 @@ export function createRuntimePrincipalPolicyCurrentResolver(
   const lease = readPrincipalHistoryProtection(runtime);
   const historyReader = apiPrincipalPolicyPageReader(runtime.apiClient);
   if (!lease || !historyReader) return undefined;
-  const batches = new WeakMap<
-    object,
-    ReturnType<typeof createPrincipalCurrentRecoveryBatch>
-  >();
-  const recoverFor = (batch: object | undefined) => {
-    if (!batch) return createPrincipalCurrentRecoveryBatch();
-    let recover = batches.get(batch);
-    if (!recover) {
-      recover = createPrincipalCurrentRecoveryBatch();
-      batches.set(batch, recover);
-    }
-    return recover;
-  };
+  const coordinator = getOrCreatePrincipalPolicyCoordinator(
+    runtime.infra.execSql,
+  );
   return (input) =>
-    getOrCreatePrincipalPolicyCoordinator(runtime.infra.execSql).queueRecovery(
-      input.organizationId,
-      () =>
-        runWithSecurityIncidentReporting(
-          runtime.util.reportSecurityIncident,
-          {
-            objectId: input.reference?.principalId ?? input.organizationId,
-            objectKind: "principal",
-            operation: "principal.policy.recover",
-            organizationId: input.organizationId,
-          },
-          () =>
-            lease(async ({ protection, stillCurrent: leaseCurrent }) => {
-              const stillCurrent = () =>
-                leaseCurrent() && input.stillCurrent?.() !== false;
+    coordinator.queueRecovery(input.organizationId, () =>
+      runWithSecurityIncidentReporting(
+        runtime.util.reportSecurityIncident,
+        {
+          objectId: input.reference?.principalId ?? input.organizationId,
+          objectKind: "principal",
+          operation: "principal.policy.recover",
+          organizationId: input.organizationId,
+        },
+        () =>
+          lease(async ({ protection, stillCurrent: leaseCurrent }) => {
+            const stillCurrent = () =>
+              leaseCurrent() && input.stillCurrent?.() !== false;
+            assertProjectionVerificationCurrent(stillCurrent);
+            assertHistoryPageRequest(input);
+            const offline = runtime.state?.online === false;
+            try {
+              const options = {
+                historyReader,
+                execSql: runtime.infra.execSql,
+                offline,
+                organizationId: input.organizationId,
+                protection,
+                resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+                stillCurrent,
+              };
+              const result = await resumeAfterSupersededStage(
+                () =>
+                  recoverPolicyCurrent(
+                    operationRecoveryBatch(coordinator, input.recoveryBatch),
+                    options,
+                    input,
+                  ),
+                stillCurrent,
+              );
+              // Reused evidence stays bound to every producer lifetime.
+              const resultCurrent = () =>
+                stillCurrent() && result.stillCurrent();
+              assertProjectionVerificationCurrent(resultCurrent);
+              return {
+                current: result.current,
+                organizationId: input.organizationId,
+                policy: result.policy,
+                dependencies: result.dependencies,
+                historyPage: result.historyPage,
+                stillCurrent: resultCurrent,
+              };
+            } catch (error) {
               assertProjectionVerificationCurrent(stillCurrent);
-              assertHistoryPageRequest(input);
-              const offline = runtime.state?.online === false;
-              try {
-                const options = {
-                  historyReader,
-                  execSql: runtime.infra.execSql,
-                  offline,
-                  organizationId: input.organizationId,
-                  protection,
-                  resolveTrustedUserIdentity:
-                    runtime.resolveTrustedUserIdentity,
-                  stillCurrent,
-                };
-                const result = await resumeAfterSupersededStage(
-                  () =>
-                    recoverPolicyCurrent(
-                      recoverFor(input.recoveryBatch),
-                      options,
-                      input,
-                    ),
-                  stillCurrent,
-                );
-                // Reused evidence stays bound to every producer lifetime.
-                const resultCurrent = () =>
-                  stillCurrent() && result.stillCurrent();
-                assertProjectionVerificationCurrent(resultCurrent);
-                return {
-                  current: result.current,
-                  organizationId: input.organizationId,
-                  policy: result.policy,
-                  dependencies: result.dependencies,
-                  historyPage: result.historyPage,
-                  stillCurrent: resultCurrent,
-                };
-              } catch (error) {
-                assertProjectionVerificationCurrent(stillCurrent);
-                if (
-                  error instanceof PrincipalPolicyHistoryReadError ||
-                  error instanceof PrincipalHistoryRecoveryRaceError ||
-                  (error instanceof KeyingVerificationError &&
-                    error.code === "missing_dependency")
-                )
-                  throw new ProjectionDependencyUnavailableError(error.message);
-                throw error;
-              }
-            }),
-        ),
+              if (
+                error instanceof PrincipalPolicyHistoryReadError ||
+                error instanceof PrincipalHistoryRecoveryRaceError ||
+                (error instanceof KeyingVerificationError &&
+                  error.code === "missing_dependency")
+              )
+                throw new ProjectionDependencyUnavailableError(error.message);
+              throw error;
+            }
+          }),
+      ),
     );
 }
 

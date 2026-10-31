@@ -22,17 +22,32 @@ interface PrincipalPolicyWarmRuntime extends PrincipalPolicyRecoveryRuntime {
 }
 
 /**
- * One warmer serves one workflow operation; create it per operation. Its
- * projection collections share one authenticated directory view, discovered
- * once per operation and discarded with the warmer. Prefetch is best-effort;
- * exact resolution still rejects unavailable evidence.
+ * The token of one reconciliation pass or user workflow. Every warmer created
+ * with it shares one authenticated directory view, discovered once; the view
+ * dies with the token, an organization hint, a durable pin past it, or the end
+ * of its producing lease. Mint one at the pass or workflow root.
+ */
+export type PrincipalPolicyOperation = object;
+
+export function createPrincipalPolicyOperation(): PrincipalPolicyOperation {
+  return {};
+}
+
+/**
+ * One warmer serves one workflow operation: either the `operation` its root
+ * minted, or a fresh one of its own. Its projection collections share one
+ * authenticated directory view per operation. Prefetch is best-effort; exact
+ * resolution still rejects unavailable evidence.
  */
 export function createRuntimePrincipalPolicyWarmer(
   runtime: PrincipalPolicyWarmRuntime,
-  options: { readonly preferLocalCurrent?: boolean } = {},
+  options: {
+    readonly preferLocalCurrent?: boolean;
+    readonly operation?: PrincipalPolicyOperation | undefined;
+  } = {},
 ): ReferencedPrincipalPolicyWarmer {
   const resolve = createRuntimePrincipalPolicyResolver(runtime, options);
-  const operation = {};
+  const operation = options.operation ?? createPrincipalPolicyOperation();
   const resolveReference: PolicyResolver = async (input) => {
     if (!resolve)
       throw new ProjectionDependencyUnavailableError(

@@ -457,8 +457,13 @@ export {
 } from "./principal";
 export {
   isPrincipalPolicyPageResponse,
+  isPrincipalPolicyUnchangedResponse,
   type PrincipalPolicyPageResponse,
   PrincipalPolicyPageResponseSchema,
+  type PrincipalPolicyReadResponse,
+  PrincipalPolicyReadResponseSchema,
+  type PrincipalPolicyUnchangedResponse,
+  PrincipalPolicyUnchangedResponseSchema,
 } from "./principalPolicyPage";
 export {
   isPrincipalPolicySnapshotPageResponse,

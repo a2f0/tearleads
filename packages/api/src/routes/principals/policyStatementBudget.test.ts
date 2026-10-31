@@ -70,6 +70,25 @@ test("warm policy, group member, and billing reads stay within their statement b
   expect(billing).toBeLessThanOrEqual(21);
 });
 
+test("a conditional organization read of the live head stays within its statement budget", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const organizationId = await getDefaultOrganizationId(owner.userId);
+  const path = `/principals/organization/${organizationId}/policy`;
+  const { currentState } = PrincipalPolicyPageResponseSchema.parse(
+    await (await warmGet(owner, path)).json(),
+  );
+  const unchanged = await counted(
+    owner,
+    `${path}?ifVersion=${currentState.version}&ifStateHash=${currentState.stateHash}`,
+  );
+
+  // 7 / 9 (PGlite / SQLite; Postgres equals SQLite), against 12 / 14 for the
+  // full page: live authorization and verification still run, but no page,
+  // payload, projection, grants, or member envelopes are read.
+  expect(unchanged).toBeLessThanOrEqual(9);
+});
+
 test("a warm organization policy page at 65 versions stays within its statement budget", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);

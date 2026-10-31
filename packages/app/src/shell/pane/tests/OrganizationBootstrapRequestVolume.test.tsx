@@ -60,9 +60,11 @@ test(
         // Login returns the first websocket ticket, so no ticket request. The
         // self contact's create carries its queued content as its seed, so no
         // content sync (and its discovery read) follows.
-        total: 32,
+        // A hydration pass discovers the directory once (measured 30, 31
+        // before); a discovery naming the held head receives that head alone.
+        total: 31,
         byRequest: {
-          "GET /principals/organization/:organizationId/policy": 6,
+          "GET /principals/organization/:organizationId/policy": 5,
           "GET /principals/group/:groupId/policy": 0,
           // Compact projections read each new public head once; completed
           // stages need no confirmation read.

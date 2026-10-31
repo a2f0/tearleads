@@ -7,6 +7,8 @@ export {
   type ApiRequestMetricsSnapshot,
 } from "./apiRequestMetrics";
 export type {
+  PrincipalPolicyDiscoveryOptions,
+  PrincipalPolicyHeldHead,
   PrincipalPolicyPageCurrent,
   PrincipalPolicyPageReadOptions,
   PrincipalPolicyPageResume,
