@@ -56,34 +56,48 @@ function storedSessionJson(lastActiveAt: number): string {
   });
 }
 
+const authorized = { headers: { Authorization: `Bearer ${TOKEN}` } };
+
 function activityApp(
   storedSession: string,
-  recordUserActivity: Parameters<typeof createRequireAuth>[2],
+  recordActivityUnlessSuspended: Parameters<typeof createRequireAuth>[2],
+  setSessionKeepTtl: (key: string, value: string) => Promise<void> = async () =>
+    undefined,
 ) {
   const app = new Hono<SessionEnv>();
   app.use(
     "*",
     createRequireAuth(
       async () => storedSession,
-      async () => undefined,
-      recordUserActivity,
+      setSessionKeepTtl,
+      recordActivityUnlessSuspended,
     ),
   );
   app.get("/", (context) => context.json({ ok: true }));
+  app.onError((_error, context) => context.json({ error: "failed" }, 500));
   return app;
 }
 
 test("records user activity when the session's activity advances", async () => {
   const recorded: { lastActiveAt: number; userId: string }[] = [];
+  const stored: string[] = [];
   const before = Date.now();
-  const response = await activityApp(storedSessionJson(0), async (input) => {
-    recorded.push(input);
-  }).request("/", { headers: { Authorization: `Bearer ${TOKEN}` } });
+  const response = await activityApp(
+    storedSessionJson(0),
+    async (input) => {
+      recorded.push(input);
+      return false;
+    },
+    async (_key, value) => {
+      stored.push(value);
+    },
+  ).request("/", authorized);
 
   expect(response.status).toBe(200);
   expect(recorded).toHaveLength(1);
   expect(recorded[0]?.userId).toBe(ACTIVE_USER_ID);
   expect(recorded[0]?.lastActiveAt).toBeGreaterThanOrEqual(before);
+  expect(stored).toHaveLength(1);
 });
 
 test("does not record user activity while the session is fresh", async () => {
@@ -92,19 +106,24 @@ test("does not record user activity while the session is fresh", async () => {
     storedSessionJson(Date.now()),
     async (input) => {
       recorded.push(input);
+      return true;
     },
-  ).request("/", { headers: { Authorization: `Bearer ${TOKEN}` } });
+  ).request("/", authorized);
 
   expect(response.status).toBe(200);
   expect(recorded).toEqual([]);
 });
 
-test("a failing activity recorder does not fail the request", async () => {
+test("a failing session-store write does not fail the request", async () => {
   const consoleError = spyOn(console, "error").mockImplementation(() => {});
   try {
-    const response = await activityApp(storedSessionJson(0), async () => {
-      throw new Error("database unavailable");
-    }).request("/", { headers: { Authorization: `Bearer ${TOKEN}` } });
+    const response = await activityApp(
+      storedSessionJson(0),
+      async () => false,
+      async () => {
+        throw new Error("session store unavailable");
+      },
+    ).request("/", authorized);
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
@@ -139,31 +158,19 @@ test("issuing a session records the login as user activity", async () => {
   ]);
 });
 
-function standingApp(
-  storedSession: string,
-  isUserSuspended: (userId: string) => Promise<boolean>,
-) {
-  const app = new Hono<SessionEnv>();
-  app.use(
-    "*",
-    createRequireAuth(
-      async () => storedSession,
-      async () => undefined,
-      undefined,
-      isUserSuspended,
-    ),
-  );
-  app.get("/", (context) => context.json({ ok: true }));
-  app.onError((_error, context) => context.json({ error: "failed" }, 500));
-  return app;
-}
-
 test("the throttled activity path refuses a suspended user's session", async () => {
   const checked: string[] = [];
-  const response = await standingApp(storedSessionJson(0), async (userId) => {
-    checked.push(userId);
-    return true;
-  }).request("/", { headers: { Authorization: `Bearer ${TOKEN}` } });
+  const stored: string[] = [];
+  const response = await activityApp(
+    storedSessionJson(0),
+    async ({ userId }) => {
+      checked.push(userId);
+      return true;
+    },
+    async (_key, value) => {
+      stored.push(value);
+    },
+  ).request("/", authorized);
 
   expect(response.status).toBe(401);
   expect(await response.json()).toEqual({
@@ -171,26 +178,14 @@ test("the throttled activity path refuses a suspended user's session", async () 
     error: "Account suspended",
   });
   expect(checked).toEqual([ACTIVE_USER_ID]);
+  // Refused before session activity advances, so the next request re-checks.
+  expect(stored).toEqual([]);
 });
 
-test("a failing standing check fails the request instead of admitting it", async () => {
-  const response = await standingApp(storedSessionJson(0), async () => {
+test("a failing standing check and stamp fails the request instead of admitting it", async () => {
+  const response = await activityApp(storedSessionJson(0), async () => {
     throw new Error("database unavailable");
-  }).request("/", { headers: { Authorization: `Bearer ${TOKEN}` } });
+  }).request("/", authorized);
 
   expect(response.status).toBe(500);
-});
-
-test("a fresh session skips the standing check", async () => {
-  let checks = 0;
-  const response = await standingApp(
-    storedSessionJson(Date.now()),
-    async () => {
-      checks += 1;
-      return true;
-    },
-  ).request("/", { headers: { Authorization: `Bearer ${TOKEN}` } });
-
-  expect(response.status).toBe(200);
-  expect(checks).toBe(0);
 });

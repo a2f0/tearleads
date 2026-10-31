@@ -60,6 +60,8 @@ test("organization purge statements do not grow with its documents", async () =>
   // Budget: the highest count across PGlite, SQLite and PostgreSQL, which
   // count the transaction's BEGIN and COMMIT. 61 / 63 / 63 before the
   // document-baseline, principal epoch-key, and built-in grant tables were
-  // retired; 57 / 59 / 59 after.
-  expect(one).toBeLessThanOrEqual(59);
+  // retired; 57 / 59 / 59 after. Locking the organization and its two
+  // groups before deleting their principal states adds three advisory locks
+  // where PGlite and Postgres take them: 60 / 59 / 62.
+  expect(one).toBeLessThanOrEqual(62);
 });
