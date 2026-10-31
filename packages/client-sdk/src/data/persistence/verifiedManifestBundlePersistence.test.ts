@@ -29,6 +29,10 @@ function hash(index: number): string {
   return index.toString(16).padStart(64, "0");
 }
 
+function citationKey(citation: object): unknown {
+  return Reflect.get(citation, "manifestHash");
+}
+
 function entry(
   manifestHash: string,
   objectKind: string,
@@ -115,7 +119,7 @@ test("a read cites its lineage, its ancestors', then its organization's recent r
     ]);
     const cited = async (kind: "container" | "document", id: string) =>
       (await loadVerifiedManifestCitations(database.execSql, { kind, id })).map(
-        (bundle) => bundle.manifestHash,
+        citationKey,
       );
     // Lineage first, newest epoch first; then the organization's most
     // recently verified rows. Another organization's rows never appear.
@@ -192,7 +196,7 @@ test("a discovered document cites within its discovery head's organization", asy
           kind: "document",
           id: "discovered",
         })
-      ).map((bundle) => bundle.manifestHash),
+      ).map(citationKey),
     ).toEqual([hash(6)]);
   } finally {
     database.close();
@@ -297,7 +301,7 @@ test("a damaged row is dropped instead of cited", async () => {
       kind: "container",
       id: "root",
     });
-    expect(cited.map((bundle) => bundle.manifestHash)).toEqual([hash(1)]);
+    expect(cited.map(citationKey)).toEqual([hash(1)]);
     const remaining = await db
       .select({ manifestHash: verifiedAccessManifestBundles.manifestHash })
       .from(verifiedAccessManifestBundles);

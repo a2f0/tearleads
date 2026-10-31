@@ -4,6 +4,7 @@ import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
+import { containerKekWireLevel } from "@tearleads/validators/response";
 import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { loadVerifiedManifestCitations } from "../../persistence/verifiedManifestBundlePersistence";
@@ -33,7 +34,7 @@ async function createVerificationFixture() {
 
 const target = { kind: "container", id: "retained-container" } as const;
 
-test("a verified projection's bundles become citable", async () => {
+test("a verified projection's bundles and KEK levels become citable", async () => {
   const fixture = await createVerificationFixture();
   const database = await createTestExecSql("verified-bundles-retained");
   try {
@@ -42,9 +43,13 @@ test("a verified projection's bundles become citable", async () => {
       projection: fixture.projection,
       resolveUserKey: fixture.resolveUserKey,
     });
+    // Each verified level first, in its wire form, then the bundles.
     expect(
       await loadVerifiedManifestCitations(database.execSql, target),
-    ).toEqual(fixture.projection.path);
+    ).toEqual([
+      ...fixture.projection.containerKeks.map(containerKekWireLevel),
+      ...fixture.projection.path,
+    ]);
   } finally {
     database.close();
   }

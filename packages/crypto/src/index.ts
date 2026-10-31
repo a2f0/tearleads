@@ -243,6 +243,7 @@ export {
   computeContainerAccessStructuralHash,
   computeContainerDirectGrantRoot,
   computeContainerKekKeyringHash,
+  computeContainerKekLevelDigest,
   computeContainerKekMaterialId,
   computeContainerKekPredecessorBridgeHash,
   computeContainerKekRecipientTargetHash,

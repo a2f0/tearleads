@@ -3,6 +3,7 @@ export * from "./accessManifestSnapshot";
 export { ACCESS_MANIFEST_VERIFICATION_REVISION } from "./accessManifestVerificationRevision";
 export * from "./canonical";
 export {
+  computeContainerKekLevelDigest,
   isKeyingCanonicalJson,
   readKeyingCanonicalJson,
 } from "./canonicalJsonGuard";

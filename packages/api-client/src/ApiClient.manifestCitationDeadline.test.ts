@@ -7,6 +7,7 @@ import {
   type ContainerWriterProjectionResponse,
   encodeContainerWriterProjection,
 } from "@tearleads/validators/response";
+import { parseKnownManifestHints } from "@tearleads/validators/util";
 import { HttpResponse, http } from "msw";
 import { createContainerWriterProjectionResponse } from "../test/helpers/apiClientTestFactories";
 import {
@@ -43,7 +44,7 @@ function serve() {
         return HttpResponse.json(
           encodeContainerWriterProjection(
             projection(),
-            new Set(hint ? hint.split(",") : []),
+            new Set(parseKnownManifestHints(hint ?? "")?.manifests),
           ),
         );
       },

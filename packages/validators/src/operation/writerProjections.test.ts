@@ -10,6 +10,10 @@ import {
   encodeContainerWriterProjection,
   encodeDocumentWriterProjection,
 } from "../response";
+import {
+  formatKnownManifestHints,
+  parseKnownManifestHints,
+} from "../util/knownManifestWire";
 import { writerProjectionResponseRuntimeRefinements } from "../writerProjectionRefinements";
 import { openApiDocument } from "./openApi";
 import {
@@ -24,27 +28,44 @@ import {
   isGetDocumentWriterProjectionOperationResponse,
 } from "./writerProjections";
 
-test("known-manifest hints accept only bounded, unique manifest hashes", () => {
+test("known-manifest hints accept only bounded, unique typed digests", () => {
   const hash = (index: number) => index.toString(16).padStart(64, "0");
   const accepts = (value: string) =>
     getContainerWriterProjectionOperation.headers.safeParse({
       "x-known-manifests": value,
     }).success;
-  expect(accepts(hash(1))).toBe(true);
+  expect(accepts(`m:${hash(1)}`)).toBe(true);
+  expect(accepts(`k:${hash(1)}`)).toBe(true);
+  // A manifest and a level may share a digest; the type keeps them apart.
+  expect(accepts(`m:${hash(1)},k:${hash(1)}`)).toBe(true);
   expect(
-    accepts(Array.from({ length: 48 }, (_, index) => hash(index)).join(",")),
+    accepts(
+      Array.from({ length: 48 }, (_, index) =>
+        index % 2 === 0 ? `m:${hash(index)}` : `k:${hash(index)}`,
+      ).join(","),
+    ),
   ).toBe(true);
   expect(
-    accepts(Array.from({ length: 49 }, (_, index) => hash(index)).join(",")),
+    accepts(
+      Array.from({ length: 49 }, (_, index) => `m:${hash(index)}`).join(","),
+    ),
   ).toBe(false);
-  expect(accepts(`${hash(1)},${hash(1)}`)).toBe(false);
-  expect(accepts(hash(255).toUpperCase())).toBe(false);
-  expect(accepts(`${hash(1)},`)).toBe(false);
+  expect(accepts(hash(1))).toBe(false);
+  expect(accepts(`x:${hash(1)}`)).toBe(false);
+  expect(accepts(`m:${hash(1)},m:${hash(1)}`)).toBe(false);
+  expect(accepts(`m:${hash(255).toUpperCase()}`)).toBe(false);
+  expect(accepts(`m:${hash(1)},`)).toBe(false);
   expect(accepts("")).toBe(false);
   expect(accepts("untrusted")).toBe(false);
   expect(
     getContainerWriterProjectionOperation.headers.safeParse({}).success,
   ).toBe(true);
+  expect(
+    parseKnownManifestHints(`k:${hash(2)},m:${hash(3)},k:${hash(4)}`),
+  ).toEqual({ manifests: [hash(3)], kekLevels: [hash(2), hash(4)] });
+  expect(
+    formatKnownManifestHints({ manifests: [hash(3)], kekLevels: [hash(2)] }),
+  ).toBe(`k:${hash(2)},m:${hash(3)}`);
 });
 
 test("writer projection operations own their complete wire metadata", () => {
