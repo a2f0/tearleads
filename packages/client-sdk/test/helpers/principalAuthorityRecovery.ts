@@ -1,4 +1,5 @@
 import { ApiClient } from "@tearleads/api-client";
+import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   PrincipalPolicyBundleResponse,
@@ -107,10 +108,16 @@ export async function createAuthorityRecoveryFixture(
     principalId: string;
     afterVersion: number;
     count: number;
+    /** Set when the read named a held head; true when the reply was a bare head. */
+    unchanged?: boolean;
   }[] = [];
   const controls: {
     mutate: ((page: PrincipalPolicyPageResponse) => void) | null;
     failureStatus?: number;
+    /** Answer conditional reads like the API; otherwise ignore them. */
+    conditional?: boolean;
+    /** Reply to every conditional read with this bare head, matched or not. */
+    forcedUnchangedHead?: ReferencedPrincipalHead;
   } = { mutate: null };
   const server = Bun.serve({
     hostname: "127.0.0.1",
@@ -129,6 +136,26 @@ export async function createAuthorityRecoveryFixture(
       const hash = url.searchParams.get("stateHash");
       if (hash && hash !== bundle.currentState.stateHash)
         return new Response("Changed pin", { status: 409 });
+      const ifStateHash = url.searchParams.get("ifStateHash");
+      if (controls.conditional && ifStateHash !== null) {
+        const state = bundle.currentState;
+        const unchanged =
+          controls.forcedUnchangedHead !== undefined ||
+          (ifStateHash === state.stateHash &&
+            Number(url.searchParams.get("ifVersion")) === state.version);
+        requests.push({
+          principalId: state.principalId,
+          afterVersion: 0,
+          count: 0,
+          unchanged,
+        });
+        if (unchanged) {
+          return Response.json({
+            unchanged: true,
+            head: controls.forcedUnchangedHead ?? principalPolicyHead(bundle),
+          });
+        }
+      }
       const afterVersion = Number(url.searchParams.get("afterVersion") ?? 0);
       const previousStates = bundle.previousStates.slice(
         afterVersion,

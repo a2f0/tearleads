@@ -1,9 +1,8 @@
-import { blobs } from "@tearleads/api-shared/schema";
 import type { BlobDownloadResponse } from "@tearleads/validators/operation";
-import { eq } from "drizzle-orm";
 import type { BlobObjectReadStream } from "../../adapters/blobObjectStore";
 import {
   KeyingReadAccessError,
+  type ReadableBlobRow,
   resolveReadableBlobAccess,
 } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
@@ -11,13 +10,6 @@ import type { ApiServiceRuntime } from "../runtime";
 interface GetBlobInput {
   blobId: string;
   userId: string;
-}
-
-interface BlobRow {
-  readonly byteLength: number;
-  readonly blobId: string;
-  readonly sha256: string;
-  readonly storageKey: string;
 }
 
 interface BlobBytesResponse {
@@ -39,9 +31,11 @@ export class GetBlobError extends Error {
 async function loadReadableBlobRow(
   runtime: ApiServiceRuntime,
   input: GetBlobInput,
-): Promise<BlobRow> {
+): Promise<ReadableBlobRow> {
+  let row: ReadableBlobRow | null;
   try {
-    await resolveReadableBlobAccess({
+    // The blob row is read with its bindings, before access resolves.
+    row = await resolveReadableBlobAccess({
       blobId: input.blobId,
       executor: runtime.db,
       userId: input.userId,
@@ -52,17 +46,6 @@ async function loadReadableBlobRow(
     }
     throw error;
   }
-
-  const [row] = await runtime.db
-    .select({
-      byteLength: blobs.byteLength,
-      blobId: blobs.id,
-      sha256: blobs.sha256,
-      storageKey: blobs.storageKey,
-    })
-    .from(blobs)
-    .where(eq(blobs.id, input.blobId))
-    .limit(1);
 
   if (!row) {
     throw new GetBlobError("Blob not found", 404);

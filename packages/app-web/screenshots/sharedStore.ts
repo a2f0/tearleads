@@ -127,6 +127,11 @@ export function assertSharedCaptureRecorded(
   }
 }
 
+// Playwright's setup hook also guards direct CLI runs that skip prescreenshots.
+export default function setupSharedCapture(): void {
+  assertSharedCaptureRecorded();
+}
+
 if (import.meta.main) {
   assertSharedCaptureRecorded();
 }

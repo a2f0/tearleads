@@ -282,6 +282,15 @@ and key epoch. Principal-state signing and hashing use the domain
 `memberEnvelopesRoot` is mandatory; a state missing it, required policy
 material, or envelope material fails closed.
 
+`GET /principals/:principalType/:principalId/policy` serves one pinned head
+in pages ([history transport](principal-history-transport.md)). Every read
+applies live read authorization and verifies the current policy first. An
+unpinned discovery read may name the head the client holds with `ifVersion`
+and `ifStateHash`; when that is the live head, the reply is
+`{unchanged: true, head}` and carries no artifacts, otherwise it is the first
+page. The reply proves only freshness: the client authenticates the held head
+from its own verified history and re-reads unconditionally on any other reply.
+
 ## Container Access And KEK Protocol
 
 Container create bodies and manifest structural state carry a required nullable

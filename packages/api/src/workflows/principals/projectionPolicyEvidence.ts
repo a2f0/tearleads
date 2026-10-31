@@ -11,6 +11,7 @@ import {
   getCurrentPrincipalState,
   getPrincipalStatesForReferences,
   principalStateReferenceKey,
+  type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 import { principalHistoryHead } from "./principalHistoryRecords";
 import { loadPrincipalPolicySelections } from "./principalPolicySelections";
@@ -35,7 +36,7 @@ function identity(head: ReferencedPrincipalHead): string {
 
 async function loadBindingPayloads(
   executor: DatabaseSession,
-  organization: ReferencedPrincipalHead,
+  organization: StoredPrincipalState,
   bindings: Awaited<ReturnType<typeof loadProjectionDirectoryBindings>>,
 ): Promise<ProjectionPolicyEvidenceResponse["organizationPayloads"]> {
   const payloads = new Map(
@@ -45,10 +46,16 @@ async function loadBindingPayloads(
       return [payload.stateHash, payload] as const;
     }),
   );
+  // A state row is immutable per (type, id, state hash), so the current
+  // organization state already read serves the current directory's payloads.
+  const organizationKey = principalStateReferenceKey(organization);
   const payloadStates = await getPrincipalStatesForReferences(
-    [...payloads.values()],
+    [...payloads.values()].filter(
+      (payload) => principalStateReferenceKey(payload) !== organizationKey,
+    ),
     executor,
   );
+  payloadStates.set(organizationKey, organization);
   return [...payloads.values()].map((payload) => {
     const state = payloadStates.get(principalStateReferenceKey(payload));
     if (

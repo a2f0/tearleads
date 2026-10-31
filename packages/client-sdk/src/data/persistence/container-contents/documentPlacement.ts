@@ -6,6 +6,7 @@ import {
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../sqlite/schema";
+import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 export interface DocumentPlacementInput {
@@ -19,16 +20,24 @@ export interface DocumentPlacementWriteOptions {
   moveIntentId?: string | undefined;
 }
 
+const movePlacementSelection = {
+  id: localIntents.id,
+  intentType: localIntents.intentType,
+  targetContainerId: localIntents.targetContainerId,
+};
+
+export interface DocumentMovePlacement {
+  readonly id: string | null;
+  readonly intentType: string;
+  readonly targetContainerId: string;
+}
+
 export async function loadDocumentMovePlacement(
   tx: ClientSQLiteTransactionScope,
   documentId: string,
-) {
+): Promise<DocumentMovePlacement | undefined> {
   const [intent] = await tx
-    .select({
-      id: localIntents.id,
-      intentType: localIntents.intentType,
-      targetContainerId: localIntents.targetContainerId,
-    })
+    .select(movePlacementSelection)
     .from(localIntents)
     .where(
       and(
@@ -38,6 +47,35 @@ export async function loadDocumentMovePlacement(
     )
     .limit(1);
   return intent;
+}
+
+/** `loadDocumentMovePlacement` for many documents, keyed by document id. */
+export async function loadDocumentMovePlacements(
+  tx: ClientSQLiteTransactionScope,
+  documentIds: ReadonlyArray<string>,
+): Promise<Map<string, DocumentMovePlacement>> {
+  const placements = new Map<string, DocumentMovePlacement>();
+  const unique = Array.from(new Set(documentIds));
+  // The lane predicate binds one value; the rest carry document ids.
+  const chunkSize = sqliteRowsPerStatement(1, 1);
+  for (let offset = 0; offset < unique.length; offset += chunkSize) {
+    const rows = await tx
+      .select({ subjectId: localIntents.subjectId, ...movePlacementSelection })
+      .from(localIntents)
+      .where(
+        and(
+          inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+          inArray(
+            localIntents.subjectId,
+            unique.slice(offset, offset + chunkSize),
+          ),
+        ),
+      );
+    for (const { subjectId, ...placement } of rows) {
+      placements.set(subjectId, placement);
+    }
+  }
+  return placements;
 }
 
 /** Check at commit time: neither intermediate replay nor discovery owns a pending move. */

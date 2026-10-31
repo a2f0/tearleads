@@ -7,6 +7,7 @@ export {
 } from "../shared/internal/containerKekStore";
 export {
   getContainerKeyEpochKeyring,
+  getContainerKeyEpochWithKeyring,
   getCurrentContainerKeyEpochPins,
   listContainerKeyEpochPage,
   listContainerKeyWrapsByEpochId,

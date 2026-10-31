@@ -1,4 +1,4 @@
-import { and, desc, eq, notInArray } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray, type SQL } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import type { StoredDocumentKind } from "../../../documents/documentKinds";
 import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../../documents/documentSummary";
@@ -7,6 +7,7 @@ import {
   documentProjectionText,
   documents,
 } from "../../../sqlite/schema";
+import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import {
   documentRecordSelection,
@@ -34,28 +35,27 @@ export interface StoredDocumentProjectionState {
   updatedAt: string;
 }
 
-/**
- * The canonical record and its projection from ONE joined statement, so the
- * pair comes from one snapshot and a save inside the same transaction can
- * reuse the projection instead of reading it again.
- */
-export async function loadStoredDocumentState(
-  execSql: Parameters<DocumentsPersistence["loadDocument"]>[0],
-  localId: string,
-): Promise<{
+const storedDocumentStateSelection = {
+  ...documentRecordSelection,
+  projectionContainerId: documentProjection.containerId,
+  projectionDocumentKind: documentProjection.documentKind,
+  projectionText: documentProjectionText.text,
+  projectionTitle: documentProjection.title,
+  projectionUpdatedAt: documentProjection.updatedAt,
+};
+
+export interface StoredDocumentState {
   projection: StoredDocumentProjectionState | null;
   record: StoredDocumentRecord;
-} | null> {
+}
+
+function storedDocumentStateQuery(
+  execSql: Parameters<DocumentsPersistence["loadDocument"]>[0],
+  localIds: SQL | undefined,
+) {
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const [row] = await db
-    .select({
-      ...documentRecordSelection,
-      projectionContainerId: documentProjection.containerId,
-      projectionDocumentKind: documentProjection.documentKind,
-      projectionText: documentProjectionText.text,
-      projectionTitle: documentProjection.title,
-      projectionUpdatedAt: documentProjection.updatedAt,
-    })
+  return db
+    .select(storedDocumentStateSelection)
     .from(documents)
     .leftJoin(
       documentProjection,
@@ -65,14 +65,12 @@ export async function loadStoredDocumentState(
       documentProjectionText,
       eq(documentProjectionText.localId, documentProjection.localId),
     )
-    .where(
-      and(
-        eq(documents.appKind, DOCUMENTS_APP_KIND),
-        eq(documents.localId, localId),
-      ),
-    )
-    .limit(1);
-  if (!row) return null;
+    .where(and(eq(documents.appKind, DOCUMENTS_APP_KIND), localIds));
+}
+
+function mapStoredDocumentState(
+  row: Awaited<ReturnType<typeof storedDocumentStateQuery>>[number],
+): StoredDocumentState {
   const {
     projectionContainerId,
     projectionDocumentKind,
@@ -107,6 +105,41 @@ export async function loadStoredDocumentState(
       title: getProjectionTitle(projectionRow),
     },
   };
+}
+
+/**
+ * The canonical record and its projection from ONE joined statement, so the
+ * pair comes from one snapshot and a save inside the same transaction can
+ * reuse the projection instead of reading it again.
+ */
+export async function loadStoredDocumentState(
+  execSql: Parameters<DocumentsPersistence["loadDocument"]>[0],
+  localId: string,
+): Promise<StoredDocumentState | null> {
+  const [row] = await storedDocumentStateQuery(
+    execSql,
+    eq(documents.localId, localId),
+  ).limit(1);
+  return row ? mapStoredDocumentState(row) : null;
+}
+
+/** `loadStoredDocumentState` for many local ids, one joined read per chunk. */
+export async function loadStoredDocumentStates(
+  execSql: Parameters<DocumentsPersistence["loadDocument"]>[0],
+  localIds: ReadonlyArray<string>,
+): Promise<Map<string, StoredDocumentState>> {
+  const states = new Map<string, StoredDocumentState>();
+  const unique = Array.from(new Set(localIds));
+  // One bind for the app kind; the rest carry local ids.
+  const chunkSize = sqliteRowsPerStatement(1, 1);
+  for (let offset = 0; offset < unique.length; offset += chunkSize) {
+    const rows = await storedDocumentStateQuery(
+      execSql,
+      inArray(documents.localId, unique.slice(offset, offset + chunkSize)),
+    );
+    for (const row of rows) states.set(row.id, mapStoredDocumentState(row));
+  }
+  return states;
 }
 
 type DocumentRowQueryPersistence = Pick<

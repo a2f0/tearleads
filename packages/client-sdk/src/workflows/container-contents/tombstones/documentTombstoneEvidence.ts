@@ -8,7 +8,10 @@ import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjec
 import { reportKeyingVerificationErrorInCauseChain } from "../../../data/keyingProjectionVerification/error";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
 import { loadDocumentPurgeCheckpoint } from "../../../data/persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
-import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
+import {
+  createRuntimePrincipalPolicyWarmer,
+  type PrincipalPolicyOperation,
+} from "../../principals/runtimePolicyWarmer";
 import type {
   ContainerDocumentTombstone,
   ContainerDocumentTombstoneVerdict,
@@ -58,6 +61,7 @@ async function verifiedHeadLinkSet(
   deps: DocumentHeadLinkSetLoaderDeps,
   documentId: string,
   projection: DocumentWriterProjectionResponse,
+  policyOperation: PrincipalPolicyOperation | undefined,
 ): Promise<VerifiedDocumentHeadLinkSet> {
   const verified: { value?: VerifiedDocumentHeadLinkSet } = {};
   await deps.assertDocumentWriterProjectionConsistent(projection, {
@@ -81,8 +85,10 @@ async function verifiedHeadLinkSet(
       }
     },
     resolveProjectionUserKey: createProjectionUserKeyResolver(runtime),
-    warmReferencedPrincipalPolicies:
-      createRuntimePrincipalPolicyWarmer(runtime),
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      runtime,
+      { operation: policyOperation },
+    ),
   });
   if (!verified.value) {
     throw new Error("Tombstone evidence lacks a verified document head");
@@ -126,12 +132,14 @@ async function reportUnavailableHead(
   }
 }
 
+/** `policyOperation` lets one discovery pass share a directory discovery. */
 export function createDocumentHeadLinkSetLoader(
   runtime: ContainerContentsWorkflowRuntime,
   deps: DocumentHeadLinkSetLoaderDeps = {
     assertDocumentWriterProjectionConsistent,
     loadDocumentPurgeCheckpoint,
   },
+  policyOperation?: PrincipalPolicyOperation,
 ): DocumentHeadLinkSetLoader {
   return async (documentId, expectedManifestHash) => {
     try {
@@ -179,7 +187,13 @@ export function createDocumentHeadLinkSetLoader(
         );
         return null;
       }
-      return await verifiedHeadLinkSet(runtime, deps, documentId, result.data);
+      return await verifiedHeadLinkSet(
+        runtime,
+        deps,
+        documentId,
+        result.data,
+        policyOperation,
+      );
     } catch (error) {
       // Any failure leaves the tombstone unverified (held and retried); a
       // thrown error here must not fail the whole discovery pass.

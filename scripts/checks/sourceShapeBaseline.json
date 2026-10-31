@@ -75,12 +75,12 @@
       "bytes": 21864
     },
     "docs/openapi.json": {
-      "lines": 68588,
-      "bytes": 2764394
+      "lines": 68671,
+      "bytes": 2769529
     },
     "docs/protocol-specification.md": {
-      "lines": 744,
-      "bytes": 39613
+      "lines": 753,
+      "bytes": 40210
     },
     "docs/security-guarantees.md": {
       "lines": 847,
@@ -103,24 +103,24 @@
       "bytes": 550577
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 2094,
-      "bytes": 67136
+      "lines": 2096,
+      "bytes": 67359
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 672,
       "bytes": 21870
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 525,
-      "bytes": 16869
+      "lines": 547,
+      "bytes": 17566
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
       "lines": 637,
       "bytes": 20086
     },
     "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
-      "lines": 764,
-      "bytes": 24201
+      "lines": 758,
+      "bytes": 24113
     },
     "packages/api/src/access/shared/internal/principalStateStore.ts": {
       "lines": 692,
@@ -331,12 +331,12 @@
       "bytes": 32167
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 24868,
-      "bytes": 1008114
+      "lines": 24884,
+      "bytes": 1008797
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 581,
-      "bytes": 20358
+      "lines": 586,
+      "bytes": 20552
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 508,

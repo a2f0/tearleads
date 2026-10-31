@@ -79,12 +79,13 @@ test("document create, sync write, and sync pull stay within their statement bud
   // Measured with PGlite / SQLite: create 55 / 56, write 80 / 81, and pull
   // 58 / 59 before signer rows were read once per transaction, the KEK target
   // resolution stopped repeating, and the document head joined its links;
-  // 41 / 42, 64 / 65, and 46 / 47 after. Then 39 / 40, 57 / 58, and 41 / 42
-  // (Postgres 41, 59, 43) before the database efficiency audit's sync unit
-  // resolved the targets once after the locks, reused the locked heads and
-  // each transaction's manifest bundles: 38 / 39, 47 / 48, and 33 / 34
-  // (Postgres 40, 49, 35). The bounds are the Postgres counts.
-  expect(create.statements).toBeLessThanOrEqual(40);
+  // 41 / 42, 64 / 65, and 46 / 47 after. Create 39 / 40 / 41 (Postgres third),
+  // then 37 / 38 / 39 once inserts verify their RETURNING rows. Write 57 / 58 /
+  // 59 and pull 41 / 42 / 43 before the database efficiency audit's sync unit
+  // resolved the targets once after the locks and reused the locked heads and
+  // each transaction's manifest bundles: create 36 / 37 / 38,
+  // write 47 / 48 / 49, pull 33 / 34 / 35. Bounds are Postgres.
+  expect(create.statements).toBeLessThanOrEqual(38);
   expect(write.statements).toBeLessThanOrEqual(49);
   expect(pull.statements).toBeLessThanOrEqual(35);
 }, 30_000);
@@ -121,8 +122,8 @@ test("a seeded document create stays within its statement budget", async () => {
   // PGlite / SQLite / Postgres: 90 / 90 / 92 while the seed re-read the
   // document row, re-locked heads the create held, re-read billing the create
   // checked, built an unread pull page, and every lock and bundle read was
-  // repeated; 69 / 69 / 71 once it reused them.
-  expect(seeded.statements).toBeLessThanOrEqual(71);
+  // repeated; 67 / 67 / 69 once it reused them (after RETURNING checks).
+  expect(seeded.statements).toBeLessThanOrEqual(69);
 }, 30_000);
 
 test("a full pull page loads its updates as sets", async () => {

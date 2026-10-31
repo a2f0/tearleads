@@ -344,26 +344,31 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
     const existing = existingByContainerId.get(target.containerId);
     return existing !== undefined && !targetEnvelopeEqual(existing, target);
   });
-  const epochRow = await loadDocumentContentKeyEpochRow(
-    input.nextBundle.documentId,
-    input.nextBundle.contentKeyEpoch,
-    input.executor,
-  );
-  if (!epochRow) {
-    throw new DocumentContentKeyBundleError(
-      "Failed to load document content-key epoch",
-      409,
-    );
-  }
-
-  await input.executor
+  // The update returns the epoch row as stored; the target writes below do
+  // not touch it, so it needs neither a load before nor a reload after.
+  const [epochRow] = await input.executor
     .update(documentContentKeyEpochs)
     .set({
       linkSetManifestHash: input.nextBundle.linkSetManifestHash,
       targetHash: input.nextBundle.targetHash,
       updatedAt: new Date(),
     })
-    .where(eq(documentContentKeyEpochs.id, epochRow.id));
+    .where(
+      and(
+        eq(documentContentKeyEpochs.documentId, input.nextBundle.documentId),
+        eq(
+          documentContentKeyEpochs.contentKeyEpoch,
+          input.nextBundle.contentKeyEpoch,
+        ),
+      ),
+    )
+    .returning();
+  if (!epochRow) {
+    throw new DocumentContentKeyBundleError(
+      "Failed to load document content-key epoch",
+      409,
+    );
+  }
   await insertDocumentContentKeyTargets({
     documentContentKeyEpochId: epochRow.id,
     executor: input.executor,
@@ -375,19 +380,7 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
     targets: refreshedTargets,
   });
 
-  const updatedRow = await loadDocumentContentKeyEpochRow(
-    input.nextBundle.documentId,
-    input.nextBundle.contentKeyEpoch,
-    input.executor,
-  );
-  if (!updatedRow) {
-    throw new DocumentContentKeyBundleError(
-      "Failed to load document content-key epoch",
-      409,
-    );
-  }
-
-  return toStoredBundle(updatedRow, input.executor);
+  return toStoredBundle(epochRow, input.executor);
 }
 
 async function validateCurrentTargetsForBundle(

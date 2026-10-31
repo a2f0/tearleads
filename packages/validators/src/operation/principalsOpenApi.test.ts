@@ -17,7 +17,7 @@ test("principal policy OpenAPI documents both shared operations", () => {
 
   expect(getPolicy.operationId).toBe("principals.policy.get");
   expect(putPolicy.operationId).toBe("principals.policy.update");
-  expect(getPolicy.parameters).toHaveLength(4);
+  expect(getPolicy.parameters).toHaveLength(6);
   expect(getPolicy.parameters[0]).toMatchObject({
     in: "path",
     name: "principalType",
@@ -39,6 +39,17 @@ test("principal policy OpenAPI documents both shared operations", () => {
     expect.objectContaining({
       in: "query",
       name: "stateHash",
+      required: false,
+    }),
+    expect.objectContaining({
+      in: "query",
+      name: "ifVersion",
+      required: false,
+      schema: { type: "integer", minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+    }),
+    expect.objectContaining({
+      in: "query",
+      name: "ifStateHash",
       required: false,
     }),
   ]);

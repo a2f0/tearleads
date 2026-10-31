@@ -1,4 +1,8 @@
-import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
+import {
+  createPrincipalPolicyOperation,
+  createRuntimePrincipalPolicyWarmer,
+  type PrincipalPolicyOperation,
+} from "../../../principals/runtimePolicyWarmer";
 import { prefetchDestinationProjections } from "../destination/destinationPrefetch";
 import { cachedDestinationRole } from "../destination/destinationRoleCache";
 import { markContainerParentLaneFetched } from "../lanes/laneFetchMarkers";
@@ -54,6 +58,8 @@ async function applyRemoteContainerPage(input: {
   /** Live pause check; a pause arriving mid-page stops the commit. */
   isPaused: (container: ListedRemoteContainerPageItem) => boolean;
   items: ReadonlyArray<ListedRemoteContainerPageItem>;
+  /** The hydration pass's token: its pages share one directory discovery. */
+  policyOperation: PrincipalPolicyOperation;
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
   state: RemoteContainerHydrationState;
@@ -73,6 +79,7 @@ async function applyRemoteContainerPage(input: {
   await cacheRemoteContainerPrincipalPolicies({
     cacheReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       state.runtime,
+      { operation: input.policyOperation },
     ),
     remoteContainers: items,
     stillCurrent: input.isCurrent,
@@ -166,6 +173,7 @@ async function applyContainerParentLanePage(input: {
   fetchedPage: FetchedContainerParentLanePage;
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
+  policyOperation: PrincipalPolicyOperation;
   queueContinuationLane: (lane: ContainerParentHydrationLane) => void;
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
@@ -227,6 +235,7 @@ async function applyContainerParentLanePage(input: {
     isCurrent: input.isCurrent,
     isPaused,
     items: remoteContainerItems.filter((item) => !isPaused(item)),
+    policyOperation: input.policyOperation,
     queueParentLane,
     seenContainerIds,
     state,
@@ -295,6 +304,7 @@ async function applyContainerParentLaneBatch(input: {
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
   lanes: ContainerParentHydrationLane[];
+  policyOperation: PrincipalPolicyOperation;
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
   state: RemoteContainerHydrationState;
@@ -327,6 +337,7 @@ async function applyContainerParentLaneBatch(input: {
       fetchedPage,
       host,
       isCurrent: input.isCurrent,
+      policyOperation: input.policyOperation,
       queueContinuationLane: (lane) => lanes.push(lane),
       queueParentLane,
       seenContainerIds,
@@ -362,6 +373,8 @@ export async function hydrateContainerParentLanes(input: {
   } = input;
   let changedCount = 0;
   let complete = true;
+  // One hydration pass is one policy operation: its pages share a discovery.
+  const policyOperation = createPrincipalPolicyOperation();
 
   while (lanes.length > 0) {
     if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
@@ -391,6 +404,7 @@ export async function hydrateContainerParentLanes(input: {
       host,
       isCurrent: input.isCurrent,
       lanes,
+      policyOperation,
       queueParentLane,
       seenContainerIds,
       state,

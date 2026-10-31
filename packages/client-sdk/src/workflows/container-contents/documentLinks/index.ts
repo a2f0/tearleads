@@ -18,7 +18,11 @@ import {
   resolveDocumentCreateAuthor,
 } from "../../documents";
 import type { SubtreePurgeRoot } from "../../documents/purge/subtreePurgeScope";
-import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
+import {
+  createPrincipalPolicyOperation,
+  createRuntimePrincipalPolicyWarmer,
+  type PrincipalPolicyOperation,
+} from "../../principals/runtimePolicyWarmer";
 import { resolveContainerDocumentMoveUnlinkIds } from "../documentMove/documentMoveUnlinkIds";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 
@@ -145,6 +149,7 @@ async function containerDocumentAlreadyMovedResult(input: {
   isCurrent?: (() => boolean) | undefined;
   linkedContainerIds: readonly string[];
   nextContainerId: string;
+  policyOperation: PrincipalPolicyOperation;
   status: MoveRemoteContainerDocumentStatus;
 }): Promise<MoveRemoteContainerDocumentResult> {
   const verified: { head?: VerifiedDocumentLinkSetManifest | undefined } = {};
@@ -154,6 +159,7 @@ async function containerDocumentAlreadyMovedResult(input: {
     stillCurrent: input.isCurrent,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
+      { operation: input.policyOperation },
     ),
     onVerifiedAuthorization: (authorization) => {
       verified.head = authorization.documentManifestByHash.get(
@@ -207,6 +213,8 @@ export async function relinkRemoteContainerDocument(input: {
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
   operation: ContainerDocumentLinkOperation;
+  /** A workflow root's token; each leg otherwise discovers on its own. */
+  policyOperation?: PrincipalPolicyOperation | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   rotationSnapshot?: Uint8Array | undefined;
   runtime: ContainerDocumentLinkRuntime;
@@ -250,8 +258,10 @@ export async function relinkRemoteContainerDocument(input: {
       stillCurrent: input.isCurrent,
       targetContainerId,
       targetSecretKey,
-      warmReferencedPrincipalPolicies:
-        createRuntimePrincipalPolicyWarmer(runtime),
+      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+        runtime,
+        { operation: input.policyOperation },
+      ),
     });
     if (!result) {
       runtime.util.log(
@@ -297,6 +307,7 @@ async function linkRemoteContainerDocument(input: {
   isCurrent?: (() => boolean) | undefined;
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
+  policyOperation: PrincipalPolicyOperation;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerDocumentLinkRuntime;
   targetContainerId: string;
@@ -314,6 +325,7 @@ export async function unlinkRemoteContainerDocument(input: {
   isCurrent?: (() => boolean) | undefined;
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
+  policyOperation?: PrincipalPolicyOperation | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   rotationSnapshot: Uint8Array;
   runtime: ContainerDocumentLinkRuntime;
@@ -348,6 +360,9 @@ export async function moveRemoteContainerDocument(input: {
     targetContainerId,
   } = input;
   if (input.isCurrent?.() === false) return null;
+  // One move workflow is one policy operation: its link and unlink legs share
+  // a directory discovery. Each leg's commit still refuses a stale view.
+  const policyOperation = createPrincipalPolicyOperation();
   const writerProjection = await fetchMoveWriterProjection({
     documentId,
     onFailure: input.onFailure,
@@ -373,6 +388,7 @@ export async function moveRemoteContainerDocument(input: {
       isCurrent: input.isCurrent,
       noteId,
       onFailure: input.onFailure,
+      policyOperation,
       resolveProjectionUserKey,
       runtime,
       targetContainerId: linkTarget,
@@ -394,6 +410,7 @@ export async function moveRemoteContainerDocument(input: {
     ...input,
     latestDocument,
     latestLinkedContainerIds,
+    policyOperation,
     unlinkContainerIds,
   });
   if (!unlinked) return null;
@@ -423,6 +440,7 @@ export async function moveRemoteContainerDocument(input: {
         isCurrent: input.isCurrent,
         linkedContainerIds: latestLinkedContainerIds,
         nextContainerId,
+        policyOperation,
         status,
       });
 }
@@ -437,6 +455,7 @@ async function unlinkMovedDocumentSources(input: {
   latestLinkedContainerIds: readonly string[];
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
+  policyOperation: PrincipalPolicyOperation;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   rotationSnapshot: Uint8Array;
   runtime: ContainerDocumentLinkRuntime;
@@ -457,6 +476,7 @@ async function unlinkMovedDocumentSources(input: {
       isCurrent: input.isCurrent,
       noteId,
       onFailure: input.onFailure,
+      policyOperation: input.policyOperation,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
       rotationSnapshot: input.rotationSnapshot,
       runtime,

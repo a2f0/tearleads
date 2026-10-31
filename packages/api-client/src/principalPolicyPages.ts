@@ -1,8 +1,11 @@
 import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
 import { getPrincipalPolicyOperation } from "@tearleads/validators/operation";
-import type {
-  PrincipalPolicyBundleResponse,
-  PrincipalPolicyPageResponse,
+import {
+  isPrincipalPolicyPageResponse,
+  isPrincipalPolicyUnchangedResponse,
+  type PrincipalPolicyBundleResponse,
+  type PrincipalPolicyPageResponse,
+  type PrincipalPolicyReadResponse,
 } from "@tearleads/validators/response";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
@@ -64,7 +67,7 @@ function readResume(input: PrincipalPolicyPageResume | undefined) {
       previousStates: [],
       historyPage: { afterVersion: input.afterVersion, nextAfterVersion: null },
     };
-    if (!getPrincipalPolicy.isResponse(page)) return undefined;
+    if (!isPrincipalPolicyPageResponse(page)) return undefined;
     const current = structuredClone(currentArtifacts(page));
     return {
       current,
@@ -190,7 +193,7 @@ export async function* readPrincipalPolicyPages(
       : firstPath;
     const result = await principalHistoryRequest(runtime, {
       path,
-      validator: getPrincipalPolicy.isResponse,
+      validator: isPrincipalPolicyPageResponse,
       method: "GET",
       operation: getPrincipalPolicyOperation,
       options,
@@ -234,6 +237,78 @@ export async function* readPrincipalPolicyPages(
     if (nextAfterVersion === null) return;
     afterVersion = nextAfterVersion;
   }
+}
+
+/** A head the caller already holds and has authenticated. */
+export interface PrincipalPolicyHeldHead {
+  readonly version: number;
+  readonly stateHash: string;
+}
+
+export interface PrincipalPolicyDiscoveryOptions extends RequestResultOptions {
+  readonly ifHead?: PrincipalPolicyHeldHead | undefined;
+}
+
+/**
+ * One unpinned discovery read. With `ifHead`, a server whose live head is
+ * exactly that head answers `{ unchanged, head }` instead of the first page.
+ * The reply is untrusted: the caller must check the head is the one it holds.
+ */
+export async function readPrincipalPolicyDiscovery(
+  runtime: ApiRequestRuntime,
+  principalType: "group" | "organization",
+  principalId: string,
+  options: PrincipalPolicyDiscoveryOptions,
+): Promise<RequestResult<PrincipalPolicyReadResponse>> {
+  const { ifHead, ...requestOptions } = options;
+  const query = ifHead
+    ? { ifVersion: ifHead.version, ifStateHash: ifHead.stateHash }
+    : {};
+  if (!getPrincipalPolicyOperation.query.safeParse(query).success)
+    return pageFailure(
+      runtime,
+      getPrincipalPolicy.path(principalType, principalId),
+      requestOptions,
+      "Invalid held principal history head",
+      null,
+    );
+  const path = getPrincipalPolicy.path(principalType, principalId, query);
+  const result = await principalHistoryRequest(runtime, {
+    path,
+    validator: getPrincipalPolicy.isResponse,
+    method: "GET",
+    operation: getPrincipalPolicyOperation,
+    options: requestOptions,
+  });
+  if (!result.ok) return result;
+  const response = result.data;
+  // Exactly one variant: the strict bare-head reply, only to a conditional
+  // read and only for the requested principal, or a valid first page.
+  const unchanged = isPrincipalPolicyUnchangedResponse(response);
+  const page = isPrincipalPolicyPageResponse(response);
+  const valid = unchanged
+    ? !page &&
+      ifHead !== undefined &&
+      response.head.principalType === principalType &&
+      response.head.principalId === principalId
+    : page &&
+      validPage(response, {
+        principalType,
+        principalId,
+        stateHash: undefined,
+        pinnedBytes: undefined,
+        bytes: "",
+        afterVersion: 0,
+      });
+  return valid
+    ? result
+    : pageFailure(
+        runtime,
+        path,
+        requestOptions,
+        "Principal discovery reply does not match its request",
+        200,
+      );
 }
 
 /** Full-bundle adapter for consumers that have not adopted durable staging. */

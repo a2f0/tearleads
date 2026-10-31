@@ -40,8 +40,8 @@ async function getPrincipalEpochKeyByEpoch(
 
 async function insertPrincipalEpochKeyRow(
   input: PrincipalEpochKeyWriteContext,
-): Promise<void> {
-  await input.executor
+): Promise<StoredPrincipalEpochKey | null> {
+  const [inserted] = await input.executor
     .insert(principalEpochKeys)
     .values({
       principalType: input.normalizedInput.state.principalType,
@@ -58,18 +58,23 @@ async function insertPrincipalEpochKeyRow(
         principalEpochKeys.principalId,
         principalEpochKeys.epoch,
       ],
-    });
+    })
+    .returning(principalEpochKeySelect);
+  return inserted ?? null;
 }
 
 async function ensureStoredPrincipalEpochKeyMatches(
   input: PrincipalEpochKeyWriteContext,
+  inserted: StoredPrincipalEpochKey | null,
 ): Promise<void> {
-  const storedEpochKey = await getPrincipalEpochKeyByEpoch(
-    input.normalizedInput.state.principalType,
-    input.normalizedInput.state.principalId,
-    input.normalizedInput.state.keyEpoch,
-    input.executor,
-  );
+  const storedEpochKey =
+    inserted ??
+    (await getPrincipalEpochKeyByEpoch(
+      input.normalizedInput.state.principalType,
+      input.normalizedInput.state.principalId,
+      input.normalizedInput.state.keyEpoch,
+      input.executor,
+    ));
 
   if (!storedEpochKey) {
     throw new Error("Failed to load stored principal epoch key");
@@ -87,6 +92,9 @@ async function ensureStoredPrincipalEpochKeyMatches(
 export async function storePrincipalEpochKeyForState(
   input: PrincipalEpochKeyWriteContext,
 ): Promise<void> {
-  await insertPrincipalEpochKeyRow(input);
-  await ensureStoredPrincipalEpochKeyMatches(input);
+  // A fresh insert returns the stored row; only an existing epoch is re-read.
+  await ensureStoredPrincipalEpochKeyMatches(
+    input,
+    await insertPrincipalEpochKeyRow(input),
+  );
 }

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray, or, type SQL } from "drizzle-orm";
 import {
   documentContainerProjection,
   documentContainerProjectionTables,
@@ -9,7 +9,12 @@ import {
   localIntents,
 } from "../../sqlite/schema";
 import { documentIntentLinkTargets } from "../../sqlite/schema/documentPlacementIntentSchema";
-import { sqliteInsertBatchSize } from "../../sqlite/sqliteBindBudget";
+import {
+  REMOTE_RESET_SQL_BATCH_SIZE,
+  remoteResetBatches,
+  SQLITE_BOUND_VARIABLE_BUDGET,
+  sqliteInsertBatchSize,
+} from "../../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -19,6 +24,7 @@ import {
   deleteContainerDocumentTombstoneHoldRowsForLinks,
   deleteContainerDocumentTombstoneHoldsForContainers,
   deleteContainerDocumentTombstoneHoldsForDocuments,
+  placementPairsMatch,
 } from "../documents/containerDocumentTombstoneHoldsPersistence";
 
 import {
@@ -81,41 +87,76 @@ export async function deleteDocumentPlacementRowsByDocumentIds(
   await deleteContainerDocumentTombstoneHoldsForDocuments(tx, documentIds);
 }
 
-/** Removes one placement a verified tombstone retired. */
-export async function deleteDocumentPlacementRowInTransaction(
+/** Removes the listed (document, container) placements, 50 pairs per statement. */
+export async function deleteDocumentPlacementRowsInTransaction(
   tx: ClientSQLiteTransactionScope,
-  placement: { readonly containerId: string; readonly documentId: string },
+  placements: ReadonlyArray<{
+    readonly containerId: string;
+    readonly documentId: string;
+  }>,
 ): Promise<void> {
-  await tx
-    .delete(documentContainerProjection)
-    .where(
-      and(
-        eq(documentContainerProjection.documentId, placement.documentId),
-        eq(documentContainerProjection.containerId, placement.containerId),
-      ),
-    )
-    .run();
+  for (const batch of remoteResetBatches(placements)) {
+    await tx
+      .delete(documentContainerProjection)
+      .where(
+        placementPairsMatch(
+          batch,
+          documentContainerProjection.documentId,
+          documentContainerProjection.containerId,
+        ),
+      )
+      .run();
+  }
 }
 
-/** Removes a document's placements outside the containers its head links. */
+/**
+ * Removes each document's placements outside the containers its head links,
+ * batching documents so one statement stays inside SQLite's bind budget.
+ */
 export async function deleteUnlinkedDocumentPlacementRowsInTransaction(
   tx: ClientSQLiteTransactionScope,
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlySet<string>>,
+): Promise<void> {
+  let batch: SQL[] = [];
+  let binds = 0;
+  const flush = async () => {
+    if (batch.length === 0) return;
+    await tx
+      .delete(documentContainerProjection)
+      .where(or(...batch))
+      .run();
+    batch = [];
+    binds = 0;
+  };
+  for (const [documentId, linked] of linkedContainerIdsByDocumentId) {
+    // The document id plus one bind per linked container.
+    const documentBinds = 1 + linked.size;
+    if (
+      batch.length >= REMOTE_RESET_SQL_BATCH_SIZE ||
+      binds + documentBinds > SQLITE_BOUND_VARIABLE_BUDGET
+    ) {
+      await flush();
+    }
+    batch.push(unlinkedDocumentPlacementRows(documentId, linked));
+    binds += documentBinds;
+  }
+  await flush();
+}
+
+/** A document's placements outside the containers its head links. */
+function unlinkedDocumentPlacementRows(
   documentId: string,
   linkedContainerIds: ReadonlySet<string>,
-): Promise<void> {
-  await tx
-    .delete(documentContainerProjection)
-    .where(
-      linkedContainerIds.size === 0
-        ? eq(documentContainerProjection.documentId, documentId)
-        : and(
-            eq(documentContainerProjection.documentId, documentId),
-            notInArray(documentContainerProjection.containerId, [
-              ...linkedContainerIds,
-            ]),
-          ),
-    )
-    .run();
+): SQL {
+  const ofDocument = eq(documentContainerProjection.documentId, documentId);
+  return linkedContainerIds.size === 0
+    ? ofDocument
+    : (and(
+        ofDocument,
+        notInArray(documentContainerProjection.containerId, [
+          ...linkedContainerIds,
+        ]),
+      ) ?? ofDocument);
 }
 
 /** Removes a deleted document's queued placement intents and link targets. */

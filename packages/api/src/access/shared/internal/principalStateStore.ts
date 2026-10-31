@@ -315,10 +315,9 @@ interface PrincipalStateWriteContext {
   executor: DatabaseSession;
 }
 
-async function insertPrincipalStateRow(
-  input: PrincipalStateWriteContext,
-): Promise<void> {
-  await input.executor
+/** The inserted row and its grants, or null when the version already exists. */
+async function insertPrincipalStateRow(input: PrincipalStateWriteContext) {
+  const [inserted] = await input.executor
     .insert(principalStates)
     .values({
       principalType: input.normalizedInput.state.principalType,
@@ -352,18 +351,32 @@ async function insertPrincipalStateRow(
         principalStates.principalId,
         principalStates.version,
       ],
+    })
+    .returning({
+      ...principalStateSelect,
+      containerGrants: principalStates.containerGrants,
     });
+  if (!inserted) return null;
+  const { containerGrants, ...row } = inserted;
+  return { containerGrants, state: toStoredPrincipalState(row) };
 }
 
+/**
+ * Compares the representation readers reconstruct: the RETURNING row of a
+ * fresh insert, or the stored row when the version already existed.
+ */
 async function ensureStoredPrincipalStateMatches(
   input: PrincipalStateWriteContext,
+  inserted: StoredPrincipalState | null,
 ): Promise<StoredPrincipalState> {
-  const storedState = await getPrincipalStateByVersion(
-    input.normalizedInput.state.principalType,
-    input.normalizedInput.state.principalId,
-    input.normalizedInput.state.version,
-    input.executor,
-  );
+  const storedState =
+    inserted ??
+    (await getPrincipalStateByVersion(
+      input.normalizedInput.state.principalType,
+      input.normalizedInput.state.principalId,
+      input.normalizedInput.state.version,
+      input.executor,
+    ));
 
   if (!storedState) {
     throw new Error("Failed to load stored principal state");
@@ -383,8 +396,8 @@ async function ensureStoredPrincipalStateMatches(
 
 async function insertPrincipalStatePayloadRow(
   input: PrincipalStateWriteContext,
-): Promise<void> {
-  await input.executor
+): Promise<StoredPrincipalStatePayload | null> {
+  const [inserted] = await input.executor
     .insert(principalStatePayloads)
     .values({
       principalType: input.normalizedInput.state.principalType,
@@ -400,18 +413,23 @@ async function insertPrincipalStatePayloadRow(
         principalStatePayloads.principalId,
         principalStatePayloads.stateHash,
       ],
-    });
+    })
+    .returning(principalStatePayloadSelect);
+  return inserted ?? null;
 }
 
 async function ensureStoredPrincipalPayloadMatches(
   input: PrincipalStateWriteContext,
+  inserted: StoredPrincipalStatePayload | null,
 ): Promise<void> {
-  const storedPayload = await getPrincipalStatePayloadForState(
-    input.normalizedInput.state.principalType,
-    input.normalizedInput.state.principalId,
-    input.stateHash,
-    input.executor,
-  );
+  const storedPayload =
+    inserted ??
+    (await getPrincipalStatePayloadForState(
+      input.normalizedInput.state.principalType,
+      input.normalizedInput.state.principalId,
+      input.stateHash,
+      input.executor,
+    ));
   if (!storedPayload) {
     throw new Error("Failed to load stored principal state payload");
   }
@@ -543,13 +561,23 @@ export async function storeVerifiedPrincipalStateInTransaction(
     executor,
   };
 
-  await insertPrincipalStateRow(writeContext);
-  const storedState = await ensureStoredPrincipalStateMatches(writeContext);
-  await insertPrincipalStatePayloadRow(writeContext);
-  await ensureStoredPrincipalPayloadMatches(writeContext);
+  // Each insert returns the stored representation when it creates the row;
+  // only an existing row (a replay or a conflict) is read back.
+  const insertedState = await insertPrincipalStateRow(writeContext);
+  const storedState = await ensureStoredPrincipalStateMatches(
+    writeContext,
+    insertedState?.state ?? null,
+  );
+  await ensureStoredPrincipalPayloadMatches(
+    writeContext,
+    await insertPrincipalStatePayloadRow(writeContext),
+  );
   await insertPrincipalProjectionRows(writeContext);
   await ensureStoredPrincipalProjectionMatches(writeContext);
-  await ensureStoredPrincipalContainerGrantsMatch(writeContext);
+  await ensureStoredPrincipalContainerGrantsMatch({
+    ...writeContext,
+    storedContainerGrants: insertedState?.containerGrants,
+  });
   await storePrincipalEpochKeyForState(writeContext);
 
   return storedState;

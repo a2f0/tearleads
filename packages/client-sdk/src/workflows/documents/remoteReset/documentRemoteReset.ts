@@ -1,4 +1,4 @@
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import {
   queuedUpdateRow,
   unqueueDocumentScopesInTransaction,
@@ -138,29 +138,40 @@ export async function resetDocumentServerIdentity(input: {
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   const { now, tx } = input;
+  const localIdsByAppKind = new Map<string, string[]>();
   for (const row of input.documentRows) {
-    await tx
-      .update(documents)
-      .set({
-        accessEpoch: 1,
-        accessStateHash: null,
-        contentKeyBundle: null,
-        documentId: null,
-        documentKekTargets: null,
-        documentManifestBundle: null,
-        lastCommitLsn: null,
-        pullContinuation: null,
-        recoveryDocumentId: row.documentId ?? row.recoveryDocumentId,
-        ...CLEARED_DOCUMENT_SYNC_FAILURE,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(documents.appKind, row.appKind),
-          eq(documents.localId, row.localId),
-        ),
-      )
-      .run();
+    const localIds = localIdsByAppKind.get(row.appKind);
+    if (localIds) localIds.push(row.localId);
+    else localIdsByAppKind.set(row.appKind, [row.localId]);
+  }
+  // One update per batch: SQLite evaluates every SET value against the old
+  // row, so COALESCE keeps the id being cleared (or the earlier recovery id)
+  // per row; no earlier reset step writes either column.
+  for (const [appKind, localIds] of localIdsByAppKind) {
+    for (const localIdBatch of remoteResetBatches(localIds)) {
+      await tx
+        .update(documents)
+        .set({
+          accessEpoch: 1,
+          accessStateHash: null,
+          contentKeyBundle: null,
+          documentId: null,
+          documentKekTargets: null,
+          documentManifestBundle: null,
+          lastCommitLsn: null,
+          pullContinuation: null,
+          recoveryDocumentId: sql`coalesce(${documents.documentId}, ${documents.recoveryDocumentId})`,
+          ...CLEARED_DOCUMENT_SYNC_FAILURE,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(documents.appKind, appKind),
+            inArray(documents.localId, localIdBatch),
+          ),
+        )
+        .run();
+    }
   }
   for (const localIdBatch of remoteResetBatches(input.documentLocalIds)) {
     await tx

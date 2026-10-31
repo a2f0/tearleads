@@ -18,7 +18,7 @@ import type {
   VerifiedAccessEvent,
 } from "@tearleads/crypto";
 import { readKeyingCanonicalJson } from "@tearleads/crypto";
-import { and, asc, eq, inArray, lt } from "drizzle-orm";
+import { and, asc, eq, inArray, lt, type SQL } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { recordTransactionLock } from "../../../utils/transactionLocks";
@@ -228,8 +228,26 @@ export async function getAccessManifestBundles(
     return bundles;
   }
 
-  // Both hashes are unique, so this join cannot multiply rows. Keep missing
-  // events visible: an incomplete bundle is corruption, not an absent manifest.
+  const loaded = await loadAccessManifestBundles(
+    executor,
+    inArray(accessManifests.manifestHash, missingHashes),
+    omitUnreadable,
+  );
+  for (const [manifestHash, bundle] of loaded)
+    bundles.set(manifestHash, bundle);
+  return bundles;
+}
+
+/**
+ * Manifests matching `where`, with their events, read from storage. Both hashes are unique, so
+ * the join cannot multiply rows. Keep missing events visible: an incomplete
+ * bundle is corruption, not an absent manifest.
+ */
+export async function loadAccessManifestBundles(
+  executor: DatabaseSession,
+  where: SQL | undefined,
+  omitUnreadable = false,
+): Promise<Map<string, StoredAccessManifestBundle>> {
   const rows = await executor
     .select({ manifest: accessManifests, event: accessEvents })
     .from(accessManifests)
@@ -237,7 +255,11 @@ export async function getAccessManifestBundles(
       accessEvents,
       eq(accessEvents.eventHash, accessManifests.eventHash),
     )
-    .where(inArray(accessManifests.manifestHash, missingHashes));
+    .where(where);
+  // Every converted row joins the transaction's memo; see
+  // `transactionAccessManifestBundles`.
+  const memo = transactionAccessManifestBundles(executor);
+  const bundles = new Map<string, StoredAccessManifestBundle>();
   for (const { manifest, event } of rows) {
     try {
       if (!event) throw new Error("Access event not found");
