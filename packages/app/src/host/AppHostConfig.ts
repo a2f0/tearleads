@@ -264,6 +264,12 @@ export interface AppHostConfigOptions {
   readonly openSubscriptionManagement?:
     | OpenSubscriptionManagementFn
     | undefined;
+  /**
+   * Classify failed API fetches with a rate-limited follow-up probe of the API
+   * origin (see `TearleadsOptions.probeApiNetworkFailures`). Every shipped
+   * shell sets it; tests leave it off so a probe never meets their mock server.
+   */
+  readonly probeApiNetworkFailures?: boolean | undefined;
   readonly profile?: AppHostProfile | undefined;
   readonly readNativeBuildNumber?: ReadNativeBuildNumberFn | undefined;
   /**

@@ -6,15 +6,15 @@ interface ServerEventsConnectionLoopInput {
   readonly onDisconnect: () => void;
   readonly onMessage: (ws: WebSocket, event: MessageEvent) => void;
   readonly onOpen: (ws: WebSocket) => void;
+  /** Opens the API socket for a ticket; the SDK's API client owns the URL. */
+  readonly openSocket: (ticket: string) => WebSocket;
   readonly requestTicket: () => Promise<string | null>;
-  readonly wsUrl: string;
 }
 
 type TimerHandle = number | ReturnType<typeof setTimeout>;
 
 interface ServerEventsConnectionLoopDeps {
   readonly clearTimer?: ((timer: TimerHandle) => void) | undefined;
-  readonly createSocket?: ((url: string) => WebSocket) | undefined;
   readonly random?: (() => number) | undefined;
   readonly now?: (() => number) | undefined;
   readonly scheduleTimer?:
@@ -31,12 +31,6 @@ const MAX_RECONNECT_DELAY_MS = 30_000;
 const STABLE_CONNECTION_MS = 10_000;
 const CONNECTION_WATCHDOG_MS = 15_000;
 
-function appendTicketToWsUrl(wsUrl: string, ticket: string): string {
-  const url = new URL(wsUrl);
-  url.searchParams.set("ticket", ticket);
-  return url.toString();
-}
-
 class ServerEventsConnectionLoop {
   private cancelled = false;
   private connecting = false;
@@ -51,7 +45,6 @@ class ServerEventsConnectionLoop {
     private readonly input: ServerEventsConnectionLoopInput,
     private readonly clearTimer: (timer: TimerHandle) => void,
     private readonly clearWatchdog: (timer: TimerHandle) => void,
-    private readonly createSocket: (url: string) => WebSocket,
     private readonly now: () => number,
     private readonly random: () => number,
     private readonly scheduleTimer: (
@@ -106,9 +99,7 @@ class ServerEventsConnectionLoop {
     }
 
     try {
-      this.bindSocket(
-        this.createSocket(appendTicketToWsUrl(this.input.wsUrl, ticket)),
-      );
+      this.bindSocket(this.input.openSocket(ticket));
     } catch {
       this.input.onAttemptFailed?.();
       this.scheduleReconnect();
@@ -237,7 +228,6 @@ export function startServerEventsConnectionLoop(
   const {
     clearTimer,
     clearWatchdog,
-    createSocket,
     now,
     random,
     scheduleTimer,
@@ -247,7 +237,6 @@ export function startServerEventsConnectionLoop(
     input,
     (timer) => (clearTimer ? clearTimer(timer) : clearTimeout(timer)),
     (timer) => (clearWatchdog ? clearWatchdog(timer) : clearTimeout(timer)),
-    (url) => (createSocket ? createSocket(url) : new WebSocket(url)),
     () => (now ? now() : Date.now()),
     () => (random ? random() : Math.random()),
     (callback, delayMs) =>

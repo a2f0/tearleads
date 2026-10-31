@@ -72,8 +72,9 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 - [Device-first reads and writes](developer/device-first.md),
   [document links](developer/document-links.md), and
   [custom document persistence](developer/custom-document-persistence.md).
-- [Request budgets](request-budgets.md) and
-  [API request cost](developer/api-request-cost.md).
+- [Request budgets](request-budgets.md),
+  [API request cost](developer/api-request-cost.md), and
+  [API network failures](developer/api-network-failures.md).
 - [Hosting browser SDK clients](developer/sdk-hosting.md).
 
 ## Billing

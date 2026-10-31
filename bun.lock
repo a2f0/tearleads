@@ -67,7 +67,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.39",
+      "version": "0.1.40",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -98,7 +98,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.93",
+      "version": "0.1.94",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -130,7 +130,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.30",
+      "version": "0.0.31",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -169,7 +169,7 @@
     },
     "packages/app-electrobun": {
       "name": "app-electrobun",
-      "version": "0.0.13",
+      "version": "0.0.14",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
@@ -190,7 +190,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.23",
+      "version": "0.1.24",
       "dependencies": {
         "@a2f0/ct-client": "0.1.5",
         "@stripe/stripe-js": "10.1.0",
@@ -224,7 +224,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.125",
+      "version": "0.1.126",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
