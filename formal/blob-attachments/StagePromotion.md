@@ -25,7 +25,7 @@ objects afterwards, and cleans up expired stages.
 | `Purge` / `PurgeLocksBlobs` | `resolveOrphanedBlobIds` takes `lockBlobMutationRows` before deciding which blobs no other document binds; `deleteDocumentAttachmentRows` deletes the bindings and marks those blobs |
 | `Reclaim` / `GcRechecksReference` | `reclaimOneBlob` locks the blob, revives it when `isBlobActivelyReferenced`, refuses a registry row whose key differs, and otherwise deletes the blob row and its bindings and marks the registry row pruned |
 | `DeletePrunedObject` | `drainPendingBlobObjectDeletions` deletes the object at the registry row's key, then `recordBlobObjectDeleted` |
-| `CleanupClaim` / `ExpiryLocksStageRow` | `expireBlobStagesForCleanup` claims a batch of expired stages with one update; for each stage row a promotion holds, the update waits and finds nothing once it commits. Each claimed stage is one `CleanupClaim` step, since the update locks its rows independently and no stage's claim depends on another's |
+| `CleanupClaim` / `ExpiryLocksStageRow` | `expireBlobStagesForCleanup` claims a batch of expired stages with one update; for each stage row a promotion holds, the update waits and finds nothing once it commits. Each claimed stage is one cleanup-claim step, since the update locks its rows independently and no stage's claim depends on another's |
 | `CleanupStorage` / `DeleteObjectAfterAbort` / `CleanupRow` | `cleanupExpiredBlobStages` deletes a complete stage's object, or aborts a pending stage's upload (the S3 adapter treats a missing upload as aborted) and deletes its key, then deletes the stage rows |
 | `Fairness` | `runBlobMaintenance` runs reclamation and stage cleanup from the Worker's hourly cron |
 
