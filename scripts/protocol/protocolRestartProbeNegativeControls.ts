@@ -31,4 +31,12 @@ export const RESTART_PROBE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     },
     why: "An acknowledgement that records the recovery target without queuing a probe leaves the gap after reconnect unrecovered.",
   },
+  {
+    id: "restart-probe-abandoned-connect-keeps-deferral",
+    module: RESTART_PROBE_MODULE,
+    config: RESTART_PROBE_CONFIG,
+    constants: { ReleaseDeferredProbeOnAbandon: "FALSE" },
+    expect: { kind: "liveness", name: "RequestEventuallyApplied" },
+    why: "A startup probe deferred to a connect attempt that ends without an acknowledgement never runs, so the restarted document stays stale.",
+  },
 ];

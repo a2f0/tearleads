@@ -7,12 +7,13 @@ EXTENDS Naturals
 CONSTANTS MaxVersion, MaxDisconnects,
           KeepQueuedRequestAcrossFlight, \* a finished probe keeps a request queued meanwhile
           DeclareFromReadyTree,          \* the declaration waits for the local container tree
-          ArmProbeOnAck                  \* the matching acknowledgement queues a probe
+          ArmProbeOnAck,                 \* the matching acknowledgement queues a probe
+          ReleaseDeferredProbeOnAbandon  \* an attempt ending without an ack arms the deferred startup probe
 
 ASSUME MaxVersion \in Nat \ {0}
 ASSUME MaxDisconnects \in Nat \ {0}
-ASSUME {KeepQueuedRequestAcrossFlight, DeclareFromReadyTree, ArmProbeOnAck}
-         \subseteq BOOLEAN
+ASSUME {KeepQueuedRequestAcrossFlight, DeclareFromReadyTree, ArmProbeOnAck,
+        ReleaseDeferredProbeOnAbandon} \subseteq BOOLEAN
 
 VARIABLES remoteBodyVersion, remoteSlotVersion,
           localBodyVersion, localSlotVersion,
@@ -24,11 +25,13 @@ VARIABLES remoteBodyVersion, remoteSlotVersion,
           requestTargetBodyVersion, requestTargetSlotVersion,
           recoveryPending, recoveryTargetValid,
           recoveryTargetBodyVersion, recoveryTargetSlotVersion,
+          startupProbeDeferred, abandonUsed,
           restartUsed, disconnectsUsed
 
 versionVars == << remoteBodyVersion, remoteSlotVersion,
                   localBodyVersion, localSlotVersion >>
 probeVars == << probeRequested, probeInFlight, newerRequestDuringFlight,
+                startupProbeDeferred,
                 capturedBodyVersion, capturedSlotVersion,
                 requestObligationPending,
                 requestTargetBodyVersion, requestTargetSlotVersion >>
@@ -37,7 +40,8 @@ recoveryVars == << recoveryPending, recoveryTargetValid,
 vars == << versionVars, process, interestState,
           containerTreeReady, declarationCoversDocument,
           serverCoversDocument,
-          probeVars, recoveryVars, restartUsed, disconnectsUsed >>
+          probeVars, recoveryVars, abandonUsed, restartUsed,
+          disconnectsUsed >>
 
 RequestTargetCovered ==
   /\ localBodyVersion >= requestTargetBodyVersion
@@ -61,7 +65,7 @@ TypeOK ==
   /\ recoveryTargetSlotVersion \in 0..MaxVersion
   /\ process \in {"running", "stopped"}
   /\ interestState \in
-       {"ready", "awaitingSocket", "socketOpen", "awaitingAck"}
+       {"ready", "awaitingSocket", "socketOpen", "awaitingAck", "unavailable"}
   /\ containerTreeReady \in BOOLEAN
   /\ declarationCoversDocument \in BOOLEAN
   /\ serverCoversDocument \in BOOLEAN
@@ -71,6 +75,8 @@ TypeOK ==
   /\ requestObligationPending \in BOOLEAN
   /\ recoveryPending \in BOOLEAN
   /\ recoveryTargetValid \in BOOLEAN
+  /\ startupProbeDeferred \in BOOLEAN
+  /\ abandonUsed \in BOOLEAN
   /\ restartUsed \in BOOLEAN
   /\ disconnectsUsed \in 0..MaxDisconnects
 
@@ -96,6 +102,8 @@ Init ==
   /\ recoveryTargetValid = FALSE
   /\ recoveryTargetBodyVersion = 0
   /\ recoveryTargetSlotVersion = 0
+  /\ startupProbeDeferred = FALSE
+  /\ abandonUsed = FALSE
   /\ restartUsed = FALSE
   /\ disconnectsUsed = 0
 
@@ -126,8 +134,8 @@ RemoteBodyAdvance(delivered) ==
                     process, interestState,
                     containerTreeReady, declarationCoversDocument,
                     serverCoversDocument, probeInFlight,
-                    capturedBodyVersion, capturedSlotVersion,
-                    recoveryVars, restartUsed, disconnectsUsed >>
+                    capturedBodyVersion, capturedSlotVersion, startupProbeDeferred,
+                    recoveryVars, abandonUsed, restartUsed, disconnectsUsed >>
 
 (* Attachment-slot metadata is part of the same encrypted CRDT response. *)
 RemoteSlotAdvance(delivered) ==
@@ -155,8 +163,8 @@ RemoteSlotAdvance(delivered) ==
                     process, interestState,
                     containerTreeReady, declarationCoversDocument,
                     serverCoversDocument, probeInFlight,
-                    capturedBodyVersion, capturedSlotVersion,
-                    recoveryVars, restartUsed, disconnectsUsed >>
+                    capturedBodyVersion, capturedSlotVersion, startupProbeDeferred,
+                    recoveryVars, abandonUsed, restartUsed, disconnectsUsed >>
 
 (* A retained disconnect preserves accepted local work. Only hints emitted *)
 (* while authoritative server interest is not ready can be absent from it. *)
@@ -172,7 +180,7 @@ DisconnectEvents ==
   /\ disconnectsUsed' = disconnectsUsed + 1
   /\ UNCHANGED << versionVars, process, containerTreeReady, probeVars,
                   recoveryTargetBodyVersion, recoveryTargetSlotVersion,
-                  restartUsed >>
+                  abandonUsed, restartUsed >>
 
 (* A socket opens with no server interest, so opening is not readiness.     *)
 (* The client must first obtain its authoritative local container tree.      *)
@@ -184,7 +192,7 @@ OpenEventsSocket ==
   /\ serverCoversDocument' = FALSE
   /\ UNCHANGED << versionVars, process, containerTreeReady,
                   declarationCoversDocument, probeVars,
-                  recoveryVars, restartUsed, disconnectsUsed >>
+                  recoveryVars, abandonUsed, restartUsed, disconnectsUsed >>
 
 (* SQLite/container reconciliation may become ready before or after open.    *)
 MarkContainerTreeReady ==
@@ -193,7 +201,7 @@ MarkContainerTreeReady ==
   /\ containerTreeReady' = TRUE
   /\ UNCHANGED << versionVars, process, interestState,
                   declarationCoversDocument, serverCoversDocument,
-                  probeVars, recoveryVars, restartUsed, disconnectsUsed >>
+                  probeVars, recoveryVars, abandonUsed, restartUsed, disconnectsUsed >>
 
 (* The authoritative known-containers declaration is sent only from a ready *)
 (* local tree. Its declaration identity is represented by awaitingAck: an    *)
@@ -206,7 +214,7 @@ DeclareKnownContainers ==
   /\ declarationCoversDocument' = containerTreeReady
   /\ UNCHANGED << versionVars, process,
                   containerTreeReady, serverCoversDocument,
-                  probeVars, recoveryVars, restartUsed, disconnectsUsed >>
+                  probeVars, recoveryVars, abandonUsed, restartUsed, disconnectsUsed >>
 
 (* The matching ack proves that the server applied interest covering this  *)
 (* document. Only this barrier records the gap target and queues its probe. *)
@@ -217,18 +225,58 @@ AcknowledgeKnownContainers ==
   /\ interestState' = "ready"
   /\ declarationCoversDocument' = FALSE
   /\ serverCoversDocument' = TRUE
-  /\ probeRequested' = (ArmProbeOnAck \/ probeRequested)
+  \* A startup probe that waited on this attempt is handed to the ack's probe;
+  \* the ArmProbeOnAck control isolates the reconnect probe itself.
+  /\ probeRequested' =
+       (ArmProbeOnAck \/ startupProbeDeferred \/ probeRequested)
   /\ newerRequestDuringFlight' =
-       IF probeInFlight /\ ArmProbeOnAck THEN TRUE ELSE newerRequestDuringFlight
+       IF probeInFlight /\ (ArmProbeOnAck \/ startupProbeDeferred)
+         THEN TRUE
+         ELSE newerRequestDuringFlight
   /\ requestObligationPending' = TRUE
   /\ requestTargetBodyVersion' = remoteBodyVersion
   /\ requestTargetSlotVersion' = remoteSlotVersion
   /\ recoveryTargetValid' = TRUE
   /\ recoveryTargetBodyVersion' = remoteBodyVersion
   /\ recoveryTargetSlotVersion' = remoteSlotVersion
+  \* The ack's probe covers a startup probe that waited on this attempt.
+  /\ startupProbeDeferred' = FALSE
   /\ UNCHANGED << versionVars, process, containerTreeReady, probeInFlight,
                   capturedBodyVersion, capturedSlotVersion,
-                  recoveryPending, restartUsed, disconnectsUsed >>
+                  recoveryPending, abandonUsed, restartUsed, disconnectsUsed >>
+
+(* A connect attempt can end without an acknowledgement: no ticket, a     *)
+(* failed or stalled socket, a tree not ready at open, or sync turned off. *)
+(* Interest is then unavailable, possibly for good. A startup probe that   *)
+(* waited on the attempt must run now; no reconnect probe will cover it.   *)
+AbandonEventsConnect ==
+  /\ process = "running"
+  /\ interestState \in {"awaitingSocket", "socketOpen", "awaitingAck"}
+  /\ ~abandonUsed
+  /\ interestState' = "unavailable"
+  /\ declarationCoversDocument' = FALSE
+  /\ abandonUsed' = TRUE
+  /\ LET release == startupProbeDeferred /\ ReleaseDeferredProbeOnAbandon IN
+       /\ probeRequested' = (release \/ probeRequested)
+       /\ newerRequestDuringFlight' =
+            IF release /\ probeInFlight THEN TRUE ELSE newerRequestDuringFlight
+  /\ startupProbeDeferred' = FALSE
+  /\ UNCHANGED << versionVars, process, containerTreeReady,
+                  serverCoversDocument, probeInFlight,
+                  capturedBodyVersion, capturedSlotVersion,
+                  requestObligationPending,
+                  requestTargetBodyVersion, requestTargetSlotVersion,
+                  recoveryVars, restartUsed, disconnectsUsed >>
+
+(* A later attempt may start again; nothing obliges it to. *)
+ResumeEventsConnect ==
+  /\ process = "running"
+  /\ interestState = "unavailable"
+  /\ interestState' = "awaitingSocket"
+  /\ UNCHANGED << versionVars, process, containerTreeReady,
+                  declarationCoversDocument, serverCoversDocument,
+                  probeVars, recoveryVars, abandonUsed, restartUsed,
+                  disconnectsUsed >>
 
 (* Restart destroys only process-local requests and an in-flight response. *)
 Restart ==
@@ -243,33 +291,39 @@ Restart ==
   /\ probeInFlight' = FALSE
   /\ newerRequestDuringFlight' = FALSE
   /\ requestObligationPending' = FALSE
+  /\ startupProbeDeferred' = FALSE
   /\ recoveryPending' = TRUE
   /\ recoveryTargetValid' = FALSE
   /\ restartUsed' = TRUE
   /\ UNCHANGED << versionVars, capturedBodyVersion, capturedSlotVersion,
                   requestTargetBodyVersion, requestTargetSlotVersion,
                   recoveryTargetBodyVersion, recoveryTargetSlotVersion,
-                  disconnectsUsed >>
+                  abandonUsed, disconnectsUsed >>
 
 (* Loading an opened persisted remote row requests a startup probe. The    *)
 (* declaration/ack barrier is still outstanding and will request another   *)
-(* probe if its acknowledgement arrives while this one is in flight.       *)
-InitializeOpenedPersistedDocument ==
+(* probe if its acknowledgement arrives while this one is in flight. When  *)
+(* the document loads while a connect attempt is in flight (`defer`), the  *)
+(* startup probe waits on that attempt instead: its acknowledgement arms   *)
+(* the covering probe, and its abandonment releases the deferred one.      *)
+InitializeOpenedPersistedDocument(defer) ==
   /\ process = "stopped"
   /\ recoveryPending
+  /\ defer \in BOOLEAN
   /\ process' = "running"
   /\ interestState' = "awaitingSocket"
   /\ containerTreeReady' = FALSE
   /\ declarationCoversDocument' = FALSE
   /\ serverCoversDocument' = FALSE
-  /\ probeRequested' = TRUE
+  /\ probeRequested' = ~defer
+  /\ startupProbeDeferred' = defer
   /\ probeInFlight' = FALSE
   /\ newerRequestDuringFlight' = FALSE
   /\ requestObligationPending' = TRUE
   /\ requestTargetBodyVersion' = remoteBodyVersion
   /\ requestTargetSlotVersion' = remoteSlotVersion
   /\ UNCHANGED << versionVars, capturedBodyVersion, capturedSlotVersion,
-                  recoveryVars, restartUsed, disconnectsUsed >>
+                  recoveryVars, abandonUsed, restartUsed, disconnectsUsed >>
 
 (* Starting a request consumes the queued bit and captures its HTTP snapshot. *)
 BeginProbe ==
@@ -283,10 +337,10 @@ BeginProbe ==
   /\ capturedSlotVersion' = remoteSlotVersion
   /\ UNCHANGED << versionVars, process, interestState,
                   containerTreeReady, declarationCoversDocument,
-                  serverCoversDocument,
+                  serverCoversDocument, startupProbeDeferred,
                   requestObligationPending,
                   requestTargetBodyVersion, requestTargetSlotVersion,
-                  recoveryVars, restartUsed, disconnectsUsed >>
+                  recoveryVars, abandonUsed, restartUsed, disconnectsUsed >>
 
 (* Finishing applies only the captured response. An ack or delivered hint    *)
 (* queued during the request remains queued, exactly like the sequence guard. *)
@@ -315,9 +369,9 @@ FinishProbe ==
                   serverCoversDocument,
                   capturedBodyVersion, capturedSlotVersion,
                   requestTargetBodyVersion, requestTargetSlotVersion,
-                  recoveryTargetValid,
+                  recoveryTargetValid, startupProbeDeferred,
                   recoveryTargetBodyVersion, recoveryTargetSlotVersion,
-                  restartUsed, disconnectsUsed >>
+                  abandonUsed, restartUsed, disconnectsUsed >>
 
 Next ==
   \/ \E delivered \in BOOLEAN : RemoteBodyAdvance(delivered)
@@ -327,8 +381,10 @@ Next ==
   \/ MarkContainerTreeReady
   \/ DeclareKnownContainers
   \/ AcknowledgeKnownContainers
+  \/ AbandonEventsConnect
+  \/ ResumeEventsConnect
   \/ Restart
-  \/ InitializeOpenedPersistedDocument
+  \/ \E defer \in BOOLEAN : InitializeOpenedPersistedDocument(defer)
   \/ BeginProbe
   \/ FinishProbe
   \/ UNCHANGED vars
@@ -336,7 +392,7 @@ Next ==
 Spec ==
   /\ Init
   /\ [][Next]_vars
-  /\ WF_vars(InitializeOpenedPersistedDocument)
+  /\ WF_vars(\E defer \in BOOLEAN : InitializeOpenedPersistedDocument(defer))
   /\ WF_vars(OpenEventsSocket)
   /\ WF_vars(MarkContainerTreeReady)
   /\ WF_vars(DeclareKnownContainers)
@@ -351,7 +407,17 @@ LocalVersionsDoNotLead ==
 ProbeWorkIsWellFormed ==
   /\ (probeRequested \/ probeInFlight) => process = "running"
   /\ newerRequestDuringFlight => probeInFlight /\ probeRequested
-  /\ requestObligationPending => probeRequested \/ probeInFlight
+  /\ requestObligationPending =>
+       probeRequested \/ probeInFlight \/ startupProbeDeferred
+
+(* A deferred startup probe waits only on a connect attempt in flight, and  *)
+(* nothing else can request a probe before that attempt acknowledges.      *)
+DeferredStartupProbeAwaitsAttempt ==
+  startupProbeDeferred =>
+    /\ process = "running"
+    /\ interestState \in {"awaitingSocket", "socketOpen", "awaitingAck"}
+    /\ ~probeRequested
+    /\ ~probeInFlight
 
 StoppedProcessAwaitsSocket ==
   process = "stopped" => interestState = "awaitingSocket"
@@ -372,7 +438,7 @@ RestartClearsVolatileState == [][RestartClearsVolatile]_vars
 
 InitializationArmsStartupProbe ==
   (process = "stopped" /\ process' = "running")
-    => /\ probeRequested'
+    => /\ probeRequested' \/ startupProbeDeferred'
        /\ interestState' = "awaitingSocket"
 
 OpenedInitializationArmsStartupProbe ==
@@ -450,6 +516,7 @@ RequestEventuallyApplied ==
 
 InterestRecoveryEventuallyCoversBaseline ==
   [](recoveryPending
-      => <> (~recoveryPending /\ RecoveryTargetCovered))
+      => <> ((~recoveryPending /\ RecoveryTargetCovered)
+             \/ interestState = "unavailable"))
 
 =======================================================================

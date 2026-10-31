@@ -316,7 +316,7 @@
     },
     "packages/test-utils": {
       "name": "@tearleads/test-utils",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
