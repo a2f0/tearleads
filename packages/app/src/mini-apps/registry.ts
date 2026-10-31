@@ -38,7 +38,7 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
     icon: MINI_APP_ICONS["display-properties"],
     initialShowSidebar: false,
     title: MINI_APP_TITLES["display-properties"],
-    windowSize: { height: 300, width: 500 },
+    windowSize: { height: 340, width: 500 },
   },
   explorer: {
     createComponent: () => ExplorerApp,

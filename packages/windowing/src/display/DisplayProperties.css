@@ -99,6 +99,14 @@
   box-shadow: inset 0 0 0 1px var(--color-hairline);
 }
 
+/* Fit a complete tile vertically, repeating across the preview instead of
+ * cropping large artwork at desktop scale. Outrank Wallpaper.css regardless
+ * of the host's import order; the desktop keeps its natural pixel tile size. */
+.display-properties-swatch.wallpaper-pattern[data-pattern]::before {
+  -webkit-mask-size: auto 100%;
+  mask-size: auto 100%;
+}
+
 .display-properties-label {
   overflow: hidden;
   text-overflow: ellipsis;

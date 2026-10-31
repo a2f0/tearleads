@@ -6,7 +6,7 @@ import {
   render,
   within,
 } from "@testing-library/react";
-import { useState } from "react";
+import { type PropsWithChildren, useMemo, useState } from "react";
 import { useCurrentWindow, useWindowContentSize } from "./CurrentWindowContext";
 import { captureResizeObservers, stubLayout } from "./layout.testUtils";
 import { Window } from "./Window";
@@ -14,9 +14,11 @@ import {
   useWindowActions,
   useWindowStateData,
   type WindowCreateOptions,
+  type WindowGeometry,
   type WindowSize,
   WindowStateProvider,
 } from "./WindowStateProvider";
+import { windowActionsContext } from "./WindowStateProvider/context";
 import { fitWindowGeometry, type WindowFitMetrics } from "./windowGeometry";
 
 afterEach(cleanup);
@@ -154,13 +156,42 @@ function stubRect(element: Element, size: WindowSize) {
   });
 }
 
+// Deliver a real surface callback after the provider accepts geometry but
+// before React can render it and mirror the committed size into live state.
+function GeometryPublication({
+  children,
+  onGeometry,
+}: PropsWithChildren<{
+  onGeometry: ((geometry: WindowGeometry) => void) | undefined;
+}>) {
+  const actions = useWindowActions();
+  const observed = useMemo(
+    () => ({
+      ...actions,
+      setGeometry(id: string, geometry: WindowGeometry) {
+        actions.setGeometry(id, geometry);
+        onGeometry?.(geometry);
+      },
+    }),
+    [actions, onGeometry],
+  );
+  return (
+    <windowActionsContext.context.Provider value={observed}>
+      {children}
+    </windowActionsContext.context.Provider>
+  );
+}
+
 function openPage(
   options: WindowCreateOptions = { position: { x: 600, y: 500 } },
   opener = "Open page",
+  onGeometry?: (geometry: WindowGeometry) => void,
 ) {
   const view = render(
     <WindowStateProvider>
-      <Desktop options={options} />
+      <GeometryPublication onGeometry={onGeometry}>
+        <Desktop options={options} />
+      </GeometryPublication>
     </WindowStateProvider>,
   );
   stubLayout(view.getByTestId("surface"), SURFACE_LAYOUT);
@@ -258,6 +289,54 @@ test("a window opened with fitToContent fits once its content has loaded", () =>
   click(view, "Mark loaded");
   expect(committedGeometry(view)).toEqual(FITTED);
 });
+
+test.each(["load", "manual"])(
+  "%s fit survives a surface callback before committed geometry is mirrored",
+  (trigger) => {
+    const observers = captureResizeObservers();
+    const publications: WindowGeometry[] = [];
+    let delivered = false;
+    try {
+      const { region, view } = openPage(
+        FIT_ON_LOAD,
+        "Open page",
+        (geometry) => {
+          publications.push(geometry);
+          if (geometry.size && !delivered) {
+            delivered = true;
+            observers.fire();
+          }
+        },
+      );
+      expect(committedGeometry(view).size).toBeUndefined();
+      publications.length = 0;
+
+      if (trigger === "load") {
+        click(view, "Mark loaded");
+      } else {
+        openViewMenu(region);
+        fireEvent.click(
+          within(region).getByRole("menuitem", { name: "Fit to Content" }),
+        );
+      }
+
+      expect(delivered).toBe(true);
+      expect(publications[0]).toEqual(FITTED);
+      expect(publications.length).toBeGreaterThan(1);
+      // The observer must publish the fitted frame, not the old null size.
+      expect(publications[1]).toEqual(FITTED);
+      expect(committedGeometry(view)).toEqual(FITTED);
+      expect(region.style.width).toBe("567px");
+      expect(region.style.height).toBe("492px");
+      act(() => observers.fire());
+      click(view, "Mark loaded");
+      expect(committedGeometry(view)).toEqual(FITTED);
+    } finally {
+      cleanup();
+      observers.restore();
+    }
+  },
+);
 
 test("a window opened with fitToContent waits for its content's size", () => {
   const { view } = openPage(FIT_ON_LOAD);
