@@ -18,6 +18,7 @@ import {
   type OrganizationGroupHead,
   parseOrganizationAuthorityDescriptor,
 } from "./organizationAuthorityDescriptor";
+import { loadOrganizationDescriptor } from "./organizationDescriptors";
 
 /** The organization's immutable reserved group ids. */
 export interface OrganizationGroupIds {
@@ -165,18 +166,18 @@ async function loadOrganizationAccess(input: {
   organizationId: string;
   userId: string;
 }): Promise<OrganizationAccess | null> {
-  const [organization] = await input.executor
-    .select({
-      adminGroupId: organizations.adminGroupId,
-      memberGroupId: organizations.memberGroupId,
-    })
-    .from(organizations)
-    .where(eq(organizations.id, input.organizationId))
-    .limit(1);
+  const descriptor = await loadOrganizationDescriptor(
+    input.executor,
+    input.organizationId,
+  );
 
-  if (!organization) {
+  if (!descriptor) {
     throw new OrganizationManagerError("Organization not found", 404);
   }
+  const organization = {
+    adminGroupId: descriptor.adminGroupId,
+    memberGroupId: descriptor.memberGroupId,
+  };
 
   const { adminPolicy, memberPolicy, organizationState } =
     await loadVerifiedOrganizationAccessPolicies({

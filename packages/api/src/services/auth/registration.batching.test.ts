@@ -77,8 +77,10 @@ for (const full of [false, true]) {
     // and 306 / 657. Hash acknowledgements skip each created container's KEK
     // history read: 303 / 652, 298 / 643, and 305 / 654. Deriving built-in
     // grants and dropping the principal epoch-key copy then took them to
-    // 298 / 647, 293 / 638, and 300 / 649.
-    expect(counter.statements).toBeLessThanOrEqual(full ? 649 : 300);
+    // 298 / 647, 293 / 638, and 300 / 649. Memoizing current principal
+    // states and organization descriptors under their locks then took them
+    // to 288 / 637, 283 / 628, and 290 / 639.
+    expect(counter.statements).toBeLessThanOrEqual(full ? 639 : 290);
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
     const stored = await db
