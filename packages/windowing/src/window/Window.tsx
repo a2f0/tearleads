@@ -375,6 +375,7 @@ function WindowInnerContent({
   const { sidebar } = useWindowSidebar();
   const hasSidebar = hasWindowSidebar(sidebar);
   const {
+    applyGeometry,
     handlePointerDown,
     handleResizePointerDown,
     position,
@@ -385,7 +386,7 @@ function WindowInnerContent({
   const { contentFit, geometryMenuItems } = useWindowGeometryMenu(
     entry,
     stepped,
-    { overlayHost, windowRef },
+    { applyGeometry, overlayHost, windowRef },
     showStatusMessage,
   );
   const actions = useWindowActions(
