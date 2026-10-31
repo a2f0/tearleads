@@ -67,20 +67,20 @@
       "bytes": 58688
     },
     "docs/limits.md": {
-      "lines": 195,
-      "bytes": 20956
+      "lines": 196,
+      "bytes": 20996
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 481,
       "bytes": 21864
     },
     "docs/openapi.json": {
-      "lines": 68671,
-      "bytes": 2769529
+      "lines": 68725,
+      "bytes": 2773161
     },
     "docs/protocol-specification.md": {
-      "lines": 770,
-      "bytes": 41379
+      "lines": 786,
+      "bytes": 42491
     },
     "docs/security-guarantees.md": {
       "lines": 847,
@@ -88,7 +88,7 @@
     },
     "docs/subsystems.md": {
       "lines": 117,
-      "bytes": 20931
+      "bytes": 20970
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -103,8 +103,8 @@
       "bytes": 550577
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 2096,
-      "bytes": 67359
+      "lines": 2103,
+      "bytes": 67556
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 672,
@@ -251,8 +251,8 @@
       "bytes": 18913
     },
     "packages/client-sdk/src/data/sqlite/schema/index.ts": {
-      "lines": 679,
-      "bytes": 26778
+      "lines": 691,
+      "bytes": 27287
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 577,
@@ -331,12 +331,12 @@
       "bytes": 32167
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 24884,
-      "bytes": 1008797
+      "lines": 24890,
+      "bytes": 1009099
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 586,
-      "bytes": 20552
+      "lines": 593,
+      "bytes": 20752
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 508,
@@ -351,8 +351,8 @@
       "bytes": 24074
     },
     "scripts/checks/openApiCompatibilityErrors.ignore": {
-      "lines": 766,
-      "bytes": 52056
+      "lines": 878,
+      "bytes": 59994
     }
   },
   "suppressions": {

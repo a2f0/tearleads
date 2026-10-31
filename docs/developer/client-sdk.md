@@ -45,11 +45,11 @@ revision; settlement is never unconditional.
 Startup creates missing tables and indexes but never alters existing ones, so a
 local database whose tables do not match the current schema must be reset.
 
-Verified writer projections leave their access-manifest bundles in the local
-`verified_access_manifest_bundles` table (at most 1,024 rows, oldest evicted
-first, cleared with an organization's remote reset). Later reads cite up to 48
-from the read object's organization so the API omits those bytes; the SDK
-refills and re-verifies them. The table is a byte cache, not a checkpoint:
+Verified writer projections leave their access-manifest bundles and container
+KEK levels in the local `verified_access_manifest_bundles` table (at most 1,024
+rows, oldest evicted first, cleared with an organization's remote reset). Later
+reads cite up to 48 from the read object's organization so the API omits those
+bytes; the SDK refills and re-verifies them. The table is a byte cache, not a checkpoint:
 losing it only makes reads larger. See
 [incremental evidence](../projection-policy-evidence.md#cost-and-retained-history-tradeoff).
 

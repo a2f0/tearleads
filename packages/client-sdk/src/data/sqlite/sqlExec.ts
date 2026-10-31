@@ -67,6 +67,12 @@ export function resolveCanonicalExecSql(execSql: ExecSql): ExecSql {
 // already holding.
 const completedConnectionOnceKeys = new WeakMap<ExecSql, Set<string>>();
 
+// Keys first completed inside each open transaction scope on a connection,
+// innermost scope last. A rolled-back scope undid that schema work, so it
+// forgets exactly its own keys; a committed savepoint hands its keys to the
+// enclosing scope, whose rollback would undo them too.
+const transactionSchemaMemoScopes = new WeakMap<ExecSql, Set<string>[]>();
+
 export function hasCompletedConnectionOnce(
   execSql: ExecSql,
   key: string,
@@ -84,13 +90,53 @@ export function markCompletedConnectionOnce(
 ): void {
   const canonical = resolveCanonicalExecSql(execSql);
   const keys = completedConnectionOnceKeys.get(canonical) ?? new Set<string>();
+  if (keys.has(key)) return;
   keys.add(key);
   completedConnectionOnceKeys.set(canonical, keys);
+  transactionSchemaMemoScopes.get(canonical)?.at(-1)?.add(key);
 }
 
-// Callers must not invoke this inside an explicit SQL transaction that can
-// roll back: completion is recorded as soon as `run` resolves, so a later
-// ROLLBACK would leave the memo asserting schema that no longer exists.
+/**
+ * Start recording the once-per-connection keys completed inside a transaction
+ * scope (a transaction or one of its savepoints). Every open must be paired
+ * with exactly one `closeTransactionSchemaMemoScope`.
+ */
+export function openTransactionSchemaMemoScope(execSql: ExecSql): void {
+  const canonical = resolveCanonicalExecSql(execSql);
+  const scopes = transactionSchemaMemoScopes.get(canonical) ?? [];
+  scopes.push(new Set<string>());
+  transactionSchemaMemoScopes.set(canonical, scopes);
+}
+
+/**
+ * Close the innermost transaction scope. A rollback forgets only the keys
+ * completed inside it, so the next query re-ensures exactly the schema the
+ * rollback undid; a commit keeps them, handing them to the enclosing scope.
+ */
+export function closeTransactionSchemaMemoScope(
+  execSql: ExecSql,
+  committed: boolean,
+): void {
+  const canonical = resolveCanonicalExecSql(execSql);
+  const scopes = transactionSchemaMemoScopes.get(canonical);
+  const scopeKeys = scopes?.pop();
+  if (!scopes || !scopeKeys) {
+    throw new Error("No open transaction schema memo scope to close");
+  }
+  if (scopes.length === 0) transactionSchemaMemoScopes.delete(canonical);
+  if (committed) {
+    const parent = scopes.at(-1);
+    for (const key of scopeKeys) parent?.add(key);
+    return;
+  }
+  const completed = completedConnectionOnceKeys.get(canonical);
+  for (const key of scopeKeys) completed?.delete(key);
+}
+
+// Completion is recorded as soon as `run` resolves. Inside a runtime
+// transaction the key joins the open schema memo scope, so a later ROLLBACK
+// forgets it; an explicit transaction outside the runtime must instead call
+// `resetConnectionSchemaMemo` after rolling back.
 export async function runOncePerConnection(
   execSql: ExecSql,
   key: string,

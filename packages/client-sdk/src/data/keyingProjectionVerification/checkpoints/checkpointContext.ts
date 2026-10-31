@@ -5,7 +5,11 @@ import {
   type VerifiedContainerAccessManifest,
   type VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
-import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import {
+  type AccessManifestBundleWireResponse,
+  type ContainerKeyingPathResponse,
+  containerKekWireLevel,
+} from "@tearleads/validators/response";
 import { rememberVerifiedContainerHeads } from "../../containers/shared/heldContainerHeads";
 import type { DocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { PrincipalAuthorizationCheckpointUnavailableError } from "../../persistence/keyingCheckpoints/principalAuthorizationCheckpoints";
@@ -29,7 +33,8 @@ export interface ProjectionCheckpointContext {
   organizationId?: string | undefined;
   readonly policies: PrincipalPolicyCheckpointEvidence[];
   readonly authorizationPolicies: VerifiedPrincipalPolicySelection[];
-  // Served bundles whose manifests verified, stored at finalization.
+  // Served bundles whose manifests verified, and KEK levels of verified
+  // paths, stored at finalization.
   readonly verifiedBundles: VerifiedManifestBundle[];
   readonly verifiedHeads: VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: VerifiedAccessManifestCheckpointEvidence[];
@@ -91,6 +96,24 @@ export function observeVerifiedProjectionBundles(
     if (verified && matchesVerifiedBundleBytes(verified, bundle))
       context.verifiedBundles.push({ bundle, checkpoint: verified.checkpoint });
   }
+}
+
+/**
+ * Records every KEK level of paths this verification accepted in full, so
+ * the finalizing transaction stores them for later citation by digest. A
+ * cited level is refilled from these bytes only when the API's current
+ * level has the same digest, and is verified again like a served one.
+ */
+export function observeVerifiedKekLevels(
+  context: ProjectionCheckpointContext,
+  paths: readonly ContainerKeyingPathResponse[],
+): void {
+  for (const path of paths)
+    for (const kek of path.containerKeks)
+      context.verifiedBundles.push({
+        kekLevel: containerKekWireLevel(kek),
+        organizationId: path.organizationId,
+      });
 }
 
 export function observePrincipalPolicy(

@@ -19,6 +19,7 @@ import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
   observeAccessManifestCheckpoints,
+  observeVerifiedKekLevels,
   observeVerifiedProjectionBundles,
   type ProjectionCheckpointContext,
 } from "../checkpoints/checkpointContext";
@@ -329,6 +330,7 @@ export async function verifyContainerWriterProjection(
       collectContainerProjectionBundles(input.projection),
       verifiedByHash,
     );
+    observeVerifiedKekLevels(checkpointContext, [input.projection]);
     await finalizeProjectionCheckpoints(checkpointContext, input);
     assertProjectionVerificationCurrent(input.stillCurrent);
     return verifiedPath;
@@ -382,6 +384,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(
       collectContainerProjectionBundles(input.projection),
       verifiedByHash,
     );
+    observeVerifiedKekLevels(checkpointContext, [input.projection]);
     await finalizeProjectionCheckpoints(checkpointContext, input);
     assertProjectionVerificationCurrent(input.stillCurrent);
     return policies;

@@ -102,25 +102,32 @@ Writer projections carry each access-manifest bundle once, cited by hash (see
 the [protocol
 specification](protocol-specification.md#container-access-and-kek-protocol)).
 After a projection verifies, the SDK stores its verified bundles in the local
-`verified_access_manifest_bundles` table, keyed by manifest hash. A later
-projection GET for any object may send an `x-known-manifests` header listing up
-to 48 of those hashes (`KNOWN_MANIFEST_HINT_LIMIT`): the requested object's own
-lineage first, then the lineages of the containers its projection walks (its
-local ancestors, or the containers a document is linked to, listed in, or
-describes as metadata, and their ancestors), then the organization's most
-recently verified bundles, which covers a child read before its row is listed
-locally. Citations never leave the object's organization: every local source
-(verified bundles of the object and of the containers on its walk, a document's
-verified discovery head, and listed container rows) must name the same single
-organization, and any disagreement or absence cites nothing. Citing is bounded:
+`verified_access_manifest_bundles` table, keyed by manifest hash, and each
+verified container KEK level as a typed row keyed by the SHA-256 of its
+canonical wire bytes (one level per container, its latest). A later projection
+GET for any object may send an `x-known-manifests` header listing up to 48 of
+those typed digests (`KNOWN_MANIFEST_HINT_LIMIT`, `m:` for bundles, `k:` for
+levels): the latest level of each container its projection walks first, then
+the requested object's own lineage, then the lineages of the containers its
+projection walks (its local ancestors, or the containers a document is linked
+to, listed in, or describes as metadata, and their ancestors), then the
+organization's most recently verified bundles. A container not yet stored
+locally, such as a folder a hydration pass prefetches from a listing, follows
+its listed parent's stored lineage. Citations never leave the object's
+organization: every local source (verified bundles of the object and of the
+containers on its walk, a document's verified discovery head, listed container
+rows, and the listing that placed an unstored container) must name the same
+single organization, and any disagreement or absence cites nothing. Citing is bounded:
 a source that has not answered within 250 ms (`MANIFEST_CITATION_DEADLINE_MS`),
 fails, or is overtaken by the caller's abort leaves the read uncited, and a late
 answer is discarded. The citation is therefore shared across objects and
 survives restarts and reconnects. The server performs its ordinary
 authorization, lineage walk, stored-evidence verification and policy evidence
 loading, then omits the bundle bytes of exactly the cited hashes it would have
-served and lists them in the response's `omittedBundles`. Unknown hashes are
-ignored. The routes disable HTTP response caching.
+served and lists them in the response's `omittedBundles`, and replaces each KEK
+level whose served bytes have a cited digest with `{levelDigest,
+containerManifestHistory}`. Unknown hashes are ignored; a rotated or rewrapped
+level has a new digest and travels in full. The routes disable HTTP response caching.
 
 The client fills each omission only from the exact bytes it cited for that
 request, copied before the request was sent, and rejects a response that omits

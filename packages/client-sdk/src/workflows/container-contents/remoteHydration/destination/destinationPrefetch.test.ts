@@ -3,12 +3,18 @@ import type { RemoteContainerHydrationState } from "../types";
 import { prefetchDestinationProjections } from "./destinationPrefetch";
 
 function runtimeFetching(
-  fetch: (containerId: string) => Promise<unknown>,
+  fetch: (containerId: string, listing?: unknown) => Promise<unknown>,
 ): RemoteContainerHydrationState["runtime"] {
   return {
     apiClient: { getContainerWriterProjection: fetch },
   } as unknown as RemoteContainerHydrationState["runtime"];
 }
+
+const listed = (id: string) => ({
+  id,
+  organizationId: "org-1",
+  parentId: "root-1",
+});
 
 test("new folder projections are fetched with bounded concurrency", async () => {
   let active = 0;
@@ -16,7 +22,7 @@ test("new folder projections are fetched with bounded concurrency", async () => 
   const fetched: string[] = [];
   const ids = Array.from({ length: 10 }, (_, index) => `folder-${index}`);
   await prefetchDestinationProjections({
-    containerIds: ids,
+    containers: ids.map(listed),
     runtime: runtimeFetching(async (containerId) => {
       active += 1;
       maxActive = Math.max(maxActive, active);
@@ -35,7 +41,7 @@ test("prefetch stops when the hydration pass is no longer current", async () => 
   let current = true;
   const fetched: string[] = [];
   await prefetchDestinationProjections({
-    containerIds: ["a", "b", "c", "d", "e", "f"],
+    containers: ["a", "b", "c", "d", "e", "f"].map(listed),
     isCurrent: () => current,
     runtime: runtimeFetching(async (containerId) => {
       fetched.push(containerId);
@@ -45,4 +51,17 @@ test("prefetch stops when the hydration pass is no longer current", async () => 
   });
   // The first fetch ends the pass; no other worker starts another.
   expect(fetched).toEqual(["a"]);
+});
+
+test("each prefetch cites from the folder's listing", async () => {
+  const listings: unknown[] = [];
+  await prefetchDestinationProjections({
+    containers: [listed("a")],
+    runtime: runtimeFetching(async (_containerId, listing) => {
+      listings.push(listing);
+      return null;
+    }),
+  });
+  // The unstored folder's lineage continues through its listed parent.
+  expect(listings).toEqual([{ organizationId: "org-1", parentId: "root-1" }]);
 });

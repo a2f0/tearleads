@@ -8733,6 +8733,9 @@ export interface operations {
                         };
                         containerId: string;
                         containerKeks: ({
+                            containerManifestHistory: string[];
+                            levelDigest: string;
+                        } | ({
                             accessManifestHash: string;
                             containerId: string;
                             containerKeyEpoch: number;
@@ -8763,7 +8766,7 @@ export interface operations {
                             }[];
                         } & {
                             [key: string]: unknown;
-                        })[];
+                        }))[];
                         omittedBundles: string[];
                         organizationId: string;
                         path: string[];
@@ -12515,6 +12518,9 @@ export interface operations {
                         authorizingContainerPaths: ({
                             containerId: string;
                             containerKeks: ({
+                                containerManifestHistory: string[];
+                                levelDigest: string;
+                            } | ({
                                 accessManifestHash: string;
                                 containerId: string;
                                 containerKeyEpoch: number;
@@ -12545,7 +12551,7 @@ export interface operations {
                                 }[];
                             } & {
                                 [key: string]: unknown;
-                            })[];
+                            }))[];
                             organizationId: string;
                             path: string[];
                         } & {

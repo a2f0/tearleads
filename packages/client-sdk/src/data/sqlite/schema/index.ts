@@ -266,6 +266,10 @@ export const documentHistoryUpdates = sqliteTable(
     uniqueIndex("document_history_updates_update_id_idx")
       .on(table.updateId)
       .where(sql`${table.updateId} IS NOT NULL`),
+    // Queued rows only: pending counts and pending loads skip settled history.
+    index("document_history_updates_queued_scope_idx")
+      .on(table.appKind, table.localId, table.createdAt)
+      .where(sql`${table.updateId} IS NOT NULL`),
   ],
 );
 
@@ -391,6 +395,8 @@ export const trustedUserIdentityPins = sqliteTable(
  * Indexes:
  * - `(documentId, containerId)` is the primary key and prevents duplicate
  *   links for the same document/container pair.
+ * - `(containerId, documentId)` serves the container-filtered link scans
+ *   (folder item and sidebar windows) as a covering index search.
  */
 export const documentContainerProjection = sqliteTable(
   "document_container_projection",
@@ -399,7 +405,13 @@ export const documentContainerProjection = sqliteTable(
     containerId: text("container_id").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [primaryKey({ columns: [table.documentId, table.containerId] })],
+  (table) => [
+    primaryKey({ columns: [table.documentId, table.containerId] }),
+    index("document_container_projection_container_idx").on(
+      table.containerId,
+      table.documentId,
+    ),
+  ],
 );
 
 /**

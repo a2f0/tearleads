@@ -3,10 +3,10 @@ import {
   getDocumentWriterProjectionOperation,
 } from "@tearleads/validators/operation";
 import {
-  type AccessManifestBundleWireResponse,
   decodeContainerWriterProjection,
   decodeDocumentWriterProjection,
 } from "@tearleads/validators/response";
+import { formatKnownManifestHints } from "@tearleads/validators/util";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
 import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
@@ -17,12 +17,16 @@ import type {
   RequestResultOptions,
 } from "./types";
 import {
+  type HeldProjectionCitations,
   heldManifestCitations,
   type VerifiedManifestCitations,
   type WriterProjectionTarget,
 } from "./verifiedManifestCitations";
 
-type HeldBundles = ReadonlyMap<string, AccessManifestBundleWireResponse>;
+const NO_CITATIONS: HeldProjectionCitations = {
+  bundles: new Map(),
+  kekLevels: new Map(),
+};
 
 const PROJECTION_PATH =
   /^\/(?:containers|documents)\/([^/?#]+)\/writer-projection$/u;
@@ -52,7 +56,7 @@ function readProjection<T>(
     readonly path: string;
     readonly validator: (value: unknown) => value is T;
   },
-  held: HeldBundles,
+  held: HeldProjectionCitations,
   context: PrincipalHistoryRequestContext,
 ): Promise<RequestResult<T>> {
   const container = input.kind === "container";
@@ -61,8 +65,8 @@ function readProjection<T>(
     validator: input.validator,
     decode: (value) =>
       container
-        ? decodeContainerWriterProjection(value, held)
-        : decodeDocumentWriterProjection(value, held),
+        ? decodeContainerWriterProjection(value, held.bundles, held.kekLevels)
+        : decodeDocumentWriterProjection(value, held.bundles, held.kekLevels),
     method: "GET",
     context,
     operation: container
@@ -73,9 +77,10 @@ function readProjection<T>(
 
 /**
  * Preparation and body deadlines sit inside the projection read. The wire
- * cites each manifest bundle by hash; decoding resolves every citation, from
- * the response or from the exact bytes this request declared held, before any
- * validator, cache, or verifier sees the projection. A response this device
+ * cites each manifest bundle by hash and may cite a held KEK level by digest;
+ * decoding resolves every citation, from the response or from the exact bytes
+ * this request declared held, before any validator, cache, or verifier sees
+ * the projection. A response this device
  * cannot rebuild fails closed into one complete, hint-free refetch.
  */
 async function citedProjectionRead<T>(
@@ -102,20 +107,26 @@ async function citedProjectionRead<T>(
   // caller's abort also ends a citation wait.
   const held =
     id === null || options.headers !== undefined
-      ? new Map<string, AccessManifestBundleWireResponse>()
+      ? NO_CITATIONS
       : await heldManifestCitations(
           citations,
-          { kind: input.kind, id },
+          { kind: input.kind, id, listing: options.projectionListing },
           options.signal,
         );
-  if (held.size === 0) return readProjection(runtime, input, held, context);
+  if (held.bundles.size + held.kekLevels.size === 0)
+    return readProjection(runtime, input, held, context);
   const hinted = await readProjection(
     runtime,
     input,
     held,
     context.derive({
       ...options,
-      headers: { "x-known-manifests": [...held.keys()].join(",") },
+      headers: {
+        "x-known-manifests": formatKnownManifestHints({
+          manifests: [...held.bundles.keys()],
+          kekLevels: [...held.kekLevels.keys()],
+        }),
+      },
       reportErrors: false,
     }),
   );
@@ -124,7 +135,7 @@ async function citedProjectionRead<T>(
     if (options.reportErrors !== false) hinted.report();
     return hinted;
   }
-  return readProjection(runtime, input, new Map(), context.derive(options));
+  return readProjection(runtime, input, NO_CITATIONS, context.derive(options));
 }
 
 export function writerProjectionRequests(

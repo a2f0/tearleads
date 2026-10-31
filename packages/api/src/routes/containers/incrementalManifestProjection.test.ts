@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { buildMaterializedContainerRekeyPlan } from "@tearleads/client-sdk";
 import { createTestUser } from "@tearleads/test-utils";
-import { ContainerWriterProjectionWireResponseSchema } from "@tearleads/validators/response";
+import {
+  ContainerWriterProjectionWireResponseSchema,
+  isCitedContainerKekLevel,
+} from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { createHeldManifestCitations } from "../../../test/helpers/heldManifestCitations";
 import { createOwnedTree } from "../../../test/helpers/ownedContainerTree";
@@ -16,8 +19,13 @@ test("cited manifest projections verify rotations while hints never grant access
     tree.owner,
     tree.organizationId,
   );
-  const samples: { hint: string | null; served: number; omitted: number }[] =
-    [];
+  const samples: {
+    hint: string | null;
+    served: number;
+    omitted: number;
+    citedLevels: number;
+    bytes: number;
+  }[] = [];
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
@@ -27,13 +35,17 @@ test("cited manifest projections verify rotations while hints never grant access
         response.ok &&
         new URL(request.url).pathname.endsWith("/writer-projection")
       ) {
+        const body = await response.clone().text();
         const wire = ContainerWriterProjectionWireResponseSchema.parse(
-          await response.clone().json(),
+          JSON.parse(body),
         );
         samples.push({
           hint: request.headers.get("x-known-manifests"),
           served: Object.keys(wire.bundles).length,
           omitted: wire.omittedBundles.length,
+          citedLevels: wire.containerKeks.filter(isCitedContainerKekLevel)
+            .length,
+          bytes: body.length,
         });
       }
       return response;
@@ -60,20 +72,25 @@ test("cited manifest projections verify rotations while hints never grant access
     expect(repeated).toEqual(first);
     expect(samples[0]).toMatchObject({ hint: null, omitted: 0 });
     expect(samples[0]?.served).toBeGreaterThan(1);
-    // Every bundle the device verified is cited, so none travels again.
+    // Every bundle and KEK level the device verified is cited, so none
+    // travels again.
     expect(samples[1]).toMatchObject({
       served: 0,
       omitted: samples[0]?.served,
+      citedLevels: 1,
     });
+    expect(samples[1]?.bytes).toBeLessThan((samples[0]?.bytes ?? 0) / 4);
     await tree.rotateRoot();
     const next = await read();
     expect(next.containerKeks[0]?.containerKeyEpoch).toBe(
       (first.containerKeks[0]?.containerKeyEpoch ?? 0) + 1,
     );
-    // Only the rotation's new head travels; the rest of the lineage is held.
+    // Only the rotation's new head and its new KEK level travel; the rest of
+    // the lineage is held. The held level's digest no longer matches.
     expect(samples[2]).toMatchObject({
       served: 1,
       omitted: samples[0]?.served,
+      citedLevels: 0,
     });
     expect(next.containerKeks[0]?.containerManifestHistory).toHaveLength(2);
     const hint = samples[2]?.hint;
