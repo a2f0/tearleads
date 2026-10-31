@@ -21,7 +21,7 @@ function shellExample(index: number): string {
 }
 
 function fixtureRun(command: string, fixture: unknown) {
-  const { PATH } = process.env;
+  const { PATH, HOME } = process.env;
   const directory = mkdtempSync(resolve(tmpdir(), "audit-usage-fixture-"));
   try {
     const source = resolve(directory, "source.json");
@@ -34,6 +34,7 @@ function fixtureRun(command: string, fixture: unknown) {
     return Bun.spawnSync(["sh", "-c", command], {
       env: {
         PATH,
+        HOME,
         USAGE_FILE: source,
         MOCK_RESPONSE: source,
         REPORT: report,
@@ -131,6 +132,8 @@ for (const harness of [".claude", ".agents"]) {
       const directory = `${harness}/skills/${skill}`;
       const text = readFileSync(`${root}/${directory}/SKILL.md`, "utf8");
       const reference = "../../../docs/developer/audit-usage-receipts.md";
+      expect(text.indexOf("## Arguments")).toBeGreaterThanOrEqual(0);
+      expect(text.indexOf(". Report")).toBeGreaterThanOrEqual(0);
       expect(text.indexOf(reference)).toBeGreaterThan(0);
       expect(text.indexOf(reference)).toBeLessThan(
         text.indexOf("## Arguments"),

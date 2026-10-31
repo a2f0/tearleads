@@ -2,8 +2,9 @@
 
 Run `bun run check:fast` for the repository's analysis gates. The additional
 `bun run test:static-analysis` fixtures exercise Git snapshot selection,
-baseline validation, and shell-script discovery; they also run in `check:fast`
-and pre-push.
+baseline validation, shell-script discovery, and the
+[audit usage receipt](audit-usage-receipts.md) examples and skill links; they
+also run in `check:fast` and pre-push.
 
 ## CI and the push gate
 
