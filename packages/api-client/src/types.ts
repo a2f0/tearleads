@@ -4,6 +4,7 @@ import type {
   HttpOperationMethod,
 } from "@tearleads/validators/operation";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import type { ApiNetworkError } from "./networkFailure";
 import type { WriterProjectionListing } from "./verifiedManifestCitations";
 
 export type HttpMethod = HttpOperationMethod;
@@ -65,6 +66,8 @@ export interface RequestFailure {
   readonly kind: RequestFailureKind;
   readonly message: string;
   readonly method: HttpMethod;
+  /** Set when the fetch itself threw: what the client could observe, without secrets. */
+  readonly networkError?: ApiNetworkError | undefined;
   readonly ok: false;
   readonly path: string;
   readonly report: () => void;

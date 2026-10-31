@@ -51,6 +51,7 @@ const hostConfig = createAppHostConfig({
     process.env.BUN_PUBLIC_NAVIGATION_MODE === "windowed"
       ? "windowed"
       : undefined,
+  probeApiNetworkFailures: true,
   wsUrl,
   profile: resolveAppHostProfile(process.env.BUN_PUBLIC_APP_VARIANT),
 });

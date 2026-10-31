@@ -37,6 +37,12 @@ export interface TearleadsOptions {
    * peer ids (e.g. the pane's local identity namespace). Omit for single-pane.
    */
   peerScope?: string | undefined;
+  /**
+   * After a request fails without a response, probe the API origin (one
+   * rate-limited `no-cors` GET) to tell an unreachable host from a CORS or
+   * blocked call. Browser shells enable it; tests and servers leave it off.
+   */
+  probeApiNetworkFailures?: boolean | undefined;
   /** Private host key for durable history progress; omitted uses disposable session keys. */
   principalHistoryKeyProvider?: PrincipalHistoryKeyProvider | undefined;
   /** Compound policy dispatch/recovery deadline in milliseconds; defaults to 60 seconds. */

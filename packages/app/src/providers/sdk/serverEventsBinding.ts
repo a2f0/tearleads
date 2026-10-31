@@ -284,8 +284,8 @@ export function useServerEventsBinding(
           ws,
         );
       },
+      openSocket: (ticket) => tearleads.openServerEventsSocket(wsUrl, ticket),
       requestTicket: () => tearleads.requestWebSocketTicket(),
-      wsUrl,
     });
     return attempts.endingWith(stopLoop);
   }, [

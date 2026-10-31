@@ -1,4 +1,9 @@
-import { ApiClient, ApiRequestMetrics } from "@tearleads/api-client";
+import {
+  ApiClient,
+  ApiRequestMetrics,
+  createApiReachabilityProbe,
+  openServerEventsSocket,
+} from "@tearleads/api-client";
 import { Blobs } from "./client/blobs";
 import {
   type ContainerContents,
@@ -93,7 +98,10 @@ export class Tearleads {
   constructor(options: TearleadsOptions = {}) {
     const apiBaseUrl = options.apiBaseUrl ?? "";
     this.apiRequests = options.apiRequestMetrics ?? new ApiRequestMetrics();
-    this.apiClient = this.createApiClient(apiBaseUrl);
+    this.apiClient = this.createApiClient(
+      apiBaseUrl,
+      options.probeApiNetworkFailures === true,
+    );
     this.blobs = new Blobs(options.blobStore, options.blobStoreFactory);
     this.database = new Database(options.database);
     this.documentProjectors = resolveDocumentProjectorRegistry(
@@ -201,10 +209,16 @@ export class Tearleads {
     });
   }
 
-  private createApiClient(apiBaseUrl: string): ApiClient {
+  private createApiClient(
+    apiBaseUrl: string,
+    probeNetworkFailures: boolean,
+  ): ApiClient {
     return new ApiClient(apiBaseUrl, {
       metrics: this.apiRequests,
       getIdentity: () => this.identity.signingFingerprint,
+      networkFailureProbe: probeNetworkFailures
+        ? createApiReachabilityProbe()
+        : null,
     });
   }
 
@@ -283,10 +297,15 @@ export class Tearleads {
    * A single-use ticket to authenticate the server-events websocket handshake
    * (which cannot carry the bearer header): the one login returned for the
    * first connect of that session, otherwise a freshly minted one. Returns
-   * null when no session is active. The caller appends it to the websocket URL.
+   * null when no session is active. Pass it to {@link openServerEventsSocket}.
    */
   requestWebSocketTicket(): Promise<string | null> {
     return this.apiClient.requestWebSocketTicket();
+  }
+
+  /** Opens the API's server-events socket for a ticket; the API client owns the URL shape. */
+  openServerEventsSocket(wsUrl: string, ticket: string): WebSocket {
+    return openServerEventsSocket(wsUrl, ticket);
   }
 
   get domainScope(): DomainScope {

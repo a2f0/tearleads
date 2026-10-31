@@ -68,6 +68,7 @@ renderApp(createRoot(elem), {
     // download through the Bun main process, which writes to ~/Downloads.
     createFileSaver: createElectrobunFileSaver,
     createSQLiteRuntime: createElectrobunSQLiteRuntime,
+    probeApiNetworkFailures: true,
     profile: APP_HOST_PROFILES.app,
     // Electrobun is also a single WKWebView backed by one dedicated worker.
     // Reinitialize that worker across identity switches instead of constructing

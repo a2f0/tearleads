@@ -1,4 +1,5 @@
 import type { HttpOperation } from "@tearleads/validators/operation";
+import type { ApiReachabilityProbe } from "./apiReachabilityProbe";
 import {
   type ApiRequestDurationSummary,
   DurationSampleWindow,
@@ -32,6 +33,8 @@ export interface ApiRequestMetricsSnapshot extends ApiRequestCounts {
 export interface ApiRequestInstrumentation {
   readonly metrics: ApiRequestMetrics;
   readonly getIdentity: () => string | null;
+  /** Host-enabled follow-up probe that classifies failed fetches. */
+  readonly networkFailureProbe?: ApiReachabilityProbe | null | undefined;
 }
 
 type Outcome = "succeeded" | "failed" | "cancelled";

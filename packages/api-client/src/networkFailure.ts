@@ -1,0 +1,250 @@
+import type { ApiReachability } from "./apiReachabilityProbe";
+
+/**
+ * What the client can honestly tell about a request that never got a
+ * response. Browsers hide the network error code (`ERR_NAME_NOT_RESOLVED`,
+ * `ERR_BLOCKED_BY_CLIENT`, a TLS failure and a CORS rejection all surface as
+ * the same `TypeError`), so the classes are coarse on purpose:
+ *
+ * - `offline`: the device reports no network (`navigator.onLine === false`).
+ * - `api-unreachable`: a follow-up `no-cors` probe of the API origin failed
+ *   too: DNS, TLS, connection, or an extension/shield blocking the host.
+ * - `cors-or-blocked`: the probe reached the API origin, so the host answers;
+ *   this call was refused by CORS or its preflight, blocked by an extension
+ *   rule narrower than the host, or its connection dropped.
+ * - `timeout`/`aborted`: the caller's signal (or the runtime) ended it.
+ * - `unclassified`: no probe ran (the host did not enable probing).
+ */
+export type ApiNetworkFailureClass =
+  | "offline"
+  | "api-unreachable"
+  | "cors-or-blocked"
+  | "timeout"
+  | "aborted"
+  | "unclassified";
+
+/**
+ * Structured, secret-free facts about one failed attempt. It never holds
+ * headers, tokens, bodies, or the concrete path: only the operation's path
+ * template, origins, and the runtime's error name and (URL-redacted) message.
+ */
+export interface ApiNetworkFailureDetails {
+  readonly classification: ApiNetworkFailureClass;
+  readonly hint: string;
+  readonly method: string;
+  readonly pathTemplate: string;
+  readonly apiOrigin: string | null;
+  readonly pageOrigin: string | null;
+  readonly crossOrigin: boolean | null;
+  /** True when a cross-origin browser call needs a CORS preflight. */
+  readonly preflight: boolean;
+  readonly attempt: number;
+  readonly elapsedMs: number;
+  readonly online: boolean | null;
+  readonly errorName: string;
+  readonly errorMessage: string;
+  readonly causeName: string | null;
+  readonly causeMessage: string | null;
+  readonly probe: ApiReachability | "not-run";
+}
+
+/** A request that failed before any response arrived; see {@link ApiNetworkFailureClass}. */
+export class ApiNetworkError extends Error {
+  override readonly name = "ApiNetworkError";
+
+  constructor(readonly details: ApiNetworkFailureDetails) {
+    super(
+      `${details.method} ${details.pathTemplate}: ${details.errorMessage} (${details.classification}: ${details.hint})`,
+    );
+  }
+}
+
+const SIMPLE_METHODS = new Set(["GET", "HEAD", "POST"]);
+const SAFELISTED_HEADERS = new Set([
+  "accept",
+  "accept-language",
+  "content-language",
+  "content-type",
+]);
+const SIMPLE_CONTENT_TYPES = new Set([
+  "application/x-www-form-urlencoded",
+  "multipart/form-data",
+  "text/plain",
+]);
+const MAX_MESSAGE_LENGTH = 200;
+
+/** Whether the Fetch spec sends a CORS preflight for this method and these headers. */
+export function needsCorsPreflight(
+  method: string,
+  headers: Readonly<Record<string, string>>,
+): boolean {
+  if (!SIMPLE_METHODS.has(method.toUpperCase())) return true;
+  return Object.entries(headers).some(([name, value]) => {
+    const lower = name.toLowerCase();
+    if (!SAFELISTED_HEADERS.has(lower)) return true;
+    if (lower !== "content-type") return false;
+    const essence = value.split(";")[0]?.trim().toLowerCase() ?? "";
+    return !SIMPLE_CONTENT_TYPES.has(essence);
+  });
+}
+
+/** Keeps origin and path of any URL in a runtime message; drops query and fragment. */
+export function redactUrls(text: string): string {
+  const redacted = text.replace(
+    /\b(?:https?|wss?):\/\/[^\s"'<>)]+/giu,
+    (raw) => {
+      try {
+        const url = new URL(raw);
+        return `${url.origin}${url.pathname}`;
+      } catch {
+        return "[url]";
+      }
+    },
+  );
+  return redacted.length > MAX_MESSAGE_LENGTH
+    ? `${redacted.slice(0, MAX_MESSAGE_LENGTH)}...`
+    : redacted;
+}
+
+function errorField(error: unknown, key: "name" | "message"): string | null {
+  if (typeof error !== "object" || error === null || !(key in error)) {
+    return null;
+  }
+  const value: unknown = Reflect.get(error, key);
+  return typeof value === "string" ? value : null;
+}
+
+function originOf(href: string | undefined): string | null {
+  if (!href) return null;
+  try {
+    const origin = new URL(href).origin;
+    return origin === "null" ? null : origin;
+  } catch {
+    return null;
+  }
+}
+
+function readOnline(): boolean | null {
+  const online: unknown = globalThis.navigator?.onLine;
+  return typeof online === "boolean" ? online : null;
+}
+
+function abortedClass(
+  error: unknown,
+  signal: AbortSignal | undefined,
+): "timeout" | "aborted" | null {
+  if (signal?.aborted) {
+    return errorField(signal.reason, "name") === "TimeoutError"
+      ? "timeout"
+      : "aborted";
+  }
+  const name = errorField(error, "name");
+  if (name === "TimeoutError") return "timeout";
+  return name === "AbortError" ? "aborted" : null;
+}
+
+function hintFor(
+  classification: ApiNetworkFailureClass,
+  apiOrigin: string | null,
+  crossOrigin: boolean | null,
+): string {
+  const openApi = apiOrigin ? `; open ${apiOrigin}/ in a tab` : "";
+  switch (classification) {
+    case "offline":
+      return "this device reports no network connection";
+    case "api-unreachable":
+      return `API host unreachable from this browser: check DNS, extensions/shields, or network${openApi}`;
+    case "cors-or-blocked":
+      return crossOrigin
+        ? "API host is reachable but this call failed: a CORS/preflight rejection, a blocking extension rule, or a dropped connection; check the browser console"
+        : "API host is reachable but this call failed: a blocking extension rule or a dropped connection; check the browser console";
+    case "timeout":
+      return "the request timed out before the API answered";
+    case "aborted":
+      return "the request was aborted before the API answered";
+    case "unclassified":
+      return `the request failed before the API answered${openApi}`;
+  }
+}
+
+/**
+ * The runtime's own message, followed by the classification and its hint once
+ * there is one; a plain cancellation or an unprobed failure keeps the message.
+ */
+export function networkFailureMessage(
+  error: unknown,
+  networkError: ApiNetworkError,
+): string {
+  const message =
+    errorField(error, "message") ?? (error === undefined ? "" : String(error));
+  const { classification, hint } = networkError.details;
+  return classification === "unclassified" || classification === "aborted"
+    ? message
+    : `${message} (${classification}: ${hint})`;
+}
+
+export interface NetworkFailureInput {
+  readonly attempt: number;
+  readonly baseUrl: string;
+  readonly elapsedMs: number;
+  readonly error: unknown;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly method: string;
+  readonly pathTemplate: string;
+  readonly probe?:
+    | ((apiOrigin: string) => Promise<ApiReachability>)
+    | null
+    | undefined;
+  readonly signal?: AbortSignal | undefined;
+}
+
+/**
+ * Builds the typed error for a thrown fetch. A probe runs only for failures
+ * that are neither aborted nor offline, and only when the host supplied one.
+ */
+export async function describeNetworkFailure(
+  input: NetworkFailureInput,
+): Promise<ApiNetworkError> {
+  const pageHref: string | undefined = globalThis.location?.href;
+  const pageOrigin = originOf(pageHref);
+  const apiOrigin = originOf(
+    input.baseUrl ? new URL(input.baseUrl, pageHref).href : pageHref,
+  );
+  const crossOrigin = pageOrigin && apiOrigin ? pageOrigin !== apiOrigin : null;
+  const online = readOnline();
+  let probe: ApiReachability | "not-run" = "not-run";
+  let classification: ApiNetworkFailureClass =
+    abortedClass(input.error, input.signal) ??
+    (online === false ? "offline" : "unclassified");
+  if (classification === "unclassified" && input.probe && apiOrigin) {
+    probe = await input.probe(apiOrigin).catch(() => "unreachable" as const);
+    classification =
+      probe === "reachable" ? "cors-or-blocked" : "api-unreachable";
+  }
+  const cause: unknown =
+    typeof input.error === "object" && input.error !== null
+      ? Reflect.get(input.error, "cause")
+      : undefined;
+  const causeMessage = errorField(cause, "message");
+  return new ApiNetworkError({
+    classification,
+    hint: hintFor(classification, apiOrigin, crossOrigin),
+    method: input.method,
+    pathTemplate: input.pathTemplate,
+    apiOrigin,
+    pageOrigin,
+    crossOrigin,
+    preflight:
+      crossOrigin === true && needsCorsPreflight(input.method, input.headers),
+    attempt: input.attempt,
+    elapsedMs: Math.max(0, Math.round(input.elapsedMs)),
+    online,
+    errorName: errorField(input.error, "name") ?? typeof input.error,
+    errorMessage: redactUrls(
+      errorField(input.error, "message") ?? String(input.error),
+    ),
+    causeName: errorField(cause, "name"),
+    causeMessage: causeMessage === null ? null : redactUrls(causeMessage),
+    probe,
+  });
+}
