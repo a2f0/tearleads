@@ -3,7 +3,6 @@ import {
   accessEvents,
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
-  accessManifestPrincipalHeadProjection,
   accessManifests,
   attachmentBindings,
   blobs,
@@ -25,55 +24,52 @@ import { DocumentMutationError } from "./errors";
 // Content-key targets reference documentContentKeyEpochs(id); the loro update
 // payloads, write headers, and baseline markers are independent.
 async function deleteDocumentContentRows(
-  documentId: string,
+  documentIds: readonly string[],
   executor: DatabaseTransaction,
 ): Promise<void> {
-  const epochRows = await executor
-    .select({ id: documentContentKeyEpochs.id })
-    .from(documentContentKeyEpochs)
-    .where(eq(documentContentKeyEpochs.documentId, documentId));
-  const epochIds = epochRows.map((row) => row.id);
-  if (epochIds.length > 0) {
-    await executor
-      .delete(documentContentKeyTargets)
-      .where(
-        inArray(documentContentKeyTargets.documentContentKeyEpochId, epochIds),
-      );
-  }
+  await executor.delete(documentContentKeyTargets).where(
+    inArray(
+      documentContentKeyTargets.documentContentKeyEpochId,
+      executor
+        .select({ id: documentContentKeyEpochs.id })
+        .from(documentContentKeyEpochs)
+        .where(inArray(documentContentKeyEpochs.documentId, [...documentIds])),
+    ),
+  );
   await executor
     .delete(documentContentKeyEpochs)
-    .where(eq(documentContentKeyEpochs.documentId, documentId));
+    .where(inArray(documentContentKeyEpochs.documentId, [...documentIds]));
   await executor
     .delete(documentContentWriteHeaders)
-    .where(eq(documentContentWriteHeaders.documentId, documentId));
+    .where(inArray(documentContentWriteHeaders.documentId, [...documentIds]));
   await executor
     .delete(documentInlineRekeyCommits)
-    .where(eq(documentInlineRekeyCommits.documentId, documentId));
+    .where(inArray(documentInlineRekeyCommits.documentId, [...documentIds]));
   await executor
     .delete(documentBaselines)
-    .where(eq(documentBaselines.documentId, documentId));
+    .where(inArray(documentBaselines.documentId, [...documentIds]));
   await executor
     .delete(documentUpdateSpans)
-    .where(eq(documentUpdateSpans.documentId, documentId));
+    .where(inArray(documentUpdateSpans.documentId, [...documentIds]));
   await executor
     .delete(documentUpdates)
-    .where(eq(documentUpdates.documentId, documentId));
+    .where(inArray(documentUpdates.documentId, [...documentIds]));
 }
 
-// Attachment bindings (active and detached history) for this document, then a
-// soft-delete of any blob this purge orphaned. The blob rows, bytes, audit
+// Attachment bindings (active and detached history) for these documents, then
+// a soft-delete of any blob this purge orphaned. The blob rows, bytes, audit
 // objects, and key material are RETAINED — only `dereferencedAt` is stamped, so
 // a later GC sweep can re-check reachability (a bind racing this purge under
 // READ COMMITTED is invisible here) and hard-delete only truly-unreachable
 // blobs. `IS NULL` keeps an already-dereferenced blob's original timestamp.
 async function deleteDocumentAttachmentRows(input: {
-  readonly documentId: string;
+  readonly documentIds: readonly string[];
   readonly executor: DatabaseTransaction;
   readonly orphanedBlobIds: readonly string[];
 }): Promise<void> {
   await input.executor
     .delete(attachmentBindings)
-    .where(eq(attachmentBindings.documentId, input.documentId));
+    .where(inArray(attachmentBindings.documentId, [...input.documentIds]));
   if (input.orphanedBlobIds.length > 0) {
     await input.executor
       .update(blobs)
@@ -97,8 +93,8 @@ async function deleteDocumentAttachmentRows(input: {
 // event after the mutable document row and encrypted content are gone. Only the
 // live-head pointer is removed; manifests, events, and their derived
 // projections remain append-only proof material.
-async function deleteDocumentAccessHead(
-  documentId: string,
+async function deleteDocumentAccessHeads(
+  documentIds: readonly string[],
   executor: DatabaseTransaction,
 ): Promise<void> {
   await executor
@@ -106,36 +102,35 @@ async function deleteDocumentAccessHead(
     .where(
       and(
         eq(accessManifestHeads.objectKind, "document"),
-        eq(accessManifestHeads.objectId, documentId),
+        inArray(accessManifestHeads.objectId, [...documentIds]),
       ),
     );
 }
 
+// Document manifests commit to an empty `referencedPrincipalHeads` list, and
+// `insertAccessManifestPrincipalProjection` refuses a document row, so no
+// principal-head projection row names a document and none is deleted here.
 async function deleteDocumentAccessHistory(
-  documentId: string,
+  documentIds: readonly string[],
   executor: DatabaseTransaction,
 ): Promise<void> {
   forgetTransactionAccessManifestBundles(executor);
   await executor
     .delete(documentManifestObservations)
-    .where(eq(documentManifestObservations.documentId, documentId));
+    .where(inArray(documentManifestObservations.documentId, [...documentIds]));
   await executor
     .delete(accessManifestDocumentLinkProjection)
-    .where(eq(accessManifestDocumentLinkProjection.documentId, documentId));
-  await executor
-    .delete(accessManifestPrincipalHeadProjection)
     .where(
-      and(
-        eq(accessManifestPrincipalHeadProjection.objectKind, "document"),
-        eq(accessManifestPrincipalHeadProjection.objectId, documentId),
-      ),
+      inArray(accessManifestDocumentLinkProjection.documentId, [
+        ...documentIds,
+      ]),
     );
   await executor
     .delete(accessEvents)
     .where(
       and(
         eq(accessEvents.objectKind, "document"),
-        eq(accessEvents.objectId, documentId),
+        inArray(accessEvents.objectId, [...documentIds]),
       ),
     );
   await executor
@@ -143,32 +138,39 @@ async function deleteDocumentAccessHistory(
     .where(
       and(
         eq(accessManifests.objectKind, "document"),
-        eq(accessManifests.objectId, documentId),
+        inArray(accessManifests.objectId, [...documentIds]),
       ),
     );
 }
 
+/**
+ * Deletes a set of distinct documents table by table, so the statement count
+ * does not grow with the set. Callers keep the set within the SQL parameter
+ * limit (`organizationPurgeBatches`). Every document must exist: a missing one
+ * fails the whole call with 404, as a single-document purge always has.
+ */
 export async function deleteDocumentRows(input: {
-  readonly documentId: string;
+  readonly documentIds: readonly string[];
   readonly executor: DatabaseTransaction;
   readonly orphanedBlobIds: readonly string[];
   readonly retainAccessHistory: boolean;
 }): Promise<void> {
-  const { documentId, executor } = input;
+  const { documentIds, executor } = input;
+  if (documentIds.length === 0) return;
 
-  await deleteDocumentContentRows(documentId, executor);
+  await deleteDocumentContentRows(documentIds, executor);
   await deleteDocumentAttachmentRows(input);
-  await deleteDocumentAccessHead(documentId, executor);
+  await deleteDocumentAccessHeads(documentIds, executor);
   if (!input.retainAccessHistory) {
-    await deleteDocumentAccessHistory(documentId, executor);
+    await deleteDocumentAccessHistory(documentIds, executor);
   }
 
-  // Current link projection, then the document row itself.
-  const [deleted] = await executor
+  // Current link projection, then the document rows themselves.
+  const deleted = await executor
     .delete(documents)
-    .where(eq(documents.id, documentId))
+    .where(inArray(documents.id, [...documentIds]))
     .returning({ id: documents.id });
-  if (!deleted) {
+  if (deleted.length !== new Set(documentIds).size) {
     throw new DocumentMutationError("Document not found", 404);
   }
 }

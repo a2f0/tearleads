@@ -1,6 +1,6 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { blobStages } from "@tearleads/api-shared/schema";
-import { and, eq, lte } from "drizzle-orm";
+import { and, eq, inArray, lte } from "drizzle-orm";
 import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { assertBlobStorageKeyOrganization } from "./storageKeys";
 
@@ -60,25 +60,25 @@ export async function loadOwnedActiveBlobStage(
 
 /**
  * Serialize expiry against promotion before touching object storage. Promotion
- * holds this row until commit; if it wins, the UPDATE returns no stage. If
- * cleanup wins, the durable expiry prevents later binds, even if object-store
- * cleanup fails or the process restarts. No DB lock is held across network I/O.
+ * holds a stage row until commit; if it wins, the UPDATE returns no row for that
+ * stage. If cleanup wins, the durable expiry prevents later binds, even if
+ * object-store cleanup fails or the process restarts. One statement claims the
+ * whole batch, and no DB lock is held across network I/O. Callers check each
+ * returned stage's storage key, so one bad row fails only its own cleanup.
  */
-export async function expireBlobStageForCleanup(
+export async function expireBlobStagesForCleanup(
   executor: DatabaseSession,
-  input: { readonly now: Date; readonly stageId: string },
-): Promise<OwnedActiveBlobStage | null> {
-  const [stage] = await executor
+  input: { readonly now: Date; readonly stageIds: readonly string[] },
+): Promise<OwnedActiveBlobStage[]> {
+  if (input.stageIds.length === 0) return [];
+  return executor
     .update(blobStages)
     .set({ expiresAt: new Date(0) })
     .where(
       and(
-        eq(blobStages.id, input.stageId),
+        inArray(blobStages.id, [...input.stageIds]),
         lte(blobStages.expiresAt, input.now),
       ),
     )
     .returning();
-  if (stage)
-    assertBlobStorageKeyOrganization(stage.storageKey, stage.organizationId);
-  return stage ?? null;
 }

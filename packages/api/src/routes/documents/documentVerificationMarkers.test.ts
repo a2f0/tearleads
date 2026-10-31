@@ -109,7 +109,7 @@ test("deleting a document's history deletes its markers", async () => {
   // and organization purge remove a document's history outright.
   await db.transaction((executor) =>
     deleteDocumentRows({
-      documentId: created.id,
+      documentIds: [created.id],
       executor,
       orphanedBlobIds: [],
       retainAccessHistory: false,

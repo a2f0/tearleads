@@ -715,7 +715,7 @@ ALTER TABLE "document_content_key_targets" ADD CONSTRAINT "document_content_key_
 CREATE UNIQUE INDEX "access_events_event_id_idx" ON "access_events" USING btree ("event_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "access_events_event_hash_idx" ON "access_events" USING btree ("event_hash");--> statement-breakpoint
 CREATE INDEX "access_events_object_idx" ON "access_events" USING btree ("object_kind","object_id");--> statement-breakpoint
-CREATE INDEX "access_events_signer_idx" ON "access_events" USING btree ("signer_user_id","signer_key_fingerprint");--> statement-breakpoint
+CREATE INDEX "access_events_organization_idx" ON "access_events" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "access_manifest_container_grant_subject_manifest_idx" ON "access_manifest_container_grant_projection" USING btree ("subject_type","subject_id","manifest_hash","container_id");--> statement-breakpoint
 CREATE INDEX "access_manifest_container_grant_container_manifest_idx" ON "access_manifest_container_grant_projection" USING btree ("container_id","manifest_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "access_manifest_container_grant_unique_idx" ON "access_manifest_container_grant_projection" USING btree ("manifest_hash","subject_type","subject_id","access_level");--> statement-breakpoint
@@ -729,16 +729,13 @@ CREATE UNIQUE INDEX "access_manifest_principal_projection_unique_idx" ON "access
 CREATE UNIQUE INDEX "access_manifests_manifest_hash_idx" ON "access_manifests" USING btree ("manifest_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "access_manifests_event_hash_idx" ON "access_manifests" USING btree ("event_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "access_manifests_object_epoch_idx" ON "access_manifests" USING btree ("object_kind","object_id","epoch");--> statement-breakpoint
+CREATE INDEX "access_manifests_organization_idx" ON "access_manifests" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "attachment_bindings_document_idx" ON "attachment_bindings" USING btree ("document_id");--> statement-breakpoint
 CREATE INDEX "attachment_bindings_blob_idx" ON "attachment_bindings" USING btree ("blob_id");--> statement-breakpoint
-CREATE INDEX "attachment_bindings_previous_binding_id_idx" ON "attachment_bindings" USING btree ("previous_binding_id");--> statement-breakpoint
-CREATE INDEX "attachment_bindings_attachment_event_hash_idx" ON "attachment_bindings" USING btree ("attachment_event_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "attachment_bindings_document_slot_active_idx" ON "attachment_bindings" USING btree ("document_id","slot_id") WHERE "attachment_bindings"."detached_at" is null;--> statement-breakpoint
+CREATE INDEX "blob_audit_objects_organization_idx" ON "blob_audit_objects" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "blob_audit_objects_pending_delete_idx" ON "blob_audit_objects" USING btree ("object_delete_attempted_at","pruned_at","blob_id") WHERE "blob_audit_objects"."pruned_at" is not null and "blob_audit_objects"."object_deleted_at" is null and "blob_audit_objects"."live_storage_key" is not null;--> statement-breakpoint
 CREATE UNIQUE INDEX "blob_content_key_epochs_blob_epoch_idx" ON "blob_content_key_epochs" USING btree ("blob_id","content_key_epoch");--> statement-breakpoint
-CREATE INDEX "blob_content_key_epochs_target_idx" ON "blob_content_key_epochs" USING btree ("target_hash");--> statement-breakpoint
-CREATE INDEX "blob_content_key_targets_binding_idx" ON "blob_content_key_targets" USING btree ("binding_id");--> statement-breakpoint
-CREATE INDEX "blob_content_key_targets_container_epoch_idx" ON "blob_content_key_targets" USING btree ("container_key_epoch_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "blob_content_key_targets_epoch_binding_container_idx" ON "blob_content_key_targets" USING btree ("blob_content_key_epoch_id","bundle_target_hash","binding_id","document_id","container_id");--> statement-breakpoint
 CREATE INDEX "blob_content_write_headers_organization_blob_idx" ON "blob_content_write_headers" USING btree ("organization_id","blob_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "blob_content_write_headers_header_hash_idx" ON "blob_content_write_headers" USING btree ("header_hash");--> statement-breakpoint
@@ -754,15 +751,13 @@ CREATE UNIQUE INDEX "container_builtin_grants_identity_idx" ON "container_builti
 CREATE UNIQUE INDEX "container_document_sync_tombstones_unique_idx" ON "container_document_sync_tombstones" USING btree ("container_id","document_id");--> statement-breakpoint
 CREATE INDEX "container_document_sync_tombstones_container_updated_idx" ON "container_document_sync_tombstones" USING btree ("container_id","updated_at","document_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "container_key_epochs_container_epoch_idx" ON "container_key_epochs" USING btree ("container_id","key_epoch");--> statement-breakpoint
-CREATE INDEX "container_key_epochs_access_manifest_idx" ON "container_key_epochs" USING btree ("access_manifest_hash");--> statement-breakpoint
-CREATE INDEX "container_key_epochs_parent_idx" ON "container_key_epochs" USING btree ("parent_container_key_epoch_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "container_key_epochs_predecessor_idx" ON "container_key_epochs" USING btree ("predecessor_container_key_epoch_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "container_key_wraps_epoch_recipient_idx" ON "container_key_wraps" USING btree ("container_key_epoch_id","recipient_kind","recipient_id","recipient_key_epoch_id");--> statement-breakpoint
 CREATE INDEX "container_key_wraps_recipient_idx" ON "container_key_wraps" USING btree ("recipient_kind","recipient_id");--> statement-breakpoint
-CREATE INDEX "container_key_wraps_manifest_idx" ON "container_key_wraps" USING btree ("wrap_manifest_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "container_sync_tombstones_user_container_idx" ON "container_sync_tombstones" USING btree ("user_id","container_id");--> statement-breakpoint
 CREATE INDEX "container_sync_tombstones_user_parent_updated_idx" ON "container_sync_tombstones" USING btree ("user_id","parent_id","updated_at","container_id");--> statement-breakpoint
 CREATE INDEX "container_sync_tombstones_user_root_updated_idx" ON "container_sync_tombstones" USING btree ("user_id","root_discovery_visible","updated_at","container_id");--> statement-breakpoint
+CREATE INDEX "container_sync_tombstones_organization_idx" ON "container_sync_tombstones" USING btree ("organization_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "containers_org_root_idx" ON "containers" USING btree ("organization_id") WHERE "containers"."parent_id" is null and "containers"."system_slot" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "containers_org_system_slot_idx" ON "containers" USING btree ("organization_id","system_slot") WHERE "containers"."system_slot" is not null;--> statement-breakpoint
 CREATE INDEX "containers_parent_updated_idx" ON "containers" USING btree ("parent_id","updated_at","id");--> statement-breakpoint
@@ -770,8 +765,6 @@ CREATE INDEX "containers_org_depth_updated_idx" ON "containers" USING btree ("or
 CREATE INDEX "containers_parent_depth_idx" ON "containers" USING btree ("parent_id","depth");--> statement-breakpoint
 CREATE INDEX "document_baselines_document_idx" ON "document_baselines" USING btree ("document_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "document_content_key_epochs_document_epoch_idx" ON "document_content_key_epochs" USING btree ("document_id","content_key_epoch");--> statement-breakpoint
-CREATE INDEX "document_content_key_epochs_target_idx" ON "document_content_key_epochs" USING btree ("target_hash");--> statement-breakpoint
-CREATE INDEX "document_content_key_targets_container_epoch_idx" ON "document_content_key_targets" USING btree ("container_key_epoch_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "document_content_key_targets_epoch_container_idx" ON "document_content_key_targets" USING btree ("document_content_key_epoch_id","container_id");--> statement-breakpoint
 CREATE INDEX "document_content_write_headers_organization_update_idx" ON "document_content_write_headers" USING btree ("organization_id","update_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "document_content_write_headers_header_hash_idx" ON "document_content_write_headers" USING btree ("header_hash");--> statement-breakpoint
@@ -808,6 +801,7 @@ CREATE UNIQUE INDEX "organization_roster_entries_org_user_idx" ON "organization_
 CREATE INDEX "organization_roster_entries_org_status_idx" ON "organization_roster_entries" USING btree ("organization_id","status");--> statement-breakpoint
 CREATE INDEX "organization_roster_entries_profile_document_idx" ON "organization_roster_entries" USING btree ("profile_document_id");--> statement-breakpoint
 CREATE INDEX "organizations_profile_document_idx" ON "organizations" USING btree ("profile_document_id");--> statement-breakpoint
+CREATE INDEX "organizations_admin_group_idx" ON "organizations" USING btree ("admin_group_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_directory_bindings_head_idx" ON "principal_directory_bindings" USING btree ("organization_id","group_id","group_state_hash");--> statement-breakpoint
 CREATE INDEX "principal_directory_bindings_lookup_idx" ON "principal_directory_bindings" USING btree ("organization_id","group_id","organization_version");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_epoch_keys_principal_epoch_idx" ON "principal_epoch_keys" USING btree ("principal_type","principal_id","epoch");--> statement-breakpoint
