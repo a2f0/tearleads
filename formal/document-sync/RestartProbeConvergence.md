@@ -38,7 +38,7 @@ must cover its target. This abstracts the runtime remote-update signal sequence.
 | `DeclareKnownContainers` | authoritative current set sent by `startContainerInterestDeclaration` with a fresh declaration id |
 | `AcknowledgeKnownContainers` | matching `known_containers_ack` proving coverage, advancing the connection generation, and requesting revalidation |
 | `AbandonEventsConnect` | a connect attempt ending without an acknowledgement (`onAttemptFailed`, a socket disconnect, an unready tree at open, or the binding stopping), after which `settleDeferredStartupProbe` arms the deferred startup probe |
-| `ResumeEventsConnect` | the connection loop starting a later attempt; nothing obliges it to |
+| `ResumeEventsConnect` | `startServerEventsConnectionLoop` starting a later attempt (`onAttemptStart`); nothing obliges it to |
 | `BeginProbe` | document lane captures `remoteUpdateSignalSeq` and starts `requestRemoteDocumentSync` |
 | `FinishProbe` | captured updates are applied and persisted; `canClearRemoteUpdateSignalAfterSync` preserves a newer sequence |
 
