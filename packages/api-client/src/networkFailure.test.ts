@@ -39,10 +39,16 @@ function failFetch(error: unknown): void {
 
 async function register(
   probe: ApiReachabilityProbe | null,
-  options: { signal?: AbortSignal; body?: string; baseUrl?: string } = {},
+  options: {
+    signal?: AbortSignal;
+    body?: string;
+    baseUrl?: string;
+    isOnline?: () => boolean | null;
+  } = {},
 ): Promise<{ failure: RequestFailure; errors: string[] }> {
   const runtime = new ApiRequestRuntime(options.baseUrl ?? apiBaseUrl, {
     getIdentity: () => null,
+    isOnline: options.isOnline,
     metrics: new ApiRequestMetrics(),
     networkFailureProbe: probe,
   });
@@ -200,6 +206,49 @@ test("caller timeouts and aborts stay cancellations and skip the probe", async (
     expect(failure.networkError?.details.classification).toBe(classification);
   }
   expect(probe).not.toHaveBeenCalled();
+});
+
+test("a caller abort during the probe ends the wait as a cancellation", async () => {
+  failFetch(new TypeError("Failed to fetch"));
+  const controller = new AbortController();
+  let probeStarted = false;
+  const pending = register(
+    async () => {
+      probeStarted = true;
+      return new Promise<never>(() => {});
+    },
+    { signal: controller.signal },
+  );
+  while (!probeStarted) await Promise.resolve();
+  controller.abort(new DOMException("aborted", "AbortError"));
+  const { failure, errors } = await pending;
+  expect(failure.kind).toBe("cancelled");
+  expect(failure.code).toBe("request_aborted");
+  expect(errors).toEqual([]);
+  expect(failure.networkError?.details).toMatchObject({
+    classification: "aborted",
+    probe: "not-run",
+  });
+});
+
+test("the host's connectivity reading overrides navigator.onLine", async () => {
+  failFetch(new TypeError("Failed to fetch"));
+  setOnline(false);
+  const probe = mock(async () => "unreachable" as const);
+  const connected = await register(probe, { isOnline: () => true });
+  expect(connected.failure.networkError?.details).toMatchObject({
+    classification: "api-unreachable",
+    online: true,
+  });
+  setOnline(true);
+  const disconnected = await register(probe, { isOnline: () => false });
+  expect(disconnected.failure.networkError?.details).toMatchObject({
+    classification: "offline",
+    online: false,
+  });
+  const deferred = await register(probe, { isOnline: () => null });
+  expect(deferred.failure.networkError?.details.online).toBe(true);
+  expect(probe).toHaveBeenCalledTimes(2);
 });
 
 test("a runtime TimeoutError without a caller signal classifies as timeout", async () => {

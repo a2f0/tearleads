@@ -197,36 +197,105 @@ export interface NetworkFailureInput {
     | null
     | undefined;
   readonly signal?: AbortSignal | undefined;
+  /** The host's connectivity reading, taken before this failure was reported; null defers to `navigator.onLine`. */
+  readonly online?: boolean | null | undefined;
+}
+
+/** The probe's answer, or null once the caller's signal aborts first. */
+async function probeUnlessAborted(
+  probe: (apiOrigin: string) => Promise<ApiReachability>,
+  apiOrigin: string,
+  signal: AbortSignal | undefined,
+): Promise<ApiReachability | null> {
+  const answer = probe(apiOrigin).catch(() => "unreachable" as const);
+  if (!signal) return answer;
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<null>((resolve) => {
+    onAbort = () => resolve(null);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    return await Promise.race([answer, aborted]);
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
+}
+
+async function classify(
+  input: NetworkFailureInput,
+  apiOrigin: string | null,
+  crossOrigin: boolean | null,
+  online: boolean | null,
+): Promise<{
+  readonly classification: ApiNetworkFailureClass;
+  readonly probe: ApiReachability | "not-run";
+}> {
+  const early =
+    abortedClass(input.error, input.signal) ??
+    (online === false ? "offline" : null);
+  // A same-origin probe could be answered by the page's service worker cache,
+  // so it would not show the API host is reachable.
+  if (early || !input.probe || !apiOrigin || crossOrigin === false) {
+    return { classification: early ?? "unclassified", probe: "not-run" };
+  }
+  const probe = await probeUnlessAborted(input.probe, apiOrigin, input.signal);
+  // The caller may cancel while the probe runs; that ends the request.
+  const abortedLater = abortedClass(undefined, input.signal);
+  if (abortedLater || probe === null) {
+    return { classification: abortedLater ?? "aborted", probe: "not-run" };
+  }
+  return {
+    classification:
+      probe === "reachable" ? "cors-or-blocked" : "api-unreachable",
+    probe,
+  };
+}
+
+/**
+ * Handles a thrown fetch in order: read the host's connectivity before the
+ * reachability hint can flip a non-authoritative source, send that hint
+ * unless the caller already cancelled, classify, and say whether the caller
+ * cancelled meanwhile (then the request ends as a cancellation).
+ */
+export async function settleNetworkFailure(
+  input: Omit<NetworkFailureInput, "online"> & {
+    readonly isOnline?: (() => boolean | null) | undefined;
+    readonly onNetworkError: () => void;
+  },
+): Promise<{
+  readonly cancelled: boolean;
+  readonly networkError: ApiNetworkError;
+}> {
+  const online = input.isOnline?.() ?? null;
+  const cancelledAtFailure = input.signal?.aborted === true;
+  if (!cancelledAtFailure) input.onNetworkError();
+  const networkError = await describeNetworkFailure({
+    ...input,
+    online,
+    probe: cancelledAtFailure ? null : input.probe,
+  });
+  return { cancelled: input.signal?.aborted === true, networkError };
 }
 
 /**
  * Builds the typed error for a thrown fetch. A probe runs only for failures
- * that are neither aborted nor offline, and only when the host supplied one.
+ * that are neither aborted nor offline, only for a cross-origin API, and only
+ * when the host supplied one; a caller abort ends the wait for it.
  */
-export async function describeNetworkFailure(
+async function describeNetworkFailure(
   input: NetworkFailureInput,
 ): Promise<ApiNetworkError> {
   const pageHref: string | undefined = globalThis.location?.href;
   const pageOrigin = originOf(pageHref);
   const apiOrigin = originOf(input.baseUrl || pageHref, pageHref);
   const crossOrigin = pageOrigin && apiOrigin ? pageOrigin !== apiOrigin : null;
-  const online = readOnline();
-  let probe: ApiReachability | "not-run" = "not-run";
-  let classification: ApiNetworkFailureClass =
-    abortedClass(input.error, input.signal) ??
-    (online === false ? "offline" : "unclassified");
-  // A same-origin probe could be answered by the page's service worker cache,
-  // so it would not show the API host is reachable.
-  if (
-    classification === "unclassified" &&
-    input.probe &&
-    apiOrigin &&
-    crossOrigin !== false
-  ) {
-    probe = await input.probe(apiOrigin).catch(() => "unreachable" as const);
-    classification =
-      probe === "reachable" ? "cors-or-blocked" : "api-unreachable";
-  }
+  const online = input.online ?? readOnline();
+  const { classification, probe } = await classify(
+    input,
+    apiOrigin,
+    crossOrigin,
+    online,
+  );
   const cause: unknown =
     typeof input.error === "object" && input.error !== null
       ? Reflect.get(input.error, "cause")

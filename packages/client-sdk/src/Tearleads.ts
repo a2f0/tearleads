@@ -216,6 +216,8 @@ export class Tearleads {
     return new ApiClient(apiBaseUrl, {
       metrics: this.apiRequests,
       getIdentity: () => this.identity.signingFingerprint,
+      // A native source beats a WebView's navigator.onLine (Android misreports it).
+      isOnline: () => this.network.authoritativeOnline,
       networkFailureProbe: probeNetworkFailures
         ? createApiReachabilityProbe()
         : null,

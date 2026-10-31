@@ -20,6 +20,17 @@ describe("Network reachability", () => {
     expect(snapshots).toEqual([false, true]);
   });
 
+  test("only an authoritative source's reading classifies API failures", () => {
+    const network = new Network(true);
+    // Request outcomes would make a failed call read as offline.
+    expect(network.authoritativeOnline).toBeNull();
+    network.setConnectivityAuthoritative(true);
+    network.setOnline(false);
+    expect(network.authoritativeOnline).toBe(false);
+    network.setOnline(true);
+    expect(network.authoritativeOnline).toBe(true);
+  });
+
   test("the browser source owns connectivity so backend recovery retries stay live", () => {
     const source = createBrowserNetworkStatusSource();
     expect(source.authoritative).toBe(true);

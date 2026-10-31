@@ -10,8 +10,8 @@ import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
 import { measureApiRequest } from "./measureApiRequest";
 import {
   type ApiNetworkError,
-  describeNetworkFailure,
   networkFailureMessage,
+  settleNetworkFailure,
 } from "./networkFailure";
 import {
   bindPrototypeMethods,
@@ -401,17 +401,17 @@ export class ApiRequestRuntime {
         options.signal,
       );
     } catch (error) {
-      const cancelled = options.signal?.aborted === true;
-      if (!cancelled) this.onNetworkError?.();
-      const networkError = await describeNetworkFailure({
+      const { cancelled, networkError } = await settleNetworkFailure({
         attempt,
         baseUrl: this.baseUrl,
         elapsedMs: Date.now() - startedAt,
         error,
         headers,
+        isOnline: this.instrumentation?.isOnline,
         method,
+        onNetworkError: () => this.onNetworkError?.(),
         pathTemplate: operation.path,
-        probe: cancelled ? null : this.instrumentation?.networkFailureProbe,
+        probe: this.instrumentation?.networkFailureProbe,
         signal: options.signal,
       });
       return this.requestFailure({

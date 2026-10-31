@@ -20,7 +20,9 @@ request failure's `networkError` field, with:
 - API origin, page origin, and whether they differ;
 - whether the call needs a CORS preflight (non-simple method or headers);
 - attempt number (2 is the retry after a session renewal) and elapsed time;
-- `navigator.onLine`;
+- connectivity: the host's authoritative source when one governs it (the
+  native Capacitor source, since Android WebViews misreport
+  `navigator.onLine`), otherwise `navigator.onLine`;
 - the runtime's error name and message, and its cause's, with any URL cut to
   origin and path.
 
@@ -34,7 +36,8 @@ credentials, headers, or body, created by
 [`createApiReachabilityProbe`](../../packages/api-client/src/apiReachabilityProbe.ts).
 One probe per origin runs at a time and its result answers every failure for
 15 seconds, so a burst of failed calls costs one probe; it times out after 3
-seconds. Shells enable it with the host option `probeApiNetworkFailures`
+seconds, and a caller abort ends the wait and the request as a cancellation.
+Shells enable it with the host option `probeApiNetworkFailures`
 (`TearleadsOptions.probeApiNetworkFailures`); tests leave it off.
 
 | Classification    | Meaning                                                                |

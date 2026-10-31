@@ -35,6 +35,11 @@ export interface ApiRequestInstrumentation {
   readonly getIdentity: () => string | null;
   /** Host-enabled follow-up probe that classifies failed fetches. */
   readonly networkFailureProbe?: ApiReachabilityProbe | null | undefined;
+  /**
+   * The host's authoritative connectivity reading (a native source where the
+   * WebView's `navigator.onLine` is wrong); null defers to `navigator.onLine`.
+   */
+  readonly isOnline?: (() => boolean | null) | undefined;
 }
 
 type Outcome = "succeeded" | "failed" | "cancelled";
