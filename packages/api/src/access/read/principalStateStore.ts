@@ -16,3 +16,9 @@ export {
   principalCurrentStateKey,
   principalStateReferenceKey,
 } from "../shared/internal/principalStateStore";
+export {
+  memoizedGroupOrganizationDescriptor,
+  memoizedOrganizationDescriptor,
+  type OrganizationDescriptor,
+  rememberOrganizationDescriptor,
+} from "../shared/internal/principalTransactionMemo";

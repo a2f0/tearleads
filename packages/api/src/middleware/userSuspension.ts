@@ -8,9 +8,10 @@ import { eq } from "drizzle-orm";
 export type UserSuspensionCheck = (userId: string) => Promise<boolean>;
 
 /**
- * Whether a platform operator has suspended the user. `requireAuth` asks on
- * its throttled activity path, so a session that a suspension's sweep failed
- * to revoke is still refused within one activity interval.
+ * Whether a platform operator has suspended the user. Websocket liveness
+ * checks ask, so a socket that a suspension's sweep missed closes on its next
+ * check; `requireAuth` reads standing with its activity stamp instead
+ * (`createRecordActivityUnlessSuspended`).
  */
 function createIsUserSuspended(db: DatabaseSession): UserSuspensionCheck {
   return async (userId) => {

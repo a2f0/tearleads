@@ -1,13 +1,18 @@
-import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import type {
+  ApiDatabase,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
 import {
   blobAuditObjects,
   blobContentWriteHeaders,
   blobStages,
   containers,
   documentContentWriteHeaders,
+  groups,
   organizationBilling,
 } from "@tearleads/api-shared/schema";
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
+import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
 import {
   claimOrganizationForPurge,
   listOrganizationPurgeCandidates,
@@ -27,6 +32,31 @@ export interface OrganizationPurgeInput {
   readonly organizationIds?: readonly string[] | undefined;
 }
 
+/**
+ * Take the organization's principal lock, then each of its groups' locks in
+ * id order, before any purge write: the same order every group policy writer
+ * uses (organization, then group), so a purge waits for in-flight policy
+ * transactions and none of them can keep a current state the purge deletes.
+ * Only a writer holding the organization lock creates or deletes its groups,
+ * so the group ids read here stay the organization's groups for the purge.
+ */
+async function lockOrganizationPrincipals(
+  tx: DatabaseTransaction,
+  organizationId: string,
+): Promise<string[]> {
+  await lockPrincipalMutationInTransaction(tx, "organization", organizationId);
+  const groupRows = await tx
+    .select({ id: groups.id })
+    .from(groups)
+    .where(eq(groups.organizationId, organizationId))
+    .orderBy(asc(groups.id));
+  const groupIds = groupRows.map((row) => row.id);
+  for (const groupId of groupIds) {
+    await lockPrincipalMutationInTransaction(tx, "group", groupId);
+  }
+  return groupIds;
+}
+
 export async function purgeClaimedOrganizationRemoteData(input: {
   readonly claim: OrganizationPurgeClaim;
   readonly db: ApiDatabase;
@@ -36,6 +66,10 @@ export async function purgeClaimedOrganizationRemoteData(input: {
   Pick<OrganizationRemotePurgeScope, "blobIds" | "containerIds"> | undefined
 > {
   return input.db.transaction(async (tx) => {
+    const groupIds = await lockOrganizationPrincipals(
+      tx,
+      input.claim.organizationId,
+    );
     if (
       !(await renewOrganizationPurgeClaim(
         tx,
@@ -51,6 +85,7 @@ export async function purgeClaimedOrganizationRemoteData(input: {
     });
     await deleteOrganizationRemoteRows({
       executor: tx,
+      groupIds,
       now: input.now,
       organizationId: input.claim.organizationId,
       scope,

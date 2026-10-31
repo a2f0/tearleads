@@ -56,8 +56,9 @@ than renewing. Verify re-reads the flag after it stores the new session and
 revokes that session if a suspension committed meanwhile, so a sign-in racing
 the sweep cannot survive it. A sweep that fails answers 500 and can be
 repeated; meanwhile `requireAuth` re-reads `users.suspended_at` on its
-throttled activity path (about once a minute per session), so a session the
-sweep missed is refused within one activity interval. A failed check fails the
-request rather than admitting it. Websocket ticket upgrades and session
-liveness rechecks read the same flag, so a missed session's sockets close on
-their next check.
+throttled activity path (about once a minute per session), in the same
+statement that stamps `users.last_active_at` for an unsuspended identity, so a
+session the sweep missed is refused within one activity interval. A failed
+check fails the request rather than admitting it. Websocket ticket upgrades
+and session liveness rechecks read the same flag, so a missed session's
+sockets close on their next check.
