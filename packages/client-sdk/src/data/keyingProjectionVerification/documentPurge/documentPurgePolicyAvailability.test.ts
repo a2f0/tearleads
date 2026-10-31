@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeHistoricalPolicy";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { runWithSecurityIncidentReporting } from "../error";
 import {
@@ -20,17 +21,14 @@ test("an authenticated purge without a connection to a newer policy pin defers w
       "group",
       source.head.principalId,
     );
-    await database.execSql(
-      `INSERT INTO principal_policy_checkpoints
-      (principal_type, principal_id, version, state_hash, updated_at) VALUES (?, ?, ?, ?, ?)`,
-      [
-        "group",
-        source.head.principalId,
-        2,
-        "f".repeat(64),
-        "2026-10-08T00:00:00.000Z",
-      ],
-    );
+    await database.execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+      "group",
+      source.head.principalId,
+      2,
+      "f".repeat(64),
+      "2026-10-08T00:00:00.000Z",
+      "organization-1",
+    ]);
     const input = {
       execSql: database.execSql,
       expectedDocumentId: fixture.proof.documentId,

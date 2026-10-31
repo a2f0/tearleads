@@ -23,6 +23,7 @@ import {
 import { createMemoryHydratedAttachmentPersistence } from "./document-store/memoryHydratedAttachmentPersistence";
 import { withMemoryOrphanBlobReclaims } from "./document-store/memoryOrphanBlobReclaims";
 import { createFixtureBlobStore } from "./documentStoreBlobStore";
+import { emptyDatabaseExecSql } from "./emptyDatabaseExecSql";
 
 type RuntimeInput = Parameters<typeof createDocumentsWorkflowRuntime>[0];
 type RuntimeInputOverrides = {
@@ -423,7 +424,7 @@ export function createDocumentStoreRuntime(
       blobStore: createFixtureBlobStore(),
       dbStatus: "ready",
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-      execSql: async () => [],
+      execSql: emptyDatabaseExecSql,
       ...overrides.infra,
     },
     resolveTrustedUserIdentity: async () => null,

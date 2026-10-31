@@ -22,24 +22,24 @@ hash signed at it.
 | `AdvanceCheckpoint` | `advanceKeyingCheckpointsAtomically` |
 | `Preflight` | `preflightSecurityAnchorRestore` |
 | `Restore` | `restoreBackupDatabase` repeats the merge in its write transaction |
-| `Compatible` / `MergePins` | `mergeDocumentPurgeCheckpointBackupTables` and `mergePrincipalPolicyOwnerBackupTables` |
+| `Compatible` / `MergePins` | `mergeDocumentPurgeCheckpointBackupTables`, and the owner column in `mergePrincipalPolicyCheckpointBackupTables` |
 | `RestoredIncidents` | `mergeSecurityIncidentBackupTables` |
-| `MergeCheckpoint` / `CheckpointsCompatible` | `mergeAccessManifestCheckpointBackupTables` and `mergePrincipalPolicyCheckpointBackupTables` |
+| `MergeCheckpoint` / `CheckpointsCompatible` | `mergeAccessManifestCheckpointBackupTables` and the pin columns in `mergePrincipalPolicyCheckpointBackupTables` |
 
-Every production anchor table is one of the three kinds;
+Every production anchor table is one of the three kinds, except that a
+principal checkpoint row also carries its immutable owner;
 `securityAnchorBackupColumns` lists them, and `mergeSecurityAnchorBackupTables`
 merges each by its kind:
 
 | Table | Kind | Merge |
 | --- | --- | --- |
 | `document_purge_checkpoints` | immutable | union; a different value for one document is refused |
-| `principal_policy_organizations` | immutable | union; a different owning organization is refused |
 | `organization_founders` | immutable | union; a different founder is refused |
 | `trusted_user_identity_pins` | immutable | union; a different pinned identity is refused |
 | `principal_grant_retirements` | immutable | union of retired grants |
 | `security_incidents` | append-only | union under the retention rule below |
 | `access_manifest_checkpoints` | monotone | the higher epoch; one hash per epoch |
-| `principal_policy_checkpoints` | monotone | the higher version; one hash per version |
+| `principal_policy_checkpoints` | immutable owner, monotone pin | another owner is refused; the higher version; one hash per version; an unpinned row keeps a pin |
 
 The model checks one representative of each kind. Some local tables are
 deliberately not anchors, because losing them costs only a refetch:

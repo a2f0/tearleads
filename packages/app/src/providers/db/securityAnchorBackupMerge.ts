@@ -3,9 +3,6 @@ import {
   ACCESS_MANIFEST_CHECKPOINT_COLUMNS,
   ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME,
   mergeAccessManifestCheckpointBackupTables,
-  mergePrincipalPolicyCheckpointBackupTables,
-  PRINCIPAL_POLICY_CHECKPOINT_COLUMNS,
-  PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME,
 } from "./keyingCheckpointBackupMerge";
 import type { BackupIndex, BackupTable } from "./localBackupFormat";
 import {
@@ -19,11 +16,10 @@ import {
   PRINCIPAL_GRANT_RETIREMENT_TABLE_NAME,
 } from "./principalGrantRetirementBackupMerge";
 import {
-  assertPrincipalCheckpointBackupOwners,
-  mergePrincipalPolicyOwnerBackupTables,
-  PRINCIPAL_POLICY_OWNER_COLUMNS,
-  PRINCIPAL_POLICY_OWNER_TABLE_NAME,
-} from "./principalPolicyOwnerBackupMerge";
+  mergePrincipalPolicyCheckpointBackupTables,
+  PRINCIPAL_POLICY_CHECKPOINT_COLUMNS,
+  PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME,
+} from "./principalPolicyCheckpointBackupMerge";
 import {
   DOCUMENT_PURGE_CHECKPOINT_COLUMNS,
   DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME,
@@ -51,7 +47,6 @@ export const securityAnchorBackupColumns: ReadonlyMap<
   [PRINCIPAL_GRANT_RETIREMENT_TABLE_NAME, PRINCIPAL_GRANT_RETIREMENT_COLUMNS],
   [ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME, ACCESS_MANIFEST_CHECKPOINT_COLUMNS],
   [PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME, PRINCIPAL_POLICY_CHECKPOINT_COLUMNS],
-  [PRINCIPAL_POLICY_OWNER_TABLE_NAME, PRINCIPAL_POLICY_OWNER_COLUMNS],
   [TRUSTED_IDENTITY_PIN_TABLE_NAME, TRUSTED_IDENTITY_PIN_COLUMNS],
   [DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME, DOCUMENT_PURGE_CHECKPOINT_COLUMNS],
   [SECURITY_INCIDENT_TABLE_NAME, SECURITY_INCIDENT_COLUMNS],
@@ -99,13 +94,6 @@ export async function mergeSecurityAnchorBackupTables(input: {
   const mergedPrincipalCheckpoints = mergePrincipalPolicyCheckpointBackupTables(
     tableInput(PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME),
   );
-  const mergedPolicyOwners = mergePrincipalPolicyOwnerBackupTables(
-    tableInput(PRINCIPAL_POLICY_OWNER_TABLE_NAME),
-  );
-  assertPrincipalCheckpointBackupOwners(
-    mergedPrincipalCheckpoints,
-    mergedPolicyOwners,
-  );
   const mergedIdentityPins = mergeTrustedIdentityPinBackupTables(
     tableInput(TRUSTED_IDENTITY_PIN_TABLE_NAME),
   );
@@ -127,7 +115,6 @@ export async function mergeSecurityAnchorBackupTables(input: {
     ...input.restored.filter((table) => !isSecurityAnchorTableName(table.name)),
     ...(mergedAccessCheckpoints ? [mergedAccessCheckpoints] : []),
     ...(mergedPrincipalCheckpoints ? [mergedPrincipalCheckpoints] : []),
-    ...(mergedPolicyOwners ? [mergedPolicyOwners] : []),
     ...(mergedIdentityPins ? [mergedIdentityPins] : []),
     ...(mergedPurgeCheckpoints ? [mergedPurgeCheckpoints] : []),
     ...(mergedRetirements ? [mergedRetirements] : []),

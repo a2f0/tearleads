@@ -4,6 +4,7 @@ import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import {
   commitProjectionCheckpoints,
@@ -12,7 +13,6 @@ import {
 import { resolveReferencedPrincipalPolicy } from "../../data/keyingProjectionVerification/principalPolicy/resolvedPrincipalPolicy";
 import type { PrincipalPolicyResolveRequest } from "../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimePrincipalPolicyResolver } from "./runtimePolicyRecovery";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
@@ -61,16 +61,14 @@ async function fixture(kind: "target" | "dependency", updateServer = true) {
               f.policies.set(advanced.currentState.principalId, advanced);
               f.policies.set(history.organizationId, directory);
             }
-            await f.db
-              .insert(principalPolicyCheckpoints)
-              .values({
-                principalType: "group",
-                principalId: advanced.currentState.principalId,
-                version: advanced.currentState.version,
-                stateHash: advanced.currentState.stateHash,
-                updatedAt: advanced.currentState.createdAt,
-              })
-              .run();
+            await pinPrincipalPolicyCheckpoint(f.db, {
+              principalType: "group",
+              principalId: advanced.currentState.principalId,
+              version: advanced.currentState.version,
+              stateHash: advanced.currentState.stateHash,
+              updatedAt: advanced.currentState.createdAt,
+              organizationId: history.organizationId,
+            });
           }
           return recovered;
         },

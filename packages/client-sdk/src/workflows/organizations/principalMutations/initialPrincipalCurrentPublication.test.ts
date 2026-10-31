@@ -1,12 +1,12 @@
 import { beforeAll, expect, test } from "bun:test";
 import { initialCurrentPublicationFixture } from "../../../../test/helpers/initialCurrentPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   principalHistoryEntries,
   principalHistoryPrefixes,
 } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverPrincipalPolicyHistory } from "../../principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 
@@ -119,7 +119,10 @@ test.each([1, 2])(
         stateHash: "f".repeat(64),
         updatedAt: new Date().toISOString(),
       };
-      await f.db.insert(principalPolicyCheckpoints).values(prior).run();
+      await pinPrincipalPolicyCheckpoint(f.db, {
+        ...prior,
+        organizationId: history.organizationId,
+      });
       const prefixes = await f.db.select().from(principalHistoryPrefixes);
       await expect(
         retainAcknowledgedPrincipalCurrents(f.publication),
@@ -156,7 +159,7 @@ test("failure publishing the directory rolls back a newly admitted genesis", asy
     const prefixes = await f.db.select().from(principalHistoryPrefixes);
     await f.options.execSql(`CREATE TRIGGER reject_genesis_directory
       BEFORE INSERT ON principal_policy_checkpoints
-      WHEN NEW.principal_type = 'organization'
+      WHEN NEW.principal_type = 'organization' AND NEW.version IS NOT NULL
       BEGIN SELECT RAISE(ABORT, 'injected genesis directory failure'); END`);
     await expect(
       retainAcknowledgedPrincipalCurrents(f.publication),

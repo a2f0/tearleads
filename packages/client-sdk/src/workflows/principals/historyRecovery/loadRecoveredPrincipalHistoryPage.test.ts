@@ -3,6 +3,7 @@ import {
   createRecoveryFixture,
   signedRecoveryHistory,
 } from "../../../../test/helpers/principalHistoryRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalHistoryEntries } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
@@ -91,16 +92,14 @@ test.each(["entry", "missing", "key", "expired", "rollback", "fork"] as const)(
           .run();
       if (mode === "missing") await f.db.delete(principalHistoryEntries).run();
       if (mode === "rollback" || mode === "fork")
-        await f.db
-          .insert(principalPolicyCheckpoints)
-          .values({
-            principalType: "group",
-            principalId: history.expectedHead.principalId,
-            version: mode === "rollback" ? 67 : 66,
-            stateHash: "f".repeat(64),
-            updatedAt: new Date().toISOString(),
-          })
-          .run();
+        await pinPrincipalPolicyCheckpoint(f.db, {
+          principalType: "group",
+          principalId: history.expectedHead.principalId,
+          version: mode === "rollback" ? 67 : 66,
+          stateHash: "f".repeat(64),
+          updatedAt: new Date().toISOString(),
+          organizationId: f.options.organizationId,
+        });
       await expect(
         loadRecoveredPrincipalHistoryPage({
           ...f.options,
@@ -143,16 +142,14 @@ test("a pin published while reading history rows invalidates the display result"
     async exec({ sql, bind, rowMode }) {
       if (!advanced && sql.includes('from "principal_history_entries"')) {
         advanced = true;
-        await f.db
-          .insert(principalPolicyCheckpoints)
-          .values({
-            principalType: "group",
-            principalId: history.expectedHead.principalId,
-            version: history.expectedHead.version,
-            stateHash: history.expectedHead.stateHash,
-            updatedAt: history.bundle.currentState.createdAt,
-          })
-          .run();
+        await pinPrincipalPolicyCheckpoint(f.db, {
+          principalType: "group",
+          principalId: history.expectedHead.principalId,
+          version: history.expectedHead.version,
+          stateHash: history.expectedHead.stateHash,
+          updatedAt: history.bundle.currentState.createdAt,
+          organizationId: f.options.organizationId,
+        });
       }
       const rows =
         rowMode === "array"

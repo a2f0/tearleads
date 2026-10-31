@@ -24,6 +24,7 @@ import type {
 } from "@tearleads/validators/response";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../src/document-types/projectors";
 import { createSqlRuntimeBase } from "../createSqlRuntime";
+import { emptyDatabaseExecSql } from "../emptyDatabaseExecSql";
 import { createTestRuntimeTrustedUserIdentityResolver } from "../trustedUserIdentity";
 import { waitForCondition } from "../waitForCondition";
 import { createDocumentStoreMultipartApi } from "./documentStoreMultipartApi";
@@ -326,7 +327,7 @@ async function createSyncRuntimeInput(
       blobStore: createMemoryBlobStore(),
       dbStatus: "ready",
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-      execSql: async () => [],
+      execSql: emptyDatabaseExecSql,
     },
     resolveTrustedUserIdentity: createTestRuntimeTrustedUserIdentityResolver({
       encapsulationPublicKey: encapsulationKeyPair.publicKey,

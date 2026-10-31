@@ -5,6 +5,7 @@ import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../../test/helpers/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import {
   commitProjectionCheckpoints,
@@ -256,16 +257,14 @@ test.each(["admin", "group"] as const)(
       );
       f.policies.set(named.currentState.principalId, named);
       f.policies.set(history.organizationId, directory);
-      await f.db
-        .insert(principalPolicyCheckpoints)
-        .values({
-          principalType: "group",
-          principalId: named.currentState.principalId,
-          version: 67,
-          stateHash: named.currentState.stateHash,
-          updatedAt: named.currentState.createdAt,
-        })
-        .run();
+      await pinPrincipalPolicyCheckpoint(f.db, {
+        principalType: "group",
+        principalId: named.currentState.principalId,
+        version: 67,
+        stateHash: named.currentState.stateHash,
+        updatedAt: named.currentState.createdAt,
+        organizationId: history.organizationId,
+      });
       const context = await f.collect(
         warmer,
         cache,
@@ -290,16 +289,14 @@ test("a durable pin past the operation's directory evicts it", async () => {
     f.policies.set(admin.currentState.principalId, admin);
     f.policies.set(history.organizationId, directory);
     // Another operation admitted the Admins successor the memo predates.
-    await f.db
-      .insert(principalPolicyCheckpoints)
-      .values({
-        principalType: "group",
-        principalId: admin.currentState.principalId,
-        version: 67,
-        stateHash: admin.currentState.stateHash,
-        updatedAt: admin.currentState.createdAt,
-      })
-      .run();
+    await pinPrincipalPolicyCheckpoint(f.db, {
+      principalType: "group",
+      principalId: admin.currentState.principalId,
+      version: 67,
+      stateHash: admin.currentState.stateHash,
+      updatedAt: admin.currentState.createdAt,
+      organizationId: history.organizationId,
+    });
     expect(f.directoryHash(await f.collect(warmer))).toBe(
       directory.currentState.stateHash,
     );
@@ -325,16 +322,13 @@ test("a memoized directory below the organization pin is never returned", async 
     const admin = await history.extend(history.admin, 67);
     const directory = await history.advanceDirectory(history.directory, admin);
     f.policies.set(history.organizationId, directory);
-    await f.db
-      .insert(principalPolicyCheckpoints)
-      .values({
-        principalType: "organization",
-        principalId: history.organizationId,
-        version: directory.currentState.version,
-        stateHash: directory.currentState.stateHash,
-        updatedAt: directory.currentState.createdAt,
-      })
-      .run();
+    await pinPrincipalPolicyCheckpoint(f.db, {
+      principalType: "organization",
+      principalId: history.organizationId,
+      version: directory.currentState.version,
+      stateHash: directory.currentState.stateHash,
+      updatedAt: directory.currentState.createdAt,
+    });
     expect((await reader.directory([])).policy.stateHash).toBe(
       directory.currentState.stateHash,
     );

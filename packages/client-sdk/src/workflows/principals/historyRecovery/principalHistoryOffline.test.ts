@@ -4,6 +4,7 @@ import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../../test/helpers/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import {
   principalHistoryNodes,
@@ -124,16 +125,14 @@ test.each(["key", "context", "current", "proof"] as const)(
 test("offline recovery reports an unavailable prefix behind a durable checkpoint", async () => {
   const fixture = await cachedFixture();
   try {
-    await fixture.db
-      .insert(principalPolicyCheckpoints)
-      .values({
-        principalType: "group",
-        principalId: history.group.currentState.principalId,
-        version: 67,
-        stateHash: "f".repeat(64),
-        updatedAt: history.group.currentState.createdAt,
-      })
-      .run();
+    await pinPrincipalPolicyCheckpoint(fixture.db, {
+      principalType: "group",
+      principalId: history.group.currentState.principalId,
+      version: 67,
+      stateHash: "f".repeat(64),
+      updatedAt: history.group.currentState.createdAt,
+      organizationId: fixture.options.organizationId,
+    });
     await expect(
       recoverScopedPrincipalPolicyHistory({
         ...fixture.options,

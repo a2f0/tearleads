@@ -3,9 +3,9 @@ import {
   createRecoveryFixture,
   signedRecoveryHistory,
 } from "../../../../test/helpers/principalHistoryRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;
@@ -65,16 +65,14 @@ test("new citations and a later local checkpoint reuse a completed prefix", asyn
       "group",
       checkpoint.principalId,
     );
-    await fixture.db
-      .insert(principalPolicyCheckpoints)
-      .values({
-        principalType: "group",
-        principalId: checkpoint.principalId,
-        version: 32,
-        stateHash: checkpoint.stateHash,
-        updatedAt: checkpoint.createdAt,
-      })
-      .run();
+    await pinPrincipalPolicyCheckpoint(fixture.db, {
+      principalType: "group",
+      principalId: checkpoint.principalId,
+      version: 32,
+      stateHash: checkpoint.stateHash,
+      updatedAt: checkpoint.createdAt,
+      organizationId: fixture.options.organizationId,
+    });
     fixture.requests.length = 0;
     const recovered = await recoverPrincipalPolicyHistory({
       ...fixture.options,
