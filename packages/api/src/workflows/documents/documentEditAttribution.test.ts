@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  documentBaselines,
   documentContentWriteHeaders,
   documents,
   documentUpdateSpans,
@@ -176,14 +175,12 @@ test("attributes original uploads ahead of a rotation baseline re-assertion", as
     startCounter: 0,
     updateId: baselineUpdateId,
   });
-  // Attribution reads writerUserId off the write-header JSON; the baseline row
-  // only flags the update as a re-assertion.
-  await db.insert(documentBaselines).values({
-    baselineUpdateId,
-    checkpointKind: "rotate_baseline",
-    documentId,
-    sourceVersionVector: late,
-  });
+  // Attribution reads writerUserId off the write-header JSON; the baseline
+  // column only flags the update as a re-assertion.
+  await db
+    .update(documentUpdates)
+    .set({ baselineSourceVersionVector: late })
+    .where(eq(documentUpdates.id, baselineUpdateId));
 
   // Earliest-span-wins: alice keeps [0,3) as a direct edit under her own key;
   // only the genuinely-new [3,10) the baseline first delivered is credited to

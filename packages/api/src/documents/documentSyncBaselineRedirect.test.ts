@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  documentBaselines,
   documentContentWriteHeaders,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
@@ -168,6 +167,7 @@ async function insertBaselineCheckpoint(input: {
       partialStartVersionVector,
       partialEndVersionVector: input.sourceVersionVector,
       plaintextHash,
+      baselineSourceVersionVector: input.sourceVersionVector,
     })
     .returning({ sequence: documentUpdates.sequence });
   if (!insertedUpdate) throw new Error("Failed to insert baseline update");
@@ -185,12 +185,6 @@ async function insertBaselineCheckpoint(input: {
     nonceDomainHash: `nonce-${input.baselineUpdateId}`,
     headerHash: `header-${input.baselineUpdateId}`,
     header: { metadataHash } as unknown as WriteHeader,
-  });
-  await db.insert(documentBaselines).values({
-    documentId: input.documentId,
-    baselineUpdateId: input.baselineUpdateId,
-    checkpointKind: "rotate_baseline",
-    sourceVersionVector: input.sourceVersionVector,
   });
   return insertedUpdate.sequence;
 }

@@ -98,7 +98,7 @@ export const containerKeyEpochs = pgTable(
  *
  * Each row stores one encrypted wrap of a container KEK to a recipient
  * principal. User recipients are backed by `users`; managed recipients such as
- * organizations and groups are backed by `principalEpochKeys`. The verifier
+ * organizations and groups are backed by their current `principalStates` key. The verifier
  * treats the wrap set for a current KEK state as exact, so stale rows are
  * removed when a same-epoch recipient target is replaced.
  *

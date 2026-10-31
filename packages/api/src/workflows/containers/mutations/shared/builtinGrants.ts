@@ -1,14 +1,17 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { containerBuiltinGrants } from "@tearleads/api-shared/schema";
 import type {
   ContainerDirectGrant,
   ContainerGrantSubjectType,
   KeyingCanonicalJson,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import { and, eq } from "drizzle-orm";
 import { ContainerMutationError } from "../errors";
-import { assertOrganizationMetadataRoot } from "./organizationMetadataRoot";
+import {
+  assertOrganizationMetadataRoot,
+  isOrganizationMetadataRootState,
+  loadOrganizationBuiltinGrantSubjects,
+  type OrganizationBuiltinGrantSubjects,
+} from "./organizationMetadataRoot";
 
 type ContainerMutationSubject = Pick<
   ContainerDirectGrant,
@@ -98,48 +101,74 @@ function readBuiltinGrantMutation(
   return null;
 }
 
+/**
+ * Built-in grants are derived, not stored: the Admins group at admin on the
+ * organization root, and on the derived metadata slot the Admins group at
+ * admin and the Members group at read. Returns the fixed level, or null when
+ * the subject holds no built-in grant on the container.
+ */
+function builtinContainerGrantAccessLevel(input: {
+  readonly containerId: string;
+  readonly isMetadataRoot: boolean;
+  readonly organization: OrganizationBuiltinGrantSubjects;
+  readonly subject: ContainerMutationSubject;
+}): ContainerDirectGrant["accessLevel"] | null {
+  const { organization, subject } = input;
+  if (subject.subjectType !== "group") return null;
+  if (input.isMetadataRoot) {
+    if (subject.subjectId === organization.adminGroupId) return "admin";
+    if (subject.subjectId === organization.memberGroupId) return "read";
+    return null;
+  }
+  return input.containerId === organization.rootContainerId &&
+    subject.subjectId === organization.adminGroupId
+    ? "admin"
+    : null;
+}
+
 export async function assertContainerBuiltinGrantPolicyPreserved(input: {
   readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedContainerAccessManifest;
   readonly previousManifest: VerifiedContainerAccessManifest | null;
 }): Promise<void> {
-  await assertOrganizationMetadataRoot(input.executor, input.manifest.state);
+  const { state } = input.manifest;
+  const isMetadataRoot = await isOrganizationMetadataRootState(state);
   const mutation = readBuiltinGrantMutation(input.manifest);
-  if (!mutation) {
+  // Built-in subjects are always groups, so only a group grant or revoke, or
+  // any metadata-root mutation, reads the organization's facts.
+  if (!isMetadataRoot && mutation?.subjectType !== "group") {
     return;
   }
 
-  const [builtinGrant] = await input.executor
-    .select({ accessLevel: containerBuiltinGrants.accessLevel })
-    .from(containerBuiltinGrants)
-    .where(
-      and(
-        eq(
-          containerBuiltinGrants.organizationId,
-          input.manifest.state.organizationId,
-        ),
-        eq(
-          containerBuiltinGrants.containerId,
-          input.manifest.state.containerId,
-        ),
-        eq(containerBuiltinGrants.subjectType, mutation.subjectType),
-        eq(containerBuiltinGrants.subjectId, mutation.subjectId),
-      ),
-    )
-    .limit(1);
+  const organization = await loadOrganizationBuiltinGrantSubjects(
+    input.executor,
+    state.organizationId,
+  );
+  if (isMetadataRoot) {
+    assertOrganizationMetadataRoot(organization, state);
+  }
+  if (!mutation || !organization) {
+    return;
+  }
 
-  if (!builtinGrant) {
+  const builtinAccessLevel = builtinContainerGrantAccessLevel({
+    containerId: state.containerId,
+    isMetadataRoot,
+    organization,
+    subject: mutation,
+  });
+  if (builtinAccessLevel === null) {
     return;
   }
 
   if (
     mutation.eventType === "container.grant" &&
-    mutation.accessLevel === builtinGrant.accessLevel &&
+    mutation.accessLevel === builtinAccessLevel &&
     input.previousManifest?.state.directGrants.some(
       (grant) =>
         grant.subjectType === mutation.subjectType &&
         grant.subjectId === mutation.subjectId &&
-        grant.accessLevel === builtinGrant.accessLevel,
+        grant.accessLevel === builtinAccessLevel,
     )
   ) {
     return;

@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import {
+  db,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
 import {
   computePrincipalContainerGrantRoot,
@@ -19,8 +22,6 @@ import {
   storePrincipalState as storeVerifiedPrincipalState,
 } from "../../../test/helpers/principalState";
 import {
-  getCurrentPrincipalEpochKey,
-  getCurrentPrincipalEpochKeys,
   getCurrentPrincipalState,
   getCurrentPrincipalStates,
   getPrincipalStatesForReferences,
@@ -108,14 +109,8 @@ test("storeVerifiedPrincipalState persists signed state and epoch key", async ()
   expect(currentState?.stateHash).toBe(storedState.stateHash);
   expect(currentState?.keyEpoch).toBe(1);
 
-  const currentEpochKey = await getCurrentPrincipalEpochKey(
-    "group",
-    principalId,
-    db,
-  );
-  expect(currentEpochKey?.epoch).toBe(1);
-  expect(currentEpochKey?.introducedByStateHash).toBe(storedState.stateHash);
-  expect(currentEpochKey?.keyFingerprint).toBe(await toFingerprint(publicKey));
+  // The current state's key is the principal's recipient key.
+  expect(currentState?.keyFingerprint).toBe(await toFingerprint(publicKey));
 
   const repeatedState = await storeVerifiedPrincipalState(signedState, db);
   expect(repeatedState.stateHash).toBe(storedState.stateHash);
@@ -555,106 +550,93 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
   );
 });
 
-test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal id", async () => {
+// No epoch-key table backs this: the transition rule on the linear version
+// chain alone keeps one key per epoch.
+test("storeVerifiedPrincipalState refuses a same-epoch key swap", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const signer = await createPrincipalStateSigner(signingPublicKey);
-  const firstPrincipalId = crypto.randomUUID();
-  const secondPrincipalId = crypto.randomUUID();
-  const firstKemInitial = generateKemSeedAndKeyPair();
-  const firstKemCurrent = generateKemSeedAndKeyPair();
-  const secondKem = generateKemSeedAndKeyPair();
+  const principalId = crypto.randomUUID();
+  const kemA = generateKemSeedAndKeyPair();
+  const kemB = generateKemSeedAndKeyPair();
+  const members = [{ userId: signer.signerUserId }];
+  const projection = [{ userId: signer.signerUserId, role: "admin" as const }];
+  const signVersion = async (input: {
+    readonly keyEpoch: number;
+    readonly kemPublicKey: Uint8Array;
+    readonly prevStateHash: string | null;
+    readonly version: number;
+  }) =>
+    signPrincipalState(
+      {
+        principalType: "group",
+        principalId,
+        version: input.version,
+        prevStateHash: input.prevStateHash,
+        keyEpoch: input.keyEpoch,
+        encapsulationPublicKey: bytesToBase64(input.kemPublicKey),
+        keyFingerprint: await toFingerprint(input.kemPublicKey),
+        members,
+        projection,
+        signedAt: new Date(
+          Date.UTC(2026, 3, 7, 14, input.version),
+        ).toISOString(),
+        ...signer,
+      },
+      signingPrivateKey,
+    );
 
-  const firstStateInitial = await signPrincipalState(
-    {
-      principalType: "group",
-      principalId: firstPrincipalId,
-      version: 1,
-      prevStateHash: null,
+  const first = await storeVerifiedPrincipalState(
+    await signVersion({
       keyEpoch: 1,
-      encapsulationPublicKey: bytesToBase64(firstKemInitial.publicKey),
-      keyFingerprint: await toFingerprint(firstKemInitial.publicKey),
-      members: [{ userId: signer.signerUserId }],
-      projection: [
-        {
-          userId: signer.signerUserId,
-          role: "admin",
-        },
-      ],
-      signedAt: new Date("2026-04-07T14:00:00.000Z").toISOString(),
-      ...signer,
-    },
-    signingPrivateKey,
-  );
-  const storedFirstStateInitial = await storeVerifiedPrincipalState(
-    firstStateInitial,
+      kemPublicKey: kemA.publicKey,
+      prevStateHash: null,
+      version: 1,
+    }),
     db,
   );
-
-  await storeVerifiedPrincipalState(
-    await signPrincipalState(
-      {
-        principalType: "group",
-        principalId: firstPrincipalId,
-        version: 2,
-        prevStateHash: storedFirstStateInitial.stateHash,
-        keyEpoch: 2,
-        encapsulationPublicKey: bytesToBase64(firstKemCurrent.publicKey),
-        keyFingerprint: await toFingerprint(firstKemCurrent.publicKey),
-        members: [{ userId: signer.signerUserId }],
-        projection: [
-          {
-            userId: signer.signerUserId,
-            role: "admin",
-          },
-        ],
-        signedAt: new Date("2026-04-07T14:05:00.000Z").toISOString(),
-        ...signer,
-      },
-      signingPrivateKey,
-    ),
-    db,
-  );
-
-  await storeVerifiedPrincipalState(
-    await signPrincipalState(
-      {
-        principalType: "group",
-        principalId: secondPrincipalId,
-        version: 1,
-        prevStateHash: null,
+  await expect(
+    storeVerifiedPrincipalState(
+      await signVersion({
         keyEpoch: 1,
-        encapsulationPublicKey: bytesToBase64(secondKem.publicKey),
-        keyFingerprint: await toFingerprint(secondKem.publicKey),
-        members: [{ userId: signer.signerUserId }],
-        projection: [
-          {
-            userId: signer.signerUserId,
-            role: "admin",
-          },
-        ],
-        signedAt: new Date("2026-04-07T14:10:00.000Z").toISOString(),
-        ...signer,
-      },
-      signingPrivateKey,
+        kemPublicKey: kemB.publicKey,
+        prevStateHash: first.stateHash,
+        version: 2,
+      }),
+      db,
     ),
-    db,
-  );
+  ).rejects.toThrow("Principal policy key change requires a new key epoch");
 
-  const epochKeys = await getCurrentPrincipalEpochKeys(
-    "group",
-    [secondPrincipalId, firstPrincipalId, firstPrincipalId],
-    db,
+  const rotationBundle = await signVersion({
+    keyEpoch: 2,
+    kemPublicKey: kemB.publicKey,
+    prevStateHash: first.stateHash,
+    version: 2,
+  });
+  const counter = { statements: 0 };
+  const rotated = await withDatabaseStatementCounter(counter, () =>
+    storeVerifiedPrincipalState(rotationBundle, db),
   );
+  // PGlite / SQLite / Postgres: 9 / 11 / 11 while each store also inserted
+  // its epoch-key copy; 8 / 10 / 10 after.
+  expect(counter.statements).toBeLessThanOrEqual(10);
+  // Swapping back to the first key inside epoch 2 is the same refusal.
+  await expect(
+    storeVerifiedPrincipalState(
+      await signVersion({
+        keyEpoch: 2,
+        kemPublicKey: kemA.publicKey,
+        prevStateHash: rotated.stateHash,
+        version: 3,
+      }),
+      db,
+    ),
+  ).rejects.toThrow("Principal policy key change requires a new key epoch");
 
-  expect(epochKeys.get(firstPrincipalId)?.epoch).toBe(2);
-  expect(epochKeys.get(firstPrincipalId)?.keyFingerprint).toBe(
-    await toFingerprint(firstKemCurrent.publicKey),
-  );
-  expect(epochKeys.get(secondPrincipalId)?.epoch).toBe(1);
-  expect(epochKeys.get(secondPrincipalId)?.keyFingerprint).toBe(
-    await toFingerprint(secondKem.publicKey),
-  );
+  const current = await getCurrentPrincipalState("group", principalId, db);
+  expect(current?.version).toBe(2);
+  expect(current?.keyEpoch).toBe(2);
+  expect(current?.keyFingerprint).toBe(await toFingerprint(kemB.publicKey));
 });
 
 test("getCurrentPrincipalStates batches latest state lookup by principal id", async () => {

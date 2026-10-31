@@ -1,7 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  containerBuiltinGrants,
   containerMetadataDocuments,
   containers,
   documentContentKeyEpochs,
@@ -16,7 +15,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {
   createRegistrationRequestBody,
@@ -24,6 +23,7 @@ import {
 } from "../../../test/helpers/api";
 import { del, get } from "../../adapters/keyValueStore";
 import { routeApp } from "../../routeApp";
+import { listOrganizationContainerGrantRows } from "../../workflows/organizations/containerGrants";
 
 let fingerprint: string;
 
@@ -148,34 +148,35 @@ test("POST /auth/register marks the bootstrap admin grant as built-in", async ()
   const body = await res.json();
 
   const [organization] = await db
-    .select({ adminGroupId: organizations.adminGroupId })
+    .select({
+      adminGroupId: organizations.adminGroupId,
+      rootContainerId: organizations.rootContainerId,
+    })
     .from(organizations)
     .where(eq(organizations.id, body.organizationId));
   invariant(organization, "expected organization row");
+  expect(organization.rootContainerId).toBe(body.rootContainerId);
 
-  const [builtinGrant] = await db
-    .select({
-      accessLevel: containerBuiltinGrants.accessLevel,
-      containerId: containerBuiltinGrants.containerId,
-      organizationId: containerBuiltinGrants.organizationId,
-      subjectId: containerBuiltinGrants.subjectId,
-      subjectType: containerBuiltinGrants.subjectType,
+  // The root's built-in Admins grant is derived from the organization row.
+  const rootBuiltinGrants = (
+    await listOrganizationContainerGrantRows({
+      executor: db,
+      organizationId: body.organizationId,
     })
-    .from(containerBuiltinGrants)
-    .where(
-      and(
-        eq(containerBuiltinGrants.organizationId, body.organizationId),
-        eq(containerBuiltinGrants.containerId, body.rootContainerId),
-      ),
-    );
-
-  expect(builtinGrant).toEqual({
-    accessLevel: "admin",
-    containerId: body.rootContainerId,
-    organizationId: body.organizationId,
-    subjectId: organization.adminGroupId,
-    subjectType: "group",
-  });
+  )
+    .filter((row) => row.isBuiltin && row.containerId === body.rootContainerId)
+    .map((row) => ({
+      accessLevel: row.accessLevel,
+      subjectId: row.subjectId,
+      subjectType: row.subjectType,
+    }));
+  expect(rootBuiltinGrants).toEqual([
+    {
+      accessLevel: "admin",
+      subjectId: organization.adminGroupId,
+      subjectType: "group",
+    },
+  ]);
 });
 
 test("POST /auth/register returns 409 when key already exists", async () => {

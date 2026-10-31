@@ -6,7 +6,6 @@ import {
   groups as groupsTable,
   organizationGroupTombstones,
   organizations,
-  principalEpochKeys,
   principalMemberEnvelopes,
   principalPolicyCommits,
   principalPolicyMutationAcknowledgements,
@@ -151,14 +150,6 @@ export async function deleteOrganizationGroupRows(input: {
       and(
         eq(principalStatePayloads.principalType, "group"),
         eq(principalStatePayloads.principalId, input.groupId),
-      ),
-    );
-  await input.executor
-    .delete(principalEpochKeys)
-    .where(
-      and(
-        eq(principalEpochKeys.principalType, "group"),
-        eq(principalEpochKeys.principalId, input.groupId),
       ),
     );
   // Keep only the signed public state, membership projection, and grant

@@ -1,5 +1,4 @@
 import {
-  principalEpochKeys,
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
@@ -45,16 +44,6 @@ export interface StoredPrincipalStateChainEntry {
   state: StoredPrincipalState;
   projection: StoredPrincipalProjectionMember[];
   grants: PrincipalContainerGrant[];
-}
-
-export interface StoredPrincipalEpochKey {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  epoch: number;
-  introducedByStateHash: string;
-  encapsulationPublicKey: string;
-  keyFingerprint: string;
-  createdAt: Date;
 }
 
 export interface PrincipalStatePayloadInput {
@@ -110,16 +99,6 @@ export const principalStateSelect = {
   signature: principalStates.signature,
   stateHash: principalStates.stateHash,
   createdAt: principalStates.createdAt,
-} as const;
-
-export const principalEpochKeySelect = {
-  principalType: principalEpochKeys.principalType,
-  principalId: principalEpochKeys.principalId,
-  epoch: principalEpochKeys.epoch,
-  introducedByStateHash: principalEpochKeys.introducedByStateHash,
-  encapsulationPublicKey: principalEpochKeys.encapsulationPublicKey,
-  keyFingerprint: principalEpochKeys.keyFingerprint,
-  createdAt: principalEpochKeys.createdAt,
 } as const;
 
 export const principalStatePayloadSelect = {

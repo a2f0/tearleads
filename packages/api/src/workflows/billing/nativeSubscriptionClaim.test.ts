@@ -256,6 +256,7 @@ test("allows a custom destination and rejects Stripe-bound destinations", async 
     adminGroupId: crypto.randomUUID(),
     id: customOrganizationId,
     memberGroupId: crypto.randomUUID(),
+    rootContainerId: crypto.randomUUID(),
   });
   await db.insert(organizationBilling).values({
     organizationId: customOrganizationId,

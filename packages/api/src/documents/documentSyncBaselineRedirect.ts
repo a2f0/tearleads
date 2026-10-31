@@ -1,11 +1,10 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
-  documentBaselines,
   documentContentWriteHeaders,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { mergeVersionVectors } from "@tearleads/loro";
-import { and, desc, eq, lte } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lte } from "drizzle-orm";
 import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance";
 import { isAuthenticatedReplayableBaseline } from "./documentReplayableBaseline";
 import { hasMissingDocumentUpdatesThroughSequence } from "./documentUpdateStore";
@@ -107,32 +106,23 @@ async function loadLatestReadableBaseline(
 } | null> {
   const rows = await executor
     .select({
-      checkpointKind: documentBaselines.checkpointKind,
-      documentId: documentBaselines.documentId,
       header: documentContentWriteHeaders.header,
       partialEndVersionVector: documentUpdates.partialEndVersionVector,
       partialStartVersionVector: documentUpdates.partialStartVersionVector,
       plaintextHash: documentUpdates.plaintextHash,
       sequence: documentUpdates.sequence,
-      sourceVersionVector: documentBaselines.sourceVersionVector,
-      updateId: documentBaselines.baselineUpdateId,
+      sourceVersionVector: documentUpdates.baselineSourceVersionVector,
+      updateId: documentUpdates.id,
     })
-    .from(documentBaselines)
+    .from(documentUpdates)
     .innerJoin(
       documentContentWriteHeaders,
-      eq(
-        documentContentWriteHeaders.updateId,
-        documentBaselines.baselineUpdateId,
-      ),
-    )
-    .innerJoin(
-      documentUpdates,
-      eq(documentUpdates.id, documentBaselines.baselineUpdateId),
+      eq(documentContentWriteHeaders.updateId, documentUpdates.id),
     )
     .where(
       and(
-        eq(documentBaselines.documentId, input.documentId),
-        eq(documentBaselines.checkpointKind, "rotate_baseline"),
+        eq(documentUpdates.documentId, input.documentId),
+        isNotNull(documentUpdates.baselineSourceVersionVector),
         eq(documentContentWriteHeaders.contentKeyEpoch, input.contentKeyEpoch),
         ...(input.upperBoundSequence === undefined
           ? []
@@ -142,21 +132,26 @@ async function loadLatestReadableBaseline(
     .orderBy(desc(documentUpdates.sequence));
 
   for (const row of rows) {
+    const { sourceVersionVector } = row;
+    if (sourceVersionVector === null) continue;
+    // The kind is the rotation constant; the recomputed signed metadata hash
+    // still binds it, the vector, and the update row, so a tampered column
+    // fails closed rather than redirecting.
     if (
       await isAuthenticatedReplayableBaseline({
-        checkpointKind: row.checkpointKind,
-        documentId: row.documentId,
+        checkpointKind: "rotate_baseline",
+        documentId: input.documentId,
         metadataHash: row.header.metadataHash,
         partialEndVersionVector: row.partialEndVersionVector,
         partialStartVersionVector: row.partialStartVersionVector,
         plaintextHash: row.plaintextHash,
-        sourceVersionVector: row.sourceVersionVector,
+        sourceVersionVector,
         updateId: row.updateId,
       })
     ) {
       return {
         sequence: row.sequence,
-        sourceVersionVector: row.sourceVersionVector,
+        sourceVersionVector,
         updateId: row.updateId,
       };
     }

@@ -3,7 +3,6 @@ import type {
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import {
-  principalEpochKeys,
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
@@ -14,25 +13,22 @@ import {
   throwPrincipalPolicyValidationError as rejectPrincipalPolicy,
   type SignedPrincipalState,
 } from "@tearleads/crypto";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import { firstPerKey, uniqueSortedStrings } from "../../../utils/array";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { uniqueSortedStrings } from "../../../utils/array";
 import {
   ensureStoredPrincipalContainerGrantsMatch,
   listContainerGrantsForState,
 } from "./principalContainerGrantStore";
-import { storePrincipalEpochKeyForState } from "./principalEpochKeyStore";
 import { listProjectionMembersForState } from "./principalProjectionStore";
 import {
   normalizePrincipalStateWriteInput,
   type PrincipalStateBundleInput,
   type PrincipalStateExternalSignerAuthorizationInput,
-  principalEpochKeySelect,
   principalProjectionMemberSelect,
   principalStatePayloadSelect,
   principalStateProjectionKey,
   principalStateSelect,
   projectionMemberKey,
-  type StoredPrincipalEpochKey,
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
   type StoredPrincipalStatePayload,
@@ -578,7 +574,6 @@ export async function storeVerifiedPrincipalStateInTransaction(
     ...writeContext,
     storedContainerGrants: insertedState?.containerGrants,
   });
-  await storePrincipalEpochKeyForState(writeContext);
 
   return storedState;
 }
@@ -627,57 +622,5 @@ export async function listCurrentPrincipalProjectionMembers(
     principalId,
     currentState.stateHash,
     executor,
-  );
-}
-
-export async function getCurrentPrincipalEpochKey(
-  principalType: ManagedRecipientPrincipalType,
-  principalId: string,
-  executor: DatabaseSession,
-): Promise<StoredPrincipalEpochKey | null> {
-  const [row] = await executor
-    .select(principalEpochKeySelect)
-    .from(principalEpochKeys)
-    .where(
-      and(
-        eq(principalEpochKeys.principalType, principalType),
-        eq(principalEpochKeys.principalId, principalId),
-      ),
-    )
-    .orderBy(desc(principalEpochKeys.epoch))
-    .limit(1);
-
-  return row ?? null;
-}
-
-export async function getCurrentPrincipalEpochKeys(
-  principalType: ManagedRecipientPrincipalType,
-  principalIds: string[],
-  executor: DatabaseSession,
-): Promise<Map<string, StoredPrincipalEpochKey>> {
-  const uniquePrincipalIds = uniqueSortedStrings(principalIds);
-
-  if (uniquePrincipalIds.length === 0) {
-    return new Map();
-  }
-
-  const rows = await executor
-    .select(principalEpochKeySelect)
-    .from(principalEpochKeys)
-    .where(
-      and(
-        eq(principalEpochKeys.principalType, principalType),
-        inArray(principalEpochKeys.principalId, uniquePrincipalIds),
-      ),
-    )
-    .orderBy(
-      asc(principalEpochKeys.principalId),
-      desc(principalEpochKeys.epoch),
-    );
-
-  return firstPerKey(
-    rows,
-    (row) => row.principalId,
-    (row) => row,
   );
 }

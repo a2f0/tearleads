@@ -73,9 +73,9 @@ Every retained document update and every attachment blob carries the writer
 device's signed write header, and clients verify it on every synced record (see
 [Write Integrity](#write-integrity)). Integrity of accepted history therefore
 does not rest on server bookkeeping. The server keeps no separate audit ledger:
-`document_baselines` only marks which retained updates are rotation baselines,
-and `blob_audit_objects` registers every blob generation an attachment binding
-referenced.
+a nullable `document_updates` column only marks which retained updates are
+rotation baselines, and `blob_audit_objects` registers every blob generation an
+attachment binding referenced.
 
 ## Rekey / Rebaseline Model
 
@@ -104,8 +104,8 @@ content for an epoch that already exists because authorization state changed.
 
 Baseline updates can carry the source version vector / causal frontier used to
 build the proposed baseline. The writer's signed metadata hash commits to that
-frontier, and a `document_baselines` row repeats it so the server can find
-baselines without parsing write headers. Readers recompute the metadata hash
+frontier, and the update row repeats it so the server can find baselines
+without parsing write headers. Readers recompute the metadata hash
 from the served frontier, so a frontier altered in storage fails verification.
 
 The server does not turn that source frontier into a compare-and-set gate on
@@ -278,7 +278,7 @@ The persistence seams are:
 - causal sync indexing in `document_update_spans`
 - signed write headers in `document_content_write_headers` and
   `blob_content_write_headers`
-- rotation-baseline markers in `document_baselines`
+- rotation-baseline markers in `document_updates`
 - live blob reachability in `attachment_bindings`
 - the blob registry in `blob_audit_objects`
 - access-plane material in signed access manifest heads and key-target tables
@@ -288,18 +288,14 @@ The server retains every original encrypted document update in
 `document_updates`. Rotation baselines are full-history Loro snapshots, not
 flattened state-only snapshots.
 
-### `document_baselines`
+### Rotation baselines in `document_updates`
 
-One row per retained update that carries `checkpointKind`.
-
-Columns:
-
-- `baseline_update_id UUID PRIMARY KEY` (the `document_updates.id`)
-- `document_id UUID NOT NULL`
-- `checkpoint_kind TEXT NOT NULL`
-- `source_version_vector TEXT NOT NULL`
-
-Index: `(document_id)`.
+A retained update that carries `checkpointKind` stores its signed
+`sourceVersionVector` in the nullable `baseline_source_version_vector` column
+of its own `document_updates` row; every other update leaves it null. The
+checkpoint and payload kinds are the rotation constants, so they are not
+stored. A partial index on `(document_id, sequence)` where the column is set
+serves the redirect.
 
 Three readers consume it:
 
@@ -310,13 +306,14 @@ Three readers consume it:
 - edit attribution (`documentEditAttribution.ts`), which flags spans a baseline
   first delivered as re-assertions rather than authorship
 
-The redirect and the sync response recompute the signed metadata hash from
-these columns and the update row before they serve a baseline.
+The redirect and the sync response recompute the signed metadata hash from the
+constant kinds, this column, and the update row before they serve a baseline,
+so a tampered column fails closed.
 
 The write contract marks baselines explicitly on outgoing updates:
 `checkpointKind: "rotate_baseline"`, `checkpointPayloadKind:
 "full_history_snapshot"`, and `sourceVersionVector` are present together or
-absent together. Only marked updates get a row.
+absent together. Only marked updates set the column.
 
 ### `blob_audit_objects`
 
@@ -383,10 +380,10 @@ When new active-epoch updates are accepted, the transaction:
 - verifies and stores each update's signed write header in
   `document_content_write_headers`
 - writes `document_updates` and `document_update_spans`
-- writes one `document_baselines` row for each newly inserted update marked as
-  a baseline
+- sets `baseline_source_version_vector` on each newly inserted update marked
+  as a baseline, in the same insert
 
-Only updates the transaction inserts get a baseline row, so a retried sync stays
+Only updates the transaction inserts are written, so a retried sync stays
 idempotent. An unlink that carries an atomic rotation baseline uses the same
 append.
 

@@ -188,7 +188,7 @@ Behavior:
   with a full baseline
 - subtractive rotation for document epochs uses the fresh-baseline path with
   source-frontier checkpoint metadata signed in the write header;
-  `document_baselines` marks each baseline for the coverage-gated redirect
+  a baseline's own update row marks it for the coverage-gated redirect
 - note attachment rewrap-only work commits blob key-target updates without
   sending an unrelated Loro baseline
 - document discovery summaries from `POST /containers/documents/query` expose
