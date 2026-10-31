@@ -267,8 +267,8 @@
       "bytes": 19610
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 455,
-      "bytes": 32397
+      "lines": 459,
+      "bytes": 32698
     },
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
       "lines": 572,
