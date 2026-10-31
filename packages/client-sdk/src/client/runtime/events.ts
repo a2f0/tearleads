@@ -9,6 +9,8 @@ export type EventsListener = () => void;
 export class Events {
   private connectedValue = false;
   private connectionGenerationValue = 0;
+  private connectAttemptValue = 0;
+  private pendingConnectAttemptValue: number | undefined = undefined;
   private readonly listeners = createListenerSet();
   private snapshotValue: EventsSnapshot;
 
@@ -52,15 +54,48 @@ export class Events {
     this.invalidateAccessCaches();
   }
 
+  /**
+   * The connect attempt whose interest acknowledgement is still outstanding,
+   * or undefined. Document stores opened meanwhile defer their startup probe
+   * to that acknowledgement's reconnect probe; an attempt that ends without
+   * one releases the deferral, so each attempt gets its own id.
+   */
+  get pendingConnectAttempt(): number | undefined {
+    return this.pendingConnectAttemptValue;
+  }
+
+  /** A connect attempt started: its acknowledgement will arm probes. */
+  beginConnectAttempt(): number {
+    this.connectAttemptValue += 1;
+    this.pendingConnectAttemptValue = this.connectAttemptValue;
+    this.updateSnapshot(this.events);
+    return this.connectAttemptValue;
+  }
+
+  /** The attempt can no longer deliver an acknowledgement. */
+  endConnectAttempt(attempt: number): void {
+    if (this.pendingConnectAttemptValue !== attempt) {
+      return;
+    }
+    this.pendingConnectAttemptValue = undefined;
+    this.updateSnapshot(this.events);
+  }
+
   setConnected(connected: boolean): void {
-    if (this.connectedValue === connected) {
+    if (
+      this.connectedValue === connected &&
+      this.pendingConnectAttemptValue === undefined
+    ) {
       return;
     }
 
-    this.connectedValue = connected;
-    if (connected) {
-      this.connectionGenerationValue += 1;
+    if (this.connectedValue !== connected) {
+      this.connectedValue = connected;
+      if (connected) {
+        this.connectionGenerationValue += 1;
+      }
     }
+    this.pendingConnectAttemptValue = undefined;
     this.updateSnapshot(this.events);
   }
 

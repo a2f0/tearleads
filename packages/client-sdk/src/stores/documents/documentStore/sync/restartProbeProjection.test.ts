@@ -8,6 +8,10 @@ import type { DocumentsRuntime } from "../../types";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { createDocumentStoreState, type DocumentStoreState } from "../state";
 import {
+  deferStartupProbeToPendingConnect,
+  settleDeferredStartupProbe,
+} from "./startupProbeDeferral";
+import {
   allowDocumentStoreRemoteSync,
   markDocumentStoreRemoteSyncPending,
 } from "./syncGeneration";
@@ -39,6 +43,7 @@ function createProbeState(): DocumentStoreState {
     auth: undefined,
     infra: { blobStore: {}, documentProjectors: {}, execSql: () => undefined },
     resolveTrustedUserIdentity: async () => null,
+    util: { log: () => undefined },
     state: {
       containerId: "container-1",
       domainScope: "scope-1",
@@ -215,6 +220,65 @@ test("probe signal kernels replay onto the RestartProbeConvergence model", () =>
     "MarkContainerTreeReady",
     "DeclareKnownContainers",
     "AcknowledgeKnownContainers",
+    "BeginProbe",
+    "FinishProbe",
+  ]);
+  persistRestartProbeTrace(trace);
+});
+
+function withPendingConnectAttempt(
+  state: DocumentStoreState,
+  attempt: number | undefined,
+): DocumentsRuntime {
+  return {
+    ...state.runtime,
+    state: {
+      ...state.runtime.state,
+      serverEventsPendingConnectAttempt: attempt,
+    },
+  } as DocumentsRuntime;
+}
+
+test("startup probe deferral replays onto the RestartProbeConvergence model", () => {
+  const recorder = createRestartProbeTraceRecorder("startup-probe-deferral");
+  recorder.record({ action: "Restart" });
+
+  // Reopened while a connect attempt is in flight: the real deferral kernel
+  // waits on that attempt instead of arming the startup probe.
+  const deferred = createProbeState();
+  deferred.runtime = withPendingConnectAttempt(deferred, 3);
+  expect(deferStartupProbeToPendingConnect(deferred)).toBe(true);
+  recorder.record({
+    action: "InitializeOpenedPersistedDocument",
+    observed: { probeRequested: projectedProbeRequested(deferred, null) },
+  });
+  expect(deferred.remoteUpdatePending).toBe(false);
+
+  // The attempt ends without an acknowledgement: the kernel releases the
+  // deferred probe, which then runs and settles.
+  recorder.record({ action: "OpenEventsSocket" });
+  deferred.runtime = withPendingConnectAttempt(deferred, undefined);
+  let scheduled = false;
+  expect(
+    settleDeferredStartupProbe(deferred, false, () => {
+      scheduled = true;
+    }),
+  ).toBe(true);
+  expect(scheduled).toBe(true);
+  recorder.record({
+    action: "AbandonEventsConnect",
+    observed: { probeRequested: projectedProbeRequested(deferred, null) },
+  });
+  const flight = beginProbe(recorder, deferred);
+  finishProbe(recorder, deferred, flight);
+  expect(deferred.remoteUpdatePending).toBe(false);
+
+  const trace = recorder.trace();
+  expect(trace.steps.map((step) => step.action)).toEqual([
+    "Restart",
+    "InitializeOpenedPersistedDocument",
+    "OpenEventsSocket",
+    "AbandonEventsConnect",
     "BeginProbe",
     "FinishProbe",
   ]);

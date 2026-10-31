@@ -16,6 +16,8 @@ export interface ContainerInterestDeclaration {
     declarationId: string,
     acceptedIds: readonly string[],
   ) => boolean;
+  /** The initial declaration is sent and its acknowledgement outstanding. */
+  readonly awaitingInitialAcknowledgement: () => boolean;
   readonly stop: () => void;
   readonly sync: () => void;
   readonly invalidate: (containerId: string) => void;
@@ -160,6 +162,7 @@ function createInterestSender(
 
 const INACTIVE_DECLARATION: ContainerInterestDeclaration = {
   acknowledge: () => false,
+  awaitingInitialAcknowledgement: () => false,
   invalidate: () => undefined,
   retryRefused: () => undefined,
   stop: () => undefined,
@@ -265,6 +268,8 @@ export function startContainerInterestDeclaration(
       if (result.retry || syncRequested) syncInterest();
       return initial;
     },
+    awaitingInitialAcknowledgement: () =>
+      !stopped && !initialAcknowledged && initialDeclarationIds.size > 0,
     retryRefused: () => {
       if (stopped) return;
       // Keep accepted and pending IDs declared. A pending refusal observes

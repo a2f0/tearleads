@@ -98,6 +98,10 @@
       "lines": 597,
       "bytes": 24668
     },
+    "formal/document-sync/RestartProbeConvergence.tla": {
+      "lines": 522,
+      "bytes": 21345
+    },
     "formal/lean/vectors/transparency.json": {
       "lines": 3720,
       "bytes": 550577

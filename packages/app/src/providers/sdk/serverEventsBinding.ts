@@ -185,6 +185,33 @@ function markServerEventsConnected(
   log("WebSocket connected");
 }
 
+/**
+ * Opened documents defer their startup probe to the acknowledgement of the
+ * connect attempt in flight. The acknowledgement (`setConnected(true)`) and a
+ * socket disconnect (`setConnected(false)`) settle the attempt; `end` covers
+ * every other way it stops without one. Ending a settled attempt is a no-op.
+ */
+function trackConnectAttempts(tearleads: Tearleads) {
+  let attempt: number | null = null;
+  const end = (): void => {
+    if (attempt !== null) tearleads.events.endConnectAttempt(attempt);
+    attempt = null;
+  };
+  return {
+    begin: (): void => {
+      attempt = tearleads.events.beginConnectAttempt();
+    },
+    end,
+    /** Stop the loop, then end an attempt it left pending. */
+    endingWith:
+      (stop: () => void): (() => void) =>
+      () => {
+        stop();
+        end();
+      },
+  };
+}
+
 export function useServerEventsBinding(
   tearleads: Tearleads,
   wsUrl: string,
@@ -212,7 +239,10 @@ export function useServerEventsBinding(
       detachOrganizationSocket?.();
       detachOrganizationSocket = null;
     };
-    return startServerEventsConnectionLoop({
+    const attempts = trackConnectAttempts(tearleads);
+    const stopLoop = startServerEventsConnectionLoop({
+      onAttemptStart: attempts.begin,
+      onAttemptFailed: attempts.end,
       onDisconnect: () => {
         stopDeclarations();
         tearleads.events.setConnected(false);
@@ -270,6 +300,8 @@ export function useServerEventsBinding(
         // has synchronously installed the authoritative current set.
         interestHandle?.stop();
         interestHandle = startContainerInterestDeclaration(tearleads, ws);
+        // An unready tree holds the declaration unboundedly: stop deferring.
+        if (!interestHandle.awaitingInitialAcknowledgement()) attempts.end();
         detachOrganizationSocket?.();
         detachOrganizationSocket = attachOrganizationReadModelSocket(
           tearleads,
@@ -279,6 +311,7 @@ export function useServerEventsBinding(
       requestTicket: () => tearleads.requestWebSocketTicket(),
       wsUrl,
     });
+    return attempts.endingWith(stopLoop);
   }, [
     authToken,
     log,

@@ -26,16 +26,20 @@ export interface RecordedRestartProbeTrace {
 }
 
 export const ACTION_TEMPLATES: Readonly<Record<string, string>> = {
+  AbandonEventsConnect: "AbandonEventsConnect",
   AcknowledgeKnownContainers: "AcknowledgeKnownContainers",
   BeginProbe: "BeginProbe",
   DeclareKnownContainers: "DeclareKnownContainers",
   DisconnectEvents: "DisconnectEvents",
   FinishProbe: "FinishProbe",
-  InitializeOpenedPersistedDocument: "InitializeOpenedPersistedDocument",
+  // The recorded probeRequested bit pins whether the startup probe deferred.
+  InitializeOpenedPersistedDocument:
+    "(\\E defer \\in BOOLEAN : InitializeOpenedPersistedDocument(defer))",
   MarkContainerTreeReady: "MarkContainerTreeReady",
   OpenEventsSocket: "OpenEventsSocket",
   RemoteBodyAdvance: "RemoteBodyAdvance(%DELIVERED%)",
   RemoteSlotAdvance: "RemoteSlotAdvance(%DELIVERED%)",
+  ResumeEventsConnect: "ResumeEventsConnect",
   Restart: "Restart",
 };
 
@@ -153,6 +157,7 @@ CONSTANTS
   KeepQueuedRequestAcrossFlight = TRUE
   DeclareFromReadyTree = TRUE
   ArmProbeOnAck = TRUE
+  ReleaseDeferredProbeOnAbandon = TRUE
 
 INVARIANT TypeOK
 `;

@@ -425,6 +425,8 @@ function createRuntimeInputFactory(
       peerScope: dependencies.peerScope ?? null,
       serverEventsConnectionGeneration:
         dependencies.events.connectionGeneration,
+      serverEventsPendingConnectAttempt:
+        dependencies.events.pendingConnectAttempt,
     });
     if (
       !util ||

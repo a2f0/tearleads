@@ -56,6 +56,7 @@ import {
 } from "./state";
 import { registerDocumentStoreSyncLane } from "./sync";
 import { logRevalidationScheduled } from "./sync/remoteRevalidationTelemetry";
+import { settleDeferredStartupProbe } from "./sync/startupProbeDeferral";
 import {
   allowDocumentStoreRemoteSync,
   captureDocumentStoreRemoteSyncRequestGeneration,
@@ -138,6 +139,7 @@ function updateDocumentStoreRuntime(
   handleDocumentRemoteEvents(state, scheduleSync);
 
   if (state.snapshot.ready) {
+    settleDeferredStartupProbe(state, serverEventsReconnected, scheduleSync);
     if (serverEventsReconnected) {
       // The invalidation stream is lossy while disconnected. Once the server
       // has acknowledged this socket's authoritative interest declaration,
