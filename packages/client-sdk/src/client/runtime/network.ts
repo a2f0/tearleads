@@ -152,6 +152,13 @@ export class Network {
     this.connectivityAuthoritativeValue = authoritative;
   }
 
+  /** The independent source's reading; null when request outcomes drive `online`. */
+  get authoritativeOnline(): boolean | null {
+    return this.connectivityAuthoritativeValue
+      ? this.detectedOnlineValue
+      : null;
+  }
+
   /**
    * Reports the outcome of a backend request as a connectivity hint. Without an
    * authoritative source, it drives `online` exactly like a detected change.

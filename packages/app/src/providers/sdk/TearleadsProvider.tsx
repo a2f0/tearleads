@@ -232,6 +232,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
       logger: { log, logError },
       peerScope: hostConfig.localIdentityNamespace,
+      probeApiNetworkFailures: hostConfig.probeApiNetworkFailures,
       principalHistoryKeyProvider: localKeyringLock.createLocalKeyring
         ? createPrincipalHistoryKeyProvider(localKeyringLock.createLocalKeyring)
         : undefined,

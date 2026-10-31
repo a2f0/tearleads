@@ -9,6 +9,11 @@ import {
 import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
 import { measureApiRequest } from "./measureApiRequest";
 import {
+  type ApiNetworkError,
+  networkFailureMessage,
+  settleNetworkFailure,
+} from "./networkFailure";
+import {
   bindPrototypeMethods,
   describeErrorResponse,
   type ErrorResponseDescription,
@@ -167,6 +172,7 @@ export class ApiRequestRuntime {
     kind: RequestFailureKind;
     message: string;
     method: HttpMethod;
+    networkError?: ApiNetworkError | undefined;
     path: string;
     reportErrors: boolean;
     requiredContainerIds?: RequestFailure["requiredContainerIds"];
@@ -179,6 +185,7 @@ export class ApiRequestRuntime {
       kind: input.kind,
       message: input.message,
       method: input.method,
+      ...(input.networkError ? { networkError: input.networkError } : {}),
       ok: false,
       path: input.path,
       report: () => {
@@ -280,9 +287,7 @@ export class ApiRequestRuntime {
       authToken,
       failureOperation,
     );
-    if (!responseResult.ok) {
-      return responseResult;
-    }
+    if (!responseResult.ok) return responseResult;
     const response = responseResult.data;
     if (isSuccessfulResponse(response, additionalSuccessStatuses)) {
       this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
@@ -329,6 +334,7 @@ export class ApiRequestRuntime {
         options,
         retryAuthToken,
         failureOperation,
+        2,
       );
       if (!retryResult.ok) return retryResult;
       const retryResponse = retryResult.data;
@@ -368,11 +374,14 @@ export class ApiRequestRuntime {
     options: RequestResultOptions,
     authToken: string | null,
     operation: Parameters<OperationResponseRequestFn>[5],
+    /** 2 is the retry after a session renewal. */
+    attempt = 1,
   ): Promise<RequestResult<Response>> {
     const reportErrors = options.reportErrors ?? true;
+    const headers = this.buildHeaders(body, options.headers, authToken);
     const init: RequestInit & { duplex?: "half" } = {
       method,
-      headers: this.buildHeaders(body, options.headers, authToken),
+      headers,
       ...(options.signal ? { signal: options.signal } : {}),
     };
     if (body !== undefined) {
@@ -383,6 +392,7 @@ export class ApiRequestRuntime {
     }
 
     let response: Response;
+    const startedAt = Date.now();
     try {
       response = await measureApiRequest(
         this.instrumentation,
@@ -391,13 +401,25 @@ export class ApiRequestRuntime {
         options.signal,
       );
     } catch (error) {
-      const cancelled = options.signal?.aborted === true;
-      if (!cancelled) this.onNetworkError?.();
+      const { cancelled, networkError } = await settleNetworkFailure({
+        attempt,
+        baseUrl: this.baseUrl,
+        elapsedMs: Date.now() - startedAt,
+        error,
+        headers,
+        isOnline: this.instrumentation?.isOnline,
+        method,
+        onNetworkError: () => this.onNetworkError?.(),
+        pathTemplate: operation.path,
+        probe: this.instrumentation?.networkFailureProbe,
+        signal: options.signal,
+      });
       return this.requestFailure({
         ...(cancelled ? { code: "request_aborted" } : {}),
         kind: cancelled ? "cancelled" : "network",
-        message: `${method} ${path}: ${errorMessage(error)}`,
+        message: `${method} ${path}: ${networkFailureMessage(error, networkError)}`,
         method,
+        networkError,
         path,
         reportErrors: cancelled ? false : reportErrors,
         stalePrincipalHeads: undefined,

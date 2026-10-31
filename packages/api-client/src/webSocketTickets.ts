@@ -54,3 +54,19 @@ export class WebSocketTickets {
     return response?.ticket ?? null;
   }
 }
+
+/**
+ * Opens the API's server-events socket with a ticket from
+ * {@link WebSocketTickets.next}. The handshake cannot carry the bearer header,
+ * so the single-use ticket rides in the query; it replaces any `ticket` the
+ * configured URL already has and keeps the URL's other parameters.
+ */
+export function openServerEventsSocket(
+  wsUrl: string,
+  ticket: string,
+  createSocket: (url: string) => WebSocket = (url) => new WebSocket(url),
+): WebSocket {
+  const url = new URL(wsUrl);
+  url.searchParams.set("ticket", ticket);
+  return createSocket(url.toString());
+}

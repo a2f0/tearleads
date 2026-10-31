@@ -18,6 +18,22 @@ class FakeSocket extends EventTarget {
   }
 }
 
+// The SDK opens the real socket (api-client's openServerEventsSocket); the
+// loop only hands it each ticket.
+function socketOpener(sockets: FakeSocket[]): (ticket: string) => WebSocket {
+  return (ticket) => {
+    const socket = new FakeSocket(
+      `ws://events.example.test/events?ticket=${ticket}`,
+    );
+    sockets.push(socket);
+    return socket as unknown as WebSocket;
+  };
+}
+
+function noSocketExpected(): WebSocket {
+  throw new Error("This test never opens a socket");
+}
+
 async function flushAsyncWork(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
@@ -32,7 +48,7 @@ test("does not rebind timer dependency receivers", async () => {
       onMessage: () => undefined,
       onOpen: () => undefined,
       requestTicket: async () => null,
-      wsUrl: "ws://events.example.test/events",
+      openSocket: noSocketExpected,
     },
     {
       clearWatchdog: function (this: unknown, timer) {
@@ -76,14 +92,9 @@ test("reconnects with a fresh ticket and coalesces error plus close", async () =
         ticketRequests += 1;
         return ticket;
       },
-      wsUrl: "ws://events.example.test/events?existing=value",
+      openSocket: socketOpener(sockets),
     },
     {
-      createSocket: (url) => {
-        const socket = new FakeSocket(url);
-        sockets.push(socket);
-        return socket as unknown as WebSocket;
-      },
       random: () => 0.5,
       scheduleTimer: (callback, delayMs) => {
         timers.push({ callback, delayMs });
@@ -95,7 +106,6 @@ test("reconnects with a fresh ticket and coalesces error plus close", async () =
   await flushAsyncWork();
   expect(ticketRequests).toBe(1);
   expect(sockets).toHaveLength(1);
-  expect(sockets[0]?.url).toContain("existing=value");
   expect(sockets[0]?.url).toContain("ticket=ticket-one");
 
   sockets[0]?.open();
@@ -133,7 +143,7 @@ test("cancels a pending reconnect without minting another ticket", async () => {
         ticketRequests += 1;
         return null;
       },
-      wsUrl: "ws://events.example.test/events",
+      openSocket: noSocketExpected,
     },
     {
       clearTimer: (timer) => cleared.push(timer),
@@ -168,14 +178,9 @@ test("open-then-immediate-close failures retain exponential backoff", async () =
         ticketRequests += 1;
         return `ticket-${ticketRequests}`;
       },
-      wsUrl: "ws://events.example.test/events",
+      openSocket: socketOpener(sockets),
     },
     {
-      createSocket: (url) => {
-        const socket = new FakeSocket(url);
-        sockets.push(socket);
-        return socket as unknown as WebSocket;
-      },
       now: () => 0,
       random: () => 0.5,
       scheduleTimer: (callback, delayMs) => {
@@ -216,14 +221,9 @@ test("a stable connection resets reconnect backoff", async () => {
       onMessage: () => undefined,
       onOpen: () => undefined,
       requestTicket: async () => "ticket",
-      wsUrl: "ws://events.example.test/events",
+      openSocket: socketOpener(sockets),
     },
     {
-      createSocket: (url) => {
-        const socket = new FakeSocket(url);
-        sockets.push(socket);
-        return socket as unknown as WebSocket;
-      },
       now: () => nowMs,
       random: () => 0.5,
       scheduleTimer: (callback, delayMs) => {
@@ -262,7 +262,7 @@ test("retries when ticket minting never settles", async () => {
         ticketRequests += 1;
         return new Promise(() => {});
       },
-      wsUrl: "ws://events.example.test/events",
+      openSocket: noSocketExpected,
     },
     {
       random: () => 0.5,
@@ -307,14 +307,9 @@ test("closes and retries a socket whose opening handshake stalls", async () => {
       onMessage: () => undefined,
       onOpen: () => undefined,
       requestTicket: async () => "ticket",
-      wsUrl: "ws://events.example.test/events",
+      openSocket: socketOpener(sockets),
     },
     {
-      createSocket: (url) => {
-        const socket = new FakeSocket(url);
-        sockets.push(socket);
-        return socket as unknown as WebSocket;
-      },
       random: () => 0.5,
       scheduleTimer: (callback, delayMs) => {
         reconnectTimers.push({ callback, delayMs });
@@ -356,14 +351,9 @@ test("reports each attempt's start and a failure before any socket binds", async
       onMessage: () => undefined,
       onOpen: () => calls.push("open"),
       requestTicket: async () => tickets.shift() ?? null,
-      wsUrl: "ws://events.example.test/events",
+      openSocket: socketOpener(sockets),
     },
     {
-      createSocket: (url) => {
-        const socket = new FakeSocket(url);
-        sockets.push(socket);
-        return socket as unknown as WebSocket;
-      },
       random: () => 0.5,
       scheduleTimer: (callback) => {
         timers.push(callback);

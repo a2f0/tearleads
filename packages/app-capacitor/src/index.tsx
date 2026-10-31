@@ -105,6 +105,7 @@ const hostConfig = createAppHostConfig({
     Capacitor.getPlatform() === "ios"
       ? openCapacitorSubscriptionManagement
       : undefined,
+  probeApiNetworkFailures: true,
   readNativeBuildNumber: Capacitor.isNativePlatform()
     ? readNativeBuildNumber
     : undefined,
