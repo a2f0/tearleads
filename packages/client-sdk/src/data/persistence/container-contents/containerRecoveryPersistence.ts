@@ -193,23 +193,46 @@ async function readRecoveryBatchRows(execSql: ExecSql, ids: string[]) {
   return { creates, links, metadata, moves, targets };
 }
 
+/**
+ * Each folder's share of a batch's placement rows, indexed in one pass: the
+ * intents that target the folder or carry a link target in it (in intent id
+ * order), and all link targets of those intents (in the per-folder order).
+ */
+function indexPlacementRows(
+  rows: Awaited<ReturnType<typeof readRecoveryBatchRows>>,
+) {
+  const targetsByIntent = groupRows(rows.targets, "intent_id", false);
+  const linksByFolder = new Map<string, RecoveryRows>();
+  for (const link of rows.links) {
+    const intentId = String(Reflect.get(link, "id"));
+    const folders = new Set([
+      String(Reflect.get(link, "target_container_id")),
+      ...(targetsByIntent.get(intentId) ?? []).map((target) =>
+        String(Reflect.get(target, "container_id")),
+      ),
+    ]);
+    for (const folder of folders) {
+      const folderLinks = linksByFolder.get(folder);
+      if (folderLinks) folderLinks.push(link);
+      else linksByFolder.set(folder, [link]);
+    }
+  }
+  return { linksByFolder, targetsByIntent };
+}
+
 /** One folder's snapshot from its batch's rows, in the per-folder shape. */
 async function folderRecoverySnapshot(
   rows: Awaited<ReturnType<typeof readRecoveryBatchRows>>,
+  placements: ReturnType<typeof indexPlacementRows>,
   containerId: string,
   dormant: RecoveryRows[number],
 ) {
-  const folderLinks = rows.links.filter(
+  const links = placements.linksByFolder.get(containerId) ?? [];
+  // Links are in intent id order and targets in (intent id, container,
+  // operation) order, so concatenating per link keeps the per-folder order.
+  const targets = links.flatMap(
     (link) =>
-      Reflect.get(link, "target_container_id") === containerId ||
-      rows.targets.some(
-        (target) =>
-          Reflect.get(target, "intent_id") === Reflect.get(link, "id") &&
-          Reflect.get(target, "container_id") === containerId,
-      ),
-  );
-  const folderLinkIds = new Set(
-    folderLinks.map((link) => Reflect.get(link, "id")),
+      placements.targetsByIntent.get(String(Reflect.get(link, "id"))) ?? [],
   );
   const metadata = rows.metadata.map(
     (byFolder) => byFolder.get(containerId) ?? [],
@@ -226,12 +249,10 @@ async function folderRecoverySnapshot(
     snapshot: await summarizeRecoverySnapshot({
       creates: rows.creates.get(containerId) ?? [],
       dormant,
-      links: folderLinks,
+      links,
       metadata,
       moves: rows.moves.get(containerId) ?? [],
-      targets: rows.targets.filter((target) =>
-        folderLinkIds.has(Reflect.get(target, "intent_id")),
-      ),
+      targets,
     }),
   };
 }
@@ -263,9 +284,15 @@ async function recoverySnapshots(execSql: ExecSql, organizationId: string) {
     );
     const ids = batch.map((row) => String(Reflect.get(row, "container_id")));
     const rows = await readRecoveryBatchRows(execSql, ids);
+    const placements = indexPlacementRows(rows);
     for (const [index, dormant] of batch.entries()) {
       result.push(
-        await folderRecoverySnapshot(rows, ids[index] ?? "", dormant),
+        await folderRecoverySnapshot(
+          rows,
+          placements,
+          ids[index] ?? "",
+          dormant,
+        ),
       );
     }
   }

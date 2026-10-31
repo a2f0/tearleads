@@ -46,7 +46,11 @@ async function insertIntent(
  * on some, and placement intents that reach folders both as their target and
  * through link targets shared across folders.
  */
-async function retainedFoldersFixture(name: string, count: number) {
+async function retainedFoldersFixture(
+  name: string,
+  count: number,
+  sharedIntents = 0,
+) {
   const database = await createTestExecSql(name);
   const { execSql } = database;
   await persistence.ensureSchema(execSql);
@@ -103,6 +107,25 @@ async function retainedFoldersFixture(name: string, count: number) {
         [`${id}-placement`, containerId],
       );
     }
+  }
+  // Placement intents that every folder reaches through a link target.
+  for (let index = 0; index < sharedIntents; index += 1) {
+    const id = `shared-${String(index).padStart(4, "0")}`;
+    await insertIntent(execSql, {
+      id,
+      intentType: "document.link",
+      lane: "document.placement",
+      subjectId: `shared-document-${index}`,
+      targetContainerId: "elsewhere",
+    });
+    await execSql(
+      `INSERT INTO document_intent_link_targets (intent_id, operation, container_id)
+       VALUES ${Array.from({ length: count }, () => "(?, 'link', ?)").join(", ")}`,
+      Array.from({ length: count }, (_, folder) => [
+        id,
+        folderId(folder),
+      ]).flat(),
+    );
   }
   await persistence.deleteContainers(
     execSql,
@@ -203,5 +226,25 @@ test("each listed revision is the token a discard of that folder accepts", async
     } finally {
       f.close();
     }
+  }
+});
+
+test("folders sharing many placement intents each list their share", async () => {
+  const count = 8;
+  const f = await retainedFoldersFixture("retained-listing-shared", count, 300);
+  try {
+    const listed = await listRetainedContainerMetadata(f.execSql, "org");
+    expect(listed).toHaveLength(count);
+    const folder = listed[3];
+    if (!folder) throw new Error("Missing listed folder");
+    expect(
+      await discardRetainedContainerMetadata(f.execSql, {
+        containerId: folder.containerId,
+        organizationId: "org",
+        revision: folder.revision,
+      }),
+    ).toBe(true);
+  } finally {
+    f.close();
   }
 });
