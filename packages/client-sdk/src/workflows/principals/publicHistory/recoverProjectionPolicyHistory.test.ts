@@ -2,6 +2,7 @@ import { beforeAll, expect, test } from "bun:test";
 import { principalPolicyMatchesReference } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { createPublicProjectionHistoryFixture } from "../../../../test/helpers/publicProjectionHistory";
 import {
@@ -172,11 +173,16 @@ test("public projection recovery refuses a conflicting durable pin without chang
       stateHash: "0".repeat(64),
       updatedAt: history.group.currentState.createdAt,
     };
-    await f.db.insert(principalPolicyCheckpoints).values(pin).run();
+    await pinPrincipalPolicyCheckpoint(f.db, {
+      ...pin,
+      organizationId: history.organizationId,
+    });
     await expect(
       recoverProjectionPolicyHistory(f.options),
     ).rejects.toMatchObject({ code: "stale_predecessor" });
-    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([pin]);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([
+      { ...pin, organizationId: history.organizationId },
+    ]);
   } finally {
     f.close();
   }

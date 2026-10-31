@@ -1,8 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
-import {
-  principalHistoryNodeReferences,
-  principalHistoryRootOwners,
-} from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
+import { principalHistoryNodes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
+import { principalHistoryRootOwners } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 export interface PrincipalHistoryNodeScope {
@@ -17,7 +15,7 @@ export async function incrementPrincipalHistoryNodeReference(
   hash: string,
 ) {
   await tx
-    .insert(principalHistoryNodeReferences)
+    .insert(principalHistoryNodes)
     .values({
       ...scope,
       hash,
@@ -27,12 +25,9 @@ export async function incrementPrincipalHistoryNodeReference(
       rightHash: null,
     })
     .onConflictDoUpdate({
-      target: [
-        principalHistoryNodeReferences.scopeId,
-        principalHistoryNodeReferences.hash,
-      ],
+      target: [principalHistoryNodes.scopeId, principalHistoryNodes.hash],
       set: {
-        referenceCount: sql`${principalHistoryNodeReferences.referenceCount} + 1`,
+        referenceCount: sql`${principalHistoryNodes.referenceCount} + 1`,
       },
     })
     .run();
@@ -44,15 +39,15 @@ export async function decrementPrincipalHistoryNodeReference(
   hash: string,
 ) {
   await tx
-    .update(principalHistoryNodeReferences)
+    .update(principalHistoryNodes)
     .set({
-      referenceCount: sql`max(${principalHistoryNodeReferences.referenceCount} - 1, 0)`,
+      referenceCount: sql`max(${principalHistoryNodes.referenceCount} - 1, 0)`,
     })
     .where(
       and(
-        eq(principalHistoryNodeReferences.scopeId, scope.scopeId),
-        eq(principalHistoryNodeReferences.organizationId, scope.organizationId),
-        eq(principalHistoryNodeReferences.hash, hash),
+        eq(principalHistoryNodes.scopeId, scope.scopeId),
+        eq(principalHistoryNodes.organizationId, scope.organizationId),
+        eq(principalHistoryNodes.hash, hash),
       ),
     )
     .run();

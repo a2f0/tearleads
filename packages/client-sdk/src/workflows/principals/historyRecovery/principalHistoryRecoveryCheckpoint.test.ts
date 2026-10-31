@@ -3,10 +3,10 @@ import {
   createRecoveryFixture,
   signedRecoveryHistory,
 } from "../../../../test/helpers/principalHistoryRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
@@ -28,16 +28,14 @@ test.each(["reference", "checkpoint"] as const)(
       const stages = await fixture.db.select().from(principalHistoryStages);
       fixture.requests.length = 0;
       if (kind === "checkpoint") {
-        await fixture.db
-          .insert(principalPolicyCheckpoints)
-          .values({
-            principalType: "group",
-            principalId: history.expectedHead.principalId,
-            version: 67,
-            stateHash: history.expectedHead.stateHash,
-            updatedAt: history.bundle.currentState.createdAt,
-          })
-          .run();
+        await pinPrincipalPolicyCheckpoint(fixture.db, {
+          principalType: "group",
+          principalId: history.expectedHead.principalId,
+          version: 67,
+          stateHash: history.expectedHead.stateHash,
+          updatedAt: history.bundle.currentState.createdAt,
+          organizationId: fixture.options.organizationId,
+        });
       }
       await expect(
         recoverPrincipalPolicyHistory({
@@ -71,16 +69,14 @@ test.each([16, 66])(
           ? history.bundle.currentState
           : history.bundle.previousStates[version - 1]?.state;
       if (!state) throw new Error("Missing checkpoint entry");
-      await fixture.db
-        .insert(principalPolicyCheckpoints)
-        .values({
-          principalType: "group",
-          principalId: state.principalId,
-          version,
-          stateHash: state.stateHash,
-          updatedAt: state.createdAt,
-        })
-        .run();
+      await pinPrincipalPolicyCheckpoint(fixture.db, {
+        principalType: "group",
+        principalId: state.principalId,
+        version,
+        stateHash: state.stateHash,
+        updatedAt: state.createdAt,
+        organizationId: fixture.options.organizationId,
+      });
       const result = await recoverPrincipalPolicyHistory({
         ...fixture.options,
         retainedReferences: [
@@ -119,10 +115,11 @@ test.each([false, true])(
         version: 32,
         stateHash: state.stateHash,
       };
-      await fixture.db
-        .insert(principalPolicyCheckpoints)
-        .values({ ...checkpoint, updatedAt: state.createdAt })
-        .run();
+      await pinPrincipalPolicyCheckpoint(fixture.db, {
+        ...checkpoint,
+        updatedAt: state.createdAt,
+        organizationId: fixture.options.organizationId,
+      });
       await expect(
         recoverPrincipalPolicyHistory(fixture.options),
       ).rejects.toMatchObject({ code: "stale_predecessor" });
@@ -158,16 +155,14 @@ test("a checkpoint changing after a cached read propagates without replay or dis
           checkpointReads += 1;
         if (checkpointReads === 1 && !advanced) {
           advanced = true;
-          await fixture.db
-            .insert(principalPolicyCheckpoints)
-            .values({
-              principalType: "group",
-              principalId: history.expectedHead.principalId,
-              version: history.expectedHead.version,
-              stateHash: history.expectedHead.stateHash,
-              updatedAt: history.bundle.currentState.createdAt,
-            })
-            .run();
+          await pinPrincipalPolicyCheckpoint(fixture.db, {
+            principalType: "group",
+            principalId: history.expectedHead.principalId,
+            version: history.expectedHead.version,
+            stateHash: history.expectedHead.stateHash,
+            updatedAt: history.bundle.currentState.createdAt,
+            organizationId: fixture.options.organizationId,
+          });
         }
         return { rows: result };
       },

@@ -1,4 +1,5 @@
 import { beforeAll, expect, test } from "bun:test";
+import { isNotNull } from "drizzle-orm";
 import {
   createRecoveryFixture,
   signedRecoveryHistory,
@@ -46,7 +47,12 @@ test("128 private heads retain a linear proof graph and every authenticated hist
         ...f.options,
         expectedHead: principalPolicyHead(bundle),
       });
-    expect(await f.db.select().from(principalHistoryNodes)).toHaveLength(133);
+    expect(
+      await f.db
+        .select()
+        .from(principalHistoryNodes)
+        .where(isNotNull(principalHistoryNodes.leftHash)),
+    ).toHaveLength(133);
     expect(await f.db.select().from(principalHistoryEntries)).toHaveLength(128);
     expect(await f.db.select().from(principalHistoryRootOwners)).toHaveLength(
       3,
@@ -85,7 +91,12 @@ test("public prefix replacement releases obsolete roots while preserving old-hea
         ...f.options,
         source: f.source(bundle),
       });
-    expect(await f.db.select().from(principalHistoryNodes)).toHaveLength(127);
+    expect(
+      await f.db
+        .select()
+        .from(principalHistoryNodes)
+        .where(isNotNull(principalHistoryNodes.leftHash)),
+    ).toHaveLength(127);
     expect(await f.db.select().from(principalHistoryEntries)).toHaveLength(128);
     expect(await f.db.select().from(principalHistoryRootOwners)).toHaveLength(
       1,

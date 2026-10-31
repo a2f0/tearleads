@@ -14,7 +14,6 @@ import {
   clientSqlTables,
   containers,
   principalPolicyCheckpoints,
-  principalPolicyOrganizations,
 } from "../../src/data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../src/data/sqlite/sqlTableSchema";
@@ -115,14 +114,10 @@ export async function createOrganizationReplacementRecoveryHarness(
   await db.insert(principalPolicyCheckpoints).values({
     principalType: "organization",
     principalId: oldOrganizationId,
+    organizationId: oldOrganizationId,
     version: 2,
     stateHash: "b".repeat(64),
     updatedAt,
-  });
-  await db.insert(principalPolicyOrganizations).values({
-    principalType: "organization",
-    principalId: oldOrganizationId,
-    organizationId: oldOrganizationId,
   });
   session.setContext({
     organizationId: oldOrganizationId,
@@ -132,12 +127,9 @@ export async function createOrganizationReplacementRecoveryHarness(
   });
   const protectedState = () =>
     Promise.all(
-      [
-        containers,
-        accessManifestCheckpoints,
-        principalPolicyCheckpoints,
-        principalPolicyOrganizations,
-      ].map((table) => db.select().from(table)),
+      [containers, accessManifestCheckpoints, principalPolicyCheckpoints].map(
+        (table) => db.select().from(table),
+      ),
     );
   return {
     close,

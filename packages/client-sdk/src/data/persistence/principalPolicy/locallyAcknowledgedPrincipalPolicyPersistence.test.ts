@@ -407,8 +407,10 @@ test("checkpoint write failure rolls back the acknowledged bundle", async () => 
       policy.principalType,
       policy.principalId,
     );
+    // Ownership-only rows land before the bundle; fail only the pin.
     await execSql(`CREATE TRIGGER reject_policy_checkpoint
       BEFORE INSERT ON principal_policy_checkpoints
+      WHEN NEW.version IS NOT NULL
       BEGIN SELECT RAISE(ABORT, 'injected checkpoint failure'); END`);
 
     await expect(

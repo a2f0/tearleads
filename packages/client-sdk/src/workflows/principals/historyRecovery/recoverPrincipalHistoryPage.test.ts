@@ -3,6 +3,7 @@ import {
   createRecoveryFixture,
   signedRecoveryHistory,
 } from "../../../../test/helpers/principalHistoryRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalHistoryEntries } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
@@ -18,16 +19,14 @@ test("persistent display proof loss stops after one signed-history replay and pr
   const f = await createRecoveryFixture(history);
   try {
     await recoverPrincipalPolicyHistory(f.options);
-    await f.db
-      .insert(principalPolicyCheckpoints)
-      .values({
-        principalType: "group",
-        principalId: history.expectedHead.principalId,
-        version: history.expectedHead.version,
-        stateHash: history.expectedHead.stateHash,
-        updatedAt: history.bundle.currentState.createdAt,
-      })
-      .run();
+    await pinPrincipalPolicyCheckpoint(f.db, {
+      principalType: "group",
+      principalId: history.expectedHead.principalId,
+      version: history.expectedHead.version,
+      stateHash: history.expectedHead.stateHash,
+      updatedAt: history.bundle.currentState.createdAt,
+      organizationId: f.options.organizationId,
+    });
     const pins = await f.db.select().from(principalPolicyCheckpoints);
     const rows = await f.db.select().from(principalHistoryEntries);
     const lost = rows.find(

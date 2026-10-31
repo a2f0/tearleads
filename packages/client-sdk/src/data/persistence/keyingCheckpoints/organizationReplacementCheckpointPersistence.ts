@@ -11,13 +11,13 @@ import {
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { assertContainerNotRetired } from "../principalKeys/principalGrantRetirementPersistence";
-import { recordPrincipalPolicyOrganizationInTransaction } from "../principalPolicy/principalPolicyOrganizationPersistence";
 import {
   loadStoredAccessManifestCheckpoint,
   loadStoredPrincipalPolicyCheckpoint,
   upsertAccessManifestCheckpointInTransaction,
   upsertPrincipalPolicyCheckpointInTransaction,
 } from "./keyingCheckpointPersistence";
+import { recordPrincipalPolicyOrganizationInTransaction } from "./principalPolicyOrganizationPersistence";
 
 /**
  * A verified authorization from this identity also authenticates the winning

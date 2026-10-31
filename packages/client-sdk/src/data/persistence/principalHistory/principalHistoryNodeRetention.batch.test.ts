@@ -7,7 +7,6 @@ import {
   principalHistoryEvidenceTables,
   principalHistoryNodes,
 } from "../../sqlite/schema/principalHistoryEvidenceSchema";
-import { principalHistoryNodeReferences } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -29,7 +28,6 @@ import {
 } from "./principalHistoryRootOwnership";
 
 type WriteNodes = typeof writePrincipalHistoryNodes;
-type NodeReference = typeof principalHistoryNodeReferences.$inferInsert;
 type NodeRow = typeof principalHistoryNodes.$inferInsert;
 
 /** The per-node writer the batch replaced, kept as reference behavior. */
@@ -37,62 +35,42 @@ const writeOneNodeAtATime: WriteNodes = async (tx, scope, nodes) => {
   for (const node of nodes) {
     const [previous] = await tx
       .select()
-      .from(principalHistoryNodeReferences)
+      .from(principalHistoryNodes)
       .where(
         and(
-          eq(principalHistoryNodeReferences.scopeId, scope.scopeId),
-          eq(principalHistoryNodeReferences.hash, node.hash),
+          eq(principalHistoryNodes.scopeId, scope.scopeId),
+          eq(principalHistoryNodes.hash, node.hash),
         ),
       )
       .limit(1);
     if (
-      previous?.leftHash !== node.leftHash ||
-      previous.rightHash !== node.rightHash
-    ) {
-      const [existing] = await tx
-        .select({ hash: principalHistoryNodes.hash })
-        .from(principalHistoryNodes)
-        .where(
-          and(
-            eq(principalHistoryNodes.scopeId, scope.scopeId),
-            eq(principalHistoryNodes.hash, node.hash),
-          ),
-        )
-        .limit(1);
-      for (const hash of [node.leftHash, node.rightHash])
-        await incrementPrincipalHistoryNodeReference(tx, scope, hash);
-      await tx
-        .insert(principalHistoryNodeReferences)
-        .values({
-          ...scope,
-          ...node,
-          referenceCount: previous?.referenceCount ?? 0,
-          managed: previous?.managed || !existing,
-        })
-        .onConflictDoUpdate({
-          target: [
-            principalHistoryNodeReferences.scopeId,
-            principalHistoryNodeReferences.hash,
-          ],
-          set: {
-            leftHash: node.leftHash,
-            rightHash: node.rightHash,
-            managed: previous?.managed || !existing,
-          },
-        })
-        .run();
-      for (const hash of [previous?.leftHash, previous?.rightHash])
-        if (hash) await decrementPrincipalHistoryNodeReference(tx, scope, hash);
-    }
-    const row = { ...scope, ...node };
+      previous?.leftHash === node.leftHash &&
+      previous.rightHash === node.rightHash
+    )
+      continue;
+    // A node first stored here is managed; a placeholder row was not stored.
+    const managed =
+      !previous ||
+      previous.managed ||
+      previous.leftHash === null ||
+      previous.rightHash === null;
+    for (const hash of [node.leftHash, node.rightHash])
+      await incrementPrincipalHistoryNodeReference(tx, scope, hash);
     await tx
       .insert(principalHistoryNodes)
-      .values(row)
+      .values({
+        ...scope,
+        ...node,
+        referenceCount: previous?.referenceCount ?? 0,
+        managed,
+      })
       .onConflictDoUpdate({
         target: [principalHistoryNodes.scopeId, principalHistoryNodes.hash],
-        set: row,
+        set: { leftHash: node.leftHash, rightHash: node.rightHash, managed },
       })
       .run();
+    for (const hash of [previous?.leftHash, previous?.rightHash])
+      if (hash) await decrementPrincipalHistoryNodeReference(tx, scope, hash);
   }
 };
 
@@ -115,37 +93,24 @@ async function nodeDatabase(key: string) {
     async run(
       write: WriteNodes,
       scope: PrincipalHistoryNodeScope,
-      seed: { references: NodeReference[]; nodes: NodeRow[] },
+      seed: readonly NodeRow[],
       pages: readonly (readonly PrincipalHistoryIndexNode[])[],
     ) {
       await runtime.transaction(async (tx: ClientSQLiteTransactionScope) => {
-        for (const reference of seed.references)
-          await tx
-            .insert(principalHistoryNodeReferences)
-            .values(reference)
-            .onConflictDoNothing()
-            .run();
-        for (const node of seed.nodes)
+        for (const row of seed)
           await tx
             .insert(principalHistoryNodes)
-            .values(node)
+            .values(row)
             .onConflictDoNothing()
             .run();
       });
       for (const page of pages)
         await runtime.transaction((tx) => write(tx, scope, page));
-      return {
-        references: await runtime.db
-          .select()
-          .from(principalHistoryNodeReferences)
-          .where(eq(principalHistoryNodeReferences.scopeId, scope.scopeId))
-          .orderBy(asc(principalHistoryNodeReferences.hash)),
-        nodes: await runtime.db
-          .select()
-          .from(principalHistoryNodes)
-          .where(eq(principalHistoryNodes.scopeId, scope.scopeId))
-          .orderBy(asc(principalHistoryNodes.hash)),
-      };
+      return await runtime.db
+        .select()
+        .from(principalHistoryNodes)
+        .where(eq(principalHistoryNodes.scopeId, scope.scopeId))
+        .orderBy(asc(principalHistoryNodes.hash));
     },
   };
 }
@@ -169,9 +134,10 @@ test("batched node writes match the per-node writer on random stored graphs", as
     let edgeChanges = 0;
     for (let iteration = 0; iteration < 300; iteration++) {
       const scope = { scopeId: `scope-${iteration}`, organizationId: "org-1" };
-      const references = hashes
+      // Stored nodes carry child hashes; placeholders carry none.
+      const seed = hashes
         .filter(() => random() < 0.5)
-        .map((hash): NodeReference => {
+        .map((hash): NodeRow => {
           const edges = random() < 0.5 ? node(hash) : null;
           return {
             ...scope,
@@ -184,12 +150,9 @@ test("batched node writes match the per-node writer on random stored graphs", as
             rightHash: edges?.rightHash ?? null,
           };
         });
-      const nodes = hashes
-        .filter(() => random() < 0.4)
-        .map((hash): NodeRow => ({ ...scope, ...node(hash) }));
       const pages = Array.from({ length: 1 + Math.floor(random() * 2) }, () =>
         Array.from({ length: 1 + Math.floor(random() * 6) }, () => {
-          const stored = references[Math.floor(random() * references.length)];
+          const stored = seed[Math.floor(random() * seed.length)];
           // Unchanged edges take the early return; repeated hashes stay in.
           return stored?.leftHash && stored.rightHash && random() < 0.3
             ? {
@@ -200,7 +163,6 @@ test("batched node writes match the per-node writer on random stored graphs", as
             : node();
         }),
       );
-      const seed = { references, nodes };
       const expected = await reference.run(
         writeOneNodeAtATime,
         scope,
@@ -214,7 +176,7 @@ test("batched node writes match the per-node writer on random stored graphs", as
         pages,
       );
       expect(actual).toEqual(expected);
-      edgeChanges += expected.references.length;
+      edgeChanges += expected.length;
     }
     expect(edgeChanges).toBeGreaterThan(300);
   } finally {
@@ -289,17 +251,17 @@ test("saving a 128-entry evidence page takes a constant number of statements", a
     };
     const page = historyPage(128, "");
     expect(page.nodes).toHaveLength(127);
-    // BEGIN, entries, reference and node lookups, two 142-row reference
-    // upserts, one node upsert, COMMIT (was 899 inside the transaction).
-    expect(await save(page)).toBe(8);
-    // An identical page only rewrites entries and nodes (was 391).
+    // BEGIN, entries, one node lookup, two 142-row node upserts, COMMIT
+    // (was 8 with separate liveness rows, 899 per row).
     expect(await save(page)).toBe(6);
+    // An identical page only rewrites entries (was 6, and 391 per row).
+    expect(await save(page)).toBe(4);
     const { db } = getClientSQLitePersistenceRuntime(sqlite.execSql);
     expect(await db.select().from(principalHistoryEntries)).toHaveLength(128);
-    expect(await db.select().from(principalHistoryNodes)).toHaveLength(127);
-    expect(await db.select().from(principalHistoryNodeReferences)).toHaveLength(
-      255,
-    );
+    // 127 stored nodes and 128 leaf placeholders.
+    const rows = await db.select().from(principalHistoryNodes);
+    expect(rows).toHaveLength(255);
+    expect(rows.filter((row) => row.leftHash !== null)).toHaveLength(127);
   } finally {
     sqlite.close();
   }
@@ -322,7 +284,7 @@ test("an evidence page matches the per-node writer for new, repeated and appende
       },
     ];
     const pages = [first.nodes, first.nodes, appended, first.nodes];
-    const seed = { references: [], nodes: [] };
+    const seed: NodeRow[] = [];
     expect(
       await batched.run(writePrincipalHistoryNodes, scope, seed, pages),
     ).toEqual(await reference.run(writeOneNodeAtATime, scope, seed, pages));

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
@@ -76,17 +77,15 @@ for (const change of ["none", "caller", "lease", "fork", "newer"] as const) {
             if (change === "caller") callerCurrent = false;
             if (change === "lease") leaseCurrent = false;
             if (change === "fork" || change === "newer")
-              await cold.execSql(
-                `INSERT INTO principal_policy_checkpoints (principal_type, principal_id, version, state_hash, updated_at) VALUES (?, ?, ?, ?, ?)`,
-                [
-                  "organization",
-                  artifacts.organizationId,
-                  organization.currentState.version +
-                    (change === "newer" ? 1 : 0),
-                  "f".repeat(64),
-                  organization.currentState.createdAt,
-                ],
-              );
+              await cold.execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+                "organization",
+                artifacts.organizationId,
+                organization.currentState.version +
+                  (change === "newer" ? 1 : 0),
+                "f".repeat(64),
+                organization.currentState.createdAt,
+                null,
+              ]);
           }
           return identity;
         },

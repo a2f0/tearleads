@@ -10,7 +10,6 @@ import {
   accessManifestCheckpoints,
   keyingCheckpointTables,
   principalPolicyCheckpoints,
-  principalPolicyOrganizations,
   principalPolicyTables,
 } from "../../sqlite/schema";
 import { principalGrantRetirements } from "../../sqlite/schema/principalGrantRetirementSchema";
@@ -123,10 +122,6 @@ async function checkpointDatabase() {
           .select()
           .from(principalPolicyCheckpoints)
           .orderBy(asc(principalPolicyCheckpoints.principalId)),
-        owners: await db
-          .select()
-          .from(principalPolicyOrganizations)
-          .orderBy(asc(principalPolicyOrganizations.principalId)),
         bundles: await db
           .select({
             manifestHash: verifiedAccessManifestBundles.manifestHash,
@@ -175,19 +170,19 @@ test("a checkpoint advance takes a constant number of statements at any batch si
       expect(stored.policies.map(({ principalId }) => principalId)).toEqual(
         ids("group", policyCount).sort(),
       );
-      expect(stored.owners.map(({ organizationId }) => organizationId)).toEqual(
-        ids("group", policyCount).map(() => "org-1"),
-      );
+      expect(
+        stored.policies.map(({ organizationId }) => organizationId),
+      ).toEqual(ids("group", policyCount).map(() => "org-1"));
       expect(stored.bundles).toHaveLength(bundleCount);
     } finally {
       database.close();
     }
   }
   // A warm repeat: BEGIN, the retirement, access and policy reads, the access
-  // upsert, the owner read (owners exist, so no insert), the policy upsert,
-  // the bundle digests, their recency refresh, the prune count and COMMIT.
-  // The per-row statements took 12, 25 and 69.
-  expect(counts).toEqual([11, 11, 11]);
+  // upsert, the policy upsert that also checks and records its owner, the
+  // bundle digests, their recency refresh, the prune count and COMMIT. A
+  // separate owner read took 11; the per-row statements took 12, 25 and 69.
+  expect(counts).toEqual([10, 10, 10]);
 });
 
 test("set reads keep the per-row validation order", async () => {
@@ -213,7 +208,7 @@ test("set reads keep the per-row validation order", async () => {
       database.advance({ access: [fresh, fresh, retired], policies: [] }),
     ).rejects.toThrow("projection declares multiple access checkpoint heads");
     await database.db
-      .insert(principalPolicyOrganizations)
+      .insert(principalPolicyCheckpoints)
       .values({
         principalType: "group",
         principalId: "group-1",
@@ -230,9 +225,16 @@ test("set reads keep the per-row validation order", async () => {
     );
     const stored = await database.snapshot();
     expect(stored.access).toEqual([]);
-    expect(stored.policies).toEqual([]);
-    expect(stored.owners.map(({ principalId }) => principalId)).toEqual([
-      "group-1",
+    // Only the foreign owner's unpinned row remains.
+    expect(stored.policies).toEqual([
+      {
+        principalType: "group",
+        principalId: "group-1",
+        organizationId: "org-2",
+        version: null,
+        stateHash: null,
+        updatedAt: null,
+      },
     ]);
   } finally {
     database.close();

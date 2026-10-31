@@ -6,6 +6,7 @@ import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
@@ -100,16 +101,14 @@ async function fixture() {
     });
   const savePin = async (bundle: typeof history.directory) => {
     const head = bundle.currentState;
-    await source.db
-      .insert(principalPolicyCheckpoints)
-      .values({
-        principalType: head.principalType,
-        principalId: head.principalId,
-        version: head.version,
-        stateHash: head.stateHash,
-        updatedAt: head.createdAt,
-      })
-      .run();
+    await pinPrincipalPolicyCheckpoint(source.db, {
+      principalType: head.principalType,
+      principalId: head.principalId,
+      version: head.version,
+      stateHash: head.stateHash,
+      updatedAt: head.createdAt,
+      organizationId: history.organizationId,
+    });
   };
   return { ...source, state, incidents, pages, transport, collect, savePin };
 }

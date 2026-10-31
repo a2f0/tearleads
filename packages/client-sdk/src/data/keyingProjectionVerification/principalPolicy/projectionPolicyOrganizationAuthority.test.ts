@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
@@ -91,18 +92,14 @@ for (const historical of [false, true]) {
         "organization",
         owner.organizationId,
       );
-      await execSql(
-        `INSERT INTO principal_policy_checkpoints
-          (principal_type, principal_id, version, state_hash, updated_at)
-          VALUES (?, ?, ?, ?, ?)`,
-        [
-          "organization",
-          owner.organizationId,
-          previous.currentState.version,
-          previous.currentState.stateHash,
-          previous.currentState.signedAt,
-        ],
-      );
+      await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+        "organization",
+        owner.organizationId,
+        previous.currentState.version,
+        previous.currentState.stateHash,
+        previous.currentState.signedAt,
+        null,
+      ]);
       evidence.organization = projectionPolicySource(head);
       evidence.organizationPayloads.push(projectionDirectoryPayload(forged));
       if (historical)

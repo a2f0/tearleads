@@ -6,7 +6,6 @@ import {
   principalHistoryNodes,
 } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import {
-  principalHistoryNodeReferences,
   principalHistoryNodeRetentionTables,
   principalHistoryRootOwners,
 } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
@@ -43,13 +42,20 @@ async function fixture() {
   return {
     ...sqlite,
     ...runtime,
-    snapshot: async () => ({
-      nodes: await runtime.db.select().from(principalHistoryNodes),
-      references: await runtime.db
-        .select()
-        .from(principalHistoryNodeReferences),
-      owners: await runtime.db.select().from(principalHistoryRootOwners),
-    }),
+    snapshot: async () => {
+      const references = await runtime.db.select().from(principalHistoryNodes);
+      return {
+        // Stored nodes are the rows that carry child hashes.
+        nodes: references.flatMap(
+          ({ scopeId, organizationId, hash, leftHash, rightHash }) =>
+            leftHash && rightHash
+              ? [{ scopeId, organizationId, hash, leftHash, rightHash }]
+              : [],
+        ),
+        references,
+        owners: await runtime.db.select().from(principalHistoryRootOwners),
+      };
+    },
   };
 }
 
@@ -129,7 +135,9 @@ test("repeated evidence and owner writes do not accumulate references", async ()
 test("pre-index nodes stay available after a newly indexed parent is reclaimed", async () => {
   const f = await fixture();
   try {
-    await f.db.insert(principalHistoryNodes).values({ ...scope, ...shared });
+    await f.db
+      .insert(principalHistoryNodes)
+      .values({ ...scope, ...shared, referenceCount: 0, managed: false });
     await f.transaction(async (tx) => {
       await putNodes(tx, [shared, old]);
       await retainPrincipalHistoryRoot(tx, {
@@ -236,7 +244,7 @@ test("unreferenced node selection uses the scoped liveness index without a full 
     );
     const details = plan.map((row) => String(Reflect.get(row, "detail")));
     expect(details).toContainEqual(
-      expect.stringContaining("principal_history_node_references_reclaim_idx"),
+      expect.stringContaining("principal_history_nodes_reclaim_idx"),
     );
     expect(
       details.some(

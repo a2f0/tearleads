@@ -43,10 +43,7 @@ import {
   principalHistoryNodes,
   principalHistoryPrefixes,
 } from "./principalHistoryEvidenceSchema";
-import {
-  principalHistoryNodeReferences,
-  principalHistoryRootOwners,
-} from "./principalHistoryNodeRetentionSchema";
+import { principalHistoryRootOwners } from "./principalHistoryNodeRetentionSchema";
 import { principalKeyEnvelopeArchive } from "./principalHistoryRetentionSchema";
 import {
   principalHistoryStages,
@@ -61,7 +58,6 @@ import {
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
   principalPolicyCheckpoints,
-  principalPolicyOrganizations,
 } from "./principalPolicySchema";
 import {
   securityIncidents,
@@ -95,7 +91,6 @@ export {
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
   principalPolicyCheckpoints,
-  principalPolicyOrganizations,
 } from "./principalPolicySchema";
 export { securityIncidents } from "./securityIncidentSchema";
 export { containerDocumentTombstoneHolds, organizationReadModelTables };
@@ -553,6 +548,11 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
   },
 ];
 
+const principalPolicyCheckpointTable = {
+  ...defineSqlTableSchema(principalPolicyCheckpoints),
+  requiredColumns: ["organization_id"],
+};
+
 export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
   {
     ...defineSqlTableSchema(principalPolicies),
@@ -563,7 +563,7 @@ export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
     requiredColumns: ["current_grants_json"],
   },
   defineSqlTableSchema(principalPolicyBundleReferences),
-  defineSqlTableSchema(principalPolicyOrganizations),
+  principalPolicyCheckpointTable,
   ...principalHistoryStageTables,
   ...principalHistoryEvidenceTables,
 ];
@@ -573,7 +573,7 @@ export const keyingCheckpointTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(accessManifestCheckpoints),
   defineSqlTableSchema(principalGrantRetirements),
   defineSqlTableSchema(documentPurgeCheckpoints),
-  defineSqlTableSchema(principalPolicyCheckpoints),
+  principalPolicyCheckpointTable,
 ];
 
 export const trustedUserIdentityPinTables: ReadonlyArray<SqlTableSchema> = [
@@ -638,7 +638,7 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...principalMutationJournalTables,
   ...documentTables,
   ...principalPolicyTables,
-  ...keyingCheckpointTables,
+  ...keyingCheckpointTables.filter((t) => t !== principalPolicyCheckpointTable),
   ...verifiedManifestBundleTables,
   ...trustedUserIdentityPinTables,
   ...securityIncidentTables,
@@ -654,7 +654,6 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
 ];
 
 export const clientSQLiteSchema = {
-  principalHistoryNodeReferences,
   principalHistoryRootOwners,
   principalKeyEnvelopeArchive,
   principalMutationJournal,
@@ -668,7 +667,6 @@ export const clientSQLiteSchema = {
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
-  principalPolicyOrganizations,
   accessManifestCheckpoints,
   documentPurgeCheckpoints,
   principalPolicyCheckpoints,

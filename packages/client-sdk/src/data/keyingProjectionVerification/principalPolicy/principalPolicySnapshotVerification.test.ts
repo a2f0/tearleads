@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import {
@@ -98,18 +99,14 @@ test("rejects a signed snapshot that conflicts with the durable policy pin", asy
       state.principalType,
       state.principalId,
     );
-    await execSql(
-      `INSERT INTO principal_policy_checkpoints
-         (principal_type, principal_id, version, state_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        state.principalType,
-        state.principalId,
-        state.version,
-        "f".repeat(64),
-        "2026-08-27T00:00:00.000Z",
-      ],
-    );
+    await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+      state.principalType,
+      state.principalId,
+      state.version,
+      "f".repeat(64),
+      "2026-08-27T00:00:00.000Z",
+      "snapshot-test-org",
+    ]);
 
     const policies = await verifyPrincipalPolicySnapshots({
       resolveUserKey: fixture.resolveUserKey,
@@ -176,18 +173,14 @@ test("atomic purge policy pinning rejects a checkpoint race", async () => {
       raced.principalType,
       raced.principalId,
     );
-    await execSql(
-      `INSERT INTO principal_policy_checkpoints
-         (principal_type, principal_id, version, state_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        raced.principalType,
-        raced.principalId,
-        raced.version,
-        "e".repeat(64),
-        "2026-08-27T00:00:00.000Z",
-      ],
-    );
+    await execSql(PIN_PRINCIPAL_POLICY_CHECKPOINT_SQL, [
+      raced.principalType,
+      raced.principalId,
+      raced.version,
+      "e".repeat(64),
+      "2026-08-27T00:00:00.000Z",
+      "snapshot-test-org",
+    ]);
 
     await expect(commitProjectionCheckpoints(context)).rejects.toMatchObject({
       code: "equivocation",

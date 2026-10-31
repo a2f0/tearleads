@@ -55,7 +55,9 @@ async function loadOneReferenceAtATime(input: {
           ),
         )
         .limit(1);
-      return row ?? null;
+      return row?.leftHash && row.rightHash
+        ? { hash: row.hash, leftHash: row.leftHash, rightHash: row.rightHash }
+        : null;
     },
   });
   const [row] = await db
