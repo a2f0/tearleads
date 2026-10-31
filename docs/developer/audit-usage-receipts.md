@@ -72,6 +72,7 @@ its session ID or free-text error. The fixture test uses invented test inputs,
 not claimed audit measurements.
 
 ```sh
+# usage-inspection
 jq '{input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
      reasoning_tokens, total_tokens, api_calls, completed, partial,
      interrupted, auxiliary, total_including_auxiliary}' "$USAGE_FILE"
@@ -173,6 +174,7 @@ in place, not silently duplicated in the body; see below.
    checkpoint and final report only after success.
 
 ```sh
+# issue-readback
 set -eu
 umask 077
 gh api "repos/$REPO/issues/$ISSUE" > "$AUDIT_DIR/issue-readback.json"

@@ -11,13 +11,22 @@ const skills = [
   "protocol-security-audit",
 ];
 
-function shellExample(index: number): string {
+function shellExample(name: string): string {
   const guide = readFileSync(`${root}/${guidePath}`, "utf8");
   const blocks = [...guide.matchAll(/```sh\n([\s\S]*?)```/g)];
-  const block = blocks[index]?.[1];
+  const block = blocks.find((match) =>
+    match[1]?.startsWith(`# ${name}\n`),
+  )?.[1];
   expect(block).toBeDefined();
-  if (!block) throw new Error(`Missing shell example ${index}`);
+  if (!block) throw new Error(`Missing shell example ${name}`);
   return block;
+}
+
+function receiptTemplate(): string {
+  const guide = readFileSync(`${root}/${guidePath}`, "utf8");
+  const body = guide.match(/```markdown\n([\s\S]*?)```/)?.[1];
+  if (!body) throw new Error("Missing receipt template");
+  return body.replaceAll("RUN_ID", "fixture");
 }
 
 function fixtureRun(command: string, fixture: unknown) {
@@ -27,10 +36,7 @@ function fixtureRun(command: string, fixture: unknown) {
     const source = resolve(directory, "source.json");
     const report = resolve(directory, "report.md");
     writeFileSync(source, JSON.stringify(fixture));
-    writeFileSync(
-      report,
-      "## Audit usage receipt\n<!-- audit-usage:test:start -->\n",
-    );
+    writeFileSync(report, receiptTemplate());
     return Bun.spawnSync(["sh", "-c", command], {
       env: {
         PATH,
@@ -67,7 +73,7 @@ test("usage inspection keeps native counters and rollups separate", () => {
     auxiliary: { input_tokens: 3, output_tokens: 1, total_tokens: 4 },
     total_including_auxiliary: { total_tokens: 20, api_calls: 2 },
   };
-  const result = fixtureRun(shellExample(0), {
+  const result = fixtureRun(shellExample("usage-inspection"), {
     ...usage,
     session_id: "private-session",
     failure: "private error payload",
@@ -78,7 +84,7 @@ test("usage inspection keeps native counters and rollups separate", () => {
 });
 
 test("missing usage is null, not fabricated zero", () => {
-  const result = fixtureRun(shellExample(0), {});
+  const result = fixtureRun(shellExample("usage-inspection"), {});
   expect(result.exitCode).toBe(0);
   expect(Object.values(JSON.parse(result.stdout.toString()))).toEqual(
     Array(12).fill(null),
@@ -92,27 +98,20 @@ const readbackFixture = `gh() {
 }
 `;
 for (const [name, body, pullRequest, code] of [
-  [
-    "exact body",
-    "## Audit usage receipt\n<!-- audit-usage:test:start -->\n",
-    null,
-    0,
-  ],
+  ["exact body", receiptTemplate(), null, 0],
   ["wrong body", "different receipt", null, 1],
   ["missing body", null, null, 1],
-  [
-    "pull request",
-    "## Audit usage receipt\n<!-- audit-usage:test:start -->\n",
-    {},
-    1,
-  ],
+  ["pull request", receiptTemplate(), {}, 1],
 ] as const) {
   test(`readback validates ${name}`, () => {
-    const result = fixtureRun(readbackFixture + shellExample(1), {
-      body,
-      pull_request: pullRequest,
-      html_url: "https://github.com/fixture/audit/issues/123",
-    });
+    const result = fixtureRun(
+      readbackFixture + shellExample("issue-readback"),
+      {
+        body,
+        pull_request: pullRequest,
+        html_url: "https://github.com/fixture/audit/issues/123",
+      },
+    );
     expect(result.exitCode).toBe(code);
     expect(result.stdout.toString().includes("https://github.com/")).toBe(
       code === 0,
@@ -121,7 +120,10 @@ for (const [name, body, pullRequest, code] of [
 }
 
 test("failed readback cannot report success", () => {
-  const result = fixtureRun(`gh() { return 23; }\n${shellExample(1)}`, {});
+  const result = fixtureRun(
+    `gh() { return 23; }\n${shellExample("issue-readback")}`,
+    {},
+  );
   expect(result.exitCode).toBe(23);
   expect(result.stdout.toString()).toBe("");
 });
