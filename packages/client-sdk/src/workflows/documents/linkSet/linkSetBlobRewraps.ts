@@ -60,8 +60,9 @@ export function createLinkSetAttachmentReuse(): LinkSetAttachmentReuse {
  * was authenticated or wrapped by this device before that leg signed it, so a
  * reuse propagates no key to a new scope; any target the previous leg did not
  * wrap returns null and the leg lists and authenticates as usual. A bind or
- * detach in between makes the server refuse the blob set, and the caller
- * re-lists.
+ * detach in between, a content-key epoch change, or a re-entered retired
+ * target (the API keeps its stored wrap over the fresh one) makes the API
+ * refuse with an uncoded 409, and the caller re-lists once.
  */
 export function reuseCommittedBlobRewraps(input: {
   committed: BlobRewraps;
