@@ -7,7 +7,8 @@ import {
   runOncePerConnection,
   runSerializedSqlMutation,
 } from "./sqlExec";
-import { ensureSqlTables } from "./sqlTableSchema";
+import { getClientSQLitePersistenceRuntime } from "./sqlitePersistenceRuntime";
+import { ensureSqlTables, type SqlTableSchema } from "./sqlTableSchema";
 
 // The spy is a distinct function identity, so the memo (and mutation lock)
 // under test keys on the spy itself rather than the wrapped executor. That is
@@ -115,5 +116,119 @@ test("outermost mutations draw their queue wait and lock hold on User Timing tra
     ]);
   } finally {
     measure.mockRestore();
+  }
+});
+
+function memoTable(name: string): SqlTableSchema {
+  return { name, createSql: `CREATE TABLE IF NOT EXISTS ${name} (id TEXT)` };
+}
+
+async function tableExists(execSql: ExecSql, name: string): Promise<boolean> {
+  const rows = await execSql(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+    [name],
+  );
+  return rows.length > 0;
+}
+
+// Runs `operation` in a runtime transaction on the locked executor, the way
+// persistence helpers nest ensures inside their transactions.
+function inTransaction(
+  execSql: ExecSql,
+  operation: (lockedExecSql: ExecSql) => Promise<void>,
+): Promise<void> {
+  return runSerializedSqlMutation(execSql, (lockedExecSql) =>
+    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(() =>
+      operation(lockedExecSql),
+    ),
+  );
+}
+
+test("a rolled-back transaction forgets only the schema it first ensured", async () => {
+  const { close, execSql } = await createTestExecSql("ensure-memo-rollback");
+  try {
+    const { calls, spyExecSql } = createSpyExecSql(execSql);
+    const kept = memoTable("memo_kept");
+    const undone = memoTable("memo_undone");
+    await ensureSqlTables(spyExecSql, [kept]);
+
+    await expect(
+      inTransaction(spyExecSql, async (lockedExecSql) => {
+        await ensureSqlTables(lockedExecSql, [kept, undone]);
+        throw new Error("rolled back");
+      }),
+    ).rejects.toThrow("rolled back");
+    expect(await tableExists(execSql, "memo_undone")).toBe(false);
+
+    calls.length = 0;
+    await ensureSqlTables(spyExecSql, [kept, undone]);
+    expect(calls).toEqual([undone.createSql]);
+    expect(await tableExists(execSql, "memo_undone")).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("savepoint ensures follow the savepoint and then the enclosing transaction", async () => {
+  const { close, execSql } = await createTestExecSql("ensure-memo-savepoint");
+  try {
+    const { calls, spyExecSql } = createSpyExecSql(execSql);
+    const released = memoTable("memo_released");
+    const rolledBack = memoTable("memo_rolled_back");
+    await inTransaction(spyExecSql, async (lockedExecSql) => {
+      const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
+      await expect(
+        runtime.transaction(async () => {
+          await ensureSqlTables(lockedExecSql, [rolledBack]);
+          throw new Error("savepoint rolled back");
+        }),
+      ).rejects.toThrow("savepoint rolled back");
+      await runtime.transaction(() =>
+        ensureSqlTables(lockedExecSql, [released]),
+      );
+    });
+    calls.length = 0;
+    await ensureSqlTables(spyExecSql, [released, rolledBack]);
+    expect(calls).toEqual([rolledBack.createSql]);
+
+    // A released savepoint's ensure is undone by its enclosing rollback.
+    const nested = memoTable("memo_nested");
+    await expect(
+      inTransaction(spyExecSql, async (lockedExecSql) => {
+        await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(() =>
+          ensureSqlTables(lockedExecSql, [nested]),
+        );
+        throw new Error("outer rolled back");
+      }),
+    ).rejects.toThrow("outer rolled back");
+    calls.length = 0;
+    await ensureSqlTables(spyExecSql, [released, nested]);
+    expect(calls).toEqual([nested.createSql]);
+    expect(await tableExists(execSql, "memo_nested")).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("a refused guarded transaction forgets the schema it first ensured", async () => {
+  const { close, execSql } = await createTestExecSql("ensure-memo-guarded");
+  try {
+    const { calls, spyExecSql } = createSpyExecSql(execSql);
+    const refused = memoTable("memo_refused");
+    const outcome = await runSerializedSqlMutation(
+      spyExecSql,
+      (lockedExecSql) =>
+        getClientSQLitePersistenceRuntime(lockedExecSql).guardedTransaction(
+          () => ensureSqlTables(lockedExecSql, [refused]),
+          () => false,
+        ),
+    );
+    expect(outcome.committed).toBe(false);
+    calls.length = 0;
+    await ensureSqlTables(spyExecSql, [refused]);
+    expect(calls).toEqual([refused.createSql]);
+    expect(await tableExists(execSql, "memo_refused")).toBe(true);
+  } finally {
+    close();
   }
 });

@@ -13,6 +13,7 @@ import {
   markCompletedConnectionOnce,
   runSerializedSqlMutation,
 } from "./sqlExec";
+import { sqliteRowsPerStatement } from "./sqliteBindBudget";
 
 export interface SqlTableSchema {
   name: string;
@@ -156,24 +157,48 @@ function getTableEnsureKey(table: SqlTableSchema): string {
   return `sql-table:${table.name}`;
 }
 
+// Two binds per table; the schema has far fewer tables than this.
+const REQUIRED_COLUMN_TABLES_PER_STATEMENT = sqliteRowsPerStatement(2);
+
+// One read of every checked table's stored columns. The first obsolete table,
+// in ensure order, fails before any index DDL runs.
 async function assertRequiredColumns(
   execSql: ExecSql,
-  table: SqlTableSchema,
+  tables: ReadonlyArray<SqlTableSchema>,
 ): Promise<void> {
-  if (!table.requiredColumns || table.requiredColumns.length === 0) {
-    return;
-  }
-  const rows = await execSql(
-    `PRAGMA table_info(${renderIdentifier(table.name)})`,
+  const checked = tables.filter(
+    (table) => (table.requiredColumns?.length ?? 0) > 0,
   );
-  const storedColumns = new Set(rows.map(({ name }) => name));
-  const missingColumns = table.requiredColumns.filter(
-    (column) => !storedColumns.has(column),
-  );
-  if (missingColumns.length > 0) {
-    throw new Error(
-      `Local database schema for ${table.name} is obsolete; reset the local database before continuing`,
+  const storedColumns = new Map<string, Set<string>>();
+  for (
+    let offset = 0;
+    offset < checked.length;
+    offset += REQUIRED_COLUMN_TABLES_PER_STATEMENT
+  ) {
+    const batch = checked.slice(
+      offset,
+      offset + REQUIRED_COLUMN_TABLES_PER_STATEMENT,
     );
+    const rows = await execSql(
+      batch
+        .map(() => "SELECT ? AS table_name, name FROM pragma_table_info(?)")
+        .join(" UNION ALL "),
+      batch.flatMap((table) => [table.name, table.name]),
+    );
+    for (const { name, table_name: tableName } of rows) {
+      const tableKey = String(tableName);
+      const columns = storedColumns.get(tableKey) ?? new Set<string>();
+      columns.add(String(name));
+      storedColumns.set(tableKey, columns);
+    }
+  }
+  for (const table of checked) {
+    const stored = storedColumns.get(table.name);
+    if (table.requiredColumns?.some((column) => !stored?.has(column))) {
+      throw new Error(
+        `Local database schema for ${table.name} is obsolete; reset the local database before continuing`,
+      );
+    }
   }
 }
 
@@ -187,20 +212,31 @@ export async function ensureSqlTables(
   execSql: ExecSql,
   tables: ReadonlyArray<SqlTableSchema>,
 ): Promise<void> {
-  const pendingTables = tables.filter(
-    (table) => !hasCompletedConnectionOnce(execSql, getTableEnsureKey(table)),
-  );
+  const pendingByName = new Map<string, SqlTableSchema>();
+  for (const table of tables) {
+    if (
+      !pendingByName.has(table.name) &&
+      !hasCompletedConnectionOnce(execSql, getTableEnsureKey(table))
+    ) {
+      pendingByName.set(table.name, table);
+    }
+  }
+  const pendingTables = [...pendingByName.values()];
   if (pendingTables.length === 0) {
     return;
   }
 
+  // Each statement is a worker message, so the DDL travels in three: every
+  // CREATE TABLE, then the required-column read (an obsolete table fails
+  // before an index can trip over a missing column), then every CREATE INDEX.
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    for (const table of pendingTables) {
-      await lockedExecSql(table.createSql);
-      await assertRequiredColumns(lockedExecSql, table);
-      for (const indexSql of table.indexes ?? []) {
-        await lockedExecSql(indexSql);
-      }
+    await lockedExecSql(
+      pendingTables.map((table) => table.createSql).join(";\n"),
+    );
+    await assertRequiredColumns(lockedExecSql, pendingTables);
+    const indexSql = pendingTables.flatMap((table) => table.indexes ?? []);
+    if (indexSql.length > 0) {
+      await lockedExecSql(indexSql.join(";\n"));
     }
   });
   for (const table of pendingTables) {

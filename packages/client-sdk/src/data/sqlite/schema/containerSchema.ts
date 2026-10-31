@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -20,6 +21,7 @@ const accessLevelColumn = "effective_access_level";
  * nullable so presentation falls back to `/` for a root and `Untitled`
  * otherwise. Local timestamps track client storage/structural changes, while
  * server timestamps are populated once the container has synced.
+ * `(parentId) where parentId is not null` serves child-folder listings.
  */
 export const containers = sqliteTable(
   "containers",
@@ -37,7 +39,12 @@ export const containers = sqliteTable(
     serverCreatedAt: text("server_created_at"),
     serverUpdatedAt: text("server_updated_at"),
   },
-  (table) => [primaryKey({ columns: [table.id] })],
+  (table) => [
+    primaryKey({ columns: [table.id] }),
+    index("containers_parent_idx")
+      .on(table.parentId)
+      .where(sql`${table.parentId} IS NOT NULL`),
+  ],
 );
 
 /**

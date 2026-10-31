@@ -13,7 +13,11 @@ import {
 } from "../sqlite/schema/documentDiscoveryEvidenceSchema";
 import { verifiedAccessManifestBundles } from "../sqlite/schema/verifiedManifestBundleSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import {
+  createExecSql,
+  type ExecSql,
+  ensureSqlTables,
+} from "../sqlite/sqlSchema";
 import { advanceKeyingCheckpointsAtomically } from "./keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import {
   createVerifiedManifestCitations,
@@ -361,6 +365,64 @@ test("re-verifying a stored bundle keeps it ahead of eviction", async () => {
     expect(kept.has(hash(0))).toBe(true);
     expect(kept.has(hash(1))).toBe(false);
     expect(kept.has(hash(5000))).toBe(true);
+  } finally {
+    database.close();
+  }
+});
+
+test("recent citations and eviction read the bundle cache in index order", async () => {
+  const database = createNativeTestExecSql();
+  const ordered: Array<{ bind: Parameters<ExecSql>[1]; sql: string }> = [];
+  const execSql = createExecSql({
+    exec: async ({ sql, bind, rowMode }) => {
+      if (
+        sql.includes('from "verified_access_manifest_bundles"') &&
+        sql.includes(
+          'order by "verified_access_manifest_bundles"."verified_at"',
+        )
+      )
+        ordered.push({ bind, sql });
+      return {
+        rows: await database.execSql(
+          sql,
+          bind,
+          rowMode ? { rowMode } : undefined,
+        ),
+      };
+    },
+  });
+  try {
+    await seedTree(execSql);
+    // One bundle past the cap, so the write evicts the oldest.
+    await remember(
+      execSql,
+      Array.from({ length: MAX_VERIFIED_MANIFEST_BUNDLES + 1 }, (_, index) =>
+        entry(hash(index + 1), "container", "other", index + 1),
+      ),
+    );
+    await loadVerifiedManifestCitations(execSql, {
+      kind: "container",
+      id: "child",
+    });
+    const plans = await Promise.all(
+      ordered.map(async ({ bind, sql }) =>
+        (await database.execSql(`EXPLAIN QUERY PLAN ${sql}`, bind)).map((row) =>
+          String(Reflect.get(row, "detail")),
+        ),
+      ),
+    );
+    expect(plans).toEqual([
+      [
+        expect.stringContaining(
+          "SCAN verified_access_manifest_bundles USING COVERING INDEX verified_access_manifest_bundles_eviction_idx",
+        ),
+      ],
+      [
+        expect.stringContaining(
+          "SEARCH verified_access_manifest_bundles USING INDEX verified_access_manifest_bundles_organization_recent_idx (organization_id=?)",
+        ),
+      ],
+    ]);
   } finally {
     database.close();
   }
