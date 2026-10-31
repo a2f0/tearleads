@@ -4,6 +4,7 @@ import type {
   HttpOperationMethod,
 } from "@tearleads/validators/operation";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import type { WriterProjectionListing } from "./verifiedManifestCitations";
 
 export type HttpMethod = HttpOperationMethod;
 export type RequestBody = BodyInit;
@@ -24,6 +25,12 @@ export interface RequestResultOptions {
   /** Called after this request or a concurrent request renews the same session. */
   readonly onSessionRenewed?: (() => void) | undefined;
   readonly retryOnSessionExpired?: boolean | "renew-only" | undefined;
+  /**
+   * Writer-projection reads only: where a listing placed the container, so
+   * an unplaced container can cite its listed parent's held bytes. It
+   * changes which hashes the read cites, never what the read accepts.
+   */
+  readonly projectionListing?: WriterProjectionListing | undefined;
 }
 
 export type OperationRequestFn = <T>(

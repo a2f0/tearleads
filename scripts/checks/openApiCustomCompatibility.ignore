@@ -1,0 +1,5 @@
+# a2f0/tearleads#2697 proposals 4 and 9: x-known-manifests now carries typed
+# m:/k: digests (an intended flag-day protocol change). Delete these entries as
+# soon as main contains this contract.
+GET /containers/{containerId}/writer-projection: refinement 'request.known-manifest-hints' was reworded; treat semantic changes as breaking.
+GET /documents/{documentId}/writer-projection: refinement 'request.known-manifest-hints' was reworded; treat semantic changes as breaking.

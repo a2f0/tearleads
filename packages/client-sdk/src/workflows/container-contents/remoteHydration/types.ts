@@ -1,4 +1,7 @@
-import type { RequestResult } from "@tearleads/api-client";
+import type {
+  RequestResult,
+  WriterProjectionListing,
+} from "@tearleads/api-client";
 import type { ContainerReplacementAuthorizationsResponse } from "@tearleads/validators/operation";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type {
@@ -86,6 +89,7 @@ interface RemoteContainerHydrationApi
   evictWriterProjectionsCiting(containerIds: readonly string[]): void;
   getContainerWriterProjection(
     containerId: string,
+    listing?: WriterProjectionListing,
   ): Promise<ContainerWriterProjectionResponse | null>;
   listContainerParentLanes(
     input: ListContainerParentLanesRequest,

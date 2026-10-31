@@ -29,6 +29,8 @@ export type {
   RequestSuccess,
 } from "./types";
 export type {
+  HeldProjectionCitation,
   VerifiedManifestCitations,
+  WriterProjectionListing,
   WriterProjectionTarget,
 } from "./verifiedManifestCitations";

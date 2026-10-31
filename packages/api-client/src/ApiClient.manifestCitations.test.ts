@@ -1,12 +1,16 @@
 import { expect } from "bun:test";
+import { computeContainerKekLevelDigest } from "@tearleads/crypto";
 import {
   getContainerWriterProjectionOperation,
   operationRequestPath,
 } from "@tearleads/validators/operation";
 import {
   type ContainerWriterProjectionResponse,
+  type ContainerWriterProjectionWireResponse,
+  containerKekWireLevel,
   encodeContainerWriterProjection,
 } from "@tearleads/validators/response";
+import { parseKnownManifestHints } from "@tearleads/validators/util";
 import { HttpResponse, http } from "msw";
 import { createContainerWriterProjectionResponse } from "../test/helpers/apiClientTestFactories";
 import {
@@ -68,7 +72,7 @@ function serve(omit: (known: ReadonlySet<string>) => ReadonlySet<string>) {
       ({ request }) => {
         const header = request.headers.get("x-known-manifests");
         hints.push(header);
-        const known = new Set(header ? header.split(",") : []);
+        const known = new Set(parseKnownManifestHints(header ?? "")?.manifests);
         return HttpResponse.json(
           encodeContainerWriterProjection(projection(), omit(known)),
         );
@@ -87,7 +91,7 @@ testApiClient(
     expect(
       await client.getContainerWriterProjection(projection().containerId),
     ).toEqual(projection());
-    expect(hints).toEqual([`${LEAF},${GENESIS}`]);
+    expect(hints).toEqual([`m:${LEAF},m:${GENESIS}`]);
   },
 );
 
@@ -105,7 +109,7 @@ testApiClient(
     expect(
       await client.getContainerWriterProjection(projection().containerId),
     ).toEqual(projection());
-    expect(hints).toEqual([LEAF, null]);
+    expect(hints).toEqual([`m:${LEAF}`, null]);
     expect(reported).toEqual([]);
   },
 );
@@ -151,7 +155,7 @@ function recordAuthorizedHints() {
         return HttpResponse.json(
           encodeContainerWriterProjection(
             projection(),
-            new Set(hint ? hint.split(",") : []),
+            new Set(parseKnownManifestHints(hint ?? "")?.manifests),
           ),
         );
       },
@@ -229,6 +233,138 @@ testApiClient(
       getContainerWriterProjectionOperation,
     );
     expect(result).toMatchObject({ kind: "cancelled", ok: false });
-    expect(seen).toEqual([`Bearer first-user ${LEAF}`]);
+    expect(seen).toEqual([`Bearer first-user m:${LEAF}`]);
+  },
+);
+
+function serveLevels(
+  stub: (
+    wire: ContainerWriterProjectionWireResponse,
+    kekLevels: readonly string[],
+  ) => ContainerWriterProjectionWireResponse,
+) {
+  const hints: (string | null)[] = [];
+  server.use(
+    http.get(
+      `${apiBaseUrl}/containers/:containerId/writer-projection`,
+      async ({ request }) => {
+        const header = request.headers.get("x-known-manifests");
+        hints.push(header);
+        const parsed = parseKnownManifestHints(header ?? "");
+        const digest = await computeContainerKekLevelDigest(
+          containerKekWireLevel(projection().containerKeks[0] ?? never()),
+        );
+        const wire = encodeContainerWriterProjection(
+          projection(),
+          new Set(parsed?.manifests),
+          (kek) =>
+            digest !== null &&
+            parsed?.kekLevels.includes(digest) &&
+            kek.containerId === projection().containerId
+              ? digest
+              : null,
+        );
+        return HttpResponse.json(stub(wire, parsed?.kekLevels ?? []));
+      },
+    ),
+  );
+  return hints;
+}
+
+function never(): never {
+  throw new Error("fixture KEK missing");
+}
+
+function heldLevel(): VerifiedManifestCitations {
+  const level = containerKekWireLevel(projection().containerKeks[0] ?? never());
+  return { cite: async () => [level] };
+}
+
+testApiClient(
+  "a held KEK level is cited by digest and refilled before validation",
+  async () => {
+    const hints = serveLevels((wire) => wire);
+    const client = new ApiClient(apiBaseUrl);
+    client.setVerifiedManifestCitations(heldLevel());
+    expect(
+      await client.getContainerWriterProjection(projection().containerId),
+    ).toEqual(projection());
+    const digest = await computeContainerKekLevelDigest(
+      containerKekWireLevel(projection().containerKeks[0] ?? never()),
+    );
+    expect(hints).toEqual([`k:${digest}`]);
+  },
+);
+
+testApiClient(
+  "a level stub the held bytes cannot rebuild refetches once, complete",
+  async () => {
+    // The stub's manifest citations disagree with the held level's.
+    const hints = serveLevels((wire, kekLevels) =>
+      kekLevels.length === 0
+        ? wire
+        : {
+            ...wire,
+            containerKeks: wire.containerKeks.map(() => ({
+              levelDigest: kekLevels[0] ?? never(),
+              containerManifestHistory: [LEAF],
+            })),
+            bundles: Object.fromEntries(
+              Object.entries(wire.bundles).filter(([hash]) => hash === LEAF),
+            ),
+          },
+    );
+    const client = new ApiClient(apiBaseUrl);
+    client.setVerifiedManifestCitations(heldLevel());
+    const reported: string[] = [];
+    client.setOnError((message) => reported.push(message));
+    expect(
+      await client.getContainerWriterProjection(projection().containerId),
+    ).toEqual(projection());
+    expect(hints).toHaveLength(2);
+    expect(hints[1]).toBeNull();
+    expect(reported).toEqual([]);
+  },
+);
+
+testApiClient(
+  "a level stub for a digest the request never cited refetches",
+  async () => {
+    const hints = serveLevels((wire, kekLevels) =>
+      kekLevels.length === 0
+        ? wire
+        : {
+            ...wire,
+            containerKeks: wire.containerKeks.map((kek) => ({
+              levelDigest: "c".repeat(64),
+              containerManifestHistory: kek.containerManifestHistory,
+            })),
+          },
+    );
+    const client = new ApiClient(apiBaseUrl);
+    client.setVerifiedManifestCitations(heldLevel());
+    expect(
+      await client.getContainerWriterProjection(projection().containerId),
+    ).toEqual(projection());
+    expect(hints[1]).toBeNull();
+  },
+);
+
+testApiClient(
+  "a held level whose bytes do not match is never cited",
+  async () => {
+    const hints = serveLevels((wire) => wire);
+    const client = new ApiClient(apiBaseUrl);
+    const level = containerKekWireLevel(
+      projection().containerKeks[0] ?? never(),
+    );
+    // Not a KEK level: a source cannot pass arbitrary bytes as one.
+    client.setVerifiedManifestCitations({
+      cite: async () => [{ ...level, wraps: [] }],
+    });
+    expect(
+      await client.getContainerWriterProjection(projection().containerId),
+    ).toEqual(projection());
+    expect(hints).toEqual([null]);
   },
 );

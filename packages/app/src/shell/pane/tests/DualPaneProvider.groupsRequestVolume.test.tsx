@@ -78,9 +78,11 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // metadata paths and private current policy proofs: 2.44–2.54 MB received.
   // Each document carries one shared proof bundle for all of its authorizing
   // paths. A discovery read naming a held directory head receives that head
-  // alone (about 300 bytes instead of 17–34 KB): 0.90–0.91 MB received, 1.33
-  // MB before; keep about 10% headroom.
-  bodyBytes: { request: 160_000, response: 1_000_000 },
+  // alone (about 300 bytes instead of 17–34 KB): 0.91 MB, 1.33 MB before.
+  // Prefetches of unstored folders cite their listed parent's held bundles
+  // and projections cite held KEK levels by digest: 0.80 MB received; keep
+  // about 10% headroom.
+  bodyBytes: { request: 160_000, response: 885_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,

@@ -61,7 +61,9 @@ export {
   type SerializedKeyEnvelope,
 } from "./keyEnvelope";
 export {
+  formatKnownManifestHints,
   KNOWN_MANIFEST_HINT_LIMIT,
+  type KnownManifestHints,
   KnownManifestsHeadersSchema,
   parseKnownManifestHints,
 } from "./knownManifestWire";

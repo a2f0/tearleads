@@ -1,4 +1,5 @@
 import type {
+  HeldProjectionCitation,
   VerifiedManifestCitations,
   WriterProjectionTarget,
 } from "@tearleads/api-client";
@@ -7,21 +8,12 @@ import {
   type AccessManifestBundleWireResponse,
   isAccessManifestBundleWireResponse,
 } from "@tearleads/validators/response";
-import {
-  KNOWN_MANIFEST_HINT_LIMIT,
-  MAX_CONTAINER_PATH_LENGTH,
-} from "@tearleads/validators/util";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { KNOWN_MANIFEST_HINT_LIMIT } from "@tearleads/validators/util";
+import { and, asc, desc, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
 import {
   containerTables,
-  documentContainerProjection,
   documentContainerProjectionTables,
 } from "../sqlite/schema";
-import { containers } from "../sqlite/schema/containerSchema";
-import {
-  documentDiscoveryHeads,
-  pendingDocumentDiscoveries,
-} from "../sqlite/schema/documentDiscoveryEvidenceSchema";
 import {
   verifiedAccessManifestBundles as bundles,
   verifiedManifestBundleTables,
@@ -34,6 +26,17 @@ import {
 } from "../sqlite/sqlitePersistenceRuntime";
 import { excludedValue } from "../sqlite/sqliteUpsert";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import {
+  type CitedObject,
+  citedObjects,
+  targetOrganization,
+} from "./verifiedCitations/citationScope";
+import {
+  KEK_LEVEL_OBJECT_KIND,
+  kekLevelRow,
+  readStoredKekLevel,
+  type VerifiedKekLevel,
+} from "./verifiedCitations/kekLevelCitations";
 
 /**
  * Bounds local bytes (a bundle is ~10–20 KB). Evicting the least recently
@@ -42,7 +45,7 @@ import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 export const MAX_VERIFIED_MANIFEST_BUNDLES = 1024;
 const STATEMENT_BATCH = 200;
 
-export interface VerifiedManifestBundle {
+interface VerifiedBundle {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly checkpoint: {
     readonly objectKind: string;
@@ -51,6 +54,9 @@ export interface VerifiedManifestBundle {
     readonly epoch: number;
   };
 }
+
+/** Bytes a projection verification accepted: a bundle or a KEK level. */
+export type VerifiedManifestBundle = VerifiedBundle | VerifiedKekLevel;
 
 function sha256Hex(text: string): Promise<string> {
   return toFingerprint(new TextEncoder().encode(text));
@@ -91,12 +97,31 @@ export type VerifiedManifestBundleRow = Omit<
 >;
 
 /**
- * Prepares rows for bundles that just passed projection verification. The
- * digests are computed here, before the checkpoint transaction that writes
- * them begins.
+ * Prepares rows for bundles and KEK levels that just passed projection
+ * verification. The digests are computed here, before the checkpoint
+ * transaction that writes them begins.
  */
-export function verifiedManifestBundleRows(
+export async function verifiedManifestBundleRows(
   entries: readonly VerifiedManifestBundle[],
+): Promise<VerifiedManifestBundleRow[]> {
+  const bundleEntries: VerifiedBundle[] = [];
+  const levelEntries: VerifiedKekLevel[] = [];
+  for (const entry of entries)
+    if ("kekLevel" in entry) levelEntries.push(entry);
+    else bundleEntries.push(entry);
+  // One level per container: its newest epoch, the last one seen on a tie.
+  const levelRows = new Map<string, VerifiedManifestBundleRow>();
+  for (const level of levelEntries) {
+    const row = await kekLevelRow(level);
+    const held = row && levelRows.get(row.objectId);
+    if (row && (!held || held.epoch <= row.epoch))
+      levelRows.set(row.objectId, row);
+  }
+  return [...(await bundleRows(bundleEntries)), ...levelRows.values()];
+}
+
+function bundleRows(
+  entries: readonly VerifiedBundle[],
 ): Promise<VerifiedManifestBundleRow[]> {
   const unique = new Map(
     entries.map((entry) => [entry.bundle.manifestHash, entry]),
@@ -166,7 +191,36 @@ export async function writeVerifiedManifestBundlesInTransaction(
         },
       })
       .run();
+  await dropSupersededKekLevels(tx, rows);
   await pruneInTransaction(tx);
+}
+
+/**
+ * A container keeps only its latest verified level: the API serves its
+ * current level, so an older one can never be cited usefully again.
+ */
+async function dropSupersededKekLevels(
+  tx: ClientSQLiteTransactionScope,
+  rows: readonly VerifiedManifestBundleRow[],
+): Promise<void> {
+  const levels = rows.filter((row) => row.objectKind === KEK_LEVEL_OBJECT_KIND);
+  for (const batch of batches(levels))
+    await tx
+      .delete(bundles)
+      .where(
+        and(
+          eq(bundles.objectKind, KEK_LEVEL_OBJECT_KIND),
+          inArray(
+            bundles.objectId,
+            batch.map((row) => row.objectId),
+          ),
+          notInArray(
+            bundles.manifestHash,
+            batch.map((row) => row.manifestHash),
+          ),
+        ),
+      )
+      .run();
 }
 
 async function storedDigests(
@@ -185,118 +239,6 @@ async function storedDigests(
     for (const row of rows) digests.set(row.manifestHash, row.bundleDigest);
   }
   return digests;
-}
-
-/** The requested object first, then each container whose lineage it cites. */
-async function containerLineage(
-  db: ClientSQLiteDatabase,
-  containerId: string,
-): Promise<string[]> {
-  const lineage = [containerId];
-  while (lineage.length < MAX_CONTAINER_PATH_LENGTH) {
-    const [row] = await db
-      .select({ parentId: containers.parentId })
-      .from(containers)
-      .where(eq(containers.id, lineage.at(-1) ?? ""))
-      .limit(1);
-    const parentId = row?.parentId;
-    if (!parentId || lineage.includes(parentId)) break;
-    lineage.push(parentId);
-  }
-  return lineage;
-}
-
-async function citedObjects(
-  db: ClientSQLiteDatabase,
-  target: WriterProjectionTarget,
-): Promise<{ readonly kind: string; readonly id: string }[]> {
-  if (target.kind === "container")
-    return (await containerLineage(db, target.id)).map((id) => ({
-      kind: "container",
-      id,
-    }));
-  // Linked containers, containers listing the document before its signed
-  // placement is checked, and a container whose metadata document it is.
-  const placements = [
-    ...(await db
-      .select({ containerId: documentContainerProjection.containerId })
-      .from(documentContainerProjection)
-      .where(eq(documentContainerProjection.documentId, target.id))),
-    ...(await db
-      .select({ containerId: pendingDocumentDiscoveries.containerId })
-      .from(pendingDocumentDiscoveries)
-      .where(eq(pendingDocumentDiscoveries.documentId, target.id))),
-    ...(await db
-      .select({ containerId: containers.id })
-      .from(containers)
-      .where(eq(containers.metadataDocumentId, target.id))),
-  ];
-  const containerIds = new Set<string>();
-  for (const { containerId } of placements)
-    if (containerId)
-      for (const id of await containerLineage(db, containerId))
-        containerIds.add(id);
-  return [
-    { kind: "document", id: target.id },
-    ...[...containerIds].map((id) => ({ kind: "container", id })),
-  ];
-}
-
-/**
- * The one organization every local source places the read in. Verified
- * ownership (stored verified bundles of the target and of the containers on
- * its walk, and a document's verified discovery head) and local placement
- * (listed container rows reached through links, pending listings, metadata,
- * or parents) must all agree: any disagreement, or no source at all, yields
- * null, so the read is sent with no hints rather than another
- * organization's.
- */
-async function targetOrganization(
-  db: ClientSQLiteDatabase,
-  target: WriterProjectionTarget,
-  objects: readonly { readonly kind: string; readonly id: string }[],
-): Promise<string | null> {
-  const containerIds = objects
-    .filter((object) => object.kind === "container")
-    .map((object) => object.id);
-  const listed =
-    containerIds.length === 0
-      ? []
-      : await db
-          .select({ organizationId: containers.organizationId })
-          .from(containers)
-          .where(inArray(containers.id, containerIds));
-  const verifiedContainers =
-    containerIds.length === 0
-      ? []
-      : await db
-          .select({ organizationId: bundles.organizationId })
-          .from(bundles)
-          .where(
-            and(
-              eq(bundles.objectKind, "container"),
-              inArray(bundles.objectId, containerIds),
-            ),
-          );
-  const verifiedTarget = await db
-    .select({ organizationId: bundles.organizationId })
-    .from(bundles)
-    .where(
-      and(eq(bundles.objectKind, target.kind), eq(bundles.objectId, target.id)),
-    );
-  const discovered =
-    target.kind === "document"
-      ? await db
-          .select({ organizationId: documentDiscoveryHeads.organizationId })
-          .from(documentDiscoveryHeads)
-          .where(eq(documentDiscoveryHeads.documentId, target.id))
-      : [];
-  const sources = [listed, verifiedContainers, verifiedTarget, discovered];
-  const organizations = new Set(
-    sources.flat().map((row) => row.organizationId),
-  );
-  const [organizationId] = organizations;
-  return organizations.size === 1 && organizationId ? organizationId : null;
 }
 
 interface StoredBundleRow {
@@ -329,7 +271,7 @@ async function readStoredBundle(
 function objectRows(
   db: ClientSQLiteDatabase,
   organizationId: string,
-  object: { readonly kind: string; readonly id: string },
+  object: CitedObject,
   limit: number,
 ) {
   return db
@@ -354,31 +296,64 @@ function recentRows(
   return db
     .select(storedColumns)
     .from(bundles)
-    .where(eq(bundles.organizationId, organizationId))
+    .where(
+      and(
+        eq(bundles.organizationId, organizationId),
+        ne(bundles.objectKind, KEK_LEVEL_OBJECT_KIND),
+      ),
+    )
     .orderBy(desc(bundles.verifiedAt), asc(bundles.manifestHash))
     .limit(limit);
 }
 
+/** The latest verified KEK level of each container, in lineage order. */
+async function lineageKekLevels(
+  db: ClientSQLiteDatabase,
+  organizationId: string,
+  objects: readonly CitedObject[],
+): Promise<StoredBundleRow[]> {
+  const containerIds = objects
+    .filter((object) => object.kind === "container")
+    .map((object) => object.id);
+  if (containerIds.length === 0) return [];
+  const rows = await db
+    .select({ ...storedColumns, objectId: bundles.objectId })
+    .from(bundles)
+    .where(
+      and(
+        eq(bundles.organizationId, organizationId),
+        eq(bundles.objectKind, KEK_LEVEL_OBJECT_KIND),
+        inArray(bundles.objectId, containerIds),
+      ),
+    )
+    .orderBy(desc(bundles.epoch), desc(bundles.verifiedAt));
+  const latest = new Map<string, StoredBundleRow>();
+  for (const row of rows)
+    if (!latest.has(row.objectId)) latest.set(row.objectId, row);
+  return containerIds.flatMap((id) => latest.get(id) ?? []);
+}
+
 /**
- * Verified bundles of the target's object and of the containers its
- * projection walks, newest epochs first; then the most recently verified rows
- * of its organization, since a just-verified parent is the likeliest part of
- * a new child's projection. Citations never leave the target's organization:
- * an object whose organization the device cannot place cites nothing.
- * Damaged rows are dropped.
+ * The latest verified KEK level of each container the target's projection
+ * walks; then verified bundles of those objects, newest epochs first; then
+ * the most recently verified bundles of its organization, since a
+ * just-verified parent is the likeliest part of a new child's projection.
+ * Citations never leave the target's organization: an object whose
+ * organization the device cannot place cites nothing. Damaged rows are
+ * dropped.
  */
 export async function loadVerifiedManifestCitations(
   execSql: ExecSql,
   target: WriterProjectionTarget,
   limit = KNOWN_MANIFEST_HINT_LIMIT,
-): Promise<AccessManifestBundleWireResponse[]> {
+): Promise<HeldProjectionCitation[]> {
   await ensureSqlTables(execSql, [
     ...verifiedManifestBundleTables,
     ...containerTables,
     ...documentContainerProjectionTables,
   ]);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const cited = new Map<string, AccessManifestBundleWireResponse>();
+  const cited = new Map<string, HeldProjectionCitation>();
   const damaged: string[] = [];
   const collect = async (rows: readonly StoredBundleRow[]) => {
     for (const row of rows) {
@@ -391,6 +366,12 @@ export async function loadVerifiedManifestCitations(
   const objects = await citedObjects(db, target);
   const organizationId = await targetOrganization(db, target, objects);
   if (organizationId === null) return [];
+  for (const row of await lineageKekLevels(db, organizationId, objects)) {
+    if (cited.size >= limit) break;
+    const level = await readStoredKekLevel(row);
+    if (level) cited.set(row.manifestHash, level);
+    else damaged.push(row.manifestHash);
+  }
   for (const object of objects)
     if (cited.size < limit)
       await collect(

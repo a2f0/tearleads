@@ -70,9 +70,11 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // ~9.8 KB policies: 120 KB sent with create seeds (180 KB with policies,
   // 352 KB with bundles). Keep the same ~8% request headroom and room for two
   // extra document projections. Discovery reads naming a held directory head
-  // receive that head alone: 0.73–0.74 MB received (1.18 MB before); keep
-  // about 10% headroom.
-  bodyBytes: { request: 130_000, response: 820_000 },
+  // receive that head alone (0.74 MB, 1.18 MB before). The peer's prefetch of
+  // an unstored folder cites its listed parent's held bundles, and every
+  // projection cites held KEK levels by digest: 0.59 MB received; keep about
+  // 10% headroom.
+  bodyBytes: { request: 130_000, response: 650_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,

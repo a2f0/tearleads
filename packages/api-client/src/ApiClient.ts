@@ -220,7 +220,10 @@ import type {
   RequestResult,
   RequestResultOptions,
 } from "./types";
-import type { VerifiedManifestCitations } from "./verifiedManifestCitations";
+import type {
+  VerifiedManifestCitations,
+  WriterProjectionListing,
+} from "./verifiedManifestCitations";
 import { WebSocketTickets } from "./webSocketTickets";
 import {
   CitingProjectionCache,
@@ -1189,7 +1192,11 @@ export class ApiClient {
     );
   }
 
-  getContainerWriterProjection(containerId: string) {
+  /** `listing` only picks which held bytes an unstored container cites. */
+  getContainerWriterProjection(
+    containerId: string,
+    listing?: WriterProjectionListing,
+  ) {
     return cachedRequest(
       this.containerWriterProjectionRequestsByContainerId,
       containerId,
@@ -1199,7 +1206,7 @@ export class ApiClient {
           containerWriterProjection.isResponseFor(containerId),
           containerWriterProjection.method,
           undefined,
-          undefined,
+          listing ? { projectionListing: listing } : undefined,
           getContainerWriterProjectionOperation,
         ),
     );

@@ -14,6 +14,7 @@ import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
   observeAccessManifestCheckpoints,
+  observeVerifiedKekLevels,
   observeVerifiedProjectionBundles,
   type ProjectionCheckpointContext,
 } from "../checkpoints/checkpointContext";
@@ -285,6 +286,10 @@ function observeVerifiedDocumentProjectionBundles(
         .flat()
         .map((manifest) => [manifest.manifestHash, manifest]),
     ),
+  );
+  observeVerifiedKekLevels(
+    checkpointContext,
+    projection.authorizingContainerPaths,
   );
 }
 
