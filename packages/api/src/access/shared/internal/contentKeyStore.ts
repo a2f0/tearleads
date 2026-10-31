@@ -138,6 +138,39 @@ class ContentKeyStore<
     return row?.contentKeyEpoch ?? null;
   }
 
+  /**
+   * The submitted epoch's bundle and the latest one. Epochs are unique per
+   * identifier, so when the submitted epoch is the latest both are the same
+   * row, and an epoch above the latest has no row; each row loads once.
+   */
+  private async loadStoreBundles(
+    identifier: string,
+    contentKeyEpoch: number,
+    executor: DatabaseSession,
+  ): Promise<{
+    readonly existingBundle: TBundle | null;
+    readonly latestBundle: TBundle | null;
+  }> {
+    const latestRow = await this.options.loadLatestEpochRow(
+      identifier,
+      executor,
+    );
+    if (!latestRow) return { existingBundle: null, latestBundle: null };
+    const latestBundle = await this.options.toStoredBundle(latestRow, executor);
+    if (latestRow.contentKeyEpoch === contentKeyEpoch)
+      return { existingBundle: latestBundle, latestBundle };
+    if (latestRow.contentKeyEpoch < contentKeyEpoch)
+      return { existingBundle: null, latestBundle };
+    return {
+      existingBundle: await this.getBundle(
+        identifier,
+        contentKeyEpoch,
+        executor,
+      ),
+      latestBundle,
+    };
+  }
+
   private async createBundle(
     input: TInput,
     executor: DatabaseSession,
@@ -179,12 +212,11 @@ class ContentKeyStore<
       input,
       executor,
     );
-    const existingBundle = await this.getBundle(
+    const { existingBundle, latestBundle } = await this.loadStoreBundles(
       identifier,
       input.contentKeyEpoch,
       executor,
     );
-    const latestBundle = await this.getLatestBundle(identifier, executor);
     const preparation = this.options.prepareStore({
       currentTargets,
       input,

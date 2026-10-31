@@ -1,57 +1,77 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
+  accessEvents,
+  accessManifestHeads,
   containerMetadataDocuments,
   documents,
 } from "@tearleads/api-shared/schema";
-import { eq } from "drizzle-orm";
-import {
-  getCurrentAccessManifestHead,
-  getStoredAccessEventByObjectType,
-} from "../../../../access/read/accessManifestStore";
+import { and, eq, sql } from "drizzle-orm";
 import { lockDocumentLifecycleInTransaction } from "../../../documents/mutations/documentLifecycleLock";
 import { ContainerMutationError } from "../errors";
 import type { VerifiedContainerAccessState } from "../types";
+
+type ReservationEvidence = "document" | "head" | "purge" | "reservation";
 
 /**
  * A metadata document id must be unused by every document lifecycle stage.
  * Purge deletes the document row but keeps its terminal event, so the row
  * check alone would let a container claim a purged id whose document can
  * never be created again. The document lifecycle lock orders this check
- * against a concurrent create of the same id.
+ * against a concurrent create of the same id. One statement reads all four
+ * kinds of evidence; a purge event still refuses first, and more than one is
+ * corruption.
  */
 export async function assertMetadataDocumentAvailable(
   executor: DatabaseTransaction,
   metadataDocumentId: string,
 ): Promise<void> {
   await lockDocumentLifecycleInTransaction(executor, metadataDocumentId);
-  const purgeEvent = await getStoredAccessEventByObjectType({
-    eventType: "document.purge",
-    executor,
-    objectId: metadataDocumentId,
-    objectKind: "document",
-  });
-  if (purgeEvent) {
+  const kinds = (
+    await executor
+      .select({ kind: sql<ReservationEvidence>`'purge'` })
+      .from(accessEvents)
+      .where(
+        and(
+          eq(accessEvents.eventType, "document.purge"),
+          eq(accessEvents.objectKind, "document"),
+          eq(accessEvents.objectId, metadataDocumentId),
+        ),
+      )
+      .unionAll(
+        executor
+          .select({ kind: sql<ReservationEvidence>`'head'` })
+          .from(accessManifestHeads)
+          .where(
+            and(
+              eq(accessManifestHeads.objectKind, "document"),
+              eq(accessManifestHeads.objectId, metadataDocumentId),
+            ),
+          ),
+      )
+      .unionAll(
+        executor
+          .select({ kind: sql<ReservationEvidence>`'document'` })
+          .from(documents)
+          .where(eq(documents.id, metadataDocumentId)),
+      )
+      .unionAll(
+        executor
+          .select({ kind: sql<ReservationEvidence>`'reservation'` })
+          .from(containerMetadataDocuments)
+          .where(eq(containerMetadataDocuments.documentId, metadataDocumentId)),
+      )
+  ).map((row) => row.kind);
+  const purgeEvents = kinds.filter((kind) => kind === "purge").length;
+  if (purgeEvents > 1) {
+    throw new Error("Stored access event type is not unique for its object");
+  }
+  if (purgeEvents === 1) {
     throw new ContainerMutationError(
       "Container metadata document was permanently purged",
       409,
     );
   }
-  const documentHead = await getCurrentAccessManifestHead(
-    "document",
-    metadataDocumentId,
-    executor,
-  );
-  const [existingMetadataDocument] = await executor
-    .select({ id: documents.id })
-    .from(documents)
-    .where(eq(documents.id, metadataDocumentId))
-    .limit(1);
-  const [reservation] = await executor
-    .select({ documentId: containerMetadataDocuments.documentId })
-    .from(containerMetadataDocuments)
-    .where(eq(containerMetadataDocuments.documentId, metadataDocumentId))
-    .limit(1);
-  if (documentHead || existingMetadataDocument || reservation) {
+  if (kinds.length > 0) {
     throw new ContainerMutationError(
       "Container metadata document already exists",
       409,

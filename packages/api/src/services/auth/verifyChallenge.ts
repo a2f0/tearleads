@@ -72,15 +72,26 @@ export async function verifyChallenge(
     );
   }
 
+  // The root container joins the user row: `containers_org_root_idx` is a
+  // unique partial index, so the join yields at most one row.
   const [user] = await runtime.db
     .select({
       defaultOrganizationId: users.defaultOrganizationId,
       id: users.id,
       isRoot: users.isRoot,
+      rootContainerId: containers.id,
       signingPublicKey: users.signingPublicKey,
       suspendedAt: users.suspendedAt,
     })
     .from(users)
+    .leftJoin(
+      containers,
+      and(
+        eq(containers.organizationId, users.defaultOrganizationId),
+        isNull(containers.parentId),
+        isNull(containers.systemSlot),
+      ),
+    )
     .where(eq(users.fingerprint, input.fingerprint))
     .limit(1);
 
@@ -133,19 +144,8 @@ export async function verifyChallenge(
     throw suspendedError();
   }
 
-  const [root] = await runtime.db
-    .select({ id: containers.id })
-    .from(containers)
-    .where(
-      and(
-        eq(containers.organizationId, user.defaultOrganizationId),
-        isNull(containers.parentId),
-        isNull(containers.systemSlot),
-      ),
-    )
-    .limit(1);
   return {
-    rootContainerId: root?.id ?? null,
+    rootContainerId: user.rootContainerId,
     isRoot: user.isRoot,
     organizationId: user.defaultOrganizationId,
     sessionId,

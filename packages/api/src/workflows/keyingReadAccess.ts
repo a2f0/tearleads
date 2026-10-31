@@ -1,5 +1,5 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { attachmentBindings } from "@tearleads/api-shared/schema";
+import { attachmentBindings, blobs } from "@tearleads/api-shared/schema";
 import type {
   DocumentLinkSetManifestState,
   PrincipalPolicyAuthorization,
@@ -288,13 +288,33 @@ export async function resolveReadableDocumentAccess(input: {
   };
 }
 
-async function listActiveBlobDocumentIds(input: {
+/** The blob row each binding names, read with the bindings in one query. */
+export interface ReadableBlobRow {
+  readonly blobId: string;
+  readonly byteLength: number;
+  readonly sha256: string;
+  readonly storageKey: string;
+}
+
+async function listActiveBlobBindings(input: {
   readonly blobId: string;
   readonly executor: DatabaseSession;
-}): Promise<string[]> {
+}): Promise<{
+  readonly blob: ReadableBlobRow | null;
+  readonly documentIds: string[];
+}> {
   const rows = await input.executor
-    .select({ documentId: attachmentBindings.documentId })
+    .select({
+      documentId: attachmentBindings.documentId,
+      blob: {
+        blobId: blobs.id,
+        byteLength: blobs.byteLength,
+        sha256: blobs.sha256,
+        storageKey: blobs.storageKey,
+      },
+    })
     .from(attachmentBindings)
+    .leftJoin(blobs, eq(blobs.id, attachmentBindings.blobId))
     .where(
       and(
         eq(attachmentBindings.blobId, input.blobId),
@@ -302,15 +322,22 @@ async function listActiveBlobDocumentIds(input: {
       ),
     );
 
-  return uniqueSortedStrings(rows.map((row) => row.documentId));
+  return {
+    blob: rows[0]?.blob ?? null,
+    documentIds: uniqueSortedStrings(rows.map((row) => row.documentId)),
+  };
 }
 
+/**
+ * Resolves read access through the blob's active bindings and returns the blob
+ * row loaded with them, or null when no blob row exists.
+ */
 export async function resolveReadableBlobAccess(input: {
   readonly blobId: string;
   readonly executor: DatabaseSession;
   readonly userId: string;
-}): Promise<void> {
-  const documentIds = await listActiveBlobDocumentIds(input);
+}): Promise<ReadableBlobRow | null> {
+  const { blob, documentIds } = await listActiveBlobBindings(input);
   if (documentIds.length === 0) {
     throw new KeyingReadAccessError("Blob not found", 404);
   }
@@ -326,7 +353,7 @@ export async function resolveReadableBlobAccess(input: {
         executor: input.executor,
         userId: input.userId,
       });
-      return;
+      return blob;
     } catch (error) {
       if (error instanceof KeyingReadAccessError) {
         if (error.status === 403) {

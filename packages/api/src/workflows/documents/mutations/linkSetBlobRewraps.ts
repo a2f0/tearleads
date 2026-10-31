@@ -4,6 +4,7 @@ import type { DocumentLinkAccessEventBody } from "@tearleads/crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   BlobContentKeyBundleError,
+  prefetchBlobRewraps,
   rewrapDocumentBlobContentKeyInTransaction,
 } from "../../../access/write/blobContentKeyStore";
 import { lockBlobMutationRows } from "../../blobs/mutations/blobMutationLocks";
@@ -42,15 +43,25 @@ export async function lockDocumentLinkBlobRewraps(input: {
   await lockBlobMutationRows({ blobIds: expected, executor: input.executor });
 }
 
+/**
+ * Runs after `lockDocumentLinkBlobRewraps`. The preconditions every rewrap
+ * reads are loaded as sets first; each rewrap still validates its own blob, in
+ * request order, and only writes that blob's content-key rows.
+ */
 export async function applyDocumentLinkBlobRewraps(input: {
   documentId: string;
   executor: DatabaseTransaction;
   rewraps: BlobRewraps;
 }): Promise<void> {
+  const blobIds = input.rewraps.map((rewrap) => rewrap.blobId);
+  const prefetch =
+    blobIds.length > 1 && new Set(blobIds).size === blobIds.length
+      ? await prefetchBlobRewraps(input.rewraps, input.executor)
+      : undefined;
   for (const rewrap of input.rewraps) {
     try {
       await rewrapDocumentBlobContentKeyInTransaction(
-        { documentId: input.documentId, rewrap },
+        { documentId: input.documentId, prefetch, rewrap },
         input.executor,
       );
     } catch (error) {

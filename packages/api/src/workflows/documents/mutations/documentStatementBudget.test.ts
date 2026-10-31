@@ -75,8 +75,9 @@ test("document create, sync write, and sync pull stay within their statement bud
   // Measured with PGlite / SQLite: create 55 / 56, write 80 / 81, and pull
   // 58 / 59 before signer rows were read once per transaction, the KEK target
   // resolution stopped repeating, and the document head joined its links;
-  // 41 / 42, 64 / 65, and 46 / 47 after.
-  expect(create.statements).toBeLessThanOrEqual(43);
+  // 41 / 42, 64 / 65, and 46 / 47 after. Create 39 / 40 / 41 (Postgres third),
+  // then 37 / 38 / 39 once inserts verify their RETURNING rows.
+  expect(create.statements).toBeLessThanOrEqual(39);
   expect(write.statements).toBeLessThanOrEqual(66);
   expect(pull.statements).toBeLessThanOrEqual(48);
 }, 30_000);

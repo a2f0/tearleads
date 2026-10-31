@@ -5,27 +5,61 @@ import {
 } from "@tearleads/crypto";
 import {
   getLatestBlobContentKeyBundle,
+  getLatestBlobContentKeyBundles,
   replaceBlobContentKeyTargetsForExistingBundle,
 } from "./blobContentKeyStore";
 import {
   assertSubmittedTargetsMatchCurrent,
   BlobContentKeyBundleError,
+  type StoredBlobContentKeyBundle,
 } from "./blobContentKeyTargets";
-import { resolveCurrentBlobKekTargets } from "./blobKekTargets";
+import {
+  type BlobKekTargetPrefetch,
+  prefetchBlobKekTargets,
+  resolveCurrentBlobKekTargets,
+} from "./blobKekTargets";
+
+type BlobRewrap = DocumentLinkAccessEventBody["blobRewraps"][number];
+
+/**
+ * A link's rewrap preconditions, read as sets after the blob rows are locked:
+ * nothing a rewrap writes changes them, so later rewraps may still use them.
+ */
+export interface BlobRewrapPrefetch {
+  readonly latestBundleByBlobId: ReadonlyMap<
+    string,
+    StoredBlobContentKeyBundle
+  >;
+  readonly targets: BlobKekTargetPrefetch;
+}
+
+export async function prefetchBlobRewraps(
+  rewraps: readonly BlobRewrap[],
+  executor: DatabaseTransaction,
+): Promise<BlobRewrapPrefetch> {
+  const blobIds = rewraps.map((rewrap) => rewrap.blobId);
+  return {
+    latestBundleByBlobId: await getLatestBlobContentKeyBundles(
+      blobIds,
+      executor,
+    ),
+    targets: await prefetchBlobKekTargets(blobIds, executor),
+  };
+}
 
 /** Caller holds the changed document head and every affected blob row. */
 export async function rewrapDocumentBlobContentKeyInTransaction(
   input: {
     documentId: string;
-    rewrap: DocumentLinkAccessEventBody["blobRewraps"][number];
+    prefetch?: BlobRewrapPrefetch | undefined;
+    rewrap: BlobRewrap;
   },
   executor: DatabaseTransaction,
 ): Promise<void> {
-  const { documentId, rewrap } = input;
-  const existingBundle = await getLatestBlobContentKeyBundle(
-    rewrap.blobId,
-    executor,
-  );
+  const { documentId, prefetch, rewrap } = input;
+  const existingBundle = prefetch
+    ? (prefetch.latestBundleByBlobId.get(rewrap.blobId) ?? null)
+    : await getLatestBlobContentKeyBundle(rewrap.blobId, executor);
   if (
     !existingBundle ||
     existingBundle.contentKeyEpoch !== rewrap.contentKeyEpoch
@@ -35,6 +69,8 @@ export async function rewrapDocumentBlobContentKeyInTransaction(
   const currentTargets = await resolveCurrentBlobKekTargets(
     rewrap.blobId,
     executor,
+    false,
+    prefetch?.targets,
   );
   const documentTargets = currentTargets.targets.filter(
     (target) => target.documentId === documentId,
