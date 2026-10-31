@@ -10,11 +10,12 @@ require a receipt.
 ## Start and checkpoint
 
 Before baseline work or launching an auditor, create a private `usage.md`
-beside the checkpoint. The `.agents`
-[full-scope security skill](../../.agents/skills/protocol-security-audit/SKILL.md)
-keeps it in the same durable private directory as its slice notes, outside
-scratch scheduled for deletion. Use a fresh random run ID, not a path or a
-provider session ID. A resume keeps that run ID but gets a new batch ID. Record:
+beside the checkpoint. For the `.agents`
+[full-scope security skill](../../.agents/skills/protocol-security-audit/SKILL.md#1-establish-the-baseline),
+choose a durable private directory outside its temporary scratch for the
+ledger and evidence, following baseline step 2. Temporary slice files are not
+that durable store. Use a fresh random run ID, not a path or provider session
+ID. A resume keeps that run ID but gets a new batch ID. Record:
 
 - Audited repository and full commit; requested scope, exclusions, and whether
   this is a batch, full run, or resume. Record the actual skill copy used

@@ -30,6 +30,7 @@ function receiptTemplate(): string {
 }
 
 function fixtureRun(command: string, fixture: unknown) {
+  // Preserve the pinned jq on PATH; this fixture never uses live gh.
   const { PATH, HOME } = process.env;
   const directory = mkdtempSync(resolve(tmpdir(), "audit-usage-fixture-"));
   try {
@@ -144,6 +145,7 @@ for (const harness of [".claude", ".agents"]) {
         text.indexOf(". Report"),
       );
       const files = ["SKILL.md", "references/issue-template.md"];
+      // Security intentionally stays Claude-batched versus full-scope .agents.
       if (harness !== ".agents" || skill !== "protocol-security-audit") {
         files.push("references/batching.md");
       }

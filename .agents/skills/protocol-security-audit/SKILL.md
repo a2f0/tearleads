@@ -200,10 +200,10 @@ implemented or model-checked fixes; label their validation status explicitly.
 
 ## 5. Report
 
-Before publishing, checkpoint usage and follow
+Before publishing, save usage in durable private notes and follow
 [receipt publication](../../../docs/developer/audit-usage-receipts.md#publish-and-reconcile).
 Include the receipt in the issue body and verify the exact readback; keep the
-issue and receipt URLs in the checkpoint or durable notes.
+issue and receipt URLs in those durable notes.
 
 1. Print a summary grouped by invariant (parity, A, B) and ranked by severity.
    Give each finding its label, a one-line mechanism, `file:line`, and TLA+
