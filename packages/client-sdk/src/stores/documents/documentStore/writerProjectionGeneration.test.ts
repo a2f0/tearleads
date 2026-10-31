@@ -208,14 +208,22 @@ test("an attachment upload settled after a hint leaves the projection empty", as
     const uploaded = {
       bindingId: "binding-1",
       blobId: "blob-1",
+      request: {
+        body: {},
+        contentKeyBundle: { targetHash: "target-hash", targets: [] },
+        event: {},
+        stagedBlob: { stageId: "stage-1", writeHeader: {} },
+      },
       response: {
-        bindingEvent: {},
+        bindingId: "binding-1",
+        blobId: "blob-1",
         blobKekTargets: {},
-        contentKeyBundle: {},
+        contentKeyEpoch: 1,
         documentManifestHash: "manifest-1",
+        eventHash: "event-hash",
         previousBindingId: null,
-        writeAuthorization: {},
-        writeHeader: {},
+        slotId: "slot-1",
+        writeHeaderHash: "write-header-hash",
       },
       writerProjection: fixture.writerProjection,
     } as unknown as Parameters<typeof settleUploadedAttachment>[0]["uploaded"];
