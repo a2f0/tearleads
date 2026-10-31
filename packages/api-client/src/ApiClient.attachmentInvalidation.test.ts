@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 import { HttpResponse, http } from "msw";
 import {
-  createBlobAttachmentBindResponse,
+  createBlobAttachmentSummary,
   createDocumentLinkSetMutationRequest,
   createDocumentLinkSetMutationResponse,
 } from "../test/helpers/apiClientTestFactories";
@@ -25,7 +25,7 @@ for (const mutation of mutations) {
     testApiClient(
       `${mutation} evicts attachment envelopes after HTTP ${status} without evicting other documents`,
       async () => {
-        const original = createBlobAttachmentBindResponse();
+        const original = createBlobAttachmentSummary();
         const updated = {
           ...original,
           contentKeyBundle: {
@@ -108,7 +108,7 @@ testApiClient(
   async () => {
     const started = createDeferred<void>();
     const release = createDeferred<void>();
-    const original = createBlobAttachmentBindResponse();
+    const original = createBlobAttachmentSummary();
     let reads = 0;
     server.use(
       http.get(`${apiBaseUrl}/documents/:documentId/attachments`, async () => {

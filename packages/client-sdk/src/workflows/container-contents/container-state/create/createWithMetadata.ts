@@ -12,6 +12,11 @@ import { locallyAcknowledgedContainerMutationHead } from "../../../../data/conta
 import { isContainerManifestAlreadyExistsConflict } from "../../../../data/containers/shared/mutationFailures";
 import type { ContainerMutationSubmitFailure } from "../../../../data/containers/shared/types";
 import { assertDocumentWriterProjectionConsistent } from "../../../../data/documents/shared/projection";
+import {
+  type AcknowledgedDocumentMutation,
+  acknowledgedDocumentCreate,
+  persistedDocumentStateFromAcknowledgement,
+} from "../../../../data/documents/shared/responses";
 import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectionVerification";
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
@@ -26,7 +31,6 @@ import { repairContainerCreateFailure } from "../../../containers/child/create/c
 import {
   type buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,
-  persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
 } from "../../../documents";
 import {
@@ -89,13 +93,13 @@ async function submitContainerWithMetadataDocument(input: {
 async function seedMetadataDocumentWriterProjection(input: {
   readonly runtime: ContainerWorkflowRuntime;
   readonly childProjection: ContainerWriterProjectionResponse;
-  readonly response: ContainerCreateWithMetadataDocumentResponse;
+  readonly metadataDocument: AcknowledgedDocumentMutation;
   readonly execSql?: ExecSql | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
   const projection = documentWriterProjectionFromCreateResponse({
     containerProjection: input.childProjection,
-    response: input.response.metadataDocument,
+    response: input.metadataDocument,
   });
   try {
     await assertDocumentWriterProjectionConsistent(projection, {
@@ -108,7 +112,7 @@ async function seedMetadataDocumentWriterProjection(input: {
   }
   if (input.stillCurrent?.() === false) return;
   input.runtime.apiClient.primeDocumentWriterProjection(
-    input.response.metadataDocument.id,
+    input.metadataDocument.id,
     projection,
   );
 }
@@ -118,13 +122,11 @@ async function acknowledgeContainerWithMetadata(input: {
     typeof locallyAcknowledgedContainerMutationHead
   >[0]["plan"];
   execSql: ExecSql;
-  metadataDocumentPlan: Parameters<
-    typeof persistedDocumentCreateStateFromResponse
-  >[0];
+  metadataDocumentPlan: Parameters<typeof acknowledgedDocumentCreate>[0];
   response: ContainerCreateWithMetadataDocumentResponse;
   stillCurrent?: (() => boolean) | undefined;
 }) {
-  const persistedState = persistedDocumentCreateStateFromResponse(
+  const metadataDocument = acknowledgedDocumentCreate(
     input.metadataDocumentPlan,
     input.response.metadataDocument,
   );
@@ -140,7 +142,7 @@ async function acknowledgeContainerWithMetadata(input: {
     ],
     stillCurrent: input.stillCurrent,
   });
-  return persistedState;
+  return metadataDocument;
 }
 
 /**
@@ -246,7 +248,7 @@ async function settleContainerWithMetadataCreate(input: {
   ) {
     throw new Error("Container metadata create response document mismatch");
   }
-  const persistedMetadataState = await acknowledgeContainerWithMetadata({
+  const metadataDocument = await acknowledgeContainerWithMetadata({
     containerPlan: input.containerPlan.plan,
     execSql: input.execSql,
     metadataDocumentPlan: input.metadataDocumentPlan.plan,
@@ -257,7 +259,7 @@ async function settleContainerWithMetadataCreate(input: {
   await seedMetadataDocumentWriterProjection({
     childProjection: input.childProjection,
     execSql: input.execSql,
-    response: input.response,
+    metadataDocument,
     runtime: input.runtime,
     stillCurrent: input.stillCurrent,
   });
@@ -282,7 +284,8 @@ async function settleContainerWithMetadataCreate(input: {
       metadataDocumentId,
       organizationId: input.response.container.organizationId,
       parentId,
-      persistedMetadataState,
+      persistedMetadataState:
+        persistedDocumentStateFromAcknowledgement(metadataDocument),
       updatedAt: input.response.container.updatedAt,
     },
   };

@@ -195,9 +195,20 @@ export function createDocumentPurgeResponse(): DocumentPurgeResponse {
   };
 }
 
-export function createDocumentLinkSetMutationResponse(): DocumentLinkSetMutationResponse {
+/** A link-set acknowledgement plus the material the client rebuilds. */
+export type DocumentLinkSetMutationFixture = DocumentLinkSetMutationResponse & {
+  readonly accessManifest: DocumentWriterProjectionResponse["documentManifest"];
+  readonly contentKeyBundle: DocumentWriterProjectionResponse["contentKeyBundle"];
+  readonly documentKekTargets: DocumentWriterProjectionResponse["documentKekTargets"];
+};
+
+export function createDocumentLinkSetMutationResponse(): DocumentLinkSetMutationFixture {
   return {
     id: "document-1",
+    contentKeyEpoch: 1,
+    eventHash: "document-event-hash",
+    manifestHash: "document-manifest-hash",
+    targetHash: "target-hash",
     accessManifest: {
       event: {
         event: { eventType: "document.link" },
@@ -269,7 +280,8 @@ export function createDocumentCreateRequest(): DocumentCreateRequest {
   };
 }
 
-export function createDocumentCreateResponse(): DocumentCreateResponse {
+export function createDocumentCreateResponse(): DocumentCreateResponse &
+  DocumentLinkSetMutationFixture {
   return {
     ...createDocumentLinkSetMutationResponse(),
     createdAt: "2026-04-28T00:00:00.000Z",
@@ -455,4 +467,5 @@ export {
   createBlobAttachmentBindRequest,
   createBlobAttachmentBindResponse,
   createBlobAttachmentDetachRequest,
+  createBlobAttachmentSummary,
 } from "./blobTestFactories";

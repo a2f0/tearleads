@@ -54,7 +54,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       await createSignedDocumentSyncRequest({ created, owner, root });
     const purgeRequest = await buildDocumentPurgeRequest({
       documentId: created.id,
-      documentManifestHash: created.accessManifest.manifestHash,
+      documentManifestHash: created.manifestHash,
       owner,
       root,
     });

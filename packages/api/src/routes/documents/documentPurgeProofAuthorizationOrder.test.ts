@@ -26,7 +26,7 @@ test("purge proof rejects unauthorized callers before loading document history",
   const created = await createDocument({ owner, root });
   const purgeResponse = await postDocumentPurge({
     documentId: created.id,
-    documentManifestHash: created.accessManifest.manifestHash,
+    documentManifestHash: created.manifestHash,
     owner,
     root,
   });

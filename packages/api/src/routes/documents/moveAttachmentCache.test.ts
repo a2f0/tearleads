@@ -9,6 +9,7 @@ import {
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
+import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -67,18 +68,16 @@ test("a warm client moves an uploaded attachment on its first attempt", async ()
       wrappedKey: contentKeyEnvelopeFixture("Blob", "first-destination-wrap")
         .wrappedKey,
     };
-    const linked = await client.linkDocumentResult(
-      document.id,
-      await buildDocumentLinkRequest({
-        child,
-        createdDocument: document,
-        owner,
-        root,
-        blobRewraps: [
-          { blobId, contentKeyEpoch: 1, targets: [target, destinationTarget] },
-        ],
-      }),
-    );
+    const linkRequest = await buildDocumentLinkRequest({
+      child,
+      createdDocument: document,
+      owner,
+      root,
+      blobRewraps: [
+        { blobId, contentKeyEpoch: 1, targets: [target, destinationTarget] },
+      ],
+    });
+    const linked = await client.linkDocumentResult(document.id, linkRequest);
     if (!linked.ok) throw new Error(linked.message);
 
     const afterLink = (await client.listDocumentAttachments(document.id))?.[0];
@@ -106,7 +105,7 @@ test("a warm client moves an uploaded attachment on its first attempt", async ()
       document.id,
       await buildDocumentUnlinkRequest({
         child,
-        linkedDocument: linked.data,
+        linkedDocument: withDocumentMutationArtifacts(linkRequest, linked.data),
         owner,
         root,
         unlinkedContainer: root,
@@ -124,20 +123,20 @@ test("a warm client moves an uploaded attachment on its first attempt", async ()
     );
     expect(moved).toMatchObject({ ok: true });
     if (!moved.ok) throw new Error(moved.message);
-    expect(moved.data.accessManifest.state).toMatchObject({
-      linkedContainerIds: [child.containerId],
-    });
     const afterMove = (await client.listDocumentAttachments(document.id))?.[0];
     expect(afterMove?.contentKeyBundle.targets).toEqual([
       { ...destinationTarget, wrappingMetadata: sourceTarget.wrappingMetadata },
     ]);
     expect(afterMove?.blobKekTargets.documentManifestHashes).toEqual([
-      moved.data.accessManifest.manifestHash,
+      moved.data.manifestHash,
     ]);
     const projection = await client.getDocumentWriterProjection(document.id);
     expect(projection?.documentManifest.manifestHash).toBe(
-      moved.data.accessManifest.manifestHash,
+      moved.data.manifestHash,
     );
+    expect(projection?.documentManifest.state).toMatchObject({
+      linkedContainerIds: [child.containerId],
+    });
     expect(projection?.contentKeyBundleStale).toBeUndefined();
   } finally {
     await server.stop(true);

@@ -15,6 +15,7 @@ import {
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
+import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -65,7 +66,7 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
   expect(
     (await getCurrentAccessManifestHead("document", document.id, db))
       ?.manifestHash,
-  ).toBe(document.accessManifest.manifestHash);
+  ).toBe(document.manifestHash);
   const childKek = await kekStateFromContainerResponse(child);
   const rawTarget = bind.contentKeyBundle.targets[0];
   if (!rawTarget) throw new Error("Expected initial blob target");
@@ -136,7 +137,7 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
   expect(
     (await getCurrentAccessManifestHead("document", document.id, db))
       ?.manifestHash,
-  ).toBe(document.accessManifest.manifestHash);
+  ).toBe(document.manifestHash);
 
   const response = await post("link", link);
   const linked = await response.json();
@@ -161,7 +162,7 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
   ).toHaveLength(2);
   const unlink = await buildDocumentUnlinkRequest({
     child,
-    linkedDocument: linked,
+    linkedDocument: withDocumentMutationArtifacts(link, linked),
     owner,
     root,
     blobRewraps: [{ blobId, contentKeyEpoch: 1, targets: [target] }],
@@ -189,7 +190,10 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
   ).toBe(true);
   const conflicting = await buildDocumentLinkRequest({
     child,
-    createdDocument: { ...document, ...unlinkedBody },
+    createdDocument: withDocumentMutationArtifacts(unlink, {
+      ...unlinkedBody,
+      createdAt: document.createdAt,
+    }),
     owner,
     root,
     blobRewraps: blobRewraps.map((rewrap) => ({
@@ -215,10 +219,13 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
   expect(
     (await getCurrentAccessManifestHead("document", document.id, db))
       ?.manifestHash,
-  ).toBe(unlinkedBody.accessManifest.manifestHash);
+  ).toBe(unlinkedBody.manifestHash);
   const relink = await buildDocumentLinkRequest({
     child,
-    createdDocument: { ...document, ...unlinkedBody },
+    createdDocument: withDocumentMutationArtifacts(unlink, {
+      ...unlinkedBody,
+      createdAt: document.createdAt,
+    }),
     owner,
     root,
     blobRewraps: blobRewraps.map((rewrap) => ({

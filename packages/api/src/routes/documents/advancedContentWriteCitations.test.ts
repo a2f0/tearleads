@@ -76,9 +76,7 @@ test("a write retains its advanced linked head independently of the original lin
   const projection = decodeServedDocumentProjection(await response.json());
   if (!isDocumentWriterProjectionResponse(projection))
     throw new Error("Expected writer projection");
-  expect(projection.documentManifest.manifestHash).toBe(
-    created.accessManifest.manifestHash,
-  );
+  expect(projection.documentManifest.manifestHash).toBe(created.manifestHash);
   const retained = projection.documentManifestContainerPaths
     .flat()
     .map((bundle) => bundle.manifestHash);

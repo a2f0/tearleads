@@ -63,11 +63,11 @@ test(
         // A hydration pass discovers the directory once (measured 30, 31
         // before); a discovery naming the held head receives that head alone.
         total: 31,
-        // Provisioned containers are acknowledged by hash, not echoed: 233 KB
-        // received (305 KB before; register 118 KB -> 63 KB). Keys and the
-        // login signature travel as base64 and child containers cite their
-        // parent KEK state: 291 KB sent (322 KB before).
-        bodyBytes: { request: 320_000, response: 256_000 },
+        // Provisioned containers and documents are acknowledged by hash, not
+        // echoed: 157 KB received (305 KB before; register 118 KB -> 63 KB).
+        // Keys and the login signature travel as base64 and child containers
+        // cite their parent KEK state: 291 KB sent (322 KB before).
+        bodyBytes: { request: 320_000, response: 175_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 5,
           "GET /principals/group/:groupId/policy": 0,
@@ -137,10 +137,10 @@ test(
         // Verify the new metadata root through private current policy evidence;
         // provisioning primed its founding heads, leaving one discovery read.
         total: 6,
-        // Provisioned containers are acknowledged by hash, not echoed: 76 KB
-        // received (132 KB before; the create 118 KB -> 63 KB). Child
-        // containers cite their parent KEK state: 223 KB sent (230 KB before).
-        bodyBytes: { request: 245_000, response: 84_000 },
+        // Provisioned containers and documents are acknowledged by hash, not
+        // echoed: 19 KB received (132 KB before). Child containers cite their
+        // parent KEK state: 223 KB sent (230 KB before).
+        bodyBytes: { request: 245_000, response: 25_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 1,
           "GET /principals/group/:groupId/policy": 0,

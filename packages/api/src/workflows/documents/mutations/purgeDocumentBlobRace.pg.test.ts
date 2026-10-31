@@ -61,7 +61,7 @@ async function createPurgeBindRaceFixture() {
     owner,
     purgeRequest: await buildDocumentPurgeRequest({
       documentId: sourceDocument.id,
-      documentManifestHash: sourceDocument.accessManifest.manifestHash,
+      documentManifestHash: sourceDocument.manifestHash,
       owner,
       root,
     }),

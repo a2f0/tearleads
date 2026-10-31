@@ -13,6 +13,7 @@ import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildChildCreateRequest } from "../../../test/helpers/containerMutationArtifactKit";
+import type { CreatedDocumentFixture } from "../../../test/helpers/documentAcknowledgementFixture";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import {
   bootstrapRoot,
@@ -53,7 +54,7 @@ async function seededCreateRequest(input: {
     accessManifest: { state: create.manifest },
     contentKeyBundle: create.contentKeyBundle,
     id: String(Reflect.get(create.manifest, "objectId")),
-  } as unknown as DocumentCreateResponse;
+  } as unknown as CreatedDocumentFixture;
   const { request: seed, updateId } = await createSignedDocumentSyncRequest({
     created: planned,
     owner: input.owner,
@@ -115,7 +116,7 @@ test("a seed skips its billing check only for the organization the create admitt
   await setTestOrganizationBillingLocal(organizationId);
   const seedAfterCreate = (syncEligibleOrganizationId: string) =>
     db.transaction(async (tx) => {
-      const created = await createDocumentWithExecutor({
+      const { created } = await createDocumentWithExecutor({
         executor: tx,
         fingerprint: owner.fingerprint,
         request,

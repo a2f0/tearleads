@@ -1,0 +1,210 @@
+# Issue #2697 proposal 3 (greenfield flag day): document create and link-set
+# acknowledgements and the attachment bind carry hashes instead of echoing the
+# signed event, manifest, state, content-key bundle, KEK targets, write header,
+# and write authorization. Remove these exact diagnostics as soon as main
+# contains the new contract.
+POST /auth/register removed the required property `organizationMetadataContainer/metadataDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `organizationMetadataContainer/metadataDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `organizationMetadataContainer/metadataDocument/documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `organizationProfileDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `organizationProfileDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `organizationProfileDocument/documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `rootMetadataDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `rootMetadataDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `rootMetadataDocument/documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `rosterProfileContainer/metadataDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `rosterProfileContainer/metadataDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `rosterProfileContainer/metadataDocument/documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `rosterProfileDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `rosterProfileDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `rosterProfileDocument/documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `systemContainers/items/metadataDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `systemContainers/items/metadataDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /auth/register removed the required property `systemContainers/items/metadataDocument/documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the required property `bindingEvent` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the required property `contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the required property `writeAuthorization` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the required property `writeHeader` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/with-metadata-document removed the required property `metadataDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/with-metadata-document removed the required property `metadataDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/with-metadata-document removed the required property `metadataDocument/documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents removed the required property `accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents removed the required property `contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents removed the required property `documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/link removed the required property `accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/link removed the required property `contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/link removed the required property `documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/unlink removed the required property `accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/unlink removed the required property `contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/unlink removed the required property `documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `organizationMetadataContainer/metadataDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `organizationMetadataContainer/metadataDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `organizationMetadataContainer/metadataDocument/documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `organizationProfileDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `organizationProfileDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `organizationProfileDocument/documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `rootMetadataDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `rootMetadataDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `rootMetadataDocument/documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `rosterProfileContainer/metadataDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `rosterProfileContainer/metadataDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `rosterProfileContainer/metadataDocument/documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `rosterProfileDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `rosterProfileDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `rosterProfileDocument/documentKekTargets` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `systemContainers/items/metadataDocument/accessManifest` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `systemContainers/items/metadataDocument/contentKeyBundle` from the response with the `200` status
+
+# Issue #2697 proposal 3: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations removed the required property `systemContainers/items/metadataDocument/documentKekTargets` from the response with the `200` status

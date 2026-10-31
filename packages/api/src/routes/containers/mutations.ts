@@ -141,7 +141,7 @@ async function createContainerWithMetadataDocumentResponse(input: {
   readonly sessionId: string;
   readonly userId: string;
 }): Promise<ContainerCreateWithMetadataDocumentResponse> {
-  const { insertedMetadataUpdateIds, response } =
+  const { insertedMetadataUpdateIds, metadataLinkedContainerIds, response } =
     await createContainerWithMetadataDocument(input.runtime, {
       fingerprint: input.fingerprint,
       request: input.request,
@@ -159,8 +159,8 @@ async function createContainerWithMetadataDocumentResponse(input: {
   // carries that sync's update hint.
   if (insertedMetadataUpdateIds.length > 0) {
     await publishDocumentUpdateCreatedEvent({
+      containerIds: metadataLinkedContainerIds,
       documentId: response.metadataDocument.id,
-      documentKekTargets: response.metadataDocument.documentKekTargets,
       origin,
       publish: input.publish,
       updateIds: insertedMetadataUpdateIds,

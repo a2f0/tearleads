@@ -10,7 +10,6 @@ import type {
   BlobAttachmentDetachRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
-import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -21,6 +20,7 @@ import {
   detachForTest,
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
+import type { CreatedDocumentFixture } from "../../../test/helpers/documentAcknowledgementFixture";
 import { createFirstUpdateSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import {
   bootstrapRoot,
@@ -34,7 +34,7 @@ import { lockSyncDocumentWriteFrontier } from "../../workflows/documents/mutatio
 import { BlobMutationError, bindBlobAttachment } from "./blobMutations";
 
 async function documentWithRoot(): Promise<{
-  readonly document: DocumentCreateResponse;
+  readonly document: CreatedDocumentFixture;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
 }> {
@@ -46,7 +46,7 @@ async function documentWithRoot(): Promise<{
 }
 
 async function stagedBindWithSync(input: {
-  readonly document: DocumentCreateResponse;
+  readonly document: CreatedDocumentFixture;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
 }) {

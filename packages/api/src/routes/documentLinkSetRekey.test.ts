@@ -6,6 +6,7 @@ import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../test/helpers/authenticate";
 import { buildRekeyRequest } from "../../test/helpers/containerMutationRotations";
+import { withDocumentMutationArtifacts } from "../../test/helpers/documentAcknowledgementFixture";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -120,7 +121,7 @@ test("document link-set mutations can rekey their changed child container", asyn
   const unlinkChild = rekeyedChildFixture(linkChild, unlinkRekeyRequest);
   const unlinkRequest = await buildDocumentUnlinkRequest({
     child: unlinkChild,
-    linkedDocument: linked,
+    linkedDocument: withDocumentMutationArtifacts(linkRequest, linked),
     owner,
     root,
   });

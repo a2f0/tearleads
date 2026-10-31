@@ -161,7 +161,7 @@ test("a bound roster profile document cannot be purged", async () => {
 
   const purgeResponse = await postDocumentPurge({
     documentId: profile.id,
-    documentManifestHash: profile.accessManifest.manifestHash,
+    documentManifestHash: profile.manifestHash,
     owner: actor,
     root,
   });

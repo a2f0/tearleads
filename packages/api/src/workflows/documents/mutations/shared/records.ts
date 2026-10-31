@@ -15,9 +15,9 @@ import type {
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type {
-  AccessManifestBundleWireResponse,
   DocumentContentKeyBundleResponse,
   DocumentKekTargetsResponse,
+  DocumentLinkSetMutationResponse,
 } from "@tearleads/validators/response";
 import type {
   StoredDocumentContentKeyBundle,
@@ -25,9 +25,6 @@ import type {
 } from "../../../../access/read/documentContentKeyStore";
 import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
 import {
-  documentLinkSetStateRecord,
-  projectionAccessManifestRecord,
-  projectionVerifiedAccessEventRecord,
   readProjectionCanonicalJson,
   readProjectionPlainRecord,
   readProjectionPositiveInteger,
@@ -49,14 +46,23 @@ function isContentRecordEncryptionSuite(
   return value === CONTENT_RECORD_ENCRYPTION_SUITE;
 }
 
-export function documentManifestBundleRecord(
+/**
+ * The hash acknowledgement of a committed document create or link-set
+ * mutation: the signed event and manifest hashes, the stored content-key
+ * epoch, and the KEK target hash this transaction resolved.
+ */
+export function documentMutationAcknowledgement(
   manifest: VerifiedDocumentLinkSetManifest,
-): AccessManifestBundleWireResponse {
+  contentKeyBundle: {
+    readonly contentKeyEpoch: number;
+    readonly currentTargets: { readonly documentKeyTargetHash: string };
+  },
+): Omit<DocumentLinkSetMutationResponse, "id"> {
   return {
-    event: projectionVerifiedAccessEventRecord(manifest.event),
-    manifest: projectionAccessManifestRecord(manifest.manifest),
+    contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
+    eventHash: manifest.event.eventHash,
     manifestHash: manifest.manifestHash,
-    state: documentLinkSetStateRecord(manifest.state),
+    targetHash: contentKeyBundle.currentTargets.documentKeyTargetHash,
   };
 }
 

@@ -8,7 +8,10 @@ import type {
   DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { persistedDocumentLinkSetMutationStateFromResponse } from "../../../data/documents/shared/responses";
+import {
+  acknowledgedDocumentLinkSetMutation,
+  persistedDocumentStateFromAcknowledgement,
+} from "../../../data/documents/shared/responses";
 import { acknowledgeDocumentMutation } from "../../../data/documents/shared/sync/mutationAcknowledgement";
 import type {
   DocumentCreateAuthor,
@@ -123,9 +126,7 @@ function fetchLinkSetContainerProjection(
 }
 
 async function completeRemoteDocumentLinkSet(input: {
-  completedPlan: Parameters<
-    typeof persistedDocumentLinkSetMutationStateFromResponse
-  >[0];
+  completedPlan: Parameters<typeof acknowledgedDocumentLinkSetMutation>[0];
   execSql: ExecSql;
   materializedPlan: Awaited<
     ReturnType<typeof buildMaterializedDocumentLinkSetMutationPlan>
@@ -138,10 +139,12 @@ async function completeRemoteDocumentLinkSet(input: {
   writerProjection: DocumentWriterProjectionResponse;
   apiClient: DocumentLinkSetMutationApi;
 }): Promise<RelinkRemoteDocumentResult | null> {
-  const persistedState = persistedDocumentLinkSetMutationStateFromResponse(
+  const acknowledged = acknowledgedDocumentLinkSetMutation(
     input.completedPlan,
     input.response,
   );
+  const persistedState =
+    persistedDocumentStateFromAcknowledgement(acknowledged);
   await acknowledgeDocumentMutation({
     execSql: input.execSql,
     plan: input.completedPlan,
@@ -152,7 +155,7 @@ async function completeRemoteDocumentLinkSet(input: {
     execSql: input.execSql,
     operation: input.operation,
     priorProjection: input.writerProjection,
-    response: input.response,
+    response: acknowledged,
     targetContainerId: input.targetContainerId,
     targetContainerProjection: input.targetContainerProjection,
     stillCurrent: input.stillCurrent,

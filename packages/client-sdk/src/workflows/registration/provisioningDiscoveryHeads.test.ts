@@ -52,7 +52,7 @@ function listed(document: SeededDocument, containerId: string) {
     listedContainerIds: [containerId],
     // Provisioning creates every seeded head at access epoch 1.
     accessEpoch: 1,
-    accessStateHash: document.accessManifest.manifestHash,
+    accessStateHash: document.manifestHash,
     // Listing fields are untrusted hints; only the signed head names links.
     linkedContainerIds: ["forged-container"],
     createdAt: document.createdAt,
@@ -68,12 +68,10 @@ test("provisioning seeds the signed heads of the documents it authored", async (
     if (!response) throw new Error("Expected a provisioning response");
     const store = createDocumentDiscoveryEvidenceStore(execSql);
     for (const { containerId, document } of seededDocuments(response)) {
-      expect(
-        await store.loadHead(document.id, document.accessManifest.manifestHash),
-      ).toEqual({
+      expect(await store.loadHead(document.id, document.manifestHash)).toEqual({
         organizationId: response.organizationId,
         accessEpoch: 1,
-        accessStateHash: document.accessManifest.manifestHash,
+        accessStateHash: document.manifestHash,
         linkedContainerIds: [containerId],
       });
       let fetched = 0;
@@ -122,7 +120,7 @@ test("a seeded head is not reused once its access checkpoint moves", async () =>
     expect(
       await createDocumentDiscoveryEvidenceStore(execSql).loadHead(
         document.id,
-        document.accessManifest.manifestHash,
+        document.manifestHash,
       ),
     ).toBeNull();
   } finally {
@@ -141,21 +139,13 @@ test("an acknowledgement for a different document head seeds nothing", async () 
         const response = await respondToOrganizationProvisioning(request);
         const document = response.organizationProfileDocument;
         if (!document) throw new Error("Expected an organization profile");
-        tampered = {
-          ...document,
-          accessManifest: {
-            ...document.accessManifest,
-            manifestHash: "server-substituted-head",
-          },
-        };
+        tampered = { ...document, manifestHash: "server-substituted-head" };
         return { ...response, organizationProfileDocument: tampered };
       }),
     ).rejects.toThrow();
     if (!tampered) throw new Error("Expected a provisioning response");
     const store = createDocumentDiscoveryEvidenceStore(execSql);
-    expect(
-      await store.loadHead(tampered.id, tampered.accessManifest.manifestHash),
-    ).toBeNull();
+    expect(await store.loadHead(tampered.id, tampered.manifestHash)).toBeNull();
     expect(
       await execSql("SELECT COUNT(*) AS count FROM document_discovery_heads"),
     ).toEqual([{ count: 0 }]);

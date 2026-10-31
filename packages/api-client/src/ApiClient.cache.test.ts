@@ -8,6 +8,7 @@ import {
   createBlobAttachmentBindRequest,
   createBlobAttachmentBindResponse,
   createBlobAttachmentDetachRequest,
+  createBlobAttachmentSummary,
   createContainerMutationRequest,
   createContainerMutationResponse,
   createContainerWriterProjectionResponse,
@@ -282,20 +283,7 @@ testApiClient(
       client.bindBlobAttachment("blob-1", createBlobAttachmentBindRequest()),
     ).resolves.toEqual(attachmentBinding);
     await expect(client.listDocumentAttachments("document-1")).resolves.toEqual(
-      [
-        {
-          bindingId: "binding-1",
-          blobId: "blob-1",
-          bindingEvent: attachmentBinding.bindingEvent,
-          blobKekTargets: attachmentBinding.blobKekTargets,
-          contentKeyBundle: attachmentBinding.contentKeyBundle,
-          documentManifestHash: attachmentBinding.documentManifestHash,
-          previousBindingId: attachmentBinding.previousBindingId,
-          writeAuthorization: attachmentBinding.writeAuthorization,
-          writeHeader: attachmentBinding.writeHeader,
-          slotId: "slot-a",
-        },
-      ],
+      [createBlobAttachmentSummary()],
     );
     await expect(
       client.detachBlobAttachment(

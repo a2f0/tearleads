@@ -81,9 +81,7 @@ test("document projection rejects a database-injected link", async () => {
         linkedContainerIds: [root.kekState.containerId, crypto.randomUUID()],
       } as KeyingCanonicalJson,
     })
-    .where(
-      eq(accessManifests.manifestHash, created.accessManifest.manifestHash),
-    );
+    .where(eq(accessManifests.manifestHash, created.manifestHash));
 
   const response = await routeApp.request(
     `/documents/${created.id}/writer-projection`,

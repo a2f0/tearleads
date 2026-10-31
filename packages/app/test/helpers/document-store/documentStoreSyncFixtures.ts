@@ -25,8 +25,11 @@ import type {
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type {
+  AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
+  DocumentContentKeyBundleResponse,
   DocumentCreateResponse,
+  DocumentKekTargetsResponse,
   DocumentSyncResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
@@ -218,9 +221,19 @@ export async function createDocumentContainerProjection(input: {
   });
 }
 
+/**
+ * A create acknowledgement plus the committed material a client rebuilds
+ * from its plan, which the mock server keeps to answer later reads.
+ */
+export type StoredDocumentFixture = DocumentCreateResponse & {
+  readonly accessManifest: AccessManifestBundleWireResponse;
+  readonly contentKeyBundle: DocumentContentKeyBundleResponse;
+  readonly documentKekTargets: DocumentKekTargetsResponse;
+};
+
 export async function createDocumentCreateResponse(
   request: DocumentCreateRequest,
-): Promise<DocumentCreateResponse> {
+): Promise<StoredDocumentFixture> {
   const manifest = request.manifest as Record<string, unknown>;
   const body = request.body as Record<string, unknown>;
   const documentId = String(Reflect.get(manifest, "objectId"));
@@ -237,6 +250,10 @@ export async function createDocumentCreateResponse(
   return {
     id: documentId,
     createdAt: "2026-04-27T00:00:00.000Z",
+    contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
+    eventHash,
+    manifestHash: request.expectedManifestHash,
+    targetHash: request.contentKeyBundle.targetHash,
     accessManifest: {
       event: { event: { ...event }, body, eventHash },
       manifest,
@@ -275,7 +292,7 @@ export async function createDocumentCreateResponse(
 
 export async function createDocumentSyncResponse(input: {
   request: DocumentSyncRequest;
-  storedDocument: DocumentCreateResponse;
+  storedDocument: StoredDocumentFixture;
   commitLsn: string;
 }): Promise<DocumentSyncResponse> {
   const updates = await Promise.all(
@@ -339,7 +356,7 @@ export async function createDocumentAttachmentBindResponse(input: {
   // The bind request no longer echoes the document link-set manifest (the server
   // resolves it from its own store), so callers pass the document's current
   // manifest explicitly for the projection this fixture builds.
-  documentManifest: DocumentCreateResponse["accessManifest"];
+  documentManifest: AccessManifestBundleWireResponse;
   request: BlobAttachmentBindRequest;
 }) {
   const body = input.request.body as Record<string, unknown>;
@@ -392,15 +409,18 @@ export async function createDocumentAttachmentBindResponse(input: {
     }),
   };
 
+  const eventHash = await computeAccessEventHash(event);
   return {
     bindingEvent: {
       body: input.request.body,
       event: input.request.event,
-      eventHash: await computeAccessEventHash(event),
+      eventHash,
     },
     bindingId,
     blobId: input.blobId,
+    contentKeyEpoch: input.request.contentKeyBundle.contentKeyEpoch,
     documentId,
+    eventHash,
     documentManifestHash: input.documentManifest.manifestHash,
     previousBindingId:
       typeof Reflect.get(body, "expectedBindingId") === "string"

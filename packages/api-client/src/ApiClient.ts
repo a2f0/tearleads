@@ -130,6 +130,7 @@ import type {
   RootRevenuecatEventsReportResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
+import { blobAttachmentSummaryFromStagedBind } from "@tearleads/validators/response";
 import type { OrganizationLeaveRequest } from "@tearleads/validators/util";
 import { BoundedCache } from "./ApiCache";
 import { verifiedLogin } from "./accountSuspension";
@@ -433,20 +434,43 @@ export class ApiClient {
     this.documentAttachmentListRequestsByDocumentId.set(documentId, next);
   }
 
+  /**
+   * The bind acknowledges by hash, so the cached listing entry is rebuilt
+   * from the request it acknowledged: a staged upload's bind stores exactly
+   * the signed event, content-key bundle, and write header it carried, with
+   * the resolved KEK targets as its write authorization. Any other bind (no
+   * staged blob, or a blob other bindings share) keeps material the response
+   * does not carry, so it drops the cached listing instead.
+   */
   private cacheBlobAttachmentBindResponse(
+    request: BlobAttachmentBindRequest,
     response: BlobAttachmentBindResponse,
   ): void {
-    const {
-      documentId,
-      writeHeaderHash: _writeHeaderHash,
-      ...binding
-    } = response;
-    this.updateCachedDocumentAttachmentList(documentId, (attachments) => [
-      ...attachments.filter(
-        (cachedBinding) => cachedBinding.slotId !== response.slotId,
-      ),
-      binding,
-    ]);
+    const { stagedBlob } = request;
+    const activeBindingIds = response.blobKekTargets.activeBindingIds;
+    if (
+      !stagedBlob ||
+      activeBindingIds.length !== 1 ||
+      activeBindingIds[0] !== response.bindingId
+    ) {
+      this.documentAttachmentListRequestsByDocumentId.delete(
+        response.documentId,
+      );
+      return;
+    }
+    const binding = blobAttachmentSummaryFromStagedBind(
+      { ...request, stagedBlob },
+      response,
+    );
+    this.updateCachedDocumentAttachmentList(
+      response.documentId,
+      (attachments) => [
+        ...attachments.filter(
+          (cachedBinding) => cachedBinding.slotId !== response.slotId,
+        ),
+        binding,
+      ],
+    );
   }
 
   private cacheBlobAttachmentDetachResponse(
@@ -2040,7 +2064,7 @@ export class ApiClient {
     )
       .then((response) => {
         if (response) {
-          this.cacheBlobAttachmentBindResponse(response);
+          this.cacheBlobAttachmentBindResponse(input, response);
         } else {
           this.documentAttachmentListRequestsByDocumentId.clear();
         }

@@ -14,7 +14,7 @@ import {
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type {
   ContainerWriterProjectionResponse,
-  DocumentCreateResponse,
+  DocumentContentKeyBundleResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import { readCanonicalRecord } from "../../keying/canonicalJson";
@@ -259,7 +259,7 @@ export function normalizeDocumentKekTargetResponse(
 }
 
 export function targetEnvelopeReference(
-  envelope: DocumentCreateResponse["contentKeyBundle"]["targets"][number],
+  envelope: DocumentContentKeyBundleResponse["targets"][number],
 ): DocumentContentKeyTarget {
   return {
     containerId: envelope.containerId,

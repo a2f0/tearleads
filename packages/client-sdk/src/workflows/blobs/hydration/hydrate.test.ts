@@ -13,6 +13,7 @@ import {
   createFixtureBinding,
   createSingleAttachmentHydrationApi,
   createUploadedAttachmentFixture,
+  stagedBindingSummary,
 } from "../../../../test/helpers/blobHydration";
 import {
   createBlobAttachmentBindResponse,
@@ -163,17 +164,17 @@ test("decryptDocumentAttachmentBlob accepts a binding created after the blob wri
   if (!rebound) {
     throw new Error("Expected rebound attachment fixture");
   }
+  // The rebind keeps the blob's original write header and authorization.
+  const original = createFixtureBinding(fixture);
   const binding = {
-    bindingEvent: rebound.response.bindingEvent,
-    bindingId,
-    blobId: fixture.blobId,
-    blobKekTargets: rebound.response.blobKekTargets,
-    contentKeyBundle: rebound.response.contentKeyBundle,
-    documentManifestHash: rebound.response.documentManifestHash,
-    previousBindingId: rebound.response.previousBindingId,
-    slotId,
-    writeAuthorization: fixture.uploaded.response.writeAuthorization,
-    writeHeader: fixture.uploaded.response.writeHeader,
+    ...stagedBindingSummary({
+      request: {
+        ...rebound.request,
+        stagedBlob: { stageId: "rebind", writeHeader: original.writeHeader },
+      },
+      response: rebound.response,
+    }),
+    writeAuthorization: original.writeAuthorization,
   };
 
   const decrypted = await decryptDocumentAttachmentBlob({
@@ -451,18 +452,7 @@ test("hydrateDocumentAttachmentBlobs reuses one projection for distinct attachme
       },
       listDocumentAttachments: async () => [
         createFixtureBinding(fixture),
-        {
-          bindingEvent: uploaded.response.bindingEvent,
-          bindingId,
-          blobId,
-          blobKekTargets: uploaded.response.blobKekTargets,
-          contentKeyBundle: uploaded.response.contentKeyBundle,
-          documentManifestHash: uploaded.response.documentManifestHash,
-          previousBindingId: uploaded.response.previousBindingId,
-          slotId,
-          writeAuthorization: uploaded.response.writeAuthorization,
-          writeHeader: uploaded.response.writeHeader,
-        },
+        stagedBindingSummary(uploaded),
       ],
     },
     attachments: [fixture.attachment, secondAttachment],

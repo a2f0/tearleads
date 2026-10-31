@@ -47,6 +47,10 @@ import {
 } from "../../src/access/read/containerKekStore";
 import { routeApp } from "../../src/routeApp";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
+import {
+  type CreatedDocumentFixture,
+  withDocumentMutationArtifacts,
+} from "./documentAcknowledgementFixture";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
 import {
   type StoredContainerMutation,
@@ -463,17 +467,21 @@ export async function createDocument(input: {
   readonly containerPath?: readonly AccessManifestBundleWire[] | undefined;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
-}): Promise<DocumentCreateResponse> {
+}): Promise<CreatedDocumentFixture> {
+  const request = await createDocumentRequest(input);
   const createResponse = await routeApp.request("/documents", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${input.owner.token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(await createDocumentRequest(input)),
+    body: JSON.stringify(request),
   });
   expect(createResponse.status).toBe(200);
   const created = await createResponse.json();
   expect(isDocumentCreateResponse(created)).toBe(true);
-  return created as DocumentCreateResponse;
+  return withDocumentMutationArtifacts(
+    request,
+    created as DocumentCreateResponse,
+  );
 }

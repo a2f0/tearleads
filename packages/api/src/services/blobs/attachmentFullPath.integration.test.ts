@@ -46,7 +46,7 @@ test("nested attachment bind and detach require exactly their signed full path",
   const omission = await createSignedAccessEvent({
     body: readBindBodyClaim(bound.request.body),
     dependencyManifestHashes: [
-      document.accessManifest.manifestHash,
+      document.manifestHash,
       child.accessManifest.manifestHash,
     ],
     objectId: blobId,
@@ -94,7 +94,7 @@ test("nested attachment bind and detach require exactly their signed full path",
   const extra = await createSignedAccessEvent({
     body: readDetachBodyClaim(detached.body),
     dependencyManifestHashes: [
-      document.accessManifest.manifestHash,
+      document.manifestHash,
       root.bundle.manifestHash,
       child.accessManifest.manifestHash,
       "f".repeat(64),

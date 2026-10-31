@@ -57,17 +57,17 @@ test("a heal that advances the content-key epoch must carry a newly written base
   );
   const preRevokeBaseline = await createSignedAtomicRotationBaseline({
     dependencyManifestHashes: [root.bundle.manifestHash],
-    accessManifestHash: created.contentKeyBundle.linkSetManifestHash,
-    contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
+    accessManifestHash: created.manifestHash,
+    contentKeyEpoch: created.contentKeyEpoch,
     documentId: created.id,
     organizationId,
     owner,
-    targetHash: created.contentKeyBundle.targetHash,
+    targetHash: created.targetHash,
   });
   const preRevokeBaselineResponse = await postDocumentSync(owner, created.id, {
-    contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
-    expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
-    expectedTargetHash: created.contentKeyBundle.targetHash,
+    contentKeyEpoch: created.contentKeyEpoch,
+    expectedLinkSetManifestHash: created.manifestHash,
+    expectedTargetHash: created.targetHash,
     authorizingContainerPathRefs: [
       [
         {
@@ -192,7 +192,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
   // The device holding the full history heals with a covering baseline.
   const coveringBaseline = await createSignedAtomicRotationBaseline({
     dependencyManifestHashes: [revokedRoot.bundle.manifestHash],
-    accessManifestHash: created.contentKeyBundle.linkSetManifestHash,
+    accessManifestHash: created.manifestHash,
     contentKeyEpoch: healedBundle.contentKeyEpoch,
     documentId: created.id,
     organizationId,
@@ -221,9 +221,9 @@ test("a heal that advances the content-key epoch must carry a newly written base
   // the superseded bundle: they get the coded stale 409, which routes them to
   // the healed projection.
   const supersededReadOnlyResponse = await postDocumentSync(owner, created.id, {
-    contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
-    expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
-    expectedTargetHash: created.contentKeyBundle.targetHash,
+    contentKeyEpoch: created.contentKeyEpoch,
+    expectedLinkSetManifestHash: created.manifestHash,
+    expectedTargetHash: created.targetHash,
     localVersionVector: null,
     outgoingUpdates: [],
     supportsPullPagination: true,
@@ -270,7 +270,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
   // never an uncoded terminal 409 that strands the loser's queued writes.
   const losingBaseline = await createSignedAtomicRotationBaseline({
     dependencyManifestHashes: [revokedRoot.bundle.manifestHash],
-    accessManifestHash: created.contentKeyBundle.linkSetManifestHash,
+    accessManifestHash: created.manifestHash,
     contentKeyEpoch: healedBundle.contentKeyEpoch,
     documentId: created.id,
     organizationId,

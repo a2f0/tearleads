@@ -1,14 +1,12 @@
-import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type {
+  AccessManifestBundleWireResponse,
+  DocumentContentKeyBundleResponse,
   DocumentCreateResponse,
+  DocumentKekTargetsResponse,
   DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import {
-  readRecordString,
-  serializeCanonical,
-  serializedPersistedDocumentState,
-} from "./readers";
+import { serializedPersistedDocumentState } from "./readers";
 import type {
   DocumentCreatePlan,
   DocumentLinkSetMutationPlan,
@@ -34,145 +32,144 @@ type DocumentMutationPlan = Pick<
   | "targetHash"
   | "targets"
 > & {
-  // Link and unlink bodies are both serialized canonically, so the shared
-  // matcher does not care which event body shape the plan carries.
+  // Link and unlink bodies differ; the acknowledged bundle carries either.
   body: unknown;
 };
 
-function assertDocumentMutationManifestMatchesPlan(input: {
+/**
+ * The committed material a matched document create or link-set
+ * acknowledgement establishes. The response carries only hashes, so this is
+ * built from the plan the client signed: the manifest bundle, the content-key
+ * bundle it submitted, and the KEK targets it derived.
+ */
+export interface AcknowledgedDocumentMutation {
+  readonly accessManifest: AccessManifestBundleWireResponse;
+  readonly contentKeyBundle: DocumentContentKeyBundleResponse;
+  readonly documentKekTargets: DocumentKekTargetsResponse;
+  readonly id: string;
+}
+
+/**
+ * A document acknowledgement commits by hash: the manifest hash covers the
+ * signed event (by hash) and the derived link-set state, and the target hash
+ * covers every KEK target the content key is wrapped to. Equal hashes
+ * acknowledge exactly the plan this client signed; any mismatch refuses.
+ */
+function assertDocumentMutationAcknowledgement(input: {
+  expectedContentKeyEpoch: number;
   label: string;
   plan: DocumentMutationPlan;
-  probeStateDocumentId: boolean;
-  response: DocumentCreateResponse | DocumentLinkSetMutationResponse;
+  response: DocumentLinkSetMutationResponse;
 }): void {
   const { label, plan, response } = input;
   if (response.id !== plan.documentId) {
     throw new Error(`${label} id mismatch`);
   }
-  if (response.accessManifest.manifestHash !== plan.manifestHash) {
+  if (
+    response.manifestHash !== plan.manifestHash ||
+    response.eventHash !== plan.eventHash
+  ) {
     throw new Error(`${label} manifest hash mismatch`);
   }
-  if (
-    serializeCanonical(response.accessManifest.manifest, "manifest") !==
-    serializeCanonical(plan.manifest, "manifest")
-  ) {
-    throw new Error(`${label} manifest mismatch`);
-  }
-
-  const responseEvent = response.accessManifest.event;
-  if (!isPlainRecord(responseEvent)) {
-    throw new Error(`${label} event bundle is invalid`);
-  }
-  if (
-    readRecordString(responseEvent, "eventHash", "event bundle") !==
-    plan.eventHash
-  ) {
-    throw new Error(`${label} event hash mismatch`);
-  }
-  if (
-    serializeCanonical(Reflect.get(responseEvent, "event"), "event") !==
-    serializeCanonical(plan.event, "event")
-  ) {
-    throw new Error(`${label} event mismatch`);
-  }
-  if (
-    serializeCanonical(Reflect.get(responseEvent, "body"), "event body") !==
-    serializeCanonical(plan.body, "event body")
-  ) {
-    throw new Error(`${label} event body mismatch`);
-  }
-
-  const responseState = response.accessManifest.state;
-  if (input.probeStateDocumentId) {
-    if (!isPlainRecord(responseState)) {
-      throw new Error(`${label} state is invalid`);
-    }
-    if (
-      readRecordString(responseState, "documentId", "document state") !==
-      plan.documentId
-    ) {
-      throw new Error(`${label} document id mismatch`);
-    }
-  }
-  if (
-    serializeCanonical(responseState, "state") !==
-    serializeCanonical(plan.state, "state")
-  ) {
-    throw new Error(`${label} state mismatch`);
-  }
-}
-
-function assertDocumentMutationKeyBundlesMatchPlan(input: {
-  expectedContentKeyEpoch: number;
-  expectedContentKeyTargets: unknown;
-  label: string;
-  plan: DocumentMutationPlan;
-  response: DocumentCreateResponse | DocumentLinkSetMutationResponse;
-}): void {
-  const { label, plan, response } = input;
-  if (response.contentKeyBundle.documentId !== plan.documentId) {
-    throw new Error(`${label} content-key document mismatch`);
-  }
-  if (
-    response.contentKeyBundle.contentKeyEpoch !== input.expectedContentKeyEpoch
-  ) {
+  if (response.contentKeyEpoch !== input.expectedContentKeyEpoch) {
     throw new Error(`${label} content-key epoch mismatch`);
   }
-  if (response.contentKeyBundle.linkSetManifestHash !== plan.manifestHash) {
-    throw new Error(`${label} link manifest mismatch`);
-  }
-  if (response.contentKeyBundle.targetHash !== plan.targetHash) {
+  if (response.targetHash !== plan.targetHash) {
     throw new Error(`${label} target hash mismatch`);
-  }
-  if (
-    serializeCanonical(
-      response.contentKeyBundle.targets,
-      "content-key targets",
-    ) !==
-    serializeCanonical(input.expectedContentKeyTargets, "content-key targets")
-  ) {
-    throw new Error(`${label} content-key targets mismatch`);
-  }
-  if (response.documentKekTargets.documentId !== plan.documentId) {
-    throw new Error(`${label} target document mismatch`);
-  }
-  if (response.documentKekTargets.linkSetManifestHash !== plan.manifestHash) {
-    throw new Error(`${label} target manifest mismatch`);
-  }
-  if (response.documentKekTargets.documentKeyTargetHash !== plan.targetHash) {
-    throw new Error(`${label} document target hash mismatch`);
-  }
-  if (
-    serializeCanonical(response.documentKekTargets.targets, "KEK targets") !==
-    serializeCanonical(plan.targets, "KEK targets")
-  ) {
-    throw new Error(`${label} KEK targets mismatch`);
   }
 }
 
-function assertDocumentMutationResponseMatchesPlan(input: {
-  expectedContentKeyEpoch: number;
-  expectedContentKeyTargets: unknown;
-  label: string;
+function acknowledgedDocumentMutationFromPlan(input: {
+  contentKeyEpoch: number;
+  contentKeyTargets: DocumentContentKeyBundleResponse["targets"];
   plan: DocumentMutationPlan;
-  probeStateDocumentId: boolean;
-  response: DocumentCreateResponse | DocumentLinkSetMutationResponse;
-}): void {
-  assertDocumentMutationManifestMatchesPlan(input);
-  assertDocumentMutationKeyBundlesMatchPlan(input);
+}): AcknowledgedDocumentMutation {
+  const { plan } = input;
+  return {
+    accessManifest: {
+      event: {
+        event: { ...plan.event },
+        body: plan.body,
+        eventHash: plan.eventHash,
+      },
+      manifest: { ...plan.manifest },
+      manifestHash: plan.manifestHash,
+      state: { ...plan.state },
+    },
+    contentKeyBundle: {
+      documentId: plan.documentId,
+      contentKeyEpoch: input.contentKeyEpoch,
+      linkSetManifestHash: plan.manifestHash,
+      targetHash: plan.targetHash,
+      targets: input.contentKeyTargets.map((target) => ({ ...target })),
+    },
+    documentKekTargets: {
+      documentId: plan.documentId,
+      linkSetManifestHash: plan.manifestHash,
+      linkedContainerManifestHashes: plan.targets.map(
+        (target) => target.containerManifestHash,
+      ),
+      linkedContainerKeyEpochIds: plan.targets.map(
+        (target) => target.containerKeyEpochId,
+      ),
+      targets: plan.targets.map((target) => ({ ...target })),
+      documentKeyTargetHash: plan.targetHash,
+    },
+    id: plan.documentId,
+  };
 }
 
 export function assertDocumentCreateResponseMatchesPlan(
   plan: DocumentCreatePlan,
   response: DocumentCreateResponse,
 ): void {
-  assertDocumentMutationResponseMatchesPlan({
+  assertDocumentMutationAcknowledgement({
     expectedContentKeyEpoch: plan.request.contentKeyBundle.contentKeyEpoch,
-    expectedContentKeyTargets: plan.request.contentKeyBundle.targets,
     label: "Document create response",
     plan,
-    probeStateDocumentId: true,
     response,
+  });
+}
+
+/** Checks a create acknowledgement and returns what it committed. */
+export function acknowledgedDocumentCreate(
+  plan: DocumentCreatePlan,
+  response: DocumentCreateResponse,
+): AcknowledgedDocumentMutation {
+  assertDocumentCreateResponseMatchesPlan(plan, response);
+  return acknowledgedDocumentMutationFromPlan({
+    contentKeyEpoch: plan.request.contentKeyBundle.contentKeyEpoch,
+    contentKeyTargets: plan.request.contentKeyBundle.targets,
+    plan,
+  });
+}
+
+/** Checks a link-set acknowledgement and returns what it committed. */
+export function acknowledgedDocumentLinkSetMutation(
+  plan: DocumentLinkSetMutationPlan,
+  response: DocumentLinkSetMutationResponse,
+): AcknowledgedDocumentMutation {
+  assertDocumentMutationAcknowledgement({
+    expectedContentKeyEpoch: plan.contentKeyEpoch,
+    label: "Document link-set response",
+    plan,
+    response,
+  });
+  return acknowledgedDocumentMutationFromPlan({
+    contentKeyEpoch: plan.contentKeyEpoch,
+    contentKeyTargets: plan.request.contentKeyBundle.targets,
+    plan,
+  });
+}
+
+export function persistedDocumentStateFromAcknowledgement(
+  acknowledged: AcknowledgedDocumentMutation,
+): PersistedDocumentCreateState {
+  return serializedPersistedDocumentState({
+    contentKeyBundle: acknowledged.contentKeyBundle,
+    documentId: acknowledged.id,
+    documentKekTargets: acknowledged.documentKekTargets,
+    documentManifestBundle: acknowledged.accessManifest,
   });
 }
 
@@ -180,14 +177,9 @@ export function persistedDocumentCreateStateFromResponse(
   plan: DocumentCreatePlan,
   response: DocumentCreateResponse,
 ): PersistedDocumentCreateState {
-  assertDocumentCreateResponseMatchesPlan(plan, response);
-
-  return serializedPersistedDocumentState({
-    contentKeyBundle: response.contentKeyBundle,
-    documentId: response.id,
-    documentKekTargets: response.documentKekTargets,
-    documentManifestBundle: response.accessManifest,
-  });
+  return persistedDocumentStateFromAcknowledgement(
+    acknowledgedDocumentCreate(plan, response),
+  );
 }
 
 /**
@@ -212,19 +204,7 @@ export function persistedDocumentLinkSetMutationStateFromResponse(
   plan: DocumentLinkSetMutationPlan,
   response: DocumentLinkSetMutationResponse,
 ): PersistedDocumentCreateState {
-  assertDocumentMutationResponseMatchesPlan({
-    expectedContentKeyEpoch: plan.contentKeyEpoch,
-    expectedContentKeyTargets: plan.request.contentKeyBundle.targets,
-    label: "Document link-set response",
-    plan,
-    probeStateDocumentId: false,
-    response,
-  });
-
-  return serializedPersistedDocumentState({
-    contentKeyBundle: response.contentKeyBundle,
-    documentId: response.id,
-    documentKekTargets: response.documentKekTargets,
-    documentManifestBundle: response.accessManifest,
-  });
+  return persistedDocumentStateFromAcknowledgement(
+    acknowledgedDocumentLinkSetMutation(plan, response),
+  );
 }

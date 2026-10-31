@@ -11,6 +11,7 @@ import {
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -77,13 +78,16 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
 
     const { request: writeRequest, updateId } =
       await createSignedDocumentSyncRequest({
-        created: { ...linked, createdAt: created.createdAt },
+        created: withDocumentMutationArtifacts(linkRequest, {
+          ...linked,
+          createdAt: created.createdAt,
+        }),
         owner,
         root,
       });
     const unlinkRequest = await buildDocumentUnlinkRequest({
       child,
-      linkedDocument: linked,
+      linkedDocument: withDocumentMutationArtifacts(linkRequest, linked),
       owner,
       root,
     });

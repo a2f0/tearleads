@@ -1,3 +1,4 @@
+import { blobAttachmentSummaryFromStagedBind } from "@tearleads/validators/response";
 import type { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../../workflows/blobs/upload";
 import type { PendingAttachmentRecord } from "../../../../workflows/documents";
 import {
@@ -69,18 +70,17 @@ export async function settleUploadedAttachment(input: {
     uploaded.blobId,
     input.attachmentGeneration,
   );
-  input.activeBindingBySlotId.set(pendingAttachment.slotId, {
-    bindingEvent: uploaded.response.bindingEvent,
-    bindingId: uploaded.bindingId,
-    blobId: uploaded.blobId,
-    blobKekTargets: uploaded.response.blobKekTargets,
-    contentKeyBundle: uploaded.response.contentKeyBundle,
-    documentManifestHash: uploaded.response.documentManifestHash,
-    previousBindingId: uploaded.response.previousBindingId,
-    slotId: pendingAttachment.slotId,
-    writeAuthorization: uploaded.response.writeAuthorization,
-    writeHeader: uploaded.response.writeHeader,
-  });
+  const { stagedBlob } = uploaded.request;
+  if (!stagedBlob) {
+    throw new Error("A settled attachment upload must have staged its blob");
+  }
+  input.activeBindingBySlotId.set(
+    pendingAttachment.slotId,
+    blobAttachmentSummaryFromStagedBind(
+      { ...uploaded.request, stagedBlob },
+      uploaded.response,
+    ),
+  );
   installDocumentWriterProjection(
     state,
     uploaded.writerProjection,

@@ -52,9 +52,9 @@ test("the sync route traverses more than 64 updates exactly once", async () => {
   let pageCount = 0;
   do {
     const response = await postSync(owner.token, created.id, {
-      contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
-      expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
-      expectedTargetHash: created.contentKeyBundle.targetHash,
+      contentKeyEpoch: created.contentKeyEpoch,
+      expectedLinkSetManifestHash: created.manifestHash,
+      expectedTargetHash: created.targetHash,
       localVersionVector: null,
       outgoingUpdates: [],
       ...(pullCursor === undefined ? {} : { pullCursor }),
@@ -78,9 +78,9 @@ test("a lost continuation response retries without skipped or duplicated updates
   const { created, owner, signed } = await createPaginatedDocumentHistory();
 
   const initialRequest: DocumentSyncRequest = {
-    contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
-    expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
-    expectedTargetHash: created.contentKeyBundle.targetHash,
+    contentKeyEpoch: created.contentKeyEpoch,
+    expectedLinkSetManifestHash: created.manifestHash,
+    expectedTargetHash: created.targetHash,
     localVersionVector: null,
     outgoingUpdates: [],
     supportsPullPagination: true,

@@ -48,6 +48,7 @@ import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
 import { toPrincipalHistoryPreparationResponse } from "../principals/preparationResponse";
 import {
+  documentKekTargetContainerIds,
   publishDocumentMutationCreatedEvent,
   publishDocumentPurgeEvent,
   publishDocumentSyncContainerRekeyEvents,
@@ -113,20 +114,18 @@ async function respondWithDocumentCreate(
   const session = c.get("session");
 
   try {
-    const { insertedUpdateIds, response } = await createDocument(
-      input.runtime,
-      {
+    const { insertedUpdateIds, linkedContainerIds, response } =
+      await createDocument(input.runtime, {
         fingerprint: session.fingerprint,
         request: input.request,
         userId: session.userId,
-      },
-    );
+      });
     // A seeded create stands in for the first sync, so it carries that sync's
     // update hint; peers learn of the new document from it.
     if (insertedUpdateIds.length > 0) {
       await publishDocumentUpdateCreatedEvent({
+        containerIds: linkedContainerIds,
         documentId: response.id,
-        documentKekTargets: response.documentKekTargets,
         origin: { sessionId: session.id, userId: session.userId },
         publish: input.publish,
         updateIds: insertedUpdateIds,
@@ -156,29 +155,27 @@ async function respondWithDocumentLinkSetMutation(
   const session = c.get("session");
 
   try {
-    const { insertedUpdateIds, response } = await mutateDocumentLinkSet(
-      input.runtime,
-      {
+    const { insertedUpdateIds, linkedContainerIds, response } =
+      await mutateDocumentLinkSet(input.runtime, {
         documentId,
         eventType: input.eventType,
         fingerprint: session.fingerprint,
         request: input.request,
         userId: session.userId,
-      },
-    );
+      });
     const origin = { sessionId: session.id, userId: session.userId };
     await publishDocumentMutationCreatedEvent({
       documentId,
       eventType: input.eventType,
+      linkedContainerIds,
       origin,
       publish: input.publish,
       request: input.request,
-      response,
     });
     if (insertedUpdateIds.length > 0) {
       await publishDocumentUpdateCreatedEvent({
+        containerIds: linkedContainerIds,
         documentId,
-        documentKekTargets: response.documentKekTargets,
         origin,
         publish: input.publish,
         updateIds: insertedUpdateIds,
@@ -231,8 +228,10 @@ async function respondWithDocumentSync(
     // that hint recovers on its next reconcile, per the lossy-hint contract.
     if (insertedUpdateIds.length > 0) {
       await publishDocumentUpdateCreatedEvent({
+        containerIds: documentKekTargetContainerIds(
+          response.documentKekTargets,
+        ),
         documentId,
-        documentKekTargets: response.documentKekTargets,
         origin,
         publish: input.publish,
         updateIds: insertedUpdateIds,

@@ -80,23 +80,23 @@ export function createContainerWithMetadataDocumentRequest() {
 }
 
 export function createContainerWithMetadataDocumentResponse() {
-  const contentKeyBundle = createContentKeyBundleResponse();
   return {
     container: createContainerMutationResponse(),
     metadataDocument: {
-      accessManifest: createAccessManifestBundle(),
-      contentKeyBundle,
+      ...createDocumentMutationAcknowledgement(),
       createdAt: "2026-08-06T00:00:00.000Z",
-      documentKekTargets: {
-        documentId: "document-1",
-        documentKeyTargetHash: contentKeyBundle.targetHash,
-        linkedContainerKeyEpochIds: ["container-key-epoch-id"],
-        linkedContainerManifestHashes: ["manifest-hash"],
-        linkSetManifestHash: contentKeyBundle.linkSetManifestHash,
-        targets: [{ containerId: "container-1" }],
-      },
-      id: "document-1",
     },
+  };
+}
+
+function createDocumentMutationAcknowledgement() {
+  const contentKeyBundle = createContentKeyBundleResponse();
+  return {
+    contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
+    eventHash: "document-event-hash",
+    id: "document-1",
+    manifestHash: contentKeyBundle.linkSetManifestHash,
+    targetHash: contentKeyBundle.targetHash,
   };
 }
 
@@ -150,20 +150,7 @@ export function createDocumentLinkSetMutationRequest() {
 }
 
 export function createDocumentLinkSetMutationResponse() {
-  const contentKeyBundle = createContentKeyBundleResponse();
-  return {
-    accessManifest: createAccessManifestBundle(),
-    contentKeyBundle,
-    documentKekTargets: {
-      documentId: "document-1",
-      documentKeyTargetHash: contentKeyBundle.targetHash,
-      linkedContainerKeyEpochIds: ["container-key-epoch-id"],
-      linkedContainerManifestHashes: ["manifest-hash"],
-      linkSetManifestHash: contentKeyBundle.linkSetManifestHash,
-      targets: [{ containerId: "container-1" }],
-    },
-    id: "document-1",
-  };
+  return createDocumentMutationAcknowledgement();
 }
 
 export function createDocumentPurgeResponse() {

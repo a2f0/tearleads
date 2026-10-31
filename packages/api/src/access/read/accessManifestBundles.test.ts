@@ -18,10 +18,10 @@ import {
 test("manifest bundles load their signed events in one query and preserve missing hashes", async () => {
   const { registration } = await registerServiceUser();
   const expected = [
-    registration.rootMetadataDocument.accessManifest,
-    registration.organizationMetadataContainer.metadataDocument.accessManifest,
+    registration.rootMetadataDocument,
+    registration.organizationMetadataContainer.metadataDocument,
   ];
-  const hashes = expected.map((bundle) => String(bundle.manifestHash));
+  const hashes = expected.map((document) => document.manifestHash);
   const absent = "0".repeat(64);
   const counter = { statements: 0 };
   const bundles = await withDatabaseStatementCounter(counter, () =>
@@ -29,8 +29,10 @@ test("manifest bundles load their signed events in one query and preserve missin
   );
   expect(counter.statements).toBe(1);
   expect(bundles.size).toBe(2);
-  for (const bundle of expected) {
-    expect(bundles.get(bundle.manifestHash)).toMatchObject(bundle);
+  for (const document of expected) {
+    const bundle = bundles.get(document.manifestHash);
+    expect(bundle?.manifestHash).toBe(document.manifestHash);
+    expect(bundle?.event.eventHash).toBe(document.eventHash);
   }
   expect(await getAccessManifestBundle(absent, db)).toBeNull();
   const emptyCounter = { statements: 0 };
@@ -44,9 +46,7 @@ test("manifest bundles load their signed events in one query and preserve missin
 
 test("a manifest with a missing event remains an integrity error", async () => {
   const { registration } = await registerServiceUser();
-  const manifestHash = String(
-    registration.rootMetadataDocument.accessManifest.manifestHash,
-  );
+  const manifestHash = String(registration.rootMetadataDocument.manifestHash);
   const bundle = await getAccessManifestBundle(manifestHash, db);
   if (!bundle) throw new Error("Missing manifest fixture");
   await db
@@ -64,13 +64,9 @@ class UndoFixture extends Error {}
 
 test("a transaction reads each stored manifest bundle once", async () => {
   const { registration } = await registerServiceUser();
-  const first = String(
-    registration.rootMetadataDocument.accessManifest.manifestHash,
-  );
-  const second = String(
-    registration.organizationMetadataContainer.metadataDocument.accessManifest
-      .manifestHash,
-  );
+  const first = String(registration.rootMetadataDocument.manifestHash);
+  const second =
+    registration.organizationMetadataContainer.metadataDocument.manifestHash;
   const absent = "0".repeat(64);
   const count = async <T>(work: () => Promise<T>) => {
     const counter = { statements: 0 };
@@ -124,9 +120,7 @@ test("a transaction reads each stored manifest bundle once", async () => {
 
 test("a malformed bundle is not memoized and fails again in the same transaction", async () => {
   const { registration } = await registerServiceUser();
-  const manifestHash = String(
-    registration.rootMetadataDocument.accessManifest.manifestHash,
-  );
+  const manifestHash = String(registration.rootMetadataDocument.manifestHash);
   const bundle = await getAccessManifestBundle(manifestHash, db);
   if (!bundle) throw new Error("Missing manifest fixture");
   await db

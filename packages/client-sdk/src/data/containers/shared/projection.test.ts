@@ -616,25 +616,16 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
           };
           return {
             bindingId,
-            bindingEvent: {
-              body: request.body,
-              event: request.event,
-              eventHash: await computeAccessEventHash(
-                request.event as unknown as AccessEvent,
-              ),
-            },
             blobId,
+            blobKekTargets,
+            contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
             documentId: createdDocument.plan.documentId,
             documentManifestHash: createdDocument.plan.manifestHash,
+            eventHash: await computeAccessEventHash(
+              request.event as unknown as AccessEvent,
+            ),
             previousBindingId: null,
             slotId,
-            contentKeyBundle: {
-              blobId,
-              ...request.contentKeyBundle,
-            },
-            blobKekTargets,
-            writeAuthorization: blobKekTargets,
-            writeHeader: request.stagedBlob.writeHeader,
             writeHeaderHash,
           };
         },

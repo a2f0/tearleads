@@ -40,13 +40,13 @@ test("a document projection serves each manifest once and cites it by hash", asy
   const rootHash = root.bundle.manifestHash;
   // The root manifest is cited by the authorizing path and by the document
   // manifest's dependency path, but travels once.
-  expect(wire.documentManifest).toBe(created.accessManifest.manifestHash);
+  expect(wire.documentManifest).toBe(created.manifestHash);
   expect(wire.authorizingContainerPaths.map(({ path }) => path)).toEqual([
     [rootHash],
   ]);
   expect(wire.documentManifestContainerPaths).toEqual([[rootHash]]);
   expect(Object.keys(wire.bundles).sort()).toEqual(
-    [rootHash, created.accessManifest.manifestHash].sort(),
+    [rootHash, created.manifestHash].sort(),
   );
 
   const decoded = decodeServedDocumentProjection(body);

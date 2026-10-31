@@ -12,6 +12,7 @@ import {
   writerResolver,
 } from "../../../test/helpers/coldSdkRematerialization";
 import { grantContainerThroughReadGroup } from "../../../test/helpers/containerGroupGrant";
+import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -62,49 +63,50 @@ test("a fresh and then pinned SDK accepts API purge history with an old group-on
   // The second link/unlink pair leaves the group's container cited only by
   // older document events, never by the terminal head or purge path.
   for (const child of [grouped.response, later.response]) {
+    const linkRequest = await buildDocumentLinkRequest({
+      child,
+      createdDocument: current,
+      owner,
+      root,
+    });
     const link = await routeApp.request(`/documents/${created.id}/link`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${owner.token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(
-        await buildDocumentLinkRequest({
-          child,
-          createdDocument: current,
-          owner,
-          root,
-        }),
-      ),
+      body: JSON.stringify(linkRequest),
     });
     expect(link.status, await link.clone().text()).toBe(200);
     const linked: unknown = await link.json();
     if (!isDocumentLinkSetMutationResponse(linked))
       throw new Error("Expected document link");
+    const unlinkRequest = await buildDocumentUnlinkRequest({
+      child,
+      linkedDocument: withDocumentMutationArtifacts(linkRequest, linked),
+      owner,
+      root,
+    });
     const unlink = await routeApp.request(`/documents/${created.id}/unlink`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${owner.token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(
-        await buildDocumentUnlinkRequest({
-          child,
-          linkedDocument: linked,
-          owner,
-          root,
-        }),
-      ),
+      body: JSON.stringify(unlinkRequest),
     });
     expect(unlink.status, await unlink.clone().text()).toBe(200);
     const unlinked: unknown = await unlink.json();
     if (!isDocumentLinkSetMutationResponse(unlinked))
       throw new Error("Expected document unlink");
-    current = { ...unlinked, createdAt: created.createdAt };
+    current = withDocumentMutationArtifacts(unlinkRequest, {
+      ...unlinked,
+      createdAt: created.createdAt,
+    });
   }
   const purged = await postDocumentPurge({
     documentId: created.id,
-    documentManifestHash: current.accessManifest.manifestHash,
+    documentManifestHash: current.manifestHash,
     owner,
     root,
   });

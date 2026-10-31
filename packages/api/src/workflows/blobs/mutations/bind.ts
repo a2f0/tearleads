@@ -45,7 +45,6 @@ import {
   type ResolvedBlobKekTargets,
   readWriteHeader,
   toBindResponse,
-  toBlobKekTargetsResponse,
   toBlobWriteAuthorization,
   toStoredContentKeyBundleInput,
   verifiedBlobKekTargetsFromResolved,
@@ -409,11 +408,7 @@ async function bindBlobAttachmentTransaction(
       blobId: input.blobId,
       contentKeyBundle,
       currentTargets,
-      writeHeader: storedWriteHeader.header,
       writeHeaderHash: writeHeaderHash ?? storedWriteHeader.headerHash,
-      writeAuthorization: toBlobKekTargetsResponse(
-        storedWriteHeader.authorization,
-      ),
     }),
   };
 }

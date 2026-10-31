@@ -36,9 +36,7 @@ import {
   recordDocumentLinkSetChange,
 } from "./shared/documentRows";
 import {
-  documentManifestBundleRecord,
-  toContentKeyBundleResponse,
-  toDocumentKekTargetsResponse,
+  documentMutationAcknowledgement,
   toStoredContentKeyBundleInput,
   verifiedDocumentKekTargetsFromResolved,
 } from "./shared/records";
@@ -52,6 +50,8 @@ import type { MutateDocumentLinkSetInput } from "./types";
 
 export interface DocumentLinkSetMutationWorkflowResult {
   readonly insertedUpdateIds: readonly string[];
+  /** The document's KEK target containers after the mutation. */
+  readonly linkedContainerIds: readonly string[];
   readonly response: DocumentLinkSetMutationResponse;
 }
 
@@ -90,16 +90,18 @@ function toDocumentLinkSetMutationResult(input: {
   >;
   readonly documentId: string;
   readonly insertedUpdateIds: readonly string[];
-  readonly manifest: Parameters<typeof documentManifestBundleRecord>[0];
+  readonly manifest: Parameters<typeof documentMutationAcknowledgement>[0];
 }): DocumentLinkSetMutationWorkflowResult {
   return {
     insertedUpdateIds: input.insertedUpdateIds,
+    linkedContainerIds: input.contentKeyBundle.currentTargets.targets.map(
+      (target) => target.containerId,
+    ),
     response: {
       id: input.documentId,
-      accessManifest: documentManifestBundleRecord(input.manifest),
-      contentKeyBundle: toContentKeyBundleResponse(input.contentKeyBundle),
-      documentKekTargets: toDocumentKekTargetsResponse(
-        input.contentKeyBundle.currentTargets,
+      ...documentMutationAcknowledgement(
+        input.manifest,
+        input.contentKeyBundle,
       ),
     },
   };
@@ -110,8 +112,10 @@ async function advanceDocumentLinkSet(input: {
   readonly documentId: string;
   readonly eventType: "document.link" | "document.unlink";
   readonly executor: DatabaseTransaction;
-  readonly manifest: Parameters<typeof documentManifestBundleRecord>[0];
-  readonly previousManifest: Parameters<typeof documentManifestBundleRecord>[0];
+  readonly manifest: Parameters<typeof documentMutationAcknowledgement>[0];
+  readonly previousManifest: Parameters<
+    typeof documentMutationAcknowledgement
+  >[0];
   readonly request: DocumentLinkSetMutationRequest;
 }) {
   await assertDocumentLinkSetCanAdvance(input);

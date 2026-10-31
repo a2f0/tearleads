@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { sealNextContentKeyEpoch } from "../../../../test/helpers/contentKeyBundleSealing";
 import {
   createAuthor,
@@ -36,35 +37,49 @@ test("persistedDocumentCreateStateFromResponse stores verified create bundles", 
       },
     ],
   });
-  const response = createResponse(plan);
-  const tamperedTargetHash = await fixtureHash("tampered-target");
+  const fixture = createResponse(plan);
+  // The wire acknowledgement carries hashes only; the persisted state is the
+  // plan the client signed, exactly as the old echo carried it.
+  const response: DocumentCreateResponse = {
+    contentKeyEpoch: fixture.contentKeyEpoch,
+    createdAt: fixture.createdAt,
+    eventHash: fixture.eventHash,
+    id: fixture.id,
+    manifestHash: fixture.manifestHash,
+    targetHash: fixture.targetHash,
+  };
+  const persisted = persistedDocumentCreateStateFromResponse(plan, response);
+  expect(persisted.documentId).toBe("document-1");
+  expect(JSON.parse(persisted.contentKeyBundle ?? "")).toEqual(
+    fixture.contentKeyBundle,
+  );
+  expect(JSON.parse(persisted.documentKekTargets ?? "")).toEqual(
+    fixture.documentKekTargets,
+  );
+  expect(JSON.parse(persisted.documentManifestBundle ?? "")).toEqual(
+    JSON.parse(JSON.stringify(fixture.accessManifest)),
+  );
 
-  expect(persistedDocumentCreateStateFromResponse(plan, response)).toEqual({
-    documentId: "document-1",
-    contentKeyBundle: JSON.stringify(response.contentKeyBundle),
-    documentKekTargets: JSON.stringify(response.documentKekTargets),
-    documentManifestBundle: JSON.stringify(response.accessManifest),
-  });
-
+  const tampered = await fixtureHash("tampered");
+  for (const [field, message] of [
+    ["targetHash", "target hash mismatch"],
+    ["manifestHash", "manifest hash mismatch"],
+    ["eventHash", "manifest hash mismatch"],
+    ["id", "id mismatch"],
+  ] as const) {
+    expect(() =>
+      persistedDocumentCreateStateFromResponse(plan, {
+        ...response,
+        [field]: tampered,
+      }),
+    ).toThrow(message);
+  }
   expect(() =>
     persistedDocumentCreateStateFromResponse(plan, {
       ...response,
-      contentKeyBundle: {
-        ...response.contentKeyBundle,
-        targetHash: tamperedTargetHash,
-      },
+      contentKeyEpoch: response.contentKeyEpoch + 1,
     }),
-  ).toThrow("target hash mismatch");
-
-  expect(() =>
-    persistedDocumentCreateStateFromResponse(plan, {
-      ...response,
-      contentKeyBundle: {
-        ...response.contentKeyBundle,
-        targets: [],
-      },
-    }),
-  ).toThrow("content-key targets mismatch");
+  ).toThrow("content-key epoch mismatch");
 });
 
 test("persistedDocumentSyncStateFromResponse verifies accepted writes and returned write headers", async () => {

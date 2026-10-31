@@ -33,7 +33,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     });
     const purgeRequest = await buildDocumentPurgeRequest({
       documentId: created.id,
-      documentManifestHash: created.accessManifest.manifestHash,
+      documentManifestHash: created.manifestHash,
       owner,
       root,
     });

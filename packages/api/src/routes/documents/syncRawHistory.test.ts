@@ -8,6 +8,7 @@ import {
   isDocumentSyncResponse,
 } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -69,7 +70,7 @@ test("raw-history sync bypasses an otherwise dominant rotation baseline", async 
 
   const unlinkRequest = await buildDocumentUnlinkRequest({
     child,
-    linkedDocument: linked,
+    linkedDocument: withDocumentMutationArtifacts(linkRequest, linked),
     owner,
     root,
   });
@@ -94,9 +95,9 @@ test("raw-history sync bypasses an otherwise dominant rotation baseline", async 
   expect(isDocumentLinkSetMutationResponse(unlinked)).toBe(true);
 
   const readRequest = {
-    contentKeyEpoch: unlinked.contentKeyBundle.contentKeyEpoch,
-    expectedLinkSetManifestHash: unlinked.contentKeyBundle.linkSetManifestHash,
-    expectedTargetHash: unlinked.contentKeyBundle.targetHash,
+    contentKeyEpoch: unlinked.contentKeyEpoch,
+    expectedLinkSetManifestHash: unlinked.manifestHash,
+    expectedTargetHash: unlinked.targetHash,
     localVersionVector: null,
     outgoingUpdates: [],
     supportsPullPagination: true,
