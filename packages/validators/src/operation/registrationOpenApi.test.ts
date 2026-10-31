@@ -50,8 +50,14 @@ test("registration OpenAPI documents its nested contract and all errors", () => 
     registerOperation.runtimeRefinements,
   );
 
-  expect(validateSigningKey(Array(2592).fill(0))).toBe(true);
-  expect(validateSigningKey([0])).toBe(false);
-  expect(validateEncapsulationKey(Array(1568).fill(0))).toBe(true);
-  expect(validateEncapsulationKey([0])).toBe(false);
+  const base64Zeros = (length: number) =>
+    Buffer.alloc(length).toString("base64");
+  expect(validateSigningKey(base64Zeros(2592))).toBe(true);
+  expect(validateSigningKey(Array(2592).fill(0))).toBe(false);
+  expect(validateSigningKey(base64Zeros(2591))).toBe(false);
+  expect(validateEncapsulationKey(base64Zeros(1568))).toBe(true);
+  expect(validateEncapsulationKey(Array(1568).fill(0))).toBe(false);
+  expect(validateEncapsulationKey(`${base64Zeros(1568).slice(0, -2)}B=`)).toBe(
+    false,
+  );
 });

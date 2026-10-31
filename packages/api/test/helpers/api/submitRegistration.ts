@@ -181,8 +181,8 @@ export async function createRegistrationRequestBody(
     userId,
     organizationId,
     rootContainerId,
-    signingPublicKey: Array.from(signingPublicKey),
-    encapsulationPublicKey: Array.from(encapsulationPublicKey),
+    signingPublicKey: bytesToBase64(signingPublicKey),
+    encapsulationPublicKey: bytesToBase64(encapsulationPublicKey),
     initialAdminGroup,
     initialMemberGroup,
     initialOrganizationPolicy: await createInitialOrganizationPolicy({

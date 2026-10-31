@@ -11,6 +11,7 @@ import type {
 } from "@tearleads/validators/request";
 import invariant from "invariant";
 import { routeApp } from "../../src/routeApp";
+import { parentKekRef } from "./containerKeying";
 import {
   containerManifestRef,
   containerManifestRefs,
@@ -123,7 +124,7 @@ async function buildContainerGroupGrantMutation(input: {
         wrapManifestHash: bundle.manifestHash,
       }),
     ] as unknown as Record<string, unknown>[],
-    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
+    parentKekRef: parentKekRef(input.parentKekState),
     userRecipientKeys: userRecipientKeysFromKekTargets(
       input.container.kekState,
     ) as unknown as Record<string, unknown>[],

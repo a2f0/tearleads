@@ -119,10 +119,13 @@ export async function addUserToOrganizationGroup(
           organizationId: signingContext.organizationId,
         });
       }
-      await input.readModelCoordinator.reconcileAfterMutation(
-        signingContext.organizationId,
-      );
-      return bundle;
+      // The verified post-commit read is the mutation's own: callers apply
+      // this directory instead of reading the read model a second time.
+      const directoryAndGroups =
+        await input.readModelCoordinator.reconcileAfterMutation(
+          signingContext.organizationId,
+        );
+      return { directoryAndGroups, receipt: bundle };
     },
   );
 }
@@ -252,10 +255,13 @@ export async function removeUserFromOrganizationGroup(
           organizationId: signingContext.organizationId,
         });
       }
-      await input.readModelCoordinator.reconcileAfterMutation(
-        signingContext.organizationId,
-      );
-      return bundle;
+      // The verified post-commit read is the mutation's own: callers apply
+      // this directory instead of reading the read model a second time.
+      const directoryAndGroups =
+        await input.readModelCoordinator.reconcileAfterMutation(
+          signingContext.organizationId,
+        );
+      return { directoryAndGroups, receipt: bundle };
     },
   );
 }

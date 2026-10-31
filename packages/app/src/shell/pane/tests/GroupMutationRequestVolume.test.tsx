@@ -100,15 +100,18 @@ test("group creation and adding a peer have separate request budgets", async () 
         // The first add enrolls the peer in Members and the custom group in
         // one write, including metadata discovery, read-only sync, and billing.
         // The second add reuses the roster membership.
-        // First enrollment measures 40 calls with private metadata-root
-        // authority. Keep five reads of phase headroom; later adds get three.
-        total: group === "first" ? 45 : 11,
+        // First enrollment measures 39 calls with private metadata-root
+        // authority (32 for the add itself, 33 before). The add applies the
+        // SDK's post-commit read model instead of reading it again (later
+        // adds measure 7, 8 before). Keep five reads of phase headroom;
+        // later adds get three.
+        total: group === "first" ? 44 : 10,
         byRequest: {
           "GET /principals/history": group === "first" ? 8 : 2,
           "GET /containers/:containerId/writer-projection":
             group === "first" ? 3 : 1,
           "GET /organizations/:organizationId/read-model":
-            group === "first" ? 4 : 3,
+            group === "first" ? 3 : 2,
           "GET /principals/group/:groupId/policy": group === "first" ? 3 : 1,
           "GET /auth/user-identity/:userId": group === "first" ? 2 : 0,
           "GET /principals/organization/:organizationId/policy":
@@ -150,7 +153,7 @@ test("group creation and adding a peer have separate request budgets", async () 
       `create and add peer to ${group} group`,
       pairStart,
     );
-    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 53 : 17);
+    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 52 : 16);
     expect(
       combined.filter(
         (request) =>

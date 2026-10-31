@@ -43,6 +43,7 @@ import {
   ContainerMutationRequestSchema,
 } from "./container";
 import {
+  ContainerKekParentRefSchema,
   ContainerManifestPathSchema,
   type ContainerManifestRef,
   ContainerManifestRefListSchema,
@@ -164,7 +165,7 @@ const DocumentSyncContainerMutationRequestSchema = registerJsonSchemaView(
     keyring: plainObjectSchema.nullable(),
     manifest: plainObjectSchema,
     parentContainerPathRefs: OptionalContainerManifestPathSchema.optional(),
-    parentKekState: plainObjectSchema.nullable().optional(),
+    parentKekRef: ContainerKekParentRefSchema.nullable().optional(),
     predecessorBridge: plainObjectSchema.nullable(),
     previousContainerPathRefs: OptionalContainerManifestPathSchema.optional(),
     previousManifestRef: ContainerManifestRefSchema.nullable().optional(),

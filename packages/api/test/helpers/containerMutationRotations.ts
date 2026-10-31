@@ -31,6 +31,7 @@ import {
 import {
   createContainerKeyEpoch,
   createContainerKeyWrap,
+  parentKekRef,
 } from "./containerKeying";
 import {
   containerManifestRef,
@@ -254,7 +255,7 @@ export async function buildRevokeRequest(input: {
     keyring: keyring as unknown as Record<string, unknown>,
     predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
+    parentKekRef: parentKekRef(input.parentKekState),
     userRecipientKeys: [],
   };
 }
@@ -370,7 +371,7 @@ export async function buildRekeyRequest(input: {
     keyring: keyring as unknown as Record<string, unknown>,
     predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
+    parentKekRef: parentKekRef(input.parentKekState),
     userRecipientKeys: userRecipientKeys as unknown as Record<
       string,
       unknown
@@ -482,10 +483,7 @@ export async function buildMoveRequest(input: {
     keyring: keyring as unknown as Record<string, unknown>,
     predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.destinationParentKekState as unknown as Record<
-      string,
-      unknown
-    >,
+    parentKekRef: parentKekRef(input.destinationParentKekState),
     userRecipientKeys: [],
   };
 }

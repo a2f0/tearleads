@@ -11,7 +11,7 @@ import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
-import { createContainerKeyWrap } from "./containerKeying";
+import { createContainerKeyWrap, parentKekRef } from "./containerKeying";
 import {
   containerManifestRef,
   containerManifestRefs,
@@ -125,7 +125,7 @@ export async function buildContainerGrantRequest(input: {
     keyEpoch: input.previousKekState.keyEpoch,
     keyring: null,
     manifest: bundle.manifest,
-    parentKekState: input.parentKekState,
+    parentKekRef: parentKekRef(input.parentKekState),
     predecessorBridge: null,
     previousContainerPathRefs: containerManifestRefs(
       input.previousContainerPath,

@@ -30,7 +30,6 @@ import {
   readContainerKekPredecessorBridge,
   readContainerKeyEpoch,
   readContainerKeyWraps,
-  readVerifiedContainerKekState,
   userRecipientKeysFromRequest,
 } from "./containerKekRecords";
 import { assertParentKekStateCurrent } from "./parentKekState";
@@ -278,10 +277,7 @@ export async function verifyContainerKekFromRequest(
   artifacts: VerifyContainerKekFromRequestArtifacts,
 ): Promise<VerifiedContainerKekMutationState> {
   const userRecipientKeys = userRecipientKeysFromRequest(request);
-  const parentKekState =
-    request.parentKekState === undefined || request.parentKekState === null
-      ? null
-      : readVerifiedContainerKekState(request.parentKekState, "parentKekState");
+  const parentKekState = request.parentKekRef ?? null;
 
   await assertUserRecipientKeysCurrent(executor, userRecipientKeys);
   await assertParentKekStateCurrent(

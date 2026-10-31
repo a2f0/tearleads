@@ -4,6 +4,7 @@ import {
   generateChallenge,
   toFingerprint,
 } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import {
@@ -37,8 +38,8 @@ export async function registerUser(
     readonly sourceIpAddress?: string | null | undefined;
   } = {},
 ): Promise<RegistrationResponse> {
-  const signingKeyBytes = new Uint8Array(input.signingPublicKey);
-  const encapsulationKeyBytes = new Uint8Array(input.encapsulationPublicKey);
+  const signingKeyBytes = base64ToBytes(input.signingPublicKey);
+  const encapsulationKeyBytes = base64ToBytes(input.encapsulationPublicKey);
   const fingerprint = await toFingerprint(signingKeyBytes);
   const encapsulationFingerprint = await toFingerprint(encapsulationKeyBytes);
 

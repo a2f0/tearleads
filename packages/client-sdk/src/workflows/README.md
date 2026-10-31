@@ -354,7 +354,11 @@ the historical prefix. The client verifies the exact authored state and
 artifacts. Built-in member changes and group revocation use bounded current
 evidence and atomically retain authenticated progress. The public
 `OrganizationGroupMutationReceipt` omits `previousStates`; explicit standalone
-complete-bundle utilities retain their own contracts. See
+complete-bundle utilities retain their own contracts. `addUserToGroup` and
+`removeUserFromGroup` return `OrganizationGroupMutationResult`: that receipt as
+`.receipt`, plus `.directoryAndGroups`, the read model reconciled after the
+commit (`undefined` when that reconcile was declined offline), which callers
+apply instead of reading the read model again. See
 [current mutations](../../../../docs/developer/principal-current-mutations.md).
 
 ### Policy history

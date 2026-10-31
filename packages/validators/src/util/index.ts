@@ -103,9 +103,10 @@ export {
 } from "./properties";
 export {
   AUTH_CHALLENGE_HEX_LENGTH,
+  base64Length,
+  canonicalBase64Pattern,
   isAuthChallengeHexString,
-  isByteArray,
-  isByteArrayOfLength,
+  isCanonicalBase64OfLength,
   isSha256HexString,
   ML_DSA87_PUBLIC_KEY_BYTES,
   ML_DSA87_SIGNATURE_BYTES,

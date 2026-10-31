@@ -1,18 +1,14 @@
 import { computeKeyingDomainHash } from "./canonical";
 import { throwVerification } from "./shared";
 import type {
+  ContainerKekParentBinding,
   ContainerKeyEpoch,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
 } from "./types";
 
-export type ContainerKekParentBinding = Pick<
-  VerifiedContainerKekState,
-  "containerId" | "containerKeyEpochId" | "keyEpochHash"
->;
-
 function parentLineage(
-  parent: VerifiedContainerKekState,
+  parent: Pick<VerifiedContainerKekState, "accessManifestHash" | "containerId">,
   manifests: ReadonlyMap<string, VerifiedContainerAccessManifest>,
 ): VerifiedContainerAccessManifest[] {
   const lineage: VerifiedContainerAccessManifest[] = [];
@@ -68,7 +64,7 @@ export function creationParentEpochId(
  * the parent's current epoch.
  */
 export async function resolveContainerKekParentBinding(input: {
-  parent: VerifiedContainerKekState | null;
+  parent: ContainerKekParentBinding | VerifiedContainerKekState | null;
   pinnedEpochId: string | null;
   verifiedHistory: readonly VerifiedContainerAccessManifest[] | undefined;
 }): Promise<ContainerKekParentBinding | null> {
@@ -79,6 +75,14 @@ export async function resolveContainerKekParentBinding(input: {
     input.verifiedHistory === undefined
   ) {
     return parent;
+  }
+  // A cited binding names no manifest to walk from: only a verified state can
+  // anchor a historical epoch.
+  if (!("accessManifestHash" in parent)) {
+    throwVerification(
+      "missing_dependency",
+      "historical parent KEK requires its verified parent state",
+    );
   }
   const manifests = new Map(
     input.verifiedHistory.map((manifest) => [manifest.manifestHash, manifest]),
