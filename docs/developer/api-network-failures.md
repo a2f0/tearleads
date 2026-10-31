@@ -31,7 +31,7 @@ It never holds headers, tokens, bodies, or query values.
 ## Classifications
 
 After a failure that is neither a cancellation nor offline, the transport runs
-one follow-up probe, a `no-cors` GET of the API origin's root with no
+one follow-up probe, a `no-cors` HEAD of the API origin's root with no
 credentials, headers, or body, created by
 [`createApiReachabilityProbe`](../../packages/api-client/src/apiReachabilityProbe.ts).
 One probe per origin runs at a time and its result answers every failure for

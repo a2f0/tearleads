@@ -39,7 +39,7 @@ export interface TearleadsOptions {
   peerScope?: string | undefined;
   /**
    * After a request fails without a response, probe the API origin (one
-   * rate-limited `no-cors` GET) to tell an unreachable host from a CORS or
+   * rate-limited `no-cors` HEAD) to tell an unreachable host from a CORS or
    * blocked call. Browser shells enable it; tests and servers leave it off.
    */
   probeApiNetworkFailures?: boolean | undefined;

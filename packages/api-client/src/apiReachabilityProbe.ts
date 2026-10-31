@@ -17,10 +17,13 @@ const DEFAULT_TIMEOUT_MS = 3_000;
 
 /**
  * Runs after a request to the API failed without a response, never before.
- * A `no-cors` GET of the API origin's root carries no credentials, headers,
+ * A `no-cors` HEAD of the API origin's root carries no credentials, headers,
  * or body, needs no preflight, and resolves with an opaque response whenever
  * the host answers at all; it rejects on DNS, TLS, connection, or blocked
- * host failures. One probe per origin runs at a time, and its result answers
+ * host failures. HEAD leaves opaque-response blocking no body to sniff, so a
+ * JSON root cannot turn a healthy answer into an error (Chromium 145 resolves
+ * both GET and HEAD against the production API root; an unknown host throws).
+ * One probe per origin runs at a time, and its result answers
  * every failure within `cacheMs`, so a burst of failed calls costs one probe.
  */
 export function createApiReachabilityProbe(
@@ -64,6 +67,7 @@ async function probeOnce(
       fetchImpl(`${apiOrigin}/`, {
         cache: "no-store",
         credentials: "omit",
+        method: "HEAD",
         mode: "no-cors",
         referrerPolicy: "no-referrer",
         signal: controller.signal,

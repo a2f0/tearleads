@@ -14,7 +14,7 @@ function fetchStub(
   return Object.assign(stub, { calls, preconnect: () => undefined });
 }
 
-test("probes the API origin root with a credential-free no-cors GET", async () => {
+test("probes the API origin root with a credential-free no-cors HEAD", async () => {
   const fetch = fetchStub(async () => new Response(null, { status: 404 }));
   const probe = createApiReachabilityProbe({ fetch });
   expect(await probe("https://api.example.test")).toBe("reachable");
@@ -24,6 +24,7 @@ test("probes the API origin root with a credential-free no-cors GET", async () =
   expect(init).toMatchObject({
     cache: "no-store",
     credentials: "omit",
+    method: "HEAD",
     mode: "no-cors",
     referrerPolicy: "no-referrer",
   });
