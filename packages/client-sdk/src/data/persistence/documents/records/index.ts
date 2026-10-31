@@ -96,6 +96,7 @@ export {
   deleteDocumentRecord,
   documentRecordSelection,
   findLocalIdByDocumentId,
+  findLocalIdsByDocumentIds,
   loadDocumentRecord,
   mapSelectedDocumentRecord,
 } from "./documentRecordPersistence";

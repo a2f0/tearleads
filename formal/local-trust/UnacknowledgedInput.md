@@ -7,7 +7,7 @@ identity.
 
 | Model action or predicate | Production seam |
 | --- | --- |
-| `Discover` | `upsertDiscoveredDocumentWithExec` returns `loadPendingCreateSummary` unchanged |
+| `Discover` | `upsertDiscoveredDocumentsInTransaction` (set reads and the per-row walk) returns `loadPendingCreateSummary` unchanged |
 | `DeferLinkDiscovery` / `linkedScope` | `withoutDeferredDocumentLinks` preserves pending link projections in single and batched discovery |
 | `VerifyCreate` | `adoptExistingRemoteDocument` checks `assertExpectedAdoptionScope` and verifies the projection |
 | `SwitchIdentity` | `IdentityService.setKeyPairs` changes the active signing identity |

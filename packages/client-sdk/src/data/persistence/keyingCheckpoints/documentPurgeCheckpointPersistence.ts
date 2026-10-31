@@ -1,9 +1,10 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   documentPurgeCheckpoints,
   keyingCheckpointTables,
 } from "../../sqlite/schema";
+import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
@@ -44,6 +45,29 @@ export async function hasDocumentPurgeCheckpointInTransaction(
     .where(eq(documentPurgeCheckpoints.documentId, documentId))
     .limit(1);
   return row !== undefined;
+}
+
+/** The document ids among `documentIds` that carry a purge checkpoint. */
+export async function listPurgedDocumentIdsInTransaction(
+  tx: ClientSQLiteTransactionScope,
+  documentIds: ReadonlyArray<string>,
+): Promise<Set<string>> {
+  const purged = new Set<string>();
+  const unique = Array.from(new Set(documentIds));
+  const chunkSize = sqliteRowsPerStatement(1);
+  for (let offset = 0; offset < unique.length; offset += chunkSize) {
+    const rows = await tx
+      .select({ documentId: documentPurgeCheckpoints.documentId })
+      .from(documentPurgeCheckpoints)
+      .where(
+        inArray(
+          documentPurgeCheckpoints.documentId,
+          unique.slice(offset, offset + chunkSize),
+        ),
+      );
+    for (const row of rows) purged.add(row.documentId);
+  }
+  return purged;
 }
 
 export async function storeDocumentPurgeCheckpointInTransaction(
