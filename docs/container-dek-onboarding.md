@@ -79,15 +79,16 @@ The register endpoint creates the identity, organization, root container,
 signed root access manifest, and root metadata document rows in one
 transaction:
 
-1. Insert the organization with `admin_group_id` and `member_group_id`, and
- its initial billing row.
+1. Insert the organization with `admin_group_id`, `member_group_id`, and
+ `root_container_id`, and its initial billing row.
 2. Insert the root container (`organization_id = org.id`, `parent_id = NULL`).
 3. Insert the user (`default_organization_id = org.id`).
 4. Insert the reserved `Admins` and `Members` group rows.
 5. Store the initial `Admins`, `Members`, and organization policies and the
  initial roster.
-6. Verify and store the root container manifest and KEK state, and grant
- `Admins` admin access to the root.
+6. Verify and store the root container manifest and KEK state, which grants
+ `Admins` admin access to the root (built-in, derived from
+ `root_container_id`).
 7. Verify and store the root metadata document manifest, content-key
  targets, and initial encrypted update.
 8. Verify and store the roster-profile, organization metadata, and system

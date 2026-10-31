@@ -8,7 +8,6 @@ import {
   accessManifests,
   blobStages,
   blobs,
-  containerBuiltinGrants,
   containerDocumentSyncTombstones,
   containerKeyEpochs,
   containerKeyWraps,
@@ -21,7 +20,6 @@ import {
   organizationRosterEntries,
   organizations,
   principalDirectoryBindings,
-  principalEpochKeys,
   principalMemberEnvelopes,
   principalMembershipProjection,
   principalPolicyCommits,
@@ -72,9 +70,6 @@ async function deleteContainerRows(input: {
         inArray(containerDocumentSyncTombstones.containerId, containerBatch),
       );
   }
-  await input.executor
-    .delete(containerBuiltinGrants)
-    .where(eq(containerBuiltinGrants.organizationId, input.organizationId));
   await input.executor
     .delete(containerSyncTombstones)
     .where(eq(containerSyncTombstones.organizationId, input.organizationId));
@@ -150,7 +145,6 @@ async function deleteOrganizationPrincipalRows(
         principalPolicyMutationAcknowledgements,
         principalMemberEnvelopes,
         principalStatePayloads,
-        principalEpochKeys,
         principalMembershipProjection,
         principalStates,
       ] as const) {

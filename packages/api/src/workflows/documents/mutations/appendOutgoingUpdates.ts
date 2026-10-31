@@ -1,9 +1,6 @@
 import { Buffer } from "node:buffer";
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import {
-  documentBaselines,
-  documentUpdates,
-} from "@tearleads/api-shared/schema";
+import { documentUpdates } from "@tearleads/api-shared/schema";
 import type { WriteHeader } from "@tearleads/crypto";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import { inArray } from "drizzle-orm";
@@ -21,13 +18,27 @@ import {
 import type { AppendDocumentUpdatesInput } from "./types";
 
 /**
- * Dedup, idempotent-retry matching, insertion, and baseline marking of a sync
- * request's outgoing updates. Split from syncDocument.ts, which keeps the
+ * Dedup, idempotent-retry matching, and insertion of a sync request's outgoing
+ * updates; a rotation baseline is marked on its own update row. Split from syncDocument.ts, which keeps the
  * transaction orchestration; per-update verification lives in
  * outgoingUpdateVerification.
  */
 function documentUpdateByteLength(update: DocumentOutgoingUpdate): number {
   return Buffer.byteLength(update.encryptedData, "utf8");
+}
+
+/**
+ * A rotation baseline carries its declared source version vector on its update
+ * row, so the redirect, sync response, and edit attribution find it without a
+ * second insert. Only updates this transaction inserts are written, so a
+ * retried baseline never changes a committed row.
+ */
+function baselineSourceVersionVector(
+  update: DocumentOutgoingUpdate,
+): string | null {
+  return update.checkpointKind === undefined
+    ? null
+    : (update.sourceVersionVector ?? null);
 }
 
 function acceptedOutgoingUpdateIds(
@@ -68,6 +79,7 @@ async function insertNewDocumentUpdates(input: {
         partialStartVersionVector: update.partialStartVersionVector,
         partialEndVersionVector: update.partialEndVersionVector,
         plaintextHash: update.plaintextHash,
+        baselineSourceVersionVector: baselineSourceVersionVector(update),
       })),
     )
     .onConflictDoNothing({ target: documentUpdates.id })
@@ -79,34 +91,6 @@ async function insertNewDocumentUpdates(input: {
   });
 
   return insertedUpdateIds;
-}
-
-/**
- * Mark each newly inserted rotation baseline so the redirect, sync response,
- * and edit attribution can find it. Only updates this transaction inserted are
- * passed, so a retried baseline never writes a second row.
- */
-async function insertDocumentBaselines(input: {
-  readonly documentId: string;
-  readonly executor: DatabaseTransaction;
-  readonly updates: readonly DocumentOutgoingUpdate[];
-}): Promise<void> {
-  const rows = input.updates.flatMap((update) =>
-    update.checkpointKind === undefined ||
-    update.sourceVersionVector === undefined
-      ? []
-      : [
-          {
-            baselineUpdateId: update.id,
-            checkpointKind: update.checkpointKind,
-            documentId: input.documentId,
-            sourceVersionVector: update.sourceVersionVector,
-          },
-        ],
-  );
-  if (rows.length > 0) {
-    await input.executor.insert(documentBaselines).values(rows);
-  }
 }
 
 async function loadExistingDocumentUpdateRows(input: {
@@ -292,11 +276,6 @@ export async function appendDocumentUpdates(
     executor: input.executor,
     insertedUpdateIds,
     updates: newUpdates,
-  });
-  await insertDocumentBaselines({
-    documentId: input.documentId,
-    executor: input.executor,
-    updates: newUpdates.filter((update) => insertedUpdateIds.has(update.id)),
   });
 
   return {

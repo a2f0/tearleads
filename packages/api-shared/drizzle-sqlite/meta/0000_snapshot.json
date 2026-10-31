@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "19b80185-05a0-49c2-b5e8-4b2371a51c8f",
+  "id": "8a48a1d3-d92c-4b16-b067-04bc8a58f613",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_events": {
@@ -1294,77 +1294,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "container_builtin_grants": {
-      "name": "container_builtin_grants",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "container_id": {
-          "name": "container_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "access_level": {
-          "name": "access_level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "subject_type": {
-          "name": "subject_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "subject_id": {
-          "name": "subject_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
-        }
-      },
-      "indexes": {
-        "container_builtin_grants_org_idx": {
-          "name": "container_builtin_grants_org_idx",
-          "columns": ["organization_id"],
-          "isUnique": false
-        },
-        "container_builtin_grants_identity_idx": {
-          "name": "container_builtin_grants_identity_idx",
-          "columns": ["container_id", "subject_type", "subject_id"],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "container_document_sync_tombstones": {
       "name": "container_document_sync_tombstones",
       "columns": {
@@ -1865,50 +1794,6 @@
         "containers_parent_depth_idx": {
           "name": "containers_parent_depth_idx",
           "columns": ["parent_id", "depth"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "document_baselines": {
-      "name": "document_baselines",
-      "columns": {
-        "baseline_update_id": {
-          "name": "baseline_update_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "document_id": {
-          "name": "document_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "checkpoint_kind": {
-          "name": "checkpoint_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_version_vector": {
-          "name": "source_version_vector",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "document_baselines_document_idx": {
-          "name": "document_baselines_document_idx",
-          "columns": ["document_id"],
           "isUnique": false
         }
       },
@@ -2428,6 +2313,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "baseline_source_version_vector": {
+          "name": "baseline_source_version_vector",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -2447,6 +2339,12 @@
           "name": "document_updates_document_sequence_idx",
           "columns": ["document_id", "sequence"],
           "isUnique": false
+        },
+        "document_updates_baseline_idx": {
+          "name": "document_updates_baseline_idx",
+          "columns": ["document_id", "sequence"],
+          "isUnique": false,
+          "where": "\"document_updates\".\"baseline_source_version_vector\" is not null"
         }
       },
       "foreignKeys": {},
@@ -3836,6 +3734,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "root_container_id": {
+          "name": "root_container_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "profile_document_id": {
           "name": "profile_document_id",
           "type": "text",
@@ -3938,84 +3843,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "principal_epoch_keys": {
-      "name": "principal_epoch_keys",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "principal_type": {
-          "name": "principal_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "principal_id": {
-          "name": "principal_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "epoch": {
-          "name": "epoch",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "introduced_by_state_hash": {
-          "name": "introduced_by_state_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "encapsulation_public_key": {
-          "name": "encapsulation_public_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "key_fingerprint": {
-          "name": "key_fingerprint",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
-        }
-      },
-      "indexes": {
-        "principal_epoch_keys_principal_epoch_idx": {
-          "name": "principal_epoch_keys_principal_epoch_idx",
-          "columns": ["principal_type", "principal_id", "epoch"],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "principal_epoch_keys_epoch_range": {
-          "name": "principal_epoch_keys_epoch_range",
-          "value": "\"principal_epoch_keys\".\"epoch\" >= 1 AND \"principal_epoch_keys\".\"epoch\" <= 9007199254740991 AND \"principal_epoch_keys\".\"epoch\" = CAST(\"principal_epoch_keys\".\"epoch\" AS BIGINT)"
-        }
-      }
     },
     "principal_history_index_nodes": {
       "name": "principal_history_index_nodes",

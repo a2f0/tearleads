@@ -76,8 +76,10 @@ for (const full of [false, true]) {
     // per sync, held locks and manifest bundles reused, the seed's pull page
     // skipped) then took them to 304 / 655, 299 / 646,
     // and 306 / 657. Hash acknowledgements skip each created container's KEK
-    // history read: 303 / 652, 298 / 643, and 305 / 654.
-    expect(counter.statements).toBeLessThanOrEqual(full ? 654 : 305);
+    // history read: 303 / 652, 298 / 643, and 305 / 654. Deriving built-in
+    // grants and dropping the principal epoch-key copy then took them to
+    // 298 / 647, 293 / 638, and 300 / 649.
+    expect(counter.statements).toBeLessThanOrEqual(full ? 649 : 300);
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
     const stored = await db

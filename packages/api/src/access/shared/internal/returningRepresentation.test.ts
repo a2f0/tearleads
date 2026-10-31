@@ -2,13 +2,11 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   accessEvents,
-  principalEpochKeys,
   principalStatePayloads,
   principalStates,
 } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import {
-  principalEpochKeySelect,
   principalStatePayloadSelect,
   principalStateSelect,
 } from "./principalStateRecords";
@@ -136,22 +134,4 @@ test("principal state rows' RETURNING rows equal their read-backs", async () => 
     .where(eq(principalStatePayloads.stateHash, stateHash));
   expect(insertedPayload).toBeDefined();
   expect(insertedPayload).toEqual(readPayload);
-
-  const [insertedKey] = await db
-    .insert(principalEpochKeys)
-    .values({
-      principalType: "group",
-      principalId,
-      epoch: 1,
-      introducedByStateHash: stateHash,
-      encapsulationPublicKey: "public-key",
-      keyFingerprint: "key-fingerprint",
-    })
-    .returning(principalEpochKeySelect);
-  const [readKey] = await db
-    .select(principalEpochKeySelect)
-    .from(principalEpochKeys)
-    .where(eq(principalEpochKeys.principalId, principalId));
-  expect(insertedKey).toBeDefined();
-  expect(insertedKey).toEqual(readKey);
 });

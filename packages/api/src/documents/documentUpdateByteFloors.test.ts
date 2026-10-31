@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { Buffer } from "node:buffer";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  documentBaselines,
   documentContentWriteHeaders,
   documents,
   documentUpdates,
@@ -92,12 +91,10 @@ async function storeCheckpoint(input: {
   readonly sourceVersionVector: string;
   readonly updateId: string;
 }) {
-  await db.insert(documentBaselines).values({
-    baselineUpdateId: input.updateId,
-    checkpointKind: "rotate_baseline",
-    documentId: input.documentId,
-    sourceVersionVector: input.sourceVersionVector,
-  });
+  await db
+    .update(documentUpdates)
+    .set({ baselineSourceVersionVector: input.sourceVersionVector })
+    .where(eq(documentUpdates.id, input.updateId));
 }
 
 test("response byte floors count the UTF-8 bytes of every variable-size part", async () => {
@@ -177,12 +174,18 @@ for (const [part, store] of Object.entries(largeParts)) {
     const second = storedUpdate();
     const documentId = await storeDocument([first, second]);
     await store(documentId, second.id);
+    // A checkpoint's vector rides on its update row; measure the rows
+    // without it, as the other parts live outside the row.
     const rowsBytes = (
       await db
         .select()
         .from(documentUpdates)
         .where(eq(documentUpdates.documentId, documentId))
-    ).reduce((sum, row) => sum + jsonBytes(row), 3);
+    ).reduce(
+      (sum, row) =>
+        sum + jsonBytes({ ...row, baselineSourceVersionVector: null }),
+      3,
+    );
 
     // Both rows fit the ceiling, but a response entry for the second carries
     // the large part too, so the page never loads that row.

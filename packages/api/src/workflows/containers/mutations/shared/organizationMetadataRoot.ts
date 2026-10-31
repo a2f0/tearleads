@@ -5,26 +5,45 @@ import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/valida
 import { eq } from "drizzle-orm";
 import { ContainerMutationError } from "../errors";
 
-/** The reserved metadata root never inherits grants or accepts extra recipients. */
-export async function assertOrganizationMetadataRoot(
+/** The organization facts that decide every built-in container grant. */
+export interface OrganizationBuiltinGrantSubjects {
+  readonly adminGroupId: string;
+  readonly memberGroupId: string;
+  readonly rootContainerId: string;
+}
+
+export async function loadOrganizationBuiltinGrantSubjects(
   executor: DatabaseTransaction,
-  state: ContainerAccessManifestState,
-): Promise<void> {
-  if (
-    state.systemSlot !==
-    (await deriveOrganizationMetadataContainerSystemSlot({
-      organizationId: state.organizationId,
-    }))
-  )
-    return;
+  organizationId: string,
+): Promise<OrganizationBuiltinGrantSubjects | null> {
   const [organization] = await executor
     .select({
       adminGroupId: organizations.adminGroupId,
       memberGroupId: organizations.memberGroupId,
+      rootContainerId: organizations.rootContainerId,
     })
     .from(organizations)
-    .where(eq(organizations.id, state.organizationId))
+    .where(eq(organizations.id, organizationId))
     .limit(1);
+  return organization ?? null;
+}
+
+export async function isOrganizationMetadataRootState(
+  state: ContainerAccessManifestState,
+): Promise<boolean> {
+  return (
+    state.systemSlot ===
+    (await deriveOrganizationMetadataContainerSystemSlot({
+      organizationId: state.organizationId,
+    }))
+  );
+}
+
+/** The reserved metadata root never inherits grants or accepts extra recipients. */
+export function assertOrganizationMetadataRoot(
+  organization: OrganizationBuiltinGrantSubjects | null,
+  state: ContainerAccessManifestState,
+): void {
   if (
     !organization ||
     state.parentContainerId !== null ||

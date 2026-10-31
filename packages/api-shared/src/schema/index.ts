@@ -5,7 +5,6 @@ export {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
-  containerBuiltinGrants,
   documentManifestObservations,
 } from "./accessManifests";
 export { blobAuditObjects } from "./blobAuditObjects";
@@ -18,7 +17,6 @@ export {
 export { attachmentBindings, blobStages, blobs } from "./blobs";
 export { containerKeyEpochs, containerKeyWraps } from "./containerKeying";
 export { containerSyncTombstones, containers } from "./containers";
-export { documentBaselines } from "./documentBaselines";
 export {
   documentContentKeyEpochs,
   documentContentKeyTargets,
@@ -57,7 +55,6 @@ export {
 export { principalPolicyCommits } from "./principalPolicyCommits";
 export { principalPolicyMutationAcknowledgements } from "./principalPolicyMutationAcknowledgements";
 export {
-  principalEpochKeys,
   principalMemberEnvelopes,
   principalMembershipProjection,
   principalStatePayloads,

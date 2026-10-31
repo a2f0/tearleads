@@ -206,18 +206,6 @@ CREATE TABLE `blobs` (
 CREATE UNIQUE INDEX `blobs_storage_key_idx` ON `blobs` (`storage_key`);--> statement-breakpoint
 CREATE INDEX `blobs_dereferenced_at_idx` ON `blobs` (`dereferenced_at`) WHERE "blobs"."dereferenced_at" is not null;--> statement-breakpoint
 CREATE INDEX `blobs_reclaim_attempted_at_idx` ON `blobs` (`reclaim_attempted_at`,`dereferenced_at`,`id`) WHERE "blobs"."reclaim_attempted_at" is not null and "blobs"."dereferenced_at" is not null;--> statement-breakpoint
-CREATE TABLE `container_builtin_grants` (
-	`id` text PRIMARY KEY NOT NULL,
-	`organization_id` text NOT NULL,
-	`container_id` text NOT NULL,
-	`access_level` text NOT NULL,
-	`subject_type` text NOT NULL,
-	`subject_id` text NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
-CREATE INDEX `container_builtin_grants_org_idx` ON `container_builtin_grants` (`organization_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `container_builtin_grants_identity_idx` ON `container_builtin_grants` (`container_id`,`subject_type`,`subject_id`);--> statement-breakpoint
 CREATE TABLE `container_document_sync_tombstones` (
 	`id` text PRIMARY KEY NOT NULL,
 	`container_id` text NOT NULL,
@@ -305,14 +293,6 @@ CREATE UNIQUE INDEX `containers_org_system_slot_idx` ON `containers` (`organizat
 CREATE INDEX `containers_parent_updated_idx` ON `containers` (`parent_id`,`updated_at`,`id`);--> statement-breakpoint
 CREATE INDEX `containers_org_depth_updated_idx` ON `containers` (`organization_id`,`depth`,`updated_at`,`id`);--> statement-breakpoint
 CREATE INDEX `containers_parent_depth_idx` ON `containers` (`parent_id`,`depth`);--> statement-breakpoint
-CREATE TABLE `document_baselines` (
-	`baseline_update_id` text PRIMARY KEY NOT NULL,
-	`document_id` text NOT NULL,
-	`checkpoint_kind` text NOT NULL,
-	`source_version_vector` text NOT NULL
-);
---> statement-breakpoint
-CREATE INDEX `document_baselines_document_idx` ON `document_baselines` (`document_id`);--> statement-breakpoint
 CREATE TABLE `document_content_key_epochs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`document_id` text NOT NULL,
@@ -397,11 +377,13 @@ CREATE TABLE `document_updates` (
 	`partial_start_version_vector` text NOT NULL,
 	`partial_end_version_vector` text NOT NULL,
 	`plaintext_hash` text NOT NULL,
+	`baseline_source_version_vector` text,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `document_updates_id_unique` ON `document_updates` (`id`);--> statement-breakpoint
 CREATE INDEX `document_updates_document_sequence_idx` ON `document_updates` (`document_id`,`sequence`);--> statement-breakpoint
+CREATE INDEX `document_updates_baseline_idx` ON `document_updates` (`document_id`,`sequence`) WHERE "document_updates"."baseline_source_version_vector" is not null;--> statement-breakpoint
 CREATE TABLE `documents` (
 	`id` text PRIMARY KEY NOT NULL,
 	`attribution_revision` integer DEFAULT 0 NOT NULL,
@@ -615,6 +597,7 @@ CREATE TABLE `organizations` (
 	`id` text PRIMARY KEY NOT NULL,
 	`admin_group_id` text NOT NULL,
 	`member_group_id` text NOT NULL,
+	`root_container_id` text NOT NULL,
 	`profile_document_id` text,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
@@ -633,19 +616,6 @@ CREATE TABLE `principal_directory_bindings` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `principal_directory_bindings_head_idx` ON `principal_directory_bindings` (`organization_id`,`group_id`,`group_state_hash`);--> statement-breakpoint
 CREATE INDEX `principal_directory_bindings_lookup_idx` ON `principal_directory_bindings` (`organization_id`,`group_id`,`organization_version`);--> statement-breakpoint
-CREATE TABLE `principal_epoch_keys` (
-	`id` text PRIMARY KEY NOT NULL,
-	`principal_type` text NOT NULL,
-	`principal_id` text NOT NULL,
-	`epoch` integer NOT NULL,
-	`introduced_by_state_hash` text NOT NULL,
-	`encapsulation_public_key` text NOT NULL,
-	`key_fingerprint` text NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
-	CONSTRAINT "principal_epoch_keys_epoch_range" CHECK("principal_epoch_keys"."epoch" >= 1 AND "principal_epoch_keys"."epoch" <= 9007199254740991 AND "principal_epoch_keys"."epoch" = CAST("principal_epoch_keys"."epoch" AS BIGINT))
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `principal_epoch_keys_principal_epoch_idx` ON `principal_epoch_keys` (`principal_type`,`principal_id`,`epoch`);--> statement-breakpoint
 CREATE TABLE `principal_history_index_nodes` (
 	`hash` text PRIMARY KEY NOT NULL,
 	`left_hash` text NOT NULL,

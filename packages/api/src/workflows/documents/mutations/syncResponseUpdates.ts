@@ -1,6 +1,5 @@
 import { Buffer } from "node:buffer";
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { documentBaselines } from "@tearleads/api-shared/schema";
 import {
   computeDocumentContentRecordMetadataHash,
   type DocumentContentKeyTarget,
@@ -10,7 +9,6 @@ import {
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
   MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
 } from "@tearleads/validators/util";
-import { inArray } from "drizzle-orm";
 import { listDocumentContentWriteHeaders } from "../../../access/read/documentContentKeyStore";
 import { isAuthenticatedReplayableBaseline } from "../../../documents/documentReplayableBaseline";
 import {
@@ -82,41 +80,25 @@ export async function authenticateSyncCheckpointForResponse(
   return input.checkpoint;
 }
 
-async function listSyncCheckpointMetadata(
-  executor: DatabaseSession,
-  updateIds: readonly string[],
-): Promise<ReadonlyMap<string, SyncCheckpointMetadata>> {
-  if (updateIds.length === 0) {
-    return new Map();
-  }
-  const rows = await executor
-    .select({
-      baselineUpdateId: documentBaselines.baselineUpdateId,
-      checkpointKind: documentBaselines.checkpointKind,
-      sourceVersionVector: documentBaselines.sourceVersionVector,
-    })
-    .from(documentBaselines)
-    .where(inArray(documentBaselines.baselineUpdateId, updateIds));
-  const byUpdateId = new Map<string, SyncCheckpointMetadata>();
-  for (const row of rows) {
-    if (row.checkpointKind !== "rotate_baseline") {
-      throw new DocumentMutationError(
-        "Document rotation checkpoint kind is invalid",
-        409,
-      );
-    }
-    byUpdateId.set(row.baselineUpdateId, {
-      checkpointKind: row.checkpointKind,
-      checkpointPayloadKind: "full_history_snapshot",
-      sourceVersionVector: row.sourceVersionVector,
-    });
-  }
-  return byUpdateId;
-}
-
 type StoredSyncUpdate = Awaited<
   ReturnType<typeof listMissingDocumentUpdates>
 >[number];
+
+/**
+ * A rotation baseline's update row carries its declared source version vector;
+ * the checkpoint and payload kinds are the rotation constants.
+ */
+function storedSyncCheckpoint(
+  update: StoredSyncUpdate,
+): SyncCheckpointMetadata | undefined {
+  return update.baselineSourceVersionVector === null
+    ? undefined
+    : {
+        checkpointKind: "rotate_baseline",
+        checkpointPayloadKind: "full_history_snapshot",
+        sourceVersionVector: update.baselineSourceVersionVector,
+      };
+}
 
 function toSyncUpdate(
   update: StoredSyncUpdate,
@@ -151,34 +133,20 @@ function toSyncUpdate(
   };
 }
 
-interface SyncEntryMetadata {
-  readonly checkpoints: ReadonlyMap<string, SyncCheckpointMetadata>;
-  readonly writeHeaders: Awaited<
-    ReturnType<typeof listDocumentContentWriteHeaders>
-  >;
-}
-
-async function listSyncEntryMetadata(
-  executor: DatabaseSession,
-  updateIds: readonly string[],
-): Promise<SyncEntryMetadata> {
-  const [writeHeaders, checkpoints] = await Promise.all([
-    listDocumentContentWriteHeaders(updateIds, executor),
-    listSyncCheckpointMetadata(executor, updateIds),
-  ]);
-  return { checkpoints, writeHeaders };
-}
+type SyncEntryWriteHeaders = Awaited<
+  ReturnType<typeof listDocumentContentWriteHeaders>
+>;
 
 async function toSyncResponseEntry(
   update: StoredSyncUpdate,
-  metadata: SyncEntryMetadata,
+  writeHeaders: SyncEntryWriteHeaders,
 ) {
-  const writeHeader = metadata.writeHeaders.get(update.id);
+  const writeHeader = writeHeaders.get(update.id);
   if (!writeHeader) {
     throw new DocumentMutationError("Document write header missing", 409);
   }
   const checkpoint = await authenticateSyncCheckpointForResponse({
-    checkpoint: metadata.checkpoints.get(update.id),
+    checkpoint: storedSyncCheckpoint(update),
     documentId: update.documentId,
     metadataHash: writeHeader.header.metadataHash,
     partialEndVersionVector: update.partialEndVersionVector,
@@ -261,12 +229,13 @@ export async function listMissingSyncUpdateEntries(input: {
         minLsn: input.minLsn,
       });
   // A page already fits its response byte floors, which count each entry's
-  // write header, authorization targets, and checkpoint, so its metadata
-  // loads as one set. An unpaged listing has no such bound.
-  const pageMetadata = page
-    ? await listSyncEntryMetadata(
-        input.executor,
+  // write header, authorization targets, and checkpoint, so its write headers
+  // load as one set. An unpaged listing has no such bound. Checkpoints ride on
+  // the update rows.
+  const pageWriteHeaders = page
+    ? await listDocumentContentWriteHeaders(
         page.updates.map(({ id }) => id),
+        input.executor,
       )
     : undefined;
   const entries = await materializeSyncResponseEntriesToBytes(
@@ -274,8 +243,8 @@ export async function listMissingSyncUpdateEntries(input: {
     async (update) =>
       toSyncResponseEntry(
         update,
-        pageMetadata ??
-          (await listSyncEntryMetadata(input.executor, [update.id])),
+        pageWriteHeaders ??
+          (await listDocumentContentWriteHeaders([update.id], input.executor)),
       ),
   );
 

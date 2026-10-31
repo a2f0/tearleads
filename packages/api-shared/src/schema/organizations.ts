@@ -31,6 +31,11 @@ import type {
  *   have organization-admin authority.
  * - `memberGroupId`: Reserved organization-scoped group whose reachable
  *   members belong to the organization.
+ * - `rootContainerId`: The organization's root container, fixed at
+ *   provisioning. Built-in container grants are derived from it and the two
+ *   reserved groups: Admins at admin on the root, and Admins at admin plus
+ *   Members at read on the derived metadata slot. They cannot be revoked or
+ *   change access level, though rotation may rewrap them at the same level.
  * - `profileDocumentId`: Optional encrypted document containing org-scoped
  *   profile fields such as customizable display name.
  * - `createdAt`: Server-side insertion timestamp.
@@ -41,6 +46,7 @@ export const organizations = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     adminGroupId: uuid("admin_group_id").notNull(),
     memberGroupId: uuid("member_group_id").notNull(),
+    rootContainerId: uuid("root_container_id").notNull(),
     profileDocumentId: uuid("profile_document_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

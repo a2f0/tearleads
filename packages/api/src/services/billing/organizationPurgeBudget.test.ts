@@ -58,6 +58,8 @@ test("organization purge statements do not grow with its documents", async () =>
   const three = await countOrganizationPurge(3);
   expect(three).toBe(one);
   // Budget: the highest count across PGlite, SQLite and PostgreSQL, which
-  // count the transaction's BEGIN and COMMIT.
-  expect(one).toBeLessThanOrEqual(63);
+  // count the transaction's BEGIN and COMMIT. 61 / 63 / 63 before the
+  // document-baseline, principal epoch-key, and built-in grant tables were
+  // retired; 57 / 59 / 59 after.
+  expect(one).toBeLessThanOrEqual(59);
 });
