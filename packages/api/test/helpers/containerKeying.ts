@@ -5,7 +5,10 @@ import type {
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
-import type { AccessManifestBundleWire } from "@tearleads/validators/request";
+import type {
+  AccessManifestBundleWire,
+  ContainerKekParentRef,
+} from "@tearleads/validators/request";
 
 export function createContainerKeyEpoch(input: {
   readonly containerKeyEpochId: string;
@@ -45,4 +48,20 @@ export function createContainerKeyWrap(input: {
     wrappedKey: `wrapped:${input.containerKeyEpochId}:${input.recipientId}`,
     wrapManifestHash: input.wrapManifestHash,
   };
+}
+
+/** The parent KEK citation a container mutation request carries. */
+export function parentKekRef(
+  state: Pick<
+    VerifiedContainerKekState,
+    "containerId" | "containerKeyEpochId" | "keyEpochHash"
+  > | null,
+): ContainerKekParentRef | null {
+  return state
+    ? {
+        containerId: state.containerId,
+        containerKeyEpochId: state.containerKeyEpochId,
+        keyEpochHash: state.keyEpochHash,
+      }
+    : null;
 }

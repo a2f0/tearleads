@@ -179,6 +179,7 @@ export interface DocumentStoreState {
   /** A cancelled remote-only owner blocks late responses until fresh work. */
   remoteSyncBlocked: boolean;
   scheduleStartupRemoteSync: boolean;
+  startupProbeDeferredAttempt: number | null;
   remoteUpdatePending: boolean;
   /** Sequence used to keep an older pass from clearing a newer remote event. */
   remoteUpdateSignalSeq: number;
@@ -255,6 +256,7 @@ export function createDocumentStoreState(
     remoteUpdateCompletedSignalSeq: 0,
     remoteSyncBlocked: !scheduleStartupRemoteSync,
     scheduleStartupRemoteSync,
+    startupProbeDeferredAttempt: null,
     awaitingAncestorRepair: false,
     remoteUpdatePending: false,
     remoteUpdateSignalSeq: 0,
@@ -333,6 +335,7 @@ function clearDocumentStoreState(
   state.rejectedServedAttachmentBindings = new Set();
   state.remoteUpdateCompletedSignalSeq = 0;
   state.remoteSyncBlocked = !state.scheduleStartupRemoteSync;
+  state.startupProbeDeferredAttempt = null;
   state.awaitingAncestorRepair = false;
   state.remoteUpdatePending = false;
   state.remoteUpdateSignalSeq = 0;

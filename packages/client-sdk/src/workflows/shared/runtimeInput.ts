@@ -42,6 +42,13 @@ export interface WorkflowRuntimeStateInput {
    */
   readonly serverEventsConnectionGeneration?: number | undefined;
   /**
+   * The server-events connect attempt whose interest acknowledgement is
+   * outstanding. A document opened meanwhile defers its startup probe to the
+   * reconnect probe that acknowledgement arms; when the attempt ends without
+   * one, the deferred probe runs.
+   */
+  readonly serverEventsPendingConnectAttempt?: number | undefined;
+  /**
    * Per-pane CRDT peer-seed discriminator (e.g. the pane's local identity
    * namespace). Documents in distinct panes must derive distinct Loro peer ids;
    * absent/`null` means single-pane (bare scope). The document runtime factory

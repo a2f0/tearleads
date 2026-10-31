@@ -13,6 +13,7 @@ import {
   MAX_ROTATION_CONTAINER_REKEYS,
 } from "../util";
 import {
+  ContainerKekParentRefSchema,
   ContainerManifestPathSchema,
   ContainerManifestRefListSchema,
   ContainerManifestRefSchema,
@@ -46,7 +47,7 @@ const containerMutationRequestShape = {
   keyring: ContainerMutationKeyringSchema.nullable(),
   manifest: plainObjectSchema,
   parentContainerPathRefs: OptionalContainerManifestPathSchema.optional(),
-  parentKekState: plainObjectSchema.nullable().optional(),
+  parentKekRef: ContainerKekParentRefSchema.nullable().optional(),
   predecessorBridge: plainObjectSchema.nullable(),
   previousContainerPathRefs: OptionalContainerManifestPathSchema.optional(),
   previousManifestRef: ContainerManifestRefSchema.nullable().optional(),

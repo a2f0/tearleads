@@ -1,3 +1,7 @@
+import type {
+  DocumentContentKeyTarget,
+  DocumentLinkAccessEventBody,
+} from "@tearleads/crypto";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerWriterProjectionResponse,
@@ -26,7 +30,11 @@ import { recordDocumentAuthorAccessFailure } from "../authorAccessFailure";
 import type { SubtreePurgeRoot } from "../purge/subtreePurgeScope";
 import { completeLinkSetMutationRequest } from "../rotationBaseline";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";
-import { prepareDocumentLinkBlobRewraps } from "./linkSetBlobRewraps";
+import {
+  type LinkSetAttachmentReuse,
+  prepareDocumentLinkBlobRewraps,
+  reuseCommittedBlobRewraps,
+} from "./linkSetBlobRewraps";
 import { seedLinkSetWriterProjection } from "./linkSetProjectionSeed";
 
 async function submitLinkSetMutation(input: {
@@ -163,7 +171,23 @@ async function completeRemoteDocumentLinkSet(input: {
   };
 }
 
+type RelinkRemoteDocumentInput = Parameters<typeof relinkRemoteDocument>[0];
+
+/** What one leg signed, so the workflow can reuse or retry it. */
+interface LinkSetLegAttempt {
+  rewraps: DocumentLinkAccessEventBody["blobRewraps"] | null;
+  reused: boolean;
+}
+
+/**
+ * A leg that re-cited the previous leg's envelopes and was refused with an
+ * uncoded 409 (the attachment set or its key epoch moved) lists and retries
+ * once, as a leg without reuse would have; that first failure is not
+ * reported.
+ */
 export async function relinkRemoteDocument(input: {
+  /** Shared by the legs of one move or trash workflow. */
+  attachmentReuse?: LinkSetAttachmentReuse | undefined;
   beforeSubmit?: (() => Promise<boolean>) | undefined;
   apiClient: DocumentLinkSetMutationApi;
   author: DocumentCreateAuthor;
@@ -182,6 +206,42 @@ export async function relinkRemoteDocument(input: {
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<RelinkRemoteDocumentResult | null> {
+  const reuse = input.attachmentReuse;
+  const failures: DocumentLinkSetMutationFailure[] = [];
+  const attempt: LinkSetLegAttempt = { reused: false, rewraps: null };
+  const result = await relinkRemoteDocumentOnce(input, attempt, (failure) => {
+    if (attempt.reused) failures.push(failure);
+    else input.onFailure?.(failure);
+  }).catch((error: unknown) => {
+    // A leg that threw may have committed before failing: list again next.
+    if (reuse) reuse.committed = null;
+    throw error;
+  });
+  if (reuse) reuse.committed = result ? attempt.rewraps : null;
+  if (result || !attempt.reused) return result;
+  // The attachment-set and key-epoch refusals are uncoded 409s; a coded one
+  // (stale state, an unavailable container) keeps its own recovery path.
+  if (
+    !failures.some(
+      (failure) => failure.status === 409 && failure.code === undefined,
+    )
+  ) {
+    for (const failure of failures) input.onFailure?.(failure);
+    return null;
+  }
+  const retry: LinkSetLegAttempt = { reused: false, rewraps: null };
+  const retried = await relinkRemoteDocumentOnce(input, retry, (failure) =>
+    input.onFailure?.(failure),
+  );
+  if (reuse) reuse.committed = retried ? retry.rewraps : null;
+  return retried;
+}
+
+async function relinkRemoteDocumentOnce(
+  input: RelinkRemoteDocumentInput,
+  attempt: LinkSetLegAttempt,
+  onSubmitFailure: DocumentLinkSetFailureHandler,
+): Promise<RelinkRemoteDocumentResult | null> {
   if (input.operation === "unlink" && !input.rotationSnapshot) {
     throw new Error(
       "Document unlink requires a proven full-history rotation snapshot",
@@ -213,6 +273,7 @@ export async function relinkRemoteDocument(input: {
     { ...input, resolveProjectionUserKey, signedAt },
     writerProjection,
     targetContainerProjection,
+    attempt,
   );
   if (!materializedPlan) return null;
   const request = await completeLinkSetMutationRequest({
@@ -228,7 +289,7 @@ export async function relinkRemoteDocument(input: {
     apiClient: input.apiClient,
     documentId: completedPlan.documentId,
     expectedOrganizationId: completedPlan.state.organizationId,
-    onFailure: input.onFailure,
+    onFailure: onSubmitFailure,
     operation: input.operation,
     request: completedPlan.request,
     stillCurrent: input.stillCurrent,
@@ -269,26 +330,43 @@ function orderedProjectionFailures(
 }
 
 function prepareRemoteLinkSetMutation(
-  input: Parameters<typeof relinkRemoteDocument>[0] & {
+  input: RelinkRemoteDocumentInput & {
     resolveProjectionUserKey: ProjectionUserKeyResolver;
     signedAt: string;
   },
   writerProjection: DocumentWriterProjectionResponse,
   targetContainerProjection: ContainerWriterProjectionResponse,
+  attempt: LinkSetLegAttempt,
 ) {
+  const prepareBlobRewraps = async (
+    targets: readonly DocumentContentKeyTarget[],
+  ) => {
+    const committed = input.attachmentReuse?.committed;
+    const reused = committed
+      ? reuseCommittedBlobRewraps({
+          committed,
+          documentId: writerProjection.documentId,
+          targets,
+        })
+      : null;
+    attempt.reused = reused !== null;
+    attempt.rewraps =
+      reused ??
+      (await prepareDocumentLinkBlobRewraps({
+        ...input,
+        targets,
+        targetContainerProjection,
+        writerProjection,
+      }));
+    return attempt.rewraps;
+  };
   return recordDocumentAuthorAccessFailure(
     () =>
       nullOnProjectionVerificationCancellation(() =>
         buildMaterializedDocumentLinkSetMutationPlan({
           author: input.author,
           expectedSubtreeRoot: input.expectedSubtreeRoot,
-          prepareBlobRewraps: (targets) =>
-            prepareDocumentLinkBlobRewraps({
-              ...input,
-              targets,
-              targetContainerProjection,
-              writerProjection,
-            }),
+          prepareBlobRewraps,
           contentKey: input.contentKey,
           eventId: input.eventId,
           execSql: input.execSql,

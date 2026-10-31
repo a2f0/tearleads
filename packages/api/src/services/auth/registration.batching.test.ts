@@ -21,6 +21,7 @@ import {
   users,
 } from "@tearleads/api-shared/schema";
 import { toFingerprint } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import { createTestUser } from "@tearleads/test-utils";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import { eq, inArray } from "drizzle-orm";
@@ -198,7 +199,7 @@ test("a corrupt final registration update rolls back provisioning and permits a 
   for (const rows of remnants) expect(rows).toHaveLength(0);
   expect(publish).not.toHaveBeenCalled();
   const fingerprint = await toFingerprint(
-    new Uint8Array(request.signingPublicKey),
+    base64ToBytes(request.signingPublicKey),
   );
   expect(await runtime.keyValueStore.get(fingerprint)).toBeNull();
   expect(

@@ -11,6 +11,7 @@ import { join } from "node:path";
  */
 
 export type RestartProbeActionName =
+  | "AbandonEventsConnect"
   | "AcknowledgeKnownContainers"
   | "BeginProbe"
   | "DeclareKnownContainers"
@@ -21,6 +22,7 @@ export type RestartProbeActionName =
   | "OpenEventsSocket"
   | "RemoteBodyAdvance"
   | "RemoteSlotAdvance"
+  | "ResumeEventsConnect"
   | "Restart";
 
 export interface RestartProbeTraceStep {

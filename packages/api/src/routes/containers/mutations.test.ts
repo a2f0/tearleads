@@ -74,6 +74,7 @@ import {
 import {
   createContainerKeyEpoch,
   createContainerKeyWrap,
+  parentKekRef,
 } from "../../../test/helpers/containerKeying";
 import {
   containerManifestRef,
@@ -726,7 +727,7 @@ async function buildCreateRequest(input: {
     keyring: null,
     predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
+    parentKekRef: parentKekRef(input.parentKekState),
     userRecipientKeys: [],
   };
 }
@@ -929,7 +930,7 @@ async function buildGrantRequest(input: {
     keyring: null,
     predecessorBridge: null,
     wraps,
-    parentKekState: input.parentKekState,
+    parentKekRef: parentKekRef(input.parentKekState),
     userRecipientKeys: [
       ...userRecipientKeysFromKekTargets(input.previousKekState),
       recipientKey,
@@ -1046,10 +1047,7 @@ async function buildGroupGrantRequest(input: {
     keyring: null,
     predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.parentKekState as unknown as Record<
-      string,
-      unknown
-    > | null,
+    parentKekRef: parentKekRef(input.parentKekState ?? null),
     userRecipientKeys: (input.userRecipientKeys ?? []) as unknown as Record<
       string,
       unknown

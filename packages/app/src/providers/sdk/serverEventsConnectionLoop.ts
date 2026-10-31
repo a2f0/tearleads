@@ -1,4 +1,8 @@
 interface ServerEventsConnectionLoopInput {
+  /** A connect attempt starts (before its ticket request). */
+  readonly onAttemptStart?: (() => void) | undefined;
+  /** The attempt ended before a socket was bound (no ticket, no socket). */
+  readonly onAttemptFailed?: (() => void) | undefined;
   readonly onDisconnect: () => void;
   readonly onMessage: (ws: WebSocket, event: MessageEvent) => void;
   readonly onOpen: (ws: WebSocket) => void;
@@ -89,12 +93,14 @@ class ServerEventsConnectionLoop {
       return;
     }
     this.connecting = true;
+    this.input.onAttemptStart?.();
     const ticket = await this.requestTicket();
     this.connecting = false;
     if (this.cancelled) {
       return;
     }
     if (ticket === null) {
+      this.input.onAttemptFailed?.();
       this.scheduleReconnect();
       return;
     }
@@ -104,6 +110,7 @@ class ServerEventsConnectionLoop {
         this.createSocket(appendTicketToWsUrl(this.input.wsUrl, ticket)),
       );
     } catch {
+      this.input.onAttemptFailed?.();
       this.scheduleReconnect();
     }
   }

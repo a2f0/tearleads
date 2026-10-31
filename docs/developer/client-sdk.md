@@ -566,9 +566,12 @@ served heads the re-citation pins past is likewise planned once more.
 
 Principal-policy writes acknowledge the exact submitted state and current
 artifacts without retransmitting `previousStates`. The SDK verifies that receipt
-against its authored request. Built-in membership changes and group revocation
-return `OrganizationGroupMutationReceipt` and atomically retain current artifacts
-and authenticated progress. Built-in workflows require private paged recovery;
+against its authored request. Group revocation returns
+`OrganizationGroupMutationReceipt`; `addUserToGroup` and `removeUserFromGroup`
+return `OrganizationGroupMutationResult`, that receipt plus the read model the
+SDK reconciled after the commit, so a caller applies it instead of reading the
+read model again. Each atomically retains current artifacts and authenticated
+progress. Built-in workflows require private paged recovery;
 standalone full-bundle utilities keep their explicit complete-history contracts.
 See [current mutations](principal-current-mutations.md). Missing or
 substituted receipts cannot advance the local checkpoint.

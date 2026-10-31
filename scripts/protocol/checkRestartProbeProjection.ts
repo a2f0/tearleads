@@ -30,7 +30,11 @@ const SCENARIO_TESTS: readonly string[] = [
   "../packages/client-sdk/src/stores/documents/documentStore/sync/restartProbeProjection.test.ts",
   "../packages/app/src/providers/sdk/restartProbeProjection.test.ts",
 ];
-const EXPECTED_TRACES = ["interest-barrier-seams", "probe-signal-kernels"];
+const EXPECTED_TRACES = [
+  "interest-barrier-seams",
+  "probe-signal-kernels",
+  "startup-probe-deferral",
+];
 
 function tamperedSequenceTrace(
   trace: RecordedRestartProbeTrace,

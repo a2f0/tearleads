@@ -39,6 +39,7 @@ import {
 } from "../state";
 import { createStoredDocument } from "../storedDocument";
 import { logRevalidationScheduled } from "../sync/remoteRevalidationTelemetry";
+import { deferStartupProbeToPendingConnect } from "../sync/startupProbeDeferral";
 import {
   allowDocumentStoreRemoteSync,
   captureDocumentStoreSyncGeneration,
@@ -329,9 +330,13 @@ async function initializeDocumentStore(
     // the restart to distinguish a clean local snapshot from a stale one. Probe
     // each opened remote document once after loading it; unopened documents stay
     // lazy, while body and attachment state for a restored window converges.
-    allowDocumentStoreRemoteSync(state);
-    markDocumentStoreRemoteSyncPending(state, "independent");
-    logRevalidationScheduled(state.runtime, "startup");
+    // A connect attempt in flight arms a later probe on its acknowledgement,
+    // which covers this one, so the startup probe waits on that attempt.
+    if (!deferStartupProbeToPendingConnect(state)) {
+      allowDocumentStoreRemoteSync(state);
+      markDocumentStoreRemoteSyncPending(state, "independent");
+      logRevalidationScheduled(state.runtime, "startup");
+    }
   }
   scheduleSync();
   void runDocumentOrphanMaintenance(state);

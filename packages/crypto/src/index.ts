@@ -112,6 +112,7 @@ export type {
   ContainerGrantSubjectType,
   ContainerKekKeyring,
   ContainerKekKeyringEntry,
+  ContainerKekParentBinding,
   ContainerKekPredecessorBridge,
   ContainerKekRecipientTarget,
   ContainerKekTarget,

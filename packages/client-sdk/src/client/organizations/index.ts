@@ -95,6 +95,7 @@ export type {
 } from "./organizationMemberships";
 export type {
   OrganizationGroupMutationReceipt,
+  OrganizationGroupMutationResult,
   Organizations,
 } from "./organizationsTypes";
 export type {

@@ -1,14 +1,11 @@
 import type {
   ContainerKekKeyring,
   ContainerKekPredecessorBridge,
-  ContainerKekRecipientTarget,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
-  VerifiedContainerKekState,
 } from "@tearleads/crypto";
 import {
-  makeVerifiedContainerKekState,
   normalizeContainerKekKeyring,
   normalizeContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
@@ -190,113 +187,4 @@ export function readContainerKeyWraps(
   return value.map((entry, index) =>
     readContainerKeyWrap(entry, `${label}[${index}]`),
   );
-}
-
-function readContainerKekRecipientTarget(
-  value: unknown,
-  label: string,
-): ContainerKekRecipientTarget {
-  const record = readProjectionPlainRecord(value, label, mutationShapeError);
-  const recipientKind = readProjectionValue(record, "recipientKind");
-  if (!isKekRecipientKind(recipientKind)) {
-    throw mutationShapeError(`${label}.recipientKind is invalid`);
-  }
-
-  return {
-    recipientKind,
-    recipientId: readProjectionString(
-      record,
-      "recipientId",
-      label,
-      mutationShapeError,
-    ),
-    recipientKeyEpochId: readProjectionString(
-      record,
-      "recipientKeyEpochId",
-      label,
-      mutationShapeError,
-    ),
-    recipientKeyFingerprint: readProjectionString(
-      record,
-      "recipientKeyFingerprint",
-      label,
-      mutationShapeError,
-    ),
-  };
-}
-
-function readContainerKekRecipientTargets(
-  value: unknown,
-  label: string,
-): ContainerKekRecipientTarget[] {
-  if (!Array.isArray(value)) {
-    throw mutationShapeError(`${label} is invalid`);
-  }
-  return value.map((entry, index) =>
-    readContainerKekRecipientTarget(entry, `${label}[${index}]`),
-  );
-}
-
-export function readVerifiedContainerKekState(
-  value: unknown,
-  label: string,
-): VerifiedContainerKekState {
-  const record = readProjectionPlainRecord(value, label, mutationShapeError);
-
-  return makeVerifiedContainerKekState({
-    containerId: readProjectionString(
-      record,
-      "containerId",
-      label,
-      mutationShapeError,
-    ),
-    accessManifestHash: readProjectionString(
-      record,
-      "accessManifestHash",
-      label,
-      mutationShapeError,
-    ),
-    containerKeyEpochId: readProjectionString(
-      record,
-      "containerKeyEpochId",
-      label,
-      mutationShapeError,
-    ),
-    containerKeyEpoch: readProjectionPositiveInteger(
-      record,
-      "containerKeyEpoch",
-      label,
-      mutationShapeError,
-    ),
-    keyEpoch: readContainerKeyEpoch(
-      readProjectionValue(record, "keyEpoch"),
-      `${label}.keyEpoch`,
-    ),
-    keyEpochHash: readProjectionString(
-      record,
-      "keyEpochHash",
-      label,
-      mutationShapeError,
-    ),
-    parentContainerKeyEpochId: readProjectionNullableString(
-      record,
-      "parentContainerKeyEpochId",
-      label,
-      mutationShapeError,
-    ),
-    keyTargetHash: readProjectionString(
-      record,
-      "keyTargetHash",
-      label,
-      mutationShapeError,
-    ),
-    recipientTargets: readContainerKekRecipientTargets(
-      readProjectionValue(record, "recipientTargets"),
-      `${label}.recipientTargets`,
-    ),
-    wraps: readContainerKeyWraps(
-      readProjectionValue(record, "wraps"),
-      `${label}.wraps`,
-    ),
-  });
 }

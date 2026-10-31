@@ -12,7 +12,9 @@ import { errorMessage } from "../../../data/shared/errorMessage";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { isDatabaseUnavailableError } from "../../../data/sync/databaseUnavailable";
 import {
+  createLinkSetAttachmentReuse,
   type DocumentLinkSetFailureHandler,
+  type LinkSetAttachmentReuse,
   type RelinkRemoteDocumentResult,
   relinkRemoteDocument,
   resolveDocumentCreateAuthor,
@@ -206,6 +208,7 @@ function reportDocumentLinkMutationFailure(
 }
 
 export async function relinkRemoteContainerDocument(input: {
+  attachmentReuse?: LinkSetAttachmentReuse | undefined;
   beforeSubmit?: (() => Promise<boolean>) | undefined;
   documentId: string;
   expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
@@ -245,6 +248,7 @@ export async function relinkRemoteContainerDocument(input: {
 
   try {
     const result = await relinkRemoteDocument({
+      attachmentReuse: input.attachmentReuse,
       beforeSubmit: input.beforeSubmit,
       apiClient: runtime.apiClient,
       author,
@@ -303,6 +307,7 @@ export async function relinkRemoteContainerDocument(input: {
 }
 
 async function linkRemoteContainerDocument(input: {
+  attachmentReuse: LinkSetAttachmentReuse;
   documentId: string;
   isCurrent?: (() => boolean) | undefined;
   noteId: string;
@@ -319,6 +324,7 @@ async function linkRemoteContainerDocument(input: {
 }
 
 export async function unlinkRemoteContainerDocument(input: {
+  attachmentReuse?: LinkSetAttachmentReuse | undefined;
   beforeSubmit?: (() => Promise<boolean>) | undefined;
   documentId: string;
   expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
@@ -361,8 +367,10 @@ export async function moveRemoteContainerDocument(input: {
   } = input;
   if (input.isCurrent?.() === false) return null;
   // One move workflow is one policy operation: its link and unlink legs share
-  // a directory discovery. Each leg's commit still refuses a stale view.
+  // a directory discovery. Each leg's commit still refuses a stale view. Its
+  // legs also list the document's attachments once (see `attachmentReuse`).
   const policyOperation = createPrincipalPolicyOperation();
+  const attachmentReuse = createLinkSetAttachmentReuse();
   const writerProjection = await fetchMoveWriterProjection({
     documentId,
     onFailure: input.onFailure,
@@ -384,6 +392,7 @@ export async function moveRemoteContainerDocument(input: {
   ])) {
     if (latestLinkedContainerIds.includes(linkTarget)) continue;
     const linkedDocument = await linkRemoteContainerDocument({
+      attachmentReuse,
       documentId,
       isCurrent: input.isCurrent,
       noteId,
@@ -408,6 +417,7 @@ export async function moveRemoteContainerDocument(input: {
 
   const unlinked = await unlinkMovedDocumentSources({
     ...input,
+    attachmentReuse,
     latestDocument,
     latestLinkedContainerIds,
     policyOperation,
@@ -449,6 +459,7 @@ export async function moveRemoteContainerDocument(input: {
 // one fails, so one dead source cannot strand the others; a failed unlink
 // leaves the move "partial" for the queue to retry.
 async function unlinkMovedDocumentSources(input: {
+  attachmentReuse: LinkSetAttachmentReuse;
   documentId: string;
   isCurrent?: (() => boolean) | undefined;
   latestDocument: RelinkRemoteDocumentResult | null;
@@ -472,6 +483,7 @@ async function unlinkMovedDocumentSources(input: {
   for (const unlinkContainerId of input.unlinkContainerIds) {
     if (input.isCurrent?.() === false) return null;
     const unlinkedDocument = await unlinkRemoteContainerDocument({
+      attachmentReuse: input.attachmentReuse,
       documentId: input.documentId,
       isCurrent: input.isCurrent,
       noteId,

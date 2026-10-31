@@ -1,5 +1,6 @@
 import type {
   OrganizationDirectory,
+  OrganizationGroupMutationResult,
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
@@ -22,6 +23,8 @@ export type OrgManagerRequestKind =
 
 export type DirectoryRefreshOptions = {
   afterMutation?: boolean;
+  /** The read model the mutation already reconciled after it committed. */
+  mutationResult?: OrganizationGroupMutationResult | null;
   clearError?: boolean;
   localOnly?: boolean;
   manageLoading?: boolean;
@@ -222,16 +225,46 @@ export async function runScopedRefresher<Result>(
 export function directoryLoadOptions({
   afterMutation,
   localOnly,
+  mutationResult,
   skipNextGroupDetailsEffect,
 }: DirectoryRefreshOptions): Pick<
   DirectoryRefreshOptions,
-  "afterMutation" | "localOnly" | "skipNextGroupDetailsEffect"
+  | "afterMutation"
+  | "localOnly"
+  | "mutationResult"
+  | "skipNextGroupDetailsEffect"
 > {
   return {
     ...(afterMutation === undefined ? {} : { afterMutation }),
     ...(localOnly === undefined ? {} : { localOnly }),
+    ...(mutationResult ? { mutationResult } : {}),
     ...(skipNextGroupDetailsEffect === undefined
       ? {}
       : { skipNextGroupDetailsEffect }),
   };
+}
+
+type DirectoryLoad = () => Promise<
+  OrganizationGroupMutationResult["directoryAndGroups"]
+>;
+
+interface DirectoryLoadActions {
+  readonly loadDirectoryAndGroups: DirectoryLoad;
+  readonly loadDirectoryAndGroupsAfterMutation: DirectoryLoad;
+}
+
+/** A mutation that already reconciled the read model after its commit hands
+ * that result over; reading it again would only return an empty delta. A
+ * declined reconcile (`undefined`) still takes the after-mutation read. */
+export async function loadAfterOptionalMutation(
+  actions: DirectoryLoadActions,
+  options: Pick<DirectoryRefreshOptions, "afterMutation" | "mutationResult">,
+): ReturnType<DirectoryLoad> {
+  const reconciled = options.afterMutation
+    ? options.mutationResult?.directoryAndGroups
+    : undefined;
+  if (reconciled !== undefined) return reconciled;
+  return options.afterMutation
+    ? actions.loadDirectoryAndGroupsAfterMutation()
+    : actions.loadDirectoryAndGroups();
 }

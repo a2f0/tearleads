@@ -4,6 +4,7 @@ import {
   boundedNonEmptyArraySchema,
   loosePlainObject,
   nonEmptyStringSchema,
+  sha256HexStringSchema,
 } from "../schema";
 import {
   MAX_CONTAINER_MANIFEST_HISTORY_REFS,
@@ -49,3 +50,17 @@ export const ContainerManifestRefListSchema = arraySchema(
   ContainerManifestRefSchema,
   MAX_CONTAINER_MANIFEST_HISTORY_REFS,
 );
+
+/**
+ * The parent KEK state a child container mutation wraps under, cited instead of
+ * carried. The server loads the parent's current key epoch from its own store
+ * and refuses a mismatch as `mutationStateStale`; the child's key epoch and its
+ * parent wrap bind the same epoch id and hash.
+ */
+export const ContainerKekParentRefSchema = loosePlainObject({
+  containerId: nonEmptyStringSchema,
+  containerKeyEpochId: nonEmptyStringSchema,
+  keyEpochHash: sha256HexStringSchema,
+});
+
+export type ContainerKekParentRef = z.infer<typeof ContainerKekParentRefSchema>;

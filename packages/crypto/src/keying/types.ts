@@ -928,9 +928,19 @@ export interface VerifyDocumentLinkSetManifestInput {
   readonly principalPolicies?: readonly PrincipalPolicyAuthorization[];
 }
 
+/**
+ * The parent fields a child's key epoch and parent wrap bind. Writes cite only
+ * these; reads that resolve a historical parent epoch pass the full verified
+ * state, whose manifest hash anchors the lineage walk.
+ */
+export type ContainerKekParentBinding = Pick<
+  VerifiedContainerKekState,
+  "containerId" | "containerKeyEpochId" | "keyEpochHash"
+>;
+
 export interface DeriveContainerKekRecipientTargetsInput {
   readonly containerManifest: VerifiedContainerAccessManifest;
-  readonly parentKekState?: VerifiedContainerKekState | null;
+  readonly parentKekState?: ContainerKekParentBinding | null;
   readonly principalPolicies?: readonly PrincipalPolicyAuthorization[];
   readonly userRecipientKeys?: readonly ContainerUserRecipientKey[];
 }

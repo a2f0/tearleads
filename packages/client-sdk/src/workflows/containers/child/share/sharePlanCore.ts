@@ -23,6 +23,7 @@ import type {
 import { uniquePrincipalPolicies } from "../../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
+  containerKekParentRef,
   containerManifestRef,
   getParentKekForTarget,
   readContainerState,
@@ -225,10 +226,9 @@ function buildContainerShareRequest(input: {
       input.containerManifestHistory.map(containerManifestRef),
     predecessorBridge: null,
     keyring: null,
-    parentKekState: readCanonicalRecordOrNull(
-      input.parentKek,
-      "Container share parent KEK state",
-    ),
+    parentKekRef: input.parentKek
+      ? containerKekParentRef(input.parentKek)
+      : null,
   };
 }
 

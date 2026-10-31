@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import { runScopedRefresher } from "./refresh";
+import { loadAfterOptionalMutation, runScopedRefresher } from "./refresh";
 
 test("scoped refresher applies and settles only the current request", async () => {
   const events: string[] = [];
@@ -81,4 +81,39 @@ test("scoped refresher contains current errors and skips unavailable work", asyn
   });
   expect(onUnavailable).toHaveBeenCalledTimes(1);
   expect(setError).not.toHaveBeenCalled();
+});
+
+test("a mutation's own post-commit read model replaces the second read", async () => {
+  const loads: string[] = [];
+  const actions = {
+    loadDirectoryAndGroups: mock(async () => {
+      loads.push("reconcile");
+      return null;
+    }),
+    loadDirectoryAndGroupsAfterMutation: mock(async () => {
+      loads.push("after-mutation");
+      return null;
+    }),
+  };
+  const result = (directoryAndGroups: null) => ({
+    directoryAndGroups,
+    receipt: {} as never,
+  });
+
+  // A purged projection (null) is still the mutation's answer: no re-read.
+  await expect(
+    loadAfterOptionalMutation(actions, {
+      afterMutation: true,
+      mutationResult: result(null),
+    }),
+  ).resolves.toBeNull();
+  expect(loads).toEqual([]);
+  // A declined reconcile (offline), no result, or a plain refresh reads.
+  await loadAfterOptionalMutation(actions, {
+    afterMutation: true,
+    mutationResult: { directoryAndGroups: undefined, receipt: {} as never },
+  });
+  await loadAfterOptionalMutation(actions, { afterMutation: true });
+  await loadAfterOptionalMutation(actions, { mutationResult: result(null) });
+  expect(loads).toEqual(["after-mutation", "after-mutation", "reconcile"]);
 });
