@@ -2075,17 +2075,13 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
   expect(unlinkResponse.status).toBe(200);
   const unlinked = await unlinkResponse.json();
   expect(isDocumentLinkSetMutationResponse(unlinked)).toBe(true);
-  expect(unlinked.accessManifest.manifestHash).toBe(
-    unlinkRequest.expectedManifestHash,
-  );
-  expect(unlinked.accessManifest.event.body.eventType).toBe("document.unlink");
-  expect(unlinked.documentKekTargets.targets).toHaveLength(1);
-  expect(unlinked.documentKekTargets.targets[0].containerId).toBe(
-    root.kekState.containerId,
-  );
-  expect(unlinked.contentKeyBundle.contentKeyEpoch).toBe(
-    linkedDocument.contentKeyBundle.contentKeyEpoch + 1,
-  );
+  expect(unlinked.manifestHash).toBe(unlinkRequest.expectedManifestHash);
+  // The acknowledged target hash commits to the one remaining target.
+  expect(unlinked.targetHash).toBe(unlinkRequest.contentKeyBundle.targetHash);
+  expect(
+    unlinkRequest.contentKeyBundle.targets.map((target) => target.containerId),
+  ).toEqual([root.kekState.containerId]);
+  expect(unlinked.contentKeyEpoch).toBe(linkedDocument.contentKeyEpoch + 1);
 
   const rows = await currentDocumentLinkRows(createdDocument.id);
   expect(rows.map((row) => row.containerId)).toEqual([
@@ -2193,12 +2189,8 @@ test("POST /documents/:documentId/unlink accepts a baseline-less unlink for an e
   expect(unlinkResponse.status).toBe(200);
   const unlinked = await unlinkResponse.json();
   expect(isDocumentLinkSetMutationResponse(unlinked)).toBe(true);
-  expect(unlinked.accessManifest.manifestHash).toBe(
-    unlinkRequest.expectedManifestHash,
-  );
-  expect(unlinked.contentKeyBundle.contentKeyEpoch).toBe(
-    linkedDocument.contentKeyBundle.contentKeyEpoch + 1,
-  );
+  expect(unlinked.manifestHash).toBe(unlinkRequest.expectedManifestHash);
+  expect(unlinked.contentKeyEpoch).toBe(linkedDocument.contentKeyEpoch + 1);
 
   const rows = await currentDocumentLinkRows(createdDocument.id);
   expect(rows.map((row) => row.containerId)).toEqual([
