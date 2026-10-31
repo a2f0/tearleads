@@ -18,63 +18,38 @@ import { repairDocumentsForRemovedContainersInTransaction } from "./containerStr
 import { discardLinkIntentsForRemovedContainers } from "./documentLinkRemovalRepair";
 import { deleteContainerMetadataDocumentRowsInTransaction } from "./dormantContainerMetadata";
 
+const RECOVERY_METADATA_TABLES = [
+  [
+    "documents",
+    "document_id, recovery_document_id, recovery_generation, snapshot_end_version, pending_base_version",
+  ],
+  ["document_history_checkpoints", "snapshot, end_version_vector"],
+  [
+    "document_history_updates",
+    "id, update_data, origin, update_id, partial_start_version_vector, partial_end_version_vector, source_version_vector",
+  ],
+] as const;
+const CREATE_COLUMNS =
+  "id, subject_id, target_container_id, intent_type, remote_container_id, remote_metadata_document_id, remote_metadata_access_state_hash";
+const MOVE_COLUMNS =
+  "id, subject_id, target_container_id, source_container_id, intent_type";
+const LINK_COLUMNS =
+  "id, local_id, subject_id, target_container_id, source_container_id, replace_linked_containers, intent_type";
+const TARGET_COLUMNS = "intent_id, operation, container_id";
+
+type RecoveryRows = Awaited<ReturnType<ExecSql>>;
+
 // The token covers all local work the user is agreeing to discard, including
 // shared link intents. A second pane's edit invalidates the confirmation.
-async function recoverySnapshot(
-  execSql: ExecSql,
-  containerId: string,
-  organizationId: string,
-) {
-  const [dormant] = await execSql(
-    `SELECT container_id, organization_id FROM dormant_container_metadata
-    WHERE container_id = ? AND organization_id = ?
-    AND NOT EXISTS (SELECT 1 FROM containers WHERE id = ?)`,
-    [containerId, organizationId, containerId],
-  );
-  if (!dormant) return null;
-  const metadata = [];
-  for (const [table, columns] of [
-    [
-      "documents",
-      "document_id, recovery_document_id, recovery_generation, snapshot_end_version, pending_base_version",
-    ],
-    ["document_history_checkpoints", "snapshot, end_version_vector"],
-    [
-      "document_history_updates",
-      "id, update_data, origin, update_id, partial_start_version_vector, partial_end_version_vector, source_version_vector",
-    ],
-  ]) {
-    metadata.push(
-      await execSql(
-        `SELECT ${columns} FROM ${table} WHERE app_kind = 'container-metadata' AND local_id = ? ORDER BY rowid`,
-        [containerId],
-      ),
-    );
-  }
-  const creates = await execSql(
-    "SELECT id, subject_id, target_container_id, intent_type, remote_container_id, remote_metadata_document_id, remote_metadata_access_state_hash FROM local_intents WHERE lane = ? AND subject_id = ? AND sync_status = 'pending' ORDER BY id",
-    [LOCAL_INTENT_LANES.containerCreate, containerId],
-  );
-  const moves = await execSql(
-    "SELECT id, subject_id, target_container_id, source_container_id, intent_type FROM local_intents WHERE lane = ? AND subject_id = ? ORDER BY id",
-    [LOCAL_INTENT_LANES.containerMove, containerId],
-  );
-  const placementWhere = `lane = ? AND (target_container_id = ? OR id IN
-    (SELECT intent_id FROM document_intent_link_targets WHERE container_id = ?))`;
-  const placementBind = [
-    LOCAL_INTENT_LANES.documentPlacement,
-    containerId,
-    containerId,
-  ];
-  const links = await execSql(
-    `SELECT id, local_id, subject_id, target_container_id, source_container_id, replace_linked_containers, intent_type FROM local_intents WHERE ${placementWhere} ORDER BY id`,
-    placementBind,
-  );
-  const targets = await execSql(
-    `SELECT intent_id, operation, container_id FROM document_intent_link_targets WHERE intent_id IN
-    (SELECT id FROM local_intents WHERE ${placementWhere}) ORDER BY intent_id, container_id, operation`,
-    placementBind,
-  );
+async function summarizeRecoverySnapshot(input: {
+  creates: RecoveryRows;
+  dormant: RecoveryRows[number];
+  links: RecoveryRows;
+  metadata: RecoveryRows[];
+  moves: RecoveryRows;
+  targets: RecoveryRows;
+}) {
+  const { creates, dormant, links, metadata, moves, targets } = input;
   const revision = await toFingerprint(
     new TextEncoder().encode(
       JSON.stringify([dormant, metadata, creates, moves, links, targets]),
@@ -89,6 +64,214 @@ async function recoverySnapshot(
   };
 }
 
+async function recoverySnapshot(
+  execSql: ExecSql,
+  containerId: string,
+  organizationId: string,
+) {
+  const [dormant] = await execSql(
+    `SELECT container_id, organization_id FROM dormant_container_metadata
+    WHERE container_id = ? AND organization_id = ?
+    AND NOT EXISTS (SELECT 1 FROM containers WHERE id = ?)`,
+    [containerId, organizationId, containerId],
+  );
+  if (!dormant) return null;
+  const metadata = [];
+  for (const [table, columns] of RECOVERY_METADATA_TABLES) {
+    metadata.push(
+      await execSql(
+        `SELECT ${columns} FROM ${table} WHERE app_kind = 'container-metadata' AND local_id = ? ORDER BY rowid`,
+        [containerId],
+      ),
+    );
+  }
+  const creates = await execSql(
+    `SELECT ${CREATE_COLUMNS} FROM local_intents WHERE lane = ? AND subject_id = ? AND sync_status = 'pending' ORDER BY id`,
+    [LOCAL_INTENT_LANES.containerCreate, containerId],
+  );
+  const moves = await execSql(
+    `SELECT ${MOVE_COLUMNS} FROM local_intents WHERE lane = ? AND subject_id = ? ORDER BY id`,
+    [LOCAL_INTENT_LANES.containerMove, containerId],
+  );
+  const placementWhere = `lane = ? AND (target_container_id = ? OR id IN
+    (SELECT intent_id FROM document_intent_link_targets WHERE container_id = ?))`;
+  const placementBind = [
+    LOCAL_INTENT_LANES.documentPlacement,
+    containerId,
+    containerId,
+  ];
+  const links = await execSql(
+    `SELECT ${LINK_COLUMNS} FROM local_intents WHERE ${placementWhere} ORDER BY id`,
+    placementBind,
+  );
+  const targets = await execSql(
+    `SELECT ${TARGET_COLUMNS} FROM document_intent_link_targets WHERE intent_id IN
+    (SELECT id FROM local_intents WHERE ${placementWhere}) ORDER BY intent_id, container_id, operation`,
+    placementBind,
+  );
+  return summarizeRecoverySnapshot({
+    creates,
+    dormant,
+    links,
+    metadata,
+    moves,
+    targets,
+  });
+}
+
+/** Rows grouped by one column's value, dropping that column when asked. */
+function groupRows(
+  rows: RecoveryRows,
+  column: string,
+  drop: boolean,
+): Map<string, RecoveryRows> {
+  const groups = new Map<string, RecoveryRows>();
+  for (const row of rows) {
+    const key = String(Reflect.get(row, column));
+    const kept = drop
+      ? Object.fromEntries(
+          Object.entries(row).filter(([name]) => name !== column),
+        )
+      : row;
+    const group = groups.get(key);
+    if (group) group.push(kept);
+    else groups.set(key, [kept]);
+  }
+  return groups;
+}
+
+/** Keeps SQL `IN` lists, bound twice by the placement reads, under the budget. */
+const RECOVERY_CONTAINER_BATCH_SIZE = 400;
+
+/** Every row the recovery snapshots of a batch of folders read. */
+async function readRecoveryBatchRows(execSql: ExecSql, ids: string[]) {
+  const list = ids.map(() => "?").join(", ");
+  const metadata = [];
+  for (const [table, columns] of RECOVERY_METADATA_TABLES) {
+    metadata.push(
+      groupRows(
+        await execSql(
+          `SELECT local_id, ${columns} FROM ${table} WHERE app_kind = 'container-metadata' AND local_id IN (${list}) ORDER BY local_id, rowid`,
+          ids,
+        ),
+        "local_id",
+        true,
+      ),
+    );
+  }
+  const creates = groupRows(
+    await execSql(
+      `SELECT ${CREATE_COLUMNS} FROM local_intents WHERE lane = ? AND subject_id IN (${list}) AND sync_status = 'pending' ORDER BY subject_id, id`,
+      [LOCAL_INTENT_LANES.containerCreate, ...ids],
+    ),
+    "subject_id",
+    false,
+  );
+  const moves = groupRows(
+    await execSql(
+      `SELECT ${MOVE_COLUMNS} FROM local_intents WHERE lane = ? AND subject_id IN (${list}) ORDER BY subject_id, id`,
+      [LOCAL_INTENT_LANES.containerMove, ...ids],
+    ),
+    "subject_id",
+    false,
+  );
+  const placementWhere = `lane = ? AND (target_container_id IN (${list}) OR id IN
+    (SELECT intent_id FROM document_intent_link_targets WHERE container_id IN (${list})))`;
+  const placementBind = [LOCAL_INTENT_LANES.documentPlacement, ...ids, ...ids];
+  // Every placement intent any folder in the batch reaches, and ALL link
+  // targets of those intents: a folder's share is then the intents that
+  // target it or carry a link target in it, as the per-folder read selects.
+  const links = await execSql(
+    `SELECT ${LINK_COLUMNS} FROM local_intents WHERE ${placementWhere} ORDER BY id`,
+    placementBind,
+  );
+  const targets = await execSql(
+    `SELECT ${TARGET_COLUMNS} FROM document_intent_link_targets WHERE intent_id IN
+    (SELECT id FROM local_intents WHERE ${placementWhere}) ORDER BY intent_id, container_id, operation`,
+    placementBind,
+  );
+  return { creates, links, metadata, moves, targets };
+}
+
+/** One folder's snapshot from its batch's rows, in the per-folder shape. */
+async function folderRecoverySnapshot(
+  rows: Awaited<ReturnType<typeof readRecoveryBatchRows>>,
+  containerId: string,
+  dormant: RecoveryRows[number],
+) {
+  const folderLinks = rows.links.filter(
+    (link) =>
+      Reflect.get(link, "target_container_id") === containerId ||
+      rows.targets.some(
+        (target) =>
+          Reflect.get(target, "intent_id") === Reflect.get(link, "id") &&
+          Reflect.get(target, "container_id") === containerId,
+      ),
+  );
+  const folderLinkIds = new Set(
+    folderLinks.map((link) => Reflect.get(link, "id")),
+  );
+  const metadata = rows.metadata.map(
+    (byFolder) => byFolder.get(containerId) ?? [],
+  );
+  // The metadata record's updates are its checkpoint snapshot, read above; a
+  // folder with no record has none.
+  const snapshotRow = (metadata[1] ?? [])[0];
+  return {
+    containerId,
+    metadataUpdates:
+      (metadata[0] ?? []).length > 0 && snapshotRow
+        ? String(Reflect.get(snapshotRow, "snapshot") ?? "")
+        : "",
+    snapshot: await summarizeRecoverySnapshot({
+      creates: rows.creates.get(containerId) ?? [],
+      dormant,
+      links: folderLinks,
+      metadata,
+      moves: rows.moves.get(containerId) ?? [],
+      targets: rows.targets.filter((target) =>
+        folderLinkIds.has(Reflect.get(target, "intent_id")),
+      ),
+    }),
+  };
+}
+
+/**
+ * `recoverySnapshot` for every retained folder of an organization, one read
+ * per table for each batch of folders. Each folder's rows are grouped in the
+ * per-folder order (`local_id, rowid` for metadata; `subject_id, id` for
+ * folder intents), so its revision is byte-identical to `recoverySnapshot`'s,
+ * which a later discard compares.
+ */
+async function recoverySnapshots(execSql: ExecSql, organizationId: string) {
+  const dormantRows = await execSql(
+    `SELECT container_id, organization_id FROM dormant_container_metadata d
+    WHERE organization_id = ?
+    AND NOT EXISTS (SELECT 1 FROM containers WHERE id = d.container_id)
+    ORDER BY container_id`,
+    [organizationId],
+  );
+  const result = [];
+  for (
+    let offset = 0;
+    offset < dormantRows.length;
+    offset += RECOVERY_CONTAINER_BATCH_SIZE
+  ) {
+    const batch = dormantRows.slice(
+      offset,
+      offset + RECOVERY_CONTAINER_BATCH_SIZE,
+    );
+    const ids = batch.map((row) => String(Reflect.get(row, "container_id")));
+    const rows = await readRecoveryBatchRows(execSql, ids);
+    for (const [index, dormant] of batch.entries()) {
+      result.push(
+        await folderRecoverySnapshot(rows, ids[index] ?? "", dormant),
+      );
+    }
+  }
+  return result;
+}
+
 export async function listRetainedContainerMetadata(
   execSql: ExecSql,
   organizationId: string | null,
@@ -97,35 +280,16 @@ export async function listRetainedContainerMetadata(
   await sqlContainerContentsPersistence.ensureSchema(execSql);
   await ensureSqlTables(execSql, documentPlacementIntentTables);
   return runSerializedSqlMutation(execSql, async (locked) =>
-    getClientSQLitePersistenceRuntime(locked).transaction(async () => {
-      const rows = await locked(
-        `SELECT container_id FROM dormant_container_metadata
-      WHERE organization_id = ? ORDER BY container_id`,
-        [organizationId],
-      );
-      const result = [];
-      for (const row of rows) {
-        const containerId = String(Reflect.get(row, "container_id"));
-        const snapshot = await recoverySnapshot(
-          locked,
-          containerId,
-          organizationId,
-        );
-        if (!snapshot) continue;
-        const record =
-          await sqlContainerContentsPersistence.loadContainerMetadataRecord(
-            locked,
-            containerId,
-          );
-        result.push({
+    getClientSQLitePersistenceRuntime(locked).transaction(async () =>
+      (await recoverySnapshots(locked, organizationId)).map(
+        ({ containerId, metadataUpdates, snapshot }) => ({
           containerId,
           organizationId,
           ...snapshot,
-          metadataUpdates: record?.metadataUpdates ?? "",
-        });
-      }
-      return result;
-    }),
+          metadataUpdates,
+        }),
+      ),
+    ),
   );
 }
 
