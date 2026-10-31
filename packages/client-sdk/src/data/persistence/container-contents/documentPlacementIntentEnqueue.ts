@@ -27,7 +27,7 @@ interface PlacementIntentInput {
   targetContainerId: string;
 }
 
-export async function loadDocumentIntentLinkTargets(
+async function loadDocumentIntentLinkTargets(
   execSql: ExecSql,
   intentId: string,
 ) {

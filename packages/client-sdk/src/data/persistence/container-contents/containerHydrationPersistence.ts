@@ -198,6 +198,24 @@ export async function loadStoredHeldContainerBinding(
   };
 }
 
+/**
+ * Clears the tombstone the fence read found. That read covers the container's
+ * only row that is not yet cleared (one row per container), so without one
+ * there is nothing to clear.
+ */
+async function clearObservedHydrationFence(
+  tx: ClientSQLiteTransactionScope,
+  containerId: string,
+  fence: object | undefined,
+): Promise<void> {
+  if (!fence) return;
+  await tx
+    .update(containerHydrationTombstones)
+    .set({ cleared: true })
+    .where(eq(containerHydrationTombstones.containerId, containerId))
+    .run();
+}
+
 export async function commitStoredHydratedContainer(
   execSql: Parameters<
     ContainerContentsPersistence["commitHydratedContainer"]
@@ -278,11 +296,7 @@ export async function commitStoredHydratedContainer(
       );
 
       const container = await saveRecoveredContainer(tx, input);
-      await tx
-        .update(containerHydrationTombstones)
-        .set({ cleared: true })
-        .where(eq(containerHydrationTombstones.containerId, input.container.id))
-        .run();
+      await clearObservedHydrationFence(tx, input.container.id, fence);
       return { committed: true as const, container };
     };
     if (!input.stillCurrent) {

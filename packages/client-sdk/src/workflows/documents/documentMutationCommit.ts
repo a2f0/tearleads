@@ -18,9 +18,9 @@ import { createInitialDocumentRows } from "./create/documentCreationPersistence"
 import {
   documentSyncSecurityContextMatches,
   type PrepareDocumentMutationInput,
-  prepareDocumentMutation,
+  type prepareDocumentMutation,
 } from "./documentMutationPreparation";
-import { refuseDeletedDocumentPersist } from "./documentPersistGuards";
+import { prepareDocumentMutationUnlessDeleted } from "./documentPersistGuards";
 
 type DocumentContentState = Parameters<typeof encodeVersionVector>[0];
 type NullableDocumentRuntimeField =
@@ -455,28 +455,20 @@ export async function commitPreparedDocumentState(input: {
   persistInput: PersistDocumentStateInput;
 }): Promise<PersistedDocumentState | null> {
   const { lockedExecSql, persistInput } = input;
-  if (
-    await refuseDeletedDocumentPersist({
-      currentRecord: persistInput.currentRecord,
-      documentProjectors: input.documentProjectors,
-      execSql: lockedExecSql,
-      localId: persistInput.localId,
-      persistence: persistInput.persistence,
-    })
-  ) {
-    return null;
-  }
   const acceptedPendingUpdateIds = persistInput.acceptedPendingUpdateIds ?? [];
   for (
     let attempt = 0;
     attempt < MAX_DOCUMENT_MUTATION_COMMIT_ATTEMPTS;
     attempt += 1
   ) {
-    const mutation = await prepareDocumentMutation(
-      persistInput,
+    const mutation = await prepareDocumentMutationUnlessDeleted({
+      documentProjectors: input.documentProjectors,
+      guard: attempt === 0,
       lockedExecSql,
-      input.patch,
-    );
+      patch: input.patch,
+      persistInput,
+    });
+    if (!mutation) return null;
     if (mutation.pullContinuationSuperseded) {
       return settleSupersededDocumentMutation({
         acceptedPendingUpdateIds,

@@ -160,7 +160,7 @@ function countingExecSql(execSql: ExecSql) {
   };
 }
 
-test("a plain document edit commits in nine statements", async () => {
+test("a plain document edit commits in seven statements", async () => {
   const f = await documentFixture(0);
   try {
     const counted = countingExecSql(f.execSql);
@@ -194,9 +194,65 @@ test("a plain document edit commits in nine statements", async () => {
       return counted.counter.statements;
     };
     await edit(1);
-    // BEGIN IMMEDIATE, document load, history insert, one timestamp read,
-    // the guarded document upsert, projection and text upserts, COMMIT.
-    expect(await edit(2)).toBe(9);
+    // BEGIN IMMEDIATE, the joined document load, the pending-update insert,
+    // the guarded document upsert, projection and text upserts, COMMIT. The
+    // save timestamp comes from the load (was 9).
+    expect(await edit(2)).toBe(7);
+  } finally {
+    f.close();
+  }
+});
+
+test("a committed mutation keeps the stored time only for unchanged content", async () => {
+  const f = await documentFixture(0);
+  try {
+    const commit = async (patch: Partial<StoredDocumentRecord>) => {
+      const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+        f.execSql,
+        base.id,
+      );
+      if (!expectedRecord) throw new Error("Missing stored document");
+      const result = await sqlDocumentsPersistence.commitDocumentMutation(
+        f.execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          document: { ...expectedRecord, ...patch },
+          expectedRecord,
+          settleAcceptedPendingOnConflict: false,
+        },
+        async () => undefined,
+      );
+      if (!result.committed) throw new Error("Expected a committed mutation");
+      return result.updatedAt;
+    };
+    // Unchanged content keeps the time the transaction's own load read.
+    expect(await commit({ accessEpoch: 2 })).toBe(savedAt);
+    expect(await commit({ text: "changed" })).not.toBe(savedAt);
+    const second = await documentFixture(0);
+    try {
+      // A projection lost under the record always takes a new time, even
+      // when the loaded record's defaults match the incoming content.
+      await second.runtime.db.delete(documentProjection).run();
+      const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+        second.execSql,
+        base.id,
+      );
+      if (!expectedRecord) throw new Error("Missing stored document");
+      const result = await sqlDocumentsPersistence.commitDocumentMutation(
+        second.execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          document: expectedRecord,
+          expectedRecord,
+          settleAcceptedPendingOnConflict: false,
+        },
+        async () => undefined,
+      );
+      expect(result.committed && result.updatedAt).not.toBe(savedAt);
+      expect(result.committed).toBe(true);
+    } finally {
+      second.close();
+    }
   } finally {
     f.close();
   }

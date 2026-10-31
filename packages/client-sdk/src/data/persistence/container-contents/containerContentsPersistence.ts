@@ -28,7 +28,6 @@ import { getLatestTimestamp } from "../latestTimestamp";
 import {
   ensureContainerTables,
   loadContainerById,
-  loadContainers as loadContainerRecords,
 } from "./containerPersistence";
 import { sqlContainerSyncWatermarkPersistence } from "./containerSyncWatermarkPersistence";
 import {
@@ -69,6 +68,7 @@ import {
   getContainerMetadataScope,
   saveContainerContentsContainerRows,
   selectContainerMetadataRecord,
+  selectContainersWithMetadataRecords,
 } from "./containerMetadataRows";
 import { abandonStoredMoveIntentRevision } from "./containerMoveAbandonPersistence";
 import { containerPendingUpdatePersistence } from "./containerPendingUpdatePersistence";
@@ -212,15 +212,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
     );
   },
   async loadContainers(execSql) {
-    const containers = await loadContainerRecords(execSql);
-    const storedContainers = await Promise.all(
-      containers.map(async (container) => ({
-        container,
-        record: await selectContainerMetadataRecord(execSql, container.id),
-      })),
-    );
-
-    return storedContainers;
+    return selectContainersWithMetadataRecords(execSql);
   },
   async loadContainerMetadataState(execSql, containerId) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);

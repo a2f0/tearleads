@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { insertQueuedUpdateRows } from "../../../../test/helpers/queuedUpdateRows";
+import { countingExecSql } from "../../../../test/helpers/statementCounting";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 
 const container = {
@@ -411,6 +412,57 @@ test("a tombstone transaction refuses a newer pane's container state", async () 
     await expect(
       sqlContainerContentsPersistence.listPendingUpdates(execSql, container.id),
     ).resolves.toHaveLength(1);
+  } finally {
+    await close();
+  }
+});
+
+test("an unfenced hydration skips the tombstone clear and a fenced one clears it", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-hydration-unfenced-count",
+  );
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    const counted = countingExecSql(execSql);
+    // Warm the schema ensure on the counted connection.
+    await sqlContainerContentsPersistence.ensureSchema(counted.execSql);
+    const hydrate = (id: string) =>
+      sqlContainerContentsPersistence.commitHydratedContainer(counted.execSql, {
+        container: { ...container, id, metadataDocumentId: `metadata-${id}` },
+        expectedDormantRecord: null,
+        record: { ...record, documentId: `metadata-${id}`, id },
+        remoteUpdatedAt: container.serverUpdatedAt,
+        saveOptions: {},
+      });
+    // No uncleared fence: no tombstone update (was 1 more).
+    expect(await counted.count(() => hydrate("fresh-container"))).toBe(13);
+    await sqlContainerContentsPersistence.deleteContainer(
+      execSql,
+      container.id,
+      { updatedAt: "2026-01-03T00:00:00.000Z" },
+    );
+    const [fence] =
+      await sqlContainerContentsPersistence.loadContainerHydrationTombstones(
+        execSql,
+      );
+    expect(
+      await sqlContainerContentsPersistence.commitHydratedContainer(execSql, {
+        container: {
+          ...container,
+          serverUpdatedAt: "2026-01-04T00:00:00.000Z",
+        },
+        expectedDormantRecord: null,
+        expectedHydrationTombstone: fence,
+        record,
+        remoteUpdatedAt: "2026-01-04T00:00:00.000Z",
+        saveOptions: {},
+      }),
+    ).toMatchObject({ committed: true });
+    expect(
+      await sqlContainerContentsPersistence.loadContainerHydrationTombstones(
+        execSql,
+      ),
+    ).toEqual([]);
   } finally {
     await close();
   }

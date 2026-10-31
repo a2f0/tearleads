@@ -287,6 +287,7 @@ export async function prepareDocumentMutation(
     : await input.persistence.loadDocumentContainer(execSql, input.localId);
   return {
     creationSuperseded,
+    durableCurrentRecord,
     mutationCurrentRecord,
     pullContinuationSuperseded,
     resolvedPatch:
