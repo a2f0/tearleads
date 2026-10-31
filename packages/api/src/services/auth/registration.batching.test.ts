@@ -71,8 +71,11 @@ for (const full of [false, true]) {
     // signer memo; Postgres also counts its two transaction controls. Then
     // 344 / 786 (PGlite), 336 / 772 (SQLite), and 346 / 788 (Postgres) once
     // inserts verify their RETURNING rows and the metadata reservation reads
-    // its evidence in one statement.
-    expect(counter.statements).toBeLessThanOrEqual(full ? 788 : 346);
+    // its evidence in one statement. The audit's sync unit (KEK targets once
+    // per sync, held locks and manifest bundles reused, the seed's pull page
+    // skipped) then took them to 304 / 655, 299 / 646,
+    // and 306 / 657.
+    expect(counter.statements).toBeLessThanOrEqual(full ? 657 : 306);
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
     const stored = await db

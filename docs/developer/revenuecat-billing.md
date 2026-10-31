@@ -324,7 +324,11 @@ creating another charge.
 
 The API Worker's per-minute Cron Trigger (`* * * * *` in
 [`packages/api/wrangler.jsonc`](../../packages/api/wrangler.jsonc)) runs these
-phases through `src/worker/maintenance.ts`;
+phases through `src/worker/maintenance.ts`. One probe statement
+(`billingMaintenancePhases`) first reads all three phases' candidates, so an
+idle pass costs that statement alone; a phase runs only when the probe found
+work, the purge phase selects again when a trial expired in the same pass, and
+a failed probe falls back to running every phase.
 [`stripeSeatSync.ts`](../../packages/api/scripts/stripeSeatSync.ts) is the
 out-of-process entrypoint for local or on-demand runs (`--limit <n>`). By
 default each run processes up to 100 trial expiries, 25 purge candidates, and

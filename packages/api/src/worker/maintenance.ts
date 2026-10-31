@@ -1,8 +1,6 @@
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import { flushApiDiagnostics } from "../diagnostics/sentry";
-import { runOrganizationPurgeMaintenance } from "../services/billing/organizationPurge";
-import { expireOrganizationTrials } from "../services/billing/organizationTrialExpiry";
-import { runStripeSeatSynchronization } from "../services/billing/stripeSeatSync";
+import { billingMaintenancePhases } from "../services/billing/billingMaintenance";
 import { runBlobMaintenance } from "../services/blobs/blobMaintenance";
 import { getDefaultApiServiceRuntime } from "../services/runtime";
 import { withHealthcheck } from "./healthchecks";
@@ -15,28 +13,6 @@ import {
 const BILLING_MAINTENANCE_CRON = "* * * * *";
 const BLOB_MAINTENANCE_CRON = "0 * * * *";
 const blobGcHealthcheckUrlEnvKey = "BLOB_GC_HEALTHCHECK_URL";
-
-/** Billing maintenance, run every minute. */
-function billingPhases(): readonly MaintenancePhase[] {
-  const runtime = getDefaultApiServiceRuntime();
-  return [
-    {
-      name: "trialExpiry",
-      operation: "billing.trial-expiry",
-      run: () => expireOrganizationTrials(runtime, {}),
-    },
-    {
-      name: "organizationPurge",
-      operation: "billing.purge",
-      run: () => runOrganizationPurgeMaintenance(runtime, {}),
-    },
-    {
-      name: "stripeSeatSync",
-      operation: "billing.seat-sync",
-      run: () => runStripeSeatSynchronization(runtime, {}),
-    },
-  ];
-}
 
 /**
  * Blob garbage collection, run hourly, with its Healthchecks start, success,
@@ -64,7 +40,14 @@ export async function runScheduledMaintenance(cron: string): Promise<void> {
     if (cron === BLOB_MAINTENANCE_CRON) {
       await runMaintenancePhases(blobPhases(), reportBackgroundFailure);
     } else if (cron === BILLING_MAINTENANCE_CRON) {
-      await runMaintenancePhases(billingPhases(), reportBackgroundFailure);
+      // Billing maintenance, run every minute.
+      await runMaintenancePhases(
+        await billingMaintenancePhases(
+          getDefaultApiServiceRuntime(),
+          reportBackgroundFailure,
+        ),
+        reportBackgroundFailure,
+      );
     } else {
       throw new Error(`Unknown maintenance schedule: ${cron}`);
     }

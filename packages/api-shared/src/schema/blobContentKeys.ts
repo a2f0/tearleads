@@ -68,7 +68,6 @@ export const blobContentKeyEpochs = pgTable(
       table.blobId,
       table.contentKeyEpoch,
     ),
-    index("blob_content_key_epochs_target_idx").on(table.targetHash),
   ],
 );
 
@@ -134,10 +133,6 @@ export const blobContentKeyTargets = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("blob_content_key_targets_binding_idx").on(table.bindingId),
-    index("blob_content_key_targets_container_epoch_idx").on(
-      table.containerKeyEpochId,
-    ),
     uniqueIndex("blob_content_key_targets_epoch_binding_container_idx").on(
       table.blobContentKeyEpochId,
       table.bundleTargetHash,

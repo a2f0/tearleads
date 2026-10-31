@@ -1,6 +1,10 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { sql } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../../../utils/sqlDialect";
+import {
+  acquireTransactionLock,
+  advisoryLockKey,
+} from "../../../utils/transactionLocks";
 
 export async function deriveDocumentLifecycleLockKeys(
   documentId: string,
@@ -23,9 +27,9 @@ export async function lockDocumentLifecycleInTransaction(
   documentId: string,
 ): Promise<void> {
   if (isSqliteApiDatabase()) return;
-  const [firstKey, secondKey] =
-    await deriveDocumentLifecycleLockKeys(documentId);
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(${firstKey}, ${secondKey})`,
+  const keys = await deriveDocumentLifecycleLockKeys(documentId);
+  const [firstKey, secondKey] = keys;
+  await acquireTransactionLock(tx, advisoryLockKey(keys), "exclusive", () =>
+    tx.execute(sql`select pg_advisory_xact_lock(${firstKey}, ${secondKey})`),
   );
 }

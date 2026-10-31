@@ -20,8 +20,9 @@ import {
 } from "../errors";
 
 /**
- * Insert the document row and touch its linked containers. The links
- * themselves are the stored manifest's link projection under its head.
+ * Insert the document row. The links themselves are the stored manifest's
+ * link projection under its head; the caller touches the linked containers
+ * just before commit, so their rows are not held through the create.
  */
 export async function insertDocumentRow(input: {
   readonly createdByFingerprint: string;
@@ -52,11 +53,6 @@ export async function insertDocumentRow(input: {
   if (!inserted) {
     throw new DocumentMutationError("Failed to create document", 409);
   }
-
-  await touchContainers(
-    input.executor,
-    input.manifest.state.linkedContainerIds,
-  );
 
   return inserted;
 }
@@ -231,7 +227,7 @@ export async function ensureDocumentExists(input: {
   }
 }
 
-async function touchContainers(
+export async function touchContainers(
   executor: DatabaseTransaction,
   containerIds: readonly string[],
   updatedAt = new Date(),

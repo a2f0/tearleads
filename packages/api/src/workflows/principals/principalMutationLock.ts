@@ -1,6 +1,10 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { sql } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
+import {
+  acquireTransactionLock,
+  advisoryLockKey,
+} from "../../utils/transactionLocks";
 
 type LockablePrincipalType = "group" | "organization";
 
@@ -14,13 +18,14 @@ export async function lockPrincipalMutationInTransaction(
   principalType: LockablePrincipalType,
   principalId: string,
 ): Promise<void> {
-  const [firstKey, secondKey] = await derivePrincipalMutationLockKeys(
+  const keys = await derivePrincipalMutationLockKeys(
     principalType,
     principalId,
   );
+  const [firstKey, secondKey] = keys;
   if (isSqliteApiDatabase()) return;
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(${firstKey}, ${secondKey})`,
+  await acquireTransactionLock(tx, advisoryLockKey(keys), "exclusive", () =>
+    tx.execute(sql`select pg_advisory_xact_lock(${firstKey}, ${secondKey})`),
   );
 }
 

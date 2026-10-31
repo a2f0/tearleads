@@ -367,7 +367,7 @@ async function purgeDocumentWithExecutor(input: {
     input.executor,
   );
   await deleteDocumentRows({
-    documentId: input.documentId,
+    documentIds: [input.documentId],
     executor: input.executor,
     orphanedBlobIds,
     retainAccessHistory: true,
@@ -490,7 +490,7 @@ export async function teardownContainerMetadataDocument(input: {
     executor: input.executor,
   });
   await deleteDocumentRows({
-    documentId: input.documentId,
+    documentIds: [input.documentId],
     executor: input.executor,
     orphanedBlobIds,
     retainAccessHistory: false,

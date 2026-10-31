@@ -185,7 +185,7 @@ async function preauthorizeDocumentLinkSetMutation(input: {
     input.executor,
   );
   await ensureCurrentDocumentAccess({
-    currentTargets,
+    containerIds: currentTargets.targets.map((target) => target.containerId),
     executor: input.executor,
     minimumAccessLevel: "write",
     userId: input.userId,
@@ -248,9 +248,17 @@ async function assertProfileBindingsPreserved(
   return assertRosterProfileBindingPreserved(input);
 }
 
+/**
+ * The organization comes from the content-key store's post-store target read:
+ * the document head is held FOR UPDATE and its manifest's organization was
+ * asserted, so a fresh resolution would return the same one.
+ */
 async function mutateDocumentLinkSetWithExecutor(
   input: MutateDocumentLinkSetWithExecutorInput,
-): Promise<DocumentLinkSetMutationWorkflowResult> {
+): Promise<{
+  readonly organizationId: string;
+  readonly result: DocumentLinkSetMutationWorkflowResult;
+}> {
   try {
     await assertDocumentCanRelink({
       documentId: input.documentId,
@@ -333,12 +341,15 @@ async function mutateDocumentLinkSetWithExecutor(
       repairedRosterProfileBindings,
     );
 
-    return toDocumentLinkSetMutationResult({
-      contentKeyBundle,
-      documentId: input.documentId,
-      insertedUpdateIds,
-      manifest,
-    });
+    return {
+      organizationId: contentKeyBundle.currentTargets.organizationId,
+      result: toDocumentLinkSetMutationResult({
+        contentKeyBundle,
+        documentId: input.documentId,
+        insertedUpdateIds,
+        manifest,
+      }),
+    };
   } catch (error) {
     const mutationError = toMutationError(error);
     if (mutationError) {
@@ -354,18 +365,15 @@ export async function runDocumentLinkSetMutationWorkflow(
 ): Promise<DocumentLinkSetMutationWorkflowResult> {
   try {
     return await db.transaction(async (tx) => {
-      const result = await mutateDocumentLinkSetWithExecutor({
-        documentId: input.documentId,
-        eventType: input.eventType,
-        executor: tx,
-        fingerprint: input.fingerprint,
-        request: input.request,
-        userId: input.userId,
-      });
-      const { organizationId } = await resolveCurrentDocumentKekTargets(
-        input.documentId,
-        tx,
-      );
+      const { organizationId, result } =
+        await mutateDocumentLinkSetWithExecutor({
+          documentId: input.documentId,
+          eventType: input.eventType,
+          executor: tx,
+          fingerprint: input.fingerprint,
+          request: input.request,
+          userId: input.userId,
+        });
       await assertOrganizationCanSync(tx, organizationId, input.userId);
       return result;
     });

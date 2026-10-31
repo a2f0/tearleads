@@ -8,13 +8,15 @@ import {
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
 } from "@tearleads/api-shared/schema";
-import { and, asc, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "../../billing/organizationBilling";
 import { reportBackgroundFailure } from "../../diagnostics/reportBackgroundFailure";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
+import {
+  normalizeTrialExpiryLimit,
+  selectDueOrganizationTrials,
+} from "./organizationTrialCandidates";
 
-const DEFAULT_EXPIRY_LIMIT = 100;
-const MAX_EXPIRY_LIMIT = 1000;
 const MAX_EXPIRY_RETRY_MS = 60 * 60 * 1000;
 const EXPIRY_RETRY_BASE_MS = 60 * 1000;
 const MAX_EXPIRY_RETRY_EXPONENT = 6;
@@ -399,10 +401,7 @@ export async function runExpireOrganizationTrialsWorkflow(
   db: ApiDatabase,
   options: ExpireOrganizationTrialsOptions = {},
 ): Promise<ExpireOrganizationTrialsSummary> {
-  const limit = Math.min(
-    MAX_EXPIRY_LIMIT,
-    Math.floor(options.limit ?? DEFAULT_EXPIRY_LIMIT),
-  );
+  const limit = normalizeTrialExpiryLimit(options.limit);
   const now = options.now ?? new Date();
   if (
     !Number.isFinite(limit) ||
@@ -411,27 +410,15 @@ export async function runExpireOrganizationTrialsWorkflow(
   ) {
     return { attentionRequired: 0, examined: 0, expired: 0, failed: 0 };
   }
-  const candidates = await db
-    .select({ organizationId: organizationBilling.organizationId })
-    .from(organizationBilling)
-    .where(
-      and(
-        eq(organizationBilling.status, "trialing"),
-        lte(organizationBilling.trialEndsAt, now),
-        or(
-          isNull(organizationBilling.trialExpiryNextAttemptAt),
-          lte(organizationBilling.trialExpiryNextAttemptAt, now),
-        ),
-        options.organizationIds
-          ? inArray(organizationBilling.organizationId, options.organizationIds)
-          : undefined,
-      ),
-    )
-    .orderBy(
-      asc(organizationBilling.trialEndsAt),
-      asc(organizationBilling.organizationId),
-    )
-    .limit(limit);
+  const candidates = options.dueOrganizationIds
+    ? options.dueOrganizationIds
+        .slice(0, limit)
+        .map((organizationId) => ({ organizationId }))
+    : await selectDueOrganizationTrials(db, {
+        limit,
+        now,
+        organizationIds: options.organizationIds,
+      });
 
   let expired = 0;
   let failed = 0;
@@ -493,4 +480,10 @@ export interface ExpireOrganizationTrialsOptions {
   readonly now?: Date;
   /** Optional target set for bounded operational recovery and deterministic tests. */
   readonly organizationIds?: readonly string[];
+  /**
+   * Candidates already read by `selectDueOrganizationTrials` at `now` (the
+   * idle billing probe), in its order; the sweep skips its own select. Each
+   * expiry still re-checks its row, so a candidate no longer due is skipped.
+   */
+  readonly dueOrganizationIds?: readonly string[];
 }

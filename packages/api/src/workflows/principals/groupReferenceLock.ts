@@ -3,6 +3,10 @@ import { groups } from "@tearleads/api-shared/schema";
 import { inArray, sql } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
+import {
+  acquireTransactionLock,
+  advisoryLockKey,
+} from "../../utils/transactionLocks";
 
 export function sortGroupReferenceIds(groupIds: readonly string[]): string[] {
   return uniqueSortedStrings(groupIds);
@@ -33,11 +37,10 @@ export async function lockGroupPolicyRematerializationInTransaction(
   tx: DatabaseTransaction,
 ): Promise<void> {
   if (isSqliteApiDatabase()) return;
-  const [firstKey, secondKey] = await deriveLockKeys(
-    "group-reference:policy-rematerialization",
-  );
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(${firstKey}, ${secondKey})`,
+  const keys = await deriveLockKeys("group-reference:policy-rematerialization");
+  const [firstKey, secondKey] = keys;
+  await acquireTransactionLock(tx, advisoryLockKey(keys), "exclusive", () =>
+    tx.execute(sql`select pg_advisory_xact_lock(${firstKey}, ${secondKey})`),
   );
 }
 
@@ -46,16 +49,17 @@ async function lockGroupReferenceInTransaction(
   groupId: string,
   mode: "exclusive" | "shared",
 ): Promise<void> {
-  const [firstKey, secondKey] = await deriveGroupReferenceLockKeys(groupId);
+  const keys = await deriveGroupReferenceLockKeys(groupId);
+  const [firstKey, secondKey] = keys;
   if (isSqliteApiDatabase()) return;
-  if (mode === "shared") {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock_shared(${firstKey}, ${secondKey})`,
-    );
-    return;
-  }
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(${firstKey}, ${secondKey})`,
+  await acquireTransactionLock(tx, advisoryLockKey(keys), mode, () =>
+    mode === "shared"
+      ? tx.execute(
+          sql`select pg_advisory_xact_lock_shared(${firstKey}, ${secondKey})`,
+        )
+      : tx.execute(
+          sql`select pg_advisory_xact_lock(${firstKey}, ${secondKey})`,
+        ),
   );
 }
 

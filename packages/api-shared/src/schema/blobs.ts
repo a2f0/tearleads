@@ -152,12 +152,6 @@ export const attachmentBindings = pgTable(
   (table) => [
     index("attachment_bindings_document_idx").on(table.documentId),
     index("attachment_bindings_blob_idx").on(table.blobId),
-    index("attachment_bindings_previous_binding_id_idx").on(
-      table.previousBindingId,
-    ),
-    index("attachment_bindings_attachment_event_hash_idx").on(
-      table.attachmentEventHash,
-    ),
     uniqueIndex("attachment_bindings_document_slot_active_idx")
       .on(table.documentId, table.slotId)
       .where(sql`${table.detachedAt} is null`),

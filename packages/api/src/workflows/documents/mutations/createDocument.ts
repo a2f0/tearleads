@@ -26,6 +26,7 @@ import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
 import {
   assertCreateCanAdvanceDocumentHead,
   insertDocumentRow,
+  touchContainers,
 } from "./shared/documentRows";
 import {
   documentManifestBundleRecord,
@@ -49,12 +50,17 @@ export interface DocumentCreateWorkflowResult {
   readonly response: DocumentCreateResponse;
 }
 
-/** Commits a create's seed in its transaction; see `appendDocumentCreateSeed`. */
+/**
+ * Commits a create's seed in its transaction; see `appendDocumentCreateSeed`.
+ * The caller has admitted `syncEligibleOrganizationId` with
+ * `assertOrganizationCanSync` in this transaction.
+ */
 export async function commitDocumentCreateSeedInTransaction(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly seed: DocumentCreateRequest["initialSync"];
+  readonly syncEligibleOrganizationId: string;
   readonly userId: string;
 }): Promise<DocumentCreateSeedResult | null> {
   if (!input.seed) return null;
@@ -68,6 +74,7 @@ export async function commitDocumentCreateSeedInTransaction(input: {
       fingerprint: input.fingerprint,
       userId: input.userId,
     }),
+    syncEligibleOrganizationId: input.syncEligibleOrganizationId,
     userId: input.userId,
   });
 }
@@ -91,25 +98,30 @@ export async function runCreateDocumentWorkflow(
 ): Promise<DocumentCreateWorkflowResult> {
   try {
     const { created, seed } = await db.transaction(async (tx) => {
-      const { created, organizationId } = await createDocumentInTransaction({
-        executor: tx,
-        fingerprint: input.fingerprint,
-        request: input.request,
-        userId: input.userId,
-      });
+      const { created, linkedContainerIds, organizationId } =
+        await createDocumentInTransaction({
+          executor: tx,
+          fingerprint: input.fingerprint,
+          request: input.request,
+          userId: input.userId,
+        });
       // Public boundary: registration bootstraps its documents via
       // createDocumentWithExecutor directly, so gate only here.
       await assertOrganizationCanSync(tx, organizationId, input.userId);
-      return {
-        created,
-        seed: await commitDocumentCreateSeedInTransaction({
-          documentId: created.id,
-          executor: tx,
-          fingerprint: input.fingerprint,
-          seed: input.request.initialSync,
-          userId: input.userId,
-        }),
-      };
+      const seed = await commitDocumentCreateSeedInTransaction({
+        documentId: created.id,
+        executor: tx,
+        fingerprint: input.fingerprint,
+        seed: input.request.initialSync,
+        syncEligibleOrganizationId: organizationId,
+        userId: input.userId,
+      });
+      // Touch the linked containers just before commit; a seed that inserted
+      // its update already touched them, last.
+      if ((seed?.insertedUpdateIds.length ?? 0) === 0) {
+        await touchContainers(tx, linkedContainerIds);
+      }
+      return { created, seed };
     });
     if (!seed) return { insertedUpdateIds: [], response: created };
     return {
@@ -156,16 +168,21 @@ interface CreateDocumentWithExecutorInput {
 export async function createDocumentWithExecutor(
   input: CreateDocumentWithExecutorInput,
 ): Promise<DocumentCreateResponse> {
-  return (await createDocumentInTransaction(input)).created;
+  const { created, linkedContainerIds } =
+    await createDocumentInTransaction(input);
+  await touchContainers(input.executor, linkedContainerIds);
+  return created;
 }
 
 // The content-key bundle store resolves the document's current KEK targets
 // in this transaction; nothing after it changes heads, links, or epochs, so
-// its organization is the one a fresh resolution would return.
+// its organization is the one a fresh resolution would return. The caller
+// touches the linked containers, as late as it can.
 async function createDocumentInTransaction(
   input: CreateDocumentWithExecutorInput,
 ): Promise<{
   readonly created: DocumentCreateResponse;
+  readonly linkedContainerIds: readonly string[];
   readonly organizationId: string;
 }> {
   try {
@@ -252,6 +269,7 @@ async function createDocumentInTransaction(
           contentKeyBundle.currentTargets,
         ),
       },
+      linkedContainerIds: manifest.state.linkedContainerIds,
       organizationId: contentKeyBundle.currentTargets.organizationId,
     };
   } catch (error) {

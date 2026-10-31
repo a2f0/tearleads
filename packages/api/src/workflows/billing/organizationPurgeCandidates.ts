@@ -43,11 +43,12 @@ function availablePurgePredicate(now: Date) {
   );
 }
 
-export async function listOrganizationPurgeCandidates(
-  db: ApiDatabase,
+/** Purges due in claim order; the idle billing probe embeds the same select. */
+export function selectOrganizationPurgeCandidates(
+  db: DatabaseSession,
   input: { readonly limit: number; readonly now: Date },
-): Promise<string[]> {
-  const rows = await db
+) {
+  return db
     .select({ organizationId: organizationBilling.organizationId })
     .from(organizationBilling)
     .where(availablePurgePredicate(input.now))
@@ -57,6 +58,13 @@ export async function listOrganizationPurgeCandidates(
       asc(organizationBilling.organizationId),
     )
     .limit(input.limit);
+}
+
+export async function listOrganizationPurgeCandidates(
+  db: ApiDatabase,
+  input: { readonly limit: number; readonly now: Date },
+): Promise<string[]> {
+  const rows = await selectOrganizationPurgeCandidates(db, input);
   return rows.map((row) => row.organizationId);
 }
 
