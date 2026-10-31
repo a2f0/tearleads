@@ -354,6 +354,20 @@ test("group policy acknowledgements match container commitments by hash", async 
     });
 
   await expect(acknowledge(containerResponse)).resolves.toBeDefined();
+  // A grant that keeps its epoch (above 1) commits no keyring hash, and the
+  // server names the retained keyring.
+  const grant = {
+    ...containerMutation,
+    body: { eventType: "container.grant" },
+  } as unknown as ContainerMutationRequest;
+  await expect(
+    buildAcknowledgedGroupPolicyBundle({
+      currentPolicy: fixture.currentPolicy,
+      expectedHead: fixture.expectedHead,
+      request: { ...request, containerMutations: [grant] },
+      response: bundle,
+    }),
+  ).resolves.toBeDefined();
   for (const tampered of [
     {
       ...containerResponse,
