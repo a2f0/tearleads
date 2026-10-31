@@ -9,7 +9,12 @@ title with `Partial` and identify pending coverage and unverified proposals.
 Only the coordinator may publish an issue or comment; a slice auditor never
 publishes.
 
-Write the body in this order:
+Include an **Audit usage receipt** in the body using the shared
+[receipt template](../../../../docs/developer/audit-usage-receipts.md#cutoff-and-public-template),
+including for zero findings or partial reports. Keep it in the body when
+splitting overflow into comments; preserve its run marker on resume.
+
+Write the rest of the body in this order:
 
 1. **Scope.** State the three rules (capabilities preserved, encodings fixed,
    greenfield), the waste units, the exclusions, and the audited revision.

@@ -5,6 +5,12 @@ effort selected by the user. These work limits reduce usage; they are not a
 measurement or guarantee of remaining five-hour quota. Do not infer quota
 from wall-clock time or launch the remaining queue just because time remains.
 
+At every start and checkpoint, follow the shared
+[usage ledger](../../../../docs/developer/audit-usage-receipts.md#start-and-checkpoint).
+Keep `usage.md`, source boundaries, closed batch deltas, missing intervals,
+and the issue/receipt URLs beside the coverage checkpoint. Resumes keep the
+run ID, add a batch ID, and never sum cumulative snapshots.
+
 ## Default work limits
 
 - One queued work item: a slice or a smaller part, unfinished discovery,

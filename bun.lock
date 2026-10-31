@@ -5,7 +5,7 @@
     "": {
       "name": "tearleads",
       "devDependencies": {
-        "@a2f0/agent-tool": "0.1.30",
+        "@a2f0/agent-tool": "0.1.31",
         "@azure/storage-blob": "12.30.0",
         "@biomejs/biome": "2.5.15",
         "@commitlint/cli": "21.2.4",
@@ -427,7 +427,7 @@
     },
   },
   "packages": {
-    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.30", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-nuXL8cSqhq9P80xWxCl0eSMchvgDyb/xfGNclqzcdbocQWF2r3dFDzV9UXV1RD/Q0bBJlmYvf4L9o/MK4lYlWQ=="],
+    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.31", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-KrkeKPlyU0z9ROBU+HP/rAK//jRLCnzvjYH412REIoeZvnjq+vjSo41HsQGjPJ1RXVO30RPFHfCkK1IhU0rncQ=="],
 
     "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#ccec49f", {}, "a2f0-continuity-ccec49f", "sha512-SwQMufS2JVURyMbhehQMLvNnvuJsqDQihxvsLGnFjeVWwsweJTRy9esLA4dnJziHq2u36qlSG0uzAsQOk0hAbQ=="],
 

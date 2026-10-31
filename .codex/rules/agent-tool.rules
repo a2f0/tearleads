@@ -3,7 +3,7 @@
 # use their stricter class here because prefix rules cannot match trailing flags.
 
 # read: Reads local or GitHub state without changing it.
-prefix_rule(pattern=["bun", "run", "agent-tool", ["--help", "--version", "logs", "doctor", "checkVersions"]], decision="allow", match=["bun run agent-tool --help"])
+prefix_rule(pattern=["bun", "run", "agent-tool", ["--help", "--version", "logs", "doctor", "teardown", "checkVersions"]], decision="allow", match=["bun run agent-tool --help"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "runs", "list"], decision="allow", match=["bun run agent-tool runs list"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "config", "show"], decision="allow", match=["bun run agent-tool config show"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "branch", ["check", "status"]], decision="allow", match=["bun run agent-tool branch check"])
@@ -23,7 +23,8 @@ prefix_rule(pattern=["bun", "run", "agent-tool", "hooks", ["check", "install"]],
 prefix_rule(pattern=["bun", "run", "agent-tool", "images", "list"], decision="allow", match=["bun run agent-tool images list"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "graph", "check"], decision="allow", match=["bun run agent-tool graph check"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "permissions", ["show", "check"]], decision="allow", match=["bun run agent-tool permissions show"])
-prefix_rule(pattern=["node_modules/.bin/agent-tool", ["--help", "--version", "logs", "doctor", "checkVersions"]], decision="allow", match=["node_modules/.bin/agent-tool --help"])
+prefix_rule(pattern=["bun", "run", "agent-tool", "proc", "list"], decision="allow", match=["bun run agent-tool proc list"])
+prefix_rule(pattern=["node_modules/.bin/agent-tool", ["--help", "--version", "logs", "doctor", "teardown", "checkVersions"]], decision="allow", match=["node_modules/.bin/agent-tool --help"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "runs", "list"], decision="allow", match=["node_modules/.bin/agent-tool runs list"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "config", "show"], decision="allow", match=["node_modules/.bin/agent-tool config show"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "branch", ["check", "status"]], decision="allow", match=["node_modules/.bin/agent-tool branch check"])
@@ -43,7 +44,8 @@ prefix_rule(pattern=["node_modules/.bin/agent-tool", "hooks", ["check", "install
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "images", "list"], decision="allow", match=["node_modules/.bin/agent-tool images list"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "graph", "check"], decision="allow", match=["node_modules/.bin/agent-tool graph check"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "permissions", ["show", "check"]], decision="allow", match=["node_modules/.bin/agent-tool permissions show"])
-prefix_rule(pattern=["agent-tool", ["--help", "--version", "logs", "doctor", "checkVersions"]], decision="allow", match=["agent-tool --help"])
+prefix_rule(pattern=["node_modules/.bin/agent-tool", "proc", "list"], decision="allow", match=["node_modules/.bin/agent-tool proc list"])
+prefix_rule(pattern=["agent-tool", ["--help", "--version", "logs", "doctor", "teardown", "checkVersions"]], decision="allow", match=["agent-tool --help"])
 prefix_rule(pattern=["agent-tool", "runs", "list"], decision="allow", match=["agent-tool runs list"])
 prefix_rule(pattern=["agent-tool", "config", "show"], decision="allow", match=["agent-tool config show"])
 prefix_rule(pattern=["agent-tool", "branch", ["check", "status"]], decision="allow", match=["agent-tool branch check"])
@@ -63,6 +65,7 @@ prefix_rule(pattern=["agent-tool", "hooks", ["check", "install"]], decision="all
 prefix_rule(pattern=["agent-tool", "images", "list"], decision="allow", match=["agent-tool images list"])
 prefix_rule(pattern=["agent-tool", "graph", "check"], decision="allow", match=["agent-tool graph check"])
 prefix_rule(pattern=["agent-tool", "permissions", ["show", "check"]], decision="allow", match=["agent-tool permissions show"])
+prefix_rule(pattern=["agent-tool", "proc", "list"], decision="allow", match=["agent-tool proc list"])
 
 # local: Changes only this checkout: files, local branches, lockfile installs, and versions of declared dependencies.
 prefix_rule(pattern=["bun", "run", "agent-tool", "bun", ["install", "update", "remove", "test"]], decision="allow", match=["bun run agent-tool bun install"])
@@ -70,18 +73,21 @@ prefix_rule(pattern=["bun", "run", "agent-tool", "branch", "create"], decision="
 prefix_rule(pattern=["bun", "run", "agent-tool", "versions", ["bump", "prepare", "resolve-conflicts"]], decision="allow", match=["bun run agent-tool versions bump"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "images", "build"], decision="allow", match=["bun run agent-tool images build"])
 prefix_rule(pattern=["bun", "run", "agent-tool", ["review", "init", "bumpVersions", "resolveVersionConflicts", "solicitClaudeCodeReview", "solicitCodexReview", "solicitOpencodeReview"]], decision="allow", match=["bun run agent-tool review"])
+prefix_rule(pattern=["bun", "run", "agent-tool", "proc", "stop"], decision="allow", match=["bun run agent-tool proc stop"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "bun", "x", ["cap", "commitlint", "tsc"]], decision="allow", match=["bun run agent-tool bun x cap"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "bun", ["install", "update", "remove", "test"]], decision="allow", match=["node_modules/.bin/agent-tool bun install"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "branch", "create"], decision="allow", match=["node_modules/.bin/agent-tool branch create"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "versions", ["bump", "prepare", "resolve-conflicts"]], decision="allow", match=["node_modules/.bin/agent-tool versions bump"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "images", "build"], decision="allow", match=["node_modules/.bin/agent-tool images build"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", ["review", "init", "bumpVersions", "resolveVersionConflicts", "solicitClaudeCodeReview", "solicitCodexReview", "solicitOpencodeReview"]], decision="allow", match=["node_modules/.bin/agent-tool review"])
+prefix_rule(pattern=["node_modules/.bin/agent-tool", "proc", "stop"], decision="allow", match=["node_modules/.bin/agent-tool proc stop"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "bun", "x", ["cap", "commitlint", "tsc"]], decision="allow", match=["node_modules/.bin/agent-tool bun x cap"])
 prefix_rule(pattern=["agent-tool", "bun", ["install", "update", "remove", "test"]], decision="allow", match=["agent-tool bun install"])
 prefix_rule(pattern=["agent-tool", "branch", "create"], decision="allow", match=["agent-tool branch create"])
 prefix_rule(pattern=["agent-tool", "versions", ["bump", "prepare", "resolve-conflicts"]], decision="allow", match=["agent-tool versions bump"])
 prefix_rule(pattern=["agent-tool", "images", "build"], decision="allow", match=["agent-tool images build"])
 prefix_rule(pattern=["agent-tool", ["review", "init", "bumpVersions", "resolveVersionConflicts", "solicitClaudeCodeReview", "solicitCodexReview", "solicitOpencodeReview"]], decision="allow", match=["agent-tool review"])
+prefix_rule(pattern=["agent-tool", "proc", "stop"], decision="allow", match=["agent-tool proc stop"])
 prefix_rule(pattern=["agent-tool", "bun", "x", ["cap", "commitlint", "tsc"]], decision="allow", match=["agent-tool bun x cap"])
 
 # share: Publishes work for review without changing a shared branch: pushes a feature branch, opens a PR, or answers review threads.

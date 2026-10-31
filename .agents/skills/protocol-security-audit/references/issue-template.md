@@ -2,7 +2,12 @@
 
 Title: `<Scope> audit: <n> sync/security findings (<k> High)`
 
-Write the body in this order:
+Include an **Audit usage receipt** in the body using the shared
+[receipt template](../../../../docs/developer/audit-usage-receipts.md#cutoff-and-public-template),
+including for zero findings or partial reports. Keep it in the body when
+splitting overflow into comments; preserve its run marker on resume.
+
+Write the rest of the body in this order:
 
 1. **Scope.** State the two invariants, the parity definition, the exclusions,
    the no-brick rule, and the audited revision. Pin every `file:line`
@@ -38,7 +43,8 @@ Keep each finding readable on its own. Use short paragraphs and bullets rather
 than long sentences, and cross-reference related findings by number. Reference
 prior audit issues so their follow-ups stay traceable.
 
-Create the issue with `gh issue create --label bug --body-file <path>`.
+Create the issue with
+`gh issue create --label bug --title "<title>" --body-file <path>`.
 
 GitHub rejects issue bodies over 65,536 characters, and a 30-finding report
 exceeds that. Measure the draft first. If it is too long, keep sections 1-4 and
