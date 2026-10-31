@@ -11,6 +11,7 @@ import {
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
+import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -88,24 +89,26 @@ async function linkedDocumentWithAttachment() {
       ],
     },
   ];
-  const linked = await post(
-    "link",
-    await buildDocumentLinkRequest({
-      child,
-      createdDocument: document,
-      owner,
-      root,
-      blobRewraps: committed,
-    }),
-  );
+  const linkRequest = await buildDocumentLinkRequest({
+    child,
+    createdDocument: document,
+    owner,
+    root,
+    blobRewraps: committed,
+  });
+  const linked = await post("link", linkRequest);
   expect(linked.status).toBe(200);
   if (!isDocumentLinkSetMutationResponse(linked.body))
     throw new Error("Expected linked document");
+  const linkedDocument = withDocumentMutationArtifacts(
+    linkRequest,
+    linked.body,
+  );
   // The unlink leg keeps the root and re-cites the root envelope it committed.
   const unlinkReusing = (contentKeyEpoch = 1) =>
     buildDocumentUnlinkRequest({
       child,
-      linkedDocument: linked.body,
+      linkedDocument,
       owner,
       root,
       blobRewraps: [{ blobId, contentKeyEpoch, targets: [rootEnvelope] }],
@@ -113,7 +116,7 @@ async function linkedDocumentWithAttachment() {
   return {
     binding,
     blobId,
-    document: { ...document, ...linked.body },
+    document: { ...document, ...linkedDocument },
     owner,
     post,
     root,
