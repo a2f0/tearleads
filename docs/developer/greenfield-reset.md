@@ -148,7 +148,14 @@ deploy:
 Wrangler prints `Deleted: KeyValueStore` and `Deleted: RealtimeHub` under
 "Durable Object exports reconciliation"; a rerun reports stale tombstones and
 changes nothing. The script then waits until the public hostname serves the
-maintenance response. Confirm both, and that `dig +short` for the API, app, and
+maintenance response, and drains for 15.5 minutes: invocations the old version
+started keep running, a Cron invocation for up to 15 minutes and `waitUntil`
+work for 30 seconds past its response. HTTP requests have no duration limit, so
+the data phases fence any that outlive the drain: `DROP OWNED` waits for their
+open transactions and leaves nothing for later ones to write to, deleting the
+runtime role and Hyperdrive configuration ends their database access, and R2
+refuses to delete a bucket a straggler wrote into, which stops the teardown
+visibly. Confirm both, and that `dig +short` for the API, app, and
 demo hostnames through a public resolver still answers, before touching the
 database or blob storage. The app and demo Workers keep serving their old
 bundles, whose API calls now receive the 503.

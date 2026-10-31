@@ -8,8 +8,9 @@
 # KeyValueStore and RealtimeHub Durable Object namespaces with all their
 # storage. The custom domain stays attached to the Worker name, so DNS never
 # changes; deployApi.sh later republishes the API and recreates both namespaces
-# empty. Rerunning it is harmless: an already deleted class is a stale
-# tombstone.
+# empty. Once the hostname serves the maintenance response, it waits out the
+# invocations the old version started before returning. Rerunning it is
+# harmless: an already deleted class is a stale tombstone.
 #
 # Unlike `wrangler delete`, which also removes the Worker's custom domain and
 # its DNS record, nothing here detaches a hostname.
@@ -37,13 +38,26 @@ bunx --no-install wrangler deploy --config wrangler.maintenance.jsonc --env "$TI
 
 API_URL="https://$(tier_api_hostname "$TIER")/"
 echo "Waiting for $API_URL to answer with the maintenance response..."
+serving=false
 for _ in $(seq 1 30); do
   if curl -sS --max-time 10 -o /dev/null -D - "$API_URL" 2>/dev/null |
     tr -d '\r' | grep -qix 'x-tearleads-maintenance: reset'; then
-    echo "API maintenance is live ($TIER); its hostname is unchanged."
-    exit 0
+    serving=true
+    break
   fi
   sleep 2
 done
-echo "ERROR: $API_URL did not answer with the maintenance response." >&2
-exit 1
+if [[ "$serving" != true ]]; then
+  echo "ERROR: $API_URL did not answer with the maintenance response." >&2
+  exit 1
+fi
+
+# The old version keeps running invocations that started before the deploy. A
+# Cron invocation may last 15 minutes and `waitUntil` work 30 seconds past its
+# response, so wait out both before any data phase. HTTP requests have no
+# duration limit; the data phases fence any that outlive this wait (see
+# docs/developer/greenfield-reset.md).
+DRAIN_SECONDS=930
+echo "Maintenance is serving; draining old invocations for ${DRAIN_SECONDS}s..."
+sleep "$DRAIN_SECONDS"
+echo "API maintenance is live ($TIER); its hostname is unchanged."

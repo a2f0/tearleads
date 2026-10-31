@@ -48,7 +48,10 @@ async function runMaintenance(
       resolve(root, "bin/bunx"),
       `#!/bin/sh\n${record('bunx|$(basename "$PWD")|$*')}\n`,
     );
-    await writeExecutable(resolve(root, "bin/sleep"), "#!/bin/sh\n");
+    await writeExecutable(
+      resolve(root, "bin/sleep"),
+      `#!/bin/sh\n${record("sleep|$*")}\n`,
+    );
     const answers = options.answers ?? [];
     for (const [index, answer] of answers.entries()) {
       await Bun.write(resolve(root, `answer-${index}`), answer);
@@ -110,7 +113,12 @@ for (const authorization of ["", "staging"]) {
   });
 }
 
-test("publishes the maintenance Worker under the tier's name and waits for it", async () => {
+const probe =
+  "curl|-sS --max-time 10 -o /dev/null -D - https://api.example.test/";
+// A Cron invocation may run 15 minutes, plus 30 s of waitUntil work.
+const drain = "sleep|930";
+
+test("publishes the maintenance Worker, waits for it, then drains old invocations", async () => {
   const result = await runMaintenance("prod", {
     authorization: "prod",
     answers: [apiAnswer, apiAnswer, maintenanceAnswer],
@@ -120,11 +128,12 @@ test("publishes the maintenance Worker under the tier's name and waits for it", 
     "secrets|prod",
     "wrangler-env",
     "bunx|api|--no-install wrangler deploy --config wrangler.maintenance.jsonc --env prod",
-    ...Array.from(
-      { length: 3 },
-      () =>
-        "curl|-sS --max-time 10 -o /dev/null -D - https://api.example.test/",
-    ),
+    probe,
+    "sleep|2",
+    probe,
+    "sleep|2",
+    probe,
+    drain,
   ]);
   expect(result.stdout).toContain("API maintenance is live (prod)");
 });
@@ -137,7 +146,10 @@ test("staging needs no production authorization", async () => {
   expect(result.calls).toContain(
     "bunx|api|--no-install wrangler deploy --config wrangler.maintenance.jsonc --env staging",
   );
-  expect(result.calls.at(-1)).toContain("https://api-staging.example.test/");
+  expect(result.calls.slice(-2)).toEqual([
+    "curl|-sS --max-time 10 -o /dev/null -D - https://api-staging.example.test/",
+    drain,
+  ]);
 });
 
 test("fails when the hostname never serves the maintenance response", async () => {
@@ -151,6 +163,8 @@ test("fails when the hostname never serves the maintenance response", async () =
   expect(result.calls.filter((call) => call.startsWith("curl|"))).toHaveLength(
     30,
   );
+  expect(result.calls).not.toContain(drain);
+  expect(result.stdout).not.toContain("API maintenance is live");
 });
 
 test("rejects an unknown tier before loading credentials", async () => {
