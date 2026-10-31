@@ -74,8 +74,11 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // an unstored folder cites its listed parent's held bundles, and every
   // projection cites held KEK levels by digest: 0.59 MB received. Share,
   // recite, and create acknowledgements carry hashes, not echoes (the share
-  // 35 KB -> 0.8 KB): 0.51 MB received; keep about 10% headroom.
-  bodyBytes: { request: 130_000, response: 530_000 },
+  // 35 KB -> 0.8 KB): 0.51 MB received; keep about 10% headroom. Child
+  // containers cite their parent KEK state and the login signature travels as
+  // base64: 117 KB sent (120 KB before). Document creates and attachment
+  // binds acknowledge by hash too: 0.48 MB received.
+  bodyBytes: { request: 128_000, response: 530_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,

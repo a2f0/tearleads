@@ -477,11 +477,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -1026,11 +1046,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -1566,11 +1606,31 @@
                             "maxItems": 100,
                             "type": "array"
                           },
-                          "parentKekState": {
+                          "parentKekRef": {
                             "anyOf": [
                               {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "containerId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "containerKeyEpochId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "keyEpochHash": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]+$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "containerId",
+                                  "containerKeyEpochId",
+                                  "keyEpochHash"
+                                ],
                                 "additionalProperties": {}
                               },
                               {
@@ -1866,11 +1926,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -2282,11 +2362,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -2769,11 +2869,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -3333,11 +3453,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -3728,11 +3868,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -4214,11 +4374,31 @@
                         "maxItems": 100,
                         "type": "array"
                       },
-                      "parentKekState": {
+                      "parentKekRef": {
                         "anyOf": [
                           {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "containerId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "containerKeyEpochId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "keyEpochHash": {
+                                "maxLength": 64,
+                                "minLength": 64,
+                                "pattern": "^[0-9a-f]+$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "containerId",
+                              "containerKeyEpochId",
+                              "keyEpochHash"
+                            ],
                             "additionalProperties": {}
                           },
                           {
@@ -4514,11 +4694,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -4909,11 +5109,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -5398,11 +5618,31 @@
                             "maxItems": 100,
                             "type": "array"
                           },
-                          "parentKekState": {
+                          "parentKekRef": {
                             "anyOf": [
                               {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "containerId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "containerKeyEpochId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "keyEpochHash": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]+$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "containerId",
+                                  "containerKeyEpochId",
+                                  "keyEpochHash"
+                                ],
                                 "additionalProperties": {}
                               },
                               {
@@ -5698,11 +5938,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -6114,11 +6374,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -6629,11 +6909,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -7024,11 +7324,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -7515,11 +7835,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -7815,11 +8155,31 @@
                                     "maxItems": 100,
                                     "type": "array"
                                   },
-                                  "parentKekState": {
+                                  "parentKekRef": {
                                     "anyOf": [
                                       {
                                         "type": "object",
-                                        "properties": {},
+                                        "properties": {
+                                          "containerId": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "containerKeyEpochId": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "keyEpochHash": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]+$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "containerId",
+                                          "containerKeyEpochId",
+                                          "keyEpochHash"
+                                        ],
                                         "additionalProperties": {}
                                       },
                                       {
@@ -8231,11 +8591,31 @@
                                     "maxItems": 100,
                                     "type": "array"
                                   },
-                                  "parentKekState": {
+                                  "parentKekRef": {
                                     "anyOf": [
                                       {
                                         "type": "object",
-                                        "properties": {},
+                                        "properties": {
+                                          "containerId": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "containerKeyEpochId": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "keyEpochHash": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]+$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "containerId",
+                                          "containerKeyEpochId",
+                                          "keyEpochHash"
+                                        ],
                                         "additionalProperties": {}
                                       },
                                       {
@@ -8597,24 +8977,16 @@
                     "type": "string"
                   },
                   "encapsulationPublicKey": {
-                    "items": {
-                      "maximum": 255,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "maxItems": 1568,
-                    "minItems": 1568,
-                    "type": "array"
+                    "maxLength": 2092,
+                    "minLength": 2092,
+                    "pattern": "^(?:[A-Za-z0-9+/]{4}){522}[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=$",
+                    "type": "string"
                   },
                   "signingPublicKey": {
-                    "items": {
-                      "maximum": 255,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "maxItems": 2592,
-                    "minItems": 2592,
-                    "type": "array"
+                    "maxLength": 3456,
+                    "minLength": 3456,
+                    "pattern": "^(?:[A-Za-z0-9+/]{4}){864}$",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -10211,14 +10583,10 @@
                     "type": "string"
                   },
                   "signature": {
-                    "items": {
-                      "maximum": 255,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "maxItems": 4627,
-                    "minItems": 4627,
-                    "type": "array"
+                    "maxLength": 6172,
+                    "minLength": 6172,
+                    "pattern": "^(?:[A-Za-z0-9+/]{4}){1542}[A-Za-z0-9+/][AQgw]==$",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -12492,11 +12860,31 @@
                           "maxItems": 100,
                           "type": "array"
                         },
-                        "parentKekState": {
+                        "parentKekRef": {
                           "anyOf": [
                             {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "keyEpochHash": {
+                                  "maxLength": 64,
+                                  "minLength": 64,
+                                  "pattern": "^[0-9a-f]+$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpochId",
+                                "keyEpochHash"
+                              ],
                               "additionalProperties": {}
                             },
                             {
@@ -13045,11 +13433,31 @@
                           "maxItems": 100,
                           "type": "array"
                         },
-                        "parentKekState": {
+                        "parentKekRef": {
                           "anyOf": [
                             {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "keyEpochHash": {
+                                  "maxLength": 64,
+                                  "minLength": 64,
+                                  "pattern": "^[0-9a-f]+$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpochId",
+                                "keyEpochHash"
+                              ],
                               "additionalProperties": {}
                             },
                             {
@@ -15050,11 +15458,31 @@
                         "maxItems": 100,
                         "type": "array"
                       },
-                      "parentKekState": {
+                      "parentKekRef": {
                         "anyOf": [
                           {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "containerId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "containerKeyEpochId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "keyEpochHash": {
+                                "maxLength": 64,
+                                "minLength": 64,
+                                "pattern": "^[0-9a-f]+$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "containerId",
+                              "containerKeyEpochId",
+                              "keyEpochHash"
+                            ],
                             "additionalProperties": {}
                           },
                           {
@@ -15350,11 +15778,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -15766,11 +16214,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -17148,11 +17616,31 @@
                     "maxItems": 100,
                     "type": "array"
                   },
-                  "parentKekState": {
+                  "parentKekRef": {
                     "anyOf": [
                       {
                         "type": "object",
-                        "properties": {},
+                        "properties": {
+                          "containerId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "containerKeyEpochId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "keyEpochHash": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "containerId",
+                          "containerKeyEpochId",
+                          "keyEpochHash"
+                        ],
                         "additionalProperties": {}
                       },
                       {
@@ -17403,11 +17891,31 @@
                           "maxItems": 100,
                           "type": "array"
                         },
-                        "parentKekState": {
+                        "parentKekRef": {
                           "anyOf": [
                             {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "keyEpochHash": {
+                                  "maxLength": 64,
+                                  "minLength": 64,
+                                  "pattern": "^[0-9a-f]+$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpochId",
+                                "keyEpochHash"
+                              ],
                               "additionalProperties": {}
                             },
                             {
@@ -18770,11 +19278,31 @@
                     "maxItems": 100,
                     "type": "array"
                   },
-                  "parentKekState": {
+                  "parentKekRef": {
                     "anyOf": [
                       {
                         "type": "object",
-                        "properties": {},
+                        "properties": {
+                          "containerId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "containerKeyEpochId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "keyEpochHash": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "containerId",
+                          "containerKeyEpochId",
+                          "keyEpochHash"
+                        ],
                         "additionalProperties": {}
                       },
                       {
@@ -19025,11 +19553,31 @@
                           "maxItems": 100,
                           "type": "array"
                         },
-                        "parentKekState": {
+                        "parentKekRef": {
                           "anyOf": [
                             {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "keyEpochHash": {
+                                  "maxLength": 64,
+                                  "minLength": 64,
+                                  "pattern": "^[0-9a-f]+$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpochId",
+                                "keyEpochHash"
+                              ],
                               "additionalProperties": {}
                             },
                             {
@@ -20158,11 +20706,31 @@
                     "maxItems": 100,
                     "type": "array"
                   },
-                  "parentKekState": {
+                  "parentKekRef": {
                     "anyOf": [
                       {
                         "type": "object",
-                        "properties": {},
+                        "properties": {
+                          "containerId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "containerKeyEpochId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "keyEpochHash": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "containerId",
+                          "containerKeyEpochId",
+                          "keyEpochHash"
+                        ],
                         "additionalProperties": {}
                       },
                       {
@@ -20413,11 +20981,31 @@
                           "maxItems": 100,
                           "type": "array"
                         },
-                        "parentKekState": {
+                        "parentKekRef": {
                           "anyOf": [
                             {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "keyEpochHash": {
+                                  "maxLength": 64,
+                                  "minLength": 64,
+                                  "pattern": "^[0-9a-f]+$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpochId",
+                                "keyEpochHash"
+                              ],
                               "additionalProperties": {}
                             },
                             {
@@ -21278,11 +21866,31 @@
                     "maxItems": 100,
                     "type": "array"
                   },
-                  "parentKekState": {
+                  "parentKekRef": {
                     "anyOf": [
                       {
                         "type": "object",
-                        "properties": {},
+                        "properties": {
+                          "containerId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "containerKeyEpochId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "keyEpochHash": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "containerId",
+                          "containerKeyEpochId",
+                          "keyEpochHash"
+                        ],
                         "additionalProperties": {}
                       },
                       {
@@ -23052,11 +23660,31 @@
                     "maxItems": 100,
                     "type": "array"
                   },
-                  "parentKekState": {
+                  "parentKekRef": {
                     "anyOf": [
                       {
                         "type": "object",
-                        "properties": {},
+                        "properties": {
+                          "containerId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "containerKeyEpochId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "keyEpochHash": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "containerId",
+                          "containerKeyEpochId",
+                          "keyEpochHash"
+                        ],
                         "additionalProperties": {}
                       },
                       {
@@ -24977,11 +25605,31 @@
                           "maxItems": 100,
                           "type": "array"
                         },
-                        "parentKekState": {
+                        "parentKekRef": {
                           "anyOf": [
                             {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "keyEpochHash": {
+                                  "maxLength": 64,
+                                  "minLength": 64,
+                                  "pattern": "^[0-9a-f]+$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpochId",
+                                "keyEpochHash"
+                              ],
                               "additionalProperties": {}
                             },
                             {
@@ -27456,11 +28104,31 @@
                           "maxItems": 100,
                           "type": "array"
                         },
-                        "parentKekState": {
+                        "parentKekRef": {
                           "anyOf": [
                             {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "keyEpochHash": {
+                                  "maxLength": 64,
+                                  "minLength": 64,
+                                  "pattern": "^[0-9a-f]+$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpochId",
+                                "keyEpochHash"
+                              ],
                               "additionalProperties": {}
                             },
                             {
@@ -28682,11 +29350,31 @@
                           "maxItems": 100,
                           "type": "array"
                         },
-                        "parentKekState": {
+                        "parentKekRef": {
                           "anyOf": [
                             {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "keyEpochHash": {
+                                  "maxLength": 64,
+                                  "minLength": 64,
+                                  "pattern": "^[0-9a-f]+$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpochId",
+                                "keyEpochHash"
+                              ],
                               "additionalProperties": {}
                             },
                             {
@@ -30375,11 +31063,31 @@
                           "maxItems": 100,
                           "type": "array"
                         },
-                        "parentKekState": {
+                        "parentKekRef": {
                           "anyOf": [
                             {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "keyEpochHash": {
+                                  "maxLength": 64,
+                                  "minLength": 64,
+                                  "pattern": "^[0-9a-f]+$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpochId",
+                                "keyEpochHash"
+                              ],
                               "additionalProperties": {}
                             },
                             {
@@ -30770,11 +31478,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -35859,11 +36587,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -36394,11 +37142,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -36928,11 +37696,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -39163,11 +39951,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -40440,11 +41248,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -40974,11 +41802,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -44773,11 +45621,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -45322,11 +46190,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -45862,11 +46750,31 @@
                             "maxItems": 100,
                             "type": "array"
                           },
-                          "parentKekState": {
+                          "parentKekRef": {
                             "anyOf": [
                               {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "containerId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "containerKeyEpochId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "keyEpochHash": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]+$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "containerId",
+                                  "containerKeyEpochId",
+                                  "keyEpochHash"
+                                ],
                                 "additionalProperties": {}
                               },
                               {
@@ -46162,11 +47070,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -46578,11 +47506,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -47065,11 +48013,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -47629,11 +48597,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -48024,11 +49012,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -48510,11 +49518,31 @@
                         "maxItems": 100,
                         "type": "array"
                       },
-                      "parentKekState": {
+                      "parentKekRef": {
                         "anyOf": [
                           {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "containerId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "containerKeyEpochId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "keyEpochHash": {
+                                "maxLength": 64,
+                                "minLength": 64,
+                                "pattern": "^[0-9a-f]+$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "containerId",
+                              "containerKeyEpochId",
+                              "keyEpochHash"
+                            ],
                             "additionalProperties": {}
                           },
                           {
@@ -48810,11 +49838,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -49205,11 +50253,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -49694,11 +50762,31 @@
                             "maxItems": 100,
                             "type": "array"
                           },
-                          "parentKekState": {
+                          "parentKekRef": {
                             "anyOf": [
                               {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "containerId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "containerKeyEpochId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "keyEpochHash": {
+                                    "maxLength": 64,
+                                    "minLength": 64,
+                                    "pattern": "^[0-9a-f]+$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "containerId",
+                                  "containerKeyEpochId",
+                                  "keyEpochHash"
+                                ],
                                 "additionalProperties": {}
                               },
                               {
@@ -49994,11 +51082,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -50410,11 +51518,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -50925,11 +52053,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -51320,11 +52468,31 @@
                                   "maxItems": 100,
                                   "type": "array"
                                 },
-                                "parentKekState": {
+                                "parentKekRef": {
                                   "anyOf": [
                                     {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "keyEpochHash": {
+                                          "maxLength": 64,
+                                          "minLength": 64,
+                                          "pattern": "^[0-9a-f]+$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "keyEpochHash"
+                                      ],
                                       "additionalProperties": {}
                                     },
                                     {
@@ -51811,11 +52979,31 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "parentKekState": {
+                            "parentKekRef": {
                               "anyOf": [
                                 {
                                   "type": "object",
-                                  "properties": {},
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
                                   "additionalProperties": {}
                                 },
                                 {
@@ -52111,11 +53299,31 @@
                                     "maxItems": 100,
                                     "type": "array"
                                   },
-                                  "parentKekState": {
+                                  "parentKekRef": {
                                     "anyOf": [
                                       {
                                         "type": "object",
-                                        "properties": {},
+                                        "properties": {
+                                          "containerId": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "containerKeyEpochId": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "keyEpochHash": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]+$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "containerId",
+                                          "containerKeyEpochId",
+                                          "keyEpochHash"
+                                        ],
                                         "additionalProperties": {}
                                       },
                                       {
@@ -52527,11 +53735,31 @@
                                     "maxItems": 100,
                                     "type": "array"
                                   },
-                                  "parentKekState": {
+                                  "parentKekRef": {
                                     "anyOf": [
                                       {
                                         "type": "object",
-                                        "properties": {},
+                                        "properties": {
+                                          "containerId": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "containerKeyEpochId": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "keyEpochHash": {
+                                            "maxLength": 64,
+                                            "minLength": 64,
+                                            "pattern": "^[0-9a-f]+$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "containerId",
+                                          "containerKeyEpochId",
+                                          "keyEpochHash"
+                                        ],
                                         "additionalProperties": {}
                                       },
                                       {
@@ -55935,11 +57163,31 @@
                           "maxItems": 100,
                           "type": "array"
                         },
-                        "parentKekState": {
+                        "parentKekRef": {
                           "anyOf": [
                             {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "keyEpochHash": {
+                                  "maxLength": 64,
+                                  "minLength": 64,
+                                  "pattern": "^[0-9a-f]+$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpochId",
+                                "keyEpochHash"
+                              ],
                               "additionalProperties": {}
                             },
                             {

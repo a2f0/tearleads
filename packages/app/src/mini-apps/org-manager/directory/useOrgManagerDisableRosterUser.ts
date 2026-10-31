@@ -1,5 +1,6 @@
 import type {
   OrganizationDirectory,
+  OrganizationGroupMutationResult,
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
@@ -41,18 +42,23 @@ async function removeRosterDisableMembershipTargets(input: {
   organizationId: string;
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   targets: ReadonlyArray<RosterDisableMembershipTarget>;
-}): Promise<boolean> {
+}): Promise<{ mutationResult: OrganizationGroupMutationResult | null } | null> {
+  // The last removal's post-commit read model already reflects every earlier
+  // one, so the refresh applies it instead of reading again.
+  let mutationResult: OrganizationGroupMutationResult | null = null;
   for (const { groupId, name } of input.targets) {
     if (!input.isOperationActive(input.organizationId)) {
-      return false;
+      return null;
     }
-    await input.orgManagerActions.removeUserFromGroup(
+    mutationResult = await input.orgManagerActions.removeUserFromGroup(
       groupId,
       input.disabledUserId,
       name,
     );
   }
-  return input.isOperationActive(input.organizationId);
+  return input.isOperationActive(input.organizationId)
+    ? { mutationResult }
+    : null;
 }
 
 async function disableRosterUser(
@@ -107,6 +113,7 @@ async function disableRosterUser(
       await refreshAfterGroupMutation({
         invalidateSelectedGroupDetails: input.invalidateSelectedGroupDetails,
         isOperationActive: input.isOperationActive,
+        mutationResult: removed.mutationResult,
         operationOrganizationId,
         refreshDirectoryAndGroups: input.refreshDirectoryAndGroups,
         refreshSelectedGroupDetails: input.refreshSelectedGroupDetails,

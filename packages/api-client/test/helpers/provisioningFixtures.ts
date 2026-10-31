@@ -1,3 +1,4 @@
+import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   CreateOrganizationRequest,
   RegistrationRequest,
@@ -111,9 +112,11 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
     RegistrationRequest,
     "initialOrganizationMetadataContainer"
   > = {
-    encapsulationPublicKey: Array.from(
-      { length: ML_KEM1024_PUBLIC_KEY_BYTES },
-      (_, index) => index % 256,
+    encapsulationPublicKey: bytesToBase64(
+      Uint8Array.from(
+        { length: ML_KEM1024_PUBLIC_KEY_BYTES },
+        (_, index) => index % 256,
+      ),
     ),
     initialAdminGroup: {
       groupId: adminGroupId,
@@ -154,9 +157,11 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
     },
     organizationId,
     rootContainerId,
-    signingPublicKey: Array.from(
-      { length: ML_DSA87_PUBLIC_KEY_BYTES },
-      (_, index) => index % 256,
+    signingPublicKey: bytesToBase64(
+      Uint8Array.from(
+        { length: ML_DSA87_PUBLIC_KEY_BYTES },
+        (_, index) => index % 256,
+      ),
     ),
     userId,
   };

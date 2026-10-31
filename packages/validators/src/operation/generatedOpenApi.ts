@@ -1516,7 +1516,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    encapsulationPublicKey: number[];
+                    encapsulationPublicKey: string;
                     initialAdminGroup: {
                         groupId: string;
                         initialGroupPolicy: {
@@ -1561,9 +1561,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -1711,9 +1715,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -1859,9 +1867,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -1935,9 +1947,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -2075,9 +2091,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -2194,9 +2214,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -2348,9 +2372,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -2449,9 +2477,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -2593,9 +2625,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
@@ -2678,9 +2714,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -2779,9 +2819,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -2924,9 +2968,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -3000,9 +3048,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -3140,9 +3192,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -3266,9 +3322,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -3367,9 +3427,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -3512,9 +3576,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -3588,9 +3656,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -3728,9 +3800,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -3807,7 +3883,7 @@ export interface operations {
                     })[];
                     organizationId: string;
                     rootContainerId: string;
-                    signingPublicKey: number[];
+                    signingPublicKey: string;
                     userId: string;
                 } & {
                     [key: string]: unknown;
@@ -4379,7 +4455,7 @@ export interface operations {
             content: {
                 "application/json": {
                     fingerprint: string;
-                    signature: number[];
+                    signature: string;
                 } & {
                     [key: string]: unknown;
                 };
@@ -4847,9 +4923,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
@@ -5132,9 +5212,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
@@ -6175,9 +6259,13 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
-                    parentKekState?: {
+                    parentKekRef?: ({
+                        containerId: string;
+                        containerKeyEpochId: string;
+                        keyEpochHash: string;
+                    } & {
                         [key: string]: unknown;
-                    } | null;
+                    }) | null;
                     predecessorBridge: {
                         [key: string]: unknown;
                     } | null;
@@ -6746,9 +6834,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
@@ -6815,9 +6907,13 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
-                    parentKekState?: {
+                    parentKekRef?: ({
+                        containerId: string;
+                        containerKeyEpochId: string;
+                        keyEpochHash: string;
+                    } & {
                         [key: string]: unknown;
-                    } | null;
+                    }) | null;
                     predecessorBridge: {
                         [key: string]: unknown;
                     } | null;
@@ -7308,9 +7404,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
@@ -7377,9 +7477,13 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
-                    parentKekState?: {
+                    parentKekRef?: ({
+                        containerId: string;
+                        containerKeyEpochId: string;
+                        keyEpochHash: string;
+                    } & {
                         [key: string]: unknown;
-                    } | null;
+                    }) | null;
                     predecessorBridge: {
                         [key: string]: unknown;
                     } | null;
@@ -7799,9 +7903,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
@@ -7868,9 +7976,13 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
-                    parentKekState?: {
+                    parentKekRef?: ({
+                        containerId: string;
+                        containerKeyEpochId: string;
+                        keyEpochHash: string;
+                    } & {
                         [key: string]: unknown;
-                    } | null;
+                    }) | null;
                     predecessorBridge: {
                         [key: string]: unknown;
                     } | null;
@@ -8151,9 +8263,13 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
-                    parentKekState?: {
+                    parentKekRef?: ({
+                        containerId: string;
+                        containerKeyEpochId: string;
+                        keyEpochHash: string;
+                    } & {
                         [key: string]: unknown;
-                    } | null;
+                    }) | null;
                     predecessorBridge: {
                         [key: string]: unknown;
                     } | null;
@@ -8952,9 +9068,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
@@ -9028,9 +9148,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -9168,9 +9292,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -9492,9 +9620,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
@@ -9593,9 +9725,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -10398,9 +10534,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
@@ -11350,9 +11490,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
@@ -11746,9 +11890,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
@@ -12725,9 +12873,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -12875,9 +13027,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -13023,9 +13179,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -13099,9 +13259,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -13239,9 +13403,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -13358,9 +13526,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -13512,9 +13684,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -13613,9 +13789,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -13757,9 +13937,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
@@ -13842,9 +14026,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -13943,9 +14131,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -14088,9 +14280,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -14164,9 +14360,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -14304,9 +14504,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -14430,9 +14634,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -14531,9 +14739,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -14676,9 +14888,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -14752,9 +14968,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -14892,9 +15112,13 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                parentKekState?: {
+                                parentKekRef?: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    keyEpochHash: string;
+                                } & {
                                     [key: string]: unknown;
-                                } | null;
+                                }) | null;
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
@@ -16938,9 +17162,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -17085,9 +17313,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -17520,9 +17752,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -18063,9 +18299,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -18210,9 +18450,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -18357,9 +18601,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            parentKekState?: {
+                            parentKekRef?: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                keyEpochHash: string;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
@@ -20136,9 +20384,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        parentKekState?: {
+                        parentKekRef?: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            keyEpochHash: string;
+                        } & {
                             [key: string]: unknown;
-                        } | null;
+                        }) | null;
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;

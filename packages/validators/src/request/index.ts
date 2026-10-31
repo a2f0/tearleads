@@ -43,6 +43,7 @@ export {
   MAX_CONTAINER_DOCUMENT_LANE_PAGE_TOTAL,
   MAX_CONTAINER_DOCUMENT_LANES,
 } from "./containerDocumentLanes";
+export type { ContainerKekParentRef } from "./containerManifestRef";
 export {
   type ContainerCreateWithMetadataDocumentRequest,
   ContainerCreateWithMetadataDocumentRequestSchema,

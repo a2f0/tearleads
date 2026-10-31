@@ -1,3 +1,4 @@
+import { bytesToBase64 } from "@tearleads/encoding";
 import type { RouteRequestBindings } from "../../../src/middleware/session";
 import { routeApp } from "../../../src/routeApp";
 
@@ -17,7 +18,7 @@ export async function submitVerify(
       headers: requestHeaders,
       body: JSON.stringify({
         fingerprint,
-        signature: Array.from(signature),
+        signature: bytesToBase64(signature),
       }),
     },
     bindings,

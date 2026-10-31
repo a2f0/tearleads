@@ -6,6 +6,7 @@ import {
   sign,
   toFingerprint,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import invariant from "invariant";
 import { submitRegistration } from "../../../test/helpers/api";
 import { del } from "../../adapters/keyValueStore";
@@ -69,7 +70,7 @@ async function signedVerify(
   return app.request("/auth/verify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fingerprint, signature: Array.from(signature) }),
+    body: JSON.stringify({ fingerprint, signature: bytesToBase64(signature) }),
   });
 }
 

@@ -250,7 +250,7 @@ async function buildGroupGrantMutation(input: {
         wrapManifestHash: bundle.manifestHash,
       }),
     ] as unknown as Record<string, unknown>[],
-    parentKekState: null,
+    parentKekRef: null,
     userRecipientKeys: userRecipientKeysFromKekTargets(
       input.root.kekState,
     ) as unknown as Record<string, unknown>[],

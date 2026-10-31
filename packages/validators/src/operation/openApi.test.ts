@@ -150,15 +150,18 @@ test("auth operations emit their public request and response contracts", () => {
   expect(
     validateVerifyRequest({
       fingerprint: "a".repeat(64),
-      signature: Array.from({ length: 4627 }, () => 0),
+      signature: Buffer.alloc(4627).toString("base64"),
     }),
   ).toBe(true);
-  expect(
-    validateVerifyRequest({
-      fingerprint: "a".repeat(64),
-      signature: [0],
-    }),
-  ).toBe(false);
+  for (const signature of [
+    [0],
+    Array.from({ length: 4627 }, () => 0),
+    Buffer.alloc(4626).toString("base64"),
+  ]) {
+    expect(
+      validateVerifyRequest({ fingerprint: "a".repeat(64), signature }),
+    ).toBe(false);
+  }
 });
 
 test("bodyless auth operations omit request bodies and emit path parameters", () => {
@@ -468,7 +471,15 @@ test("container rekey projection follows every runtime guard field", () => {
       destinationParentContainerPathRefs: [{}],
     },
     { ...createContainerMutation(), containerManifestHistoryRefs: [{}] },
-    { ...createContainerMutation(), parentKekState: "invalid" },
+    { ...createContainerMutation(), parentKekRef: "invalid" },
+    {
+      ...createContainerMutation(),
+      parentKekRef: {
+        containerId: "parent",
+        containerKeyEpochId: "parent-epoch",
+        keyEpochHash: "not-a-hash",
+      },
+    },
     { ...createContainerMutation(), userRecipientKeys: [null] },
   ];
   for (const mutation of invalidMutations) {

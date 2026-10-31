@@ -65,6 +65,7 @@ import {
   uploadBlobObject,
 } from "../../../test/helpers/blobObjectStore";
 import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
+import { parentKekRef } from "../../../test/helpers/containerKeying";
 import { containerManifestRef } from "../../../test/helpers/containerManifestRefs";
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLinks";
@@ -422,7 +423,7 @@ async function createChildContainer(input: {
     keyring: null,
     predecessorBridge: null,
     wraps: [wrap as unknown as Record<string, unknown>],
-    parentKekState: input.parent.kekState as unknown as Record<string, unknown>,
+    parentKekRef: parentKekRef(input.parent.kekState),
     userRecipientKeys: [],
   };
   const response = await routeApp.request("/containers", {

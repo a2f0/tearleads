@@ -180,7 +180,8 @@ Registration is a bootstrap protocol, not only an account create call.
 `POST /auth/register` submits:
 
 - `userId`, `organizationId`, and `rootContainerId`
-- signing and encapsulation public keys
+- signing and encapsulation public keys, each as canonical padded base64 of
+  its fixed-length bytes
 - the initial reserved `Admins` group policy and direct member envelope
 - the initial reserved `Members` group policy, holding the registering user
 - the initial signed organization policy state and direct member envelope
@@ -233,8 +234,9 @@ Authentication uses challenge signing:
 
 1. `POST /auth/challenge` stores a short-lived challenge for a registered
    signing-key fingerprint.
-2. `POST /auth/verify` verifies the signature over the challenge and this API's
-   origin, then issues a session token and its first single-use, sixty-second
+2. `POST /auth/verify` verifies the signature (canonical padded base64 of the
+   ML-DSA-87 signature bytes) over the challenge and this API's origin, then
+   issues a session token and its first single-use, sixty-second
    websocket ticket; later connects mint one with `POST /auth/ws-ticket`.
 3. `GET /auth/sessions`, `DELETE /auth/sessions/:sessionId`, and
    `POST /auth/logout` manage authenticated session tokens.
@@ -347,7 +349,11 @@ Each signed mutation request carries:
   mutations; for every rotation, the complete predecessor key history sealed
   under the new KEK, with its hash committed in the signed event body)
 - KEK wraps for derived recipient targets
-- optional parent KEK state and direct user recipient keys
+- `parentKekRef`: `{containerId, containerKeyEpochId, keyEpochHash}`, citing
+  the parent's current KEK epoch for a child container (never the parent's
+  full KEK state; the API loads that epoch from its own store and refuses a
+  citation of any other epoch with `409 container_mutation_state_stale`), and
+  optional direct user recipient keys
 
 The API verifies the signed event, derives the manifest, checks predecessor and
 path heads, verifies referenced principal policies, derives recipient targets,

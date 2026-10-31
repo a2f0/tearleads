@@ -6,6 +6,7 @@ import type {
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import { createTestContainerKekMaterial } from "./containerKekMaterial";
+import { parentKekRef } from "./containerKeying";
 import { containerManifestRefs } from "./containerManifestRefs";
 import {
   asVerifiedContainerManifest,
@@ -102,7 +103,7 @@ export async function buildChildCreateRequest(input: {
     keyring: null,
     predecessorBridge: null,
     wraps: [wrap as unknown as Record<string, unknown>],
-    parentKekState: input.root.kekState as unknown as Record<string, unknown>,
+    parentKekRef: parentKekRef(input.root.kekState),
     userRecipientKeys: [],
   };
 }

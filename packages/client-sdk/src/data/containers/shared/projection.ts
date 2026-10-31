@@ -9,6 +9,7 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
   AccessManifestBundleWire,
+  ContainerKekParentRef,
   ContainerManifestRef,
 } from "@tearleads/validators/request";
 import type {
@@ -116,6 +117,17 @@ export function getTargetContainerContext(
     inconsistentTarget: "Container projection target is inconsistent",
     staleKek: "Container target KEK is stale",
   });
+}
+
+/** A child mutation cites its parent's KEK state; the server loads the rest. */
+export function containerKekParentRef(
+  kek: ContainerKekResponse,
+): ContainerKekParentRef {
+  return {
+    containerId: kek.containerId,
+    containerKeyEpochId: kek.containerKeyEpochId,
+    keyEpochHash: kek.keyEpochHash,
+  };
 }
 
 export function getParentKekForTarget(

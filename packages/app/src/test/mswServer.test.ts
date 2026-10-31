@@ -10,6 +10,7 @@ import {
   sign,
   toFingerprint,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { isRegistrationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
@@ -85,8 +86,8 @@ async function registerIdentity(
               userId,
               organizationId,
               rootContainerId,
-              signingPublicKey: Array.from(signingPublicKey),
-              encapsulationPublicKey: Array.from(encapsulationPublicKey),
+              signingPublicKey: bytesToBase64(signingPublicKey),
+              encapsulationPublicKey: bytesToBase64(encapsulationPublicKey),
               initialAdminGroup,
               initialMemberGroup,
               initialOrganizationPolicy,
@@ -140,7 +141,7 @@ async function verifySession(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       fingerprint,
-      signature: Array.from(signature),
+      signature: bytesToBase64(signature),
     }),
   });
 }

@@ -1,4 +1,5 @@
 import { sign } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import {
   bindBlobAttachmentOperation,
@@ -557,8 +558,8 @@ export class ApiClient {
         userId,
         organizationId,
         rootContainerId,
-        signingPublicKey: Array.from(signingPublicKey),
-        encapsulationPublicKey: Array.from(encapsulationPublicKey),
+        signingPublicKey: bytesToBase64(signingPublicKey),
+        encapsulationPublicKey: bytesToBase64(encapsulationPublicKey),
         initialAdminGroup,
         initialMemberGroup,
         initialOrganizationPolicy,
@@ -609,7 +610,7 @@ export class ApiClient {
       await this.transport.requestResult(
         verifyOperation,
         {
-          body: { fingerprint, signature: Array.from(signed) },
+          body: { fingerprint, signature: bytesToBase64(signed) },
           params: {},
         },
         { retryOnSessionExpired: false },
