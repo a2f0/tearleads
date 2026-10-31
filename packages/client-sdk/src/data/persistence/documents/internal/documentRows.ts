@@ -1,4 +1,5 @@
-import { and, eq, lte } from "drizzle-orm";
+import { and, eq, getTableColumns, lte, type SQL } from "drizzle-orm";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import {
   DEFAULT_DOCUMENT_KIND,
   DOCUMENTS_APP_KIND,
@@ -14,10 +15,12 @@ import {
   documentProjectionText,
   documents,
 } from "../../../sqlite/schema";
+import { sqliteInsertBatchSize } from "../../../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
+import { excludedValue } from "../../../sqlite/sqliteUpsert";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { DocumentScope } from "../records";
 import { CLEARED_DOCUMENT_SYNC_FAILURE } from "../records/documentSyncFailurePersistence";
@@ -185,6 +188,121 @@ export async function saveDocumentRows(input: {
   }
   await saveDocumentProjectionRows(input);
   return true;
+}
+
+type UpsertRow = Record<string, unknown>;
+
+/** A `set` clause that applies each conflicting row's own proposed values. */
+function excludedSet(
+  columns: Record<string, SQLiteColumn>,
+  row: UpsertRow,
+): Record<string, SQL> {
+  const set: Record<string, SQL> = {};
+  for (const key of Object.keys(row)) {
+    const column = columns[key];
+    if (!column) throw new Error(`Unknown upsert column ${key}`);
+    set[key] = excludedValue(column);
+  }
+  return set;
+}
+
+function chunks<T>(values: ReadonlyArray<T>, size: number): T[][] {
+  const result: T[][] = [];
+  for (let offset = 0; offset < values.length; offset += size) {
+    result.push(values.slice(offset, offset + size));
+  }
+  return result;
+}
+
+/**
+ * `saveDocumentRows` for documents with DISTINCT local ids, as multi-row
+ * statements: one fenced documents upsert per chunk and row shape, then the
+ * projection and text upserts for the rows the fence let through. Returns
+ * those local ids; a row the recovery-generation fence skips returns no row,
+ * exactly as the single-row upsert does.
+ */
+export async function saveDocumentRowsBatch(input: {
+  entries: ReadonlyArray<{ document: StoredDocumentRecord; updatedAt: string }>;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<Set<string>> {
+  const { entries, tx } = input;
+  const documentColumns: Record<string, SQLiteColumn> =
+    getTableColumns(documents);
+  // A row that omits an optional column leaves it untouched on update, so
+  // rows are grouped by their column shape and each shape gets its own set.
+  const shapes = new Map<string, ReturnType<typeof toDocumentRecordRow>[]>();
+  for (const entry of entries) {
+    const row = toDocumentRecordRow(entry);
+    const shape = Object.keys(row).join(",");
+    shapes.set(shape, [...(shapes.get(shape) ?? []), row]);
+  }
+  const saved = new Set<string>();
+  for (const rows of shapes.values()) {
+    const [first] = rows;
+    if (!first) continue;
+    const set = excludedSet(documentColumns, first);
+    for (const chunk of chunks(rows, sqliteInsertBatchSize(documents))) {
+      const returned = await tx
+        .insert(documents)
+        .values(chunk)
+        .onConflictDoUpdate({
+          target: [documents.appKind, documents.localId],
+          set,
+          setWhere: lte(
+            documents.recoveryGeneration,
+            excludedValue(documents.recoveryGeneration),
+          ),
+        })
+        .returning({ localId: documents.localId });
+      for (const row of returned) saved.add(row.localId);
+    }
+  }
+
+  const savedEntries = entries.filter((entry) => saved.has(entry.document.id));
+  const projectionRows = savedEntries.map(({ document, updatedAt }) => ({
+    localId: document.id,
+    documentId: document.documentId,
+    containerId: document.containerId,
+    documentKind: document.documentKind ?? DEFAULT_DOCUMENT_KIND,
+    title: document.title ?? deriveStoredDocumentTitle(document.text),
+    updatedAt,
+  }));
+  const [firstProjection] = projectionRows;
+  if (firstProjection) {
+    const set = excludedSet(
+      getTableColumns(documentProjection),
+      firstProjection,
+    );
+    for (const chunk of chunks(
+      projectionRows,
+      sqliteInsertBatchSize(documentProjection),
+    )) {
+      await tx
+        .insert(documentProjection)
+        .values(chunk)
+        .onConflictDoUpdate({ target: documentProjection.localId, set })
+        .run();
+    }
+  }
+  const textRows = savedEntries.map(({ document }) => ({
+    localId: document.id,
+    text: document.text,
+  }));
+  const [firstText] = textRows;
+  if (firstText) {
+    const set = excludedSet(getTableColumns(documentProjectionText), firstText);
+    for (const chunk of chunks(
+      textRows,
+      sqliteInsertBatchSize(documentProjectionText),
+    )) {
+      await tx
+        .insert(documentProjectionText)
+        .values(chunk)
+        .onConflictDoUpdate({ target: documentProjectionText.localId, set })
+        .run();
+    }
+  }
+  return saved;
 }
 
 function didStoredDocumentContentChange(

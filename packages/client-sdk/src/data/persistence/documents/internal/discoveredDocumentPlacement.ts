@@ -1,7 +1,10 @@
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../../documents/documentConstants";
 import type { DiscoveredDocumentInput } from "../../../documents/documentSummary";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
-import { loadDocumentMovePlacement } from "../../container-contents/documentPlacement";
+import {
+  type DocumentMovePlacement,
+  loadDocumentMovePlacement,
+} from "../../container-contents/documentPlacement";
 import type { StoredDocumentRecord } from "../types";
 import { resolvePersistedAccessStateHash } from "./documentRuntimeState";
 
@@ -10,7 +13,19 @@ export async function resolveDiscoveredDocumentPlacement(
   existing: StoredDocumentRecord | null,
   input: DiscoveredDocumentInput,
 ) {
-  const intent = await loadDocumentMovePlacement(tx, input.documentId);
+  return discoveredDocumentPlacement(
+    existing,
+    input,
+    await loadDocumentMovePlacement(tx, input.documentId),
+  );
+}
+
+/** The placement discovery writes, given the document's pending move intent. */
+export function discoveredDocumentPlacement(
+  existing: StoredDocumentRecord | null,
+  input: DiscoveredDocumentInput,
+  intent: DocumentMovePlacement | undefined,
+) {
   const stale = existing !== null && existing.accessEpoch > input.accessEpoch;
   const accessEpoch = Math.max(
     existing?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH,
