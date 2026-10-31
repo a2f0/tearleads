@@ -41,6 +41,9 @@ const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Held bytes match the authenticated attachment intent, so local settlement
   // needs no binding listing. Keep one request of scheduling headroom.
   total: 9,
+  // Each discovery read names the held directory head and receives that head
+  // alone: 31 KB received (83 KB before); keep about 10% headroom.
+  bodyBytes: { request: 38_000, response: 35_000 },
   byRequest: {
     // Completed public stages of the cited heads need no confirmation read.
     "GET /principals/history": 0,

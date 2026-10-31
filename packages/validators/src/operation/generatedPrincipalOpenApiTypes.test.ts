@@ -3,7 +3,7 @@ import type { OrganizationPrincipalPolicyRequest } from "../request";
 import type {
   PrincipalPolicyErrorResponse,
   PrincipalPolicyMutationResponse,
-  PrincipalPolicyPageResponse,
+  PrincipalPolicyReadResponse,
 } from "../response";
 import type { operations, paths } from "./generatedOpenApi";
 
@@ -73,7 +73,7 @@ test("generated OpenAPI types match principal policy contracts", () => {
   assertType<
     IsEqual<
       NormalizeWireType<GetPolicyResponse>,
-      NormalizeWireType<PrincipalPolicyPageResponse>
+      NormalizeWireType<PrincipalPolicyReadResponse>
     >
   >();
   assertType<

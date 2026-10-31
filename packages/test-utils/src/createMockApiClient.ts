@@ -66,6 +66,29 @@ export function createMockApiClient(
     ...overrides,
   } satisfies Partial<PublicApiClient>);
 
+  // Discovery reads the mocked page reader's first page, unconditionally. Left
+  // as the real client's, a test that mocks only `getPrincipalPolicyPages`
+  // would send a real conditional request instead.
+  if (!overrides.getPrincipalPolicyDiscovery) {
+    apiClient.getPrincipalPolicyDiscovery = async (
+      principalType,
+      principalId,
+      { ifHead: _ifHead, ...options } = {},
+    ) => {
+      for await (const result of apiClient.getPrincipalPolicyPages(
+        principalType,
+        principalId,
+        options,
+      ))
+        return result;
+      return mockRequestFailure({
+        message: "Mock principal policy discovery unavailable",
+        method: "GET",
+        path: `/principals/${principalType}/${principalId}/policy`,
+      });
+    };
+  }
+
   // Container create retries use the RequestResult APIs so stale-policy
   // failures can carry verified repair bundles instead of being reported early.
   if (!overrides.createContainerResult) {

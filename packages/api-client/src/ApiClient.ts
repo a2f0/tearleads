@@ -658,6 +658,13 @@ export class ApiClient {
     );
   }
 
+  /** Unpinned discovery; `ifHead` asks for a bare head when it is still live. */
+  getPrincipalPolicyDiscovery(
+    ...args: Parameters<PrincipalPolicyRequests["discover"]>
+  ) {
+    return this.principalPolicyRequests.discover(...args);
+  }
+
   getProjectionPolicyHistoryPages(
     ...args: Parameters<PrincipalPolicyRequests["publicPages"]>
   ) {

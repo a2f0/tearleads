@@ -18,14 +18,19 @@ by its live writer projection.
 
 ## Operation recovery batch
 
-Directory discovery and cited recovery share one caller's batch. A policy warmer
-is one workflow operation: every projection collection it verifies shares one
-batch, so the operation discovers the directory once. A batch entry is reused
-only while its producing lease is live, no organization read-model hint has been
-applied since its reads began (a citation derived from a reused entry keeps that
-entry's epoch), and no durable pin has moved past or forked from a head it
-names; otherwise it is evicted and the later caller recovers again under its own
-lease. The batch dies with its operation. It is the only reuse of scoped
+Directory discovery and cited recovery share one caller's batch. Batches belong
+to the database's principal-policy coordinator, keyed by an operation token. A
+reconciliation pass (remote container hydration, document discovery) or a user
+workflow (a document move's link and unlink legs) mints one token at its root,
+and every warmer it creates with
+`createRuntimePrincipalPolicyWarmer( runtime, { operation })` shares one batch,
+so the pass discovers the directory once. A warmer created without a token is
+its own operation. A batch entry is reused only while its producing lease is
+live, no organization read-model hint has been applied since its reads began (a
+citation derived from a reused entry keeps that entry's epoch), and no durable
+pin has moved past or forked from a head it names; otherwise it is evicted and
+the later caller recovers again under its own lease. The batch dies with its
+token at the end of the pass or workflow. It is the only reuse of scoped
 evidence: a caller's policy cache keeps bare verified policies and resolves
 every scoped citation through the batch, so a cache shared across operations
 cannot skip a later operation's discovery or bypass the batch's hint and pin
@@ -36,13 +41,18 @@ separate offline key in that batch. The [recovery reuse
 model](../../formal/container-keying/PrincipalRecoveryReuse.md) checks these
 reuse bindings.
 
-The discovery page passes through ordinary signature verification; continuation
-reads remain bound to its exact current artifacts. Additional historical
-directory or Admins citations use local proofs for the selected head, retaining
-the source lifetime even when another batch advances the private prefix. An
-unrelated server directory advance does not replace that batch's selected view;
-every group dependency must still match it exactly. The next operation discovers
-the advance, and mutations remain subject to the server's exact predecessor CAS.
+Discovery names the head of the device's completed verified directory prefix. An
+`unchanged` reply naming exactly that head reuses the prefix, which recovery
+authenticates and checks against the reloaded checkpoint like any completed
+stage; any other reply, or a prefix that cannot be loaded, reads the first page
+unconditionally. The discovery page passes through ordinary signature
+verification; continuation reads remain bound to its exact current artifacts.
+Additional historical directory or Admins citations use local proofs for the
+selected head, retaining the source lifetime even when another batch advances
+the private prefix. An unrelated server directory advance does not replace that
+batch's selected view; every group dependency must still match it exactly. The
+next operation discovers the advance, and mutations remain subject to the
+server's exact predecessor CAS.
 
 Group-name hydration supplies this same selected authority to metadata-root
 verification, preserving its directory binding and lifetime instead of starting
@@ -141,9 +151,10 @@ The private paged runtime adds directory and group reads for metadata authority
 and scoped projection recovery. Signed entries in a bare policy cache do not
 carry organization, dependency and operation-lifetime bindings; they cannot
 replace that recovery. A completed local stage of an exact pinned head needs no
-confirmation read, and one workflow operation discovers the directory once, so
-the remaining policy reads are one discovery read per operation and first reads
-of heads new to the device. See the [acceptance
+confirmation read, and one pass or workflow operation discovers the directory
+once, so the remaining policy reads are one discovery read per operation,
+answered with a bare head when the device already holds it, and first reads of
+heads new to the device. See the [acceptance
 evidence](../principal-history-acceptance.md#ordinary-workflow-cost) for the
 security tradeoff.
 
@@ -152,7 +163,7 @@ per-route limits and mutation-count assertions. They are local fixed-cardinality
 measurements, not production benchmarks.
 
 `OrganizationBootstrapRequestVolume.test.tsx` measures 30 requests for personal
-bootstrap with a ceiling of 32, and caps creating and activating another
+bootstrap with a ceiling of 31, and caps creating and activating another
 organization at 6. Provisioning seeds discovery evidence for the profile
 documents it signed and primes recovery of the founding policy heads, so neither
 flow fetches those documents' writer projections or reads group policy history
@@ -174,19 +185,20 @@ peer measures 40 requests with a ceiling of 45; a later addition is capped at
 preparation response with identical request bytes.
 
 The Admins enrollment fixture in `DualPaneProvider.groupsRequestVolume.test.tsx`
-measures 70–73 completed requests; its ceiling is 76, plus explicitly counted
-validated preparation continuations. It caps organization-policy reads at 20,
+measures 55 completed requests; its ceiling is 58, plus explicitly counted
+validated preparation continuations. It caps organization-policy reads at 17,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
-160,000 request bytes and 2,650,000 response bytes. The root attachment-sharing
-fixture in `DualPaneProvider.sharing.test.tsx` measures 58 requests and permits
-66, with body ceilings of 130,000 request bytes and 2,250,000 response bytes.
+160,000 request bytes and 1,000,000 response bytes (0.91 MB measured). The root
+attachment-sharing fixture in `DualPaneProvider.sharing.test.tsx` measures 59
+requests and permits 66, with body ceilings of 130,000 request bytes and 820,000
+response bytes (0.74 MB measured).
 Container mutations cite stored manifests by `{containerId, manifestHash}` and
 principal policies by head rather than echoing path bundles or policies.
 
-`ExplorerUploadRequestVolume.test.tsx` measures 8 calls for a small Explorer
-upload and permits 9; its blob stage costs three calls (initiate with the first
-part's upload source, the part bytes, and the attachment bind that completes the
-stage).
+`ExplorerUploadRequestVolume.test.tsx` measures 8 calls and 31 KB received for a
+small Explorer upload and permits 9 calls and 35,000 response bytes; its blob
+stage costs three calls (initiate with the first part's upload source, the part
+bytes, and the attachment bind that completes the stage).
 
 `FolderMutationRequestVolume.test.tsx` sets these ceilings, which include
 private current-policy reads:
@@ -196,11 +208,12 @@ private current-policy reads:
 | Create folder | 3 |
 | Link document | 3 |
 | Unlink document | 8 |
-| Trash document | 10 |
-| Trash folder | 12 |
-| Restore folder | 13 |
+| Trash document | 9 |
+| Trash folder | 11 |
+| Restore folder | 12 |
 
 The folder workflows, whose heads are all completed locally, permit no public
-history or group-policy reads. Sharing discovery reads across operations would
-need the same organization, dependency, checkpoint and lifetime checks as scoped
-recovery, plus a freshness argument the per-operation read supplies.
+history or group-policy reads. Sharing discovery reads across passes would need
+the same organization, dependency, checkpoint and lifetime checks as scoped
+recovery, plus a freshness argument the per-pass read supplies. Document syncs
+that a pass schedules through document stores still discover once per sync.

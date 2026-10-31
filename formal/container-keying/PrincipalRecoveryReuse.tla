@@ -25,6 +25,15 @@ EXTENDS Naturals
 (* Priming writes no memo entry, so later collections follow every rule   *)
 (* above. Each parameter is a production guard; negative controls disable *)
 (* one at a time.                                                          *)
+(*                                                                         *)
+(* In production an operation is one reconciliation pass or one user       *)
+(* workflow: its root mints an operation token, every warmer created with  *)
+(* it shares one memo, and a warmer without a token is its own operation.  *)
+(* Freshness is therefore established at pass start (BeginOperation),      *)
+(* which FreshPerOperation already states. Discovery may name the head of  *)
+(* the held verified prefix; an `unchanged` reply naming exactly that head *)
+(* selects the same pin as the bare read (an unverified pin either way),   *)
+(* and any other reply falls back to the bare read, so no flag changes.    *)
 (***************************************************************************)
 
 CONSTANTS MaxHead, MaxOps, MaxHints,

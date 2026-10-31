@@ -79,7 +79,11 @@ is structural, it drains before the requested document lanes.
 
 Remote container hydration is read/discovery work, not a sync lane. It can
 prime local state and schedule the structural lane, but it is not allowed to
-write document content or blob attachment state.
+write document content or blob attachment state. One hydration pass, one
+document discovery pass, and one document move (its link and unlink legs) each
+discover the organization directory once and share that view; see [operation
+recovery batch](developer/current-principal-consumers.md#operation-recovery-batch).
+Document syncs scheduled through document stores remain separate operations.
 
 ## Document Phase
 

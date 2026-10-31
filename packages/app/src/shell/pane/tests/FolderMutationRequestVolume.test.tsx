@@ -236,9 +236,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
       await expectNote(pane, "Trash", true);
     },
     budget: {
-      total: 10,
+      // The link and unlink legs share one directory discovery (measured 8).
+      total: 9,
       byRequest: {
-        "GET /principals/organization/:organizationId/policy": 3,
+        "GET /principals/organization/:organizationId/policy": 2,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
         "GET /documents/:documentId/attachments": 2,
@@ -269,10 +270,11 @@ test("folder creation, document linking, unlinking and trash have separate reque
       });
     },
     budget: {
-      // A parent-only hint must refresh the root lane independently.
-      total: 12,
+      // A parent-only hint must refresh the root lane independently. A
+      // hydration pass's pages share one directory discovery (measured 11).
+      total: 11,
       byRequest: {
-        "GET /principals/organization/:organizationId/policy": 5,
+        "GET /principals/organization/:organizationId/policy": 4,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
         "POST /containers/documents/query": 1,
@@ -301,10 +303,11 @@ test("folder creation, document linking, unlinking and trash have separate reque
     },
     budget: {
       // Root reconciliation now completes and verifies the remaining system
-      // slot, alongside the moved folder and destination root. No duplicate reads.
-      total: 13,
+      // slot, alongside the moved folder and destination root. No duplicate
+      // reads; a hydration pass discovers the directory once (measured 12).
+      total: 12,
       byRequest: {
-        "GET /principals/organization/:organizationId/policy": 4,
+        "GET /principals/organization/:organizationId/policy": 3,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
         "POST /containers/documents/query": 1,

@@ -1,7 +1,7 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
 import type { PrincipalPolicyPageQuery } from "@tearleads/validators/operation";
-import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicyReadResponse } from "@tearleads/validators/response";
 import {
   getCurrentPrincipalState,
   getPrincipalStatesForReferences,
@@ -28,7 +28,20 @@ export async function runReadCurrentPrincipalPolicyWorkflow(
     readonly principalType: ManagedRecipientPrincipalType;
     readonly requesterUserId: string;
   },
-): Promise<PrincipalPolicyPageResponse> {
+): Promise<PrincipalPolicyReadResponse> {
+  const conditional =
+    input.ifVersion !== undefined || input.ifStateHash !== undefined;
+  if (
+    conditional &&
+    (input.ifVersion === undefined ||
+      input.ifStateHash === undefined ||
+      input.stateHash !== undefined ||
+      input.afterVersion !== undefined)
+  )
+    throw new PrincipalPolicyError(
+      "A conditional head read names one whole unpinned head",
+      400,
+    );
   return runPrincipalHistoryTransaction(db, async (tx) => {
     const currentState = await getCurrentPrincipalState(
       input.principalType,
@@ -47,6 +60,25 @@ export async function runReadCurrentPrincipalPolicyWorkflow(
     // to an earlier immutable head. A forged current projection cannot grant
     // historical access by borrowing the validity of an older policy.
     await getVerifiedPrincipalPolicyForStateWithExecutor(tx, currentState);
+    // A conditional discovery read whose named head is still live gets that
+    // head alone, after the same authorization and verification. The client
+    // holds and authenticates the artifacts; this reply only proves freshness.
+    if (
+      input.ifStateHash !== undefined &&
+      input.ifVersion === currentState.version &&
+      input.ifStateHash === currentState.stateHash
+    )
+      return {
+        unchanged: true as const,
+        head: {
+          principalType: currentState.principalType,
+          principalId: currentState.principalId,
+          version: currentState.version,
+          stateHash: currentState.stateHash,
+          keyEpoch: currentState.keyEpoch,
+          keyFingerprint: currentState.keyFingerprint,
+        },
+      };
     const afterVersion = input.afterVersion ?? 0;
     if (afterVersion > 0 && !input.stateHash)
       throw new PrincipalPolicyError(

@@ -12,11 +12,11 @@ import {
   ErrorResponseSchema,
   isCommitOrganizationGroupPolicyResponse,
   isPrincipalPolicyMutationResponse,
-  isPrincipalPolicyPageResponse,
   PaymentRequiredErrorResponseSchema,
   PrincipalPolicyErrorResponseSchema,
   PrincipalPolicyMutationResponseSchema,
-  PrincipalPolicyPageResponseSchema,
+  type PrincipalPolicyReadResponse,
+  PrincipalPolicyReadResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
 import {
@@ -67,7 +67,7 @@ export const getPrincipalPolicyOperation = defineJsonOperation({
   query: PrincipalPolicyPageQuerySchema,
   responseDescriptions: preparationResponseDescriptions,
   responses: {
-    200: PrincipalPolicyPageResponseSchema,
+    200: PrincipalPolicyReadResponseSchema,
     202: PrincipalHistoryPreparationResponseSchema,
   },
 });
@@ -135,8 +135,11 @@ export const isCommitOrganizationGroupPolicyOperationRequest =
 export const isCommitOrganizationGroupPolicyOperationResponse =
   isCommitOrganizationGroupPolicyResponse;
 
-export const isGetPrincipalPolicyOperationResponse =
-  isPrincipalPolicyPageResponse;
+export function isGetPrincipalPolicyOperationResponse(
+  value: unknown,
+): value is PrincipalPolicyReadResponse {
+  return PrincipalPolicyReadResponseSchema.safeParse(value).success;
+}
 export const isPutPrincipalPolicyOperationRequest =
   isOrganizationPrincipalPolicyRequest;
 export const isPutPrincipalPolicyOperationResponse =

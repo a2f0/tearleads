@@ -10,7 +10,7 @@ import {
   PaymentRequiredErrorResponseSchema,
   PrincipalPolicyErrorResponseSchema,
   PrincipalPolicyMutationResponseSchema,
-  PrincipalPolicyPageResponseSchema,
+  PrincipalPolicyReadResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
 import { PrincipalHistoryPreparationFailureResponseSchema } from "../response/principalHistoryPreparation";
@@ -32,7 +32,7 @@ test("principal policy operations own their HTTP contracts", () => {
     method: "GET",
     params: PrincipalPolicyPathParamsSchema,
     path: "/principals/{principalType}/{principalId}/policy",
-    responses: { 200: PrincipalPolicyPageResponseSchema },
+    responses: { 200: PrincipalPolicyReadResponseSchema },
   });
   expect(getPrincipalPolicyOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
