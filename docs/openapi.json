@@ -14595,6 +14595,502 @@
                     ],
                     "additionalProperties": {}
                   },
+                  "documentSync": {
+                    "type": "object",
+                    "properties": {
+                      "authorizingContainerPathRefs": {
+                        "items": {
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "containerId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "containerId",
+                              "manifestHash"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "maxItems": 100,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "maxItems": 64,
+                        "type": "array"
+                      },
+                      "containerRekeys": {
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "body": {},
+                            "containerManifestHistoryRefs": {
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "containerId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "manifestHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "containerId",
+                                  "manifestHash"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
+                            },
+                            "destinationParentContainerPathRefs": {
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "containerId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "manifestHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "containerId",
+                                  "manifestHash"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              "maxItems": 100,
+                              "type": "array"
+                            },
+                            "event": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "expectedManifestHash": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "keyEpoch": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "keyring": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "manifest": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "parentContainerPathRefs": {
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "containerId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "manifestHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "containerId",
+                                  "manifestHash"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              "maxItems": 100,
+                              "type": "array"
+                            },
+                            "parentKekRef": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyEpochHash": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "keyEpochHash"
+                                  ],
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "predecessorBridge": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "previousContainerPathRefs": {
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "containerId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "manifestHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "containerId",
+                                  "manifestHash"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              "maxItems": 100,
+                              "type": "array"
+                            },
+                            "previousManifestRef": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "manifestHash": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "manifestHash"
+                                  ],
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "principalPolicyRefs": {
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
+                            },
+                            "userRecipientKeys": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "wraps": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            }
+                          },
+                          "required": [
+                            "body",
+                            "event",
+                            "expectedManifestHash",
+                            "keyEpoch",
+                            "keyring",
+                            "manifest",
+                            "predecessorBridge",
+                            "principalPolicyRefs",
+                            "wraps"
+                          ],
+                          "additionalProperties": {}
+                        },
+                        "maxItems": 16,
+                        "type": "array"
+                      },
+                      "contentKeyBundle": {
+                        "type": "object",
+                        "properties": {
+                          "contentKeyEpoch": {
+                            "exclusiveMinimum": 0,
+                            "maximum": 1.7976931348623157e+308,
+                            "type": "integer"
+                          },
+                          "linkSetManifestHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "targetHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "targets": {
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpoch": {
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 1.7976931348623157e+308,
+                                  "type": "integer"
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerManifestHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "wrappedKey": {
+                                  "type": "string",
+                                  "minLength": 64,
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9+/]{64}$"
+                                },
+                                "wrappingMetadata": {
+                                  "type": "object",
+                                  "properties": {
+                                    "suite": {
+                                      "type": "string",
+                                      "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                    },
+                                    "iv": {
+                                      "type": "string",
+                                      "minLength": 16,
+                                      "maxLength": 16,
+                                      "pattern": "^[A-Za-z0-9+/]{16}$"
+                                    }
+                                  },
+                                  "required": [
+                                    "suite",
+                                    "iv"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpoch",
+                                "containerKeyEpochId",
+                                "containerManifestHash",
+                                "wrappedKey",
+                                "wrappingMetadata"
+                              ],
+                              "additionalProperties": {}
+                            },
+                            "maxItems": 64,
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "contentKeyEpoch",
+                          "linkSetManifestHash",
+                          "targetHash",
+                          "targets"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      "contentKeyEpoch": {
+                        "exclusiveMinimum": 0,
+                        "maximum": 1.7976931348623157e+308,
+                        "type": "integer"
+                      },
+                      "expectedLinkSetManifestHash": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "expectedTargetHash": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "historyMode": {
+                        "type": "string",
+                        "const": "raw",
+                        "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                      },
+                      "inlineRekeyCommitId": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]+$",
+                        "type": "string"
+                      },
+                      "localVersionVector": {
+                        "anyOf": [
+                          {
+                            "maxLength": 16777216,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "minLsn": {
+                        "pattern": "^[0-9A-Fa-f]{1,8}\\/[0-9A-Fa-f]{1,8}$",
+                        "type": "string"
+                      },
+                      "outgoingUpdates": {
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "checkpointKind": {
+                              "type": "string",
+                              "const": "rotate_baseline"
+                            },
+                            "checkpointPayloadKind": {
+                              "type": "string",
+                              "const": "full_history_snapshot"
+                            },
+                            "encryptedData": {
+                              "maxLength": 16777216,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            "partialEndVersionVector": {
+                              "maxLength": 16777216,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "partialStartVersionVector": {
+                              "maxLength": 16777216,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "plaintextHash": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "sourceVersionVector": {
+                              "maxLength": 16777216,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "writeHeader": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "encryptedData",
+                            "id",
+                            "partialEndVersionVector",
+                            "partialStartVersionVector",
+                            "plaintextHash",
+                            "writeHeader"
+                          ],
+                          "additionalProperties": {}
+                        },
+                        "maxItems": 64,
+                        "type": "array"
+                      },
+                      "pullCursor": {
+                        "maxLength": 512,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "supportsPullPagination": {
+                        "type": "boolean",
+                        "const": true
+                      }
+                    },
+                    "required": [
+                      "contentKeyEpoch",
+                      "expectedLinkSetManifestHash",
+                      "expectedTargetHash",
+                      "localVersionVector",
+                      "outgoingUpdates",
+                      "supportsPullPagination"
+                    ],
+                    "additionalProperties": {}
+                  },
                   "event": {
                     "type": "object",
                     "properties": {},
@@ -14884,6 +15380,47 @@
                     },
                     "writeHeaderHash": {
                       "type": "string"
+                    },
+                    "documentSync": {
+                      "type": "object",
+                      "properties": {
+                        "acceptedOutgoingUpdateIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 1,
+                          "type": "array"
+                        },
+                        "commitLsn": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "commitLsnMode": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "const": "tracked"
+                            },
+                            {
+                              "type": "string",
+                              "const": "untracked"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "acceptedOutgoingUpdateIds",
+                        "commitLsn",
+                        "commitLsnMode"
+                      ],
+                      "additionalProperties": {}
                     }
                   },
                   "required": [
@@ -15085,6 +15622,44 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "an attachment bind's document sync must contain exactly one outgoing update and no container rekeys, and serialize within the document sync request limit",
+            "id": "request.attachment-bind-document-sync"
+          },
+          {
+            "description": "inlineRekeyCommitId must be present exactly when containerRekeys is non-empty",
+            "id": "request.inline-rekey-commit-marker"
+          },
+          {
+            "description": "authorizingContainerPathRefs is required when outgoingUpdates is non-empty",
+            "id": "request.authorizing-paths-for-writes"
+          },
+          {
+            "description": "containerRekeys may be non-empty only when outgoingUpdates is non-empty",
+            "id": "request.container-rekeys-require-write"
+          },
+          {
+            "description": "outgoing update ids must be unique within the request",
+            "id": "request.unique-outgoing-update-ids"
+          },
+          {
+            "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
+            "id": "request.pull-continuation-read-only"
+          },
+          {
+            "description": "historyMode \"raw\" must not be combined with outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
+            "id": "request.raw-history-read-only"
+          },
+          {
+            "description": "historyMode \"raw\" requires localVersionVector to be null so the complete retained history is requested",
+            "id": "request.raw-history-null-frontier"
+          },
+          {
+            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+            "id": "request.rotation-checkpoint-fields"
           }
         ]
       }

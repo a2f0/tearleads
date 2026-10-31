@@ -1,0 +1,13 @@
+# a2f0/tearleads#2697 proposal 6: an attachment bind accepts an optional
+# documentSync validated by the same runtime refinements as a document sync;
+# they apply only when it is present, so no existing request is rejected.
+# Remove these exact diagnostics once main contains this contract.
+POST /blobs/{blobId}/attachment-bindings: request refinement 'request.attachment-bind-document-sync' was added; existing clients were not rejected by it.
+POST /blobs/{blobId}/attachment-bindings: request refinement 'request.authorizing-paths-for-writes' was added; existing clients were not rejected by it.
+POST /blobs/{blobId}/attachment-bindings: request refinement 'request.container-rekeys-require-write' was added; existing clients were not rejected by it.
+POST /blobs/{blobId}/attachment-bindings: request refinement 'request.inline-rekey-commit-marker' was added; existing clients were not rejected by it.
+POST /blobs/{blobId}/attachment-bindings: request refinement 'request.pull-continuation-read-only' was added; existing clients were not rejected by it.
+POST /blobs/{blobId}/attachment-bindings: request refinement 'request.raw-history-null-frontier' was added; existing clients were not rejected by it.
+POST /blobs/{blobId}/attachment-bindings: request refinement 'request.raw-history-read-only' was added; existing clients were not rejected by it.
+POST /blobs/{blobId}/attachment-bindings: request refinement 'request.rotation-checkpoint-fields' was added; existing clients were not rejected by it.
+POST /blobs/{blobId}/attachment-bindings: request refinement 'request.unique-outgoing-update-ids' was added; existing clients were not rejected by it.

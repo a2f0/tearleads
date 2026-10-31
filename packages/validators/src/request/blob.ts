@@ -1,4 +1,6 @@
 import type { z } from "zod";
+import { attachmentBindDocumentSyncRefinement } from "../documentCreateSeedRefinements";
+import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
   arraySchema,
   boundedNonEmptyArraySchema,
@@ -20,6 +22,11 @@ import {
   contentKeyWrappingMetadataSchema,
 } from "./contentKeyEnvelopeSchema";
 import { ContainerManifestRefArrayArraySchema } from "./document";
+import {
+  refineSeedWithinSyncRequestLimit,
+  refineSingleUpdateSeed,
+} from "./documentCreateSeed";
+import { DocumentSyncRequestSchema } from "./documentSyncSchema";
 
 export const InitiateMultipartBlobStageRequestSchema = loosePlainObject({
   organizationId: uuidV4StringSchema,
@@ -74,17 +81,39 @@ const OptionalContainerRekeysSchema = arraySchema(
   MAX_INLINE_CONTAINER_REKEYS,
 ).optional();
 
-export const BlobAttachmentBindRequestSchema = loosePlainObject({
-  // The attachment's document link-set manifest is the document's current
-  // head. The server resolves it from its own store, while these path refs
-  // authorize the write against current container manifests.
-  authorizingContainerPathRefs: ContainerManifestRefArrayArraySchema,
-  body: requiredUnknownSchema,
-  containerRekeys: OptionalContainerRekeysSchema,
-  contentKeyBundle: BlobContentKeyBundleRequestSchema,
-  event: plainObjectSchema,
-  stagedBlob: BlobStagedBlobRequestSchema.optional(),
-});
+/**
+ * `POST /blobs/{blobId}/attachment-bindings`. The optional `documentSync` is
+ * the document's first queued update, held back until its attachment binds;
+ * the bind commits it after the binding row under the same checks as a
+ * standalone sync, so the upload needs no follow-up sync round trip.
+ */
+export const BlobAttachmentBindRequestSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject({
+      // The attachment's document link-set manifest is the document's current
+      // head. The server resolves it from its own store, while these path refs
+      // authorize the write against current container manifests.
+      authorizingContainerPathRefs: ContainerManifestRefArrayArraySchema,
+      body: requiredUnknownSchema,
+      containerRekeys: OptionalContainerRekeysSchema,
+      contentKeyBundle: BlobContentKeyBundleRequestSchema,
+      documentSync: DocumentSyncRequestSchema.optional(),
+      event: plainObjectSchema,
+      stagedBlob: BlobStagedBlobRequestSchema.optional(),
+    }).superRefine((value, context) => {
+      refineSingleUpdateSeed(value.documentSync, context, {
+        message:
+          "attachment bind document sync requires one update and no container rekeys",
+        path: "documentSync",
+      });
+      refineSeedWithinSyncRequestLimit(
+        value.documentSync,
+        context,
+        "documentSync",
+      );
+    }),
+    [attachmentBindDocumentSyncRefinement],
+  );
 
 export type BlobAttachmentBindRequest = z.infer<
   typeof BlobAttachmentBindRequestSchema

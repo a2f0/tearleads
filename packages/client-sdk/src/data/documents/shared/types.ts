@@ -215,6 +215,8 @@ export interface DocumentCreateApi {
 
 export interface CreateRemoteDocumentResult {
   contentKey: Uint8Array;
+  /** The requested `deferredSeedUpdate`, signed but unsent, for a bind. */
+  deferredSeed?: DocumentSyncRequest | undefined;
   documentId: string;
   persistedState: PersistedDocumentCreateState;
   // `plan` and `response` are absent when the result was adopted from an

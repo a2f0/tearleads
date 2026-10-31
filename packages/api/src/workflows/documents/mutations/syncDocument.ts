@@ -266,7 +266,10 @@ export async function appendProvisionedDocumentInitialUpdate(
   await commitDocumentCreateSeed({
     ...input,
     enforceSyncEligibility: false,
-    seed: { syncEligibleOrganizationId: null },
+    seed: {
+      documentInsertedInTransaction: true,
+      syncEligibleOrganizationId: null,
+    },
   });
 }
 
@@ -285,7 +288,35 @@ export function appendDocumentCreateSeed(
   return commitDocumentCreateSeed({
     ...input,
     enforceSyncEligibility: true,
-    seed: { syncEligibleOrganizationId: input.syncEligibleOrganizationId },
+    seed: {
+      documentInsertedInTransaction: true,
+      syncEligibleOrganizationId: input.syncEligibleOrganizationId,
+    },
+  });
+}
+
+/**
+ * Commits the deferred first update an attachment bind carries, in the bind
+ * transaction after its binding row, under the same checks as the standalone
+ * sync it replaces. The bind already holds this document's head FOR UPDATE and
+ * every container head the write locks (see
+ * `lockAttachmentAuthorizationForShare`), so the write takes no head lock
+ * after the bind's blob-row locks and the global container -> document ->
+ * blob lock order holds.
+ */
+export function appendAttachmentBindDocumentSync(
+  input: DocumentCreateSeedInput & {
+    readonly syncEligibleOrganizationId: string;
+  },
+): Promise<DocumentCreateSeedResult> {
+  return commitDocumentCreateSeed({
+    ...input,
+    enforceSyncEligibility: true,
+    seed: {
+      documentInsertedInTransaction: false,
+      headLocksHeld: true,
+      syncEligibleOrganizationId: input.syncEligibleOrganizationId,
+    },
   });
 }
 

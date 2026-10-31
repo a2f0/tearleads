@@ -196,10 +196,11 @@ hashes rather than echoes, which keeps the policy commit at about 73 KB.
 Container mutations cite stored manifests by `{containerId, manifestHash}` and
 principal policies by head rather than echoing path bundles or policies.
 
-`ExplorerUploadRequestVolume.test.tsx` measures 8 calls and 31 KB received for a
-small Explorer upload and permits 9 calls and 35,000 response bytes; its blob
+`ExplorerUploadRequestVolume.test.tsx` measures 6 calls and 29 KB received for a
+small Explorer upload and permits 7 calls and 32,500 response bytes; its blob
 stage costs three calls (initiate with the first part's upload source, the part
-bytes, and the attachment bind that completes the stage).
+bytes, and the attachment bind that completes the stage and carries the
+document's first content update).
 
 `FolderMutationRequestVolume.test.tsx` sets these ceilings, which include
 private current-policy reads:

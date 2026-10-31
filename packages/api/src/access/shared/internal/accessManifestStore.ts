@@ -52,6 +52,7 @@ import { selectOneOrThrow } from "./selectOneOrThrow";
 
 export type { StoredAccessManifestHead } from "./accessManifestHeadLocks";
 export {
+  listUnheldAccessManifestHeads,
   lockAccessManifestHeadsForShare,
   lockAccessManifestHeadsForUpdate,
   lockUnheldAccessManifestHeads,
