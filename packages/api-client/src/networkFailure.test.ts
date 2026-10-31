@@ -325,6 +325,25 @@ test("CORS preflight follows the Fetch spec's simple-request rules", () => {
   ).toBe(true);
   expect(needsCorsPreflight("GET", { Authorization: "Bearer x" })).toBe(true);
   expect(needsCorsPreflight("DELETE", {})).toBe(true);
+  expect(needsCorsPreflight("GET", { Range: "bytes=0-1" })).toBe(false);
+  expect(needsCorsPreflight("GET", { Range: "bytes=0-1,4-5" })).toBe(true);
+  expect(needsCorsPreflight("GET", { Accept: "a".repeat(129) })).toBe(true);
+  expect(needsCorsPreflight("GET", { Accept: "application/json" })).toBe(false);
+  expect(
+    needsCorsPreflight("GET", {
+      Accept: "a".repeat(128),
+      "Accept-Language": "b".repeat(128),
+      "Content-Language": "c".repeat(128),
+      "Content-Type": `text/plain;${"d".repeat(117)}`,
+      Range: `bytes=${"1".repeat(100)}-`,
+    }),
+  ).toBe(false);
+  expect(
+    needsCorsPreflight("POST", {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Accept-Language": "en(US)",
+    }),
+  ).toBe(true);
 });
 
 test("URL redaction keeps origin and path and bounds the length", () => {

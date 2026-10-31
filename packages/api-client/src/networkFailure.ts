@@ -60,32 +60,53 @@ export class ApiNetworkError extends Error {
 }
 
 const SIMPLE_METHODS = new Set(["GET", "HEAD", "POST"]);
-const SAFELISTED_HEADERS = new Set([
-  "accept",
-  "accept-language",
-  "content-language",
-  "content-type",
-]);
 const SIMPLE_CONTENT_TYPES = new Set([
   "application/x-www-form-urlencoded",
   "multipart/form-data",
   "text/plain",
 ]);
+// Fetch's CORS-unsafe request-header bytes, plus the value rules per header.
+const UNSAFE_PUNCTUATION = new Set('"():<>?@[\\]{}');
+function hasUnsafeByte(value: string): boolean {
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if ((code < 0x20 && code !== 0x09) || code === 0x7f) return true;
+    if (UNSAFE_PUNCTUATION.has(char)) return true;
+  }
+  return false;
+}
+const SAFELISTED_HEADER_VALUE: Readonly<
+  Record<string, (value: string) => boolean>
+> = {
+  accept: (value) => !hasUnsafeByte(value),
+  "accept-language": (value) => /^[0-9A-Za-z *,\-.;=]*$/u.test(value),
+  "content-language": (value) => /^[0-9A-Za-z *,\-.;=]*$/u.test(value),
+  "content-type": (value) =>
+    !hasUnsafeByte(value) &&
+    SIMPLE_CONTENT_TYPES.has(value.split(";")[0]?.trim().toLowerCase() ?? ""),
+  range: (value) => /^bytes=\d+-\d*$/u.test(value),
+};
 const MAX_MESSAGE_LENGTH = 200;
 
-/** Whether the Fetch spec sends a CORS preflight for this method and these headers. */
+/**
+ * Whether the Fetch spec sends a CORS preflight for this method and these
+ * headers: a non-simple method, a header outside the safelist, a safelisted
+ * value over 128 bytes or of the wrong form, or safelisted values over 1024.
+ */
 export function needsCorsPreflight(
   method: string,
   headers: Readonly<Record<string, string>>,
 ): boolean {
   if (!SIMPLE_METHODS.has(method.toUpperCase())) return true;
-  return Object.entries(headers).some(([name, value]) => {
-    const lower = name.toLowerCase();
-    if (!SAFELISTED_HEADERS.has(lower)) return true;
-    if (lower !== "content-type") return false;
-    const essence = value.split(";")[0]?.trim().toLowerCase() ?? "";
-    return !SIMPLE_CONTENT_TYPES.has(essence);
-  });
+  const entries = Object.entries(headers);
+  const total = entries.reduce((sum, [, value]) => sum + value.length, 0);
+  return (
+    total > 1024 ||
+    entries.some(([name, value]) => {
+      const valid = SAFELISTED_HEADER_VALUE[name.toLowerCase()];
+      return !valid || value.length > 128 || !valid(value);
+    })
+  );
 }
 
 /**
