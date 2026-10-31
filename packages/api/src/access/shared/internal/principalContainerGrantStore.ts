@@ -41,14 +41,18 @@ export async function ensureStoredPrincipalContainerGrantsMatch(input: {
   readonly executor: DatabaseSession;
   readonly normalizedInput: PrincipalStateBundleInput;
   readonly stateHash: string;
+  /** The state row's stored grants when this write inserted it. */
+  readonly storedContainerGrants?: unknown;
 }): Promise<void> {
   const stored = normalizePrincipalContainerGrants(
-    await listContainerGrantsForState(
-      input.normalizedInput.state.principalType,
-      input.normalizedInput.state.principalId,
-      input.stateHash,
-      input.executor,
-    ),
+    input.storedContainerGrants === undefined
+      ? await listContainerGrantsForState(
+          input.normalizedInput.state.principalType,
+          input.normalizedInput.state.principalId,
+          input.stateHash,
+          input.executor,
+        )
+      : readStoredPrincipalContainerGrants(input.storedContainerGrants),
   );
   if (
     stored.length !== input.normalizedInput.grants.length ||

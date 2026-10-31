@@ -19,7 +19,7 @@ export async function insertAccessEvent(
     assertCanonicalStoredUuid(event[field], `Access event ${field}`);
   }
 
-  await executor
+  const [inserted] = await executor
     .insert(accessEvents)
     .values({
       version: event.version,
@@ -39,25 +39,31 @@ export async function insertAccessEvent(
       signature: event.signature,
       signedAt: new Date(event.signedAt),
     })
-    .onConflictDoNothing({ target: accessEvents.eventHash });
+    .onConflictDoNothing({ target: accessEvents.eventHash })
+    .returning();
 
   // Compare the representation readers will reconstruct, including on first
   // insertion. Verification before storage cannot authenticate normalized data.
-  return ensureStoredAccessEventMatches(verifiedEvent, executor);
+  // A fresh insert's RETURNING row is that stored representation; only an
+  // existing event is read back.
+  return ensureStoredAccessEventMatches(verifiedEvent, executor, inserted);
 }
 
 async function ensureStoredAccessEventMatches(
   verifiedEvent: VerifiedAccessEvent,
   executor: DatabaseSession,
+  inserted: typeof accessEvents.$inferSelect | undefined,
 ): Promise<typeof accessEvents.$inferSelect> {
-  const storedEvent = await selectOneOrThrow(
-    executor
-      .select()
-      .from(accessEvents)
-      .where(eq(accessEvents.eventHash, verifiedEvent.eventHash))
-      .limit(1),
-    "Failed to load stored access event",
-  );
+  const storedEvent =
+    inserted ??
+    (await selectOneOrThrow(
+      executor
+        .select()
+        .from(accessEvents)
+        .where(eq(accessEvents.eventHash, verifiedEvent.eventHash))
+        .limit(1),
+      "Failed to load stored access event",
+    ));
 
   const event = verifiedEvent.event;
   if (
