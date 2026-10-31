@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { OperationTransport } from "./operationTransportFactory";
-import { WebSocketTickets } from "./webSocketTickets";
+import { openServerEventsSocket, WebSocketTickets } from "./webSocketTickets";
 
 const LOGIN = {
   authenticated: true as const,
@@ -73,4 +73,22 @@ test("without a login every connect mints a ticket", async () => {
   const h = harness();
   expect(await h.tickets.next()).toBe("minted-1");
   expect(await h.tickets.next()).toBe("minted-2");
+});
+
+test("opens the events socket with the ticket, keeping other parameters", () => {
+  const urls: string[] = [];
+  const socket = {} as WebSocket;
+  expect(
+    openServerEventsSocket(
+      "wss://api.example.test/events?existing=value&ticket=stale",
+      "fresh-ticket",
+      (url) => {
+        urls.push(url);
+        return socket;
+      },
+    ),
+  ).toBe(socket);
+  expect(urls).toEqual([
+    "wss://api.example.test/events?existing=value&ticket=fresh-ticket",
+  ]);
 });

@@ -1,3 +1,4 @@
+import { apiTransportCheck } from "./apiTransport";
 import {
   type ArchitectureCheck,
   type ArchitectureCheckResult,
@@ -75,12 +76,11 @@ const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
 // slip through — acceptable since the codebase keeps aliases on one line.
 const clientSdkPrefixedFacadeAliasPattern =
   /\bas\s+(?:Tearleads[A-Z][A-Za-z0-9_]*|TEARLEADS_[A-Z0-9_]+)/;
-// A deliberately-curated substring heuristic that keeps product/app-window
-// vocabulary out of SDK source. It is intentionally a *subset* of the mini-apps
-// (the words most likely to leak); it is NOT derived from miniAppNames because
-// matching every mini-app word (e.g. "notes", "contacts", "identity") would
-// false-positive on unrelated SDK identifiers. As a substring match it can also
-// over-match inside larger identifiers — a known, accepted limitation.
+// A curated substring heuristic keeping product/app-window vocabulary out of
+// SDK source. It is a *subset* of the mini-apps (the words most likely to
+// leak), NOT derived from miniAppNames: matching every mini-app word (e.g.
+// "notes", "contacts", "identity") would false-positive on SDK identifiers.
+// As a substring match it can over-match inside larger identifiers (accepted).
 const clientSdkProductUiVocabularyPattern =
   /\b(?:Explorer|MiniApp|OrgManager|explorer|mini-apps?|org-manager)/;
 
@@ -384,6 +384,7 @@ const architectureChecks: ArchitectureCheck[] = [
     name: "client-sdk-root-facade-uses-unprefixed-names",
     pattern: clientSdkPrefixedFacadeAliasPattern,
   }),
+  apiTransportCheck,
   createSourceTextCheck({
     entryPoints: clientSdkSourceEntryPoints,
     message:

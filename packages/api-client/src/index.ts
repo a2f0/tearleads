@@ -1,11 +1,21 @@
 export { ApiClient } from "./ApiClient";
 export { AccountSuspendedError } from "./accountSuspension";
 export {
+  type ApiReachability,
+  type ApiReachabilityProbe,
+  createApiReachabilityProbe,
+} from "./apiReachabilityProbe";
+export {
   type ApiRequestCounts,
   type ApiRequestEndpointCounts,
   ApiRequestMetrics,
   type ApiRequestMetricsSnapshot,
 } from "./apiRequestMetrics";
+export {
+  ApiNetworkError,
+  type ApiNetworkFailureClass,
+  type ApiNetworkFailureDetails,
+} from "./networkFailure";
 export type {
   PrincipalPolicyDiscoveryOptions,
   PrincipalPolicyHeldHead,
@@ -34,3 +44,4 @@ export type {
   WriterProjectionListing,
   WriterProjectionTarget,
 } from "./verifiedManifestCitations";
+export { openServerEventsSocket } from "./webSocketTickets";
