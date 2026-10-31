@@ -31,6 +31,7 @@ export {
   deleteContainerDocumentTombstoneHoldsForContainers,
   deleteContainerDocumentTombstoneHoldsForDocuments,
   type HeldContainerDocumentTombstone,
+  placementPairsMatch,
 } from "./internal/containerDocumentTombstoneHolds";
 
 /**

@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.83",
+      "version": "0.1.84",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -189,7 +189,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.22",
+      "version": "0.1.23",
       "dependencies": {
         "@a2f0/ct-client": "0.1.5",
         "@stripe/stripe-js": "10.1.0",
@@ -223,7 +223,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.114",
+      "version": "0.1.115",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -375,7 +375,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.24",
+      "version": "0.2.25",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",

@@ -1,9 +1,11 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, or, type SQL, sql } from "drizzle-orm";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import {
   containerDocumentTombstoneHolds,
   documentContainerProjection,
   documentProjection,
 } from "../../../sqlite/schema";
+import { remoteResetBatches } from "../../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
 import { filterWritableDocumentPlacements } from "../../container-contents/documentPlacement";
 import type { ContainerDocumentTombstoneInput } from "../types";
@@ -42,20 +44,44 @@ export function containerDocumentPlacementKey(
 }
 const placementKey = containerDocumentPlacementKey;
 
+/** Matches the listed (document, container) placements by primary key. */
+export function placementPairsMatch(
+  placements: ReadonlyArray<ContainerDocumentPlacementKey>,
+  documentIdColumn: SQLiteColumn,
+  containerIdColumn: SQLiteColumn,
+): SQL | undefined {
+  return or(
+    ...placements.map((placement) =>
+      and(
+        eq(documentIdColumn, placement.documentId),
+        eq(containerIdColumn, placement.containerId),
+      ),
+    ),
+  );
+}
+
+function uniquePlacements(
+  placements: ReadonlyArray<ContainerDocumentPlacementKey>,
+): ContainerDocumentPlacementKey[] {
+  return Array.from(
+    new Map(
+      placements.map((placement) => [placementKey(placement), placement]),
+    ).values(),
+  );
+}
+
 export async function deleteContainerDocumentTombstoneHoldRows(
   tx: ClientSQLiteTransactionScope,
   placements: ReadonlyArray<ContainerDocumentPlacementKey>,
 ): Promise<void> {
-  for (const placement of placements) {
+  for (const batch of remoteResetBatches(uniquePlacements(placements))) {
     await tx
       .delete(containerDocumentTombstoneHolds)
       .where(
-        and(
-          eq(containerDocumentTombstoneHolds.documentId, placement.documentId),
-          eq(
-            containerDocumentTombstoneHolds.containerId,
-            placement.containerId,
-          ),
+        placementPairsMatch(
+          batch,
+          containerDocumentTombstoneHolds.documentId,
+          containerDocumentTombstoneHolds.containerId,
         ),
       )
       .run();
@@ -196,19 +222,15 @@ export async function deleteContainerDocumentTombstoneHoldRowsForLinks(
     readonly documentId: string;
   }>,
 ): Promise<void> {
-  for (const link of links) {
-    for (const batch of batches(link.containerIds)) {
-      await tx
-        .delete(containerDocumentTombstoneHolds)
-        .where(
-          and(
-            eq(containerDocumentTombstoneHolds.documentId, link.documentId),
-            inArray(containerDocumentTombstoneHolds.containerId, batch),
-          ),
-        )
-        .run();
-    }
-  }
+  await deleteContainerDocumentTombstoneHoldRows(
+    tx,
+    links.flatMap((link) =>
+      link.containerIds.map((containerId) => ({
+        containerId,
+        documentId: link.documentId,
+      })),
+    ),
+  );
 }
 
 export interface ContainerDocumentTombstoneHoldRow

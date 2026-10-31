@@ -11,6 +11,7 @@ import type { WindowMenuItem } from "./WindowMenuBar";
 import {
   useWindowActions,
   type WindowEntry,
+  type WindowGeometry,
   type WindowSize,
 } from "./WindowStateProvider";
 import { fitWindowGeometry, type WindowFitMetrics } from "./windowGeometry";
@@ -54,6 +55,7 @@ function measureWindowFit(
 }
 
 interface WindowFitHost {
+  applyGeometry: (geometry: WindowGeometry) => void;
   overlayHost: HTMLElement | null;
   windowRef: RefObject<HTMLElement | null>;
 }
@@ -117,9 +119,9 @@ function useFitOnLoad(
 // a maximized window first.
 function useWindowFit(
   entry: WindowEntry,
-  { overlayHost, windowRef }: WindowFitHost,
+  { applyGeometry, overlayHost, windowRef }: WindowFitHost,
 ) {
-  const { setGeometry, toggleMaximize } = useWindowActions();
+  const { toggleMaximize } = useWindowActions();
   const [contentSize, setContentSize] = useState<WindowSize | undefined>();
   const { id, maximized, position } = entry;
 
@@ -147,15 +149,15 @@ function useWindowFit(
     if (maximized) {
       toggleMaximize(id);
     }
-    setGeometry(id, geometry);
+    applyGeometry(geometry);
     return true;
   }, [
+    applyGeometry,
     contentSize,
     id,
     maximized,
     overlayHost,
     position,
-    setGeometry,
     toggleMaximize,
     windowRef,
   ]);

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, lte, min, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, lte, min, or, sql } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../documents/shared/readers";
 import { readStringArray } from "../../shared/recordReaders";
 import { documentContainerProjectionTables } from "../../sqlite/schema";
@@ -7,7 +7,12 @@ import {
   documentDiscoverySequence,
   pendingDocumentDiscoveries,
 } from "../../sqlite/schema/documentDiscoveryEvidenceSchema";
+import {
+  remoteResetBatches,
+  sqliteInsertBatchSize,
+} from "../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import { excludedValue } from "../../sqlite/sqliteUpsert";
 import {
   type ExecSql,
   ensureSqlTables,
@@ -16,14 +21,13 @@ import {
 import { loadDocumentPurgeCheckpoint } from "../keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { loadAccessManifestCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
 import { heldTombstoneRetryDelayMs } from "./containerDocumentTombstoneHoldsPersistence";
-
 import {
   type DiscoveredDocumentCandidate,
   isDiscoveredDocumentCandidate,
   readStoredDiscoveryCandidate,
 } from "./documentDiscoveryCandidate";
-
 import { isDocumentDiscoveryGenerationCurrent } from "./documentDiscoveryReset";
+import { placementPairsMatch } from "./internal/containerDocumentTombstoneHolds";
 
 export type { DiscoveredDocumentCandidate } from "./documentDiscoveryCandidate";
 export { clearDocumentDiscoveryEvidenceOnRemoteReset } from "./documentDiscoveryReset";
@@ -73,6 +77,10 @@ const ID_BATCH_SIZE = 400;
 const batches = (ids: readonly string[]) =>
   Array.from({ length: Math.ceil(ids.length / ID_BATCH_SIZE) }, (_, i) =>
     ids.slice(i * ID_BATCH_SIZE, (i + 1) * ID_BATCH_SIZE),
+  );
+const chunked = <T>(rows: readonly T[], size: number): T[][] =>
+  Array.from({ length: Math.ceil(rows.length / size) }, (_, i) =>
+    rows.slice(i * size, (i + 1) * size),
   );
 const identity = (input: DiscoveredDocumentCandidate) =>
   and(
@@ -133,48 +141,55 @@ class SqlDocumentDiscoveryEvidenceStore
         return false;
       if (inputs.length === 0 && removed.length === 0) return true;
       await db.transaction(async (tx) => {
-        for (const input of inputs) {
-          if (!isDiscoveredDocumentCandidate(input)) continue;
-          for (const containerId of input.listedContainerIds) {
-            const rowInput = {
-              ...input,
-              containerId,
-              listedContainerIds: [containerId],
-            };
-            const inputJson = JSON.stringify(rowInput);
-            await tx
-              .insert(pending)
-              .values({
+        const rows = inputs.flatMap((input) =>
+          isDiscoveredDocumentCandidate(input)
+            ? input.listedContainerIds.map((containerId) => ({
                 containerId,
                 documentId: input.documentId,
                 accessEpoch: input.accessEpoch,
                 generation,
-                inputJson,
+                inputJson: JSON.stringify({
+                  ...input,
+                  containerId,
+                  listedContainerIds: [containerId],
+                }),
                 retryAt: 0,
-              })
-              .onConflictDoUpdate({
-                target: [pending.containerId, pending.documentId],
-                set: {
-                  accessEpoch: input.accessEpoch,
-                  generation,
-                  inputJson,
-                  retryAt: sql`case when ${pending.inputJson} = ${inputJson} then ${pending.retryAt} else 0 end`,
-                  attempts: sql`case when ${pending.inputJson} = ${inputJson} then ${pending.attempts} else 0 end`,
-                },
-                setWhere: lte(pending.generation, generation),
-              })
-              .run();
-          }
+              }))
+            : [],
+        );
+        // One multi-row upsert per chunk. SQLite applies a statement's rows
+        // in order, so a repeated placement updates the row the previous
+        // entry wrote, exactly as one statement per entry did.
+        const unchanged = sql`${pending.inputJson} = excluded.input_json`;
+        for (const chunk of chunked(rows, sqliteInsertBatchSize(pending))) {
+          await tx
+            .insert(pending)
+            .values(chunk)
+            .onConflictDoUpdate({
+              target: [pending.containerId, pending.documentId],
+              set: {
+                accessEpoch: excludedValue(pending.accessEpoch),
+                generation: excludedValue(pending.generation),
+                inputJson: excludedValue(pending.inputJson),
+                retryAt: sql`case when ${unchanged} then ${pending.retryAt} else 0 end`,
+                attempts: sql`case when ${unchanged} then ${pending.attempts} else 0 end`,
+              },
+              setWhere: lte(pending.generation, generation),
+            })
+            .run();
         }
         // These are untrusted, unapplied hints only. Removing an existing local
         // placement still requires the separate signed tombstone evidence gate.
-        for (const row of removed) {
+        for (const batch of remoteResetBatches(removed)) {
           await tx
             .delete(pending)
             .where(
               and(
-                eq(pending.containerId, row.containerId),
-                eq(pending.documentId, row.documentId),
+                placementPairsMatch(
+                  batch,
+                  pending.documentId,
+                  pending.containerId,
+                ),
                 lte(pending.generation, generation),
               ),
             )
@@ -232,8 +247,11 @@ class SqlDocumentDiscoveryEvidenceStore
     this.write(async (db) => {
       if (!(await isDocumentDiscoveryGenerationCurrent(db, generation))) return;
       await db.transaction(async (tx) => {
-        for (const input of inputs)
-          await tx.delete(pending).where(identity(input)).run();
+        for (const batch of remoteResetBatches(inputs))
+          await tx
+            .delete(pending)
+            .where(or(...batch.map(identity)))
+            .run();
       });
     });
   hasPending = async (containerIds: readonly string[]) => {

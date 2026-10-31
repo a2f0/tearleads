@@ -46,7 +46,7 @@ test(
       view.container
         .querySelector(".pane-main > .desktop-wallpaper")
         ?.getAttribute("data-wallpaper");
-    expect(wallpaper()).toBe("blocks");
+    expect(wallpaper()).toBe("tidal");
 
     // No identity is needed: the settings are app-wide display preferences.
     await act(async () => {
@@ -68,7 +68,15 @@ test(
       within(background)
         .getAllByRole("radio")
         .map((radio) => radio.getAttribute("value")),
-    ).toEqual(["blocks", "honeycomb", "triangles", "plain"]);
+    ).toEqual([
+      "tidal",
+      "facet",
+      "loom",
+      "blocks",
+      "honeycomb",
+      "triangles",
+      "plain",
+    ]);
 
     await act(async () => {
       fireEvent.click(
