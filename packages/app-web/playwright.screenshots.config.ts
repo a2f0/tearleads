@@ -1,8 +1,4 @@
 import { defineConfig, devices } from "@playwright/test";
-import { assertSharedCaptureRecorded } from "./screenshots/sharedStore";
-
-// Direct Playwright runs skip prescreenshots; refuse them in a linked clone too.
-assertSharedCaptureRecorded();
 
 const WEB_API_BASE_URL = "http://127.0.0.1:32001";
 const MOBILE_API_BASE_URL = "http://127.0.0.1:32002";
@@ -20,6 +16,8 @@ const MOBILE_APP_BASE_URL = "http://127.0.0.1:32102";
  * Run: bun run screenshots
  */
 export default defineConfig({
+  // Check capture ownership before tests, not when static tools import config.
+  globalSetup: "./screenshots/sharedStore.ts",
   testDir: "./screenshots",
   fullyParallel: false,
   workers: 1,

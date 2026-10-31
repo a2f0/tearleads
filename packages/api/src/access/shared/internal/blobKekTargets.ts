@@ -5,7 +5,7 @@ import {
   computeBlobAccessManifestHash,
   computeBlobContentKeyTargetHash,
 } from "@tearleads/crypto";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, inArray, isNull } from "drizzle-orm";
 import { compareStrings, uniqueSortedStrings } from "../../../utils/array";
 import {
   getCurrentAccessManifestHeads,
@@ -56,7 +56,7 @@ function sortBlobTargets(
 }
 
 async function listActiveAttachmentBindings(
-  blobId: string,
+  blobIds: readonly string[],
   executor: DatabaseSession,
 ) {
   return executor
@@ -70,7 +70,7 @@ async function listActiveAttachmentBindings(
     .from(attachmentBindings)
     .where(
       and(
-        eq(attachmentBindings.blobId, blobId),
+        inArray(attachmentBindings.blobId, blobIds),
         isNull(attachmentBindings.detachedAt),
       ),
     )
@@ -166,10 +166,68 @@ function documentManifestHashesForBindings(input: {
   };
 }
 
+/**
+ * Rows several blobs' target resolutions share, read as sets before a per-blob
+ * walk. Each blob still validates its own rows, in the caller's order, and
+ * raises its own errors. A container set that fails to resolve is not cached,
+ * so each blob resolves its own containers and fails inside its own item.
+ */
+export interface BlobKekTargetPrefetch {
+  readonly bindingsByBlobId: ReadonlyMap<string, ActiveAttachmentBinding[]>;
+  readonly containerTargetById: ContainerKekTargetMap | null;
+  readonly documentHeadById: AccessManifestHeadMap;
+  readonly linkRowsByManifestHash: ReadonlyMap<string, DocumentLinkRows>;
+}
+
+export async function prefetchBlobKekTargets(
+  blobIds: readonly string[],
+  executor: DatabaseSession,
+): Promise<BlobKekTargetPrefetch> {
+  const bindingsByBlobId = new Map<string, ActiveAttachmentBinding[]>();
+  const bindings =
+    blobIds.length === 0
+      ? []
+      : await listActiveAttachmentBindings(
+          uniqueSortedStrings(blobIds),
+          executor,
+        );
+  for (const binding of bindings) {
+    const rows = bindingsByBlobId.get(binding.blobId);
+    if (rows) rows.push(binding);
+    else bindingsByBlobId.set(binding.blobId, [binding]);
+  }
+  const documentHeadById = await getCurrentAccessManifestHeads(
+    "document",
+    bindings.map((binding) => binding.documentId),
+    executor,
+  );
+  const linkRows = await listAccessManifestDocumentLinkProjections(
+    [...documentHeadById.values()].map((head) => head.manifestHash),
+    executor,
+  );
+  let containerTargetById: ContainerKekTargetMap | null = null;
+  try {
+    containerTargetById = await resolveCurrentContainerKekTargetsMapped(
+      linkRows.map((row) => row.containerId),
+      executor,
+      (message, status) => new BlobKekTargetError(message, status),
+    );
+  } catch (error) {
+    if (!(error instanceof BlobKekTargetError)) throw error;
+  }
+  return {
+    bindingsByBlobId,
+    containerTargetById,
+    documentHeadById,
+    linkRowsByManifestHash: groupDocumentLinksByManifestHash(linkRows),
+  };
+}
+
 async function loadBatchedBlobKekTargetState(input: {
   readonly activeBindings: readonly ActiveAttachmentBinding[];
   readonly executor: DatabaseSession;
   readonly allowHistoricalParentEpochs: boolean;
+  readonly prefetch: BlobKekTargetPrefetch | undefined;
 }): Promise<{
   readonly containerTargetById: ContainerKekTargetMap;
   readonly documentManifestHashes: readonly string[];
@@ -177,15 +235,18 @@ async function loadBatchedBlobKekTargetState(input: {
   readonly linkRowsByManifestHash: ReadonlyMap<string, DocumentLinkRows>;
   readonly organizationId: string;
 }> {
+  const { prefetch } = input;
   const documentIds = input.activeBindings.map((binding) => {
     assertBindingHasSignedEvent(binding);
     return binding.documentId;
   });
-  const documentHeadById = await getCurrentAccessManifestHeads(
-    "document",
-    documentIds,
-    input.executor,
-  );
+  const documentHeadById =
+    prefetch?.documentHeadById ??
+    (await getCurrentAccessManifestHeads(
+      "document",
+      documentIds,
+      input.executor,
+    ));
   const {
     documentManifestHashes,
     documentManifestHashesByDocumentId,
@@ -194,25 +255,44 @@ async function loadBatchedBlobKekTargetState(input: {
     activeBindings: input.activeBindings,
     documentHeadById,
   });
-  const linkRows = await listAccessManifestDocumentLinkProjections(
-    documentManifestHashes,
-    input.executor,
-  );
-  const linkedContainerIds = linkRows.map((row) => row.containerId);
-  const containerTargetById = await resolveCurrentContainerKekTargetsMapped(
-    linkedContainerIds,
-    input.executor,
-    (message, status) => new BlobKekTargetError(message, status),
-    input.allowHistoricalParentEpochs,
-  );
+  const linkRowsByManifestHash = prefetch
+    ? prefetchedLinkRows(prefetch, documentManifestHashes)
+    : groupDocumentLinksByManifestHash(
+        await listAccessManifestDocumentLinkProjections(
+          documentManifestHashes,
+          input.executor,
+        ),
+      );
+  const containerTargetById =
+    prefetch?.containerTargetById ??
+    (await resolveCurrentContainerKekTargetsMapped(
+      [...linkRowsByManifestHash.values()].flatMap((rows) =>
+        rows.map((row) => row.containerId),
+      ),
+      input.executor,
+      (message, status) => new BlobKekTargetError(message, status),
+      input.allowHistoricalParentEpochs,
+    ));
 
   return {
     containerTargetById,
     documentManifestHashes,
     documentManifestHashesByDocumentId,
-    linkRowsByManifestHash: groupDocumentLinksByManifestHash(linkRows),
+    linkRowsByManifestHash,
     organizationId,
   };
+}
+
+function prefetchedLinkRows(
+  prefetch: BlobKekTargetPrefetch,
+  documentManifestHashes: readonly string[],
+): Map<string, DocumentLinkRows> {
+  return new Map(
+    documentManifestHashes.flatMap((manifestHash) => {
+      const rows = prefetch.linkRowsByManifestHash.get(manifestHash);
+      return rows ? [[manifestHash, rows] as const] : [];
+    }),
+  );
 }
 
 function deriveTargetsForBinding(input: {
@@ -271,12 +351,20 @@ function deriveTargetsForBindings(input: {
   });
 }
 
+/**
+ * Pass a prefetch only when it was read in the same transaction after the
+ * blob rows were locked; historical parent epochs are not prefetched.
+ */
 export async function resolveCurrentBlobKekTargets(
   blobId: string,
   executor: DatabaseSession,
   allowHistoricalParentEpochs = false,
+  prefetch?: BlobKekTargetPrefetch,
 ): Promise<ResolvedBlobKekTargets> {
-  const activeBindings = await listActiveAttachmentBindings(blobId, executor);
+  const usablePrefetch = allowHistoricalParentEpochs ? undefined : prefetch;
+  const activeBindings = usablePrefetch
+    ? (usablePrefetch.bindingsByBlobId.get(blobId) ?? [])
+    : await listActiveAttachmentBindings([blobId], executor);
   if (activeBindings.length === 0) {
     throw new BlobKekTargetError("Blob has no active attachment bindings", 404);
   }
@@ -285,6 +373,7 @@ export async function resolveCurrentBlobKekTargets(
     activeBindings,
     executor,
     allowHistoricalParentEpochs,
+    prefetch: usablePrefetch,
   });
   const targets = deriveTargetsForBindings({
     activeBindings,

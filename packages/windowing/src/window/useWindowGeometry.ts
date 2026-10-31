@@ -12,6 +12,7 @@ import type { ResizeEdge } from "./WindowResizeHandle";
 import {
   useWindowActions,
   type WindowEntry,
+  type WindowGeometry,
   type WindowPosition,
   type WindowSize,
 } from "./WindowStateProvider";
@@ -121,13 +122,24 @@ function useLiveGeometry(entry: WindowEntry) {
     }
   }, [entry.id, setGeometry]);
 
+  // Fit and other window-owned changes must update the live frame before
+  // publication: a surface observer can commit again before the passive mirror.
+  const applyGeometry = useCallback(
+    (geometry: WindowGeometry) => {
+      setPosition(geometry.position);
+      setSize(geometry.size ?? null);
+      commit();
+    },
+    [commit, setPosition, setSize],
+  );
+
   // The committed size is the source of truth between gestures: a restored
   // layout or host call applies it, and clearing it restores the default size.
   useEffect(() => {
     setSize(entry.size ?? null);
   }, [entry.size, setSize]);
 
-  return { commit, live, position, setPosition, setSize, size };
+  return { applyGeometry, commit, live, position, setPosition, setSize, size };
 }
 
 // Stepwise geometry for keyboard move and resize. Steps stay local until the
@@ -279,7 +291,7 @@ export function useWindowGeometry(
   maximized: boolean,
   windowRef: RefObject<HTMLElement | null>,
 ) {
-  const { commit, live, position, setPosition, setSize, size } =
+  const { applyGeometry, commit, live, position, setPosition, setSize, size } =
     useLiveGeometry(entry);
   const dragging = useRef<WindowDragState | null>(null);
   const resizing = useRef<WindowResizeState | null>(null);
@@ -361,6 +373,7 @@ export function useWindowGeometry(
 
   return {
     ...stepped,
+    applyGeometry,
     commit,
     hold,
     handlePointerDown,

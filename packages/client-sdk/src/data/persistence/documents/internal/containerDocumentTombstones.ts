@@ -5,13 +5,14 @@ import {
   documentProjection,
   documents,
 } from "../../../sqlite/schema";
+import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import {
-  deleteDocumentPlacementRowInTransaction,
+  deleteDocumentPlacementRowsInTransaction,
   deleteUnlinkedDocumentPlacementRowsInTransaction,
 } from "../../container-contents/documentContainerProjectionPersistence";
 import { filterWritableDocumentPlacements } from "../../container-contents/documentPlacement";
@@ -93,16 +94,11 @@ async function deleteContainerDocumentTombstoneRows(
     ReadonlySet<string>
   >,
 ): Promise<void> {
-  for (const tombstone of uniqueTombstones) {
-    await deleteDocumentPlacementRowInTransaction(tx, tombstone);
-  }
-  for (const [documentId, linked] of verifiedLinkedContainerIdsByDocumentId) {
-    await deleteUnlinkedDocumentPlacementRowsInTransaction(
-      tx,
-      documentId,
-      linked,
-    );
-  }
+  await deleteDocumentPlacementRowsInTransaction(tx, uniqueTombstones);
+  await deleteUnlinkedDocumentPlacementRowsInTransaction(
+    tx,
+    verifiedLinkedContainerIdsByDocumentId,
+  );
 }
 
 /**
@@ -124,14 +120,117 @@ function selectNextContainerId(
   );
 }
 
+interface TombstoneRepairReads {
+  /** Local ids per document id. */
+  readonly localIdsByDocumentId: ReadonlyMap<string, string[]>;
+  readonly projectionByLocalId: ReadonlyMap<
+    string,
+    { containerId: string | null; updatedAt: string | null }
+  >;
+  /** Remaining link containers per document, in container id order. */
+  readonly remainingLinksByDocumentId: ReadonlyMap<string, string[]>;
+}
+
+function pushGrouped(
+  map: Map<string, string[]>,
+  key: string,
+  value: string,
+): void {
+  const values = map.get(key);
+  if (values) values.push(value);
+  else map.set(key, [value]);
+}
+
+/**
+ * Every row the repair reads, for all tombstoned documents at once. The
+ * deletes above have already run, and the repair below writes only
+ * projection rows of the document it repairs, so reading before any repair
+ * sees what each per-document read saw.
+ */
+async function loadTombstoneRepairReads(
+  tx: ClientSQLiteTransactionScope,
+  documentIds: ReadonlyArray<string>,
+): Promise<TombstoneRepairReads> {
+  const localIdsByDocumentId = new Map<string, string[]>();
+  const projectionByLocalId = new Map<
+    string,
+    { containerId: string | null; updatedAt: string | null }
+  >();
+  const remainingLinksByDocumentId = new Map<string, string[]>();
+  // The app kind binds one value; the rest carry ids.
+  const chunkSize = sqliteRowsPerStatement(1, 1);
+  for (let offset = 0; offset < documentIds.length; offset += chunkSize) {
+    const batch = documentIds.slice(offset, offset + chunkSize);
+    const localRows = await tx
+      .select({ documentId: documents.documentId, localId: documents.localId })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.appKind, DOCUMENTS_APP_KIND),
+          inArray(documents.documentId, batch),
+        ),
+      );
+    for (const row of localRows) {
+      if (row.documentId !== null) {
+        pushGrouped(localIdsByDocumentId, row.documentId, row.localId);
+      }
+    }
+    const linkRows = await tx
+      .select({
+        containerId: documentContainerProjection.containerId,
+        documentId: documentContainerProjection.documentId,
+      })
+      .from(documentContainerProjection)
+      .where(inArray(documentContainerProjection.documentId, batch))
+      .orderBy(
+        asc(documentContainerProjection.documentId),
+        asc(documentContainerProjection.containerId),
+      );
+    for (const row of linkRows) {
+      pushGrouped(remainingLinksByDocumentId, row.documentId, row.containerId);
+    }
+  }
+  const localIds = [...localIdsByDocumentId.values()].flat();
+  for (let offset = 0; offset < localIds.length; offset += chunkSize) {
+    const projectionRows = await tx
+      .select({
+        localId: documentProjection.localId,
+        containerId: documentProjection.containerId,
+        updatedAt: documentProjection.updatedAt,
+      })
+      .from(documentProjection)
+      .where(
+        inArray(
+          documentProjection.localId,
+          localIds.slice(offset, offset + chunkSize),
+        ),
+      );
+    for (const row of projectionRows) {
+      if (row.localId !== null) {
+        projectionByLocalId.set(row.localId, {
+          containerId: row.containerId,
+          updatedAt: row.updatedAt,
+        });
+      }
+    }
+  }
+  return {
+    localIdsByDocumentId,
+    projectionByLocalId,
+    remainingLinksByDocumentId,
+  };
+}
+
 async function updateSelectedContainersForDocumentTombstones(input: {
   documentId: string;
+  reads: TombstoneRepairReads;
   removedContainerIds: ReadonlySet<string>;
   tombstoneUpdatedAt: string | undefined;
   tx: ClientSQLiteTransactionScope;
   verifiedLinkedContainerIds: ReadonlySet<string>;
 }): Promise<string[]> {
-  const { documentId, removedContainerIds, tombstoneUpdatedAt, tx } = input;
+  const { documentId, reads, removedContainerIds, tombstoneUpdatedAt, tx } =
+    input;
   // A server document can own more than one local projection row: identity
   // recovery legitimately rematerializes a second projection for the same
   // documentId before semantic convergence completes. The link delete above is
@@ -140,51 +239,25 @@ async function updateSelectedContainersForDocumentTombstones(input: {
   // at a removed container must be repaired here — resolving a single localId
   // left a duplicate row stranded at the source, keeping a moved document
   // visible in the container it was unlinked from.
-  const localIds = (
-    await tx
-      .select({ localId: documents.localId })
-      .from(documents)
-      .where(
-        and(
-          eq(documents.appKind, DOCUMENTS_APP_KIND),
-          eq(documents.documentId, documentId),
-        ),
-      )
-  ).map((row) => row.localId);
-  if (localIds.length === 0) {
-    return [];
-  }
-
-  const projectionRows = await tx
-    .select({
-      localId: documentProjection.localId,
-      containerId: documentProjection.containerId,
-      updatedAt: documentProjection.updatedAt,
-    })
-    .from(documentProjection)
-    .where(inArray(documentProjection.localId, localIds));
+  const localIds = reads.localIdsByDocumentId.get(documentId) ?? [];
   // Every projection row whose primary container is tombstoned OR outside the
   // verified link set is repointed: a primary at a listing-seeded row would
   // otherwise keep showing the document in a container the head never named.
-  const rowsAtRemovedContainer = projectionRows.flatMap((row) =>
-    row.localId !== null &&
-    row.containerId !== null &&
-    (removedContainerIds.has(row.containerId) ||
-      !input.verifiedLinkedContainerIds.has(row.containerId))
-      ? [{ localId: row.localId, updatedAt: row.updatedAt ?? undefined }]
-      : [],
-  );
+  const rowsAtRemovedContainer = localIds.flatMap((localId) => {
+    const row = reads.projectionByLocalId.get(localId);
+    return row !== undefined &&
+      row.containerId !== null &&
+      (removedContainerIds.has(row.containerId) ||
+        !input.verifiedLinkedContainerIds.has(row.containerId))
+      ? [{ localId, updatedAt: row.updatedAt ?? undefined }]
+      : [];
+  });
   if (rowsAtRemovedContainer.length === 0) {
     return [];
   }
 
-  const remainingLinkRows = await tx
-    .select({ containerId: documentContainerProjection.containerId })
-    .from(documentContainerProjection)
-    .where(eq(documentContainerProjection.documentId, documentId))
-    .orderBy(asc(documentContainerProjection.containerId));
   const nextContainerId = selectNextContainerId(
-    remainingLinkRows.map((row) => row.containerId),
+    reads.remainingLinksByDocumentId.get(documentId) ?? [],
     input.verifiedLinkedContainerIds,
   );
 
@@ -243,6 +316,9 @@ export async function applyContainerDocumentTombstonesWithExec(
     );
     await deleteContainerDocumentTombstoneHoldRows(tx, applicable);
 
+    const reads = await loadTombstoneRepairReads(tx, [
+      ...removedContainerIdsByDocumentId.keys(),
+    ]);
     const changedLocalIds: string[] = [];
     for (const [
       documentId,
@@ -251,6 +327,7 @@ export async function applyContainerDocumentTombstonesWithExec(
       changedLocalIds.push(
         ...(await updateSelectedContainersForDocumentTombstones({
           documentId,
+          reads,
           removedContainerIds,
           tombstoneUpdatedAt: tombstoneUpdatedAtByDocumentId.get(documentId),
           tx,

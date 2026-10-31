@@ -1,8 +1,5 @@
 import type { ContainerKekKeyring } from "@tearleads/crypto";
-import {
-  getContainerKeyEpochById,
-  getContainerKeyEpochKeyring,
-} from "../../../access/read/containerKekStore";
+import { getContainerKeyEpochWithKeyring } from "../../../access/read/containerKekStore";
 import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
@@ -17,19 +14,16 @@ export async function loadContainerKekKeyring(input: {
   readonly containerKeyEpochId: string;
   readonly context: ContainerWriterProjectionContext;
 }): Promise<ContainerKekKeyring | null> {
-  const epoch = await getContainerKeyEpochById(
+  // Generic epoch lookups omit the keyring blob; this is one of the few paths
+  // that genuinely needs it, so it reads the epoch row with its keyring once.
+  const epoch = await getContainerKeyEpochWithKeyring(
     input.containerKeyEpochId,
     input.context.executor,
   );
   if (!epoch) {
     throw new ContainerWriterProjectionError("Container KEK missing", 409);
   }
-  // Generic epoch lookups omit the keyring blob, so read it explicitly here —
-  // this is one of the few paths that genuinely needs it.
-  const keyring = await getContainerKeyEpochKeyring(
-    input.containerKeyEpochId,
-    input.context.executor,
-  );
+  const { keyring } = epoch;
   if (epoch.keyEpoch === 1) {
     if (keyring !== null) {
       throw new ContainerWriterProjectionError(

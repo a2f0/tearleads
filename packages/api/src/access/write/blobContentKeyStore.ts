@@ -1,4 +1,7 @@
-export { rewrapDocumentBlobContentKeyInTransaction } from "../shared/internal/blobContentKeyRewrapStore";
+export {
+  prefetchBlobRewraps,
+  rewrapDocumentBlobContentKeyInTransaction,
+} from "../shared/internal/blobContentKeyRewrapStore";
 export {
   BlobContentKeyBundleError,
   storeBlobContentKeyBundle,

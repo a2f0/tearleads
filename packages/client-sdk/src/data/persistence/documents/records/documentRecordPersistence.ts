@@ -1,7 +1,8 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { deserializeDocumentSyncPullContinuation } from "../../../documents/shared/sync/pullContinuation";
 import { normalizeEffectiveAccessLevel } from "../../../keying/accessLevel";
 import { documentHistoryUpdates, documents } from "../../../sqlite/schema";
+import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type {
@@ -95,12 +96,12 @@ export async function loadDocumentRecord(
   return rows[0] ? mapSelectedDocumentRecord(rows[0]) : null;
 }
 
-export async function findLocalIdByDocumentId(
-  execSql: ExecSql,
-  appKind: string,
-  documentId: string,
-): Promise<string | null> {
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
+/**
+ * Duplicate remote identities can survive an interrupted local adoption, so
+ * the row to use for a document id is chosen by this order: queued or
+ * deferred edits first, then a stable fallback.
+ */
+function localIdPreferenceOrder() {
   const hasPendingUpdates = sql<number>`EXISTS (
     SELECT 1
     FROM ${documentHistoryUpdates}
@@ -115,22 +116,66 @@ export async function findLocalIdByDocumentId(
       AND ${documents.pendingBaseVersion} <> ${documents.snapshotEndVersion}
     )
   )`;
+  return [
+    desc(hasPendingLocalWork),
+    desc(documents.updatedAt),
+    desc(documents.localId),
+  ];
+}
+
+export async function findLocalIdByDocumentId(
+  execSql: ExecSql,
+  appKind: string,
+  documentId: string,
+): Promise<string | null> {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select({ localId: documents.localId })
     .from(documents)
     .where(
       and(eq(documents.appKind, appKind), eq(documents.documentId, documentId)),
     )
-    // Duplicate remote identities can survive an interrupted local adoption.
-    // Preserve queued or deferred edits, then make the fallback stable.
-    .orderBy(
-      desc(hasPendingLocalWork),
-      desc(documents.updatedAt),
-      desc(documents.localId),
-    )
+    .orderBy(...localIdPreferenceOrder())
     .limit(1);
 
   return rows[0]?.localId ?? null;
+}
+
+/**
+ * `findLocalIdByDocumentId` for many document ids: one read per chunk, in the
+ * same preference order, keeping the first row per document id.
+ */
+export async function findLocalIdsByDocumentIds(
+  execSql: ExecSql,
+  appKind: string,
+  documentIds: ReadonlyArray<string>,
+): Promise<Map<string, string>> {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const localIds = new Map<string, string>();
+  const unique = Array.from(new Set(documentIds));
+  // One bind for the app kind; the rest carry document ids.
+  const chunkSize = sqliteRowsPerStatement(1, 1);
+  for (let offset = 0; offset < unique.length; offset += chunkSize) {
+    const rows = await db
+      .select({ documentId: documents.documentId, localId: documents.localId })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.appKind, appKind),
+          inArray(
+            documents.documentId,
+            unique.slice(offset, offset + chunkSize),
+          ),
+        ),
+      )
+      .orderBy(...localIdPreferenceOrder());
+    for (const row of rows) {
+      if (row.documentId !== null && !localIds.has(row.documentId)) {
+        localIds.set(row.documentId, row.localId);
+      }
+    }
+  }
+  return localIds;
 }
 
 export async function deleteDocumentRecord(

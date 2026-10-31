@@ -1,25 +1,16 @@
-import { KeyingVerificationError } from "@tearleads/crypto";
 import { and, desc, eq, inArray, notInArray, or, type SQL } from "drizzle-orm";
-import {
-  DEFAULT_DOCUMENT_KIND,
-  DOCUMENTS_APP_KIND,
-} from "../../documents/documentConstants";
 import {
   type DiscoveredDocumentInput,
   type DocumentSummary,
   HIDDEN_DOCUMENT_SUMMARY_KINDS,
 } from "../../documents/documentSummary";
 import { documentProjection, documents } from "../../sqlite/schema";
-import {
-  type ClientSQLiteTransactionScope,
-  getClientSQLitePersistenceRuntime,
-} from "../../sqlite/sqlitePersistenceRuntime";
+import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
-import { hasDocumentPurgeCheckpointInTransaction } from "../keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
 import { createStoredDocumentWithHistoryCheckpoint } from "./internal/createDocumentWithHistoryCheckpoint";
 import { discardStoredDocumentToShell } from "./internal/discardDocument";
-import { resolveDiscoveredDocumentPlacement } from "./internal/discoveredDocumentPlacement";
+import { upsertDiscoveredDocumentsInTransaction } from "./internal/discoveredDocumentUpsert";
 import {
   deleteStoredDocument,
   deleteStoredDocumentIfMatches,
@@ -57,13 +48,9 @@ import {
   isDocumentBlobStorageKeyReferenced,
   listDocumentOrphanBlobReclaims,
 } from "./internal/orphanSideRows";
-import {
-  loadPendingCreateSummary,
-  mapPendingCreateLocalIds,
-} from "./internal/pendingCreateAdoption";
+import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
 import { documentRowQueryPersistence } from "./internal/rowQueryPersistence";
 import { documentSyncQueuePersistence } from "./internal/syncQueuePersistence";
-import { findLocalIdByDocumentId } from "./records";
 import { settleQueuedDocumentUpdatesInTransaction } from "./records/documentPendingUpdatePersistence";
 import type {
   ContainerDocumentTombstoneInput,
@@ -88,77 +75,6 @@ export type {
   RelinkPersistedDocumentInput,
   StoredDocumentRecord,
 } from "./types";
-
-const DISCOVERED_DOCUMENT_PLACEHOLDER_TITLE = "Syncing document...";
-
-async function upsertDiscoveredDocumentWithExec(
-  execSql: ExecSql,
-  input: DiscoveredDocumentInput,
-  pendingCreates: ReadonlyMap<string, string>,
-  tx: ClientSQLiteTransactionScope,
-): Promise<DocumentSummary> {
-  if (await hasDocumentPurgeCheckpointInTransaction(tx, input.documentId)) {
-    throw new KeyingVerificationError(
-      "rollback",
-      "Document discovery targets a permanently purged document",
-    );
-  }
-  const existingLocalId = await findLocalIdByDocumentId(
-    execSql,
-    DOCUMENTS_APP_KIND,
-    input.documentId,
-  );
-  const localId = existingLocalId ?? input.documentId;
-  const pendingLocalId = pendingCreates.get(input.documentId);
-  if (!existingLocalId && pendingLocalId) {
-    const pending = await loadPendingCreateSummary(execSql, pendingLocalId);
-    if (!pending) throw new Error("Pending create projection is unavailable");
-    return pending;
-  }
-  const existingDocument = await sqlDocumentsPersistence.loadDocument(
-    execSql,
-    localId,
-  );
-  const placement = await resolveDiscoveredDocumentPlacement(
-    tx,
-    existingDocument,
-    input,
-  );
-
-  const nextDocument: StoredDocumentRecord = {
-    id: localId,
-    documentId: input.documentId,
-    documentKind: existingDocument?.documentKind ?? DEFAULT_DOCUMENT_KIND,
-    text: existingDocument?.text ?? "",
-    title: existingDocument?.title ?? DISCOVERED_DOCUMENT_PLACEHOLDER_TITLE,
-    snapshotEndVersion: existingDocument?.snapshotEndVersion ?? "",
-    recoveryGeneration: existingDocument?.recoveryGeneration ?? 0,
-    ...placement,
-    effectiveAccessLevel:
-      input.effectiveAccessLevel ??
-      existingDocument?.effectiveAccessLevel ??
-      null,
-    ...resolvePersistedDocumentRuntimeState(existingDocument, {
-      accessEpoch: placement.accessEpoch,
-      documentId: input.documentId,
-    }),
-  };
-
-  const saveOptions =
-    existingDocument === null || existingDocument === undefined
-      ? { updatedAt: input.createdAt }
-      : undefined;
-  const updatedAt = await resolveDocumentSaveTimestamp({
-    document: nextDocument,
-    options: saveOptions,
-    tx,
-  });
-  if (!(await saveDocumentRows({ document: nextDocument, tx, updatedAt }))) {
-    throw new Error("Document recovery generation changed during discovery");
-  }
-
-  return toDocumentSummary(nextDocument, updatedAt);
-}
 
 async function relinkPersistedDocumentWithExec(
   execSql: ExecSql,
@@ -216,20 +132,12 @@ export async function upsertDiscoveredDocuments(
     return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
       async (tx) => {
         const pendingCreates = await mapPendingCreateLocalIds(lockedExecSql);
-        const nextSummaries: DocumentSummary[] = [];
-
-        for (const input of inputs) {
-          nextSummaries.push(
-            await upsertDiscoveredDocumentWithExec(
-              lockedExecSql,
-              input,
-              pendingCreates,
-              tx,
-            ),
-          );
-        }
-
-        return nextSummaries;
+        return upsertDiscoveredDocumentsInTransaction(
+          lockedExecSql,
+          inputs,
+          pendingCreates,
+          tx,
+        );
       },
       { behavior: "immediate" },
     );

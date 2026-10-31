@@ -12,7 +12,7 @@ holding the blob lock.
 | `BindB` / `ScopeBindingWrites` / `ForeignEnvelopesUnchanged` | `storeBlobContentKeyBundleInTransaction` validates one binding; `replaceBlobContentKeyTargetsForExistingBundle` persists the merged target set under `lockBlobMutationRows` |
 | `Rotate` / `epoch` | `resolveCurrentBlobKekTargets` derives current epochs from stored container heads |
 | `PrepareFreshWrap` / `VerifyFreshDestination` / `FreshKeysUseCurrentEpoch` | `collectRelinkKeks` derives a full destination identity from each verified current projection; `prepareDocumentLinkBlobRewraps` uses that identity before encrypting |
-| `observedForeign` / `served` | the store’s `getBundle` supplies the stored foreign envelope bytes carried into the new set |
+| `observedForeign` / `served` | the store’s `loadStoreBundles` (the latest bundle, or `getBundle` for an older epoch) supplies the stored foreign envelope bytes carried into the new set |
 
 The bounded model uses two documents and two epochs. It abstracts a complete
 verified destination tuple (container, manifest, epoch identity, and epoch

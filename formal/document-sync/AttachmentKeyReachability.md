@@ -17,7 +17,7 @@ an unrelated document content-key bundle.
 | `InvalidateAttachmentCache` | `ApiClient.evictDocumentWriterProjection` also evicts the document attachment list after link/unlink or stale-state retries |
 | `MovePreservesCommittedEnvelopes` | `prepareDocumentLinkBlobRewraps` retains the destination envelope committed by link instead of generating conflicting randomized material |
 | `CheckBindingFrontier` | `lockDocumentLinkBlobRewraps` checks all active bindings under the exclusive document head |
-| `CommitLink` / `UnlinkSource` | `applyDocumentLinkBlobRewraps` commits scoped wraps inside the link transaction |
+| `CommitLink` / `UnlinkSource` | `applyDocumentLinkBlobRewraps` commits scoped wraps inside the link transaction; it set-loads every blob's preconditions after the blob locks and validates each blob in request order |
 | `BindSecond` | `lockAttachmentAuthorizationForShare` holds the document head through attachment bind |
 | `RelinkSource` / `ReuseRetiredWraps` / `ReenteredTargetsRemainWritable` | `resolveRetainedBlobTargetEnvelopes` reuses a retired target envelope while rejecting changes to active key material |
 | `RetainPriorWraps` | `replaceBlobContentKeyTargetsForExistingBundle` appends target sets |
