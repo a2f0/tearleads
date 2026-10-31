@@ -133,6 +133,35 @@ export async function releaseOrganizationStripeSeatSyncClaim(input: {
     );
 }
 
+/**
+ * The next due seat row; the claim locks it on PostgreSQL, and the idle billing
+ * probe embeds it unlocked to learn whether a claim is worth starting.
+ */
+export function selectDueStripeSeatSync(executor: DatabaseSession, now: Date) {
+  return executor
+    .select({ organizationId: organizationBillingStripeSeats.organizationId })
+    .from(organizationBillingStripeSeats)
+    .innerJoin(
+      organizationBilling,
+      eq(
+        organizationBilling.organizationId,
+        organizationBillingStripeSeats.organizationId,
+      ),
+    )
+    .where(
+      and(
+        eq(organizationBilling.status, "active"),
+        isNotNull(organizationBillingStripeSeats.subscriptionId),
+        isNotNull(organizationBillingStripeSeats.subscriptionItemId),
+        isNotNull(organizationBillingStripeSeats.priceId),
+        lte(organizationBillingStripeSeats.nextAttemptAt, now),
+        availableSeatLease(now),
+      ),
+    )
+    .orderBy(asc(organizationBillingStripeSeats.nextAttemptAt))
+    .limit(1);
+}
+
 /** Claims one due row and freezes any new paid-capacity adjustment. */
 export async function claimOrganizationStripeSeatSync(
   db: ApiDatabase,
@@ -140,28 +169,7 @@ export async function claimOrganizationStripeSeatSync(
 ): Promise<StripeSeatSyncClaim | null> {
   return db.transaction(async (tx) => {
     const availableLease = availableSeatLease(now);
-    const candidateQuery = tx
-      .select({ organizationId: organizationBillingStripeSeats.organizationId })
-      .from(organizationBillingStripeSeats)
-      .innerJoin(
-        organizationBilling,
-        eq(
-          organizationBilling.organizationId,
-          organizationBillingStripeSeats.organizationId,
-        ),
-      )
-      .where(
-        and(
-          eq(organizationBilling.status, "active"),
-          isNotNull(organizationBillingStripeSeats.subscriptionId),
-          isNotNull(organizationBillingStripeSeats.subscriptionItemId),
-          isNotNull(organizationBillingStripeSeats.priceId),
-          lte(organizationBillingStripeSeats.nextAttemptAt, now),
-          availableLease,
-        ),
-      )
-      .orderBy(asc(organizationBillingStripeSeats.nextAttemptAt))
-      .limit(1);
+    const candidateQuery = selectDueStripeSeatSync(tx, now);
     const [candidate] = isSqliteApiDatabase()
       ? await candidateQuery
       : await candidateQuery.for("update", { of: organizationBilling });

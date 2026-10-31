@@ -95,9 +95,6 @@ export const accessEvents = pgTable(
     uniqueIndex("access_events_event_id_idx").on(table.eventId),
     uniqueIndex("access_events_event_hash_idx").on(table.eventHash),
     index("access_events_object_idx").on(table.objectKind, table.objectId),
-    index("access_events_signer_idx").on(
-      table.signerUserId,
-      table.signerKeyFingerprint,
-    ),
+    index("access_events_organization_idx").on(table.organizationId),
   ],
 );

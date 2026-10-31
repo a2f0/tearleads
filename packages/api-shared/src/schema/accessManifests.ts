@@ -122,6 +122,7 @@ export const accessManifests = pgTable(
       table.objectId,
       table.epoch,
     ),
+    index("access_manifests_organization_idx").on(table.organizationId),
   ],
 );
 

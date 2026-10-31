@@ -22,7 +22,7 @@ CREATE TABLE `access_events` (
 CREATE UNIQUE INDEX `access_events_event_id_idx` ON `access_events` (`event_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `access_events_event_hash_idx` ON `access_events` (`event_hash`);--> statement-breakpoint
 CREATE INDEX `access_events_object_idx` ON `access_events` (`object_kind`,`object_id`);--> statement-breakpoint
-CREATE INDEX `access_events_signer_idx` ON `access_events` (`signer_user_id`,`signer_key_fingerprint`);--> statement-breakpoint
+CREATE INDEX `access_events_organization_idx` ON `access_events` (`organization_id`);--> statement-breakpoint
 CREATE TABLE `access_manifest_container_grant_projection` (
 	`id` text PRIMARY KEY NOT NULL,
 	`manifest_hash` text NOT NULL,
@@ -99,6 +99,7 @@ CREATE TABLE `access_manifests` (
 CREATE UNIQUE INDEX `access_manifests_manifest_hash_idx` ON `access_manifests` (`manifest_hash`);--> statement-breakpoint
 CREATE UNIQUE INDEX `access_manifests_event_hash_idx` ON `access_manifests` (`event_hash`);--> statement-breakpoint
 CREATE UNIQUE INDEX `access_manifests_object_epoch_idx` ON `access_manifests` (`object_kind`,`object_id`,`epoch`);--> statement-breakpoint
+CREATE INDEX `access_manifests_organization_idx` ON `access_manifests` (`organization_id`);--> statement-breakpoint
 CREATE TABLE `attachment_bindings` (
 	`id` text PRIMARY KEY NOT NULL,
 	`document_id` text NOT NULL,
@@ -113,8 +114,6 @@ CREATE TABLE `attachment_bindings` (
 --> statement-breakpoint
 CREATE INDEX `attachment_bindings_document_idx` ON `attachment_bindings` (`document_id`);--> statement-breakpoint
 CREATE INDEX `attachment_bindings_blob_idx` ON `attachment_bindings` (`blob_id`);--> statement-breakpoint
-CREATE INDEX `attachment_bindings_previous_binding_id_idx` ON `attachment_bindings` (`previous_binding_id`);--> statement-breakpoint
-CREATE INDEX `attachment_bindings_attachment_event_hash_idx` ON `attachment_bindings` (`attachment_event_hash`);--> statement-breakpoint
 CREATE UNIQUE INDEX `attachment_bindings_document_slot_active_idx` ON `attachment_bindings` (`document_id`,`slot_id`) WHERE "attachment_bindings"."detached_at" is null;--> statement-breakpoint
 CREATE TABLE `blob_audit_objects` (
 	`blob_id` text PRIMARY KEY NOT NULL,
@@ -130,6 +129,7 @@ CREATE TABLE `blob_audit_objects` (
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
+CREATE INDEX `blob_audit_objects_organization_idx` ON `blob_audit_objects` (`organization_id`);--> statement-breakpoint
 CREATE INDEX `blob_audit_objects_pending_delete_idx` ON `blob_audit_objects` (`object_delete_attempted_at`,`pruned_at`,`blob_id`) WHERE "blob_audit_objects"."pruned_at" is not null and "blob_audit_objects"."object_deleted_at" is null and "blob_audit_objects"."live_storage_key" is not null;--> statement-breakpoint
 CREATE TABLE `blob_content_key_epochs` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -141,7 +141,6 @@ CREATE TABLE `blob_content_key_epochs` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `blob_content_key_epochs_blob_epoch_idx` ON `blob_content_key_epochs` (`blob_id`,`content_key_epoch`);--> statement-breakpoint
-CREATE INDEX `blob_content_key_epochs_target_idx` ON `blob_content_key_epochs` (`target_hash`);--> statement-breakpoint
 CREATE TABLE `blob_content_key_targets` (
 	`id` text PRIMARY KEY NOT NULL,
 	`blob_content_key_epoch_id` text NOT NULL,
@@ -158,8 +157,6 @@ CREATE TABLE `blob_content_key_targets` (
 	FOREIGN KEY (`blob_content_key_epoch_id`) REFERENCES `blob_content_key_epochs`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `blob_content_key_targets_binding_idx` ON `blob_content_key_targets` (`binding_id`);--> statement-breakpoint
-CREATE INDEX `blob_content_key_targets_container_epoch_idx` ON `blob_content_key_targets` (`container_key_epoch_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `blob_content_key_targets_epoch_binding_container_idx` ON `blob_content_key_targets` (`blob_content_key_epoch_id`,`bundle_target_hash`,`binding_id`,`document_id`,`container_id`);--> statement-breakpoint
 CREATE TABLE `blob_content_write_headers` (
 	`record_id` text PRIMARY KEY NOT NULL,
@@ -254,8 +251,6 @@ CREATE TABLE `container_key_epochs` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `container_key_epochs_container_epoch_idx` ON `container_key_epochs` (`container_id`,`key_epoch`);--> statement-breakpoint
-CREATE INDEX `container_key_epochs_access_manifest_idx` ON `container_key_epochs` (`access_manifest_hash`);--> statement-breakpoint
-CREATE INDEX `container_key_epochs_parent_idx` ON `container_key_epochs` (`parent_container_key_epoch_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `container_key_epochs_predecessor_idx` ON `container_key_epochs` (`predecessor_container_key_epoch_id`);--> statement-breakpoint
 CREATE TABLE `container_key_wraps` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -272,7 +267,6 @@ CREATE TABLE `container_key_wraps` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `container_key_wraps_epoch_recipient_idx` ON `container_key_wraps` (`container_key_epoch_id`,`recipient_kind`,`recipient_id`,`recipient_key_epoch_id`);--> statement-breakpoint
 CREATE INDEX `container_key_wraps_recipient_idx` ON `container_key_wraps` (`recipient_kind`,`recipient_id`);--> statement-breakpoint
-CREATE INDEX `container_key_wraps_manifest_idx` ON `container_key_wraps` (`wrap_manifest_hash`);--> statement-breakpoint
 CREATE TABLE `container_metadata_documents` (
 	`container_id` text PRIMARY KEY NOT NULL,
 	`document_id` text NOT NULL,
@@ -295,6 +289,7 @@ CREATE TABLE `container_sync_tombstones` (
 CREATE UNIQUE INDEX `container_sync_tombstones_user_container_idx` ON `container_sync_tombstones` (`user_id`,`container_id`);--> statement-breakpoint
 CREATE INDEX `container_sync_tombstones_user_parent_updated_idx` ON `container_sync_tombstones` (`user_id`,`parent_id`,`updated_at`,`container_id`);--> statement-breakpoint
 CREATE INDEX `container_sync_tombstones_user_root_updated_idx` ON `container_sync_tombstones` (`user_id`,`root_discovery_visible`,`updated_at`,`container_id`);--> statement-breakpoint
+CREATE INDEX `container_sync_tombstones_organization_idx` ON `container_sync_tombstones` (`organization_id`);--> statement-breakpoint
 CREATE TABLE `containers` (
 	`id` text PRIMARY KEY NOT NULL,
 	`organization_id` text NOT NULL,
@@ -329,7 +324,6 @@ CREATE TABLE `document_content_key_epochs` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `document_content_key_epochs_document_epoch_idx` ON `document_content_key_epochs` (`document_id`,`content_key_epoch`);--> statement-breakpoint
-CREATE INDEX `document_content_key_epochs_target_idx` ON `document_content_key_epochs` (`target_hash`);--> statement-breakpoint
 CREATE TABLE `document_content_key_targets` (
 	`id` text PRIMARY KEY NOT NULL,
 	`document_content_key_epoch_id` text NOT NULL,
@@ -343,7 +337,6 @@ CREATE TABLE `document_content_key_targets` (
 	FOREIGN KEY (`document_content_key_epoch_id`) REFERENCES `document_content_key_epochs`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `document_content_key_targets_container_epoch_idx` ON `document_content_key_targets` (`container_key_epoch_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `document_content_key_targets_epoch_container_idx` ON `document_content_key_targets` (`document_content_key_epoch_id`,`container_id`);--> statement-breakpoint
 CREATE TABLE `document_content_write_headers` (
 	`update_id` text PRIMARY KEY NOT NULL,
@@ -627,6 +620,7 @@ CREATE TABLE `organizations` (
 );
 --> statement-breakpoint
 CREATE INDEX `organizations_profile_document_idx` ON `organizations` (`profile_document_id`);--> statement-breakpoint
+CREATE INDEX `organizations_admin_group_idx` ON `organizations` (`admin_group_id`);--> statement-breakpoint
 CREATE TABLE `principal_directory_bindings` (
 	`id` text PRIMARY KEY NOT NULL,
 	`organization_id` text NOT NULL,

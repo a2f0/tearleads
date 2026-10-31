@@ -10,14 +10,17 @@ import type { MultipartBlobPartUpload } from "@tearleads/validators/util";
 import { and, eq, inArray, lte } from "drizzle-orm";
 import type { BlobObjectPart } from "../../adapters/blobObjectStore";
 import {
-  expireBlobStageForCleanup,
+  expireBlobStagesForCleanup,
   type OwnedActiveBlobStage,
 } from "../../workflows/blobs/stageAccess";
 import {
   persistBlobStageInOrganization,
   requireBlobStageOrganizationAccess,
 } from "../../workflows/blobs/stageOrganizationAccess";
-import { storageKeyForBlobStage } from "../../workflows/blobs/storageKeys";
+import {
+  assertBlobStorageKeyOrganization,
+  storageKeyForBlobStage,
+} from "../../workflows/blobs/storageKeys";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   assertMultipartPartFitsStage,
@@ -124,14 +127,23 @@ export async function cleanupExpiredBlobStages(
   const failures: unknown[] = [];
   const cleanedStageIds: string[] = [];
 
-  for (const candidate of stages) {
+  let claimed: readonly OwnedActiveBlobStage[] = [];
+  if (stages.length > 0) {
     try {
       await hooks?.assertObjectDeletionLease();
-      const stage = await expireBlobStageForCleanup(runtime.db, {
+      claimed = await expireBlobStagesForCleanup(runtime.db, {
         now,
-        stageId: candidate.id,
+        stageIds: stages.map((candidate) => candidate.id),
       });
-      if (!stage) continue;
+    } catch (error) {
+      // Nothing was claimed: every candidate stays expired and is retried.
+      failures.push(...stages.map(() => error));
+    }
+  }
+
+  for (const stage of claimed) {
+    try {
+      assertBlobStorageKeyOrganization(stage.storageKey, stage.organizationId);
       if (stage.completedAt === null) {
         await runtime.blobObjectStore.abortMultipartUpload({
           key: stage.storageKey,

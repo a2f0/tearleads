@@ -69,7 +69,6 @@ export const documentContentKeyEpochs = pgTable(
       table.documentId,
       table.contentKeyEpoch,
     ),
-    index("document_content_key_epochs_target_idx").on(table.targetHash),
   ],
 );
 
@@ -134,9 +133,6 @@ export const documentContentKeyTargets = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("document_content_key_targets_container_epoch_idx").on(
-      table.containerKeyEpochId,
-    ),
     uniqueIndex("document_content_key_targets_epoch_container_idx").on(
       table.documentContentKeyEpochId,
       table.containerId,

@@ -46,6 +46,7 @@ export const organizations = pgTable(
   },
   (table) => [
     index("organizations_profile_document_idx").on(table.profileDocumentId),
+    index("organizations_admin_group_idx").on(table.adminGroupId),
   ],
 );
 
