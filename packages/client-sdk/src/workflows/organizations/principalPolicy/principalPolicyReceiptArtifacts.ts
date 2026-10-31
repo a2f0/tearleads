@@ -89,7 +89,10 @@ async function assertContainerMutationAcknowledgements(input: {
       "authored recipient target",
     );
     // The request carries this client's own hash of the manifest it signed,
-    // and that manifest names its epoch and event by hash.
+    // and that manifest names its epoch and event by hash. A carried rekey's
+    // signed body commits its keyring hash, so a substituted keyring must
+    // refuse here, before journal recovery clears the saved request.
+    const committedKeyringHash = Reflect.get(request.body, "keyringHash");
     if (
       response.manifestHead.manifestHash !== request.expectedManifestHash ||
       response.manifestHead.epoch !== Reflect.get(request.manifest, "epoch") ||
@@ -98,6 +101,10 @@ async function assertContainerMutationAcknowledgements(input: {
       response.containerKek.containerKeyEpoch !== keyEpoch.keyEpoch ||
       response.containerKek.keyEpochHash !==
         (await computeContainerKeyEpochHash(keyEpoch)) ||
+      response.containerKek.keyringHash !==
+        (typeof committedKeyringHash === "string"
+          ? committedKeyringHash
+          : null) ||
       response.containerKek.keyTargetHash !==
         (await computeContainerKekRecipientTargetHash(recipientTargets))
     ) {

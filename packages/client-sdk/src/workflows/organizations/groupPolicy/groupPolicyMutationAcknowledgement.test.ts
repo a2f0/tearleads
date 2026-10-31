@@ -294,7 +294,7 @@ test("group policy acknowledgements match container commitments by hash", async 
   };
   const manifestHash = await computeAccessManifestHash(manifest);
   const containerMutation = {
-    body: { eventType: "container.grant" },
+    body: { eventType: "container.rekey", keyringHash: hash("8") },
     event: {},
     expectedManifestHash: manifestHash,
     keyEpoch,
@@ -369,6 +369,18 @@ test("group policy acknowledgements match container commitments by hash", async 
         ...containerResponse.containerKek,
         keyEpochHash: hash("0"),
       },
+    },
+    {
+      // A keyring other than the one the signed rotation committed to.
+      ...containerResponse,
+      containerKek: {
+        ...containerResponse.containerKek,
+        keyringHash: hash("0"),
+      },
+    },
+    {
+      ...containerResponse,
+      containerKek: { ...containerResponse.containerKek, keyringHash: null },
     },
     {
       // A wrap stored for someone else (#2158) changes the target hash.
