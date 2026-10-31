@@ -65,7 +65,7 @@ test(
         total: 31,
         // Provisioned containers are acknowledged by hash, not echoed: 322 KB
         // sent and 233 KB received (305 KB before; register 118 KB -> 63 KB).
-        bodyBytes: { request: 355_000, response: 256_000 },
+        bodyBytes: { request: 355_000, response: 175_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 5,
           "GET /principals/group/:groupId/policy": 0,
@@ -137,7 +137,7 @@ test(
         total: 6,
         // Provisioned containers are acknowledged by hash, not echoed: 230 KB
         // sent and 76 KB received (132 KB before; the create 118 KB -> 63 KB).
-        bodyBytes: { request: 254_000, response: 84_000 },
+        bodyBytes: { request: 254_000, response: 25_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 1,
           "GET /principals/group/:groupId/policy": 0,

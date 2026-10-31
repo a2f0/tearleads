@@ -75,7 +75,7 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // projection cites held KEK levels by digest: 0.59 MB received. Share,
   // recite, and create acknowledgements carry hashes, not echoes (the share
   // 35 KB -> 0.8 KB): 0.51 MB received; keep about 10% headroom.
-  bodyBytes: { request: 130_000, response: 560_000 },
+  bodyBytes: { request: 130_000, response: 530_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,
