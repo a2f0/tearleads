@@ -33,4 +33,5 @@ open PRs and requires the branch to be pushed at its local HEAD. It does not
 push for you. Resolve a fork's head/base identities explicitly if the repository
 uses fork PRs; the initial open helper supports same-repository branches.
 
-Report the created PR link and any remaining validation or review work.
+Report the created PR link and any remaining validation or review work. Run
+`agent-tool teardown` first, stop what the work started, and report what remains.

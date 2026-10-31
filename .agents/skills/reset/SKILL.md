@@ -39,6 +39,8 @@ switch, and update by fast-forward only. Never discard or automatically stash
 edits, force a diverged default branch, or infer shipping from Git ancestry after
 a squash merge.
 
+Run `agent-tool teardown` and stop what the finished work left running
+(`teardown --apply` for recorded processes); report anything that remains.
 Run the repository's documented dependency/hook setup if required. When copied
 hooks are configured, use `agent-tool hooks check` and `hooks install --apply`;
 inspect unmanaged hooks before an explicit `--adopt`, which backs them up.
