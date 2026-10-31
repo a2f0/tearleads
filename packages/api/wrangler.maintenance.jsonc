@@ -1,0 +1,27 @@
+// Published under each tier's API Worker name by
+// scripts/deployApiMaintenance.sh during a greenfield reset; never deployed
+// alone otherwise. The custom domain the edge stack attached stays bound to
+// the Worker name, so the hostname keeps resolving throughout the reset.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "main": "./src/worker/maintenanceModeWorker.ts",
+  "compatibility_date": "2026-08-17",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  // Removes the billing and blob garbage-collection Cron Triggers, so no
+  // scheduled writer runs while the data is replaced.
+  "triggers": { "crons": [] },
+  // Deleting the classes deletes every object in them: sessions, login
+  // challenges, WebSocket tickets, and hibernated socket state. The next
+  // deployApi.sh recreates both namespaces empty. List every class that
+  // wrangler.jsonc exports.
+  "exports": {
+    "KeyValueStore": { "type": "durable-object", "state": "deleted" },
+    "RealtimeHub": { "type": "durable-object", "state": "deleted" }
+  },
+  "env": {
+    "staging": { "name": "tearleads-platform-api-staging" },
+    "prod": { "name": "tearleads-platform-api-prod" }
+  }
+}

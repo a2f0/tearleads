@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Delete a tier's API Worker and its Durable Objects after the edge stack has
-# detached its hostname.
+# detached its hostname. Complete teardown only: `wrangler delete` also removes
+# a custom domain still attached to the Worker, with its DNS record. A
+# greenfield reset uses deployApiMaintenance.sh instead.
 set -euo pipefail
 if [[ $# -ne 1 ]]; then
   echo "Usage: $(basename "$0") <staging|prod>" >&2
