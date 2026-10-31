@@ -159,7 +159,7 @@ test("failure publishing the directory rolls back a newly admitted genesis", asy
     const prefixes = await f.db.select().from(principalHistoryPrefixes);
     await f.options.execSql(`CREATE TRIGGER reject_genesis_directory
       BEFORE INSERT ON principal_policy_checkpoints
-      WHEN NEW.principal_type = 'organization'
+      WHEN NEW.principal_type = 'organization' AND NEW.version IS NOT NULL
       BEGIN SELECT RAISE(ABORT, 'injected genesis directory failure'); END`);
     await expect(
       retainAcknowledgedPrincipalCurrents(f.publication),
