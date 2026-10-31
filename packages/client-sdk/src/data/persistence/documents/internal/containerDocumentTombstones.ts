@@ -1,29 +1,24 @@
-import { and, asc, desc, eq, inArray, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import {
   documentContainerProjection,
   documentProjection,
   documents,
 } from "../../../sqlite/schema";
-import {
-  REMOTE_RESET_SQL_BATCH_SIZE,
-  remoteResetBatches,
-  SQLITE_BOUND_VARIABLE_BUDGET,
-  sqliteRowsPerStatement,
-} from "../../../sqlite/sqliteBindBudget";
+import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
-import { unlinkedDocumentPlacementRows } from "../../container-contents/documentContainerProjectionPersistence";
+import {
+  deleteDocumentPlacementRowsInTransaction,
+  deleteUnlinkedDocumentPlacementRowsInTransaction,
+} from "../../container-contents/documentContainerProjectionPersistence";
 import { filterWritableDocumentPlacements } from "../../container-contents/documentPlacement";
 import { getLatestTimestamp } from "../../latestTimestamp";
 import type { ContainerDocumentTombstoneInput } from "../types";
-import {
-  deleteContainerDocumentTombstoneHoldRows,
-  placementPairsMatch,
-} from "./containerDocumentTombstoneHolds";
+import { deleteContainerDocumentTombstoneHoldRows } from "./containerDocumentTombstoneHolds";
 import {
   documentSummaryJoin,
   documentSummarySelection,
@@ -99,43 +94,11 @@ async function deleteContainerDocumentTombstoneRows(
     ReadonlySet<string>
   >,
 ): Promise<void> {
-  for (const batch of remoteResetBatches(uniqueTombstones)) {
-    await tx
-      .delete(documentContainerProjection)
-      .where(
-        placementPairsMatch(
-          batch,
-          documentContainerProjection.documentId,
-          documentContainerProjection.containerId,
-        ),
-      )
-      .run();
-  }
-  // Each document binds its id and its linked containers; batch the
-  // documents so one statement stays inside SQLite's bind budget.
-  let batch: SQL[] = [];
-  let binds = 0;
-  const flush = async () => {
-    if (batch.length === 0) return;
-    await tx
-      .delete(documentContainerProjection)
-      .where(or(...batch))
-      .run();
-    batch = [];
-    binds = 0;
-  };
-  for (const [documentId, linked] of verifiedLinkedContainerIdsByDocumentId) {
-    const documentBinds = 1 + linked.size;
-    if (
-      batch.length >= REMOTE_RESET_SQL_BATCH_SIZE ||
-      binds + documentBinds > SQLITE_BOUND_VARIABLE_BUDGET
-    ) {
-      await flush();
-    }
-    batch.push(unlinkedDocumentPlacementRows(documentId, linked));
-    binds += documentBinds;
-  }
-  await flush();
+  await deleteDocumentPlacementRowsInTransaction(tx, uniqueTombstones);
+  await deleteUnlinkedDocumentPlacementRowsInTransaction(
+    tx,
+    verifiedLinkedContainerIdsByDocumentId,
+  );
 }
 
 /**
