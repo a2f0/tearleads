@@ -90,21 +90,19 @@ export function needsCorsPreflight(
 
 /**
  * Keeps origin and path of any URL in a runtime message; drops query and
- * fragment. A URL runs to whitespace, a quote, or an angle bracket, so query
- * punctuation such as `)` cannot end it early and leave a value behind.
+ * fragment. A URL runs to the next whitespace, so no query punctuation (a
+ * quote, a parenthesis) can end it early and leave a value behind; trailing
+ * punctuation then lands in the kept path, percent-encoded.
  */
 export function redactUrls(text: string): string {
-  const redacted = text.replace(
-    /\b(?:https?|wss?):\/\/[^\s"'<>]+/giu,
-    (raw) => {
-      try {
-        const url = new URL(raw);
-        return `${url.origin}${url.pathname}`;
-      } catch {
-        return "[url]";
-      }
-    },
-  );
+  const redacted = text.replace(/\b(?:https?|wss?):\/\/\S+/giu, (raw) => {
+    try {
+      const url = new URL(raw);
+      return `${url.origin}${url.pathname}`;
+    } catch {
+      return "[url]";
+    }
+  });
   return redacted.length > MAX_MESSAGE_LENGTH
     ? `${redacted.slice(0, MAX_MESSAGE_LENGTH)}...`
     : redacted;

@@ -317,6 +317,10 @@ test("URL redaction keeps origin and path and bounds the length", () => {
     "https://h.test/x?token=abc)secret",
     "https://h.test/x?token=a,b;c(secret)",
     "https://h.test/x#frag)secret",
+    "https://h.test/x?token=a'secret",
+    'https://h.test/x?token=a"secret',
+    "https://h.test/x?token=a<secret>",
+    "https://h.test/x?token=a`secret",
     "https://user:secret@h.test/x",
   ]) {
     expect(redactUrls(`failed (${raw}) now`)).not.toContain("secret");
