@@ -342,3 +342,45 @@ test("closes and retries a socket whose opening handshake stalls", async () => {
 
   stop();
 });
+
+test("reports each attempt's start and a failure before any socket binds", async () => {
+  const sockets: FakeSocket[] = [];
+  const timers: Array<() => void> = [];
+  const tickets: Array<string | null> = [null, "ticket"];
+  const calls: string[] = [];
+  const stop = startServerEventsConnectionLoop(
+    {
+      onAttemptFailed: () => calls.push("failed"),
+      onAttemptStart: () => calls.push("start"),
+      onDisconnect: () => calls.push("disconnect"),
+      onMessage: () => undefined,
+      onOpen: () => calls.push("open"),
+      requestTicket: async () => tickets.shift() ?? null,
+      wsUrl: "ws://events.example.test/events",
+    },
+    {
+      createSocket: (url) => {
+        const socket = new FakeSocket(url);
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+      random: () => 0.5,
+      scheduleTimer: (callback) => {
+        timers.push(callback);
+        return timers.length as unknown as ReturnType<typeof setTimeout>;
+      },
+    },
+  );
+
+  await flushAsyncWork();
+  // No ticket: the attempt ends before a socket exists.
+  expect(calls).toEqual(["start", "failed"]);
+
+  timers.shift()?.();
+  await flushAsyncWork();
+  sockets[0]?.open();
+  sockets[0]?.close();
+  // A bound socket ends its attempt through the disconnect callback alone.
+  expect(calls).toEqual(["start", "failed", "start", "open", "disconnect"]);
+  stop();
+});

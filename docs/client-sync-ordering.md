@@ -100,7 +100,11 @@ a remote-revalidation signal. The following signals require a probe:
 
 - initializing an opened store from a persisted record with a remote
   `documentId` arms one startup probe, because websocket hints are volatile and
-  do not survive process restart;
+  do not survive process restart. When a server-events connect attempt is in
+  flight, the probe waits on that attempt instead: its acknowledgement arms the
+  reconnect probe below, which covers strictly more, and an attempt that ends
+  without one (no ticket, a failed socket, an unready tree at open, or the
+  binding stopping) releases the startup probe at once;
 - after a server-events disconnect, the client waits for the local container
   tree to be ready, sends its authoritative interest set, and advances a
   monotonic connection generation only after the server acknowledges that it

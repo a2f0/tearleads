@@ -2,6 +2,7 @@ import type { Tearleads } from "@tearleads/client-sdk";
 
 import { useEffect, useState } from "react";
 import type { SubscribeConnectionRefreshFn } from "../../host/AppHostConfig";
+import { trackConnectAttempts } from "./connectAttemptTracker";
 import {
   type ContainerInterestDeclaration,
   startContainerInterestDeclaration,
@@ -212,7 +213,10 @@ export function useServerEventsBinding(
       detachOrganizationSocket?.();
       detachOrganizationSocket = null;
     };
-    return startServerEventsConnectionLoop({
+    const attempts = trackConnectAttempts(tearleads.events);
+    const stopLoop = startServerEventsConnectionLoop({
+      onAttemptStart: attempts.begin,
+      onAttemptFailed: attempts.end,
       onDisconnect: () => {
         stopDeclarations();
         tearleads.events.setConnected(false);
@@ -270,6 +274,10 @@ export function useServerEventsBinding(
         // has synchronously installed the authoritative current set.
         interestHandle?.stop();
         interestHandle = startContainerInterestDeclaration(tearleads, ws);
+        // An unready tree holds the declaration unboundedly: stop deferring.
+        if (interestHandle.awaitingInitialAcknowledgement()) {
+          attempts.awaitAcknowledgement();
+        } else attempts.end();
         detachOrganizationSocket?.();
         detachOrganizationSocket = attachOrganizationReadModelSocket(
           tearleads,
@@ -279,6 +287,7 @@ export function useServerEventsBinding(
       requestTicket: () => tearleads.requestWebSocketTicket(),
       wsUrl,
     });
+    return attempts.endingWith(stopLoop);
   }, [
     authToken,
     log,
