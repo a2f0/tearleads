@@ -262,6 +262,7 @@ function lockBindAttachmentAuthorization(
     blobId: input.blobId,
     contentKeyTargets: input.request.contentKeyBundle.targets,
     documentId,
+    documentSync: input.request.documentSync,
     executor: tx,
     proof,
     request: input.request,

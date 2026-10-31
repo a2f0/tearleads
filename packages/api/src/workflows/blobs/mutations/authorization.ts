@@ -302,10 +302,13 @@ export async function lockAttachmentAuthorizationForShare(input: {
   readonly blobId?: string;
   readonly contentKeyTargets?: readonly BlobContentKeyTargetEnvelopeRequest[];
   readonly documentId: string;
+  /** The bind's validated carried sync; detach never passes one. */
+  readonly documentSync?: DocumentSyncRequest | undefined;
   readonly executor: DatabaseTransaction;
   readonly proof: AttachmentAuthorizationProof;
   readonly request: BlobAttachmentBindRequest | BlobAttachmentDetachRequest;
 }): Promise<void> {
+  const { documentSync } = input;
   const existingBlobResolution =
     input.blobId === undefined || input.contentKeyTargets === undefined
       ? { concealed: false, targets: [] }
@@ -347,8 +350,6 @@ export async function lockAttachmentAuthorizationForShare(input: {
   // the plan) and its own authorizing paths, which may name other ancestors.
   // Take them here, ahead of the blob rows, with the document head FOR UPDATE:
   // the sync then locks nothing new after the bind's blob-row locks.
-  const documentSync =
-    "documentSync" in input.request ? input.request.documentSync : undefined;
   const lockPlan = createAttachmentAuthorizationLockPlan({
     authorizingContainerIds: [
       ...authorizingContainerIds,

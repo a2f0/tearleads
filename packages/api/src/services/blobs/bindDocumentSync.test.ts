@@ -7,14 +7,18 @@ import {
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type {
   BlobAttachmentBindRequest,
+  BlobAttachmentDetachRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
+  bindForTest,
   blobAttachmentTestRuntime,
   buildBind,
+  buildDetach,
+  detachForTest,
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
 import { createFirstUpdateSyncRequest } from "../../../test/helpers/documentUpdateRequests";
@@ -121,6 +125,39 @@ test("a bind without a document sync reports none", async () => {
     bindingBlobIds: [blobId],
     updateIds: [],
   });
+}, 20_000);
+
+test("a detach ignores a stray documentSync field", async () => {
+  const fixture = await documentWithRoot();
+  const blobId = crypto.randomUUID();
+  const { binding, request } = await buildBind({
+    blobId,
+    document: fixture.document,
+    owner: fixture.owner,
+    root: fixture.root,
+    stagedBlob: await stageBlob(fixture.owner, blobId),
+  });
+  await bindForTest({ blobId, owner: fixture.owner, request });
+  const detach = await buildDetach({ binding, ...fixture });
+  // The detach schema keeps unknown fields; only a bind's validated sync may
+  // reach the lock plan.
+  const stray = {
+    ...detach,
+    documentSync: { authorizingContainerPathRefs: "x" },
+  } as BlobAttachmentDetachRequest;
+
+  await detachForTest({
+    binding,
+    blobId,
+    owner: fixture.owner,
+    request: stray,
+  });
+
+  const [row] = await db
+    .select({ detachedAt: attachmentBindings.detachedAt })
+    .from(attachmentBindings)
+    .where(eq(attachmentBindings.blobId, blobId));
+  expect(row?.detachedAt).toBeInstanceOf(Date);
 }, 20_000);
 
 test("a document sync the sync route would refuse fails the whole bind", async () => {
