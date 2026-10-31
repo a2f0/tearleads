@@ -64,6 +64,7 @@ export {
   BlobContentKeyTargetEnvelopeResponseSchema,
   type BlobKekTargetsResponse,
   BlobKekTargetsResponseSchema,
+  blobAttachmentSummaryFromStagedBind,
   type InitiateMultipartBlobStageResponse,
   InitiateMultipartBlobStageResponseSchema,
   isBlobAttachmentBindResponse,

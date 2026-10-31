@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
@@ -7,6 +6,7 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
+import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import {
   DOCUMENT_MUTATION_ERROR_CODES,
   type DocumentWriterProjectionResponse,
@@ -22,6 +22,7 @@ import {
   createResponseFromRequest,
 } from "../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
+import { acknowledgedDocumentCreate } from "../../../data/documents/shared/responses";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   createRemoteDocument,
@@ -83,11 +84,12 @@ test("createRemoteDocument submits the materialized request and persists the ver
     throw new Error("Expected create plan on a fresh create result");
   }
   expect(submittedRequests).toHaveLength(1);
+  const acknowledged = acknowledgedDocumentCreate(created.plan, response);
   expect(created.persistedState).toEqual({
     documentId: "document-remote",
-    contentKeyBundle: JSON.stringify(response.contentKeyBundle),
-    documentKekTargets: JSON.stringify(response.documentKekTargets),
-    documentManifestBundle: JSON.stringify(response.accessManifest),
+    contentKeyBundle: JSON.stringify(acknowledged.contentKeyBundle),
+    documentKekTargets: JSON.stringify(acknowledged.documentKekTargets),
+    documentManifestBundle: JSON.stringify(acknowledged.accessManifest),
   });
   expect(created.writerProjection).toEqual({
     policyEvidence: {
@@ -96,7 +98,7 @@ test("createRemoteDocument submits the materialized request and persists the ver
       groups: [],
     },
     authorizingContainerPaths: [projection],
-    contentKeyBundle: response.contentKeyBundle,
+    contentKeyBundle: acknowledged.contentKeyBundle,
     documentContainerManifestHistory: [
       ...projection.path,
       ...projection.containerKeks.flatMap(
@@ -104,8 +106,8 @@ test("createRemoteDocument submits the materialized request and persists the ver
       ),
     ],
     documentId: "document-remote",
-    documentKekTargets: response.documentKekTargets,
-    documentManifest: response.accessManifest,
+    documentKekTargets: acknowledged.documentKekTargets,
+    documentManifest: acknowledged.accessManifest,
     documentManifestContainerPaths: [[...projection.path]],
     documentManifestHistory: [],
   });
@@ -131,72 +133,87 @@ test("createRemoteDocument submits the materialized request and persists the ver
   close();
 });
 
-test("createRemoteDocument rejects a mismatched event body without pinning it", async () => {
-  const { author, signingPublicKey } = await createAuthor();
-  const keyPair = generateKemSeedAndKeyPair();
-  const documentId = "document-tampered-ack";
-  const projection = await createContainerWriterProjectionFixture({
-    containerId: "tampered-ack-container",
-    encapsulationPublicKey: keyPair.publicKey,
-    organizationId: author.organizationId,
-    signerKeyFingerprint: author.signerKeyFingerprint,
-    signerPrivateKey: author.signerPrivateKey,
-    userId: author.signerUserId,
+const createAcknowledgementTampers: readonly {
+  readonly label: string;
+  readonly message: string;
+  readonly tamper: (response: DocumentCreateResponse) => DocumentCreateResponse;
+}[] = [
+  {
+    label: "event hash",
+    message: "Document create response manifest hash mismatch",
+    tamper: (response) => ({ ...response, eventHash: "0".repeat(64) }),
+  },
+  {
+    label: "manifest hash",
+    message: "Document create response manifest hash mismatch",
+    tamper: (response) => ({ ...response, manifestHash: "0".repeat(64) }),
+  },
+  {
+    label: "target hash",
+    message: "Document create response target hash mismatch",
+    tamper: (response) => ({ ...response, targetHash: "0".repeat(64) }),
+  },
+  {
+    label: "content-key epoch",
+    message: "Document create response content-key epoch mismatch",
+    tamper: (response) => ({
+      ...response,
+      contentKeyEpoch: response.contentKeyEpoch + 1,
+    }),
+  },
+];
+
+for (const { label, message, tamper } of createAcknowledgementTampers) {
+  test(`createRemoteDocument rejects a tampered ${label} without pinning it`, async () => {
+    const { author, signingPublicKey } = await createAuthor();
+    const keyPair = generateKemSeedAndKeyPair();
+    const documentId = "document-tampered-ack";
+    const projection = await createContainerWriterProjectionFixture({
+      containerId: "tampered-ack-container",
+      encapsulationPublicKey: keyPair.publicKey,
+      organizationId: author.organizationId,
+      signerKeyFingerprint: author.signerKeyFingerprint,
+      signerPrivateKey: author.signerPrivateKey,
+      userId: author.signerUserId,
+    });
+    const { close, execSql } = await createTestExecSql(
+      "remote-document-tampered-ack",
+    );
+    try {
+      await expect(
+        createRemoteDocument({
+          apiClient: createMockApiClient({
+            createDocument: async (request) =>
+              tamper(await createResponseFromRequest(request)),
+            getContainerWriterProjection: async () => projection,
+            primeDocumentWriterProjection: () => undefined,
+          }),
+          author,
+          containerId: projection.containerId,
+          documentId,
+          execSql,
+          resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+            encapsulationPublicKey: keyPair.publicKey,
+            signingKeyFingerprint: author.signerKeyFingerprint,
+            signingPublicKey,
+            userId: author.signerUserId,
+          }),
+          targetSecretKey: keyPair.secretKey,
+        }),
+      ).rejects.toThrow(message);
+      await expect(
+        loadAccessManifestCheckpoint(
+          execSql,
+          "document",
+          projection.organizationId,
+          documentId,
+        ),
+      ).resolves.toBeNull();
+    } finally {
+      close();
+    }
   });
-  const { close, execSql } = await createTestExecSql(
-    "remote-document-tampered-ack",
-  );
-  try {
-    await expect(
-      createRemoteDocument({
-        apiClient: createMockApiClient({
-          createDocument: async (request) => {
-            const response = await createResponseFromRequest(request);
-            return {
-              ...response,
-              accessManifest: {
-                ...response.accessManifest,
-                event: {
-                  ...response.accessManifest.event,
-                  body: {
-                    ...(response.accessManifest.event.body as Record<
-                      string,
-                      unknown
-                    >),
-                    containerId: "substituted-container",
-                  },
-                },
-              },
-            };
-          },
-          getContainerWriterProjection: async () => projection,
-          primeDocumentWriterProjection: () => undefined,
-        }),
-        author,
-        containerId: projection.containerId,
-        documentId,
-        execSql,
-        resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
-          encapsulationPublicKey: keyPair.publicKey,
-          signingKeyFingerprint: author.signerKeyFingerprint,
-          signingPublicKey,
-          userId: author.signerUserId,
-        }),
-        targetSecretKey: keyPair.secretKey,
-      }),
-    ).rejects.toThrow("Document create response event body mismatch");
-    await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
-        "document",
-        projection.organizationId,
-        documentId,
-      ),
-    ).resolves.toBeNull();
-  } finally {
-    close();
-  }
-});
+}
 
 test("createRemoteDocument adopts an existing remote document when a retry with a stable id conflicts", async () => {
   const { author, signingPublicKey } = await createAuthor();

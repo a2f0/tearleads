@@ -23,6 +23,7 @@ import {
   writerResolver,
 } from "../../../test/helpers/coldSdkRematerialization";
 import { grantContainerThroughReadGroup } from "../../../test/helpers/containerGroupGrant";
+import { documentFixtureFromWriterProjection } from "../../../test/helpers/documentAcknowledgementFixture";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createChildContainerFixture } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
@@ -106,7 +107,10 @@ test("an organization member verifies a document's inaccessible sibling-containe
     expect(written?.settledPendingUpdateIds).toContain(updateId);
     const request = await buildDocumentLinkRequest({
       child: readable.response,
-      createdDocument: created.response,
+      createdDocument: documentFixtureFromWriterProjection(
+        created.response,
+        created.writerProjection,
+      ),
       owner,
       root,
       authorizingContainerPath: [root.bundle, sibling.response.accessManifest],

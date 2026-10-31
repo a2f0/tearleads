@@ -4,10 +4,10 @@ import type {
   DocumentCreateRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
-import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
   createResponseFromRequest,
+  type DocumentCreateFixture,
 } from "../../../../../test/helpers/documentFixtures";
 import {
   createEchoDocumentSyncResponse,
@@ -28,7 +28,7 @@ test("a document opened with its fields and rows is created with them as its see
   const { close, execSql } = await createTestExecSql("initial-content-online");
   const creates: DocumentCreateRequest[] = [];
   const syncs: DocumentSyncRequest[] = [];
-  let storedDocument: DocumentCreateResponse | null = null;
+  let storedDocument: DocumentCreateFixture | null = null;
   const apiClient = createMockApiClient({
     // Acknowledges a seed the way the API does once it commits it.
     async createDocumentResult(request: DocumentCreateRequest) {

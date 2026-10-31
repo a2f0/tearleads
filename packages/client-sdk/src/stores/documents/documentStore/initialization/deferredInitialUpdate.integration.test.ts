@@ -4,10 +4,7 @@ import type {
   BlobAttachmentBindRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
-import type {
-  BlobAttachmentSummary,
-  DocumentCreateResponse,
-} from "@tearleads/validators/response";
+import type { BlobAttachmentSummary } from "@tearleads/validators/response";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
@@ -15,6 +12,7 @@ import {
 import {
   createMaterializedSyncFixture,
   createResponseFromRequest,
+  type DocumentCreateFixture,
 } from "../../../../../test/helpers/documentFixtures";
 import {
   attachmentSummaryFromBind,
@@ -34,7 +32,7 @@ test("an online deferred import sends its birth, fields and attachment as one up
   const { close, execSql } = await createTestExecSql("deferred-birth-online");
   const outgoingUpdateCounts: number[] = [];
   const attachments: BlobAttachmentSummary[] = [];
-  let storedDocument: DocumentCreateResponse | null = null;
+  let storedDocument: DocumentCreateFixture | null = null;
   let completedSyncLaneRuns = 0;
   const multipartApi = createMultipartBlobStageFixture();
   const apiClient = createMockApiClient({

@@ -33,7 +33,7 @@ async function createProvisionedSystemContainer(
     });
   assertContainerSystemSlot(container, input.request.systemSlot ?? null);
 
-  const metadataDocument = await createDocumentWithExecutor({
+  const { created: metadataDocument } = await createDocumentWithExecutor({
     executor: tx,
     fingerprint: input.signer.fingerprint,
     request: input.request.metadataDocument,

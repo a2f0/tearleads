@@ -1,5 +1,6 @@
 import type {
-  DocumentCreateResponse,
+  AccessManifestBundleWireResponse,
+  DocumentContentKeyBundleResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -120,9 +121,9 @@ function parsePersistedDocumentSyncState(
   persistedState: PersistedDocumentSyncState | null | undefined,
   documentId: string,
 ): {
-  contentKeyBundle: DocumentCreateResponse["contentKeyBundle"];
+  contentKeyBundle: DocumentContentKeyBundleResponse;
   documentKekTargets: DocumentSyncResponse["documentKekTargets"];
-  documentManifest: DocumentCreateResponse["accessManifest"];
+  documentManifest: AccessManifestBundleWireResponse;
 } | null {
   if (persistedState?.documentId !== documentId) {
     return null;

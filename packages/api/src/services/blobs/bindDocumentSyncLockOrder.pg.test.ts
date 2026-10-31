@@ -7,7 +7,6 @@ import {
 } from "@tearleads/api-shared/schema";
 import { readKeyingCanonicalJson } from "@tearleads/crypto";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
-import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -16,6 +15,7 @@ import {
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
+import type { CreatedDocumentFixture } from "../../../test/helpers/documentAcknowledgementFixture";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import {
   createFirstUpdateSyncRequest,
@@ -49,7 +49,7 @@ async function documentWithRoot() {
 
 /** A staged bind that carries the document's first update. */
 async function bindWithDocumentSync(input: {
-  readonly document: DocumentCreateResponse;
+  readonly document: CreatedDocumentFixture;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
   readonly slotId: string;
@@ -151,7 +151,7 @@ test.skipIf(!isPostgres)(
 );
 
 async function linkWithBlobRewrap(input: {
-  readonly document: DocumentCreateResponse;
+  readonly document: CreatedDocumentFixture;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
 }) {

@@ -21,13 +21,13 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
 } from "@tearleads/validators/request";
-import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import {
   bindBlobAttachment,
   detachBlobAttachment,
 } from "../../src/services/blobs/blobMutations";
 import { fixtureBlobMetadataHash } from "./blobEnvelope";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
+import type { CreatedDocumentFixture } from "./documentAcknowledgementFixture";
 import {
   asVerifiedContainerManifest,
   createSignedAccessEvent,
@@ -44,7 +44,7 @@ import { stageBlobEnvelopeFixture } from "./stagedBlobEnvelope";
 export const blobAttachmentTestRuntime = createServiceTestRuntime();
 
 function documentManifest(
-  document: DocumentCreateResponse,
+  document: CreatedDocumentFixture,
 ): VerifiedDocumentLinkSetManifest {
   return document.accessManifest as unknown as VerifiedDocumentLinkSetManifest;
 }
@@ -129,8 +129,8 @@ export async function buildBind(input: {
   readonly activeBindings?: readonly VerifiedAttachmentBinding[];
   readonly blobId: string;
   readonly contentKeyEpoch?: number;
-  readonly document: DocumentCreateResponse;
-  readonly documents?: readonly DocumentCreateResponse[];
+  readonly document: CreatedDocumentFixture;
+  readonly documents?: readonly CreatedDocumentFixture[];
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
   readonly containerPath?: readonly AccessManifestBundleWire[];
@@ -228,7 +228,7 @@ export async function buildBind(input: {
 
 export async function buildDetach(input: {
   readonly binding: VerifiedAttachmentBinding;
-  readonly document: DocumentCreateResponse;
+  readonly document: CreatedDocumentFixture;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
   readonly containerPath?: readonly AccessManifestBundleWire[];

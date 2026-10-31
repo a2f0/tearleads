@@ -1,5 +1,6 @@
 import type {
-  DocumentCreateResponse,
+  AccessManifestBundleWireResponse,
+  DocumentContentKeyBundleResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -15,9 +16,9 @@ import {
 
 interface SyncPlanProjectionMaterial {
   readonly contentKey: Uint8Array;
-  readonly contentKeyBundle: DocumentCreateResponse["contentKeyBundle"];
+  readonly contentKeyBundle: DocumentContentKeyBundleResponse;
   readonly documentKekTargets: DocumentSyncResponse["documentKekTargets"];
-  readonly documentManifest: DocumentCreateResponse["accessManifest"];
+  readonly documentManifest: AccessManifestBundleWireResponse;
   readonly healedStaleContentKeyBundle: boolean;
   readonly heldBackPendingUpdateIds: readonly string[];
   readonly staleRecoveryBaselineUpdateId?: string | undefined;

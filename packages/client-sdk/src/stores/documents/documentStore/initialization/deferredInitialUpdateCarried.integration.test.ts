@@ -4,10 +4,7 @@ import type {
   BlobAttachmentBindRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
-import type {
-  BlobAttachmentSummary,
-  DocumentCreateResponse,
-} from "@tearleads/validators/response";
+import type { BlobAttachmentSummary } from "@tearleads/validators/response";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
@@ -15,6 +12,7 @@ import {
 import {
   createMaterializedSyncFixture,
   createResponseFromRequest,
+  type DocumentCreateFixture,
 } from "../../../../../test/helpers/documentFixtures";
 import {
   attachmentSummaryFromBind,
@@ -44,7 +42,7 @@ async function runDeferredImport(name: string, outcome: BindOutcome) {
   const binds: BlobAttachmentBindRequest[] = [];
   const syncedUpdateIds: string[] = [];
   const attachments: BlobAttachmentSummary[] = [];
-  let storedDocument: DocumentCreateResponse | null = null;
+  let storedDocument: DocumentCreateFixture | null = null;
   let refusedBlobId: string | null = null;
   let relinkMidBind: (() => Promise<unknown>) | null = null;
   const apiClient = createMockApiClient({

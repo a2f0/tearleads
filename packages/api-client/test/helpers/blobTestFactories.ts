@@ -2,7 +2,11 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
 } from "@tearleads/validators/request";
-import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
+import {
+  type BlobAttachmentBindResponse,
+  type BlobAttachmentSummary,
+  blobAttachmentSummaryFromStagedBind,
+} from "@tearleads/validators/response";
 
 export function createBlobAttachmentBindRequest(): BlobAttachmentBindRequest {
   return {
@@ -25,6 +29,7 @@ export function createBlobAttachmentBindRequest(): BlobAttachmentBindRequest {
       ],
     },
     event: {},
+    stagedBlob: { stageId: "stage-1", writeHeader: {} },
   };
 }
 
@@ -52,30 +57,22 @@ export function createBlobAttachmentBindResponse(): BlobAttachmentBindResponse {
     bindingId: "binding-1",
     blobId: "blob-1",
     blobKekTargets,
-    bindingEvent: { body: {}, event: {}, eventHash: "binding-event-hash" },
-    documentManifestHash: "document-manifest-hash",
-    previousBindingId: null,
-    writeAuthorization: blobKekTargets,
-    writeHeader: {},
-    writeHeaderHash: "write-header-hash",
-    contentKeyBundle: {
-      blobId: "blob-1",
-      contentKeyEpoch: 1,
-      targetHash: "blob-target-hash",
-      targets: [
-        {
-          bindingId: "binding-1",
-          containerId: "container-1",
-          containerKeyEpoch: 1,
-          containerKeyEpochId: "container-key-epoch-id",
-          containerManifestHash: "container-manifest-hash",
-          documentId: "document-1",
-          wrappedKey: "wrapped-key",
-          wrappingMetadata: {},
-        },
-      ],
-    },
+    contentKeyEpoch: 1,
     documentId: "document-1",
+    documentManifestHash: "document-manifest-hash",
+    eventHash: "binding-event-hash",
+    previousBindingId: null,
     slotId: "slot-a",
+    writeHeaderHash: "write-header-hash",
   };
+}
+
+/** The listing entry the fixture bind commits. */
+export function createBlobAttachmentSummary(): BlobAttachmentSummary {
+  const request = createBlobAttachmentBindRequest();
+  if (!request.stagedBlob) throw new Error("Expected a staged bind request");
+  return blobAttachmentSummaryFromStagedBind(
+    { ...request, stagedBlob: request.stagedBlob },
+    createBlobAttachmentBindResponse(),
+  );
 }

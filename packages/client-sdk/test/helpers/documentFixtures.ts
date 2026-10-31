@@ -29,6 +29,7 @@ export {
   createSignedSyncResponseUpdate,
   createSyncFixture,
   createSyncResponse,
+  type DocumentCreateFixture,
   getOnlyTarget,
   projectionPathRefs,
 } from "./documentResponseFixtures";

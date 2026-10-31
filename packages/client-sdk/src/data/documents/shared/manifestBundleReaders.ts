@@ -5,7 +5,7 @@ import {
   deriveDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
-import type { DocumentCreateResponse } from "@tearleads/validators/response";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import {
   canonicalKeyingJsonString,
   readCanonicalRecord,
@@ -63,7 +63,7 @@ export function serializeCanonical(value: unknown, label: string): string {
 }
 
 export async function assertDocumentManifestBundleConsistent(input: {
-  bundle: DocumentCreateResponse["accessManifest"];
+  bundle: AccessManifestBundleWireResponse;
   label: string;
 }): Promise<{ documentId: string; organizationId: string }> {
   const manifestHash = await computeAccessManifestHash(

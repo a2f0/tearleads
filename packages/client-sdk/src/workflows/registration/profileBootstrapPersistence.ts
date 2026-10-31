@@ -34,7 +34,7 @@ export function buildOrganizationProfileBootstrapInput(
   }
   return {
     accessEpoch: 1,
-    accessStateHash: document.accessManifest.manifestHash,
+    accessStateHash: document.manifestHash,
     containerId: input.containerId,
     documentId: document.id,
     documentState: persistedDocumentCreateStateFromResponse(
@@ -58,7 +58,7 @@ export function buildRosterProfileBootstrapInput(
   }
   return {
     accessEpoch: 1,
-    accessStateHash: document.accessManifest.manifestHash,
+    accessStateHash: document.manifestHash,
     containerId: input.containerId,
     documentId: document.id,
     documentState: persistedDocumentCreateStateFromResponse(

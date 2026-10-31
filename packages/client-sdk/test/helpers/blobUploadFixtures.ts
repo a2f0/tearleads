@@ -7,8 +7,9 @@ import {
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import type {
+  AccessManifestBundleWireResponse,
   BlobAttachmentBindResponse,
-  DocumentCreateResponse,
+  BlobAttachmentSummary,
 } from "@tearleads/validators/response";
 import type { BlobAttachmentApi } from "../../src/data/blobs/attachments/types";
 import {
@@ -198,11 +199,18 @@ export function createMultipartBlobStageFixture(
   };
 }
 
+/**
+ * A bind acknowledgement plus the listing entry it commits, so a mock server
+ * can return the response and list the binding afterwards.
+ */
+export type BlobAttachmentBindFixture = BlobAttachmentBindResponse &
+  BlobAttachmentSummary;
+
 export async function createBlobAttachmentBindResponse(input: {
   readonly blobId: string;
-  readonly documentManifest: DocumentCreateResponse["accessManifest"];
+  readonly documentManifest: AccessManifestBundleWireResponse;
   readonly request: BlobAttachmentBindRequest;
-}): Promise<BlobAttachmentBindResponse> {
+}): Promise<BlobAttachmentBindFixture> {
   const body = input.request.body as Record<string, unknown>;
   const bindingId = String(Reflect.get(body, "bindingId"));
   const documentId = String(Reflect.get(body, "documentId"));
@@ -238,15 +246,18 @@ export async function createBlobAttachmentBindResponse(input: {
   if (!stagedWriteHeader)
     throw new Error("Upload fixture requires a staged write header");
 
+  const eventHash = await computeAccessEventHash(
+    input.request.event as unknown as AccessEvent,
+  );
   return {
     bindingEvent: {
       body: input.request.body,
       event: input.request.event,
-      eventHash: await computeAccessEventHash(
-        input.request.event as unknown as AccessEvent,
-      ),
+      eventHash,
     },
     bindingId,
+    contentKeyEpoch: input.request.contentKeyBundle.contentKeyEpoch,
+    eventHash,
     blobId: input.blobId,
     documentId,
     documentManifestHash: input.documentManifest.manifestHash,

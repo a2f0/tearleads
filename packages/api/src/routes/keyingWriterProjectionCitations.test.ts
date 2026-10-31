@@ -272,7 +272,7 @@ test(
     );
     expect(served.has(parent2.bundle.manifestHash)).toBe(true);
     expect(projection.documentManifest.manifestHash).toBe(
-      document.accessManifest.manifestHash,
+      document.manifestHash,
     );
   },
   LINEAGE_TEST_TIMEOUT_MS,

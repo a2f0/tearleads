@@ -21,6 +21,7 @@ import type {
   KeyingCanonicalJson,
 } from "@tearleads/crypto";
 import {
+  computeAccessEventHash,
   computeAccessManifestHash,
   computeDocumentContentKeyTargetHash,
   deriveDocumentLinkSetManifest,
@@ -35,7 +36,6 @@ import type {
 import {
   type ContainerMutationResponse,
   DOCUMENT_PROJECTION_ERROR_CODES,
-  type DocumentLinkSetMutationResponse,
   type DocumentWriterProjectionResponse,
   isContainerMutationResponse,
   isContainerWriterProjectionResponse,
@@ -53,6 +53,10 @@ import {
 } from "../../test/helpers/containerRekey";
 import { contentKeyEnvelopeFixture } from "../../test/helpers/contentKeyEnvelope";
 import { currentDocumentLinkRows } from "../../test/helpers/currentDocumentLinks";
+import {
+  type LinkedDocumentFixture,
+  withDocumentMutationArtifacts,
+} from "../../test/helpers/documentAcknowledgementFixture";
 import {
   createSignedAtomicRotationBaseline,
   createSignedDocumentSyncRequest,
@@ -164,8 +168,11 @@ test("POST /documents applies optional container rekeys before target validation
   });
 
   expect(response.status).toBe(200);
-  const created = await response.json();
-  expect(isDocumentCreateResponse(created)).toBe(true);
+  const createdBody = await response.json();
+  expect(isDocumentCreateResponse(createdBody)).toBe(true);
+  // The acknowledgement commits the target set the request wrapped to.
+  expect(createdBody.targetHash).toBe(request.contentKeyBundle.targetHash);
+  const created = withDocumentMutationArtifacts(request, createdBody);
   expect(created.documentKekTargets.linkedContainerKeyEpochIds).toEqual([
     rootRekey.kekState.containerKeyEpochId,
   ]);
@@ -222,7 +229,7 @@ async function buildDocumentLinkRequest(input: {
     objectKind: "document",
     organizationId: asVerifiedContainerManifest(input.root.bundle).state
       .organizationId,
-    previousManifestHash: input.createdDocument.accessManifest.manifestHash,
+    previousManifestHash: input.createdDocument.manifestHash,
     signer: input.owner,
   });
   const state: DocumentLinkSetManifestState = {
@@ -234,7 +241,7 @@ async function buildDocumentLinkRequest(input: {
       typeof Reflect.get(previousState, "epoch") === "number"
         ? Number(Reflect.get(previousState, "epoch")) + 1
         : 2,
-    previousManifestHash: input.createdDocument.accessManifest.manifestHash,
+    previousManifestHash: input.createdDocument.manifestHash,
     eventHash: event.eventHash,
     linkedContainerIds: [
       input.root.kekState.containerId,
@@ -285,7 +292,7 @@ async function buildDocumentLinkRequest(input: {
       ],
     ],
     contentKeyBundle: {
-      contentKeyEpoch: input.createdDocument.contentKeyBundle.contentKeyEpoch,
+      contentKeyEpoch: input.createdDocument.contentKeyEpoch,
       linkSetManifestHash: manifestHash,
       targetHash,
       targets: [
@@ -307,7 +314,7 @@ async function buildDocumentLinkRequest(input: {
 
 async function buildDocumentUnlinkRequest(input: {
   readonly child: ContainerMutationResponse;
-  readonly linkedDocument: DocumentLinkSetMutationResponse;
+  readonly linkedDocument: LinkedDocumentFixture;
   readonly owner: TestUser;
   readonly rotationBaselineSourceVersionVector?: string;
   readonly root: StoredRootFixture;
@@ -331,7 +338,7 @@ async function buildDocumentUnlinkRequest(input: {
     objectKind: "document",
     organizationId: asVerifiedContainerManifest(input.root.bundle).state
       .organizationId,
-    previousManifestHash: input.linkedDocument.accessManifest.manifestHash,
+    previousManifestHash: input.linkedDocument.manifestHash,
     signer: input.owner,
   });
   const state: DocumentLinkSetManifestState = {
@@ -343,7 +350,7 @@ async function buildDocumentUnlinkRequest(input: {
       typeof Reflect.get(previousState, "epoch") === "number"
         ? Number(Reflect.get(previousState, "epoch")) + 1
         : 3,
-    previousManifestHash: input.linkedDocument.accessManifest.manifestHash,
+    previousManifestHash: input.linkedDocument.manifestHash,
     eventHash: event.eventHash,
     linkedContainerIds: [input.root.kekState.containerId],
   };
@@ -358,8 +365,7 @@ async function buildDocumentUnlinkRequest(input: {
   const targetHash = await computeDocumentContentKeyTargetHash([
     remainingTarget,
   ]);
-  const contentKeyEpoch =
-    input.linkedDocument.contentKeyBundle.contentKeyEpoch + 1;
+  const contentKeyEpoch = input.linkedDocument.contentKeyEpoch + 1;
   const rotationBaseline = await createSignedAtomicRotationBaseline({
     dependencyManifestHashes: [input.root.bundle.manifestHash],
     accessManifestHash: manifestHash,
@@ -733,9 +739,7 @@ test("GET /documents/:documentId/writer-projection returns document targets and 
   );
   expect(isDocumentWriterProjectionResponse(projection)).toBe(true);
   expect(projection.documentId).toBe(created.id);
-  expect(projection.documentManifest.manifestHash).toBe(
-    created.accessManifest.manifestHash,
-  );
+  expect(projection.documentManifest.manifestHash).toBe(created.manifestHash);
   expect(projection.documentManifest.event.eventHash).toBe(
     Reflect.get(created.accessManifest.event, "eventHash"),
   );
@@ -743,11 +747,9 @@ test("GET /documents/:documentId/writer-projection returns document targets and 
     eventType: "document.link",
   });
   expect(projection.documentKekTargets.documentKeyTargetHash).toBe(
-    created.documentKekTargets.documentKeyTargetHash,
+    created.targetHash,
   );
-  expect(projection.contentKeyBundle.targetHash).toBe(
-    created.contentKeyBundle.targetHash,
-  );
+  expect(projection.contentKeyBundle.targetHash).toBe(created.targetHash);
   expect(projection.authorizingContainerPaths).toHaveLength(1);
 });
 
@@ -1331,7 +1333,10 @@ test("POST /documents/:documentId/sync redirects historical updates to the atomi
     body: JSON.stringify(linkRequest),
   });
   expect(linkResponse.status).toBe(200);
-  const linkedDocument = await linkResponse.json();
+  const linkedDocument = withDocumentMutationArtifacts(
+    linkRequest,
+    await linkResponse.json(),
+  );
   expect(isDocumentLinkSetMutationResponse(linkedDocument)).toBe(true);
 
   const unlinkRequest = await buildDocumentUnlinkRequest({
@@ -1362,10 +1367,9 @@ test("POST /documents/:documentId/sync redirects historical updates to the atomi
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      contentKeyEpoch: unlinkedDocument.contentKeyBundle.contentKeyEpoch,
-      expectedLinkSetManifestHash:
-        unlinkedDocument.contentKeyBundle.linkSetManifestHash,
-      expectedTargetHash: unlinkedDocument.contentKeyBundle.targetHash,
+      contentKeyEpoch: unlinkedDocument.contentKeyEpoch,
+      expectedLinkSetManifestHash: unlinkedDocument.manifestHash,
+      expectedTargetHash: unlinkedDocument.targetHash,
       localVersionVector: null,
       outgoingUpdates: [],
       supportsPullPagination: true,
@@ -1383,7 +1387,7 @@ test("POST /documents/:documentId/sync redirects historical updates to the atomi
   ).not.toContain(updateId);
   // The baseline is at the current epoch, whose bundle is contentKeyBundle.
   expect(synced.contentKeyBundle.contentKeyEpoch).toBe(
-    unlinkedDocument.contentKeyBundle.contentKeyEpoch,
+    unlinkedDocument.contentKeyEpoch,
   );
   expect(synced.contentKeyBundles).toEqual([]);
 });
@@ -1542,17 +1546,12 @@ test("GET /documents/:documentId/writer-projection refreshes same-epoch root sha
     .where(
       and(
         eq(documentContentKeyEpochs.documentId, created.id),
-        eq(
-          documentContentKeyEpochs.contentKeyEpoch,
-          created.contentKeyBundle.contentKeyEpoch,
-        ),
+        eq(documentContentKeyEpochs.contentKeyEpoch, created.contentKeyEpoch),
       ),
     )
     .limit(1);
   invariant(storedBundleBeforeProjection, "expected content-key bundle row");
-  expect(storedBundleBeforeProjection.targetHash).toBe(
-    created.contentKeyBundle.targetHash,
-  );
+  expect(storedBundleBeforeProjection.targetHash).toBe(created.targetHash);
 
   const projectionResponse = await routeApp.request(
     `/documents/${created.id}/writer-projection`,
@@ -1569,7 +1568,7 @@ test("GET /documents/:documentId/writer-projection refreshes same-epoch root sha
   );
   expect(isDocumentWriterProjectionResponse(projection)).toBe(true);
   expect(projection.contentKeyBundle.contentKeyEpoch).toBe(
-    created.contentKeyBundle.contentKeyEpoch,
+    created.contentKeyEpoch,
   );
   expect(projection.documentKekTargets.documentKeyTargetHash).toBe(
     projection.contentKeyBundle.targetHash,
@@ -1602,10 +1601,7 @@ test("GET /documents/:documentId/writer-projection refreshes same-epoch root sha
     .where(
       and(
         eq(documentContentKeyEpochs.documentId, created.id),
-        eq(
-          documentContentKeyEpochs.contentKeyEpoch,
-          created.contentKeyBundle.contentKeyEpoch,
-        ),
+        eq(documentContentKeyEpochs.contentKeyEpoch, created.contentKeyEpoch),
       ),
     )
     .limit(1);
@@ -1659,7 +1655,7 @@ test("GET /documents/:documentId/writer-projection rejects stale document KEK ta
   await db.insert(accessManifestDocumentLinkProjection).values({
     containerId: crypto.randomUUID(),
     documentId: created.id,
-    manifestHash: created.accessManifest.manifestHash,
+    manifestHash: created.manifestHash,
   });
 
   const projectionResponse = await routeApp.request(
@@ -1693,9 +1689,7 @@ test("GET /documents/:documentId/writer-projection rejects malformed stored docu
         linkedContainerIds: "not-linked-container-ids",
       } as KeyingCanonicalJson,
     })
-    .where(
-      eq(accessManifests.manifestHash, created.accessManifest.manifestHash),
-    );
+    .where(eq(accessManifests.manifestHash, created.manifestHash));
 
   const projectionResponse = await routeApp.request(
     `/documents/${created.id}/writer-projection`,
@@ -1738,10 +1732,14 @@ test("POST /documents/:documentId/link advances a signed link-set manifest", asy
   expect(response.status).toBe(200);
   const linked = await response.json();
   expect(isDocumentLinkSetMutationResponse(linked)).toBe(true);
-  expect(linked.accessManifest.manifestHash).toBe(request.expectedManifestHash);
-  expect(linked.accessManifest.event.body.eventType).toBe("document.link");
-  expect(linked.documentKekTargets.targets).toHaveLength(2);
-  expect(linked.contentKeyBundle.targets).toHaveLength(2);
+  expect(linked.manifestHash).toBe(request.expectedManifestHash);
+  expect(linked.eventHash).toBe(
+    await computeAccessEventHash(
+      request.event as unknown as Parameters<typeof computeAccessEventHash>[0],
+    ),
+  );
+  expect(linked.targetHash).toBe(request.contentKeyBundle.targetHash);
+  expect(request.contentKeyBundle.targets).toHaveLength(2);
 
   const rows = await currentDocumentLinkRows(createdDocument.id);
   expect(rows.map((row) => row.containerId).sort()).toEqual(
@@ -1797,7 +1795,7 @@ test("GET /documents/:documentId/writer-projection returns multi-linked containe
     writerProjection.documentManifestHistory?.map(
       (bundle) => bundle.manifestHash,
     ),
-  ).toEqual([createdDocument.accessManifest.manifestHash]);
+  ).toEqual([createdDocument.manifestHash]);
   expect(
     new Map(
       writerProjection.documentManifestContainerPaths?.map((path) => [
@@ -2002,7 +2000,10 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
     },
   );
   expect(linkResponse.status).toBe(200);
-  const linkedDocument = await linkResponse.json();
+  const linkedDocument = withDocumentMutationArtifacts(
+    linkRequest,
+    await linkResponse.json(),
+  );
   expect(isDocumentLinkSetMutationResponse(linkedDocument)).toBe(true);
   const preUnlinkUpdatedAt = new Date("2026-05-05T00:00:00.000Z");
   await db
@@ -2074,17 +2075,13 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
   expect(unlinkResponse.status).toBe(200);
   const unlinked = await unlinkResponse.json();
   expect(isDocumentLinkSetMutationResponse(unlinked)).toBe(true);
-  expect(unlinked.accessManifest.manifestHash).toBe(
-    unlinkRequest.expectedManifestHash,
-  );
-  expect(unlinked.accessManifest.event.body.eventType).toBe("document.unlink");
-  expect(unlinked.documentKekTargets.targets).toHaveLength(1);
-  expect(unlinked.documentKekTargets.targets[0].containerId).toBe(
-    root.kekState.containerId,
-  );
-  expect(unlinked.contentKeyBundle.contentKeyEpoch).toBe(
-    linkedDocument.contentKeyBundle.contentKeyEpoch + 1,
-  );
+  expect(unlinked.manifestHash).toBe(unlinkRequest.expectedManifestHash);
+  // The acknowledged target hash commits to the one remaining target.
+  expect(unlinked.targetHash).toBe(unlinkRequest.contentKeyBundle.targetHash);
+  expect(
+    unlinkRequest.contentKeyBundle.targets.map((target) => target.containerId),
+  ).toEqual([root.kekState.containerId]);
+  expect(unlinked.contentKeyEpoch).toBe(linkedDocument.contentKeyEpoch + 1);
 
   const rows = await currentDocumentLinkRows(createdDocument.id);
   expect(rows.map((row) => row.containerId)).toEqual([
@@ -2162,7 +2159,10 @@ test("POST /documents/:documentId/unlink accepts a baseline-less unlink for an e
     },
   );
   expect(linkResponse.status).toBe(200);
-  const linkedDocument = await linkResponse.json();
+  const linkedDocument = withDocumentMutationArtifacts(
+    linkRequest,
+    await linkResponse.json(),
+  );
   expect(isDocumentLinkSetMutationResponse(linkedDocument)).toBe(true);
 
   const unlinkRequest = await buildDocumentUnlinkRequest({
@@ -2189,12 +2189,8 @@ test("POST /documents/:documentId/unlink accepts a baseline-less unlink for an e
   expect(unlinkResponse.status).toBe(200);
   const unlinked = await unlinkResponse.json();
   expect(isDocumentLinkSetMutationResponse(unlinked)).toBe(true);
-  expect(unlinked.accessManifest.manifestHash).toBe(
-    unlinkRequest.expectedManifestHash,
-  );
-  expect(unlinked.contentKeyBundle.contentKeyEpoch).toBe(
-    linkedDocument.contentKeyBundle.contentKeyEpoch + 1,
-  );
+  expect(unlinked.manifestHash).toBe(unlinkRequest.expectedManifestHash);
+  expect(unlinked.contentKeyEpoch).toBe(linkedDocument.contentKeyEpoch + 1);
 
   const rows = await currentDocumentLinkRows(createdDocument.id);
   expect(rows.map((row) => row.containerId)).toEqual([
@@ -2227,13 +2223,13 @@ test("POST /documents/:documentId/unlink rejects removing the final signed link"
     objectKind: "document",
     organizationId: asVerifiedContainerManifest(root.bundle).state
       .organizationId,
-    previousManifestHash: createdDocument.accessManifest.manifestHash,
+    previousManifestHash: createdDocument.manifestHash,
     signer: owner,
   });
   const request: DocumentLinkSetMutationRequest = {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown as Record<string, unknown>,
-    expectedManifestHash: createdDocument.accessManifest.manifestHash,
+    expectedManifestHash: createdDocument.manifestHash,
     manifest: createdDocument.accessManifest.manifest,
     targetContainerPathRefs: [
       {
@@ -2250,9 +2246,9 @@ test("POST /documents/:documentId/unlink rejects removing the final signed link"
       ],
     ],
     contentKeyBundle: {
-      contentKeyEpoch: createdDocument.contentKeyBundle.contentKeyEpoch,
-      linkSetManifestHash: createdDocument.accessManifest.manifestHash,
-      targetHash: createdDocument.contentKeyBundle.targetHash,
+      contentKeyEpoch: createdDocument.contentKeyEpoch,
+      linkSetManifestHash: createdDocument.manifestHash,
+      targetHash: createdDocument.targetHash,
       targets: createdDocument.contentKeyBundle.targets,
     },
   };

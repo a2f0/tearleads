@@ -193,27 +193,24 @@ function createBlobKekTargetsResponse(overrides = {}) {
 
 test("isBlobAttachmentBindResponse", () => {
   const validResponse = {
-    bindingEvent: { body: {}, event: {}, eventHash: "event-hash" },
-    documentManifestHash: "document-manifest-hash",
-    previousBindingId: null,
-    writeHeader: {},
-    writeAuthorization: createBlobKekTargetsResponse(),
     bindingId: "550e8400-e29b-41d4-a716-446655440002",
     blobId: "550e8400-e29b-41d4-a716-446655440001",
-    documentId: "550e8400-e29b-41d4-a716-446655440003",
-    slotId: "slot-a",
-    contentKeyBundle: createBlobContentKeyBundleResponse(),
     blobKekTargets: createBlobKekTargetsResponse(),
+    contentKeyEpoch: 1,
+    documentId: "550e8400-e29b-41d4-a716-446655440003",
+    documentManifestHash: "document-manifest-hash",
+    eventHash: "event-hash",
+    previousBindingId: null,
+    slotId: "slot-a",
     writeHeaderHash: "write-header-hash",
   };
 
   expect(isBlobAttachmentBindResponse(validResponse)).toBe(true);
   for (const key of [
-    "bindingEvent",
+    "contentKeyEpoch",
     "documentManifestHash",
+    "eventHash",
     "previousBindingId",
-    "writeHeader",
-    "writeAuthorization",
     "writeHeaderHash",
   ]) {
     const missingEvidence = { ...validResponse };
@@ -229,12 +226,7 @@ test("isBlobAttachmentBindResponse", () => {
     }),
   ).toBe(false);
   expect(
-    isBlobAttachmentBindResponse({
-      ...validResponse,
-      contentKeyBundle: createBlobContentKeyBundleResponse({
-        contentKeyEpoch: 0,
-      }),
-    }),
+    isBlobAttachmentBindResponse({ ...validResponse, contentKeyEpoch: 0 }),
   ).toBe(false);
   expect(isBlobAttachmentBindResponse(null)).toBe(false);
 });

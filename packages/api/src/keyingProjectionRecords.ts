@@ -362,7 +362,7 @@ function readProjectionContainerGrantPrincipalHeads(
   return principalHeads;
 }
 
-export function projectionAccessManifestRecord(
+function projectionAccessManifestRecord(
   manifest: AccessManifest,
 ): Record<string, unknown> {
   return {

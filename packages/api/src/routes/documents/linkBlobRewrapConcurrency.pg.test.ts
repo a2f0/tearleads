@@ -123,7 +123,7 @@ for (const first of ["bind", "link"] as const) {
       expect(head?.manifestHash).toBe(
         first === "link"
           ? input.link.expectedManifestHash
-          : input.document.accessManifest.manifestHash,
+          : input.document.manifestHash,
       );
       const bindings = await db
         .select()

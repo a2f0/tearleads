@@ -1,11 +1,11 @@
 import { expect } from "bun:test";
 import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
-import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
 import { authenticate } from "./authenticate";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
+import type { CreatedDocumentFixture } from "./documentAcknowledgementFixture";
 import {
   accessManifestFromContainerResponse,
   buildRootGrantRequest,
@@ -127,12 +127,12 @@ export async function postDocumentSync(
  * bound to the post-revoke targets at the next content-key epoch.
  */
 export async function buildHealedContentKeyBundle(input: {
-  readonly created: DocumentCreateResponse;
+  readonly created: CreatedDocumentFixture;
   readonly revokedKek: Awaited<
     ReturnType<typeof kekStateFromContainerResponse>
   >;
   readonly revokedManifestHash: string;
-}): Promise<DocumentCreateResponse["contentKeyBundle"]> {
+}): Promise<CreatedDocumentFixture["contentKeyBundle"]> {
   const targets = [
     {
       containerId: input.revokedKek.containerId,
@@ -143,9 +143,9 @@ export async function buildHealedContentKeyBundle(input: {
   ];
 
   return {
-    contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch + 1,
+    contentKeyEpoch: input.created.contentKeyEpoch + 1,
     documentId: input.created.id,
-    linkSetManifestHash: input.created.contentKeyBundle.linkSetManifestHash,
+    linkSetManifestHash: input.created.manifestHash,
     targetHash: await computeDocumentContentKeyTargetHash(targets),
     targets: targets.map((target) => ({
       ...target,

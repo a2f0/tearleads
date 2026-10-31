@@ -1,13 +1,15 @@
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import type {
   ContainerWriterProjectionResponse,
-  DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../src/workflows/documents/linkSet";
 import { createMaterializedSyncFixture } from "./documentFixtures";
 import { createDocumentPurgeProof } from "./documentPurge";
-import { createLinkSetResponseFromRequest } from "./documentResponseFixtures";
+import {
+  createLinkSetResponseFromRequest,
+  type DocumentLinkSetFixture,
+} from "./documentResponseFixtures";
 
 function uniqueContainerPaths(
   paths: readonly (readonly DocumentWriterProjectionResponse["documentManifest"][])[],
@@ -22,7 +24,7 @@ function uniqueContainerPaths(
 function projectionAfterMutation(input: {
   operation: "link" | "unlink";
   previous: DocumentWriterProjectionResponse;
-  response: DocumentLinkSetMutationResponse;
+  response: DocumentLinkSetFixture;
   target: ContainerWriterProjectionResponse;
 }): DocumentWriterProjectionResponse {
   const retained = input.previous.authorizingContainerPaths.filter(

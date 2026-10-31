@@ -1142,5 +1142,5 @@ test("bind rejects stale slots and targets outside its binding", async () => {
       sharedBind.verifiedBinding.bindingId,
     ].sort(),
   );
-  expect(sharedResponse.contentKeyBundle.targets).toHaveLength(2);
+  expect(sharedResponse.blobKekTargets.targets).toHaveLength(2);
 });

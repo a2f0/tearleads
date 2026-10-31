@@ -4,6 +4,7 @@ import {
   createBlobBytesResponse,
   createSingleAttachmentHydrationApi,
   createUploadedAttachmentFixture,
+  stagedBindingSummary,
 } from "../../../../test/helpers/blobHydration";
 import {
   createBlobAttachmentBindResponse,
@@ -53,12 +54,7 @@ async function uploadNewerBinding(fixture: UploadedFixture) {
   });
   const encryptedBytes = multipart.getAssembledBytes();
   if (!newer || !encryptedBytes) throw new Error("Expected newer upload");
-  const binding: BlobAttachmentSummary = {
-    ...newer.response,
-    blobId,
-    bindingId,
-    slotId: fixture.attachment.slotId,
-  };
+  const binding: BlobAttachmentSummary = stagedBindingSummary(newer);
   return {
     binding,
     bytes,

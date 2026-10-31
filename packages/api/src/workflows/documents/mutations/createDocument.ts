@@ -29,9 +29,7 @@ import {
   touchContainers,
 } from "./shared/documentRows";
 import {
-  documentManifestBundleRecord,
-  toContentKeyBundleResponse,
-  toDocumentKekTargetsResponse,
+  documentMutationAcknowledgement,
   toStoredContentKeyBundleInput,
 } from "./shared/records";
 import {
@@ -47,7 +45,15 @@ import type { CreateDocumentInput } from "./types";
 export interface DocumentCreateWorkflowResult {
   /** Seed update ids this create inserted, for the update broadcast. */
   readonly insertedUpdateIds: readonly string[];
+  /** The containers the new document is linked to, for the broadcast. */
+  readonly linkedContainerIds: readonly string[];
   readonly response: DocumentCreateResponse;
+}
+
+/** A create committed in the caller's transaction, and its link set. */
+export interface DocumentCreatedInTransaction {
+  readonly created: DocumentCreateResponse;
+  readonly linkedContainerIds: readonly string[];
 }
 
 /**
@@ -97,35 +103,40 @@ export async function runCreateDocumentWorkflow(
   input: CreateDocumentInput,
 ): Promise<DocumentCreateWorkflowResult> {
   try {
-    const { created, seed } = await db.transaction(async (tx) => {
-      const { created, linkedContainerIds, organizationId } =
-        await createDocumentInTransaction({
+    const { created, linkedContainerIds, seed } = await db.transaction(
+      async (tx) => {
+        const { created, linkedContainerIds, organizationId } =
+          await createDocumentInTransaction({
+            executor: tx,
+            fingerprint: input.fingerprint,
+            request: input.request,
+            userId: input.userId,
+          });
+        // Public boundary: registration bootstraps its documents via
+        // createDocumentWithExecutor directly, so gate only here.
+        await assertOrganizationCanSync(tx, organizationId, input.userId);
+        const seed = await commitDocumentCreateSeedInTransaction({
+          documentId: created.id,
           executor: tx,
           fingerprint: input.fingerprint,
-          request: input.request,
+          seed: input.request.initialSync,
+          syncEligibleOrganizationId: organizationId,
           userId: input.userId,
         });
-      // Public boundary: registration bootstraps its documents via
-      // createDocumentWithExecutor directly, so gate only here.
-      await assertOrganizationCanSync(tx, organizationId, input.userId);
-      const seed = await commitDocumentCreateSeedInTransaction({
-        documentId: created.id,
-        executor: tx,
-        fingerprint: input.fingerprint,
-        seed: input.request.initialSync,
-        syncEligibleOrganizationId: organizationId,
-        userId: input.userId,
-      });
-      // Touch the linked containers just before commit; a seed that inserted
-      // its update already touched them, last.
-      if ((seed?.insertedUpdateIds.length ?? 0) === 0) {
-        await touchContainers(tx, linkedContainerIds);
-      }
-      return { created, seed };
-    });
-    if (!seed) return { insertedUpdateIds: [], response: created };
+        // Touch the linked containers just before commit; a seed that inserted
+        // its update already touched them, last.
+        if ((seed?.insertedUpdateIds.length ?? 0) === 0) {
+          await touchContainers(tx, linkedContainerIds);
+        }
+        return { created, linkedContainerIds, seed };
+      },
+    );
+    if (!seed) {
+      return { insertedUpdateIds: [], linkedContainerIds, response: created };
+    }
     return {
       insertedUpdateIds: seed.insertedUpdateIds,
+      linkedContainerIds,
       response: {
         ...created,
         initialSync: await documentCreateSeedResponse(db, seed),
@@ -167,11 +178,11 @@ interface CreateDocumentWithExecutorInput {
 
 export async function createDocumentWithExecutor(
   input: CreateDocumentWithExecutorInput,
-): Promise<DocumentCreateResponse> {
+): Promise<DocumentCreatedInTransaction> {
   const { created, linkedContainerIds } =
     await createDocumentInTransaction(input);
   await touchContainers(input.executor, linkedContainerIds);
-  return created;
+  return { created, linkedContainerIds };
 }
 
 // The content-key bundle store resolves the document's current KEK targets
@@ -263,11 +274,7 @@ async function createDocumentInTransaction(
       created: {
         id: document.id,
         createdAt: document.createdAt.toISOString(),
-        accessManifest: documentManifestBundleRecord(manifest),
-        contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
-        documentKekTargets: toDocumentKekTargetsResponse(
-          contentKeyBundle.currentTargets,
-        ),
+        ...documentMutationAcknowledgement(manifest, contentKeyBundle),
       },
       linkedContainerIds: manifest.state.linkedContainerIds,
       organizationId: contentKeyBundle.currentTargets.organizationId,

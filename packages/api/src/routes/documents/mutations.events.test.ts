@@ -3,10 +3,7 @@ import type {
   ContainerMutationRequest,
   DocumentLinkSetMutationRequest,
 } from "@tearleads/validators/request";
-import type {
-  ContainerMutationResponse,
-  DocumentLinkSetMutationResponse,
-} from "@tearleads/validators/response";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import {
   createDocumentMutationCreatedEvent,
   createDocumentPurgeEvent,
@@ -29,24 +26,14 @@ function mutationRequest(
   } as unknown as DocumentLinkSetMutationRequest;
 }
 
-function mutationResponse(
-  currentContainerIds: readonly string[],
-): DocumentLinkSetMutationResponse {
-  return {
-    documentKekTargets: {
-      targets: currentContainerIds.map((containerId) => ({ containerId })),
-    },
-  } as unknown as DocumentLinkSetMutationResponse;
-}
-
 test("document mutation events scope link and unlink to the prior/current union", () => {
   expect(
     createDocumentMutationCreatedEvent({
       documentId: "document-1",
       eventType: "document.link",
+      linkedContainerIds: ["root", "trash", "trash"],
       origin: ORIGIN,
       request: mutationRequest("trash"),
-      response: mutationResponse(["root", "trash", "trash"]),
     }),
   ).toEqual({
     type: "document_mutation_created",
@@ -62,7 +49,7 @@ test("document mutation events scope link and unlink to the prior/current union"
       eventType: "document.unlink",
       origin: ORIGIN,
       request: mutationRequest("root"),
-      response: mutationResponse(["trash"]),
+      linkedContainerIds: ["trash"],
     }),
   ).toEqual({
     type: "document_mutation_created",
@@ -87,7 +74,7 @@ test("document mutations remain successful when realtime publication fails", asy
         origin: ORIGIN,
         publish,
         request: mutationRequest("root"),
-        response: mutationResponse(["trash"]),
+        linkedContainerIds: ["trash"],
       }),
     ).resolves.toBeUndefined();
     expect(publish).toHaveBeenCalledTimes(1);
@@ -103,7 +90,7 @@ test("document mutations remain successful when realtime publication fails", asy
 test("atomic rotation baselines publish a lossy document update hint", async () => {
   const event = createDocumentUpdateCreatedEvent({
     documentId: "document-1",
-    documentKekTargets: mutationResponse(["trash", "root"]).documentKekTargets,
+    containerIds: ["trash", "root"],
     origin: ORIGIN,
     updateIds: ["rotation-baseline-1"],
   });
@@ -123,7 +110,7 @@ test("atomic rotation baselines publish a lossy document update hint", async () 
     await expect(
       publishDocumentUpdateCreatedEvent({
         documentId: "document-1",
-        documentKekTargets: mutationResponse(["root"]).documentKekTargets,
+        containerIds: ["root"],
         origin: ORIGIN,
         publish,
         updateIds: ["rotation-baseline-1"],

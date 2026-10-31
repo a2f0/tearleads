@@ -43,15 +43,22 @@ function createDocumentKekTargetsResponse(overrides = {}) {
   };
 }
 
-function createDocumentCreateResponse(overrides = {}) {
+function createDocumentMutationAcknowledgement(overrides = {}) {
   return {
     id: "550e8400-e29b-41d4-a716-446655440001",
-    createdAt: new Date().toISOString(),
-    accessManifest: createDocumentManifestBundleResponse(),
-    contentKeyBundle: createDocumentContentKeyBundleResponse(),
-    documentKekTargets: createDocumentKekTargetsResponse(),
+    contentKeyEpoch: 1,
+    eventHash: "document-event-hash",
+    manifestHash: "manifest-hash",
+    targetHash: "target-hash",
     ...overrides,
   };
+}
+
+function createDocumentCreateResponse(overrides = {}) {
+  return createDocumentMutationAcknowledgement({
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  });
 }
 
 function createDocumentManifestBundleResponse(overrides = {}) {
@@ -140,22 +147,16 @@ test("isDocumentCreateResponse", () => {
   const validResponse = createDocumentCreateResponse();
 
   expect(isDocumentCreateResponse(validResponse)).toBe(true);
-  expect(
-    isDocumentCreateResponse({
-      ...validResponse,
-      accessManifest: createDocumentManifestBundleResponse({
-        manifestHash: "",
-      }),
-    }),
-  ).toBe(false);
-  expect(
-    isDocumentCreateResponse({
-      ...validResponse,
-      contentKeyBundle: createDocumentContentKeyBundleResponse({
-        contentKeyEpoch: 0,
-      }),
-    }),
-  ).toBe(false);
+  for (const invalid of [
+    { manifestHash: "" },
+    { eventHash: "" },
+    { targetHash: "" },
+    { contentKeyEpoch: 0 },
+  ]) {
+    expect(isDocumentCreateResponse({ ...validResponse, ...invalid })).toBe(
+      false,
+    );
+  }
   expect(isDocumentCreateResponse(null)).toBe(false);
 });
 
@@ -185,30 +186,19 @@ test("isContainerCreateWithMetadataDocumentResponse", () => {
 });
 
 test("isDocumentLinkSetMutationResponse", () => {
-  const validResponse = {
-    id: "550e8400-e29b-41d4-a716-446655440001",
-    accessManifest: createDocumentManifestBundleResponse(),
-    contentKeyBundle: createDocumentContentKeyBundleResponse(),
-    documentKekTargets: createDocumentKekTargetsResponse(),
-  };
+  const validResponse = createDocumentMutationAcknowledgement();
 
   expect(isDocumentLinkSetMutationResponse(validResponse)).toBe(true);
-  expect(
-    isDocumentLinkSetMutationResponse({
-      ...validResponse,
-      accessManifest: createDocumentManifestBundleResponse({
-        manifestHash: "",
-      }),
-    }),
-  ).toBe(false);
-  expect(
-    isDocumentLinkSetMutationResponse({
-      ...validResponse,
-      contentKeyBundle: createDocumentContentKeyBundleResponse({
-        targetHash: "",
-      }),
-    }),
-  ).toBe(false);
+  for (const invalid of [
+    { manifestHash: "" },
+    { eventHash: "" },
+    { targetHash: "" },
+    { contentKeyEpoch: 0 },
+  ]) {
+    expect(
+      isDocumentLinkSetMutationResponse({ ...validResponse, ...invalid }),
+    ).toBe(false);
+  }
   expect(isDocumentLinkSetMutationResponse(null)).toBe(false);
 });
 

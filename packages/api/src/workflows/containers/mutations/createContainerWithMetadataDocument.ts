@@ -20,6 +20,8 @@ export interface CreateContainerWithMetadataDocumentInput {
 export interface ContainerCreateWithMetadataDocumentWorkflowResult {
   /** Metadata seed update ids this create inserted, for the update broadcast. */
   readonly insertedMetadataUpdateIds: readonly string[];
+  /** The metadata document's linked containers, for the update broadcast. */
+  readonly metadataLinkedContainerIds: readonly string[];
   readonly response: ContainerCreateWithMetadataDocumentResponse;
 }
 
@@ -41,50 +43,61 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
   input: CreateContainerWithMetadataDocumentInput,
 ): Promise<ContainerCreateWithMetadataDocumentWorkflowResult> {
   try {
-    const { response, seed } = await db.transaction(async (tx) => {
-      const { metadataDocumentId, response: container } =
-        await createContainerOutcome({
-          executor: tx,
-          fingerprint: input.fingerprint,
-          request: input.request.container,
-          userId: input.userId,
-        });
-      assertContainerSystemSlot(container, input.request.systemSlot ?? null);
+    const { metadataLinkedContainerIds, response, seed } = await db.transaction(
+      async (tx) => {
+        const { metadataDocumentId, response: container } =
+          await createContainerOutcome({
+            executor: tx,
+            fingerprint: input.fingerprint,
+            request: input.request.container,
+            userId: input.userId,
+          });
+        assertContainerSystemSlot(container, input.request.systemSlot ?? null);
 
-      const metadataDocument = await createDocumentWithExecutor({
-        executor: tx,
-        fingerprint: input.fingerprint,
-        request: input.request.metadataDocument,
-        userId: input.userId,
-      });
-      if (metadataDocument.id !== metadataDocumentId) {
-        throw new ContainerMutationError(
-          "Metadata document does not match container metadata state",
-          400,
+        const { created: metadataDocument, linkedContainerIds } =
+          await createDocumentWithExecutor({
+            executor: tx,
+            fingerprint: input.fingerprint,
+            request: input.request.metadataDocument,
+            userId: input.userId,
+          });
+        if (metadataDocument.id !== metadataDocumentId) {
+          throw new ContainerMutationError(
+            "Metadata document does not match container metadata state",
+            400,
+          );
+        }
+
+        await assertOrganizationCanSync(
+          tx,
+          container.organizationId,
+          input.userId,
         );
-      }
 
-      await assertOrganizationCanSync(
-        tx,
-        container.organizationId,
-        input.userId,
-      );
-
+        return {
+          metadataLinkedContainerIds: linkedContainerIds,
+          response: { container, metadataDocument },
+          seed: await commitDocumentCreateSeedInTransaction({
+            documentId: metadataDocument.id,
+            executor: tx,
+            fingerprint: input.fingerprint,
+            seed: input.request.initialMetadataSync,
+            syncEligibleOrganizationId: container.organizationId,
+            userId: input.userId,
+          }),
+        };
+      },
+    );
+    if (!seed) {
       return {
-        response: { container, metadataDocument },
-        seed: await commitDocumentCreateSeedInTransaction({
-          documentId: metadataDocument.id,
-          executor: tx,
-          fingerprint: input.fingerprint,
-          seed: input.request.initialMetadataSync,
-          syncEligibleOrganizationId: container.organizationId,
-          userId: input.userId,
-        }),
+        insertedMetadataUpdateIds: [],
+        metadataLinkedContainerIds,
+        response,
       };
-    });
-    if (!seed) return { insertedMetadataUpdateIds: [], response };
+    }
     return {
       insertedMetadataUpdateIds: seed.insertedUpdateIds,
+      metadataLinkedContainerIds,
       response: {
         ...response,
         metadataDocument: {

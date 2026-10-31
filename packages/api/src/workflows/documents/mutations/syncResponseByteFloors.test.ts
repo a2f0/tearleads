@@ -5,6 +5,7 @@ import { createTestUser } from "@tearleads/test-utils";
 import { isDocumentCreateResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../../test/helpers/authenticate";
+import { withDocumentMutationArtifacts } from "../../../../test/helpers/documentAcknowledgementFixture";
 import { createSignedDocumentSyncRequest } from "../../../../test/helpers/documentUpdateRequests";
 import {
   bootstrapRoot,
@@ -30,13 +31,11 @@ test("served sync entries carry at least their byte floors plus only fixed-size 
   await registerUser(owner);
   await authenticate(owner);
   const root = await bootstrapRoot(owner);
-  const createResponse = await post(
-    owner.token,
-    "/documents",
-    await createDocumentRequest({ owner, root }),
-  );
-  const created = await createResponse.json();
-  invariant(isDocumentCreateResponse(created), "expected created document");
+  const createRequest = await createDocumentRequest({ owner, root });
+  const createResponse = await post(owner.token, "/documents", createRequest);
+  const createdBody = await createResponse.json();
+  invariant(isDocumentCreateResponse(createdBody), "expected created document");
+  const created = withDocumentMutationArtifacts(createRequest, createdBody);
   for (const checkpoint of [true, false, false]) {
     const { request } = await createSignedDocumentSyncRequest({
       checkpoint,
@@ -51,9 +50,9 @@ test("served sync entries carry at least their byte floors plus only fixed-size 
   }
 
   const pull = await post(owner.token, `/documents/${created.id}/sync`, {
-    contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
-    expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
-    expectedTargetHash: created.contentKeyBundle.targetHash,
+    contentKeyEpoch: created.contentKeyEpoch,
+    expectedLinkSetManifestHash: created.manifestHash,
+    expectedTargetHash: created.targetHash,
     localVersionVector: null,
     outgoingUpdates: [],
     supportsPullPagination: true,

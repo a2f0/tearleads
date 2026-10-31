@@ -57,13 +57,11 @@ test("GET /documents/:documentId/writer-projection serves the stale bundle with 
   const staleProjection = projection as DocumentWriterProjectionResponse;
   expect(staleProjection.contentKeyBundleStale).toBe(true);
   expect(staleProjection.contentKeyBundle.contentKeyEpoch).toBe(
-    created.contentKeyBundle.contentKeyEpoch,
+    created.contentKeyEpoch,
   );
-  expect(staleProjection.contentKeyBundle.targetHash).toBe(
-    created.contentKeyBundle.targetHash,
-  );
+  expect(staleProjection.contentKeyBundle.targetHash).toBe(created.targetHash);
   expect(staleProjection.documentKekTargets.documentKeyTargetHash).not.toBe(
-    created.contentKeyBundle.targetHash,
+    created.targetHash,
   );
   expect(staleProjection.documentKekTargets.linkedContainerKeyEpochIds).toEqual(
     [revokedKek.containerKeyEpochId],
@@ -97,9 +95,9 @@ test("read-only document sync pulls stay served against the stored bundle while 
   // response echoes the bundle-derived targets so the stale pair stays
   // self-consistent instead of mixing in the current (unhealed) targets.
   const readOnlyResponse = await postDocumentSync(owner, created.id, {
-    contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
-    expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
-    expectedTargetHash: created.contentKeyBundle.targetHash,
+    contentKeyEpoch: created.contentKeyEpoch,
+    expectedLinkSetManifestHash: created.manifestHash,
+    expectedTargetHash: created.targetHash,
     localVersionVector: null,
     outgoingUpdates: [],
     supportsPullPagination: true,
@@ -111,10 +109,10 @@ test("read-only document sync pulls stay served against the stored bundle while 
     preRevokeSync.updateId,
   );
   expect(readOnly.contentKeyBundle.contentKeyEpoch).toBe(
-    created.contentKeyBundle.contentKeyEpoch,
+    created.contentKeyEpoch,
   );
   expect(readOnly.documentKekTargets.documentKeyTargetHash).toBe(
-    created.contentKeyBundle.targetHash,
+    created.targetHash,
   );
   expect(readOnly.pullPage).toMatchObject({
     hasMore: false,

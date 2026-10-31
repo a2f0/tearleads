@@ -15,7 +15,10 @@ import {
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { persistedDocumentLinkSetMutationStateFromResponse } from "../../../data/documents/shared/responses";
+import {
+  acknowledgedDocumentLinkSetMutation,
+  persistedDocumentLinkSetMutationStateFromResponse,
+} from "../../../data/documents/shared/responses";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentCreatePlan } from "../create";
@@ -176,15 +179,19 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
     projection,
     siblingProjection,
   ]);
+  const acknowledged = acknowledgedDocumentLinkSetMutation(
+    linked.plan,
+    linked.response,
+  );
   expect(primedProjection.contentKeyBundle).toEqual(
-    linked.response.contentKeyBundle,
+    acknowledged.contentKeyBundle,
   );
   expect(primedProjection.documentId).toBe(linked.response.id);
   expect(primedProjection.documentKekTargets).toEqual(
-    linked.response.documentKekTargets,
+    acknowledged.documentKekTargets,
   );
   expect(primedProjection.documentManifest).toEqual(
-    linked.response.accessManifest,
+    acknowledged.accessManifest,
   );
   expect(
     primedProjection.documentManifestHistory?.map(

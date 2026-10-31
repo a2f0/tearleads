@@ -13,11 +13,11 @@ import type {
   AccessManifestBundleWire,
   DocumentLinkSetMutationRequest,
 } from "@tearleads/validators/request";
-import type {
-  DocumentCreateResponse,
-  DocumentLinkSetMutationResponse,
-} from "@tearleads/validators/response";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
+import type {
+  CreatedDocumentFixture,
+  LinkedDocumentFixture,
+} from "./documentAcknowledgementFixture";
 import { createSignedAtomicRotationBaseline } from "./documentUpdateRequests";
 import {
   accessManifestFromContainerResponse,
@@ -34,7 +34,7 @@ export async function buildDocumentLinkRequest(input: {
     | readonly AccessManifestBundleWire[]
     | undefined;
   readonly child: StoredContainerMutation;
-  readonly createdDocument: DocumentCreateResponse;
+  readonly createdDocument: CreatedDocumentFixture;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
 }): Promise<DocumentLinkSetMutationRequest> {
@@ -64,7 +64,7 @@ export async function buildDocumentLinkRequest(input: {
     objectKind: "document",
     organizationId: asVerifiedContainerManifest(input.root.bundle).state
       .organizationId,
-    previousManifestHash: input.createdDocument.accessManifest.manifestHash,
+    previousManifestHash: input.createdDocument.manifestHash,
     signer: input.owner,
   });
   const state: DocumentLinkSetManifestState = {
@@ -76,7 +76,7 @@ export async function buildDocumentLinkRequest(input: {
       typeof Reflect.get(previousState, "epoch") === "number"
         ? Number(Reflect.get(previousState, "epoch")) + 1
         : 2,
-    previousManifestHash: input.createdDocument.accessManifest.manifestHash,
+    previousManifestHash: input.createdDocument.manifestHash,
     eventHash: event.eventHash,
     linkedContainerIds: [
       ...new Set([
@@ -129,7 +129,7 @@ export async function buildDocumentLinkRequest(input: {
       })),
     ],
     contentKeyBundle: {
-      contentKeyEpoch: input.createdDocument.contentKeyBundle.contentKeyEpoch,
+      contentKeyEpoch: input.createdDocument.contentKeyEpoch,
       linkSetManifestHash: manifestHash,
       targetHash,
       targets: [
@@ -152,7 +152,7 @@ export async function buildDocumentLinkRequest(input: {
 export async function buildDocumentUnlinkRequest(input: {
   readonly blobRewraps?: DocumentLinkAccessEventBody["blobRewraps"];
   readonly child: StoredContainerMutation;
-  readonly linkedDocument: DocumentLinkSetMutationResponse;
+  readonly linkedDocument: LinkedDocumentFixture;
   readonly owner: TestUser;
   readonly remainingContainer?: StoredRootFixture | undefined;
   readonly remainingContainerPath?:
@@ -202,7 +202,7 @@ export async function buildDocumentUnlinkRequest(input: {
     objectKind: "document",
     organizationId: asVerifiedContainerManifest(input.root.bundle).state
       .organizationId,
-    previousManifestHash: input.linkedDocument.accessManifest.manifestHash,
+    previousManifestHash: input.linkedDocument.manifestHash,
     signer: input.owner,
   });
   const state: DocumentLinkSetManifestState = {
@@ -214,7 +214,7 @@ export async function buildDocumentUnlinkRequest(input: {
       typeof Reflect.get(previousState, "epoch") === "number"
         ? Number(Reflect.get(previousState, "epoch")) + 1
         : 3,
-    previousManifestHash: input.linkedDocument.accessManifest.manifestHash,
+    previousManifestHash: input.linkedDocument.manifestHash,
     eventHash: event.eventHash,
     linkedContainerIds: [remainingContainer.kekState.containerId],
   };
@@ -229,8 +229,7 @@ export async function buildDocumentUnlinkRequest(input: {
   const targetHash = await computeDocumentContentKeyTargetHash([
     remainingTarget,
   ]);
-  const contentKeyEpoch =
-    input.linkedDocument.contentKeyBundle.contentKeyEpoch + 1;
+  const contentKeyEpoch = input.linkedDocument.contentKeyEpoch + 1;
   const rotationBaseline = await createSignedAtomicRotationBaseline({
     dependencyManifestHashes: remainingContainerPath.map(
       (bundle) => bundle.manifestHash,
