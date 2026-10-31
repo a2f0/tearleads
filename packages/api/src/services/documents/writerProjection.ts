@@ -4,6 +4,7 @@ import {
   DocumentWriterProjectionError,
   runDocumentWriterProjectionWorkflow,
 } from "../../workflows/documents/writerProjection";
+import { heldKekLevelDigests } from "../containers/heldKekLevelDigests";
 import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 
 export { DocumentWriterProjectionError };
@@ -19,8 +20,13 @@ export async function getDocumentWriterProjection(
 ) {
   const projection = await getFullProjection(runtime, input);
   // See getContainerWriterProjection.
+  const hints = parseKnownManifestHints(input.knownManifests ?? "");
   return encodeDocumentWriterProjection(
     projection,
-    new Set(parseKnownManifestHints(input.knownManifests ?? "") ?? []),
+    new Set(hints?.manifests),
+    await heldKekLevelDigests(
+      projection.authorizingContainerPaths,
+      hints?.kekLevels ?? [],
+    ),
   );
 }

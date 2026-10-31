@@ -12,7 +12,10 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestUser } from "@tearleads/test-utils";
-import { DocumentWriterProjectionWireResponseSchema } from "@tearleads/validators/response";
+import {
+  DocumentWriterProjectionWireResponseSchema,
+  isCitedContainerKekLevel,
+} from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { writerResolver } from "../../../test/helpers/coldSdkRematerialization";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
@@ -46,6 +49,8 @@ test("real document projections cite held manifests through links, rotations and
     served: number;
     omitted: number;
     documentHistory: number;
+    citedLevels: number;
+    levels: number;
   }[] = [];
   const server = Bun.serve({
     hostname: "127.0.0.1",
@@ -69,6 +74,12 @@ test("real document projections cite held manifests through links, rotations and
           served: Object.keys(wire.bundles).length,
           omitted: wire.omittedBundles.length,
           documentHistory: wire.documentManifestHistory.length,
+          citedLevels: wire.authorizingContainerPaths
+            .flatMap((path) => path.containerKeks)
+            .filter(isCitedContainerKekLevel).length,
+          levels: wire.authorizingContainerPaths.flatMap(
+            (path) => path.containerKeks,
+          ).length,
         });
       }
       return response;
@@ -178,6 +189,9 @@ test("real document projections cite held manifests through links, rotations and
     expect(samples[1]?.hinted).toBe(true);
     expect(samples[1]?.omitted).toBe(samples[0]?.served);
     expect(samples[1]?.served).toBe(0);
+    // Every authorizing path's KEK level is held, so each travels as a digest.
+    expect(samples[1]?.citedLevels).toBe(samples[1]?.levels);
+    expect(samples[1]?.levels).toBeGreaterThan(0);
     await linkChild();
     const grown = await read();
     expect(grown.projection.authorizingContainerPaths).toHaveLength(3);
@@ -195,6 +209,8 @@ test("real document projections cite held manifests through links, rotations and
     const rotated = await read();
     expect(rotated.projection.contentKeyBundleStale).toBe(true);
     expect(samples[3]?.omitted).toBeGreaterThan(0);
+    // The rotated root's level is new; levels below it may still be held.
+    expect(samples[3]?.citedLevels).toBeLessThan(samples[3]?.levels ?? 0);
     const fresh = new ApiClient(server.url.origin);
     fresh.setAuthToken(owner.token);
     const recovered = await read(fresh, cold);
@@ -202,6 +218,7 @@ test("real document projections cite held manifests through links, rotations and
     expect(recitedContainerIds).toEqual([]);
     expect(samples.at(-1)?.hinted).toBe(false);
     expect(samples.at(-1)?.omitted).toBe(0);
+    expect(samples.at(-1)?.citedLevels).toBe(0);
     expect(samples.at(-1)?.served).toBeGreaterThan(samples[3]?.served ?? 0);
     expect(recovered.projection.documentManifest).toEqual(
       rotated.projection.documentManifest,

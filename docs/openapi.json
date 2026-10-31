@@ -25381,8 +25381,8 @@
             "required": false,
             "schema": {
               "type": "string",
-              "maxLength": 3119,
-              "description": "Comma-separated manifest hashes whose verified bundles the device already holds; at most 48, unique"
+              "maxLength": 3215,
+              "description": "Comma-separated typed digests the device holds verified: m:<manifest hash> for an access-manifest bundle, k:<level digest> for a container KEK level; at most 48, unique"
             },
             "style": "simple"
           }
@@ -25460,130 +25460,157 @@
                     "containerKeks": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "accessManifestHash": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "containerId": {
-                            "type": "string"
-                          },
-                          "containerKeyEpoch": {
-                            "exclusiveMinimum": 0,
-                            "maximum": 1.7976931348623157e+308,
-                            "type": "integer"
-                          },
-                          "containerKeyEpochId": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "containerManifestHistory": {
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "minLength": 1
-                            }
-                          },
-                          "keyEpoch": {
+                        "anyOf": [
+                          {
                             "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
-                          },
-                          "keyEpochHash": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "keyring": {
-                            "anyOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "containerId": {
-                                    "type": "string"
-                                  },
-                                  "containerKeyEpochId": {
-                                    "type": "string"
-                                  },
-                                  "iv": {
-                                    "maxLength": 16,
-                                    "type": "string"
-                                  },
-                                  "sealed": {
-                                    "maxLength": 5592352,
-                                    "type": "string"
-                                  },
-                                  "sealingSuite": {
-                                    "type": "string"
-                                  },
-                                  "version": {
-                                    "const": 1,
-                                    "type": "number"
-                                  }
-                                },
-                                "required": [
-                                  "containerId",
-                                  "containerKeyEpochId",
-                                  "iv",
-                                  "sealed",
-                                  "sealingSuite",
-                                  "version"
-                                ],
-                                "additionalProperties": {}
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "keyTargetHash": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "parentContainerKeyEpochId": {
-                            "anyOf": [
-                              {
+                            "properties": {
+                              "levelDigest": {
+                                "maxLength": 64,
+                                "minLength": 64,
+                                "pattern": "^[0-9a-f]+$",
                                 "type": "string"
                               },
-                              {
-                                "type": "null"
+                              "containerManifestHistory": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
                               }
-                            ]
+                            },
+                            "required": [
+                              "levelDigest",
+                              "containerManifestHistory"
+                            ],
+                            "additionalProperties": false
                           },
-                          "recipientTargets": {
-                            "minItems": 1,
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            }
-                          },
-                          "wraps": {
-                            "minItems": 1,
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            }
+                          {
+                            "type": "object",
+                            "properties": {
+                              "accessManifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "containerId": {
+                                "type": "string"
+                              },
+                              "containerKeyEpoch": {
+                                "exclusiveMinimum": 0,
+                                "maximum": 1.7976931348623157e+308,
+                                "type": "integer"
+                              },
+                              "containerKeyEpochId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "containerManifestHistory": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "keyEpoch": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "keyEpochHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "keyring": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "containerId": {
+                                        "type": "string"
+                                      },
+                                      "containerKeyEpochId": {
+                                        "type": "string"
+                                      },
+                                      "iv": {
+                                        "maxLength": 16,
+                                        "type": "string"
+                                      },
+                                      "sealed": {
+                                        "maxLength": 5592352,
+                                        "type": "string"
+                                      },
+                                      "sealingSuite": {
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "const": 1,
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "containerId",
+                                      "containerKeyEpochId",
+                                      "iv",
+                                      "sealed",
+                                      "sealingSuite",
+                                      "version"
+                                    ],
+                                    "additionalProperties": {}
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "keyTargetHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "parentContainerKeyEpochId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "recipientTargets": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "wraps": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                }
+                              }
+                            },
+                            "required": [
+                              "accessManifestHash",
+                              "containerId",
+                              "containerKeyEpoch",
+                              "containerKeyEpochId",
+                              "containerManifestHistory",
+                              "keyEpoch",
+                              "keyEpochHash",
+                              "keyring",
+                              "keyTargetHash",
+                              "parentContainerKeyEpochId",
+                              "recipientTargets",
+                              "wraps"
+                            ],
+                            "additionalProperties": {}
                           }
-                        },
-                        "required": [
-                          "accessManifestHash",
-                          "containerId",
-                          "containerKeyEpoch",
-                          "containerKeyEpochId",
-                          "containerManifestHistory",
-                          "keyEpoch",
-                          "keyEpochHash",
-                          "keyring",
-                          "keyTargetHash",
-                          "parentContainerKeyEpochId",
-                          "recipientTargets",
-                          "wraps"
-                        ],
-                        "additionalProperties": {}
+                        ]
                       }
                     },
                     "organizationId": {
@@ -26040,7 +26067,7 @@
           },
           {
             "id": "request.known-manifest-hints",
-            "description": "x-known-manifests must list at most 48 unique lowercase SHA-256 manifest hashes"
+            "description": "x-known-manifests must list at most 48 unique typed digests, each m: or k: followed by a lowercase SHA-256 hex digest"
           }
         ]
       }
@@ -33303,8 +33330,8 @@
             "required": false,
             "schema": {
               "type": "string",
-              "maxLength": 3119,
-              "description": "Comma-separated manifest hashes whose verified bundles the device already holds; at most 48, unique"
+              "maxLength": 3215,
+              "description": "Comma-separated typed digests the device holds verified: m:<manifest hash> for an access-manifest bundle, k:<level digest> for a container KEK level; at most 48, unique"
             },
             "style": "simple"
           }
@@ -33613,130 +33640,157 @@
                           "containerKeks": {
                             "type": "array",
                             "items": {
-                              "type": "object",
-                              "properties": {
-                                "accessManifestHash": {
-                                  "type": "string",
-                                  "minLength": 1
-                                },
-                                "containerId": {
-                                  "type": "string"
-                                },
-                                "containerKeyEpoch": {
-                                  "exclusiveMinimum": 0,
-                                  "maximum": 1.7976931348623157e+308,
-                                  "type": "integer"
-                                },
-                                "containerKeyEpochId": {
-                                  "type": "string",
-                                  "minLength": 1
-                                },
-                                "containerManifestHistory": {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "string",
-                                    "minLength": 1
-                                  }
-                                },
-                                "keyEpoch": {
+                              "anyOf": [
+                                {
                                   "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
-                                },
-                                "keyEpochHash": {
-                                  "type": "string",
-                                  "minLength": 1
-                                },
-                                "keyring": {
-                                  "anyOf": [
-                                    {
-                                      "type": "object",
-                                      "properties": {
-                                        "containerId": {
-                                          "type": "string"
-                                        },
-                                        "containerKeyEpochId": {
-                                          "type": "string"
-                                        },
-                                        "iv": {
-                                          "maxLength": 16,
-                                          "type": "string"
-                                        },
-                                        "sealed": {
-                                          "maxLength": 5592352,
-                                          "type": "string"
-                                        },
-                                        "sealingSuite": {
-                                          "type": "string"
-                                        },
-                                        "version": {
-                                          "const": 1,
-                                          "type": "number"
-                                        }
-                                      },
-                                      "required": [
-                                        "containerId",
-                                        "containerKeyEpochId",
-                                        "iv",
-                                        "sealed",
-                                        "sealingSuite",
-                                        "version"
-                                      ],
-                                      "additionalProperties": {}
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "keyTargetHash": {
-                                  "type": "string",
-                                  "minLength": 1
-                                },
-                                "parentContainerKeyEpochId": {
-                                  "anyOf": [
-                                    {
+                                  "properties": {
+                                    "levelDigest": {
+                                      "maxLength": 64,
+                                      "minLength": 64,
+                                      "pattern": "^[0-9a-f]+$",
                                       "type": "string"
                                     },
-                                    {
-                                      "type": "null"
+                                    "containerManifestHistory": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
                                     }
-                                  ]
+                                  },
+                                  "required": [
+                                    "levelDigest",
+                                    "containerManifestHistory"
+                                  ],
+                                  "additionalProperties": false
                                 },
-                                "recipientTargets": {
-                                  "minItems": 1,
-                                  "type": "array",
-                                  "items": {
-                                    "type": "object",
-                                    "properties": {},
-                                    "additionalProperties": {}
-                                  }
-                                },
-                                "wraps": {
-                                  "minItems": 1,
-                                  "type": "array",
-                                  "items": {
-                                    "type": "object",
-                                    "properties": {},
-                                    "additionalProperties": {}
-                                  }
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "accessManifestHash": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerId": {
+                                      "type": "string"
+                                    },
+                                    "containerKeyEpoch": {
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 1.7976931348623157e+308,
+                                      "type": "integer"
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "containerManifestHistory": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "keyEpoch": {
+                                      "type": "object",
+                                      "properties": {},
+                                      "additionalProperties": {}
+                                    },
+                                    "keyEpochHash": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "keyring": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "containerId": {
+                                              "type": "string"
+                                            },
+                                            "containerKeyEpochId": {
+                                              "type": "string"
+                                            },
+                                            "iv": {
+                                              "maxLength": 16,
+                                              "type": "string"
+                                            },
+                                            "sealed": {
+                                              "maxLength": 5592352,
+                                              "type": "string"
+                                            },
+                                            "sealingSuite": {
+                                              "type": "string"
+                                            },
+                                            "version": {
+                                              "const": 1,
+                                              "type": "number"
+                                            }
+                                          },
+                                          "required": [
+                                            "containerId",
+                                            "containerKeyEpochId",
+                                            "iv",
+                                            "sealed",
+                                            "sealingSuite",
+                                            "version"
+                                          ],
+                                          "additionalProperties": {}
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "keyTargetHash": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "parentContainerKeyEpochId": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "recipientTargets": {
+                                      "minItems": 1,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {},
+                                        "additionalProperties": {}
+                                      }
+                                    },
+                                    "wraps": {
+                                      "minItems": 1,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {},
+                                        "additionalProperties": {}
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "accessManifestHash",
+                                    "containerId",
+                                    "containerKeyEpoch",
+                                    "containerKeyEpochId",
+                                    "containerManifestHistory",
+                                    "keyEpoch",
+                                    "keyEpochHash",
+                                    "keyring",
+                                    "keyTargetHash",
+                                    "parentContainerKeyEpochId",
+                                    "recipientTargets",
+                                    "wraps"
+                                  ],
+                                  "additionalProperties": {}
                                 }
-                              },
-                              "required": [
-                                "accessManifestHash",
-                                "containerId",
-                                "containerKeyEpoch",
-                                "containerKeyEpochId",
-                                "containerManifestHistory",
-                                "keyEpoch",
-                                "keyEpochHash",
-                                "keyring",
-                                "keyTargetHash",
-                                "parentContainerKeyEpochId",
-                                "recipientTargets",
-                                "wraps"
-                              ],
-                              "additionalProperties": {}
+                              ]
                             }
                           },
                           "organizationId": {
@@ -34160,7 +34214,7 @@
           },
           {
             "id": "request.known-manifest-hints",
-            "description": "x-known-manifests must list at most 48 unique lowercase SHA-256 manifest hashes"
+            "description": "x-known-manifests must list at most 48 unique typed digests, each m: or k: followed by a lowercase SHA-256 hex digest"
           }
         ]
       }

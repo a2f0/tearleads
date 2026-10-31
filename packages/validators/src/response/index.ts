@@ -88,6 +88,8 @@ export {
   BlobMutationFailureResponseSchema,
 } from "./blobMutationError";
 export {
+  type CitedContainerKekLevel,
+  CitedContainerKekLevelSchema,
   CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
   type ContainerDeleteResponse,
   ContainerDeleteResponseSchema,
@@ -97,6 +99,7 @@ export {
   type ContainerKekLogResponse,
   ContainerKekLogResponseSchema,
   type ContainerKekResponse,
+  type ContainerKekWireLevel,
   type ContainerKeyingPathResponse,
   ContainerKeyingPathResponseSchema,
   type ContainerMutationResponse,
@@ -114,8 +117,10 @@ export {
   ContainerWriterProjectionResponseSchema,
   type ContainerWriterProjectionWireResponse,
   ContainerWriterProjectionWireResponseSchema,
+  isCitedContainerKekLevel,
   isContainerDeleteResponse,
   isContainerKekLogResponse,
+  isContainerKekWireLevel,
   isContainerMutationResponse,
   isContainerReciteResponse,
   isContainerRotationResponse,
@@ -579,8 +584,10 @@ export {
   SyncWatermarkSchema,
 } from "./syncWatermark";
 export {
+  containerKekWireLevel,
   decodeContainerWriterProjection,
   decodeDocumentWriterProjection,
   encodeContainerWriterProjection,
   encodeDocumentWriterProjection,
+  type HeldKekLevelDigest,
 } from "./writerProjectionWire";

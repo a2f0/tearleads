@@ -1,12 +1,14 @@
-import { expect } from "bun:test";
+import { expect, spyOn } from "bun:test";
 import {
   getContainerWriterProjectionOperation,
   operationRequestPath,
 } from "@tearleads/validators/operation";
 import {
   type ContainerWriterProjectionResponse,
+  containerKekWireLevel,
   encodeContainerWriterProjection,
 } from "@tearleads/validators/response";
+import { parseKnownManifestHints } from "@tearleads/validators/util";
 import { HttpResponse, http } from "msw";
 import { createContainerWriterProjectionResponse } from "../test/helpers/apiClientTestFactories";
 import {
@@ -43,7 +45,7 @@ function serve() {
         return HttpResponse.json(
           encodeContainerWriterProjection(
             projection(),
-            new Set(hint ? hint.split(",") : []),
+            new Set(parseKnownManifestHints(hint ?? "")?.manifests),
           ),
         );
       },
@@ -165,5 +167,59 @@ testApiClient(
       value: expect.objectContaining({ kind: "cancelled", ok: false }),
     });
     expect(hints).toEqual([]);
+  },
+);
+
+testApiClient(
+  "slow KEK level digests stay within the citation bound and its abort",
+  async () => {
+    const hints = serve();
+    const kek = projection().containerKeks[0];
+    if (!kek) throw new Error("fixture KEK missing");
+    const level = containerKekWireLevel(kek);
+    const hashing = createDeferred<void>();
+    const digest = spyOn(crypto.subtle, "digest").mockImplementation(() => {
+      hashing.resolve();
+      return new Promise(() => {});
+    });
+    try {
+      const client = new ApiClient(apiBaseUrl);
+      client.setVerifiedManifestCitations({ cite: async () => [level] });
+      expect(
+        await within(
+          client.getContainerWriterProjectionResult(projection().containerId, {
+            reportErrors: false,
+          }),
+          bound,
+        ),
+      ).toEqual({
+        settled: true,
+        value: { ok: true, data: projection() },
+      });
+      const runtime = new ApiRequestRuntime(apiBaseUrl);
+      const { requestResult } = writerProjectionRequests(runtime, () => ({
+        cite: async () => [level],
+      }));
+      const controller = new AbortController();
+      const pending = requestResult(
+        operationRequestPath(getContainerWriterProjectionOperation, {
+          containerId: projection().containerId,
+        }),
+        (value): value is unknown => value !== null,
+        "GET",
+        undefined,
+        { reportErrors: false, signal: controller.signal },
+        getContainerWriterProjectionOperation,
+      );
+      await hashing.promise;
+      controller.abort();
+      expect(await within(pending, MANIFEST_CITATION_DEADLINE_MS / 2)).toEqual({
+        settled: true,
+        value: expect.objectContaining({ kind: "cancelled", ok: false }),
+      });
+      expect(hints).toEqual([null]);
+    } finally {
+      digest.mockRestore();
+    }
   },
 );

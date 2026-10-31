@@ -306,6 +306,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // slot, alongside the moved folder and destination root. No duplicate
       // reads; a hydration pass discovers the directory once (measured 12).
       total: 12,
+      // Projection reads cite the KEK levels the device holds by digest:
+      // 100.4 KB received (120.7 KB before); keep about 10% headroom.
+      bodyBytes: { request: 23_000, response: 110_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 3,
         "GET /principals/group/:groupId/policy": 0,

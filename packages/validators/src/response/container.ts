@@ -11,6 +11,7 @@ import {
   nonNegativeIntegerSchema,
   plainObjectSchema,
   positiveIntegerSchema,
+  sha256HexStringSchema,
 } from "../schema";
 import {
   AccessManifestBundleWireResponseSchema,
@@ -99,6 +100,46 @@ const ContainerKekWireResponseSchema = registerJsonSchemaRuntimeRefinements(
 );
 
 export type ContainerKekResponse = z.infer<typeof ContainerKekResponseSchema>;
+
+/** One KEK level as served in full, its manifest history cited by hash. */
+export type ContainerKekWireLevel = z.infer<
+  typeof ContainerKekWireResponseSchema
+>;
+
+export function isContainerKekWireLevel(
+  value: unknown,
+): value is ContainerKekWireLevel {
+  return (
+    ContainerKekWireResponseSchema.safeParse(value).success &&
+    !Object.hasOwn(Object(value), "levelDigest")
+  );
+}
+
+/**
+ * A KEK level the request declared held (`k:` hint), replaced by the digest
+ * of its canonical wire bytes. It keeps the level's manifest citations, so
+ * the response's bundle bookkeeping stays exact; the client refills the
+ * level from those exact held bytes before anything reads it.
+ */
+export const CitedContainerKekLevelSchema = z.strictObject({
+  levelDigest: sha256HexStringSchema,
+  containerManifestHistory: arraySchema(ManifestHashReferenceSchema),
+});
+
+export type CitedContainerKekLevel = z.infer<
+  typeof CitedContainerKekLevelSchema
+>;
+
+export function isCitedContainerKekLevel(
+  value: unknown,
+): value is CitedContainerKekLevel {
+  return CitedContainerKekLevelSchema.safeParse(value).success;
+}
+
+const ServedContainerKekLevelSchema = z.union([
+  CitedContainerKekLevelSchema,
+  ContainerKekWireResponseSchema,
+]);
 
 /**
  * The append-only rotation log for one container: every epoch with its
@@ -287,7 +328,7 @@ export type ContainerWriterProjectionResponse = z.infer<
 
 const containerKeyingPathWireShape = {
   containerId: z.string(),
-  containerKeks: arraySchema(ContainerKekWireResponseSchema),
+  containerKeks: arraySchema(ServedContainerKekLevelSchema),
   organizationId: z.string(),
   path: nonEmptyArraySchema(ManifestHashReferenceSchema),
 };
