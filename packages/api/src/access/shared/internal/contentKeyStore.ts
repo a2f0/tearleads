@@ -3,7 +3,9 @@ import type {
   DatabaseSession,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import type { WriteHeader } from "@tearleads/crypto";
+import { KeyingVerificationError, type WriteHeader } from "@tearleads/crypto";
+import type { AnyColumn } from "drizzle-orm";
+import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { targetEnvelopeBundlesEqual } from "./targetEnvelopeBundles";
 
 interface ContentKeyBundle<TTarget> {
@@ -381,9 +383,20 @@ interface ContentWriteHeaderInput {
   readonly headerHash: string;
 }
 
-interface ContentWriteHeaderRow {
+/** The signed write header as the store holds it. */
+export interface StoredContentWriteHeader {
   readonly header: WriteHeader;
   readonly headerHash: string;
+}
+
+/** The columns a write-header insert returns and a retry reads back. */
+export function writeHeaderColumns<
+  TTable extends { readonly header: AnyColumn; readonly headerHash: AnyColumn },
+>(table: TTable): Pick<TTable, "header" | "headerHash"> {
+  return { header: table.header, headerHash: table.headerHash };
+}
+
+interface ContentWriteHeaderRow extends StoredContentWriteHeader {
   readonly recordId: string;
 }
 
@@ -399,18 +412,39 @@ interface CreateContentWriteHeaderStoreOptions<
   readonly expectedObjectKind: WriteHeader["objectKind"];
   readonly getObjectId: (input: TInput) => string;
   readonly getRecordId: (input: TInput) => string;
+  /** The stored header from the insert's `RETURNING` (null on conflict). */
   readonly insert: (
     input: TInput,
     executor: DatabaseSession,
-  ) => Promise<boolean>;
+  ) => Promise<StoredContentWriteHeader | null>;
   readonly list: (
     recordIds: readonly string[],
     executor: DatabaseSession,
   ) => Promise<readonly TRow[]>;
-  readonly loadHeaderHash: (
+  readonly loadStoredHeader: (
     recordId: string,
     executor: DatabaseSession,
-  ) => Promise<string | null>;
+  ) => Promise<StoredContentWriteHeader | null>;
+}
+
+/**
+ * Other devices verify the stored header's signature while the writer keeps
+ * its own signed copy, so a store that normalizes it (a dropped millisecond)
+ * must fail the writing transaction, on a fresh insert and on a retry.
+ */
+function assertStoredWriteHeaderVerbatim(
+  stored: StoredContentWriteHeader,
+  input: ContentWriteHeaderInput,
+): void {
+  if (
+    stored.headerHash !== input.headerHash ||
+    !canonicalJsonEquals(stored.header, input.header)
+  ) {
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "Stored write header does not preserve the signed header verbatim",
+    );
+  }
 }
 
 export function createContentWriteHeaderStore<
@@ -444,17 +478,20 @@ export function createContentWriteHeaderStore<
       }
       options.ensureContentKeyEpoch?.(input.header.contentKeyEpoch);
 
-      if (await options.insert(input, executor)) {
+      const inserted = await options.insert(input, executor);
+      if (inserted) {
+        assertStoredWriteHeaderVerbatim(inserted, input);
         return;
       }
 
-      const existingHeaderHash = await options.loadHeaderHash(
+      const existing = await options.loadStoredHeader(
         options.getRecordId(input),
         executor,
       );
-      if (existingHeaderHash !== input.headerHash) {
+      if (existing?.headerHash !== input.headerHash) {
         throw options.createConflictError();
       }
+      assertStoredWriteHeaderVerbatim(existing, input);
     },
   };
 }

@@ -149,7 +149,8 @@ export const blobContentKeyTargets = pgTable(
  * Committed encrypted blob bytes live in `blobs`; this table stores the keying
  * write header that authorizes and describes those bytes. Blob writes currently
  * use content-key epoch `1` and store one header per blob record. Replays for
- * the same `recordId` are accepted only when `headerHash` matches.
+ * the same `recordId` are accepted only when `headerHash` matches, and every
+ * write fails unless the stored `header` equals the signed header verbatim.
  *
  * Columns:
  * - `recordId`: Primary key for the blob content record. Staged blob promotion

@@ -17,6 +17,7 @@ import {
   createContentWriteHeaderStore,
   projectLatestContentKeyBundle,
   currentTargetsCanCarryPreviousBundle as sharedCurrentTargetsCanCarryPreviousBundle,
+  writeHeaderColumns,
 } from "./contentKeyStore";
 import {
   assertStoredTargetsMatchCurrent,
@@ -710,8 +711,8 @@ const documentContentWriteHeaderStore = createContentWriteHeaderStore<
         authorizationTargets: [...input.authorizationTargets],
       })
       .onConflictDoNothing()
-      .returning({ headerHash: documentContentWriteHeaders.headerHash });
-    return inserted !== undefined;
+      .returning(writeHeaderColumns(documentContentWriteHeaders));
+    return inserted ?? null;
   },
   list: (updateIds, executor) =>
     executor
@@ -723,13 +724,13 @@ const documentContentWriteHeaderStore = createContentWriteHeaderStore<
       })
       .from(documentContentWriteHeaders)
       .where(inArray(documentContentWriteHeaders.updateId, updateIds)),
-  loadHeaderHash: async (updateId, executor) => {
+  loadStoredHeader: async (updateId, executor) => {
     const [existing] = await executor
-      .select({ headerHash: documentContentWriteHeaders.headerHash })
+      .select(writeHeaderColumns(documentContentWriteHeaders))
       .from(documentContentWriteHeaders)
       .where(eq(documentContentWriteHeaders.updateId, updateId))
       .limit(1);
-    return existing?.headerHash ?? null;
+    return existing ?? null;
   },
 });
 
