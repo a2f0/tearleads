@@ -1,4 +1,5 @@
 export {
+  type ApiNetworkFailureInput,
   type AppDiagnostics,
   type DiagnosticAction,
   type DiagnosticArea,

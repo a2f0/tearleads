@@ -51,6 +51,7 @@ export class ApiRequestRuntime {
   private onError: ((message: string) => void) | null = null;
   private onNetworkError: (() => void) | null = null;
   private onNetworkSuccess: (() => void) | null = null;
+  private onNetworkFailure: ((error: ApiNetworkError) => void) | null = null;
   private onApiVersion: ((version: number) => void) | null = null;
   private onSessionExpired: ExpiredHandler | null = null;
   private onPaymentRequired: PaymentRequiredHandler | null = null;
@@ -104,6 +105,11 @@ export class ApiRequestRuntime {
 
   setOnNetworkSuccess(handler: (() => void) | null): void {
     this.onNetworkSuccess = handler;
+  }
+
+  /** Every fetch that threw without a response, except plain cancellations. */
+  setOnNetworkFailure(handler: ((e: ApiNetworkError) => void) | null): void {
+    this.onNetworkFailure = handler;
   }
 
   /** Receives the build named by each response that carries one. */
@@ -413,6 +419,7 @@ export class ApiRequestRuntime {
         pathTemplate: operation.path,
         probe: this.instrumentation?.networkFailureProbe,
         signal: options.signal,
+        onNetworkFailure: (failure) => this.onNetworkFailure?.(failure),
       });
       return this.requestFailure({
         ...(cancelled ? { code: "request_aborted" } : {}),

@@ -4,6 +4,10 @@ import {
   isDiagnosticAction,
   isDiagnosticArea,
 } from "./activity";
+import {
+  apiNetworkFailureMessage,
+  createApiNetworkFailureReporter,
+} from "./apiNetworkFailure";
 import { privateDataCollection } from "./collectionPolicy";
 import type { SentryConfig } from "./config";
 import { sanitizeSentryEvent } from "./privacy";
@@ -12,6 +16,33 @@ import { createPrivateSentryTransport } from "./transport";
 export interface WebDiagnostics extends AppDiagnostics {
   flush: () => PromiseLike<boolean>;
   dispose: () => PromiseLike<boolean>;
+}
+
+// The first failure of a class is an event; the rest are breadcrumbs.
+function apiNetworkFailureReporter(scope: Scope, origin: string) {
+  return createApiNetworkFailureReporter(
+    {
+      captureEvent: (tags) =>
+        scope.captureEvent({
+          level: "warning",
+          tags: { area: "app", diagnostic_source: "api-network", ...tags },
+          exception: {
+            values: [
+              {
+                type: "ApiNetworkError",
+                value: apiNetworkFailureMessage(tags.api_network_class),
+              },
+            ],
+          },
+        }),
+      addBreadcrumb: (data) =>
+        scope.addBreadcrumb(
+          { category: "api.network", level: "warning", data },
+          30,
+        ),
+    },
+    origin,
+  );
 }
 
 export function createBrowserDiagnostics(config: SentryConfig): WebDiagnostics {
@@ -36,6 +67,7 @@ export function createBrowserDiagnostics(config: SentryConfig): WebDiagnostics {
   scope.setClient(client);
   client.init();
   const diagnostics: WebDiagnostics = {
+    reportApiNetworkFailure: apiNetworkFailureReporter(scope, config.origin),
     clearBreadcrumbs: () => scope.clearBreadcrumbs(),
     addBreadcrumb(breadcrumb) {
       if (

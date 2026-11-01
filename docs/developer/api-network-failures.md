@@ -73,10 +73,47 @@ an API on the page's own origin is not probed: the web app's service worker can
 answer same-origin requests from cache, so neither would prove the host or this
 device is reachable. Those failures stay `unclassified`.
 
-The structured details stay on the failure for host diagnostics. Browser
-Sentry events still carry only the allowlisted fields in
-[private error diagnostics](sentry.md); adding these fields there needs its
-own privacy review.
+## Reporting to Sentry
+
+The SDK hands every failure except a plain cancellation (`aborted`) to
+`Tearleads.subscribeApiNetworkFailures`, whether or not its caller reports
+errors; the app forwards it to the host diagnostics, so the web app, mobile
+WebViews, and the desktop renderer report it when their
+[private error diagnostics](sentry.md) are configured. Without a DSN, and in
+the demo and development, nothing subscribes and nothing is sent.
+[`packages/diagnostics/src/apiNetworkFailure.ts`](../../packages/diagnostics/src/apiNetworkFailure.ts)
+reduces each failure to coarse tags, and the event boundary rejects a network
+event any of whose tags leaves this vocabulary.
+
+| Field | Decision | Sent as |
+| --- | --- | --- |
+| classification | send | the class (`aborted` is never reported) |
+| method | send | `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`, else `other` |
+| path template | send | lowercase literal and `{name}` segments only, else `other` |
+| attempt | send | `1`, `2`, else `other` |
+| elapsed time | coarsen | `lt-100ms`, `lt-1s`, `lt-3s`, `lt-10s`, `lt-30s`, `gte-30s` |
+| connectivity | send | `online`, `offline`, `unknown` |
+| cross-origin, preflight | send | `true`, `false` (cross-origin also `unknown`) |
+| API origin | coarsen | `default` for https `tearleads.com` hosts, else `custom` |
+| page origin | coarsen | `default` for the app's own origin, else `custom` |
+| probe result | send | `reachable`, `unreachable`, `not-run` |
+| error and cause names | coarsen | a fixed list of runtime error names, else `other` |
+| error message | coarsen | a label for a known browser phrasing, else `other` |
+| hint, cause message | drop | never sent: they can name an origin or a URL path |
+
+Headers, tokens, bodies, query values, ids, user ids, concrete URLs, and
+self-hosted or custom origins never leave the device. Path templates come
+from the operation registry, never from the concrete path, and a test checks
+every registered template is sent as itself. Events carry no stack, since no
+application code failed, and the fixed message `API request failed without a
+response (<class>)`.
+
+The first failure of each class in a page load becomes a `warning` event;
+later ones become `api.network` breadcrumbs holding the class, method, path
+template, attempt, elapsed bucket, and connectivity. A breadcrumb repeating the
+same class, method, and template within a minute is dropped, so a dead network
+sends at most five events per page load and cannot flush the activity trail.
+The client event budget (five a minute, twenty a page load) still applies.
 
 ## Network use outside the API client
 

@@ -91,6 +91,7 @@ Build and review both pages again, then deploy only when publication is authoriz
 | --- | --- |
 | Encryption, visible metadata, sharing limits | `docs/security-guarantees.md`, `docs/keying-design.md` |
 | App and API diagnostics, exclusions, connection IP exposure | `docs/developer/sentry.md`, `packages/diagnostics/src/privacy.ts` |
+| App API network-failure reports | `docs/developer/api-network-failures.md`, `packages/diagnostics/src/apiNetworkFailure.ts` |
 | Hosted click analytics, privacy preferences, and retention | `docs/developer/click-tracking.md`, `packages/app-web/src/clickTracking.ts`, `src/clickTracking.ts` |
 | Session IPs and activity | `packages/api/src/routes/auth/sessions.ts`, `packages/api/src/middleware/session.ts` |
 | Local identity destruction is local | `packages/app/src/providers/identity/useDestroyKey.ts` |
