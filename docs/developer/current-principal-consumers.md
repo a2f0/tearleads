@@ -45,8 +45,10 @@ Discovery names the head of the device's completed verified directory prefix. An
 `unchanged` reply naming exactly that head reuses the prefix, which recovery
 authenticates and checks against the reloaded checkpoint like any completed
 stage; any other reply, or a prefix that cannot be loaded, reads the first page
-unconditionally. The discovery page passes through ordinary signature
-verification; continuation reads remain bound to its exact current artifacts.
+unconditionally. The model's `ConditionalDiscovery` action checks that rule:
+trusting any `unchanged` reply breaks per-operation freshness. The discovery
+page passes through ordinary signature verification; continuation reads remain
+bound to its exact current artifacts.
 Additional historical directory or Admins citations use local proofs for the
 selected head, retaining the source lifetime even when another batch advances
 the private prefix. An unrelated server directory advance does not replace that
