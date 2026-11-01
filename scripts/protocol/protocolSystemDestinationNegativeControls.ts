@@ -11,6 +11,14 @@ export const SYSTEM_DESTINATION_NEGATIVE_CONTROLS: readonly NegativeControl[] =
       why: "An API read projection must not let a read-only signer trust an echoed mutation (#2266).",
     },
     {
+      id: "ack-accepts-unsigned-head",
+      module: "formal/local-trust/ContainerAuthoring.tla",
+      config: "formal/local-trust/ContainerAuthoring.cfg",
+      constants: { CheckAcknowledgedHead: "FALSE" },
+      expect: { kind: "invariant", name: "AcknowledgedCheckpointIsSigned" },
+      why: "An acknowledgement naming a manifest or event hash the client never signed must not advance its checkpoint (#2716).",
+    },
+    {
       id: "root-acknowledgment-skips-document-priming",
       module: "formal/local-trust/RootDocumentPriming.tla",
       config: "formal/local-trust/RootDocumentPriming.cfg",

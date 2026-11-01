@@ -140,6 +140,7 @@ import {
   getDocumentPurgeProof as readPurgeProof,
   purgeDocument as submitDocumentPurge,
 } from "./documentPurge";
+import type { ApiNetworkError } from "./networkFailure";
 import {
   createOperationTransport,
   type OperationTransport,
@@ -495,6 +496,11 @@ export class ApiClient {
 
   setOnNetworkSuccess(handler: (() => void) | null): void {
     this.requestRuntime.setOnNetworkSuccess(handler);
+  }
+
+  /** Every fetch that threw without a response, except plain cancellations. */
+  setOnNetworkFailure(handler: ((e: ApiNetworkError) => void) | null): void {
+    this.requestRuntime.setOnNetworkFailure(handler);
   }
 
   setOnApiVersion(handler: ((version: number) => void) | null): void {

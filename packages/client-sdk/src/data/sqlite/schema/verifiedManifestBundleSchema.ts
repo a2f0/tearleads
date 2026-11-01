@@ -10,7 +10,8 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  * checkpoint state: a missing, evicted, or damaged row only costs bytes.
  *
  * Container KEK levels share the table as typed rows (`objectKind`
- * `container-kek-level`), keyed by the SHA-256 of their canonical wire bytes.
+ * `container-kek-level`), keyed by `computeContainerKekLevelDigest`, the
+ * domain-separated hash of their canonical wire bytes.
  *
  * Columns:
  * - `manifestHash`: Citation key: the stored bundle's `manifestHash`, or a
@@ -19,7 +20,8 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  *   manifest's object (or the level's container and key epoch), used to cite
  *   the lineage relevant to a request.
  * - `bundleJson`: The exact verified bundle as JSON.
- * - `bundleDigest`: SHA-256 hex of `bundleJson`; a mismatch drops the row.
+ * - `bundleDigest`: SHA-256 hex of `bundleJson` (for a level row, its
+ *   citation digest); a mismatch drops the row.
  * - `verifiedAt`: Latest local verification time; oldest rows evict first.
  */
 export const verifiedAccessManifestBundles = sqliteTable(

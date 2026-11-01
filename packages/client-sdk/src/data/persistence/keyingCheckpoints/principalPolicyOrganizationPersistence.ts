@@ -1,6 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { PrincipalStateResponse } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, isNull, or } from "drizzle-orm";
 import { principalPolicyCheckpoints } from "../../sqlite/schema";
 import { sqliteInsertBatchSize } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
@@ -65,8 +65,61 @@ function slices<T>(values: readonly T[], size: number): T[][] {
 }
 
 /**
+ * A pin replaces the stored one only when it is newer, or repeats it exactly:
+ * whatever a caller checked, a write can never regress or fork a pin.
+ */
+const pinAdvances = or(
+  isNull(principalPolicyCheckpoints.version),
+  gt(
+    excludedValue(principalPolicyCheckpoints.version),
+    principalPolicyCheckpoints.version,
+  ),
+  and(
+    eq(
+      excludedValue(principalPolicyCheckpoints.version),
+      principalPolicyCheckpoints.version,
+    ),
+    eq(
+      excludedValue(principalPolicyCheckpoints.stateHash),
+      principalPolicyCheckpoints.stateHash,
+    ),
+  ),
+);
+
+const sameOwner = eq(
+  principalPolicyCheckpoints.organizationId,
+  excludedValue(principalPolicyCheckpoints.organizationId),
+);
+
+/** Names why the stored row refused `row`'s write. */
+async function refusedWrite(
+  tx: ClientSQLiteTransactionScope,
+  row: PrincipalPolicyOwnedRow,
+): Promise<KeyingVerificationError> {
+  const [stored] = await tx
+    .select({ organizationId: principalPolicyCheckpoints.organizationId })
+    .from(principalPolicyCheckpoints)
+    .where(
+      and(
+        eq(principalPolicyCheckpoints.principalType, row.principalType),
+        eq(principalPolicyCheckpoints.principalId, row.principalId),
+      ),
+    );
+  return stored && stored.organizationId === row.organizationId
+    ? new KeyingVerificationError(
+        "rollback",
+        "principal policy pin would regress or fork the stored pin",
+      )
+    : new KeyingVerificationError(
+        "object_mismatch",
+        "principal policy cache is already owned by another organization",
+      );
+}
+
+/**
  * Inserts each row, or updates it only where the stored row has the same
- * owner, and refuses when any row is already owned by another organization.
+ * owner and, for a pin, only where the pin advances; refuses when any row is
+ * owned by another organization or would regress or fork its stored pin.
  * The refused row's statement changes nothing, and the caller's transaction
  * rolls back whatever came before it. An ownership-only write never clears a
  * stored pin.
@@ -97,10 +150,9 @@ async function writeOwnedRows(
                 principalPolicyCheckpoints.organizationId,
               ),
             },
-        setWhere: eq(
-          principalPolicyCheckpoints.organizationId,
-          excludedValue(principalPolicyCheckpoints.organizationId),
-        ),
+        setWhere: pinned
+          ? (and(sameOwner, pinAdvances) ?? sameOwner)
+          : sameOwner,
       })
       .returning({
         principalId: principalPolicyCheckpoints.principalId,
@@ -108,11 +160,8 @@ async function writeOwnedRows(
       });
     for (const row of returned) written.add(ownedRowKey(row));
   }
-  if (rows.some((row) => !written.has(ownedRowKey(row))))
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      "principal policy cache is already owned by another organization",
-    );
+  const refused = rows.find((row) => !written.has(ownedRowKey(row)));
+  if (refused) throw await refusedWrite(tx, refused);
 }
 
 /**

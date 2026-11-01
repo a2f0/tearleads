@@ -103,8 +103,8 @@ the [protocol
 specification](protocol-specification.md#container-access-and-kek-protocol)).
 After a projection verifies, the SDK stores its verified bundles in the local
 `verified_access_manifest_bundles` table, keyed by manifest hash, and each
-verified container KEK level as a typed row keyed by the SHA-256 of its
-canonical wire bytes (one level per container, its latest). A later projection
+verified container KEK level as a typed row keyed by the domain-separated hash
+of its canonical wire bytes (one level per container, its latest). A later projection
 GET for any object may send an `x-known-manifests` header listing up to 48 of
 those typed digests (`KNOWN_MANIFEST_HINT_LIMIT`, `m:` for bundles, `k:` for
 levels): the latest level of each container its projection walks first, then

@@ -82,6 +82,14 @@ export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Priming must not write durable state after its provisioning identity or database changed (#2522).",
   },
   {
+    id: "principal-reuse-trusts-any-unchanged",
+    module: "formal/container-keying/PrincipalRecoveryReuse.tla",
+    config: "formal/container-keying/PrincipalRecoveryReuse.cfg",
+    constants: { UnchangedNamesHeld: "FALSE" },
+    expect: { kind: "invariant", name: "FreshPerOperation" },
+    why: "A conditional discovery may reuse the held head only when the unchanged reply names exactly it (#2711).",
+  },
+  {
     id: "principal-resume-saves-unchecked-progress",
     module: "formal/container-keying/PrincipalHistoryResume.tla",
     config: "formal/container-keying/PrincipalHistoryResume.cfg",
