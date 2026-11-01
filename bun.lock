@@ -27,7 +27,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.91",
+      "version": "0.1.92",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1155.0",
         "@aws-sdk/s3-request-presigner": "3.1155.0",
@@ -224,7 +224,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.126",
+      "version": "0.1.127",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -241,7 +241,7 @@
     },
     "packages/crypto": {
       "name": "@tearleads/crypto",
-      "version": "0.1.24",
+      "version": "0.1.25",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@noble/post-quantum": "0.7.1",
@@ -340,7 +340,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.43",
+      "version": "0.1.44",
       "dependencies": {
         "zod": "catalog:",
       },
