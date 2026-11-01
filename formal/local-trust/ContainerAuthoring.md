@@ -11,7 +11,7 @@ not. The server may echo any plan the client signs without checking authority.
 | `CanAuthor` / `SignMutation` / `CheckAuthorAccess` | `assertContainerAuthorAccess` checks current membership in the verified path before creating a signed event |
 | `EchoAcknowledgement` / `AcknowledgementsHaveAuthority` | `acknowledgeContainerMutation` and `acknowledgeDocumentMutation` may trust matching local plans only after authoring checked permission |
 | `ForgedAcknowledgement` / `CheckAcknowledgedHead` | `assertResponseIdentity` refuses a response whose `manifestHash`, `eventHash`, or epoch differs from the signed plan, and `assertResponseCommitments` refuses mismatched KEK commitments, before any checkpoint advances |
-| `AcknowledgedCheckpointIsSigned` | `locallyAcknowledgedContainerMutationHead` builds the checkpoint only from the plan's `manifest` and `manifestHash`, never from response material |
+| `AcknowledgedCheckpointIsSigned` | `locallyAcknowledgedContainerMutationHead` builds the checkpoint only from the plan's `manifest` and `manifestHash`, and only after `assertResponseIdentity` matched the response's head to it |
 | `RefuseMutation` / `DocumentRefusalsAreVisible` | `recordDocumentAuthorAccessFailure` records the local permission denial as a terminal 403 for pending document creation |
 
 The bounded choices cover read, write, and admin grants; child, system, and
@@ -28,20 +28,23 @@ writes.
 Acknowledgements are checked by hash, not echoed (#2716): the server returns
 only the head it committed (manifest hash, event hash, epochs, and KEK
 commitments), and the client compares each with its signed plan before it pins
-anything. `ForgedAcknowledgement` lets the dishonest server name a head the
-client never signed; the client refuses it and the mutation stays
-unacknowledged. `AcknowledgedCheckpointIsSigned` requires every accepted
-acknowledgement to pin exactly the signed plan's manifest head, so the model
-now tells the hash comparison apart from blind acceptance.
+anything. The pinned checkpoint always comes from the plan (`checkpoint`); the
+model tracks the head the accepted response names separately (`ackHead`).
+`ForgedAcknowledgement` lets the dishonest server name a head the client never
+signed; the client refuses it and the mutation stays unacknowledged.
+`AcknowledgedCheckpointIsSigned` requires every accepted acknowledgement to pin
+the signed plan's manifest head and to name that same head, so the model tells
+the hash comparison apart from blind acceptance.
 
 Two negative controls disable one guard each. The first removes the client
-permission check. A read-only signer
-then creates a plan that a dishonest server can echo into an acknowledgement.
-The SDK regressions exercise valid signed projections and require refusal before
-submission; document creation must also leave a visible terminal failure.
+permission check. A read-only signer then creates a plan that a dishonest
+server can echo into an acknowledgement. The SDK regressions exercise valid
+signed projections and require refusal before submission; document creation
+must also leave a visible terminal failure.
 
 The second (`CheckAcknowledgedHead = FALSE`, control
 `ack-accepts-unsigned-head`) accepts a response without comparing its hashes:
-a forged acknowledgement then pins a head this client never signed, violating
-`AcknowledgedCheckpointIsSigned`. `shareAcknowledgementHashes.test.ts` covers the
-same mismatches against signed plans.
+the client still pins its own plan, but now records as committed a head the
+server says it did not commit, violating `AcknowledgedCheckpointIsSigned`.
+`shareAcknowledgementHashes.test.ts` covers the same mismatches against signed
+plans.
