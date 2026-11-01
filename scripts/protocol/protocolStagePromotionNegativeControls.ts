@@ -68,4 +68,20 @@ export const STAGE_PROMOTION_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "NoOrphanObjects" },
     why: "A bind can assemble the object after cleanup reads the stage as pending; an abort that finds no upload then leaves the object with no record.",
   },
+  {
+    id: "stage-cleanup-deletes-fenced-rows",
+    module: STAGE_PROMOTION_MODULE,
+    config: STAGE_PROMOTION_CONFIG,
+    constants: { DeleteOnlyCleanedRows: "FALSE" },
+    expect: { kind: "invariant", name: "NoOrphanObjects" },
+    why: "A sweep that loses its lease mid-batch must delete only the rows of stages it cleaned; deleting a fenced stage's row leaves its object with no record.",
+  },
+  {
+    id: "stage-cleanup-strands-fenced-claims",
+    module: STAGE_PROMOTION_MODULE,
+    config: STAGE_PROMOTION_CONFIG,
+    constants: { ReclaimFencedStages: "FALSE" },
+    expect: { kind: "liveness", name: "FencedStagesAreReclaimed" },
+    why: "A claimed stage the sweep fenced off must stay a candidate for the next sweep, or its row and object are never cleaned.",
+  },
 ];

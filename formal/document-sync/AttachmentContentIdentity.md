@@ -50,9 +50,12 @@ The uploader also pushes the content update in the same sync pass as the bind,
 narrowing the window to a crash between two consecutive requests. A new
 document's first update, held back for its only attachment, rides in that bind
 as `documentSync` and commits after the binding row in the same transaction,
-which closes the window for that update; the model's states are unchanged,
-since the bind still precedes the content update and a refused carry falls
-back to the two writes.
+which closes the window for that update. This model's states are unchanged,
+since the bind still precedes the content update. The carry and its refusal,
+which falls back to a plain bind and then the two writes, are checked in
+[QueuedDocumentCreate](../local-trust/QueuedDocumentCreate.md): a refused carry
+never drops the queued row and never publishes content naming an unbound
+attachment.
 
 Pending upload rows persist the staging digest with the bytes and slot metadata.
 `recoverDroppedAttachmentSlots` restores that local intent without reading the

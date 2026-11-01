@@ -25,8 +25,10 @@ objects afterwards, and cleans up expired stages.
 | `Purge` / `PurgeLocksBlobs` | `resolveOrphanedBlobIds` takes `lockBlobMutationRows` before deciding which blobs no other document binds; `deleteDocumentAttachmentRows` deletes the bindings and marks those blobs |
 | `Reclaim` / `GcRechecksReference` | `reclaimOneBlob` locks the blob, revives it when `isBlobActivelyReferenced`, refuses a registry row whose key differs, and otherwise deletes the blob row and its bindings and marks the registry row pruned |
 | `DeletePrunedObject` | `drainPendingBlobObjectDeletions` deletes the object at the registry row's key, then `recordBlobObjectDeleted` |
-| `CleanupClaim` / `ExpiryLocksStageRow` | `expireBlobStagesForCleanup` claims a batch of expired stages with one update; for each stage row a promotion holds, the update waits and finds nothing once it commits. Each claimed stage is one cleanup-claim step, since the update locks its rows independently and no stage's claim depends on another's |
-| `CleanupStorage` / `DeleteObjectAfterAbort` / `CleanupRow` | `cleanupExpiredBlobStages` deletes a complete stage's object, or aborts a pending stage's upload (the S3 adapter treats a missing upload as aborted) and deletes its key, then deletes the stage rows |
+| `CleanupClaimBatch` / `Claimable` / `ExpiryLocksStageRow` | `cleanupExpiredBlobStages` selects expired candidates, checks the lease, and `expireBlobStagesForCleanup` claims them with one update; for each stage row a promotion holds, the update waits and finds nothing once it commits |
+| `LoseLease` / `Fenced` / `FenceStage` | `runOrganizationPurgeMaintenance` passes `assertObjectDeletionLease` (`createLeaseGuard`, which throws once `renewOrganizationPurgeClaim` fails); `cleanupExpiredBlobStages` checks it before the claim and again before every claimed stage after the first, and records a failure for a stage whose check throws |
+| `CleanupStorage` / `DeleteObjectAfterAbort` | `cleanupExpiredBlobStages` deletes a complete stage's object, or aborts a pending stage's upload (the S3 adapter treats a missing upload as aborted) and deletes its key |
+| `CleanupRows` / `DeleteOnlyCleanedRows` / `ReclaimFencedStages` | `cleanupExpiredBlobStages` deletes only the rows in `cleanedStageIds`; the claim sets `expiresAt` to the epoch, so a stage left behind still matches the expiry filter of the next sweep's select and of `expireBlobStagesForCleanup` |
 | `Fairness` | `runBlobMaintenance` runs reclamation and stage cleanup from the Worker's hourly cron |
 
 ## Properties
@@ -43,9 +45,31 @@ objects afterwards, and cleans up expired stages.
   `PrunedObjectsAreDeleted`: with the sweep running and started binds and
   purges finishing, expired stages are removed, dereferenced blobs are revived
   or reclaimed, and reclaimed objects are deleted. Clients need not act.
+- `FencedStagesAreReclaimed`: a stage a sweep claimed and then skipped after
+  losing its lease is removed by a later sweep.
 
 The bounds are two stages, two blob ids and two documents. The registered run
-explores 545,610 generated and 100,441 distinct states.
+explores 1,084,974 generated and 192,083 distinct states.
+
+## Batched cleanup and lease loss
+
+One sweep claims every expired candidate in a single update
+(`CleanupClaimBatch`), then cleans the claimed stages one at a time and deletes
+the rows of the ones it cleaned in one statement (`CleanupRows`). An
+organization purge runs the same cleanup under its purge lease. The lease is
+checked before the claim, which covers the first stage, and again before each
+later stage, so a worker whose lease moved to another worker stops deleting
+mid-batch (`LoseLease`, `FenceStage`). The model lets the lease be lost once
+per behavior, in any sweep and after any number of cleaned stages; later sweeps
+hold their lease. The hourly sweep passes no lease, so it never takes
+`LoseLease`, and a storage call that fails leaves its stage exactly as a
+fenced one.
+
+A fenced stage keeps its row, still expired and no longer promotable, so its
+object still has a record (`NoOrphanObjects`) and the next sweep claims it
+again (`FencedStagesAreReclaimed`). Two sweeps at once (the hourly cron and an
+organization purge) are not modeled; a stage both claim cannot be promoted, so
+the second one repeats deletes that are idempotent.
 
 ## The cleanup leak this model found
 
@@ -90,6 +114,12 @@ removes one production guard:
   binding.
 - `DeleteObjectAfterAbort = FALSE` violates `NoOrphanObjects`, as described
   above.
+- `DeleteOnlyCleanedRows = FALSE` violates `NoOrphanObjects`: the sweep deletes
+  every claimed row, including a fenced stage's, and its assembled object loses
+  its last record.
+- `ReclaimFencedStages = FALSE` violates `FencedStagesAreReclaimed`: a claim
+  that excluded rows claimed before would leave a fenced stage, and its
+  object, for no later sweep to clean.
 
 ## Boundary
 
