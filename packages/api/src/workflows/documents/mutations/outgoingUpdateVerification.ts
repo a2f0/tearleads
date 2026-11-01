@@ -11,6 +11,7 @@ import {
   versionVectorsEqual,
 } from "@tearleads/loro";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
+import { assertStoredWriteHeaderVerbatim } from "../../../access/write/documentContentKeyStore";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { DocumentMutationError, documentUpdateIdConflict } from "./errors";
 import { readWriteHeader } from "./shared/records";
@@ -160,15 +161,22 @@ function assertOutgoingCheckpointConsistency(
 }
 
 async function assertRetryWriteHeaderMatches(input: {
-  readonly expectedHeaderHash: string;
+  readonly accepted: {
+    readonly header: WriteHeader;
+    readonly headerHash: string;
+  };
   readonly update: DocumentOutgoingUpdate;
 }): Promise<void> {
-  const headerHash = await computeWriteHeaderHash(
-    readWriteHeader(input.update.writeHeader, "Document write header"),
+  const header = readWriteHeader(
+    input.update.writeHeader,
+    "Document write header",
   );
-  if (headerHash !== input.expectedHeaderHash) {
+  const headerHash = await computeWriteHeaderHash(header);
+  if (headerHash !== input.accepted.headerHash) {
     throw new DocumentMutationError("Document write header conflict", 409);
   }
+  // The retry is acknowledged from the stored row, which other devices read.
+  assertStoredWriteHeaderVerbatim(input.accepted, { header, headerHash });
 }
 
 interface StoredDocumentUpdateContent {
@@ -198,7 +206,9 @@ export function storedDocumentUpdateMatchesOutgoingContent(
 }
 
 export async function assertRetryUpdateMatchesAcceptedContent(input: {
-  readonly acceptedHeaderHash: string | undefined;
+  readonly acceptedHeader:
+    | { readonly header: WriteHeader; readonly headerHash: string }
+    | undefined;
   readonly documentId: string;
   readonly existingRow: StoredDocumentUpdateContent | undefined;
   readonly update: DocumentOutgoingUpdate;
@@ -208,11 +218,11 @@ export async function assertRetryUpdateMatchesAcceptedContent(input: {
   ) {
     throw documentUpdateIdConflict();
   }
-  if (!input.acceptedHeaderHash) {
+  if (!input.acceptedHeader) {
     throw new DocumentMutationError("Document write header conflict", 409);
   }
   await assertRetryWriteHeaderMatches({
-    expectedHeaderHash: input.acceptedHeaderHash,
+    accepted: input.acceptedHeader,
     update: input.update,
   });
   await assertOutgoingUpdatePayloadMatchesHeader({
