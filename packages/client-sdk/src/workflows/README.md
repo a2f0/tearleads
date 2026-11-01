@@ -457,3 +457,7 @@ endpoint. Hosts can retain an `ApiRequestMetrics` store across client
 lifetimes. See the
 [SDK request-count contract](../../../../docs/developer/client-sdk.md#api-request-counts)
 for snapshot, subscription, reset, lifetime, and transport-outcome semantics.
+`tearleads.subscribeApiNetworkFailures(listener)` reports each request that got
+no response, except plain cancellations, with the transport's secret-free
+details and returns an unsubscribe handle; see
+[API network failures](../../../../docs/developer/api-network-failures.md#reporting-to-sentry).

@@ -79,6 +79,7 @@ Client capabilities:
 | `tearleads.session` | registration, auth token, personal-org identity, and active context |
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.apiVersion` | latest `X-Tearleads-Api-Version` response header, for diagnostics |
+| `tearleads.subscribeApiNetworkFailures` | every API request that got no response (plain cancellations excluded), with its secret-free `ApiNetworkFailureDetails`, for diagnostics (see [API network failures](api-network-failures.md#reporting-to-sentry)) |
 | `tearleads.apiRequests` | per-identity HTTP attempt counts and timings (see [API Request Counts](#api-request-counts)) |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |

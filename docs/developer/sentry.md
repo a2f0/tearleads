@@ -115,6 +115,9 @@ Allowed:
 - Git release, deployment environment, and target/build variant.
 - On clients, `api_version`: the build number from the API's
   `X-Tearleads-Api-Version` response header (see above), as last heard from.
+- On clients, API requests that got no response, as coarse warning events and
+  breadcrumbs from the reviewed vocabulary in
+  [API network failures](api-network-failures.md#reporting-to-sentry).
 - Up to 30 breadcrumbs containing an approved mini-app name and action, plus
   timestamps. These describe attempts/navigation, not successful server commits.
   The trail is cleared when the active identity changes or is locked.
