@@ -11,7 +11,8 @@ import {
 /**
  * Typed rows in the verified-bundle cache that hold one container KEK level
  * each. `manifestHash` (the cache key) and `bundleDigest` are the level's
- * citation digest, the SHA-256 of `bundleJson`, its canonical wire bytes;
+ * citation digest, the domain-separated hash of `bundleJson`, its canonical
+ * wire bytes;
  * `objectId` and `epoch` are the level's container and key epoch.
  */
 export const KEK_LEVEL_OBJECT_KIND = "container-kek-level";
@@ -45,7 +46,8 @@ export async function kekLevelRow({
     objectKind: KEK_LEVEL_OBJECT_KIND,
     objectId: kekLevel.containerId,
     epoch: kekLevel.containerKeyEpoch,
-    // Canonical: the digest above is the SHA-256 of exactly these bytes.
+    // Canonical: the digest above is the domain-separated hash of exactly
+    // these bytes.
     bundleJson: serializeKeyingCanonicalJson(
       readKeyingCanonicalJson(kekLevel, "Verified KEK level"),
     ),

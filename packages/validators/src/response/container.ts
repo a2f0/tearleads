@@ -108,8 +108,8 @@ export function isContainerKekWireLevel(
 }
 
 /**
- * A KEK level the request declared held (`k:` hint), replaced by the digest
- * of its canonical wire bytes. It keeps the level's manifest citations, so
+ * A KEK level the request declared held (`k:` hint), replaced by the
+ * domain-separated digest of its canonical wire bytes. It keeps the level's manifest citations, so
  * the response's bundle bookkeeping stays exact; the client refills the
  * level from those exact held bytes before anything reads it.
  */
