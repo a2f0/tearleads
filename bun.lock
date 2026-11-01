@@ -352,7 +352,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.36",
+      "version": "0.1.37",
       "dependencies": {
         "@a2f0/ct-client": "0.1.5",
         "@astrojs/markdown-satteri": "0.4.5",
