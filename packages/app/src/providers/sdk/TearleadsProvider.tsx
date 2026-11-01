@@ -27,6 +27,7 @@ import { useLog } from "../logging/LogProvider";
 import { useSyncMode } from "../sync-mode/SyncModeProvider";
 import { createPrincipalHistoryKeyProvider } from "./principalHistoryKeyProvider";
 import { useServerEventsBinding } from "./serverEventsBinding";
+import { useApiNetworkFailureDiagnostics } from "./useApiNetworkFailureDiagnostics";
 import { useApiVersionDiagnostics } from "./useApiVersionDiagnostics";
 import { useTearleadsExternalValue } from "./useTearleadsSubscription";
 
@@ -290,6 +291,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
   useNetworkStatusBinding(tearleads, hostConfig.createNetworkStatus, log);
   useNetworkTransitionLog(tearleads);
   useApiVersionDiagnostics(tearleads.apiVersion, hostConfig.diagnostics);
+  useApiNetworkFailureDiagnostics(tearleads, hostConfig.diagnostics);
   useTearleadsDisposeOnUnmount(tearleads);
   useServerEventsBinding(
     tearleads,

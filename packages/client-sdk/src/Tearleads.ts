@@ -1,5 +1,6 @@
 import {
   ApiClient,
+  type ApiNetworkFailureDetails,
   ApiRequestMetrics,
   createApiReachabilityProbe,
   openServerEventsSocket,
@@ -25,6 +26,7 @@ import { createRoot, type Root, rootRuntimeOf } from "./client/root";
 import { ApiVersion } from "./client/runtime/apiVersion";
 import { Database } from "./client/runtime/database";
 import { Events } from "./client/runtime/events";
+import { createListenerSet } from "./client/runtime/listenerSet";
 import { Network } from "./client/runtime/network";
 import { SyncBillingGate } from "./client/runtime/syncBillingGate";
 import {
@@ -51,6 +53,16 @@ import type { TearleadsOptions } from "./TearleadsOptions";
 
 export class Tearleads {
   readonly apiVersion = new ApiVersion();
+  private readonly apiNetworkFailures =
+    createListenerSet<[ApiNetworkFailureDetails]>();
+  /**
+   * Every API request that got no response (plain cancellations excluded),
+   * with the transport's secret-free details; hosts forward them to
+   * diagnostics. Returns the unsubscribe handle.
+   */
+  readonly subscribeApiNetworkFailures = (
+    listener: (details: ApiNetworkFailureDetails) => void,
+  ): (() => void) => this.apiNetworkFailures.subscribe(listener);
   readonly apiRequests: ApiRequestMetrics;
   readonly blobs: Blobs;
   readonly database: Database;
@@ -253,6 +265,9 @@ export class Tearleads {
     );
     this.apiClient.setOnApiVersion((version) =>
       this.apiVersion.observe(version),
+    );
+    this.apiClient.setOnNetworkFailure((error) =>
+      this.apiNetworkFailures.notify(error.details),
     );
     this.apiClient.setOnSessionExpired(() => this.loginAfterSessionExpired());
     this.apiClient.setOnPaymentRequired((organizationId) =>
