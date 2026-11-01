@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { toFingerprint } from "../fingerprint";
+import { serializeKeyingCanonicalJson } from "./canonical";
 import {
+  computeContainerKekLevelDigest,
   isKeyingCanonicalJson,
   readKeyingCanonicalJson,
 } from "./canonicalJsonGuard";
@@ -50,5 +53,43 @@ describe("readKeyingCanonicalJson", () => {
     expect(() => readKeyingCanonicalJson(cyclicObject, "Event body")).toThrow(
       "Event body must be canonical JSON",
     );
+  });
+});
+
+describe("computeContainerKekLevelDigest", () => {
+  const level = { containerId: "container-1", containerKeyEpoch: 2, keks: [] };
+
+  test("is domain-separated from the plain hash of the level's bytes", async () => {
+    const digest = await computeContainerKekLevelDigest(level);
+    const encoder = new TextEncoder();
+    expect(digest).toBe(
+      await toFingerprint(
+        encoder.encode(
+          serializeKeyingCanonicalJson({
+            domain: "tearleads.keying.container-kek-level-citation",
+            payload: level,
+          }),
+        ),
+      ),
+    );
+    expect(digest).not.toBe(
+      await toFingerprint(encoder.encode(serializeKeyingCanonicalJson(level))),
+    );
+    // Key order does not change the canonical level, so neither its digest.
+    expect(
+      await computeContainerKekLevelDigest({
+        keks: [],
+        containerKeyEpoch: 2,
+        containerId: "container-1",
+      }),
+    ).toBe(digest);
+  });
+
+  test.each([
+    ["negative zero", { epoch: -0 }],
+    ["undefined property", { value: undefined }],
+    ["cycle", cyclicObject],
+  ])("is null for a level with no canonical form (%s)", async (_, value) => {
+    expect(await computeContainerKekLevelDigest(value)).toBeNull();
   });
 });
