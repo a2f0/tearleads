@@ -98,6 +98,7 @@ for (const environment of ["production", "staging", undefined]) {
         "verified-sharing",
         "access-keying",
         "cryptography",
+        "infrastructure",
         "local-storage",
         "trust-boundaries",
         "documents",
