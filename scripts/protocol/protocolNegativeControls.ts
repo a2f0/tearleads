@@ -221,6 +221,22 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A login presenting another signing key for a pinned user must not replace the pin.",
   },
   {
+    id: "admission-accepts-observed-pin",
+    module: "formal/local-trust/DurableIdentityBinding.tla",
+    config: "formal/local-trust/DurableIdentityBinding.cfg",
+    constants: { CheckAdmissionProvenance: "FALSE" },
+    expect: { kind: "invariant", name: "AdmittedUsersAreLinked" },
+    why: "Admission must not accept a pin observed from the server in place of an identity link (#2695).",
+  },
+  {
+    id: "observed-lowers-linked-pin",
+    module: "formal/local-trust/DurableIdentityBinding.tla",
+    config: "formal/local-trust/DurableIdentityBinding.cfg",
+    constants: { RaiseProvenanceOnly: "FALSE" },
+    expect: { kind: "action", name: "ProvenanceOnlyRises" },
+    why: "A later server answer must not demote a linked or self pin to observed (#2695).",
+  },
+  {
     id: "login-finishes-under-switched-identity",
     module: "formal/local-trust/UnacknowledgedInput.tla",
     config: "formal/local-trust/UnacknowledgedInput.cfg",

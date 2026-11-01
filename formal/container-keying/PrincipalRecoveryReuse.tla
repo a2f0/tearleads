@@ -31,9 +31,9 @@ EXTENDS Naturals
 (* it shares one memo, and a warmer without a token is its own operation.  *)
 (* Freshness is therefore established at pass start (BeginOperation),      *)
 (* which FreshPerOperation already states. Discovery may name the head of  *)
-(* the held verified prefix; an `unchanged` reply naming exactly that head *)
-(* selects the same pin as the bare read (an unverified pin either way),   *)
-(* and any other reply falls back to the bare read, so no flag changes.    *)
+(* the held verified prefix (ConditionalDiscovery); the device reuses that *)
+(* head only when an `unchanged` reply names exactly it, and any other     *)
+(* reply falls back to the bare read.                                      *)
 (***************************************************************************)
 
 CONSTANTS MaxHead, MaxOps, MaxHints,
@@ -46,7 +46,8 @@ CONSTANTS MaxHead, MaxOps, MaxHints,
           StampObservedEpoch,          \* an entry keeps the epoch observed before its reads
           CarryProducerLifetime,       \* a reused value checks its producer at the point of use
           PrimeRequiresAcknowledgement,\* priming follows the server's commit acknowledgement
-          PrimeChecksScope             \* priming writes only in its provisioning scope
+          PrimeChecksScope,            \* priming writes only in its provisioning scope
+          UnchangedNamesHeld           \* an `unchanged` reply is reused only if it names the held head
 
 ASSUME /\ MaxHead \in Nat \ {0}
        /\ MaxOps \in Nat \ {0}
@@ -54,7 +55,8 @@ ASSUME /\ MaxHead \in Nat \ {0}
        /\ {DiscoverEachOperation, ShortcutRequiresComplete,
            ReplayRejectedStoredCurrent, MemoPerOperation, EvictOnHint,
            EvictOnCheckpoint, StampObservedEpoch, CarryProducerLifetime,
-           PrimeRequiresAcknowledgement, PrimeChecksScope} \subseteq BOOLEAN
+           PrimeRequiresAcknowledgement, PrimeChecksScope,
+           UnchangedNamesHeld} \subseteq BOOLEAN
 
 Heads == 1..MaxHead
 StageStates == {"none", "partial", "complete", "rejected"}
@@ -278,6 +280,25 @@ BeginCollect ==
   /\ UNCHANGED <<serverHead, pin, stage, op, active, startHead, memo, epoch,
                  floor, lastUse, refused, usedExpired, behindPin>>
 
+(* The conditional form of the discovery read: the device sends the head  *)
+(* of its held verified prefix (its newest completed stage) and the server *)
+(* may answer `unchanged`. The device does not trust that flag: the reply  *)
+(* names the server's current head, which may be any head relative to the *)
+(* held one, and the held head is reused only when the two are equal.      *)
+(* Otherwise the device reads the first page unconditionally, exactly as   *)
+(* BeginCollect does. Without a held prefix it always reads the page.      *)
+ConditionalDiscovery ==
+  /\ DiscoverEachOperation
+  /\ active /\ pending.kind = "none" /\ ~MemoUsable
+  /\ \E held \in Heads:
+       /\ LocalHead(held)
+       /\ LET h == IF ~UnchangedNamesHeld \/ serverHead = held
+                      THEN held ELSE serverHead
+          IN pending' = [kind |-> "discover", head |-> h, epoch |-> epoch,
+                         floor |-> floor, alive |-> TRUE]
+  /\ UNCHANGED <<serverHead, pin, stage, op, active, startHead, memo, epoch,
+                 floor, lastUse, refused, usedExpired, behindPin>>
+
 (* A new citation is derived from the reused directory; it keeps the      *)
 (* source entry's epoch.                                                   *)
 BeginDerive ==
@@ -335,7 +356,8 @@ Terminated == ~active /\ op = MaxOps /\ UNCHANGED vars
 RecoveryNext ==
   \/ ServerAdvance \/ Hint \/ BeginOperation \/ EndOperation \/ Terminated
   \/ BeginReuse \/ FinishReuse \/ ExpireProducer \/ CancelDerive
-  \/ BeginCollect \/ BeginDerive \/ FinishCollect \/ AbortCollect
+  \/ BeginCollect \/ ConditionalDiscovery \/ BeginDerive \/ FinishCollect
+  \/ AbortCollect
   \/ \E h \in Heads: AdmitPin(h) \/ Interrupt(h) \/ StoreRejectedCurrent(h)
 
 Next ==
