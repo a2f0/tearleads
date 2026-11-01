@@ -1,5 +1,6 @@
 ---
 import accessKeyingSvg from "../../../../docs/diagrams/access-and-keying.svg?raw";
+import infrastructureSvg from "../../../../docs/diagrams/infrastructure.svg?raw";
 import DocsDiagram from "../components/DocsDiagram.astro";
 import PageHeader from "../components/PageHeader.astro";
 import SectionHeader from "../components/SectionHeader.astro";
@@ -19,6 +20,7 @@ const contents = [
   { href: "#device-boundary", label: "Device and service" },
   { href: "#verified-sharing", label: "Verified sharing" },
   { href: "#cryptography", label: "Cryptography" },
+  { href: "#infrastructure", label: "Infrastructure" },
   { href: "#trust-boundaries", label: "Scope" },
   { href: "#documents", label: "Technical documents" },
 ];
@@ -191,11 +193,27 @@ const zanzibarPaperUrl =
 
     <SecurityCryptography />
 
+    <section class="site-section security-section" id="infrastructure" aria-labelledby="infrastructure-title">
+      <SectionHeader
+        index="06"
+        titleId="infrastructure-title"
+        title="Infrastructure"
+        lede="The sync service runs on Cloudflare Workers with PlanetScale Postgres and Cloudflare R2 storage. Every part of it sits on the service side of the boundary in Fig. 2."
+      />
+      <DocsDiagram svg={infrastructureSvg} label="Infrastructure diagram" captionId="infrastructure-caption">
+        <span class="security-figure-label">Fig. 4</span> The production tier. Clients
+        talk to the API Worker and fetch encrypted blob bytes from R2 through
+        short-lived presigned URLs. Dashed boxes are third-party services. The
+        <a class="site-link" href={sourceUrl("docs/developer/infrastructure.md")}>infrastructure guide</a>
+        describes each stack and deployment step.
+      </DocsDiagram>
+    </section>
+
     <SecurityLimits />
 
     <section class="site-section security-section" id="documents" aria-labelledby="documents-title">
       <SectionHeader
-        index="07"
+        index="08"
         titleId="documents-title"
         title="Technical documents"
         lede="These documents, published from the public Tearleads repository on GitHub, define the verification rules, assumptions, and remaining gaps in more detail."

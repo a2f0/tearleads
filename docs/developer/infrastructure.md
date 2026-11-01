@@ -85,6 +85,12 @@ curl -sI https://www.tearleads.com/ | grep -i '^location'
 
 ## Infrastructure Lifecycle
 
+![Tearleads infrastructure](../diagrams/infrastructure.svg)
+
+The [infrastructure diagram](../diagrams/infrastructure.svg), also Fig. 4 on
+the website's /security page, shows one tier's Workers, storage, third-party
+services, and deployment tooling.
+
 Terraform provisions each tier's persistent resources and Wrangler publishes
 its Workers. Neither migrates deployment names or Terraform resource
 addresses: retire a resource through its owning configuration and state before

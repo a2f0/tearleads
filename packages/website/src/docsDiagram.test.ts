@@ -11,6 +11,12 @@ const accessKeyingPath = resolve(
   repoRoot,
   "docs/diagrams/access-and-keying.svg",
 );
+const infrastructurePath = resolve(
+  repoRoot,
+  "docs/diagrams/infrastructure.svg",
+);
+/** Every diagram the website inlines. */
+const diagramPaths = [accessKeyingPath, infrastructurePath];
 const stylesheetPath = resolve(import.meta.dir, "styles/docsDiagram.css");
 
 function usedClasses(svg: string): Set<string> {
@@ -51,6 +57,17 @@ describe("inlineDocsDiagram", () => {
     expect(markup).toContain('id="access-keying-arrow"');
   });
 
+  test("strips the standalone style and size from the infrastructure diagram", async () => {
+    const markup = inlineDocsDiagram(await Bun.file(infrastructurePath).text());
+    expect(markup).not.toContain("<style");
+    expect(markup).not.toMatch(/#[0-9a-f]{3,6}\b/i);
+    const root = markup.match(/<svg\b[^>]*>/)?.[0] ?? "";
+    expect(root).toContain('viewBox="0 0 1000 1000"');
+    expect(markup).toContain("<title>Tearleads infrastructure</title>");
+    expect(markup).toContain('marker-end="url(#infrastructure-arrow)"');
+    expect(markup).toContain('id="infrastructure-arrow"');
+  });
+
   test("rejects colors set by attribute, which the theme cannot reach", () => {
     expect(() =>
       inlineDocsDiagram(
@@ -75,43 +92,59 @@ describe("inlineDocsDiagram", () => {
 });
 
 describe("docsDiagram.css", () => {
-  test("styles every class the access diagram uses", async () => {
-    const svg = await Bun.file(accessKeyingPath).text();
+  test("styles every class each diagram uses", async () => {
     const css = await Bun.file(stylesheetPath).text();
-    const unstyled = [...usedClasses(inlineDocsDiagram(svg))].filter(
-      (name) =>
-        name !== "docs-diagram-svg" &&
-        !new RegExp(`\\.docs-diagram \\.${name}\\b(?!-)`).test(css),
-    );
-    expect(unstyled).toEqual([]);
+    for (const path of diagramPaths) {
+      const svg = await Bun.file(path).text();
+      const unstyled = [...usedClasses(inlineDocsDiagram(svg))].filter(
+        (name) =>
+          name !== "docs-diagram-svg" &&
+          !new RegExp(`\\.docs-diagram \\.${name}\\b(?!-)`).test(css),
+      );
+      expect({ path, unstyled }).toEqual({ path, unstyled: [] });
+    }
   });
 
-  test("matches the diagram's own font sizes, which position its text", async () => {
-    const svg = await Bun.file(accessKeyingPath).text();
+  test("matches the diagrams' own font sizes, which position their text", async () => {
     const css = await Bun.file(stylesheetPath).text();
-    const sourceSizes = fontSizes(svg, /(\.[a-z-]+) \{([^}]*)\}/g);
     const siteSizes = fontSizes(
       css,
       /((?:\.docs-diagram \.[a-z-]+,?\s*)+)\{([^}]*)\}/g,
     );
-    expect(Object.keys(sourceSizes).length).toBeGreaterThan(10);
-    expect(siteSizes).toEqual(sourceSizes);
+    const allSourceSizes: Record<string, number> = {};
+    for (const path of diagramPaths) {
+      const svg = await Bun.file(path).text();
+      const sourceSizes = fontSizes(svg, /(\.[a-z-]+) \{([^}]*)\}/g);
+      expect(Object.keys(sourceSizes).length).toBeGreaterThan(5);
+      for (const [name, size] of Object.entries(sourceSizes)) {
+        expect({ path, name, size }).toEqual({
+          path,
+          name,
+          size: siteSizes[name] ?? Number.NaN,
+        });
+        allSourceSizes[name] = size;
+      }
+    }
+    // No stale size rule outlives the diagrams that used it.
+    expect(siteSizes).toEqual(allSourceSizes);
   });
 
-  test("keeps the smallest label at the site's 13px text floor", async () => {
-    const svg = await Bun.file(accessKeyingPath).text();
+  test("keeps every diagram's smallest label at the site's 13px text floor", async () => {
     const css = await Bun.file(stylesheetPath).text();
-    const viewBoxWidth = Number(svg.match(/viewBox="0 0 (\d+)/)?.[1]);
     const minWidthRem = Number(
       css.match(/\.docs-diagram-svg \{[^}]*min-width: ([\d.]+)rem/)?.[1],
     );
-    const smallest = Math.min(
-      ...Object.values(fontSizes(svg, /(\.[a-z-]+) \{([^}]*)\}/g)),
-    );
-    expect(Number.isFinite(smallest * minWidthRem * viewBoxWidth)).toBe(true);
-    expect((smallest * minWidthRem * 16) / viewBoxWidth).toBeGreaterThanOrEqual(
-      13,
-    );
+    for (const path of diagramPaths) {
+      const svg = await Bun.file(path).text();
+      const viewBoxWidth = Number(svg.match(/viewBox="0 0 (\d+)/)?.[1]);
+      const smallest = Math.min(
+        ...Object.values(fontSizes(svg, /(\.[a-z-]+) \{([^}]*)\}/g)),
+      );
+      expect(Number.isFinite(smallest * minWidthRem * viewBoxWidth)).toBe(true);
+      expect(
+        (smallest * minWidthRem * 16) / viewBoxWidth,
+      ).toBeGreaterThanOrEqual(13);
+    }
   });
 
   test("reads only the properties the theme sets", async () => {

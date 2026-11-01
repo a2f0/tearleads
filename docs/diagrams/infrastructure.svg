@@ -1,0 +1,205 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>Tearleads infrastructure</title>
+  <defs>
+    <marker id="infrastructure-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" class="arrowhead"/>
+    </marker>
+    <style>
+      .sub { font-size: 13.5px; fill: #4b5563; }
+      .colhead { font-size: 13px; font-weight: 600; fill: #111827; letter-spacing: 0.04em; text-transform: uppercase; }
+      .lane { font-size: 15px; font-weight: 600; fill: #111827; }
+      .lanesub { font-size: 12px; fill: #6b7280; }
+      .box { fill: #ffffff; stroke: #4b5563; stroke-width: 1.25; }
+      .kbox { fill: #ffffff; stroke: #b45309; stroke-width: 1.25; stroke-dasharray: 5 3; }
+      .name { font-size: 14px; font-weight: 600; fill: #111827; }
+      .meta { font-size: 12px; fill: #4b5563; }
+      .mono { font-size: 12px; fill: #374151; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .edge { fill: none; stroke: #4b5563; stroke-width: 1.25; }
+      .elabel { font-size: 12px; fill: #374151; }
+      .foot { font-size: 13px; fill: #374151; }
+      .foothead { font-size: 13px; font-weight: 600; fill: #111827; }
+      .canvas { fill: #ffffff; }
+      .band { fill: #f8fafc; }
+      .rule { stroke: #d1d5db; stroke-width: 1; }
+      .arrowhead { fill: #4b5563; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="1000" class="canvas"/>
+
+  <!-- Lane bands -->
+  <rect x="0" y="36" width="1000" height="160" class="band"/>
+  <rect x="0" y="196" width="1000" height="214" class="canvas"/>
+  <rect x="0" y="410" width="1000" height="144" class="band"/>
+  <rect x="0" y="554" width="1000" height="130" class="canvas"/>
+  <rect x="0" y="684" width="1000" height="124" class="band"/>
+  <g class="rule">
+    <line x1="0" y1="36" x2="1000" y2="36"/>
+    <line x1="0" y1="196" x2="1000" y2="196"/>
+    <line x1="0" y1="410" x2="1000" y2="410"/>
+    <line x1="0" y1="554" x2="1000" y2="554"/>
+    <line x1="0" y1="684" x2="1000" y2="684"/>
+    <line x1="0" y1="808" x2="1000" y2="808"/>
+    <line x1="120" y1="12" x2="120" y2="808"/>
+  </g>
+
+  <!-- Heading -->
+  <text x="136" y="28" class="colhead">Production tier</text>
+  <text x="290" y="28" class="sub">staging runs the same layout on -staging hostnames</text>
+
+  <!-- Lane labels -->
+  <text x="16" y="104" class="lane">Clients</text>
+  <text x="16" y="122" class="lanesub">keys and</text>
+  <text x="16" y="137" class="lanesub">plaintext stay</text>
+  <text x="16" y="152" class="lanesub">on the device</text>
+  <text x="16" y="290" class="lane">Cloudflare</text>
+  <text x="16" y="308" class="lanesub">Workers and</text>
+  <text x="16" y="323" class="lanesub">Durable Objects</text>
+  <text x="16" y="474" class="lane">Storage</text>
+  <text x="16" y="492" class="lanesub">Cloudflare R2</text>
+  <text x="16" y="507" class="lanesub">and PlanetScale</text>
+  <text x="16" y="612" class="lane">Services</text>
+  <text x="16" y="630" class="lanesub">third parties</text>
+  <text x="16" y="740" class="lane">Operations</text>
+  <text x="16" y="758" class="lanesub">deploy and CI</text>
+
+  <!-- ============ CLIENTS ============ -->
+  <rect x="136" y="56" width="250" height="90" rx="4" class="box"/>
+  <text x="148" y="76" class="name">Web app</text>
+  <text x="148" y="94" class="meta">in the browser at</text>
+  <text x="148" y="112" class="mono">app.tearleads.com</text>
+  <text x="148" y="128" class="mono">demo.tearleads.com</text>
+
+  <rect x="416" y="56" width="250" height="90" rx="4" class="box"/>
+  <text x="428" y="76" class="name">iOS and Android</text>
+  <text x="428" y="94" class="meta">Capacitor shell, installed from</text>
+  <text x="428" y="110" class="meta">the App Store and Google Play</text>
+
+  <rect x="696" y="56" width="264" height="90" rx="4" class="box"/>
+  <text x="708" y="76" class="name">Desktop</text>
+  <text x="708" y="94" class="meta">Electrobun shell, installed from</text>
+  <text x="708" y="112" class="mono">downloads.tearleads.com</text>
+
+  <!-- Web app loads its bundle from the static Workers -->
+  <path d="M180,146 V236" class="edge" marker-end="url(#infrastructure-arrow)"/>
+  <text x="190" y="216" class="elabel">static assets</text>
+
+  <!-- Every client reaches the API, and blob storage through presigned URLs -->
+  <path d="M330,146 V176 H975 V492 H950" class="edge" marker-end="url(#infrastructure-arrow)"/>
+  <path d="M541,146 V236" class="edge" marker-end="url(#infrastructure-arrow)"/>
+  <path d="M828,146 V176" class="edge"/>
+  <text x="345" y="170" class="elabel">HTTPS and WebSocket</text>
+  <text x="987" y="334" class="elabel" text-anchor="middle" transform="rotate(90 987 334)">presigned URLs: encrypted blob bytes</text>
+
+  <!-- ============ CLOUDFLARE ============ -->
+  <rect x="136" y="240" width="230" height="100" rx="4" class="box"/>
+  <text x="148" y="260" class="name">Static asset Workers</text>
+  <text x="148" y="278" class="mono">tearleads.com</text>
+  <text x="148" y="294" class="mono">app.tearleads.com</text>
+  <text x="148" y="310" class="mono">demo.tearleads.com</text>
+  <text x="148" y="328" class="meta">no server runtime</text>
+
+  <rect x="416" y="240" width="250" height="120" rx="4" class="box"/>
+  <text x="428" y="260" class="name">API Worker</text>
+  <text x="428" y="278" class="mono">api.tearleads.com</text>
+  <text x="428" y="296" class="meta">Hono routes and /events</text>
+  <text x="428" y="312" class="meta">cron: billing every minute,</text>
+  <text x="428" y="328" class="meta">blob cleanup hourly</text>
+  <text x="428" y="346" class="meta">placed in us-east-1</text>
+
+  <rect x="726" y="240" width="220" height="120" rx="4" class="box"/>
+  <text x="738" y="260" class="name">Durable Objects</text>
+  <text x="738" y="278" class="mono">KeyValueStore</text>
+  <text x="738" y="294" class="meta">sessions and tickets</text>
+  <text x="738" y="314" class="mono">RealtimeHub</text>
+  <text x="738" y="330" class="meta">every WebSocket</text>
+  <text x="738" y="346" class="meta">SQLite storage</text>
+
+  <path d="M666,300 H722" class="edge" marker-end="url(#infrastructure-arrow)"/>
+  <text x="696" y="292" class="elabel" text-anchor="middle">binding</text>
+
+  <!-- API to Postgres through Hyperdrive -->
+  <path d="M541,360 V446" class="edge" marker-end="url(#infrastructure-arrow)"/>
+  <text x="551" y="384" class="elabel">Hyperdrive</text>
+  <text x="551" y="402" class="elabel">pooled, TLS</text>
+
+  <!-- API to R2 through the S3 API -->
+  <path d="M650,360 V432 H836 V446" class="edge" marker-end="url(#infrastructure-arrow)"/>
+  <text x="662" y="424" class="elabel">S3 API: presign, delete</text>
+
+  <!-- ============ STORAGE ============ -->
+  <rect x="136" y="450" width="230" height="84" rx="4" class="box"/>
+  <text x="148" y="470" class="name">R2 downloads bucket</text>
+  <text x="148" y="488" class="mono">downloads.tearleads.com</text>
+  <text x="148" y="504" class="meta">desktop installers and</text>
+  <text x="148" y="520" class="meta">update files</text>
+
+  <rect x="416" y="450" width="250" height="84" rx="4" class="box"/>
+  <text x="428" y="470" class="name">PlanetScale Postgres</text>
+  <text x="428" y="488" class="meta">us-east-1: accounts, signed</text>
+  <text x="428" y="504" class="meta">records, encrypted updates,</text>
+  <text x="428" y="520" class="meta">wrapped keys, billing state</text>
+
+  <rect x="726" y="450" width="220" height="84" rx="4" class="box"/>
+  <text x="738" y="470" class="name">R2 blob bucket</text>
+  <text x="738" y="488" class="mono">tearleads-blobs-prod</text>
+  <text x="738" y="504" class="meta">encrypted attachment bytes</text>
+  <text x="738" y="520" class="meta">S3 API, presigned URLs</text>
+
+  <!-- ============ SERVICES ============ -->
+  <rect x="136" y="576" width="191" height="86" rx="4" class="kbox"/>
+  <text x="148" y="596" class="name">Stripe</text>
+  <text x="148" y="614" class="meta">web checkout and the</text>
+  <text x="148" y="630" class="meta">billing portal; webhooks</text>
+  <text x="148" y="646" class="meta">to the API</text>
+
+  <rect x="347" y="576" width="191" height="86" rx="4" class="kbox"/>
+  <text x="359" y="596" class="name">RevenueCat</text>
+  <text x="359" y="614" class="meta">App Store and Google Play</text>
+  <text x="359" y="630" class="meta">purchases, sync entitlement;</text>
+  <text x="359" y="646" class="meta">webhooks to the API</text>
+
+  <rect x="558" y="576" width="191" height="86" rx="4" class="kbox"/>
+  <text x="570" y="596" class="name">Sentry</text>
+  <text x="570" y="614" class="meta">error reports from the</text>
+  <text x="570" y="630" class="meta">apps and the API</text>
+
+  <rect x="769" y="576" width="191" height="86" rx="4" class="kbox"/>
+  <text x="781" y="596" class="name">Healthchecks</text>
+  <text x="781" y="614" class="meta">pings around each hourly</text>
+  <text x="781" y="630" class="meta">blob cleanup run</text>
+
+  <!-- ============ OPERATIONS ============ -->
+  <rect x="136" y="704" width="260" height="86" rx="4" class="box"/>
+  <text x="148" y="724" class="name">Deploy scripts</text>
+  <text x="148" y="742" class="mono">scripts/deploy</text>
+  <text x="148" y="758" class="meta">Wrangler publishes the Workers;</text>
+  <text x="148" y="774" class="meta">Terraform applies each stack</text>
+
+  <rect x="418" y="704" width="260" height="86" rx="4" class="box"/>
+  <text x="430" y="724" class="name">Terraform state</text>
+  <text x="430" y="742" class="mono">tearleads-terraform-state</text>
+  <text x="430" y="758" class="meta">R2, one state per tier and stack</text>
+
+  <rect x="700" y="704" width="260" height="86" rx="4" class="box"/>
+  <text x="712" y="724" class="name">GitHub Actions</text>
+  <text x="712" y="742" class="meta">checks every pull request;</text>
+  <text x="712" y="758" class="meta">publishes the client SDK and</text>
+  <text x="712" y="774" class="meta">windowing packages to npm</text>
+
+  <!-- ============ FOOTER ============ -->
+  <text x="16" y="840" class="foothead">Notes</text>
+  <g class="foot">
+    <text x="16" y="864">Workers, Durable Objects, Postgres, and R2 hold ciphertext, wrapped keys, signed records, and service-visible metadata.</text>
+    <text x="16" y="884">Blob bytes move between clients and R2 directly; the API signs short-lived upload and download URLs instead of relaying them.</text>
+    <text x="16" y="904">Terraform owns the buckets, Postgres, Hyperdrive, and custom domains; Wrangler owns the Workers and their assets.</text>
+  </g>
+
+  <text x="16" y="940" class="foothead">Legend</text>
+  <rect x="16" y="954" width="44" height="20" rx="3" class="box"/>
+  <text x="72" y="968" class="foot">run in Tearleads' Cloudflare and PlanetScale accounts</text>
+  <rect x="480" y="954" width="44" height="20" rx="3" class="kbox"/>
+  <text x="536" y="968" class="foot">third-party service</text>
+  <path d="M700,964 H748" class="edge" marker-end="url(#infrastructure-arrow)"/>
+  <text x="760" y="968" class="foot">request direction</text>
+</svg>
