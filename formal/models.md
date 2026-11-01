@@ -85,7 +85,8 @@ Principal state models cover
 [version availability](./container-keying/PrincipalHistory.md)
 and [page verification](./container-keying/PrincipalHistoryPages.md), including
 [authenticated resumption](./container-keying/PrincipalHistoryResume.md) and
-[recovery reuse](./container-keying/PrincipalRecoveryReuse.md).
+[recovery reuse](./container-keying/PrincipalRecoveryReuse.md) with
+conditional discovery.
 
 ### No Bricked Device
 
@@ -255,7 +256,7 @@ that replay itself. See the [mapping](./local-trust/ContainerMoveReplay.md).
 
 [`local-trust/DurableIdentityBinding.tla`](./local-trust/DurableIdentityBinding.tla)
 checks that persistent fingerprint-to-user bindings survive session recreation
-and stay unique within each trust domain. See the
+and stay unique per trust domain, and that only link or self pins admit. See the
 [mapping and boundaries](./local-trust/DurableIdentityBinding.md).
 
 ### Queued Document Creation
@@ -290,7 +291,8 @@ root/system parent edges.
 deferred during root verification are scheduled after remote acknowledgement.
 
 [ContainerAuthoring](./local-trust/ContainerAuthoring.md) separates read proof
-access from local signing authority and models an untrusted server echoing a plan.
+access from local signing authority and models an untrusted server echoing a plan
+or forging its acknowledged head.
 
 ### Purge Recovery and Subtree Purge Scope
 
