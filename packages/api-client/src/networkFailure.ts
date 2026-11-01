@@ -298,6 +298,8 @@ export async function settleNetworkFailure(
   input: Omit<NetworkFailureInput, "online"> & {
     readonly isOnline?: (() => boolean | null) | undefined;
     readonly onNetworkError: () => void;
+    /** Diagnostics: every classified failure except a plain cancellation. */
+    readonly onNetworkFailure?: ((error: ApiNetworkError) => void) | undefined;
   },
 ): Promise<{
   readonly cancelled: boolean;
@@ -311,6 +313,13 @@ export async function settleNetworkFailure(
     online,
     probe: cancelledAtFailure ? null : input.probe,
   });
+  if (networkError.details.classification !== "aborted") {
+    try {
+      input.onNetworkFailure?.(networkError);
+    } catch {
+      // Diagnostics must never change a request's outcome.
+    }
+  }
   return { cancelled: input.signal?.aborted === true, networkError };
 }
 

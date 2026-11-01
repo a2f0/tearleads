@@ -260,3 +260,60 @@ test("recording ownership or a pin takes one statement per batch", async () => {
     sqlite.close();
   }
 });
+
+test("a pin write never regresses or forks the stored pin", async () => {
+  const { close, execSql } = await createTestExecSql("policy-pin-monotonic");
+  try {
+    await ensureSqlTables(execSql, principalPolicyTables);
+    const runtime = getClientSQLitePersistenceRuntime(execSql);
+    const pin = (principalId: string, version: number, hash: string) => ({
+      principalId,
+      principalType: "group" as const,
+      stateHash: hash.repeat(64),
+      version,
+    });
+    const write = (
+      checkpoints: ReturnType<typeof pin>[],
+      updatedAt = "2026-09-05T00:00:00.000Z",
+    ) =>
+      runtime.transaction((tx) =>
+        upsertPrincipalPolicyCheckpointsInTransaction(
+          tx,
+          checkpoints,
+          updatedAt,
+          "org-one",
+        ),
+      );
+    await write(
+      [pin("group-a", 2, "a"), pin("group-b", 1, "b")],
+      "2026-09-04T00:00:00.000Z",
+    );
+    const before = await runtime.db.select().from(principalPolicyCheckpoints);
+    // A lower version, or another hash at the same version, is refused, and
+    // the transaction keeps the other row's advance from landing either.
+    for (const regressed of [pin("group-a", 1, "c"), pin("group-a", 2, "d")])
+      await expect(
+        write([pin("group-b", 2, "e"), regressed]),
+      ).rejects.toMatchObject({ code: "rollback" });
+    expect(await runtime.db.select().from(principalPolicyCheckpoints)).toEqual(
+      before,
+    );
+    // Repeating the stored pin and advancing it both still write.
+    await write([pin("group-a", 2, "a"), pin("group-b", 2, "e")]);
+    expect(
+      await loadStoredPrincipalPolicyCheckpoint(runtime.db, {
+        principalId: "group-b",
+        principalType: "group",
+      }),
+    ).toEqual(pin("group-b", 2, "e"));
+    await write([pin("group-a", 3, "f")]);
+    expect(
+      await loadStoredPrincipalPolicyCheckpoint(runtime.db, {
+        principalId: "group-a",
+        principalType: "group",
+      }),
+    ).toEqual(pin("group-a", 3, "f"));
+  } finally {
+    close();
+  }
+});

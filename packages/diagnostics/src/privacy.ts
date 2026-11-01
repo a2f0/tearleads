@@ -1,6 +1,12 @@
 import type { Breadcrumb, ErrorEvent, Event, StackFrame } from "@sentry/core";
 import { isDiagnosticAction, isDiagnosticArea } from "./activity";
 import { apiErrorMessage, sanitizeApiTags } from "./apiDiagnostics";
+import {
+  type ApiNetworkTags,
+  apiNetworkFailureMessage,
+  sanitizeApiNetworkBreadcrumb,
+  sanitizeApiNetworkTags,
+} from "./apiNetworkFailure";
 import { sanitizeApiRequestTags } from "./apiRequestContext";
 import { API_ERROR_TYPES } from "./apiVocabulary";
 
@@ -47,6 +53,7 @@ const SERVER_SOURCES = {
   ]),
 };
 const SOURCES = new Set([
+  "api-network",
   "boundary",
   "log",
   "unhandled-error",
@@ -74,7 +81,18 @@ function diagnosticPolicy(
   tags: Event["tags"],
   runtime: SentryPrivacyConfig["runtime"],
   routes?: ReadonlySet<string>,
+  network?: Partial<ApiNetworkTags> | null,
 ) {
+  if (network) {
+    return {
+      tags: {
+        ...apiVersionTag(tags),
+        ...network,
+        privacy: "network-allowlist-v1",
+      },
+      message: apiNetworkFailureMessage(network.api_network_class ?? ""),
+    };
+  }
   if (runtime === "api") {
     const apiTags = sanitizeApiTags(tags);
     return {
@@ -164,7 +182,12 @@ function safePosition(frame: StackFrame, filename: string): StackFrame | null {
   };
 }
 
-export function sanitizeBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
+export function sanitizeBreadcrumb(
+  breadcrumb: Breadcrumb,
+  routes?: ReadonlySet<string>,
+): Breadcrumb | null {
+  if (breadcrumb.category === "api.network")
+    return sanitizeApiNetworkBreadcrumb(breadcrumb, routes);
   const { area, action } = breadcrumb.data ?? {};
   if (
     breadcrumb.category !== "app.activity" ||
@@ -183,6 +206,54 @@ export function sanitizeBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
   };
 }
 
+const HANDLED_SOURCES = new Set([
+  "api-network",
+  "background-error",
+  "boundary",
+  "log",
+  "request-error",
+  "websocket-error",
+]);
+// An explicit boundary, and a network failure (no code failed), still report
+// without a usable stack.
+const REPORTS_WITHOUT_STACK = new Set(["api-network", "boundary"]);
+
+function frameSanitizer(config: SentryPrivacyConfig, frameless: boolean) {
+  return (frames: StackFrame[]): StackFrame[] =>
+    frameless
+      ? []
+      : frames
+          .map((frame) => safeFrame(frame, config))
+          .filter((frame): frame is StackFrame => frame !== null)
+          .slice(-40);
+}
+
+// Undefined for other sources; null when a network event's tags fail review.
+function networkTags(
+  source: string,
+  tags: Event["tags"],
+  routes: ReadonlySet<string> | undefined,
+): Partial<ApiNetworkTags> | null | undefined {
+  return source === "api-network"
+    ? sanitizeApiNetworkTags(tags, routes)
+    : undefined;
+}
+
+function exceptionType(
+  type: string | undefined,
+  network: Partial<ApiNetworkTags> | undefined,
+  runtime: SentryPrivacyConfig["runtime"],
+): string {
+  return network ? "ApiNetworkError" : safeErrorType(type ?? "Error", runtime);
+}
+
+function hasReportableStack(
+  exceptions: ReadonlyArray<{ stacktrace?: { frames?: StackFrame[] } }>,
+  sanitizeFrames: (frames: StackFrame[]) => StackFrame[],
+): boolean {
+  return sanitizeFrames(exceptions[0]?.stacktrace?.frames ?? []).length > 0;
+}
+
 // Reconstruct from an allowlist, rather than trying to redact known secrets.
 // Error messages are untrusted: clients can contain decrypted content and API
 // drivers can include credentials, SQL values, and request data.
@@ -194,11 +265,10 @@ export function sanitizeSentryEvent(
   const { area, diagnostic_source: source } = event.tags ?? {};
   const sources = config.runtime ? SERVER_SOURCES[config.runtime] : SOURCES;
   if (typeof source !== "string" || !sources.has(source)) return null;
-  const sanitizeFrames = (frames: StackFrame[]) =>
-    frames
-      .map((frame) => safeFrame(frame, config))
-      .filter((frame): frame is StackFrame => frame !== null)
-      .slice(-40);
+  // A network failure carries reviewed tags and no stack: no code failed.
+  const network = networkTags(source, event.tags, config.routeTemplates);
+  if (network === null) return null;
+  const sanitizeFrames = frameSanitizer(config, network !== undefined);
   // Includes anonymous Chrome DevTools and extension-only failures. An explicit
   // boundary still reports a generic failure if no usable stack is available.
   const exceptions = (
@@ -208,8 +278,8 @@ export function sanitizeSentryEvent(
     config.runtime === "api" ? undefined : 1,
   );
   if (
-    !sanitizeFrames(exceptions[0]?.stacktrace?.frames ?? []).length &&
-    source !== "boundary" &&
+    !hasReportableStack(exceptions, sanitizeFrames) &&
+    !REPORTS_WITHOUT_STACK.has(source) &&
     !config.runtime
   )
     return null;
@@ -217,6 +287,7 @@ export function sanitizeSentryEvent(
     event.tags,
     config.runtime,
     config.routeTemplates,
+    network,
   );
   return {
     type: undefined,
@@ -229,7 +300,7 @@ export function sanitizeSentryEvent(
         ? event.timestamp
         : Date.now() / 1000,
     platform: "javascript",
-    level: "error",
+    level: network ? "warning" : "error",
     environment: config.environment,
     release: config.release,
     dist: config.dist,
@@ -244,24 +315,17 @@ export function sanitizeSentryEvent(
       values: exceptions.map((exception) => {
         const frames = sanitizeFrames(exception.stacktrace?.frames ?? []);
         return {
-          type: safeErrorType(exception.type ?? "Error", config.runtime),
+          type: exceptionType(exception.type, network, config.runtime),
           value: policy.message,
           ...(frames.length ? { stacktrace: { frames } } : {}),
-          mechanism: {
-            type: "generic",
-            handled: [
-              "background-error",
-              "boundary",
-              "log",
-              "request-error",
-              "websocket-error",
-            ].includes(source),
-          },
+          mechanism: { type: "generic", handled: HANDLED_SOURCES.has(source) },
         };
       }),
     },
     breadcrumbs: (config.runtime ? [] : (event.breadcrumbs ?? []))
-      .map(sanitizeBreadcrumb)
+      .map((breadcrumb) =>
+        sanitizeBreadcrumb(breadcrumb, config.routeTemplates),
+      )
       .filter((breadcrumb): breadcrumb is Breadcrumb => breadcrumb !== null)
       .slice(-30),
   };

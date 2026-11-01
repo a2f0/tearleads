@@ -22,8 +22,11 @@ import {
 type BlobRewrap = DocumentLinkAccessEventBody["blobRewraps"][number];
 
 /**
- * A link's rewrap preconditions, read as sets after the blob rows are locked:
- * nothing a rewrap writes changes them, so later rewraps may still use them.
+ * A link's rewrap preconditions, read as sets after the blob rows are locked.
+ * A rewrap replaces only its own blob's content-key bundle and never changes
+ * KEK targets, so with each blob rewrapped once a later rewrap still reads
+ * current rows. A repeated blob would read the bundle its earlier rewrap
+ * replaced, so `prefetchBlobRewraps` refuses one.
  */
 export interface BlobRewrapPrefetch {
   readonly latestBundleByBlobId: ReadonlyMap<
@@ -38,6 +41,8 @@ export async function prefetchBlobRewraps(
   executor: DatabaseTransaction,
 ): Promise<BlobRewrapPrefetch> {
   const blobIds = rewraps.map((rewrap) => rewrap.blobId);
+  if (new Set(blobIds).size !== blobIds.length)
+    throw new Error("Prefetched blob rewraps must name each blob once");
   return {
     latestBundleByBlobId: await getLatestBlobContentKeyBundles(
       blobIds,

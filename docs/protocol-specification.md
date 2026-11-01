@@ -405,9 +405,9 @@ trusted.
 
 A projection GET may send `x-known-manifests`: up to 48 unique typed digests
 of bytes the device durably holds verified. `m:<hash>` names a manifest
-bundle by its manifest hash; `k:<digest>` names a container KEK level by the
-SHA-256 of its canonical wire JSON (the level with its manifest history cited
-by hash). After its ordinary authorization and stored-evidence verification,
+bundle by its manifest hash; `k:<digest>` names a container KEK level by a
+domain-separated SHA-256 of its canonical wire JSON (its manifest history
+cited by hash). After its ordinary authorization and stored-evidence verification,
 the API omits the bundle of each listed hash the projection cites and lists
 those hashes in the required `omittedBundles`; every other cited hash travels
 in `bundles`, and unknown hashes are ignored. A KEK level whose served bytes

@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/diagnostics",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -9,6 +9,7 @@
     "./browser": "./src/browser.ts",
     "./config": "./src/config.ts",
     "./fetch": "./src/fetch.ts",
+    "./network": "./src/apiNetworkFailure.ts",
     "./privacy": "./src/privacy.ts",
     "./server": "./src/server.ts",
     "./transport": "./src/transport.ts"

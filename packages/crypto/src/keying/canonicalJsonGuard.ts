@@ -1,6 +1,5 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import { toFingerprint } from "../fingerprint";
-import { serializeKeyingCanonicalJson } from "./canonical";
+import { computeKeyingDomainHash } from "./canonical";
 import type { KeyingCanonicalJson } from "./types";
 
 /*
@@ -96,20 +95,23 @@ export function readKeyingCanonicalJson(
 }
 
 /**
- * SHA-256 hex of a container KEK level's canonical wire JSON, its manifest
- * history cited by hash: the digest a projection request cites the level by
- * (`k:` hint). Null when the level is not canonical JSON, so it is never
- * cited and always travels.
+ * Domain-separated SHA-256 hex of a container KEK level's canonical wire JSON
+ * (`tearleads.keying.container-kek-level-citation`), its manifest history
+ * cited by hash: the digest a projection request cites the level by (`k:`
+ * hint). The domain keeps it apart from every other keying hash that shares
+ * the client's citation cache key space. Null when the level is not canonical
+ * JSON, so it is never cited and always travels.
  */
 export async function computeContainerKekLevelDigest(
   level: unknown,
 ): Promise<string | null> {
   if (!isKeyingCanonicalJson(level)) return null;
-  let serialized: string;
   try {
-    serialized = serializeKeyingCanonicalJson(level);
+    return await computeKeyingDomainHash(
+      "tearleads.keying.container-kek-level-citation",
+      level,
+    );
   } catch {
     return null;
   }
-  return toFingerprint(new TextEncoder().encode(serialized));
 }

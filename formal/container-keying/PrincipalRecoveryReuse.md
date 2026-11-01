@@ -34,10 +34,11 @@ recovery still discovers and only skips the confirmation read.
 | `ExpireProducer` | the producing call's `stillCurrent` (lease or caller lifetime) ends |
 | `FinishReuse` / `CancelDerive` | `resolveReferencedPrincipalPolicy` registers the composite lifetime with `observeProjectionLifetime`, so `commitProjectionCheckpoints` cancels a use whose producer expired |
 | `BeginCollect` | `memoPrincipalRecovery` observes the epoch before `recoverPolicyDirectory` runs `discoverDirectoryHead` |
+| `ConditionalDiscovery` / `UnchangedNamesHeld` | `discoverConditionally` sends the held verified prefix head (`loadHeldDirectoryHead`) as `ifHead` and reuses it only when an `unchanged` reply's head passes `principalHeadMatchesReference`; any other reply reads the first page unconditionally |
 | `BeginDerive` | `readMemoizedDirectory` and `readMemoizedAdmins` derive a citation from a reused entry and pass its epoch as `sourceEpoch` |
 | `FinishCollect` | `readRecoveryPages` skips the read for a completed stage of the pinned head; `StoredPrincipalCurrentRejectedError` discards the stage and replays online; the entry is stored with the observed epoch |
 | `AbortCollect` | `PrincipalHistoryRecoveryRaceError` when the durable pin changes during recovery |
-| `FreshPerOperation` | the discovery read in `discoverDirectoryHead` runs once per operation; naming the held head (`ifVersion`, `ifStateHash`) only shrinks the reply, and an `unchanged` reply naming exactly that head selects the same pin |
+| `FreshPerOperation` | the discovery read in `discoverDirectoryHead` runs once per operation, conditional or bare |
 | `NoStaleAfterHint` | `PrincipalPolicyCoordinator.recoveryEpoch` changes after a hint, so a collection that begins later rediscovers |
 | `NoRollback` | the checkpoint reload in `finishRecovery` and admission's pin checks in `commitProjectionCheckpoints` |
 | `ReuseCoversPin` | `directoryMemoValidity` reloads every named head's durable pin through `loadPrincipalPolicyCheckpoint` |
@@ -55,8 +56,17 @@ two steps as well: a value handed out to one collection may outlive its
 producer, so the use checks the composite lifetime and is cancelled if the
 producer expired. Admission also rechecks durable pins at the use.
 
+Discovery is conditional (#2711): the device names the head of its held
+verified prefix, and the server may answer `unchanged` instead of a page.
+`ConditionalDiscovery` does not trust that flag. The reply names the server's
+current head, which may be any head relative to the held one; the device reuses
+its held head only when the two are equal, and otherwise reads the first page
+exactly as `BeginCollect` does. With the guard the pinned head is therefore the
+bare read's head, so the positive configuration reaches no new states; the
+action exists so that dropping the guard is checkable.
+
 The positive configuration explores three heads, three operations and two hints.
-Ten negative controls in
+Eleven negative controls in
 [`scripts/protocol/protocolHistoryNegativeControls.ts`](../../scripts/protocol/protocolHistoryNegativeControls.ts)
 disable one guard each:
 
@@ -99,6 +109,11 @@ disable one guard each:
   binding) for the replacement identity or database.
   `provisionedPrincipalHistoryScope.test.ts` switches both before and during
   priming and requires no durable row in either database.
+- `UnchangedNamesHeld = FALSE` violates `FreshPerOperation`: reusing the held
+  prefix on any `unchanged` reply, whatever head it names, accepts a head older
+  than the server head when the operation began, so a revocation committed
+  before it goes unnoticed. `NoRollback` still holds, because admission's pin
+  recheck (`AbortCollect`) refuses a held head below the durable pin.
 
 Public projection sources follow the completed-stage rule: `readPublicPages`
 skips its pinned read once progress is complete, and every read that does occur

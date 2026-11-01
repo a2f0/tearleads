@@ -90,7 +90,10 @@ const sections = [
       Configured production apps and the API send limited error reports to Sentry
       to help us fix failures. Reports include a generic error type, application
       code location, release and platform details, and, in the app, a short trail
-      of approved screen names and actions with timestamps.
+      of approved screen names and actions with timestamps. When an app request
+      to our API gets no response, a report can also say what kind of failure it
+      was, the request method and route pattern (never its identifiers), retry
+      count, a rough duration, and whether the device reported a connection.
     </p>
     <p>
       The reporting code excludes document contents, file and contact names,

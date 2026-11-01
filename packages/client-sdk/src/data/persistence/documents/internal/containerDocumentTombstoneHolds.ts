@@ -44,19 +44,25 @@ export function containerDocumentPlacementKey(
 }
 const placementKey = containerDocumentPlacementKey;
 
-/** Matches the listed (document, container) placements by primary key. */
+/**
+ * Matches the listed (document, container) placements by primary key. An
+ * empty list matches nothing: `or()` of no terms is no condition at all, and
+ * a delete filtered by it would remove every row.
+ */
 export function placementPairsMatch(
   placements: ReadonlyArray<ContainerDocumentPlacementKey>,
   documentIdColumn: SQLiteColumn,
   containerIdColumn: SQLiteColumn,
-): SQL | undefined {
-  return or(
-    ...placements.map((placement) =>
-      and(
-        eq(documentIdColumn, placement.documentId),
-        eq(containerIdColumn, placement.containerId),
+): SQL {
+  return (
+    or(
+      ...placements.map((placement) =>
+        and(
+          eq(documentIdColumn, placement.documentId),
+          eq(containerIdColumn, placement.containerId),
+        ),
       ),
-    ),
+    ) ?? sql`0`
   );
 }
 

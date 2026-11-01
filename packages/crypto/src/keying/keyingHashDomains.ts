@@ -14,6 +14,7 @@ export type KeyingHashDomain =
   | "tearleads.keying.container-key-epoch"
   | "tearleads.keying.container-kek-public-commitment"
   | "tearleads.keying.container-kek-keyring"
+  | "tearleads.keying.container-kek-level-citation"
   | "tearleads.keying.container-kek-predecessor-bridge"
   | "tearleads.keying.container-kek-recipient-targets"
   | "tearleads.keying.document-content-key-targets"

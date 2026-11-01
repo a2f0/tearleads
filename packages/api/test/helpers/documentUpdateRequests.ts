@@ -28,16 +28,34 @@ import { currentDocumentLinkRows } from "./currentDocumentLinks";
 import type { CreatedDocumentFixture } from "./documentAcknowledgementFixture";
 import type { StoredRootFixture } from "./keyingWriterProjectionKit";
 
+type ContainerPathRefs = NonNullable<
+  DocumentSyncRequest["authorizingContainerPathRefs"]
+>;
+
+function rootPathRefs(
+  root: Pick<StoredRootFixture, "bundle" | "kekState">,
+): ContainerPathRefs {
+  return [
+    [
+      {
+        containerId: root.kekState.containerId,
+        manifestHash: root.bundle.manifestHash,
+      },
+    ],
+  ];
+}
+
 async function createSignedOrdinaryUpdate(input: {
-  readonly root: Pick<StoredRootFixture, "bundle">;
+  readonly authorizingContainerPathRefs: ContainerPathRefs;
   readonly checkpoint: boolean;
   readonly contentKeyBundle?: CreatedDocumentFixture["contentKeyBundle"];
   readonly created: CreatedDocumentFixture;
   readonly owner: TestUser;
+  readonly updateId?: string | undefined;
 }) {
   const contentKeyBundle =
     input.contentKeyBundle ?? input.created.contentKeyBundle;
-  const id = crypto.randomUUID();
+  const id = input.updateId ?? crypto.randomUUID();
   const document = await createDocument(`sync-audit-${id}`);
   const partialStartVersionVector = encodeVersionVector(document);
   document.getText("text").update(`sync audit update ${id}`);
@@ -58,7 +76,13 @@ async function createSignedOrdinaryUpdate(input: {
   const writeHeader = await signWriteHeader(
     {
       version: 1,
-      dependencyManifestHashes: [input.root.bundle.manifestHash],
+      dependencyManifestHashes: [
+        ...new Set(
+          input.authorizingContainerPathRefs.flatMap((path) =>
+            path.map((ref) => ref.manifestHash),
+          ),
+        ),
+      ].sort(),
       organizationId,
       objectKind: "document",
       objectId: input.created.id,
@@ -109,6 +133,8 @@ async function createSignedOrdinaryUpdate(input: {
 }
 
 export async function createSignedDocumentSyncRequest(input: {
+  /** Defaults to the root alone; the update's header cites every path. */
+  readonly authorizingContainerPathRefs?: ContainerPathRefs | undefined;
   readonly checkpoint?: boolean;
   /**
    * Signs the update (and the request expectations) against this bundle
@@ -121,14 +147,19 @@ export async function createSignedDocumentSyncRequest(input: {
   readonly includeContentKeyBundle?: boolean;
   readonly owner: TestUser;
   readonly root: Pick<StoredRootFixture, "bundle" | "kekState">;
+  /** Re-signs a queued update under its existing id. */
+  readonly updateId?: string | undefined;
 }): Promise<{
   readonly request: DocumentSyncRequest;
   readonly updateId: string;
 }> {
   const contentKeyBundle =
     input.contentKeyBundle ?? input.created.contentKeyBundle;
+  const authorizingContainerPathRefs =
+    input.authorizingContainerPathRefs ?? rootPathRefs(input.root);
   const update = await createSignedOrdinaryUpdate({
     ...input,
+    authorizingContainerPathRefs,
     checkpoint: input.checkpoint ?? false,
   });
   return {
@@ -147,14 +178,7 @@ export async function createSignedDocumentSyncRequest(input: {
             },
           }
         : {}),
-      authorizingContainerPathRefs: [
-        [
-          {
-            containerId: input.root.kekState.containerId,
-            manifestHash: input.root.bundle.manifestHash,
-          },
-        ],
-      ],
+      authorizingContainerPathRefs,
       localVersionVector: null,
       outgoingUpdates: [
         {
@@ -183,14 +207,18 @@ export async function createSignedDocumentSyncRequest(input: {
  * one signed update from empty, its end as the local version.
  */
 export async function createFirstUpdateSyncRequest(input: {
+  readonly authorizingContainerPathRefs?: ContainerPathRefs | undefined;
   readonly document: CreatedDocumentFixture;
   readonly owner: TestUser;
   readonly root: Pick<StoredRootFixture, "bundle" | "kekState">;
+  readonly updateId?: string | undefined;
 }): Promise<{ readonly id: string; readonly request: DocumentSyncRequest }> {
   const { request, updateId } = await createSignedDocumentSyncRequest({
+    authorizingContainerPathRefs: input.authorizingContainerPathRefs,
     created: input.document,
     owner: input.owner,
     root: input.root,
+    updateId: input.updateId,
   });
   const [update] = request.outgoingUpdates;
   if (!update) throw new Error("Expected one update");
