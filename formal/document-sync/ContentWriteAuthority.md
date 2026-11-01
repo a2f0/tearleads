@@ -30,6 +30,7 @@ document is served every committed write's cited head.
 | Model action or predicate | Production seam |
 | --- | --- |
 | `CommitWrite` | `assertWriteHeaderPathCitations`, `resolveCurrentContainerManifestRefs` (its head pin reads the FOR SHARE rows `lockSyncDocumentWriteFrontier` returns, which stay current until commit) |
+| `RekeyBeforeFrontierLock` / `parentEpoch` | `commitSyncDocumentWrites` runs `applyContainerRekeys` before `lockSyncDocumentFrontier`; an attachment bind runs `applyAttachmentContainerRekeys` before `lockAttachmentAuthorizationForShare`, and its carried `documentSync` may hold no rekeys (`refineSingleUpdateSeed`) |
 | `CheckWriteAuthority` / `CommittedWritesAreAuthorized` | `requireWriteAccessThroughCommittedDocumentTarget` and `requireWriteAccessThroughCommittedBlobTarget` refuse a write the cited path does not authorize |
 | `ReadWrite` | `documentWriteAuthorizationForHeader`, `resolveEventContainerPaths`, `resolveSubmittedDocumentSyncResult`, `createAttachmentProofReader` |
 | `ReadCurrentMembership` | `resolveHistoricalContainerPathUserAccessLevel` |
@@ -41,14 +42,38 @@ document is served every committed write's cited head.
 
 A write may cite any head, including one that does not authorize the writer,
 as a revoked writer can still submit; the API commits only an authorized one
-(`CommittedWritesAreAuthorized`). Seven negative controls read through the
-original parent pin, authorize historical writes with current membership,
-disable the API's current-path requirement, commit a write its cited path does
-not authorize, refuse a response using stale cached evidence without
-refreshing it, filter the projection to the reader's own links, or delete a
-container's manifests with it. Each must violate its named invariant; either
-of the last two also makes the reader on the other link refuse an honest
-write. The registered run explores 726 generated and 174 distinct states.
+(`CommittedWritesAreAuthorized`).
+
+## Ordering inside the write transaction
+
+A sync request may carry signed `container.rekey` payloads. A rekey gives a
+container a new key epoch without changing its grants, and the client cites
+the head the rekey produces. The API applies the carried rekeys first, then
+takes the frontier lock, and checks the write's citations against the head
+rows that lock read. No other transaction can change those rows before commit,
+so the check sees the heads current at commit. `CommitWrite` carries at most
+one rekey of the parent (`parentEpoch` 0 to 1), and `NewWritesUseCurrentAuthority`
+requires both the cited head and the cited epoch to be current at commit. A
+rekey from another transaction is serialized by the lock: it lands wholly
+before or after the write, as `AdvanceParent` does. An attachment bind locks
+its heads before the update it carries runs, so the request validator refuses
+a carried update with rekeys of its own; the bind's own rekeys apply before
+its lock.
+
+## Negative controls
+
+Eight negative controls read through the original parent pin, authorize
+historical writes with current membership, disable the API's current-path
+requirement, commit a write its cited path does not authorize, refuse a
+response using stale cached evidence without refreshing it, filter the
+projection to the reader's own links, delete a container's manifests with it,
+or apply the carried rekey after the frontier lock. Each must violate its named
+invariant; either the filtered projection or the deleted manifests also makes
+the reader on the other link refuse an honest write. The last control,
+`content-write-rekey-after-frontier-lock`, checks the citation against the
+pre-rekey rows the lock read, then commits the rekey: a write citing the old
+epoch commits against the new one and breaks `NewWritesUseCurrentAuthority`.
+The registered run explores 2,841 generated and 564 distinct states.
 Hashes, signatures, exact sorted citation sets, document/blob target coverage,
 and lineage validation are abstracted as verified inputs here; runtime tests
 cover their concrete checks.

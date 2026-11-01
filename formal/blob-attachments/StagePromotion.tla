@@ -24,7 +24,9 @@ CONSTANTS Stages, BlobIds, Docs, None,
           ReviveOnBind,            \* a bind clears its blob's dereferenced mark
           GcRechecksReference,     \* the sweep revives a blob that is still bound
           PurgeLocksBlobs,         \* document purge decides orphans under blob locks
-          DeleteObjectAfterAbort   \* cleanup deletes the stage key after aborting
+          DeleteObjectAfterAbort,  \* cleanup deletes the stage key after aborting
+          DeleteOnlyCleanedRows,   \* a sweep deletes only the stage rows it cleaned
+          ReclaimFencedStages      \* a later sweep can claim a stage again
 
 ASSUME /\ IsFiniteSet(Stages) /\ IsFiniteSet(BlobIds) /\ IsFiniteSet(Docs)
        /\ None \notin Stages \cup BlobIds \cup Docs
@@ -32,7 +34,8 @@ ASSUME /\ IsFiniteSet(Stages) /\ IsFiniteSet(BlobIds) /\ IsFiniteSet(Docs)
                        ExpiryLocksStageRow, DeleteStageOnPromote,
                        CheckRegistryOnPromote, ReviveOnBind,
                        GcRechecksReference, PurgeLocksBlobs,
-                       DeleteObjectAfterAbort} : flag \in BOOLEAN
+                       DeleteObjectAfterAbort, DeleteOnlyCleanedRows,
+                       ReclaimFencedStages} : flag \in BOOLEAN
 
 VARIABLES
   stage,       \* stage row: "none", "pending", "complete", or "gone"
@@ -41,7 +44,7 @@ VARIABLES
   object,      \* object at the stage key: "none", "good", or "bad" bytes
   binder,      \* staged bind: "idle", "loaded", "assembled", "verified", "locked"
   bindTo,      \* <<blob id, document>> a staged bind targets, or None
-  cleaner,     \* expiry cleanup of a stage: "idle", "claimed", or "stored"
+  cleaner,     \* expiry cleanup of a stage: "idle", "claimed", "stored", "fenced"
   sawComplete, \* cleanup read the stage as complete when it claimed it
   blob,        \* blob row: "none", "live", or "deref" (dereferenced)
   blobKey,     \* stage key a blob row stores, or None
@@ -50,11 +53,17 @@ VARIABLES
   binding,     \* each document's active binding, or None
   purged,      \* documents purged
   scanned,     \* orphans an unlocked purge computed before committing, or None
-  lost         \* the sweep deleted a blob some document still bound
+  lost,        \* the sweep deleted a blob some document still bound
+  batch,       \* stages the running cleanup sweep claimed, or {} between sweeps
+  firstStep,   \* the sweep's next stage is its first, which the claim fenced
+  lease        \* the sweep's deletion lease: "held", "lost", or "renewed"
 
 vars == << stage, expired, upload, object, binder, bindTo, cleaner,
            sawComplete, blob, blobKey, audit, auditKey, binding, purged,
-           scanned, lost >>
+           scanned, lost, batch, firstStep, lease >>
+
+(* Only stage cleanup reads or writes these; every other action leaves them. *)
+sweepVars == << batch, firstStep, lease >>
 
 LiveStage == {"pending", "complete"}
 
@@ -66,7 +75,7 @@ TypeOK ==
   /\ binder \in [Stages -> {"idle", "loaded", "assembled", "verified",
                             "locked"}]
   /\ bindTo \in [Stages -> (BlobIds \X Docs) \cup {None}]
-  /\ cleaner \in [Stages -> {"idle", "claimed", "stored"}]
+  /\ cleaner \in [Stages -> {"idle", "claimed", "stored", "fenced"}]
   /\ sawComplete \in [Stages -> BOOLEAN]
   /\ blob \in [BlobIds -> {"none", "live", "deref"}]
   /\ blobKey \in [BlobIds -> Stages \cup {None}]
@@ -76,6 +85,9 @@ TypeOK ==
   /\ purged \in SUBSET Docs
   /\ scanned \in [Docs -> (SUBSET BlobIds) \cup {None}]
   /\ lost \in BOOLEAN
+  /\ batch \in SUBSET Stages
+  /\ firstStep \in BOOLEAN
+  /\ lease \in {"held", "lost", "renewed"}
 
 Init ==
   /\ stage = [s \in Stages |-> "none"]
@@ -94,6 +106,9 @@ Init ==
   /\ purged = {}
   /\ scanned = [d \in Docs |-> None]
   /\ lost = FALSE
+  /\ batch = {}
+  /\ firstStep = FALSE
+  /\ lease = "held"
 
 (* A document accepts attachment mutations unless purged or mid-purge:     *)
 (* purge holds the document head for its whole transaction.                *)
@@ -118,6 +133,7 @@ OpenStage(s) ==
   /\ upload' = [upload EXCEPT ![s] = "open"]
   /\ UNCHANGED << expired, object, binder, bindTo, cleaner, sawComplete, blob,
                   blobKey, audit, auditKey, binding, purged, scanned, lost >>
+  /\ UNCHANGED sweepVars
 
 (* Time passes: the stage's lifetime ends.                                 *)
 Expire(s) ==
@@ -127,6 +143,7 @@ Expire(s) ==
   /\ UNCHANGED << stage, upload, object, binder, bindTo, cleaner, sawComplete,
                   blob, blobKey, audit, auditKey, binding, purged, scanned,
                   lost >>
+  /\ UNCHANGED sweepVars
 
 ----------------------------------------------------------------------------
 (* A staged bind. Prevalidation runs outside any transaction; only the     *)
@@ -141,6 +158,7 @@ BindLoad(s, b, d) ==
   /\ bindTo' = [bindTo EXCEPT ![s] = <<b, d>>]
   /\ UNCHANGED << stage, expired, upload, object, cleaner, sawComplete, blob,
                   blobKey, audit, auditKey, binding, purged, scanned, lost >>
+  /\ UNCHANGED sweepVars
 
 Fail(s) ==
   /\ binder' = [binder EXCEPT ![s] = "idle"]
@@ -164,6 +182,7 @@ BindAssemble(s) ==
             /\ UNCHANGED << object, upload >>
   /\ UNCHANGED << stage, expired, cleaner, sawComplete, blob, blobKey, audit,
                   auditKey, binding, purged, scanned, lost >>
+  /\ UNCHANGED sweepVars
 
 (* Verify the digest, then flip the row to complete. The flip is a plain   *)
 (* update that changes nothing once cleanup has deleted the row.           *)
@@ -179,6 +198,7 @@ BindVerify(s) ==
             /\ UNCHANGED << object, bindTo >>
   /\ UNCHANGED << expired, upload, cleaner, sawComplete, blob, blobKey, audit,
                   auditKey, binding, purged, scanned, lost >>
+  /\ UNCHANGED sweepVars
 
 (* The bind transaction locks the stage row and requires it complete and   *)
 (* unexpired. Expiry may still pass while the lock is held.                *)
@@ -191,6 +211,7 @@ BindLock(s) ==
        ELSE Fail(s)
   /\ UNCHANGED << stage, expired, upload, object, cleaner, sawComplete, blob,
                   blobKey, audit, auditKey, binding, purged, scanned, lost >>
+  /\ UNCHANGED sweepVars
 
 (* Promote and bind in the same transaction: the blob row keeps the stage  *)
 (* key, the registry records the id, and the replaced blob is marked if    *)
@@ -216,6 +237,7 @@ BindPromote(s) ==
   /\ Fail(s)
   /\ UNCHANGED << expired, upload, object, cleaner, sawComplete, purged,
                   scanned, lost >>
+  /\ UNCHANGED sweepVars
 
 (* Attach a blob that already exists, locking its row first.               *)
 BindExisting(b, d) ==
@@ -229,6 +251,7 @@ BindExisting(b, d) ==
   /\ UNCHANGED << stage, expired, upload, object, binder, bindTo, cleaner,
                   sawComplete, blobKey, audit, auditKey, purged, scanned,
                   lost >>
+  /\ UNCHANGED sweepVars
 
 Detach(d) ==
   /\ Writable(d)
@@ -239,6 +262,7 @@ Detach(d) ==
   /\ UNCHANGED << stage, expired, upload, object, binder, bindTo, cleaner,
                   sawComplete, blobKey, audit, auditKey, purged, scanned,
                   lost >>
+  /\ UNCHANGED sweepVars
 
 ----------------------------------------------------------------------------
 (* Document purge deletes the document's bindings and marks the blobs no   *)
@@ -262,6 +286,7 @@ Purge(d) ==
   /\ CommitPurge(d, Orphans(d))
   /\ UNCHANGED << stage, expired, upload, object, binder, bindTo, cleaner,
                   sawComplete, blobKey, audit, auditKey, scanned, lost >>
+  /\ UNCHANGED sweepVars
 
 PurgeScan(d) ==
   /\ ~PurgeLocksBlobs
@@ -270,6 +295,7 @@ PurgeScan(d) ==
   /\ UNCHANGED << stage, expired, upload, object, binder, bindTo, cleaner,
                   sawComplete, blob, blobKey, audit, auditKey, binding, purged,
                   lost >>
+  /\ UNCHANGED sweepVars
 
 PurgeCommit(d) ==
   /\ scanned[d] # None
@@ -277,6 +303,7 @@ PurgeCommit(d) ==
   /\ scanned' = [scanned EXCEPT ![d] = None]
   /\ UNCHANGED << stage, expired, upload, object, binder, bindTo, cleaner,
                   sawComplete, blobKey, audit, auditKey, lost >>
+  /\ UNCHANGED sweepVars
 
 ----------------------------------------------------------------------------
 (* The hourly sweep. *)
@@ -301,6 +328,7 @@ Reclaim(b) ==
             /\ UNCHANGED auditKey
   /\ UNCHANGED << stage, expired, upload, object, binder, bindTo, cleaner,
                   sawComplete, purged, scanned >>
+  /\ UNCHANGED sweepVars
 
 (* Delete a reclaimed blob's object, then record it.                       *)
 DeletePrunedObject(b) ==
@@ -310,24 +338,55 @@ DeletePrunedObject(b) ==
   /\ auditKey' = [auditKey EXCEPT ![b] = None]
   /\ UNCHANGED << stage, expired, upload, binder, bindTo, cleaner, sawComplete,
                   blob, blobKey, binding, purged, scanned, lost >>
+  /\ UNCHANGED sweepVars
 
-(* Claim an expired stage by writing its row, which waits for a bind       *)
-(* transaction holding it; once that promotes the stage, no row is left to *)
-(* claim. A plain read instead sees the row as it was before the commit.   *)
-CleanupClaim(s) ==
+(* One sweep claims a batch of expired stages with a single update that   *)
+(* writes each row, so it waits for a bind transaction holding one; once   *)
+(* that promotes the stage, no row is left to claim. A plain read instead  *)
+(* sees the row as it was before the commit. The sweep checks its lease    *)
+(* just before the claim; the claim leaves every row expired, so a stage   *)
+(* the sweep fails to clean stays a candidate for the next one.            *)
+Claimable(s) ==
   /\ cleaner[s] = "idle"
   /\ stage[s] \in LiveStage
   /\ expired[s]
   /\ ExpiryLocksStageRow => binder[s] # "locked"
-  /\ cleaner' = [cleaner EXCEPT ![s] = "claimed"]
-  /\ sawComplete' = [sawComplete EXCEPT ![s] = (stage[s] = "complete")]
+
+CleanupClaimBatch(claimed) ==
+  /\ batch = {}
+  /\ lease # "lost"
+  /\ claimed # {}
+  /\ \A s \in claimed : Claimable(s)
+  /\ cleaner' = [s \in Stages |-> IF s \in claimed THEN "claimed" ELSE cleaner[s]]
+  /\ sawComplete' = [s \in Stages |->
+                       IF s \in claimed THEN stage[s] = "complete"
+                       ELSE sawComplete[s]]
+  /\ batch' = claimed
+  /\ firstStep' = TRUE
   /\ UNCHANGED << stage, expired, upload, object, binder, bindTo, blob,
-                  blobKey, audit, auditKey, binding, purged, scanned, lost >>
+                  blobKey, audit, auditKey, binding, purged, scanned, lost,
+                  lease >>
+
+(* The worker loses its deletion lease mid-batch, at most once per         *)
+(* behavior: an organization purge's claim moves to another worker. The   *)
+(* hourly sweep holds no lease and never takes this step.                  *)
+LoseLease ==
+  /\ batch # {}
+  /\ lease = "held"
+  /\ lease' = "lost"
+  /\ UNCHANGED << stage, expired, upload, object, binder, bindTo, cleaner,
+                  sawComplete, blob, blobKey, audit, auditKey, binding, purged,
+                  scanned, lost, batch, firstStep >>
+
+(* The check before the claim fences the first stage; every later stage    *)
+(* checks the lease again.                                                 *)
+Fenced == firstStep \/ lease # "lost"
 
 (* A stage read as complete has its object deleted; otherwise the upload   *)
 (* is aborted, and an abort that finds no upload counts as done.           *)
 CleanupStorage(s) ==
   /\ cleaner[s] = "claimed"
+  /\ Fenced
   /\ IF sawComplete[s]
        THEN /\ object' = [object EXCEPT ![s] = "none"]
             /\ UNCHANGED upload
@@ -335,13 +394,37 @@ CleanupStorage(s) ==
             /\ object' = [object EXCEPT ![s] =
                             IF DeleteObjectAfterAbort THEN "none" ELSE @]
   /\ cleaner' = [cleaner EXCEPT ![s] = "stored"]
+  /\ firstStep' = FALSE
   /\ UNCHANGED << stage, expired, binder, bindTo, sawComplete, blob, blobKey,
-                  audit, auditKey, binding, purged, scanned, lost >>
+                  audit, auditKey, binding, purged, scanned, lost, batch,
+                  lease >>
 
-CleanupRow(s) ==
-  /\ cleaner[s] = "stored"
-  /\ stage' = [stage EXCEPT ![s] = IF @ \in LiveStage THEN "gone" ELSE @]
-  /\ cleaner' = [cleaner EXCEPT ![s] = "idle"]
+(* A later stage's lease check fails: the stage records a failure and is   *)
+(* left claimed, its row and storage untouched.                            *)
+FenceStage(s) ==
+  /\ cleaner[s] = "claimed"
+  /\ ~Fenced
+  /\ cleaner' = [cleaner EXCEPT ![s] = "fenced"]
+  /\ UNCHANGED << stage, expired, upload, object, binder, bindTo, sawComplete,
+                  blob, blobKey, audit, auditKey, binding, purged, scanned,
+                  lost, batch, firstStep, lease >>
+
+(* The sweep ends by deleting, in one statement, the rows of the stages it *)
+(* cleaned. A fenced stage keeps its expired row for a later sweep.        *)
+CleanupRows ==
+  /\ batch # {}
+  /\ \A s \in batch : cleaner[s] \in {"stored", "fenced"}
+  /\ stage' = [s \in Stages |->
+                 IF /\ s \in batch
+                    /\ stage[s] \in LiveStage
+                    /\ cleaner[s] = "stored" \/ ~DeleteOnlyCleanedRows
+                   THEN "gone" ELSE stage[s]]
+  /\ cleaner' = [s \in Stages |->
+                   IF s \in batch /\ (cleaner[s] = "stored" \/ ReclaimFencedStages)
+                     THEN "idle" ELSE cleaner[s]]
+  /\ batch' = {}
+  /\ firstStep' = FALSE
+  /\ lease' = IF lease = "lost" THEN "renewed" ELSE lease
   /\ UNCHANGED << expired, upload, object, binder, bindTo, sawComplete, blob,
                   blobKey, audit, auditKey, binding, purged, scanned, lost >>
 
@@ -353,20 +436,24 @@ Next ==
        \/ OpenStage(s) \/ Expire(s)
        \/ \E b \in BlobIds, d \in Docs : BindLoad(s, b, d)
        \/ BindAssemble(s) \/ BindVerify(s) \/ BindLock(s) \/ BindPromote(s)
-       \/ CleanupClaim(s) \/ CleanupStorage(s) \/ CleanupRow(s)
+       \/ CleanupStorage(s) \/ FenceStage(s)
+  \/ \E claimed \in SUBSET Stages : CleanupClaimBatch(claimed)
+  \/ LoseLease \/ CleanupRows
   \/ \E b \in BlobIds, d \in Docs : BindExisting(b, d)
   \/ \E d \in Docs : Detach(d) \/ Purge(d) \/ PurgeScan(d) \/ PurgeCommit(d)
   \/ \E b \in BlobIds : Reclaim(b) \/ DeletePrunedObject(b)
   \/ Idle
 
 (* A bind that started runs to its end, a started purge commits, and the   *)
-(* sweep keeps running. Clients need not open, bind, detach or purge.      *)
+(* sweep keeps running. Clients need not open, bind, detach or purge. The  *)
+(* lease loss is not forced.                                               *)
 Fairness ==
   /\ \A s \in Stages :
        /\ WF_vars(BindAssemble(s)) /\ WF_vars(BindVerify(s))
        /\ WF_vars(BindLock(s)) /\ WF_vars(BindPromote(s))
-       /\ WF_vars(CleanupClaim(s)) /\ WF_vars(CleanupStorage(s))
-       /\ WF_vars(CleanupRow(s))
+       /\ WF_vars(CleanupStorage(s)) /\ WF_vars(FenceStage(s))
+  /\ WF_vars(\E claimed \in SUBSET Stages : CleanupClaimBatch(claimed))
+  /\ WF_vars(CleanupRows)
   /\ \A d \in Docs : WF_vars(PurgeCommit(d))
   /\ \A b \in BlobIds : WF_vars(Reclaim(b)) /\ WF_vars(DeletePrunedObject(b))
 
@@ -401,6 +488,11 @@ NoOrphanObjects ==
 (* reclaimed and their objects deleted.                                    *)
 ExpiredStagesAreCleared ==
   \A s \in Stages : (expired[s] /\ stage[s] \in LiveStage) ~> stage[s] = "gone"
+
+(* A stage a sweep claimed but fenced off after losing its lease is        *)
+(* reclaimed by a later sweep.                                             *)
+FencedStagesAreReclaimed ==
+  \A s \in Stages : cleaner[s] = "fenced" ~> stage[s] = "gone"
 
 DereferencedBlobsAreSettled ==
   \A b \in BlobIds : blob[b] = "deref" ~> blob[b] # "deref"

@@ -60,4 +60,12 @@ export const CONTENT_WRITE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "HonestWritesRemainReadable" },
     why: "Deleting an unlinked container together with its manifests leaves readers on the document's other links unable to verify writes made through it.",
   },
+  {
+    id: "content-write-rekey-after-frontier-lock",
+    module: CONTENT_WRITE_MODULE,
+    config: CONTENT_WRITE_CONFIG,
+    constants: { RekeyBeforeFrontierLock: "FALSE" },
+    expect: { kind: "invariant", name: "NewWritesUseCurrentAuthority" },
+    why: "A carried rekey applied after the FOR SHARE frontier lock leaves the locked head rows stale in the same transaction, so a write citing the pre-rekey head commits against a superseded one.",
+  },
 ];
