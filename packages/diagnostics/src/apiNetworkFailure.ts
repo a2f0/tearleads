@@ -267,43 +267,34 @@ export interface ApiNetworkFailureSink {
   readonly addBreadcrumb: (data: Record<string, string>) => void;
 }
 
-const BREADCRUMB_WINDOW_MS = 60_000;
-// A third of the 30-crumb trail, so activity crumbs survive any burst.
-const BREADCRUMBS_PER_WINDOW = 10;
+const BREADCRUMB_REPEAT_MS = 60_000;
+// A third of the 30-crumb trail: network crumbs added since the last activity
+// crumb (or trail clear), so a dead network cannot evict the activity trail.
+const BREADCRUMBS_PER_RUN = 10;
 
-/** Admits at most `limit` breadcrumbs per window, whatever their keys. */
-function createWindowLimit(limit: number, now: () => number) {
-  let windowStart = Number.NEGATIVE_INFINITY;
-  let count = 0;
-  return (): boolean => {
-    const at = now();
-    if (at - windowStart >= BREADCRUMB_WINDOW_MS) {
-      windowStart = at;
-      count = 0;
-    }
-    if (count >= limit) return false;
-    count++;
-    return true;
-  };
+export interface ApiNetworkFailureReporter {
+  (failure: ApiNetworkFailureInput): void;
+  /** An activity crumb was added or the trail cleared: a new run starts. */
+  readonly noteActivity: () => void;
 }
 
 /**
  * Rate limits network reports for one page load: the first failure of each
  * class becomes an event, later ones breadcrumbs. A breadcrumb repeating the
  * same class, method, and route within a minute is dropped, and at most ten
- * network breadcrumbs a minute are kept across all routes, so a dead network
- * neither floods the project nor flushes the activity trail.
+ * network breadcrumbs follow each activity crumb, so a dead network neither
+ * floods the project nor flushes the activity trail.
  */
 export function createApiNetworkFailureReporter(
   sink: ApiNetworkFailureSink,
   pageOrigin: string,
   routes: () => ReadonlySet<string> | undefined,
   now: () => number = Date.now,
-) {
+): ApiNetworkFailureReporter {
   const reportedClasses = new Set<string>();
   const lastBreadcrumbAt = new Map<string, number>();
-  const admitBreadcrumb = createWindowLimit(BREADCRUMBS_PER_WINDOW, now);
-  return (failure: ApiNetworkFailureInput): void => {
+  let run = 0;
+  const report = (failure: ApiNetworkFailureInput): void => {
     const tags = apiNetworkFailureTags(failure, pageOrigin, routes());
     if (!tags) return;
     if (!reportedClasses.has(tags.api_network_class)) {
@@ -318,10 +309,16 @@ export function createApiNetworkFailureReporter(
     ]);
     const at = now();
     const last = lastBreadcrumbAt.get(key);
-    if (last !== undefined && at - last < BREADCRUMB_WINDOW_MS) return;
-    if (!admitBreadcrumb()) return;
+    if (last !== undefined && at - last < BREADCRUMB_REPEAT_MS) return;
+    if (run >= BREADCRUMBS_PER_RUN) return;
+    run++;
     // Bounded: at most 5 classes x 7 methods x the registered route templates.
     lastBreadcrumbAt.set(key, at);
     sink.addBreadcrumb(apiNetworkBreadcrumbData(tags));
   };
+  return Object.assign(report, {
+    noteActivity: () => {
+      run = 0;
+    },
+  });
 }

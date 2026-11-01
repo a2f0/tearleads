@@ -342,6 +342,14 @@ test("the browser client sends reviewed network events and breadcrumbs only", as
     diagnostics.reportApiNetworkFailure?.(
       failure({ classification: "offline" }),
     );
+    const many = [...routes].slice(3, 40);
+    for (const route of many)
+      diagnostics.reportApiNetworkFailure?.(failure({ pathTemplate: route }));
+    diagnostics.addBreadcrumb({ area: "explorer", action: "open" });
+    for (const route of many)
+      diagnostics.reportApiNetworkFailure?.(
+        failure({ pathTemplate: route, method: "GET" }),
+      );
     diagnostics.captureError("not an Error", {
       area: "app",
       source: "boundary",
@@ -361,12 +369,17 @@ test("the browser client sends reviewed network events and breadcrumbs only", as
       "/containers/{containerId}/share",
     );
     expect(events[1].tags.api_network_class).toBe("offline");
-    // The repeats became one breadcrumb on the next report, not events.
+    // Repeats became breadcrumbs, not events: ten network crumbs at most
+    // before the activity crumb, and ten more after it.
     expect(
       events[2].breadcrumbs.map(
         (crumb: { category: string }) => crumb.category,
       ),
-    ).toEqual(["api.network"]);
+    ).toEqual([
+      ...Array<string>(10).fill("api.network"),
+      "app.activity",
+      ...Array<string>(10).fill("api.network"),
+    ]);
     const sent = bodies.join("\n");
     expect(sent).not.toContain(secret);
     expect(sent).not.toContain(id);
@@ -397,7 +410,7 @@ test("registered templates are sent as themselves, nothing without the registry"
   expect(sanitizeSentryEvent(event, unroutedConfig)).toBeNull();
 });
 
-test("bursts across many routes keep at most ten network breadcrumbs a minute", () => {
+test("without user activity, bursts across routes and minutes keep at most ten network breadcrumbs", () => {
   let now = 0;
   const breadcrumbs: Record<string, string>[] = [];
   const report = createApiNetworkFailureReporter(
@@ -407,10 +420,13 @@ test("bursts across many routes keep at most ten network breadcrumbs a minute", 
     () => now,
   );
   const templates = [...routes];
-  for (const route of templates) report(failure({ pathTemplate: route }));
+  for (let minute = 0; minute < 5; minute++) {
+    now = minute * 60_000;
+    for (const route of templates) report(failure({ pathTemplate: route }));
+  }
   expect(breadcrumbs).toHaveLength(10);
-  now = 60_000;
-  for (const route of templates.slice(20, 40))
+  report.noteActivity();
+  for (const route of templates.slice(30, 50))
     report(failure({ pathTemplate: route }));
   expect(breadcrumbs).toHaveLength(20);
 });

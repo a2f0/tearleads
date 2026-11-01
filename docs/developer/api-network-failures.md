@@ -115,10 +115,10 @@ The first failure of each class in a page load becomes a `warning` event;
 later ones become `api.network` breadcrumbs holding the class, method, path
 template, attempt, elapsed bucket, and connectivity. A breadcrumb repeating the
 same class, method, and template within a minute is dropped, and at most ten
-network breadcrumbs a minute are kept across all routes, so a dead network
-sends at most five events per page load and cannot flush the 30-crumb activity
-trail. The client event budget (five a minute, twenty a page load) still
-applies.
+network breadcrumbs follow each activity breadcrumb (or trail clear), so a
+dead network sends at most five events per page load and cannot flush the
+30-crumb activity trail. The client event budget (five a minute, twenty a
+page load) still applies.
 
 ## Network use outside the API client
 

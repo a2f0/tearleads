@@ -73,25 +73,23 @@ export function createBrowserDiagnostics(
   const scope = new Scope();
   scope.setClient(client);
   client.init();
+  const network = apiNetworkFailureReporter(scope, config);
   const diagnostics: WebDiagnostics = {
-    reportApiNetworkFailure: apiNetworkFailureReporter(scope, config),
+    reportApiNetworkFailure: network,
     setApiRouteTemplates: (routes) => {
       config.routeTemplates = new Set(routes);
     },
-    clearBreadcrumbs: () => scope.clearBreadcrumbs(),
-    addBreadcrumb(breadcrumb) {
-      if (
-        !isDiagnosticArea(breadcrumb.area) ||
-        !isDiagnosticAction(breadcrumb.action)
-      )
-        return;
+    clearBreadcrumbs() {
+      scope.clearBreadcrumbs();
+      network.noteActivity();
+    },
+    addBreadcrumb({ area, action }) {
+      if (!isDiagnosticArea(area) || !isDiagnosticAction(action)) return;
       scope.addBreadcrumb(
-        {
-          category: "app.activity",
-          data: { area: breadcrumb.area, action: breadcrumb.action },
-        },
+        { category: "app.activity", data: { area, action } },
         30,
       );
+      network.noteActivity();
     },
     captureError(error, context) {
       const tags = { area: context.area, diagnostic_source: context.source };
