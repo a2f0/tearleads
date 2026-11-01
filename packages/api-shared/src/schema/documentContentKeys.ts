@@ -150,7 +150,8 @@ export const documentContentKeyTargets = pgTable(
  * domain, writer, ciphertext hash, and a metadata hash that commits the
  * update's domain-separated, record-key-derived plaintext HMAC. Replays for
  * the same `updateId` are accepted only when the computed `headerHash` matches
- * the stored value.
+ * the stored value, and every write fails unless the stored `header` equals
+ * the signed header verbatim.
  *
  * Columns:
  * - `updateId`: Primary key matching the live document update id.

@@ -7,7 +7,10 @@ import {
   BlobContentKeyBundleError,
   ensurePositiveContentKeyEpoch,
 } from "./blobContentKeyTargets";
-import { createContentWriteHeaderStore } from "./contentKeyStore";
+import {
+  createContentWriteHeaderStore,
+  writeHeaderColumns,
+} from "./contentKeyStore";
 
 interface StoreBlobContentWriteHeaderInput {
   readonly authorization: BlobWriteAuthorization;
@@ -54,8 +57,8 @@ const store = createContentWriteHeaderStore<
         targetHash: input.header.targetHash,
       })
       .onConflictDoNothing()
-      .returning({ headerHash: blobContentWriteHeaders.headerHash });
-    return inserted !== undefined;
+      .returning(writeHeaderColumns(blobContentWriteHeaders));
+    return inserted ?? null;
   },
   list: (recordIds, executor) =>
     executor
@@ -67,13 +70,13 @@ const store = createContentWriteHeaderStore<
       })
       .from(blobContentWriteHeaders)
       .where(inArray(blobContentWriteHeaders.recordId, recordIds)),
-  loadHeaderHash: async (recordId, executor) => {
+  loadStoredHeader: async (recordId, executor) => {
     const [existing] = await executor
-      .select({ headerHash: blobContentWriteHeaders.headerHash })
+      .select(writeHeaderColumns(blobContentWriteHeaders))
       .from(blobContentWriteHeaders)
       .where(eq(blobContentWriteHeaders.recordId, recordId))
       .limit(1);
-    return existing?.headerHash ?? null;
+    return existing ?? null;
   },
 });
 
