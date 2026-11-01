@@ -89,7 +89,9 @@ export function createBrowserDiagnostics(
         { category: "app.activity", data: { area, action } },
         30,
       );
-      network.noteActivity();
+      // Logged failures add `error` crumbs during an outage; only user
+      // activity starts a new run of network crumbs.
+      if (action !== "error") network.noteActivity();
     },
     captureError(error, context) {
       const tags = { area: context.area, diagnostic_source: context.source };

@@ -345,6 +345,12 @@ test("the browser client sends reviewed network events and breadcrumbs only", as
     const many = [...routes].slice(3, 40);
     for (const route of many)
       diagnostics.reportApiNetworkFailure?.(failure({ pathTemplate: route }));
+    // Logged failures' `error` crumbs do not start a new run; user activity does.
+    diagnostics.addBreadcrumb({ area: "app", action: "error" });
+    for (const route of many)
+      diagnostics.reportApiNetworkFailure?.(
+        failure({ pathTemplate: route, method: "PUT" }),
+      );
     diagnostics.addBreadcrumb({ area: "explorer", action: "open" });
     for (const route of many)
       diagnostics.reportApiNetworkFailure?.(
@@ -378,8 +384,16 @@ test("the browser client sends reviewed network events and breadcrumbs only", as
     ).toEqual([
       ...Array<string>(10).fill("api.network"),
       "app.activity",
+      "app.activity",
       ...Array<string>(10).fill("api.network"),
     ]);
+    expect(
+      events[2].breadcrumbs
+        .filter(
+          (crumb: { category: string }) => crumb.category === "app.activity",
+        )
+        .map((crumb: { data: { action: string } }) => crumb.data.action),
+    ).toEqual(["error", "open"]);
     const sent = bodies.join("\n");
     expect(sent).not.toContain(secret);
     expect(sent).not.toContain(id);
