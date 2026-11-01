@@ -107,22 +107,15 @@ const BREADCRUMB_FIELDS: readonly ApiNetworkTagName[] = [
 ];
 
 /**
- * An operation path template: lowercase literal segments and `{name}`
- * parameters only. A concrete path, whose segments are ids, digits, or
- * encoded values, cannot pass, and an unlisted shape becomes `other`.
+ * Only an exact registered operation path template passes; anything else,
+ * including a concrete path or one built to look like a template, is `other`.
+ * Without a registry nothing passes.
  */
-function isRouteTemplate(value: string): boolean {
-  if (value === "/") return true;
-  if (value.length > 160 || !value.startsWith("/")) return false;
-  const segments = value.slice(1).split("/");
-  return (
-    segments.length <= 10 &&
-    segments.every(
-      (segment) =>
-        /^[a-z]+(?:-[a-z]+)*$/u.test(segment) ||
-        /^\{[a-z][A-Za-z]*\}$/u.test(segment),
-    )
-  );
+function isRouteTemplate(
+  value: string,
+  routes: ReadonlySet<string> | undefined,
+): boolean {
+  return routes?.has(value) === true;
 }
 
 // First-party API hosts are fixed public names; any other host (self-hosted,
@@ -164,18 +157,20 @@ function elapsedLabel(ms: number): string {
 
 /**
  * The reviewed, coarse tags for one failure, or null when it is not reported
- * (a cancellation or an unknown class). `pageOrigin` is the app's own origin.
+ * (a cancellation or an unknown class). `pageOrigin` is the app's own origin
+ * and `routes` the registered operation path templates.
  */
 export function apiNetworkFailureTags(
   failure: ApiNetworkFailureInput,
   pageOrigin: string,
+  routes: ReadonlySet<string> | undefined,
 ): ApiNetworkTags | null {
   if (!CLASSES.has(failure.classification)) return null;
   const method = failure.method.toUpperCase();
   return {
     api_network_class: failure.classification,
     api_network_method: METHODS.has(method) ? method : "other",
-    api_network_route: isRouteTemplate(failure.pathTemplate)
+    api_network_route: isRouteTemplate(failure.pathTemplate, routes)
       ? failure.pathTemplate
       : "other",
     api_network_attempt:
@@ -202,9 +197,13 @@ export function apiNetworkFailureTags(
   };
 }
 
-function isAllowedTag(name: ApiNetworkTagName, value: string): boolean {
+function isAllowedTag(
+  name: ApiNetworkTagName,
+  value: string,
+  routes: ReadonlySet<string> | undefined,
+): boolean {
   if (name === "api_network_route")
-    return value === "other" || isRouteTemplate(value);
+    return value === "other" || isRouteTemplate(value, routes);
   return TAG_VALUES[name].has(value);
 }
 
@@ -214,12 +213,14 @@ function isAllowedTag(name: ApiNetworkTagName, value: string): boolean {
  */
 export function sanitizeApiNetworkTags(
   tags: Event["tags"] | Breadcrumb["data"],
+  routes: ReadonlySet<string> | undefined,
   names: readonly ApiNetworkTagName[] = TAG_NAMES,
 ): Partial<ApiNetworkTags> | null {
   const result: Partial<Record<ApiNetworkTagName, string>> = {};
   for (const name of names) {
     const value: unknown = tags?.[name];
-    if (typeof value !== "string" || !isAllowedTag(name, value)) return null;
+    if (typeof value !== "string" || !isAllowedTag(name, value, routes))
+      return null;
     result[name] = value;
   }
   return result;
@@ -241,9 +242,14 @@ function apiNetworkBreadcrumbData(
 /** The reviewed `api.network` breadcrumb, or null for anything else. */
 export function sanitizeApiNetworkBreadcrumb(
   breadcrumb: Breadcrumb,
+  routes: ReadonlySet<string> | undefined,
 ): Breadcrumb | null {
   if (breadcrumb.category !== "api.network") return null;
-  const data = sanitizeApiNetworkTags(breadcrumb.data, BREADCRUMB_FIELDS);
+  const data = sanitizeApiNetworkTags(
+    breadcrumb.data,
+    routes,
+    BREADCRUMB_FIELDS,
+  );
   if (!data) return null;
   return {
     category: "api.network",
@@ -261,23 +267,44 @@ export interface ApiNetworkFailureSink {
   readonly addBreadcrumb: (data: Record<string, string>) => void;
 }
 
-const BREADCRUMB_REPEAT_MS = 60_000;
+const BREADCRUMB_WINDOW_MS = 60_000;
+// A third of the 30-crumb trail, so activity crumbs survive any burst.
+const BREADCRUMBS_PER_WINDOW = 10;
+
+/** Admits at most `limit` breadcrumbs per window, whatever their keys. */
+function createWindowLimit(limit: number, now: () => number) {
+  let windowStart = Number.NEGATIVE_INFINITY;
+  let count = 0;
+  return (): boolean => {
+    const at = now();
+    if (at - windowStart >= BREADCRUMB_WINDOW_MS) {
+      windowStart = at;
+      count = 0;
+    }
+    if (count >= limit) return false;
+    count++;
+    return true;
+  };
+}
 
 /**
  * Rate limits network reports for one page load: the first failure of each
- * class becomes an event, later ones breadcrumbs, and a breadcrumb repeating
- * the same class, method, and route within a minute is dropped, so a dead
- * network neither floods the project nor flushes the activity trail.
+ * class becomes an event, later ones breadcrumbs. A breadcrumb repeating the
+ * same class, method, and route within a minute is dropped, and at most ten
+ * network breadcrumbs a minute are kept across all routes, so a dead network
+ * neither floods the project nor flushes the activity trail.
  */
 export function createApiNetworkFailureReporter(
   sink: ApiNetworkFailureSink,
   pageOrigin: string,
+  routes: () => ReadonlySet<string> | undefined,
   now: () => number = Date.now,
 ) {
   const reportedClasses = new Set<string>();
   const lastBreadcrumbAt = new Map<string, number>();
+  const admitBreadcrumb = createWindowLimit(BREADCRUMBS_PER_WINDOW, now);
   return (failure: ApiNetworkFailureInput): void => {
-    const tags = apiNetworkFailureTags(failure, pageOrigin);
+    const tags = apiNetworkFailureTags(failure, pageOrigin, routes());
     if (!tags) return;
     if (!reportedClasses.has(tags.api_network_class)) {
       reportedClasses.add(tags.api_network_class);
@@ -291,8 +318,9 @@ export function createApiNetworkFailureReporter(
     ]);
     const at = now();
     const last = lastBreadcrumbAt.get(key);
-    if (last !== undefined && at - last < BREADCRUMB_REPEAT_MS) return;
-    // Bounded: at most 5 classes x 6 methods x the finite route templates.
+    if (last !== undefined && at - last < BREADCRUMB_WINDOW_MS) return;
+    if (!admitBreadcrumb()) return;
+    // Bounded: at most 5 classes x 7 methods x the registered route templates.
     lastBreadcrumbAt.set(key, at);
     sink.addBreadcrumb(apiNetworkBreadcrumbData(tags));
   };

@@ -3,9 +3,10 @@ import type { Tearleads } from "@tearleads/client-sdk";
 import { apiNetworkFailureTags } from "@tearleads/diagnostics/network";
 import { protocolOperations } from "@tearleads/validators/operation";
 import { cleanup, render } from "@testing-library/react";
-import type {
-  ApiNetworkFailureInput,
-  AppDiagnostics,
+import {
+  type ApiNetworkFailureInput,
+  type AppDiagnostics,
+  apiRouteTemplates,
 } from "../../host/AppDiagnostics";
 import { useApiNetworkFailureDiagnostics } from "./useApiNetworkFailureDiagnostics";
 
@@ -69,6 +70,7 @@ function Probe(props: {
 test("failures reach host diagnostics until unmount", () => {
   const source = fakeSubscription();
   const reported: ApiNetworkFailureInput[] = [];
+  const registered: ReadonlySet<string>[] = [];
   const view = render(
     <Probe
       subscribe={source.subscribe}
@@ -76,11 +78,13 @@ test("failures reach host diagnostics until unmount", () => {
         addBreadcrumb: () => {},
         captureError: () => {},
         reportApiNetworkFailure: (failure) => reported.push(failure),
+        setApiRouteTemplates: (routes) => registered.push(routes),
       }}
     />,
   );
   source.emit();
   expect(reported).toEqual([details]);
+  expect(registered).toEqual([apiRouteTemplates]);
   view.unmount();
   expect(source.listeners).toBe(0);
 });
@@ -98,15 +102,23 @@ test("nothing subscribes when Sentry is disabled or cannot take network reports"
   expect(source.subscriptions).toBe(0);
 });
 
-test("every protocol operation's path template is reported as itself", () => {
-  const coarsened = protocolOperations
-    .map((operation) => operation.path)
-    .filter(
-      (path) =>
-        apiNetworkFailureTags(
-          { ...details, pathTemplate: path },
-          "https://app.tearleads.com",
-        )?.api_network_route !== path,
-    );
+test("every registered operation's path template is reported as itself", () => {
+  const paths: string[] = protocolOperations.map((operation) => operation.path);
+  expect(new Set(paths)).toEqual(new Set(apiRouteTemplates));
+  const coarsened = paths.filter(
+    (path) =>
+      apiNetworkFailureTags(
+        { ...details, pathTemplate: path },
+        "https://app.tearleads.com",
+        apiRouteTemplates,
+      )?.api_network_route !== path,
+  );
   expect(coarsened).toEqual([]);
+  expect(
+    apiNetworkFailureTags(
+      { ...details, pathTemplate: "/containers/private-document" },
+      "https://app.tearleads.com",
+      apiRouteTemplates,
+    )?.api_network_route,
+  ).toBe("other");
 });

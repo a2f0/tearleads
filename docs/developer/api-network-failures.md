@@ -89,7 +89,7 @@ event any of whose tags leaves this vocabulary.
 | --- | --- | --- |
 | classification | send | the class (`aborted` is never reported) |
 | method | send | `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`, else `other` |
-| path template | send | lowercase literal and `{name}` segments only, else `other` |
+| path template | send | an exact registered operation template, else `other` |
 | attempt | send | `1`, `2`, else `other` |
 | elapsed time | coarsen | `lt-100ms`, `lt-1s`, `lt-3s`, `lt-10s`, `lt-30s`, `gte-30s` |
 | connectivity | send | `online`, `offline`, `unknown` |
@@ -102,18 +102,23 @@ event any of whose tags leaves this vocabulary.
 | hint, cause message | drop | never sent: they can name an origin or a URL path |
 
 Headers, tokens, bodies, query values, ids, user ids, concrete URLs, and
-self-hosted or custom origins never leave the device. Path templates come
-from the operation registry, never from the concrete path, and a test checks
-every registered template is sent as itself. Events carry no stack, since no
+self-hosted or custom origins never leave the device. The app registers the
+operation registry's path templates (`apiRouteTemplates`) with the diagnostics
+client before subscribing; both the reporter and the event boundary admit only
+those exact strings, so a concrete path, even one shaped like a template,
+reads `other`, and before registration every route does. A test checks every
+registered template is sent as itself. Events carry no stack, since no
 application code failed, and the fixed message `API request failed without a
 response (<class>)`.
 
 The first failure of each class in a page load becomes a `warning` event;
 later ones become `api.network` breadcrumbs holding the class, method, path
 template, attempt, elapsed bucket, and connectivity. A breadcrumb repeating the
-same class, method, and template within a minute is dropped, so a dead network
-sends at most five events per page load and cannot flush the activity trail.
-The client event budget (five a minute, twenty a page load) still applies.
+same class, method, and template within a minute is dropped, and at most ten
+network breadcrumbs a minute are kept across all routes, so a dead network
+sends at most five events per page load and cannot flush the 30-crumb activity
+trail. The client event budget (five a minute, twenty a page load) still
+applies.
 
 ## Network use outside the API client
 

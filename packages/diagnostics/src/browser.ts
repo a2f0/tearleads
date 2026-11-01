@@ -19,7 +19,7 @@ export interface WebDiagnostics extends AppDiagnostics {
 }
 
 // The first failure of a class is an event; the rest are breadcrumbs.
-function apiNetworkFailureReporter(scope: Scope, origin: string) {
+function apiNetworkFailureReporter(scope: Scope, config: SentryConfig) {
   return createApiNetworkFailureReporter(
     {
       captureEvent: (tags) =>
@@ -41,11 +41,18 @@ function apiNetworkFailureReporter(scope: Scope, origin: string) {
           30,
         ),
     },
-    origin,
+    config.origin,
+    () => config.routeTemplates,
   );
 }
 
-export function createBrowserDiagnostics(config: SentryConfig): WebDiagnostics {
+export function createBrowserDiagnostics(
+  hostConfig: SentryConfig,
+): WebDiagnostics {
+  // Network reports may name only the operation path templates the app
+  // registers (setApiRouteTemplates); until then every route is `other`. The
+  // client and transport read this copy, so both privacy passes see them.
+  const config: SentryConfig = { ...hostConfig };
   const client = new BrowserClient({
     dsn: config.dsn,
     environment: config.environment,
@@ -67,7 +74,10 @@ export function createBrowserDiagnostics(config: SentryConfig): WebDiagnostics {
   scope.setClient(client);
   client.init();
   const diagnostics: WebDiagnostics = {
-    reportApiNetworkFailure: apiNetworkFailureReporter(scope, config.origin),
+    reportApiNetworkFailure: apiNetworkFailureReporter(scope, config),
+    setApiRouteTemplates: (routes) => {
+      config.routeTemplates = new Set(routes);
+    },
     clearBreadcrumbs: () => scope.clearBreadcrumbs(),
     addBreadcrumb(breadcrumb) {
       if (

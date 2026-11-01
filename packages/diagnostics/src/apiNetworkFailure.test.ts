@@ -8,15 +8,28 @@ import {
 import { createBrowserDiagnostics } from "./browser";
 import { type SentryPrivacyConfig, sanitizeSentryEvent } from "./privacy";
 
+const routes: ReadonlySet<string> = new Set(
+  // Stand-in for the app's operation registry (apiRouteTemplates).
+  [
+    "/",
+    "/auth/sessions",
+    "/containers/{containerId}/share",
+    ...Array.from({ length: 50 }, (_, index) => `/fixture/route-${index}`),
+  ],
+);
 const secret = "SYNTHETIC_SECRET_TOKEN";
 const id = "3f2a9c1e-7b44-4d1a-9e0f-5a6b7c8d9e0f";
 const concreteUrl = `https://api.tearleads.com/containers/${id}/share?token=${secret}`;
-const config: SentryPrivacyConfig = {
+const unroutedConfig: SentryPrivacyConfig = {
   origin: "https://app.tearleads.com",
   scriptPath: "/chunk-abc123.js",
   environment: "production",
   release: `tearleads-web@${"a".repeat(40)}`,
   dist: "production-app",
+};
+const config: SentryPrivacyConfig = {
+  ...unroutedConfig,
+  routeTemplates: routes,
 };
 
 function failure(
@@ -49,7 +62,7 @@ function failure(
 }
 
 function reviewedEvent(input: ApiNetworkFailureInput): Event {
-  const tags = apiNetworkFailureTags(input, config.origin);
+  const tags = apiNetworkFailureTags(input, config.origin, routes);
   if (!tags) throw new Error("expected a reportable failure");
   return {
     event_id: "b".repeat(32),
@@ -167,6 +180,7 @@ test("concrete paths, custom origins, and unknown runtime text are coarsened", (
       probe: "not-run",
     }),
     config.origin,
+    routes,
   );
   expect(tags).toMatchObject({
     api_network_method: "other",
@@ -183,6 +197,7 @@ test("concrete paths, custom origins, and unknown runtime text are coarsened", (
     api_network_probe: "not-run",
   });
   for (const route of [
+    "/containers/private-document",
     "/containers/123",
     "/documents/abcDEF",
     "/blobs/%7Bid%7D",
@@ -190,14 +205,18 @@ test("concrete paths, custom origins, and unknown runtime text are coarsened", (
     "containers",
   ]) {
     expect(
-      apiNetworkFailureTags(failure({ pathTemplate: route }), config.origin)
-        ?.api_network_route,
+      apiNetworkFailureTags(
+        failure({ pathTemplate: route }),
+        config.origin,
+        routes,
+      )?.api_network_route,
     ).toBe("other");
   }
   expect(
     apiNetworkFailureTags(
       failure({ errorMessage: `Something ${secret}` }),
       config.origin,
+      routes,
     )?.api_network_message,
   ).toBe("other");
   expect(JSON.stringify(tags)).not.toContain(secret);
@@ -208,16 +227,22 @@ test("cancellations and unknown classes are never reported", () => {
     apiNetworkFailureTags(
       failure({ classification: "aborted" }),
       config.origin,
+      routes,
     ),
   ).toBeNull();
   expect(
-    apiNetworkFailureTags(failure({ classification: secret }), config.origin),
+    apiNetworkFailureTags(
+      failure({ classification: secret }),
+      config.origin,
+      routes,
+    ),
   ).toBeNull();
 });
 
 test("the event boundary drops a network event whose tags leave the vocabulary", () => {
   for (const [name, value] of [
     ["api_network_route", `/containers/${id}`],
+    ["api_network_route", "/containers/private-document"],
     ["api_network_api_origin", "https://self-hosted.example"],
     ["api_network_message", secret],
     ["api_network_class", "aborted"],
@@ -257,6 +282,7 @@ test("one event per class per page load, then deduplicated breadcrumbs", () => {
       addBreadcrumb: (data) => breadcrumbs.push(data),
     },
     config.origin,
+    () => routes,
     () => now,
   );
 
@@ -307,9 +333,10 @@ test("the browser client sends reviewed network events and breadcrumbs only", as
   });
   try {
     const diagnostics = createBrowserDiagnostics({
-      ...config,
+      ...unroutedConfig,
       dsn: `https://${"c".repeat(32)}@o1.ingest.us.sentry.io/1`,
     });
+    diagnostics.setApiRouteTemplates?.(routes);
     for (let index = 0; index < 20; index++)
       diagnostics.reportApiNetworkFailure?.(failure());
     diagnostics.reportApiNetworkFailure?.(
@@ -330,6 +357,9 @@ test("the browser client sends reviewed network events and breadcrumbs only", as
       "Error",
     ]);
     expect(events[0].tags.api_network_class).toBe("api-unreachable");
+    expect(events[0].tags.api_network_route).toBe(
+      "/containers/{containerId}/share",
+    );
     expect(events[1].tags.api_network_class).toBe("offline");
     // The repeats became one breadcrumb on the next report, not events.
     expect(
@@ -346,4 +376,41 @@ test("the browser client sends reviewed network events and breadcrumbs only", as
     if (hadWindow) globalThis.window = previousWindow;
     else Reflect.deleteProperty(globalThis, "window");
   }
+});
+
+test("registered templates are sent as themselves, nothing without the registry", () => {
+  const coarsened = [...routes].filter(
+    (route) =>
+      apiNetworkFailureTags(
+        failure({ pathTemplate: route }),
+        config.origin,
+        routes,
+      )?.api_network_route !== route,
+  );
+
+  expect(coarsened).toEqual([]);
+  expect(
+    apiNetworkFailureTags(failure(), config.origin, undefined)
+      ?.api_network_route,
+  ).toBe("other");
+  const event = reviewedEvent(failure());
+  expect(sanitizeSentryEvent(event, unroutedConfig)).toBeNull();
+});
+
+test("bursts across many routes keep at most ten network breadcrumbs a minute", () => {
+  let now = 0;
+  const breadcrumbs: Record<string, string>[] = [];
+  const report = createApiNetworkFailureReporter(
+    { captureEvent: () => {}, addBreadcrumb: (data) => breadcrumbs.push(data) },
+    config.origin,
+    () => routes,
+    () => now,
+  );
+  const templates = [...routes];
+  for (const route of templates) report(failure({ pathTemplate: route }));
+  expect(breadcrumbs).toHaveLength(10);
+  now = 60_000;
+  for (const route of templates.slice(20, 40))
+    report(failure({ pathTemplate: route }));
+  expect(breadcrumbs).toHaveLength(20);
 });

@@ -182,9 +182,12 @@ function safePosition(frame: StackFrame, filename: string): StackFrame | null {
   };
 }
 
-export function sanitizeBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
+export function sanitizeBreadcrumb(
+  breadcrumb: Breadcrumb,
+  routes?: ReadonlySet<string>,
+): Breadcrumb | null {
   if (breadcrumb.category === "api.network")
-    return sanitizeApiNetworkBreadcrumb(breadcrumb);
+    return sanitizeApiNetworkBreadcrumb(breadcrumb, routes);
   const { area, action } = breadcrumb.data ?? {};
   if (
     breadcrumb.category !== "app.activity" ||
@@ -229,8 +232,11 @@ function frameSanitizer(config: SentryPrivacyConfig, frameless: boolean) {
 function networkTags(
   source: string,
   tags: Event["tags"],
+  routes: ReadonlySet<string> | undefined,
 ): Partial<ApiNetworkTags> | null | undefined {
-  return source === "api-network" ? sanitizeApiNetworkTags(tags) : undefined;
+  return source === "api-network"
+    ? sanitizeApiNetworkTags(tags, routes)
+    : undefined;
 }
 
 function exceptionType(
@@ -260,7 +266,7 @@ export function sanitizeSentryEvent(
   const sources = config.runtime ? SERVER_SOURCES[config.runtime] : SOURCES;
   if (typeof source !== "string" || !sources.has(source)) return null;
   // A network failure carries reviewed tags and no stack: no code failed.
-  const network = networkTags(source, event.tags);
+  const network = networkTags(source, event.tags, config.routeTemplates);
   if (network === null) return null;
   const sanitizeFrames = frameSanitizer(config, network !== undefined);
   // Includes anonymous Chrome DevTools and extension-only failures. An explicit
@@ -317,7 +323,9 @@ export function sanitizeSentryEvent(
       }),
     },
     breadcrumbs: (config.runtime ? [] : (event.breadcrumbs ?? []))
-      .map(sanitizeBreadcrumb)
+      .map((breadcrumb) =>
+        sanitizeBreadcrumb(breadcrumb, config.routeTemplates),
+      )
       .filter((breadcrumb): breadcrumb is Breadcrumb => breadcrumb !== null)
       .slice(-30),
   };

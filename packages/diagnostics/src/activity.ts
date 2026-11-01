@@ -58,6 +58,8 @@ export interface AppDiagnostics {
    * the device, rate limited; see docs/developer/api-network-failures.md.
    */
   reportApiNetworkFailure?: (failure: ApiNetworkFailureInput) => void;
+  /** The operation path templates network reports may name; others: `other`. */
+  setApiRouteTemplates?: (routes: ReadonlySet<string>) => void;
 }
 
 export function isDiagnosticArea(value: unknown): value is DiagnosticArea {
