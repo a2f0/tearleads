@@ -85,8 +85,9 @@ an expected setup-only batch, and `resume` continues with the queued audit work.
 Run noisy builds, checks, and probes through `agent-tool run -- <command>`.
 Use the checkout's `node_modules/.bin/agent-tool`; from a package directory,
 invoke that binary by its absolute path to preserve the probe's working
-directory. Copy retained raw logs into the durable audit directory before
-checkpointing, and inspect bounded excerpts with `bun run agent:logs <path>`
+directory. Its logs live under the system temp directory, so copy every log the
+report or receipt cites into the durable audit directory before checkpointing,
+and inspect bounded excerpts with `bun run agent:logs <path>`
 instead of loading successful logs.
 
 1. Create or load the checkpoint as described in `references/batching.md`.
@@ -119,8 +120,13 @@ instead of loading successful logs.
      only slice-relevant entries to its auditor as code to examine first.
 
    A known item is reported again only as a regression or a bypass. Memory
-   locates evidence; it does not prove a fix. Save issue/PR dispositions and
-   source links so resumes do not reload the entire audit history.
+   locates evidence; it does not prove a fix, and lists copied from memory or
+   an earlier brief go stale. Before handing one to an auditor, check each
+   item against its fix PR or issue state
+   (`gh api repos/{owner}/{repo}/issues/<n> --jq '.state'`, which covers PRs
+   too) and list it as open only when that check says so. Save issue/PR
+   dispositions and source links so resumes do not reload the entire audit
+   history.
 6. Size the surface with non-test TypeScript line counts per directory, so
    slices stay balanced. Queue smaller parts of an oversized slice for later
    batches rather than creating more auditors in this invocation.
