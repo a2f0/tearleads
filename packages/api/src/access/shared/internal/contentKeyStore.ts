@@ -432,7 +432,7 @@ interface CreateContentWriteHeaderStoreOptions<
  * its own signed copy, so a store that normalizes it (a dropped millisecond)
  * must fail the writing transaction, on a fresh insert and on a retry.
  */
-function assertStoredWriteHeaderVerbatim(
+export function assertStoredWriteHeaderVerbatim(
   stored: StoredContentWriteHeader,
   input: ContentWriteHeaderInput,
 ): void {

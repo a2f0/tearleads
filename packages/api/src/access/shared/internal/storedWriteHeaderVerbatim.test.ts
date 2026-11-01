@@ -11,7 +11,16 @@ import {
   KeyingVerificationError,
   type WriteHeader,
 } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
+import { authenticate } from "../../../../test/helpers/authenticate";
+import { createSignedDocumentSyncRequest } from "../../../../test/helpers/documentUpdateRequests";
+import {
+  bootstrapRoot,
+  createDocument,
+} from "../../../../test/helpers/keyingWriterProjectionKit";
+import { registerUser } from "../../../../test/helpers/registerUser";
+import { routeApp } from "../../../routeApp";
 import { storeBlobContentWriteHeader } from "./blobContentWriteHeaderStore";
 import {
   createContentWriteHeaderStore,
@@ -187,6 +196,45 @@ test("a document write header retry over a non-verbatim stored header fails", as
     storeDocumentContentWriteHeader(input, db),
   ).rejects.toMatchObject(notVerbatim);
 });
+
+test("a document sync retry over a non-verbatim stored header fails", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  const update = request.outgoingUpdates[0];
+  if (!update) throw new Error("Expected a signed outgoing update");
+  const sync = () =>
+    routeApp.request(`/documents/${created.id}/sync`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
+  expect((await sync()).status).toBe(200);
+  const [stored] = await db
+    .select(writeHeaderColumns(documentContentWriteHeaders))
+    .from(documentContentWriteHeaders)
+    .where(eq(documentContentWriteHeaders.updateId, update.id));
+  if (!stored) throw new Error("Expected the stored write header");
+  await db
+    .update(documentContentWriteHeaders)
+    .set({ header: dropMilliseconds(stored.header) })
+    .where(eq(documentContentWriteHeaders.updateId, update.id));
+
+  // The retry skips the store, so the sync workflow checks the row itself.
+  const retried = await sync();
+  expect(retried.status).toBe(400);
+  expect(await retried.json()).toMatchObject({ error: notVerbatim.message });
+}, 60_000);
 
 test("write header RETURNING rows equal their read-backs", async () => {
   const blob = blobInput(await writeHeader("blob", "blob-returning"));

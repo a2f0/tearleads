@@ -183,12 +183,9 @@ async function verifyAndCollectNewOutgoingUpdates(input: {
   }
 
   for (const update of input.outgoingUpdates) {
-    const acceptedHeaderHash = input.acceptedHeaderHashes.get(
-      update.id,
-    )?.headerHash;
     if (input.acceptedUpdateIds.has(update.id)) {
       await assertRetryUpdateMatchesAcceptedContent({
-        acceptedHeaderHash,
+        acceptedHeader: input.acceptedHeaderHashes.get(update.id),
         documentId: appendInput.documentId,
         existingRow: input.existingRowsById.get(update.id),
         update,

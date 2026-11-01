@@ -1,3 +1,4 @@
+export { assertStoredWriteHeaderVerbatim } from "../shared/internal/contentKeyStore";
 export {
   DocumentContentKeyBundleError,
   requireAndRefreshCurrentDocumentContentKeyBundle,
