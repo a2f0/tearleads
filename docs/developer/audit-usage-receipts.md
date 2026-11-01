@@ -64,9 +64,22 @@ Its main-loop fields include `input_tokens`, `output_tokens`,
 `cache_read_tokens`, `cache_write_tokens`, `reasoning_tokens`, `total_tokens`,
 `api_calls`, `model`, `provider`, `completed`, `partial`, and `interrupted`.
 `auxiliary` is a breakdown; `total_including_auxiliary` is a rollup, not an
-extra component. Child inclusion still needs verification. That format does
-not supply duration or effort; these are unavailable unless separately exposed.
-A successful process exit does not prove the best-effort usage file was written.
+extra component. `input_tokens` already includes `cache_read_tokens` and
+`cache_write_tokens`; the cache columns are subsets, never added to input.
+That format does not supply duration or effort; these are unavailable unless
+separately exposed. A successful process exit does not prove the best-effort
+usage file was written.
+
+The usage file covers the main loop only: delegate children run as separate
+`subagent` sessions and are excluded from it. Each `delegate_task` result
+returns that child's `tokens.input` and `tokens.output` (input inclusive of
+cache, as above), `api_calls`, and `duration_seconds`. After exit, the outer
+launcher can read the child sessions from the Hermes session store by their
+parent session ID and record each as its own receipt row, never folded into
+the main loop's row. A live coordinator that receives child counters records
+them privately in its ledger as they arrive; publish them only as separate
+rows that state these semantics, and leave any main-loop total to the
+launcher's usage file.
 
 The following **local inspection**, not a public payload or total calculator,
 preserves null/missing counters. `USAGE_FILE` names that private JSON file.
@@ -102,8 +115,11 @@ token columns.
 ## Cutoff and public template
 
 A live coordinator freezes usage at the last completed provider request before
-publication. Exclude the current in-flight request, publication, final reply,
-and any unobserved tail explicitly. It cannot know its own post-exit bill.
+publication. Take the cutoff timestamp as the UTC time at which it observed
+the last completed tool or provider result before freezing the draft, and
+record it before publishing. Exclude the current in-flight request,
+publication, final reply, and any unobserved tail explicitly. It cannot know
+its own post-exit bill.
 An authorized outer launcher may reconcile the same run's receipt after the
 child exits; label the child's completed cutoff and exclude the launcher's own
 unmeasured work. Never promise an exact final total from inside that request.

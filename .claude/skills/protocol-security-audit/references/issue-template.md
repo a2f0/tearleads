@@ -21,6 +21,10 @@ Write the rest of the body in this order:
    reference to that revision. Include completed, partial, pending, and
    blocked slices/models from the checkpoint; do not present partial coverage
    or unrun checks as a completed clean audit.
+   When coverage is partial (slices grouped, skipped, or not audited at full
+   depth, or an interim `Partial` issue), add a coverage table with the
+   columns `Slice`, `Covered`, and `Not covered at depth`: one row per
+   requested slice and model, naming its auditor grouping and unrun checks.
 2. **Verification labels.** Define Probed, Verified, and Traced. Say which
    findings, if any, already have a regression test.
 3. **Summary table** with the columns `#`, `Finding`, `Dir`, `Sev`, `Status`,
