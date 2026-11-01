@@ -67,7 +67,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.40",
+      "version": "0.1.41",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -98,7 +98,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.94",
+      "version": "0.1.95",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -224,7 +224,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.126",
+      "version": "0.1.127",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -256,7 +256,7 @@
     },
     "packages/diagnostics": {
       "name": "@tearleads/diagnostics",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "dependencies": {
         "@sentry/browser": "11.8.0",
         "@sentry/core": "11.8.0",
@@ -352,7 +352,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "dependencies": {
         "@a2f0/ct-client": "0.1.5",
         "@astrojs/markdown-satteri": "0.4.5",
