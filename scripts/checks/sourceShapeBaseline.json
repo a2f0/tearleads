@@ -90,6 +90,10 @@
       "lines": 117,
       "bytes": 20970
     },
+    "formal/blob-attachments/StagePromotion.tla": {
+      "lines": 503,
+      "bytes": 22931
+    },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
       "bytes": 407663

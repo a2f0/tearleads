@@ -232,7 +232,7 @@ one slot's row keeps a hydrated copy another slot still holds.
 [ContentWriteAuthority](./document-sync/ContentWriteAuthority.md) checks delayed
 reads across ancestor grants, group removal, and leaf advancement, including a
 reader on another link of the document after the writer's container is
-unlinked and deleted.
+unlinked and deleted, and that carried rekeys precede the head lock.
 
 ## Local Trust
 
@@ -264,7 +264,8 @@ and stay unique within each trust domain. See the
 store observes local purge before starting remote creation and that an obsolete
 read cannot retire a replacement store generation. It also checks that a create
 seed leaves the queue only once committed, and that a peer edit's hint
-arriving before the create response still leads to a pull.
+arriving before the create response still leads to a pull, and that a refused
+bind carry neither drops the row nor publishes it unbound.
 
 ### Document Move Placement
 
