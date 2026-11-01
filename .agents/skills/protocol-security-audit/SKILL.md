@@ -67,8 +67,10 @@ Every published report includes it, even when counters are unavailable.
 Run noisy builds, checks, and probes through `agent-tool run -- <command>`.
 Use the checkout's `node_modules/.bin/agent-tool`; from a package directory,
 invoke that binary by its absolute path to preserve the probe's working
-directory. Keep receipt log paths with the audit notes and inspect bounded
-excerpts with `bun run agent:logs <path>` instead of loading successful logs.
+directory. Its logs live under the system temp directory, so copy every log the
+report or receipt cites into the durable audit directory (step 2) before
+checkpointing or exiting, and inspect bounded excerpts with
+`bun run agent:logs <path>` instead of loading successful logs.
 
 1. Record the audited revision with `git rev-parse HEAD` and note any dirty
    paths. Audit committed code only.
@@ -100,7 +102,11 @@ excerpts with `bun run agent:logs <path>` instead of loading successful logs.
      signature, checkpoint, projection, grant, wrap, purge, and incident. Treat
      these as the least-reviewed code and examine them first.
 
-   A known item is reported again only as a regression or a bypass.
+   A known item is reported again only as a regression or a bypass. Lists
+   copied from memory or an earlier brief go stale: before handing one to
+   auditors, check each item against its fix PR or issue state
+   (`gh api repos/{owner}/{repo}/issues/<n> --jq '.state'`, which covers PRs
+   too) and list it as open only when that check says so.
 7. Size the surface with non-test TypeScript line counts per directory, so
    slices stay balanced. Split an oversized slice rather than skimming it; the
    brief splits `sync` into `sync-placement` and `sync-runtime` by default.
@@ -112,6 +118,13 @@ slice in parallel. Each prompt is the shared brief from
 [`references/auditor-brief.md`](references/auditor-brief.md) with its
 placeholders filled, followed by that slice's section. Verify each report as it
 arrives (step 3) instead of waiting for all of them.
+
+When the harness caps children or runs them synchronously (Hermes one-shot
+`hermes -z` allows two delegate children per run through
+`delegation.oneshot_max_children` and returns each `delegate_task` only when
+it finishes), have the launcher raise the cap, or group slices per child. Record
+each grouping in the report's coverage as reduced depth for those slices; one
+child covering several slices is not one auditor per slice.
 
 Otherwise, audit the slices yourself one at a time. Apply the brief to that
 slice's scope only, write its findings to `<scratch>/slice-<name>.md`, and
