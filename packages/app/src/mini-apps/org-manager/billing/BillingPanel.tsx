@@ -15,7 +15,10 @@ import { useBillingActions } from "../hooks/useBillingActions";
 import { usePurgedOrganizationRecovery } from "../hooks/usePurgedOrganizationRecovery";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingCancelSubscription } from "./BillingCancelSubscription";
-import { BillingDirectCheckout } from "./BillingDirectCheckout";
+import {
+  BillingDirectCheckout,
+  isCheckoutScreenOpen,
+} from "./BillingDirectCheckout";
 import { OptionalBillingHistory } from "./BillingHistory";
 import { BillingRecoveryStatus, BillingView } from "./BillingView";
 import { useBillingHistory } from "./useBillingHistory";
@@ -160,17 +163,21 @@ function useDirectCheckoutWiring(input: {
     input.isOrgAdmin &&
     !input.recoveryActive &&
     (view?.canCancelDirectly ?? false);
+  // After Subscribe the payment form is its own screen: the rest of the
+  // billing panel steps aside until the buyer pays or cancels.
+  const checkoutScreenOpen = checkoutEnabled && isCheckoutScreenOpen(checkout);
   return {
     cancel,
     checkout,
     checkoutActive,
     checkoutEnabled,
+    checkoutScreenOpen,
     managementUrl: input.managementUrl,
     showInlineCancel,
   };
 }
 
-function BillingPanelSubscriptionControls(input: {
+interface BillingPanelControlsInput {
   readonly actions: ReturnType<typeof useBillingActions>;
   readonly billing: ReturnType<typeof useOrganizationBilling>;
   readonly direct: ReturnType<typeof useDirectCheckoutWiring>;
@@ -182,7 +189,10 @@ function BillingPanelSubscriptionControls(input: {
   readonly subscriptionManagement: ReturnType<
     typeof useOpenSubscriptionManagement
   >;
-}) {
+}
+
+/** The billing summary and plan choices: the panel's default screen. */
+function BillingPanelSummary(input: BillingPanelControlsInput) {
   const { actions, billing, direct } = input;
   const managementError = input.subscriptionManagement.error;
   const nativePurchaseAvailable =
@@ -192,46 +202,57 @@ function BillingPanelSubscriptionControls(input: {
   const purchaseSectionHidden =
     (billing.view?.isActive ?? false) && !nativePurchaseAvailable;
   return (
+    <BillingView
+      actionError={managementError ?? actions.actionError}
+      actionErrorIsOptionsError={
+        managementError === null && actions.actionErrorIsOptionsError
+      }
+      activationPending={actions.activationPending}
+      busy={direct.checkoutActive ? "checkout" : actions.busy}
+      canSubscribe={actions.canSubscribe}
+      directCheckoutAvailable={direct.checkout.available}
+      error={billing.error}
+      isOrgAdmin={input.isOrgAdmin}
+      loading={billing.loading}
+      managementUrl={direct.managementUrl}
+      minimumSeatCount={
+        billing.billing?.organizationId === input.organizationId
+          ? billing.billing.activeMemberCount
+          : null
+      }
+      nativePurchaseRestricted={
+        actions.purchaseAvailable && input.isPersonalOrganization === false
+      }
+      onManageSubscription={input.subscriptionManagement.open}
+      onRefresh={input.onRefresh}
+      onRestore={actions.requestSubscriptionMove}
+      onRetryOptions={actions.retryOptions}
+      onStartTrial={actions.startTrial}
+      onSubscribe={actions.subscribe}
+      options={actions.options}
+      optionsRetryAvailable={actions.optionsRetryAvailable}
+      purchaseAvailable={nativePurchaseAvailable}
+      purchaseSectionHidden={purchaseSectionHidden}
+      restoreAvailable={
+        input.isOrgAdmin &&
+        actions.purchaseAvailable &&
+        input.isPersonalOrganization === true &&
+        input.nativePurchaseAllowed
+      }
+      view={billing.view}
+    />
+  );
+}
+
+function BillingPanelSubscriptionControls(input: BillingPanelControlsInput) {
+  const { actions, direct } = input;
+  // Siblings of the checkout render `null` rather than unmounting the whole
+  // fragment, so `BillingDirectCheckout` keeps its place in the tree and the
+  // provider element's host node survives the switch to the checkout screen.
+  const screen = direct.checkoutScreenOpen;
+  return (
     <>
-      <BillingView
-        actionError={managementError ?? actions.actionError}
-        actionErrorIsOptionsError={
-          managementError === null && actions.actionErrorIsOptionsError
-        }
-        activationPending={actions.activationPending}
-        busy={direct.checkoutActive ? "checkout" : actions.busy}
-        canSubscribe={actions.canSubscribe}
-        directCheckoutAvailable={direct.checkout.available}
-        error={billing.error}
-        isOrgAdmin={input.isOrgAdmin}
-        loading={billing.loading}
-        managementUrl={direct.managementUrl}
-        minimumSeatCount={
-          billing.billing?.organizationId === input.organizationId
-            ? billing.billing.activeMemberCount
-            : null
-        }
-        nativePurchaseRestricted={
-          actions.purchaseAvailable && input.isPersonalOrganization === false
-        }
-        onManageSubscription={input.subscriptionManagement.open}
-        onRefresh={input.onRefresh}
-        onRestore={actions.requestSubscriptionMove}
-        onRetryOptions={actions.retryOptions}
-        onStartTrial={actions.startTrial}
-        onSubscribe={actions.subscribe}
-        options={actions.options}
-        optionsRetryAvailable={actions.optionsRetryAvailable}
-        purchaseAvailable={nativePurchaseAvailable}
-        purchaseSectionHidden={purchaseSectionHidden}
-        restoreAvailable={
-          input.isOrgAdmin &&
-          actions.purchaseAvailable &&
-          input.isPersonalOrganization === true &&
-          input.nativePurchaseAllowed
-        }
-        view={billing.view}
-      />
+      {screen ? null : <BillingPanelSummary {...input} />}
       <BillingSubscriptionMoveDialog
         busy={actions.busy === "restore"}
         onCancel={actions.dismissSubscriptionMove}
@@ -244,7 +265,7 @@ function BillingPanelSubscriptionControls(input: {
           disabled={actions.busy !== null || actions.activationPending}
         />
       ) : null}
-      {direct.showInlineCancel ? (
+      {direct.showInlineCancel && !screen ? (
         <BillingCancelSubscription
           cancel={direct.cancel}
           disabled={actions.busy !== null}
@@ -415,7 +436,9 @@ export function BillingPanel({
 
   return (
     <div>
-      <BillingRecoveryStatus {...recovery} onRetry={recovery.retry} />
+      {direct.checkoutScreenOpen ? null : (
+        <BillingRecoveryStatus {...recovery} onRetry={recovery.retry} />
+      )}
       <BillingPanelSubscriptionControls
         actions={actions}
         billing={billing}
@@ -428,7 +451,7 @@ export function BillingPanel({
         subscriptionManagement={subscriptionManagement}
       />
       <OptionalBillingHistory
-        enabled={isOrgAdmin && !recovery.active}
+        enabled={isOrgAdmin && !recovery.active && !direct.checkoutScreenOpen}
         history={history}
       />
     </div>

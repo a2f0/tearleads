@@ -59,7 +59,8 @@ export interface DirectCheckoutCapability {
   /** False when this platform has no direct-checkout provider (the stub). */
   readonly isAvailable: boolean;
   /**
-   * Mounts the payment element into `host` for the given client secret.
+   * Mounts the provider's billing-email and payment elements into `host`
+   * for the given client secret.
    * Rejects with {@link DirectCheckoutUnavailableError} on the stub, and with
    * an ordinary error when the provider script cannot load.
    */
@@ -67,8 +68,14 @@ export interface DirectCheckoutCapability {
     readonly host: HTMLElement;
     readonly clientSecret: string;
     readonly appearance: DirectCheckoutAppearance;
-    /** Customer recovery address used by the payment provider's portal. */
-    readonly billingEmail?: string;
+    /**
+     * The provider form collects the billing email (the customer recovery
+     * address the provider's portal uses) above the card fields. Called with
+     * the email once it is complete and valid, and with `null` while it is
+     * not, so the host can gate its Pay control; `confirm` sends the latest
+     * complete email itself.
+     */
+    readonly onBillingEmailChange: (email: string | null) => void;
   }): Promise<DirectCheckoutSession>;
 }
 

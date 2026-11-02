@@ -62,6 +62,7 @@ export async function importPeerIntoRoster(
   const identityLink = await createPeerIdentityLink(peerUserId);
   await interact(() => {
     fireEvent.change(userIdInput, { target: { value: identityLink } });
+    fillRosterImportNames(dialog);
   });
   await waitFor(() => {
     expect(importButton.disabled).toBe(false);
@@ -88,4 +89,23 @@ export async function importPeerIntoRoster(
     }),
     `Roster import for ${peerUserId} did not settle.\nrequests=\n${summarizeProxiedApiRequests()}`,
   ).toBe(true);
+}
+
+/** Fills the first and last name the roster import dialog requires. */
+export function fillRosterImportNames(
+  dialog: HTMLElement,
+  names: { firstName: string; lastName: string } = {
+    firstName: "Roster",
+    lastName: "Peer",
+  },
+): void {
+  fireEvent.change(
+    within(dialog).getByLabelText(ORG_MANAGER_LABELS.firstName),
+    {
+      target: { value: names.firstName },
+    },
+  );
+  fireEvent.change(within(dialog).getByLabelText(ORG_MANAGER_LABELS.lastName), {
+    target: { value: names.lastName },
+  });
 }

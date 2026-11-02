@@ -7,3 +7,8 @@
 .org-manager-direct-checkout {
   margin-top: var(--space-sm);
 }
+
+/* The capability mounts Stripe's email element above the card form. */
+.org-manager-direct-checkout > * + * {
+  margin-top: var(--space-sm);
+}

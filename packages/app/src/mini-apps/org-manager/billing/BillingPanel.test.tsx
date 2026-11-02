@@ -363,3 +363,54 @@ test("the billing panel shows a native subscription-management failure", async (
     await view.findByText(ORG_MANAGER_LABELS.billingManageSubscriptionFailed),
   ).toBeDefined();
 });
+
+test("Subscribe moves the payment form to its own screen and Cancel returns", async () => {
+  stubEnvironment(false);
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    { wrapper },
+  );
+  const subscribe = await view.findByRole("button", {
+    name: ORG_MANAGER_LABELS.billingSubscribe,
+  });
+  const host = view.container.querySelector(".org-manager-direct-checkout");
+  expect(view.getByText(ORG_MANAGER_LABELS.billingTitle)).toBeDefined();
+  expect(view.getByText(ORG_MANAGER_LABELS.billingHistoryTitle)).toBeDefined();
+
+  fireEvent.click(subscribe);
+
+  const heading = await view.findByRole("heading", {
+    name: ORG_MANAGER_LABELS.billingCheckoutTitle,
+  });
+  expect(document.activeElement).toBe(heading);
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingTitle)).toBeNull();
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingHistoryTitle)).toBeNull();
+  expect(
+    view.queryByRole("button", { name: ORG_MANAGER_LABELS.billingSubscribe }),
+  ).toBeNull();
+  // The provider element's host is the same node, now visible: switching
+  // screens must not remount what Stripe attaches to.
+  const checkoutHost = view.container.querySelector(
+    ".org-manager-direct-checkout",
+  );
+  expect(checkoutHost).toBe(host);
+  expect(checkoutHost?.hasAttribute("hidden")).toBe(false);
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: ORG_MANAGER_LABELS.billingCancelCheckout,
+    }),
+  );
+
+  await waitFor(() =>
+    expect(view.getByText(ORG_MANAGER_LABELS.billingTitle)).toBeDefined(),
+  );
+  expect(
+    view.queryByRole("heading", {
+      name: ORG_MANAGER_LABELS.billingCheckoutTitle,
+    }),
+  ).toBeNull();
+  expect(
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.billingSubscribe }),
+  ).toBeDefined();
+});
