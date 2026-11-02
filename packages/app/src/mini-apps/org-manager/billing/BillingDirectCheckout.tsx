@@ -2,8 +2,6 @@ import { useCallback, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
-  MiniAppField,
-  MiniAppInput,
   MiniAppSection,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
@@ -116,44 +114,6 @@ function HostedCheckoutLink({
   );
 }
 
-function isValidBillingEmail(email: string): boolean {
-  return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email);
-}
-
-/**
- * Part of the inline form: the payment element never asks for the email, so
- * it is collected here, beside the card fields, and handed over at Pay.
- */
-function InlineBillingEmail({
-  disabled,
-  onChange,
-  value,
-}: {
-  readonly disabled: boolean;
-  readonly onChange: (value: string) => void;
-  readonly value: string;
-}) {
-  return (
-    <>
-      <MiniAppField>
-        <span>{ORG_MANAGER_LABELS.billingEmail}</span>
-        <MiniAppInput
-          autoComplete="email"
-          disabled={disabled}
-          maxLength={254}
-          onChange={(event) => onChange(event.currentTarget.value)}
-          required
-          type="email"
-          value={value}
-        />
-      </MiniAppField>
-      <MiniAppStatus className="org-manager-hint">
-        {ORG_MANAGER_LABELS.billingEmailHint}
-      </MiniAppStatus>
-    </>
-  );
-}
-
 export function BillingDirectCheckout({
   checkout,
   disabled,
@@ -162,7 +122,6 @@ export function BillingDirectCheckout({
   /** Another billing action is in flight; do not start a competing one. */
   readonly disabled: boolean;
 }) {
-  const [billingEmail, setBillingEmail] = useState("");
   const { isEnabled } = useAppFeatureFlags();
   const { option, phase } = checkout;
   if (!checkout.available) {
@@ -179,8 +138,6 @@ export function BillingDirectCheckout({
   const confirming = phase.kind === "confirming";
   const starting = phase.kind === "starting";
   const idle = phase.kind === "idle";
-  const normalizedBillingEmail = billingEmail.trim();
-  const validBillingEmail = isValidBillingEmail(normalizedBillingEmail);
 
   return (
     <MiniAppSection>
@@ -210,14 +167,6 @@ export function BillingDirectCheckout({
         </>
       ) : null}
 
-      {idle ? null : (
-        <InlineBillingEmail
-          disabled={confirming}
-          onChange={setBillingEmail}
-          value={billingEmail}
-        />
-      )}
-
       {starting ? (
         <MiniAppStatus className="org-manager-hint">
           {ORG_MANAGER_LABELS.billingCheckoutStarting}
@@ -239,14 +188,21 @@ export function BillingDirectCheckout({
         hidden={idle}
       />
 
+      {/* Stripe's form above asks for the email; this says why. */}
+      {idle ? null : (
+        <MiniAppStatus className="org-manager-hint">
+          {ORG_MANAGER_LABELS.billingEmailHint}
+        </MiniAppStatus>
+      )}
+
       {collecting || confirming ? (
         <MiniAppActions>
           <MiniAppButton disabled={confirming} onClick={checkout.cancel}>
             {ORG_MANAGER_LABELS.billingCancelCheckout}
           </MiniAppButton>
           <MiniAppButton
-            disabled={confirming || disabled || !validBillingEmail}
-            onClick={() => checkout.confirm(normalizedBillingEmail)}
+            disabled={confirming || disabled || !checkout.billingEmailComplete}
+            onClick={checkout.confirm}
           >
             {confirming
               ? ORG_MANAGER_LABELS.billingCheckoutPaying

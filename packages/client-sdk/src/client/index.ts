@@ -15,7 +15,6 @@ export {
   type DirectCheckoutAppearance,
   type DirectCheckoutCapability,
   type DirectCheckoutConfirmation,
-  type DirectCheckoutConfirmInput,
   type DirectCheckoutSession,
   DirectCheckoutUnavailableError,
 } from "./billing/directCheckout";

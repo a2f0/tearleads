@@ -317,8 +317,8 @@ returns only the native store link; it does not gate inline Stripe
 cancellation. Provider-neutral purchase errors live in
 `client/billing/purchaseErrors.ts`, outside the organization workflow facade;
 callers can distinguish retryable identity races from provider stalls that
-require an app restart. A mounted `DirectCheckoutSession` never asks for the
-billing email; pass it as `confirm({ billingEmail })`.
+require an app restart. Direct checkout's provider form reports the billing
+email to `mount`'s `onBillingEmailChange`.
 
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through
