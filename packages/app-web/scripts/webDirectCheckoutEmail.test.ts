@@ -122,3 +122,23 @@ test("an abandoned mount's unmount leaves its replacement's form in place", asyn
   replacement.unmount();
   expect((target as unknown as FakeHost).children).toEqual([]);
 });
+
+test("a failed card element releases the email element and its wrappers", async () => {
+  const { destroyed, stripe } = fakeStripe({ failCreate: ["payment"] });
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  const target = host();
+
+  await expect(
+    capability.mount({
+      host: target,
+      clientSecret: "pi_secret",
+      onBillingEmailChange: () => undefined,
+      appearance: APPEARANCE,
+    }),
+  ).rejects.toThrow("payment element failed");
+
+  expect(destroyed).toEqual(["contactDetails"]);
+  expect((target as unknown as FakeHost).children).toEqual([]);
+});

@@ -20,6 +20,8 @@ export function fakeStripe(options?: {
   confirmError?: { type?: string; message?: string };
   onConfirm?: () => void;
   email?: string | null;
+  /** Element types whose `create` throws, as a provider failure would. */
+  failCreate?: readonly string[];
 }) {
   const destroyed: string[] = [];
   const confirmInputs: unknown[] = [];
@@ -46,6 +48,9 @@ export function fakeStripe(options?: {
       elementsOptions.push(opts);
       return {
         create: (type: string, opts: unknown) => {
+          if (options?.failCreate?.includes(type)) {
+            throw new Error(`${type} element failed`);
+          }
           created.push({ type, opts });
           const element = makeElement(type);
           byType.set(type, element);

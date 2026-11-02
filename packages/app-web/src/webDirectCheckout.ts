@@ -184,6 +184,22 @@ function currentReturnUrl(): string | undefined {
 const MISSING_BILLING_EMAIL = "Enter a billing email.";
 
 /**
+ * Destroys whichever of this group's elements exist (their iframes go with
+ * them) and removes only the given wrappers: the host is the app's, and a
+ * replacement session may share it.
+ */
+function releaseElements(
+  elements: StripeElements,
+  wrappers: readonly HTMLElement[],
+): void {
+  elements.getElement("contactDetails")?.destroy();
+  elements.getElement("payment")?.destroy();
+  for (const wrapper of wrappers) {
+    wrapper.remove();
+  }
+}
+
+/**
  * The two Stripe elements share one Elements group and one host: the Contact
  * Details element (Stripe's own email field) above the Payment Element, so
  * the email reads as part of Stripe's form rather than an app field on top.
@@ -203,25 +219,30 @@ function mountElements(
   // one host (both awaiting the same script load), and each session must own
   // only its own wrappers.
   host.append(emailHost, paymentHost);
+  const wrappers = [emailHost, paymentHost];
 
   let billingEmail: string | null = null;
-  const contact = elements.create("contactDetails");
-  contact.on("change", (event) => {
-    const email = event.value.email.trim();
-    billingEmail = event.complete && email.length > 0 ? email : null;
-    onBillingEmailChange(billingEmail);
-  });
-  contact.mount(emailHost);
-  // The email belongs to the Contact Details element above, not the card
-  // form; `never` here obliges confirm to send it explicitly.
-  const payment = elements.create("payment", {
-    fields: { billingDetails: { email: "never" } },
-  });
-  payment.mount(paymentHost);
-  return {
-    billingEmail: () => billingEmail,
-    wrappers: [emailHost, paymentHost],
-  };
+  try {
+    const contact = elements.create("contactDetails");
+    contact.on("change", (event) => {
+      const email = event.value.email.trim();
+      billingEmail = event.complete && email.length > 0 ? email : null;
+      onBillingEmailChange(billingEmail);
+    });
+    contact.mount(emailHost);
+    // The email belongs to the Contact Details element above, not the card
+    // form; `never` here obliges confirm to send it explicitly.
+    const payment = elements.create("payment", {
+      fields: { billingDetails: { email: "never" } },
+    });
+    payment.mount(paymentHost);
+  } catch (mountError) {
+    // No session exists to unmount a half-built form; a retry would stack a
+    // second email field above the leftover one.
+    releaseElements(elements, wrappers);
+    throw mountError;
+  }
+  return { billingEmail: () => billingEmail, wrappers };
 }
 
 function createSession(
@@ -274,14 +295,7 @@ function createSession(
     },
     unmount() {
       unmounted = true;
-      // Destroying the elements releases their iframes; the Elements group
-      // is garbage once its elements are gone. The host is the app's, and a
-      // replacement session may share it, so only this session's wrappers go.
-      elements.getElement("contactDetails")?.destroy();
-      elements.getElement("payment")?.destroy();
-      for (const wrapper of mounted.wrappers) {
-        wrapper.remove();
-      }
+      releaseElements(elements, mounted.wrappers);
     },
   };
 }
