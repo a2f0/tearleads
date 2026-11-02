@@ -1,9 +1,14 @@
 import type { AccessEventType } from "@tearleads/crypto";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import { z } from "zod";
 import { reportBackgroundFailure } from "../../diagnostics/reportBackgroundFailure";
-import { isAccessEventType } from "../../keyingProjectionRecords";
+import { projectionAccessEventTypeSchema } from "../../keyingProjectionRecords";
+import {
+  projectionPlainRecord,
+  projectionRecord,
+  projectionString,
+} from "../../keyingProjectionSchemas";
 import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 
@@ -44,25 +49,29 @@ interface PublishContainerMutationCreatedInput {
 const EVICTING_EVENT_TYPES: ReadonlySet<AccessEventType> =
   new Set<AccessEventType>(["container.move", "container.revoke"]);
 
+const bodyEventTypeSchema = projectionRecord({
+  eventType: projectionAccessEventTypeSchema,
+});
+
+const grantSubjectBodySchema = projectionPlainRecord.pipe(
+  z.object({
+    grant: projectionRecord({
+      subjectId: projectionString,
+      subjectType: z.string(),
+    }),
+  }),
+);
+
 function readContainerMutationBodyEventType(
   request: MutationEventRequest,
 ): AccessEventType | null {
-  if (!isPlainObject(request.body)) return null;
-  const eventType = Reflect.get(request.body, "eventType");
-  return isAccessEventType(eventType) ? eventType : null;
+  const body = bodyEventTypeSchema.safeParse(request.body);
+  return body.success ? body.data.eventType : null;
 }
 
 function readGrantSubject(request: MutationEventRequest): GrantSubject | null {
-  if (!isPlainObject(request.body)) return null;
-  const grant = Reflect.get(request.body, "grant");
-  if (!isPlainObject(grant)) return null;
-  const subjectType = Reflect.get(grant, "subjectType");
-  const subjectId = Reflect.get(grant, "subjectId");
-  return typeof subjectType === "string" &&
-    typeof subjectId === "string" &&
-    subjectId.length > 0
-    ? { subjectId, subjectType }
-    : null;
+  const body = grantSubjectBodySchema.safeParse(request.body);
+  return body.success ? body.data.grant : null;
 }
 
 // A grant recipient has not declared interest in this container yet, so the

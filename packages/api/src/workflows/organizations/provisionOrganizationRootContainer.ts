@@ -1,8 +1,6 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   type ContainerKeyEpoch,
-  type ContainerKeyWrap,
-  type ContainerUserRecipientKey,
   readKeyingCanonicalJson,
   type VerifiedAccessEvent,
   type VerifiedContainerAccessManifest,
@@ -11,18 +9,22 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import type { OrganizationProvisioningRequest } from "@tearleads/validators/request";
+import { z } from "zod";
 import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
 import {
   readProjectionAccessEvent,
   readProjectionAccessManifest,
-  readProjectionNullableString,
-  readProjectionPlainRecord,
-  readProjectionPositiveInteger,
-  readProjectionString,
-  readProjectionValue,
 } from "../../keyingProjectionRecords";
-import { isKekRecipientKind } from "../containers/mutations/shared/containerKekRecords";
+import {
+  parseProjection,
+  projectionString,
+} from "../../keyingProjectionSchemas";
+import {
+  containerKeyEpochSchema,
+  containerKeyWrapSchema,
+  containerUserRecipientKeySchema,
+} from "../containers/mutations/shared/containerKekRecords";
 import { assertPrincipalPoliciesCurrent } from "../containers/mutations/shared/principalPolicies";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
 
@@ -37,103 +39,17 @@ function provisioningShapeError(
   return new OrganizationProvisioningError(message, 400);
 }
 
-function readProjectionEntries<T>(
-  value: unknown,
-  label: string,
-  readEntry: (entry: unknown, entryLabel: string) => T,
-): T[] {
-  if (!Array.isArray(value)) {
-    throw provisioningShapeError(`${label} is invalid`);
-  }
-  return value.map((entry, index) => readEntry(entry, `${label}[${index}]`));
-}
-
-function readContainerKeyEpoch(
-  value: unknown,
-  label: string,
-): ContainerKeyEpoch {
-  const record = readProjectionPlainRecord(
-    value,
-    label,
-    provisioningShapeError,
-  );
-  const readString = (key: string) =>
-    readProjectionString(record, key, label, provisioningShapeError);
-  return {
-    id: readString("id"),
-    containerId: readString("containerId"),
-    keyEpoch: readProjectionPositiveInteger(
-      record,
-      "keyEpoch",
-      label,
-      provisioningShapeError,
-    ),
-    accessManifestHash: readString("accessManifestHash"),
-    parentContainerKeyEpochId: readProjectionNullableString(
-      record,
-      "parentContainerKeyEpochId",
-      label,
-      provisioningShapeError,
-    ),
-    createdByEventHash: readString("createdByEventHash"),
-    createdByManifestHash: readString("createdByManifestHash"),
-  };
-}
-
-function readContainerUserRecipientKey(
-  value: unknown,
-  label: string,
-): ContainerUserRecipientKey {
-  const record = readProjectionPlainRecord(
-    value,
-    label,
-    provisioningShapeError,
-  );
-  const readString = (key: string) =>
-    readProjectionString(record, key, label, provisioningShapeError);
-  return {
-    userId: readString("userId"),
-    recipientKeyEpochId: readString("recipientKeyEpochId"),
-    recipientKeyFingerprint: readString("recipientKeyFingerprint"),
-  };
-}
-
-function readContainerKeyWrap(value: unknown, label: string): ContainerKeyWrap {
-  const record = readProjectionPlainRecord(
-    value,
-    label,
-    provisioningShapeError,
-  );
-  const recipientKind = readProjectionValue(record, "recipientKind");
-  if (!isKekRecipientKind(recipientKind)) {
-    throw provisioningShapeError(`${label}.recipientKind is invalid`);
-  }
-  const readString = (key: string) =>
-    readProjectionString(record, key, label, provisioningShapeError);
-  return {
-    containerKeyEpochId: readString("containerKeyEpochId"),
-    recipientKind,
-    recipientId: readString("recipientId"),
-    recipientKeyEpochId: readString("recipientKeyEpochId"),
-    recipientKeyFingerprint: readString("recipientKeyFingerprint"),
-    kemCipherText: readString("kemCipherText"),
-    wrappedKey: readString("wrappedKey"),
-    wrapManifestHash: readString("wrapManifestHash"),
-  };
-}
+const metadataDocumentIdClaimSchema = z.object({
+  metadataDocumentId: projectionString,
+});
 
 function readInitialRootContainerMetadataDocumentId(
   input: OrganizationProvisioningRequest,
 ): string {
-  const body = input.initialRootContainer.body;
-  const metadataDocumentId =
-    typeof body === "object" && body !== null && !Array.isArray(body)
-      ? Reflect.get(body, "metadataDocumentId")
-      : null;
-
-  return typeof metadataDocumentId === "string" && metadataDocumentId.length > 0
-    ? metadataDocumentId
-    : "";
+  const claim = metadataDocumentIdClaimSchema.safeParse(
+    input.initialRootContainer.body,
+  );
+  return claim.success ? claim.data.metadataDocumentId : "";
 }
 
 function requireRootVerification<T>(
@@ -228,9 +144,11 @@ export async function storeInitialRootContainer(
   metadataDocumentId: string;
 }> {
   const request = input.initialRootContainer;
-  const keyEpoch = readContainerKeyEpoch(
+  const keyEpoch: ContainerKeyEpoch = parseProjection(
+    containerKeyEpochSchema,
     request.keyEpoch,
     "Initial root container key epoch",
+    provisioningShapeError,
   );
   assertInitialRootKek(request, keyEpoch);
   const metadataDocumentId = readInitialRootContainerMetadataDocumentId(input);
@@ -282,15 +200,17 @@ export async function storeInitialRootContainer(
     await verifyContainerKekState({
       containerManifest: manifest,
       keyEpoch,
-      userRecipientKeys: readProjectionEntries(
+      userRecipientKeys: parseProjection(
+        z.array(containerUserRecipientKeySchema),
         request.userRecipientKeys,
         "Initial root container user recipient keys",
-        readContainerUserRecipientKey,
+        provisioningShapeError,
       ),
-      wraps: readProjectionEntries(
+      wraps: parseProjection(
+        z.array(containerKeyWrapSchema),
         request.wraps,
         "Initial root container wraps",
-        readContainerKeyWrap,
+        provisioningShapeError,
       ),
       principalPolicies,
     }),

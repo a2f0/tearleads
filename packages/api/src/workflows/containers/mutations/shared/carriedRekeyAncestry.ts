@@ -2,8 +2,11 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { containers } from "@tearleads/api-shared/schema";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
+import { z } from "zod";
 import { uuidValue } from "../../../../utils/sqlDialect";
 import { ContainerMutationError } from "../errors";
+
+const ancestryStartRowSchema = z.object({ start_id: z.string() });
 
 /**
  * A carried rekey rides a rotation above it: the refusal that names it says
@@ -55,8 +58,8 @@ export async function assertCarriedRekeysBelowRotations(input: {
   `);
   const below = new Set<string>();
   for (const row of result.rows) {
-    const startId = Reflect.get(row, "start_id");
-    if (typeof startId === "string") below.add(startId);
+    const parsed = ancestryStartRowSchema.safeParse(row);
+    if (parsed.success) below.add(parsed.data.start_id);
   }
   if (carried.some((containerId) => !below.has(containerId))) {
     throw new ContainerMutationError(

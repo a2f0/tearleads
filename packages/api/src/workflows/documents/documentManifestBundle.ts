@@ -10,23 +10,30 @@ import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
 } from "../../access/read/accessManifestStore";
-import { createProjectionReaders } from "../../keyingProjectionRecords";
+import {
+  projectionAccessManifestRecord,
+  projectionVerifiedAccessEventRecord,
+} from "../../keyingProjectionRecords";
+import { copyProjectionRecord } from "../../keyingProjectionSchemas";
 import type { AccessManifestVerificationMarkerStore } from "../containers/writerProjection/verificationMarkers";
 import { DocumentWriterProjectionError } from "./writerProjectionError";
 
-const { accessManifestRecord, verifiedAccessEventRecord, readCanonicalRecord } =
-  createProjectionReaders(
-    (message) => new DocumentWriterProjectionError(message, 409),
-  );
+function projectionError(message: string): DocumentWriterProjectionError {
+  return new DocumentWriterProjectionError(message, 409);
+}
 
 export function toAccessManifestBundleWireResponse(
   input: NonNullable<Awaited<ReturnType<typeof getAccessManifestBundle>>>,
 ): AccessManifestBundleWireResponse {
   return {
-    event: verifiedAccessEventRecord(input.event),
-    manifest: accessManifestRecord(input.manifest),
+    event: projectionVerifiedAccessEventRecord(input.event),
+    manifest: projectionAccessManifestRecord(input.manifest),
     manifestHash: input.manifestHash,
-    state: readCanonicalRecord(input.state, "Document manifest state"),
+    state: copyProjectionRecord(
+      input.state,
+      "Document manifest state",
+      projectionError,
+    ),
   };
 }
 

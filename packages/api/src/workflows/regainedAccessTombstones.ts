@@ -4,10 +4,16 @@ import {
   containers,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { z } from "zod";
 import {
   KeyingReadAccessError,
   resolveReadableContainerAccessBatch,
 } from "./keyingReadAccess";
+
+const ancestryMemberRowSchema = z.object({
+  container_id: z.string(),
+  ancestor_id: z.string(),
+});
 
 const DELETE_CHUNK_SIZE = 500;
 const SCOPE_CHUNK_SIZE = 1000;
@@ -146,14 +152,9 @@ async function filterRowsWithinSubtrees(
       select distinct container_id, ancestor_id from ancestry
     `);
     for (const row of result.rows) {
-      const containerId = Reflect.get(row, "container_id");
-      const ancestorId = Reflect.get(row, "ancestor_id");
-      if (
-        typeof containerId === "string" &&
-        typeof ancestorId === "string" &&
-        rootIds.has(ancestorId)
-      ) {
-        memberIds.add(containerId);
+      const parsed = ancestryMemberRowSchema.safeParse(row);
+      if (parsed.success && rootIds.has(parsed.data.ancestor_id)) {
+        memberIds.add(parsed.data.container_id);
       }
     }
   }

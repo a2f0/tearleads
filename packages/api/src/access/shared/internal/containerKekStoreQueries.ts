@@ -10,6 +10,7 @@ import {
 } from "@tearleads/validators/util";
 import type { SQL } from "drizzle-orm";
 import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
+import { z } from "zod";
 import type {
   StoredContainerKeyEpoch,
   StoredContainerKeyWrap,
@@ -123,6 +124,8 @@ export async function listContainerKeyEpochPage(
  * the regular Drizzle select; only one scalar column crosses the raw-SQL
  * boundary.
  */
+const wrapIdRowSchema = z.object({ id: z.string() });
+
 async function selectQuotaLimitedWrapIds(
   containerKeyEpochIds: readonly string[],
   scope: ContainerKekRecipientScope,
@@ -164,11 +167,11 @@ async function selectQuotaLimitedWrapIds(
     throw new Error("Container key wrap id query returned no row set");
   }
   return rows.map((row) => {
-    const id: unknown = Reflect.get(Object(row), "id");
-    if (typeof id !== "string") {
+    const parsed = wrapIdRowSchema.safeParse(row);
+    if (!parsed.success) {
       throw new Error("Container key wrap id is not a string");
     }
-    return id;
+    return parsed.data.id;
   });
 }
 

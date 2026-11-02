@@ -21,7 +21,6 @@ import {
   resolveCurrentDocumentKekTargets,
 } from "../../access/read/documentKekTargets";
 import { recordDocumentManifestObservationInTransaction } from "../../access/write/documentManifestObservationStore";
-import { createProjectionReaders } from "../../keyingProjectionRecords";
 import { uniqueSortedStrings } from "../../utils/array";
 import {
   type ContainerWriterProjectionContext,
@@ -41,6 +40,12 @@ import {
   StoredDocumentManifestError,
   verifyStoredDocumentManifest,
 } from "./storedDocumentManifestVerification";
+import {
+  readContainerParentManifestHash,
+  readDocumentManifestDocumentId,
+  readEventDependencyManifestHashes,
+  readManifestPreviousManifestHash,
+} from "./writerProjectionBundleFields";
 import { resolveAuthorizingContainerPathCandidates } from "./writerProjectionContainerPaths";
 import { loadWriterProjectionContentKey } from "./writerProjectionContentKey";
 import { DocumentWriterProjectionError } from "./writerProjectionError";
@@ -51,14 +56,6 @@ export { DocumentWriterProjectionError } from "./writerProjectionError";
 function projectionError(message: string): DocumentWriterProjectionError {
   return new DocumentWriterProjectionError(message, 409);
 }
-
-const {
-  readNullableString,
-  readPlainRecord,
-  readString,
-  readStringArray,
-  readValue,
-} = createProjectionReaders(projectionError);
 
 export interface LoadedProjectionManifestBundle {
   readonly bundle: AccessManifestBundleWireResponse;
@@ -135,40 +132,6 @@ async function loadProjectionManifestBundlesByHash(input: {
   }
 
   return loadedBundles;
-}
-
-function readManifestPreviousManifestHash(
-  bundle: AccessManifestBundleWireResponse,
-  label: string,
-): string | null {
-  const manifest = readPlainRecord(bundle.manifest, `${label} manifest`);
-
-  return readNullableString(manifest, "previousManifestHash", label);
-}
-
-function readContainerParentManifestHash(
-  bundle: AccessManifestBundleWireResponse,
-  label: string,
-): string | null {
-  const state = readPlainRecord(bundle.state, `${label} state`);
-
-  return readNullableString(state, "parentManifestHash", label);
-}
-
-function readEventDependencyManifestHashes(
-  bundle: AccessManifestBundleWireResponse,
-  label: string,
-): string[] {
-  const eventBundle = readPlainRecord(bundle.event, `${label} event bundle`);
-  const event = readPlainRecord(
-    readValue(eventBundle, "event"),
-    `${label} event`,
-  );
-
-  return readStringArray(
-    readValue(event, "dependencyManifestHashes"),
-    `${label} event dependencyManifestHashes`,
-  );
 }
 
 function collectDocumentDependencyManifestHashes(
@@ -447,11 +410,7 @@ async function loadDocumentWriterProjectionVerificationMaterial(input: {
     ...input,
     additionalDependencyManifestHashes:
       await listDocumentContentWriteDependencyHashes(
-        readString(
-          input.documentManifest.state,
-          "documentId",
-          "Document manifest state",
-        ),
+        readDocumentManifestDocumentId(input.documentManifest.state),
         input.executor,
       ),
     documentManifestHistory,

@@ -1,10 +1,6 @@
 import type {
   AccessManifest,
-  ContainerAccessLevel,
   ContainerAccessManifestState,
-  ContainerDirectGrant,
-  ContainerGrantPrincipalHead,
-  ContainerGrantSubjectType,
   ContainerKekKeyring,
   ContainerKekRecipientTarget,
   KeyingCanonicalJson,
@@ -16,6 +12,7 @@ import type {
   AccessManifestBundleWireResponse,
   ContainerKekResponse,
 } from "@tearleads/validators/response";
+import { z } from "zod";
 import {
   toContainerKeyEpoch,
   toContainerKeyWrap,
@@ -23,8 +20,21 @@ import {
 import {
   accessManifestCheckpoint,
   containerAccessManifestStateRecord,
-  createProjectionReaders,
+  projectionAccessManifestRecord,
+  projectionContainerAccessManifestSchema,
+  projectionContainerGrantPrincipalHeadsSchema,
+  projectionVerifiedAccessEventRecord,
+  readProjectionVerifiedAccessEvent,
 } from "../../../keyingProjectionRecords";
+import {
+  copyProjectionRecord,
+  parseProjection,
+  projectionNullableString,
+  projectionPositiveInteger,
+  projectionRecord,
+  projectionString,
+  projectionVersion,
+} from "../../../keyingProjectionSchemas";
 import type { ContainerKekProjection } from "./types";
 import { ContainerWriterProjectionError } from "./types";
 
@@ -32,157 +42,33 @@ function projectionError(message: string): ContainerWriterProjectionError {
   return new ContainerWriterProjectionError(message, 409);
 }
 
-const {
-  accessManifestRecord,
-  readCanonicalRecord,
-  readContainerAccessManifest,
-  readNullableString,
-  readPlainRecord,
-  readPositiveInteger,
-  readReferencedPrincipalHeads,
-  readString,
-  readValue,
-  readVerifiedAccessEvent,
-  readVersion,
-  verifiedAccessEventRecord,
-} = createProjectionReaders(projectionError);
+const containerDirectGrantSchema = projectionRecord(
+  {
+    subjectType: z.enum(["group", "user"]),
+    subjectId: projectionString,
+    accessLevel: z.enum(["admin", "read", "write"]),
+  },
+  ["accessLevel", "subjectType"],
+);
 
-function isContainerAccessLevel(value: unknown): value is ContainerAccessLevel {
-  return value === "admin" || value === "read" || value === "write";
-}
+const containerAccessStateSchema = projectionRecord({
+  version: projectionVersion,
+  systemSlot: projectionNullableString,
+  containerId: projectionString,
+  organizationId: projectionString,
+  epoch: projectionPositiveInteger,
+  previousManifestHash: projectionNullableString,
+  eventHash: projectionString,
+  parentContainerId: projectionNullableString,
+  parentManifestHash: projectionNullableString,
+  metadataDocumentId: projectionString,
+  containerKeyEpochId: projectionString,
+  containerKeyPublicKey: projectionString,
+  directGrants: z.array(containerDirectGrantSchema),
+  referencedPrincipalHeads: projectionContainerGrantPrincipalHeadsSchema,
+});
 
-function isContainerGrantSubjectType(
-  value: unknown,
-): value is ContainerGrantSubjectType {
-  return value === "group" || value === "user";
-}
-
-function readContainerDirectGrant(
-  value: unknown,
-  label: string,
-): ContainerDirectGrant {
-  const record = readPlainRecord(value, label);
-  const accessLevel = readValue(record, "accessLevel");
-  const subjectType = readValue(record, "subjectType");
-  if (!isContainerAccessLevel(accessLevel)) {
-    throw projectionError(`${label}.accessLevel is invalid`);
-  }
-  if (!isContainerGrantSubjectType(subjectType)) {
-    throw projectionError(`${label}.subjectType is invalid`);
-  }
-
-  return {
-    subjectType,
-    subjectId: readString(record, "subjectId", label),
-    accessLevel,
-  };
-}
-
-function readContainerDirectGrants(
-  value: unknown,
-  label: string,
-): ContainerDirectGrant[] {
-  if (!Array.isArray(value)) {
-    throw projectionError(`${label} is invalid`);
-  }
-  return value.map((entry, index) =>
-    readContainerDirectGrant(entry, `${label}[${index}]`),
-  );
-}
-
-interface ContainerAccessStateFields {
-  readonly systemSlot: string | null;
-  readonly containerId: string;
-  readonly containerKeyEpochId: string;
-  readonly containerKeyPublicKey: string;
-  readonly directGrants: ContainerDirectGrant[];
-  readonly epoch: number;
-  readonly eventHash: string;
-  readonly metadataDocumentId: string;
-  readonly organizationId: string;
-  readonly parentContainerId: string | null;
-  readonly parentManifestHash: string | null;
-  readonly previousManifestHash: string | null;
-  readonly referencedPrincipalHeads: ContainerGrantPrincipalHead[];
-}
-
-function isContainerGrantPrincipalHead(
-  principalHead: ReturnType<typeof readReferencedPrincipalHeads>[number],
-): principalHead is ContainerGrantPrincipalHead {
-  return principalHead.principalType === "group";
-}
-
-function readContainerGrantPrincipalHeads(
-  value: unknown,
-  label: string,
-): ContainerGrantPrincipalHead[] {
-  const principalHeads = readReferencedPrincipalHeads(value, label);
-  if (!principalHeads.every(isContainerGrantPrincipalHead)) {
-    throw projectionError(`${label} may reference only group principals`);
-  }
-
-  return principalHeads;
-}
-
-function readContainerAccessStateFields(
-  record: Record<string, unknown>,
-): ContainerAccessStateFields {
-  readVersion(record, "Container manifest state");
-
-  return {
-    systemSlot: readNullableString(
-      record,
-      "systemSlot",
-      "Container manifest state",
-    ),
-    containerId: readString(record, "containerId", "Container manifest state"),
-    organizationId: readString(
-      record,
-      "organizationId",
-      "Container manifest state",
-    ),
-    epoch: readPositiveInteger(record, "epoch", "Container manifest state"),
-    previousManifestHash: readNullableString(
-      record,
-      "previousManifestHash",
-      "Container manifest state",
-    ),
-    eventHash: readString(record, "eventHash", "Container manifest state"),
-    parentContainerId: readNullableString(
-      record,
-      "parentContainerId",
-      "Container manifest state",
-    ),
-    parentManifestHash: readNullableString(
-      record,
-      "parentManifestHash",
-      "Container manifest state",
-    ),
-    metadataDocumentId: readString(
-      record,
-      "metadataDocumentId",
-      "Container manifest state",
-    ),
-    containerKeyEpochId: readString(
-      record,
-      "containerKeyEpochId",
-      "Container manifest state",
-    ),
-    containerKeyPublicKey: readString(
-      record,
-      "containerKeyPublicKey",
-      "Container manifest state",
-    ),
-    directGrants: readContainerDirectGrants(
-      readValue(record, "directGrants"),
-      "Container manifest state.directGrants",
-    ),
-    referencedPrincipalHeads: readContainerGrantPrincipalHeads(
-      readValue(record, "referencedPrincipalHeads"),
-      "Container manifest state.referencedPrincipalHeads",
-    ),
-  };
-}
+type ContainerAccessStateFields = z.output<typeof containerAccessStateSchema>;
 
 function assertContainerManifestMatchesState(
   manifest: AccessManifest,
@@ -210,24 +96,26 @@ export function toManifestBundleResponse(input: {
   readonly state: KeyingCanonicalJson;
 }): AccessManifestBundleWireResponse {
   return {
-    event: verifiedAccessEventRecord(input.event),
-    manifest: accessManifestRecord(input.manifest),
+    event: projectionVerifiedAccessEventRecord(input.event),
+    manifest: projectionAccessManifestRecord(input.manifest),
     manifestHash: input.manifestHash,
-    state: readCanonicalRecord(input.state, "Container manifest state"),
+    state: copyProjectionRecord(
+      input.state,
+      "Container manifest state",
+      projectionError,
+    ),
   };
 }
 
 export function toVerifiedContainerManifest(
   bundle: AccessManifestBundleWireResponse,
 ): VerifiedContainerAccessManifest {
-  const manifest = readContainerAccessManifest(
-    bundle.manifest,
-    "Container manifest",
-  );
+  const manifest = readContainerManifest(bundle);
   return makeVerifiedContainerAccessManifest({
-    event: readVerifiedAccessEvent(
+    event: readProjectionVerifiedAccessEvent(
       bundle.event,
       "Container access event bundle",
+      projectionError,
     ),
     manifest,
     manifestHash: bundle.manifestHash,
@@ -239,33 +127,27 @@ export function toVerifiedContainerManifest(
   });
 }
 
+function readContainerManifest(bundle: AccessManifestBundleWireResponse) {
+  return parseProjection(
+    projectionContainerAccessManifestSchema,
+    bundle.manifest,
+    "Container manifest",
+    projectionError,
+  );
+}
+
 function readContainerAccessState(
   bundle: AccessManifestBundleWireResponse,
 ): ContainerAccessManifestState {
-  const record = readPlainRecord(bundle.state, "Container manifest state");
-  const manifest = readContainerAccessManifest(
-    bundle.manifest,
-    "Container manifest",
+  const state = parseProjection(
+    containerAccessStateSchema,
+    bundle.state,
+    "Container manifest state",
+    projectionError,
   );
-  const state = readContainerAccessStateFields(record);
-  assertContainerManifestMatchesState(manifest, state);
+  assertContainerManifestMatchesState(readContainerManifest(bundle), state);
 
-  return containerAccessManifestStateRecord({
-    systemSlot: state.systemSlot,
-    version: 1,
-    containerId: state.containerId,
-    organizationId: state.organizationId,
-    epoch: state.epoch,
-    previousManifestHash: state.previousManifestHash,
-    eventHash: state.eventHash,
-    parentContainerId: state.parentContainerId,
-    parentManifestHash: state.parentManifestHash,
-    metadataDocumentId: state.metadataDocumentId,
-    containerKeyEpochId: state.containerKeyEpochId,
-    containerKeyPublicKey: state.containerKeyPublicKey,
-    directGrants: state.directGrants,
-    referencedPrincipalHeads: state.referencedPrincipalHeads,
-  });
+  return containerAccessManifestStateRecord(state);
 }
 
 function containerKekRecipientTargetRecord(

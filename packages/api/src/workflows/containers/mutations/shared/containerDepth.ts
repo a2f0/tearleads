@@ -2,8 +2,15 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { containers } from "@tearleads/api-shared/schema";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
+import { z } from "zod";
 import { intExpression, uuidValue } from "../../../../utils/sqlDialect";
 import { ContainerMutationError, containerPathTooDeep } from "../errors";
+
+const subtreeHeightRowSchema = z.object({
+  height: z
+    .number()
+    .refine((height) => Number.isSafeInteger(height) && height >= 0),
+});
 
 export function assertContainerDepth(depth: number): void {
   if (
@@ -34,15 +41,11 @@ export async function assertContainerMoveDepth(
     )
     select max(height) as height from subtree
   `);
-  const row = result.rows[0];
-  const height =
-    typeof row === "object" && row !== null
-      ? Reflect.get(row, "height")
-      : undefined;
-  if (typeof height !== "number" || !Number.isSafeInteger(height) || height < 0)
+  const row = subtreeHeightRowSchema.safeParse(result.rows[0]);
+  if (!row.success)
     throw new ContainerMutationError(
       "Container subtree depth is unavailable",
       409,
     );
-  assertContainerDepth(destinationDepth + 1 + height);
+  assertContainerDepth(destinationDepth + 1 + row.data.height);
 }

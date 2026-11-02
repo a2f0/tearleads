@@ -1,10 +1,9 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type {
   ContainerDirectGrant,
-  ContainerGrantSubjectType,
-  KeyingCanonicalJson,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { z } from "zod";
 import { ContainerMutationError } from "../errors";
 import {
   assertOrganizationMetadataRoot,
@@ -27,59 +26,34 @@ type ContainerBuiltinGrantMutation =
       readonly eventType: "container.revoke";
     });
 
-function isCanonicalRecord(
-  value: KeyingCanonicalJson,
-): value is { readonly [key: string]: KeyingCanonicalJson } {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
+const grantSubjectShape = {
+  subjectId: z.string(),
+  subjectType: z.enum(["group", "user"]),
+};
 
-function isContainerGrantSubjectType(
-  value: unknown,
-): value is ContainerGrantSubjectType {
-  return value === "group" || value === "user";
-}
+const grantBodySchema = z.object({
+  grant: z.object({
+    ...grantSubjectShape,
+    accessLevel: z.enum(["admin", "read", "write"]),
+  }),
+});
 
-function isContainerAccessLevel(
-  value: unknown,
-): value is ContainerDirectGrant["accessLevel"] {
-  return value === "admin" || value === "read" || value === "write";
-}
-
-function isContainerMutationSubject(
-  value: unknown,
-): value is ContainerMutationSubject {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-
-  const subjectId = Reflect.get(value, "subjectId");
-  const subjectType = Reflect.get(value, "subjectType");
-  return (
-    typeof subjectId === "string" && isContainerGrantSubjectType(subjectType)
-  );
-}
+const revokeBodySchema = z.object(grantSubjectShape);
 
 function readBuiltinGrantMutation(
   manifest: VerifiedContainerAccessManifest,
 ): ContainerBuiltinGrantMutation | null {
   const { body } = manifest.event;
 
-  if (!isCanonicalRecord(body)) {
-    return null;
-  }
-
   if (manifest.event.event.eventType === "container.grant") {
-    const grant = Reflect.get(body, "grant");
-    if (!isContainerMutationSubject(grant)) {
+    const parsed = grantBodySchema.safeParse(body);
+    if (!parsed.success) {
       return null;
     }
-    const accessLevel = Reflect.get(grant, "accessLevel");
-    if (!isContainerAccessLevel(accessLevel)) {
-      return null;
-    }
+    const { grant } = parsed.data;
 
     return {
-      accessLevel,
+      accessLevel: grant.accessLevel,
       eventType: "container.grant",
       subjectId: grant.subjectId,
       subjectType: grant.subjectType,
@@ -87,14 +61,15 @@ function readBuiltinGrantMutation(
   }
 
   if (manifest.event.event.eventType === "container.revoke") {
-    if (!isContainerMutationSubject(body)) {
+    const parsed = revokeBodySchema.safeParse(body);
+    if (!parsed.success) {
       return null;
     }
 
     return {
       eventType: "container.revoke",
-      subjectId: body.subjectId,
-      subjectType: body.subjectType,
+      subjectId: parsed.data.subjectId,
+      subjectType: parsed.data.subjectType,
     };
   }
 

@@ -127,6 +127,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/access/`,
       `${api}/keyingProjectionManifestRecords.ts`,
       `${api}/keyingProjectionRecords.ts`,
+      `${api}/keyingProjectionSchemas.ts`,
       `${api}/workflows/keyingReadAccess.ts`,
       `${api}/workflows/signerPublicKey.ts`,
     ],

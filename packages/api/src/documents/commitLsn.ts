@@ -4,6 +4,10 @@ import {
   getDefaultApiDatabaseKind,
 } from "@tearleads/api-shared/postgres";
 import { sql } from "drizzle-orm";
+import { z } from "zod";
+
+const sqliteMaxCreatedAtRowSchema = z.object({ maxCreatedAt: z.number() });
+const commitLsnRowSchema = z.object({ commitLsn: z.string().min(1) });
 
 let sqliteCommitLsnValue = 0n;
 // Memoized so concurrent first calls all await the same seed query rather than a
@@ -32,13 +36,9 @@ function ensureSqliteCommitLsnSeeded(executor: DatabaseSession): Promise<void> {
       const result = await executor.execute(
         sql`select max(created_at) as "maxCreatedAt" from document_updates`,
       );
-      const row = result.rows[0];
-      const maxCreatedAt =
-        row && typeof row === "object"
-          ? Reflect.get(row, "maxCreatedAt")
-          : null;
-      if (typeof maxCreatedAt === "number" && Number.isFinite(maxCreatedAt)) {
-        const seed = BigInt(Math.trunc(maxCreatedAt));
+      const row = sqliteMaxCreatedAtRowSchema.safeParse(result.rows[0]);
+      if (row.success) {
+        const seed = BigInt(Math.trunc(row.data.maxCreatedAt));
         if (seed > sqliteCommitLsnValue) {
           sqliteCommitLsnValue = seed;
         }
@@ -75,17 +75,12 @@ export async function readCurrentCommitLsn(
   const result = await executor.execute(
     sql`select pg_current_wal_lsn()::text as "commitLsn"`,
   );
-  const row = result.rows[0];
-  const commitLsn =
-    typeof row === "object" && row !== null
-      ? Reflect.get(row, "commitLsn")
-      : undefined;
-
-  if (typeof commitLsn !== "string" || commitLsn.length === 0) {
+  const row = commitLsnRowSchema.safeParse(result.rows[0]);
+  if (!row.success) {
     throw new Error("Failed to read current commit LSN.");
   }
 
-  return commitLsn;
+  return row.data.commitLsn;
 }
 
 export function readCommitLsnMode(
