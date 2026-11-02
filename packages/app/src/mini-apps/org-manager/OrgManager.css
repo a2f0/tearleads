@@ -38,7 +38,9 @@
    full form measure rather than the default confirmation width. */
 .org-manager-import-user-dialog {
   width: min(100%, var(--form-measure));
+  max-height: 100%;
   padding: calc(1.5 * var(--space-md));
+  overflow-y: auto;
 }
 
 .org-manager-import-user-dialog .mini-app-field {
