@@ -271,8 +271,8 @@
       "bytes": 16817
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 615,
-      "bytes": 18191
+      "lines": 616,
+      "bytes": 18226
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 559,
