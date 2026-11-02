@@ -269,9 +269,9 @@ function fakeRosterSeedActions(overrides: {
       addArgs = { groupId, targetUserId, groupName };
       return Promise.resolve({});
     },
-    ensureRosterProfileDocument: (user, nickname) => {
+    ensureRosterProfileDocument: (user, names) => {
       calls.ensureRosterProfileDocument += 1;
-      ensureArgs = { userId: user.userId, nickname };
+      ensureArgs = { userId: user.userId, nickname: names?.nickname };
       return Promise.resolve(overrides.ensuredUser ?? null);
     },
   };

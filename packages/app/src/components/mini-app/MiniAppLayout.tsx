@@ -30,6 +30,7 @@ export { MiniAppActions, MiniAppToolbar } from "./layout/MiniAppToolbar";
 export { MiniAppImageViewer } from "./overlays/MiniAppImageViewer";
 export {
   MiniAppModalBackdrop,
+  MiniAppModalBusyOverlay,
   MiniAppModalForm,
   MiniAppModalPanel,
 } from "./overlays/MiniAppModal";

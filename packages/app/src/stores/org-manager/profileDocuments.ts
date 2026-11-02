@@ -94,12 +94,32 @@ function waitForRemoteDocumentId(
   });
 }
 
+/** Names an operator may seed into a roster profile when creating it. */
+export interface RosterProfileNames {
+  readonly firstName?: string | undefined;
+  readonly lastName?: string | undefined;
+  readonly nickname?: string | undefined;
+}
+
+function presentRosterProfileNames(
+  names: RosterProfileNames | undefined,
+): Record<string, string> {
+  const present: Record<string, string> = {};
+  for (const [field, value] of Object.entries(names ?? {})) {
+    const trimmed = typeof value === "string" ? value.trim() : "";
+    if (trimmed.length > 0) {
+      present[field] = trimmed;
+    }
+  }
+  return present;
+}
+
 export async function createRosterProfileDocument(input: {
   containerId: string;
   documents: Documents;
   identity: Pick<ResolvedUserIdentity, "encapsulationPublicKey" | "userId">;
   isSelf: boolean;
-  nickname?: string | undefined;
+  names?: RosterProfileNames | undefined;
   organizationId: string;
 }): Promise<string | null> {
   const fields = {
@@ -108,7 +128,7 @@ export async function createRosterProfileDocument(input: {
       isSelf: input.isSelf,
       userId: input.identity.userId,
     }),
-    ...(input.nickname ? { nickname: input.nickname } : {}),
+    ...presentRosterProfileNames(input.names),
   };
   // A created profile carries its fields in its birth, so the write below
   // changes nothing; it still fills a profile whose record already existed.

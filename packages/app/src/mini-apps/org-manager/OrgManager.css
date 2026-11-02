@@ -34,6 +34,23 @@
   padding: var(--space-sm);
 }
 
+/* Adding a member asks for a long link plus two names, so the dialog takes the
+   full form measure rather than the default confirmation width. */
+.org-manager-import-user-dialog {
+  width: min(100%, var(--form-measure));
+  padding: calc(1.5 * var(--space-md));
+}
+
+.org-manager-import-user-dialog .mini-app-field {
+  max-width: none;
+}
+
+.org-manager-import-user-names {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-md);
+}
+
 .org-manager-groups {
   display: grid;
   grid-template-columns: minmax(14rem, 0.8fr) minmax(18rem, 1.2fr);
