@@ -104,6 +104,10 @@ export function stubEnvironment(
               managementUrl: overrides.managementUrl ?? null,
             })),
         loadBillingHistory: () => Promise.resolve(null),
+        // The wrapper's capability never finishes mounting, so a started
+        // checkout stays on its screen in `starting`.
+        createStripeCheckout: () =>
+          Promise.resolve({ subscriptionId: "sub_1", clientSecret: "pi_1" }),
         cancelStripeSubscription: () => Promise.resolve({ cancelAt: null }),
       },
     } as never),

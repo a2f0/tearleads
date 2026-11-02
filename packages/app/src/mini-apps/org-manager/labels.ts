@@ -38,6 +38,7 @@ export const ORG_MANAGER_LABELS = {
   billingCheckoutPay: "Pay and subscribe",
   billingCheckoutPaying: "Processing payment...",
   billingCheckoutStarting: "Preparing checkout...",
+  billingCheckoutTitle: "Checkout",
   billingCheckoutUnavailable:
     "The payment form could not be started. Try again in a moment.",
   billingCurrentPlan: "Current plan",
