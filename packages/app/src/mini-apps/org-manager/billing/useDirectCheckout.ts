@@ -45,9 +45,13 @@ export interface DirectCheckoutState {
   readonly error: string | null;
   /** Attach to the element the payment form mounts into. */
   readonly hostRef: React.RefObject<HTMLDivElement | null>;
+  /**
+   * Whether the billing email in the provider form is complete; Pay waits
+   * for it, since the provider requires it to confirm.
+   */
+  readonly billingEmailComplete: boolean;
   readonly begin: () => void;
-  /** Pays with the billing email the inline form collected. */
-  readonly confirm: (billingEmail: string) => void;
+  readonly confirm: () => void;
   readonly cancel: () => void;
 }
 
@@ -179,6 +183,7 @@ interface CheckoutRefs {
   readonly startingRef: React.RefObject<boolean>;
   readonly setPhase: (phase: DirectCheckoutPhase) => void;
   readonly setError: (error: string | null) => void;
+  readonly setBillingEmailComplete: (complete: boolean) => void;
 }
 
 type LogError = (message: string | Error, cause?: unknown) => void;
@@ -217,6 +222,8 @@ function useBeginCheckout(
     refs.startingRef.current = true;
     refs.setPhase({ kind: "starting" });
     refs.setError(null);
+    // A fresh element starts with an empty email field.
+    refs.setBillingEmailComplete(false);
     refs.startTokenRef.current += 1;
     const token = refs.startTokenRef.current;
     void (async () => {
@@ -242,6 +249,13 @@ function useBeginCheckout(
           host,
           clientSecret: intent.clientSecret,
           appearance: readCheckoutAppearance(host),
+          // Same token guard as every continuation: a late event from an
+          // abandoned element must not unlock Pay on the panel.
+          onBillingEmailChange: (email) => {
+            if (refs.startTokenRef.current === token) {
+              refs.setBillingEmailComplete(email !== null);
+            }
+          },
         });
         // The panel may have unmounted (or the flow been cancelled) while the
         // provider script loaded; keeping this session would strand its
@@ -279,74 +293,85 @@ function useConfirmCheckout(
   teardown: () => void,
   onPaid: () => void,
   logError: LogError,
-): (billingEmail: string) => void {
-  return useCallback(
-    (billingEmail: string) => {
-      const session = refs.sessionRef.current;
-      // Re-entrancy guard. The Pay button disables itself while confirming, but
-      // that only takes effect after a re-render; the hook must not depend on
-      // the UI to prevent a double charge.
-      if (!session || refs.confirmingRef.current) {
-        return;
-      }
-      refs.confirmingRef.current = true;
-      refs.setPhase({ kind: "confirming" });
-      refs.setError(null);
-      const token = refs.startTokenRef.current;
-      void (async () => {
-        try {
-          const outcome = await session.confirm({
-            billingEmail: billingEmail.trim(),
-          });
-          // Teardown (cancel, org switch, unmount) bumps the token. Do not
-          // trust the session to report `cancelled` for us — the capability
-          // contract does not require it — and never write state belonging to
-          // a checkout the user has already left.
-          if (refs.startTokenRef.current !== token) {
-            return;
-          }
-          refs.confirmingRef.current = false;
-          if (outcome.kind === "declined") {
-            // The element stays mounted so the buyer can correct their input.
-            refs.setPhase({ kind: "collecting" });
-            refs.setError(
-              outcome.message ?? ORG_MANAGER_LABELS.failedSubscribe,
-            );
-            return;
-          }
-          if (outcome.kind === "cancelled") {
-            // Tear down rather than only resetting the phase: the session is
-            // spent, and leaving `sessionRef` populated would make the
-            // re-entrancy guard in `begin` reject every later attempt. The web
-            // capability does not return this today, but the contract permits
-            // it, so a conforming implementation must not strand the panel.
-            teardown();
-            refs.setPhase({ kind: "idle" });
-            return;
-          }
-          // Paid. The entitlement arrives via Stripe → RevenueCat → our webhook,
-          // so hand off to the shared activation poll rather than assuming.
-          teardown();
-          // Back to idle, not a checkout-owned "activating" state: the shared
-          // billing view already renders activation-pending from the flag
-          // `onPaid` sets, and a phase parked here would have no exit if the
-          // poll gave up.
-          refs.setPhase({ kind: "idle" });
-          refs.setError(null);
-          onPaid();
-        } catch (confirmError) {
-          logError("Failed to confirm the direct checkout", confirmError);
-          refs.confirmingRef.current = false;
-          if (refs.startTokenRef.current !== token) {
-            return;
-          }
-          refs.setPhase({ kind: "collecting" });
-          refs.setError(ORG_MANAGER_LABELS.failedSubscribe);
+): () => void {
+  return useCallback(() => {
+    const session = refs.sessionRef.current;
+    // Re-entrancy guard. The Pay button disables itself while confirming, but
+    // that only takes effect after a re-render; the hook must not depend on
+    // the UI to prevent a double charge.
+    if (!session || refs.confirmingRef.current) {
+      return;
+    }
+    refs.confirmingRef.current = true;
+    refs.setPhase({ kind: "confirming" });
+    refs.setError(null);
+    const token = refs.startTokenRef.current;
+    void (async () => {
+      try {
+        const outcome = await session.confirm();
+        // Teardown (cancel, org switch, unmount) bumps the token. Do not
+        // trust the session to report `cancelled` for us — the capability
+        // contract does not require it — and never write state belonging to
+        // a checkout the user has already left.
+        if (refs.startTokenRef.current !== token) {
+          return;
         }
-      })();
-    },
-    [logError, onPaid, refs, teardown],
+        refs.confirmingRef.current = false;
+        if (outcome.kind === "declined") {
+          // The element stays mounted so the buyer can correct their input.
+          refs.setPhase({ kind: "collecting" });
+          refs.setError(outcome.message ?? ORG_MANAGER_LABELS.failedSubscribe);
+          return;
+        }
+        if (outcome.kind === "cancelled") {
+          // Tear down rather than only resetting the phase: the session is
+          // spent, and leaving `sessionRef` populated would make the
+          // re-entrancy guard in `begin` reject every later attempt. The web
+          // capability does not return this today, but the contract permits
+          // it, so a conforming implementation must not strand the panel.
+          teardown();
+          refs.setPhase({ kind: "idle" });
+          return;
+        }
+        // Paid. The entitlement arrives via Stripe → RevenueCat → our webhook,
+        // so hand off to the shared activation poll rather than assuming.
+        teardown();
+        // Back to idle, not a checkout-owned "activating" state: the shared
+        // billing view already renders activation-pending from the flag
+        // `onPaid` sets, and a phase parked here would have no exit if the
+        // poll gave up.
+        refs.setPhase({ kind: "idle" });
+        refs.setError(null);
+        onPaid();
+      } catch (confirmError) {
+        logError("Failed to confirm the direct checkout", confirmError);
+        refs.confirmingRef.current = false;
+        if (refs.startTokenRef.current !== token) {
+          return;
+        }
+        refs.setPhase({ kind: "collecting" });
+        refs.setError(ORG_MANAGER_LABELS.failedSubscribe);
+      }
+    })();
+  }, [logError, onPaid, refs, teardown]);
+}
+
+/** The panel-visible flow state, and the reset back to an idle panel. */
+function useCheckoutPanelState() {
+  const [phase, setPhase] = useState<DirectCheckoutPhase>({ kind: "idle" });
+  const [error, setError] = useState<string | null>(null);
+  const [billingEmailComplete, setBillingEmailComplete] = useState(false);
+  const reset = useCallback(() => {
+    setPhase({ kind: "idle" });
+    setError(null);
+    setBillingEmailComplete(false);
+  }, []);
+  // React's setters are stable, so this object is too.
+  const setters = useMemo(
+    () => ({ setPhase, setError, setBillingEmailComplete }),
+    [],
   );
+  return { phase, error, billingEmailComplete, reset, setters };
 }
 
 export function useDirectCheckoutFlow(input: {
@@ -371,8 +396,8 @@ export function useDirectCheckoutFlow(input: {
   const startTokenRef = useRef(0);
   const confirmingRef = useRef(false);
   const startingRef = useRef(false);
-  const [phase, setPhase] = useState<DirectCheckoutPhase>({ kind: "idle" });
-  const [error, setError] = useState<string | null>(null);
+  const panel = useCheckoutPanelState();
+  const { reset } = panel;
   const available = capability.isAvailable;
   const checkoutOption = useCheckoutOptionForFlow(input, available, tearleads);
 
@@ -382,11 +407,6 @@ export function useDirectCheckoutFlow(input: {
     startingRef.current = false;
     sessionRef.current?.unmount();
     sessionRef.current = null;
-  }, []);
-
-  const reset = useCallback(() => {
-    setPhase({ kind: "idle" });
-    setError(null);
   }, []);
 
   useCheckoutLifecycle(
@@ -405,10 +425,9 @@ export function useDirectCheckoutFlow(input: {
       startTokenRef,
       confirmingRef,
       startingRef,
-      setPhase,
-      setError,
+      ...panel.setters,
     }),
-    [],
+    [panel.setters],
   );
   const deps = useMemo<BeginCheckoutDeps>(
     () => ({
@@ -446,9 +465,10 @@ export function useDirectCheckoutFlow(input: {
     available,
     option: checkoutOption.option,
     organizationId: input.organizationId,
-    phase,
-    error: error ?? checkoutOption.error,
+    phase: panel.phase,
+    error: panel.error ?? checkoutOption.error,
     hostRef,
+    billingEmailComplete: panel.billingEmailComplete,
     begin,
     confirm,
     cancel,

@@ -82,6 +82,7 @@ function state(overrides: Partial<DirectCheckoutState>): DirectCheckoutState {
     phase: { kind: "idle" },
     error: null,
     hostRef: createRef<HTMLDivElement>(),
+    billingEmailComplete: false,
     begin: () => undefined,
     confirm: () => undefined,
     cancel: () => undefined,
@@ -177,7 +178,7 @@ test("Subscribe opens the inline form without asking for an email first", () => 
       disabled={false}
     />,
   );
-  expect(view.queryByLabelText(ORG_MANAGER_LABELS.billingEmail)).toBeNull();
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingEmailHint)).toBeNull();
 
   fireEvent.click(
     view.getByRole("button", { name: ORG_MANAGER_LABELS.billingSubscribe }),
@@ -186,32 +187,22 @@ test("Subscribe opens the inline form without asking for an email first", () => 
   expect(begun).toBe(1);
 });
 
-test("the inline form requires and forwards a recovery email at Pay", () => {
-  let receivedEmail: string | undefined;
+test("Pay waits for the email in Stripe's form, with the hint under it", () => {
+  const checkout = (billingEmailComplete: boolean) =>
+    state({ phase: { kind: "collecting" }, billingEmailComplete });
   const view = render(
-    <BillingDirectCheckout
-      checkout={state({
-        phase: { kind: "collecting" },
-        confirm: (billingEmail) => {
-          receivedEmail = billingEmail;
-        },
-      })}
-      disabled={false}
-    />,
+    <BillingDirectCheckout checkout={checkout(false)} disabled={false} />,
   );
-  const pay = view.getByRole("button", {
-    name: ORG_MANAGER_LABELS.billingCheckoutPay,
-  });
+  const pay = () =>
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.billingCheckoutPay });
   expect(view.getByText(ORG_MANAGER_LABELS.billingEmailHint)).toBeDefined();
-  expect(pay.hasAttribute("disabled")).toBe(true);
-  fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.billingEmail), {
-    target: { value: " buyer@example.com " },
-  });
-  expect(pay.hasAttribute("disabled")).toBe(false);
+  expect(pay().hasAttribute("disabled")).toBe(true);
 
-  fireEvent.click(pay);
+  view.rerender(
+    <BillingDirectCheckout checkout={checkout(true)} disabled={false} />,
+  );
 
-  expect(receivedEmail).toBe("buyer@example.com");
+  expect(pay().hasAttribute("disabled")).toBe(false);
 });
 
 test("the Pay on Stripe link stays hidden while its feature flag is off", () => {
@@ -245,6 +236,7 @@ test("collecting shows Pay and Cancel over a visible element host", () => {
     <BillingDirectCheckout
       checkout={state({
         phase: { kind: "collecting" },
+        billingEmailComplete: true,
         confirm: () => {
           paid += 1;
         },
@@ -258,9 +250,6 @@ test("collecting shows Pay and Cancel over a visible element host", () => {
   const host = view.container.querySelector(".org-manager-direct-checkout");
   expect(host?.hasAttribute("hidden")).toBe(false);
 
-  fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.billingEmail), {
-    target: { value: "buyer@example.com" },
-  });
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingCheckoutPay));
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingCancelCheckout));
   expect(paid).toBe(1);

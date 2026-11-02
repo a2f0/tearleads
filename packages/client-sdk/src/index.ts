@@ -197,7 +197,6 @@ export {
   type DirectCheckoutAppearance,
   type DirectCheckoutCapability,
   type DirectCheckoutConfirmation,
-  type DirectCheckoutConfirmInput,
   type DirectCheckoutSession,
   DirectCheckoutUnavailableError,
   decodeLocalKeyringSqliteKey,
