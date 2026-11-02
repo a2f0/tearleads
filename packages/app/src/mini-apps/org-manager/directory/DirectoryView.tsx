@@ -3,6 +3,7 @@ import type {
   OrganizationDirectory,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
+import type { RosterProfileNames } from "../../../stores/org-manager/profileDocuments";
 import type { OrgManagerGrantRouteRef } from "../routes";
 import {
   type DirectoryContextMenuHandler,
@@ -48,7 +49,7 @@ export function DirectoryView({
   detail: OrganizationUserDetail | null;
   directory: OrganizationDirectory | null;
   error: string | null;
-  importRosterUser: () => void;
+  importRosterUser: (names: RosterProfileNames) => void;
   importUserIdDraft: string;
   isImportUserDialogOpen: boolean;
   loadingUserDetail: boolean;

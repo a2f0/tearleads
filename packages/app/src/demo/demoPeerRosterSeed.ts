@@ -109,7 +109,7 @@ export interface DemoRosterSeedActions {
   ) => Promise<unknown>;
   readonly ensureRosterProfileDocument: (
     user: OrganizationDirectoryUser,
-    nickname?: string | undefined,
+    names?: { readonly nickname?: string | undefined } | undefined,
   ) => Promise<OrganizationDirectoryUser | null>;
   readonly loadDirectoryAndGroups: () => Promise<
     OrganizationDirectoryAndGroups | null | undefined
@@ -194,9 +194,8 @@ export async function seedPeerRosterEntry(
     return true;
   }
 
-  const updated = await actions.ensureRosterProfileDocument(
-    peerUser,
-    peerNickname,
-  );
+  const updated = await actions.ensureRosterProfileDocument(peerUser, {
+    nickname: peerNickname,
+  });
   return Boolean(updated?.profileDocumentId);
 }

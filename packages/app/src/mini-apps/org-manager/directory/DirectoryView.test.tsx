@@ -8,9 +8,16 @@ import {
   useWindowTitleBarActions,
   WindowMenuProvider,
 } from "@tearleads/windowing";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { ContextType, PropsWithChildren } from "react";
 import { OrgManagerContext } from "../../../stores/org-manager/OrgManagerProvider";
+import type { RosterProfileNames } from "../../../stores/org-manager/profileDocuments";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { DirectoryView } from "./DirectoryView";
 
@@ -98,39 +105,41 @@ function TestProviders({ children }: PropsWithChildren) {
   );
 }
 
+function directoryViewDefaults(): Parameters<typeof DirectoryView>[0] {
+  return {
+    canImportRosterUser: false,
+    canRevokeGrants: false,
+    canUpdateSelectedRosterEntry: false,
+    closeImportUserDialog: () => undefined,
+    detail: null,
+    directory,
+    error: null,
+    importRosterUser: () => undefined,
+    importUserIdDraft: "",
+    isImportUserDialogOpen: false,
+    loadingUserDetail: false,
+    organizationId: directory.organizationId,
+    pending: false,
+    mutating: false,
+    openGrantRoute: () => undefined,
+    openGroupRoute: () => undefined,
+    profileDisplayNamesByUserId: new Map(),
+    revokeGrant: () => undefined,
+    rosterProfileEditRequest: null,
+    selectedUserId: null,
+    selectUser: () => undefined,
+    setSelectedProfileDisplayName: () => undefined,
+    setImportUserIdDraft: () => undefined,
+    syncSeatUserIds: null,
+  };
+}
+
 function renderDirectoryView(
   props: Partial<Parameters<typeof DirectoryView>[0]> = {},
 ) {
-  return render(
-    <DirectoryView
-      canImportRosterUser={false}
-      canRevokeGrants={false}
-      canUpdateSelectedRosterEntry={false}
-      closeImportUserDialog={() => undefined}
-      detail={null}
-      directory={directory}
-      error={null}
-      importRosterUser={() => undefined}
-      importUserIdDraft=""
-      isImportUserDialogOpen={false}
-      loadingUserDetail={false}
-      organizationId={directory.organizationId}
-      pending={false}
-      mutating={false}
-      openGrantRoute={() => undefined}
-      openGroupRoute={() => undefined}
-      profileDisplayNamesByUserId={new Map()}
-      revokeGrant={() => undefined}
-      rosterProfileEditRequest={null}
-      selectedUserId={null}
-      selectUser={() => undefined}
-      setSelectedProfileDisplayName={() => undefined}
-      setImportUserIdDraft={() => undefined}
-      syncSeatUserIds={null}
-      {...props}
-    />,
-    { wrapper: TestProviders },
-  );
+  return render(<DirectoryView {...directoryViewDefaults()} {...props} />, {
+    wrapper: TestProviders,
+  });
 }
 
 function installClipboardWriteMock(): string[] {
@@ -325,33 +334,101 @@ test("org manager roster view opens row context menus from user rows", () => {
   expect(rowContextMenuUserIds).toEqual([rosterUser.userId]);
 });
 
-test("org manager roster import dialog submits the user id draft", () => {
+test("org manager roster import dialog submits the link draft with the names", () => {
   const drafts: string[] = [];
-  let importCount = 0;
+  const submitted: RosterProfileNames[] = [];
   const view = renderDirectoryView({
     canImportRosterUser: true,
-    importRosterUser: () => {
-      importCount += 1;
+    importRosterUser: (names) => {
+      submitted.push(names);
     },
     importUserIdDraft: "user-2",
     isImportUserDialogOpen: true,
     setImportUserIdDraft: (userId) => drafts.push(userId),
   });
 
-  expect(
-    view.getByRole("dialog", { name: ORG_MANAGER_LABELS.importUserAction }),
-  ).toBeTruthy();
+  const dialog = view.getByRole("dialog", {
+    name: ORG_MANAGER_LABELS.importUserAction,
+  });
+  expect(dialog.textContent).toContain(ORG_MANAGER_LABELS.importUserNamesNote);
   fireEvent.change(view.getByLabelText("Identity link"), {
     target: { value: "user-3" },
   });
-  fireEvent.click(
-    view.getByRole("button", {
-      name: ORG_MANAGER_LABELS.importUserSubmitAction,
-    }),
-  );
+  const submit = view.getByRole("button", {
+    name: ORG_MANAGER_LABELS.importUserSubmitAction,
+  });
+  expect(submit.hasAttribute("disabled")).toBe(true);
+
+  fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.firstName), {
+    target: { value: "Ada" },
+  });
+  expect(submit.hasAttribute("disabled")).toBe(true);
+  fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.lastName), {
+    target: { value: "Lovelace" },
+  });
+  fireEvent.click(submit);
 
   expect(drafts).toEqual(["user-3"]);
-  expect(importCount).toBe(1);
+  expect(submitted).toEqual([{ firstName: "Ada", lastName: "Lovelace" }]);
+});
+
+test("org manager roster import dialog covers the whole panel while adding", () => {
+  const view = renderDirectoryView({
+    canImportRosterUser: true,
+    importUserIdDraft: "user-2",
+    isImportUserDialogOpen: true,
+    mutating: true,
+  });
+
+  const dialog = view.getByRole("dialog", {
+    name: ORG_MANAGER_LABELS.importUserAction,
+  });
+  expect(dialog.getAttribute("aria-busy")).toBe("true");
+  const busy = within(dialog).getByRole("status");
+  expect(busy.className).toBe("mini-app-modal-busy");
+  expect(busy.textContent).toBe(ORG_MANAGER_LABELS.importUserBusy);
+  expect(dialog.lastElementChild).toBe(busy);
+  expect(dialog.querySelector(".mini-app-button-spinner")).toBeNull();
+  for (const label of [
+    "Identity link",
+    ORG_MANAGER_LABELS.firstName,
+    ORG_MANAGER_LABELS.lastName,
+  ]) {
+    expect(view.getByLabelText(label).hasAttribute("disabled")).toBe(true);
+  }
+});
+
+test("org manager roster import dialog keeps the names after a failed add", () => {
+  const props = {
+    canImportRosterUser: true,
+    importUserIdDraft: "user-2",
+    isImportUserDialogOpen: true,
+  };
+  const view = renderDirectoryView(props);
+  fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.firstName), {
+    target: { value: "Ada" },
+  });
+  fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.lastName), {
+    target: { value: "Lovelace" },
+  });
+
+  view.rerender(
+    <DirectoryView
+      {...directoryViewDefaults()}
+      {...props}
+      error={ORG_MANAGER_LABELS.failedCreateProfileDocument}
+    />,
+  );
+
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.failedCreateProfileDocument),
+  ).toBeTruthy();
+  const firstName = view.getByLabelText(ORG_MANAGER_LABELS.firstName);
+  const lastName = view.getByLabelText(ORG_MANAGER_LABELS.lastName);
+  expect(firstName instanceof HTMLInputElement && firstName.value).toBe("Ada");
+  expect(lastName instanceof HTMLInputElement && lastName.value).toBe(
+    "Lovelace",
+  );
 });
 
 function compactRosterUserId(): string {
