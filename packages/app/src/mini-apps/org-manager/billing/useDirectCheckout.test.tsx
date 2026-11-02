@@ -27,19 +27,31 @@ test("loads the purchasable option when the platform supports checkout", async (
   expect(result.current.phase.kind).toBe("idle");
 });
 
-test("begin trims the email and mounts into the panel's host", async () => {
+test("begin mounts into the panel's host; confirm sends the trimmed email", async () => {
   stubTearleads();
-  const { capability, mounted } = capabilityWith({});
+  const confirmed: unknown[] = [];
+  const { capability, mounted } = capabilityWith({
+    confirm: (input) => {
+      confirmed.push(input);
+      return Promise.resolve({ kind: "succeeded" });
+    },
+  });
   const { result, host } = renderFlow(capability);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
 
-  await act(async () => {
-    result.current.begin(" buyer@example.com ");
-  });
+  await act(async () => result.current.begin());
 
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
   expect(mounted[0]?.host).toBe(host);
-  expect(mounted[0]?.billingEmail).toBe("buyer@example.com");
+  expect(Object.keys(mounted[0] ?? {}).sort()).toEqual([
+    "appearance",
+    "clientSecret",
+    "host",
+  ]);
+
+  await act(async () => result.current.confirm(" buyer@example.com "));
+
+  expect(confirmed).toEqual([{ billingEmail: "buyer@example.com" }]);
 });
 
 test("a declined card keeps the element mounted so it can be corrected", async () => {
@@ -55,7 +67,7 @@ test("a declined card keeps the element mounted so it can be corrected", async (
   await act(async () => result.current.begin());
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
-  await act(async () => result.current.confirm());
+  await act(async () => result.current.confirm("buyer@example.com"));
 
   await waitFor(() => expect(result.current.error).toBe("Card declined."));
   expect(result.current.phase.kind).toBe("collecting");
@@ -75,7 +87,7 @@ test("a successful payment tears down and hands off to activation", async () => 
   await act(async () => result.current.begin());
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
-  await act(async () => result.current.confirm());
+  await act(async () => result.current.confirm("buyer@example.com"));
 
   // Back to idle — the shared billing view owns the activation-pending
   // display, so the checkout does not park in a state with no exit.
@@ -148,7 +160,7 @@ test("a thrown confirm keeps the element mounted and is reported", async () => {
   await act(async () => result.current.begin());
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
-  await act(async () => result.current.confirm());
+  await act(async () => result.current.confirm("buyer@example.com"));
 
   await waitFor(() => expect(result.current.error).not.toBeNull());
   expect(result.current.phase.kind).toBe("collecting");
@@ -167,7 +179,7 @@ test("a paid checkout marks activation pending rather than a lone refresh", asyn
   await act(async () => result.current.begin());
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
-  await act(async () => result.current.confirm());
+  await act(async () => result.current.confirm("buyer@example.com"));
 
   // The entitlement lands asynchronously via the provider webhook, so the
   // panel must poll — a single refresh would usually read the old status.

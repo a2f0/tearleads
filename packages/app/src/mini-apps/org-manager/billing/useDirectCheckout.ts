@@ -45,8 +45,9 @@ export interface DirectCheckoutState {
   readonly error: string | null;
   /** Attach to the element the payment form mounts into. */
   readonly hostRef: React.RefObject<HTMLDivElement | null>;
-  readonly begin: (billingEmail?: string) => void;
-  readonly confirm: () => void;
+  readonly begin: () => void;
+  /** Pays with the billing email the inline form collected. */
+  readonly confirm: (billingEmail: string) => void;
   readonly cancel: () => void;
 }
 
@@ -200,77 +201,72 @@ interface BeginCheckoutDeps {
 function useBeginCheckout(
   refs: CheckoutRefs,
   deps: BeginCheckoutDeps,
-): (billingEmail?: string) => void {
-  return useCallback(
-    (billingEmail?: string) => {
-      if (!deps.available || !deps.canSubscribe || !deps.enabled) {
-        return;
-      }
-      // Re-entrancy guard: a second begin would bump the token and overwrite
-      // sessionRef, stranding the previous element's iframe. The UI prevents
-      // this today; the hook must not depend on that. Both refs are needed —
-      // `sessionRef` covers a mounted element, `startingRef` the window before
-      // it mounts, where state has not re-rendered yet.
-      if (refs.sessionRef.current || refs.startingRef.current) {
-        return;
-      }
-      refs.startingRef.current = true;
-      refs.setPhase({ kind: "starting" });
-      refs.setError(null);
-      refs.startTokenRef.current += 1;
-      const token = refs.startTokenRef.current;
-      void (async () => {
-        try {
-          const intent =
-            await deps.tearleads.organizations.createStripeCheckout(
-              deps.organizationId,
-            );
-          // Every continuation re-checks the token: teardown (cancel, org
-          // switch, disable, unmount) bumps it, and a losing attempt must
-          // neither write state onto the panel it no longer owns nor cancel the
-          // attempt that replaced it.
-          if (refs.startTokenRef.current !== token) {
-            return;
-          }
-          const host = refs.hostRef.current;
-          if (!intent || !host) {
-            refs.startingRef.current = false;
-            refs.setPhase({ kind: "idle" });
-            refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
-            return;
-          }
-          const session = await deps.capability.mount({
-            host,
-            clientSecret: intent.clientSecret,
-            appearance: readCheckoutAppearance(host),
-            ...(billingEmail ? { billingEmail: billingEmail.trim() } : {}),
-          });
-          // The panel may have unmounted (or the flow been cancelled) while the
-          // provider script loaded; keeping this session would strand its
-          // iframe with nothing able to destroy it.
-          if (refs.startTokenRef.current !== token) {
-            session.unmount();
-            return;
-          }
+): () => void {
+  return useCallback(() => {
+    if (!deps.available || !deps.canSubscribe || !deps.enabled) {
+      return;
+    }
+    // Re-entrancy guard: a second begin would bump the token and overwrite
+    // sessionRef, stranding the previous element's iframe. The UI prevents
+    // this today; the hook must not depend on that. Both refs are needed —
+    // `sessionRef` covers a mounted element, `startingRef` the window before
+    // it mounts, where state has not re-rendered yet.
+    if (refs.sessionRef.current || refs.startingRef.current) {
+      return;
+    }
+    refs.startingRef.current = true;
+    refs.setPhase({ kind: "starting" });
+    refs.setError(null);
+    refs.startTokenRef.current += 1;
+    const token = refs.startTokenRef.current;
+    void (async () => {
+      try {
+        const intent = await deps.tearleads.organizations.createStripeCheckout(
+          deps.organizationId,
+        );
+        // Every continuation re-checks the token: teardown (cancel, org
+        // switch, disable, unmount) bumps it, and a losing attempt must
+        // neither write state onto the panel it no longer owns nor cancel the
+        // attempt that replaced it.
+        if (refs.startTokenRef.current !== token) {
+          return;
+        }
+        const host = refs.hostRef.current;
+        if (!intent || !host) {
           refs.startingRef.current = false;
-          refs.sessionRef.current = session;
-          refs.setPhase({ kind: "collecting" });
-        } catch (mountError) {
-          deps.logError("Failed to start the direct checkout", mountError);
-          // Same guard: calling the shared teardown here would bump the token
-          // and cancel a newer attempt started after this one failed.
-          if (refs.startTokenRef.current !== token) {
-            return;
-          }
-          refs.startingRef.current = false;
-          refs.sessionRef.current = null;
           refs.setPhase({ kind: "idle" });
           refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
+          return;
         }
-      })();
-    },
-    [deps, refs],
-  );
+        const session = await deps.capability.mount({
+          host,
+          clientSecret: intent.clientSecret,
+          appearance: readCheckoutAppearance(host),
+        });
+        // The panel may have unmounted (or the flow been cancelled) while the
+        // provider script loaded; keeping this session would strand its
+        // iframe with nothing able to destroy it.
+        if (refs.startTokenRef.current !== token) {
+          session.unmount();
+          return;
+        }
+        refs.startingRef.current = false;
+        refs.sessionRef.current = session;
+        refs.setPhase({ kind: "collecting" });
+      } catch (mountError) {
+        deps.logError("Failed to start the direct checkout", mountError);
+        // Same guard: calling the shared teardown here would bump the token
+        // and cancel a newer attempt started after this one failed.
+        if (refs.startTokenRef.current !== token) {
+          return;
+        }
+        refs.startingRef.current = false;
+        refs.sessionRef.current = null;
+        refs.setPhase({ kind: "idle" });
+        refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
+      }
+    })();
+  }, [deps, refs]);
 }
 
 /**
@@ -283,67 +279,74 @@ function useConfirmCheckout(
   teardown: () => void,
   onPaid: () => void,
   logError: LogError,
-): () => void {
-  return useCallback(() => {
-    const session = refs.sessionRef.current;
-    // Re-entrancy guard. The Pay button disables itself while confirming, but
-    // that only takes effect after a re-render; the hook must not depend on
-    // the UI to prevent a double charge.
-    if (!session || refs.confirmingRef.current) {
-      return;
-    }
-    refs.confirmingRef.current = true;
-    refs.setPhase({ kind: "confirming" });
-    refs.setError(null);
-    const token = refs.startTokenRef.current;
-    void (async () => {
-      try {
-        const outcome = await session.confirm();
-        // Teardown (cancel, org switch, unmount) bumps the token. Do not
-        // trust the session to report `cancelled` for us — the capability
-        // contract does not require it — and never write state belonging to
-        // a checkout the user has already left.
-        if (refs.startTokenRef.current !== token) {
-          return;
-        }
-        refs.confirmingRef.current = false;
-        if (outcome.kind === "declined") {
-          // The element stays mounted so the buyer can correct their input.
-          refs.setPhase({ kind: "collecting" });
-          refs.setError(outcome.message ?? ORG_MANAGER_LABELS.failedSubscribe);
-          return;
-        }
-        if (outcome.kind === "cancelled") {
-          // Tear down rather than only resetting the phase: the session is
-          // spent, and leaving `sessionRef` populated would make the
-          // re-entrancy guard in `begin` reject every later attempt. The web
-          // capability does not return this today, but the contract permits
-          // it, so a conforming implementation must not strand the panel.
-          teardown();
-          refs.setPhase({ kind: "idle" });
-          return;
-        }
-        // Paid. The entitlement arrives via Stripe → RevenueCat → our webhook,
-        // so hand off to the shared activation poll rather than assuming.
-        teardown();
-        // Back to idle, not a checkout-owned "activating" state: the shared
-        // billing view already renders activation-pending from the flag
-        // `onPaid` sets, and a phase parked here would have no exit if the
-        // poll gave up.
-        refs.setPhase({ kind: "idle" });
-        refs.setError(null);
-        onPaid();
-      } catch (confirmError) {
-        logError("Failed to confirm the direct checkout", confirmError);
-        refs.confirmingRef.current = false;
-        if (refs.startTokenRef.current !== token) {
-          return;
-        }
-        refs.setPhase({ kind: "collecting" });
-        refs.setError(ORG_MANAGER_LABELS.failedSubscribe);
+): (billingEmail: string) => void {
+  return useCallback(
+    (billingEmail: string) => {
+      const session = refs.sessionRef.current;
+      // Re-entrancy guard. The Pay button disables itself while confirming, but
+      // that only takes effect after a re-render; the hook must not depend on
+      // the UI to prevent a double charge.
+      if (!session || refs.confirmingRef.current) {
+        return;
       }
-    })();
-  }, [logError, onPaid, refs, teardown]);
+      refs.confirmingRef.current = true;
+      refs.setPhase({ kind: "confirming" });
+      refs.setError(null);
+      const token = refs.startTokenRef.current;
+      void (async () => {
+        try {
+          const outcome = await session.confirm({
+            billingEmail: billingEmail.trim(),
+          });
+          // Teardown (cancel, org switch, unmount) bumps the token. Do not
+          // trust the session to report `cancelled` for us — the capability
+          // contract does not require it — and never write state belonging to
+          // a checkout the user has already left.
+          if (refs.startTokenRef.current !== token) {
+            return;
+          }
+          refs.confirmingRef.current = false;
+          if (outcome.kind === "declined") {
+            // The element stays mounted so the buyer can correct their input.
+            refs.setPhase({ kind: "collecting" });
+            refs.setError(
+              outcome.message ?? ORG_MANAGER_LABELS.failedSubscribe,
+            );
+            return;
+          }
+          if (outcome.kind === "cancelled") {
+            // Tear down rather than only resetting the phase: the session is
+            // spent, and leaving `sessionRef` populated would make the
+            // re-entrancy guard in `begin` reject every later attempt. The web
+            // capability does not return this today, but the contract permits
+            // it, so a conforming implementation must not strand the panel.
+            teardown();
+            refs.setPhase({ kind: "idle" });
+            return;
+          }
+          // Paid. The entitlement arrives via Stripe → RevenueCat → our webhook,
+          // so hand off to the shared activation poll rather than assuming.
+          teardown();
+          // Back to idle, not a checkout-owned "activating" state: the shared
+          // billing view already renders activation-pending from the flag
+          // `onPaid` sets, and a phase parked here would have no exit if the
+          // poll gave up.
+          refs.setPhase({ kind: "idle" });
+          refs.setError(null);
+          onPaid();
+        } catch (confirmError) {
+          logError("Failed to confirm the direct checkout", confirmError);
+          refs.confirmingRef.current = false;
+          if (refs.startTokenRef.current !== token) {
+            return;
+          }
+          refs.setPhase({ kind: "collecting" });
+          refs.setError(ORG_MANAGER_LABELS.failedSubscribe);
+        }
+      })();
+    },
+    [logError, onPaid, refs, teardown],
+  );
 }
 
 export function useDirectCheckoutFlow(input: {

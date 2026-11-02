@@ -44,13 +44,25 @@ export type DirectCheckoutConfirmation =
   /** The flow was cancelled locally; nothing was charged. */
   | { readonly kind: "cancelled" };
 
+/** What the host form collects beside the provider element. */
+export interface DirectCheckoutConfirmInput {
+  /**
+   * Customer recovery address used by the payment provider's portal. The
+   * element never asks for it: the host form collects it beside the card
+   * fields and hands it over at confirm time.
+   */
+  readonly billingEmail: string;
+}
+
 /** A mounted checkout element; always `unmount()` when done. */
 export interface DirectCheckoutSession {
   /**
    * Confirms the payment. Resolves rather than throwing for buyer-facing
    * outcomes so callers need not distinguish exceptions from declines.
    */
-  confirm(): Promise<DirectCheckoutConfirmation>;
+  confirm(
+    input: DirectCheckoutConfirmInput,
+  ): Promise<DirectCheckoutConfirmation>;
   /** Tears the element down and releases provider resources. */
   unmount(): void;
 }
@@ -67,8 +79,6 @@ export interface DirectCheckoutCapability {
     readonly host: HTMLElement;
     readonly clientSecret: string;
     readonly appearance: DirectCheckoutAppearance;
-    /** Customer recovery address used by the payment provider's portal. */
-    readonly billingEmail?: string;
   }): Promise<DirectCheckoutSession>;
 }
 
