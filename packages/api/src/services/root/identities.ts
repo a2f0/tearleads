@@ -1,5 +1,6 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { isUuidV4String } from "@tearleads/validators/util";
+import { z } from "zod";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
 import {
   findRootIdentityIdByFingerprint,
@@ -44,16 +45,15 @@ interface RootIdentityCursor {
   readonly afterUserId: string;
 }
 
+// Unknown keys never carried meaning; parsing drops them.
+const rootIdentityCursorSchema = z
+  .custom<Record<string, unknown>>(isPlainObject)
+  .pipe(z.object({ afterUserId: z.string().refine(isUuidV4String) }));
+
 function parseRootIdentityCursor(
   payload: unknown,
 ): RootIdentityCursor | undefined {
-  if (!isPlainObject(payload)) {
-    return undefined;
-  }
-  const { afterUserId } = payload;
-  return typeof afterUserId === "string" && isUuidV4String(afterUserId)
-    ? { afterUserId }
-    : undefined;
+  return rootIdentityCursorSchema.safeParse(payload).data;
 }
 
 export async function listIdentities(

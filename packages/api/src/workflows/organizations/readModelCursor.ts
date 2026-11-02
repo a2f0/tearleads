@@ -1,8 +1,5 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import {
-  hasNumberProperty,
-  hasStringProperty,
-} from "@tearleads/validators/util";
+import { z } from "zod";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
 import { OrganizationReadModelCursorError } from "./errors";
 
@@ -21,25 +18,21 @@ function invalidCursor(): OrganizationReadModelCursorError {
   );
 }
 
+// Exactly these three keys: a cursor from another version never decodes.
+const organizationReadModelCursorSchema = z
+  .custom<Record<string, unknown>>(isPlainObject)
+  .pipe(
+    z.strictObject({
+      version: z.literal(6),
+      organizationId: z.string(),
+      cursor: z.string().regex(DECIMAL_PATTERN),
+    }),
+  );
+
 function parseOrganizationReadModelCursor(
   payload: unknown,
 ): OrganizationReadModelCursorPayload | undefined {
-  if (
-    !isPlainObject(payload) ||
-    Object.keys(payload).length !== 3 ||
-    !hasNumberProperty(payload, "version") ||
-    payload.version !== 6 ||
-    !hasStringProperty(payload, "organizationId") ||
-    !hasStringProperty(payload, "cursor") ||
-    !DECIMAL_PATTERN.test(payload.cursor)
-  ) {
-    return undefined;
-  }
-  return {
-    cursor: payload.cursor,
-    organizationId: payload.organizationId,
-    version: 6,
-  };
+  return organizationReadModelCursorSchema.safeParse(payload).data;
 }
 
 export function encodeOrganizationReadModelCursor(

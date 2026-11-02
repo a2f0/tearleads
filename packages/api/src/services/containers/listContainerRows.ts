@@ -7,6 +7,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { SyncWatermark } from "@tearleads/validators/response";
 import { type SQL, sql } from "drizzle-orm";
+import { z } from "zod";
 import {
   intExpression,
   jsonTextProperty,
@@ -21,7 +22,8 @@ import { readSyncTimestamp, syncTimestampExpression } from "./syncTimestamp";
 
 export interface AccessibleContainerRow {
   createdAt: string;
-  systemSlot: string | null;
+  /** Raw column value; `listContainers` admits only a known system slot. */
+  systemSlot: unknown;
   depth: number;
   id: string;
   metadataAccessEpoch?: number;
@@ -32,38 +34,13 @@ export interface AccessibleContainerRow {
   updatedAt: string;
 }
 
-interface AccessibleContainerRowShape {
-  readonly id?: unknown;
-  readonly metadataDocumentId?: unknown;
-  readonly organizationId?: unknown;
-  readonly parentId?: unknown;
-}
-
-function isAccessibleContainerRow(
-  value: unknown,
-): value is AccessibleContainerRow {
-  if (!isAccessibleContainerRowShape(value)) {
-    return false;
-  }
-
-  const id = value.id;
-  const metadataDocumentId = value.metadataDocumentId;
-  const organizationId = value.organizationId;
-  const parentId = value.parentId;
-
-  return (
-    typeof id === "string" &&
-    typeof organizationId === "string" &&
-    (typeof metadataDocumentId === "string" || metadataDocumentId === null) &&
-    (typeof parentId === "string" || parentId === null)
-  );
-}
-
-function isAccessibleContainerRowShape(
-  value: unknown,
-): value is AccessibleContainerRowShape {
-  return value !== null && typeof value === "object";
-}
+// A loose object: the remaining selected columns are read one by one below.
+const accessibleContainerRowSchema = z.looseObject({
+  id: z.string(),
+  metadataDocumentId: z.string().nullable(),
+  organizationId: z.string(),
+  parentId: z.string().nullable(),
+});
 
 function readDateIso(value: unknown, label: string): string {
   return readDateValue(value, label).toISOString();
@@ -316,21 +293,31 @@ export async function listAccessibleContainersForUser(input: {
 
   const accessibleContainers: AccessibleContainerRow[] = [];
 
-  for (const row of result.rows) {
-    if (!isAccessibleContainerRow(row)) {
+  for (const candidate of result.rows) {
+    const parsed = accessibleContainerRowSchema.safeParse(candidate);
+    if (!parsed.success) {
       throw new Error("Unexpected row shape from accessible containers query");
     }
-
-    const metadataAccessEpoch = readOptionalNumber(row.metadataAccessEpoch);
+    const row = parsed.data;
+    const {
+      createdAt,
+      depth,
+      metadataAccessEpoch: rawMetadataAccessEpoch,
+      metadataAccessStateHash: rawMetadataAccessStateHash,
+      systemSlot,
+      updatedAt,
+    } = row;
+    const metadataAccessEpoch = readOptionalNumber(rawMetadataAccessEpoch);
     const metadataAccessStateHash = readOptionalString(
-      row.metadataAccessStateHash,
+      rawMetadataAccessStateHash,
     );
 
     accessibleContainers.push({
       ...row,
-      createdAt: readDateIso(row.createdAt, "createdAt"),
-      depth: readRequiredNumber(row.depth, "depth"),
-      updatedAt: readSyncTimestamp(row.updatedAt),
+      systemSlot,
+      createdAt: readDateIso(createdAt, "createdAt"),
+      depth: readRequiredNumber(depth, "depth"),
+      updatedAt: readSyncTimestamp(updatedAt),
       ...(metadataAccessEpoch === undefined ? {} : { metadataAccessEpoch }),
       ...(metadataAccessStateHash === undefined
         ? {}

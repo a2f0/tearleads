@@ -1,4 +1,6 @@
 import { base64ToBytes } from "@tearleads/encoding";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { z } from "zod";
 
 export interface OrganizationGroupHead {
   readonly keyEpoch: number;
@@ -17,106 +19,57 @@ interface OrganizationAuthorityDescriptor {
   readonly version: 2;
 }
 
-interface DescriptorCandidate extends Record<string, unknown> {
-  adminGroupId?: unknown;
-  groupHeads?: unknown;
-  keyEpoch?: unknown;
-  keyFingerprint?: unknown;
-  memberGroupId?: unknown;
-  organizationId?: unknown;
-  principalId?: unknown;
-  principalType?: unknown;
-  stateHash?: unknown;
-  version?: unknown;
-}
+const positiveSafeIntegerSchema = z.int().min(1);
 
-function isPlainRecord(value: unknown): value is DescriptorCandidate {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+// Stored descriptors are exact: unknown keys and non-plain values are rejected.
+const groupHeadSchema = z.custom<Record<string, unknown>>(isPlainObject).pipe(
+  z.strictObject({
+    principalType: z.literal("group"),
+    principalId: z.string().min(1),
+    version: positiveSafeIntegerSchema,
+    keyEpoch: positiveSafeIntegerSchema,
+    stateHash: z.string().min(1),
+    keyFingerprint: z.string().min(1),
+  }),
+);
 
-function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]) {
-  const actual = Object.keys(value);
-  return (
-    actual.length === keys.length && actual.every((key) => keys.includes(key))
+const authorityDescriptorSchema = z
+  .custom<Record<string, unknown>>(isPlainObject)
+  .pipe(
+    z.strictObject({
+      version: z.literal(2),
+      organizationId: z.string(),
+      adminGroupId: z.string(),
+      memberGroupId: z.string(),
+      groupHeads: z.array(groupHeadSchema),
+    }),
   );
-}
 
-function parseGroupHead(value: unknown): OrganizationGroupHead | null {
-  if (
-    !isPlainRecord(value) ||
-    !hasExactKeys(value, [
-      "principalType",
-      "principalId",
-      "version",
-      "keyEpoch",
-      "stateHash",
-      "keyFingerprint",
-    ]) ||
-    value.principalType !== "group" ||
-    typeof value.principalId !== "string" ||
-    value.principalId.length === 0 ||
-    !Number.isSafeInteger(value.version) ||
-    Number(value.version) < 1 ||
-    !Number.isSafeInteger(value.keyEpoch) ||
-    Number(value.keyEpoch) < 1 ||
-    typeof value.stateHash !== "string" ||
-    value.stateHash.length === 0 ||
-    typeof value.keyFingerprint !== "string" ||
-    value.keyFingerprint.length === 0
-  ) {
-    return null;
-  }
-  return {
-    principalType: "group",
-    principalId: value.principalId,
-    version: Number(value.version),
-    keyEpoch: Number(value.keyEpoch),
-    stateHash: value.stateHash,
-    keyFingerprint: value.keyFingerprint,
-  };
+function compareGroupHeads(
+  left: OrganizationGroupHead,
+  right: OrganizationGroupHead,
+): number {
+  return left.principalId < right.principalId
+    ? -1
+    : left.principalId > right.principalId
+      ? 1
+      : 0;
 }
 
 export function parseOrganizationAuthorityDescriptor(
   ciphertext: string,
 ): OrganizationAuthorityDescriptor | null {
   try {
-    const value: unknown = JSON.parse(
-      new TextDecoder().decode(base64ToBytes(ciphertext)),
+    const parsed = authorityDescriptorSchema.safeParse(
+      JSON.parse(new TextDecoder().decode(base64ToBytes(ciphertext))),
     );
-    if (
-      !isPlainRecord(value) ||
-      !hasExactKeys(value, [
-        "version",
-        "organizationId",
-        "adminGroupId",
-        "memberGroupId",
-        "groupHeads",
-      ]) ||
-      value.version !== 2 ||
-      typeof value.organizationId !== "string" ||
-      typeof value.adminGroupId !== "string" ||
-      typeof value.memberGroupId !== "string" ||
-      value.adminGroupId === value.memberGroupId ||
-      !Array.isArray(value.groupHeads)
-    ) {
+    if (!parsed.success) {
       return null;
     }
-    const groupHeads: OrganizationGroupHead[] = [];
-    for (const candidate of value.groupHeads) {
-      const head = parseGroupHead(candidate);
-      if (!head) {
-        return null;
-      }
-      groupHeads.push(head);
-    }
-    const normalized = [...groupHeads].sort((left, right) =>
-      left.principalId < right.principalId
-        ? -1
-        : left.principalId > right.principalId
-          ? 1
-          : 0,
-    );
+    const value = parsed.data;
+    const normalized = [...value.groupHeads].sort(compareGroupHeads);
     if (
+      value.adminGroupId === value.memberGroupId ||
       normalized.some(
         (head, index) =>
           head.principalId === normalized[index - 1]?.principalId,

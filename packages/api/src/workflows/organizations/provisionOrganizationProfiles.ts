@@ -13,6 +13,7 @@ import type {
   DocumentCreateResponse,
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { createDocumentWithExecutor } from "../documents/mutations";
 import { appendProvisionedDocumentInitialUpdate } from "../documents/mutations/syncDocument";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
@@ -25,13 +26,14 @@ interface ProfileProvisioningSigner {
 type ProfileContainer =
   ContainerCreateWithMetadataDocumentResponse["container"];
 
+// The event's own verifier runs later; this only reads the declared id, and
+// an empty or missing one reads as "".
+const documentEventIdSchema = z.object({ objectId: z.string() });
+
 export function readDocumentCreateRequestId(
   request: DocumentCreateRequest,
 ): string {
-  const documentId = Reflect.get(request.event, "objectId");
-  return typeof documentId === "string" && documentId.length > 0
-    ? documentId
-    : "";
+  return documentEventIdSchema.safeParse(request.event).data?.objectId ?? "";
 }
 
 /**
