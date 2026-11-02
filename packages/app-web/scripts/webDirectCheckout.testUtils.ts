@@ -91,16 +91,27 @@ export function withKey<T>(run: () => T): T {
 }
 
 export interface FakeHost {
-  children: unknown[];
+  children: { tag: string; remove(): void }[];
 }
 
+/** An app-owned host whose wrapper nodes can remove themselves. */
 export function host(): HTMLElement {
-  const fake = {
+  const fake: FakeHost & Record<string, unknown> = {
     nodeType: 1,
-    children: [] as unknown[],
-    ownerDocument: { createElement: (tag: string) => ({ tag }) },
-    replaceChildren: (...nodes: unknown[]) => {
-      fake.children = nodes;
+    children: [],
+    ownerDocument: {
+      createElement: (tag: string) => {
+        const node = {
+          tag,
+          remove: () => {
+            fake.children = fake.children.filter((child) => child !== node);
+          },
+        };
+        return node;
+      },
+    },
+    append: (...nodes: FakeHost["children"]) => {
+      fake.children.push(...nodes);
     },
   };
   return fake as unknown as HTMLElement;

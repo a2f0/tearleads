@@ -91,3 +91,34 @@ test("unmount destroys both elements and clears only the wrappers it added", asy
   expect(destroyed).toEqual(["contactDetails", "payment"]);
   expect((target as unknown as FakeHost).children).toEqual([]);
 });
+
+test("an abandoned mount's unmount leaves its replacement's form in place", async () => {
+  // Both mounts await one script load into the same host; the app abandons
+  // the first, and its cleanup must not blank the replacement.
+  const { stripe } = fakeStripe();
+  let release: (value: never) => void = () => undefined;
+  const load = new Promise<never>((resolve) => {
+    release = resolve;
+  });
+  const capability = withKey(() => createWebDirectCheckout(() => load));
+  const target = host();
+  const input = {
+    host: target,
+    clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
+    appearance: APPEARANCE,
+  };
+  const first = capability.mount(input);
+  const second = capability.mount(input);
+  release(stripe as never);
+  const [abandoned, replacement] = await Promise.all([first, second]);
+  const children = (target as unknown as FakeHost).children;
+  const replacementWrappers = children.slice(2);
+
+  abandoned.unmount();
+
+  expect(children).toHaveLength(4);
+  expect((target as unknown as FakeHost).children).toEqual(replacementWrappers);
+  replacement.unmount();
+  expect((target as unknown as FakeHost).children).toEqual([]);
+});

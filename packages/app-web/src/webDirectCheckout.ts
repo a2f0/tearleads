@@ -192,11 +192,17 @@ function mountElements(
   elements: StripeElements,
   host: HTMLElement,
   onBillingEmailChange: (email: string | null) => void,
-): { readonly billingEmail: () => string | null } {
+): {
+  readonly billingEmail: () => string | null;
+  readonly wrappers: readonly HTMLElement[];
+} {
   const doc = host.ownerDocument;
   const emailHost = doc.createElement("div");
   const paymentHost = doc.createElement("div");
-  host.replaceChildren(emailHost, paymentHost);
+  // Append, never replace: an abandoned mount and its replacement can share
+  // one host (both awaiting the same script load), and each session must own
+  // only its own wrappers.
+  host.append(emailHost, paymentHost);
 
   let billingEmail: string | null = null;
   const contact = elements.create("contactDetails");
@@ -212,14 +218,16 @@ function mountElements(
     fields: { billingDetails: { email: "never" } },
   });
   payment.mount(paymentHost);
-  return { billingEmail: () => billingEmail };
+  return {
+    billingEmail: () => billingEmail,
+    wrappers: [emailHost, paymentHost],
+  };
 }
 
 function createSession(
   stripe: Stripe,
   elements: StripeElements,
-  host: HTMLElement,
-  billingEmail: () => string | null,
+  mounted: ReturnType<typeof mountElements>,
 ): DirectCheckoutSession {
   let unmounted = false;
   return {
@@ -229,7 +237,7 @@ function createSession(
       }
       // The host gates Pay on a complete email, but the session must not
       // trust that: Stripe would reject a confirm without one anyway.
-      const email = billingEmail();
+      const email = mounted.billingEmail();
       if (!email) {
         return { kind: "declined", message: MISSING_BILLING_EMAIL };
       }
@@ -267,11 +275,13 @@ function createSession(
     unmount() {
       unmounted = true;
       // Destroying the elements releases their iframes; the Elements group
-      // is garbage once its elements are gone. The host is the app's, so
-      // only the wrappers this capability added are removed.
+      // is garbage once its elements are gone. The host is the app's, and a
+      // replacement session may share it, so only this session's wrappers go.
       elements.getElement("contactDetails")?.destroy();
       elements.getElement("payment")?.destroy();
-      host.replaceChildren();
+      for (const wrapper of mounted.wrappers) {
+        wrapper.remove();
+      }
     },
   };
 }
@@ -324,7 +334,7 @@ export function createWebDirectCheckout(
         appearance: toStripeAppearance(appearance),
       });
       const mounted = mountElements(elements, host, onBillingEmailChange);
-      return createSession(stripe, elements, host, mounted.billingEmail);
+      return createSession(stripe, elements, mounted);
     },
   };
 }
