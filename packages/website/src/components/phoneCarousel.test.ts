@@ -24,7 +24,7 @@ function entry(project: string, theme: string, name: string): ScreenshotEntry {
     name,
     src: `/screenshot-gallery/img/${project}-${theme}-${name}.png`,
     width: 1170,
-    height: 1992,
+    height: 2532,
   };
 }
 

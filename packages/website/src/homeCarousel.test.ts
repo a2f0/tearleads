@@ -53,7 +53,7 @@ beforeAll(async () => {
   ] as const) {
     const directory = join(root, "captures", "mobile", theme);
     await mkdir(directory, { recursive: true });
-    await writeFile(join(directory, `${name}.png`), pngHeader(1170, 1992));
+    await writeFile(join(directory, `${name}.png`), pngHeader(1170, 2532));
   }
   const publicDir = join(root, "public");
   await run([process.execPath, "scripts/buildScreenshots.ts"], {
@@ -105,7 +105,7 @@ test("only the first phone loads eagerly, and every phone declares its size", ()
   expect(images[1]).toContain('loading="lazy"');
   expect(images[1]).not.toContain('fetchpriority="high"');
   for (const image of images) {
-    expect(image).toContain('width="1170" height="1992"');
+    expect(image).toContain('width="1170" height="2532"');
     expect(image).toContain('decoding="async"');
   }
 });
