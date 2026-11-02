@@ -2,6 +2,7 @@ import type {
   DocumentEditAttributionRangeResponse,
   ListDocumentEditAttributionRangesResponse,
 } from "@tearleads/validators/response";
+import { z } from "zod";
 import type { DocumentEditAttributionSegment } from "../../documents/documentEditAttribution";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
 
@@ -50,37 +51,21 @@ function encodeRangeCursor(cursor: AttributionRangeCursor): string {
   return encodeCursor(cursor);
 }
 
+const nonNegativeSafeIntegerSchema = z.int().nonnegative();
+
+/** Unknown keys are ignored; the parsed cursor carries only these fields. */
+const AttributionRangeCursorSchema = z.object({
+  attributionRevision: nonNegativeSafeIntegerSchema,
+  attributionScope: z.string(),
+  documentId: z.string(),
+  offset: nonNegativeSafeIntegerSchema,
+  version: z.literal(1),
+});
+
 function parseRangeCursor(
   decoded: unknown,
 ): AttributionRangeCursor | undefined {
-  if (typeof decoded !== "object" || decoded === null) {
-    return undefined;
-  }
-  const version = Reflect.get(decoded, "version");
-  const documentId = Reflect.get(decoded, "documentId");
-  const attributionScope = Reflect.get(decoded, "attributionScope");
-  const attributionRevision = Reflect.get(decoded, "attributionRevision");
-  const offset = Reflect.get(decoded, "offset");
-  if (
-    version !== 1 ||
-    typeof documentId !== "string" ||
-    typeof attributionScope !== "string" ||
-    typeof attributionRevision !== "number" ||
-    !Number.isSafeInteger(attributionRevision) ||
-    attributionRevision < 0 ||
-    typeof offset !== "number" ||
-    !Number.isSafeInteger(offset) ||
-    offset < 0
-  ) {
-    return undefined;
-  }
-  return {
-    attributionRevision,
-    attributionScope,
-    documentId,
-    offset,
-    version,
-  };
+  return AttributionRangeCursorSchema.safeParse(decoded).data;
 }
 
 function decodeRangeCursor(value: string): AttributionRangeCursor {
