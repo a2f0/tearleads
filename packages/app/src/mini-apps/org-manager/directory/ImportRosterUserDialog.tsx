@@ -1,60 +1,97 @@
-import { type FormEvent, useId } from "react";
+import { type FormEvent, useId, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
   MiniAppField,
   MiniAppInput,
   MiniAppModalBackdrop,
+  MiniAppModalBusyOverlay,
   MiniAppModalForm,
   MiniAppModalPanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
+import type { RosterProfileNames } from "../../../stores/org-manager/profileDocuments";
 import { ORG_MANAGER_LABELS } from "../labels";
 
-export function ImportRosterUserDialog({
+interface ImportRosterUserDialogProps {
+  canImportRosterUser: boolean;
+  closeImportUserDialog: () => void;
+  error: string | null;
+  importRosterUser: (names: RosterProfileNames) => void;
+  importUserIdDraft: string;
+  isOpen: boolean;
+  mutating: boolean;
+  setImportUserIdDraft: (userId: string) => void;
+}
+
+export function ImportRosterUserDialog(props: ImportRosterUserDialogProps) {
+  // Mounting the form per opening gives every opening empty name fields.
+  return props.isOpen ? <ImportRosterUserForm {...props} /> : null;
+}
+
+function RosterNameField({
+  disabled,
+  label,
+  onChange,
+  value,
+}: {
+  disabled: boolean;
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  const inputId = useId();
+  return (
+    <MiniAppField>
+      <label htmlFor={inputId}>{label}</label>
+      <MiniAppInput
+        id={inputId}
+        autoComplete="off"
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        required
+        value={value}
+      />
+    </MiniAppField>
+  );
+}
+
+function ImportRosterUserForm({
   canImportRosterUser,
   closeImportUserDialog,
   error,
   importRosterUser,
   importUserIdDraft,
-  isOpen,
   mutating,
   setImportUserIdDraft,
-}: {
-  canImportRosterUser: boolean;
-  closeImportUserDialog: () => void;
-  error: string | null;
-  importRosterUser: () => void;
-  importUserIdDraft: string;
-  isOpen: boolean;
-  mutating: boolean;
-  setImportUserIdDraft: (userId: string) => void;
-}) {
+}: ImportRosterUserDialogProps) {
   const inputId = useId();
-
-  if (!isOpen) {
-    return null;
-  }
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const inputsDisabled = !canImportRosterUser || mutating;
+  const canSubmit =
+    !inputsDisabled &&
+    importUserIdDraft.trim().length > 0 &&
+    firstName.trim().length > 0 &&
+    lastName.trim().length > 0;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (
-      !canImportRosterUser ||
-      mutating ||
-      importUserIdDraft.trim().length === 0
-    ) {
+    if (!canSubmit) {
       return;
     }
 
-    importRosterUser();
+    importRosterUser({ firstName, lastName });
   };
 
   return (
     <MiniAppModalBackdrop role="presentation">
       <MiniAppModalPanel
-        role="dialog"
+        aria-busy={mutating}
         aria-labelledby="org-manager-import-user-title"
         aria-modal="true"
+        className="org-manager-import-user-dialog"
+        role="dialog"
       >
         <MiniAppModalForm onSubmit={handleSubmit}>
           <h2 id="org-manager-import-user-title">
@@ -74,12 +111,29 @@ export function ImportRosterUserDialog({
             <MiniAppInput
               id={inputId}
               autoFocus
-              disabled={!canImportRosterUser || mutating}
+              disabled={inputsDisabled}
               onChange={(event) => setImportUserIdDraft(event.target.value)}
               placeholder="Paste the person's identity link"
               value={importUserIdDraft}
             />
           </MiniAppField>
+          <div className="org-manager-import-user-names">
+            <RosterNameField
+              disabled={inputsDisabled}
+              label={ORG_MANAGER_LABELS.firstName}
+              onChange={setFirstName}
+              value={firstName}
+            />
+            <RosterNameField
+              disabled={inputsDisabled}
+              label={ORG_MANAGER_LABELS.lastName}
+              onChange={setLastName}
+              value={lastName}
+            />
+          </div>
+          <MiniAppStatus>
+            {ORG_MANAGER_LABELS.importUserNamesNote}
+          </MiniAppStatus>
           <MiniAppActions>
             <MiniAppButton
               disabled={mutating}
@@ -88,19 +142,14 @@ export function ImportRosterUserDialog({
             >
               {ORG_MANAGER_LABELS.cancel}
             </MiniAppButton>
-            <MiniAppButton
-              disabled={
-                !canImportRosterUser ||
-                mutating ||
-                importUserIdDraft.trim().length === 0
-              }
-              type="submit"
-              loading={mutating}
-            >
+            <MiniAppButton disabled={!canSubmit} type="submit">
               {ORG_MANAGER_LABELS.importUserSubmitAction}
             </MiniAppButton>
           </MiniAppActions>
         </MiniAppModalForm>
+        {mutating && (
+          <MiniAppModalBusyOverlay label={ORG_MANAGER_LABELS.importUserBusy} />
+        )}
       </MiniAppModalPanel>
     </MiniAppModalBackdrop>
   );

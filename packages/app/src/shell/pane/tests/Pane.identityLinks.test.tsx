@@ -12,7 +12,10 @@ import {
   importMiniAppContact,
   openMiniApp,
 } from "../../../../test/helpers/dual-pane/dualPaneMiniAppKit";
-import { importPeerIntoRoster } from "../../../../test/helpers/dual-pane/dualPaneRosterKit";
+import {
+  fillRosterImportNames,
+  importPeerIntoRoster,
+} from "../../../../test/helpers/dual-pane/dualPaneRosterKit";
 import { openOrgManager } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import { createPeerIdentityLink } from "../../../../test/helpers/identityLinkFixtures";
 import {
@@ -81,9 +84,10 @@ test("local identity links onboard contacts and roster users; a mismatch never g
   });
   const input = within(dialog).getByLabelText("Identity link");
   const before = listProxiedApiRequests().length;
-  await interact(() =>
-    fireEvent.change(input, { target: { value: mismatchedLink(bobLink) } }),
-  );
+  await interact(() => {
+    fireEvent.change(input, { target: { value: mismatchedLink(bobLink) } });
+    fillRosterImportNames(dialog);
+  });
   await interact(() =>
     fireEvent.click(
       within(dialog).getByRole("button", { name: "Verify and Add" }),
@@ -102,6 +106,11 @@ test("local identity links onboard contacts and roster users; a mismatch never g
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" })),
   );
   await importPeerIntoRoster(alice, bobId);
+  // The names typed into the dialog seed the new member's roster profile.
+  expect(
+    (await within(alice).findAllByText("Roster Peer", {}, { timeout: 15_000 }))
+      .length,
+  ).toBeGreaterThan(0);
 
   const aliceContacts = await openMiniApp(alice, "Contacts");
   await importMiniAppContact(aliceContacts, bobLink);

@@ -80,15 +80,16 @@ test("roster profile documents persist trusted identity fields", async () => {
       userId: user.userId,
     },
     isSelf: true,
-    nickname: "Ada",
+    names: { firstName: " Ada ", lastName: "Lovelace", nickname: "  " },
     organizationId: "organization-1",
   });
 
   expect(createdDocumentId).toBe("profile-document-1");
   const expectedFields = {
     encapsulationPublicKey: "trusted-encapsulation-public-key",
+    firstName: "Ada",
     isSelf: "1",
-    nickname: "Ada",
+    lastName: "Lovelace",
     userId: user.userId,
   };
   // A created profile's birth carries the fields; the same write still fills

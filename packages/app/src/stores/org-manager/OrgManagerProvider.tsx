@@ -31,13 +31,14 @@ import {
 import {
   createOrganizationProfileDocument,
   createRosterProfileDocument,
+  type RosterProfileNames,
 } from "./profileDocuments";
 
 interface OrgManagerBehavior {
   captureOperationScope: () => OrgManagerOperationScope | null;
   ensureRosterProfileDocument: (
     user: OrganizationDirectoryUser,
-    nickname?: string | undefined,
+    names?: RosterProfileNames | undefined,
   ) => Promise<OrganizationDirectoryUser | null>;
   ensureOrganizationProfileDocument: (
     profileDocumentId: string | null,
@@ -200,7 +201,7 @@ function useEnsureRosterProfileDocument(
     isOperationScopeActive,
   } = input;
   return useCallback(
-    async (user: OrganizationDirectoryUser, nickname?: string) => {
+    async (user: OrganizationDirectoryUser, names?: RosterProfileNames) => {
       if (user.profileDocumentId) {
         return user;
       }
@@ -229,7 +230,7 @@ function useEnsureRosterProfileDocument(
         documents,
         identity: trustedIdentity,
         isSelf: trustedIdentity.userId === operationScope.userId,
-        nickname,
+        names,
         organizationId: operationScope.organizationId,
       });
       if (!profileDocumentId || !isOperationScopeActive(operationScope)) {
