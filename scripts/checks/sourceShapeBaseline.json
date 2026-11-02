@@ -271,16 +271,16 @@
       "bytes": 16817
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 615,
-      "bytes": 18191
+      "lines": 616,
+      "bytes": 18226
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 559,
       "bytes": 19610
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 463,
-      "bytes": 32995
+      "lines": 464,
+      "bytes": 33103
     },
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
       "lines": 572,

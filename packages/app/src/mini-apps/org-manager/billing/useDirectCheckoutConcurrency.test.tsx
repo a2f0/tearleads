@@ -83,8 +83,8 @@ test("a double-clicked Pay confirms exactly once", async () => {
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   act(() => {
-    result.current.confirm();
-    result.current.confirm();
+    result.current.confirm("buyer@example.com");
+    result.current.confirm("buyer@example.com");
   });
   expect(confirms).toBe(1);
 
@@ -108,7 +108,7 @@ test("a cancelled confirmation releases the session so begin works again", async
   await act(async () => result.current.begin());
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
-  await act(async () => result.current.confirm());
+  await act(async () => result.current.confirm("buyer@example.com"));
   await waitFor(() => expect(result.current.phase.kind).toBe("idle"));
   expect(unmount).toHaveBeenCalledTimes(1);
 
