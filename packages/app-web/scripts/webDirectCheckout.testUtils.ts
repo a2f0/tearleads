@@ -24,15 +24,19 @@ export function fakeStripe(options?: {
   failCreate?: readonly string[];
 }) {
   const destroyed: string[] = [];
+  /** Every destroy as `<elements group index>:<type>`, in order. */
+  const destroyedByGroup: string[] = [];
   const confirmInputs: unknown[] = [];
   const created: { type: string; opts: unknown }[] = [];
   const email =
     options?.email === undefined ? "buyer@example.com" : options.email;
-  const byType = new Map<string, FakeElement>();
-  const makeElement = (type: string): FakeElement => {
+  const makeElement = (group: number, type: string): FakeElement => {
     const element: FakeElement = {
       mount: () => undefined,
-      destroy: () => destroyed.push(type),
+      destroy: () => {
+        destroyed.push(type);
+        destroyedByGroup.push(`${group}:${type}`);
+      },
       on: (event, handler) => {
         if (type === "contactDetails" && event === "change") {
           handler({ complete: email !== null, value: { email: email ?? "" } });
@@ -46,13 +50,16 @@ export function fakeStripe(options?: {
   const stripe = {
     elements: (opts: unknown) => {
       elementsOptions.push(opts);
+      // Each Elements group owns its elements, as in Stripe.js.
+      const group = elementsOptions.length - 1;
+      const byType = new Map<string, FakeElement>();
       return {
         create: (type: string, opts: unknown) => {
           if (options?.failCreate?.includes(type)) {
             throw new Error(`${type} element failed`);
           }
           created.push({ type, opts });
-          const element = makeElement(type);
+          const element = makeElement(group, type);
           byType.set(type, element);
           return element;
         },
@@ -65,7 +72,14 @@ export function fakeStripe(options?: {
       return { error: options?.confirmError };
     },
   };
-  return { confirmInputs, created, elementsOptions, stripe, destroyed };
+  return {
+    confirmInputs,
+    created,
+    elementsOptions,
+    stripe,
+    destroyed,
+    destroyedByGroup,
+  };
 }
 
 export const APPEARANCE = {

@@ -95,7 +95,7 @@ test("unmount destroys both elements and clears only the wrappers it added", asy
 test("an abandoned mount's unmount leaves its replacement's form in place", async () => {
   // Both mounts await one script load into the same host; the app abandons
   // the first, and its cleanup must not blank the replacement.
-  const { stripe } = fakeStripe();
+  const { destroyedByGroup, stripe } = fakeStripe();
   let release: (value: never) => void = () => undefined;
   const load = new Promise<never>((resolve) => {
     release = resolve;
@@ -119,8 +119,10 @@ test("an abandoned mount's unmount leaves its replacement's form in place", asyn
 
   expect(children).toHaveLength(4);
   expect((target as unknown as FakeHost).children).toEqual(replacementWrappers);
+  expect(destroyedByGroup).toEqual(["0:contactDetails", "0:payment"]);
   replacement.unmount();
   expect((target as unknown as FakeHost).children).toEqual([]);
+  expect(destroyedByGroup.slice(2)).toEqual(["1:contactDetails", "1:payment"]);
 });
 
 test("a failed card element releases the email element and its wrappers", async () => {
