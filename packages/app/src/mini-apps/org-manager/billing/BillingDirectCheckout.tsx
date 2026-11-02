@@ -1,10 +1,16 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
   MiniAppSection,
+  MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
+import {
+  MiniAppRow,
+  MiniAppRowStack,
+  MiniAppRowText,
+} from "../../../components/mini-app/rows/MiniAppRow";
 import { useAppFeatureFlags } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
@@ -114,6 +120,44 @@ function HostedCheckoutLink({
   );
 }
 
+/**
+ * The checkout screen's header: the billing panel hides everything else once
+ * Subscribe is clicked, so this names the screen and restates what is being
+ * bought. Focus moves to the heading on arrival, as on any new screen.
+ */
+function CheckoutScreenHeader({
+  name,
+  priceLabel,
+}: {
+  readonly name: string;
+  readonly priceLabel: string;
+}) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+  return (
+    <>
+      <MiniAppSectionHeading>
+        <h2 ref={headingRef} tabIndex={-1}>
+          {ORG_MANAGER_LABELS.billingCheckoutTitle}
+        </h2>
+      </MiniAppSectionHeading>
+      <MiniAppRow density="roomy" variant="framed">
+        <MiniAppRowStack>
+          <strong>{name}</strong>
+          <MiniAppRowText muted>{priceLabel}</MiniAppRowText>
+        </MiniAppRowStack>
+      </MiniAppRow>
+    </>
+  );
+}
+
+/** Whether the checkout has left the billing panel for its own screen. */
+export function isCheckoutScreenOpen(checkout: DirectCheckoutState): boolean {
+  return checkout.phase.kind !== "idle";
+}
+
 export function BillingDirectCheckout({
   checkout,
   disabled,
@@ -138,6 +182,12 @@ export function BillingDirectCheckout({
   const confirming = phase.kind === "confirming";
   const starting = phase.kind === "starting";
   const idle = phase.kind === "idle";
+  const priceLabel = formatPrice(
+    option.unitAmount,
+    option.currency,
+    option.interval,
+    option.intervalCount,
+  );
 
   return (
     <MiniAppSection>
@@ -148,12 +198,7 @@ export function BillingDirectCheckout({
             disabled={disabled}
             name={option.productName}
             onSelect={checkout.begin}
-            priceLabel={formatPrice(
-              option.unitAmount,
-              option.currency,
-              option.interval,
-              option.intervalCount,
-            )}
+            priceLabel={priceLabel}
           />
           {/* The hosted-page escape hatch for buyers who prefer not to type
               their card into our inline form; behind a feature flag (off by
@@ -165,7 +210,12 @@ export function BillingDirectCheckout({
             />
           ) : null}
         </>
-      ) : null}
+      ) : (
+        <CheckoutScreenHeader
+          name={option.productName}
+          priceLabel={priceLabel}
+        />
+      )}
 
       {starting ? (
         <MiniAppStatus className="org-manager-hint">
@@ -195,13 +245,16 @@ export function BillingDirectCheckout({
         </MiniAppStatus>
       )}
 
-      {collecting || confirming ? (
+      {/* Cancel is the way back to the billing panel, so it is offered from
+          `starting` on: the screen must never trap the buyer while the form
+          loads. Teardown discards a mount that lands after it. */}
+      {idle ? null : (
         <MiniAppActions>
           <MiniAppButton disabled={confirming} onClick={checkout.cancel}>
             {ORG_MANAGER_LABELS.billingCancelCheckout}
           </MiniAppButton>
           <MiniAppButton
-            disabled={confirming || disabled || !checkout.billingEmailComplete}
+            disabled={!collecting || disabled || !checkout.billingEmailComplete}
             onClick={checkout.confirm}
           >
             {confirming
@@ -209,7 +262,7 @@ export function BillingDirectCheckout({
               : ORG_MANAGER_LABELS.billingCheckoutPay}
           </MiniAppButton>
         </MiniAppActions>
-      ) : null}
+      )}
 
       {checkout.error ? (
         <MiniAppStatus tone="error">{checkout.error}</MiniAppStatus>

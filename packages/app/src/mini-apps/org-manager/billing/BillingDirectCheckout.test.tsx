@@ -470,3 +470,17 @@ test("the hosted-checkout link is not offered once the inline flow starts", () =
   );
   expect(view.queryByText(ORG_MANAGER_LABELS.billingPayOnStripe)).toBeNull();
 });
+
+test("a starting checkout screen names itself and can be left before it loads", () => {
+  const cancel = mock(() => undefined);
+  const checkout = state({ phase: { kind: "starting" }, cancel });
+  const view = render(
+    <BillingDirectCheckout checkout={checkout} disabled={false} />,
+  );
+  const button = (name: string) => view.getByRole("button", { name });
+
+  expect(view.getByRole("heading", { name: "Checkout" })).toBeDefined();
+  expect(button("Pay and subscribe").hasAttribute("disabled")).toBe(true);
+  fireEvent.click(button(ORG_MANAGER_LABELS.billingCancelCheckout));
+  expect(cancel).toHaveBeenCalledTimes(1);
+});
