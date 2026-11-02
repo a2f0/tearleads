@@ -1,12 +1,19 @@
 /** Minimal outbound RevenueCat REST API v2 client. */
 
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+import { z } from "zod";
+import {
+  providerFieldSchema,
+  providerStringSchema,
+  readProviderField,
+  readProviderObject,
+  readProviderString,
+} from "./providerPayloadSchema";
 import {
   allowsRevenueCatSandboxEvents,
   REVENUECAT_API_ORIGIN,
   readRevenueCatV2Credentials,
 } from "./revenueCatConfig";
-import { readString } from "./stripeHttp";
 
 /** Fail soft rather than hang if RevenueCat stalls mid-request. */
 const REQUEST_TIMEOUT_MS = 5000;
@@ -62,54 +69,58 @@ interface CustomerSubscriptionsResult {
   readonly subscriptions: ResolvedSubscription[];
 }
 
+/**
+ * One RevenueCat v2 subscription object. Each field is read on its own, so a
+ * malformed field reads as null without hiding its siblings; anything that is
+ * not an object reads with every field missing.
+ */
+const subscriptionFieldsSchema = z.looseObject({
+  current_period_ends_at: providerFieldSchema,
+  current_period_starts_at: providerFieldSchema,
+  customer_id: providerFieldSchema,
+  environment: providerFieldSchema,
+  gives_access: providerFieldSchema,
+  id: providerFieldSchema,
+  management_url: providerFieldSchema,
+  product_id: providerFieldSchema,
+  store: providerFieldSchema,
+  store_subscription_identifier: providerFieldSchema,
+});
+
+/** A list page's items and cursor are read independently. */
+const subscriptionPageItemsSchema = z.looseObject({
+  items: z.array(z.unknown()),
+});
+
+/** An empty cursor, like a missing one, ends pagination. */
+const subscriptionPageCursorSchema = z.looseObject({ next_page: z.string() });
+
+const productStoreIdentifierSchema = z.looseObject({
+  store_identifier: providerStringSchema,
+});
+
 function readDate(value: unknown): Date | null {
-  if (typeof value !== "string") return null;
-  const milliseconds = Date.parse(value);
+  const text = readProviderField(z.string(), value);
+  if (text === null) return null;
+  const milliseconds = Date.parse(text);
   return Number.isNaN(milliseconds) ? null : new Date(milliseconds);
 }
 
-/**
- * Reads the fields this client needs off one RevenueCat v2 subscription object,
- * narrowing from `unknown` with the `in` operator — no type assertion (the repo
- * forbids `as` in production sources).
- */
 function readSubscription(item: unknown): ResolvedSubscription {
-  if (typeof item !== "object" || item === null) {
-    return {
-      customerId: null,
-      currentPeriodEndsAt: null,
-      currentPeriodStartsAt: null,
-      environment: null,
-      givesAccess: false,
-      id: null,
-      managementUrl: null,
-      productResourceId: null,
-      store: null,
-      storeIdentifier: null,
-    };
-  }
+  const subscription = readProviderObject(subscriptionFieldsSchema, item);
   return {
-    customerId: readString("customer_id" in item ? item.customer_id : null),
-    currentPeriodEndsAt: readDate(
-      "current_period_ends_at" in item ? item.current_period_ends_at : null,
-    ),
-    currentPeriodStartsAt: readDate(
-      "current_period_starts_at" in item ? item.current_period_starts_at : null,
-    ),
-    environment: readString("environment" in item ? item.environment : null),
-    givesAccess: "gives_access" in item && item.gives_access === true,
-    id: readString("id" in item ? item.id : null),
-    managementUrl: readString(
-      "management_url" in item ? item.management_url : null,
-    ),
-    productResourceId: readString(
-      "product_id" in item ? item.product_id : null,
-    ),
-    store: readString("store" in item ? item.store : null),
-    storeIdentifier: readString(
-      "store_subscription_identifier" in item
-        ? item.store_subscription_identifier
-        : null,
+    customerId: readProviderString(subscription.customer_id),
+    currentPeriodEndsAt: readDate(subscription.current_period_ends_at),
+    currentPeriodStartsAt: readDate(subscription.current_period_starts_at),
+    environment: readProviderString(subscription.environment),
+    givesAccess:
+      readProviderField(z.literal(true), subscription.gives_access) === true,
+    id: readProviderString(subscription.id),
+    managementUrl: readProviderString(subscription.management_url),
+    productResourceId: readProviderString(subscription.product_id),
+    store: readProviderString(subscription.store),
+    storeIdentifier: readProviderString(
+      subscription.store_subscription_identifier,
     ),
   };
 }
@@ -258,9 +269,10 @@ async function fetchProductStoreIdentifier(input: {
   );
   if (!response.ok) return null;
   const body: unknown = await response.json();
-  return typeof body === "object" && body !== null && "store_identifier" in body
-    ? readString(body.store_identifier)
-    : null;
+  return (
+    readProviderField(productStoreIdentifierSchema, body)?.store_identifier ??
+    null
+  );
 }
 
 /** Extracts the subscriptions and the next-page path from one list response. */
@@ -268,18 +280,14 @@ function parseSubscriptionPage(body: unknown): {
   subscriptions: ResolvedSubscription[];
   nextPage: string;
 } {
-  if (typeof body !== "object" || body === null) {
-    return { subscriptions: [], nextPage: "" };
-  }
-  const subscriptions =
-    "items" in body && Array.isArray(body.items)
-      ? body.items.map(readSubscription)
-      : [];
-  const nextPage =
-    "next_page" in body && typeof body.next_page === "string"
-      ? body.next_page
-      : "";
-  return { subscriptions, nextPage };
+  return {
+    subscriptions:
+      readProviderField(subscriptionPageItemsSchema, body)?.items.map(
+        readSubscription,
+      ) ?? [],
+    nextPage:
+      readProviderField(subscriptionPageCursorSchema, body)?.next_page ?? "",
+  };
 }
 
 /**

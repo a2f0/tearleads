@@ -1,11 +1,35 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { z } from "zod";
 import {
-  prop,
-  readNonnegativeInteger,
-  readPositiveInteger,
-  readString,
+  nonnegativeIntegerSchema,
+  positiveIntegerSchema,
+  readProviderField,
+  readProviderObject,
+  readProviderString,
+  readStripeReferenceId,
   readUnixTimestamp,
-} from "./stripeHttp";
+} from "./providerPayloadSchema";
+import {
+  billingReasonSchema,
+  embeddedLinesSchema,
+  eventDataSchema,
+  invoiceFieldsSchema,
+  invoiceLineFieldsSchema,
+  invoiceParentSubscriptionSchema,
+  lineItemDetailsSchema,
+  lineListDataSchema,
+  lineListHasMoreSchema,
+  lineParentSchema,
+  linePeriodSchema,
+  linePriceDetailsSchema,
+  linePriceSchema,
+  linePricingSchema,
+  paidEventFieldsSchema,
+  paidEventSchema,
+  recurringFieldsSchema,
+  statusTransitionsSchema,
+  unitAmountDecimalSchema,
+} from "./stripeWebhookSchema";
 
 /**
  * Stripe webhook verification and event extraction for the direct web
@@ -95,16 +119,7 @@ export function extractPaidSubscriptionId(event: unknown): string | null {
     : null;
 }
 
-export type StripeInvoiceBillingReason =
-  | "automatic_pending_invoice_item_invoice"
-  | "manual"
-  | "quote_accept"
-  | "subscription"
-  | "subscription_create"
-  | "subscription_cycle"
-  | "subscription_threshold"
-  | "subscription_update"
-  | "upcoming";
+export type StripeInvoiceBillingReason = z.output<typeof billingReasonSchema>;
 
 export interface StripePaidInvoiceLineSnapshot {
   readonly currency: string | null;
@@ -138,47 +153,21 @@ interface StripePaidInvoiceLineListSnapshot {
   readonly lines: readonly StripePaidInvoiceLineSnapshot[];
 }
 
-function readUnitAmount(value: unknown): number | null {
-  if (typeof value === "number") {
-    return readNonnegativeInteger(value);
-  }
-  if (typeof value !== "string" || !/^\d+(?:\.0+)?$/.test(value)) {
-    return null;
-  }
-  return readNonnegativeInteger(Number(value));
-}
-
 function readBoolean(value: unknown): boolean | null {
-  return typeof value === "boolean" ? value : null;
+  return readProviderField(z.boolean(), value);
 }
 
-function readResourceId(value: unknown): string | null {
-  return readString(value) ?? readString(prop(value, "id"));
+/** An integer amount, or a decimal string whose fraction is all zeros. */
+function readUnitAmount(value: unknown): number | null {
+  const decimal = readProviderField(unitAmountDecimalSchema, value);
+  return readProviderField(
+    nonnegativeIntegerSchema,
+    decimal === null ? value : Number(decimal),
+  );
 }
 
-function readBillingReason(value: unknown): StripeInvoiceBillingReason | null {
-  switch (readString(value)) {
-    case "automatic_pending_invoice_item_invoice":
-      return "automatic_pending_invoice_item_invoice";
-    case "manual":
-      return "manual";
-    case "quote_accept":
-      return "quote_accept";
-    case "subscription":
-      return "subscription";
-    case "subscription_create":
-      return "subscription_create";
-    case "subscription_cycle":
-      return "subscription_cycle";
-    case "subscription_threshold":
-      return "subscription_threshold";
-    case "subscription_update":
-      return "subscription_update";
-    case "upcoming":
-      return "upcoming";
-    default:
-      return null;
-  }
+function readPositiveInteger(value: unknown): number | null {
+  return readProviderField(positiveIntegerSchema, value);
 }
 
 function firstPresent<T>(
@@ -194,86 +183,78 @@ function firstPresent<T>(
   return null;
 }
 
-function readIntervalCount(recurringPrices: readonly unknown[]): number | null {
-  return firstPresent(
-    recurringPrices.map((recurring) => prop(recurring, "interval_count")),
-    readPositiveInteger,
+function extractPaidInvoiceLine(value: unknown): StripePaidInvoiceLineSnapshot {
+  const line = readProviderObject(invoiceLineFieldsSchema, value);
+  const oldPrice = readProviderObject(linePriceSchema, line.price);
+  const pricing = readProviderObject(linePricingSchema, line.pricing);
+  const priceDetails = readProviderObject(
+    linePriceDetailsSchema,
+    pricing.price_details,
   );
-}
-
-function extractPaidInvoiceLine(line: unknown): StripePaidInvoiceLineSnapshot {
-  const oldPrice = prop(line, "price");
-  const pricing = prop(line, "pricing");
-  const priceDetails = prop(pricing, "price_details");
-  const currentPrice = prop(priceDetails, "price");
-  const parent = prop(line, "parent");
-  const subscriptionItemDetails = prop(parent, "subscription_item_details");
-  const invoiceItemDetails = prop(parent, "invoice_item_details");
-  const oldRecurring = prop(oldPrice, "recurring");
-  const currentRecurring = prop(currentPrice, "recurring");
-  const priceDetailsRecurring = prop(priceDetails, "recurring");
-  const period = prop(line, "period");
+  const currentPrice = readProviderObject(linePriceSchema, priceDetails.price);
+  const parent = readProviderObject(lineParentSchema, line.parent);
+  const subscriptionItemDetails = readProviderObject(
+    lineItemDetailsSchema,
+    parent.subscription_item_details,
+  );
+  const invoiceItemDetails = readProviderObject(
+    lineItemDetailsSchema,
+    parent.invoice_item_details,
+  );
+  const recurrings = [
+    oldPrice.recurring,
+    currentPrice.recurring,
+    priceDetails.recurring,
+  ].map((recurring) => readProviderObject(recurringFieldsSchema, recurring));
+  const period = readProviderObject(linePeriodSchema, line.period);
+  const itemDetails = [line, subscriptionItemDetails, invoiceItemDetails];
 
   return {
     currency: firstPresent(
       [
-        prop(line, "currency"),
-        prop(oldPrice, "currency"),
-        prop(currentPrice, "currency"),
-        prop(priceDetails, "currency"),
+        line.currency,
+        oldPrice.currency,
+        currentPrice.currency,
+        priceDetails.currency,
       ],
-      readString,
+      readProviderString,
     ),
-    id: readString(prop(line, "id")),
+    id: readProviderString(line.id),
     interval: firstPresent(
-      [
-        prop(oldRecurring, "interval"),
-        prop(currentRecurring, "interval"),
-        prop(priceDetailsRecurring, "interval"),
-      ],
-      readString,
+      recurrings.map((recurring) => recurring.interval),
+      readProviderString,
     ),
-    intervalCount: readIntervalCount([
-      oldRecurring,
-      currentRecurring,
-      priceDetailsRecurring,
-    ]),
-    periodEndsAt: readUnixTimestamp(prop(period, "end")),
-    periodStartsAt: readUnixTimestamp(prop(period, "start")),
-    priceId: firstPresent([oldPrice, currentPrice], readResourceId),
+    intervalCount: firstPresent(
+      recurrings.map((recurring) => recurring.interval_count),
+      readPositiveInteger,
+    ),
+    periodEndsAt: readUnixTimestamp(period.end),
+    periodStartsAt: readUnixTimestamp(period.start),
+    priceId: firstPresent(
+      [line.price, priceDetails.price],
+      readStripeReferenceId,
+    ),
     proration: firstPresent(
-      [
-        prop(line, "proration"),
-        prop(subscriptionItemDetails, "proration"),
-        prop(invoiceItemDetails, "proration"),
-      ],
+      itemDetails.map((details) => details.proration),
       readBoolean,
     ),
-    quantity: readPositiveInteger(prop(line, "quantity")),
+    quantity: readPositiveInteger(line.quantity),
     subscriptionId: firstPresent(
-      [
-        prop(line, "subscription"),
-        prop(subscriptionItemDetails, "subscription"),
-        prop(invoiceItemDetails, "subscription"),
-      ],
-      readResourceId,
+      itemDetails.map((details) => details.subscription),
+      readStripeReferenceId,
     ),
     subscriptionItemId: firstPresent(
-      [
-        prop(line, "subscription_item"),
-        prop(subscriptionItemDetails, "subscription_item"),
-        prop(invoiceItemDetails, "subscription_item"),
-      ],
-      readResourceId,
+      itemDetails.map((details) => details.subscription_item),
+      readStripeReferenceId,
     ),
     unitAmount: firstPresent(
       [
-        prop(oldPrice, "unit_amount"),
-        prop(oldPrice, "unit_amount_decimal"),
-        prop(pricing, "unit_amount_decimal"),
-        prop(priceDetails, "unit_amount_decimal"),
-        prop(currentPrice, "unit_amount"),
-        prop(currentPrice, "unit_amount_decimal"),
+        oldPrice.unit_amount,
+        oldPrice.unit_amount_decimal,
+        pricing.unit_amount_decimal,
+        priceDetails.unit_amount_decimal,
+        currentPrice.unit_amount,
+        currentPrice.unit_amount_decimal,
       ],
       readUnitAmount,
     ),
@@ -284,12 +265,15 @@ function extractPaidInvoiceLine(line: unknown): StripePaidInvoiceLineSnapshot {
 export function extractPaidInvoiceLineList(
   value: unknown,
 ): StripePaidInvoiceLineListSnapshot {
-  const embeddedLines = prop(value, "lines");
+  const embeddedLines = readProviderObject(embeddedLinesSchema, value).lines;
   const lineList = embeddedLines === undefined ? value : embeddedLines;
-  const data = prop(lineList, "data");
   return {
-    hasMore: readBoolean(prop(lineList, "has_more")),
-    lines: Array.isArray(data) ? data.map(extractPaidInvoiceLine) : [],
+    hasMore:
+      readProviderField(lineListHasMoreSchema, lineList)?.has_more ?? null,
+    lines:
+      readProviderField(lineListDataSchema, lineList)?.data.map(
+        extractPaidInvoiceLine,
+      ) ?? [],
   };
 }
 
@@ -298,44 +282,47 @@ export function extractPaidSubscriptionInvoice(
   event: unknown,
   processingTime: Date = new Date(),
 ): StripePaidSubscriptionInvoice | null {
-  if (readString(prop(event, "type")) !== "invoice.paid") {
+  if (!paidEventSchema.safeParse(event).success) {
     return null;
   }
-  const invoice = prop(prop(event, "data"), "object");
-  const billingReason = readBillingReason(prop(invoice, "billing_reason"));
+  const eventFields = readProviderObject(paidEventFieldsSchema, event);
+  const invoiceValue = readProviderObject(
+    eventDataSchema,
+    eventFields.data,
+  ).object;
+  const invoice = readProviderObject(invoiceFieldsSchema, invoiceValue);
+  const billingReason = readProviderField(
+    billingReasonSchema,
+    invoice.billing_reason,
+  );
   if (!billingReason) {
     return null;
   }
-  const lineList = extractPaidInvoiceLineList(invoice);
+  const lineList = extractPaidInvoiceLineList(invoiceValue);
   const shared: Omit<StripePaidSubscriptionInvoice, "subscriptionId"> = {
-    amountPaid: readNonnegativeInteger(prop(invoice, "amount_paid")),
+    amountPaid: readProviderField(
+      nonnegativeIntegerSchema,
+      invoice.amount_paid,
+    ),
     billingReason,
-    currency: readString(prop(invoice, "currency")),
-    invoiceId: readString(prop(invoice, "id")),
+    currency: readProviderString(invoice.currency),
+    invoiceId: readProviderString(invoice.id),
     lines: lineList.lines,
     linesHasMore: lineList.hasMore,
     occurredAt:
-      readUnixTimestamp(prop(prop(invoice, "status_transitions"), "paid_at")) ??
-      readUnixTimestamp(prop(event, "created")) ??
+      readUnixTimestamp(
+        readProviderObject(statusTransitionsSchema, invoice.status_transitions)
+          .paid_at,
+      ) ??
+      readUnixTimestamp(eventFields.created) ??
       processingTime,
-    providerEventId: readString(prop(event, "id")),
+    providerEventId: readProviderString(eventFields.id),
   };
-  const subscription = prop(invoice, "subscription");
-  const direct =
-    readString(subscription) ?? readString(prop(subscription, "id"));
-  if (direct) {
-    return {
-      ...shared,
-      subscriptionId: direct,
-    };
-  }
-  const details = prop(prop(invoice, "parent"), "subscription_details");
-  const nested = prop(details, "subscription");
-  const subscriptionId = readString(nested) ?? readString(prop(nested, "id"));
-  return subscriptionId
-    ? {
-        ...shared,
-        subscriptionId,
-      }
-    : null;
+  const subscriptionId =
+    readStripeReferenceId(invoice.subscription) ??
+    readStripeReferenceId(
+      readProviderField(invoiceParentSubscriptionSchema, invoice.parent)
+        ?.subscription_details.subscription,
+    );
+  return subscriptionId ? { ...shared, subscriptionId } : null;
 }
