@@ -2,14 +2,16 @@ import {
   getSyncBillingTier,
   type SyncBillingTierId,
 } from "@tearleads/validators/billing";
+import { z } from "zod";
 import {
-  prop,
-  readPositiveInteger,
-  readString,
-  resolveDeps,
-  type StripeApiDeps,
-  stripeRequest,
-} from "./stripeHttp";
+  positiveIntegerSchema,
+  providerFieldSchema,
+  providerResponseSchema,
+  providerStringSchema,
+  readProviderField,
+  readProviderObject,
+} from "./providerPayloadSchema";
+import { resolveDeps, type StripeApiDeps, stripeRequest } from "./stripeHttp";
 
 /** The configured sync subscription price shaped for client display. */
 export interface StripeSyncOption {
@@ -24,6 +26,41 @@ export interface StripeSyncOption {
   readonly interval: string | null;
   /** Number of intervals in one billing period; null when Stripe omits it. */
   readonly intervalCount: number | null;
+}
+
+/** Price fields are read one by one so a mismatch log shows each readable one. */
+const priceFieldsSchema = z.looseObject({
+  active: providerFieldSchema,
+  currency: providerFieldSchema,
+  id: providerFieldSchema,
+  product: providerFieldSchema,
+  recurring: providerFieldSchema,
+  unit_amount: providerFieldSchema,
+});
+
+const recurringFieldsSchema = z.looseObject({
+  interval: providerFieldSchema,
+  interval_count: providerFieldSchema,
+});
+
+const expandedProductSchema = z.looseObject({
+  id: providerStringSchema,
+  active: z.boolean(),
+});
+
+/** The terms compared with the tier; each reads as null on its own. */
+function readPriceTerms(price: Partial<z.output<typeof priceFieldsSchema>>) {
+  const recurring = readProviderObject(recurringFieldsSchema, price.recurring);
+  return {
+    currency: readProviderField(providerStringSchema, price.currency),
+    interval: readProviderField(providerStringSchema, recurring.interval),
+    intervalCount: readProviderField(
+      positiveIntegerSchema,
+      recurring.interval_count,
+    ),
+    priceId: readProviderField(providerStringSchema, price.id),
+    unitAmount: readProviderField(positiveIntegerSchema, price.unit_amount),
+  };
 }
 
 /** Fetches and validates the active monthly USD Price and Product for one tier. */
@@ -44,7 +81,7 @@ export async function getStripeSyncOption(
     path: `/v1/prices/${encodeURIComponent(syncPriceId)}?expand[]=product`,
     operation: "price and product lookup",
   });
-  if (typeof body !== "object" || body === null) {
+  if (!providerResponseSchema.safeParse(body).success) {
     console.error("Configured Stripe catalog entry is unusable", {
       priceId: syncPriceId,
       reason: "Price lookup returned an invalid response",
@@ -52,13 +89,10 @@ export async function getStripeSyncOption(
     });
     return null;
   }
-  const recurring = prop(body, "recurring");
-  const unitAmount = readPositiveInteger(prop(body, "unit_amount"));
-  const priceId = readString(prop(body, "id"));
-  const priceActive = prop(body, "active");
-  const currency = readString(prop(body, "currency"));
-  const interval = readString(prop(recurring, "interval"));
-  const intervalCount = readPositiveInteger(prop(recurring, "interval_count"));
+  const price = readProviderObject(priceFieldsSchema, body);
+  const priceActive = readProviderField(z.boolean(), price.active);
+  const { currency, interval, intervalCount, priceId, unitAmount } =
+    readPriceTerms(price);
   if (priceActive !== true) {
     console.error("Configured Stripe catalog entry is unusable", {
       priceId: syncPriceId,
@@ -70,10 +104,8 @@ export async function getStripeSyncOption(
     });
     return null;
   }
-  const product = prop(body, "product");
-  const productId = readString(prop(product, "id"));
-  const productActive = prop(product, "active");
-  if (!productId || typeof productActive !== "boolean") {
+  const product = readProviderField(expandedProductSchema, price.product);
+  if (!product) {
     console.error("Configured Stripe catalog entry is unusable", {
       priceId: syncPriceId,
       reason: "Expanded Product is missing or invalid",
@@ -81,10 +113,10 @@ export async function getStripeSyncOption(
     });
     return null;
   }
-  if (!productActive) {
+  if (!product.active) {
     console.error("Configured Stripe catalog entry is unusable", {
       priceId: syncPriceId,
-      productId,
+      productId: product.id,
       reason: "Product is inactive",
       tierId,
     });

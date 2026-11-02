@@ -10,6 +10,7 @@
 }
 
 .mini-app-modal-panel {
+  position: relative;
   width: min(100%, var(--modal-width));
   box-sizing: border-box;
   padding: var(--space-md);
@@ -28,4 +29,46 @@
 .mini-app-modal-form h2 {
   margin: 0;
   font-size: var(--font-size-md);
+}
+
+.mini-app-modal-busy {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--color-light) 88%, transparent);
+  text-align: center;
+  cursor: progress;
+}
+
+/* A plain CSS keyframe rotation of a transform: browsers run it on the
+   compositor, which also works in software, so it keeps turning with graphics
+   acceleration off and while the main thread is busy verifying keys. */
+.mini-app-modal-busy-spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  box-sizing: border-box;
+  border: 4px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: mini-app-modal-busy-spin 0.8s linear infinite;
+}
+
+@keyframes mini-app-modal-busy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Slow the turn rather than stop it: a frozen ring would read as a hang. */
+@media (prefers-reduced-motion: reduce) {
+  .mini-app-modal-busy-spinner {
+    animation-duration: 2.4s;
+  }
 }

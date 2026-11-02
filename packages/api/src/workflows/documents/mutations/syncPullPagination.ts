@@ -6,6 +6,7 @@ import {
   isUuidV4String,
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
 } from "@tearleads/validators/util";
+import { z } from "zod";
 import {
   type DocumentUpdateCursorPosition,
   DocumentUpdateReadError,
@@ -98,52 +99,66 @@ function invalidPullCursor(): DocumentMutationError {
   );
 }
 
-function parsePullCursor(value: unknown): SyncPullCursor | undefined {
-  if (!Array.isArray(value) || (value.length !== 8 && value.length !== 9)) {
-    return undefined;
-  }
-  const version = value[0];
-  const rawHistoryCursor = version === 2;
-  const offset = rawHistoryCursor ? 1 : 0;
-  const historyMode = rawHistoryCursor ? value[1] : undefined;
-  const contentKeyEpoch = value[1 + offset];
-  const documentId = value[2 + offset];
-  const linkSetManifestHash = value[3 + offset];
-  const targetHash = value[4 + offset];
-  const afterUpdateId = value[5 + offset];
-  const upperBoundUpdateId = value[6 + offset];
-  const signature = value[7 + offset];
-  if (
-    (version !== 1 && version !== 2) ||
-    (version === 1 && value.length !== 8) ||
-    (version === 2 && value.length !== 9) ||
-    (rawHistoryCursor && historyMode !== "raw") ||
-    typeof afterUpdateId !== "string" ||
-    !isUuidV4String(afterUpdateId) ||
-    typeof contentKeyEpoch !== "number" ||
-    !Number.isSafeInteger(contentKeyEpoch) ||
-    contentKeyEpoch < 1 ||
-    typeof documentId !== "string" ||
-    typeof linkSetManifestHash !== "string" ||
-    typeof targetHash !== "string" ||
-    typeof upperBoundUpdateId !== "string" ||
-    !isUuidV4String(upperBoundUpdateId) ||
-    typeof signature !== "string" ||
-    !BASE64URL_SHA256_PATTERN.test(signature)
-  ) {
-    return undefined;
-  }
+const uuidV4Schema = z.string().refine(isUuidV4String);
+const contentKeyEpochSchema = z.int().min(1);
+const signatureSchema = z.string().regex(BASE64URL_SHA256_PATTERN);
+const pullCursorBodySchemas = [
+  contentKeyEpochSchema,
+  z.string(),
+  z.string(),
+  z.string(),
+  uuidV4Schema,
+  uuidV4Schema,
+  signatureSchema,
+] as const;
+
+/** Version 1 is exactly 8 slots; raw-history version 2 is exactly 9. */
+const PullCursorWireSchema = z.union([
+  z.tuple([z.literal(1), ...pullCursorBodySchemas]),
+  z.tuple([z.literal(2), z.literal("raw"), ...pullCursorBodySchemas]),
+]);
+
+type PullCursorBody = readonly [
+  contentKeyEpoch: number,
+  documentId: string,
+  linkSetManifestHash: string,
+  targetHash: string,
+  afterUpdateId: string,
+  upperBoundUpdateId: string,
+  signature: string,
+];
+
+function pullCursorBody([
+  contentKeyEpoch,
+  documentId,
+  linkSetManifestHash,
+  targetHash,
+  afterUpdateId,
+  upperBoundUpdateId,
+  signature,
+]: PullCursorBody): Omit<SyncPullCursor, "historyMode" | "version"> {
   return {
     afterUpdateId,
     contentKeyEpoch,
     documentId,
-    ...(rawHistoryCursor ? { historyMode: "raw" as const } : {}),
     linkSetManifestHash,
     signature,
     targetHash,
     upperBoundUpdateId,
-    version,
   };
+}
+
+function parsePullCursor(value: unknown): SyncPullCursor | undefined {
+  const parsed = PullCursorWireSchema.safeParse(value);
+  if (!parsed.success) {
+    return undefined;
+  }
+  if (parsed.data[0] === 2) {
+    const [version, historyMode, ...body] = parsed.data;
+    return { ...pullCursorBody(body), historyMode, version };
+  }
+  const [version, ...body] = parsed.data;
+  return { ...pullCursorBody(body), version };
 }
 
 function cursorPayloadWire(

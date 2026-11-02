@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { set } from "../adapters/keyValueStore";
 import { consumeWebSocketTicket, issueWebSocketTicket } from "./wsTicket";
 
 const TEST_SESSION_ID =
@@ -44,4 +45,53 @@ test("rejects invalid ticket identities before storage", async () => {
   await expect(
     issueWebSocketTicket({ sessionId: "session-1", userId: TEST_USER_ID }),
   ).rejects.toThrow("WebSocket ticket identity must reference a live session");
+});
+
+test("stored ticket identities that are malformed fail closed", async () => {
+  const valid = { sessionId: TEST_SESSION_ID, userId: TEST_USER_ID };
+  const malformed: readonly string[] = [
+    "not json",
+    "",
+    "null",
+    "1",
+    '"identity"',
+    "[]",
+    JSON.stringify([valid]),
+    JSON.stringify({ userId: TEST_USER_ID }),
+    JSON.stringify({ sessionId: TEST_SESSION_ID }),
+    JSON.stringify({ ...valid, userId: 1 }),
+    JSON.stringify({ ...valid, userId: null }),
+    JSON.stringify({ ...valid, userId: "" }),
+    JSON.stringify({
+      ...valid,
+      userId: "550e8400-e29b-11d4-a716-446655440000",
+    }),
+    JSON.stringify({ ...valid, userId: TEST_USER_ID.toUpperCase() }),
+    JSON.stringify({ ...valid, sessionId: 1 }),
+    JSON.stringify({ ...valid, sessionId: "session-1" }),
+    JSON.stringify({ ...valid, sessionId: TEST_SESSION_ID.toUpperCase() }),
+    JSON.stringify({ ...valid, sessionId: `${TEST_SESSION_ID}0` }),
+  ];
+  let validations = 0;
+  const validateSession = async () => {
+    validations += 1;
+    return true;
+  };
+  for (const [index, raw] of malformed.entries()) {
+    const ticket = index.toString(16).padStart(64, "c");
+    await set(`ws-ticket:${ticket}`, raw, 60);
+    expect(await consumeWebSocketTicket(ticket, validateSession)).toBeNull();
+  }
+  expect(validations).toBe(0);
+
+  const extended = "d".repeat(64);
+  await set(
+    `ws-ticket:${extended}`,
+    JSON.stringify({ ...valid, extra: true }),
+    60,
+  );
+  expect(await consumeWebSocketTicket(extended, validateSession)).toEqual(
+    valid,
+  );
+  expect(validations).toBe(1);
 });

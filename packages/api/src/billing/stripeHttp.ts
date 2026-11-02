@@ -1,8 +1,8 @@
 /**
  * Shared HTTP plumbing for the outbound Stripe REST client (issue #1654):
  * configuration reading, the request helper (auth, pinned API version,
- * timeouts, idempotency keys), and the untyped-JSON access helpers. The
- * domain calls live in stripeApi.ts.
+ * timeouts, idempotency keys). Responses are parsed with the schemas in
+ * providerPayloadSchema.ts; the domain calls live in stripeApi.ts.
  */
 
 import {
@@ -154,44 +154,6 @@ async function performStripeFetch(input: {
     ...(input.form ? { body: input.form.toString() } : {}),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-}
-
-export function readString(value: unknown): string | null {
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-export function readNonnegativeInteger(value: unknown): number | null {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
-    ? value
-    : null;
-}
-
-export function readPositiveInteger(value: unknown): number | null {
-  const integer = readNonnegativeInteger(value);
-  return integer !== null && integer > 0 ? integer : null;
-}
-
-export function readUnixTimestamp(value: unknown): Date | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return null;
-  }
-  const date = new Date(value * 1000);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-/**
- * Reads one property from an unknown value when it is a plain object. The key
- * is a parameter, which keeps both tsc's no-index-signature-dot-access rule
- * and biome's prefer-dot-access rule satisfied (neither fires on a variable
- * key).
- */
-export function prop(value: unknown, key: string): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return undefined;
-  }
-  // Reflect.get reads without copying the object (these parses chain many
-  // reads) and without the type assertion the repo forbids.
-  return Reflect.get(value, key);
 }
 
 /**

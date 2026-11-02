@@ -8,6 +8,7 @@ export const APP_FEATURE_FLAG_IDS = [
   "document-edit-ranges",
   "explorer-header-sync-indicator",
   "linked-document-activation-controls",
+  "stripe-hosted-checkout",
   "workspace-switcher",
 ] as const;
 
