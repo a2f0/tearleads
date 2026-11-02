@@ -333,6 +333,8 @@ describe("organization subscription search items", () => {
     [{ ...liveItem, metadata: { orgId: 1 } }, null],
     [{ ...liveItem, metadata: { orgId: "org-2" } }, null],
     [{ ...liveItem, metadata: [] }, null],
+    [{ ...liveItem, metadata: null }, null],
+    [{ ...liveItem, metadata: "org-1" }, null],
     [{ ...liveItem, status: "incomplete" }, null],
     [{ ...liveItem, status: 1 }, null],
     [{ ...liveItem, id: "" }, null],
