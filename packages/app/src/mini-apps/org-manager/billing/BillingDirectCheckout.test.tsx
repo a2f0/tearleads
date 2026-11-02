@@ -1,6 +1,11 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { createRef } from "react";
+import { createRef, type ReactElement } from "react";
+import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
+import {
+  appFeatureFlagStorageKey,
+  saveAppFeatureFlag,
+} from "../../../providers/feature-flags/appFeatureFlags";
 import * as LogProvider from "../../../providers/logging/LogProvider";
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { formatPrice } from "../../shared/billingFormatters";
@@ -10,8 +15,11 @@ import type { DirectCheckoutState } from "./useDirectCheckout";
 
 const spies: { mockRestore: () => void }[] = [];
 
+const HOSTED_FLAG_KEY = appFeatureFlagStorageKey("stripe-hosted-checkout");
+
 afterEach(() => {
   cleanup();
+  localStorage.removeItem(HOSTED_FLAG_KEY);
   document.documentElement.removeAttribute("data-navigation-mode");
   while (spies.length > 0) {
     spies.pop()?.mockRestore();
@@ -59,6 +67,12 @@ const OPTION = {
   interval: "month",
   intervalCount: 1,
 };
+
+/** Renders with the "Pay on Stripe" link's feature flag switched on. */
+function renderWithHostedLink(ui: ReactElement) {
+  saveAppFeatureFlag(HOSTED_FLAG_KEY, "enabled");
+  return render(<AppFeatureFlagsProvider>{ui}</AppFeatureFlagsProvider>);
+}
 
 function state(overrides: Partial<DirectCheckoutState>): DirectCheckoutState {
   return {
@@ -150,40 +164,74 @@ test("idle offers the priced subscription and hides the element host", () => {
   expect(host?.hasAttribute("hidden")).toBe(true);
 });
 
-test("inline checkout requires and forwards a recovery email", () => {
+test("Subscribe opens the inline form without asking for an email first", () => {
   stubTearleads();
+  let begun = 0;
+  const view = render(
+    <BillingDirectCheckout
+      checkout={state({
+        begin: () => {
+          begun += 1;
+        },
+      })}
+      disabled={false}
+    />,
+  );
+  expect(view.queryByLabelText(ORG_MANAGER_LABELS.billingEmail)).toBeNull();
+
+  fireEvent.click(
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.billingSubscribe }),
+  );
+
+  expect(begun).toBe(1);
+});
+
+test("the inline form requires and forwards a recovery email at Pay", () => {
   let receivedEmail: string | undefined;
   const view = render(
     <BillingDirectCheckout
       checkout={state({
-        begin: (billingEmail) => {
+        phase: { kind: "collecting" },
+        confirm: (billingEmail) => {
           receivedEmail = billingEmail;
         },
       })}
       disabled={false}
     />,
   );
-  const subscribe = view.getByRole("button", {
-    name: ORG_MANAGER_LABELS.billingSubscribe,
+  const pay = view.getByRole("button", {
+    name: ORG_MANAGER_LABELS.billingCheckoutPay,
   });
-  expect(subscribe.hasAttribute("disabled")).toBe(true);
+  expect(view.getByText(ORG_MANAGER_LABELS.billingEmailHint)).toBeDefined();
+  expect(pay.hasAttribute("disabled")).toBe(true);
   fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.billingEmail), {
     target: { value: " buyer@example.com " },
   });
-  expect(subscribe.hasAttribute("disabled")).toBe(false);
+  expect(pay.hasAttribute("disabled")).toBe(false);
 
-  fireEvent.click(subscribe);
+  fireEvent.click(pay);
 
   expect(receivedEmail).toBe("buyer@example.com");
-  expect(view.getByText(ORG_MANAGER_LABELS.billingEmailHint)).toBeDefined();
+});
+
+test("the Pay on Stripe link stays hidden while its feature flag is off", () => {
+  stubTearleads();
+  const view = render(
+    <AppFeatureFlagsProvider>
+      <BillingDirectCheckout checkout={state({})} disabled={false} />
+    </AppFeatureFlagsProvider>,
+  );
+  expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined();
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingPayOnStripe)).toBeNull();
 });
 
 test("idle checkout actions use the standard button styling", () => {
   stubTearleads();
-  const view = render(
+  const view = renderWithHostedLink(
     <BillingDirectCheckout checkout={state({})} disabled={false} />,
   );
 
+  expect(view.getAllByRole("button")).toHaveLength(2);
   for (const button of view.getAllByRole("button")) {
     expect(button.classList.contains("mini-app-button")).toBe(true);
     expect(button.classList.contains("mini-app-row--button")).toBe(false);
@@ -210,6 +258,9 @@ test("collecting shows Pay and Cancel over a visible element host", () => {
   const host = view.container.querySelector(".org-manager-direct-checkout");
   expect(host?.hasAttribute("hidden")).toBe(false);
 
+  fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.billingEmail), {
+    target: { value: "buyer@example.com" },
+  });
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingCheckoutPay));
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingCancelCheckout));
   expect(paid).toBe(1);
@@ -316,7 +367,7 @@ test("the hosted-checkout link opens the Stripe session in a new tab", async () 
   const openMock = mock(() => tab);
   stubOpen(openMock);
 
-  const view = render(
+  const view = renderWithHostedLink(
     <BillingDirectCheckout checkout={state({})} disabled={false} />,
   );
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
@@ -348,7 +399,7 @@ test("a blocked pop-up falls back to same-tab navigation", async () => {
   );
   spies.push(assign);
 
-  const view = render(
+  const view = renderWithHostedLink(
     <BillingDirectCheckout checkout={state({})} disabled={false} />,
   );
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
@@ -372,7 +423,7 @@ test("a null hosted session closes the tab and leaves the buyer on the page", as
   );
   spies.push(assign);
 
-  const view = render(
+  const view = renderWithHostedLink(
     <BillingDirectCheckout checkout={state({})} disabled={false} />,
   );
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
@@ -403,7 +454,7 @@ test("a thrown hosted session closes the tab and surfaces the notice", async () 
   const tab = fakeTab();
   stubOpen(() => tab);
 
-  const view = render(
+  const view = renderWithHostedLink(
     <BillingDirectCheckout checkout={state({})} disabled={false} />,
   );
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
@@ -422,7 +473,7 @@ test("a thrown hosted session closes the tab and surfaces the notice", async () 
 
 test("the hosted-checkout link is not offered once the inline flow starts", () => {
   stubTearleads();
-  const view = render(
+  const view = renderWithHostedLink(
     <BillingDirectCheckout
       checkout={state({ phase: { kind: "collecting" } })}
       disabled={false}

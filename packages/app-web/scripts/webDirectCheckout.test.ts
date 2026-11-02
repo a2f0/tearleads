@@ -14,6 +14,8 @@ interface FakeElement {
   destroy(): void;
 }
 
+const CONFIRM = { billingEmail: "buyer@example.com" };
+
 function fakeStripe(options?: {
   confirmError?: { type?: string; message?: string };
   onConfirm?: () => void;
@@ -101,7 +103,7 @@ test("a card error is a decline the buyer can correct, not a throw", async () =>
     }),
   );
 
-  expect(await session.confirm()).toEqual({
+  expect(await session.confirm(CONFIRM)).toEqual({
     kind: "declined",
     message: "Your card was declined.",
   });
@@ -119,7 +121,9 @@ test("a non-buyer error throws so the caller surfaces a real failure", async () 
     }),
   );
 
-  await expect(session.confirm()).rejects.toThrow("Provider unavailable.");
+  await expect(session.confirm(CONFIRM)).rejects.toThrow(
+    "Provider unavailable.",
+  );
 });
 
 test("confirming after unmount reports cancelled, never a live success", async () => {
@@ -140,7 +144,7 @@ test("confirming after unmount reports cancelled, never a live success", async (
   session.unmount();
   expect(destroyed).toEqual(["payment"]);
   // The element is gone; a confirm now must not be reported as a payment.
-  expect(await session.confirm()).toEqual({ kind: "cancelled" });
+  expect(await session.confirm(CONFIRM)).toEqual({ kind: "cancelled" });
   expect(confirmed).toBe(false);
 });
 
@@ -199,7 +203,7 @@ test("confirm supplies a return url for a redirect-requiring 3-D Secure step", a
     value: { href: "https://app.example/org/billing" },
   });
   try {
-    await session.confirm();
+    await session.confirm(CONFIRM);
   } finally {
     if (previous === undefined) {
       Reflect.deleteProperty(globalThis, "location");
@@ -233,10 +237,10 @@ test("confirm omits the return url where there is no page to return to", async (
     appearance: APPEARANCE,
   });
 
-  await session.confirm();
+  await session.confirm(CONFIRM);
 
-  const [input] = confirmInputs as [{ confirmParams?: unknown }];
-  expect("confirmParams" in input).toBe(false);
+  const [input] = confirmInputs as [{ confirmParams: object }];
+  expect("return_url" in input.confirmParams).toBe(false);
 });
 
 test("billing email is collected outside the iframe and sent with payment", async () => {
@@ -248,10 +252,9 @@ test("billing email is collected outside the iframe and sent with payment", asyn
     host: host(),
     clientSecret: "pi_secret",
     appearance: APPEARANCE,
-    billingEmail: " buyer@example.com ",
   });
 
-  await session.confirm();
+  await session.confirm({ billingEmail: " buyer@example.com " });
 
   expect(elementOptions).toEqual([
     { fields: { billingDetails: { email: "never" } } },
@@ -281,7 +284,7 @@ test("a charge that lands during an unmount is reported, not swallowed", async (
     appearance: APPEARANCE,
   });
 
-  const confirmed = session.confirm();
+  const confirmed = session.confirm(CONFIRM);
   session.unmount();
 
   expect(await confirmed).toEqual({ kind: "succeeded" });

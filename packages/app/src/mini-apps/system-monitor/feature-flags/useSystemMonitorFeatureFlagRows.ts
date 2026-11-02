@@ -25,6 +25,10 @@ export const FEATURE_FLAG_DETAILS = {
     label: "Linked document activation controls",
     switchLabel: "Enable linked document activation controls",
   },
+  "stripe-hosted-checkout": {
+    label: "Pay on Stripe link",
+    switchLabel: "Show Pay on Stripe link",
+  },
   "workspace-switcher": {
     label: "Workspace switcher",
     switchLabel: "Show workspace switcher",
