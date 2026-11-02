@@ -1,83 +1,18 @@
 import { expect, test } from "bun:test";
 import { createWebDirectCheckout } from "../src/webDirectCheckout";
+import {
+  APPEARANCE,
+  ENV_KEY,
+  fakeStripe,
+  host,
+  withKey,
+} from "./webDirectCheckout.testUtils";
 
 /**
  * The capability's non-trivial logic: the decline-vs-throw split, the
  * unmount race, and the reset of a failed script load. A fake `loadStripe`
  * stands in for the real SDK so none of this needs a browser.
  */
-
-const ENV_KEY = "BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY";
-
-interface FakeElement {
-  mount(host: unknown): void;
-  destroy(): void;
-}
-
-const CONFIRM = { billingEmail: "buyer@example.com" };
-
-function fakeStripe(options?: {
-  confirmError?: { type?: string; message?: string };
-  onConfirm?: () => void;
-}) {
-  const destroyed: string[] = [];
-  const confirmInputs: unknown[] = [];
-  const elementOptions: unknown[] = [];
-  const element: FakeElement = {
-    mount: () => undefined,
-    destroy: () => destroyed.push("payment"),
-  };
-  const elementsOptions: unknown[] = [];
-  const stripe = {
-    elements: (opts: unknown) => {
-      elementsOptions.push(opts);
-      return {
-        create: (_type: unknown, opts: unknown) => {
-          elementOptions.push(opts);
-          return element;
-        },
-        getElement: () => element,
-      };
-    },
-    confirmPayment: async (input: unknown) => {
-      confirmInputs.push(input);
-      options?.onConfirm?.();
-      return { error: options?.confirmError };
-    },
-  };
-  return { confirmInputs, elementOptions, elementsOptions, stripe, destroyed };
-}
-
-const APPEARANCE = {
-  colorBackground: "#fff",
-  colorText: "#000",
-  colorTextSecondary: "#333",
-  colorDanger: "#b00020",
-  colorPrimary: "#000",
-  colorBorder: "#ccc",
-  fontFamily: "monospace",
-  fontSizeBase: "16px",
-  borderRadius: "0",
-  inputPaddingBlock: "8px",
-};
-
-function withKey<T>(run: () => T): T {
-  const previous = process.env[ENV_KEY];
-  process.env[ENV_KEY] = "pk_test_fake";
-  try {
-    return run();
-  } finally {
-    if (previous === undefined) {
-      delete process.env[ENV_KEY];
-    } else {
-      process.env[ENV_KEY] = previous;
-    }
-  }
-}
-
-function host(): HTMLElement {
-  return { nodeType: 1 } as unknown as HTMLElement;
-}
 
 test("no publishable key yields the unavailable stub", () => {
   const previous = process.env[ENV_KEY];
@@ -99,11 +34,12 @@ test("a card error is a decline the buyer can correct, not a throw", async () =>
     createWebDirectCheckout((() => Promise.resolve(stripe)) as never).mount({
       host: host(),
       clientSecret: "pi_secret",
+      onBillingEmailChange: () => undefined,
       appearance: APPEARANCE,
     }),
   );
 
-  expect(await session.confirm(CONFIRM)).toEqual({
+  expect(await session.confirm()).toEqual({
     kind: "declined",
     message: "Your card was declined.",
   });
@@ -117,13 +53,12 @@ test("a non-buyer error throws so the caller surfaces a real failure", async () 
     createWebDirectCheckout((() => Promise.resolve(stripe)) as never).mount({
       host: host(),
       clientSecret: "pi_secret",
+      onBillingEmailChange: () => undefined,
       appearance: APPEARANCE,
     }),
   );
 
-  await expect(session.confirm(CONFIRM)).rejects.toThrow(
-    "Provider unavailable.",
-  );
+  await expect(session.confirm()).rejects.toThrow("Provider unavailable.");
 });
 
 test("confirming after unmount reports cancelled, never a live success", async () => {
@@ -137,14 +72,15 @@ test("confirming after unmount reports cancelled, never a live success", async (
     createWebDirectCheckout((() => Promise.resolve(stripe)) as never).mount({
       host: host(),
       clientSecret: "pi_secret",
+      onBillingEmailChange: () => undefined,
       appearance: APPEARANCE,
     }),
   );
 
   session.unmount();
-  expect(destroyed).toEqual(["payment"]);
+  expect(destroyed).toEqual(["contactDetails", "payment"]);
   // The element is gone; a confirm now must not be reported as a payment.
-  expect(await session.confirm(CONFIRM)).toEqual({ kind: "cancelled" });
+  expect(await session.confirm()).toEqual({ kind: "cancelled" });
   expect(confirmed).toBe(false);
 });
 
@@ -162,6 +98,7 @@ test("a rejected script load surfaces the buyer-facing failure", async () => {
     capability.mount({
       host: host(),
       clientSecret: "pi_secret",
+      onBillingEmailChange: () => undefined,
       appearance: APPEARANCE,
     }),
   ).rejects.toThrow("could not be loaded");
@@ -177,6 +114,7 @@ test("a null script load surfaces the same buyer-facing failure", async () => {
     capability.mount({
       host: host(),
       clientSecret: "pi_secret",
+      onBillingEmailChange: () => undefined,
       appearance: APPEARANCE,
     }),
   ).rejects.toThrow("could not be loaded");
@@ -194,6 +132,7 @@ test("confirm supplies a return url for a redirect-requiring 3-D Secure step", a
   const session = await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: APPEARANCE,
   });
 
@@ -203,7 +142,7 @@ test("confirm supplies a return url for a redirect-requiring 3-D Secure step", a
     value: { href: "https://app.example/org/billing" },
   });
   try {
-    await session.confirm(CONFIRM);
+    await session.confirm();
   } finally {
     if (previous === undefined) {
       Reflect.deleteProperty(globalThis, "location");
@@ -234,41 +173,14 @@ test("confirm omits the return url where there is no page to return to", async (
   const session = await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: APPEARANCE,
   });
 
-  await session.confirm(CONFIRM);
+  await session.confirm();
 
   const [input] = confirmInputs as [{ confirmParams: object }];
   expect("return_url" in input.confirmParams).toBe(false);
-});
-
-test("billing email is collected outside the iframe and sent with payment", async () => {
-  const { confirmInputs, elementOptions, stripe } = fakeStripe();
-  const capability = withKey(() =>
-    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
-  );
-  const session = await capability.mount({
-    host: host(),
-    clientSecret: "pi_secret",
-    appearance: APPEARANCE,
-  });
-
-  await session.confirm({ billingEmail: " buyer@example.com " });
-
-  expect(elementOptions).toEqual([
-    { fields: { billingDetails: { email: "never" } } },
-  ]);
-  const [input] = confirmInputs as [
-    {
-      confirmParams: {
-        payment_method_data: { billing_details: { email: string } };
-      };
-    },
-  ];
-  expect(input.confirmParams.payment_method_data.billing_details.email).toBe(
-    "buyer@example.com",
-  );
 });
 
 test("a charge that lands during an unmount is reported, not swallowed", async () => {
@@ -281,10 +193,11 @@ test("a charge that lands during an unmount is reported, not swallowed", async (
   const session = await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: APPEARANCE,
   });
 
-  const confirmed = session.confirm(CONFIRM);
+  const confirmed = session.confirm();
   session.unmount();
 
   expect(await confirmed).toEqual({ kind: "succeeded" });
@@ -300,6 +213,7 @@ test("a dark surface mounts the Payment Element on the night base theme", async 
   await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "rgb(17, 17, 17)" },
   });
 
@@ -315,6 +229,7 @@ test("a light surface mounts the Payment Element on the stripe base theme", asyn
   await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "rgb(255, 255, 255)" },
   });
 
@@ -332,6 +247,7 @@ test("an unparseable surface color falls back to the light base theme", async ()
   await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "not-a-color" },
   });
 
@@ -347,6 +263,7 @@ test("a transparent surface (unresolved token) uses the light base theme", async
   await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "rgba(0, 0, 0, 0)" },
   });
 
@@ -362,6 +279,7 @@ test("a surface color with too few channels uses the light base theme", async ()
   await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "rgb(0)" },
   });
 
@@ -380,6 +298,7 @@ test("a colour space we do not convert falls back to the light base theme", asyn
   await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "oklch(0.2 0 0)" },
   });
 
@@ -398,6 +317,7 @@ test("an sRGB color() dark surface is normalized and classifies as night", async
   await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "color(srgb 0.1 0.1 0.1)" },
   });
 
@@ -419,6 +339,7 @@ test("a color(srgb …) border is normalized to rgba for the input rule", async 
   await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: {
       ...APPEARANCE,
       colorBorder: "color(srgb 0.898039 0.898039 0.898039 / 0.12)",
@@ -443,6 +364,7 @@ test("the card icon colour is pinned to the text colour", async () => {
   await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: { ...APPEARANCE, colorText: "rgb(229, 229, 229)" },
   });
 
@@ -460,6 +382,7 @@ test("a partially-transparent dark surface still classifies as night", async () 
   await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
+    onBillingEmailChange: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "rgba(17, 17, 17, 0.9)" },
   });
 
