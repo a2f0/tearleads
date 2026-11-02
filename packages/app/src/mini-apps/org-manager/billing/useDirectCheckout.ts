@@ -45,7 +45,12 @@ export interface DirectCheckoutState {
   readonly error: string | null;
   /** Attach to the element the payment form mounts into. */
   readonly hostRef: React.RefObject<HTMLDivElement | null>;
-  readonly begin: (billingEmail?: string) => void;
+  /**
+   * Whether the billing email in the provider form is complete; Pay waits
+   * for it, since the provider requires it to confirm.
+   */
+  readonly billingEmailComplete: boolean;
+  readonly begin: () => void;
   readonly confirm: () => void;
   readonly cancel: () => void;
 }
@@ -178,6 +183,7 @@ interface CheckoutRefs {
   readonly startingRef: React.RefObject<boolean>;
   readonly setPhase: (phase: DirectCheckoutPhase) => void;
   readonly setError: (error: string | null) => void;
+  readonly setBillingEmailComplete: (complete: boolean) => void;
 }
 
 type LogError = (message: string | Error, cause?: unknown) => void;
@@ -200,77 +206,81 @@ interface BeginCheckoutDeps {
 function useBeginCheckout(
   refs: CheckoutRefs,
   deps: BeginCheckoutDeps,
-): (billingEmail?: string) => void {
-  return useCallback(
-    (billingEmail?: string) => {
-      if (!deps.available || !deps.canSubscribe || !deps.enabled) {
-        return;
-      }
-      // Re-entrancy guard: a second begin would bump the token and overwrite
-      // sessionRef, stranding the previous element's iframe. The UI prevents
-      // this today; the hook must not depend on that. Both refs are needed —
-      // `sessionRef` covers a mounted element, `startingRef` the window before
-      // it mounts, where state has not re-rendered yet.
-      if (refs.sessionRef.current || refs.startingRef.current) {
-        return;
-      }
-      refs.startingRef.current = true;
-      refs.setPhase({ kind: "starting" });
-      refs.setError(null);
-      refs.startTokenRef.current += 1;
-      const token = refs.startTokenRef.current;
-      void (async () => {
-        try {
-          const intent =
-            await deps.tearleads.organizations.createStripeCheckout(
-              deps.organizationId,
-            );
-          // Every continuation re-checks the token: teardown (cancel, org
-          // switch, disable, unmount) bumps it, and a losing attempt must
-          // neither write state onto the panel it no longer owns nor cancel the
-          // attempt that replaced it.
-          if (refs.startTokenRef.current !== token) {
-            return;
-          }
-          const host = refs.hostRef.current;
-          if (!intent || !host) {
-            refs.startingRef.current = false;
-            refs.setPhase({ kind: "idle" });
-            refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
-            return;
-          }
-          const session = await deps.capability.mount({
-            host,
-            clientSecret: intent.clientSecret,
-            appearance: readCheckoutAppearance(host),
-            ...(billingEmail ? { billingEmail: billingEmail.trim() } : {}),
-          });
-          // The panel may have unmounted (or the flow been cancelled) while the
-          // provider script loaded; keeping this session would strand its
-          // iframe with nothing able to destroy it.
-          if (refs.startTokenRef.current !== token) {
-            session.unmount();
-            return;
-          }
+): () => void {
+  return useCallback(() => {
+    if (!deps.available || !deps.canSubscribe || !deps.enabled) {
+      return;
+    }
+    // Re-entrancy guard: a second begin would bump the token and overwrite
+    // sessionRef, stranding the previous element's iframe. The UI prevents
+    // this today; the hook must not depend on that. Both refs are needed —
+    // `sessionRef` covers a mounted element, `startingRef` the window before
+    // it mounts, where state has not re-rendered yet.
+    if (refs.sessionRef.current || refs.startingRef.current) {
+      return;
+    }
+    refs.startingRef.current = true;
+    refs.setPhase({ kind: "starting" });
+    refs.setError(null);
+    // A fresh element starts with an empty email field.
+    refs.setBillingEmailComplete(false);
+    refs.startTokenRef.current += 1;
+    const token = refs.startTokenRef.current;
+    void (async () => {
+      try {
+        const intent = await deps.tearleads.organizations.createStripeCheckout(
+          deps.organizationId,
+        );
+        // Every continuation re-checks the token: teardown (cancel, org
+        // switch, disable, unmount) bumps it, and a losing attempt must
+        // neither write state onto the panel it no longer owns nor cancel the
+        // attempt that replaced it.
+        if (refs.startTokenRef.current !== token) {
+          return;
+        }
+        const host = refs.hostRef.current;
+        if (!intent || !host) {
           refs.startingRef.current = false;
-          refs.sessionRef.current = session;
-          refs.setPhase({ kind: "collecting" });
-        } catch (mountError) {
-          deps.logError("Failed to start the direct checkout", mountError);
-          // Same guard: calling the shared teardown here would bump the token
-          // and cancel a newer attempt started after this one failed.
-          if (refs.startTokenRef.current !== token) {
-            return;
-          }
-          refs.startingRef.current = false;
-          refs.sessionRef.current = null;
           refs.setPhase({ kind: "idle" });
           refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
+          return;
         }
-      })();
-    },
-    [deps, refs],
-  );
+        const session = await deps.capability.mount({
+          host,
+          clientSecret: intent.clientSecret,
+          appearance: readCheckoutAppearance(host),
+          // Same token guard as every continuation: a late event from an
+          // abandoned element must not unlock Pay on the panel.
+          onBillingEmailChange: (email) => {
+            if (refs.startTokenRef.current === token) {
+              refs.setBillingEmailComplete(email !== null);
+            }
+          },
+        });
+        // The panel may have unmounted (or the flow been cancelled) while the
+        // provider script loaded; keeping this session would strand its
+        // iframe with nothing able to destroy it.
+        if (refs.startTokenRef.current !== token) {
+          session.unmount();
+          return;
+        }
+        refs.startingRef.current = false;
+        refs.sessionRef.current = session;
+        refs.setPhase({ kind: "collecting" });
+      } catch (mountError) {
+        deps.logError("Failed to start the direct checkout", mountError);
+        // Same guard: calling the shared teardown here would bump the token
+        // and cancel a newer attempt started after this one failed.
+        if (refs.startTokenRef.current !== token) {
+          return;
+        }
+        refs.startingRef.current = false;
+        refs.sessionRef.current = null;
+        refs.setPhase({ kind: "idle" });
+        refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
+      }
+    })();
+  }, [deps, refs]);
 }
 
 /**
@@ -346,6 +356,24 @@ function useConfirmCheckout(
   }, [logError, onPaid, refs, teardown]);
 }
 
+/** The panel-visible flow state, and the reset back to an idle panel. */
+function useCheckoutPanelState() {
+  const [phase, setPhase] = useState<DirectCheckoutPhase>({ kind: "idle" });
+  const [error, setError] = useState<string | null>(null);
+  const [billingEmailComplete, setBillingEmailComplete] = useState(false);
+  const reset = useCallback(() => {
+    setPhase({ kind: "idle" });
+    setError(null);
+    setBillingEmailComplete(false);
+  }, []);
+  // React's setters are stable, so this object is too.
+  const setters = useMemo(
+    () => ({ setPhase, setError, setBillingEmailComplete }),
+    [],
+  );
+  return { phase, error, billingEmailComplete, reset, setters };
+}
+
 export function useDirectCheckoutFlow(input: {
   readonly canSubscribe: boolean;
   /**
@@ -368,8 +396,8 @@ export function useDirectCheckoutFlow(input: {
   const startTokenRef = useRef(0);
   const confirmingRef = useRef(false);
   const startingRef = useRef(false);
-  const [phase, setPhase] = useState<DirectCheckoutPhase>({ kind: "idle" });
-  const [error, setError] = useState<string | null>(null);
+  const panel = useCheckoutPanelState();
+  const { reset } = panel;
   const available = capability.isAvailable;
   const checkoutOption = useCheckoutOptionForFlow(input, available, tearleads);
 
@@ -379,11 +407,6 @@ export function useDirectCheckoutFlow(input: {
     startingRef.current = false;
     sessionRef.current?.unmount();
     sessionRef.current = null;
-  }, []);
-
-  const reset = useCallback(() => {
-    setPhase({ kind: "idle" });
-    setError(null);
   }, []);
 
   useCheckoutLifecycle(
@@ -402,10 +425,9 @@ export function useDirectCheckoutFlow(input: {
       startTokenRef,
       confirmingRef,
       startingRef,
-      setPhase,
-      setError,
+      ...panel.setters,
     }),
-    [],
+    [panel.setters],
   );
   const deps = useMemo<BeginCheckoutDeps>(
     () => ({
@@ -443,9 +465,10 @@ export function useDirectCheckoutFlow(input: {
     available,
     option: checkoutOption.option,
     organizationId: input.organizationId,
-    phase,
-    error: error ?? checkoutOption.error,
+    phase: panel.phase,
+    error: panel.error ?? checkoutOption.error,
     hostRef,
+    billingEmailComplete: panel.billingEmailComplete,
     begin,
     confirm,
     cancel,

@@ -323,3 +323,98 @@ test("pull cursor restarts stale after the deployment key rotates", async () => 
     status: 409,
   });
 });
+
+const SIGNATURE_SHAPE = "A".repeat(43);
+const V1_WIRE = [
+  1,
+  3,
+  "document-1",
+  "manifest-3",
+  "targets-3",
+  AFTER_UPDATE_ID,
+  UPPER_BOUND_UPDATE_ID,
+  SIGNATURE_SHAPE,
+];
+const V2_WIRE = [2, "raw", ...V1_WIRE.slice(1, 7), SIGNATURE_SHAPE];
+
+function withSlot(wire: readonly unknown[], index: number, value: unknown) {
+  const copy = [...wire];
+  copy[index] = value;
+  return copy;
+}
+
+function pullWithDecodedCursor(payload: unknown) {
+  return resolveSyncPullPagePlan({
+    cursorHmacKey: CURSOR_HMAC_KEY,
+    identity: IDENTITY,
+    request: request({
+      pullCursor: Buffer.from(JSON.stringify(payload), "utf8").toString(
+        "base64url",
+      ),
+    }),
+    resolveCursorBounds,
+    upperBound: { id: UPPER_BOUND_UPDATE_ID, sequence: 42 },
+  });
+}
+
+test("pull cursor rejects every malformed decoded tuple as invalid", async () => {
+  const malformed: readonly unknown[] = [
+    null,
+    "cursor",
+    7,
+    {},
+    { 0: 1, length: 8 },
+    [],
+    V1_WIRE.slice(0, 7),
+    [...V1_WIRE, "extra"],
+    V2_WIRE.slice(0, 8),
+    [...V2_WIRE, "extra"],
+    withSlot(V1_WIRE, 0, 2),
+    withSlot(V1_WIRE, 0, 3),
+    withSlot(V1_WIRE, 0, "1"),
+    withSlot(V2_WIRE, 0, 1),
+    withSlot(V2_WIRE, 1, "compacted"),
+    withSlot(V2_WIRE, 1, null),
+    ...[0, -1, 1.5, 2 ** 53, "3", null].map((epoch) =>
+      withSlot(V1_WIRE, 1, epoch),
+    ),
+    withSlot(V2_WIRE, 2, 0),
+    withSlot(V1_WIRE, 2, 5),
+    withSlot(V1_WIRE, 2, null),
+    withSlot(V1_WIRE, 3, null),
+    withSlot(V1_WIRE, 4, 4),
+    withSlot(V1_WIRE, 5, "11111111-1111-1111-8111-111111111111"),
+    withSlot(V1_WIRE, 5, 11),
+    withSlot(V1_WIRE, 6, "not-a-uuid"),
+    withSlot(V2_WIRE, 7, "22222222-2222-4222-c222-222222222222"),
+    withSlot(V1_WIRE, 7, "A".repeat(42)),
+    withSlot(V1_WIRE, 7, "A".repeat(44)),
+    withSlot(V1_WIRE, 7, `${"A".repeat(42)}+`),
+    withSlot(V1_WIRE, 7, 43),
+    withSlot(V2_WIRE, 8, null),
+  ];
+  for (const payload of malformed) {
+    await expect(pullWithDecodedCursor(payload)).rejects.toMatchObject({
+      code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+      message: "Document pull cursor is invalid; restart the pull",
+      status: 409,
+    });
+  }
+});
+
+test("pull cursor passes well-formed unsigned tuples on to authentication", async () => {
+  for (const payload of [
+    V1_WIRE,
+    V2_WIRE,
+    withSlot(V1_WIRE, 2, ""),
+    withSlot(V1_WIRE, 3, ""),
+    withSlot(V2_WIRE, 5, ""),
+    withSlot(V1_WIRE, 1, Number.MAX_SAFE_INTEGER),
+  ]) {
+    await expect(pullWithDecodedCursor(payload)).rejects.toMatchObject({
+      code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+      message: "Document pull cursor authentication changed; restart the pull",
+      status: 409,
+    });
+  }
+});

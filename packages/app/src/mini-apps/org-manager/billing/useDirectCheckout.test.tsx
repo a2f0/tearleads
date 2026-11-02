@@ -27,19 +27,39 @@ test("loads the purchasable option when the platform supports checkout", async (
   expect(result.current.phase.kind).toBe("idle");
 });
 
-test("begin trims the email and mounts into the panel's host", async () => {
+test("begin mounts into the panel's host and tracks the form's email", async () => {
   stubTearleads();
   const { capability, mounted } = capabilityWith({});
   const { result, host } = renderFlow(capability);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
 
-  await act(async () => {
-    result.current.begin(" buyer@example.com ");
-  });
+  await act(async () => result.current.begin());
 
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
   expect(mounted[0]?.host).toBe(host);
-  expect(mounted[0]?.billingEmail).toBe("buyer@example.com");
+  expect(result.current.billingEmailComplete).toBe(false);
+
+  act(() => mounted[0]?.onBillingEmailChange("buyer@example.com"));
+  expect(result.current.billingEmailComplete).toBe(true);
+
+  act(() => mounted[0]?.onBillingEmailChange(null));
+  expect(result.current.billingEmailComplete).toBe(false);
+});
+
+test("an abandoned element's email event cannot unlock Pay", async () => {
+  stubTearleads();
+  const { capability, mounted } = capabilityWith({});
+  const { result } = renderFlow(capability);
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+  act(() => result.current.cancel());
+
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(mounted).toHaveLength(2));
+  act(() => mounted[0]?.onBillingEmailChange("stale@example.com"));
+
+  expect(result.current.billingEmailComplete).toBe(false);
 });
 
 test("a declined card keeps the element mounted so it can be corrected", async () => {

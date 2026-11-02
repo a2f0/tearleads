@@ -5,10 +5,21 @@
  */
 
 import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
+import { readProviderField, stripeReferenceId } from "./providerPayloadSchema";
+import {
+  checkoutIntentSchema,
+  customerSearchSchema,
+  hostedUrlSchema,
+  liveSubscriptionSearchItemSchema,
+  pendingCheckoutSchema,
+  readCheckoutAttemptId,
+  stripeObjectIdSchema,
+  subscriptionCancelSchema,
+  subscriptionSearchItemSchema,
+  subscriptionStatusSchema,
+} from "./stripeApiSchema";
 import {
   escapeSearchValue,
-  prop,
-  readString,
   resolveDeps,
   type StripeApiDeps,
   StripeApiError,
@@ -85,12 +96,9 @@ export async function findOrCreateCustomer(
     path: `/v1/customers/search?query=${query}&limit=1`,
     operation: "customer search",
   });
-  const matches = prop(found, "data");
-  if (Array.isArray(matches)) {
-    const id = readString(prop(matches[0], "id"));
-    if (id) {
-      return id;
-    }
+  const match = readProviderField(customerSearchSchema, found);
+  if (match) {
+    return match.data[0].id;
   }
 
   const form = new URLSearchParams();
@@ -109,7 +117,7 @@ export async function findOrCreateCustomer(
     // consistent.
     idempotencyKey: `sync-customer:${input.userId}:${input.organizationId}`,
   });
-  const customerId = readString(prop(created, "id"));
+  const customerId = readProviderField(stripeObjectIdSchema, created)?.id;
   if (!customerId) {
     // The create succeeded but the id could not be read: a provider failure
     // (502), never "unconfigured" — mirrors the subscription-create handling.
@@ -149,24 +157,18 @@ async function resumePendingSubscription(input: {
   // The search index is eventually consistent; the GET is authoritative. A
   // subscription that already left `incomplete` must not be resumed: live
   // means conflict, terminal means this is a fresh attempt.
-  const fetchedStatus = readString(prop(pending, "status"));
-  const metadata = prop(pending, "metadata");
-  const pendingAttemptId = readString(prop(metadata, "checkoutAttemptId"));
+  const fetchedStatus =
+    readProviderField(subscriptionStatusSchema, pending)?.status ?? null;
   if (fetchedStatus !== "incomplete") {
     return fetchedStatus && LIVE_SUBSCRIPTION_STATUSES.has(fetchedStatus)
       ? { kind: "conflict" }
-      : { kind: "expired", checkoutAttemptId: pendingAttemptId };
+      : { kind: "expired", checkoutAttemptId: readCheckoutAttemptId(pending) };
   }
-  const pendingUserId = readString(prop(metadata, "userId"));
-  const items = prop(prop(pending, "items"), "data");
-  const pendingItem = Array.isArray(items) ? items[0] : null;
-  const pendingPriceId = readString(prop(prop(pendingItem, "price"), "id"));
-  const pendingQuantity = prop(pendingItem, "quantity");
+  const checkout = readProviderField(pendingCheckoutSchema, pending);
   if (
-    pendingAttemptId === input.checkoutAttemptId &&
-    pendingUserId === input.userId &&
-    pendingPriceId === input.syncPriceId &&
-    pendingQuantity === 1
+    checkout?.metadata.checkoutAttemptId === input.checkoutAttemptId &&
+    checkout.metadata.userId === input.userId &&
+    checkout.items.data[0].price.id === input.syncPriceId
   ) {
     const intent = parseCheckoutIntent(pending);
     // A matching pending checkout whose intent cannot be read is in an
@@ -177,12 +179,12 @@ async function resumePendingSubscription(input: {
 }
 
 function parseCheckoutIntent(body: unknown): StripeCheckoutIntent | null {
-  const subscriptionId = readString(prop(body, "id"));
-  const clientSecret = readString(
-    prop(prop(prop(body, "latest_invoice"), "payment_intent"), "client_secret"),
-  );
-  return subscriptionId && clientSecret
-    ? { subscriptionId, clientSecret }
+  const intent = readProviderField(checkoutIntentSchema, body);
+  return intent
+    ? {
+        subscriptionId: intent.id,
+        clientSecret: intent.latest_invoice.payment_intent.client_secret,
+      }
     : null;
 }
 
@@ -207,12 +209,12 @@ async function findOrgSubscription(
   const decisiveCandidate = await findInStripeSubscriptionSearch(
     organizationId,
     request,
-    (item) => {
-      const status = readString(prop(item, "status"));
-      const subscriptionId = readString(prop(item, "id"));
-      if (!status || !subscriptionId) {
+    (value) => {
+      const item = readProviderField(subscriptionSearchItemSchema, value);
+      if (!item) {
         return null;
       }
+      const { id: subscriptionId, status } = item;
       if (LIVE_SUBSCRIPTION_STATUSES.has(status)) {
         return { subscriptionId, status };
       }
@@ -225,9 +227,7 @@ async function findOrgSubscription(
         pendingCandidate = { subscriptionId, status };
         return null;
       }
-      const itemAttemptId = readString(
-        prop(prop(item, "metadata"), "checkoutAttemptId"),
-      );
+      const itemAttemptId = readCheckoutAttemptId(value);
       if (
         checkoutAttemptId !== undefined &&
         itemAttemptId === checkoutAttemptId
@@ -264,10 +264,10 @@ export async function hasOpenOrgSubscription(
     path: `/v1/subscriptions/${encodeURIComponent(candidate.subscriptionId)}`,
     operation: "subscription inspect",
   });
-  const status = readString(prop(body, "status"));
+  const status = readProviderField(subscriptionStatusSchema, body)?.status;
   return (
     status === "incomplete" ||
-    (status !== null && LIVE_SUBSCRIPTION_STATUSES.has(status))
+    (status !== undefined && LIVE_SUBSCRIPTION_STATUSES.has(status))
   );
 }
 
@@ -400,27 +400,22 @@ export async function findLiveOrgSubscription(
   return findInStripeSubscriptionSearch(
     organizationId,
     { fetchImpl, secretKey },
-    (item) => {
-      const status = readString(prop(item, "status"));
-      const subscriptionId = readString(prop(item, "id"));
-      if (
-        !status ||
-        !subscriptionId ||
-        !LIVE_SUBSCRIPTION_STATUSES.has(status)
-      ) {
-        return null;
-      }
-      const customer = prop(item, "customer");
-      const customerId =
-        readString(customer) ?? readString(prop(customer, "id"));
+    (value) => {
+      const item = readProviderField(liveSubscriptionSearchItemSchema, value);
       // The search already filters on our own `orgId` metadata; re-confirm it
       // before returning a customer whose Billing Portal exposes ALL its
       // subscriptions, so a pooled customer can never leak another org's billing.
-      const orgId = readString(prop(prop(item, "metadata"), "orgId"));
-      if (customerId && orgId === organizationId) {
-        return { subscriptionId, customerId };
+      if (
+        !item ||
+        !LIVE_SUBSCRIPTION_STATUSES.has(item.status) ||
+        item.metadata.orgId !== organizationId
+      ) {
+        return null;
       }
-      return null;
+      return {
+        subscriptionId: item.id,
+        customerId: stripeReferenceId(item.customer),
+      };
     },
   );
 }
@@ -454,8 +449,10 @@ export async function cancelSubscriptionAtPeriodEnd(
     operation: "subscription cancel",
     form,
   });
-  const cancelAt = prop(body, "cancel_at");
-  return { cancelAt: typeof cancelAt === "number" ? cancelAt : null };
+  return {
+    cancelAt:
+      readProviderField(subscriptionCancelSchema, body)?.cancel_at ?? null,
+  };
 }
 
 /**
@@ -481,7 +478,7 @@ export async function createPortalSession(
     operation: "portal session create",
     form,
   });
-  return readString(prop(body, "url"));
+  return readProviderField(hostedUrlSchema, body)?.url ?? null;
 }
 
 /**
@@ -564,5 +561,5 @@ export async function createCheckoutSession(
     form,
     idempotencyKey: `checkout-session:${input.organizationId}:${input.checkoutAttemptId}`,
   });
-  return readString(prop(body, "url"));
+  return readProviderField(hostedUrlSchema, body)?.url ?? null;
 }

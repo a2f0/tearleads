@@ -1,6 +1,7 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { RootAuditEventsResponse } from "@tearleads/validators/response";
 import { isUuidV4String } from "@tearleads/validators/util";
+import { z } from "zod";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
 import {
   findRootAuditSubject,
@@ -50,16 +51,15 @@ export function formatRootAuditFilter(
   return entries.length === 0 ? null : new URLSearchParams(entries).toString();
 }
 
+// Unknown keys never carried meaning; parsing drops them.
+const rootAuditCursorSchema = z
+  .custom<Record<string, unknown>>(isPlainObject)
+  .pipe(z.object({ afterEventId: z.string().refine(isUuidV4String) }));
+
 function parseRootAuditCursor(
   payload: unknown,
 ): { readonly afterEventId: string } | undefined {
-  if (!isPlainObject(payload)) {
-    return undefined;
-  }
-  const { afterEventId } = payload;
-  return typeof afterEventId === "string" && isUuidV4String(afterEventId)
-    ? { afterEventId }
-    : undefined;
+  return rootAuditCursorSchema.safeParse(payload).data;
 }
 
 export async function listAuditEvents(

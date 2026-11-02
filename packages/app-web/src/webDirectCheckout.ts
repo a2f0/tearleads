@@ -16,8 +16,9 @@ import {
 
 /**
  * Stripe-backed {@link DirectCheckoutCapability} for the web shell (issue
- * #1654): mounts a Payment Element into an element the app owns, so the card
- * form inherits the app's own look rather than the provider's.
+ * #1654): mounts Stripe's Contact Details (billing email) and Payment Elements
+ * into an element the app owns, so the form inherits the app's own look
+ * rather than the provider's.
  *
  * The fields themselves remain Stripe-hosted iframes — that is what keeps us
  * in PCI SAQ A — but Stripe's Appearance API accepts the app's resolved theme
@@ -180,10 +181,74 @@ function currentReturnUrl(): string | undefined {
   return globalThis.location?.href;
 }
 
+const MISSING_BILLING_EMAIL = "Enter a billing email.";
+
+/**
+ * Destroys whichever of this group's elements exist (their iframes go with
+ * them) and removes only the given wrappers: the host is the app's, and a
+ * replacement session may share it.
+ */
+function releaseElements(
+  elements: StripeElements,
+  wrappers: readonly HTMLElement[],
+): void {
+  elements.getElement("contactDetails")?.destroy();
+  elements.getElement("payment")?.destroy();
+  for (const wrapper of wrappers) {
+    wrapper.remove();
+  }
+}
+
+/**
+ * The two Stripe elements share one Elements group and one host: the Contact
+ * Details element (Stripe's own email field) above the Payment Element, so
+ * the email reads as part of Stripe's form rather than an app field on top.
+ */
+function mountElements(
+  elements: StripeElements,
+  host: HTMLElement,
+  onBillingEmailChange: (email: string | null) => void,
+): {
+  readonly billingEmail: () => string | null;
+  readonly wrappers: readonly HTMLElement[];
+} {
+  const doc = host.ownerDocument;
+  const emailHost = doc.createElement("div");
+  const paymentHost = doc.createElement("div");
+  // Append, never replace: an abandoned mount and its replacement can share
+  // one host (both awaiting the same script load), and each session must own
+  // only its own wrappers.
+  host.append(emailHost, paymentHost);
+  const wrappers = [emailHost, paymentHost];
+
+  let billingEmail: string | null = null;
+  try {
+    const contact = elements.create("contactDetails");
+    contact.on("change", (event) => {
+      const email = event.value.email.trim();
+      billingEmail = event.complete && email.length > 0 ? email : null;
+      onBillingEmailChange(billingEmail);
+    });
+    contact.mount(emailHost);
+    // The email belongs to the Contact Details element above, not the card
+    // form; `never` here obliges confirm to send it explicitly.
+    const payment = elements.create("payment", {
+      fields: { billingDetails: { email: "never" } },
+    });
+    payment.mount(paymentHost);
+  } catch (mountError) {
+    // No session exists to unmount a half-built form; a retry would stack a
+    // second email field above the leftover one.
+    releaseElements(elements, wrappers);
+    throw mountError;
+  }
+  return { billingEmail: () => billingEmail, wrappers };
+}
+
 function createSession(
   stripe: Stripe,
   elements: StripeElements,
-  billingEmail?: string,
+  mounted: ReturnType<typeof mountElements>,
 ): DirectCheckoutSession {
   let unmounted = false;
   return {
@@ -191,15 +256,15 @@ function createSession(
       if (unmounted) {
         return { kind: "cancelled" };
       }
+      // The host gates Pay on a complete email, but the session must not
+      // trust that: Stripe would reject a confirm without one anyway.
+      const email = mounted.billingEmail();
+      if (!email) {
+        return { kind: "declined", message: MISSING_BILLING_EMAIL };
+      }
       const returnUrl = currentReturnUrl();
       const confirmParams = {
-        ...(billingEmail
-          ? {
-              payment_method_data: {
-                billing_details: { email: billingEmail },
-              },
-            }
-          : {}),
+        payment_method_data: { billing_details: { email } },
         ...(returnUrl ? { return_url: returnUrl } : {}),
       };
       const { error } = await stripe.confirmPayment({
@@ -212,7 +277,7 @@ function createSession(
         // necessary and no return_url was given, which the buyer would see
         // as a generic failure. Returning to the current page is right: the
         // webhook has already recorded the outcome by the time they land.
-        ...(returnUrl || billingEmail ? { confirmParams } : {}),
+        confirmParams,
       });
       // Check the unmount BEFORE mapping: `toConfirmation` throws for a
       // non-buyer error, which would reject instead of honoring the
@@ -230,9 +295,7 @@ function createSession(
     },
     unmount() {
       unmounted = true;
-      // Destroying the element releases the iframe; the Elements group is
-      // garbage once its only element is gone.
-      elements.getElement("payment")?.destroy();
+      releaseElements(elements, mounted.wrappers);
     },
   };
 }
@@ -258,7 +321,7 @@ export function createWebDirectCheckout(
 
   return {
     isAvailable: true,
-    async mount({ host, clientSecret, appearance, billingEmail }) {
+    async mount({ host, clientSecret, appearance, onBillingEmailChange }) {
       stripePromise = stripePromise ?? loadStripeImpl(publishableKey);
       // `loadStripe` REJECTS when the script cannot be fetched (blocked by an
       // extension, offline) and resolves null only where there is no `window`.
@@ -284,15 +347,8 @@ export function createWebDirectCheckout(
         clientSecret,
         appearance: toStripeAppearance(appearance),
       });
-      const normalizedEmail = billingEmail?.trim();
-      const payment = elements.create(
-        "payment",
-        normalizedEmail
-          ? { fields: { billingDetails: { email: "never" } } }
-          : undefined,
-      );
-      payment.mount(host);
-      return createSession(stripe, elements, normalizedEmail);
+      const mounted = mountElements(elements, host, onBillingEmailChange);
+      return createSession(stripe, elements, mounted);
     },
   };
 }

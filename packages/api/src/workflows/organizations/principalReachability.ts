@@ -1,19 +1,17 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { principalMembershipProjection } from "@tearleads/api-shared/schema";
 import { sql } from "drizzle-orm";
+import { z } from "zod";
 import { currentPrincipalStateHashSql } from "../principals/currentPrincipalStateSql";
 
+const reachableUserRowSchema = z.object({ userId: z.string() });
+
 function readReachableUserId(row: unknown): string {
-  if (!row || typeof row !== "object") {
+  const parsed = reachableUserRowSchema.safeParse(row);
+  if (!parsed.success) {
     throw new Error("Unexpected principal reachability row shape");
   }
-
-  const userId = Reflect.get(row, "userId");
-  if (typeof userId !== "string") {
-    throw new Error("Unexpected principal reachability row shape");
-  }
-
-  return userId;
+  return parsed.data.userId;
 }
 
 export async function listUsersReachableFromCurrentGroup(input: {

@@ -686,7 +686,9 @@ Org sync billing exposes two provider-neutral capabilities:
 | `DirectCheckoutCapability` | The app around Stripe's mounted element | `AppHostConfig.createDirectCheckout` |
 
 Both have unavailable stubs. Web loads no RevenueCat SDK and purchases only
-through direct checkout. Native purchases are personal-org only. Handle
+through direct checkout, whose provider form collects the billing email above
+the card fields and reports it through `mount`'s `onBillingEmailChange`.
+Native purchases are personal-org only. Handle
 `PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`: verify the
 receipt, prepare a fresh org outside the claim deadline, claim it, then publish
 attribution. Identity pending means retry; provider stalled means restart.

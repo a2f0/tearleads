@@ -1,10 +1,18 @@
+import { z } from "zod";
+import {
+  nonnegativeIntegerSchema,
+  positiveIntegerSchema,
+  providerFieldSchema,
+  providerResponseSchema,
+  providerStringSchema,
+  readProviderField,
+  readProviderObject,
+  readProviderString,
+  readStripeReferenceId,
+  readUnixTimestamp,
+} from "./providerPayloadSchema";
 import {
   getSyncBillingTierForStripePrice,
-  prop,
-  readNonnegativeInteger,
-  readPositiveInteger,
-  readString,
-  readUnixTimestamp,
   resolveDeps,
   type StripeApiDeps,
   stripeRequest,
@@ -28,16 +36,67 @@ export interface StripeSubscriptionBinding {
   readonly userId: string | null;
 }
 
+// Every snapshot field is read on its own: one malformed field reads as null
+// without hiding the others.
+const subscriptionFieldsSchema = z.looseObject({
+  current_period_end: providerFieldSchema,
+  current_period_start: providerFieldSchema,
+  customer: providerFieldSchema,
+  default_payment_method: providerFieldSchema,
+  metadata: providerFieldSchema,
+  status: providerFieldSchema,
+});
+
+const subscriptionItemsSchema = z.looseObject({
+  items: z.looseObject({ data: z.array(z.unknown()) }),
+});
+
+const itemFieldsSchema = z.looseObject({
+  id: providerFieldSchema,
+  price: providerFieldSchema,
+  quantity: providerFieldSchema,
+});
+
+const itemPriceIdSchema = z.looseObject({
+  price: z.looseObject({ id: providerStringSchema }),
+});
+
+const priceFieldsSchema = z.looseObject({
+  currency: providerFieldSchema,
+  id: providerFieldSchema,
+  recurring: providerFieldSchema,
+  unit_amount: providerFieldSchema,
+});
+
+const recurringFieldsSchema = z.looseObject({
+  interval: providerFieldSchema,
+  interval_count: providerFieldSchema,
+});
+
+const customerFieldsSchema = z.looseObject({ email: providerFieldSchema });
+
+const paymentMethodEmailSchema = z.looseObject({
+  billing_details: z.looseObject({ email: providerStringSchema }),
+});
+
+const metadataFieldsSchema = z.looseObject({
+  orgId: providerFieldSchema,
+  userId: providerFieldSchema,
+});
+
+function readItemPriceId(item: unknown): string | null {
+  return readProviderField(itemPriceIdSchema, item)?.price.id ?? null;
+}
+
 function resolveSyncItem(
-  body: unknown,
+  items: readonly unknown[] | null,
   syncPriceIds: readonly string[],
 ): unknown {
-  const items = prop(prop(body, "items"), "data");
-  if (syncPriceIds.length === 0 || !Array.isArray(items)) {
+  if (syncPriceIds.length === 0 || items === null) {
     return null;
   }
   const matches = items.filter((item) =>
-    syncPriceIds.includes(readString(prop(prop(item, "price"), "id")) ?? ""),
+    syncPriceIds.includes(readItemPriceId(item) ?? ""),
   );
   return matches.length === 1 ? matches[0] : null;
 }
@@ -58,23 +117,24 @@ export async function getSubscriptionBinding(
     path: `/v1/subscriptions/${encodeURIComponent(subscriptionId)}?expand[]=customer&expand[]=default_payment_method`,
     operation: "subscription lookup",
   });
-  if (typeof body !== "object" || body === null) {
+  if (!providerResponseSchema.safeParse(body).success) {
     return null;
   }
-  const metadata = prop(body, "metadata");
-  const customer = prop(body, "customer");
-  const paymentMethod = prop(body, "default_payment_method");
+  const subscription = readProviderObject(subscriptionFieldsSchema, body);
+  const metadata = readProviderObject(
+    metadataFieldsSchema,
+    subscription.metadata,
+  );
   const configuredPriceIds = Object.values(syncPriceIds).filter(
     (value): value is string => Boolean(value),
   );
-  const item = resolveSyncItem(body, configuredPriceIds);
-  if (!item && configuredPriceIds.length > 0) {
-    const items = prop(prop(body, "items"), "data");
-    const observedPriceIds = Array.isArray(items)
-      ? items
-          .map((candidate) => readString(prop(prop(candidate, "price"), "id")))
-          .filter((value): value is string => value !== null)
-      : [];
+  const items =
+    readProviderField(subscriptionItemsSchema, body)?.items.data ?? null;
+  const itemValue = resolveSyncItem(items, configuredPriceIds);
+  if (!itemValue && configuredPriceIds.length > 0) {
+    const observedPriceIds = (items ?? [])
+      .map(readItemPriceId)
+      .filter((value): value is string => value !== null);
     const matchCount = observedPriceIds.filter((priceId) =>
       configuredPriceIds.includes(priceId),
     ).length;
@@ -86,36 +146,41 @@ export async function getSubscriptionBinding(
       `Stripe subscription ${subscriptionId} ${problem}; observed: ${observedPriceIds.join(", ") || "none"}`,
     );
   }
-  const price = prop(item, "price");
-  const priceId = readString(prop(price, "id"));
+  const item = readProviderObject(itemFieldsSchema, itemValue);
+  const price = readProviderObject(priceFieldsSchema, item.price);
+  const recurring = readProviderObject(recurringFieldsSchema, price.recurring);
+  const priceId = readProviderString(price.id);
   const tier = getSyncBillingTierForStripePrice(priceId, deps);
-  const itemQuantity = readPositiveInteger(prop(item, "quantity"));
+  const itemQuantity = readProviderField(positiveIntegerSchema, item.quantity);
   if (tier && itemQuantity !== 1) {
     console.error(
       `Stripe subscription ${subscriptionId} has invalid quantity ${itemQuantity}; fixed-tier subscriptions require quantity 1`,
     );
   }
   return {
-    billingPeriodEndsAt: readUnixTimestamp(prop(body, "current_period_end")),
-    billingPeriodStartsAt: readUnixTimestamp(
-      prop(body, "current_period_start"),
+    billingPeriodEndsAt: readUnixTimestamp(subscription.current_period_end),
+    billingPeriodStartsAt: readUnixTimestamp(subscription.current_period_start),
+    currency: readProviderString(price.currency),
+    customerEmail: readProviderString(
+      readProviderObject(customerFieldsSchema, subscription.customer).email,
     ),
-    currency: readString(prop(price, "currency")),
-    customerEmail: readString(prop(customer, "email")),
-    customerId: readString(customer) ?? readString(prop(customer, "id")),
-    interval: readString(prop(prop(price, "recurring"), "interval")),
-    intervalCount: readPositiveInteger(
-      prop(prop(price, "recurring"), "interval_count"),
+    customerId: readStripeReferenceId(subscription.customer),
+    interval: readProviderString(recurring.interval),
+    intervalCount: readProviderField(
+      positiveIntegerSchema,
+      recurring.interval_count,
     ),
-    organizationId: readString(prop(metadata, "orgId")),
-    paymentMethodBillingEmail: readString(
-      prop(prop(paymentMethod, "billing_details"), "email"),
-    ),
+    organizationId: readProviderString(metadata.orgId),
+    paymentMethodBillingEmail:
+      readProviderField(
+        paymentMethodEmailSchema,
+        subscription.default_payment_method,
+      )?.billing_details.email ?? null,
     priceId,
     seatQuantity: itemQuantity === 1 ? (tier?.seatLimit ?? null) : null,
-    status: readString(prop(body, "status")),
-    subscriptionItemId: readString(prop(item, "id")),
-    unitAmount: readNonnegativeInteger(prop(price, "unit_amount")),
-    userId: readString(prop(metadata, "userId")),
+    status: readProviderString(subscription.status),
+    subscriptionItemId: readProviderString(item.id),
+    unitAmount: readProviderField(nonnegativeIntegerSchema, price.unit_amount),
+    userId: readProviderString(metadata.userId),
   };
 }

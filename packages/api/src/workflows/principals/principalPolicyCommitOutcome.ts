@@ -3,11 +3,13 @@ import { principalPolicyCommits } from "@tearleads/api-shared/schema";
 import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
+import type { z } from "zod";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { principalHistoryHead } from "./principalHistoryRecords";
 import { loadExactReplayMutationResponses } from "./principalPolicyMutationAcknowledgements";
 import { principalPolicyOutcomeHash } from "./principalPolicyOutcomeHash";
 import { loadPrincipalPolicyOutcomeReference } from "./principalPolicyOutcomeReference";
+import { storedCommitPolicyReceiptSchema } from "./principalPolicyReceiptSchema";
 import { PrincipalPolicyError } from "./shared";
 
 interface CommitOutcomeInput {
@@ -77,15 +79,34 @@ export async function principalPolicyCommitOutcome(
   };
 }
 
+type StoredCommitReceipt = z.infer<typeof storedCommitPolicyReceiptSchema>;
+
+function readStoredCommitReceipt(responseJson: string): StoredCommitReceipt {
+  let stored: StoredCommitReceipt | undefined;
+  try {
+    stored = storedCommitPolicyReceiptSchema.safeParse(
+      JSON.parse(responseJson),
+    ).data;
+  } catch {
+    stored = undefined;
+  }
+  if (!stored)
+    throw new PrincipalPolicyError(
+      "Stored principal policy acknowledgement is invalid",
+      409,
+    );
+  return stored;
+}
+
 async function loadMemberOutcome(
   executor: DatabaseTransaction,
   input: CommitOutcomeInput,
-  stored: object,
+  stored: StoredCommitReceipt,
 ) {
   const memberPolicy = input.request.memberPolicy
     ? await loadPrincipalPolicyOutcomeReference({
         executor,
-        reference: Reflect.get(stored, "memberPolicy"),
+        reference: stored.memberPolicy,
         request: input.request.memberPolicy,
         principalType: "group",
         principalId: input.request.memberPolicy.state.principalId,
@@ -112,25 +133,7 @@ async function loadCommitResponse(
     requireAdmin: true,
     userId: input.requesterUserId,
   });
-  let stored: unknown;
-  try {
-    stored = JSON.parse(responseJson);
-  } catch {
-    throw new PrincipalPolicyError(
-      "Stored principal policy acknowledgement is invalid",
-      409,
-    );
-  }
-  if (
-    !stored ||
-    typeof stored !== "object" ||
-    !("groupPolicy" in stored) ||
-    !("organizationPolicy" in stored)
-  )
-    throw new PrincipalPolicyError(
-      "Stored principal policy acknowledgement is invalid",
-      409,
-    );
+  const stored = readStoredCommitReceipt(responseJson);
   const groupPolicy = await loadPrincipalPolicyOutcomeReference({
     executor,
     reference: stored.groupPolicy,

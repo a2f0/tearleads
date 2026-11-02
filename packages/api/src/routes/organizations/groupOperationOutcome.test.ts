@@ -24,6 +24,38 @@ import { getCurrentPrincipalState } from "../../access/read/principalStateStore"
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
 import { routeApp } from "../../routeApp";
 
+const unreadableReceipt = "Stored group operation acknowledgement is invalid";
+const malformedCreationReceipt =
+  "Stored group creation acknowledgement is invalid";
+const mismatchedReference =
+  "Stored principal policy acknowledgement does not match its request";
+
+/** Corruption is never a cache miss: each stored receipt keeps its exact 409. */
+function corruptGroupReceipts(
+  operation: "creation" | "deletion",
+): readonly (readonly [string, string])[] {
+  const creation = operation === "creation";
+  const malformed = creation ? malformedCreationReceipt : mismatchedReference;
+  return [
+    ["{", unreadableReceipt],
+    ["", unreadableReceipt],
+    ["null", malformed],
+    ["[]", malformed],
+    ['"receipt"', malformed],
+    ["7", malformed],
+    ["{}", malformed],
+    ['{"groupPolicy":{}}', malformed],
+    ['{"organizationPolicy":{}}', malformed],
+    ['[{"groupPolicy":{},"organizationPolicy":{}}]', malformed],
+    // Present heads reach the exact-request comparison, which rejects them.
+    ['{"groupPolicy":null,"organizationPolicy":null}', mismatchedReference],
+    [
+      '{"groupPolicy":{},"organizationPolicy":{},"extra":1}',
+      mismatchedReference,
+    ],
+  ];
+}
+
 test.each(["creation", "deletion"] as const)(
   "a lost group %s acknowledgement replays exactly after a later directory write",
   async (operation) => {
@@ -190,13 +222,15 @@ test.each(["creation", "deletion"] as const)(
       );
       for (const envelope of request.organizationPolicy.memberEnvelopes)
         expect(receipt.responseJson).not.toContain(envelope.wrappedKey);
-      await db
-        .update(principalPolicyCommits)
-        .set({ responseJson: "null" })
-        .where(eq(principalPolicyCommits.requestHash, receipt.requestHash));
-      const corrupt = await submit(AbortSignal.timeout(15_000));
-      expect(corrupt.status).toBe(409);
-      await corrupt.arrayBuffer();
+      for (const [responseJson, error] of corruptGroupReceipts(operation)) {
+        await db
+          .update(principalPolicyCommits)
+          .set({ responseJson })
+          .where(eq(principalPolicyCommits.requestHash, receipt.requestHash));
+        const corrupt = await submit(AbortSignal.timeout(15_000));
+        expect(corrupt.status).toBe(409);
+        expect(await corrupt.json()).toEqual({ error });
+      }
     } finally {
       controller.abort();
       release.resolve();

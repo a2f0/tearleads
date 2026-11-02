@@ -11,6 +11,7 @@ import type {
   RootOrganizationsResponse,
 } from "@tearleads/validators/response";
 import { isUuidV4String } from "@tearleads/validators/util";
+import { z } from "zod";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
 import { loadRootOrganizationDetail } from "../../workflows/root/organizationDetail";
 import { listRootOrganizationIdentities } from "../../workflows/root/organizationIdentities";
@@ -28,6 +29,16 @@ export class RootOrganizationError extends Error {
     super(message);
   }
 }
+// The scope binds a cursor to its listing; unknown keys are dropped.
+function rootOrganizationCursorSchema(scope: string) {
+  return z.custom<Record<string, unknown>>(isPlainObject).pipe(
+    z.object({
+      afterId: z.string().refine(isUuidV4String),
+      scope: z.literal(scope),
+    }),
+  );
+}
+
 export function pageInput(query: RootOrganizationPageQuery, scope: string) {
   const cursor =
     query.cursor === undefined
@@ -35,15 +46,10 @@ export function pageInput(query: RootOrganizationPageQuery, scope: string) {
       : decodeCursor(
           query.cursor,
           (value) => {
-            if (!isPlainObject(value)) return undefined;
-            const { afterId, scope: cursorScope } = value;
-            if (
-              cursorScope !== scope ||
-              typeof afterId !== "string" ||
-              !isUuidV4String(afterId)
-            )
-              return undefined;
-            return { afterId };
+            const parsed = rootOrganizationCursorSchema(scope).safeParse(value);
+            return parsed.success
+              ? { afterId: parsed.data.afterId }
+              : undefined;
           },
           () => new RootOrganizationError("Invalid cursor", 400),
         );

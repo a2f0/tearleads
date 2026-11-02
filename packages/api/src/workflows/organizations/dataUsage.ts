@@ -18,6 +18,7 @@ import {
   type OrganizationDocumentUsageCategoryBreakdown,
 } from "@tearleads/validators/response";
 import { inArray, sql } from "drizzle-orm";
+import { z } from "zod";
 import { requireDirectOrganizationAccess } from "./access";
 
 // Fixed render order for the document breakdown. Built-in/system artifacts the
@@ -28,19 +29,25 @@ import { requireDirectOrganizationAccess } from "./access";
 const DOCUMENT_USAGE_CATEGORY_ORDER: readonly OrganizationDocumentUsageCategory[] =
   ORGANIZATION_DOCUMENT_USAGE_CATEGORIES;
 
-interface OrganizationBlobUsageRow {
-  organizationId: string;
-  blobByteLength: unknown;
-  blobCount: unknown;
-}
+// Driver rows: aggregates stay unknown until toNonNegativeSafeInteger reads them.
+const organizationBlobUsageRowSchema = z.object({
+  organizationId: z.string(),
+  blobByteLength: z.unknown().optional(),
+  blobCount: z.unknown().optional(),
+});
 
-interface OrganizationDocumentCategoryRow {
-  organizationId: string;
-  byteLength: unknown;
-  category: unknown;
-  documentCount: unknown;
-  documentUpdateCount: unknown;
-}
+const organizationDocumentCategoryRowSchema = z.object({
+  organizationId: z.string(),
+  byteLength: z.unknown().optional(),
+  category: z.unknown().optional(),
+  documentCount: z.unknown().optional(),
+  documentUpdateCount: z.unknown().optional(),
+});
+
+type OrganizationBlobUsageRow = z.infer<typeof organizationBlobUsageRowSchema>;
+type OrganizationDocumentCategoryRow = z.infer<
+  typeof organizationDocumentCategoryRowSchema
+>;
 
 function toNonNegativeSafeInteger(value: unknown, label: string): number {
   let bigintValue: bigint;
@@ -60,28 +67,6 @@ function toNonNegativeSafeInteger(value: unknown, label: string): number {
   }
 
   return Number(bigintValue);
-}
-
-function isOrganizationBlobUsageRow(
-  value: unknown,
-): value is OrganizationBlobUsageRow {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "organizationId" in value &&
-    typeof value.organizationId === "string"
-  );
-}
-
-function isOrganizationDocumentCategoryRow(
-  value: unknown,
-): value is OrganizationDocumentCategoryRow {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "organizationId" in value &&
-    typeof value.organizationId === "string"
-  );
 }
 
 function isDocumentUsageCategory(
@@ -195,14 +180,14 @@ export async function loadOrganizationsDataUsage(
   `);
 
   const categoryRows = categoryResult.rows.map((row) => {
-    if (!isOrganizationDocumentCategoryRow(row))
-      throw new Error("Invalid document usage row");
-    return row;
+    const parsed = organizationDocumentCategoryRowSchema.safeParse(row);
+    if (!parsed.success) throw new Error("Invalid document usage row");
+    return parsed.data;
   });
   const blobRows = blobResult.rows.map((row) => {
-    if (!isOrganizationBlobUsageRow(row))
-      throw new Error("Invalid blob usage row");
-    return row;
+    const parsed = organizationBlobUsageRowSchema.safeParse(row);
+    if (!parsed.success) throw new Error("Invalid blob usage row");
+    return parsed.data;
   });
   return new Map(
     organizationIds.map((organizationId) => [

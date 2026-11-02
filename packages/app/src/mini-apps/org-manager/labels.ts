@@ -38,6 +38,7 @@ export const ORG_MANAGER_LABELS = {
   billingCheckoutPay: "Pay and subscribe",
   billingCheckoutPaying: "Processing payment...",
   billingCheckoutStarting: "Preparing checkout...",
+  billingCheckoutTitle: "Checkout",
   billingCheckoutUnavailable:
     "The payment form could not be started. Try again in a moment.",
   billingCurrentPlan: "Current plan",
@@ -46,7 +47,6 @@ export const ORG_MANAGER_LABELS = {
   billingDeleting: "Deleting remote data",
   billingDisabled: "Sync disabled",
   billingDowngradePlan: "Downgrade",
-  billingEmail: "Billing email",
   billingEmailHint:
     "Stripe uses this email to let you manage or cancel your subscription if you lose your Tearleads keys.",
   billingHistoryActivityTab: "Activity",
@@ -188,6 +188,9 @@ export const ORG_MANAGER_LABELS = {
   rosterIdentity: "Roster user or identity link",
   importUserAction: "Add by Identity Link",
   importUserSubmitAction: "Verify and Add",
+  importUserBusy: "Verifying identity and adding to the roster...",
+  importUserNamesNote:
+    "The name is encrypted on this device before it is saved to their roster profile.",
   importRosterEntryIntoContactsAction: "Import Into Contacts",
   joined: "Joined",
   lastName: "Last name",

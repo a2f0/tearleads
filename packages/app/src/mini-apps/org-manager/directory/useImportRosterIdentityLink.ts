@@ -1,9 +1,11 @@
 import type { UserIdentities } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import { useIdentityLinks } from "../../../providers/identity-links/useIdentityLinks";
+import type { RosterProfileNames } from "../../../stores/org-manager/profileDocuments";
 import { prepareRosterImport } from "../groups/orgManagerMutationOperations";
 import type { OrgManagerMutationsParams } from "../hooks/orgManagerMutationsTypes";
 import { runScopedOrgMutation } from "../hooks/runScopedOrgMutation";
+import { seedImportedRosterProfile } from "./seedImportedRosterProfile";
 
 type RosterIdentityLinkImport = Pick<
   OrgManagerMutationsParams,
@@ -28,6 +30,7 @@ type RosterIdentityLinkImport = Pick<
 
 async function importRosterIdentityLink(
   input: RosterIdentityLinkImport,
+  names: RosterProfileNames,
   verifyLink: UserIdentities["verifyLink"],
 ) {
   const {
@@ -90,6 +93,18 @@ async function importRosterIdentityLink(
       if (!isOperationActive(operationOrganizationId)) {
         return;
       }
+      const profileSeeded = await seedImportedRosterProfile({
+        isOperationActive,
+        names,
+        operationOrganizationId,
+        orgManagerActions,
+        refreshDirectoryAndGroups,
+        setError,
+        userId: targetUser.userId,
+      });
+      if (!profileSeeded) {
+        return;
+      }
       setImportUserIdDraft("");
       setIsImportUserDialogOpen(false);
       setOrgManagerView("directory");
@@ -104,7 +119,8 @@ async function importRosterIdentityLink(
 export function useImportRosterIdentityLink(input: RosterIdentityLinkImport) {
   const { verifyLink } = useIdentityLinks();
   return useCallback(
-    () => importRosterIdentityLink(input, verifyLink),
+    (names: RosterProfileNames) =>
+      importRosterIdentityLink(input, names, verifyLink),
     [
       verifyLink,
       input.appData,

@@ -173,11 +173,27 @@ test("a lost compound commit response remains recoverable after a later policy u
     for (const envelope of initial.memberEnvelopes)
       expect(receipt.responseJson).not.toContain(envelope.wrappedKey);
     // Corruption is never treated as a cache miss that reapplies an old write.
-    for (const responseJson of [
-      "{",
-      JSON.stringify({}),
-      laterReceipt.responseJson,
-    ]) {
+    const malformed = "Stored principal policy acknowledgement is invalid";
+    const mismatched =
+      "Stored principal policy acknowledgement does not match its request";
+    for (const [responseJson, error] of [
+      ["{", malformed],
+      ["", malformed],
+      ["null", malformed],
+      ["[]", malformed],
+      ["7", malformed],
+      ['"receipt"', malformed],
+      [JSON.stringify({}), malformed],
+      ['{"groupPolicy":{}}', malformed],
+      ['{"organizationPolicy":{}}', malformed],
+      ['[{"groupPolicy":{},"organizationPolicy":{}}]', malformed],
+      ['{"groupPolicy":null,"organizationPolicy":null}', mismatched],
+      [
+        '{"groupPolicy":{},"organizationPolicy":{},"memberPolicy":1}',
+        mismatched,
+      ],
+      [laterReceipt.responseJson, mismatched],
+    ] as const) {
       await db
         .update(principalPolicyCommits)
         .set({ responseJson })
@@ -187,7 +203,7 @@ test("a lost compound commit response remains recoverable after a later policy u
         originalRequest.init,
       );
       expect(corrupt.status).toBe(409);
-      await corrupt.arrayBuffer();
+      expect(await corrupt.json()).toEqual({ error });
     }
     await deleteOrganizationGroupRows({
       executor: db,

@@ -22,6 +22,9 @@ const EXPLORER_HEADER_SYNC_INDICATOR_FEATURE_FLAG_KEY =
   appFeatureFlagStorageKey("explorer-header-sync-indicator");
 const LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY =
   appFeatureFlagStorageKey("linked-document-activation-controls");
+const STRIPE_HOSTED_CHECKOUT_FEATURE_FLAG_KEY = appFeatureFlagStorageKey(
+  "stripe-hosted-checkout",
+);
 const WORKSPACE_SWITCHER_FEATURE_FLAG_KEY =
   appFeatureFlagStorageKey("workspace-switcher");
 
@@ -69,6 +72,9 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
   const linkedDocumentActivationControlsToggle = view.getByRole("switch", {
     name: "Enable linked document activation controls",
   }) as HTMLInputElement;
+  const stripeHostedCheckoutToggle = view.getByRole("switch", {
+    name: "Show Pay on Stripe link",
+  }) as HTMLInputElement;
   const workspaceSwitcherToggle = view.getByRole("switch", {
     name: "Show workspace switcher",
   }) as HTMLInputElement;
@@ -76,8 +82,9 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
   expect(documentEditRangesToggle.checked).toBe(false);
   expect(explorerHeaderSyncIndicatorToggle.checked).toBe(false);
   expect(linkedDocumentActivationControlsToggle.checked).toBe(false);
+  expect(stripeHostedCheckoutToggle.checked).toBe(false);
   expect(workspaceSwitcherToggle.checked).toBe(false);
-  expect(view.getAllByText("Disabled")).toHaveLength(5);
+  expect(view.getAllByText("Disabled")).toHaveLength(6);
 
   fireEvent.click(builtInSystemContainersToggle);
 
@@ -125,6 +132,16 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
     expect(view.getAllByText("Enabled")).toHaveLength(4);
   });
 
+  fireEvent.click(stripeHostedCheckoutToggle);
+
+  await waitFor(() => {
+    expect(stripeHostedCheckoutToggle.checked).toBe(true);
+    expect(
+      globalThis.localStorage.getItem(STRIPE_HOSTED_CHECKOUT_FEATURE_FLAG_KEY),
+    ).toBe("enabled");
+    expect(view.getAllByText("Enabled")).toHaveLength(5);
+  });
+
   fireEvent.click(workspaceSwitcherToggle);
 
   await waitFor(() => {
@@ -132,7 +149,7 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
     expect(
       globalThis.localStorage.getItem(WORKSPACE_SWITCHER_FEATURE_FLAG_KEY),
     ).toBe("enabled");
-    expect(view.getAllByText("Enabled")).toHaveLength(5);
+    expect(view.getAllByText("Enabled")).toHaveLength(6);
   });
 
   await clickWindowViewMenuItem(view, "Disable Developer Mode");
