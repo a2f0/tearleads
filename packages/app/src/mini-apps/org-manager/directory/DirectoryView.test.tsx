@@ -105,39 +105,41 @@ function TestProviders({ children }: PropsWithChildren) {
   );
 }
 
+function directoryViewDefaults(): Parameters<typeof DirectoryView>[0] {
+  return {
+    canImportRosterUser: false,
+    canRevokeGrants: false,
+    canUpdateSelectedRosterEntry: false,
+    closeImportUserDialog: () => undefined,
+    detail: null,
+    directory,
+    error: null,
+    importRosterUser: () => undefined,
+    importUserIdDraft: "",
+    isImportUserDialogOpen: false,
+    loadingUserDetail: false,
+    organizationId: directory.organizationId,
+    pending: false,
+    mutating: false,
+    openGrantRoute: () => undefined,
+    openGroupRoute: () => undefined,
+    profileDisplayNamesByUserId: new Map(),
+    revokeGrant: () => undefined,
+    rosterProfileEditRequest: null,
+    selectedUserId: null,
+    selectUser: () => undefined,
+    setSelectedProfileDisplayName: () => undefined,
+    setImportUserIdDraft: () => undefined,
+    syncSeatUserIds: null,
+  };
+}
+
 function renderDirectoryView(
   props: Partial<Parameters<typeof DirectoryView>[0]> = {},
 ) {
-  return render(
-    <DirectoryView
-      canImportRosterUser={false}
-      canRevokeGrants={false}
-      canUpdateSelectedRosterEntry={false}
-      closeImportUserDialog={() => undefined}
-      detail={null}
-      directory={directory}
-      error={null}
-      importRosterUser={() => undefined}
-      importUserIdDraft=""
-      isImportUserDialogOpen={false}
-      loadingUserDetail={false}
-      organizationId={directory.organizationId}
-      pending={false}
-      mutating={false}
-      openGrantRoute={() => undefined}
-      openGroupRoute={() => undefined}
-      profileDisplayNamesByUserId={new Map()}
-      revokeGrant={() => undefined}
-      rosterProfileEditRequest={null}
-      selectedUserId={null}
-      selectUser={() => undefined}
-      setSelectedProfileDisplayName={() => undefined}
-      setImportUserIdDraft={() => undefined}
-      syncSeatUserIds={null}
-      {...props}
-    />,
-    { wrapper: TestProviders },
-  );
+  return render(<DirectoryView {...directoryViewDefaults()} {...props} />, {
+    wrapper: TestProviders,
+  });
 }
 
 function installClipboardWriteMock(): string[] {
@@ -394,6 +396,39 @@ test("org manager roster import dialog covers the whole panel while adding", () 
   ]) {
     expect(view.getByLabelText(label).hasAttribute("disabled")).toBe(true);
   }
+});
+
+test("org manager roster import dialog keeps the names after a failed add", () => {
+  const props = {
+    canImportRosterUser: true,
+    importUserIdDraft: "user-2",
+    isImportUserDialogOpen: true,
+  };
+  const view = renderDirectoryView(props);
+  fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.firstName), {
+    target: { value: "Ada" },
+  });
+  fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.lastName), {
+    target: { value: "Lovelace" },
+  });
+
+  view.rerender(
+    <DirectoryView
+      {...directoryViewDefaults()}
+      {...props}
+      error={ORG_MANAGER_LABELS.failedCreateProfileDocument}
+    />,
+  );
+
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.failedCreateProfileDocument),
+  ).toBeTruthy();
+  const firstName = view.getByLabelText(ORG_MANAGER_LABELS.firstName);
+  const lastName = view.getByLabelText(ORG_MANAGER_LABELS.lastName);
+  expect(firstName instanceof HTMLInputElement && firstName.value).toBe("Ada");
+  expect(lastName instanceof HTMLInputElement && lastName.value).toBe(
+    "Lovelace",
+  );
 });
 
 function compactRosterUserId(): string {
