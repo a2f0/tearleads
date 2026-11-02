@@ -6,11 +6,13 @@ import type {
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
+import { z } from "zod";
+import { readProjectionAccessEvent } from "../../keyingProjectionRecords";
 import {
-  readProjectionAccessEvent,
-  readProjectionPlainRecord,
-  readProjectionString,
-} from "../../keyingProjectionRecords";
+  parseProjection,
+  projectionPlainRecord,
+  projectionString,
+} from "../../keyingProjectionSchemas";
 import { ContainerMutationError } from "../containers/mutations/errors";
 import { assertCarriedRekeysBelowRotations } from "../containers/mutations/shared/carriedRekeyAncestry";
 import { assertGrantedPathsCurrentBelowRotations } from "../containers/mutations/shared/grantedPathCurrency";
@@ -135,6 +137,10 @@ function requestEvent(
   );
 }
 
+const revokeEventTypeClaim = z.object({ eventType: projectionString });
+const revokeSubjectTypeClaim = z.object({ subjectType: projectionString });
+const revokeSubjectIdClaim = z.object({ subjectId: projectionString });
+
 function isRotatingPrincipalRevoke(input: {
   readonly nextHead: ContainerGrantPrincipalHead;
   readonly previousKeyEpoch: number | null;
@@ -147,30 +153,21 @@ function isRotatingPrincipalRevoke(input: {
     return false;
   }
   const error = (message: string) => new PrincipalPolicyError(message, 400);
-  const body = readProjectionPlainRecord(
+  const label = "Principal container rematerialization body";
+  const body = parseProjection(
+    projectionPlainRecord,
     input.request.body,
-    "Principal container rematerialization body",
+    label,
     error,
   );
+  // Each claim is checked only once the ones before it matched.
+  const claim = <Schema extends z.ZodType>(schema: Schema) =>
+    parseProjection(schema, body, label, error);
   return (
-    readProjectionString(
-      body,
-      "eventType",
-      "Principal container rematerialization body",
-      error,
-    ) === "container.revoke" &&
-    readProjectionString(
-      body,
-      "subjectType",
-      "Principal container rematerialization body",
-      error,
-    ) === input.nextHead.principalType &&
-    readProjectionString(
-      body,
-      "subjectId",
-      "Principal container rematerialization body",
-      error,
-    ) === input.nextHead.principalId
+    claim(revokeEventTypeClaim).eventType === "container.revoke" &&
+    claim(revokeSubjectTypeClaim).subjectType ===
+      input.nextHead.principalType &&
+    claim(revokeSubjectIdClaim).subjectId === input.nextHead.principalId
   );
 }
 

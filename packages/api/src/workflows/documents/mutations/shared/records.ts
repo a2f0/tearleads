@@ -1,14 +1,9 @@
 import type {
-  ContentObjectKind,
-  ContentRecordEncryptionSuite,
   VerifiedDocumentKekTargets,
   VerifiedDocumentLinkSetManifest,
   WriteHeader,
 } from "@tearleads/crypto";
-import {
-  CONTENT_RECORD_ENCRYPTION_SUITE,
-  makeVerifiedDocumentKekTargets,
-} from "@tearleads/crypto";
+import { makeVerifiedDocumentKekTargets } from "@tearleads/crypto";
 import type {
   DocumentContentKeyBundleRequest,
   DocumentContentKeyTargetEnvelope,
@@ -24,27 +19,13 @@ import type {
   DocumentContentKeyTargetEnvelope as StoredDocumentContentKeyTargetEnvelope,
 } from "../../../../access/read/documentContentKeyStore";
 import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
+import { readProjectionWriteHeader } from "../../../../keyingProjectionRecords";
 import {
-  readProjectionCanonicalJson,
-  readProjectionPlainRecord,
-  readProjectionPositiveInteger,
-  readProjectionRecord,
-  readProjectionString,
-  readProjectionStringArray,
-  readProjectionValue,
-  readProjectionVersion,
-} from "../../../../keyingProjectionRecords";
+  copyProjectionRecord,
+  parseProjection,
+  projectionCanonicalJson,
+} from "../../../../keyingProjectionSchemas";
 import { DocumentMutationError, documentShapeError } from "../errors";
-
-function isContentObjectKind(value: unknown): value is ContentObjectKind {
-  return value === "blob" || value === "document";
-}
-
-function isContentRecordEncryptionSuite(
-  value: unknown,
-): value is ContentRecordEncryptionSuite {
-  return value === CONTENT_RECORD_ENCRYPTION_SUITE;
-}
 
 /**
  * The hash acknowledgement of a committed document create or link-set
@@ -79,63 +60,8 @@ export function verifiedDocumentKekTargetsFromResolved(
   });
 }
 
-function readWriteHeaderString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): string {
-  return readProjectionString(record, key, label, documentShapeError);
-}
-
 export function readWriteHeader(value: unknown, label: string): WriteHeader {
-  const record = readProjectionPlainRecord(value, label, documentShapeError);
-  const objectKind = readProjectionValue(record, "objectKind");
-  const encryptionSuite = readProjectionValue(record, "encryptionSuite");
-  if (!isContentObjectKind(objectKind)) {
-    throw documentShapeError(`${label}.objectKind is invalid`);
-  }
-  if (!isContentRecordEncryptionSuite(encryptionSuite)) {
-    throw documentShapeError(`${label}.encryptionSuite is invalid`);
-  }
-  readProjectionVersion(record, label, documentShapeError);
-
-  return {
-    version: 1,
-    dependencyManifestHashes: readProjectionStringArray(
-      readProjectionValue(record, "dependencyManifestHashes"),
-      `${label}.dependencyManifestHashes`,
-      documentShapeError,
-    ),
-    organizationId: readWriteHeaderString(record, "organizationId", label),
-    objectKind,
-    objectId: readWriteHeaderString(record, "objectId", label),
-    accessManifestHash: readWriteHeaderString(
-      record,
-      "accessManifestHash",
-      label,
-    ),
-    contentKeyEpoch: readProjectionPositiveInteger(
-      record,
-      "contentKeyEpoch",
-      label,
-      documentShapeError,
-    ),
-    targetHash: readWriteHeaderString(record, "targetHash", label),
-    encryptionSuite,
-    contentRecordId: readWriteHeaderString(record, "contentRecordId", label),
-    nonceDomainHash: readWriteHeaderString(record, "nonceDomainHash", label),
-    metadataHash: readWriteHeaderString(record, "metadataHash", label),
-    ciphertextHash: readWriteHeaderString(record, "ciphertextHash", label),
-    writerUserId: readWriteHeaderString(record, "writerUserId", label),
-    writerDeviceId: readWriteHeaderString(record, "writerDeviceId", label),
-    writerKeyFingerprint: readWriteHeaderString(
-      record,
-      "writerKeyFingerprint",
-      label,
-    ),
-    signedAt: readWriteHeaderString(record, "signedAt", label),
-    signature: readWriteHeaderString(record, "signature", label),
-  };
+  return readProjectionWriteHeader(value, label, documentShapeError);
 }
 
 export function writeHeaderRecord(
@@ -172,7 +98,8 @@ function toStoredTargetEnvelope(
     containerKeyEpochId: target.containerKeyEpochId,
     containerKeyEpoch: target.containerKeyEpoch,
     wrappedKey: target.wrappedKey,
-    wrappingMetadata: readProjectionCanonicalJson(
+    wrappingMetadata: parseProjection(
+      projectionCanonicalJson,
       target.wrappingMetadata,
       "Document content-key target wrapping metadata",
       documentShapeError,
@@ -246,7 +173,7 @@ export function toContentKeyBundleResponse(
       containerKeyEpochId: target.containerKeyEpochId,
       containerKeyEpoch: target.containerKeyEpoch,
       wrappedKey: target.wrappedKey,
-      wrappingMetadata: readProjectionRecord(
+      wrappingMetadata: copyProjectionRecord(
         target.wrappingMetadata,
         "Document content-key target wrapping metadata",
         recordErrorFactory,

@@ -10,12 +10,22 @@ import {
   verifyDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import { z } from "zod";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
   accessManifestCheckpoint,
-  createProjectionReaders,
-  documentLinkSetStateRecord,
+  readProjectionAccessManifest,
+  readProjectionVerifiedAccessEvent,
 } from "../../keyingProjectionRecords";
+import {
+  parseProjection,
+  projectionNullableString,
+  projectionPositiveInteger,
+  projectionRecord,
+  projectionString,
+  projectionStringArray,
+  projectionVersion,
+} from "../../keyingProjectionSchemas";
 import { canonicalJsonEquals } from "../../utils/canonicalJson";
 import { verifyStoredAccessEvent } from "../../utils/storedAccessEventVerification";
 import {
@@ -65,66 +75,35 @@ function integrityError(message: string): StoredDocumentManifestError {
   return new StoredDocumentManifestError(message);
 }
 
-const {
-  readAccessManifest,
-  readNullableString,
-  readPlainRecord,
-  readPositiveInteger,
-  readString,
-  readStringArray,
-  readValue,
-  readVerifiedAccessEvent,
-  readVersion,
-} = createProjectionReaders(integrityError);
+const storedDocumentLinkSetStateSchema = projectionRecord({
+  version: projectionVersion,
+  documentId: projectionString,
+  organizationId: projectionString,
+  epoch: projectionPositiveInteger,
+  previousManifestHash: projectionNullableString,
+  eventHash: projectionString,
+  linkedContainerIds: projectionStringArray,
+});
 
 function readStoredDocumentManifest(
   bundle: AccessManifestBundleWireResponse,
 ): VerifiedDocumentLinkSetManifest {
-  const stateRecord = readPlainRecord(
+  const state = parseProjection(
+    storedDocumentLinkSetStateSchema,
     bundle.state,
     "Stored document manifest state",
+    integrityError,
   );
-  readVersion(stateRecord, "Stored document manifest state");
-  const state = documentLinkSetStateRecord({
-    version: 1,
-    documentId: readString(
-      stateRecord,
-      "documentId",
-      "Stored document manifest state",
-    ),
-    organizationId: readString(
-      stateRecord,
-      "organizationId",
-      "Stored document manifest state",
-    ),
-    epoch: readPositiveInteger(
-      stateRecord,
-      "epoch",
-      "Stored document manifest state",
-    ),
-    previousManifestHash: readNullableString(
-      stateRecord,
-      "previousManifestHash",
-      "Stored document manifest state",
-    ),
-    eventHash: readString(
-      stateRecord,
-      "eventHash",
-      "Stored document manifest state",
-    ),
-    linkedContainerIds: readStringArray(
-      readValue(stateRecord, "linkedContainerIds"),
-      "Stored document manifest state.linkedContainerIds",
-    ),
-  });
-  const manifest = readAccessManifest(
+  const manifest = readProjectionAccessManifest(
     bundle.manifest,
     "Stored document manifest",
+    integrityError,
   );
   return makeVerifiedDocumentLinkSetManifest({
-    event: readVerifiedAccessEvent(
+    event: readProjectionVerifiedAccessEvent(
       bundle.event,
       "Stored document access event",
+      integrityError,
     ),
     manifest,
     manifestHash: bundle.manifestHash,
@@ -174,18 +153,20 @@ async function loadStoredEventSigner(input: {
   );
 }
 
+const targetContainerManifestHashSchema = z.object({
+  containerManifestHash: projectionString,
+});
+
 function targetContainerManifestHash(
   manifest: VerifiedDocumentLinkSetManifest,
 ): string {
-  const body = manifest.event.body;
-  const hash =
-    body !== null && typeof body === "object" && !Array.isArray(body)
-      ? Reflect.get(body, "containerManifestHash")
-      : null;
-  if (typeof hash !== "string" || hash.length === 0) {
+  const target = targetContainerManifestHashSchema.safeParse(
+    manifest.event.body,
+  );
+  if (!target.success) {
     throw integrityError("signed event target manifest is missing");
   }
-  return hash;
+  return target.data.containerManifestHash;
 }
 
 async function loadContainerPaths(input: {

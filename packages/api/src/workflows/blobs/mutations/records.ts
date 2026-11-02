@@ -3,17 +3,12 @@ import type {
   AccessEvent,
   AttachmentBindAccessEventBody,
   AttachmentDetachAccessEventBody,
-  ContentObjectKind,
-  ContentRecordEncryptionSuite,
   KeyingCanonicalJson,
   VerifiedAttachmentBinding,
   VerifiedBlobKekTargets,
   WriteHeader,
 } from "@tearleads/crypto";
-import {
-  CONTENT_RECORD_ENCRYPTION_SUITE,
-  makeVerifiedBlobKekTargets,
-} from "@tearleads/crypto";
+import { makeVerifiedBlobKekTargets } from "@tearleads/crypto";
 import type {
   BlobContentKeyBundleRequest,
   BlobContentKeyTargetEnvelopeRequest,
@@ -23,6 +18,7 @@ import type {
   BlobContentKeyBundleResponse,
   BlobKekTargetsResponse,
 } from "@tearleads/validators/response";
+import { z } from "zod";
 import type {
   BlobContentKeyTargetEnvelope,
   StoredBlobContentKeyBundleWithTargets,
@@ -30,15 +26,14 @@ import type {
 import type { resolveCurrentBlobKekTargets } from "../../../access/read/blobKekTargets";
 import {
   readProjectionAccessEvent,
-  readProjectionCanonicalJson,
-  readProjectionPlainRecord,
-  readProjectionPositiveInteger,
-  readProjectionRecord,
-  readProjectionString,
-  readProjectionStringArray,
-  readProjectionValue,
-  readProjectionVersion,
+  readProjectionWriteHeader,
 } from "../../../keyingProjectionRecords";
+import {
+  copyProjectionRecord,
+  parseProjection,
+  projectionCanonicalJson,
+  projectionString,
+} from "../../../keyingProjectionSchemas";
 import { BlobMutationError } from "./types";
 
 export type ResolvedBlobKekTargets = Awaited<
@@ -49,47 +44,35 @@ function blobShapeError(message: string): BlobMutationError {
   return new BlobMutationError(message, 400);
 }
 
-function isContentObjectKind(value: unknown): value is ContentObjectKind {
-  return value === "blob" || value === "document";
-}
+const attachmentDetachClaimsSchema = z.object({
+  bindingId: projectionString,
+  blobId: projectionString,
+  documentId: projectionString,
+  slotId: projectionString,
+  documentManifestHash: projectionString,
+});
 
-function isContentRecordEncryptionSuite(
-  value: unknown,
-): value is ContentRecordEncryptionSuite {
-  return value === CONTENT_RECORD_ENCRYPTION_SUITE;
-}
+const attachmentBindClaimsSchema = z.object({
+  bindingId: projectionString,
+  blobId: projectionString,
+  documentId: projectionString,
+  slotId: projectionString,
+  expectedBindingId: projectionString.nullable(),
+  documentManifestHash: projectionString,
+});
 
-function readStringClaim(value: unknown, key: string, label: string): string {
-  if (!value || typeof value !== "object") {
-    throw new BlobMutationError(`${label}.${key} is required`, 400);
-  }
-
-  const claim = Reflect.get(value, key);
-  if (typeof claim !== "string" || claim.length === 0) {
-    throw new BlobMutationError(`${label}.${key} is required`, 400);
-  }
-
-  return claim;
-}
-
-function readNullableStringClaim(
-  value: unknown,
-  key: string,
+/** Signed body claims; the first missing or empty claim names the error. */
+function readBodyClaims<Schema extends z.ZodObject>(
+  schema: Schema,
+  body: unknown,
   label: string,
-): string | null {
-  if (!value || typeof value !== "object") {
-    throw new BlobMutationError(`${label}.${key} is required`, 400);
+): z.output<Schema> {
+  const result = schema.safeParse(body);
+  if (result.success) {
+    return result.data;
   }
-
-  const claim = Reflect.get(value, key);
-  if (claim === null) {
-    return null;
-  }
-  if (typeof claim !== "string" || claim.length === 0) {
-    throw new BlobMutationError(`${label}.${key} is required`, 400);
-  }
-
-  return claim;
+  const [claim = "bindingId"] = result.error.issues[0]?.path ?? [];
+  throw new BlobMutationError(`${label}.${String(claim)} is required`, 400);
 }
 
 export function readBindBodyClaim(
@@ -97,20 +80,7 @@ export function readBindBodyClaim(
 ): AttachmentBindAccessEventBody {
   return {
     eventType: "attachment.bind",
-    bindingId: readStringClaim(body, "bindingId", "attachment.bind body"),
-    blobId: readStringClaim(body, "blobId", "attachment.bind body"),
-    documentId: readStringClaim(body, "documentId", "attachment.bind body"),
-    slotId: readStringClaim(body, "slotId", "attachment.bind body"),
-    expectedBindingId: readNullableStringClaim(
-      body,
-      "expectedBindingId",
-      "attachment.bind body",
-    ),
-    documentManifestHash: readStringClaim(
-      body,
-      "documentManifestHash",
-      "attachment.bind body",
-    ),
+    ...readBodyClaims(attachmentBindClaimsSchema, body, "attachment.bind body"),
   };
 }
 
@@ -119,13 +89,9 @@ export function readDetachBodyClaim(
 ): AttachmentDetachAccessEventBody {
   return {
     eventType: "attachment.detach",
-    bindingId: readStringClaim(body, "bindingId", "attachment.detach body"),
-    blobId: readStringClaim(body, "blobId", "attachment.detach body"),
-    documentId: readStringClaim(body, "documentId", "attachment.detach body"),
-    slotId: readStringClaim(body, "slotId", "attachment.detach body"),
-    documentManifestHash: readStringClaim(
+    ...readBodyClaims(
+      attachmentDetachClaimsSchema,
       body,
-      "documentManifestHash",
       "attachment.detach body",
     ),
   };
@@ -135,63 +101,8 @@ export function readBlobEvent(value: unknown, label: string): AccessEvent {
   return readProjectionAccessEvent(value, label, blobShapeError);
 }
 
-function readWriteHeaderString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): string {
-  return readProjectionString(record, key, label, blobShapeError);
-}
-
 export function readWriteHeader(value: unknown, label: string): WriteHeader {
-  const record = readProjectionPlainRecord(value, label, blobShapeError);
-  const objectKind = readProjectionValue(record, "objectKind");
-  const encryptionSuite = readProjectionValue(record, "encryptionSuite");
-  if (!isContentObjectKind(objectKind)) {
-    throw blobShapeError(`${label}.objectKind is invalid`);
-  }
-  if (!isContentRecordEncryptionSuite(encryptionSuite)) {
-    throw blobShapeError(`${label}.encryptionSuite is invalid`);
-  }
-  readProjectionVersion(record, label, blobShapeError);
-
-  return {
-    version: 1,
-    dependencyManifestHashes: readProjectionStringArray(
-      readProjectionValue(record, "dependencyManifestHashes"),
-      `${label}.dependencyManifestHashes`,
-      blobShapeError,
-    ),
-    organizationId: readWriteHeaderString(record, "organizationId", label),
-    objectKind,
-    objectId: readWriteHeaderString(record, "objectId", label),
-    accessManifestHash: readWriteHeaderString(
-      record,
-      "accessManifestHash",
-      label,
-    ),
-    contentKeyEpoch: readProjectionPositiveInteger(
-      record,
-      "contentKeyEpoch",
-      label,
-      blobShapeError,
-    ),
-    targetHash: readWriteHeaderString(record, "targetHash", label),
-    encryptionSuite,
-    contentRecordId: readWriteHeaderString(record, "contentRecordId", label),
-    nonceDomainHash: readWriteHeaderString(record, "nonceDomainHash", label),
-    metadataHash: readWriteHeaderString(record, "metadataHash", label),
-    ciphertextHash: readWriteHeaderString(record, "ciphertextHash", label),
-    writerUserId: readWriteHeaderString(record, "writerUserId", label),
-    writerDeviceId: readWriteHeaderString(record, "writerDeviceId", label),
-    writerKeyFingerprint: readWriteHeaderString(
-      record,
-      "writerKeyFingerprint",
-      label,
-    ),
-    signedAt: readWriteHeaderString(record, "signedAt", label),
-    signature: readWriteHeaderString(record, "signature", label),
-  };
+  return readProjectionWriteHeader(value, label, blobShapeError);
 }
 
 export function verifiedBlobKekTargetsFromResolved(
@@ -214,14 +125,14 @@ function readContentKeyWrappingMetadata(
   value: unknown,
   label: string,
 ): KeyingCanonicalJson {
-  return readProjectionCanonicalJson(value, label, blobShapeError);
+  return parseProjection(projectionCanonicalJson, value, label, blobShapeError);
 }
 
 function contentKeyWrappingMetadataRecord(
   value: KeyingCanonicalJson,
   label: string,
 ): Record<string, unknown> {
-  return readProjectionRecord(value, label, blobShapeError);
+  return copyProjectionRecord(value, label, blobShapeError);
 }
 
 function toStoredTargetEnvelope(
