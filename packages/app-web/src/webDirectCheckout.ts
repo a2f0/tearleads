@@ -183,23 +183,20 @@ function currentReturnUrl(): string | undefined {
 function createSession(
   stripe: Stripe,
   elements: StripeElements,
-  billingEmail?: string,
 ): DirectCheckoutSession {
   let unmounted = false;
   return {
-    async confirm() {
+    async confirm({ billingEmail }) {
       if (unmounted) {
         return { kind: "cancelled" };
       }
       const returnUrl = currentReturnUrl();
+      // The element is created with `email: "never"`, so Stripe requires the
+      // address here; the host form collects it beside the card fields.
       const confirmParams = {
-        ...(billingEmail
-          ? {
-              payment_method_data: {
-                billing_details: { email: billingEmail },
-              },
-            }
-          : {}),
+        payment_method_data: {
+          billing_details: { email: billingEmail.trim() },
+        },
         ...(returnUrl ? { return_url: returnUrl } : {}),
       };
       const { error } = await stripe.confirmPayment({
@@ -212,7 +209,7 @@ function createSession(
         // necessary and no return_url was given, which the buyer would see
         // as a generic failure. Returning to the current page is right: the
         // webhook has already recorded the outcome by the time they land.
-        ...(returnUrl || billingEmail ? { confirmParams } : {}),
+        confirmParams,
       });
       // Check the unmount BEFORE mapping: `toConfirmation` throws for a
       // non-buyer error, which would reject instead of honoring the
@@ -258,7 +255,7 @@ export function createWebDirectCheckout(
 
   return {
     isAvailable: true,
-    async mount({ host, clientSecret, appearance, billingEmail }) {
+    async mount({ host, clientSecret, appearance }) {
       stripePromise = stripePromise ?? loadStripeImpl(publishableKey);
       // `loadStripe` REJECTS when the script cannot be fetched (blocked by an
       // extension, offline) and resolves null only where there is no `window`.
@@ -284,15 +281,12 @@ export function createWebDirectCheckout(
         clientSecret,
         appearance: toStripeAppearance(appearance),
       });
-      const normalizedEmail = billingEmail?.trim();
-      const payment = elements.create(
-        "payment",
-        normalizedEmail
-          ? { fields: { billingDetails: { email: "never" } } }
-          : undefined,
-      );
+      // The billing email is the host form's field, not the iframe's.
+      const payment = elements.create("payment", {
+        fields: { billingDetails: { email: "never" } },
+      });
       payment.mount(host);
-      return createSession(stripe, elements, normalizedEmail);
+      return createSession(stripe, elements);
     },
   };
 }
