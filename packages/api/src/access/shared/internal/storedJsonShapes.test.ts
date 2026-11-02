@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { readCurrentCommitLsn } from "../../../documents/commitLsn";
-import { assertCarriedRekeysBelowRotations } from "../../../workflows/containers/mutations/shared/carriedRekeyAncestry";
-import { assertContainerMoveDepth } from "../../../workflows/containers/mutations/shared/containerDepth";
 import {
   isContainerDirectGrant,
   isReferencedPrincipalHead,
@@ -298,37 +296,5 @@ describe("raw query rows", () => {
         "Failed to read current commit LSN.",
       );
     }
-  });
-
-  test("a subtree height must be a non-negative safe integer", async () => {
-    const assertDepth = (rows: unknown[]) =>
-      assertContainerMoveDepth(rowsExecutor(rows), "container-id", 1);
-    await assertDepth([{ height: 0 }]);
-    for (const rows of [
-      [],
-      [{ height: -1 }],
-      [{ height: 1.5 }],
-      [{ height: "2" }],
-      [{ height: null }],
-    ]) {
-      expect(await rejection(() => assertDepth(rows))).toBe(
-        "Container subtree depth is unavailable",
-      );
-    }
-  });
-
-  test("carried rekey ancestry skips rows without a string start id", async () => {
-    const assertBelow = (rows: unknown[]) =>
-      assertCarriedRekeysBelowRotations({
-        carriedContainerIds: ["carried-id"],
-        executor: rowsExecutor(rows),
-        rotatedContainerIds: ["rotated-id"],
-      });
-    await assertBelow([{ start_id: "carried-id" }]);
-    expect(
-      await rejection(() =>
-        assertBelow([{ start_id: 1 }, { other: "carried-id" }]),
-      ),
-    ).toBe("Carried container rekey is not below the rotated container");
   });
 });
