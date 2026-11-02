@@ -9,10 +9,17 @@ import {
   MAX_ROTATION_CONTAINER_REKEYS,
 } from "@tearleads/validators/util";
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { z } from "zod";
 import { getCurrentContainerKeyEpochPins } from "../../../../access/read/containerKekStore";
 import { uuidValue } from "../../../../utils/sqlDialect";
 import { ContainerMutationError, descendantRekeysRequired } from "../errors";
 import { assertDescendantRekeysWritable } from "./descendantRekeyAccess";
+
+const ancestryRowSchema = z.object({
+  id: z.string(),
+  parent_id: z.string().nullable(),
+  depth: z.unknown(),
+});
 
 const ANCESTRY_CHUNK_SIZE = 500;
 
@@ -146,21 +153,21 @@ async function loadAncestry(
       )
       select distinct id, parent_id, depth from ancestry
     `);
-    for (const row of result.rows) {
-      const id = Reflect.get(row, "id");
-      const parentId = Reflect.get(row, "parent_id");
-      const depth = Number(Reflect.get(row, "depth"));
-      if (
-        typeof id !== "string" ||
-        (parentId !== null && typeof parentId !== "string") ||
-        !Number.isInteger(depth)
-      ) {
+    for (const value of result.rows) {
+      const row = ancestryRowSchema.safeParse(value);
+      // The driver may hand `depth` back as a string or bigint.
+      const depth = row.success ? Number(row.data.depth) : Number.NaN;
+      if (!row.success || !Number.isInteger(depth)) {
         throw new ContainerMutationError(
           "Container ancestry row is malformed",
           409,
         );
       }
-      nodes.set(id, { depth, id, parentId });
+      nodes.set(row.data.id, {
+        depth,
+        id: row.data.id,
+        parentId: row.data.parent_id,
+      });
     }
   }
   return nodes;

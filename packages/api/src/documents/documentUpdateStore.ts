@@ -12,6 +12,7 @@ import { decodeVersionVector } from "@tearleads/loro";
 import type { DocumentUpdateRecord } from "@tearleads/loro/server";
 import { parseWalLsn } from "@tearleads/validators/util";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { z } from "zod";
 import {
   isSqliteApiDatabase,
   textExpression,
@@ -27,10 +28,16 @@ interface SqlNamedColumn {
   name: string;
 }
 
-interface MissingDocumentUpdateCandidate {
-  id: string;
-  sequence: number;
-}
+const missingDocumentUpdateCandidateSchema = z.object({
+  id: z.string(),
+  sequence: z
+    .number()
+    .refine((sequence) => Number.isSafeInteger(sequence) && sequence > 0),
+});
+
+type MissingDocumentUpdateCandidate = z.output<
+  typeof missingDocumentUpdateCandidateSchema
+>;
 
 interface MissingDocumentUpdatePage {
   readonly hasMore: boolean;
@@ -61,24 +68,6 @@ export class DocumentUpdateReadError extends Error {
 
 function aliasedColumn(alias: string, column: SqlNamedColumn) {
   return sql.raw(`${alias}.${column.name}`);
-}
-
-function isMissingDocumentUpdateCandidate(
-  value: unknown,
-): value is MissingDocumentUpdateCandidate {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  const id = Reflect.get(value, "id");
-  const sequence = Reflect.get(value, "sequence");
-
-  return (
-    typeof id === "string" &&
-    typeof sequence === "number" &&
-    Number.isSafeInteger(sequence) &&
-    sequence > 0
-  );
 }
 
 function buildClientFrontierRows(
@@ -206,12 +195,13 @@ async function listMissingDocumentUpdateCandidates(
   const candidates: MissingDocumentUpdateCandidate[] = [];
 
   for (const row of result.rows) {
-    if (!isMissingDocumentUpdateCandidate(row)) {
+    const candidate = missingDocumentUpdateCandidateSchema.safeParse(row);
+    if (!candidate.success) {
       throw new Error(
         "Unexpected row shape from missing document update candidates query",
       );
     }
-    candidates.push(row);
+    candidates.push(candidate.data);
   }
   return candidates;
 }

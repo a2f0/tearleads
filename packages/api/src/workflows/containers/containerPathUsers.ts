@@ -6,6 +6,7 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
+import { z } from "zod";
 import { uuidValue } from "../../utils/sqlDialect";
 
 interface ContainerPathUserIds {
@@ -18,12 +19,12 @@ type PrincipalReference = Pick<
   "principalId" | "principalType" | "stateHash"
 >;
 
-interface ManagedGrantUserRow {
-  readonly principalId: string;
-  readonly principalType: string;
-  readonly stateHash: string;
-  readonly userId: string;
-}
+const managedGrantUserRowSchema = z.object({
+  principalId: z.string(),
+  principalType: z.string(),
+  stateHash: z.string(),
+  userId: z.string(),
+});
 
 interface ManagedGrantReference {
   readonly containerId: string;
@@ -64,17 +65,6 @@ function addValue<K>(map: Map<K, Set<string>>, key: K, value: string): void {
   }
 
   map.set(key, new Set([value]));
-}
-
-function isManagedGrantUserRow(value: unknown): value is ManagedGrantUserRow {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof Reflect.get(value, "principalId") === "string" &&
-    typeof Reflect.get(value, "principalType") === "string" &&
-    typeof Reflect.get(value, "stateHash") === "string" &&
-    typeof Reflect.get(value, "userId") === "string"
-  );
 }
 
 async function userIdsForManagedGrantReferences(input: {
@@ -130,10 +120,12 @@ async function userIdsForManagedGrantReferences(input: {
     from direct_members
   `);
 
-  for (const row of result.rows) {
-    if (!isManagedGrantUserRow(row)) {
+  for (const value of result.rows) {
+    const parsed = managedGrantUserRowSchema.safeParse(value);
+    if (!parsed.success) {
       throw new Error("Unexpected row shape from managed grant user query");
     }
+    const row = parsed.data;
 
     addValue(usersByReference, principalReferenceKey(row), row.userId);
   }
