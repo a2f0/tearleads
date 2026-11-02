@@ -6,12 +6,13 @@ import type {
   VerifiedAccessEvent,
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { z } from "zod";
 import {
   containerAccessManifestStateRecord,
   documentLinkSetStateRecord,
   projectionReferencedPrincipalHeadRecord,
 } from "../../../keyingProjectionRecords";
+import { projectionPlainRecord } from "../../../keyingProjectionSchemas";
 
 export function accessEventDependencyHashes(
   event: VerifiedAccessEvent,
@@ -94,60 +95,49 @@ export function referencedPrincipalHeadsCanonicalJson(
   return principalHeads.map(projectionReferencedPrincipalHeadRecord);
 }
 
+/**
+ * Stored JSON lists are checked, not rebuilt: an item that passes reaches
+ * the caller as the stored value itself.
+ */
+/** Any JavaScript number, as `typeof` reads it (NaN included). */
+const anyNumber = z.custom<number>((value) => typeof value === "number");
+
+const storedReferencedPrincipalHeadSchema = projectionPlainRecord.pipe(
+  z.object({
+    principalType: z.enum(["group", "organization"]),
+    principalId: z.string(),
+    version: anyNumber,
+    keyEpoch: anyNumber,
+    stateHash: z.string(),
+    keyFingerprint: z.string(),
+  }),
+);
+
+const storedContainerDirectGrantSchema = projectionPlainRecord.pipe(
+  z.object({
+    accessLevel: z.enum(["admin", "read", "write"]),
+    subjectId: z.string(),
+    subjectType: z.enum(["group", "user"]),
+  }),
+);
+
 export function isString(value: unknown): value is string {
   return typeof value === "string";
-}
-
-function isManagedPrincipalKind(
-  value: unknown,
-): value is ReferencedPrincipalHead["principalType"] {
-  return value === "group" || value === "organization";
 }
 
 export function isReferencedPrincipalHead(
   value: unknown,
 ): value is ReferencedPrincipalHead {
-  if (!isPlainObject(value)) {
-    return false;
-  }
-
-  return (
-    isManagedPrincipalKind(Reflect.get(value, "principalType")) &&
-    typeof Reflect.get(value, "principalId") === "string" &&
-    typeof Reflect.get(value, "version") === "number" &&
-    typeof Reflect.get(value, "keyEpoch") === "number" &&
-    typeof Reflect.get(value, "stateHash") === "string" &&
-    typeof Reflect.get(value, "keyFingerprint") === "string"
-  );
+  return storedReferencedPrincipalHeadSchema.safeParse(value).success;
 }
 
 type ContainerDirectGrant =
   ContainerAccessManifestState["directGrants"][number];
 
-function isContainerAccessLevel(
-  value: unknown,
-): value is ContainerDirectGrant["accessLevel"] {
-  return value === "admin" || value === "read" || value === "write";
-}
-
-function isContainerGrantSubjectType(
-  value: unknown,
-): value is ContainerDirectGrant["subjectType"] {
-  return value === "group" || value === "user";
-}
-
 export function isContainerDirectGrant(
   value: unknown,
 ): value is ContainerDirectGrant {
-  if (!isPlainObject(value)) {
-    return false;
-  }
-
-  return (
-    isContainerAccessLevel(Reflect.get(value, "accessLevel")) &&
-    typeof Reflect.get(value, "subjectId") === "string" &&
-    isContainerGrantSubjectType(Reflect.get(value, "subjectType"))
-  );
+  return storedContainerDirectGrantSchema.safeParse(value).success;
 }
 
 export function readAccessVersion(value: number, label: string): 1 {

@@ -11,6 +11,7 @@ import type {
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import {
   containerManifestState,
   documentLinkSetState,
@@ -75,6 +76,9 @@ export async function insertAccessManifestPrincipalProjection(
   );
 }
 
+/** A stored state's grant list, if it has one; read by the check below. */
+const storedDirectGrantsStateSchema = z.object({ directGrants: z.unknown() });
+
 export async function regenerateAccessManifestContainerGrantProjection(
   manifest: typeof accessManifests.$inferSelect,
   executor: DatabaseSession,
@@ -92,11 +96,8 @@ export async function regenerateAccessManifestContainerGrantProjection(
     return;
   }
 
-  const state =
-    typeof manifest.state === "object" && manifest.state !== null
-      ? manifest.state
-      : {};
-  const directGrantValue = Reflect.get(state, "directGrants");
+  const state = storedDirectGrantsStateSchema.safeParse(manifest.state);
+  const directGrantValue = state.success ? state.data.directGrants : undefined;
   if (directGrantValue === undefined) {
     return;
   }

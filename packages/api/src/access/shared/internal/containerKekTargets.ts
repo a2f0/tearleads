@@ -6,8 +6,9 @@ import {
 import type { ContainerKekTarget } from "@tearleads/crypto";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
+import { z } from "zod";
+import { projectionString } from "../../../keyingProjectionSchemas";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
-import { isRecord } from "../../../utils/record";
 import {
   isSqlBooleanValue,
   jsonTextProperty,
@@ -80,65 +81,72 @@ export async function resolveCurrentContainerKekTargetsMapped<E extends Error>(
   }
 }
 
-function readRecord(value: unknown): Record<string, unknown> | null {
-  if (isRecord(value)) {
+/** Stored state: a JSON object, or JSON text that parses to one. */
+const storedStateSchema = z.looseObject({});
+const stateIdentitySchema = z.object({
+  version: z.literal(1),
+  containerId: z.string(),
+});
+const stateKeyEpochSchema = z.object({ containerKeyEpochId: projectionString });
+const stateParentSchema = z.object({
+  parentContainerId: projectionString.nullable(),
+});
+const statePreviousManifestSchema = z.object({
+  previousManifestHash: projectionString.nullable(),
+});
+
+function parseStoredJson(value: unknown): unknown {
+  if (typeof value !== "string" || value.length === 0) {
     return value;
   }
-  if (typeof value !== "string" || value.length === 0) {
-    return null;
-  }
-
   try {
-    const parsed = JSON.parse(value);
-    return isRecord(parsed) ? parsed : null;
+    return JSON.parse(value);
   } catch {
     return null;
   }
 }
 
-function readNullableString(value: unknown): string | null {
-  if (value === null) {
-    return null;
+function readStoredState(value: unknown): Record<string, unknown> {
+  const state = storedStateSchema.safeParse(parseStoredJson(value));
+  if (!state.success) {
+    throw new ContainerKekTargetError(
+      "Container manifest state is invalid",
+      409,
+    );
   }
-  return typeof value === "string" && value.length > 0 ? value : null;
+  return state.data;
 }
 
 function readContainerManifestTarget(input: {
   readonly containerId: string;
   readonly state: unknown;
 }): Pick<ContainerManifestTarget, "containerKeyEpochId" | "parentContainerId"> {
-  const state = readRecord(input.state);
-  if (!state) {
-    throw new ContainerKekTargetError(
-      "Container manifest state is invalid",
-      409,
-    );
-  }
-
-  const version = Reflect.get(state, "version");
-  const stateContainerId = Reflect.get(state, "containerId");
-  if (version !== 1 || stateContainerId !== input.containerId) {
+  const state = readStoredState(input.state);
+  const identity = stateIdentitySchema.safeParse(state);
+  if (!identity.success || identity.data.containerId !== input.containerId) {
     throw new ContainerKekTargetError("Container manifest state mismatch", 409);
   }
 
-  const containerKeyEpochId = Reflect.get(state, "containerKeyEpochId");
-  if (typeof containerKeyEpochId !== "string" || !containerKeyEpochId) {
+  const keyEpoch = stateKeyEpochSchema.safeParse(state);
+  if (!keyEpoch.success) {
     throw new ContainerKekTargetError(
       "Container manifest has no current KEK epoch",
       409,
     );
   }
 
-  const parentContainerValue = Reflect.get(state, "parentContainerId");
-  const parentContainerId = readNullableString(parentContainerValue);
-  if (parentContainerId === null && parentContainerValue !== null) {
+  const parent = stateParentSchema.safeParse(state);
+  if (!parent.success) {
     throw new ContainerKekTargetError(
       "Container manifest parent is invalid",
       409,
     );
   }
 
-  return { containerKeyEpochId, parentContainerId };
+  return {
+    containerKeyEpochId: keyEpoch.data.containerKeyEpochId,
+    parentContainerId: parent.data.parentContainerId,
+  };
 }
 
 export type ContainerManifestTarget = {
@@ -148,60 +156,33 @@ export type ContainerManifestTarget = {
   readonly parentContainerId: string | null;
 };
 
-interface ContainerAncestorClosureRow {
-  readonly depth: number;
-  readonly cycleDetected: boolean;
-  readonly id: string;
-  readonly manifestHash: string;
-  readonly objectId: string;
-  readonly objectKind: string;
-  readonly state: unknown;
-}
+const sqlSafeInteger = z.number().refine(Number.isSafeInteger);
 
-function isContainerAncestorClosureRow(
-  value: unknown,
-): value is ContainerAncestorClosureRow {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    isSqlBooleanValue(Reflect.get(value, "cycleDetected")) &&
-    Number.isSafeInteger(Reflect.get(value, "depth")) &&
-    typeof Reflect.get(value, "id") === "string" &&
-    typeof Reflect.get(value, "manifestHash") === "string" &&
-    typeof Reflect.get(value, "objectId") === "string" &&
-    typeof Reflect.get(value, "objectKind") === "string"
-  );
-}
+const containerAncestorClosureRowSchema = z.object({
+  cycleDetected: z.custom<boolean | 0 | 1>(isSqlBooleanValue),
+  depth: sqlSafeInteger,
+  id: z.string(),
+  manifestHash: z.string(),
+  objectId: z.string(),
+  objectKind: z.string(),
+  state: z.unknown().optional(),
+});
 
-interface ContainerManifestBindingHistoryRow {
-  readonly containerId: string;
-  readonly containerKeyEpochId: string;
-  readonly depth: number;
-  readonly eventHash: string;
-  readonly manifestHash: string;
-  readonly objectId: string;
-  readonly objectKind: string;
-  readonly previousManifestHash: string | null;
-  readonly state: unknown;
-}
+const containerManifestBindingHistoryRowSchema = z.object({
+  containerId: z.string(),
+  containerKeyEpochId: z.string(),
+  depth: sqlSafeInteger,
+  eventHash: z.string(),
+  manifestHash: z.string(),
+  objectId: z.string(),
+  objectKind: z.string(),
+  previousManifestHash: z.string().nullable(),
+  state: z.unknown().optional(),
+});
 
-function isContainerManifestBindingHistoryRow(
-  value: unknown,
-): value is ContainerManifestBindingHistoryRow {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof Reflect.get(value, "containerId") === "string" &&
-    typeof Reflect.get(value, "containerKeyEpochId") === "string" &&
-    Number.isSafeInteger(Reflect.get(value, "depth")) &&
-    typeof Reflect.get(value, "eventHash") === "string" &&
-    typeof Reflect.get(value, "manifestHash") === "string" &&
-    typeof Reflect.get(value, "objectId") === "string" &&
-    typeof Reflect.get(value, "objectKind") === "string" &&
-    (typeof Reflect.get(value, "previousManifestHash") === "string" ||
-      Reflect.get(value, "previousManifestHash") === null)
-  );
-}
+type ContainerManifestBindingHistoryRow = z.output<
+  typeof containerManifestBindingHistoryRowSchema
+>;
 
 interface ContainerManifestBindingHistory {
   readonly eventHashByManifestHash: Map<string, string>;
@@ -274,13 +255,15 @@ export async function loadCurrentContainerManifestTargetClosure(input: {
   `);
   const targetByContainerId = new Map<string, ContainerManifestTarget>();
 
-  for (const row of result.rows) {
-    if (!isContainerAncestorClosureRow(row)) {
+  for (const value of result.rows) {
+    const parsed = containerAncestorClosureRowSchema.safeParse(value);
+    if (!parsed.success) {
       throw new ContainerKekTargetError(
         "Unexpected row shape from container ancestor KEK closure",
         409,
       );
     }
+    const row = parsed.data;
     const cycleDetected = readSqlBoolean(row.cycleDetected, "cycleDetected");
     if (cycleDetected) {
       throw new ContainerKekTargetError(
@@ -356,19 +339,12 @@ function assertBindingHistoryRowCurrent(input: {
     throw staleContainerKekEpochError(input.row.containerId);
   }
 
-  const state = readRecord(input.row.state);
-  if (!state) {
-    throw new ContainerKekTargetError(
-      "Container manifest state is invalid",
-      409,
-    );
-  }
-
-  const previousManifestValue = Reflect.get(state, "previousManifestHash");
-  const previousManifestHash = readNullableString(previousManifestValue);
+  const previous = statePreviousManifestSchema.safeParse(
+    readStoredState(input.row.state),
+  );
   if (
-    (previousManifestHash === null && previousManifestValue !== null) ||
-    previousManifestHash !== input.row.previousManifestHash
+    !previous.success ||
+    previous.data.previousManifestHash !== input.row.previousManifestHash
   ) {
     throw new ContainerKekTargetError(
       "Container manifest history mismatch",
@@ -458,13 +434,15 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
     ContainerManifestBindingHistory
   >();
 
-  for (const row of result.rows) {
-    if (!isContainerManifestBindingHistoryRow(row)) {
+  for (const value of result.rows) {
+    const parsed = containerManifestBindingHistoryRowSchema.safeParse(value);
+    if (!parsed.success) {
       throw new ContainerKekTargetError(
         "Unexpected row shape from container manifest binding history",
         409,
       );
     }
+    const row = parsed.data;
 
     assertBindingHistoryRowCurrent({
       row,

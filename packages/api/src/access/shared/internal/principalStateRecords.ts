@@ -15,6 +15,7 @@ import {
   type PrincipalStatePayloadCipherSuite,
   type SignedPrincipalState,
 } from "@tearleads/crypto";
+import { z } from "zod";
 
 export interface StoredPrincipalState extends SignedPrincipalState {
   stateHash: string;
@@ -183,31 +184,23 @@ export function toStoredPrincipalState(
   };
 }
 
-function isStoredPrincipalContainerGrant(
-  value: unknown,
-): value is PrincipalContainerGrant {
-  if (typeof value !== "object" || value === null) return false;
-  const containerId: unknown = Reflect.get(value, "containerId");
-  const accessLevel: unknown = Reflect.get(value, "accessLevel");
-  return (
-    typeof containerId === "string" &&
-    (accessLevel === "admin" ||
-      accessLevel === "read" ||
-      accessLevel === "write")
-  );
-}
+const storedPrincipalContainerGrantsSchema = z.array(
+  z.object({
+    accessLevel: z.enum(["admin", "read", "write"]),
+    containerId: z.string(),
+  }),
+);
 
 /** A state row's stored grant set; malformed storage fails closed. */
 export function readStoredPrincipalContainerGrants(
   value: unknown,
 ): PrincipalContainerGrant[] {
-  if (!Array.isArray(value))
-    throw new Error("Stored principal container grants are invalid");
-  return value.map((grant) => {
-    if (!isStoredPrincipalContainerGrant(grant))
-      throw new Error("Stored principal container grant is invalid");
-    return { accessLevel: grant.accessLevel, containerId: grant.containerId };
-  });
+  const grants = storedPrincipalContainerGrantsSchema.safeParse(value);
+  if (grants.success) return grants.data;
+  // An issue inside the list names an entry; one at its root, the list.
+  if (grants.error.issues[0]?.path.length)
+    throw new Error("Stored principal container grant is invalid");
+  throw new Error("Stored principal container grants are invalid");
 }
 
 export function toStoredProjectionMember(

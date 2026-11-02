@@ -5,6 +5,7 @@ import {
   documentContentWriteHeaders,
 } from "@tearleads/api-shared/schema";
 import { type SQL, sql } from "drizzle-orm";
+import { z } from "zod";
 import { isSqliteApiDatabase, uuidValue } from "../../../utils/sqlDialect";
 
 function dependencyValues(header: SQL): SQL {
@@ -12,6 +13,8 @@ function dependencyValues(header: SQL): SQL {
     ? sql`json_each(${header}, '$.dependencyManifestHashes') as dependency`
     : sql`jsonb_array_elements_text(${header}->'dependencyManifestHashes') as dependency(value)`;
 }
+
+const dependencyHashRowSchema = z.object({ hash: z.string() });
 
 /** Transfer unique signed path hashes, not every retained ciphertext header. */
 export async function listDocumentContentWriteDependencyHashes(
@@ -33,10 +36,10 @@ export async function listDocumentContentWriteDependencyHashes(
   `);
   return result.rows
     .map((row) => {
-      const hash = Reflect.get(row, "hash");
-      if (typeof hash !== "string")
+      const parsed = dependencyHashRowSchema.safeParse(row);
+      if (!parsed.success)
         throw new Error("Invalid stored write dependency hash");
-      return hash;
+      return parsed.data.hash;
     })
     .sort();
 }
