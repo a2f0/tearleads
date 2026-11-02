@@ -1,7 +1,8 @@
 import { bytesToHex, generateChallenge } from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { WS_TICKET_TTL_SECONDS } from "@tearleads/validators/realtime";
-import { hasStringProperty, isUuidV4String } from "@tearleads/validators/util";
+import { isUuidV4String } from "@tearleads/validators/util";
+import { z } from "zod";
 import { getdel, set } from "../adapters/keyValueStore";
 import { isLiveUserSession } from "../middleware/session";
 import { isSessionId } from "../validators/session";
@@ -23,6 +24,16 @@ function isTicket(value: string): boolean {
   return /^[0-9a-f]{64}$/.test(value);
 }
 
+/** Unknown keys are dropped; the identity carries only these two fields. */
+const TicketIdentitySchema = z
+  .custom<Record<string, unknown>>(isPlainObject)
+  .pipe(
+    z.object({
+      sessionId: z.string().refine(isSessionId),
+      userId: z.string().refine(isUuidV4String),
+    }),
+  );
+
 function parseTicketIdentity(raw: string): WebSocketTicketIdentity | null {
   let parsed: unknown;
   try {
@@ -31,17 +42,8 @@ function parseTicketIdentity(raw: string): WebSocketTicketIdentity | null {
     return null;
   }
 
-  if (
-    isPlainObject(parsed) &&
-    hasStringProperty(parsed, "userId") &&
-    isUuidV4String(parsed.userId) &&
-    hasStringProperty(parsed, "sessionId") &&
-    isSessionId(parsed.sessionId)
-  ) {
-    return { sessionId: parsed.sessionId, userId: parsed.userId };
-  }
-
-  return null;
+  const identity = TicketIdentitySchema.safeParse(parsed);
+  return identity.success ? identity.data : null;
 }
 
 export async function issueWebSocketTicket(

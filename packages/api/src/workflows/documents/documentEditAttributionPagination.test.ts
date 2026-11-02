@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { encodeCursor } from "../../utils/cursor";
 import {
   compactDocumentEditAttributionSegments,
   createDocumentEditAttributionRangesPage,
@@ -186,4 +187,72 @@ test("range pages default to 100 items and reject limits over 500", () => {
     () => createDocumentEditAttributionRangesPage(attribution, { limit: 501 }),
     400,
   );
+});
+
+test("range cursors reject every malformed decoded payload with 400", () => {
+  const attribution = {
+    attributionScope: "scope-1",
+    attributionRevision: 12,
+    documentId: "document-1",
+    segments: [
+      detailedSegment({ endCounter: 1, startCounter: 0, updateSequence: 1 }),
+      detailedSegment({ endCounter: 2, startCounter: 1, updateSequence: 2 }),
+    ],
+  };
+  const valid = {
+    attributionRevision: 12,
+    attributionScope: "scope-1",
+    documentId: "document-1",
+    offset: 1,
+    version: 1,
+  };
+  const { version: _version, ...withoutVersion } = valid;
+  const { documentId: _documentId, ...withoutDocumentId } = valid;
+  const { attributionScope: _scope, ...withoutScope } = valid;
+  const { attributionRevision: _revision, ...withoutRevision } = valid;
+  const { offset: _offset, ...withoutOffset } = valid;
+  const malformed: readonly unknown[] = [
+    null,
+    "cursor",
+    1,
+    true,
+    [],
+    [valid],
+    withoutVersion,
+    withoutDocumentId,
+    withoutScope,
+    withoutRevision,
+    withoutOffset,
+    { ...valid, version: 2 },
+    { ...valid, version: "1" },
+    { ...valid, documentId: 1 },
+    { ...valid, documentId: null },
+    { ...valid, attributionScope: 1 },
+    ...[-1, 1.5, 2 ** 53, "12", null].map((attributionRevision) => ({
+      ...valid,
+      attributionRevision,
+    })),
+    ...[-1, 0.5, 2 ** 53, "1", null].map((offset) => ({ ...valid, offset })),
+    { ...valid, offset: 3 },
+  ];
+  for (const payload of malformed) {
+    expectAttributionStatus(
+      () =>
+        createDocumentEditAttributionRangesPage(attribution, {
+          cursor: encodeCursor(payload),
+        }),
+      400,
+    );
+  }
+  expect(
+    createDocumentEditAttributionRangesPage(attribution, {
+      cursor: encodeCursor({ ...valid, extra: true }),
+    }).items.map((item) => item.updateId),
+  ).toEqual(["update-2"]);
+  expect(
+    createDocumentEditAttributionRangesPage(
+      { ...attribution, attributionRevision: 0 },
+      { cursor: encodeCursor({ ...valid, attributionRevision: 0, offset: 0 }) },
+    ).items,
+  ).toHaveLength(2);
 });

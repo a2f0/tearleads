@@ -6,7 +6,8 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import { isReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import { ReferencedPrincipalStateResponseSchema } from "@tearleads/validators/response";
+import { z } from "zod";
 import { readConfiguredDocumentSyncCursorHmacKey } from "../../utils/serverSecrets";
 import { principalHistoryHead } from "./principalHistoryRecords";
 import { PrincipalPolicyError } from "./shared";
@@ -29,6 +30,21 @@ export interface ProjectionPolicyHistoryGrant
   extends ProjectionPolicyHistoryScope {
   readonly head: ReferencedPrincipalHead;
 }
+
+/** Unknown keys are ignored; `head` keeps the signed object as issued. */
+const ProjectionPolicyHistoryGrantPayloadSchema = z.object({
+  version: z.literal(1),
+  organizationId: z.string().min(1),
+  objectKind: z.literal([
+    "container",
+    "document",
+    "document-purge",
+    "organization",
+  ]),
+  objectId: z.string().min(1),
+  userId: z.string(),
+  head: ReferencedPrincipalStateResponseSchema,
+});
 
 function signature(payload: string): Buffer {
   const configured = readConfiguredDocumentSyncCursorHmacKey();
@@ -90,33 +106,13 @@ export function readProjectionPolicyHistoryGrant(
   } catch {
     throw reject();
   }
-  if (
-    !value ||
-    typeof value !== "object" ||
-    !("version" in value) ||
-    value.version !== 1 ||
-    !("organizationId" in value) ||
-    typeof value.organizationId !== "string" ||
-    !value.organizationId ||
-    !("objectKind" in value) ||
-    (value.objectKind !== "container" &&
-      value.objectKind !== "document" &&
-      value.objectKind !== "document-purge" &&
-      value.objectKind !== "organization") ||
-    !("objectId" in value) ||
-    typeof value.objectId !== "string" ||
-    !value.objectId ||
-    !("userId" in value) ||
-    value.userId !== userId ||
-    !("head" in value) ||
-    !isReferencedPrincipalStateResponse(value.head)
-  )
-    throw reject();
+  const parsed = ProjectionPolicyHistoryGrantPayloadSchema.safeParse(value);
+  if (!parsed.success || parsed.data.userId !== userId) throw reject();
   return {
-    organizationId: value.organizationId,
-    objectKind: value.objectKind,
-    objectId: value.objectId,
+    organizationId: parsed.data.organizationId,
+    objectKind: parsed.data.objectKind,
+    objectId: parsed.data.objectId,
     userId,
-    head: value.head,
+    head: parsed.data.head,
   };
 }
