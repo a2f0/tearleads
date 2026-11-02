@@ -11,6 +11,7 @@ import type {
 import { and, eq } from "drizzle-orm";
 import { principalHistoryHead } from "../principals/principalHistoryRecords";
 import { loadPrincipalPolicyOutcomeReference } from "../principals/principalPolicyOutcomeReference";
+import { storedGroupPolicyReceiptSchema } from "../principals/principalPolicyReceiptSchema";
 import { OrganizationManagerError } from "./errors";
 import { toGroupSummary } from "./groupSummary";
 import { organizationGroupOperationReceipt } from "./organizationGroupOperationReceipt";
@@ -33,13 +34,10 @@ export async function organizationGroupCreationOutcome(
   });
   let response: CreateOrganizationGroupResponse | null = null;
   if (receipt.found) {
-    const { stored } = receipt;
-    if (
-      !stored ||
-      typeof stored !== "object" ||
-      !("groupPolicy" in stored) ||
-      !("organizationPolicy" in stored)
-    )
+    const stored = storedGroupPolicyReceiptSchema.safeParse(
+      receipt.stored,
+    ).data;
+    if (!stored)
       throw new OrganizationManagerError(
         "Stored group creation acknowledgement is invalid",
         409,
