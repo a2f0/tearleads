@@ -1,10 +1,9 @@
+import { z } from "zod";
 import {
-  escapeSearchValue,
-  prop,
-  readString,
-  StripeApiError,
-  stripeRequest,
-} from "./stripeHttp";
+  providerStringSchema,
+  readProviderField,
+} from "./providerPayloadSchema";
+import { escapeSearchValue, StripeApiError, stripeRequest } from "./stripeHttp";
 
 const SEARCH_PAGE_SIZE = 100;
 /** Bound provider work while still covering up to 10,000 subscriptions. */
@@ -15,6 +14,13 @@ interface StripeSubscriptionSearchRequest {
   readonly secretKey: string;
 }
 
+// Checked in this order, so each malformed page names its first problem.
+const searchPageDataSchema = z.looseObject({ data: z.array(z.unknown()) });
+const searchPageHasMoreSchema = z.looseObject({ has_more: z.boolean() });
+const searchPageCursorSchema = z.looseObject({
+  next_page: providerStringSchema,
+});
+
 function invalidSearchResponse(reason: string): never {
   throw new StripeApiError(`subscription search (${reason})`, 502);
 }
@@ -24,20 +30,23 @@ function parseSearchPage(
   seenCursors: ReadonlySet<string>,
   isLastPage: boolean,
 ): { items: unknown[]; nextCursor: string | null } {
-  const items = prop(found, "data");
-  if (!Array.isArray(items)) {
+  const items = readProviderField(searchPageDataSchema, found)?.data;
+  if (!items) {
     invalidSearchResponse("invalid data");
   }
 
-  const hasMoreValue = prop(found, "has_more");
-  if (typeof hasMoreValue !== "boolean") {
+  const hasMore = readProviderField(searchPageHasMoreSchema, found)?.has_more;
+  if (hasMore === undefined) {
     invalidSearchResponse("invalid has_more");
   }
-  if (hasMoreValue !== true) {
+  if (!hasMore) {
     return { items, nextCursor: null };
   }
 
-  const nextCursor = readString(prop(found, "next_page"));
+  const nextCursor = readProviderField(
+    searchPageCursorSchema,
+    found,
+  )?.next_page;
   if (!nextCursor) {
     invalidSearchResponse("missing next_page");
   }
