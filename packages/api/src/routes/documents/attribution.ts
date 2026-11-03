@@ -8,7 +8,6 @@ import {
 import type { ListDocumentEditAttributionRangesResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { compress } from "hono/compress";
 import type { SessionEnv } from "../../middleware/session";
 import {
   DocumentEditAttributionError,
@@ -71,13 +70,13 @@ export function ifNoneMatchMatches(
 function registerCompactAttributionRoute(
   route: Hono<SessionEnv>,
   deps: ResolvedDocumentAttributionRouteDeps,
-  compressAttribution: MiddlewareHandler<SessionEnv>,
+  varyOnAcceptEncoding: MiddlewareHandler<SessionEnv>,
 ): void {
   route.on(
     getDocumentAttributionOperation.method,
     operationRoutePath(getDocumentAttributionOperation),
     deps.requireAuth,
-    compressAttribution,
+    varyOnAcceptEncoding,
     pathParamsValidator(getDocumentAttributionOperation.params),
     headersValidator(getDocumentAttributionOperation.headers),
     async (c) => {
@@ -129,13 +128,13 @@ function registerCompactAttributionRoute(
 function registerAttributionRangesRoute(
   route: Hono<SessionEnv>,
   deps: ResolvedDocumentAttributionRouteDeps,
-  compressAttribution: MiddlewareHandler<SessionEnv>,
+  varyOnAcceptEncoding: MiddlewareHandler<SessionEnv>,
 ): void {
   route.on(
     listDocumentAttributionRangesOperation.method,
     operationRoutePath(listDocumentAttributionRangesOperation),
     deps.requireAuth,
-    compressAttribution,
+    varyOnAcceptEncoding,
     pathParamsValidator(listDocumentAttributionRangesOperation.params),
     headersValidator(listDocumentAttributionRangesOperation.headers),
     queryParamsValidator(
@@ -177,14 +176,19 @@ export function createDocumentAttributionRoute({
   runtime,
 }: DocumentAttributionRouteDeps) {
   const route = new Hono<SessionEnv>();
-  const compressResponse = compress({ threshold: 1024 });
-  const compressAttribution: MiddlewareHandler<SessionEnv> = async (
+  // The API never encodes its own response bodies. Cloudflare compresses
+  // responses for clients that accept it, and the Workers runtime encodes a
+  // body to match any Content-Encoding header the app sets, so a body the app
+  // had already gzipped arrived gzipped twice and clients decoded only the
+  // outer layer. Keep Vary: Accept-Encoding: the delivered encoding still
+  // varies with it.
+  const varyOnAcceptEncoding: MiddlewareHandler<SessionEnv> = async (
     c,
     next,
   ) => {
-    await compressResponse(c, next);
-    // Hono adds this for compressible bodies. Also cover small bodies and
-    // 304 responses, preserving existing cache dimensions without duplicates.
+    await next();
+    // Also cover 304 responses, preserving existing cache dimensions without
+    // duplicates.
     const vary = c.res.headers.get(documentAttributionWireHeaderNames.vary);
     if (
       !vary
@@ -206,8 +210,8 @@ export function createDocumentAttributionRoute({
     runtime,
   };
 
-  registerCompactAttributionRoute(route, deps, compressAttribution);
-  registerAttributionRangesRoute(route, deps, compressAttribution);
+  registerCompactAttributionRoute(route, deps, varyOnAcceptEncoding);
+  registerAttributionRangesRoute(route, deps, varyOnAcceptEncoding);
 
   return route;
 }
