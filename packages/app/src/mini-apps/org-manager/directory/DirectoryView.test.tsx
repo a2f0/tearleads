@@ -118,6 +118,7 @@ function directoryViewDefaults(): Parameters<typeof DirectoryView>[0] {
     importUserIdDraft: "",
     isImportUserDialogOpen: false,
     loadingUserDetail: false,
+    memberGroupId: null,
     organizationId: directory.organizationId,
     pending: false,
     mutating: false,

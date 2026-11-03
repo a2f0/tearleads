@@ -20,6 +20,8 @@ const DOCUMENT_EDIT_RANGES_FEATURE_FLAG_KEY = appFeatureFlagStorageKey(
 );
 const EXPLORER_HEADER_SYNC_INDICATOR_FEATURE_FLAG_KEY =
   appFeatureFlagStorageKey("explorer-header-sync-indicator");
+const HIDE_ORG_MANAGER_SYSTEM_GRANTS_FEATURE_FLAG_KEY =
+  appFeatureFlagStorageKey("hide-org-manager-system-grants");
 const LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY =
   appFeatureFlagStorageKey("linked-document-activation-controls");
 const STRIPE_HOSTED_CHECKOUT_FEATURE_FLAG_KEY = appFeatureFlagStorageKey(
@@ -69,6 +71,9 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
   const explorerHeaderSyncIndicatorToggle = view.getByRole("switch", {
     name: "Show Explorer header sync indicator",
   }) as HTMLInputElement;
+  const hideOrgManagerSystemGrantsToggle = view.getByRole("switch", {
+    name: "Hide Org Manager system grants",
+  }) as HTMLInputElement;
   const linkedDocumentActivationControlsToggle = view.getByRole("switch", {
     name: "Enable linked document activation controls",
   }) as HTMLInputElement;
@@ -81,10 +86,11 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
   expect(builtInSystemContainersToggle.checked).toBe(false);
   expect(documentEditRangesToggle.checked).toBe(false);
   expect(explorerHeaderSyncIndicatorToggle.checked).toBe(false);
+  expect(hideOrgManagerSystemGrantsToggle.checked).toBe(false);
   expect(linkedDocumentActivationControlsToggle.checked).toBe(false);
   expect(stripeHostedCheckoutToggle.checked).toBe(false);
   expect(workspaceSwitcherToggle.checked).toBe(false);
-  expect(view.getAllByText("Disabled")).toHaveLength(6);
+  expect(view.getAllByText("Disabled")).toHaveLength(7);
 
   fireEvent.click(builtInSystemContainersToggle);
 
@@ -120,6 +126,18 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
     expect(view.getAllByText("Enabled")).toHaveLength(3);
   });
 
+  fireEvent.click(hideOrgManagerSystemGrantsToggle);
+
+  await waitFor(() => {
+    expect(hideOrgManagerSystemGrantsToggle.checked).toBe(true);
+    expect(
+      globalThis.localStorage.getItem(
+        HIDE_ORG_MANAGER_SYSTEM_GRANTS_FEATURE_FLAG_KEY,
+      ),
+    ).toBe("enabled");
+    expect(view.getAllByText("Enabled")).toHaveLength(4);
+  });
+
   fireEvent.click(linkedDocumentActivationControlsToggle);
 
   await waitFor(() => {
@@ -129,7 +147,7 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
         LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY,
       ),
     ).toBe("enabled");
-    expect(view.getAllByText("Enabled")).toHaveLength(4);
+    expect(view.getAllByText("Enabled")).toHaveLength(5);
   });
 
   fireEvent.click(stripeHostedCheckoutToggle);
@@ -139,7 +157,7 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
     expect(
       globalThis.localStorage.getItem(STRIPE_HOSTED_CHECKOUT_FEATURE_FLAG_KEY),
     ).toBe("enabled");
-    expect(view.getAllByText("Enabled")).toHaveLength(5);
+    expect(view.getAllByText("Enabled")).toHaveLength(6);
   });
 
   fireEvent.click(workspaceSwitcherToggle);
@@ -149,7 +167,7 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
     expect(
       globalThis.localStorage.getItem(WORKSPACE_SWITCHER_FEATURE_FLAG_KEY),
     ).toBe("enabled");
-    expect(view.getAllByText("Enabled")).toHaveLength(6);
+    expect(view.getAllByText("Enabled")).toHaveLength(7);
   });
 
   await clickWindowViewMenuItem(view, "Disable Developer Mode");

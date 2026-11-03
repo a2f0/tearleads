@@ -62,6 +62,7 @@ function OrgManagerDirectoryContent({
         importUserIdDraft={model.importUserIdDraft}
         isImportUserDialogOpen={model.isImportUserDialogOpen}
         loadingUserDetail={model.loadingUserDetail}
+        memberGroupId={model.memberGroupId}
         organizationId={organizationId}
         pending={model.dataPending}
         mutating={model.mutating}
@@ -114,6 +115,7 @@ function OrgManagerContent({
       <GrantsView
         canRevokeGrants={model.canRevokeGrants}
         grants={model.grants}
+        memberGroupId={model.memberGroupId}
         pending={model.grantsPending}
         mutating={model.mutating}
         openGrantRoute={model.openGrantRoute}
