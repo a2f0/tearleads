@@ -30,7 +30,7 @@ const manifest: ScreenshotManifest = {
       name: "explorer",
       src: "mobile",
       width: 1170,
-      height: 1992,
+      height: 2532,
     },
     {
       project: "mobile",
@@ -38,7 +38,7 @@ const manifest: ScreenshotManifest = {
       name: "explorer",
       src: "mobile-dark",
       width: 1170,
-      height: 1992,
+      height: 2532,
     },
     {
       project: "mobile",
@@ -46,7 +46,7 @@ const manifest: ScreenshotManifest = {
       name: "home",
       src: "mobile-home",
       width: 1170,
-      height: 1992,
+      height: 2532,
     },
     {
       project: "tablet",
@@ -118,7 +118,7 @@ test("findScreenshot matches project, theme, and screen exactly", () => {
     name: "explorer",
     src: "mobile-dark",
     width: 1170,
-    height: 1992,
+    height: 2532,
   });
   expect(findScreenshot(manifest, "windowed", "dark", "explorer")).toBe(
     undefined,
@@ -204,7 +204,7 @@ test("screen page descriptions list every captured theme in manifest order", () 
       name: "notes",
       src: theme,
       width: 1170,
-      height: 1992,
+      height: 2532,
     })),
   };
   expect(screenshotPageMeta(themed, "mobile", "notes").description).toBe(

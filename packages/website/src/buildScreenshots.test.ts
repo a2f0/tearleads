@@ -62,7 +62,7 @@ async function stageScreenshots(files: Record<string, Uint8Array>) {
 test("staged captures record their PNG pixel size in the manifest", async () => {
   const { code, log, output } = await stageScreenshots({
     "web/light/explorer.png": pngHeader(2880, 1658),
-    "mobile/dark/explorer.png": pngHeader(1170, 1992),
+    "mobile/dark/explorer.png": pngHeader(1170, 2532),
     // Non-canonical screens and non-PNG files are not staged.
     "ipad/light/unlisted-screen.png": pngHeader(1, 1),
     "web/light/notes.txt": new TextEncoder().encode("not a capture"),
@@ -87,7 +87,7 @@ test("staged captures record their PNG pixel size in the manifest", async () => 
       theme: "dark",
       name: "explorer",
       width: 1170,
-      height: 1992,
+      height: 2532,
     },
   ]);
   for (const entry of manifest.entries) {
@@ -156,7 +156,7 @@ test("passport captures are included in the website gallery", async () => {
   const { code, log, output } = await stageScreenshots({
     "web/light/passport-detail.png": pngHeader(2880, 1658),
     "ipad/dark/passport-detail.png": pngHeader(1668, 2388),
-    "mobile/light/passport-detail.png": pngHeader(1170, 1992),
+    "mobile/light/passport-detail.png": pngHeader(1170, 2532),
   });
   expect(code, log).toBe(0);
   const manifest = await Bun.file(join(output, "manifest.json")).json();

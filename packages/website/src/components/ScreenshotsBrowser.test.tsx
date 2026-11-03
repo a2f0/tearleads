@@ -21,7 +21,7 @@ const manifest: ScreenshotManifest = {
     name,
     src: `/screenshot-gallery/img/mobile/light/${name}.png`,
     width: 1170,
-    height: 1992,
+    height: 2532,
   })),
 };
 const realFetch = globalThis.fetch;

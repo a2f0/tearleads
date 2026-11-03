@@ -7,6 +7,18 @@ const WEB_APP_BASE_URL = "http://127.0.0.1:32100";
 const COLLABORATION_APP_BASE_URL = "http://127.0.0.1:32101";
 const MOBILE_APP_BASE_URL = "http://127.0.0.1:32102";
 
+// Phones are captured as the whole screen, like an installed app, rather than
+// Playwright's iPhone 13 Safari viewport (390x664), whose missing browser
+// chrome made framed captures look too wide. Keeping the profile's UA, touch
+// input, and 3x scale gives 1170x2532 images; frames size from each image's
+// recorded width and height.
+const IPHONE_SCREEN = { width: 390, height: 844 };
+const IPHONE = {
+  ...devices["iPhone 13"],
+  viewport: IPHONE_SCREEN,
+  screen: IPHONE_SCREEN,
+};
+
 /**
  * Separate Playwright run dedicated to desktop (windowed), iPad and
  * mobile-compact (routed), plus authenticated two-peer blame screenshots. Kept
@@ -67,7 +79,7 @@ export default defineConfig({
       metadata: { screenshotApiBaseUrl: MOBILE_API_BASE_URL },
       testMatch: "**/capture.spec.ts",
       use: {
-        ...devices["iPhone 13"],
+        ...IPHONE,
         baseURL: MOBILE_APP_BASE_URL,
         browserName: "chromium",
       },
@@ -99,7 +111,7 @@ export default defineConfig({
       metadata: { screenshotLayout: "mobile" },
       testMatch: "**/blame.spec.ts",
       use: {
-        ...devices["iPhone 13"],
+        ...IPHONE,
         baseURL: COLLABORATION_APP_BASE_URL,
         browserName: "chromium",
       },
