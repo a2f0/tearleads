@@ -1,9 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
+import { ENV_FILE_VARIABLE_NAME_PATTERN } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { WithWindowToolbar } from "../../../test/helpers/windowToolbarProbe";
 import { EnvFileFields } from "./EnvFile";
 import type { EnvFileQuickVariable } from "./EnvFileQuickAdd";
-import { ENV_FILE_VARIABLE_NAME_PATTERN } from "./envFileDocumentDefinition";
 import type { EnvVariableRow } from "./envFileVariables";
 
 const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(

@@ -169,6 +169,10 @@ const baseConfig = {
       ],
       project: ["src/**/*.ts", "test/**/*.ts"],
     },
+    "packages/cli": {
+      entry: ["src/**/*.test.ts"],
+      project: ["src/**/*.ts"],
+    },
     "packages/crypto": {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
@@ -297,6 +301,10 @@ const productionConfig = {
     "packages/client-sdk": {
       // The manifest points at dist; these are its runtime source facades.
       entry: ["src/index.ts!", "src/sqlite/index.ts!"],
+      project: productionProject,
+    },
+    "packages/cli": {
+      entry: ["src/index.ts!"],
       project: productionProject,
     },
     "packages/crypto": { project: productionProject },

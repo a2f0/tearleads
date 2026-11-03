@@ -55,6 +55,7 @@ tl() { . /path/to/checkout/scripts/dev/session.sh /path/to/checkout; } && tl
 | [`packages/diagnostics`](packages/diagnostics/README.md), [`packages/loro`](packages/loro/README.md) | Error diagnostics and Loro build support |
 | [`packages/bob-and-alice`](packages/bob-and-alice/README.md), [`packages/test-utils`](packages/test-utils/README.md) | Multi-party keying scenarios and shared test helpers |
 | [`packages/performance`](packages/performance/README.md) | SDK and database performance experiments |
+| [`packages/cli`](packages/cli/README.md) | `tearleads` command line built on the client SDK |
 | [`formal`](formal/README.md) | TLA+ protocol models |
 | [`scripts`](scripts/README.md) | Repository scripts, grouped by purpose |
 | `terraform` | Infrastructure stacks and modules |

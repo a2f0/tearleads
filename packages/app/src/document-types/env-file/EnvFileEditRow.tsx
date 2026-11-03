@@ -1,14 +1,14 @@
 import {
-  TrackerInputField,
-  TrackerRowActions,
-} from "../shared/TrackerFormControls";
-import { EnvFileValueField } from "./EnvFileValueField";
-import {
   ENV_FILE_VARIABLE_KEY_FIELD,
   ENV_FILE_VARIABLE_NAME_PATTERN,
   ENV_FILE_VARIABLE_VALUE_FIELD,
   isValidEnvFileVariableName,
-} from "./envFileDocumentDefinition";
+} from "@tearleads/client-sdk";
+import {
+  TrackerInputField,
+  TrackerRowActions,
+} from "../shared/TrackerFormControls";
+import { EnvFileValueField } from "./EnvFileValueField";
 import type { EnvVariableRow } from "./envFileVariables";
 
 export type EnvVariableField =

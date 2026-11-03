@@ -3,11 +3,7 @@ import type {
   DocumentProjection,
   DocumentRowSummary,
 } from "@tearleads/client-sdk";
-import {
-  envFileDocumentProjectorDefinition,
-  isValidEnvFileVariableName,
-  parseEnvFileText,
-} from "./envFileDocumentDefinition";
+import { envFileDocumentProjectorDefinition } from "./envFileDocumentDefinition";
 
 function project(
   structuredFields: Record<string, string>,
@@ -31,32 +27,6 @@ function variable(
 ): DocumentRowSummary {
   return { id, fields };
 }
-
-test("env file text parser imports only POSIX variable names", () => {
-  expect(
-    parseEnvFileText(
-      [
-        "API_TOKEN=secret",
-        "BAD KEY=ignored",
-        "1BAD=ignored",
-        "export DEBUG=true",
-        "_INTERNAL=enabled",
-        "# a comment",
-      ].join("\n"),
-    ),
-  ).toEqual([
-    { key: "API_TOKEN", value: "secret" },
-    { key: "DEBUG", value: "true" },
-    { key: "_INTERNAL", value: "enabled" },
-  ]);
-});
-
-test("variable-name validation accepts POSIX names only", () => {
-  expect(isValidEnvFileVariableName("API_TOKEN")).toBe(true);
-  expect(isValidEnvFileVariableName("_INTERNAL")).toBe(true);
-  expect(isValidEnvFileVariableName("1BAD")).toBe(false);
-  expect(isValidEnvFileVariableName("BAD KEY")).toBe(false);
-});
 
 test("title uses the file name when present", () => {
   const projection = project({ fileName: ".env.local" }, [

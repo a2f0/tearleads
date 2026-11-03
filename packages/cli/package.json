@@ -1,0 +1,19 @@
+{
+  "name": "@tearleads/cli",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "start": "bun src/index.ts",
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "@tearleads/client-sdk": "workspace:*",
+    "@tearleads/sqlite-worker": "workspace:*"
+  },
+  "devDependencies": {
+    "@tearleads/api": "workspace:*",
+    "@types/bun": "catalog:"
+  }
+}
