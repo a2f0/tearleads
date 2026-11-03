@@ -37,11 +37,11 @@
     "@tearleads/diagnostics": "workspace:*",
     "app": "workspace:*",
     "electrobun": "2.0.4",
-    "pdfjs-dist": "6.4.299",
+    "pdfjs-dist": "6.5.438",
     "react-dom": "catalog:react"
   },
   "devDependencies": {
-    "@sentry/cli": "3.8.1",
+    "@sentry/cli": "3.8.2",
     "@tearleads/loro": "workspace:*",
     "@types/bun": "catalog:",
     "@types/react-dom": "catalog:react"

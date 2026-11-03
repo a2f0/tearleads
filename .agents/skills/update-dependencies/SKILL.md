@@ -1,6 +1,6 @@
 ---
 name: update-dependencies
-description: Update repository dependencies, runtimes, tools, and CI pins with compatibility checks and safe infrastructure previews, then ship through review, CI, merge, and release verification unless a narrower scope is requested.
+description: Update dependencies or update everything in a repository, including runtimes, tools, and CI pins, with compatibility checks and safe previews; ship through review, CI, merge, and release verification unless a narrower scope is requested.
 ---
 
 # Update Dependencies
@@ -27,6 +27,54 @@ a successful receipt does not establish a warning-free upgrade. Keep structured
 audit/plan results, deployment previews, and review findings directly visible
 when they drive a safety decision. Do not dump full suite logs into context,
 silence warnings at their source, or change check scope to reduce output.
+
+## Checkout setup
+
+This shared workflow also handles natural-language requests to "update everything".
+If the repository owns an `update-everything` wrapper, read and follow its extra
+requirements; do not create an alias or overwrite that skill. The workflow works
+from a standalone checkout with no workspace coordinator.
+
+After a fetch, branch integration, or dependency pin change, check that the local
+`agent-tool --version` matches the repository's declared pin before trusting its
+commands or generated skills. A stale CLI can reject newer configuration keys.
+After screening install scripts and hooks as below, run the documented frozen
+install with the repository's pinned runtime. For Bun projects, an already working
+CLI can run `agent-tool bun install`; if it is missing or cannot parse the new
+config, run the documented package-manager install directly. A known working
+executable may capture it with `agent-tool --repo <checkout> run --label setup --
+<install-command> [args...]`. Do not fetch an unpinned CLI, alter global tools, or
+assume a sibling workspace exists. Verify the installed version afterward; if it
+still differs, report the mismatch rather than deleting arbitrary dependencies.
+
+After upgrading agent-tool, run the repository's skill/permission sync commands
+(or `agent-tool skills install --harness <existing-scope> --apply`), preserve its
+harness scope, and commit ownership manifests with generated files. Hermes reads
+the shared `.agents/skills` in a trusted project; the installer does not grant
+trust. If discovery is unavailable, read those files directly rather than silently
+using a stale global copy.
+
+## Nonblocking execution
+
+Use the harness's managed background execution for long finite checks, reviews,
+push hooks, CI waits, and release verification; request completion notification
+when available and retain its process handle plus agent-tool's log/receipt path.
+Run `run-group` and reviews directly so their reports remain visible. A started
+process is not a passed check: read its final status and required evidence before
+shipping, and do not repeatedly poll when completion events are available.
+Without harness background support, `proc start --label <name> -- agent-tool run
+--label <check> -- <command> [args...]` records the outer process and captures
+its output; inspect `proc list` and `logs` plus the inner run receipt to establish
+completion and exit status. An exited process record alone does not prove success.
+Use `proc stop`/`teardown` for owned leftovers; never stop another session's work.
+These commands need no matrix workspace or global configuration change.
+
+Keep independent compatibility groups moving while a producer release or an
+external gate is pending. Only final adoption of that exact published release
+must wait. Bound CPU/process-heavy concurrency to the machine's available budget;
+a failed full suite needs diagnosis and a full-scope rerun, not larger timeouts,
+fewer assertions, or a focused retry presented as suite recovery. Background
+execution never bypasses an approval, a deployment preview, or exact-head review.
 
 ## Safety before execution
 
@@ -223,8 +271,24 @@ versions with `agent-tool bun update <name[@version]>` and drop packages with
 `agent-tool bun remove <name>`; both use the pinned Bun and refuse to add a
 package. A new dependency goes through `agent-tool bun add <name@version>`, which
 asks for approval; never introduce one by editing `package.json` and
-reinstalling. Refresh transitive dependencies through
-their owning direct dependency; do not hand-edit integrity hashes or lock entries.
+reinstalling. For existing Bun catalog entries use
+`agent-tool bun update --catalog default <name@version>...` (or the existing named
+catalog). Name an explicit exact/ranged registry spec; keep `catalog:` references,
+workspace membership, other entries, and peer compatibility contracts intact.
+The helper refuses intake and ambiguous layouts and uses the owning manager to
+refresh the lock; do not replace catalog references with direct versions.
+
+For an already-resolved transitive registry package with an eligible owner range,
+use `agent-tool bun update --resolved <name>...` with the owning Bun 1.4.4 or newer.
+It selects every locked copy of those names, never a requested version or glob,
+and accepts only a result with identical manifests and unchanged non-target lock
+entries/metadata. It preserves release-age, overrides and patches. If an older
+manager is pinned, or a required new child prevents a target-only result, this
+path is unsupported: prefer an owning-dependency upgrade through the normal
+helper, or obtain approval for an explicitly reviewed manager workflow. Do not
+silently substitute a broad refresh or add a transitive package directly. Inspect
+the receipt/logs and re-audit; a no-op or warning can leave an advisory unresolved.
+Never hand-edit integrity hashes or lock entries.
 Review intentional patches, overrides, and pins before removal; retain them until
 upstream fixes and regression checks demonstrate they are unnecessary.
 Avoid unrelated global installations or environment changes. Use task-local or

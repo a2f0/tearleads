@@ -9,7 +9,7 @@
     "@types/invariant": "2.2.37",
     "ajv": "8.20.0",
     "invariant": "2.2.4",
-    "loro-crdt": "1.16.4",
+    "loro-crdt": "1.17.1",
     "openapi-typescript": "7.13.0",
     "zod": "4.6.7"
   },
@@ -144,8 +144,8 @@
     "*.md": "bun --bun x markdownlint-cli2 --fix"
   },
   "devDependencies": {
-    "@a2f0/agent-tool": "0.1.37",
-    "@azure/storage-blob": "12.30.0",
+    "@a2f0/agent-tool": "0.1.39",
+    "@azure/storage-blob": "12.34.0",
     "@biomejs/biome": "2.5.15",
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
@@ -153,9 +153,9 @@
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.3",
     "@types/invariant": "catalog:",
-    "dependency-cruiser": "18.7.0",
+    "dependency-cruiser": "18.7.2",
     "invariant": "catalog:",
-    "knip": "6.42.1",
+    "knip": "6.44.1",
     "lint-staged": "17.6.0",
     "markdownlint-cli2": "0.24.0",
     "tar": "7.5.22",
@@ -164,14 +164,16 @@
     "zod": "catalog:"
   },
   "overrides": {
+    "markdownlint@0.42.0": {
+      "re2js": "2.8.7"
+    },
     "miniflare@5.20260811.1-alpha": {
       "sharp": "0.35.5",
       "undici": "7.30.1"
     }
   },
   "patchedDependencies": {
-    "@capacitor/cli@8.5.3": "patches/@capacitor-cli-8.5.3-ios18.patch",
     "markdownlint@0.42.0": "patches/markdownlint@0.42.0.patch",
-    "knip@6.42.1": "patches/knip@6.42.1.patch"
+    "@capacitor/cli@8.6.0": "patches/@capacitor-cli-8.6.0-ios18.patch"
   }
 }

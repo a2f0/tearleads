@@ -23,7 +23,7 @@
     "@tearleads/validators": "workspace:*",
     "@tearleads/windowing": "workspace:*",
     "drizzle-orm": "0.45.4",
-    "pdfjs-dist": "6.4.299",
+    "pdfjs-dist": "6.5.438",
     "qr": "0.7.2",
     "react": "catalog:react",
     "react-dom": "catalog:react"

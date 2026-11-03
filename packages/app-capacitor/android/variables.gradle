@@ -15,7 +15,7 @@ ext {
     // Upgrade procedure: bump the Capacitor plugin, copy its hybrid-common pin,
     // then align purchases to its requested native version and run
     // :app:dependencyInsight plus :app:assembleDebug before committing.
-    revenueCatHybridCommonVersion = '19.12.0'
-    revenueCatPurchasesVersion = '10.27.0'
+    revenueCatHybridCommonVersion = '20.0.0'
+    revenueCatPurchasesVersion = '11.0.0'
     cordovaAndroidVersion = '14.0.1'
 }
