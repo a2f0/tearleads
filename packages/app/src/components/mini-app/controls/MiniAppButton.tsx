@@ -73,34 +73,17 @@ const CLIPBOARD_COPIED_TITLE = "Copied to clipboard";
 const CLIPBOARD_COPIED_STATUS_TEXT = "Successfully copied to clipboard";
 const CLIPBOARD_COPIED_STATE_DURATION_MS = 1200;
 
-export function MiniAppClipboardButton({
-  className,
-  disabled,
-  label,
-  onClick,
-  title,
-  value,
-  ...props
-}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "value"> & {
-  label: string;
-  /**
-   * A function is resolved on click rather than on render, for values that are
-   * expensive to build or that must be captured at the moment of the copy. Such
-   * a value is always considered copyable, since emptiness cannot be checked
-   * without doing the work the laziness exists to avoid.
-   */
-  value: string | null | undefined | (() => string);
-  /**
-   * Carried through to the underlying button, so a copy button can match the
-   * controls it sits beside — `ghost` where the row already trades button chrome
-   * for bare glyphs (the credit card's reveal toggles). Defaults, like the
-   * button itself, to the framed `default`.
-   */
-  variant?: MiniAppButtonVariant | undefined;
-}) {
-  const resolveValue = typeof value === "function" ? value : null;
-  const staticValue = typeof value === "function" ? "" : (value ?? "");
-  const canCopy = resolveValue !== null || staticValue.trim().length > 0;
+/**
+ * Copies text and reports it the standard in-app way: the current window's
+ * status bar shows "Successfully copied to clipboard" and `copied` stays true
+ * briefly so the control can swap its glyph. Call `copy` inside the click
+ * handler so the write stays within the user gesture; it does nothing where
+ * the Clipboard API is absent (insecure contexts).
+ */
+export function useClipboardCopy(): {
+  copied: boolean;
+  copy: (value: string) => void;
+} {
   const currentWindow = useCurrentWindow();
   const [copied, setCopied] = useState(false);
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -134,6 +117,49 @@ export function MiniAppClipboardButton({
     }, CLIPBOARD_COPIED_STATE_DURATION_MS);
   };
 
+  const copy = (value: string) => {
+    if (!navigator.clipboard) {
+      return;
+    }
+    void navigator.clipboard
+      .writeText(value)
+      .then(markCopied)
+      .catch(() => undefined);
+  };
+
+  return { copied, copy };
+}
+
+export function MiniAppClipboardButton({
+  className,
+  disabled,
+  label,
+  onClick,
+  title,
+  value,
+  ...props
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "value"> & {
+  label: string;
+  /**
+   * A function is resolved on click rather than on render, for values that are
+   * expensive to build or that must be captured at the moment of the copy. Such
+   * a value is always considered copyable, since emptiness cannot be checked
+   * without doing the work the laziness exists to avoid.
+   */
+  value: string | null | undefined | (() => string);
+  /**
+   * Carried through to the underlying button, so a copy button can match the
+   * controls it sits beside — `ghost` where the row already trades button chrome
+   * for bare glyphs (the credit card's reveal toggles). Defaults, like the
+   * button itself, to the framed `default`.
+   */
+  variant?: MiniAppButtonVariant | undefined;
+}) {
+  const resolveValue = typeof value === "function" ? value : null;
+  const staticValue = typeof value === "function" ? "" : (value ?? "");
+  const canCopy = resolveValue !== null || staticValue.trim().length > 0;
+  const { copied, copy } = useClipboardCopy();
+
   return (
     <MiniAppButton
       {...props}
@@ -162,10 +188,7 @@ export function MiniAppClipboardButton({
           return;
         }
 
-        void navigator.clipboard
-          .writeText(resolved)
-          .then(markCopied)
-          .catch(() => undefined);
+        copy(resolved);
       }}
       title={copied ? CLIPBOARD_COPIED_TITLE : (title ?? label)}
     >
