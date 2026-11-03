@@ -184,20 +184,45 @@ test("folder creation, document linking, unlinking and trash have separate reque
   await measureWorkflowRequests({
     label: "unlink document from folder",
     operation: async () => {
-      const detach = within(pane).getByRole("button", {
-        name: `Detach linked container ${folder}`,
-      });
-      await waitFor(() => {
+      const linkedList = () =>
+        within(pane).getByRole("list", { name: "Linked Containers" });
+      const openRowActions = () =>
+        interact(() => {
+          fireEvent.click(
+            within(linkedList()).getByRole("button", {
+              name: `Actions for ${folder}`,
+            }),
+          );
+        });
+      await waitFor(async () => {
+        await openRowActions();
+        const detach = within(document.body).getByRole("button", {
+          name: "Detach…",
+        });
+        if (detach.hasAttribute("disabled")) {
+          fireEvent.keyDown(document, { key: "Escape" });
+        }
         expect(detach.hasAttribute("disabled")).toBe(false);
       });
       await interact(() => {
-        fireEvent.click(detach);
+        fireEvent.click(
+          within(document.body).getByRole("button", { name: "Detach…" }),
+        );
+      });
+      await interact(() => {
+        fireEvent.click(
+          within(
+            within(document.body).getByRole("dialog", {
+              name: `Detach from ${folder}?`,
+            }),
+          ).getByRole("button", { name: "Detach" }),
+        );
       });
       await waitFor(
         () => {
           expect(
-            within(pane).queryByRole("button", {
-              name: `Detach linked container ${folder}`,
+            within(linkedList()).queryByRole("button", {
+              name: `Actions for ${folder}`,
             }) === null,
           ).toBe(true);
         },
