@@ -71,17 +71,29 @@ test("local identity links onboard contacts and roster users; a mismatch never g
   const bobLink = await createPeerIdentityLink(bobId);
 
   const bobContacts = await openMiniApp(bob, "Contacts");
-  const share = await within(bobContacts).findByRole("button", {
-    name: "Share my identity link",
+  const copyLink = await within(bobContacts).findByRole("button", {
+    name: "Copy my identity link",
   });
-  await waitFor(() => expect(share.hasAttribute("disabled")).toBe(false));
-  await interact(() => fireEvent.click(share));
-  const shared = await within(bobContacts).findByRole("textbox", {
-    name: "My identity link",
-  });
-  if (!(shared instanceof HTMLInputElement))
-    throw new Error("Expected a shareable identity link");
-  expect(new URL(shared.value).pathname).toBe(new URL(bobLink).pathname);
+  await waitFor(() => expect(copyLink.hasAttribute("disabled")).toBe(false));
+  const clipboard = mockClipboardWrites();
+  try {
+    await interact(() => fireEvent.click(copyLink));
+    await waitFor(() => expect(clipboard.writes).toHaveLength(1));
+  } finally {
+    clipboard.restore();
+  }
+  const [copied] = clipboard.writes;
+  if (!copied) throw new Error("Expected the copied identity link");
+  expect(new URL(copied).pathname).toBe(new URL(bobLink).pathname);
+  // One click, no rendered URL; the window status bar reports the copy.
+  expect(within(bobContacts).queryByRole("textbox")).toBeNull();
+  await waitFor(() =>
+    expect(
+      within(bob)
+        .getAllByRole("status")
+        .map((s) => s.textContent),
+    ).toContain("Successfully copied to clipboard"),
+  );
 
   await openOrgManager(alice);
   const dialog = await openWindowMenuDialog({
@@ -139,9 +151,9 @@ test("org manager shares your own identity link from your roster row's kebab", a
   const clipboard = mockClipboardWrites();
   try {
     await openOrgManager(alice);
-    // The windowed directory has no standalone share disclosure any more.
+    // The windowed directory has no standalone copy button; the row menu has it.
     expect(
-      within(alice).queryByRole("button", { name: "Share my identity link" }),
+      within(alice).queryByRole("button", { name: "Copy my identity link" }),
     ).toBeNull();
     const roster = await within(alice).findByRole(
       "table",

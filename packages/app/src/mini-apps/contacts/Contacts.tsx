@@ -1,6 +1,6 @@
 import { useWindowFileMenuItem, useWindowSidebar } from "@tearleads/windowing";
+import { CopyMyIdentityLinkButton } from "../../components/identity/CopyMyIdentityLinkButton";
 import { IdentityLinkSignIn } from "../../components/identity/IdentityLinkSignIn";
-import { ShareIdentityLink } from "../../components/identity/ShareIdentityLink";
 import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import { ContactsContextMenuLayer } from "./context-menu/ContactsContextMenu";
@@ -90,7 +90,7 @@ function ContactsContent() {
     <MiniAppRoot className="contacts">
       {/* Your own card offers the link too (ContactsDetailPanel); the phone
           list home keeps it within reach of the place people land. */}
-      {model.showCompactListHome && <ShareIdentityLink />}
+      {model.showCompactListHome && <CopyMyIdentityLinkButton />}
       {model.showCompactListHome ? (
         <ContactsListHome
           blobStore={model.blobStore}
