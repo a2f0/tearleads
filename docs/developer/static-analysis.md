@@ -22,8 +22,8 @@ staged-content checks still run. Push through a configured named remote such as
 `origin`; URL pushes fail before the full gate.
 
 Both gates need the
-[mise-pinned Java, TLA+, and oasdiff tools](verification.md#prerequisites)
-listed in `AGENTS.md`, plus a fetched `origin/main` (or an explicit
+[mise-pinned Java, TLA+, and oasdiff tools](verification.md#pinned-tools),
+plus a fetched `origin/main` (or an explicit
 `OPENAPI_BASE_REF`). The [bounded protocol models](../../formal/README.md) add
 minutes to each push; use the timing log to inspect the cost of individual
 checks.
@@ -150,6 +150,19 @@ budget, remove its allowance. Increases require reviewer context. Holistic
 dependency-cruiser configuration and long-form design or reference documents
 can warrant larger budgets when splitting would obscure the relationships they
 describe; the numeric allowance is still the enforced limit.
+
+## Skill placeholders
+
+Skill documents (the Markdown under
+[`.claude/skills`](../../.claude/skills/) and
+[`.agents/skills`](../../.agents/skills/)) must not contain `$0` through `$9`
+or `$ARGUMENTS`, braced or not. Claude Code
+substitutes skill arguments into those tokens, so a snippet such as
+`awk '{ print $1 }'` reaches the agent corrupted whenever the skill is invoked
+with arguments, while the file on disk still looks correct. Use `cut`, `sed`,
+or named variables instead; these skills read their arguments from the
+appended argument block. `bun run lint:skill-placeholders`, in `check:fast`,
+enforces it.
 
 ## Canonical ordering
 

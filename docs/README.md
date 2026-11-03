@@ -23,6 +23,8 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 - [SQLite setup for SDK hosts](developer/sqlite-setup.md).
 - [Choosing a document creation API](developer/document-creation.md).
 - [Client SDK seams](developer/client-sdk-seams.md): how SDK components meet.
+- [Architecture vocabulary](developer/architecture-vocabulary.md): lanes,
+  layers, planes, facades, and overloaded nouns.
 - [API persistence](developer/api-persistence.md): storage backends and
   signed-shape invariants.
 - [UI design system](ui-design-system.md): app chrome conventions.

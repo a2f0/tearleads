@@ -6,8 +6,9 @@
  * scatter the registry makes greppable. A subsystem that declares a `surface`
  * is also a boundary: other subsystems may import only those files.
  *
- * See `docs/subsystems.md` for the human-facing table and AGENTS.md
- * "## Subsystems" for how this term relates to plane/layer/lane/facade.
+ * See `docs/subsystems.md` for the human-facing table and
+ * `docs/developer/architecture-vocabulary.md` for how this term relates to
+ * plane/layer/lane/facade.
  */
 export interface Subsystem {
   /** Stable proper noun used in docs, PR descriptions, and conversation. */
