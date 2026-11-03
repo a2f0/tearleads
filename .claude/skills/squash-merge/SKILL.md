@@ -13,7 +13,10 @@ Follow the repository's review-bot policy and require all actionable blocking
 review feedback to be addressed before merging.
 
 Wait with `agent-tool pr checks --wait --head <reviewed-head>`, which waits for
-checks to appear and for every workflow/job/event entry to finish. Run
+checks to appear and for every workflow/job/event entry to finish, and stops
+early with `behind: true` once the live base moves past the head; then cancel
+that head's runs with `agent-tool pr cancel-runs --head <reviewed-head>` and
+integrate, validate, review, and push again. Run
 `agent-tool pr preflight <reviewed-head> <base-branch> <reviewed-base>` immediately
 before merging. It checks local and PR identity, live base, ancestry, explicit
 version policy, merge readiness, configured strict rulesets, and passing checks.
@@ -38,4 +41,5 @@ not retarget the PR concurrently with merging.
 Confirm GitHub reports MERGED before any cleanup. A failed or uncertain mutation
 is not evidence of a merge. Preserve the branch on failure. After a confirmed
 merge, perform checkout cleanup only when requested or as part of an authorized
-shipping workflow. Report the PR and merge result.
+shipping workflow, with `agent-tool repo cleanup <PR-number> <reviewed-head>
+--apply` rather than raw `git branch -D`. Report the PR and merge result.

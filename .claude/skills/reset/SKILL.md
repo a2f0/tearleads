@@ -11,9 +11,10 @@ remote metadata rather than assuming main.
 
 For post-merge cleanup, preview with
 `agent-tool repo cleanup <PR-number> <shipped-head>`, then run it with `--apply`
-within the authorized cleanup scope. It requires a confirmed MERGED PR, preserves
-local edits, checks exact local/remote feature commits, verifies the merge is on
-the default branch, and fast-forwards that branch. By default it prunes the
+within the authorized cleanup scope. It requires a confirmed MERGED PR, refuses
+the default and `branch.exempt` branches, preserves local edits, checks exact
+local/remote feature commits, verifies the merge is on the default branch, and
+fast-forwards that branch. By default it prunes the
 shipped local feature branch and deletes the matching remote branch if present.
 Local pruning also applies after a squash merge or when GitHub already deleted
 the remote branch; a missing remote is not evidence that local cleanup is done.
