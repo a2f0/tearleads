@@ -155,14 +155,13 @@ test("contacts sidebar selects on primary mouse down after blurring active field
   });
 });
 
-test("contacts sidebar shortens user ids when a contact has no name", async () => {
+test("contacts sidebar labels an unnamed contact without its user id", async () => {
   const view = render(<ContactsSidebarHarness />);
 
   expect(
-    await view.findByRole("button", {
-      name: "550e8400",
-    }),
+    await view.findByRole("button", { name: "Untitled contact" }),
   ).toBeTruthy();
+  expect(view.queryByRole("button", { name: /550e8400/u })).toBeNull();
 });
 
 test("contacts sidebar uses nickname before first and last name", async () => {
@@ -212,7 +211,9 @@ test("contacts sidebar labels only the current self contact as You", async () =>
   );
 
   expect(await view.findByRole("button", { name: "You" })).toBeTruthy();
-  expect(await view.findByRole("button", { name: "owner" })).toBeTruthy();
+  expect(
+    await view.findByRole("button", { name: "Untitled contact" }),
+  ).toBeTruthy();
 });
 
 test("contacts list home shows contact metadata and drills into contacts", async () => {

@@ -12,11 +12,9 @@ import type { ContactFieldValues } from "./contactFieldDescriptors";
 afterEach(cleanup);
 
 const values: ContactFieldValues = {
-  encapsulationPublicKey: "public-key",
   firstName: "Ada",
   lastName: "Lovelace",
   nickname: "Countess",
-  userId: "ada-user",
 };
 
 const hostConfig = createAppHostConfig({

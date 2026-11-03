@@ -11,13 +11,7 @@ import { createAppHostConfig } from "../../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
-import type { ContactEntryPatch } from "../types";
 import { ContactsDetailPanel } from "./ContactsDetailPanel";
-
-const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
-  navigator,
-  "clipboard",
-);
 
 const emptyBlobStore: BlobStore = {
   deleteBytes: async () => undefined,
@@ -32,14 +26,7 @@ const hostConfig = createAppHostConfig({
   wsUrl: "ws://api.example.test/events",
 });
 
-afterEach(() => {
-  cleanup();
-  if (originalClipboardDescriptor) {
-    Object.defineProperty(navigator, "clipboard", originalClipboardDescriptor);
-  } else {
-    delete (navigator as { clipboard?: Clipboard }).clipboard;
-  }
-});
+afterEach(cleanup);
 
 const contactEntry: ContactEntry = {
   encapsulationPublicKey: "public-key",
@@ -126,20 +113,6 @@ function RoutedChromeProbe() {
       </div>
     </>
   );
-}
-
-function installClipboardWriteMock(): string[] {
-  const writes: string[] = [];
-  Object.defineProperty(navigator, "clipboard", {
-    configurable: true,
-    value: {
-      writeText: (value: string) => {
-        writes.push(value);
-        return Promise.resolve();
-      },
-    },
-  });
-  return writes;
 }
 
 test("contacts selection route omits create and import controls", () => {
@@ -278,45 +251,30 @@ test("contacts new-contact route moves back and create to chrome", async () => {
   expect(createCount).toBe(1);
 });
 
-test("contacts selected detail copies the user id", () => {
-  const clipboardWrites = installClipboardWriteMock();
+test("contacts detail hides the user ID and public key in read and edit mode", async () => {
   const view = renderContactsDetailPanel({
     entries: [contactEntry],
     selectedContactId: contactEntry.id,
   });
 
-  fireEvent.click(
-    view.getByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
-  );
-
-  expect(clipboardWrites).toEqual(["ada-user"]);
-});
-
-test("contacts user id copy button keeps the edit field focused", () => {
-  const updates: ContactEntryPatch[] = [];
-  const view = renderContactsDetailPanel({
-    entries: [contactEntry],
-    selectedContactId: contactEntry.id,
-    updateContact: (_contactId, patch) => {
-      updates.push(patch);
-    },
-  });
+  const assertHidden = () => {
+    expect(view.queryByText("ada-user")).toBeNull();
+    expect(view.queryByText("public-key")).toBeNull();
+    expect(view.queryByText("Tearleads user ID")).toBeNull();
+    expect(view.queryByLabelText("Tearleads user ID")).toBeNull();
+    expect(view.queryByLabelText("Public key")).toBeNull();
+    expect(view.queryByRole("button", { name: "Copy user ID" })).toBeNull();
+  };
+  expect(view.getByText("Lovelace")).toBeTruthy();
+  assertHidden();
 
   fireEvent.click(
-    view.getByRole("button", { name: CONTACTS_LABELS.editAction }),
+    await view.findByRole("button", { name: CONTACTS_LABELS.editAction }),
   );
-  const userIdInput = view.getByLabelText(
-    CONTACTS_LABELS.userIdField,
-  ) as HTMLInputElement;
-
-  userIdInput.focus();
-  const defaultAllowed = fireEvent.mouseDown(
-    view.getByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
-  );
-
-  expect(defaultAllowed).toBe(false);
-  expect(document.activeElement).toBe(userIdInput);
-  expect(updates).toEqual([]);
+  expect(
+    await view.findByLabelText(CONTACTS_LABELS.nicknameField),
+  ).toBeTruthy();
+  assertHidden();
 });
 
 test("contacts new-contact back action does not submit the draft form", () => {

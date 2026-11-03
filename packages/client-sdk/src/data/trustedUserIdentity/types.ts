@@ -60,6 +60,12 @@ export interface LocalUserIdentityCandidate {
 
 export interface TrustedUserIdentityService {
   createLink(appUrl: string): Promise<string>;
+  /**
+   * Link for `userId` from a pin a verified link or this device's keys
+   * established; the local user's own keys for the signed-in user; `null`
+   * when no such pin exists (never from an observed pin).
+   */
+  createLinkFor(userId: string, appUrl: string): Promise<string | null>;
   verifyLink(link: string): Promise<TrustedUserIdentity>;
   /** Any existing pin, including one observed on first sight. Never admits. */
   resolvePinned(userId: string): Promise<TrustedUserIdentity | null>;

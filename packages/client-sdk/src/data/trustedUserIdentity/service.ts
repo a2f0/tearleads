@@ -306,28 +306,47 @@ function verifiedPinReaders(
   };
 }
 
+/** This user's own link, derived exclusively from this device's local keys. */
+async function createLocalIdentityLink(
+  dependencies: TrustedUserIdentityServiceDependencies,
+  appUrl: string,
+): Promise<string> {
+  const identityTrustDomain = requireTrustDomain(dependencies);
+  const userId = dependencies.getLocalUserId();
+  const candidate = userId ? dependencies.getLocalIdentity(userId) : null;
+  if (!userId || !candidate) {
+    throw new Error("Sign in before sharing your identity link.");
+  }
+  const identity = await validateLocalUserIdentity({
+    candidate,
+    identityTrustDomain,
+    userId,
+  });
+  return createIdentityLink(identity, appUrl);
+}
+
 export function createTrustedUserIdentityService(
   dependencies: TrustedUserIdentityServiceDependencies,
 ): TrustedUserIdentityService {
+  const verifiedReaders = verifiedPinReaders(dependencies);
   return {
     async resolvePinned(userId) {
       const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
       return loadPinnedUserIdentity({ execSql, identityTrustDomain, userId });
     },
-    ...verifiedPinReaders(dependencies),
-    async createLink(appUrl) {
-      const identityTrustDomain = requireTrustDomain(dependencies);
-      const userId = dependencies.getLocalUserId();
-      const candidate = userId ? dependencies.getLocalIdentity(userId) : null;
-      if (!userId || !candidate) {
-        throw new Error("Sign in before sharing your identity link.");
+    ...verifiedReaders,
+    createLink: (appUrl) => createLocalIdentityLink(dependencies, appUrl),
+    async createLinkFor(userId, appUrl) {
+      if (
+        userId === dependencies.getLocalUserId() &&
+        dependencies.getLocalIdentity(userId)
+      ) {
+        return createLocalIdentityLink(dependencies, appUrl);
       }
-      const identity = await validateLocalUserIdentity({
-        candidate,
-        identityTrustDomain,
-        userId,
-      });
-      return createIdentityLink(identity, appUrl);
+      // Only a `link` or `self` pin: re-sharing an observed (TOFU) key as a
+      // link would let its recipient pin an unverified key as `link`.
+      const identity = await verifiedReaders.resolveVerified(userId);
+      return identity ? createIdentityLink(identity, appUrl) : null;
     },
     verifyLink: (link) => verifyIdentityLink(dependencies, link),
     async boundUserId(signingKeyFingerprint) {

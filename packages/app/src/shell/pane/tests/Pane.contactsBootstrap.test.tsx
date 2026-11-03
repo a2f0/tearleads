@@ -17,11 +17,11 @@ import {
 } from "../../../../test/helpers/paneTestUtils";
 import { renderEmptyDesktop } from "../../../../test/helpers/renderEmptyDesktop";
 import { CONTACTS_LABELS } from "../../../mini-apps/contacts/labels";
-import { SystemMonitorDeveloperModeProvider } from "../../../mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
 } from "../../../mini-apps/system-monitor/systemMonitorMode";
+import { DeveloperModeProvider } from "../../../providers/developer-mode/DeveloperModeProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { DualPaneProvider, PaneSideProvider } from "../dual-pane";
 import { PaneProvider } from "../runtime/PaneProvider";
@@ -48,7 +48,7 @@ test(
     // Mirrors production composition: Layout mounts the developer-mode
     // provider above every Pane.
     const view = renderEmptyDesktop(
-      <SystemMonitorDeveloperModeProvider>
+      <DeveloperModeProvider>
         <DualPaneProvider>
           <PaneSideProvider side="left">
             <PaneProvider
@@ -64,7 +64,7 @@ test(
             </PaneProvider>
           </PaneSideProvider>
         </DualPaneProvider>
-      </SystemMonitorDeveloperModeProvider>,
+      </DeveloperModeProvider>,
     );
 
     await waitFor(() => expect(tearleadsRef.current).not.toBeNull());
@@ -120,7 +120,7 @@ test(
     saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
     const tearleadsRef: { current: Tearleads | null } = { current: null };
     const view = renderEmptyDesktop(
-      <SystemMonitorDeveloperModeProvider>
+      <DeveloperModeProvider>
         <DualPaneProvider>
           <PaneSideProvider side="left">
             <PaneProvider
@@ -136,7 +136,7 @@ test(
             </PaneProvider>
           </PaneSideProvider>
         </DualPaneProvider>
-      </SystemMonitorDeveloperModeProvider>,
+      </DeveloperModeProvider>,
     );
 
     await waitFor(() => expect(tearleadsRef.current).not.toBeNull());

@@ -21,11 +21,11 @@ import {
 import { renderEmptyDesktop } from "../../test/helpers/renderEmptyDesktop";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../components/shared/DestroyKeyPackageConfirmationDialog";
 import type { AppHostConfig } from "../host/AppHostConfig";
-import { SystemMonitorDeveloperModeProvider } from "../mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
 } from "../mini-apps/system-monitor/systemMonitorMode";
+import { DeveloperModeProvider } from "../providers/developer-mode/DeveloperModeProvider";
 import { DualPaneProvider, PaneSideProvider } from "../shell/pane/dual-pane";
 import { PaneProvider } from "../shell/pane/runtime/PaneProvider";
 import { Pane } from "../shell/pane/shell/Pane";
@@ -46,7 +46,7 @@ function renderAutopilotPane(options: {
   // Mirrors production composition: Layout mounts the developer-mode provider
   // above every Pane.
   return renderEmptyDesktop(
-    <SystemMonitorDeveloperModeProvider>
+    <DeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">
           <PaneProvider
@@ -58,7 +58,7 @@ function renderAutopilotPane(options: {
           </PaneProvider>
         </PaneSideProvider>
       </DualPaneProvider>
-    </SystemMonitorDeveloperModeProvider>,
+    </DeveloperModeProvider>,
   );
 }
 

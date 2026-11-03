@@ -10,11 +10,11 @@ import {
 } from "@testing-library/react";
 import invariant from "invariant";
 import type { AppHostConfig } from "../../src/host/AppHostConfig";
-import { SystemMonitorDeveloperModeProvider } from "../../src/mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
 } from "../../src/mini-apps/system-monitor/systemMonitorMode";
+import { DeveloperModeProvider } from "../../src/providers/developer-mode/DeveloperModeProvider";
 import {
   DualPaneProvider,
   PaneSideProvider,
@@ -105,7 +105,7 @@ export function renderPane({
   // Mirrors production composition: Layout mounts the developer-mode provider
   // above every Pane.
   return renderEmptyDesktop(
-    <SystemMonitorDeveloperModeProvider>
+    <DeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">
           <PaneProvider hostConfig={hostConfig}>
@@ -114,7 +114,7 @@ export function renderPane({
           </PaneProvider>
         </PaneSideProvider>
       </DualPaneProvider>
-    </SystemMonitorDeveloperModeProvider>,
+    </DeveloperModeProvider>,
   );
 }
 // Clicks a mini-app launcher entry inside the open pane context menu. Scoped to

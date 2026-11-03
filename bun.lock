@@ -224,7 +224,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.130",
+      "version": "0.1.131",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -352,7 +352,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.41",
+      "version": "0.1.42",
       "dependencies": {
         "@a2f0/agent-tool": "0.1.34",
         "@a2f0/ct-client": "0.1.5",

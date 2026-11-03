@@ -1,5 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  flushIdentityLinkResolution,
+  mockClipboardWrites,
+} from "../../../../test/helpers/identityLinkResolverTestKit";
+import { COPY_IDENTITY_LINK_LABEL } from "../../../components/identity/CopyIdentityLinkMenuItem";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerContextMenuState } from "./ExplorerContextMenu";
 import {
@@ -355,3 +360,54 @@ test("document context menu purges the selected document forever", async () => {
     }),
   ).toBeNull();
 });
+
+const ADA_LINK = "https://app.example.test/app/contacts/import/ada";
+
+test("contact document context menu copies a verified contact's identity link", async () => {
+  const clipboard = mockClipboardWrites();
+  try {
+    const view = render(
+      <ExplorerContextMenuLayerHarness
+        contextMenu={documentContextMenu}
+        contextMenuContactUserId="ada-user"
+        identityLinks={{ "ada-user": ADA_LINK }}
+      />,
+    );
+
+    fireEvent.click(
+      await view.findByRole("button", { name: COPY_IDENTITY_LINK_LABEL }),
+    );
+
+    expect(clipboard.writes).toEqual([ADA_LINK]);
+    expect(
+      view.queryByRole("button", { name: COPY_IDENTITY_LINK_LABEL }),
+    ).toBeNull();
+  } finally {
+    clipboard.restore();
+  }
+});
+
+for (const [name, userId] of [
+  ["a document that is not a contact", null],
+  ["a contact no link verified", "grace-user"],
+] as const) {
+  test(`document context menu omits the identity link for ${name}`, async () => {
+    const clipboard = mockClipboardWrites();
+    try {
+      const view = render(
+        <ExplorerContextMenuLayerHarness
+          contextMenu={documentContextMenu}
+          contextMenuContactUserId={userId}
+          identityLinks={{ "ada-user": ADA_LINK }}
+        />,
+      );
+
+      await flushIdentityLinkResolution();
+      expect(
+        view.getAllByRole("button").map((button) => button.textContent),
+      ).toEqual([EXPLORER_LABELS.documentInfoGetInfoAction]);
+    } finally {
+      clipboard.restore();
+    }
+  });
+}

@@ -11,15 +11,16 @@ import { type ReactNode, useEffect, useRef } from "react";
 import { APP_HOST_PROFILES } from "../../../src/host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../../src/identity/useRegisterCurrentIdentity";
 import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/mini-apps/identity-manager/actions/recoveryKeyDisclosure";
-import { SystemMonitorDeveloperModeProvider } from "../../../src/mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
-  saveSystemMonitorDeveloperMode,
   saveSystemMonitorMode,
-  systemMonitorDeveloperModeStorageKey,
   systemMonitorModeStorageKey,
 } from "../../../src/mini-apps/system-monitor/systemMonitorMode";
 import { useCryptoSession } from "../../../src/providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../../src/providers/db/DatabaseProvider";
+import {
+  DeveloperModeProvider,
+  saveDeveloperMode,
+} from "../../../src/providers/developer-mode/DeveloperModeProvider";
 import { useIdentity } from "../../../src/providers/identity/IdentityProvider";
 import {
   DualPaneProvider,
@@ -196,7 +197,7 @@ export function renderDualPane({
   saveSystemMonitorMode(systemMonitorModeStorageKey("right"), "pinned");
 
   return renderEmptyDesktop(
-    <SystemMonitorDeveloperModeProvider>
+    <DeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">
           <PaneProvider hostConfig={hostConfig}>
@@ -215,7 +216,7 @@ export function renderDualPane({
           </PaneProvider>
         </PaneSideProvider>
       </DualPaneProvider>
-    </SystemMonitorDeveloperModeProvider>,
+    </DeveloperModeProvider>,
   );
 }
 
@@ -228,13 +229,10 @@ export function renderSinglePane({
 } = {}): ReturnType<typeof render> {
   const hostConfig = createTestHostConfig();
   saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
-  saveSystemMonitorDeveloperMode(
-    systemMonitorDeveloperModeStorageKey(),
-    developerMode ? "enabled" : "disabled",
-  );
+  saveDeveloperMode(developerMode ? "enabled" : "disabled");
 
   return renderEmptyDesktop(
-    <SystemMonitorDeveloperModeProvider>
+    <DeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">
           <PaneProvider hostConfig={hostConfig}>
@@ -244,7 +242,7 @@ export function renderSinglePane({
           </PaneProvider>
         </PaneSideProvider>
       </DualPaneProvider>
-    </SystemMonitorDeveloperModeProvider>,
+    </DeveloperModeProvider>,
   );
 }
 

@@ -1,7 +1,6 @@
 export const CONTACTS_LABELS = {
   backToContactsAction: "Back to Contacts",
   contactUserIdField: "Identity link",
-  copyUserIdAction: "Copy user ID",
   createContactAction: "Create",
   doneAction: "Done",
   editAction: "Edit",
@@ -18,6 +17,5 @@ export const CONTACTS_LABELS = {
   unnamedContact: "Unnamed contact",
   unauthenticatedImportState:
     "Sign in to verify this identity link and add the contact.",
-  userIdField: "Tearleads user ID",
   userIdPlaceholder: "Paste the person's identity link",
 } as const;

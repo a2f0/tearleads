@@ -25,6 +25,12 @@ export interface ResolvedUserIdentity {
 export interface UserIdentities {
   /** Share a stable link derived exclusively from this user's local keys. */
   createLink(appUrl: string): Promise<string>;
+  /**
+   * Link for `userId` from a pin a verified link or this device's keys
+   * established; the local user's own keys for the signed-in user; `null`
+   * when no such pin exists (never from an observed pin).
+   */
+  createLinkFor(userId: string, appUrl: string): Promise<string | null>;
   /** Compare an independently received link before durably pinning either key. */
   verifyLink(link: string): Promise<ResolvedUserIdentity>;
   /**
@@ -52,11 +58,13 @@ export function createUserIdentities(input: {
   reportSecurityIncident: SecurityIncidentReporter;
   identityLinks: Pick<
     TrustedUserIdentityService,
-    "createLink" | "verifyLink" | "resolveVerified"
+    "createLink" | "createLinkFor" | "verifyLink" | "resolveVerified"
   >;
 }): UserIdentities {
   return {
     createLink: (appUrl) => input.identityLinks.createLink(appUrl),
+    createLinkFor: (userId, appUrl) =>
+      input.identityLinks.createLinkFor(userId, appUrl),
     async verifyLink(link) {
       const { userId } = parseIdentityLink(link);
       return runWithSecurityIncidentReporting(

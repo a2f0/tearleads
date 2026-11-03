@@ -8,8 +8,8 @@ import {
 import { type PropsWithChildren, useMemo } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
 import { MiniAppLauncherProvider } from "../../mini-apps/miniAppLauncher";
-import { SystemMonitorDeveloperModeProvider } from "../../mini-apps/system-monitor/systemMonitorDeveloperMode";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
+import { DeveloperModeProvider } from "../../providers/developer-mode/DeveloperModeProvider";
 import {
   AppFeatureFlagsProvider,
   useAppFeatureFlags,
@@ -160,11 +160,11 @@ export function Layout({ hostConfig }: LayoutProps) {
         <NavigationModeOverrideProvider
           storageKey={NAVIGATION_MODE_STORAGE_KEY}
         >
-          <SystemMonitorDeveloperModeProvider>
+          <DeveloperModeProvider>
             <AppFeatureFlagsProvider>
               <FeatureFlaggedWorkspaceLayout hostConfig={hostConfig} />
             </AppFeatureFlagsProvider>
-          </SystemMonitorDeveloperModeProvider>
+          </DeveloperModeProvider>
         </NavigationModeOverrideProvider>
       </WallpaperProvider>
     </ThemeProvider>

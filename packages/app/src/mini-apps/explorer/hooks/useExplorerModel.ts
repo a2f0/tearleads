@@ -59,6 +59,8 @@ interface ExplorerModel {
   canShareWithPeer: boolean;
   canUnlinkSelectedDocument: boolean;
   contactAvatarUrlByLocalId: AvatarUrlByContactId;
+  /** The Tearleads user a context-menu contact document names, if any. */
+  contextMenuContactUserId: string | null;
   contextMenuState: ExplorerPanelState["contextMenuState"];
   consumeInitialDocumentEditing: ExplorerPanelState["consumeInitialDocumentEditing"];
   deleteDocument: ExplorerPanelState["deleteDocument"];
@@ -249,6 +251,13 @@ export function useExplorerModel(
     setSidebar,
     treeEntries,
   });
+  const contextMenuTarget = contextMenuState.contextMenu?.id;
+  const contextMenuContactUserId =
+    contextMenuTarget?.kind === "document"
+      ? (contactsSnapshot.entries.find(
+          (entry) => entry.id === contextMenuTarget.localId,
+        )?.userId ?? null)
+      : null;
   const selectedDocumentMutationState = getSelectedDocumentMutationState({
     appData,
     canResolveTrashContainer: explorer.canResolveTrashContainer,
@@ -363,6 +372,7 @@ export function useExplorerModel(
     canShareWithPeer,
     consumeInitialDocumentEditing,
     contactAvatarUrlByLocalId,
+    contextMenuContactUserId,
     contextMenuState,
     deleteDocument,
     purgeDocument,

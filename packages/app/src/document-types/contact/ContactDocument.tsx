@@ -28,11 +28,9 @@ function toContactFieldValues(
   fields: ReturnType<typeof readContactFields>,
 ): ContactFieldValues {
   return {
-    encapsulationPublicKey: fields.encapsulationPublicKey,
     firstName: fields.firstName,
     lastName: fields.lastName,
     nickname: fields.nickname,
-    userId: fields.userId,
   };
 }
 

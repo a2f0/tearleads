@@ -25,11 +25,6 @@ export function findCurrentSelfContactLocalId(
   );
 }
 
-// Extract the time_low field (first 32 bits) from a UUID string.
-function timeLow(uuid: string): string {
-  return uuid.split("-")[0] ?? uuid;
-}
-
 export function getViewerRelativeContactLabel(
   entry: ContactEntry,
   currentSigningFingerprint: string | null | undefined,
@@ -47,7 +42,7 @@ export function getViewerRelativeContactLabel(
     return YOU_LABEL;
   }
 
-  return entry.userId ? timeLow(entry.userId) : "Untitled contact";
+  return "Untitled contact";
 }
 
 function isUnnamedCurrentSelfContactFallback(input: {
