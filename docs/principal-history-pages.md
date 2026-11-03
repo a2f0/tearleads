@@ -23,15 +23,15 @@ rejected.
 
 Between pages it retains an index frontier (at most 53 hashes), the latest
 checked entry, the most recent external admin citation, the observed
-local-checkpoint hash and entry, and explicitly requested historical entries. A
-page conflicting with the local checkpoint is rejected after its signatures
-pass, before publishing its progress. Uncited states preserve the prior
-external-admin citation, so a later page cannot roll authority back. A
-successful `finish(expectedHead)` requires the exact current head, including its
-key [epoch](./glossary.md#epoch) and fingerprint, and connection to the optional
-local checkpoint. Returned entries are readonly copies; mutating them cannot
-change verifier progress. The verifier may continue after a successful finish to
-observe exact intermediate heads.
+[local-checkpoint](./glossary.md#checkpoint) hash and entry, and explicitly
+requested historical entries. A page conflicting with the local checkpoint is
+rejected after its signatures pass, before publishing its progress. Uncited
+states preserve the prior external-admin citation, so a later page cannot roll
+authority back. A successful `finish(expectedHead)` requires the exact current
+[head](./glossary.md#head), including its key [epoch](./glossary.md#epoch) and
+fingerprint, and connection to the optional local checkpoint. Returned entries
+are readonly copies; mutating them cannot change verifier progress. The verifier
+may continue after a successful finish to observe exact intermediate heads.
 
 `VerifiedPrincipalPolicyHistory` is not a full snapshot. On `finish`, its
 `retainedEntries` contains reached requested entries, the reached local

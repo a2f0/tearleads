@@ -23,11 +23,12 @@ trashed item reappear in its source folder.
 | `StablePlacement`, `StableView` | `listContainerContentsDocumentsForContainers` and `loadContainerSummaries` expose the chosen local placement throughout replay |
 
 Served evidence is not honest by construction. `signed` holds every link-set
-head the document's signers committed. `CapturePage` may serve any head,
-current, older, or made up, and the device keeps it only when its signature
-verifies. A listing tombstone carries a head as evidence instead of reading the
-server's live state: the gate requires a signed head that no longer links the
-container and is no older than the device's own head.
+[head](../../docs/glossary.md#head) the document's signers committed.
+`CapturePage` may serve any head, current, older, or made up, and the device
+keeps it only when its signature verifies. A listing tombstone carries a head as
+evidence instead of reading the server's live state: the gate requires a signed
+head that no longer links the container and is no older than the device's own
+head.
 
 The bounded model checks safety, with eleven negative controls disabling
 ownership, epoch, revision, read, discovery-merge, response-recovery,
@@ -53,16 +54,17 @@ container.
 The model abstracts cryptography, content, network failures, and SQL internals.
 Its verified evidence also covers the exact-head cache that organization
 provisioning seeds for documents the client signed and the server acknowledged;
-those heads are pinned as verification checkpoints in the same transaction, so
-the seeding adds no model action.
-The local relink transaction includes intent enqueue or settlement and link
-writes. The server still performs link and unlink separately; waiting in the
-unlink phase models a failed request awaiting retry. The two destinations are
-distinct, and each replay completes before another begins. Read sets abstract
-membership while `readSummary` models a separately loaded preferred placement.
-Production emits explicit placement metadata for creates, identity changes, and
-structural relinks, including those that keep the same preferred container.
-Reconciliation reads capture a local write revision in `loadContainerDelta`;
-`applyReconciled` refuses a delta if a write or runtime reset intervened and
-schedules a fresh local read. This model does not claim liveness without
-network recovery or authority, or model arbitrary later moves by other devices.
+those heads are pinned as verification
+[checkpoints](../../docs/glossary.md#checkpoint) in the same transaction, so the
+seeding adds no model action. The local relink transaction includes intent
+enqueue or settlement and link writes. The server still performs link and unlink
+separately; waiting in the unlink phase models a failed request awaiting retry.
+The two destinations are distinct, and each replay completes before another
+begins. Read sets abstract membership while `readSummary` models a separately
+loaded preferred placement. Production emits explicit placement metadata for
+creates, identity changes, and structural relinks, including those that keep the
+same preferred container. Reconciliation reads capture a local write revision in
+`loadContainerDelta`; `applyReconciled` refuses a delta if a write or runtime
+reset intervened and schedules a fresh local read. This model does not claim
+liveness without network recovery or authority, or model arbitrary later moves
+by other devices.

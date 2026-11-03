@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ShareIdentityLink } from "../../../components/identity/ShareIdentityLink";
 import {
   MiniAppClipboardButton,
   MiniAppSection,
@@ -6,7 +7,6 @@ import {
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useDeveloperMode } from "../../../providers/developer-mode/DeveloperModeProvider";
-import { useUserIdentityLink } from "../../../providers/identity-links/useUserIdentityLink";
 import type { useIdentityManager } from "../IdentityManagerController";
 import { compactIdentifier } from "../sessions/IdentityManagerSessionDisplay";
 import {
@@ -37,40 +37,6 @@ function IdentityDetail({
           {compactIdentifier(value)}
         </span>
         {action}
-      </dd>
-    </>
-  );
-}
-
-function identityLinkStatus(input: {
-  error: string | null;
-  pending: boolean;
-  signedIn: boolean;
-}): string {
-  if (!input.signedIn) return "Sign in to share your identity link.";
-  if (input.pending) return "Preparing identity link...";
-  return input.error ?? "Your identity link is unavailable.";
-}
-
-/** The signed-in user's own identity link, the one others verify you by. */
-function IdentityLinkDetail({ userId }: { userId: string | null }) {
-  const { error, link, pending } = useUserIdentityLink(userId);
-  return (
-    <>
-      <dt>Identity link</dt>
-      <dd>
-        {link ? (
-          <>
-            <span className="identity-manager-detail-text" title={link}>
-              {link}
-            </span>
-            <MiniAppClipboardButton label="Copy identity link" value={link} />
-          </>
-        ) : (
-          <MiniAppStatus as="span">
-            {identityLinkStatus({ error, pending, signedIn: userId !== null })}
-          </MiniAppStatus>
-        )}
       </dd>
     </>
   );
@@ -146,10 +112,8 @@ export function IdentityManagerGeneralSection({
           {identityMutations.identityError}
         </MiniAppStatus>
       )}
+      <ShareIdentityLink />
       <dl className="identity-manager-details">
-        <IdentityLinkDetail
-          userId={session.isAuthenticated ? session.userId : null}
-        />
         {isDeveloperMode && <IdentityDeveloperDetails model={model} />}
         <dt>Authentication</dt>
         <dd>{session.isAuthenticated ? "Authenticated" : "Signed out"}</dd>

@@ -1,10 +1,10 @@
 # Organization Read-Model Stamps
 
 [`OrganizationReadModelStamps.tla`](./OrganizationReadModelStamps.tla) models
-the organization read-model cursor: each source mutation advances the
-per-organization head and stamps every lane or group it changed with the new
-cursor, and a delta from cursor `c` reloads exactly the entities whose stamp
-exceeds `c`. See the
+the [organization read-model](../../docs/glossary.md#organization-read-model)
+cursor: each source mutation advances the per-organization head and stamps every
+lane or group it changed with the new cursor, and a delta from cursor `c`
+reloads exactly the entities whose stamp exceeds `c`. See the
 [ordering and replay contract](../../docs/organization-read-model-sync.md#ordering-and-replay).
 
 | Model action or predicate | Production seam |

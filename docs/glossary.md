@@ -141,6 +141,28 @@ Related docs:
 - [protocol-specification.md](./protocol-specification.md#blob-stage-protocol)
 - [loro-e2ee-sync-protocol.md](./loro-e2ee-sync-protocol.md#protocol-shape)
 
+## Checkpoint
+
+A client's durable, monotonic local record of the newest verified signed
+[head](#head) it has accepted for an object or principal, used to refuse
+rollback. Production keeps a principal policy checkpoint (`principalType`,
+`principalId`, `version`, `stateHash`) and an
+[access manifest](#access-manifest) checkpoint (`objectKind`, `organizationId`,
+`objectId`, `epoch`, `manifestHash`). A served head below the checkpoint is
+rollback, the same version or epoch with a different hash is equivocation, and
+a newer head is accepted only when its signed chain extends the checkpoint. An
+[identity pin](#identity-pin) is separate: it fixes one user's exact keys
+rather than tracking advancing signed state, and backup restore merges both
+monotonically. The word also names unrelated objects: local document-history
+Loro snapshots, a [rotation baseline](#rotation-baseline)'s `checkpointKind`,
+and transparency tree checkpoints.
+
+Related docs:
+
+- [keying-design.md](./keying-design.md#transparency-and-checkpointing)
+- [security-guarantees.md](./security-guarantees.md#rollback-and-split-view)
+- [trusted-user-identity.md](./developer/trusted-user-identity.md#scope-and-lifecycle)
+
 ## Commit LSN
 
 The Postgres WAL log sequence number returned by sync responses after accepted
@@ -320,6 +342,27 @@ Related docs:
 - [access-plane.md](./access-plane.md#containers)
 - [keying-design.md](./keying-design.md#authorization-rules)
 
+## Head
+
+The current signed state of an access-controlled object or a
+[managed principal](#managed-principal): the newest
+[access manifest](#access-manifest) of a container or a document link set, or
+the newest state of a [principal policy chain](#principal-policy-state). The
+API stores one current access head per object in `access_manifest_heads`, keyed
+by object kind and id and naming its manifest hash and epoch; a principal head
+is identified by its `version` and `stateHash`. Container mutations cite the
+heads they depend on, and the API refuses a stale or uncited head at commit.
+Clients accept a newer head only when it extends their local
+[checkpoint](#checkpoint). A transparency log's signed tree head is a different
+object.
+
+Related docs:
+
+- [access-plane.md](./access-plane.md#authority)
+- [keying-design.md](./keying-design.md#container-access-manifests)
+- [protocol-specification.md](./protocol-specification.md#container-access-and-kek-protocol)
+- [security-guarantees.md](./security-guarantees.md#held-descendant-re-citation)
+
 ## Identity Link
 
 A public permalink that names one user's exact identity keys. It encodes the
@@ -361,6 +404,25 @@ Related docs:
 
 - [trusted-user-identity.md](./developer/trusted-user-identity.md#pinning)
 - [trusted-user-identity.md](./developer/trusted-user-identity.md#provenance)
+
+## Identity Trust Domain
+
+The API service a user identity belongs to, written `identityTrustDomain`. It
+defaults to the canonical absolute `apiBaseUrl`, including its base path; a
+non-browser host with a relative API URL must supply an absolute
+`identityTrustDomain`, and remote identity resolution
+[fails closed](#fail-closed) when no stable, host-controlled trust domain can
+be established. [Identity pins](#identity-pin) are keyed by
+`(identityTrustDomain, userId)`, and within one trust domain a signing key is
+pinned to at most one user. An [identity link](#identity-link) encodes its
+trust domain; verification always uses the configured API, and a link for
+another service is refused before any fetch.
+
+Related docs:
+
+- [trusted-user-identity.md](./developer/trusted-user-identity.md#pinning)
+- [trusted-user-identity.md](./developer/trusted-user-identity.md#identity-links)
+- [sdk-initialization.md](./developer/sdk-initialization.md#blob-storage-and-non-browser-hosts)
 
 ## Key Target
 
@@ -463,6 +525,29 @@ Related docs:
 - [organization-memberships.md](./organization-memberships.md)
 - [access-plane.md](./access-plane.md#principals)
 
+## Organization Read Model
+
+The organization-scoped display and navigation data that the client keeps as
+normalized SQLite [projections](#projection-row) and reconciles from one
+cursor-ordered feed, `GET /organizations/:organizationId/read-model`. Every
+authoritative mutation that changes it advances the
+[organization's](#organization) `organization_read_model_heads` cursor and, in
+the same transaction, stamps each changed lane (directory, groups, group
+memberships, grants, organization policy). A client without a cursor requests
+an atomic snapshot; one with a cursor requests the lanes stamped after it. The
+read model is not an authorization or cryptographic input: signed
+[principal policies](#principal-policy-state), verified
+[access manifests](#access-manifest), and [checkpoints](#checkpoint) remain
+authoritative. Sharing and key-rotation probes therefore consume the
+organization policy's signed directory of current group [heads](#head), not the
+read model's group lane.
+
+Related docs:
+
+- [organization-read-model-sync.md](./organization-read-model-sync.md#authority-boundary)
+- [organization-read-model-sync.md](./organization-read-model-sync.md#ordering-and-replay)
+- [organization-read-model-sync.md](./organization-read-model-sync.md#snapshot-and-delta-contract)
+
 ## Organization Roster Entry
 
 An organization-scoped product row that records directory lifecycle state for a
@@ -511,6 +596,25 @@ Related docs:
 - [access-plane.md](./access-plane.md#authority)
 - [security-guarantees.md](./security-guarantees.md#projection-rows-are-not-a-security-boundary)
 
+## Realtime Hint
+
+A best-effort, content-free WebSocket notification published after a committed
+mutation that asks clients to refresh over HTTP. Hints establish neither
+content nor access: the gateway routes each one only to sockets whose declared
+`known_containers` interest it has verified, and later HTTP reconciliation
+remains authoritative. A publication failure never changes the successful
+mutation's result. Because hints are volatile and do not survive process
+restart or a dropped socket, the client arms revalidation probes at startup and
+after each acknowledged reconnect. The
+[organization read model](#organization-read-model) uses the same kind of hint
+for declared `known_organizations` interest.
+
+Related docs:
+
+- [realtime-hints.md](./developer/realtime-hints.md)
+- [client-sync-ordering.md](./client-sync-ordering.md#remote-pull-eligibility)
+- [organization-read-model-sync.md](./organization-read-model-sync.md#realtime-behavior)
+
 ## Rekey
 
 Advancing key material to a [new epoch](#epoch). Container rekeys rotate
@@ -545,6 +649,27 @@ Related docs:
 - [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md#rotate-means-fresh-baseline-for-later-writes)
 - [keying-design.md](./keying-design.md#additive-versus-subtractive-changes)
 
+## Rotation Baseline
+
+A signed full-history Loro snapshot that a [rotate](#rotate) writes under the
+new epoch's [DEK](#dek), bridging old readable state to the new epoch. Its
+update carries `checkpointKind` `"rotate_baseline"`, `checkpointPayloadKind`
+`"full_history_snapshot"`, and a `sourceVersionVector`, all committed by its
+[signed write header](#signed-write-header). An unlink must carry one whose
+source [version vector](#version-vector) covers the complete committed update
+frontier, unless the document has no committed updates; a link must not carry
+one. The first valid writer for the new epoch becomes the canonical baseline,
+and normal sync can then omit older ciphertext its declared coverage dominates.
+That coverage is trusted, not verified, because the server cannot open the
+snapshot.
+
+Related docs:
+
+- [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md#rotate-means-fresh-baseline-for-later-writes)
+- [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md#declared-coverage-is-trusted-not-verified)
+- [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md#rotation-baselines-in-document_updates)
+- [document-link-and-sync-protocol.md](./document-link-and-sync-protocol.md)
+
 ## Root Container
 
 The top container for an [organization](#organization). It has no parent
@@ -567,6 +692,25 @@ Related docs:
 
 - [protocol-specification.md](./protocol-specification.md#common-cryptographic-objects)
 - [keying-design.md](./keying-design.md#content-write-authorization)
+
+## Sync Lane
+
+A named unit of queued client sync work scheduled by the SDK's sync
+coordinator, one per `DomainScope`. The structural `container-contents` lane
+drains before any document lane, and each [document](#document) store owns a
+`documents:${localId}` lane that also performs its blob attachment work; up to
+four document lanes run concurrently. The coordinator is non-preemptive, and a
+lane exceeding its watchdog is abandoned, not cancelled, while its run token
+prevents same-lane overlap. Container listing requests and the
+[organization read model](#organization-read-model) also say "lane" for a
+per-container listing page or a cursor-stamped read-model section; those are
+request and feed units, not coordinator lanes.
+
+Related docs:
+
+- [client-sync-ordering.md](./client-sync-ordering.md)
+- [client-sync-ordering.md](./client-sync-ordering.md#document-phase)
+- [device-first.md](./developer/device-first.md#layer-b--reconciliationservice)
 
 ## Target Hash
 

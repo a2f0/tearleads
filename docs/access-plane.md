@@ -34,7 +34,7 @@ The authority chain is:
 
 1. A user signs an access event.
 2. The event body deterministically derives the next object manifest state.
-3. The manifest hash becomes the stored object head.
+3. The manifest hash becomes the stored object [head](./glossary.md#head).
 4. [Key-target](./glossary.md#key-target) tables store the wrapped material
    that matches that manifest.
 
@@ -98,9 +98,10 @@ using a group for sharing or rotation-staleness decisions, a client verifies
 the organization policy and reserved `Admins` head, then requires the served
 group bundle to match the directory's exact head. Serving an older, otherwise
 valid group policy therefore fails closed even on a device with no prior
-checkpoint for that group. Group deletion requires a signed organization-policy
-successor that removes the deleted group from the directory; the API rejects
-directory entries for groups that are not active organization rows.
+[checkpoint](./glossary.md#checkpoint) for that group. Group deletion requires a
+signed organization-policy successor that removes the deleted group from the
+directory; the API rejects directory entries for groups that are not active
+organization rows.
 
 The generic principal-policy write route rejects group updates; they go through
 `PUT /organizations/:organizationId/groups/:groupId/policy-commit`. Group creation

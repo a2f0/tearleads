@@ -2,8 +2,10 @@
 
 [`DurableIdentityBinding.tla`](./DurableIdentityBinding.tla) checks that a new
 session cannot let the API bind a previously pinned signing fingerprint to
-another user in the same trust domain, and that only a pin established by an
-identity link or this device's own keys admits a user (#2695).
+another user in the same
+[trust domain](../../docs/glossary.md#identity-trust-domain), and that only a
+pin established by an identity link or this device's own keys admits a user
+(#2695).
 
 | Model action or predicate | Production seam |
 | --- | --- |

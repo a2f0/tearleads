@@ -26,15 +26,16 @@ not replace that target scope; cross-organization readers still cannot author
 writes.
 
 Acknowledgements are checked by hash, not echoed (#2716): the server returns
-only the head it committed (manifest hash, event hash, epochs, and KEK
-commitments), and the client compares each with its signed plan before it pins
-anything. The pinned checkpoint always comes from the plan (`checkpoint`); the
-model tracks the head the accepted response names separately (`ackHead`).
-`ForgedAcknowledgement` lets the dishonest server name a head the client never
-signed; the client refuses it and the mutation stays unacknowledged.
-`AcknowledgedCheckpointIsSigned` requires every accepted acknowledgement to pin
-the signed plan's manifest head and to name that same head, so the model tells
-the hash comparison apart from blind acceptance.
+only the [head](../../docs/glossary.md#head) it committed (manifest hash, event
+hash, epochs, and KEK commitments), and the client compares each with its signed
+plan before it pins anything. The pinned
+[checkpoint](../../docs/glossary.md#checkpoint) always comes from the plan
+(`checkpoint`); the model tracks the head the accepted response names separately
+(`ackHead`). `ForgedAcknowledgement` lets the dishonest server name a head the
+client never signed; the client refuses it and the mutation stays
+unacknowledged. `AcknowledgedCheckpointIsSigned` requires every accepted
+acknowledgement to pin the signed plan's manifest head and to name that same
+head, so the model tells the hash comparison apart from blind acceptance.
 
 Two negative controls disable one guard each. The first removes the client
 permission check. A read-only signer then creates a plan that a dishonest

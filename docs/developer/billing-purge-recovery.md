@@ -21,7 +21,7 @@ affected organization still resets even when it has no current container
 projection.
 
 Reset preserves [principal-policy](../glossary.md#principal-policy-state)
-checkpoints and their organization ownership, and
+[checkpoints](../glossary.md#checkpoint) and their organization ownership, and
 [access-manifest](../glossary.md#access-manifest) checkpoints for containers and
 documents. Cached policy bundles may be cleared, but later verification still
 rejects rollback and forks against those durable observations. Repeated resets
@@ -30,12 +30,13 @@ their identity, so a fresh replacement organization can reuse local container
 ids without erasing the old organization's trust history. Reset within the same
 organization cannot make a conflicting genesis acceptable. These anchors remain
 until the local database is fully reset; purged-organization cleanup must not
-remove them. The discovery cache compares each signed head against its own
-organization's checkpoint, so retaining an old organization's pin does not
-disable caching after recovery. The cache is keyed by document and organization,
-so their [epoch](../glossary.md#epoch) counters remain independent; the schema
-guard rejects a cache without its organization column with the
-local-database-reset error.
+remove them. The discovery cache compares each signed
+[head](../glossary.md#head) against its own organization's checkpoint, so
+retaining an old organization's pin does not disable caching after recovery. The
+cache is keyed by document and organization, so their
+[epoch](../glossary.md#epoch) counters remain independent; the schema guard
+rejects a cache without its organization column with the local-database-reset
+error.
 
 Replacement provisioning carries an explicit identity signature under the
 `tearleads.organization-replacement.v1` domain. It binds the old organization,

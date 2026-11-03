@@ -133,10 +133,10 @@ models the invariant that no device may ever be unable to read or write
 because another device holds a cache or must issue a write first. A dependent
 (descendant container, or group policy) cites an authority (ancestor, or
 Admins policy); every client refusal rule is a parameter, and negative controls
-show that requiring stale heads or chain entries to cite the current authority
-bricks a device's reads. Its own write, which the API accepts only at the
-current heads, must also eventually commit; a writer that waits for the
-dependent to be re-signed first violates that. See the
+show that requiring stale [heads](../docs/glossary.md#head) or chain entries to
+cite the current authority bricks a device's reads. Its own write, which the API
+accepts only at the current heads, must also eventually commit; a writer that
+waits for the dependent to be re-signed first violates that. See the
 [mapping, configurations, and boundary](./container-keying/NoBrickedDevice.md).
 
 ### Principal Reference Progress
@@ -208,10 +208,11 @@ for the action seams, fairness assumptions, and excluded blob-hydration layer.
 [`document-sync/EmptyFrontierUnlink.tla`](./document-sync/EmptyFrontierUnlink.tla)
 models the acceptance gates for the two
 [content-key](../docs/glossary.md#content-key) epoch advances that carry no
-rotation baseline: a document unlink submitted without one, and a link that
-advances the epoch. Both require a committed frontier proved empty under the
-document manifest-head write lock, and a covering unlink's baseline is refused
-when it falls short of the committed frontier. See the
+[rotation baseline](../docs/glossary.md#rotation-baseline): a document unlink
+submitted without one, and a link that advances the epoch. Both require a
+committed frontier proved empty under the document manifest-head write lock, and
+a covering unlink's baseline is refused when it falls short of the committed
+frontier. See the
 [mapping, negative controls, and bounds](./document-sync/EmptyFrontierUnlink.md).
 
 ### Attachment Key Reachability
@@ -264,7 +265,8 @@ that replay itself. See the [mapping](./local-trust/ContainerMoveReplay.md).
 [`local-trust/DurableIdentityBinding.tla`](./local-trust/DurableIdentityBinding.tla)
 checks that persistent
 [fingerprint-to-user bindings](../docs/developer/trusted-user-identity.md#pinning)
-survive session recreation and stay unique per trust domain, and that only
+survive session recreation and stay unique per
+[trust domain](../docs/glossary.md#identity-trust-domain), and that only
 [link or self pins](../docs/glossary.md#identity-pin) admit. See the
 [mapping and boundaries](./local-trust/DurableIdentityBinding.md).
 
@@ -392,7 +394,7 @@ Models under [`backup-restore/`](./backup-restore).
 [`backup-restore/TerminalAnchors.tla`](./backup-restore/TerminalAnchors.tla)
 models preservation of the three kinds of local trust anchor across full
 database restores: immutable purge decisions, append-only incident evidence,
-and monotone verification checkpoints, including observations made after
-restore preflight. Its mapping lists every production anchor table by kind and
-the tables deliberately left out. See the
+and monotone verification [checkpoints](../docs/glossary.md#checkpoint),
+including observations made after restore preflight. Its mapping lists every
+production anchor table by kind and the tables deliberately left out. See the
 [mapping and boundaries](./backup-restore/TerminalAnchors.md).

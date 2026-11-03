@@ -102,21 +102,27 @@ async function renderSignedInGeneralTab(): Promise<{
   return { signingFingerprint, tearleads, view };
 }
 
-test("general tab shows and copies the identity link and hides raw identifiers", async () => {
+test("general tab shares and copies the identity link and hides raw identifiers", async () => {
   const clipboardWrites = installClipboardWriteMock();
   const { tearleads, view } = await renderSignedInGeneralTab();
   const expectedLink = await tearleads.userIdentities.createLink(APP_URL);
 
-  await waitFor(() => {
-    expect(view.getByText(expectedLink)).toBeTruthy();
-  });
-  expect(view.getByText("Identity link")).toBeTruthy();
   expect(view.getByText("Authenticated")).toBeTruthy();
   for (const label of DEVELOPER_ROWS) {
     expect(view.queryByText(label)).toBeNull();
   }
   expect(view.queryByTitle(USER_ID)).toBeNull();
   expect(view.queryByRole("button", { name: "Copy user ID" })).toBeNull();
+  // The link stays hidden until the user asks to share it.
+  expect(view.queryByLabelText("My identity link")).toBeNull();
+
+  await act(async () => {
+    fireEvent.click(
+      view.getByRole("button", { name: "Share my identity link" }),
+    );
+  });
+  const linkField = await view.findByLabelText("My identity link");
+  expect(Reflect.get(linkField, "value")).toBe(expectedLink);
 
   await act(async () => {
     fireEvent.click(view.getByRole("button", { name: "Copy identity link" }));
@@ -135,7 +141,9 @@ test("developer mode reveals and copies the user ID and signing key", async () =
   for (const label of DEVELOPER_ROWS) {
     expect(view.getByText(label)).toBeTruthy();
   }
-  expect(view.getByText("Identity link")).toBeTruthy();
+  expect(
+    view.getByRole("button", { name: "Share my identity link" }),
+  ).toBeTruthy();
 
   await act(async () => {
     fireEvent.click(view.getByRole("button", { name: "Copy user ID" }));
@@ -163,5 +171,10 @@ test("general tab explains the identity link while signed out", async () => {
   expect(
     await view.findByText("Sign in to share your identity link."),
   ).toBeTruthy();
+  expect(
+    view
+      .getByRole("button", { name: "Share my identity link" })
+      .hasAttribute("disabled"),
+  ).toBe(true);
   expect(view.queryByRole("button", { name: "Copy identity link" })).toBeNull();
 });

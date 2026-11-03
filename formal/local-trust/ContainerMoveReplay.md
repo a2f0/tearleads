@@ -3,11 +3,12 @@
 [`ContainerMoveReplay.tla`](./ContainerMoveReplay.tla) models one folder's
 queued move whose accepted result is lost. The server can accept a move while
 the device loses the result, so the intent stays queued and a purge of its
-subtree waits on it; a replay that ignored the server's head would sign a second
-rotation to the same parent. The model checks that a replay settles a move the
-server already holds without posting, that settling needs evidence from the
-server, and that a lost result schedules its own replay, kept going through a
-failed replay, instead of waiting for a reload.
+subtree waits on it; a replay that ignored the server's
+[head](../../docs/glossary.md#head) would sign a second rotation to the same
+parent. The model checks that a replay settles a move the server already holds
+without posting, that settling needs evidence from the server, and that a lost
+result schedules its own replay, kept going through a failed replay, instead of
+waiting for a reload.
 
 | Model action or predicate | Production seam |
 | --- | --- |

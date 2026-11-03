@@ -14,9 +14,9 @@ a `VerifiedPrincipalPolicyCurrent` issued by the local crypto verifier. It check
 scope, consecutive version and predecessor hash, signing identity, authorization,
 key rotation, projection/grant commitments, payload and
 [member envelopes](../glossary.md#member-envelope). The caller supplies trusted
-signing keys and already verified external authority. A server-provided head or
-a serialized copy of a policy is insufficient: recover and verify history
-locally before using this operation.
+signing keys and already verified external authority. A server-provided
+[head](../glossary.md#head) or a serialized copy of a policy is insufficient:
+recover and verify history locally before using this operation.
 
 The verifier privately retains the last accepted external-authority citation,
 even when later entries omit that citation and it is absent from the selected
@@ -29,12 +29,12 @@ asynchronous verification.
 
 A successful result retains only its direct predecessor and successor. Repeated
 calls do not accumulate complete history. This result does not advance durable
-checkpoints, publish a resumable prefix, or prove arbitrary older citations.
-Callers must retain or recover the evidence those operations need and apply
-the atomic checkpoint and acknowledgement rules; in particular, admit the
-acknowledged successor before another mutation. A checkpoint older
-than the retained predecessor needs additional verified history; the two-entry
-result alone cannot advance it.
+[checkpoints](../glossary.md#checkpoint), publish a resumable prefix, or prove
+arbitrary older citations. Callers must retain or recover the evidence those
+operations need and apply the atomic checkpoint and acknowledgement rules; in
+particular, admit the acknowledged successor before another mutation. A
+checkpoint older than the retained predecessor needs additional verified
+history; the two-entry result alone cannot advance it.
 
 The SDK request builders can accept this verified current evidence and a lifetime
 guard. `verifyPrincipalPolicyCurrentMutation` binds the group's artifacts to the

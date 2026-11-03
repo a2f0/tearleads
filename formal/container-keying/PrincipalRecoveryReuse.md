@@ -2,21 +2,22 @@
 
 [`PrincipalRecoveryReuse.tla`](./PrincipalRecoveryReuse.tla) checks how
 authenticated principal-history recovery is reused. An honest server
-advances the organization directory head; a group revocation is a rotation
-committed with a directory successor, so it is an advance. Each workflow
-operation reads the server-current head once (the bare discovery read), then
-recovers that exact head. A completed local stage of the pinned head is accepted
-without a confirmation read, and stored current artifacts that fail verification
-are replayed online instead of refused. Later collections in the same operation
-reuse the recovered directory until a realtime organization hint or a durable
-pin past a memoized head evicts it. The memo never outlives its operation, and
-a value it hands out stays bound to its producer's lifetime until it is used.
-Organization provisioning primes the founding heads the device signed: after
-the server acknowledges the commit and the bootstrap pins them, the ordinary
-verifier checks the device's own states into completed durable stages in a
-later step. That step is bound to the provisioning identity and database and
-writes nothing once either changed. Priming writes no memo entry, so the first
-recovery still discovers and only skips the confirmation read.
+advances the organization directory [head](../../docs/glossary.md#head); a group
+revocation is a rotation committed with a directory successor, so it is an
+advance. Each workflow operation reads the server-current head once (the bare
+discovery read), then recovers that exact head. A completed local stage of the
+pinned head is accepted without a confirmation read, and stored current
+artifacts that fail verification are replayed online instead of refused. Later
+collections in the same operation reuse the recovered directory until a realtime
+organization hint or a durable pin past a memoized head evicts it. The memo
+never outlives its operation, and a value it hands out stays bound to its
+producer's lifetime until it is used. Organization provisioning primes the
+founding heads the device signed: after the server acknowledges the commit and
+the bootstrap pins them, the ordinary verifier checks the device's own states
+into completed durable stages in a later step. That step is bound to the
+provisioning identity and database and writes nothing once either changed.
+Priming writes no memo entry, so the first recovery still discovers and only
+skips the confirmation read.
 
 | Model action or predicate | Production seam |
 | --- | --- |
