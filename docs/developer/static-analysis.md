@@ -65,10 +65,12 @@ permissions install --apply`, which writes Claude Code rules to
 [`.claude/settings.json`](../../.claude/settings.json) and Codex rules to
 [`.codex/rules/agent-tool.rules`](../../.codex/rules/agent-tool.rules) and
 records what it owns in `.agent-tool-permissions.json`. Both allow routine
-agent-tool commands. Merges, cleanup, dependency additions, publishing, and
+agent-tool commands, including post-merge `repo cleanup --apply`, which deletes
+the shipped local and remote feature branch only for a confirmed merged PR and
+never a default or exempt branch. Merges, dependency additions, publishing, and
 permission changes get no Claude Code rule, so they follow each user's chosen
 mode, while Codex prompts before them; the agent-tool [permissions
-guide](https://github.com/a2f0/agent-tool/blob/43e8334cc4001442fb1faf6c14099dac8c1739a2/docs/permissions.md)
+guide](https://github.com/a2f0/agent-tool/blob/1e03e648a5754649c6b1f65f8f9f2a681f2eeab8/docs/permissions.md)
 lists every class. The files are generated: do not edit or reformat them, and
 rerun `agents:sync` after changing the agent-tool pin or `agent-tool.json`. `bun
 run agents:check` runs `permissions check` after `skills check`, so
