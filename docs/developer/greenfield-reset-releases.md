@@ -46,10 +46,10 @@ uses the separate Actions build and local publication workflow below.
 | Android | [`scripts/release/uploadAndroidStagingRelease.sh`](../../scripts/release/uploadAndroidStagingRelease.sh) | [`scripts/release/uploadAndroidRelease.sh`](../../scripts/release/uploadAndroidRelease.sh) | Google Play internal |
 
 Verify the current store lane settings before upload and report their actual
-destinations. “Production app” describes the app identity; it does not request
-a public store rollout. If a new supported target has acquired a release wrapper,
-include it or report the scope decision. The current desktop targets are
-macOS ARM64, Linux x64, and Windows x64.
+destinations. “Production app” names the app identity, not a public store
+rollout. If a new supported target has acquired a release wrapper, include it or
+report the scope decision. The current desktop targets are macOS ARM64, Linux
+x64, and Windows x64.
 
 [`scripts/deploy/deployEverything.sh`](../../scripts/deploy/deployEverything.sh)
 deploys both environments and uploads both mobile tiers, but omits desktop
@@ -142,8 +142,8 @@ independent targets.
 ## Publication and website verification
 
 1. Verify all selected release scripts exited zero, their source maps uploaded
-   where configured, and their packaging/install/persistence checks passed.
-   Success in a build phase does not establish successful publication.
+   where configured, and their packaging/install/persistence checks passed. A
+   successful build phase does not prove publication.
 2. Fetch each tier's `canary` (staging) or `stable` (production) discovery JSON
    for `macos-arm64`, `linux-x64`, and `win-x64`. Resolve public bucket endpoints
    from the release scripts: `https://downloads.tearleads.com/` and

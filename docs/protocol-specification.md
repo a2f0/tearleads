@@ -200,10 +200,10 @@ version `1`, use key epoch `1`, be signed by the registering user, project only
 the registering user as admin, and carry a version-2 authority descriptor
 committing the exact initial heads of both reserved groups.
 
-The response returns each created container and document head, each
-acknowledged by hash as described under container mutation conflicts below. The
-client checks every one against the request it signed before pinning it as a
-local verification checkpoint. The acknowledged heads of the roster and organization
+The response returns each created container and document head, each acknowledged
+by hash as described under container mutation conflicts below. The client checks
+every one against the request it signed before pinning it as a local
+verification checkpoint. The acknowledged heads of the roster and organization
 profile documents also seed discovery evidence, and the founding policy heads
 seed verified recovery progress, so the device fetches neither those documents'
 writer projections nor the founding groups' history. Creating an additional
@@ -248,9 +248,9 @@ missing, expired, or invalid stored session and permits the client to renew and
 replay a replayable request. Missing or malformed bearer credentials remain an
 uncoded terminal `401`; clients never infer refresh behavior from `error` text.
 
-The session authenticates the transport caller. Signed access events, signed
-principal states, and signed write headers are the protocol proofs that bind
-mutations and content records to cryptographic authority.
+The session authenticates the transport caller. Signed access events, principal
+states, and write headers are the protocol proofs that bind mutations and
+content records to cryptographic authority.
 
 ## Principal Policy Protocol
 
@@ -403,19 +403,19 @@ before any cache or verifier sees the projection, then verifies the result,
 recomputing each cited manifest's hash before any position that cites it is
 trusted.
 
-A projection GET may send `x-known-manifests`: up to 48 unique typed digests
-of bytes the device durably holds verified. `m:<hash>` names a manifest
-bundle by its manifest hash; `k:<digest>` names a container KEK level by a
-domain-separated SHA-256 of its canonical wire JSON (its manifest history
-cited by hash). After its ordinary authorization and stored-evidence verification,
-the API omits the bundle of each listed hash the projection cites and lists
-those hashes in the required `omittedBundles`; every other cited hash travels
-in `bundles`, and unknown hashes are ignored. A KEK level whose served bytes
-have a listed digest travels as `{levelDigest, containerManifestHistory}`, so
-its manifest citations still count; a rotated epoch, a new wrap, or any other
-change gives the level a new digest, and it travels in full. A hash must not
-be both served and omitted, and an omitted hash must be cited. The client fills
-an omitted bundle, and replaces each level stub with its own copy of the held
+A projection GET may send `x-known-manifests`: up to 48 unique typed digests of
+bytes the device durably holds verified. `m:<hash>` names a manifest bundle by
+its manifest hash; `k:<digest>` names a container KEK level by a
+domain-separated SHA-256 of its canonical wire JSON (its manifest history cited
+by hash). After its ordinary authorization and stored-evidence verification, the
+API omits the bundle of each listed hash the projection cites and lists those
+hashes in the required `omittedBundles`; every other cited hash travels in
+`bundles`, and unknown hashes are ignored. A KEK level whose served bytes have a
+listed digest travels as `{levelDigest, containerManifestHistory}`, so its
+manifest citations still count; a rotated epoch, a new wrap, or any other change
+gives the level a new digest, and it travels in full. A hash must not be both
+served and omitted, and an omitted hash must be cited. The client fills an
+omitted bundle, and replaces each level stub with its own copy of the held
 level, only from the bytes its request cited, and only when the held level's
 manifest citations equal the stub's; otherwise it refetches once with no hints.
 Hints grant nothing: the projection is authorized, and the rebuilt projection
@@ -596,7 +596,7 @@ complete, and returns it instead of emitting absence.
 
 Attachment slots are opaque stable identifiers inside a document. Product code
 may treat a slot as "front image" or "back image", but the protocol only sees a
-`slotId`. There is at most one active binding for a document slot. A same-slot
+`slotId`. A document slot has at most one active binding. A same-slot
 replacement signs a new `attachment.bind` event whose `expectedBindingId`
 matches the active binding being replaced.
 
@@ -821,6 +821,5 @@ The protocol is fail-closed:
 - unavailable policy, key, blob, or document material is an availability
   failure, not permission to bypass verification
 
-Projection tables are indexes and caches. They are useful for list and lookup
-performance, but they are not authority for encryption targets or access
-proofs.
+Projection tables are indexes and caches for list and lookup performance, not
+authority for encryption targets or access proofs.

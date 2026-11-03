@@ -27,8 +27,8 @@ Production and staging use PlanetScale PostgreSQL and independent Cloudflare R2
 buckets for encrypted blobs. Runtime database roles and schema initialization
 credentials are separate.
 
-Schema changes update the Drizzle definitions and regenerate both baselines.
-They require fresh server and client databases. Local database startup checks
+Schema changes update the Drizzle definitions, regenerate both baselines, and
+require fresh server and client databases. Local database startup checks
 the current table shape and refuses an obsolete one with a "reset the local
 database" error, and backup imports require format version 15. Request
 validation and signed-history verification enforce the active protocol
@@ -75,7 +75,7 @@ Organization purge (`status = "purged"`) is terminal and not a reset: the
 organization row survives, but every container, document, and blob mutation in
 that organization is refused with `402 billing_inactive`, and a replacement
 organization is provisioned under a fresh organization id. Purged ids are
-therefore never recreated under the same `(kind, organization, id)` key, so
+never recreated under the same `(kind, organization, id)` key, so
 client checkpoints keyed that way cannot observe a false rollback.
 
 ### Connection settings
@@ -100,7 +100,7 @@ POSTGRES_DATABASE=tearleads \
 bun run --filter=@tearleads/api dev
 ```
 
-In development, `API_DATABASE=postgres` also supports local defaults when no
+In development, `API_DATABASE=postgres` falls back to local defaults when no
 Postgres connection env vars are set:
 
 - Linux: `/var/run/postgresql`, port `5432`, current OS user, database `tearleads_development`
@@ -162,7 +162,7 @@ weakening tracked-LSN validation when they later return to Postgres or SQLite.
 
 The opt-in integration lane runs the multi-connection sync races against a
 dedicated remote test database. It does not accept the production variable
-names, which reduces the chance of accidentally testing against production:
+names, so it is harder to test against production by accident:
 
 ```sh
 TURSO_TEST_DATABASE_URL=libsql://test-database.turso.io \
@@ -231,14 +231,14 @@ physical-device enforcement of these fetch options is unverified.
 Each part URL lasts at most 300 seconds, capped by the stage's remaining
 lifetime. A file can take longer than five minutes: later chunks receive new
 URLs just before sending, while the stage ID, upload ID, and earlier part ETags
-stay the same. Refreshing a URL does not restart or invalidate earlier chunks.
-A rejected or failed request can reauthorize and retry the same immutable part
-once, with a short backoff for storage throttling or server errors.
-Interrupted uploads retain resumable stage state and reconcile actual
-stored parts through `ListParts`. URLs are never persisted as resume state.
-The one-hour stage lifetime is separate: URLs do not extend it, and an expired
-stage cannot be completed. An accepted request is not aborted by a client-side
-five-minute timer.
+stay the same, so refreshing a URL does not restart or invalidate earlier
+chunks. A rejected or failed request can reauthorize and retry the same
+immutable part once, with a short backoff for storage throttling or server
+errors. Interrupted uploads retain resumable stage state and reconcile actual
+stored parts through `ListParts`; URLs are never persisted as resume state. The
+one-hour stage lifetime is separate: URLs do not extend it, and an expired
+stage cannot be completed. No client-side five-minute timer aborts an accepted
+request.
 
 Attachment binding completes the stage: before its transaction it assembles
 parts 1..k of the stage's upload (the run covering exactly the declared length,
@@ -248,13 +248,12 @@ SHA-256 and also parses the envelope header, which is judged only after the
 digest matches. A bind retried after an earlier bind completed the stage reads
 the object once itself. The first parts' upload sources are issued before the
 stage row is written, so a signing failure aborts the fresh upload instead of
-leaving a stage for expiry cleanup.
-There is no separate completion request. Content-MD5 is a transport checksum,
-not a replacement for that integrity check. Direct uploads remove the part
-payloads from the Worker but retain this final verification read. A completed
-or aborted multipart upload consumes its upload ID, so old part URLs cannot
-replace a committed blob. Storage failures are reported separately from API
-connectivity.
+leaving a stage for expiry cleanup. There is no separate completion request.
+Content-MD5 is a transport checksum, not a replacement for that integrity
+check. Direct uploads remove the part payloads from the Worker but retain this
+final verification read. A completed or aborted multipart upload consumes its
+upload ID, so old part URLs cannot replace a committed blob. Storage failures
+are reported separately from API connectivity.
 
 Memory/custom stores without signing support use an explicit API-byte
 capability: initiation answers each first part with an `api` source, and the

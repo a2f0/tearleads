@@ -29,9 +29,9 @@ test script that rebuilt `dist` would delete it under other packages' tests
 running alongside it in Turbo.
 
 The Turbo test and E2E scripts first record the planned tasks, then require a
-fresh run summary proving that every planned task completed successfully, either
-by execution or from cache. Turbo can exit zero after interruption; an exit code
-alone is insufficient. Missing, incomplete or stale evidence fails verification.
+fresh run summary proving every planned task succeeded, by execution or from
+cache. Turbo can exit zero after interruption, so an exit code alone is
+insufficient. Missing, incomplete or stale evidence fails verification.
 Run summaries accumulate under `.turbo/runs` for inspection; remove that ignored
 directory when the evidence is no longer needed.
 
@@ -69,7 +69,7 @@ fails the run, even when all commands succeeded.
 
 Reports are saved before and after each step. An abruptly killed process leaves
 a `running` report rather than a successful result. Each run has its own file,
-and reports are local evidence rather than a replacement for CI. Avoid editing
+and reports are local evidence, not a replacement for CI. Avoid editing
 source or running concurrent builds/tests while a verification run is active:
 the SDK build replaces output that dependent tests consume.
 
@@ -115,8 +115,8 @@ platforms and devkit cache/offline behavior. The separate SDK `package:smoke`
 command installs a consumer's dependencies from npm. The SDK test suite's
 packaging tests build and inspect local output without that install; with
 dependencies and SQLite artifacts cached, focused SDK tests need no npm access.
-Other workspaces can add their own test
-prerequisites; check their README and `test` script.
+Other workspaces can add their own test prerequisites; check their README and
+`test` script.
 
 For a checkout whose mise configuration cannot be trusted, the protocol and
 OpenAPI checks accept the explicit pinned-tool paths documented in
@@ -125,8 +125,8 @@ OpenAPI checks accept the explicit pinned-tool paths documented in
 ## Before a push
 
 The push gate runs its checks in order and stops at the first failure, so a
-mistake caught late still costs every check queued ahead of it. Two cheap
-checks are worth running by hand rather than discovering minutes into a push:
+late-caught mistake still costs every check queued ahead of it. Run two cheap
+checks by hand rather than discovering their failures minutes into a push:
 
 - `bun tsc --build --pretty false` after any type or signature change. It is
   **not** part of `check:fast`; pre-push, `check:affected`, and `check` run it.
@@ -139,5 +139,5 @@ checks are worth running by hand rather than discovering minutes into a push:
   there too.
 
 Before a push, prefer `bun run check:fast` over a hand-picked subset. It covers
-the static half of the gate in a few minutes; sampling a few of its checks
-individually is how a gate failure gets discovered late in a long push.
+the static half of the gate in a few minutes; sampling its checks individually
+lets a gate failure surface late in a long push.

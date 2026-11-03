@@ -1,10 +1,9 @@
 # Payment Provider MCP and CLI Operations
 
-This is the shared operator guide for provisioning and auditing the Tearleads
-billing catalog. The implementation contract lives in
-[revenuecat-billing.md](./revenuecat-billing.md); this document explains which
-provider tools an agent can use and which account-owner steps remain outside
-those tools.
+This shared operator guide covers provisioning and auditing the Tearleads
+billing catalog: which provider tools an agent can use and which account-owner
+steps remain outside them. The implementation contract lives in
+[revenuecat-billing.md](./revenuecat-billing.md).
 
 The catalog has no migration, receipt-rebinding, or alias path. Add one only
 when real subscribers depend on it.
@@ -15,8 +14,8 @@ when real subscribers depend on it.
   store of record and RevenueCat mirrors the `sync` entitlement.
 - A custom organization subscribes on the web. Stripe is the store of record and
   RevenueCat mirrors the same entitlement.
-- Native stores use fixed products, never Stripe-style quantity. Stripe also
-  uses the same fixed tiers with subscription-item quantity `1`.
+- Native stores use fixed products, never Stripe-style quantity. Stripe uses
+  the same fixed tiers with subscription-item quantity `1`.
 - Cancellation is routed to the store of record. Either client can open the
   provider management surface, and either client can call the Tearleads Stripe
   cancellation endpoint. Provider webhooks keep server access in sync.
@@ -43,8 +42,8 @@ Stripe endpoint signing secret before enabling billing.
 
 Stripe and RevenueCat both publish first-party remote MCP servers. MCP
 registration is user-scoped Codex configuration, not repository configuration,
-so every agent must check its own environment instead of assuming that the
-servers are authenticated.
+so every agent must check its own environment rather than assume the servers
+are authenticated.
 
 ```sh
 codex mcp add stripe --url https://mcp.stripe.com
@@ -57,11 +56,11 @@ codex mcp get stripe
 codex mcp get revenuecat
 ```
 
-The browser OAuth flow is preferred. It avoids copying provider secrets into
-Codex configuration and gives the provider a revocable authorization grant. A
-new Codex session may be required before newly registered tools appear.
+Prefer the browser OAuth flow: it keeps provider secrets out of Codex
+configuration and gives the provider a revocable authorization grant. Newly
+registered tools may appear only in a new Codex session.
 
-Both servers also accept bearer tokens. Use this only for a noninteractive
+Both servers also accept bearer tokens. Use them only for a noninteractive
 environment that injects a dedicated, least-privilege credential before Codex
 starts. Never put the token value in `~/.codex/config.toml` or commit it.
 
@@ -130,8 +129,7 @@ Official references:
 
 ## CLI and API fallbacks
 
-The MCPs cover Stripe and RevenueCat. Apple and Google need API or CLI
-tooling.
+The MCPs cover Stripe and RevenueCat; Apple and Google need API or CLI tooling.
 
 | Provider | Preferred automation | Existing API/CLI credential source | Notes |
 | --- | --- | --- | --- |
@@ -200,8 +198,8 @@ end of the billing period, then **Activate link** under **Ways to get started**.
 Put the generated `https://billing.stripe.com/...` link in the matching
 deployment environment as `PUBLIC_STRIPE_CUSTOMER_PORTAL_URL`; the public
 website exposes it at `/manage-subscription`. Activation of the shareable link
-is a Stripe Dashboard owner action and is not available through the connected
-Stripe API tool. Audit `login_page.enabled`, the cancellation mode, and the
+is a Stripe Dashboard owner action, unavailable through the connected Stripe
+API tool. Audit `login_page.enabled`, the cancellation mode, and the
 website environment before handoff. Stripe chooses the most recently created
 active Customer when an email matches more than one Customer object.
 

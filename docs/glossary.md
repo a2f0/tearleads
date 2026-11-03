@@ -1,9 +1,9 @@
 # Glossary
 
-This glossary defines shared protocol terms used across the Tearleads docs. It
-is a reading aid; executable request, response, and verifier behavior remains
-defined by the shared validators, crypto verifiers, API workflows, and app
-workflows named in [protocol-specification.md](./protocol-specification.md).
+This glossary defines protocol terms shared across the Tearleads docs. It is a
+reading aid; the shared validators, crypto verifiers, API workflows, and app
+workflows named in [protocol-specification.md](./protocol-specification.md)
+define executable request, response, and verifier behavior.
 
 ## Access Epoch
 
@@ -447,7 +447,7 @@ Related docs:
 
 ## Rekey
 
-The operation of advancing key material to a new epoch. Container rekeys rotate
+Advancing key material to a new epoch. Container rekeys rotate
 container KEKs; document or blob rekeys advance content-key material for later
 writes.
 

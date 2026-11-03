@@ -1,7 +1,7 @@
 # Limits
 
 Every bound the protocol enforces, what enforces it, and what happens on the
-far side of it. A limit here is one of three kinds:
+far side of it. Limits are of three kinds:
 
 - **Refusal.** The request is rejected and the client must change what it
   sends. These are wire-contract bounds against hostile or runaway input.
@@ -11,12 +11,12 @@ far side of it. A limit here is one of three kinds:
   refusing would block a revocation or brick a device. The remainder is left
   for a later writer, and a client that meets it parks rather than fails.
 
-The third kind is the only one that trades write liveness for something else,
-and [the last section](#limits-that-trade-write-liveness) names each such
-trade. For shared terminology, see [glossary.md](./glossary.md).
+Only the third kind trades away write liveness;
+[the last section](#limits-that-trade-write-liveness) names each such trade.
+For shared terminology, see [glossary.md](./glossary.md).
 
-Values are quoted from the constants named in each table; the constant is the
-source of truth and the tables are a map to it.
+Values are quoted from the constants named in each table; the constants, not
+the tables, are the source of truth.
 
 ## Container hierarchy
 
@@ -120,7 +120,7 @@ for the exact-length rule.
 
 Hyperdrive holds origin connections across requests; Worker sockets remain
 request-scoped. `POSTGRES_POOL_MAX_USES=1` only retires clients in the fallback
-pool used by Durable Object timers. Request pools reuse clients until the
+pool used by Durable Object timers; request pools reuse clients until the
 request ends. The migration login connects directly from the deploy host and
 is never bound to the Worker. The Worker carries an `aws:us-east-1` placement
 hint.

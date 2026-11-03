@@ -2,9 +2,9 @@
 
 How components inside [`packages/client-sdk`](../../packages/client-sdk/) meet,
 so each can be read, tested, and changed on its own. Apply these patterns when
-adding a collaborator to a component, extracting a component, or touching an
-existing seam. The `isolate-sdk-component` skill is the step-by-step workflow;
-this page is the reference it follows.
+adding a collaborator, extracting a component, or touching a seam. The
+`isolate-sdk-component` skill is the step-by-step workflow; this page is its
+reference.
 
 ## Vocabulary
 
@@ -96,10 +96,10 @@ Name the port for the capability and the field for the role:
 `apiClient` only where the value really is a slice of the API client, such as
 one that also recovers pending mutations.
 
-Let the existing object be the adapter when its methods already match.
-Callers then pass the object (`currentPolicyReader: input.apiClient`) rather
-than a lambda or a `.bind` around one of its methods. A method called on the
-object keeps its `this`; a detached method does not, and the rewrap hides that.
+Let the existing object be the adapter when its methods already match:
+pass the object (`currentPolicyReader: input.apiClient`), not a lambda or a
+`.bind` around one of its methods. A method called on the object keeps its
+`this`; a detached method does not, and the rewrap hides that.
 When the API client may lack a method (`Partial<…>` runtimes), a small
 `api…Reader(apiClient)` function returns the port or `undefined`.
 
@@ -112,8 +112,8 @@ adapter supplied it. Say so in the port's doc comment.
 
 ## When not to add a port
 
-Add a port only for a collaborator that has, or a test genuinely needs, a
-second implementation. Registration replays provisioned bundles and the
+Add a port only for a collaborator that has, or a test needs, a second
+implementation. Registration replays provisioned bundles and the
 directory check serves pinned heads, so the readers earn their ports.
 
 Do not wrap single-implementation code in an interface. Principal-policy
@@ -135,9 +135,9 @@ those differences.
 ## Host interfaces and the composition root
 
 A component receives runtime collaborators (timers, lane registration, the
-clock) through its host interface. It never imports the module that provides
-them. The composition root constructs the real ones; tests pass fakes such as a
-manual clock that steps timers deterministically.
+clock) through its host interface, never by importing their module. The
+composition root constructs the real ones; tests pass fakes such as a manual
+clock that steps timers deterministically.
 
 A host interface also keeps dependencies pointing down when a lower component
 needs a decision only an upper one can make. Recovery records acknowledged
@@ -176,17 +176,16 @@ export function getOrCreatePrincipalPolicyCoordinator(execSql: ExecSql) {
   `getOrCreatePrincipalPolicyCoordinator(execSql).queueRecovery(…)`, and a
   reader finds every piece of that state in one file.
 - Never hold this state in a plain module-level `Map` or a process-global
-  singleton. Tests isolate by creating a new database or scope, which gets a
-  fresh object; nothing needs resetting between tests.
+  singleton. A test isolates by creating a new database or scope, which gets a
+  fresh object, so nothing needs resetting.
 - Share primitives inside the singleton, such as one keyed queue for both the
   recovery queue and the journal lane.
 - Document re-entrancy. Work queued on a keyed queue must not queue again on
   the same key, or it waits on itself.
 
 When the grouped state is a behavior with its own collaborators, the singleton
-becomes a service: one entry point that composes the ports and the per-scope
-state, replacing option bags that thread the same collaborators through every
-call.
+becomes a service: one entry point composing the ports and per-scope state,
+replacing option bags that thread the same collaborators through every call.
 
 ## Subsystem surfaces
 
@@ -294,8 +293,8 @@ Probe each new rule with a temporary violating import before relying on it.
 
 ## Tests behind ports
 
-- Fakes implement the port, so a test needs no HTTP server unless it is testing
-  the trust boundary itself.
+- Fakes implement the port, so a test needs no HTTP server unless it tests the
+  trust boundary itself.
 - A shared test helper may accept plain fake functions and adapt them to ports
   itself, as `cacheReferencedPolicies` does with `getCurrentPrincipalPolicy`
   and `getUserIdentity`. Tests that go through it do not change when a port

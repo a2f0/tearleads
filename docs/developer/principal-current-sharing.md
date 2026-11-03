@@ -38,12 +38,11 @@ citations needed by each container, and preserves retained recipient
 envelopes. Built-in clients submit the compound commit through their durable
 mutation journal and exact receipt handling. Standalone hosts own transport
 and outcome recovery, including the optional pending-recovery callback. Policy
-and container acknowledgements remain inside
-the lease; background descendant recitations use the caller's session
-lifetime. Hosts must support nested private custody leases during projection
-verification. Without a caller predicate, background scheduling retains the
-default of remaining active; hosts supply a predicate to cancel it when
-their session changes.
+and container acknowledgements remain inside the lease; background descendant
+recitations use the caller's session lifetime. Hosts must support nested
+private custody leases during projection verification. Without a caller
+predicate, background scheduling stays active by default; hosts supply a
+predicate to cancel it when their session changes.
 
 The verifier tests use real signed histories and SQLite with in-process page
 transport, including encrypted-name recovery through the production metadata

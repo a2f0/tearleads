@@ -25,8 +25,8 @@ Each tier's ignored `.secrets/<tier>/shared.env` holds `SENTRY_ORG=tearleads`
 and `SENTRY_AUTH_TOKEN`. The latter needs source-map upload access and stays in
 the build/deploy process. It must never have a `VITE_` or `BUN_PUBLIC_` prefix.
 
-Configure these variables in `.secrets/staging/app.env`; use `PRODUCTION`
-instead of `STAGING` in `.secrets/prod/app.env`:
+Set these in `.secrets/staging/app.env`; use `PRODUCTION` instead of `STAGING`
+in `.secrets/prod/app.env`:
 
 ```sh
 SENTRY_STAGING_PROJECT='tearleads-web-staging'
@@ -43,7 +43,7 @@ SENTRY_ELECTROBUN_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJE
 
 The DSNs above are placeholders. DSNs are public; the upload token is private.
 API project slugs default to `tearleads-api-staging` and
-`tearleads-api-production`; the corresponding tier variable can override them.
+`tearleads-api-production`; the tier variable can override them.
 
 ## Deployment and releases
 
@@ -55,8 +55,8 @@ a clean checkout and a successful map upload before migrations or publication.
 See [API diagnostics](api-sentry.md) for release identity and frame admission.
 
 The build number is `git rev-list --count HEAD` at build time. The default
-branch only gains squash-merged commits, so every deploy from it counts higher
-than the one before. The API sends it on every response as
+branch gains only squash-merged commits, so each deploy from it counts higher
+than the last. The API sends it on every response as
 `X-Tearleads-Api-Version` (exposed to cross-origin clients); shallow clones,
 source archives, and source runs omit it. A branch build counts its own commits
 on top of the merge base, so only default-branch deploys are comparable.

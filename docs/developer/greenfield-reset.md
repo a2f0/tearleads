@@ -104,17 +104,15 @@ override, applies the saved destroy plan, and removes the override however it
 exits; an override already present stops it. It and the other production
 teardown helpers (`drop-postgres-owned.sh`, `empty-r2-bucket.sh`,
 `deployApiMaintenance.sh`, and the Worker deletion scripts) refuse `prod` unless
-`TEARLEADS_TEARDOWN_TIER=prod` is
-exported, which
+`TEARLEADS_TEARDOWN_TIER=prod` is exported, which
 [`scripts/deploy/destroyProduction.sh`](../../scripts/deploy/destroyProduction.sh)
-does once confirmed. An authorized production reset exports it in the reset's
-own shell.
+does once confirmed. An authorized production reset exports it in its own shell.
 
 ## Destroy one environment
 
-Use the selected tier's wrappers. `TIER` must be exactly `prod` or `staging`;
-`RUN_DIR` must be the absolute path of this run's private directory.
-Run examples from the repository root.
+Use the selected tier's wrappers, from the repository root. `TIER` must be
+exactly `prod` or `staging`; `RUN_DIR` must be the absolute path of this run's
+private directory.
 
 ### 1. Stop old writers in place
 
@@ -191,8 +189,8 @@ Both tiers have an independent PlanetScale database stack:
 Enumerate only the verified application's R2 bucket, including all pages. Empty
 objects through its S3 API endpoint using the stack's bucket-scoped credentials.
 Inspect and abort remaining multipart uploads. Check deletion API results for
-per-object errors and verify emptiness; a successful HTTP response alone does
-not prove every object was deleted. Do not bypass an unexpected retention or
+per-object errors and verify emptiness; HTTP success alone does not prove every
+object was deleted. Do not bypass an unexpected retention or
 Object Lock policy; report that concrete blocker with the remaining resources.
 Some AWS CLI queries return empty stdout for an empty result. Check the command
 exit status first, then normalize that empty output before parsing JSON.
@@ -290,7 +288,7 @@ Follow the [release runbook](greenfield-reset-releases.md) for publications and
 fresh-profile functional verification. Record before/after identities, schema
 and blob checks, HTTP results, and restored protections. Remove this run's
 temporary overrides, locks, and obsolete copies of migration credentials once
-they are no longer needed. Keep a sanitized summary; private plans and logs
+unneeded. Keep a sanitized summary; private plans and logs
 remain sensitive, including database credentials in Terraform outputs.
 
 Report infrastructure and releases separately from retained provider records.

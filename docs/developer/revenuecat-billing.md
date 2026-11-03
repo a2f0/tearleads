@@ -6,9 +6,8 @@ the App Store or Play through RevenueCat. RevenueCat mirrors every subscription
 into the cross-platform `sync` entitlement and emits the lifecycle events that
 activate or revoke server sync.
 
-This documents how the integration is wired; the actual keys,
-project/app/offering IDs, and operational state live in the git-ignored
-`.secrets/prod/revenuecat.md`, not here.
+This page covers the wiring; keys, project/app/offering IDs, and operational
+state live in the git-ignored `.secrets/prod/revenuecat.md`.
 
 Provider MCP registration, CLI fallbacks, the declarative provisioning order,
 and the external-account handoff live in
@@ -26,8 +25,8 @@ and the external-account handoff live in
 | Cross-platform `sync` entitlement and grant/revoke events | RevenueCat |
 
 New web purchases use direct Stripe checkout. The web shell loads no RevenueCat
-SDK at all: RevenueCat's role for web is server-side, mirroring the Stripe
-receipt into the `sync` entitlement and delivering lifecycle webhooks. Keep
+SDK: RevenueCat's web role is server-side, mirroring the Stripe receipt into
+the `sync` entitlement and delivering lifecycle webhooks. Keep
 RevenueCat's provider-hosted flow for native stores
 ([revenuecat-native-stores.md](./revenuecat-native-stores.md)) only. Native
 purchases are personal-org only; restore always creates a new org.
@@ -63,9 +62,8 @@ user-confirmed recovery flow instead:
 RevenueCat `TRANSFER` webhooks use the same verified claim workflow. Transfer
 events do not include `app_user_id`; the server resolves the registered
 Tearleads user from `transferred_to`, then queries RevenueCat before changing
-billing. The provider subscription id has a unique database index, so only one
-organization can own it. Billing history shows `TRANSFER_OUT` on the source and
-`TRANSFER_IN` on the destination.
+billing. Billing history shows `TRANSFER_OUT` on the source and `TRANSFER_IN`
+on the destination.
 
 Both database dialects enforce one owner per provider subscription with a unique
 index. One store subscription funds one organization even when Apple or Google
@@ -111,9 +109,9 @@ defaults to `sync`.
 
 ## Public SDK keys (native client)
 
-The native shell reads a **public** RevenueCat SDK key at build time. These are
-safe to inline in the shipped bundle. When a key is absent the app degrades to
-an unavailable purchases capability. The web shell has no RevenueCat key: its
+The native shell reads a **public** RevenueCat SDK key at build time; these are
+safe to inline in the shipped bundle. Without a key the app degrades to an
+unavailable purchases capability. The web shell has no RevenueCat key: its
 purchase path is direct Stripe checkout, configured by
 `BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY` alone.
 
@@ -164,7 +162,7 @@ Mutable attributes are never trusted; unresolved state changes return 503
 unclaimed for retry. Event quantities never update Stripe seats.
 
 Paid grant events with an unknown product stem also return 503 without claiming
-the event id. This lets a corrected catalog mapping recover through RevenueCat
+the event id, so a corrected catalog mapping recovers through RevenueCat
 redelivery instead of permanently recording a charged purchase as ignored. New
 native purchases stay unclaimed when the locked organization has an active web
 checkout attempt, non-native billing identity, or durable Stripe identity.
@@ -301,8 +299,8 @@ largest canonical tier (10 licensed seats) for their full duration.
 
 Roster writes only enqueue an absolute desired state in
 `organization_billing_stripe_seats`; they do not call Stripe while holding the
-roster transaction open. This keeps access changes durable even when Stripe is
-temporarily unavailable.
+roster transaction open, so access changes stay durable while Stripe is
+unavailable.
 
 ## Billing maintenance worker
 

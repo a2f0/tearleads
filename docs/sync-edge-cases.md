@@ -1,9 +1,8 @@
 # Sync engine edge cases and expected outcomes
 
 A behavioral spec for the client sync engine: what each failure or edge case
-does and whether that is the intended behavior. It is the reference the System
-Monitor's write queue and sync lanes are read against; update it when behavior
-changes.
+does and whether that is intended. The System Monitor's write queue and sync
+lanes are read against it; update it when behavior changes.
 
 ## The failure-isolation model
 

@@ -66,8 +66,8 @@ const portalHost = stripeCustomerPortalUrl
         <li>You can subscribe again later with a new Tearleads identity.</li>
         <li>
           If more than one web subscription uses the same billing email, Stripe
-          opens the billing account created most recently that still has an
-          active subscription, which may not be the one you want. If you can't
+          opens the most recently created billing account with an active
+          subscription, which may not be the one you want. If you can't
           reach a subscription through Stripe, email{" "}
           <a href={`mailto:${legalDetails.email}`}>{legalDetails.email}</a>.
         </li>
