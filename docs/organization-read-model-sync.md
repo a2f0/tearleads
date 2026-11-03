@@ -105,10 +105,9 @@ duplicate invalidations are safe because projection application is idempotent,
 and a transition from A to B and back to A still reloads the final state.
 
 A principal's members are users, never other principals, so a membership edit
-invalidates exactly the one principal it names. This is what bounds reverse
-invalidation fanout: there is no group-in-group edge for an edit to propagate
-along, and no standalone or cross-organization group can widen the blast radius
-of a change.
+invalidates exactly the one principal it names. This bounds reverse invalidation
+fanout: no group-in-group edge can propagate an edit, and no standalone or
+cross-organization group can widen a change's blast radius.
 
 Deleted organization group IDs are never reused. Deletion writes a durable,
 domain-owned group tombstone in the same transaction as the hard delete and its

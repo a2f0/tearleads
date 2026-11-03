@@ -8,7 +8,7 @@ deliberately: propagating it would turn a retryable 503 into a permanent 500
 unless its cause chain happened to look like driver contention. Expected client
 errors and organization entitlement failures keep their usual responses and
 stay local. Each captured API error has an independent scope and no
-breadcrumbs, preventing activity from different requests from mixing.
+breadcrumbs, so activity from different requests cannot mix.
 
 Both API tiers use `privacy=api-allowlist-v3`. Reports carry `api_operation`
 (for example, `websocket.revalidate` or `billing.seat-sync`), with a reviewed
@@ -29,8 +29,8 @@ Postgres acquisition failures carry `api_database_stage=connect`,
 `api_connection_attempts`, and `api_pool_total`, `api_pool_idle`, and
 `api_pool_waiting`. These bounded integer counters describe that event's pool,
 not the database server's global connections. `PG_CONNECT_TIMEOUT` identifies
-a timed-out connection handshake; `PG_POOL_TIMEOUT` identifies waiting for a
-pool checkout. Other transient connection failures use
+a timed-out connection handshake; `PG_POOL_TIMEOUT`, waiting for a pool
+checkout. Other transient connection failures use
 `PG_CONNECTION_UNAVAILABLE`; non-retryable failures use `PG_CONNECTION_FAILED`.
 Recognized deeper driver codes, such as `28P01`, remain available.
 
@@ -69,11 +69,11 @@ The five-per-minute and twenty-per-hour budgets apply per diagnostics instance
 (a Worker isolate), not across the service. Event counts are bounded samples.
 The API transport aggregates locally suppressed events into Sentry client
 reports, at most once per minute when flushed. Their only data is a timestamp,
-`category=error`, `reason=sample_rate`, and a quantity. View client-discarded
-data in Sentry's usage/data-fidelity view to include those counts. These reports
-are best effort: an evicted isolate can lose pending counts. They do not contain
-messages, identifiers, routes, or per-event data; the automatic SDK client-report
-integration remains disabled.
+`category=error`, `reason=sample_rate`, and a quantity; Sentry's
+usage/data-fidelity view shows them as client-discarded data. These reports are
+best effort: an evicted isolate can lose pending counts. They contain no
+messages, identifiers, routes, or per-event data; the automatic SDK
+client-report integration remains disabled.
 
 Failures the API logged and deliberately swallowed — a realtime publish after
 the write already committed, read-model notification verification, session

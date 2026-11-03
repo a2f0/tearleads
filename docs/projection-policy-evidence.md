@@ -72,23 +72,23 @@ version without retaining a full policy bundle, and serving only the cited
 prefix would refuse that reader. History sources cover cited groups and their
 Admins authority; unrelated group histories are not requested. Each supplied
 directory body is authenticated by its hash in the signed state chain. Only the
-bodies needed to bind the supplied heads are sent. Those bodies list every
-group ID and head at their respective versions.
+bodies needed to bind the supplied heads are sent.
 
-Each selected directory payload therefore discloses all group IDs and heads at
-that version, although only cited groups and their Admins authority have
-history sources attached. The organization's signed state chain also discloses
-its public Admins roster history. That public metadata is part of the
+Each selected directory payload discloses all group IDs and heads at that
+version, although only cited groups and their Admins authority have history
+sources attached. The organization's signed state chain also discloses its
+public Admins roster history. That public metadata is part of the
 historical-verification contract for current object readers; encrypted group
 metadata and key envelopes remain outside it.
 
 ## Cost and retained-history tradeoff
 
-The server retains complete signed organization and group histories. Projection
-responses do not embed them. The API reads the current directory and indexed
-last bindings for deleted groups, then delivers only the distinct payloads
-needed for those bindings. A document shares one source set across its paths;
-locally composed projections merge sources and retain older directory bindings.
+The server retains complete signed organization and group histories, but
+projection responses do not embed them. The API reads the current directory and
+indexed last bindings for deleted groups, then delivers only the distinct
+payloads needed for those bindings. A document shares one source set across its
+paths; locally composed projections merge sources and retain older directory
+bindings.
 
 Cold verification processes bounded history pages. Private authenticated
 progress allows restart and selected citations use proofs against that verified
@@ -104,11 +104,11 @@ specification](protocol-specification.md#container-access-and-kek-protocol)).
 After a projection verifies, the SDK stores its verified bundles in the local
 `verified_access_manifest_bundles` table, keyed by manifest hash, and each
 verified container KEK level as a typed row keyed by the domain-separated hash
-of its canonical wire bytes (one level per container, its latest). A later projection
-GET for any object may send an `x-known-manifests` header listing up to 48 of
-those typed digests (`KNOWN_MANIFEST_HINT_LIMIT`, `m:` for bundles, `k:` for
-levels): the latest level of each container its projection walks first, then
-the requested object's own lineage, then the lineages of the containers its
+of its canonical wire bytes (one level per container, its latest). A later
+projection GET for any object may send an `x-known-manifests` header listing
+up to 48 of those typed digests (`KNOWN_MANIFEST_HINT_LIMIT`, `m:` for bundles,
+`k:` for levels): the latest level of each container its projection walks first,
+then the requested object's own lineage, then the lineages of the containers its
 projection walks (its local ancestors, or the containers a document is linked
 to, listed in, or describes as metadata, and their ancestors), then the
 organization's most recently verified bundles. A container not yet stored
@@ -117,17 +117,18 @@ its listed parent's stored lineage. Citations never leave the object's
 organization: every local source (verified bundles of the object and of the
 containers on its walk, a document's verified discovery head, listed container
 rows, and the listing that placed an unstored container) must name the same
-single organization, and any disagreement or absence cites nothing. Citing is bounded:
-a source that has not answered within 250 ms (`MANIFEST_CITATION_DEADLINE_MS`),
-fails, or is overtaken by the caller's abort leaves the read uncited, and a late
-answer is discarded. The citation is therefore shared across objects and
-survives restarts and reconnects. The server performs its ordinary
-authorization, lineage walk, stored-evidence verification and policy evidence
-loading, then omits the bundle bytes of exactly the cited hashes it would have
-served and lists them in the response's `omittedBundles`, and replaces each KEK
-level whose served bytes have a cited digest with `{levelDigest,
-containerManifestHistory}`. Unknown hashes are ignored; a rotated or rewrapped
-level has a new digest and travels in full. The routes disable HTTP response caching.
+single organization, and any disagreement or absence cites nothing. Citing is
+bounded: a source that has not answered within 250 ms
+(`MANIFEST_CITATION_DEADLINE_MS`), fails, or is overtaken by the caller's abort
+leaves the read uncited, and a late answer is discarded. The citation is
+therefore shared across objects and survives restarts and reconnects. The server
+performs its ordinary authorization, lineage walk, stored-evidence verification
+and policy evidence loading, then omits the bundle bytes of exactly the cited
+hashes it would have served and lists them in the response's `omittedBundles`,
+and replaces each KEK level whose served bytes have a cited digest with
+`{levelDigest, containerManifestHistory}`. Unknown hashes are ignored; a rotated
+or rewrapped level has a new digest and travels in full. The routes disable HTTP
+response caching.
 
 The client fills each omission only from the exact bytes it cited for that
 request, copied before the request was sent, and rejects a response that omits
@@ -191,9 +192,9 @@ evicted rows, and cold devices without a table. A signature-call probe verifies
 calls when extended to 128.
 
 The API memoizes parsed directory bindings by the immutable stored organization
-head and the requested group set, so a successor head misses that cache. It is
-a least-recently-used cache with a 32 MiB budget of estimated retained bytes,
-charging serialized values conservatively plus entry overhead, and it returns
+head and the requested group set, so a successor head misses that cache. This
+least-recently-used cache has a 32 MiB budget of estimated retained bytes,
+charging serialized values conservatively plus entry overhead, and returns
 isolated copies to callers. It avoids repeating directory history reads and
 parsing for each projection at a stable head. The budget bounds retention; it
 does not bound cold verification work or eliminate misses for larger working
@@ -204,9 +205,8 @@ entries) and measures 64 and 128 signed directory successors through real API
 reads and cold SDK key recovery. It requires only one directory payload, only
 the cited Admins source, successful recovery, a 40 kB projection limit and less
 than five percent projection growth when history doubles. Signed principal
-history travels through separate pages. Wall-clock timings are diagnostic, to
-avoid machine-dependent CI failures; delivery sizes are recorded in the test
-output.
+history travels through separate pages. Wall-clock timings are diagnostic only,
+to avoid machine-dependent CI failures; the test output records delivery sizes.
 
 ## Principal history length
 

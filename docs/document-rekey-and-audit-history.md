@@ -5,9 +5,9 @@ handling, and how accepted document write history is authenticated.
 
 For shared protocol terminology, see [glossary.md](./glossary.md).
 
-It is separate from the signed group / organization policy-state design. Policy
-state protects who should have access. This document covers how document
-content and document history behave when access epochs change.
+It is separate from the signed group / organization policy-state design, which
+protects who should have access. This document covers how document content and
+history behave when access epochs change.
 
 ## Behavior
 
@@ -18,26 +18,25 @@ content and document history behave when access epochs change.
 - a client only decrypts updates that match the epoch + DEK it currently
  resolved
 
-Practically, this means a client does not replay arbitrary mixed-epoch document
-history with a single key. Once a document DEK rotates, subsequent updates are
-expected to use the new epoch's DEK.
+So a client does not replay arbitrary mixed-epoch document history with a
+single key. Once a document DEK rotates, subsequent updates are expected to use
+the new epoch's DEK.
 
 ### Rewrap Reuses The Active DEK
 
-When a target change is additive, the client can keep using the
-prior document DEK, materialize a current-epoch content-key bundle for the
-expanded target set, and retry any local pending Loro updates under the new
-epoch.
+When a target change is additive, the client can keep using the prior
+document DEK, materialize a current-epoch content-key bundle for the expanded
+target set, and retry any local pending Loro updates under the new epoch.
 
-This is the additive-access path. It does not require a fresh baseline solely
-because the access epoch changed.
+This additive-access path does not require a fresh baseline solely because the
+access epoch changed.
 
 ### Rotate Means Fresh Baseline For Later Writes
 
 When access shrinks or otherwise invalidates the prior document DEK for later
-writes, the client does not try to reuse the previous epoch's document DEK.
-Instead, a retained client clears stale pending encrypted updates and resends a
-fresh baseline under the new DEK.
+writes, the client does not reuse the previous epoch's document DEK. Instead,
+a retained client clears stale pending encrypted updates and resends a fresh
+baseline under the new DEK.
 
 Distinction:
 
@@ -59,10 +58,8 @@ If another active binding still references the blob, the live rows remain until
 the final active binding is deactivated.
 
 Historical attachment bytes are therefore not durable. Detached bindings are
-transient replacement metadata, not an attachment history log.
-
-That means document update history and attachment/blob history have different
-retention properties.
+transient replacement metadata, not an attachment history log. Document update
+history and attachment/blob history thus have different retention properties.
 
 The attachment/blob retention policy is defined in
 [attachment-retention.md](./attachment-retention.md).
@@ -180,8 +177,8 @@ If a client remains authorized but was offline during the rotate:
 - local-only edits should still be recoverable if the client retains its
  local CRDT state
 
-The correct recovery path is not "replay old encrypted pending patches." The
-correct recovery path is:
+The correct recovery path is not "replay old encrypted pending patches." It
+is:
 
 1. keep the local CRDT state
 2. sync and adopt the canonical post-rotate baseline
@@ -196,17 +193,16 @@ operation history needed for merging, rotation, and recovery.
 ### Revoked Offline Clients
 
 If a client lost write access before reconnecting, later writes should be
-rejected when it comes back online.
+rejected when it comes back online — not because the edits are
+unrepresentable, but because they come from a principal that is no longer
+authorized.
 
-That is not because the edits are unrepresentable. It is because those writes
-would be writes from a principal that is no longer authorized.
-
-If desired, revoked offline edits can still be preserved as local drafts
-or forks, but they should not be accepted as canonical writes after revocation.
+If desired, revoked offline edits can be preserved as local drafts or forks,
+but they should not be accepted as canonical writes after revocation.
 
 ## Historical Replay And Fresh-Client Bootstrap
 
-There is a meaningful distinction between two clients:
+Two kinds of client differ:
 
 - a retained client that already has prior document state and old key material
 - a fresh client that has access now but has never downloaded the older epochs

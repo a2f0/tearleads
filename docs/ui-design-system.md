@@ -1,6 +1,6 @@
 # UI design system
 
-The conventions that keep the app's chrome consistent across web (desktop
+Conventions that keep the app's chrome consistent across web (desktop
 browser), iPad, and phone. Full paths are relative to the repository root;
 short paths such as `shell/...` and `components/...` are relative to
 [`packages/app/src`](../packages/app/src/).
@@ -35,22 +35,21 @@ The tablet breakpoint lives in
 [`packages/windowing/src/routed/breakpoints.test.ts`](../packages/windowing/src/routed/breakpoints.test.ts)
 fails if the two drift.
 
-The switch between shells never remounts the runtime-owning subtrees — see the
-comment in `shell/layout/Layout.tsx`. A user can also switch between
-windowed and routed shells via the taskbar/footer control
-(`NavigationModeOverrideProvider`). The choice survives reloads; a saved
-windowed choice yields to routed mode on narrow or touch screens.
+Switching shells never remounts the runtime-owning subtrees (see the comment
+in `shell/layout/Layout.tsx`). Users can also switch shells via the
+taskbar/footer control (`NavigationModeOverrideProvider`). The choice survives
+reloads; a saved windowed choice yields to routed mode on narrow or touch
+screens.
 
 ## Touch sizing keys off an attribute, not a media query
 
-`Layout` stamps `<html data-navigation-mode="routed">` whenever the routed
-shell is active (`useNavigationModeDocumentAttribute` from
-`@tearleads/windowing`). All touch
-sizing hangs off that attribute — deliberately NOT `@media (pointer: coarse)`,
-because an iPad with a mouse reports a fine pointer but still renders the touch
-shell. The routed shell is also the desktop default, so mouse users get these
-sizes until they choose windowed mode. Stamping the root element also lets
-portaled menus and modals inherit the sizing.
+`Layout` stamps `<html data-navigation-mode="routed">` whenever the routed shell
+is active (`useNavigationModeDocumentAttribute` from `@tearleads/windowing`).
+All touch sizing keys off that attribute — deliberately NOT
+`@media (pointer: coarse)`, because an iPad with a mouse reports a fine pointer
+but still renders the touch shell. The routed shell is also the desktop default,
+so mouse users get these sizes until they choose windowed mode. Stamping the
+root element also lets portaled menus and modals inherit the sizing.
 
 Three Apple HIG rules drive the values (see the comment block in
 [`packages/ui/src/styles.routed.css`](../packages/ui/src/styles.routed.css),
@@ -58,11 +57,11 @@ which holds every routed-mode override):
 
 1. **44px minimum hit target.** `--control-height` resolves to `2.75rem` under
    `data-navigation-mode="routed"` (dense desktop default is `2rem`). Every
-   control primitive keys its min-height/size off this token, so meeting the
-   floor is automatic for components that use the shared primitives.
-   Virtualized rows go through `navigation/useTouchRowHeight.ts`
-   (`TOUCH_ROW_HEIGHT = 44`), which drives both the virtualization math and the
-   rendered row height so they cannot desync.
+   control primitive keys its min-height/size off this token, so components
+   using the shared primitives meet the floor automatically. Virtualized rows go
+   through `navigation/useTouchRowHeight.ts` (`TOUCH_ROW_HEIGHT = 44`), which
+   drives both the virtualization math and the rendered row height so they
+   cannot desync.
 2. **16px native inputs.** `input`/`select`/`textarea` render at
    `max(16px, 1em)` in routed mode so iOS Safari does not auto-zoom the
    viewport on focus.
@@ -143,24 +142,23 @@ status bars retain the compact bar height and follow the window's bottom corners
 
 ## Form measure
 
-Text-entry controls are capped, content is not. A field stretched to the width
-of a maximized desktop window or an iPad reads as a long empty rule rather than
-a field, and it strands a left-aligned label a screen away from the caret, so
-`--form-measure` (34rem) is the ceiling for a column of entry controls.
+Text-entry controls are capped, content is not. A field stretched across a
+maximized desktop window or an iPad reads as a long empty rule and strands a
+left-aligned label a screen away from the caret, so `--form-measure` (34rem)
+caps a column of entry controls.
 
-- `.mini-app-field` carries the cap, so every `MiniAppField` gets it by
-  default and a new form inherits the behavior without opting in. The cap sits
-  on the field, not the control, so the label and any trailing affordance
-  (clipboard button) stay grouped with the input. `.mini-app-toolbar`'s inputs
-  and selects still grow into their slack but stop at the same measure.
-- A surface that **groups** fields caps the group too
-  (`.backup-restore-main`, `.identity-manager-pin-forms`,
-  `.identity-manager-recovery-key-form`, `.contact-document-fields`,
-  `.contacts-detail-panel`). Otherwise the panel border, tab strip, and section
-  heading keep ruling the whole viewport around a column of measure-width
-  inputs, which reads worse than the stretched fields did. It also catches the
-  read-mode rows that `MiniAppField` never wraps — a contact's value and its
-  clipboard button are only adjacent if their row is capped.
+- `.mini-app-field` carries the cap, so every `MiniAppField`, including any new
+  form, gets it without opting in. The cap sits on the field, not the control,
+  so the label and any trailing affordance (clipboard button) stay grouped with
+  the input. `.mini-app-toolbar`'s inputs and selects still grow into their
+  slack but stop at the same measure.
+- A surface that **groups** fields caps the group too (`.backup-restore-main`,
+  `.identity-manager-pin-forms`, `.identity-manager-recovery-key-form`,
+  `.contact-document-fields`, `.contacts-detail-panel`). Otherwise the panel
+  border, tab strip, and section heading keep spanning the whole viewport around
+  a column of measure-width inputs, which reads worse than stretched fields. It
+  also catches the read-mode rows that `MiniAppField` never wraps — a contact's
+  value and its clipboard button are only adjacent if their row is capped.
 - **The mobile tier opts out.** `RoutedPane.css` re-declares
   `--form-measure: 100%` under `.routed-pane--mobile`, so nothing in that shell
   is capped below 760px. The tier is single-column and deliberately
@@ -177,17 +175,16 @@ a field, and it strands a left-aligned label a screen away from the caret, so
 - The unit is deliberately `rem`, and `rem` is **not** the same pixel value in
   both shells: the windowed layout inherits the monospace default-fixed-font
   quirk (`1rem` ≈ 13px), while the routed tier anchors `font-size: 16px` (see
-  the block comment in `styles.routed.css`). So the cap lands at ~442px
-  windowed and 544px routed — the same *character* count either way, which in a
-  monospace UI is what a measure is supposed to hold constant. Do not "fix"
-  this by switching to `px`.
+  the block comment in `styles.routed.css`). The cap lands at ~442px windowed
+  and 544px routed: the same *character* count, which is what a measure should
+  hold constant in a monospace UI. Do not "fix" this by switching to `px`.
 - Form columns stay **left-aligned**; the slack goes to the right. Do not cap
   what wants the width — tables, virtualized lists, document editors
   (`NoteDocument`, `EnvFile`, `JsonFileDocument`), and media previews.
-- The other two standard answers to the same problem are already in use where
-  they fit better than a cap: reflow into as many columns as fit
-  (`.file-document-metadata`, `.identity-manager-pin-forms`), and size a
-  control to its content (`.explorer-container-icon-picker`).
+- Two other standard answers are already used where they fit better: reflow
+  into as many columns as fit (`.file-document-metadata`,
+  `.identity-manager-pin-forms`), and size a control to its content
+  (`.explorer-container-icon-picker`).
 
 ## Component policy
 

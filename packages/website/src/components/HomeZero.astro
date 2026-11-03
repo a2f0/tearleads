@@ -38,9 +38,9 @@ const onboardingFacts: readonly Fact[] = [
     <h2 id="zero-knowledge-title" class="home-zero-title">Zero knowledge</h2>
     <p class="home-zero-lede">
       Document and file contents are encrypted on your device before they sync.
-      The service stores ciphertext and wrapped keys and holds no plaintext
-      content keys. The app derives who can receive keys from signed access
-      records it verifies, not from server-provided lists.
+      The service stores ciphertext and wrapped keys, not plaintext content
+      keys. The app derives who can receive keys from signed access records it
+      verifies, not from server-provided lists.
     </p>
     <dl class="home-facts">
       {knowledgeFacts.map((fact) => (
@@ -58,10 +58,9 @@ const onboardingFacts: readonly Fact[] = [
   <section class="home-zero-column" aria-labelledby="zero-onboarding-title">
     <h2 id="zero-onboarding-title" class="home-zero-title">Zero onboarding</h2>
     <p class="home-zero-lede">
-      The first time you open Tearleads, it creates your identity keys on your
-      device and, once you're online, registers their public keys with the
-      service. Those keys sign you in, so you skip the account form and start
-      working right away.
+      On first open, Tearleads creates your identity keys on your device and,
+      once you're online, registers their public keys with the service. Those
+      keys sign you in, so there's no account form.
     </p>
     <dl class="home-facts">
       {onboardingFacts.map((fact) => (
@@ -72,9 +71,9 @@ const onboardingFacts: readonly Fact[] = [
       ))}
     </dl>
     <p class="home-zero-note">
-      Save your 24-word recovery phrase from Identity Manager whenever you're
-      ready, and keep it somewhere private: it restores your identity on any
-      device. Paid plans on the web ask only for a billing email at checkout.
+      Save your 24-word recovery phrase from Identity Manager when you're
+      ready and keep it private: it restores your identity on any device. Web
+      checkout for paid plans asks only for a billing email.
     </p>
     <a class="site-link" href="#how-it-works">
       How it works<span aria-hidden="true"> →</span>

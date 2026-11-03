@@ -1,15 +1,14 @@
 # Cipher Suites
 
-This document summarizes the cryptographic primitives used by Tearleads and
-where each is applied. It is a reference map, not a design spec — see
-[keying-design.md](./keying-design.md) and
-[security-guarantees.md](./security-guarantees.md) for how these fit together,
-and [glossary.md](./glossary.md) for terminology.
+This reference maps Tearleads' cryptographic primitives to where they are
+used. For how they fit together see [keying-design.md](./keying-design.md) and
+[security-guarantees.md](./security-guarantees.md); for terms see
+[glossary.md](./glossary.md).
 
 Public-key operations in the application E2EE / keying protocol are post-quantum
-only (NIST FIPS 203 / 204): no X25519, Ed25519, RSA, ECDH, or NaCl. This scope is
-the client and API keying path — it does not cover deployment tooling, which uses
-conventional SSH host keys (Ed25519, and RSA/ECDSA in the Terraform stacks).
+only (NIST FIPS 203 / 204): no X25519, Ed25519, RSA, ECDH, or NaCl. This covers
+the client and API keying path, not deployment tooling, which uses conventional
+SSH host keys (Ed25519, and RSA/ECDSA in the Terraform stacks).
 
 ## Primitives
 
@@ -40,11 +39,11 @@ conventional SSH host keys (Ed25519, and RSA/ECDSA in the Terraform stacks).
 | Identity keypair generation | [`packages/crypto/src/encapsulation/generateKeyPair.ts`](../packages/crypto/src/encapsulation/generateKeyPair.ts) |
 
 Container-KEK-to-principal wrap suite: `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`.
-Document and blob content keys are not ML-KEM-wrapped directly to recipients —
-they wrap to container KEKs with AES-GCM (see below), and only the KEK is
+Document and blob content keys are never ML-KEM-wrapped to recipients: they
+wrap to container KEKs with AES-GCM (see below), and only the KEK is
 ML-KEM-wrapped to users, principals, and parent containers. Parent key pairs
-are derived from their KEKs using a domain-separated HKDF-SHA-256 seed; their
-public keys are committed by signed container events and manifests.
+derive from their KEKs via a domain-separated HKDF-SHA-256 seed; signed
+container events and manifests commit their public keys.
 
 ### ML-DSA-87 (signatures)
 
@@ -74,7 +73,7 @@ Core helpers:
 [`packages/crypto/src/symmetric.ts`](../packages/crypto/src/symmetric.ts)
 (32-byte key, 12-byte IV, 16-byte tag).
 
-Note: the principal policy payload carries a `cipherSuite: "aes-256-gcm"` label
+The principal policy payload carries a `cipherSuite: "aes-256-gcm"` label
 (`PrincipalStatePayloadCipherSuite` in [`packages/crypto/src/principalStateTypes.ts`](../packages/crypto/src/principalStateTypes.ts)),
 but the payload itself is base64 JSON the server can read. The organization
 authority descriptor and the built-in `Admins`/`Members` role markers are
@@ -113,13 +112,13 @@ PIN-code wrap suite: `pin-code-pbkdf2-sha256-aes-256-gcm`.
 | ChaCha20 (active) | SQLite file encryption; the app always boots with `cipher: "chacha20"` | [`packages/app/src/providers/db/bootSQLiteRuntime.ts`](../packages/app/src/providers/db/bootSQLiteRuntime.ts) |
 | SQLCipher / AES-CBC / Ascon-128 (supported, unused) | Alternate codecs the lower-level worker API accepts but the app does not select | [`packages/sqlite-worker/src/types.ts`](../packages/sqlite-worker/src/types.ts), [`packages/sqlite-worker/src/loadSqlite3.ts`](../packages/sqlite-worker/src/loadSqlite3.ts) |
 
-The SQLite cipher key is an HKDF-derived key from the local keyring (`sqliteKey`).
+The SQLite cipher key is HKDF-derived from the local keyring (`sqliteKey`).
 
 ### OPFS local storage
 
 OPFS (the Origin Private File System) is a browser storage backend, not a
-cipher suite. Tearleads encrypts the data it writes there; OPFS itself does not
-provide an additional application-managed encryption layer.
+cipher suite. Tearleads encrypts what it writes there; OPFS adds no
+application-managed encryption layer.
 
 | OPFS data | Protection | Location |
 | --- | --- | --- |
@@ -134,9 +133,9 @@ PBKDF2-SHA-256 salt and iteration count. Raw 32-byte/AES-GCM keys, including
 the production local-keyring-derived blob key, do not use this PBKDF2 envelope.
 
 On supported platforms, SQLite uses the OPFS SyncAccessHandle Pool VFS and
-blob files are placed under an identity-namespaced `tearleads` OPFS directory.
-The app requests durable browser storage before the first persistent database
-write; this is best effort, so a browser can still deny it. Without OPFS the
+blob files go under an identity-namespaced `tearleads` OPFS directory. The app
+requests durable browser storage before the first persistent database write;
+a browser can still deny it. Without OPFS the
 automatic storage policy selects in-memory SQLite; an explicitly requested
 persistent SQLite backend hard-fails instead. Encrypted OPFS blob-store
 factories likewise fail closed rather than silently writing unencrypted files

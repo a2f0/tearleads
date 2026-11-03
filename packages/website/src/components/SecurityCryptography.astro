@@ -94,8 +94,8 @@ const tables: readonly {
   <p class="site-prose security-pq">
     Public-key operations in the client and API keying protocol are post-quantum
     only: <span class="site-mono">ML-KEM-1024</span> (FIPS 203) for key delivery
-    and <span class="site-mono">ML-DSA-87</span> (FIPS 204) for signatures. That
-    statement covers the keying path, not TLS connections or deployment tooling.
+    and <span class="site-mono">ML-DSA-87</span> (FIPS 204) for signatures. This
+    covers the keying path, not TLS connections or deployment tooling.
   </p>
 
   {tables.map((table) => (
@@ -140,12 +140,11 @@ const tables: readonly {
         the keyring manifest and wrapping key normally live in IndexedDB.
       </p>
       <p>
-        Protection depends on the host keystore. The web app persists a Web
-        Crypto key. The desktop and mobile apps store exported key bytes in
-        IndexedDB instead. Tearleads does not keep this key in a
-        hardware-backed keychain on any platform; its protection depends on how
-        the browser, WebView, and operating system protect the app's stored
-        data.
+        The web app persists a Web Crypto key; the desktop and mobile apps
+        store exported key bytes in IndexedDB instead. Tearleads does not keep
+        this key in a hardware-backed keychain on any platform, so its
+        protection depends on how the browser, WebView, and operating system
+        protect the app's stored data.
       </p>
       <p>
         An optional PIN adds a PBKDF2-SHA256 and AES-256-GCM wrapper around the

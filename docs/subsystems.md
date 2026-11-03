@@ -1,16 +1,16 @@
 # Subsystems
 
 A **subsystem** is a stable proper noun for a slice of the system that a
-developer reasons about as one unit — for example "Containers" or "Realtime
-Sync". It is the name we use in conversation, PR descriptions, and code review
-to say _where a feature lives_ and _who owns it_.
+developer reasons about as one unit, such as "Containers" or "Realtime Sync".
+Conversation, PR descriptions, and code review use it to say _where a feature
+lives_ and _who owns it_.
 
-A subsystem is an ownership and navigation index laid over paths that already
-exist. Import direction stays enforced by the lanes, layers, and planes in
-`dependency-cruiser.config.ts`. A subsystem may span several layers:
-`Containers` covers its routes, service facade, and orchestration workflows. A
-subsystem that declares a **surface** is also a boundary: other subsystems
-import only its surface files.
+A subsystem is an ownership and navigation index over existing paths. Import
+direction stays enforced by the lanes, layers, and planes in
+`dependency-cruiser.config.ts`. A subsystem may span layers: `Containers` covers
+its routes, service facade, and orchestration workflows. A subsystem that
+declares a **surface** is also a boundary: other subsystems import only its
+surface files.
 See AGENTS.md "## Subsystems" for the related axes.
 
 ## How it is kept honest
@@ -21,8 +21,8 @@ See AGENTS.md "## Subsystems" for the related axes.
   [`scripts/architecture/clientSdkSubsystems.ts`](../scripts/architecture/clientSdkSubsystems.ts).
 - The `subsystem-registry-covers-every-source-file` architecture check requires
   every production source file in a registered package to map to **exactly one**
-  subsystem, so a newly added file that finds no home fails `bun run
-  lint:architecture` instead of silently becoming an orphan.
+  subsystem, so a new file with no home fails `bun run lint:architecture`
+  instead of silently becoming an orphan.
 - The `subsystem-registry-matches-docs` check keeps the table below in lockstep
   with the manifest.
 - `subsystem-imports-use-declared-surface` enforces surfaces; see
@@ -112,6 +112,6 @@ Registered packages: [`packages/api`](../packages/api/),
    (or `clientSdkSubsystems.ts` for the client SDK) so the owning subsystem's
    `paths` claim the new file, or add a new subsystem entry.
 2. Mirror the change in the table above.
-3. Run `bun run lint:architecture`. The coverage check tells you about any file
-   that maps to zero or more than one subsystem; the docs check tells you about
-   any table/manifest drift.
+3. Run `bun run lint:architecture`. The coverage check reports any file that
+   maps to zero or several subsystems; the docs check reports table/manifest
+   drift.

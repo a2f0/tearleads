@@ -125,10 +125,10 @@ page load) still applies.
 `bun run lint:architecture` fails when client-side packages (app, client SDK,
 the shells, diagnostics, sqlite-worker, ui, website, windowing) use `fetch`,
 `XMLHttpRequest`, `WebSocket`, `EventSource`, or `sendBeacon` directly. The
-check lives in
+check,
 [`scripts/architecture/apiTransport.ts`](../../scripts/architecture/apiTransport.ts),
-which lists the files that legitimately use the network for something other
-than the API, each with its reason:
+lists each file that legitimately uses the network for something other than
+the API, with its reason:
 
 - Sentry envelopes and the packaged `sentry-assets.json`
   ([`packages/diagnostics`](../../packages/diagnostics/));

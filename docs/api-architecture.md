@@ -2,12 +2,10 @@
 
 ## Summary
 
-This document defines two related but distinct structures:
+This document defines two related but distinct axes:
 
 - protocol planes describe *what kind of state* we are handling
 - API layers describe *where code lives* and *what each part is allowed to do*
-
-Those are related, but they are not the same axis.
 
 For shared protocol terminology, see [glossary.md](./glossary.md).
 
@@ -39,7 +37,7 @@ in [`packages/validators/src/operation`](../packages/validators/src/operation/)
 and their registrations under
 [`packages/api/src/routes`](../packages/api/src/routes/);
 [`docs/openapi.json`](openapi.json) is generated from them and lists every
-route. Documentation treats those sources as the source of truth.
+route. Those sources are the source of truth.
 
 Write surfaces:
 
@@ -143,8 +141,6 @@ The API is organized in these layers, enforced by `bun run lint:architecture`.
 
 ### 1. Entry Points
 
-These are the top-level process and app bindings.
-
 - [`packages/api/src/worker/index.ts`](../packages/api/src/worker/index.ts)
   - the Cloudflare Workers entry that deployed tiers run
 - [`packages/api/src/index.ts`](../packages/api/src/index.ts)
@@ -154,7 +150,7 @@ These are the top-level process and app bindings.
   - the reusable HTTP app that both entries serve
   - owns route registration, but not the outer server process
 
-This split allows in-process callers, especially tests, to use the HTTP app
+This split lets in-process callers, especially tests, use the HTTP app
 without importing a server entry point and its runtime side effects.
 
 ### 2. Transport Layer
@@ -210,8 +206,7 @@ production layer that imports `access/read` and `access/write`. See
 
 ### 5. Access and Domain Helpers
 
-Reusable logic that is more specific than generic infrastructure but lower
-level than a use case:
+Reusable logic more specific than generic infrastructure but below a use case:
 
 - `packages/api/src/access/**`: signed manifests, KEK state, content-key
   bundles, attachment bindings, and principal state and member-envelope stores
@@ -249,9 +244,9 @@ It injects the infrastructure that application services need:
 
 This boundary exists so that:
 
-- route handlers and tests can call the same service code
-- app tests do not need to import an API server entry point
-- MSW does not need a second fake implementation of backend behavior
+- route handlers and tests call the same service code
+- app tests need not import an API server entry point
+- MSW needs no second fake implementation of backend behavior
 
 Database-only services keep this facade. They use
 `createDatabaseWorkflowService` to select `runtime.db` without repeating a
@@ -305,7 +300,7 @@ workflow code without importing from `routes/**`.
 API route tests, API integration helpers, and in-process API integration tests
 call `routeApp` directly instead of importing a server entry point.
 
-Blob staging is implemented as blob services. The
+Blob staging lives in blob services. The
 `/blobs/stages/multipart` routes validate request shape and map service errors
 to HTTP responses, while the services own digest and byte-length validation,
 staged-row creation, object-store multipart state, per-part signed upload URLs,
@@ -317,7 +312,7 @@ promoted into that organization. The full key is preserved in `blobs` and
 `blob_audit_objects` through physical deletion retries. Organization purge also
 expires its staged uploads and waits for their object-store cleanup.
 
-Document attachment listing is implemented as a document service. The
+Document attachment listing lives in a document service. The
 `/documents/:documentId/attachments` route maps service errors to HTTP
 responses, while the service owns document-read authorization and active
 attachment binding lookup through the injected runtime database. It also loads
@@ -325,7 +320,7 @@ the latest blob content-key bundle for each active blob from the blob
 content-key store, so callers do not rely on encrypted blob bytes to carry key
 material.
 
-Blob reads are implemented as blob services. The `/blobs/:blobId/download`
+Blob reads live in blob services. The `/blobs/:blobId/download`
 JSON route and the `/blobs/:blobId/bytes` octet-stream route map service errors
 to HTTP responses, while the services own blob-read authorization, committed
 blob lookup, object-store reads, and digest recalculation through the injected
@@ -334,10 +329,10 @@ signed object-store URL. Blob reads return only committed encrypted bytes and
 digest metadata; blob key bundles come from attachment listing and bind
 responses.
 
-Document creation and sync writes are implemented by signed mutation
-services. The document route validates request shape and maps service
-errors to HTTP responses. The `services/documents/documentMutations` facade
-delegates to `workflows/documents/mutations`, which owns transaction boundaries
+Document creation and sync writes are signed mutation services. The document
+route validates request shape and maps service errors to HTTP responses. The
+`services/documents/documentMutations` facade delegates to
+`workflows/documents/mutations`, which owns transaction boundaries
 and composes manifest verification, content-key target validation, write-header
 verification, and update storage through the access layer.
 The neutral `documentUpdateStore` owns causally-missing update reads for
@@ -349,15 +344,14 @@ and blob reachability cleanup.
 
 ## Why `routeApp` Exists
 
-`routeApp` is the reusable HTTP app. It lets these callers share one transport
-definition:
+`routeApp` lets these callers share one transport definition:
 
 1. the Workers entry in `worker/index.ts` and the Bun server in `index.ts`
 2. in-process test proxying from the app test harness
 3. route-level API tests
 
-Without that split, importing the app from tests pulls in process-level
-concerns that do not belong in a lightweight in-process test path.
+Without it, importing the app from tests pulls in process-level concerns that
+do not belong in a lightweight in-process test path.
 
 ## Testing Model
 

@@ -15,7 +15,7 @@ flow and can style it from its theme tokens.
 - `BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY` enables the web capability and is inlined
   by `deployAppWeb.sh`. There is no RevenueCat web-purchase fallback.
 - Stripe loads from `@stripe/stripe-js/pure`, deferring Stripe.js and its fraud
-  signals until someone opens checkout instead of downloading them at startup.
+  signals from startup until someone opens checkout.
 - The server pins the subscription to `card`. Redirect-based methods are not
   compatible with the client's `redirect: "if_required"` confirmation flow.
 
@@ -35,12 +35,11 @@ address onto the Stripe Customer before acknowledging the webhook. Hosted
 Checkout collects a missing Customer email itself. This address is billing
 recovery data; it is not part of the key-derived Tearleads identity.
 
-The payment fields remain Stripe-hosted for PCI SAQ A. The Appearance API is
-fed computed Tearleads theme values by
-[`checkoutAppearance.ts`](../../packages/app/src/mini-apps/org-manager/billing/checkoutAppearance.ts).
-It resolves actual colors and sizes because an iframe cannot dereference app
-CSS variables. The Stripe base theme is `night` for dark surfaces and `stripe`
-for light surfaces.
+The payment fields remain Stripe-hosted for PCI SAQ A.
+[`checkoutAppearance.ts`](../../packages/app/src/mini-apps/org-manager/billing/checkoutAppearance.ts)
+feeds the Appearance API computed Tearleads theme values, resolving actual
+colors and sizes because an iframe cannot dereference app CSS variables. The
+Stripe base theme is `night` for dark surfaces and `stripe` for light surfaces.
 
 The "Pay on Stripe instead" fallback creates a hosted Checkout Session and
 opens it in a new tab, with same-tab navigation when a popup is blocked. It
@@ -64,11 +63,10 @@ requires an administrator.
 Lost-key cancellation uses Stripe's shareable no-code portal login from the
 public website's **Manage subscription** footer link. Stripe emails a secure
 login link to the Customer address, so this path does not require Tearleads
-authentication. The Stripe portal must allow cancellation at period end and
-its login link must be configured as
-`PUBLIC_STRIPE_CUSTOMER_PORTAL_URL` when the website is built. After the paid
-period ends, the old organization loses sync; the buyer can subscribe again
-under a newly derived identity whenever they choose.
+authentication. The Stripe portal must allow cancellation at period end, and its
+login link must be set as `PUBLIC_STRIPE_CUSTOMER_PORTAL_URL` when the website
+is built. After the paid period ends, the old organization loses sync; the buyer
+can subscribe again under a newly derived identity whenever they choose.
 
 Production and staging website deployments fail their build when the portal
 URL is missing or is not hosted at `https://billing.stripe.com`. Local builds
