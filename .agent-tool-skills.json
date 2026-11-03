@@ -3,14 +3,14 @@
   "files": {
     ".agents/skills/cross-agent-review/SKILL.md": "b153d5442a2267fb59d40ab7c0e0100d54630bf7d7a8ddab951cd3dec39ef7f8",
     ".agents/skills/open-pr/SKILL.md": "5d6d45b635ee153a0d53b83ef58d94cbd05bbf5d2933df647909a95b6f5c0bf2",
-    ".agents/skills/reset/SKILL.md": "784cb47373864ce480d479aa2f44a7a480f4242dc128ead6565c55e08b833270",
-    ".agents/skills/ship-pr/SKILL.md": "7c3a6d4f625ce4edc99f8ed8394276ad5f323338b736ea2cbf881a3a8dd314a4",
-    ".agents/skills/squash-merge/SKILL.md": "27e95958086f53cea0ae1ccea5cad113feb08d0d546424daa01915dfeb7b0ff4",
+    ".agents/skills/reset/SKILL.md": "cca96afa405f33fd079e3cc450561ee350450a8419ad747fe52cad222a054778",
+    ".agents/skills/ship-pr/SKILL.md": "6cd5bc6a6321542840911011ae6823e49e74a37b8da341f98fdc6d42c0ae339e",
+    ".agents/skills/squash-merge/SKILL.md": "1c1809570b50cbae66b062429defaae9855e936aec771113521c5e5d913196f7",
     ".claude/skills/cross-agent-review/SKILL.md": "b153d5442a2267fb59d40ab7c0e0100d54630bf7d7a8ddab951cd3dec39ef7f8",
     ".claude/skills/open-pr/SKILL.md": "5d6d45b635ee153a0d53b83ef58d94cbd05bbf5d2933df647909a95b6f5c0bf2",
-    ".claude/skills/reset/SKILL.md": "784cb47373864ce480d479aa2f44a7a480f4242dc128ead6565c55e08b833270",
-    ".claude/skills/ship-pr/SKILL.md": "7c3a6d4f625ce4edc99f8ed8394276ad5f323338b736ea2cbf881a3a8dd314a4",
-    ".claude/skills/squash-merge/SKILL.md": "27e95958086f53cea0ae1ccea5cad113feb08d0d546424daa01915dfeb7b0ff4",
+    ".claude/skills/reset/SKILL.md": "cca96afa405f33fd079e3cc450561ee350450a8419ad747fe52cad222a054778",
+    ".claude/skills/ship-pr/SKILL.md": "6cd5bc6a6321542840911011ae6823e49e74a37b8da341f98fdc6d42c0ae339e",
+    ".claude/skills/squash-merge/SKILL.md": "1c1809570b50cbae66b062429defaae9855e936aec771113521c5e5d913196f7",
     ".agents/skills/update-dependencies/SKILL.md": "902d08f7e1a35acc9c93f06c9ac28d1a035604819f5ead22a6e61333a5824589",
     ".claude/skills/update-dependencies/SKILL.md": "902d08f7e1a35acc9c93f06c9ac28d1a035604819f5ead22a6e61333a5824589"
   }

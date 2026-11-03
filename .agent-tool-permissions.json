@@ -53,8 +53,10 @@
       "Bash(bun run agent-tool teardown *)",
       "Bash(bun run agent-tool branch push *)",
       "Bash(bun run agent-tool pr open *)",
+      "Bash(bun run agent-tool pr cancel-runs *)",
       "Bash(bun run agent-tool pr threads reply *)",
       "Bash(bun run agent-tool pr threads resolve *)",
+      "Bash(bun run agent-tool repo cleanup *)",
       "Bash(bun run agent-tool checkVersions *)",
       "Bash(bun run agent-tool bumpVersions *)",
       "Bash(bun run agent-tool resolveVersionConflicts *)",
@@ -116,8 +118,10 @@
       "Bash(node_modules/.bin/agent-tool teardown *)",
       "Bash(node_modules/.bin/agent-tool branch push *)",
       "Bash(node_modules/.bin/agent-tool pr open *)",
+      "Bash(node_modules/.bin/agent-tool pr cancel-runs *)",
       "Bash(node_modules/.bin/agent-tool pr threads reply *)",
       "Bash(node_modules/.bin/agent-tool pr threads resolve *)",
+      "Bash(node_modules/.bin/agent-tool repo cleanup *)",
       "Bash(node_modules/.bin/agent-tool checkVersions *)",
       "Bash(node_modules/.bin/agent-tool bumpVersions *)",
       "Bash(node_modules/.bin/agent-tool resolveVersionConflicts *)",
@@ -179,8 +183,10 @@
       "Bash(agent-tool teardown *)",
       "Bash(agent-tool branch push *)",
       "Bash(agent-tool pr open *)",
+      "Bash(agent-tool pr cancel-runs *)",
       "Bash(agent-tool pr threads reply *)",
       "Bash(agent-tool pr threads resolve *)",
+      "Bash(agent-tool repo cleanup *)",
       "Bash(agent-tool checkVersions *)",
       "Bash(agent-tool bumpVersions *)",
       "Bash(agent-tool resolveVersionConflicts *)",
@@ -196,6 +202,6 @@
   },
   "codex": {
     "file": ".codex/rules/agent-tool.rules",
-    "sha256": "979cdb9179e2392b9242af481f1ab6d3e1085deb0b06c4a0b30ca0dde7661683"
+    "sha256": "ab695092d33eae54b048b8ff6128513b2c26a4c570b1348cc17bf297ec0fa884"
   }
 }
