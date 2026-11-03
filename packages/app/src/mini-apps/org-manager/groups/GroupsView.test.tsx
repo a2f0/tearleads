@@ -435,18 +435,19 @@ test("org manager groups view uses two-line summaries on phone layouts", () => {
     ".mini-app-compact-table-line",
   );
   expect(headerLines).toHaveLength(2);
+  // Two columns of two lines: the group over its members, and its status over
+  // its creation date.
   expect(
-    within(headerLines.item(0)).getByText(ORG_MANAGER_LABELS.group),
-  ).toBeTruthy();
-  expect(
-    within(headerLines.item(1)).getByText(ORG_MANAGER_LABELS.members),
-  ).toBeTruthy();
-  expect(
-    within(headerLines.item(1)).getByText(ORG_MANAGER_LABELS.status),
-  ).toBeTruthy();
-  expect(
-    within(headerLines.item(1)).getByText(ORG_MANAGER_LABELS.created),
-  ).toBeTruthy();
+    Array.from(headerLines, (line) =>
+      Array.from(
+        line.querySelectorAll(".mini-app-compact-table-field"),
+        (field) => field.textContent,
+      ),
+    ),
+  ).toEqual([
+    [ORG_MANAGER_LABELS.group, ORG_MANAGER_LABELS.status],
+    [ORG_MANAGER_LABELS.members, ORG_MANAGER_LABELS.created],
+  ]);
 
   const rowSummary = summaries.item(1);
   const rowLines = rowSummary.querySelectorAll<HTMLElement>(
@@ -456,10 +457,10 @@ test("org manager groups view uses two-line summaries on phone layouts", () => {
   expect(
     within(rowLines.item(0)).getByText(group.name).getAttribute("title"),
   ).toBe(group.groupId);
-  expect(within(rowLines.item(1)).getByText("1 member")).toBeTruthy();
   expect(
-    within(rowLines.item(1)).getByText(ORG_MANAGER_LABELS.builtIn),
+    within(rowLines.item(0)).getByText(ORG_MANAGER_LABELS.builtIn),
   ).toBeTruthy();
+  expect(within(rowLines.item(1)).getByText("1 member")).toBeTruthy();
   expect(
     within(rowLines.item(1))
       .getByText(formatMiniAppDate(group.createdAt))

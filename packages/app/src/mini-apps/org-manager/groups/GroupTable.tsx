@@ -36,6 +36,17 @@ const GROUP_TABLE_COLUMN_IDS: ReadonlyArray<GroupTableColumnId> = [
   "status",
   "created",
 ];
+// Phone rows fold into two columns of two lines, like the grant table: the
+// group over its member count, and its status over its creation date. A
+// single primary field would leave three secondary columns, too many to fit.
+const GROUP_COMPACT_PRIMARY_COLUMN_IDS: ReadonlyArray<GroupTableColumnId> = [
+  "group",
+  "status",
+];
+const GROUP_COMPACT_SECONDARY_COLUMN_IDS: ReadonlyArray<GroupTableColumnId> = [
+  "members",
+  "created",
+];
 const GROUP_TOGGLEABLE_COLUMN_IDS: ReadonlyArray<GroupTableColumnId> = [
   "members",
   "status",
@@ -160,6 +171,8 @@ function getGroupCompactField(
 const GROUP_TABLE_COLUMNS_CONFIG = {
   allColumnIds: GROUP_TABLE_COLUMN_IDS,
   columnLabels: GROUP_COLUMN_LABELS,
+  compactPrimaryColumnIds: GROUP_COMPACT_PRIMARY_COLUMN_IDS,
+  compactSecondaryColumnIds: GROUP_COMPACT_SECONDARY_COLUMN_IDS,
   dataColumns: GROUP_TABLE_COLUMNS,
   menuOptions: GROUP_COLUMN_MENU_OPTIONS,
   storageKey: "tearleads.org-manager.groups:hidden-columns",
@@ -221,9 +234,6 @@ function GroupTable({
         {virtualGroups.rows.map((group) => {
           const isSelected = selectedGroupId === group.groupId;
           const openGroupDetail = () => setSelectedGroupId(group.groupId);
-          const compactFields = visibleColumnIds.map((columnId) =>
-            getGroupCompactField(columnId, group),
-          );
           const handleGroupRowKeyDown = (
             event: KeyboardEvent<HTMLTableRowElement>,
           ) => {
@@ -248,8 +258,12 @@ function GroupTable({
             >
               {compact ? (
                 <MiniAppCompactTableCell
-                  primary={compactFields.slice(0, 1)}
-                  secondary={compactFields.slice(1)}
+                  primary={GROUP_COMPACT_PRIMARY_COLUMN_IDS.filter((id) =>
+                    visibleColumnIds.includes(id),
+                  ).map((id) => getGroupCompactField(id, group))}
+                  secondary={GROUP_COMPACT_SECONDARY_COLUMN_IDS.filter((id) =>
+                    visibleColumnIds.includes(id),
+                  ).map((id) => getGroupCompactField(id, group))}
                 />
               ) : (
                 visibleColumnIds.map((columnId) =>
