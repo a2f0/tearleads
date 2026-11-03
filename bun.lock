@@ -144,7 +144,7 @@
         "@capacitor/status-bar": "8.0.4",
         "@capawesome/capacitor-file-picker": "8.1.1",
         "@capgo/capacitor-native-biometric": "8.9.1",
-        "@revenuecat/purchases-capacitor": "14.0.0",
+        "@revenuecat/purchases-capacitor": "13.7.4",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
         "@tearleads/encoding": "workspace:*",
@@ -1008,9 +1008,9 @@
 
     "@resvg/resvg-wasm": ["@resvg/resvg-wasm@2.6.2", "", {}, "sha512-FqALmHI8D4o6lk/LRWDnhw95z5eO+eAa6ORjVg09YRR7BkcM6oPHU9uyC0gtQG5vpFLvgpeU4+zEAz2H8APHNw=="],
 
-    "@revenuecat/purchases-capacitor": ["@revenuecat/purchases-capacitor@14.0.0", "", { "dependencies": { "@revenuecat/purchases-typescript-internal-esm": "20.0.0" }, "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-Thiaix8JZNoh2ka0Mh6K+/K4sz+Yaxf5eArEA/6IZdqZ4xGQNlT3uJClKavqrmm2JB998sqU0YOX1hjPIGClbQ=="],
+    "@revenuecat/purchases-capacitor": ["@revenuecat/purchases-capacitor@13.7.4", "", { "dependencies": { "@revenuecat/purchases-typescript-internal-esm": "19.12.0" }, "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-BIeHJv1YOCycBlYJ+8nAe4vzEYmqiQGxDIfamqQgojzm8XuWMuOt9jq7kK9ClnIfcUEz1YIh1Fy/Xb/03tUhMw=="],
 
-    "@revenuecat/purchases-typescript-internal-esm": ["@revenuecat/purchases-typescript-internal-esm@20.0.0", "", {}, "sha512-xvAzzvDTzfSt8Td2mTfEzRAtc2eU8/lZIUCXCSiLeRqpVLTQAeE70aVvOYKglkk+uIicWzYr1zyupXTF0AwxrA=="],
+    "@revenuecat/purchases-typescript-internal-esm": ["@revenuecat/purchases-typescript-internal-esm@19.12.0", "", {}, "sha512-Hsuo4ACBK2CLRS59OiU8YxnO2IFqjgQ+7ZGIO8U4+VHQ3hWSmWWoHGcfTeMfL7jqUPLQoqLiQCZ1H30iQpzijQ=="],
 
     "@rolldown/binding-android-arm-eabi": ["@rolldown/binding-android-arm-eabi@1.2.15", "", { "os": "android", "cpu": "arm" }, "sha512-aLcgK9gIJ3YRvrrtfSBbRa27F5WrpiTaPulnFpsHPxpUHgFlSgnU4854MHwoRGEBhfRJDWCS2WQ7lIjskE9Olw=="],
 
@@ -2239,6 +2239,8 @@
     "anymatch/picomatch": ["picomatch@2.3.2", "", {}, "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA=="],
 
     "apache-arrow/@types/node": ["@types/node@25.9.9", "", { "dependencies": { "undici-types": ">=7.24.0 <7.24.7" } }, "sha512-b4e2xxj/yMeT2hNlD6x7zNFiQK2Dlmkb9CQ6v3/1G2RezKN4YS2lcEv8lzGm1mhs4f2lM4yNAMI/zUDBZBBt7w=="],
+
+    "app-web/@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#ccec49f", {}, "a2f0-continuity-ccec49f", "sha512-SwQMufS2JVURyMbhehQMLvNnvuJsqDQihxvsLGnFjeVWwsweJTRy9esLA4dnJziHq2u36qlSG0uzAsQOk0hAbQ=="],
 
     "astro/cookie": ["cookie@2.0.1", "", {}, "sha512-yuToqVvRrj6pfDXREyQAAv8SkAEk/8GS3jQRTiUMm66TVtBYmqQeoEjL2Lmq8Rpo6271vH76InTChTitEAm65w=="],
 

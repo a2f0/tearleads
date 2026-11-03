@@ -34,7 +34,10 @@ output with this record rather than ignoring it.
 This document lists the active overrides and exceptions; reconcile it on each
 upgrade and remove resolved entries. Advisory counts and clean-audit claims
 belong in the upgrade PR, since they describe one lockfile and advisory
-snapshot.
+snapshot. The `braces@3.0.3` exception was removed because
+[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) was
+withdrawn on October 23, 2026; its presence in the lockfile does not reactivate
+that advisory. Re-triage if upstream publishes a replacement advisory.
 
 The parent/version-scoped overrides require Bun lockfile format 3. Keep
 developer and CI Bun versions aligned with `.mise.toml`; see

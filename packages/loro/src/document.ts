@@ -330,8 +330,8 @@ export interface TextCharBlameSource {
  * from a single pass.
  *
  * One Loro op (one counter) is one code point, but an astral character spans
- * two UTF-16 units. Loro 1.16.4 resolves the cursor at the first unit and rejects
- * the interior low-surrogate position. Iterate code points and advance by their
+ * two UTF-16 units. Loro cursors address UTF-16 positions; an interior
+ * low-surrogate position has no op id. Iterate code points and advance by their
  * UTF-16 length so attribution neither splits nor double-counts a character.
  */
 function collectTextCharBlame(doc: LoroDoc, key: string): TextCharBlameSource {

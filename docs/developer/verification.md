@@ -155,8 +155,9 @@ verify `command -v clang`: Lean's tool directory can shadow Xcode's compiler.
 Select the compiler returned by `xcrun --find clang` and set `SDKROOT` from
 `xcrun --sdk macosx --show-sdk-path` in the child environment. A scratch
 compile does not replace `bundle install` and `bundle check` with isolated gem
-paths and the existing frozen/deployment settings. CI uses mise. The
-protocol-model check
+paths and the existing frozen/deployment settings. Ruby's explicit source-build
+setting matches the source archives recorded in `mise.lock`; do not silently
+substitute prebuilt Ruby artifacts. CI uses mise. The protocol-model check
 validates the pinned Java version and the TLA+ jar digest from
 [`scripts/checks/tlaToolsPin.sh`](../../scripts/checks/tlaToolsPin.sh) on every
 run, either way. The OpenAPI check validates the reported oasdiff version for

@@ -56,7 +56,7 @@
     "@capacitor/status-bar": "8.0.4",
     "@capawesome/capacitor-file-picker": "8.1.1",
     "@capgo/capacitor-native-biometric": "8.9.1",
-    "@revenuecat/purchases-capacitor": "14.0.0",
+    "@revenuecat/purchases-capacitor": "13.7.4",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/diagnostics": "workspace:*",
     "@tearleads/encoding": "workspace:*",

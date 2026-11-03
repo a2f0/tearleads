@@ -13,7 +13,7 @@ keep `oven-sh/setup-bun`; their Bun pins must match `.mise.toml`, since
 `mise.lock` covers macOS arm64 and Linux x64, not Windows.
 
 Astro's CLI uses Node even when Bun starts the website tests. Keep a supported
-Node on `PATH` for local website builds; Astro 7.4.2 requires at least 22.23.4.
+Node on `PATH` for local website builds; Astro 7.4.5 requires at least 22.23.4.
 The CI build lane selects Node 24.22.2 LTS explicitly and includes its version
 in `CI_TOOLCHAIN`, so a runner's ambient Node cannot determine or cache those
 build results. The nightly `Uncached tests` workflow reuses that lane.
@@ -55,6 +55,10 @@ remove them when the stated checks pass without the pin.
 - RevenueCat native SDK pins follow the Capacitor purchase bridge's dependency
   chain, including the direct Xcode package pin. Align those pins before
   rebuilding both native platforms; do not update transitive SDKs independently.
+  Keep bridge 13.7.4 until the [v14 asynchronous-call and store-error
+  migration](https://github.com/RevenueCat/purchases-capacitor/blob/14.0.0/migrations/v14-MIGRATION.md)
+  is validated through native startup, purchase, and restore on both platforms.
+  Compile and bridge-unit tests alone do not establish live store behavior.
 - Android uses AGP 9's built-in Kotlin support, compile SDK 37, AndroidX Core
   1.19.1, and the Capacitor template's Cordova 14.0.1. Biometric 8.9.1 supports
   the hidden `FingerprintManager` API through reflection. Keep target SDK 36

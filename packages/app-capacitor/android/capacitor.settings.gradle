@@ -36,4 +36,4 @@ include ':capgo-capacitor-native-biometric'
 project(':capgo-capacitor-native-biometric').projectDir = new File('../../../node_modules/.bun/@capgo+capacitor-native-biometric@8.9.1+6ab6186627aac117/node_modules/@capgo/capacitor-native-biometric/android')
 
 include ':revenuecat-purchases-capacitor'
-project(':revenuecat-purchases-capacitor').projectDir = new File('../../../node_modules/.bun/@revenuecat+purchases-capacitor@14.0.0+6ab6186627aac117/node_modules/@revenuecat/purchases-capacitor/android')
+project(':revenuecat-purchases-capacitor').projectDir = new File('../../../node_modules/.bun/@revenuecat+purchases-capacitor@13.7.4+6ab6186627aac117/node_modules/@revenuecat/purchases-capacitor/android')

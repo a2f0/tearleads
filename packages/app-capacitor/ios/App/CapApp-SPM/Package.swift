@@ -23,7 +23,7 @@ let package = Package(
         .package(name: "CapacitorStatusBar", path: "../../../../../node_modules/.bun/@capacitor+status-bar@8.0.4+6ab6186627aac117/node_modules/@capacitor/status-bar"),
         .package(name: "CapawesomeCapacitorFilePicker", path: "../../../../../node_modules/.bun/@capawesome+capacitor-file-picker@8.1.1+6ab6186627aac117/node_modules/@capawesome/capacitor-file-picker"),
         .package(name: "CapgoCapacitorNativeBiometric", path: "../../../../../node_modules/.bun/@capgo+capacitor-native-biometric@8.9.1+6ab6186627aac117/node_modules/@capgo/capacitor-native-biometric"),
-        .package(name: "RevenuecatPurchasesCapacitor", path: "../../../../../node_modules/.bun/@revenuecat+purchases-capacitor@14.0.0+6ab6186627aac117/node_modules/@revenuecat/purchases-capacitor")
+        .package(name: "RevenuecatPurchasesCapacitor", path: "../../../../../node_modules/.bun/@revenuecat+purchases-capacitor@13.7.4+6ab6186627aac117/node_modules/@revenuecat/purchases-capacitor")
     ],
     targets: [
         .target(
