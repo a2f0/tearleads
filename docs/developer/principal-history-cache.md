@@ -7,37 +7,43 @@ It preserves newer, incomplete, other-scope and other-organization progress. The
 scope index bounds candidate selection without sorting all stored stages. Each
 stage row's `scope_id` and `touched_at` columns are eviction hints; only private
 authentication permits recovery reuse. An authenticated completed stage or
-prefix of the exact pinned head serves online recovery without a confirmation
-read; if its stored current artifacts fail verification, the stage is discarded
-and signed history is replayed online once. Evicting such a stage costs only
-requests while online. The per-operation directory and Admins memo above these
-rows lives in memory only and persists nothing; see
+prefix of the exact pinned head serves
+[online recovery](principal-history-recovery.md) without a confirmation read; if
+its stored current artifacts fail verification, the stage is discarded and
+signed history is replayed online once. Evicting such a stage costs only
+requests while online. The per-operation directory and
+[Admins](../glossary.md#organization-admins-group) memo above these rows lives
+in memory only and persists nothing; see
 [current-policy consumers](current-principal-consumers.md) for its eviction
 rules.
 
-Organization provisioning (registration and each additional organization)
-writes the first completed stages for the founding organization, Admins and
-Members heads. Once the provisioning response acknowledges the commit and the
-bootstrap pins those heads, the SDK runs scoped recovery over the states the
-device itself signed, served from memory rather than the network. Priming is
-bound to the provisioning scope, captured before its first await: the
-database the bootstrap committed to, the identity whose key signed the states,
-and a protection lease for them. It reads the founder's existing trust pin and
-never writes one. Every step and every progress transaction rechecks that
-scope, so an identity or database switch aborts priming with no durable write.
-The ordinary verifier checks signatures, the directory binding and the strict
-Admins rules before any progress is saved, so the first runtime recovery of a
-founding head reads only directory discovery. Priming never performs HTTP; a
-failure is logged and leaves the ordinary online recovery in place.
+[Organization](../glossary.md#organization) provisioning
+([registration](../container-dek-onboarding.md#registration-flow) and each
+additional organization) writes the first completed stages for the founding
+organization, Admins and [Members](../glossary.md#organization-members-group)
+heads. Once the provisioning response acknowledges the commit and the bootstrap
+pins those heads, the SDK runs scoped recovery over the states the device itself
+signed, served from memory rather than the network. Priming is bound to the
+provisioning scope, captured before its first await: the database the bootstrap
+committed to, the identity whose key signed the states, and a protection lease
+for them. It reads the founder's existing
+[trust pin](../glossary.md#identity-pin) and never writes one. Every step and
+every progress transaction rechecks that scope, so an identity or database
+switch aborts priming with no durable write. The ordinary verifier checks
+signatures, the [directory binding](principal-directory-bindings.md) and the
+strict Admins rules before any progress is saved, so the first runtime recovery
+of a founding head reads only directory discovery. Priming never performs HTTP;
+a failure is logged and leaves the ordinary online recovery in place.
 
-Encrypted member envelopes are retained separately for each principal key
-fingerprint before progress is removed. Candidate retention checks the envelope
-commitment and never grants authorization. Newer envelopes for the same key
-replace older candidates; key rotation retains the old key's candidates. Current
-prefixes and the most recent completed predecessor remain available offline.
-An older evicted exact private head can require an online replay, while signed
-historical reference proofs and old key envelopes remain available. Organization
-reset removes the envelope archive and eviction hints along with its other cache
+Encrypted [member envelopes](../glossary.md#member-envelope) are retained
+separately for each [principal](../glossary.md#principal) key fingerprint before
+progress is removed. Candidate retention checks the envelope commitment and
+never grants authorization. Newer envelopes for the same key replace older
+candidates; key rotation retains the old key's candidates. Current prefixes and
+the most recent completed predecessor remain available offline. An older evicted
+exact private head can require an online replay, while signed historical
+reference proofs and old key envelopes remain available. Organization reset
+removes the envelope archive and eviction hints along with its other cache
 material, preserving durable trust pins.
 
 Keeping the newest envelope set for a principal key relies on the existing
@@ -88,17 +94,18 @@ Stored proof nodes that lack graph edges when a write indexes them stay
 unmanaged and are never reclaimed; their owners cannot be reconstructed from
 unauthenticated metadata alone.
 
-Accepted pages record their computed proof root and each new node's outgoing
-edges. Saved stages and prefixes own roots; replacing or removing their exact
-progress releases that ownership in the same guarded transaction. Shared child
-nodes remain live until all incoming references disappear. Each accepted page,
-prefix save and atomic acknowledgement reclaims at most 64 newly indexed,
+Accepted pages record their computed
+[proof root](../principal-history-pages.md#index-proofs) and each new node's
+outgoing edges. Saved stages and prefixes own roots; replacing or removing their
+exact progress releases that ownership in the same guarded transaction. Shared
+child nodes remain live until all incoming references disappear. Each accepted
+page, prefix save and atomic acknowledgement reclaims at most 64 newly indexed,
 unreferenced nodes, including children made unreachable by the bounded cascade.
 Discard releases root ownership but defers graph cleanup to a later accepted
-write. An existing backlog converges over later writes. The scope,
-organization, managed-node flag and zero-reference index bound candidate
-selection. This removes obsolete intermediate roots without deleting signed
-history entries or key candidates.
+write. An existing backlog converges over later writes. The scope, organization,
+managed-node flag and zero-reference index bound candidate selection. This
+removes obsolete intermediate roots without deleting signed history entries or
+key candidates.
 
 Graph ownership and counts are disposable liveness hints, not authority. The
 verifier still authenticates sealed progress and checks each proof against its
@@ -125,8 +132,8 @@ published prefix and predecessor offline, and decrypting an old object key after
 its unpublished stage is evicted.
 
 This bounds staged recovery attempts and cleanup batches, not total cache bytes.
-Retained key epochs, signed entries, leaf-reference hints and the shared nodes
-needed to prove them still grow with history. In
+Retained [key epochs](../glossary.md#epoch), signed entries, leaf-reference
+hints and the shared nodes needed to prove them still grow with history. In
 `principalHistoryNodeRetention.test.ts`, 128 successive private heads retain 133
 proof nodes for the current head and predecessor, and public recovery retains
 127 nodes for its single published root; every historical version remains

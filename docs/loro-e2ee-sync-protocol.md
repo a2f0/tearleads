@@ -8,19 +8,25 @@ For shared protocol terminology, see [glossary.md](./glossary.md).
 
 Core rules:
 
-- Raw Loro sync covers encrypted CRDT document state.
-- Blob attach and detach do **not** exist only inside encrypted Loro diffs.
+- Raw Loro sync covers encrypted CRDT [document](./glossary.md#document) state.
+- [Blob](./glossary.md#blob) attach and detach do **not** exist only inside
+  encrypted Loro diffs.
 - Attachment metadata stays server-indexable so the server can stage uploads,
   enforce permission changes, and collect orphaned blobs.
 
 Document sync therefore spans three adjacent planes:
 
-1. document plane: encrypted Loro updates
-2. attachment plane: blob stage plus atomic attachment-binding metadata
-3. access plane: permissions, key-target envelopes, and key epochs
+1. [document plane](./glossary.md#document-plane): encrypted
+   [Loro updates](./glossary.md#loro-update)
+2. [attachment plane](./glossary.md#attachment-plane):
+   [blob stage](./glossary.md#blob-stage) plus atomic
+   [attachment-binding](./glossary.md#attachment-binding) metadata
+3. [access plane](./glossary.md#access-plane): permissions,
+   [key-target](./glossary.md#key-target) envelopes, and key
+   [epochs](./glossary.md#epoch)
 
-For the client-side order that drains container structure, document creation,
-blob attachment work, and Loro update sync, see
+For the client-side order that drains [container](./glossary.md#container)
+structure, document creation, blob attachment work, and Loro update sync, see
 [client-sync-ordering.md](./client-sync-ordering.md).
 
 The server remains plaintext-blind for document content.
@@ -32,7 +38,9 @@ The document plane uses signed Keying mutation routes.
 Document write routes:
 
 - `POST /documents`
-  - creates a document link-set manifest and initial content-key bundle
+  - creates a
+    [document link-set manifest](./glossary.md#document-link-set-manifest) and
+    initial [content-key bundle](./glossary.md#content-key-bundle)
   - request shape: `DocumentCreateRequest`
   - key fields: signed `event`, event `body`, `expectedManifestHash`,
     `manifest`, optional `targetContainerPathRefs`, optional
@@ -107,11 +115,12 @@ Access write routes are the signed `/containers` mutation family:
 - `POST /containers/:containerId/move`
 - `POST /containers/:containerId/recite`
 
-Container mutations cite every manifest the server already stores (previous
-head, current and destination paths, KEK manifest history) by
-`{containerId, manifestHash}` reference, and every principal policy by its
-`{principalType, principalId, version, stateHash}` head; only the manifest
-being committed travels in full.
+Container mutations cite every [manifest](./glossary.md#access-manifest) the
+server already stores (previous head, current and destination paths, KEK
+manifest history) by `{containerId, manifestHash}` reference, and every
+[principal policy](./glossary.md#principal-policy-state) by its
+`{principalType, principalId, version, stateHash}` head; only the manifest being
+committed travels in full.
 
 For the full HTTP surface, see
 [api-architecture.md](./api-architecture.md#http-protocol-surface).
@@ -119,43 +128,47 @@ For the cross-package handshake, proof, blob stage, attach, and slot contract,
 see [protocol-specification.md](./protocol-specification.md).
 
 The server does not decrypt document content; it filters updates by the visible
-partial version-vector metadata supplied with each encrypted update.
-`document_update_spans` is the server-side causal indexing primitive: it stores
-one row per document/update peer span with start and end counters, plus indexes
-for `(document_id, peer_id, end_counter)` and unique update/peer lookups. The
-composite index also covers document-only lookups. Append paths write the
-encrypted update row and visible span rows in the same transaction, and the
-sync route asks Postgres for only the updates whose causal span is not yet
-covered by the client's frontier instead of loading full document history into
-application memory. Sync responses include a `commitLsn`: accepted
-current-epoch writes return the append LSN, and read-only syncs return the
-current WAL LSN observed after the missing-update read. Sync requests may
-include `minLsn` as a consistency hook for replica-safe read-after-write.
-Every response declares its mode. A remote-primary backend without a
-portable WAL position returns `commitLsnMode: "untracked"` and the `0/0` reset
-sentinel. Tracked mode retains the normal `commitLsn >= minLsn` requirement.
+partial [version-vector](./glossary.md#version-vector) metadata supplied with
+each encrypted update. `document_update_spans` is the server-side causal
+indexing primitive: it stores one row per document/update peer span with start
+and end counters, plus indexes for `(document_id, peer_id, end_counter)` and
+unique update/peer lookups. The composite index also covers document-only
+lookups. Append paths write the encrypted update row and visible span rows in
+the same transaction, and the sync route asks Postgres for only the updates
+whose causal span is not yet covered by the client's frontier instead of loading
+full document history into application memory. Sync responses include a
+`commitLsn`: accepted current-epoch writes return the append LSN, and read-only
+syncs return the current WAL LSN observed after the missing-update read. Sync
+requests may include `minLsn` as a consistency hook for replica-safe
+read-after-write. Every response declares its mode. A remote-primary backend
+without a portable WAL position returns `commitLsnMode: "untracked"` and the
+`0/0` reset sentinel. Tracked mode retains the normal `commitLsn >= minLsn`
+requirement.
 
-The sync response carries no rewrap or rotate directive. Clients derive that
-decision from the signed link-set manifest, current KEK targets, target hash,
-content-key epoch, and locally retained DEK material. Additive target changes
-can reuse the same content key when the submitted bundle matches the current
-derived target hash. Shrinks require a new content-key epoch and a baseline
-encrypted under fresh key material.
+The sync response carries no [rewrap](./glossary.md#rewrap) or
+[rotate](./glossary.md#rotate) directive. Clients derive that decision from the
+signed link-set manifest, current KEK targets,
+[target hash](./glossary.md#target-hash), content-key epoch, and locally
+retained [DEK](./glossary.md#dek) material. Additive target changes can reuse
+the same [content key](./glossary.md#content-key) when the submitted bundle
+matches the current derived target hash. Shrinks require a new content-key epoch
+and a baseline encrypted under fresh key material.
 
 Behavior:
 
 - the server stores each encrypted Loro update with:
-  - its `accessEpoch`, the epoch of the signed link-set manifest it was
-    accepted under
+  - its `accessEpoch`, the [epoch](./glossary.md#access-epoch) of the signed
+    link-set manifest it was accepted under
   - AES-GCM ciphertext under a record key derived from the document content key
   - a fresh per-record AES-GCM IV committed by the encrypted bytes and signed
-    write-header ciphertext hash
+    [write-header](./glossary.md#signed-write-header) ciphertext hash
 - sync responses expose stored `accessEpoch` per update; clients reject values
   newer than the current signed manifest epoch, and no derived epoch summary is
   sent
 - clients read each required content-key epoch from the signed `writeHeader`,
   require one consistent response bundle for it, and decrypt with that key;
-  cold and multi-epoch sync fail closed on missing or conflicting bundles
+  cold and multi-epoch sync [fail closed](./glossary.md#fail-closed) on missing
+  or conflicting bundles
 - accepted current-epoch sync writes return a `commitLsn`, and the server
   materializes per-peer `document_update_spans` from each update's visible
   partial version-vector metadata in the same transaction as the encrypted
@@ -164,7 +177,8 @@ Behavior:
   `document_content_key_targets` rows with required wrapped-key material
 - committed blob records carry only the encrypted payload and its metadata;
   blob content-key bundles are stored in `blob_content_key_epochs` and
-  `blob_content_key_targets`, and container KEK sharing in `container_key_wraps`
+  `blob_content_key_targets`, and [container KEK](./glossary.md#container-kek)
+  sharing in `container_key_wraps`
 - `POST /auth/register`, `POST /organizations`, and
   `POST /containers/with-metadata-document` store each metadata document and its
   content-key bundle in the same transaction as its container
@@ -185,9 +199,10 @@ Behavior:
   materializing a current-epoch key-target bundle; documents preserve pending
   Loro updates and retry them under the new epoch instead of replacing them
   with a full baseline
-- subtractive rotation for document epochs uses the fresh-baseline path with
-  source-frontier checkpoint metadata signed in the write header;
-  a baseline's own update row marks it for the coverage-gated redirect
+- subtractive rotation for document epochs uses the
+  [fresh-baseline path](./document-rekey-and-audit-history.md#rotate-means-fresh-baseline-for-later-writes)
+  with source-frontier checkpoint metadata signed in the write header; a
+  baseline's own update row marks it for the coverage-gated redirect
 - note attachment rewrap-only work commits blob key-target updates without
   sending an unrelated Loro baseline
 - document discovery summaries from `POST /containers/documents/query` expose
@@ -195,9 +210,10 @@ Behavior:
   group/org policy states that back those principal recipients
 
 Limitation: document/blob bundle material consumes cached principal policy
-bundles and can target current group/org keys, but managed grants require
-current signed policy state to remain usable; missing policy state fails closed
-instead of degrading to expanded user recipients.
+bundles and can target current group/org keys, but
+[managed grants](./glossary.md#managed-principal) require current signed policy
+state to remain usable; missing policy state fails closed instead of degrading
+to expanded user recipients.
 
 For the access-plane model, see
 [access-plane.md](./access-plane.md).
@@ -290,8 +306,9 @@ For the access-plane model:
 
 - blobs are first-class encrypted objects
 - blobs may be attached to multiple documents
-- a blob's effective recipients are derived from the union of the principals of
-  the documents that currently reference it
+- a blob's effective recipients are derived from the union of the
+  [principals](./glossary.md#principal) of the documents that currently
+  reference it
 
 Attach and detach are therefore also security-relevant graph mutations, not
 only indexing operations: they may require blob content-key epoch and
@@ -342,8 +359,9 @@ The blob binding route validates:
 - signed `attachment.bind` event and body
 - expected blob id, document id, slot id, and previous binding id
 - current document manifest hash
-- authorizing container paths and referenced principal policy state
-- optional signed container rekeys
+- [authorizing container paths](./glossary.md#authorizing-container-path) and
+  referenced principal policy state
+- optional signed [container rekeys](./glossary.md#rekey)
 - staged blob ownership/expiry when a staged blob is supplied
 - staged encrypted blob bytes carry a fresh per-record AES-GCM IV committed by
   the staged object hash and signed blob write header
@@ -351,7 +369,8 @@ The blob binding route validates:
   targets, preserving other bindings' stored envelopes under the blob lock
 - signed staged blob write header when bytes are promoted
 
-Blob staged bytes and document updates use the content-record encryption suite
+Blob staged bytes and document updates use the
+[content-record encryption suite](./cipher-suites.md#aes-256-gcm-symmetric)
 `aes-256-gcm-hkdf-sha256-record-key`. Document content-key targets use
 `tearleads.document.content-key-wrap.aes-256-gcm-container-kek`, and blob
 content-key targets use
@@ -382,9 +401,9 @@ If an attachment mutation succeeds:
 - affected blob key targets are recomputed and persisted
 
 Because encrypted Loro updates do not expose `referencedSlotIds[]`, the server
-cannot prove that a document update references only active attachment slots.
-The authoritative server-visible attachment state is the signed binding
-metadata.
+cannot prove that a document update references only active
+[attachment slots](./glossary.md#attachment-slot). The authoritative
+server-visible attachment state is the signed binding metadata.
 
 ### Why `slotId` Instead Of `bindingId`
 

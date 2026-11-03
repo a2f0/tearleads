@@ -14,23 +14,24 @@ adopts that winner and its durable history.
 `enqueuePendingUpdate(...)` returns a boolean and atomically writes the outgoing
 queue entry with the matching local durable-history tail entry. The built-in
 SQLite adapter stores both as one `document_history_updates` row: the row's
-`update_id` and version vectors mark it queued until settlement clears them,
-and history compaction never deletes a queued row, even when a checkpoint
-already covers its operations. When the expected write context is present,
-the adapter compares both `expectedDocumentId` and `expectedRecoveryGeneration`
-with the canonical row inside the same mutation. An absent or different
-context returns `false` and writes nothing; this is a normal compare-and-set
-loss, not an exception.
-`documentIdentityMatches(...)` performs the same canonical write-context check
-for a no-op update, where there is no queue row to insert but a relink or raw
-history recovery still must be observed before the caller reports success.
+`update_id` and [version vectors](../glossary.md#version-vector) mark it queued
+until settlement clears them, and history compaction never deletes a queued row,
+even when a checkpoint already covers its operations. When the expected write
+context is present, the adapter compares both `expectedDocumentId` and
+`expectedRecoveryGeneration` with the canonical row inside the same mutation. An
+absent or different context returns `false` and writes nothing; this is a normal
+compare-and-set loss, not an exception. `documentIdentityMatches(...)` performs
+the same canonical write-context check for a no-op update, where there is no
+queue row to insert but a relink or
+[raw history recovery](../raw-document-history-recovery.md) still must be
+observed before the caller reports success.
 
 `commitDocumentMutation(...).attachmentStaging` compares the complete expected
 canonical document record and then writes pending attachment rows, local
-attachment projections, the outgoing CRDT update, and its durable-history tail
-in one transaction. A mismatch changes no row. An insertion failure rolls the
-whole stage back; adapters must not emulate rollback with later compensating
-writes.
+attachment projections, the outgoing [CRDT update](../glossary.md#loro-update),
+and its durable-history tail in one transaction. A mismatch changes no row. An
+insertion failure rolls the whole stage back; adapters must not emulate rollback
+with later compensating writes.
 
 Every reference removal queues its storage key in the same commit: attachment
 removal in either mode, a dropped or settled pending upload, document deletion
@@ -75,7 +76,8 @@ It returns the authoritative record whether the comparison succeeds or loses.
 `loadDocumentStoreState(...)` reads the canonical record, durable history,
 pending attachments, and local attachment projections from one database
 snapshot. Startup installs that coherent state as a unit; adapters must not
-implement it as independent reads that can straddle a relink or key rotation.
+implement it as independent reads that can straddle a
+[relink](./document-links.md) or key [rotation](../glossary.md#rotate).
 
 `findLocalIdByDocumentId(...)` resolves duplicate local rows for one remote
 document identity. It must prefer a row with queued updates or a non-null
@@ -103,9 +105,10 @@ invalidated probe's late response is not persisted. Ordinary store activity can
 re-arm a cancelled on-demand store.
 
 `deleteDocumentIfMatches(...)` compares the captured security identity and
-container placement inside the same write transaction as teardown and the host
-projection callback. A document moved after the caller's initial scope check
-must survive. The supplied record's `containerId` is part of this comparison.
+[container](../glossary.md#container) placement inside the same write
+transaction as teardown and the host projection callback. A document moved after
+the caller's initial scope check must survive. The supplied record's
+`containerId` is part of this comparison.
 
 Subtree purges also recheck ancestor placement and pending restores in the local
 teardown transaction. Container adapters run the supplied
@@ -124,27 +127,28 @@ the authoritative current record after the compare-and-set (including after a
 race loss), or `null` when the canonical row is absent. The store uses that
 record to adopt progress written by another pane before retrying from page one.
 
-`saveHydratedAttachment(...)` compares `expectedStorageKey` with the slot's
-current durable row and `expectedSnapshotEndVersion` with the canonical document
-row for `attachment.localId`, inside one immediate transaction. Either mismatch
-returns `false` without replacing the slot. A `null` expected version means no
-canonical row is expected; it does not disable the document-version check.
-Its synchronous `stillCurrent` guard runs immediately before commit dispatch;
-refusal rolls back the replacement. Replaced or refused byte copies enter the
-reference-checked orphan reclaim queue. `deleteLocalAttachment(...)` and the
-discard teardown queue the storage keys of the rows they delete in the same
-transaction and never delete bytes themselves: hydration keys a copy by blob id,
-so one copy can back slots in several documents. Memory adapters must preserve
-the same compare-and-set and queueing behavior. Attachment entries require
-`contentSha256`, the plaintext digest stored inside authenticated encrypted
-document content. Local attachment records carry the plaintext digest of the
-bytes they hold, so read models can flag a held copy whose digest differs from
-the document intent.
+`saveHydratedAttachment(...)` compares `expectedStorageKey` with the
+[slot's](../glossary.md#attachment-slot) current durable row and
+`expectedSnapshotEndVersion` with the canonical document row for
+`attachment.localId`, inside one immediate transaction. Either mismatch returns
+`false` without replacing the slot. A `null` expected version means no canonical
+row is expected; it does not disable the document-version check. Its synchronous
+`stillCurrent` guard runs immediately before commit dispatch; refusal rolls back
+the replacement. Replaced or refused byte copies enter the reference-checked
+orphan reclaim queue. `deleteLocalAttachment(...)` and the discard teardown
+queue the storage keys of the rows they delete in the same transaction and never
+delete bytes themselves: hydration keys a copy by [blob](../glossary.md#blob)
+id, so one copy can back slots in several documents. Memory adapters must
+preserve the same compare-and-set and queueing behavior. Attachment entries
+require `contentSha256`, the plaintext digest stored inside authenticated
+encrypted document content. Local attachment records carry the plaintext digest
+of the bytes they hold, so read models can flag a held copy whose digest differs
+from the document intent.
 
 When a slot holds no local bytes, hydration installs a validly signed served
-binding even if its digest differs from the document intent, and the store
-reports the slot as `intent-mismatch` instead of hiding it: the binding and
-the content update carrying its digest are two server writes, and an uploader
-lost between them must not make the attachment permanently invisible. A served
-binding refused for a held copy is remembered per (slot, binding, intent) so
-later sync passes do not download it again.
+[binding](../glossary.md#attachment-binding) even if its digest differs from the
+document intent, and the store reports the slot as `intent-mismatch` instead of
+hiding it: the binding and the content update carrying its digest are two server
+writes, and an uploader lost between them must not make the attachment
+permanently invisible. A served binding refused for a held copy is remembered
+per (slot, binding, intent) so later sync passes do not download it again.

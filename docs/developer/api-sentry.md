@@ -34,12 +34,13 @@ checkout. Other transient connection failures use
 `PG_CONNECTION_UNAVAILABLE`; non-retryable failures use `PG_CONNECTION_FAILED`.
 Recognized deeper driver codes, such as `28P01`, remain available.
 
-The pool retries a transient acquisition failure once, before any query or
-transaction starts. It never replays SQL or a transaction after acquiring the
-client. Each attempt retains the five-second timeout; exhausted transient
-acquisitions produce HTTP 503. Authentication and unknown failures are not
-retried. A timeout does not by itself establish pool exhaustion: compare the
-pool counters and the cause stack before diagnosing the underlying service.
+The [pool](infrastructure.md#infrastructure-lifecycle) retries a transient
+acquisition failure once, before any query or transaction starts. It never
+replays SQL or a transaction after acquiring the client. Each attempt retains
+the five-second timeout; exhausted transient acquisitions produce HTTP 503.
+Authentication and unknown failures are not retried. A timeout does not by
+itself establish pool exhaustion: compare the pool counters and the cause stack
+before diagnosing the underlying service.
 
 An API title can read **API WebSocket interest revalidation failed: connection
 refused (ECONNREFUSED)**. Driver errors often contain only runtime or dependency
@@ -75,27 +76,29 @@ best effort: an evicted isolate can lose pending counts. They contain no
 messages, identifiers, routes, or per-event data; the automatic SDK
 client-report integration remains disabled.
 
-Failures the API logged and deliberately swallowed — a realtime publish after
-the write already committed, read-model notification verification, session
-revocation notices, and post-handshake WebSocket interest handling — report
-under `diagnostic_source=background-error`, which keeps them out of the
-request 5xx signal. They are fire-and-forget: reporting cannot change the
-response, and the committed write stays committed. Process and native crashes
-remain outside this integration.
+Failures the API logged and deliberately swallowed — a
+[realtime publish](realtime-hints.md) after the write already committed,
+read-model notification verification, session revocation notices, and
+post-handshake WebSocket interest handling — report under
+`diagnostic_source=background-error`, which keeps them out of the request 5xx
+signal. They are fire-and-forget: reporting cannot change the response, and the
+committed write stays committed. Process and native crashes remain outside this
+integration.
 
-The blob-GC and billing maintenance runs, scheduled by the Worker's Cron
-Triggers, use the same diagnostics configuration and report their own swallowed
-maintenance failures: blob reclamation reports the aggregate carrying every
-per-object failure, and each billing phase reports independently so one failure
-does not hide the others.
-Per-item failures, which the sweeps count and drop rather than raise, report
-too; free-trial expiry reports at the attention threshold its backoff already
-defines rather than on every retryable attempt. An aggregate reports a bounded
-number of its constituents rather than itself, because its own stack is its
-construction site and each constituent needs its own cause chain.
-Maintenance drains pending reports before its scheduled event completes. HTTP
-requests use `waitUntil` to finish reporting after the response. Reporting never
-changes the operation's outcome.
+The [blob-GC](../attachment-retention.md#operations) and
+[billing maintenance](revenuecat-billing.md#billing-maintenance-worker) runs,
+scheduled by the Worker's Cron Triggers, use the same diagnostics configuration
+and report their own swallowed maintenance failures: blob reclamation reports
+the aggregate carrying every per-object failure, and each billing phase reports
+independently so one failure does not hide the others. Per-item failures, which
+the sweeps count and drop rather than raise, report too; free-trial expiry
+reports at the attention threshold its backoff already defines rather than on
+every retryable attempt. An aggregate reports a bounded number of its
+constituents rather than itself, because its own stack is its construction site
+and each constituent needs its own cause chain. Maintenance drains pending
+reports before its scheduled event completes. HTTP requests use `waitUntil` to
+finish reporting after the response. Reporting never changes the operation's
+outcome.
 
 See [private error diagnostics](sentry.md) for project configuration,
 deployment, collection limits, and verification commands.

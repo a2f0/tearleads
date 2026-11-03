@@ -16,8 +16,9 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 
 - [API architecture](api-architecture.md): protocol planes, HTTP surface, and
   code layers.
-- [Access plane](access-plane.md): signed access events, manifests, and
-  effective access.
+- [Access plane](access-plane.md): signed
+  [access events](./glossary.md#access-event), manifests, and
+  [effective access](./glossary.md#effective-access).
 - [Client SDK](developer/client-sdk.md): the SDK's public API and runtime.
 - [SQLite setup for SDK hosts](developer/sqlite-setup.md).
 - [Choosing a document creation API](developer/document-creation.md).
@@ -28,16 +29,17 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 
 ## Keying and identity
 
-- [Keying design](keying-design.md): access manifests and the container KEK
-  hierarchy.
+- [Keying design](keying-design.md):
+  [access manifests](./glossary.md#access-manifest) and the
+  [container KEK](./glossary.md#container-kek) hierarchy.
 - [Cipher suites](cipher-suites.md): cryptographic primitives and where they
   apply.
 - [Keying onboarding](container-dek-onboarding.md): registration's identity and
   access bootstrap.
 - [Durable user identity trust](developer/trusted-user-identity.md).
 - [Organization memberships](organization-memberships.md).
-- [Historical policy evidence](projection-policy-evidence.md) in writer
-  projections.
+- [Historical policy evidence](projection-policy-evidence.md) in
+  [writer projections](./glossary.md#writer-projection).
 
 ## Principal policy history
 

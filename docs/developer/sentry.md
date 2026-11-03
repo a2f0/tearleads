@@ -163,31 +163,33 @@ compared without exporting raw logs. Mini-app render failures also enter the
 local log when Sentry is disabled. Activity entries share the local log's
 1,000-entry retention limit.
 
-Incoming document and container-metadata quarantines pass the original `Error`
-to this logger after recording the durable failure. This covers ordinary sync
-and raw history recovery on web, Android, and iOS. Reports have
-`diagnostic_source=log` and `exception.mechanism.handled=true`; their mapped
-stacks identify the quarantine path. The raw quarantine message, update IDs,
-writer identity, causes, and document contents remain local. Identical repeats
-within a live document are suppressed before appending host logs or
-breadcrumbs. Reports also use the existing per-page deduplication and event
-budget. Reporting throws or rejections do not replace the quarantine or clear
-the write-queue error, and results from an invalidated sync generation are not
-reported.
+Incoming [document](../glossary.md#document) and
+[container](../glossary.md#container)-metadata quarantines pass the original
+`Error` to this logger after recording the durable failure. This covers ordinary
+sync and [raw history recovery](../raw-document-history-recovery.md) on web,
+Android, and iOS. Reports have `diagnostic_source=log` and
+`exception.mechanism.handled=true`; their mapped stacks identify the quarantine
+path. The raw quarantine message, update IDs, writer identity, causes, and
+document contents remain local. Identical repeats within a live document are
+suppressed before appending host logs or breadcrumbs. Reports also use the
+existing per-page deduplication and event budget. Reporting throws or rejections
+do not replace the quarantine or clear the write-queue error, and results from
+an invalidated sync generation are not reported.
 
-Failed local document writes and failed sync-lane runs report the same way.
-The document write chain deliberately swallows its errors so an un-awaited
-edit cannot reject; a failed content, row, or attachment write still reaches
-the logger with the original `Error`.
-Sync lanes report through an observability-only lane callback that is separate
-from the lane's own error handling. Both suppress an identical repeat — the
-write chain per document store, a lane per registered lane, and a lane's
-signature is deliberately never cleared by a later success, because a lane
-alternating between failure and recovery would otherwise refill the local log.
-A vanished local database is teardown rather than lost durability and stays
-local, as do offline and expected HTTP outcomes, which never reach these
-paths. Messages are fixed literals: document, row, container, and lane
-identifiers stay in the local log line and are never reported.
+Failed local document writes and failed
+[sync-lane](../sync-edge-cases.md#the-failure-isolation-model) runs report the
+same way. The document write chain deliberately swallows its errors so an
+un-awaited edit cannot reject; a failed content, row, or attachment write still
+reaches the logger with the original `Error`. Sync lanes report through an
+observability-only lane callback that is separate from the lane's own error
+handling. Both suppress an identical repeat — the write chain per document
+store, a lane per registered lane, and a lane's signature is deliberately never
+cleared by a later success, because a lane alternating between failure and
+recovery would otherwise refill the local log. A vanished local database is
+teardown rather than lost durability and stays local, as do offline and expected
+HTTP outcomes, which never reach these paths. Messages are fixed literals:
+document, row, container, and lane identifiers stay in the local log line and
+are never reported.
 
 The local database lifecycle reports its own failures the same way. Wiping a
 persisted database that cannot be decrypted with the resolved key — the most
@@ -206,13 +208,14 @@ event, so its stack maps to an allowlisted bundle frame.
 User-initiated mini-app actions report the same way once they have thrown:
 Explorer's create, rename, move, link, share, activate, detach, refresh,
 download, and route-restore paths, Organization Manager's create, admin
-mutation, purge recovery, billing, checkout, and cancellation paths, and the
-file document preview and download paths. Each keeps its existing UI outcome
-and passes the original `Error` to the logger with a fixed literal message. A
-database that went away mid-flight and a projection verification cancelled by
-a newer generation are teardown, not failures, and stay local. Container
-shares are reported inside the SDK, where the thrown failure is still in hand,
-rather than at the panel. The local keyring lock provider mounts outside the
+mutation, [purge recovery](billing-purge-recovery.md), billing, checkout, and
+cancellation paths, and the file document preview and download paths. Each keeps
+its existing UI outcome and passes the original `Error` to the logger with a
+fixed literal message. A database that went away mid-flight and a projection
+verification cancelled by a newer generation are teardown, not failures, and
+stay local. Container shares are reported inside the SDK, where the thrown
+failure is still in hand, rather than at the panel. The
+[local keyring](../glossary.md#local-keyring) lock provider mounts outside the
 logger and reports through the host diagnostics directly; clearing a PIN
 verifies it first, so a mistyped PIN is a refusal rather than a report.
 

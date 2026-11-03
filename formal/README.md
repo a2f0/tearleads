@@ -61,13 +61,13 @@ of the real container-path and principal-policy verifiers through
 
 ## Lean proofs
 
-[`lean/`](./lean/README.md) is a Lean 4 package for the transparency log's
+[`lean/`](./lean/README.md) is a Lean 4 package for the
+[transparency log's](../docs/keying-design.md#transparency-and-checkpointing)
 Merkle verifier (#2192 Gate F3). It models the TypeScript generator and
-verifiers, proves inclusion and consistency completeness and soundness for
-every tree size, and exports a vector fixture that `test:protocol-conformance`
-replays through production. The toolchain is
-large, so `bun run check:protocol-proofs` runs in its own CI job, not in
-`check:fast`.
+verifiers, proves inclusion and consistency completeness and soundness for every
+tree size, and exports a vector fixture that `test:protocol-conformance` replays
+through production. The toolchain is large, so `bun run check:protocol-proofs`
+runs in its own CI job, not in `check:fast`.
 
 ## Negative controls
 
@@ -97,12 +97,14 @@ properties are safety properties.
 
 Model-specific gaps:
 
-- `ContainerGrantScope` treats grant preparation and roster removal as atomic
-  transitions, with no concurrent transaction model or group membership.
+- `ContainerGrantScope` treats [grant](../docs/glossary.md#grant) preparation
+  and roster removal as atomic transitions, with no concurrent transaction model
+  or group membership.
 - `KeyringReachability` assumes every current member already holds the current
-  KEK, and its properties share `Closure` with the recovery they check. It does
-  not model what a revoked member already knows, so excluding revoked members
-  from recovery is not a proof that they cannot derive later keys.
+  [KEK](../docs/glossary.md#container-kek), and its properties share `Closure`
+  with the recovery they check. It does not model what a revoked member already
+  knows, so excluding revoked members from recovery is not a proof that they
+  cannot derive later keys.
 - `DeferredTailSettlement` checks durability and generation safety only; it has
   no eventual-settlement property.
 - `RawHistoryRecovery` progress assumes awaited worker operations return; it

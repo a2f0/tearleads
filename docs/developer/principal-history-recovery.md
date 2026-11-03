@@ -1,9 +1,11 @@
 # Durable principal-history recovery
 
-For a known signed principal head, `recoverPrincipalPolicyHistory` verifies
+For a known signed [principal](../glossary.md#principal) head,
+`recoverPrincipalPolicyHistory` verifies
 `ApiClient.getPrincipalPolicyPages` incrementally and stores accepted progress
 in local SQLite. Provide a `historyReader`, `expectedHead`, `organizationId`,
-`execSql`, a trusted identity resolver, and a `stillCurrent` guard covering the
+`execSql`, a [trusted identity](trusted-user-identity.md) resolver, and a
+`stillCurrent` guard covering the
 session and database lifetime, including organization reset. Invalidate the
 guard before resetting so an in-flight recovery cannot recreate provisional rows
 afterward. `protection.localKey` must be a private 32-byte client-controlled
@@ -54,13 +56,15 @@ scoped paged evidence, including when a complete bundle is held locally. Offline
 recovery requires authenticated private progress and its evidence; an
 unprotected full bundle cannot bypass that requirement. Runtime recovery queues
 are shared per database and organization, avoiding concurrent writes to
-directory or Admins progress. Container and document authorization and mutation
-planning accept the resulting current policy with selected historical citations.
-The projection checkpoint batch also carries every verified directory/Admins
-dependency. In-memory reuse preserves that organization binding and lifetime,
-rechecks all dependency pins, and refreshes missing evidence when a durable pin
-advances. Conflicting pins still fail. Runtime offline state selects local-only
-recovery. Explicit full-bundle utilities are outside built-in runtime recovery.
+directory or [Admins](../glossary.md#organization-admins-group) progress.
+[Container](../glossary.md#container) and [document](../glossary.md#document)
+authorization and mutation planning accept the resulting current policy with
+selected historical citations. The projection checkpoint batch also carries
+every verified directory/Admins dependency. In-memory reuse preserves that
+organization binding and lifetime, rechecks all dependency pins, and refreshes
+missing evidence when a durable pin advances. Conflicting pins still fail.
+Runtime offline state selects local-only recovery. Explicit full-bundle
+utilities are outside built-in runtime recovery.
 
 Org Manager labels and metadata roots also consume verified current policies;
 see [current-policy consumers](current-principal-consumers.md) for exact-head
@@ -69,20 +73,22 @@ mutation primitives](principal-current-mutations.md) cover bounded successor
 verification, orchestration and durable acknowledgement adoption.
 
 The optional `retainedReferences` selection follows the crypto verifier's
-bounded retention contract. Supply already authenticated external authority
-through `loadExternalAuthority` when policy signatures cite another principal.
-This callback receives exact authority reference heads, including the latest
-citation retained in authenticated cached progress. It must resolve those heads
-through the client's verified authority lineage. Reusing a stage or prefix
-rechecks that citation even when later pages no longer cite external authority.
-The helper checks signatures, authorization, continuity, exact-head completion,
-current keying artifacts, and the latest local checkpoint. It returns a sparse
-`VerifiedPrincipalPolicyCurrent`; it never represents omitted entries as a full
-policy bundle or advances application checkpoints on the caller's behalf.
-Organization-directory binding and atomic publication remain the caller's work.
+[bounded retention contract](../principal-history-pages.md). Supply already
+authenticated external authority through `loadExternalAuthority` when policy
+signatures cite another principal. This callback receives exact authority
+reference heads, including the latest citation retained in authenticated cached
+progress. It must resolve those heads through the client's verified authority
+lineage. Reusing a stage or prefix rechecks that citation even when later pages
+no longer cite external authority. The helper checks signatures, authorization,
+continuity, exact-head completion, current keying artifacts, and the latest
+local checkpoint. It returns a sparse `VerifiedPrincipalPolicyCurrent`; it never
+represents omitted entries as a full policy bundle or advances application
+checkpoints on the caller's behalf. Organization-directory binding and atomic
+publication remain the caller's work.
 
 Recovery selects the signed local checkpoint entry through the verified index,
-adding at most one entry to the 128-reference budget plus the current entry. SDK
+adding at most one entry to the
+[128-reference budget](../limits.md#principals) plus the current entry. SDK
 atomic checkpoint admission can use this sparse evidence to recheck the latest
 durable pin inside its transaction; callers must submit recovered policies.
 Every earlier head observed in the same batch must also be retained. If the
@@ -125,7 +131,8 @@ head. Concurrent writers compare saved progress and a loser retries; no caller
 can publish over another accepted page. Normal browsing creates at most one
 stage per exact head and trust context. Completed-prefix publication and current
 acknowledgements retain two completed heads and reclaim older stages in bounded
-transactions, preserving historical key envelopes. See [cache
+transactions, preserving historical
+[key envelopes](../glossary.md#member-envelope). See [cache
 retention](principal-history-cache.md) for indexing, atomicity, offline behavior
 and bounded stage and proof cleanup. Saved roots retain their shared proof nodes
 and signed entries.
@@ -137,7 +144,8 @@ Entry keys include signature bytes, so a different signature cannot replace the
 entry belonging to an accepted root. Each lookup reads at most one node per tree
 level and one entry row. Missing or corrupt proof material, or a disconnected
 cached prefix, permits one fresh genesis replay per recovery call. Persistent
-damage fails after that replay; durable checkpoint conflicts still fail closed.
+damage fails after that replay; durable checkpoint conflicts still
+[fail closed](../glossary.md#fail-closed).
 Proof loss can trigger that single replay even when this call began at genesis,
 so persistent damage can require two full downloads before failure. Checkpoint
 conflicts are checked after the pinned history completes; rejected histories may
@@ -233,8 +241,10 @@ incomplete online reads, the exhausted directory refresh, concurrent local
 checkpoint advancement, and an offline prefix behind a local pin. A held
 citation to a group absent from the current signed directory is also
 unavailable, including after group deletion. An online server head behind that
-pin remains a rollback incident. Invalid signed predecessors remain verification
-errors, distinct from local races.
+pin remains a
+[rollback incident](../security-guarantees.md#local-security-incident-detection).
+Invalid signed predecessors remain verification errors, distinct from local
+races.
 
 Runtime verification requires private paged recovery. A paged 403/409, an
 exhausted directory refresh, missing private custody, or failed strict Admins
@@ -242,7 +252,8 @@ verification cannot select a full-history read or a locally held full bundle.
 The call remains unavailable or fails verification. This preserves bounded
 verification batches and scoped authority checks. Public projection-history
 grants separately cover deleted and nonmember group citations through current
-object access, without requiring current policy membership.
+object access, without requiring current
+[policy](../glossary.md#principal-policy-state) membership.
 
 Paged current envelopes also supply encrypted key candidates to container
 unwrapping; see [the key-candidate trust
@@ -284,11 +295,13 @@ recovery reports unavailable evidence and leaves the pin intact.
 
 Container and document projection responses carry exact signed heads and scoped
 history grants, plus only the directory payloads needed to bind those heads.
-Public signed states travel separately in bounded pages. The projection GET and
-page routes can return a rolled-back preparation continuation; the API client
-retries validated progress with a fresh 15-second deadline for each response,
-including its body. History hints cover manifest and directory payload arrays;
-principal histories use the authenticated durable page cache instead.
+Public signed states travel separately in
+[bounded pages](../principal-history-transport.md#public-projection-history).
+The projection GET and page routes can return a rolled-back preparation
+continuation; the API client retries validated progress with a fresh 15-second
+deadline for each response, including its body. History hints cover manifest and
+directory payload arrays; principal histories use the authenticated durable page
+cache instead.
 
 The runtime warmer supplies private public-history recovery. Standalone hosts
 provide its `resolveProjectionHistory` capability explicitly. Final projection

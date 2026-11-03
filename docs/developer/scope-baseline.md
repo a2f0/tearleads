@@ -9,7 +9,7 @@ no onboarding friction or that a clean machine can build it.
 
 - Source and tooling: `67f738b6fe21cb11789eccf898123d2e03cb61eb`.
 - Suite: `agent-friendliness-v1`, one trial per task, one iteration each.
-- Scope: `16544702d9dd4f0f5a7991fa4dbdf07a9247fedc`.
+- [Scope](scope.md): `16544702d9dd4f0f5a7991fa4dbdf07a9247fedc`.
 - Worker: Claude Code 2.1.310, ACP 0.52.0, Claude Agent SDK 0.3.191.
 - Coder: provider default; session evidence identifies `claude-opus-5-5`.
 - Judge: Codex CLI 0.160.0, `gpt-6-astra`, low reasoning, saved ChatGPT login.
@@ -55,8 +55,8 @@ that recovery explains how passing criteria can coexist with useful findings.
    [The service facade](../../packages/api/src/services/documents/documentMutations.ts)
    delegates to
    [the create workflow](../../packages/api/src/workflows/documents/mutations/createDocument.ts),
-   which owns the transaction, as AGENTS.md says. Reconcile the guide's layer
-   diagram and ownership wording.
+   which owns the transaction, as [AGENTS.md](../../AGENTS.md) says. Reconcile
+   the guide's layer diagram and ownership wording.
 3. **Clarify the common SDK creation path.** The agent found that the app uses
    `documents.open()` to create local document state and sync it later. It also
    found lower-level root exports such as `createRemoteDocument`. A short
@@ -64,14 +64,16 @@ that recovery explains how passing criteria can coexist with useful findings.
    tracing store internals. This is a discoverability proposal, not evidence
    that either API is broken.
 4. **Prepare a Git checkout before testing execution.** `git archive` omits
-   `.git`; verification uses Git for root discovery, base comparisons and
-   fingerprints. This is a harness limitation, not a repository failure.
-   Future execution cases need explicit Git metadata and a known base ref.
+   `.git`; [verification](verification.md#prerequisites) uses Git for root
+   discovery, base comparisons and fingerprints. This is a harness limitation,
+   not a repository failure. Future execution cases need explicit Git metadata
+   and a known base ref.
 5. **Make first-use tool trust explicit.** Captured agent sessions repeatedly
    contain mise trust errors from shell startup in the fresh snapshot path.
-   README starts with `mise install`, without discussing trust. A reviewed
-   trust step and separate prerequisite lists for focused tests versus all
-   gates would reduce setup uncertainty. The tasks did not change trust state.
+   [README](../../README.md) starts with `mise install`, without discussing
+   trust. A reviewed trust step and separate prerequisite lists for focused
+   tests versus all gates would reduce setup uncertainty. The tasks did not
+   change trust state.
 
 Other agent observations, including possible single-file test-preload issues,
 were not reproduced and are not established defects. Search glob mistakes are

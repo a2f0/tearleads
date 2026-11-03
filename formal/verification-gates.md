@@ -1,18 +1,21 @@
 # Verification Gates
 
-This page maps two keying requirements to the executable evidence that enforces
-them: no device is ever bricked by another device's cache or write, and the
-keying verifiers refuse forged, rolled-back, or spliced state while accepting
-its honest twin. Every check below runs in `bun run check:fast` and the pre-push
-gate.
+This page maps two [keying](../docs/keying-design.md) requirements to the
+executable evidence that enforces them: no device is ever bricked by another
+device's cache or write, and the keying verifiers refuse forged, rolled-back, or
+spliced state while accepting its honest twin. Every check below runs in
+`bun run check:fast` and the
+[pre-push gate](../docs/developer/verification.md#before-a-push).
 
 ## No-bricked-device model
 
 The [NoBrickedDevice model and mapping](./container-keying/NoBrickedDevice.md)
 carries this requirement. One dependent/authority relation represents either a
-descendant container citing an ancestor or a group policy citing Admins. The
-implementation traces exercise both interpretations and a container's
-historical group membership.
+descendant [container](../docs/glossary.md#container) citing an ancestor or a
+[group policy](../docs/glossary.md#principal-policy-state) citing
+[Admins](../docs/glossary.md#organization-admins-group). The implementation
+traces exercise both interpretations and a container's historical group
+membership.
 
 | Requirement | Executable evidence |
 | --- | --- |
@@ -32,9 +35,12 @@ also explains the accepted, unobserved split-view residual.
 ## Verifier properties
 
 `fast-check` is pinned in the root `testing` catalog and consumed only as a
-crypto development dependency. The generators materialize signed events and
-manifests, policy chains, key states, and checkpoints for the production
-verifiers. `bun run test:protocol-conformance` runs every suite below.
+crypto development dependency. The generators materialize signed
+[events](../docs/glossary.md#access-event) and
+[manifests](../docs/glossary.md#access-manifest), policy chains, key states, and
+[checkpoints](../docs/keying-design.md#transparency-and-checkpointing) for the
+production verifiers. `bun run test:protocol-conformance` runs every suite
+below.
 
 | Requirement | Test and generator evidence |
 | --- | --- |
@@ -54,13 +60,15 @@ its own honest proofs before mutating them, even when run alone. The path
 generators build genuine ancestor paths, and the path properties distinguish
 requested-hash freshness from rollback against a local checkpoint.
 
-Shared crypto authorization requires a path with a root, contiguous parent IDs,
-one organization, and no repeated container IDs. The current and historical
-access folds enforce this before combining grants from individually verified
-heads; the state-only fold is a calculation over already-trusted states. The
-API and SDK check path structure independently. Creation-time parent hashes
-need not equal served heads: honest ancestor advancement and historical
-citations remain accepted, as the no-brick projection traces verify.
+Shared crypto authorization requires a
+[path](../docs/glossary.md#authorizing-container-path) with a root, contiguous
+parent IDs, one organization, and no repeated container IDs. The current and
+historical access folds enforce this before combining
+[grants](../docs/glossary.md#grant) from individually verified heads; the
+state-only fold is a calculation over already-trusted states. The API and SDK
+check path structure independently. Creation-time parent hashes need not equal
+served heads: honest ancestor advancement and historical citations remain
+accepted, as the no-brick projection traces verify.
 
 Keying properties run eight generated cases each; transparency properties run
 forty each with trees up to 192 leaves. These randomized runs shrink failures

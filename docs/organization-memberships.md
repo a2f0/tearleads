@@ -1,27 +1,31 @@
 # Organization memberships
 
-A user's membership in an organization is decided by signed principal policy:
-the reserved `Members` group, any other groups they belong to, and the
-container grants those groups hold. Leaving or being removed therefore needs
-an administrator to sign a new `Members` state and rotate its keys. A member
-cannot do that for themselves.
+A user's membership in an [organization](./glossary.md#organization) is decided
+by signed [principal policy](./glossary.md#principal-policy-state): the
+[reserved `Members` group](./glossary.md#organization-members-group), any other
+groups they belong to, and the container [grants](./glossary.md#grant) those
+groups hold. Leaving or being removed therefore needs an
+[administrator](./glossary.md#organization-admins-group) to sign a new `Members`
+state and [rotate](./glossary.md#rotate) its keys. A member cannot do that for
+themselves.
 
 The membership conduit is the member's own side of the relationship: product
 state the member controls, which never feeds an access or keying decision.
 It lives on the member's `organization_roster_entries` row, which exists for
-every active or disabled roster member.
+every active or disabled
+[roster member](./glossary.md#organization-roster-entry).
 
 ## Discovering organizations
 
 Every `Members` recipient can read the organization's metadata root, an
-independent system container holding the organization profile and group
-names. A device therefore learns about an organization from local state alone:
-`listLocalOrganizations` lists every organization the device holds a container
-of, with `rootContainerId` null when the user cannot reach the organization's
-workspace root. The Organizations mini-app shows each one with the folders the
-user can reach in it, the containers whose parent is not on the device. The
-Org Manager switcher lists only workspaces, because activating an organization
-makes its root the session container.
+independent system [container](./glossary.md#container) holding the organization
+profile and group names. A device therefore learns about an organization from
+local state alone: `listLocalOrganizations` lists every organization the device
+holds a container of, with `rootContainerId` null when the user cannot reach the
+organization's workspace root. The Organizations mini-app shows each one with
+the folders the user can reach in it, the containers whose parent is not on the
+device. The Org Manager switcher lists only workspaces, because activating an
+organization makes its root the session container.
 
 ## Membership list
 
@@ -34,12 +38,12 @@ and answers 404 unless that row is active. Deactivation clears the member's
 choices, so rejoining starts with sync on.
 
 A change publishes `organization_memberships_changed`, a user-scoped
-realtime hint routed like `shared_with_you` to the user's own sockets. It
-carries no organization id. Clients re-read the list when the hint arrives,
-each time their events socket connects, and on `shared_with_you`, which every
-`Members` enrollment publishes, so a choice made while a device was offline
-reaches it on reconnect and a rejoin clears a pause left from an earlier
-membership.
+[realtime hint](./developer/realtime-hints.md) routed like `shared_with_you` to
+the user's own sockets. It carries no organization id. Clients re-read the list
+when the hint arrives, each time their events socket connects, and on
+`shared_with_you`, which every `Members` enrollment publishes, so a choice made
+while a device was offline reaches it on reconnect and a rejoin clears a pause
+left from an earlier membership.
 
 ## Pausing sync
 
@@ -47,7 +51,8 @@ A member can pause an organization's content syncing to their devices. The
 pause is recorded on the server so it follows the user to every device, and
 each device keeps a local copy in `organization_sync_pauses` so it is honored
 offline. Pausing changes no grant, key, or policy: the member still receives
-key rewraps, still counts as a billing seat, and can resume at any time.
+key [rewraps](./glossary.md#rewrap), still counts as a billing seat, and can
+resume at any time.
 
 While an organization is paused, a device:
 
@@ -64,16 +69,16 @@ While an organization is paused, a device:
   organization and every document placed only in those containers.
 
 Removal waits for the organization's local writes to upload. Pausing from a
-device first asks every sync lane to upload and is refused while any pending
-write for the organization remains. The removal itself scans every kind of
-pending write (queued updates, deferred history tails, intents, attachment
-uploads) and deletes under the same SQLite mutation lock, so no persisted write
-can land between the check and the deletion. A recorded read failure with
-nothing to upload is not pending work and never blocks it. An open document
-store may also hold edits that have not reached SQLite yet: each store counts
-every text, field, row, attachment, and rotation write from the call until it
-persists, and the removal refuses while any of the organization's documents
-has one.
+device first asks every [sync lane](./client-sync-ordering.md) to upload and is
+refused while any pending write for the organization remains. The removal itself
+scans every kind of pending write (queued updates, deferred history tails,
+intents, attachment uploads) and deletes under the same SQLite mutation lock, so
+no persisted write can land between the check and the deletion. A recorded read
+failure with nothing to upload is not pending work and never blocks it. An open
+document store may also hold edits that have not reached SQLite yet: each store
+counts every text, field, row, attachment, and rotation write from the call
+until it persists, and the removal refuses while any of the organization's
+documents has one.
 
 The removal deletes the containers first and documents only after them. Each
 document's deletion carries a commit guard that runs in the same synchronous
@@ -132,27 +137,30 @@ the removal. Organizations offers to ask on every listed membership except the
 personal one, and to withdraw once asked.
 
 The request is stored on the member's roster row and reaches administrators in
-the organization read model's `directory` lane, which the filing stamps. Only
-administrators and the member themselves are served it; other members see the
-roster entry without it. Because the lane's content depends on the viewer's
-role, a change to `Admins` stamps the `directory` lane too, so a newly promoted
-administrator's next delta carries pending requests. Each
-administrator's client stores the request only if it names the organization
-and member, and shows it only if it verifies against the member's trusted,
-pinned identity, never the signing key served beside it, so a server cannot
-present a request the member never made.
+the [organization read model's](./organization-read-model-sync.md) `directory`
+lane, which the filing stamps. Only administrators and the member themselves are
+served it; other members see the roster entry without it. Because the lane's
+content depends on the viewer's role, a change to `Admins` stamps the
+`directory` lane too, so a newly promoted administrator's next delta carries
+pending requests. Each administrator's client stores the request only if it
+names the organization and member, and shows it only if it verifies against the
+member's [trusted](./developer/trusted-user-identity.md),
+[pinned](./glossary.md#identity-pin) identity, never the signing key served
+beside it, so a server cannot present a request the member never made.
 
 The client also shows a request only while it belongs to the member's current
 membership, judged against the Members head in the client's own verified
-organization policy. Removing anyone from Members rotates its key epoch and
-key, so a request citing that head's epoch and key has seen no removal since;
-one citing the same epoch with another key can only come from a fork and is
+organization policy. Removing anyone from Members rotates its key
+[epoch](./glossary.md#epoch) and key, so a request citing that head's epoch and
+key has seen no removal since; one citing the same epoch with another key can
+only come from a [fork](./security-guarantees.md#rollback-and-split-view) and is
 refused. A request citing an earlier epoch is shown only if verified Members
-history, read through the private paged verifier, lists the member in every
-state from the cited one on, with the cited state matching exactly. A server
-that serves a request again from a membership the member left, after the member
-rejoins, therefore cannot make it look current: the member's removal is in that
-history. A request the client cannot place, for instance offline with an
+history, read through the
+[private paged verifier](./principal-history-pages.md), lists the member in
+every state from the cited one on, with the cited state matching exactly. A
+server that serves a request again from a membership the member left, after the
+member rejoins, therefore cannot make it look current: the member's removal is
+in that history. A request the client cannot place, for instance offline with an
 earlier epoch, is shown as no request. Directory users a roster update returns
 pass the same checks, and a pinned identity and a current-epoch request verify
 offline. Org Manager shows the member as having asked to leave and offers to

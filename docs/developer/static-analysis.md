@@ -8,22 +8,25 @@ also run in `check:fast` and pre-push.
 
 ## CI and the push gate
 
-CI's `check:fast` and pre-push run the same check list in
+[CI's](ci-merge-gate.md) `check:fast` and pre-push run the same check list in
 [`scripts/checks/fastChecks.sh`](../../scripts/checks/fastChecks.sh); add checks
-there. Pre-push also checks the names of the branches a push creates or updates,
-Terraform, TypeScript, affected tests, and the pushed commit ranges. Each check
-retains its own push timing row. The branch check reads the pushed refs, not the
-checked-out branch, so `git push origin HEAD:<name>` and detached pushes are
-covered while deletions and tags are skipped. Hooks act only in a clone where
-`install-hooks.sh` ran, so CI's `Lint` job checks every pull request's branch
-name as well. Detached pre-commit checks skip only branch naming; the file,
-source-shape, binary, and staged-content checks still run. Push through a
-configured named remote such as `origin`; URL pushes fail before the full gate.
+there. [Pre-push](verification.md#before-a-push) also checks the names of the
+branches a push creates or updates, Terraform, TypeScript, affected tests, and
+the pushed commit ranges. Each check retains its own push timing row. The branch
+check reads the pushed refs, not the checked-out branch, so
+`git push origin HEAD:<name>` and detached pushes are covered while deletions
+and tags are skipped. Hooks act only in a clone where `install-hooks.sh` ran, so
+CI's `Lint` job checks every pull request's branch name as well. Detached
+pre-commit checks skip only branch naming; the file, source-shape, binary, and
+staged-content checks still run. Push through a configured named remote such as
+`origin`; URL pushes fail before the full gate.
 
-Both gates need the mise-pinned Java, TLA+, and oasdiff tools listed in
-`AGENTS.md`, plus a fetched `origin/main` (or an explicit `OPENAPI_BASE_REF`).
-The bounded protocol models add minutes to each push; use the timing log to
-inspect the cost of individual checks.
+Both gates need the
+[mise-pinned Java, TLA+, and oasdiff tools](verification.md#prerequisites)
+listed in `AGENTS.md`, plus a fetched `origin/main` (or an explicit
+`OPENAPI_BASE_REF`). The [bounded protocol models](../../formal/README.md) add
+minutes to each push; use the timing log to inspect the cost of individual
+checks.
 
 `sh scripts/git/install-hooks.sh` installs the tracked hooks declared in
 `agent-tool.json` through `agent-tool hooks install --apply`. On an existing
@@ -180,7 +183,8 @@ directory-wide exclusion.
 The gates include the production Knip dead-file check, the scoped promise
 lint, and the architecture checks; CodeQL runs on demand through the
 `run-code-ql-scan` skill, not in CI. Strict Knip mode, private-export checks for
-root tooling, exact file-size ratcheting, full subsystem-table generation, and
+root tooling, exact file-size ratcheting, full
+[subsystem-table](../subsystems.md#registry) generation, and
 grouped dependency bots are deliberately out of scope. Add focused architecture
 regression tests when changing important boundary rules, rather than an
 exhaustive fixture matrix. Dependency advisories are triaged in the

@@ -3,10 +3,10 @@
 Every request to the Tearleads API goes through
 [`packages/api-client`](../../packages/api-client/src/apiRequestRuntime.ts):
 JSON and binary operations, signed-upload and download URLs, and the
-server-events WebSocket, which the client SDK opens with
+server-events WebSocket, which the [client SDK](client-sdk.md) opens with
 [`openServerEventsSocket`](../../packages/api-client/src/webSocketTickets.ts).
-One transport means one place that measures requests, renews sessions, and
-explains failures.
+One transport means one place that [measures requests](api-request-cost.md),
+renews sessions, and explains failures.
 
 ## What a failed fetch reports
 
@@ -117,8 +117,8 @@ template, attempt, elapsed bucket, and connectivity. A breadcrumb repeating the
 same class, method, and template within a minute is dropped, and at most ten
 network breadcrumbs follow each activity breadcrumb (or trail clear), so a
 dead network sends at most five events per page load and cannot flush the
-30-crumb activity trail. The client event budget (five a minute, twenty a
-page load) still applies.
+30-crumb activity trail. The [client event budget](sentry.md#collection-policy)
+(five a minute, twenty a page load) still applies.
 
 ## Network use outside the API client
 

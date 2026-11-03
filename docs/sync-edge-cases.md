@@ -7,10 +7,11 @@ lanes are read against it; update it when behavior changes.
 ## The failure-isolation model
 
 The engine is one pump per domain scope. The structural `container-contents`
-lane (container creates and moves, metadata, and document moves) runs alone and
-drains first; then up to four `documents:${localId}` lanes, one per registered
-document store, run concurrently (see
-[client sync ordering](client-sync-ordering.md)). Its blast-radius rules:
+lane ([container](./glossary.md#container) creates and moves, metadata, and
+[document](./glossary.md#document) moves) runs alone and drains first; then up
+to four `documents:${localId}` lanes, one per registered document store, run
+concurrently (see [client sync ordering](client-sync-ordering.md)). Its
+blast-radius rules:
 
 | Failure | Blast radius |
 | --- | --- |
@@ -75,26 +76,30 @@ without counting as lane progress, so it cannot hot-loop the pump.
 
 - Explorer exposes last-link orphans (row 3, `container_id IS NULL` with no
   surviving link) in a read-only **Recovery** collection scoped to the active
-  organization. Users can open a preserved document and move it into a writable
-  container; the collection itself cannot accept creates, uploads, or folder
-  mutations. Queued edits remain visible in the write queue, and priming
-  continues to route orphans with a null container scope so their sync passes
-  resolve them. Orphans of an organization with no active scope (e.g. after the
-  whole organization's access was revoked) stay preserved-but-dormant: without
-  that organization's auth context no pass could resolve them. Attributed rows
-  never cross organization scopes; unattributed device-first rows appear in the
-  active scope, matching priming, and adopt that organization when created
-  remotely. Recovery classification is projection-based: it includes every
-  non-hidden `container_id IS NULL` row with no surviving links, whether
-  detached by a cascade or created locally before receiving its first container.
+  [organization](./glossary.md#organization). Users can open a preserved
+  document and move it into a writable container; the collection itself cannot
+  accept creates, uploads, or folder mutations. Queued edits remain visible in
+  the write queue, and priming continues to route orphans with a null container
+  scope so their sync passes resolve them. Orphans of an organization with no
+  active scope (e.g. after the whole organization's access was revoked) stay
+  preserved-but-dormant: without that organization's auth context no pass could
+  resolve them. Attributed rows never cross organization scopes; unattributed
+  [device-first](./developer/device-first.md) rows appear in the active scope,
+  matching priming, and adopt that organization when created remotely. Recovery
+  classification is projection-based: it includes every non-hidden
+  `container_id IS NULL` row with no surviving links, whether detached by a
+  cascade or created locally before receiving its first container.
 - Access restoration prunes stale `access_revoked` container sync tombstones
-  server-side (`pruneRegainedAccessTombstones`, wired into the principal-policy
-  transition and `container.grant` flows), so restores that advance no container
-  timestamp — group re-adds, policy changes — relist the container on the next
-  lane pull. `deleted` tombstones are never pruned, and rows for containers the
-  user did not regain survive for clients that have not yet synced the loss. The
-  client also records each removed container as a durable observation-generation
-  fence. Recovery fetches and verifies a writer projection after observing that
+  server-side (`pruneRegainedAccessTombstones`, wired into the
+  [principal-policy](./glossary.md#principal-policy-state) transition and
+  `container.grant` flows), so restores that advance no container timestamp —
+  group re-adds, policy changes — relist the container on the next lane pull.
+  `deleted` tombstones are never pruned, and rows for containers the user did
+  not regain survive for clients that have not yet synced the loss. The client
+  also records each removed container as a durable
+  [observation-generation fence](../formal/container-keying/ContainerTombstoneRecovery.md).
+  Recovery fetches and verifies a
+  [writer projection](./glossary.md#writer-projection) after observing that
   fence; the unsigned reason and clock cannot permanently bar a valid live
   container. A hydration fetched before the latest observation cannot cross the
   fence, and a moved descendant can return after a fresh verified fetch.
@@ -114,7 +119,8 @@ without counting as lane progress, so it cannot hot-loop the pump.
   document teardown to remove side writes that queued after deletion, and
   detached startup maintenance sweeps aged crash residue without touching fresh
   in-progress writes or live documents; the attachment side tables are
-  document-only. Canonical SQL deletion queues attachment bytes for durable
-  reclamation across store, container-purge, and remote-delete paths; failed
-  byte deletes stay queued for the next connection. Deletion also invalidates
-  the store generation inside the mutation (row 21).
+  document-only. Canonical SQL deletion queues
+  [attachment bytes](./attachment-retention.md) for durable reclamation across
+  store, container-purge, and remote-delete paths; failed byte deletes stay
+  queued for the next connection. Deletion also invalidates the store generation
+  inside the mutation (row 21).

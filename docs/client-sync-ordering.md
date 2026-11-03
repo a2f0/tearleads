@@ -2,13 +2,14 @@
 
 This document describes the client-side ordering `@tearleads/client-sdk` uses
 when a domain has several kinds of queued sync work. It complements the
-wire-protocol documents and defines no new HTTP routes or server transactions.
+[wire-protocol documents](./protocol-specification.md) and defines no new HTTP
+routes or server transactions.
 
 For one `DomainScope`, the SDK uses one in-process sync coordinator. Sync lanes
 drain through a phase barrier:
 
 1. Structural lanes.
-2. Up to four document lanes concurrently.
+2. Up to four [document](./glossary.md#document) lanes concurrently.
 
 The structural lane is `container-contents`; each document store has a
 `documents:${localId}` lane. Queued structural work drains before queued
@@ -42,21 +43,23 @@ A queued structural retry retains the phase barrier during its backoff.
 
 ## Structural Phase
 
-The `container-contents` lane owns local container topology and container
-metadata state. A pass runs in this order:
+The `container-contents` lane owns local [container](./glossary.md#container)
+topology and container metadata state. A pass runs in this order:
 
 1. Sync pending local container create intents.
 2. Sync pending local container move intents.
 3. Sync container metadata document state.
-4. Recover a stale root, replay pending document placement intents, and prime
-   document stores when needed.
+4. Recover a stale [root](./glossary.md#root-container), replay pending document
+   placement intents, and prime document stores when needed.
 
 Container creates run before moves so an offline-created destination can exist
 remotely before a later move targets it. Document placements replay in this
 phase because they may target containers created locally in the same session,
 such as Trash. Moves run before document lanes so document creates, document
-Loro updates, and blob attachment binds derive their writer projections from
-the latest synced container path.
+[Loro updates](./glossary.md#loro-update), and [blob](./glossary.md#blob)
+[attachment binds](./glossary.md#attachment-binding) derive their
+[writer projections](./glossary.md#writer-projection) from the latest synced
+[container path](./glossary.md#authorizing-container-path).
 
 These intents wait in one durable local outbox, the `local_intents` table. Each
 row belongs to a lane: `container.create`, `container.move`, or
@@ -78,10 +81,11 @@ is structural, it drains before the requested document lanes.
 
 Remote container hydration is read/discovery work, not a sync lane. It can prime
 local state and schedule the structural lane, but must not write document
-content or blob attachment state. One hydration pass, one
-document discovery pass, and one document move (its link and unlink legs) each
-discover the organization directory once and share that view; see [operation
-recovery batch](developer/current-principal-consumers.md#operation-recovery-batch).
+content or blob attachment state. One hydration pass, one document discovery
+pass, and one document move (its link and unlink legs) each discover the
+[organization](./glossary.md#organization) directory once and share that view;
+see
+[operation recovery batch](developer/current-principal-consumers.md#operation-recovery-batch).
 Document syncs scheduled through document stores remain separate operations.
 
 ## Document Phase
@@ -97,9 +101,10 @@ decisions. A clean ordinary document skips HTTP unless it has outgoing work or
 a remote-revalidation signal. The following signals require a probe:
 
 - initializing an opened store from a persisted record with a remote
-  `documentId` arms one startup probe, because websocket hints are volatile and
-  do not survive process restart. When a server-events connect attempt is in
-  flight, the probe waits on that attempt instead: its acknowledgement arms the
+  `documentId` arms one startup probe, because
+  [websocket hints](./developer/realtime-hints.md) are volatile and do not
+  survive process restart. When a server-events connect attempt is in flight,
+  the probe waits on that attempt instead: its acknowledgement arms the
   reconnect probe below, which covers strictly more, and an attempt that ends
   without one (no ticket, a failed socket, an unready tree at open, or the
   binding stopping) releases the startup probe at once;
@@ -126,14 +131,14 @@ failure, or database loss mid-request. A fulfilled discovery that reports an
 incompletely listed remote lane also retains the force for the next
 reconciliation signal.
 
-Discovery lists containers in batches through
-`POST /containers/documents/query`: a reconciliation lane run lists up to four
-queued containers and a sweep up to 32 per request. Each container keeps its own
-watermark and page bound, then verifies and applies on its own, in order; a
-rejected lane or a failed apply leaves the other containers' results intact.
-Force generations are captured before the batched request is sent, so a hint
-arriving while it is in flight is never acknowledged by that batch. Rejected
-forced discovery receives one backoff-delayed automatic retry per force
+[Discovery lists containers in batches](./request-budgets.md#singular-document-sync-batched-listing)
+through `POST /containers/documents/query`: a reconciliation lane run lists up
+to four queued containers and a sweep up to 32 per request. Each container keeps
+its own watermark and page bound, then verifies and applies on its own, in
+order; a rejected lane or a failed apply leaves the other containers' results
+intact. Force generations are captured before the batched request is sent, so a
+hint arriving while it is in flight is never acknowledged by that batch.
+Rejected forced discovery receives one backoff-delayed automatic retry per force
 generation. A second failure settles the coordinator while retaining the force
 for a later event, reconnect, hydration, navigation, or manual sync signal;
 persistent failures therefore cannot keep synchronization non-idle.
@@ -150,27 +155,26 @@ installing the declaration's readable subset in its process-local event router.
 The acknowledgment includes the accepted IDs, so a refused ID is not retained as
 subscribed. It confirms processing despite denials; a stale local ID must not
 block HTTP reconciliation. A refused re-add also removes any older subscription.
-The client retries only refused interests after a grant notification or tree
-change, including a change that arrived while authorization was pending. A
-socket opens with no interest and the server keeps none for a later reconnect,
-so every connect's declaration is authorized through the same signed
-read-access workflow. Access-change notifications evict only interests whose
-verified paths depend on the changed head. One resync frame carries all
-affected IDs per socket, and the client refreshes root and distinct parent
-lanes once for that batch. Group policy commits also invalidate subscriptions
-using that group, including membership removals that do not change any
-container manifest. Until that acknowledgment arrives, the SDK continues to
-report server events as disconnected, and a cold `ready=false` tree is never
-declared.
+The client retries only refused interests after a [grant](./glossary.md#grant)
+notification or tree change, including a change that arrived while authorization
+was pending. A socket opens with no interest and the server keeps none for a
+later reconnect, so every connect's declaration is authorized through the same
+signed read-access workflow. Access-change notifications evict only interests
+whose verified paths depend on the changed head. One resync frame carries all
+affected IDs per socket, and the client refreshes root and distinct parent lanes
+once for that batch. Group policy commits also invalidate subscriptions using
+that group, including membership removals that do not change any container
+manifest. Until that acknowledgment arrives, the SDK continues to report server
+events as disconnected, and a cold `ready=false` tree is never declared.
 
 On every acknowledged reconnect, the client also clears cached writer
 projections and runs one full reconciliation after the live interest set is in
 place. That sweep refreshes container/access structure and force-revalidates
 registered document stores, closing the lossy interval for access changes and
-key-epoch rotations even when the affected container or document was not open
-when the socket dropped. Native app resume and network-path changes deliberately
-replace the socket first, because WKWebView can retain an `OPEN` WebSocket whose
-underlying connection is no longer usable.
+key-epoch [rotations](./glossary.md#rotate) even when the affected container or
+document was not open when the socket dropped. Native app resume and
+network-path changes deliberately replace the socket first, because WKWebView
+can retain an `OPEN` WebSocket whose underlying connection is no longer usable.
 
 The coordinator coalesces repeated requests. A successful probe imports and
 persists remote Loro updates before hydrating the active attachment bindings and
@@ -179,19 +183,21 @@ callback returned, not that an HTTP probe was eligible or successful.
 
 A document pass runs in this order:
 
-1. If the document already exists remotely and has pending attachment
-   mutations, issue a no-outgoing document sync probe first. This refreshes
-   incoming document updates, commit LSN, and content-key material before the
-   later writer projection fetch and attachment bind. Attachment work proceeds
-   only after a successful probe; a coded remote-deletion response takes the
-   normal destructive cleanup path before any blob staging begins. Uncoded and
+1. If the document already exists remotely and has pending attachment mutations,
+   issue a no-outgoing document sync probe first. This refreshes incoming
+   document updates, [commit LSN](./glossary.md#commit-lsn), and
+   [content-key](./glossary.md#content-key) material before the later writer
+   projection fetch and attachment bind. Attachment work proceeds only after a
+   successful probe; a coded remote-deletion response takes the normal
+   destructive cleanup path before any blob staging begins. Uncoded and
    transient probe failures preserve the queued attachment and park the pass
    until a later sync signal instead of staging against an unvalidated remote.
 2. Sync pending attachment uploads. If the document does not exist remotely yet,
    create the remote document first. Then read the local pending bytes, fetch
-   the current document writer projection, derive blob key targets from that
-   projection, stage encrypted blob bytes, and bind the blob with a signed
-   attachment event.
+   the current document writer projection, derive blob
+   [key targets](./glossary.md#key-target) from that projection,
+   [stage](./glossary.md#blob-stage) encrypted blob bytes, and bind the blob
+   with a signed attachment [event](./glossary.md#access-event).
 3. Sync encrypted Loro document state. If the document still does not exist
    remotely and has pending Loro updates, create it first. Then send pending
    encrypted updates and import returned updates.
@@ -206,7 +212,8 @@ So a local document can be created remotely before either attachment binds or
 Loro diffs are sent, and attachment binds may be sent before pending Loro diffs
 from the same local edit pass. This is intentional: server-visible attachment
 binding state is authoritative for blob reachability, while the encrypted Loro
-payload may reference attachment slots only for editor semantics.
+payload may reference [attachment slots](./glossary.md#attachment-slot) only for
+editor semantics.
 
 If an attachment upload completes, the document lane requests a follow-up pass
 and returns before regular Loro sync. This keeps each pass small and ensures
@@ -216,9 +223,10 @@ state sync.
 Multipart retries retain a persisted blob identity, encryption material, part
 size, and stage id. A retry resumes only after a definitive stage-status read;
 network and server lookup failures preserve the existing stage. If a bind was
-committed but its response was lost, the next document pass recognizes the same
-blob in the active slot and adopts that binding locally instead of uploading or
-binding a duplicate.
+committed but
+[its response was lost](./sync-interruption-safety.md#a-lost-bind-acknowledgement-cannot-strand-an-upload),
+the next document pass recognizes the same blob in the active slot and adopts
+that binding locally instead of uploading or binding a duplicate.
 
 If that stage is definitively missing or expired, the document owner freshly
 lists bindings before replacing the upload identity. An active matching slot
@@ -230,15 +238,16 @@ detached: the old blob id remains permanently reserved by server history.
 Identity and stage changes become visible in memory only after their local
 persistence succeeds.
 
-Remote blob encryption uses independently authenticated 5 MiB plaintext
-chunks, with one encrypted chunk per multipart part. Browser `File` input and
-encrypted OPFS storage remain range-readable, so attachment sync never needs a
-whole plaintext or ciphertext buffer. Before encryption, the client fingerprints
-the source and persists that fingerprint with a versioned upload identity. It
-then makes a bounded-memory encryption pass to compute the exact remote SHA-256
-and reproduces only the missing parts. A changed source rotates the blob id,
-content key, nonce seed, and stage before encryption; per-chunk hashes also
-detect mutation between passes.
+Remote blob encryption uses independently authenticated
+[5 MiB plaintext chunks](./limits.md#blobs), with one encrypted chunk per
+multipart part. Browser `File` input and encrypted OPFS storage remain
+range-readable, so attachment sync never needs a whole plaintext or ciphertext
+buffer. Before encryption, the client fingerprints the source and persists that
+fingerprint with a versioned upload identity. It then makes a bounded-memory
+encryption pass to compute the exact remote SHA-256 and reproduces only the
+missing parts. A changed source rotates the blob id, content key, nonce seed,
+and stage before encryption; per-chunk hashes also detect mutation between
+passes.
 
 ## Blob Synchronization
 
@@ -268,15 +277,16 @@ flush time, while the lane keeps the work it has not yet done.
 ## Failure And Retry Semantics
 
 The ordering is a client scheduling rule, not an atomic multi-object commit.
-Every protocol write still carries the signed manifests, key targets, expected
-hashes, and write headers that let the server reject stale or unauthorized
-work.
+Every protocol write still carries the signed
+[manifests](./glossary.md#access-manifest), key targets, expected hashes, and
+[write headers](./glossary.md#signed-write-header) that let the server reject
+stale or unauthorized work.
 
 If a structural pass cannot make progress, it records the owning workflow's
 error state and returns. The coordinator can then run document lanes; those
-document/blob writes still fail closed if their projections are stale or
-unauthorized. The client can later request structural sync again after remote
-state, credentials, network, or local input changes.
+document/blob writes still [fail closed](./glossary.md#fail-closed) if their
+projections are stale or unauthorized. The client can later request structural
+sync again after remote state, credentials, network, or local input changes.
 
 An upload telemetry row becomes complete only when the actual upload workflow
 settles it. Re-running the document owner through Manual Sync cannot directly

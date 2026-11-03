@@ -3,11 +3,11 @@
 ## Routine
 
 With the repository's pinned Bun version, run `bun audit --json` after
-dependency updates, before a release, and during monthly maintenance. Keep the
-output with the review; classify each finding with `bun pm why <package>` and
-the actual consumer code. Run the full audit so build, deploy, and test tools
-stay visible: a development dependency can still process hostile input or run
-with deployment credentials.
+[dependency updates](../dependency-upgrades.md), before a release, and during
+monthly maintenance. Keep the output with the review; classify each finding with
+`bun pm why <package>` and the actual consumer code. Run the full audit so
+build, deploy, and test tools stay visible: a development dependency can still
+process hostile input or run with deployment credentials.
 
 For the Ruby graph, install the audit tool with `gem install bundler-audit`,
 then run `bundle-audit check --update` from
@@ -80,10 +80,10 @@ review by **2026-11-07**.
 ## Stripe client and server compatibility
 
 Stripe.js 10 (`@stripe/stripe-js` 10.1.0 is locked) loads the Endive API
-version; see its [10.0 release
-notes](https://github.com/stripe/stripe-js/releases/tag/v10.0.0). The checkout
-does not use the Payment Request Button or the Elements `paymentMethodTypes`
-option, both removed in 10.0.
+version; see its
+[10.0 release notes](https://github.com/stripe/stripe-js/releases/tag/v10.0.0).
+The [checkout](./stripe-checkout-client.md) does not use the Payment Request
+Button or the Elements `paymentMethodTypes` option, both removed in 10.0.
 [`packages/app-web/src/webDirectCheckout.ts`](../../packages/app-web/src/webDirectCheckout.ts)
 uses the pure loader, a Payment Element with a server-created client secret, and
 `confirmPayment`; it does not use Elements with Checkout Sessions. Email

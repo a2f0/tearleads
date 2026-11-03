@@ -13,7 +13,8 @@ flow and can style it from its theme tokens.
   other shells use `createUnavailableDirectCheckout`, so shared UI gates on
   capability instead of platform branches.
 - `BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY` enables the web capability and is inlined
-  by `deployAppWeb.sh`. There is no RevenueCat web-purchase fallback.
+  by `deployAppWeb.sh`. There is no
+  [RevenueCat](revenuecat-billing.md) web-purchase fallback.
 - Stripe loads from `@stripe/stripe-js/pure`, deferring Stripe.js and its fraud
   signals from startup until someone opens checkout.
 - The server pins the subscription to `card`. Redirect-based methods are not
@@ -24,8 +25,8 @@ flow and can style it from its theme tokens.
 `useDirectCheckoutFlow` loads the server-selected option, creates checkout,
 mounts the Payment Element, confirms, and hands off to activation polling. The
 entitlement arrives asynchronously through Stripe, RevenueCat, and the
-Tearleads webhook. A decline leaves the element mounted for correction; cancel
-unmounts it.
+[Tearleads webhook](revenuecat-billing.md#direct-stripe-checkout-server-side). A
+decline leaves the element mounted for correction; cancel unmounts it.
 
 The surrounding Tearleads form requires a billing email before inline checkout.
 Confirmation sends it as the PaymentMethod billing email while the embedded
@@ -41,31 +42,33 @@ feeds the Appearance API computed Tearleads theme values, resolving actual
 colors and sizes because an iframe cannot dereference app CSS variables. The
 Stripe base theme is `night` for dark surfaces and `stripe` for light surfaces.
 
-The "Pay on Stripe instead" fallback creates a hosted Checkout Session and
-opens it in a new tab, with same-tab navigation when a popup is blocked. It
-uses the same admin gate, authoritative Members count, customer, metadata, and
-`invoice.paid` association path. Return URLs share the portal route's origin
+The "Pay on Stripe instead" fallback creates a hosted Checkout Session and opens
+it in a new tab, with same-tab navigation when a popup is blocked. It uses the
+same admin gate, authoritative
+[Members](../glossary.md#organization-members-group) count, customer, metadata,
+and `invoice.paid` association path. Return URLs share the portal route's origin
 validation.
 
 ## Subscription management
 
-Stripe cancellation is inline. `POST
-/organizations/:id/billing/stripe/cancel` sets `cancel_at_period_end`; sync
-continues through the paid period, and RevenueCat later sends the entitlement
-loss. The billing snapshot exposes `canCancelDirectly` on every app surface,
-so a web purchase can also be cancelled from a native shell. This flag is
-independent of `subscriptionSource`: a native takeover can retain a Stripe
-subscription that still needs cancellation. The management endpoint returns
-only a native store URL; a failed lookup does not hide Stripe cancel. Members
-can read the organization-level cancellation flag; the cancellation endpoint
-requires an administrator.
+Stripe cancellation is inline. `POST /organizations/:id/billing/stripe/cancel`
+sets `cancel_at_period_end`; sync continues through the paid period, and
+RevenueCat later sends the entitlement loss. The billing snapshot exposes
+`canCancelDirectly` on every app surface, so a web purchase can also be
+cancelled from a native shell. This flag is independent of `subscriptionSource`:
+a native takeover can retain a Stripe subscription that still needs
+cancellation. The management endpoint returns only a native store URL; a failed
+lookup does not hide Stripe cancel. Members can read the
+[organization-level](../glossary.md#organization) cancellation flag; the
+cancellation endpoint requires an administrator.
 
 Lost-key cancellation uses Stripe's shareable no-code portal login from the
 public website's **Manage subscription** footer link. Stripe emails a secure
 login link to the Customer address, so this path does not require Tearleads
 authentication. The Stripe portal must allow cancellation at period end, and its
 login link must be set as `PUBLIC_STRIPE_CUSTOMER_PORTAL_URL` when the website
-is built. After the paid period ends, the old organization loses sync; the buyer
+is built. After the paid period ends, the old organization
+[loses sync](billing-lapse-recovery.md); the buyer
 can subscribe again under a newly derived identity whenever they choose.
 
 Production and staging website deployments fail their build when the portal
@@ -85,9 +88,10 @@ metadata instead of trusting `organization_billing.provider_subscription_id`.
 RevenueCat may store an `si_…` subscription-item id there. The metadata match is
 rechecked so a pooled customer cannot expose another organization's billing.
 
-For a native-store subscription, the panel opens RevenueCat's exact management
-URL, which routes to the App Store or Play subscription page. The server never
-tries to cancel a store subscription through Stripe.
+For a [native-store](revenuecat-native-stores.md) subscription, the panel opens
+RevenueCat's exact management URL, which routes to the App Store or Play
+subscription page. The server never tries to cancel a store subscription through
+Stripe.
 
 `POST /organizations/:id/billing/stripe/portal` mints an authenticated Stripe
 portal session (`ApiClient.createStripePortal`); the billing panel does not

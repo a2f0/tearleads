@@ -1,10 +1,10 @@
 # RevenueCat Billing
 
-Tearleads sells the organization **sync** subscription as the same three fixed
-capacity tiers on every platform. Web checkout uses Stripe; native checkout uses
-the App Store or Play through RevenueCat. RevenueCat mirrors every subscription
-into the cross-platform `sync` entitlement and emits the lifecycle events that
-activate or revoke server sync.
+Tearleads sells the [organization](../glossary.md#organization) **sync**
+subscription as the same three fixed capacity tiers on every platform. Web
+checkout uses Stripe; native checkout uses the App Store or Play through
+RevenueCat. RevenueCat mirrors every subscription into the cross-platform `sync`
+entitlement and emits the lifecycle events that activate or revoke server sync.
 
 This page covers the wiring; keys, project/app/offering IDs, and operational
 state live in the git-ignored `.secrets/prod/revenuecat.md`.
@@ -33,9 +33,9 @@ purchases are personal-org only; restore always creates a new org.
 
 Organization billing has no separate `past_due` state. RevenueCat
 `BILLING_ISSUE` is informational; access continues only while the current
-paid period remains valid, and expiration follows the disabled and retention
-lifecycle. Stripe's upstream `past_due` status still prevents
-competing subscriptions and unsafe seat prorations.
+paid period remains valid, and [expiration](./billing-lapse-recovery.md) follows
+the disabled and retention lifecycle. Stripe's upstream `past_due` status still
+prevents competing subscriptions and unsafe seat prorations.
 
 ## Native restore and subscription moves
 
@@ -152,14 +152,16 @@ succeed without the RevenueCat binding; retrying safely completes both steps.
 RevenueCat posts subscription events to `POST {api}/billing/revenuecat/webhook`
 ([`revenuecatWebhook.ts`](../../packages/api/src/routes/billing/revenuecatWebhook.ts)).
 The route authenticates a shared secret sent in the `Authorization` header against
-`REVENUECAT_WEBHOOK_AUTH_HEADER` and fails closed (503) when it is unset.
+`REVENUECAT_WEBHOOK_AUTH_HEADER` and [fails closed](../glossary.md#fail-closed)
+(503) when it is unset.
 
 Grant events update the organization's active billing period and reconcile its
-effective Members roster; revoke events disable sync. For Stripe-store events,
-the webhook first resolves exact `sub_…`/`si_…` IDs through the durable seat
-binding, with exact Stripe subscription metadata as the `sub_…` fallback.
-Mutable attributes are never trusted; unresolved state changes return 503
-unclaimed for retry. Event quantities never update Stripe seats.
+effective [Members roster](../glossary.md#organization-members-group); revoke
+events disable sync. For Stripe-store events, the webhook first resolves exact
+`sub_…`/`si_…` IDs through the durable seat binding, with exact Stripe
+subscription metadata as the `sub_…` fallback. Mutable attributes are never
+trusted; unresolved state changes return 503 unclaimed for retry. Event
+quantities never update Stripe seats.
 
 Paid grant events with an unknown product stem also return 503 without claiming
 the event id, so a corrected catalog mapping recovers through RevenueCat
