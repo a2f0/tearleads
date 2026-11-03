@@ -2,7 +2,6 @@ import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
-import { useRoutedLayoutActive } from "@tearleads/windowing";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import {
@@ -295,14 +294,9 @@ export function DirectoryTable({
   const users = directory?.users ?? [];
   const virtualUsers = useMiniAppCompactTableRows({ rows: users });
   const { compact, rowHeight } = virtualUsers;
-  // Touch layouts have no right-click; add the kebab wherever the row context
-  // menu is wired.
-  const showActions =
-    useRoutedLayoutActive() && Boolean(openRosterUserContextMenu);
-  const { columns, visibleColumnIds } = useOrgManagerTableColumns(
+  const { columns, showActions, visibleColumnIds } = useOrgManagerTableColumns(
     DIRECTORY_TABLE_COLUMNS_CONFIG,
-    showActions,
-    compact,
+    { compact, openRowContextMenu: openRosterUserContextMenu },
   );
 
   if (!directory) {

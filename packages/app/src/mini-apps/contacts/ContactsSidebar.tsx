@@ -83,7 +83,6 @@ function ContactsList({
   rowHeight = MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
   selectedContactId,
   setSelectedContactId,
-  showActions = false,
   showMetadata = false,
 }: ContactsListProps) {
   const virtualEntries = useMiniAppVirtualRows({
@@ -145,10 +144,7 @@ function ContactsList({
           );
           return (
             <MiniAppVirtualListRow
-              className={classNames(
-                "contacts-sidebar-row",
-                showActions && "mini-app-virtual-list-row--actions",
-              )}
+              className="contacts-sidebar-row mini-app-virtual-list-row--actions"
               key={entry.id}
             >
               <MiniAppRowButton
@@ -170,14 +166,10 @@ function ContactsList({
                   <MiniAppRowText>{name}</MiniAppRowText>
                 )}
               </MiniAppRowButton>
-              {showActions ? (
-                <MiniAppRowActionsKebab
-                  openContextMenu={(event) =>
-                    handleContextMenu(event, entry.id)
-                  }
-                  rowName={name}
-                />
-              ) : null}
+              <MiniAppRowActionsKebab
+                openContextMenu={(event) => handleContextMenu(event, entry.id)}
+                rowName={name}
+              />
             </MiniAppVirtualListRow>
           );
         })}
@@ -201,16 +193,13 @@ export function ContactsListHome(props: ContactsSidebarProps) {
         bleed
         divided
         rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
-        showActions
         showMetadata
       />
     </section>
   );
 }
 
-function ContactsSidebar(
-  props: ContactsSidebarProps & { showActions: boolean },
-) {
+function ContactsSidebar(props: ContactsSidebarProps) {
   return (
     <MiniAppSidebar
       className="mini-app-sidebar--virtual"

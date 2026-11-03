@@ -1,12 +1,49 @@
 import { afterEach, expect, test } from "bun:test";
 import type { DocumentSummary } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  useCallback,
+  useState,
+} from "react";
 import { NOTES_LABELS } from "./labels";
-import { NotesListHome } from "./NotesSidebar";
+import { NotesListHome, useNotesSidebarPanel } from "./NotesSidebar";
 
 afterEach(() => {
   cleanup();
+  document.documentElement.removeAttribute("data-navigation-mode");
 });
+
+const noop = () => {};
+
+function NotesSidebarHarness(props: {
+  onNoteContextMenu: (noteId: string) => void;
+  selectNote: (noteId: string) => void;
+}) {
+  const { onNoteContextMenu, selectNote } = props;
+  const [sidebar, setSidebar] = useState<ReactNode>(null);
+  // Stable callbacks: the sidebar re-registers whenever a prop changes.
+  const handleNoteContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLElement>, noteId: string) => {
+      event.preventDefault();
+      onNoteContextMenu(noteId);
+    },
+    [onNoteContextMenu],
+  );
+  useNotesSidebarPanel({
+    createNote: noop,
+    handleAreaContextMenu: noop,
+    handleNoteContextMenu,
+    notes,
+    primeVisibleNotes: noop,
+    ready: true,
+    selectedNoteId: null,
+    selectNote,
+    setSidebar,
+  });
+  return <div>{sidebar}</div>;
+}
 
 const notes: DocumentSummary[] = [
   {
@@ -143,3 +180,30 @@ test("content demand follows only visible virtual rows and waits for directory r
     directory.slice(92, 116).map((note) => note.id),
   );
 });
+
+for (const mode of ["windowed", "routed"] as const) {
+  test(`notes sidebar rows carry a kebab that opens the row menu (${mode})`, async () => {
+    document.documentElement.setAttribute("data-navigation-mode", mode);
+    const openedNoteIds: string[] = [];
+    const selectedNoteIds: string[] = [];
+    const onNoteContextMenu = (noteId: string) => {
+      openedNoteIds.push(noteId);
+    };
+    const selectNote = (noteId: string) => {
+      selectedNoteIds.push(noteId);
+    };
+    const view = render(
+      <NotesSidebarHarness
+        onNoteContextMenu={onNoteContextMenu}
+        selectNote={selectNote}
+      />,
+    );
+
+    fireEvent.click(
+      await view.findByRole("button", { name: "Actions for Trip plan" }),
+    );
+
+    expect(openedNoteIds).toEqual(["note-1"]);
+    expect(selectedNoteIds).toEqual([]);
+  });
+}

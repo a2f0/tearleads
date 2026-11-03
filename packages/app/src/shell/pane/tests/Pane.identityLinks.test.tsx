@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import {
   getPaneRoot,
   getPaneUserId,
@@ -18,6 +24,7 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneRosterKit";
 import { openOrgManager } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import { createPeerIdentityLink } from "../../../../test/helpers/identityLinkFixtures";
+import { mockClipboardWrites } from "../../../../test/helpers/identityLinkResolverTestKit";
 import {
   listProxiedApiRequests,
   resetMockServer,
@@ -118,4 +125,46 @@ test("local identity links onboard contacts and roster users; a mismatch never g
     await within(aliceContacts).findByText("Unnamed contact"),
   ).toBeTruthy();
   expect(within(aliceContacts).queryByText(bobId)).toBeNull();
+}, 120_000);
+
+test("org manager shares your own identity link from your roster row's kebab", async () => {
+  browser.happyDOM.setURL("http://localhost/");
+  useTestApiAppHandlers();
+  const view = renderDualPane();
+  const alice = getPaneRoot(view, "left");
+  const bob = getPaneRoot(view, "right");
+  await waitForDualPaneProvisioning(alice, bob);
+  await waitForPersonalBootstrap(2);
+  const aliceLink = await createPeerIdentityLink(getPaneUserId(alice));
+  const clipboard = mockClipboardWrites();
+  try {
+    await openOrgManager(alice);
+    // The windowed directory has no standalone share disclosure any more.
+    expect(
+      within(alice).queryByRole("button", { name: "Share my identity link" }),
+    ).toBeNull();
+    const roster = await within(alice).findByRole(
+      "table",
+      { name: "Roster" },
+      { timeout: 15_000 },
+    );
+    const [kebab, ...others] = await within(roster).findAllByRole("button", {
+      name: /^Actions for /u,
+    });
+    expect(others).toHaveLength(0);
+    if (!kebab) throw new Error("Expected the roster row's actions button");
+    await interact(() => fireEvent.click(kebab));
+    const copy = await screen.findByRole(
+      "button",
+      { name: "Copy identity link" },
+      { timeout: 15_000 },
+    );
+    await interact(() => fireEvent.click(copy));
+    await waitFor(() => expect(clipboard.writes).toHaveLength(1));
+    expect(new URL(clipboard.writes[0] ?? "").pathname).toBe(
+      new URL(aliceLink).pathname,
+    );
+  } finally {
+    clipboard.restore();
+  }
 }, 120_000);

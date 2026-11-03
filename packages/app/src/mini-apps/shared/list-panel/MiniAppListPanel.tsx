@@ -1,7 +1,4 @@
-import {
-  useRegisteredWindowSidebar,
-  useRoutedLayoutActive,
-} from "@tearleads/windowing";
+import { useRegisteredWindowSidebar } from "@tearleads/windowing";
 import {
   type ComponentType,
   type MouseEvent,
@@ -20,9 +17,6 @@ export interface MiniAppListPresentation {
   // sidebar leaves them off).
   divided?: boolean | undefined;
   rowHeight?: number | undefined;
-  // Render a trailing kebab that opens the row's context menu (the mobile list
-  // home; the sidebar relies on right-click / long-press).
-  showActions?: boolean | undefined;
   showMetadata?: boolean | undefined;
 }
 
@@ -56,7 +50,11 @@ export function createAreaContextMenuHandler(
 
 const MINI_APP_ROW_ACTIONS_LABEL_PREFIX = "Actions for";
 
-/** Trailing kebab that opens the row's context menu without selecting the row. */
+/**
+ * Trailing kebab that opens the row's context menu without selecting the row.
+ * Every list row with a context menu renders it, in the windowed and routed
+ * layouts alike: right-click is not discoverable, and touch has none.
+ */
 export function MiniAppRowActionsKebab(params: {
   openContextMenu: (event: MouseEvent<HTMLElement>) => void;
   rowName: string;
@@ -97,25 +95,20 @@ function useShallowStableProps<Props extends object>(props: Props): Props {
 /**
  * Registers a mini-app's list sidebar with the window chrome.
  *
- * Touch layouts (phone + tablet) have no right-click, so `showActions`
- * surfaces the row kebab in the sidebar rail too; the mobile list-home shows
- * its own kebab.
- *
  * Registering re-renders the window shell, so the sidebar element must stay
  * referentially stable across unrelated re-renders: the props are
  * value-compared before the element is rebuilt.
  */
 export function useMiniAppSidebarPanel<Props extends object>(params: {
-  Sidebar: ComponentType<Props & { showActions: boolean }>;
+  Sidebar: ComponentType<Props>;
   props: Props;
   setSidebar: (sidebar: ReactNode) => void;
 }): void {
   const { Sidebar, props, setSidebar } = params;
-  const showActions = useRoutedLayoutActive();
   const stableProps = useShallowStableProps(props);
   const sidebar = useMemo(
-    () => <Sidebar {...stableProps} showActions={showActions} />,
-    [Sidebar, stableProps, showActions],
+    () => <Sidebar {...stableProps} />,
+    [Sidebar, stableProps],
   );
   useRegisteredWindowSidebar({ setSidebar, sidebar });
 }

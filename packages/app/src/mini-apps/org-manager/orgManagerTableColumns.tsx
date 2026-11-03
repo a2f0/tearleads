@@ -12,8 +12,8 @@ import {
 import { ORG_MANAGER_LABELS } from "./labels";
 
 interface OrgManagerTableColumnsConfig<ColumnId extends string> {
-  // Trailing action column appended when row actions are hidden (the touch
-  // kebab replaces it when actions are shown).
+  // Trailing action column appended when the table has no row context menu
+  // (the row actions kebab replaces it when one is wired).
   actionColumn?: MiniAppTableColumn;
   allColumnIds: ReadonlyArray<ColumnId>;
   columnLabels: Readonly<Record<ColumnId, string>>;
@@ -63,7 +63,7 @@ function buildOrgManagerTableColumns<ColumnId extends string>(input: {
     ? [compactSummaryColumn(config, input.visibleColumnIds)]
     : config.dataColumns.filter((column) => !hiddenColumns.has(column.id));
   if (showActions) {
-    // When the touch kebab column trails the table it is the trailing edge, so
+    // When the kebab column trails the table it is the trailing edge, so
     // the column-menu trigger rides in its header to stay flush right — on the
     // last data column it would sit one narrow column in from the edge.
     return [
@@ -81,16 +81,23 @@ function buildOrgManagerTableColumns<ColumnId extends string>(input: {
 }
 
 // Shared column assembly for the org-manager tables: persisted column
-// visibility, a single summary column on compact (touch) layouts, and the
-// kebab/actions column when row actions are shown.
+// visibility, a single summary column on compact (phone) layouts, and the
+// kebab/actions column. The kebab is the one rule every table follows: it
+// renders wherever a row context menu is wired, in windowed and routed layouts
+// alike, and opens that same menu.
 export function useOrgManagerTableColumns<ColumnId extends string>(
   config: OrgManagerTableColumnsConfig<ColumnId>,
-  showActions: boolean,
-  compact: boolean,
+  input: {
+    compact: boolean;
+    openRowContextMenu?: ((...args: never[]) => void) | undefined;
+  },
 ): {
   columns: ReadonlyArray<MiniAppTableColumn>;
+  showActions: boolean;
   visibleColumnIds: ReadonlyArray<ColumnId>;
 } {
+  const { compact } = input;
+  const showActions = input.openRowContextMenu !== undefined;
   const columnVisibility = useMiniAppColumnVisibility<ColumnId>({
     storageKey: config.storageKey,
     toggleableColumnIds: config.toggleableColumnIds,
@@ -134,5 +141,5 @@ export function useOrgManagerTableColumns<ColumnId extends string>(
     ],
   );
 
-  return { columns, visibleColumnIds };
+  return { columns, showActions, visibleColumnIds };
 }

@@ -1,9 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, renderHook } from "@testing-library/react";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { getGrantPrincipalLabel } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { useOrgManagerTableColumns } from "../orgManagerTableColumns";
 import type { OrgManagerGrantRouteRef } from "../routes";
 import { GrantTable } from "./GrantTable";
 
@@ -190,38 +191,40 @@ test("org manager grant table toggles optional columns", () => {
   expect(table.textContent).toContain(ORG_MANAGER_LABELS.builtIn);
 });
 
-test("org manager grant table swaps the inline revoke for a touch kebab", () => {
-  document.documentElement.setAttribute("data-navigation-mode", "routed");
-  const customGrant = {
-    ...grant,
-    isBuiltin: false,
-  } satisfies OrganizationContainerGrant;
-  const opened: OrganizationContainerGrant[] = [];
-  const view = render(
-    <GrantTable
-      canRevokeGrants
-      emptyLabel={ORG_MANAGER_LABELS.noDirectContainerLinks}
-      grants={[customGrant]}
-      label={ORG_MANAGER_LABELS.grants}
-      mutating={false}
-      openGrantContextMenu={(_event, grantArg) => opened.push(grantArg)}
-      openGrantRoute={() => undefined}
-      revokeGrant={() => undefined}
-    />,
-  );
+for (const mode of ["windowed", "routed"] as const) {
+  test(`org manager grant table swaps the inline revoke for the kebab (${mode})`, () => {
+    document.documentElement.setAttribute("data-navigation-mode", mode);
+    const customGrant = {
+      ...grant,
+      isBuiltin: false,
+    } satisfies OrganizationContainerGrant;
+    const opened: OrganizationContainerGrant[] = [];
+    const view = render(
+      <GrantTable
+        canRevokeGrants
+        emptyLabel={ORG_MANAGER_LABELS.noDirectContainerLinks}
+        grants={[customGrant]}
+        label={ORG_MANAGER_LABELS.grants}
+        mutating={false}
+        openGrantContextMenu={(_event, grantArg) => opened.push(grantArg)}
+        openGrantRoute={() => undefined}
+        revokeGrant={() => undefined}
+      />,
+    );
 
-  // The inline Revoke button is replaced by the kebab on touch.
-  expect(
-    view.queryByRole("button", { name: ORG_MANAGER_LABELS.revoke }),
-  ).toBeNull();
-  const actionsButton = view.getByRole("button", {
-    name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${getGrantPrincipalLabel(customGrant)}`,
+    // The inline Revoke button is replaced by the kebab in every layout.
+    expect(
+      view.queryByRole("button", { name: ORG_MANAGER_LABELS.revoke }),
+    ).toBeNull();
+    const actionsButton = view.getByRole("button", {
+      name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${getGrantPrincipalLabel(customGrant)}`,
+    });
+
+    fireEvent.click(actionsButton);
+
+    expect(opened).toEqual([customGrant]);
   });
-
-  fireEvent.click(actionsButton);
-
-  expect(opened).toEqual([customGrant]);
-});
+}
 
 test("org manager grant table opens grant detail routes from rows", () => {
   const openedGrantRefs: OrgManagerGrantRouteRef[] = [];
@@ -247,3 +250,44 @@ test("org manager grant table opens grant detail routes from rows", () => {
     },
   ]);
 });
+
+// The shared rule behind every org-manager table (roster, grants, groups).
+const COLUMNS_RULE_CONFIG = {
+  actionColumn: { header: "Revoke", id: "action" },
+  allColumnIds: ["name"],
+  columnLabels: { name: "Name" },
+  dataColumns: [{ header: "Name", id: "name" as const }],
+  menuOptions: [],
+  storageKey: "tearleads.org-manager.columns-test:hidden-columns",
+  toggleableColumnIds: [],
+} as const;
+
+const openRowContextMenu = () => undefined;
+
+for (const mode of ["windowed", "routed"] as const) {
+  test(`org manager tables add the row actions column whenever a row menu is wired (${mode})`, () => {
+    document.documentElement.setAttribute("data-navigation-mode", mode);
+    const wired = renderHook(() =>
+      useOrgManagerTableColumns(COLUMNS_RULE_CONFIG, {
+        compact: false,
+        openRowContextMenu,
+      }),
+    );
+
+    expect(wired.result.current.showActions).toBe(true);
+    expect(wired.result.current.columns.map((column) => column.id)).toEqual([
+      "name",
+      "actions",
+    ]);
+
+    const unwired = renderHook(() =>
+      useOrgManagerTableColumns(COLUMNS_RULE_CONFIG, { compact: false }),
+    );
+
+    expect(unwired.result.current.showActions).toBe(false);
+    expect(unwired.result.current.columns.map((column) => column.id)).toEqual([
+      "name",
+      "action",
+    ]);
+  });
+}

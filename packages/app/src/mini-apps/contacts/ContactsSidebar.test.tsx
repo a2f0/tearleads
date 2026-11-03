@@ -20,6 +20,7 @@ const emptyBlobStore: BlobStore = {
 
 afterEach(() => {
   cleanup();
+  document.documentElement.removeAttribute("data-navigation-mode");
 });
 
 const entries: ContactEntry[] = [
@@ -296,3 +297,28 @@ test("contacts sidebar opens the area context menu from virtual spacers", async 
 
   expect(areaContextMenuCount).toBe(1);
 });
+
+for (const mode of ["windowed", "routed"] as const) {
+  test(`contacts sidebar rows carry a kebab that opens the row menu (${mode})`, async () => {
+    document.documentElement.setAttribute("data-navigation-mode", mode);
+    const openedContactIds: string[] = [];
+    const view = render(
+      <ContactsSidebarHarness
+        onContactContextMenu={(contactId) => openedContactIds.push(contactId)}
+      />,
+    );
+
+    const kebab = await view.findByRole("button", {
+      name: "Actions for Grace Hopper",
+    });
+    expect(
+      kebab
+        .closest(".contacts-sidebar-row")
+        ?.classList.contains("mini-app-virtual-list-row--actions"),
+    ).toBe(true);
+    fireEvent.click(kebab);
+
+    expect(openedContactIds).toEqual(["grace"]);
+    expect(view.getByLabelText("Selected contact").textContent).toBe("");
+  });
+}
