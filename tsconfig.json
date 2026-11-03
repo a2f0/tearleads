@@ -10,6 +10,7 @@
     { "path": "packages/app-capacitor" },
     { "path": "packages/app-electrobun" },
     { "path": "packages/bob-and-alice" },
+    { "path": "packages/cli" },
     { "path": "packages/client-sdk" },
     { "path": "packages/crypto" },
     { "path": "packages/diagnostics" },
