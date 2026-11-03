@@ -150,7 +150,7 @@ test("an unauthorized attribution request cannot receive a cached 304", async ()
   expect(loadAttribution).not.toHaveBeenCalled();
 });
 
-test("attribution JSON over 1KB is compressed on the attribution route", async () => {
+test("attribution JSON over 1KB is left for the platform to encode", async () => {
   const segments = Array.from({ length: 40 }, (_, index) => ({
     authorityKind: "direct" as const,
     endCounter: index + 1,
@@ -182,10 +182,16 @@ test("attribution JSON over 1KB is compressed on the attribution route", async (
     headers: { "Accept-Encoding": "gzip" },
   });
 
+  // Encoding here would be encoded again by the Workers runtime (double gzip).
   expect(response.status).toBe(200);
-  expect(response.headers.get("Content-Encoding")).toBe("gzip");
+  expect(response.headers.get("Content-Encoding")).toBeNull();
   expect(response.headers.get("Content-Type")).toContain("application/json");
   expect(response.headers.get("Vary")).toBe("Accept-Encoding");
+  expect(await response.json()).toEqual({
+    attributionRevision: 5,
+    documentId: "document-1",
+    segments,
+  });
 });
 
 test("the detailed ranges route forwards its opaque cursor and limit", async () => {
