@@ -7,40 +7,21 @@ import {
 import type { SystemMonitorReportFlag } from "../report/systemMonitorReport";
 
 // Shared with SystemMonitorFeatureFlags so the support report names each flag
-// exactly as its toggle does.
+// exactly as its toggle does. Each label is the action its switch performs
+// (Show, Hide, Enable), used as both the row text and the switch's name.
 export const FEATURE_FLAG_DETAILS = {
-  "built-in-system-containers": {
-    label: "Built-in system containers",
-    switchLabel: "Show built-in system containers",
-  },
-  "document-edit-ranges": {
-    label: "Document edit ranges",
-    switchLabel: "Show document edit ranges",
-  },
+  "built-in-system-containers": { label: "Show built-in system containers" },
+  "document-edit-ranges": { label: "Show document edit ranges" },
   "explorer-header-sync-indicator": {
-    label: "Explorer header sync indicator",
-    switchLabel: "Show Explorer header sync indicator",
+    label: "Show Explorer header sync indicator",
   },
-  "hide-org-manager-system-grants": {
-    label: "Hide Org Manager system grants",
-    switchLabel: "Hide Org Manager system grants",
-  },
+  "hide-org-manager-system-grants": { label: "Hide Org Manager system grants" },
   "linked-document-activation-controls": {
-    label: "Linked document activation controls",
-    switchLabel: "Enable linked document activation controls",
+    label: "Enable linked document activation controls",
   },
-  "stripe-hosted-checkout": {
-    label: "Pay on Stripe link",
-    switchLabel: "Show Pay on Stripe link",
-  },
-  "workspace-switcher": {
-    label: "Workspace switcher",
-    switchLabel: "Show workspace switcher",
-  },
-} as const satisfies Record<
-  AppFeatureFlagId,
-  { label: string; switchLabel: string }
->;
+  "stripe-hosted-checkout": { label: "Show Pay on Stripe link" },
+  "workspace-switcher": { label: "Show workspace switcher" },
+} as const satisfies Record<AppFeatureFlagId, { label: string }>;
 
 const FEATURE_FLAG_ENABLED = "Enabled";
 const FEATURE_FLAG_DISABLED = "Disabled";
