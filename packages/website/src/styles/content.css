@@ -277,57 +277,12 @@
    390pt width. The captures already have those corners cut out; rounding the
    image too keeps the shape when a capture predates that. */
 
-.site-phone,
 .site-shot[data-phone] .site-shot-frame {
   --site-phone-pad: 3.25cqi;
   --site-phone-screen-radius: calc(
     (100cqi - 2 * var(--site-phone-pad)) *
     0.1214
   );
-}
-
-.site-phone {
-  display: block;
-  container-type: inline-size;
-  color: inherit;
-}
-
-.site-phone picture {
-  display: block;
-  padding: var(--site-phone-pad);
-  border-radius: calc(var(--site-phone-screen-radius) + var(--site-phone-pad));
-  background: var(--site-bezel);
-  box-shadow:
-    inset 0 0 0 1px var(--site-bezel-edge),
-    var(--site-shadow-lg);
-}
-
-.site-phone img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: var(--site-phone-screen-radius);
-}
-
-a.site-phone:focus-visible {
-  outline: none;
-}
-
-a.site-phone:focus-visible picture {
-  outline: 2px solid var(--site-focus);
-  outline-offset: 3px;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a.site-phone picture {
-    transition: transform 200ms ease;
-  }
-
-  @media (hover: hover) {
-    a.site-phone:hover picture {
-      transform: translateY(-4px);
-    }
-  }
 }
 
 /* Below 700px a figure serves the whole phone capture in the same frame. */

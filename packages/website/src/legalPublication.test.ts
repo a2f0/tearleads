@@ -10,10 +10,11 @@ const website = resolve(import.meta.dir, "..");
 beforeAll(() => {
   // Direct Astro builds skip prebuild; stage its required manifest even on CI
   // checkouts with no captured screenshots or generated public assets.
-  const preparation = Bun.spawnSync(
-    [process.execPath, "scripts/buildScreenshots.ts"],
-    { cwd: website, stdout: "pipe", stderr: "pipe" },
-  );
+  const preparation = Bun.spawnSync([process.execPath, "run", "screenshots"], {
+    cwd: website,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   expect(
     preparation.exitCode,
     `${preparation.stdout.toString()}\n${preparation.stderr.toString()}`,

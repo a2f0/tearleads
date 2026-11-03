@@ -18,7 +18,7 @@ beforeAll(() => {
   // manifest.
   for (const command of [
     [process.execPath, "run", "images"],
-    [process.execPath, "scripts/buildScreenshots.ts"],
+    [process.execPath, "run", "screenshots"],
   ]) {
     const preparation = Bun.spawnSync(command, {
       cwd: website,

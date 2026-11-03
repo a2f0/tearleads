@@ -136,9 +136,9 @@ the API, with its reason:
 - the Electrobun download bridge to its local Bun host, and that host's own
   request handlers;
 - sqlite-worker's `file:` wasm loads under Bun;
-- the website's same-origin screenshot manifest and installer metadata from
-  the downloads bucket.
+- the website's installer metadata from the downloads bucket.
 
-Third-party SDKs (Stripe.js, Sentry's browser transport) make their own
-requests inside their packages. Signed blob URLs point at object storage, but
+Third-party SDKs (Stripe.js, Sentry's browser transport) and the website's
+screenshot gallery from `@a2f0/agent-tool` make their own requests inside their
+packages. Signed blob URLs point at object storage, but
 the API client still makes those requests.

@@ -51,10 +51,6 @@ export const nonApiNetworkSourceFiles: ReadonlyMap<string, string> = new Map([
     `${packageSourcePath.sqliteWorker}/bunFetchLock.ts`,
     "routes SQLite wasm file: loads under Bun",
   ],
-  [
-    `${packageSourcePath.website}/components/ScreenshotsBrowser.tsx`,
-    "same-origin static screenshot manifest",
-  ],
   ...["desktop", "linux", "macos", "windows"].map(
     (platform): [string, string] => [
       `${packageSourcePath.website}/${platform}Downloads.ts`,

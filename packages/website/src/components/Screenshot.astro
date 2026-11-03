@@ -1,7 +1,11 @@
 ---
 import { publicDir } from "astro:config/server";
+import {
+  findScreenshot,
+  screenshotPath,
+} from "@a2f0/agent-tool/screenshots/manifest";
+import { SCREENSHOTS_BASE_PATH } from "../screenshotPages";
 import { loadScreenshotManifest } from "../screenshots";
-import { findScreenshot, screenshotPath } from "./screenshotsManifest";
 
 /**
  * A marketing figure: the windowed (desktop) capture of one screen in light and
@@ -102,7 +106,7 @@ const style = `--shot-crop: ${crop};`;
     </div>
     <figcaption>
       <span>{caption}</span>
-      <a class="site-link" href={screenshotPath("windowed", name)}>
+      <a class="site-link" href={screenshotPath(SCREENSHOTS_BASE_PATH, "windowed", name)}>
         View full size<span class="visually-hidden">: {caption}</span><span
           aria-hidden="true"> →</span>
       </a>

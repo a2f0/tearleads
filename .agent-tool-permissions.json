@@ -44,6 +44,7 @@
       "Bash(bun run agent-tool versions prepare *)",
       "Bash(bun run agent-tool versions resolve-conflicts *)",
       "Bash(bun run agent-tool images build *)",
+      "Bash(bun run agent-tool screenshots build *)",
       "Bash(bun run agent-tool review *)",
       "Bash(bun run agent-tool init *)",
       "Bash(bun run agent-tool proc stop *)",
@@ -106,6 +107,7 @@
       "Bash(node_modules/.bin/agent-tool versions prepare *)",
       "Bash(node_modules/.bin/agent-tool versions resolve-conflicts *)",
       "Bash(node_modules/.bin/agent-tool images build *)",
+      "Bash(node_modules/.bin/agent-tool screenshots build *)",
       "Bash(node_modules/.bin/agent-tool review *)",
       "Bash(node_modules/.bin/agent-tool init *)",
       "Bash(node_modules/.bin/agent-tool proc stop *)",
@@ -168,6 +170,7 @@
       "Bash(agent-tool versions prepare *)",
       "Bash(agent-tool versions resolve-conflicts *)",
       "Bash(agent-tool images build *)",
+      "Bash(agent-tool screenshots build *)",
       "Bash(agent-tool review *)",
       "Bash(agent-tool init *)",
       "Bash(agent-tool proc stop *)",
@@ -193,6 +196,6 @@
   },
   "codex": {
     "file": ".codex/rules/agent-tool.rules",
-    "sha256": "4721a3c9f5502bfa5cc795a92491fe7f8aec82120b264c7576579e5f9c6ee3f1"
+    "sha256": "979cdb9179e2392b9242af481f1ab6d3e1085deb0b06c4a0b30ca0dde7661683"
   }
 }

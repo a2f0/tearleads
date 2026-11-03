@@ -108,17 +108,23 @@ without a sitemap, a `noindex, nofollow` robots tag on every page, and
 `_headers`. Staging never uses `Disallow`, which would hide the noindex from
 crawlers.
 
-Each screenshot route names its own screen and layout in its h1 and title,
-and adds the captured themes in its description (`screenshotPageMeta` in
-`src/components/screenshotsManifest.ts`). The gallery keeps the h1 and title
-in step with the URL it rewrites as visitors move between screens. The build
-test fails when a page lacks exactly one h1 or when two pages share a heading,
-title, or description.
+The `/screenshots` gallery and the home page's phone carousel are
+`@a2f0/agent-tool`'s `<screenshot-gallery>` and `<screenshot-carousel>`
+elements, themed through the `--shots-*` properties in
+`src/styles/tokens.css`. The `screenshots` section of the root
+`agent-tool.json` names their layouts, screens, labels, and alt text. Each
+screenshot route names its own screen and layout in its h1 and title, and adds
+the captured themes in its description (`screenshotPageMeta` in
+`src/screenshotPages.ts`). The gallery keeps the h1 and title in step with the
+URL it rewrites as visitors move between screens. The build test fails when a
+page lacks exactly one h1 or when two pages share a heading, title, or
+description.
 
-The home page loads only its first phone capture eagerly, at high priority,
-because it is the hero's likely largest paint. Every other capture loads
-lazily, and each image declares its capture's width and height so late images
-never shift the layout.
+The home carousel shows every phone capture and loops in both directions. Its
+slides are also rendered into the page, so it reads without JavaScript. Only
+the first phone loads eagerly, at high priority, because it is the hero's
+likely largest paint. Every other capture loads lazily, and each image declares
+its capture's width and height so late images never shift the layout.
 
 Unknown paths answer 404 with `src/pages/404.astro`, through the Worker's
 `not_found_handling: "404-page"`. The host redirects `/pricing` to `/pricing/`,
@@ -168,8 +174,9 @@ The capture writes `.screenshots/<layout>/<theme>/<screen>.png`, with layouts
 `web`, `ipad`, and `mobile` and themes `light` and `dark`; it replaces files
 inside `.screenshots` and never removes the directory itself.
 `bun run build:website` (the same as `bun run --cwd packages/website build`)
-stages those files into its gallery and homepage figures, then writes the site
-to `packages/website/dist/`. It runs locally and does not publish anything;
+stages those files into its gallery and homepage figures with
+`agent-tool screenshots build website`, then writes the site to
+`packages/website/dist/`. It runs locally and does not publish anything;
 without captures it renders the empty gallery state. A shared capture records
 `.screenshots/capture.json`; staging prints that capture's commit and fails
 unless the capture is complete and was taken from a commit, or when a capture

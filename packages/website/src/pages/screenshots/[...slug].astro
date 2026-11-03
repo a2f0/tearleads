@@ -1,33 +1,48 @@
 ---
 import { publicDir } from "astro:config/server";
-import PageHeader from "../../components/PageHeader.astro";
-import { ScreenshotsBrowser } from "../../components/ScreenshotsBrowser";
-import StatusNotice from "../../components/StatusNotice.astro";
 import {
-  screenshotPageMeta,
+  findScreenshot,
   screenshotRoutes,
-} from "../../components/screenshotsManifest";
+} from "@a2f0/agent-tool/screenshots/manifest";
+import PageHeader from "../../components/PageHeader.astro";
+import StatusNotice from "../../components/StatusNotice.astro";
 import Layout from "../../layouts/Layout.astro";
+import {
+  SCREENSHOT_MANIFEST_URL,
+  SCREENSHOT_TITLE_TEMPLATE,
+  SCREENSHOTS_BASE_PATH,
+  screenshotPageMeta,
+} from "../../screenshotPages";
 import { loadScreenshotManifest } from "../../screenshots";
+import "@a2f0/agent-tool/screenshots/gallery.css";
+import "../../styles/screenshots.css";
 
 interface Props {
-  initialPlatform?: string;
-  initialScreen?: string;
+  project?: string;
+  screen?: string;
 }
 
-// One route per captured platform/screen pair, plus the /screenshots index.
+// One route per captured project/screen pair, plus the /screenshots index.
 // Light and dark captures share a route. With no captures only the index
-// route exists.
+// route exists. getStaticPaths runs before the rest of the frontmatter, so it
+// loads the manifest itself.
 export async function getStaticPaths() {
   return screenshotRoutes(await loadScreenshotManifest(publicDir));
 }
 
-const { initialPlatform, initialScreen } = Astro.props;
+const { project, screen } = Astro.props;
+const manifest = await loadScreenshotManifest(publicDir);
 const { heading, title, description } = screenshotPageMeta(
-  await loadScreenshotManifest(publicDir),
-  initialPlatform,
-  initialScreen,
+  manifest,
+  project,
+  screen,
 );
+// Without JavaScript a screen page still shows its own capture.
+const still =
+  project && screen
+    ? (findScreenshot(manifest, project, "light", screen) ??
+      findScreenshot(manifest, project, "dark", screen))
+    : undefined;
 ---
 
 <Layout title={title} description={description}>
@@ -38,9 +53,35 @@ const { heading, title, description } = screenshotPageMeta(
     >
       <StatusNotice />
     </PageHeader>
-    <ScreenshotsBrowser client:load initialScreen={initialScreen} initialPlatform={initialPlatform} />
-    <noscript>
-      <p class="site-note screenshots-noscript">The screenshot gallery needs JavaScript.</p>
-    </noscript>
+    <screenshot-gallery
+      class="screenshots-gallery"
+      manifest={SCREENSHOT_MANIFEST_URL}
+      base-path={SCREENSHOTS_BASE_PATH}
+      heading-id="page-title"
+      title-template={SCREENSHOT_TITLE_TEMPLATE}
+      label="Tearleads screenshots"
+      initial-project={project}
+      initial-screen={screen}
+    >
+      <noscript>
+        {still && (
+          <img
+            class="screenshots-still"
+            src={still.src}
+            alt={heading}
+            width={still.width}
+            height={still.height}
+            decoding="async"
+          />
+        )}
+        <p class="site-note screenshots-noscript">The screenshot gallery needs JavaScript.</p>
+      </noscript>
+    </screenshot-gallery>
   </div>
 </Layout>
+
+<script>
+  import { defineScreenshotElements } from "@a2f0/agent-tool/screenshots/gallery";
+
+  defineScreenshotElements();
+</script>

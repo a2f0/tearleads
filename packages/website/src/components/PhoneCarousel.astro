@@ -1,140 +1,99 @@
 ---
 import { publicDir } from "astro:config/server";
-import { loadScreenshotManifest } from "../screenshots";
-import "../styles/phoneCarousel.css";
 import {
-  type PhoneCarouselScreen,
-  phoneCarouselSlides,
-} from "./phoneCarouselSlides";
-import { screenshotPath } from "./screenshotsManifest";
+  findScreenshot,
+  projectScreens,
+  screenInfo,
+  screenshotPath,
+} from "@a2f0/agent-tool/screenshots/manifest";
+import {
+  SCREENSHOT_MANIFEST_URL,
+  SCREENSHOTS_BASE_PATH,
+} from "../screenshotPages";
+import { loadScreenshotManifest } from "../screenshots";
+import "@a2f0/agent-tool/screenshots/gallery.css";
+import "../styles/screenshots.css";
 
 /**
- * Home hero: phone captures in device frames, in a row that scrolls sideways
- * and snaps to each phone. The captures already have the display's rounded
- * corners cut out (packages/app-web/screenshots/deviceScreen.ts); the frame
- * adds the bezel. Screens without a light capture are skipped, and the row
- * renders nothing without at least two (phoneCarouselSlides.ts), so the hero
- * must read well without it. The step buttons are phoneCarouselSteps.ts.
- * Only the first phone, the hero's likely largest paint, loads eagerly and at
- * high priority; the rest load lazily. Each image declares its capture's size,
- * so a late image never shifts the layout.
+ * Home hero: every phone capture, in device frames, in agent-tool's looping
+ * <screenshot-carousel>. The slides rendered here are the static page (no
+ * JavaScript, crawlers, and the first paint) and use the element's own markup
+ * and classes, so upgrading it swaps them without moving the layout. Only the
+ * first phone, the hero's likely largest paint, loads eagerly and at high
+ * priority. Without a phone capture (CI and test builds stage an empty
+ * manifest) the row renders nothing, so the hero must read well without it.
  */
-const screens: readonly PhoneCarouselScreen[] = [
-  {
-    name: "explorer",
-    caption: "Explorer",
-    alt: "Explorer on a phone, listing folders, notes, and records such as a credit card, a birth certificate, and tools.",
-  },
-  {
-    name: "contacts",
-    caption: "Contacts",
-    alt: "Contacts on a phone: a list of people with their profile photos.",
-  },
-  {
-    name: "family-photo-1",
-    caption: "Photos",
-    alt: "A family photo, Sunday dinner at Mom's, opened on a phone with its file details.",
-  },
-  {
-    name: "blood-pressure-detail",
-    caption: "Health tracking",
-    alt: "A blood pressure tracker on a phone, charting systolic and diastolic readings and pulse over time.",
-  },
-  {
-    name: "drivers-license-detail",
-    caption: "Driver's license",
-    alt: "A driver's license record on a phone, with its license number, expiration date, and front image.",
-  },
-  {
-    name: "notes",
-    caption: "Notes",
-    alt: "Notes on a phone: a list of notes with the time each was modified.",
-  },
-  {
-    name: "tool-detail-1",
-    caption: "Belongings",
-    alt: "A drill's record on a phone, with its make, model, serial number, and equipment photos.",
-  },
-  {
-    name: "contact-detail",
-    caption: "Contact",
-    alt: "A contact on a phone, with a profile photo, nickname, and name fields.",
-  },
-  {
-    name: "passport-detail",
-    caption: "Passport",
-    alt: "A passport record on a phone, with the holder's name, passport number, issuing country, and passport image.",
-  },
-  {
-    name: "note-blame",
-    caption: "Authorship",
-    alt: "Document Info for a shared note on a phone, with each contributor's text highlighted in their color.",
-  },
-];
-
-const shown = phoneCarouselSlides(
-  await loadScreenshotManifest(publicDir),
-  screens,
-);
+const manifest = await loadScreenshotManifest(publicDir);
+const slides = projectScreens(manifest, "mobile").flatMap((name) => {
+  const light =
+    findScreenshot(manifest, "mobile", "light", name) ??
+    findScreenshot(manifest, "mobile", "dark", name);
+  if (!light) return [];
+  const dark = findScreenshot(manifest, "mobile", "dark", name);
+  const screen = screenInfo(manifest, name);
+  return [
+    {
+      name,
+      light,
+      dark: dark === light ? undefined : dark,
+      label: screen.label,
+      alt: screen.alt ?? `${screen.label}, phone screenshot`,
+    },
+  ];
+});
 ---
 
-{shown.length > 0 && (
-  <div class="phone-carousel" data-phone-carousel>
-    <div class="phone-carousel-track" role="region" aria-label="Tearleads on a phone" tabindex="0" data-track>
-      <ul class="phone-carousel-list" role="list">
-        {shown.map((slide, index) => (
-          <li class="phone-carousel-slide">
-            <figure>
-              <a class="site-phone" href={screenshotPath("mobile", slide.name)}>
-                <picture>
-                  {slide.dark && (
-                    <source
-                      media="(prefers-color-scheme: dark)"
-                      srcset={slide.dark.src}
-                      width={slide.dark.width}
-                      height={slide.dark.height}
-                    />
-                  )}
-                  <img
-                    src={slide.light.src}
-                    alt={slide.alt}
-                    width={slide.light.width}
-                    height={slide.light.height}
-                    loading={index === 0 ? "eager" : "lazy"}
-                    fetchpriority={index === 0 ? "high" : "auto"}
-                    decoding="async"
-                  />
-                </picture>
-              </a>
-              <figcaption>{slide.caption}</figcaption>
-            </figure>
-          </li>
-        ))}
-      </ul>
-    </div>
-    <div class="phone-carousel-controls">
-      <a class="site-link" href={screenshotPath("mobile", shown[0]?.name ?? "")}>
-        All screenshots<span aria-hidden="true"> →</span>
-      </a>
-      <div class="phone-carousel-steps" hidden data-steps>
-        <button type="button" class="phone-carousel-step" data-step="-1" aria-label="Previous screens">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 5l-7 7 7 7" /></svg>
-        </button>
-        <button type="button" class="phone-carousel-step" data-step="1" aria-label="Next screens">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7" /></svg>
-        </button>
+{slides.length > 0 && (
+  <div class="phone-carousel">
+    <screenshot-carousel
+      manifest={SCREENSHOT_MANIFEST_URL}
+      project="mobile"
+      link-base={SCREENSHOTS_BASE_PATH}
+      label="Tearleads on a phone"
+    >
+      <div class="shots-carousel" role="region" aria-label="Tearleads on a phone" data-frame="phone">
+        <div class="shots-carousel-track" tabindex="0">
+          <ul class="shots-carousel-list" role="list">
+            {slides.map((slide, index) => (
+              <li class="shots-carousel-slide">
+                <figure>
+                  <a class="shots-device" href={screenshotPath(SCREENSHOTS_BASE_PATH, "mobile", slide.name)}>
+                    <picture>
+                      {slide.dark && (
+                        <source
+                          media="(prefers-color-scheme: dark)"
+                          srcset={slide.dark.src}
+                          width={slide.dark.width}
+                          height={slide.dark.height}
+                        />
+                      )}
+                      <img
+                        src={slide.light.src}
+                        alt={slide.alt}
+                        width={slide.light.width}
+                        height={slide.light.height}
+                        loading={index === 0 ? "eager" : "lazy"}
+                        fetchpriority={index === 0 ? "high" : "auto"}
+                        decoding="async"
+                      />
+                    </picture>
+                  </a>
+                  <figcaption>{slide.label}</figcaption>
+                </figure>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
-    </div>
+    </screenshot-carousel>
+    <a class="site-link phone-carousel-all" href={screenshotPath(SCREENSHOTS_BASE_PATH, "mobile", slides[0]?.name ?? "")}>
+      All screenshots<span aria-hidden="true"> →</span>
+    </a>
   </div>
 )}
 
 <script>
-  import { initPhoneCarouselSteps } from "./phoneCarouselSteps";
+  import { defineScreenshotElements } from "@a2f0/agent-tool/screenshots/gallery";
 
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-  for (const carousel of document.querySelectorAll<HTMLElement>(
-    "[data-phone-carousel]",
-  )) {
-    initPhoneCarouselSteps(carousel, () => reducedMotion.matches);
-  }
+  defineScreenshotElements();
 </script>
