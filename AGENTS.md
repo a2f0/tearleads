@@ -88,7 +88,7 @@ per-run [verification reports](docs/developer/verification.md).
 A task reading anything outside its Turbo hash must declare it in its package
 `turbo.json`; see [Turbo task inputs](docs/developer/verification.md#turbo-task-inputs).
 
-### Prove a security test### Prove a security test fails without its fix
+### Prove a security test fails without its fix
 
 A test written alongside a verifier change can pass for the wrong reason — the
 input is rejected by an earlier guard, a fixture returns one shared value for
@@ -200,7 +200,7 @@ The [boundary vocabulary](docs/developer/architecture-vocabulary.md) separates
 lanes, layers, planes, facades, and subsystems, and reads the overloaded nouns
 `workflow`, `store`, and `runtime` by package.
 
-## Generated And Build Output## Generated And Build Output
+## Generated And Build Output
 
 Do not edit generated or build output directly:
 
@@ -240,7 +240,7 @@ Do not edit generated or build output directly:
   [skill placeholders](docs/developer/static-analysis.md#skill-placeholders).
   Enforced by `bun run lint:skill-placeholders` in `check:fast`.
 
-## Script And Documentation Layout## Script And Documentation Layout
+## Script And Documentation Layout
 
 Follow the [script index](scripts/README.md) when adding or moving tooling.
 Keep package-script names stable, and update callers, relative root resolution,
