@@ -291,15 +291,15 @@ The phrase derives identity key pairs only; product backup/restore UX and any
 session/container recovery metadata stay in host/app code.
 
 The `tearleads.userIdentities` gateway's `createLink` encodes keys; `verifyLink`
-checks before pinning with `link` provenance; `resolveVerified` reads only a
-`link` or `self` pin. There is no public user-ID lookup that trusts on first
+checks before pinning as `link`; `resolveVerified` and `createLinkFor` (a peer's
+link) read only a `link` or `self` pin. No public user-ID lookup trusts on first
 use: `organizations.addUserToGroup` and a store's `shareWithUser` throw
 `UnverifiedUserIdentityError` for a target no link verified
 ([trust scope](../../../../docs/developer/trusted-user-identity.md#identity-links)).
 Workflows accept opaque trusted bundles or gateway-resolved user IDs. Raw API
-identity and directory responses must not reach signature or encryption
-helpers. Lower-level integration tests may use `@tearleads/client-sdk/testing`
-to construct the nominal test values; production source must not import it.
+identity and directory responses must not reach signature or encryption helpers.
+Lower-level integration tests may use `@tearleads/client-sdk/testing` to
+construct the nominal test values; production source must not import it.
 
 Trust-boundary failures are terminal and feed the client-owned
 `tearleads.securityIncidents` ledger. Workflow runtimes receive only its

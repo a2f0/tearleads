@@ -75,6 +75,7 @@ export interface InternalRuntime {
   identityLinks: Pick<
     TrustedUserIdentityService,
     | "createLink"
+    | "createLinkFor"
     | "verifyLink"
     | "resolvePinned"
     | "resolveVerified"

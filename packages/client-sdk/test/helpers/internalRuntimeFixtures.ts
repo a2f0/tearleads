@@ -103,6 +103,7 @@ export function createInternalRuntimeFixture(
       createLink: async () => {
         throw new Error("Identity links are not configured in this fixture.");
       },
+      createLinkFor: async () => null,
       verifyLink: async () => {
         throw new Error("Identity links are not configured in this fixture.");
       },

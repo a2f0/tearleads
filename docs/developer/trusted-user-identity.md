@@ -119,6 +119,9 @@ format. The restore UI highlights unencrypted files and labels their action
 from the current user's local keys and registered user ID. It performs no
 remote identity lookup. Give the link to peers through an authenticated channel.
 It is reusable for anyone verifying this exact identity; it grants no access.
+`createLinkFor(userId, appUrl)` re-shares another user's link only from a
+`link` or `self` pin (`null` otherwise), so an `observed` key never becomes a
+link that a recipient would pin as `link`.
 
 `await tearleads.userIdentities.verifyLink(link)` fetches through the identity
 endpoint, validates both keys, checks the independently supplied bundle
