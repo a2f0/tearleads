@@ -52,6 +52,7 @@ function UserDetailTabContent({
   canRevokeGrants,
   detail,
   isRosterProfileEditing,
+  memberGroupId,
   mutating,
   onRosterProfileDisplayNameChange,
   openGrantRoute,
@@ -64,6 +65,7 @@ function UserDetailTabContent({
   canRevokeGrants: boolean;
   detail: OrganizationUserDetail;
   isRosterProfileEditing: boolean;
+  memberGroupId: string | null;
   mutating: boolean;
   onRosterProfileDisplayNameChange: (displayName: string | null) => void;
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
@@ -96,6 +98,7 @@ function UserDetailTabContent({
       {activeTab === "links" ? (
         <GrantSections
           canRevokeGrants={canRevokeGrants}
+          memberGroupId={memberGroupId}
           mutating={mutating}
           openGrantRoute={openGrantRoute}
           revokeGrant={revokeGrant}
@@ -203,6 +206,7 @@ export function UserDetailView({
   canEditRosterProfile,
   canRevokeGrants,
   detail,
+  memberGroupId,
   pending,
   onRosterProfileDisplayNameChange,
   organizationId,
@@ -217,6 +221,7 @@ export function UserDetailView({
   canEditRosterProfile: boolean;
   canRevokeGrants: boolean;
   detail: OrganizationUserDetail | null;
+  memberGroupId: string | null;
   pending: boolean;
   onRosterProfileDisplayNameChange: (displayName: string | null) => void;
   organizationId: string;
@@ -334,6 +339,7 @@ export function UserDetailView({
           canRevokeGrants={canRevokeGrants}
           detail={detail}
           isRosterProfileEditing={isRosterProfileEditing}
+          memberGroupId={memberGroupId}
           mutating={mutating}
           onRosterProfileDisplayNameChange={onRosterProfileDisplayNameChange}
           openGrantRoute={openGrantRoute}

@@ -7,6 +7,7 @@ export const APP_FEATURE_FLAG_IDS = [
   "built-in-system-containers",
   "document-edit-ranges",
   "explorer-header-sync-indicator",
+  "hide-org-manager-system-grants",
   "linked-document-activation-controls",
   "stripe-hosted-checkout",
   "workspace-switcher",

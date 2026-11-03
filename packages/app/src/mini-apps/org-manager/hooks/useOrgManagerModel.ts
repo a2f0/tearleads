@@ -502,6 +502,7 @@ export function useOrgManagerModel() {
     organizationPolicyHistoryPending,
     loading,
     loadingUserDetail,
+    memberGroupId: activeMemberGroupId,
     members: activeMembers,
     memberUserIds,
     mutating,

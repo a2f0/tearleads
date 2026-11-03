@@ -33,6 +33,7 @@ function grantsBySubjectType(
 export function GrantsView({
   canRevokeGrants,
   grants,
+  memberGroupId,
   pending,
   mutating,
   openGrantRoute,
@@ -43,6 +44,7 @@ export function GrantsView({
 }: {
   canRevokeGrants: boolean;
   grants: OrganizationContainerGrants | null;
+  memberGroupId: string | null;
   pending: boolean;
   mutating: boolean;
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
@@ -79,6 +81,7 @@ export function GrantsView({
     <div>
       <GrantSections
         canRevokeGrants={canRevokeGrants}
+        memberGroupId={memberGroupId}
         mutating={mutating}
         openGrantRoute={openGrantRoute}
         revokeGrant={revokeGrant}

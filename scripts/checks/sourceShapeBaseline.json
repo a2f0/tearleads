@@ -239,8 +239,8 @@
       "bytes": 17971
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
-      "lines": 542,
-      "bytes": 17526
+      "lines": 543,
+      "bytes": 17566
     },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 815,

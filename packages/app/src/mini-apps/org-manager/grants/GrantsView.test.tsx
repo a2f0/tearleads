@@ -31,6 +31,7 @@ test("org manager grant detail links group grants to their group", () => {
   const view = render(
     <GrantsView
       canRevokeGrants
+      memberGroupId={null}
       grants={{ grants: [grant], organizationId: "org-1" }}
       pending={false}
       mutating={false}
@@ -71,6 +72,7 @@ test("org manager grant detail shows signing keys for user grants", () => {
   const view = render(
     <GrantsView
       canRevokeGrants
+      memberGroupId={null}
       grants={{ grants: [userGrant], organizationId: "org-1" }}
       pending={false}
       mutating={false}
