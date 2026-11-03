@@ -71,14 +71,16 @@ export const MiniAppButton = forwardRef<HTMLButtonElement, MiniAppButtonProps>(
 
 const CLIPBOARD_COPIED_TITLE = "Copied to clipboard";
 const CLIPBOARD_COPIED_STATUS_TEXT = "Successfully copied to clipboard";
+const CLIPBOARD_COPY_FAILED_STATUS_TEXT = "Unable to copy to clipboard";
 const CLIPBOARD_COPIED_STATE_DURATION_MS = 1200;
 
 /**
  * Copies text and reports it the standard in-app way: the current window's
  * status bar shows "Successfully copied to clipboard" and `copied` stays true
- * briefly so the control can swap its glyph. Call `copy` inside the click
- * handler so the write stays within the user gesture; it does nothing where
- * the Clipboard API is absent (insecure contexts).
+ * briefly so the control can swap its glyph. A denied write, or a missing
+ * Clipboard API (insecure contexts), reports "Unable to copy to clipboard"
+ * the same way. Call `copy` inside the click handler so the write stays
+ * within the user gesture.
  */
 export function useClipboardCopy(): {
   copied: boolean;
@@ -117,14 +119,21 @@ export function useClipboardCopy(): {
     }, CLIPBOARD_COPIED_STATE_DURATION_MS);
   };
 
+  const reportFailure = () => {
+    if (mountedRef.current) {
+      currentWindow?.showStatusMessage(CLIPBOARD_COPY_FAILED_STATUS_TEXT);
+    }
+  };
+
   const copy = (value: string) => {
     if (!navigator.clipboard) {
+      reportFailure();
       return;
     }
     void navigator.clipboard
       .writeText(value)
       .then(markCopied)
-      .catch(() => undefined);
+      .catch(reportFailure);
   };
 
   return { copied, copy };

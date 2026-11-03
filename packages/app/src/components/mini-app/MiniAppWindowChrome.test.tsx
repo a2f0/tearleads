@@ -161,6 +161,23 @@ test("clipboard actions publish status bar feedback", async () => {
   });
 });
 
+test("a denied clipboard write publishes failure feedback", async () => {
+  installClipboard(() => Promise.reject(new Error("denied")));
+  const view = render(
+    <WindowStateProvider>
+      <WindowClipboardHarness />
+    </WindowStateProvider>,
+  );
+
+  fireEvent.click(await view.findByRole("button", { name: "Copy user ID" }));
+
+  await waitFor(() => {
+    expect(view.getByRole("status").textContent).toBe(
+      "Unable to copy to clipboard",
+    );
+  });
+});
+
 test("the image viewer stays in the right pane after restoring its window", async () => {
   const view = render(
     <WindowStateProvider>
