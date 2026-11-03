@@ -76,6 +76,16 @@ and reports are local evidence, not a replacement for CI. Avoid editing
 source or running concurrent builds/tests while a verification run is active:
 the SDK build replaces output that dependent tests consume.
 
+## Turbo task inputs
+
+CI shares Turbo's cache through the GitHub Actions cache, and a hit replays a
+pass without running the task. A hash covers the package's files, its
+`dependsOn` tasks, the lockfile, `globalDependencies`, and `CI_TOOLCHAIN`. A
+task reading anything else must say so in its package `turbo.json`: a
+`$TURBO_ROOT$` input for a repository file, or `<package>#sources` in
+`dependsOn` for another workspace's source. The nightly `Uncached tests`
+workflow catches a missed input.
+
 ## Multi-party scenarios
 
 [`packages/bob-and-alice`](../../packages/bob-and-alice/) checks
@@ -126,8 +136,29 @@ Other workspaces can add their own test prerequisites; check their README and
 
 For a checkout whose mise configuration cannot be trusted, the
 [protocol](../../formal/README.md) and OpenAPI checks accept the explicit
-pinned-tool paths documented in [AGENTS.md](../../AGENTS.md). This supplies
-tools without changing trust state.
+[pinned-tool paths](#pinned-tools). This supplies tools without changing trust
+state.
+
+### Pinned tools
+
+OpenAPI compatibility, protocol-model, and infrastructure checks use mise-pinned
+tooling. After cloning, run:
+
+```sh
+mise install java github:oasdiff/oasdiff github:tlaplus/tlaplus
+```
+
+When local mise configuration cannot be trusted, the check scripts accept
+`OASDIFF_BIN`, `JAVA_BIN`, and `TLA_TOOLS_ROOT` as explicit paths; point them
+at the versions pinned in `.mise.toml`. CI uses mise. The protocol-model check
+validates the pinned Java version and the TLA+ jar digest from
+[`scripts/checks/tlaToolsPin.sh`](../../scripts/checks/tlaToolsPin.sh) on every
+run, either way. The OpenAPI check validates the reported oasdiff version for
+`OASDIFF_BIN`; use only a trusted binary at that path. These direct checks do
+not depend on Turbo's task cache.
+
+Fetch `origin/main`, or set `OPENAPI_BASE_REF` to check OpenAPI against another
+base commit.
 
 ## Before a push
 

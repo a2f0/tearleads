@@ -81,21 +81,14 @@ any api test run, or treat the result as meaningless.
 
 Prefer `bun run check:package @tearleads/api` for a focused API test run; it
 handles that build prerequisite. It, `check`, and `check:affected` write
-per-run JSON reports under `git rev-parse --git-path verification`, with
-revision, working-tree fingerprints, step timings, and outcomes. A source or
-revision change during the run fails verification.
+per-run [verification reports](docs/developer/verification.md).
 
 ### Declare what a Turbo task reads
 
-CI shares Turbo's cache through the GitHub Actions cache, and a hit replays a
-pass without running the task. A hash covers the package's files, its
-`dependsOn` tasks, the lockfile, `globalDependencies`, and `CI_TOOLCHAIN`. A
-task reading anything else must say so in its package `turbo.json`: a
-`$TURBO_ROOT$` input for a repository file, or `<package>#sources` in
-`dependsOn` for another workspace's source. The nightly `Uncached tests`
-workflow catches a missed input.
+A task reading anything outside its Turbo hash must declare it in its package
+`turbo.json`; see [Turbo task inputs](docs/developer/verification.md#turbo-task-inputs).
 
-### Prove a security test fails without its fix
+### Prove a security test### Prove a security test fails without its fix
 
 A test written alongside a verifier change can pass for the wrong reason — the
 input is rejected by an earlier guard, a fixture returns one shared value for
@@ -113,23 +106,11 @@ The pre-push hook records every run's per-check timings in the Git directory.
 the run that pushed a commit), so a slow or failed push can be inspected
 without rerunning the gate.
 
-OpenAPI compatibility, protocol-model, and infrastructure checks use mise-pinned
-tooling. After cloning, run:
-
-```sh
-mise install java github:oasdiff/oasdiff github:tlaplus/tlaplus
-```
-
-When local mise configuration cannot be trusted, the check scripts accept
-`OASDIFF_BIN`, `JAVA_BIN`, and `TLA_TOOLS_ROOT` as explicit paths; point them
-at the versions pinned in `.mise.toml`. CI uses mise. The protocol-model check
-validates the pinned Java version and the TLA+ jar digest from
-`scripts/checks/tlaToolsPin.sh` on every run, either way. The OpenAPI check
-validates the reported oasdiff version for `OASDIFF_BIN`; use only a trusted
-binary at that path. These direct checks do not depend on Turbo's task cache.
-
-Fetch `origin/main`, or set `OPENAPI_BASE_REF` to check OpenAPI against another
-base commit.
+OpenAPI compatibility, protocol-model, and infrastructure checks use the
+mise-pinned tools; without trusted mise configuration, point `OASDIFF_BIN`,
+`JAVA_BIN`, and `TLA_TOOLS_ROOT` at the `.mise.toml` versions. Fetch
+`origin/main` or set `OPENAPI_BASE_REF`. See
+[pinned tools](docs/developer/verification.md#pinned-tools).
 
 After `bun install`, run `bun run --cwd packages/app-electrobun prepare:devkit`
 before standalone TypeScript, Knip, or editor checks: Electrobun 2 generates the
@@ -210,43 +191,16 @@ A **subsystem** is a stable proper noun for a slice of the system a developer
 reasons about as one unit (e.g. `Containers`, `Realtime Sync`, `Access Plane &
 Keying`). Use it in PRs and review to say where a feature lives and who owns it.
 
-A subsystem indexes existing paths and may span layers (`Containers` covers its
-routes, service facade, and workflows). Import direction stays enforced by the
-lanes/layers/planes in `dependency-cruiser.config.ts`. A subsystem declaring a
-`surface` (client SDK rows) is a boundary: other subsystems import only those
-files. The registry is `scripts/architecture/subsystems.ts` plus
-`docs/subsystems.md`; `bun run lint:architecture` fails if a file maps to zero or
-several subsystems, manifest and docs drift, or an import skips a surface.
-Registered: `packages/api`, `packages/client-sdk`, and `packages/app`.
+Subsystems index existing paths and may span layers; one declaring a `surface`
+is a boundary. The registry is `scripts/architecture/subsystems.ts` plus
+[docs/subsystems.md](docs/subsystems.md), which `bun run lint:architecture`
+keeps in sync with every source file and import.
 
-### Boundary vocabulary axes
+The [boundary vocabulary](docs/developer/architecture-vocabulary.md) separates
+lanes, layers, planes, facades, and subsystems, and reads the overloaded nouns
+`workflow`, `store`, and `runtime` by package.
 
-Do not conflate these distinct axes:
-
-- **Lane** — a package (`packages/<name>/src`); the coarsest ownership boundary.
-- **Layer** — an intra-package directional tier (api `routes -> services ->
-  workflows -> access`; app/SDK `data -> workflows -> stores -> presentation`).
-- **Plane** — the api access read/write/shared split; a domain model, not a tree
-  layout (see `docs/api-architecture.md`).
-- **Facade** — a package's stable public seam (api `services/`, SDK
-  `workflows/`, the `read/*.ts` + `write/*.ts` files).
-- **Subsystem** — a vertical (or platform) slice's proper noun, layered
-  descriptively over the above.
-
-### Overloaded nouns (same word, different layer per package)
-
-Read these layer nouns by their package:
-
-- **workflow** — api: the _low_ transaction-orchestration layer **below**
-  services. client-sdk: the _top_ public domain-operations facade. Opposite ends
-  of the two stacks; the name is kept on both.
-- **store** — app: a React/UI state container. client-sdk: a headless,
-  React-free state machine. api `access`: a low-level persistence sink.
-- **runtime** — api `ApiServiceRuntime`: an infrastructure-injection dependency
-  object. client-sdk: live client state + the workflow context value. app
-  `AppRuntimeProvider`: the React provider aggregate.
-
-## Generated And Build Output
+## Generated And Build Output## Generated And Build Output
 
 Do not edit generated or build output directly:
 
@@ -282,15 +236,11 @@ Do not edit generated or build output directly:
 - When changing production dependencies, run both `bun run lint:knip:all` and
   `bun run lint:knip:production`.
 - Skill documents (the Markdown under `.claude/skills` and `.agents/skills`)
-  must not contain `$0` through `$9` or `$ARGUMENTS`, braced or not. Claude
-  Code substitutes skill arguments into those tokens, so a snippet such as
-  `awk '{ print $1 }'` reaches the agent corrupted whenever the skill is
-  invoked with arguments, while the file on disk still looks correct. Use
-  `cut`, `sed`, or named variables instead; these skills read their arguments
-  from the appended argument block. Enforced by `bun run lint:skill-placeholders`
-  in `check:fast`.
+  must not contain `$0` through `$9` or `$ARGUMENTS`, braced or not; see
+  [skill placeholders](docs/developer/static-analysis.md#skill-placeholders).
+  Enforced by `bun run lint:skill-placeholders` in `check:fast`.
 
-## Script And Documentation Layout
+## Script And Documentation Layout## Script And Documentation Layout
 
 Follow the [script index](scripts/README.md) when adding or moving tooling.
 Keep package-script names stable, and update callers, relative root resolution,
