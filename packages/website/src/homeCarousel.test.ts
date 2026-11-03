@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { releaseNotice } from "./config";
 import { pngHeader, stageScreenshots } from "./stageScreenshots.testUtils";
 
@@ -12,6 +13,7 @@ let root = "";
 let home = "";
 let gallery = "";
 let screen = "";
+let output = "";
 
 async function run(command: string[], env: NodeJS.ProcessEnv): Promise<void> {
   const child = Bun.spawn(command, {
@@ -41,7 +43,7 @@ beforeAll(async () => {
   });
   root = staged.root;
   expect(staged.code, staged.log).toBe(0);
-  const output = join(root, "dist");
+  output = join(root, "dist");
   await run(
     [resolve(website, "node_modules/.bin/astro"), "build", "--outDir", output],
     {
@@ -110,6 +112,30 @@ test("the gallery page renders agent-tool's gallery with Tearleads titles", () =
   expect(screen).toContain(
     "<title>Notes, phone screenshot | Tearleads</title>",
   );
+});
+
+// The module scripts a page loads, other than the shared layout's.
+function pageScripts(page: string): string[] {
+  return [...page.matchAll(/<script type="module" src="(\/_astro\/[^"]+)"/g)]
+    .map((match) => match[1] ?? "")
+    .filter((src) => !src.startsWith("/_astro/Layout."));
+}
+
+test("each page's own script registers the shared elements", async () => {
+  for (const [page, tag] of [
+    [home, "screenshot-carousel"],
+    [gallery, "screenshot-gallery"],
+  ] as const) {
+    const scripts = pageScripts(page);
+    expect(scripts.length, tag).toBeGreaterThan(0);
+    GlobalRegistrator.register({ url: "https://tearleads.test/" });
+    try {
+      for (const src of scripts) await import(join(output, src));
+      expect(customElements.get(tag), tag).toBeDefined();
+    } finally {
+      await GlobalRegistrator.unregister();
+    }
+  }
 });
 
 test("a screen page's heading names its screen; the index keeps its own", () => {
