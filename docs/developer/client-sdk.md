@@ -33,35 +33,39 @@ For local editing versus custom remote creation workflows, see
 ## Host Contract
 
 `deviceFirst.open()` returns one shared handle. Reconciliation takes scoped
-hints, and `enqueueIdleBackfill()` performs catch-up. Container creation
-commits the container and its metadata document in one compound API request.
-Create, link/unlink, projection, and sync adapters provide structured `Result`
-methods that report complete transport failures. Container persistence saves
-pending mutations atomically: an accepted create or move saves its state and
-settles its exact intent revision in one transaction, and an acknowledgment
-without that settlement is refused. Error recording also checks the intent
-revision; settlement is never unconditional.
+hints, and `enqueueIdleBackfill()` performs catch-up.
+[Container](../glossary.md#container) creation commits the container and its
+metadata document in one compound API request. Create, link/unlink, projection,
+and sync adapters provide structured `Result` methods that report complete
+transport failures. Container persistence saves pending mutations atomically: an
+accepted create or move saves its state and settles its exact intent revision in
+one transaction, and an acknowledgment without that settlement is refused. Error
+recording also checks the intent revision; settlement is never unconditional.
 
 Startup creates missing tables and indexes but never alters existing ones, so a
 local database whose tables do not match the current schema must be reset.
 
-Verified writer projections leave their access-manifest bundles and container
-KEK levels in the local `verified_access_manifest_bundles` table (at most 1,024
-rows, oldest evicted first, cleared with an organization's remote reset). Later
-reads cite up to 48 from the read object's organization so the API omits those
-bytes; the SDK refills and re-verifies them. The table is a byte cache, not a
-checkpoint: losing it only makes reads larger. See
+Verified [writer projections](../glossary.md#writer-projection) leave their
+[access-manifest](../glossary.md#access-manifest) bundles and
+[container KEK](../glossary.md#container-kek) levels in the local
+`verified_access_manifest_bundles` table (at most 1,024 rows, oldest evicted
+first, cleared with an organization's remote reset). Later reads cite up to 48
+from the read object's organization so the API omits those bytes; the SDK
+refills and re-verifies them. The table is a byte cache, not a checkpoint:
+losing it only makes reads larger. See
 [incremental evidence](../projection-policy-evidence.md#cost-and-retained-history-tradeoff).
 
-Principal-policy warming verifies and persists its cache. Group policy writes
-pin an organization owner atomically with current, history, and checkpoint
-rows, and the public policy-cache and bundle-save types require that owner.
-Persisted group evidence without an owner refuses scoped purge and requires a
-full local reset. The wire contract requires explicit commit-LSN mode,
-inline-rekey commit markers for nonempty batches, and the original
-document/blob write-authorization evidence. See the
-[workflow contract](../../packages/client-sdk/src/workflows/README.md) for
-custom adapter details.
+[Principal-policy](../glossary.md#principal-policy-state) warming verifies and
+persists its cache. Group policy writes pin an organization owner atomically
+with current, history, and checkpoint rows, and the public policy-cache and
+bundle-save types require that owner. Persisted group evidence without an owner
+refuses scoped purge and requires a full local reset. The
+[wire contract](../protocol-specification.md) requires explicit
+[commit-LSN](../glossary.md#commit-lsn) mode, inline-rekey commit markers for
+nonempty batches, and the original document/blob
+[write-authorization evidence](../keying-design.md#content-write-authorization).
+See the [workflow contract](../../packages/client-sdk/src/workflows/README.md)
+for custom adapter details.
 
 ## Advanced Configuration
 
@@ -94,7 +98,8 @@ Client capabilities:
 
 Prefer instance services so document and container stores share the active
 database, identity, sync, and subscription scope. Product code should use the
-namespaces above; import internals only for SDK development or
+namespaces above; import internals only for
+[SDK development](./client-sdk-seams.md) or
 [custom persistence](./custom-document-persistence.md).
 
 `tearleads.network` defaults to automatic mode: browser events and API request
@@ -103,17 +108,20 @@ results set `online`. Hosts can force diagnostics with `setMode("offline")` or
 
 ### Organizations and groups
 
-Organization and custom group names are encrypted. Every organization requires
-an independent metadata root with Admins/admin and Members/read grants, isolated
-from personal-root shares and rotations. The SDK verifies signed directories and
-decrypts group names for all members. Built-in labels follow signed roles;
-operator organization listings expose IDs, never names. Organization profile
-documents are optional.
+[Organization](../glossary.md#organization) and custom group names are
+encrypted. Every organization requires an independent metadata root with
+[Admins](../glossary.md#organization-admins-group)/admin and
+[Members](../glossary.md#organization-members-group)/read
+[grants](../glossary.md#grant), isolated from personal-root shares and
+rotations. The SDK verifies signed directories and decrypts group names for all
+members. Built-in labels follow signed roles; operator organization listings
+expose IDs, never names. Organization profile documents are optional.
 
 Group membership add/remove inputs require `expectedGroupName`, captured from
 the label the user selected. The SDK verifies the signed policy name before
 recipient resolution or key use. A mismatch raises
-`GroupMembershipNameMismatchError` and is reported as a security incident.
+`GroupMembershipNameMismatchError` and is reported as a
+[security incident](../security-guarantees.md#local-security-incident-detection).
 
 Low-level group creation requires `metadataAccess`. The initial policy builder
 requires `metadataKey` for a custom group or `builtinRole` for a reserved group.
@@ -136,34 +144,35 @@ event with a null actor came from the API CLI.
 
 ### Documents and attachments
 
-Document stores initialize automatically before mutating operations such as
-`setText(...)`, `setStructuredFields(...)`, `attachFiles(...)`,
-`replaceAttachment(...)`, and `relink(...)`. Use `ensureInitialized()` only for
-an explicit readiness probe before reading a ready snapshot. Use
-`tearleads.runtime.input(containerId)` for host runtime input; SDK facades retain
-API access and incident reporting. Orphan-recovery queries accept a null
-container plus the active organization; use the indexed
+[Document](../glossary.md#document) stores initialize automatically before
+mutating operations such as `setText(...)`, `setStructuredFields(...)`,
+`attachFiles(...)`, `replaceAttachment(...)`, and `relink(...)`. Use
+`ensureInitialized()` only for an explicit readiness probe before reading a
+ready snapshot. Use `tearleads.runtime.input(containerId)` for host runtime
+input; SDK facades retain API access and incident reporting. Orphan-recovery
+queries accept a null container plus the active organization; use the indexed
 `hasOrphanedDocuments(...)` probe.
 
 Attachment methods persist required `contentSha256` digests in encrypted
-document content and pending-upload rows. Recovery restores slots without
-reading bytes. Hydration replaces a held copy only with bytes matching the
-document intent; a valid served binding the document has not recorded fills
-only an empty slot. Removal queues local bytes for reference-aware reclamation,
-including copies shared by pending uploads after reset. Custom
-`DocumentsPersistence` adapters provide the required `orphanBlobs` queue and
-reference methods described in
+document content and pending-upload rows. Recovery restores
+[slots](../glossary.md#attachment-slot) without reading bytes. Hydration
+replaces a held copy only with bytes matching the document intent; a valid
+served [binding](../glossary.md#attachment-binding) the document has not
+recorded fills only an empty slot. Removal queues local bytes for
+reference-aware reclamation, including copies shared by pending uploads after
+reset. Custom `DocumentsPersistence` adapters provide the required `orphanBlobs`
+queue and reference methods described in
 [custom persistence](./custom-document-persistence.md).
 
 A host that attaches a file right after creating its document can open it with
 `documentLinks().openDocument({ ..., deferInitialUpdate: true })`. The birth
 commits without its own pending update and scheduled sync waits, so the first
-`attachFiles` delta carries it and the import costs one Loro update; if that
-attach does not land, the store enqueues the birth on its own. A caller that
-gives up before attaching must call `attachFiles([])` to release the wait. The
-`createDocumentStore`, `getOrCreateDocumentStore`, and `openDocumentStore`
-factories take the option, with `remoteSyncMode`, in a trailing
-`DocumentStoreOpenOptions` object.
+`attachFiles` delta carries it and the import costs one
+[Loro update](../glossary.md#loro-update); if that attach does not land, the
+store enqueues the birth on its own. A caller that gives up before attaching
+must call `attachFiles([])` to release the wait. The `createDocumentStore`,
+`getOrCreateDocumentStore`, and `openDocumentStore` factories take the option,
+with `remoteSyncMode`, in a trailing `DocumentStoreOpenOptions` object.
 
 `initialStructuredFields` and `initialRows`, on the same options and on the
 `tearleads.documents.open(...)` and `documentLinks().openDocument(...)` inputs,
@@ -188,23 +197,24 @@ chains; sync derives successor targets and coded retries. Preserve
 epochs throw `DocumentRawHistoryUnavailableError`.
 
 Custom sync lanes may provide `SyncLaneConfig.priority()`: lower finite numbers
-start first within a phase, with fair rotation among ties. Missing, throwing,
-or nonfinite priority values use zero. Structural work remains a phase barrier;
-priority never interrupts a running callback.
+start first within a [phase](../client-sync-ordering.md), with fair rotation
+among ties. Missing, throwing, or nonfinite priority values use zero. Structural
+work remains a phase barrier; priority never interrupts a running callback.
 
 Custom container mutation APIs must implement `ContainerReciteApi` (including
 `reciteContainer`); the built-in API client supplies it. Container mutations
-and atomic group-policy rematerializations schedule non-blocking re-cites for
+and atomic group-policy rematerializations schedule non-blocking
+[re-cites](../security-guarantees.md#held-descendant-re-citation) for
 already-held verified descendants, retaining up to 256 heads and sending at
 most eight re-cites per pass, spaced 250 ms apart. No subtree fetch or retry
 occurs, and keys and grants stay unchanged. It is not a descendant-rekey or
 freshness guarantee. These mutation facades require `reportSecurityIncident`;
 the built-in runtime wires its durable incident service. Re-citation stops at
-container epoch 512 to reserve the remaining verifier history budget for
-ordinary mutations. Organization grant revocation requires a live
-`stillCurrent` guard. The client facade binds it, and group rematerialization
-cascades, to the captured session, organization, signing identity, and database
-lifetime.
+[container epoch 512](../limits.md#container-keying) to reserve the remaining
+verifier history budget for ordinary mutations. Organization grant revocation
+requires a live `stillCurrent` guard. The client facade binds it, and group
+rematerialization cascades, to the captured session, organization, signing
+identity, and database lifetime.
 
 Container listing cursors mirror the API's feeds: one `root` cursor lists all
 accessible organizations; `parent:<containerId>` and document lanes use the
@@ -290,7 +300,8 @@ converge through durable sync lanes without blocking on the network. The view's
 reconciler owns remote discovery and prioritizes the active container.
 Permanently destroy with
 `tearleads.containerContents.documentLinks().purgeDocument({ note })`; remote
-purge requires one link and verifies its signed proof. A container store's
+purge requires one link and verifies its
+[signed proof](../document-purge-verification.md). A container store's
 `purgeContainer` and `emptyTrash` first wait for moves queued inside their
 scope, reporting the wait through `PurgeOptions.onMoveSettlement`
 (`PurgeMoveSettlement`). See [device-first.md](./device-first.md).
@@ -362,7 +373,9 @@ blob storage selection, see [SDK initialization](sdk-initialization.md).
 
 ## Local Keyring
 
-The SDK exports local keyring helpers for host-controlled at-rest secrets:
+The SDK exports [local keyring](../glossary.md#local-keyring) helpers for
+host-controlled
+[at-rest secrets](../security-guarantees.md#local-at-rest-key-wrapping):
 
 ```ts
 import {
@@ -411,7 +424,8 @@ locking.
 `WrappingKeyKeystore` is the platform boundary. Browser, Electron, iOS, and
 Android hosts should implement it with their keychain or secure storage
 primitive. The SDK stores only a manifest containing a wrapped account-root
-secret; HKDF over the unwrapped account root derives:
+secret; [HKDF](../cipher-suites.md#key-derivation) over the unwrapped account
+root derives:
 
 - `session.sqliteKey` for SQLCipher/SQLite initialization
 - `session.blobStoreKey` for encrypted local blob storage
@@ -463,13 +477,14 @@ if (registration && !("status" in registration)) {
 }
 ```
 
-Registration validates local public keys before contacting the API, then pins
-only the confirmed user. `SessionRegistrationRefusal` identifies an
-`identity-already-bound` result with the previously bound `userId`; no registration
-request is sent. Try login first. If the environment was intentionally reset,
-clear local app data before registering again. A `null` result still covers an
-unavailable prerequisite or unconfirmed response. Restore missing prerequisites
-before retrying; login requires the signing key.
+Registration validates local public keys before contacting the API, then
+[pins](../glossary.md#identity-pin) only the confirmed user.
+`SessionRegistrationRefusal` identifies an `identity-already-bound` result with
+the previously bound `userId`; no registration request is sent. Try login first.
+If the environment was intentionally reset, clear local app data before
+registering again. A `null` result still covers an unavailable prerequisite or
+unconfirmed response. Restore missing prerequisites before retrying; login
+requires the signing key.
 
 A platform operator can suspend an account. Its login, including the automatic
 renewal of an expired session, then rejects with an error named
@@ -514,26 +529,29 @@ document-link input, while the lower-level container query link input is
 
 Container KEK-history recovery is public workflow surface: `rekeyRemoteContainer`
 performs an explicit rotation (and, with `keyringEntriesOverride`, the repair
-that replaces a poisoned keyring snapshot), `rebuildKeyringEntriesFromLog`
-reconstructs history from the `GET /containers/:id/kek-log` bridge log, and
+that replaces a poisoned
+[keyring snapshot](../glossary.md#container-kek-keyring)),
+`rebuildKeyringEntriesFromLog` reconstructs history from the
+`GET /containers/:id/kek-log`
+[bridge log](../glossary.md#container-kek-predecessor-bridge), and
 `recoverKeyringEntryFromWraps` recovers a bridge-severed epoch from the caller's
 retained recipient envelope. An override must name exactly the epoch ids of the
 container's verified signed lineage: a foreign id is refused as
 `object_mismatch`. An omitted one throws `ContainerKeyringOverrideStaleError`,
-not a verification error, since that is how a rebuild that predates a
-concurrent rotation fails: rebuild and retry.
+not a verification error, since that is how a rebuild that predates a concurrent
+rotation fails: rebuild and retry.
 
 Document sync automatically plans ancestor KEK repairs before a queued write.
 It repairs parent-first, shares repaired ancestors across linked paths, and
-commits the signed rekeys with the content update. Planning does not advance
-checkpoints before acknowledgement; read-only sync does not rotate keys.
-Child-only writers use authenticated parent public keys. Up to 16 repairs fit
-inline; larger sets first commit bounded prefixes through `rekeyContainer`,
-validate each acknowledgement, and refetch before planning the next batch.
-Interrupted prefixes remain recoverable from the server's retained keys.
-Custom sync adapters must supply `rekeyContainer` as well as document methods.
-Stale ancestors remain forbidden for new ciphertext, including when a valid
-recovery projection is available.
+commits the signed [rekeys](../glossary.md#rekey) with the content update.
+Planning does not advance checkpoints before acknowledgement; read-only sync
+does not rotate keys. Child-only writers use authenticated parent public keys.
+Up to 16 repairs fit inline; larger sets first commit bounded prefixes through
+`rekeyContainer`, validate each acknowledgement, and refetch before planning the
+next batch. Interrupted prefixes remain recoverable from the server's retained
+keys. Custom sync adapters must supply `rekeyContainer` as well as document
+methods. Stale ancestors remain forbidden for new ciphertext, including when a
+valid recovery projection is available.
 
 A writer whose only grant sits below a stale intermediate cannot re-key it, and
 is never given its key: a stale container's KEK may be held by a revoked
@@ -563,16 +581,17 @@ is held to the same pins. Adapters opt in with `shareContainerResult`; without
 it a stale share fails as any other refusal does. A group policy batch whose
 served heads the re-citation pins past is likewise planned once more.
 
-Principal-policy writes acknowledge the exact submitted state and current
-artifacts without retransmitting `previousStates`. The SDK verifies that receipt
-against its authored request. Group revocation returns
-`OrganizationGroupMutationReceipt`; `addUserToGroup` and `removeUserFromGroup`
-return `OrganizationGroupMutationResult`, that receipt plus the read model the
-SDK reconciled after the commit, so a caller applies it instead of reading the
-read model again. Each atomically retains current artifacts and authenticated
-progress. Built-in workflows require private paged recovery;
-standalone full-bundle utilities keep their explicit complete-history contracts.
-See [current mutations](principal-current-mutations.md). Missing or
+Principal-policy writes
+[acknowledge](../principal-history-transport.md#mutation-acknowledgements) the
+exact submitted state and current artifacts without retransmitting
+`previousStates`. The SDK verifies that receipt against its authored request.
+Group revocation returns `OrganizationGroupMutationReceipt`; `addUserToGroup`
+and `removeUserFromGroup` return `OrganizationGroupMutationResult`, that receipt
+plus the read model the SDK reconciled after the commit, so a caller applies it
+instead of reading the read model again. Each atomically retains current
+artifacts and authenticated progress. Built-in workflows require private paged
+recovery; standalone full-bundle utilities keep their explicit complete-history
+contracts. See [current mutations](principal-current-mutations.md). Missing or
 substituted receipts cannot advance the local checkpoint.
 The runtime journals compound policies, standalone organization policies, group
 creation and group deletion before HTTP. Pending work shares one organization
@@ -645,10 +664,10 @@ tree past the cap in [limits.md](../limits.md#limits-that-trade-write-liveness),
 or a race), its pass refetches once, then abandons with the
 `inaccessible` trace reason and reports `document_ancestor_repair_inaccessible`
 to `onTerminalSubmitFailure` instead of failing the sync lane; built-in stores
-keep its message, not the code, on the write-queue row. Its writes stay
-queued, and built-in stores re-run the pass on the next
-`container_path_changed` hint. Hosts
-that author container-scoped writes directly can call
+keep its message, not the code, on the
+[write-queue row](../sync-edge-cases.md#queue-statuses). Its writes stay queued,
+and built-in stores re-run the pass on the next `container_path_changed` hint.
+Hosts that author container-scoped writes directly can call
 `classifyContainerWriteRefusal` on a thrown error: `repair-required` is
 retryable, `repair-inaccessible` waits on another member and names the
 container, and `unauthorized` is a `ContainerAuthorAccessError`.
@@ -786,7 +805,8 @@ and a lifetime predicate. Attach it through the policy warmer's
 `resolveProjectionHistory` capability and return the same lifetime predicate
 with the selections. Projection verification rechecks that lifetime and the
 latest local pins at final admission. Recovery never advances current-policy
-checkpoints or creates current key material. Terminal purge verification uses
+checkpoints or creates current key material. Terminal
+[purge verification](../document-purge-verification.md) uses
 `historicalProof: true` to defer currency enforcement until all signed artifacts
 have authenticated; this option alone is not permission to admit a selection.
 Only the complete purge commit admits its public observations together with
@@ -847,8 +867,9 @@ instrumentation. No request URLs, queries, bodies, or tokens are retained.
 
 Rows also time attempts until headers, failure, or cancellation: `duration` has
 p50/p95 over the latest 256 plus count, total, and max since reset.
-`serverDuration` and `databaseDuration` summarize the API's `Server-Timing`
-`total` and `db` (I/O wait on Workers), null until a response reports them.
+`serverDuration` and `databaseDuration` summarize the API's
+[`Server-Timing`](./api-request-cost.md) `total` and `db` (I/O wait on Workers),
+null until a response reports them.
 
 Hosts can pass an `ApiRequestMetrics` instance as `apiRequestMetrics` to keep
 counts across SDK disposal/recreation; the app keeps one per API/identity

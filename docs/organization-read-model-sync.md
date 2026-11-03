@@ -1,14 +1,19 @@
 # Organization Read-Model Sync
 
-Organization administration is server-authoritative but local-first for
-presentation. The client keeps normalized SQLite projections and reconciles them
-from one organization-scoped, cursor-ordered feed.
+[Organization](./glossary.md#organization) administration is
+server-authoritative but local-first for presentation. The client keeps
+normalized SQLite [projections](./glossary.md#projection-row) and reconciles
+them from one organization-scoped, cursor-ordered feed.
 
 ## Authority boundary
 
 The read model contains display and navigation data. It is not an authorization
-or cryptographic input. Signed principal policies, verified access manifests,
-wrapped key envelopes, and anti-rollback checkpoints remain authoritative.
+or cryptographic input. Signed
+[principal policies](./glossary.md#principal-policy-state), verified
+[access manifests](./glossary.md#access-manifest), wrapped key
+[envelopes](./glossary.md#member-envelope), and
+[anti-rollback checkpoints](./security-guarantees.md#rollback-and-split-view)
+remain authoritative.
 
 The signed organization-policy payload carries a version-2 authority descriptor
 binding the organization to its immutable reserved `Admins` and `Members`
@@ -38,10 +43,10 @@ recreated, while the directory remains an exact set of active group heads.
 
 Supported group mutations submit the group successor and matching organization
 successor to one atomic API operation. Group creation likewise commits the row,
-initial group policy, and signed-directory successor in one transaction.
-Sharing and key-rotation probes consume the signed directory, not the read-model
-group lane, and reject a current group response whose head differs from the
-committed entry.
+initial group policy, and signed-directory successor in one transaction. Sharing
+and key-[rotation](./glossary.md#rotate) probes consume the signed directory,
+not the read-model group lane, and reject a current group response whose head
+differs from the committed entry.
 
 Every signed principal-state header carries a required `externalAuthority`
 field, which verification checks on every state. Directly authorized states use
@@ -51,16 +56,16 @@ exact signed Admins history without in-chain rollback. The API requires current
 Admins authority at commit; delayed histories remain verifiable after Admins
 advances, including on checkpointed devices.
 
-Explorer writes must obtain the exact verified policy and access state needed
-to unwrap keys and encrypt content. They must never infer authority from a
-cached roster, membership, grant, or administrator row. Verified policy data
-may enrich the UI projection; the UI projection never feeds keying decisions.
-Locally, each projected roster binds to a principal-state hash: member rows
-carry the hash of their group's membership head, which a visible group row
-records next to its policy head and the organization state row records for the
-reserved `Members` group, beside the organization policy head. That binding is
-a projection-integrity check, not a substitute for verifying the signed
-principal policy.
+Explorer writes must obtain the exact verified policy and access state needed to
+unwrap keys and encrypt content. They must never infer authority from a cached
+roster, membership, [grant](./glossary.md#grant), or administrator row. Verified
+policy data may enrich the UI projection; the UI projection never feeds keying
+decisions. Locally, each projected roster binds to a principal-state hash:
+member rows carry the hash of their group's membership head, which a visible
+group row records next to its policy head and the organization state row records
+for the reserved `Members` group, beside the organization policy head. That
+binding is a projection-integrity check, not a substitute for verifying the
+signed principal policy.
 
 The projection and verified policy tables may share a physical SQLite database,
 but they use separate types, persistence modules, and dependency paths.
@@ -104,10 +109,11 @@ reloads that lane or group's current state. Invalidation is at-least-once:
 duplicate invalidations are safe because projection application is idempotent,
 and a transition from A to B and back to A still reloads the final state.
 
-A principal's members are users, never other principals, so a membership edit
-invalidates exactly the one principal it names. This bounds reverse invalidation
-fanout: no group-in-group edge can propagate an edit, and no standalone or
-cross-organization group can widen a change's blast radius.
+A [principal](./glossary.md#principal)'s members are users, never other
+principals, so a membership edit invalidates exactly the one principal it names.
+This bounds reverse invalidation fanout: no group-in-group edge can propagate an
+edit, and no standalone or cross-organization group can widen a change's blast
+radius.
 
 Deleted organization group IDs are never reused. Deletion writes a durable,
 domain-owned group tombstone in the same transaction as the hard delete and its
@@ -126,7 +132,8 @@ Protocol version 6 includes these lanes:
   groups, including the reserved `Members` group that is hidden from the group
   catalog. Each member names only its user ID and role; public keys travel once
   per user in the `directory` lane, and keying reads neither copy;
-- `grants`: a whole-lane replacement of container access presentation rows;
+- `grants`: a whole-lane replacement of [container](./glossary.md#container)
+  access presentation rows;
 - `organizationPolicy`: the current organization policy head used only to
   determine whether separately verified local policy history is current.
 
@@ -136,18 +143,20 @@ graph, the visible group catalog, and grants. Hidden groups remain traversal and
 grant inputs even though they are omitted from the displayed group list.
 Container display names are joined from local encrypted metadata. Data usage
 remains a separately refreshed aggregate: one local row per requester, whose
-category breakdown is re-validated against the response schema on every read
-and purged when it fails. Organization and group policy history
-may be rendered from the separately persisted, verified policy bundle only when
-its principal ID, state hash, version, key epoch, key fingerprint, and member
-count exactly match the corresponding read-model head. Missing or mismatched
-policy state triggers one canonical verified-policy request; projected policy
-heads, membership, and group metadata never become cryptographic inputs.
+category breakdown is re-validated against the response schema on every read and
+purged when it fails. Organization and group policy history may be rendered from
+the separately persisted, verified policy bundle only when its principal ID,
+state hash, version, key [epoch](./glossary.md#epoch), key fingerprint, and
+member count exactly match the corresponding read-model head. Missing or
+mismatched policy state triggers one canonical verified-policy request;
+projected policy heads, membership, and group metadata never become
+cryptographic inputs.
 
 Grant `updatedAt` is access-head time, not the container content timestamp.
 Container access-manifest advancement, structural moves, and deletion replace
-the grants lane; ordinary document or blob content writes do not invalidate it.
-This avoids turning content sync into organization-wide grant fanout.
+the grants lane; ordinary [document](./glossary.md#document) or
+[blob](./glossary.md#blob) content writes do not invalidate it. This avoids
+turning content sync into organization-wide grant fanout.
 
 `directory`, `groups`, `grants`, and `organizationPolicy` deltas replace the
 whole lane. A `groupMemberships` delta replaces each changed group's
@@ -202,15 +211,15 @@ warm client discards its cursor for a fresh snapshot only on
 
 ## Realtime behavior
 
-WebSocket messages are content-free hints. A client declares
-`known_organizations` only while an eligible projection consumer has demand.
-Org Manager demands it while mounted; Explorer latches demand for the lifetime
-of its mount after first opening container or document info so projected group
-and attribution labels stay current without repeated warm-open requests. An
-authenticated SDK that never opens the projection declares no organization
-interest and performs no background read-model request. Interest is replaced on
-scope changes, cleared when the last consumer unmounts, and re-declared on
-reconnect.
+WebSocket messages are [content-free hints](./developer/realtime-hints.md). A
+client declares `known_organizations` only while an eligible projection consumer
+has demand. Org Manager demands it while mounted; Explorer latches demand for
+the lifetime of its mount after first opening container or document info so
+projected group and attribution labels stay current without repeated warm-open
+requests. An authenticated SDK that never opens the projection declares no
+organization interest and performs no background read-model request. Interest is
+replaced on scope changes, cleared when the last consumer unmounts, and
+re-declared on reconnect.
 
 Explorer presentation loaders read the SQLite projection only. They do not
 reconcile as a cold-miss fallback; the latched demand catch-up above is the one
@@ -231,19 +240,19 @@ profile editor remains an explicit document operation and may synchronize that
 one selected profile.
 
 Demand is exact to the authenticated domain, organization, and user scope.
-Offline consumers may keep rendering their last-known-good local projection,
-but they do not reconcile or declare live interest. Returning online lets the
-socket interest declaration own the normal single catch-up pass. The gateway
+Offline consumers may keep rendering their last-known-good local projection, but
+they do not reconcile or declare live interest. Returning online lets the socket
+interest declaration own the normal single catch-up pass. The gateway
 acknowledges that declaration only after authorization and socket indexing, and
 the client starts HTTP catch-up only after the matching acknowledgement. This
-ordering prevents a committed feed event from falling between catch-up and
-live routing. A denied acknowledgement still drives HTTP reconciliation so its
-coded 403 or 404 response purges stale local policy and keying material.
-Declaration authorization is deadline-bounded and fails closed with that same
-denied acknowledgement, so one stalled access check cannot strand catch-up or
-delay organization events for other connected recipients indefinitely.
-If realtime remains unavailable, a bounded HTTP fallback refreshes the
-projection; any later socket connection performs a fresh gap-closing pass.
+ordering prevents a committed feed event from falling between catch-up and live
+routing. A denied acknowledgement still drives HTTP reconciliation so its coded
+403 or 404 response purges stale local policy and keying material. Declaration
+authorization is deadline-bounded and [fails closed](./glossary.md#fail-closed)
+with that same denied acknowledgement, so one stalled access check cannot strand
+catch-up or delay organization events for other connected recipients
+indefinitely. If realtime remains unavailable, a bounded HTTP fallback refreshes
+the projection; any later socket connection performs a fresh gap-closing pass.
 Logout, database loss, and identity transitions synchronously invalidate
 presentation from the previous scope.
 
@@ -266,7 +275,8 @@ only for users who become newly reachable after the commit, and only when the
 changed principal holds a grant in a current container manifest, or an ancestor
 *container* of one does. Existing members and ungranted group changes publish no
 discovery hint. Container-ancestor traversal surfaces a real access gain without
-turning every membership edit into root-container synchronization.
+turning every membership edit into
+[root-container](./glossary.md#root-container) synchronization.
 
 Every HTTP request that observes one or more read-model cursor advances
 retains the highest observed cursor per organization. After the handler

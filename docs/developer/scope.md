@@ -3,7 +3,8 @@
 [Microsoft Scope](https://microsoft.github.io/scope/) runs agents against fixed
 repository snapshots and evaluates their results. Here we use it to investigate
 **repository discoverability**: whether an agent can find the instructions,
-implementation boundaries, and public APIs needed to work on Tearleads.
+[implementation boundaries](../subsystems.md), and public APIs needed to work on
+Tearleads.
 
 A passing task is evidence about that task, agent, and environment, not an
 aggregate agent-friendliness score. The initial suite uses inspection tasks;
@@ -131,10 +132,11 @@ is separate from the repository benchmark and does not create dashboard runs.
 
 1. **Setup and verification discovery:** find supported setup and focused API
    checks, including the SDK build prerequisite and the remaining static gates.
-2. **Architecture navigation:** trace document creation through actual API,
-   SDK, and app code, respecting public boundaries.
+2. **Architecture navigation:** trace [document creation](document-creation.md)
+   through actual API, SDK, and app code, respecting public boundaries.
 3. **Public SDK onboarding:** write a minimal documented example that configures
-   an assumed SQLite runtime before creating an identity and root container.
+   an assumed [SQLite runtime](sqlite-setup.md) before creating an identity and
+   [root container](../glossary.md#root-container).
 
 Each task writes `agent-readiness.md` with citations and a friction section.
 The two criteria per task score observable report contents. They do not claim

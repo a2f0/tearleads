@@ -8,27 +8,29 @@ For shared protocol terminology, see [glossary.md](./glossary.md).
 ## Short Answer
 
 Given an honest, uncompromised client, the system can detect forged or tampered
-signed group and organization policy state when the signer identity key is
-authentic and the client receives the referenced policy bundle.
+signed group and organization
+[policy state](./glossary.md#principal-policy-state) when the signer identity
+key is authentic and the client receives the referenced policy bundle.
 
 The system does not provide a universal guarantee that an honest client can
 detect every compromised-server behavior. A compromised server can still deny
 service, omit state, replay older valid state when the client has no
 checkpoint, show split views to different clients without gossip or
 witnessing, or substitute identity keys on first contact with a user whose
-identity link the client has not verified.
+[identity link](./glossary.md#identity-link) the client has not verified.
 
 The confidentiality boundary is:
 
 - The server cannot decrypt encrypted content without recipient private keys
-  or unwrapped DEKs.
+  or unwrapped [DEKs](./glossary.md#dek).
 - The server cannot forge a valid signed group or organization policy state
   unless it controls an authorized policy signer key, can substitute the signer
   identity key trusted by the client, or can make the client accept invalid
   policy state.
 - The server cannot make an honest client accept object grants or recipient
-  targets that are not justified by signed access manifests and verified
-  principal policy heads.
+  targets that are not justified by signed
+  [access manifests](./glossary.md#access-manifest) and verified
+  [principal](./glossary.md#principal) policy heads.
 
 ## Threat Model
 
@@ -41,40 +43,42 @@ The security properties assume:
 - Server-side API and database code may be malicious, compromised, stale, or
   inconsistent.
 
-The properties are relative to the authenticity of registered user identity
-keys. The client fetches each complete user identity through one strict gateway,
-checks both key fingerprints, and durably pins the exact bundle by trust domain
-and `userId`. The reverse signing-fingerprint-to-user binding is also unique
-within that trust domain and checked in the same durable transaction. A new
-session without restored acknowledgments cannot bind a known signing identity
-to a different user. Later substitutions hard-fail, and policy verification
-also checks the signing fingerprint in signed state. Verifying signed state
-pins a referenced user on first sight (`observed`); only an independently
-exchanged identity link (`link`) or the device's own keys (`self`) admit a user
-as a contact, roster or group member, or share recipient. Neither mechanism
-proves global currentness.
+The properties are relative to the authenticity of registered
+[user identity keys](developer/trusted-user-identity.md). The client fetches
+each complete user identity through one strict gateway, checks both key
+fingerprints, and durably [pins](./glossary.md#identity-pin) the exact bundle by
+trust domain and `userId`. The reverse signing-fingerprint-to-user binding is
+also unique within that trust domain and checked in the same durable
+transaction. A new session without restored acknowledgments cannot bind a known
+signing identity to a different user. Later substitutions hard-fail, and policy
+verification also checks the signing fingerprint in signed state. Verifying
+signed state pins a referenced user on first sight (`observed`); only an
+independently exchanged identity link (`link`) or the device's own keys (`self`)
+admit a user as a contact, roster or group member, or share recipient. Neither
+mechanism proves global currentness.
 
 ## Root And System Destinations
 
 Directory listing fields cannot establish a Trash, Contacts, or root role.
-The SDK verifies the container projection before adopting those destinations,
-then takes the slot and parent edge from its signed manifest. Local pre-login
-content merges only into the session's root id in the expected organization,
-and only if that root's epoch-1 `container.create` was signed by the session
-user (the login response naming it is unsigned; every acknowledged organization
-was created by the user). That creator check holds at the reconciliation
-boundary itself, from the role remote hydration verified and cached (a local
-refresh never fetches; an uncached role leaves the merge pending), so a root
-this device hydrated earlier as another user's shared container is refused as a
-`signer_mismatch` incident and never merged, whichever path reaches it. A later
-login may repeat an acknowledged root or report it purged; a different root id
-is refused as an incident. The default organization is not bound, since a
-purged personal one is legitimately replaced.
-Only a root administrator may create a signed system slot. Additional grantees
-are allowed: sharing a legitimate Trash must not disable deletion. A create
-acknowledgement persists the client-signed slot and refuses a differing echo.
-The app selects a foreign organization's Trash only by a slot the viewer can
-derive; another identity's Trash is reported unavailable, never matched by name.
+The SDK verifies the [container](./glossary.md#container) projection before
+adopting those destinations, then takes the slot and parent edge from its signed
+manifest. Local pre-login content merges only into the session's root id in the
+expected [organization](./glossary.md#organization), and only if that root's
+epoch-1 `container.create` was signed by the session user (the login response
+naming it is unsigned; every acknowledged organization was created by the user).
+That creator check holds at the reconciliation boundary itself, from the role
+remote hydration verified and cached (a local refresh never fetches; an uncached
+role leaves the merge pending), so a root this device hydrated earlier as
+another user's shared container is refused as a `signer_mismatch` incident and
+never merged, whichever path reaches it. A later login may repeat an
+acknowledged root or report it purged; a different root id is refused as an
+incident. The default organization is not bound, since a purged personal one is
+legitimately replaced. Only a root administrator may create a signed system
+slot. Additional grantees are allowed: sharing a legitimate Trash must not
+disable deletion. A create acknowledgement persists the client-signed slot and
+refuses a differing echo. The app selects a foreign organization's Trash only by
+a slot the viewer can derive; another identity's Trash is reported unavailable,
+never matched by name.
 
 Every folder's metadata document id comes from its signed manifest, never from
 the listing. A held folder keeps its organization and metadata document unless
@@ -105,10 +109,13 @@ the same identity access as the recovery phrase itself.
 
 The access and policy handshake has these layers:
 
-1. User registration stores the user's signing key, encapsulation key, personal
-   organization, reserved `Admins` group, reserved `Members` group, root
-   container, root metadata state, optional roster-profile bootstrap material,
-   and initial signed principal policies inside one registration transaction.
+1. [User registration](./container-dek-onboarding.md#registration-flow) stores
+   the user's signing key, encapsulation key, personal organization,
+   [reserved `Admins` group](./glossary.md#organization-admins-group),
+   [reserved `Members` group](./glossary.md#organization-members-group),
+   [root container](./glossary.md#root-container), root metadata state, optional
+   roster-profile bootstrap material, and initial signed principal policies
+   inside one registration transaction.
 2. The initial `Admins` policy must project the registering user as the sole
    admin. The initial `Members` policy must project the registering user as an
    admin. The initial organization policy must be version `1`, must target the
@@ -119,13 +126,15 @@ The access and policy handshake has these layers:
    server verifies the signature, state hash, projection and envelope roots,
    encrypted payload hash, member count, previous-state link, and admin-signer
    rule before storage.
-4. The signed state commits the exact direct-member envelope set. State,
-   payload, projection, and envelopes are accepted atomically; the API rejects
-   missing, extra, altered, or fingerprint-mismatched envelopes.
-5. Access changes are represented as signed access events and derived access
-   manifests. Manifests bind the object, organization, epoch, predecessor hash,
-   event hash, structural hash, grant root, referenced principal heads, and
-   key-target hash.
+4. The signed state commits the exact
+   [direct-member envelope](./glossary.md#member-envelope) set. State, payload,
+   projection, and envelopes are accepted atomically; the API rejects missing,
+   extra, altered, or fingerprint-mismatched envelopes.
+5. Access changes are represented as signed
+   [access events](./glossary.md#access-event) and derived access manifests.
+   Manifests bind the object, organization, [epoch](./glossary.md#epoch),
+   predecessor hash, event hash, structural hash, grant root, referenced
+   principal heads, and [key-target hash](./glossary.md#target-hash).
 6. Clients verify [historical policy proofs](projection-policy-evidence.md),
    including retained membership/grant metadata for authorized object readers,
    and fetch and cache verified full current policies for key unwrapping.
@@ -145,24 +154,27 @@ The access and policy handshake has these layers:
 
 ### Principal Policy Integrity
 
-A principal signature binds its type/id, version and predecessor, key epoch and
-encapsulation key, membership/projection/envelope roots, encrypted payload
-hash, member count, signer identity, and timestamp. The server validates this
-before storage; API authorization consumers and clients revalidate complete
-chains before use. Projection rows are therefore not authority by themselves:
-changing them without a matching signed state causes rejection. Every
-principal-state write, including group creation and provisioning, re-verifies
-the stored chain from rows inside the storing transaction before commit.
+A [principal signature](./protocol-specification.md#principal-policy-protocol)
+binds its type/id, version and predecessor, key epoch and encapsulation key,
+membership/projection/envelope roots, encrypted payload hash, member count,
+signer identity, and timestamp. The server validates this before storage; API
+authorization consumers and clients revalidate complete chains before use.
+[Projection rows](./glossary.md#projection-row) are therefore not authority by
+themselves: changing them without a matching signed state causes rejection.
+Every principal-state write, including group creation and provisioning,
+re-verifies the stored chain from rows inside the storing transaction before
+commit.
 
 ### Login Challenges Name The API
 
-A login signature covers the challenge, the signing-key fingerprint, and the
-API's canonical origin. The API checks it against its configured
-`API_PUBLIC_ORIGIN`, which production requires as a bare https origin. A
-challenge that a malicious API relays from the real one was therefore signed for
-the relay's origin and never verifies. Outside production an unset origin falls
-back to each request's own origin, which comes from its Host header and which a
-relay controls. The API warns about that fallback at startup.
+A [login signature](./protocol-specification.md#identity-and-session-handshake)
+covers the challenge, the signing-key fingerprint, and the API's canonical
+origin. The API checks it against its configured `API_PUBLIC_ORIGIN`, which
+production requires as a bare https origin. A challenge that a malicious API
+relays from the real one was therefore signed for the relay's origin and never
+verifies. Outside production an unset origin falls back to each request's own
+origin, which comes from its Host header and which a relay controls. The API
+warns about that fallback at startup.
 
 ### Signed Timestamps
 
@@ -214,19 +226,22 @@ client and API recompute the commitment before accepting them.
 Grant commitments are part of signed state hashes. Local startup validates the
 required principal-policy columns before using cached policies.
 
-Document and attachment events also sign their full authorization paths,
-deduplicated. Verification rebuilds paths by parent id from those citations,
-never from creation-time pins. Missing ancestors or two heads of one container
-are rejected. Runtime readers verify every signature, hash, and cited path.
+[Document](./glossary.md#document) and attachment events also sign their full
+authorization paths, deduplicated. Verification rebuilds paths by parent id from
+those citations, never from creation-time pins. Missing ancestors or two heads
+of one container are rejected. Runtime readers verify every signature, hash, and
+cited path.
 
 Custom group names are encrypted inside their signed policy payloads with
 AES-256-GCM and a domain-separated key derived from the organization metadata
-container KEK. Authentication binds the group, organization, container and key
-epoch. All organization members can read every group's name; the verified
-historical keyring preserves readability after rotation. The API has no group
-or organization name columns. Organization names live in encrypted profiles.
-The API refuses names citing other keys. A name that fails to decrypt is left
-blank and skipped for uniqueness, never failing the directory.
+[container KEK](./glossary.md#container-kek). Authentication binds the group,
+organization, container and key epoch. All organization members can read every
+group's name; the verified
+[historical keyring](./glossary.md#container-kek-keyring) preserves readability
+after [rotation](./glossary.md#rotate). The API has no group or organization
+name columns. Organization names live in encrypted profiles. The API refuses
+names citing other keys. A name that fails to decrypt is left blank and skipped
+for uniqueness, never failing the directory.
 
 The organization metadata root has only Admins/admin and Members/read grants.
 Both signed group indexes bind its ID; creation also verifies its current
@@ -253,13 +268,13 @@ aborts instead of reporting success.
 ### Local Security-Incident Detection
 
 The client records typed keying-verification failures from document sync,
-container reconciliation, managed-principal operations, and the trusted-user
-identity gateway before re-throwing the original terminal error. An exact error
-object is recorded only once even if it crosses several instrumented
-boundaries. A host callback or subscriber cannot replace
-the verification failure if it throws. Ordinary network and local-database
-availability failures remain retryable operational errors and are not labeled
-as tampering.
+container reconciliation, [managed-principal](./glossary.md#managed-principal)
+operations, and the trusted-user identity gateway before re-throwing the
+original terminal error. An exact error object is recorded only once even if it
+crosses several instrumented boundaries. A host callback or subscriber cannot
+replace the verification failure if it throws. Ordinary network and
+local-database availability failures remain retryable operational errors and are
+not labeled as tampering.
 
 An incident proves that the received or stored material failed a local
 verification rule. It does not by itself prove that the server was malicious;
@@ -294,49 +309,52 @@ member envelopes for the remaining members.
 
 ### Managed Grants Fail Closed
 
-Group container grants require an active signed group state. If a managed
-principal grant cannot be resolved to one, recipient resolution fails rather
-than degrading to unsigned expanded users, so unsigned group rows cannot create
-crypto recipients. Organization policies commit authority, not container
-grants.
+Group [container grants](./glossary.md#grant) require an active signed group
+state. If a managed principal grant cannot be resolved to one, recipient
+resolution fails rather than degrading to unsigned expanded users, so unsigned
+group rows cannot create crypto recipients. Organization policies commit
+authority, not container grants.
 
 ### Signed Access Manifests
 
-Access manifests are deterministic, signed commitments to the access state used
-for key derivation:
+[Access manifests](./keying-design.md#signed-access-manifests) are
+deterministic, signed commitments to the access state used for key derivation:
 
 - container manifests include container identity, parent edge, metadata
   document identity, direct grants, referenced principal heads, predecessor
   hash, and key target hash
-- document link-set manifests include document identity, linked containers,
-  predecessor hash, and key target hash
-- attachment, document, and blob key targets are derived from verified
-  manifests rather than API-provided recipient lists
+- [document link-set manifests](./glossary.md#document-link-set-manifest)
+  include document identity, linked containers, predecessor hash, and key target
+  hash
+- attachment, document, and blob [key targets](./glossary.md#key-target) are
+  derived from verified manifests rather than API-provided recipient lists
 
-Clients verify attachment bind events at referenced membership. Detach events
-are verified only by the API: no client-consumed projection serves them (the
-attachments listing returns live bindings and their bind events), so a detach
-is observed as the binding's absence, not as an event the client checks.
-Clients commit writes to the verified manifest hash and derived target hash.
-Projection hashes may be useful cache keys, but they are not the authorization
-source.
+Clients verify [attachment bind](./glossary.md#attachment-binding) events at
+referenced membership. Detach events are verified only by the API: no
+client-consumed projection serves them (the attachments listing returns live
+bindings and their bind events), so a detach is observed as the binding's
+absence, not as an event the client checks. Clients commit writes to the
+verified manifest hash and derived target hash. Projection hashes may be useful
+cache keys, but they are not the authorization source.
 
 Document purge requires a signed terminal event, verified write authority, and
 an exact local document pin or a signed chain from a pin or genesis. Later
-checkpoints anywhere on its authorizing path withhold deletion without a false
-integrity incident; signatures and visible forks are still checked. Currency is
-rechecked inside atomic teardown. See [document purge verification](document-purge-verification.md)
-for the retained evidence, retry behavior, and ordering limitation.
+checkpoints anywhere on its
+[authorizing path](./glossary.md#authorizing-container-path) withhold deletion
+without a false integrity incident; signatures and visible forks are still
+checked. Currency is rechecked inside atomic teardown. See
+[document purge verification](document-purge-verification.md) for the retained
+evidence, retry behavior, and ordering limitation.
 
 A container manifest pins the parent manifest it was created or moved under,
 and successor manifests inherit that pin, so the pin does not say which
-ancestor heads a later grant, revoke, or rekey was authorized under. Those
-heads are signed into the event: every container event cites the manifest
-hashes of the path it was committed against, and the API refuses an event
-whose citations are not the current heads at commit time. The client
-authorizes a head's signer against the cited heads, rebuilt root to parent
-from the served bundles, rather than against whatever path the server pairs
-with the manifest. For every ancestor, a head must cite a head that is or
+ancestor heads a later grant, revoke, or [rekey](./glossary.md#rekey) was
+authorized under. Those heads are signed into the event: every container event
+cites the manifest hashes of the path it was committed against, and the API
+refuses an event whose citations are not the current heads at commit time. The
+client authorizes a head's signer against the cited heads, rebuilt root to
+parent from the served bundles, rather than against whatever path the server
+pairs with the manifest. For every ancestor, a head must cite a head that is or
 descends, through verified predecessors, from the head an earlier signed
 statement already established, so neither an older head nor a same-epoch fork
 of that ancestor can authorize a later child event. A served path must be a
@@ -347,24 +365,26 @@ checkpoint enforcement), because a historical link legitimately cites the
 container heads current when it was signed. Every document and attachment
 event, including a document head new to this device, selects exactly its
 signed full-path citations. A checkpoint-enforced current path cannot replace
-an event's cited ancestor. Nor can a citation set mix an older or forked ancestor
-with a descendant whose own signed citations prove a newer ancestor exists.
-Both client and stored-document verification enforce these lineage floors;
-consistent historical snapshots remain valid. Document and blob content-write
-headers sign the sorted, unique union of the full authorizing container paths.
-The API requires exact current paths at submission and retains their cited
-bundles with the ciphertext. Historical reads reconstruct those signed paths
-with the same lineage floors, using the group membership at each cited head.
-The original parent pin and a newer group snapshot cannot replace write-time
-authority. Every cited path must belong to a linked container or the explicit
-link/unlink target, including ancestor evidence already in those paths. One writable
-linked path proves access; committed key targets still cover every linked
-container. Content-write citations must use the manifest head
-committed by the matching content-key target. Attachment bind
-events likewise use referenced membership when read and current membership
-when submitted. Runtime tests cover scope and target matching. The bounded
-ContentWriteAuthority model assumes verified citations and checks historical
-membership and submission freshness, with negative controls for both.
+an event's cited ancestor. Nor can a citation set mix an older or forked
+ancestor with a descendant whose own signed citations prove a newer ancestor
+exists. Both client and stored-document verification enforce these lineage
+floors; consistent historical snapshots remain valid. Document and blob
+[content-write headers](./glossary.md#signed-write-header) sign the sorted,
+unique union of the full authorizing container paths. The API requires exact
+current paths at submission and retains their cited bundles with the ciphertext.
+Historical reads reconstruct those signed paths with the same lineage floors,
+using the group membership at each cited head. The original parent pin and a
+newer group snapshot cannot replace write-time authority. Every cited path must
+belong to a linked container or the explicit link/unlink target, including
+ancestor evidence already in those paths. One writable linked path proves
+access; committed key targets still cover every linked container. Content-write
+citations must use the manifest head committed by the matching content-key
+target. Attachment bind events likewise use referenced membership when read and
+current membership when submitted. Runtime tests cover scope and target
+matching. The bounded
+[ContentWriteAuthority model](../formal/document-sync/ContentWriteAuthority.md)
+assumes verified citations and checks historical membership and submission
+freshness, with negative controls for both.
 
 Semantic-currentness witnessing is out of scope: a new-to-device document
 head, content-write header, or attachment binding signed by a since-revoked
@@ -431,21 +451,21 @@ belonging to other organizations. Viewing a foreign shared container therefore
 cannot leave a cursor in the viewer's namespace after that container is removed.
 
 Every successful re-cite permanently adds one manifest to the descendant's
-history. Writer projections return that chain for clients to verify, and the
-server verifies any part of it without a valid verification marker, so repeated
-ancestor changes can increase per-read bytes and verification cost up to this
-bound even when the descendant itself is never edited. Re-citation also
-advances `metadataAccessStateHash`: each accepted event invalidates the
-organization grants lane and emits the container hint (no eviction). It also
-advances `containers.updatedAt`, re-emitting the container in incremental lists.
-A full eight-attempt pass can add eight organization-wide refreshes to one
-user mutation. These invalidations are not batched; the per-pass cap and pacing
-bound amplification, not the total cost of later reads or refreshes.
-Each signed re-cite is an independent HTTP transaction, including when a client
-stops midway through a pass. Its cursor must commit with its new manifest so a
-reader between requests, or after that interruption, sees the new access
-identity. There is no server-side pass transaction whose final request can
-safely replace those durable invalidations. This is a bounded
+history. [Writer projections](./glossary.md#writer-projection) return that chain
+for clients to verify, and the server verifies any part of it without a valid
+verification marker, so repeated ancestor changes can increase per-read bytes
+and verification cost up to this bound even when the descendant itself is never
+edited. Re-citation also advances `metadataAccessStateHash`: each accepted event
+invalidates the organization grants lane and emits the container hint (no
+eviction). It also advances `containers.updatedAt`, re-emitting the container in
+incremental lists. A full eight-attempt pass can add eight organization-wide
+refreshes to one user mutation. These invalidations are not batched; the
+per-pass cap and pacing bound amplification, not the total cost of later reads
+or refreshes. Each signed re-cite is an independent HTTP transaction, including
+when a client stops midway through a pass. Its cursor must commit with its new
+manifest so a reader between requests, or after that interruption, sees the new
+access identity. There is no server-side pass transaction whose final request
+can safely replace those durable invalidations. This is a bounded
 one-mutation-per-held-descendant cost, not a batch notification protocol.
 The authoring API client also invalidates its container/document
 writer-projection caches after each request, so a full pass can clear them
@@ -454,15 +474,15 @@ eight times.
 Document/blob writes also walk each ancestor's same-KEK manifest history to
 validate key bindings. That SQL walk admits at most 1024 manifests per container,
 using the independent API `MAX_SAME_EPOCH_MANIFEST_HISTORY` limit, with one
-overflow sentinel; it fails closed and requires a rekey beyond that
-boundary (see [limits.md](./limits.md#container-keying) for every history
-budget). It uses constant-size recursive rows and detects duplicate hashes
-after loading, rather than accumulating quadratic visited-path strings. This
-separate write-side bound applies to ordinary grant/move events too. A rekey
-starts a new same-KEK run; it does not compact the signed writer-projection chain.
-Persisted histories above the same-key bound are refused. The bounds
-tests construct persisted stable/changing-grant runs before the first read
-and exercise both refusal and recovery after rekey.
+overflow sentinel; it [fails closed](./glossary.md#fail-closed) and requires a
+rekey beyond that boundary (see [limits.md](./limits.md#container-keying) for
+every history budget). It uses constant-size recursive rows and detects
+duplicate hashes after loading, rather than accumulating quadratic visited-path
+strings. This separate write-side bound applies to ordinary grant/move events
+too. A rekey starts a new same-KEK run; it does not compact the signed
+writer-projection chain. Persisted histories above the same-key bound are
+refused. The bounds tests construct persisted stable/changing-grant runs before
+the first read and exercise both refusal and recovery after rekey.
 
 This background pass never fetches a subtree or a principal policy, never
 retries a failed re-cite, and never delays or changes the original mutation's
@@ -485,47 +505,47 @@ it does not rekey descendants or promise post-revocation confidentiality.
 
 ### Content Confidentiality
 
-Encrypted document, blob, and metadata content remains confidential from a
-server that only has stored ciphertext and wrapped keys. The server needs a
-recipient private key, a principal secret key, or an object DEK to decrypt.
+Encrypted document, [blob](./glossary.md#blob), and metadata content remains
+confidential from a server that only has stored ciphertext and wrapped keys. The
+server needs a recipient private key, a principal secret key, or an object DEK
+to decrypt.
 
-The content-record suite `aes-256-gcm-hkdf-sha256-record-key` applies only to
-document and blob payload records. Document and blob content-key wraps use
+The content-record [suite](./cipher-suites.md#aes-256-gcm-symmetric)
+`aes-256-gcm-hkdf-sha256-record-key` applies only to document and blob payload
+records. Document and blob [content-key](./glossary.md#content-key) wraps use
 explicit `tearleads.*.content-key-wrap.aes-256-gcm-container-kek` suites whose
-AES-GCM AAD binds the suite, document or blob id, content-key epoch and
-target, so a server cannot serve one document's or blob's wrap as another's,
-while container KEK wraps use ML-KEM-1024 plus AES-GCM, sealed to a
-principal's key or to the ML-KEM public key derived from the parent KEK;
-predecessor KEKs are sealed under AES-GCM by their successor.
-Rotations write two artifacts: a write-once predecessor bridge under the
-`tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` suite (the
+AES-GCM AAD binds the suite, document or blob id, content-key epoch and target,
+so a server cannot serve one document's or blob's wrap as another's, while
+container KEK wraps use ML-KEM-1024 plus AES-GCM, sealed to a principal's key or
+to the ML-KEM public key derived from the parent KEK; predecessor KEKs are
+sealed under AES-GCM by their successor. Rotations write two artifacts: a
+write-once [predecessor bridge](./glossary.md#container-kek-predecessor-bridge)
+under the `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` suite (the
 append-only log) and the complete predecessor key history sealed under the
 `tearleads.container-kek-keyring.aes-256-gcm-current-kek` suite (the snapshot
 current clients open for history). Each rotation event signs both canonical
 hashes; AES-GCM additionally binds the container and epoch ids during
 decryption, and the sealed keyring's ciphertext length is an equality in the
 epoch number, enforced server-side at write time. A keyring for epoch `n` must
-open to exactly `n - 1` entries, each verified against its
-material-committing epoch id, so omission, reordering, and padding all fail
-closed.
-Failure to verify a keyring makes that history unavailable but does not
-invalidate an independently verified current KEK; current-epoch reads continue
-while operations that require the damaged epochs fail explicitly, and the
-bridge log (`GET /containers/:id/kek-log`) remains the deterministic rebuild
-path — any current member walks the write-once bridges from the current KEK,
-verifies every recovered key by its epoch-id commitment, and repairs the
-snapshot with an ordinary `container.rekey`.
-This deliberately widens what a key compromise exposes: possession of the
-current container KEK also reveals every retained predecessor KEK through the
-sealed keyring. That is the cost of history-inclusive current access. It does
-not weaken forward revocation—a user who lacks a post-revocation KEK still cannot
-derive that KEK or later epochs—but current-key compromise exposes retained
-historical content for that container. Current members also learn
-retained-history metadata—including rotation count (from the keyring length),
-epoch ids and numbers, access-manifest hashes, and parent epoch
-references—even though the sealing still protects the old plaintext keys. A
-descendant path may carry this ciphertext metadata for ancestor epochs even
-when that descendant-only member cannot unwrap the ancestor KEKs.
+open to exactly `n - 1` entries, each verified against its material-committing
+epoch id, so omission, reordering, and padding all fail closed. Failure to
+verify a keyring makes that history unavailable but does not invalidate an
+independently verified current KEK; current-epoch reads continue while
+operations that require the damaged epochs fail explicitly, and the bridge log
+(`GET /containers/:id/kek-log`) remains the deterministic rebuild path — any
+current member walks the write-once bridges from the current KEK, verifies every
+recovered key by its epoch-id commitment, and repairs the snapshot with an
+ordinary `container.rekey`. This deliberately widens what a key compromise
+exposes: possession of the current container KEK also reveals every retained
+predecessor KEK through the sealed keyring. That is the cost of
+history-inclusive current access. It does not weaken forward revocation—a user
+who lacks a post-revocation KEK still cannot derive that KEK or later epochs—but
+current-key compromise exposes retained historical content for that container.
+Current members also learn retained-history metadata—including rotation count
+(from the keyring length), epoch ids and numbers, access-manifest hashes, and
+parent epoch references—even though the sealing still protects the old plaintext
+keys. A descendant path may carry this ciphertext metadata for ancestor epochs
+even when that descendant-only member cannot unwrap the ancestor KEKs.
 
 The server validates the signed artifacts' shape, length equality, and hash
 commitments but cannot validate their plaintext without a KEK. A malicious
@@ -585,12 +605,12 @@ principal-addressed object envelope.
 
 ### Local At-Rest Key Wrapping
 
-The SDK local keyring is a host-facing at-rest key management layer. It stores
-a manifest containing a wrapped account-root secret and derives local SQLite,
-blob-store, identity-persistence, and custom-purpose keys from that root. The
-manifest is not itself a keychain; confidentiality depends on the host
-`WrappingKeyKeystore` implementation, such as a browser, desktop, iOS, or
-Android secure-storage primitive.
+The SDK [local keyring](./glossary.md#local-keyring) is a host-facing at-rest
+key management layer. It stores a manifest containing a wrapped account-root
+secret and derives local SQLite, blob-store, identity-persistence, and
+custom-purpose keys from that root. The manifest is not itself a keychain;
+confidentiality depends on the host `WrappingKeyKeystore` implementation, such
+as a browser, desktop, iOS, or Android secure-storage primitive.
 
 The wrapped account-root envelope binds its purpose and normalized scope as
 authenticated context. A manifest for one namespace, account id, or signing
@@ -606,8 +626,8 @@ key and the PIN; the default browser local keyring does not require a PIN.
 
 This keyring protects local database and blob-store keys at rest on the
 client device. It does not change server-side access authorization, signed
-manifest verification, content-key bundle validation, or remote ciphertext
-confidentiality.
+manifest verification, [content-key bundle](./glossary.md#content-key-bundle)
+validation, or remote ciphertext confidentiality.
 
 ## Boundaries
 
@@ -625,7 +645,8 @@ themselves, prove that the returned head is the latest.
 
 A server that has older valid signed states can replay an older valid chain
 unless the client has an independent monotonic checkpoint, highest-seen
-version/hash pin, or transparency log. Production clients persist checkpoints
+version/hash pin, or transparency log. Production clients persist
+[checkpoints](./keying-design.md#transparency-and-checkpointing)
 and reject rollbacks or same-version hash conflicts for principal policy and
 access manifest heads. Deleted containers retain their metadata-document
 reservation, and organization purge is terminal (the organization's mutations
@@ -690,23 +711,23 @@ Removing a member does not erase learned keys. Group membership shrink rotates
 the principal and granted containers, leaving old keys no forward bridge. The
 client authors the artifacts; the API atomically rejects incomplete batches.
 A client derives the required container set from the verified current and next
-signed grant projections, never from the organization read-model grant lane.
-The API independently compares that signed union with current verified
-container manifests and requires exactly one matching mutation for every
-added, changed, removed, or stale grant. A server omitting one container can
-therefore cause only a failed transaction, not a falsely successful rotation.
-A cold client needs only current policy and container state. Group grant revoke
-rotates the group and its remaining grants; standalone group revokes are
-rejected, while grant-level `read`/`write`/`admin` remains unchanged.
-The API also refuses every container mutation (including revoke, move, and
-recite, which carry referenced group heads forward verbatim) unless those heads
-equal the group's current state. That rule is safe only because of the
-atomicity above: a group change that would leave a grant stale is refused, so
-an honest client never holds a container whose heads it cannot carry forward.
-A same-id group restarting at version 1 is refused as a rollback; this is
-benign because tombstoned groups cannot be re-granted.
-Organizations cannot receive container grants. Reserved groups provide broad
-access; all grants stay in-organization.
+signed grant projections, never from the
+[organization read-model](./organization-read-model-sync.md) grant lane. The API
+independently compares that signed union with current verified container
+manifests and requires exactly one matching mutation for every added, changed,
+removed, or stale grant. A server omitting one container can therefore cause
+only a failed transaction, not a falsely successful rotation. A cold client
+needs only current policy and container state. Group grant revoke rotates the
+group and its remaining grants; standalone group revokes are rejected, while
+grant-level `read`/`write`/`admin` remains unchanged. The API also refuses every
+container mutation (including revoke, move, and recite, which carry referenced
+group heads forward verbatim) unless those heads equal the group's current
+state. That rule is safe only because of the atomicity above: a group change
+that would leave a grant stale is refused, so an honest client never holds a
+container whose heads it cannot carry forward. A same-id group restarting at
+version 1 is refused as a rollback; this is benign because tombstoned groups
+cannot be re-granted. Organizations cannot receive container grants. Reserved
+groups provide broad access; all grants stay in-organization.
 
 ### Transparency Requires A Pinned View Or Witnessing
 
@@ -744,10 +765,11 @@ Org-manager directory lifecycle is stored in `organization_roster_entries`.
 Active roster state is synchronized from users reachable through the reserved
 `Members` group, and disabled rows may remain visible after access removal.
 Group creation and policy writes require every named user to have an active
-roster entry in the same organization, including ordinary groups and `Admins`.
-A `Members` removal rechecks all live groups in the same transaction; signed
-removals from other groups and direct container grants must precede disabling.
-Group membership implies organization membership and a billed
+[roster entry](./glossary.md#organization-roster-entry) in the same
+organization, including ordinary groups and `Admins`. A `Members` removal
+rechecks all live groups in the same transaction; signed removals from other
+groups and direct container grants must precede disabling. Group membership
+implies [organization membership](./organization-memberships.md) and a billed
 seat. Historical projections remain available for verification after removal.
 
 If roster or projection rows are edited directly, server-side directory and

@@ -1,45 +1,49 @@
 # Current principal-policy consumers
 
 Org Manager label hydration and runtime metadata-root verification use paged
-current policies and require private history custody. Labels bind to the exact
-signed directory and group heads. Their current artifacts stay paired with
-verified policies; they are never stored as fabricated full bundles.
+current [policies](../glossary.md#principal-policy-state) and require
+[private history custody](principal-history-recovery.md#key-custody). Labels
+bind to the exact signed directory and group heads. Their current artifacts stay
+paired with verified policies; they are never stored as fabricated full bundles.
 Directory/Admins admission still checks durable pins. Name reads alone leave
 other group checkpoints unchanged. Metadata roots select their exact older
-Admins and Members citations, so an honest stale root remains distinguishable
-from a forged reference. These paths retain offline recovery and
-operation-lifetime checks. A caller that selected an exact current head can
-first recover matching authenticated local artifacts, rechecking their history
-proofs, dependencies, lease and durable pins. Missing evidence or a different
-cached current head uses the bounded online reader; other verification failures
-remain failures. This does not discover newer server state or replace live
-object authorization. Metadata verification uses the organization head supplied
-by its live writer projection.
+[Admins](../glossary.md#organization-admins-group) and
+[Members](../glossary.md#organization-members-group) citations, so an honest
+stale root remains distinguishable from a forged reference. These paths retain
+offline recovery and operation-lifetime checks. A caller that selected an exact
+current head can first recover matching authenticated local artifacts,
+rechecking their history proofs, dependencies, lease and durable pins. Missing
+evidence or a different cached current head uses the bounded online reader;
+other verification failures remain failures. This does not discover newer server
+state or replace live object authorization. Metadata verification uses the
+[organization](../glossary.md#organization) head supplied by its live
+[writer projection](../glossary.md#writer-projection).
 
 ## Operation recovery batch
 
 Directory discovery and cited recovery share one caller's batch. Batches belong
 to the database's principal-policy coordinator, keyed by an operation token. A
-reconciliation pass (remote container hydration, document discovery) or a user
-workflow (a document move's link and unlink legs) mints one token at its root,
-and every warmer it creates with
-`createRuntimePrincipalPolicyWarmer( runtime, { operation })` shares one batch,
-so the pass discovers the directory once. A warmer created without a token is
-its own operation. A batch entry is reused only while its producing lease is
-live, no organization read-model hint has been applied since its reads began (a
-citation derived from a reused entry keeps that entry's epoch), and no durable
-pin has moved past or forked from a head it names; otherwise it is evicted and
-the later caller recovers again under its own lease. The batch dies with its
-token at the end of the pass or workflow. It is the only reuse of scoped
-evidence: a caller's policy cache keeps bare verified policies and resolves
-every scoped citation through the batch, so a cache shared across operations
-cannot skip a later operation's discovery or bypass the batch's hint and pin
-rules. Evidence handed out from the batch keeps its producer's lifetime
-alongside the consumer's until it is used: projection admission rechecks that
-composite and cancels a use whose producer has expired. Local attempts use a
-separate offline key in that batch. The [recovery reuse
-model](../../formal/container-keying/PrincipalRecoveryReuse.md) checks these
-reuse bindings.
+reconciliation pass (remote [container](../glossary.md#container) hydration,
+[document](../glossary.md#document) discovery) or a user workflow (a document
+move's link and unlink legs) mints one token at its root, and every warmer it
+creates with `createRuntimePrincipalPolicyWarmer( runtime, { operation })`
+shares one batch, so the pass discovers the directory once. A warmer created
+without a token is its own operation. A batch entry is reused only while its
+producing lease is live, no
+[organization read-model](../organization-read-model-sync.md) hint has been
+applied since its reads began (a citation derived from a reused entry keeps that
+entry's epoch), and no durable pin has moved past or forked from a head it
+names; otherwise it is evicted and the later caller recovers again under its own
+lease. The batch dies with its token at the end of the pass or workflow. It is
+the only reuse of scoped evidence: a caller's policy cache keeps bare verified
+policies and resolves every scoped citation through the batch, so a cache shared
+across operations cannot skip a later operation's discovery or bypass the
+batch's hint and pin rules. Evidence handed out from the batch keeps its
+producer's lifetime alongside the consumer's until it is used: projection
+admission rechecks that composite and cancels a use whose producer has expired.
+Local attempts use a separate offline key in that batch. The
+[recovery reuse model](../../formal/container-keying/PrincipalRecoveryReuse.md)
+checks these reuse bindings.
 
 Discovery names the head of the device's completed verified directory prefix. An
 `unchanged` reply naming exactly that head reuses the prefix, which recovery
@@ -64,8 +68,8 @@ preserving checkpoint, dependency and caller-lifetime checks.
 
 ## Group mutations and history views
 
-Built-in member addition/removal and group-grant revocation also use current
-evidence and exact receipts; see [current
+Built-in member addition/removal and [group-grant](../glossary.md#grant)
+revocation also use current evidence and exact receipts; see [current
 mutations](principal-current-mutations.md). Built-in group shares use current
 evidence for planning and grant minting; see
 [sharing](principal-current-sharing.md). Built-in group creation walks signed
@@ -99,21 +103,23 @@ groups; the HTTP fixture exercises both one and eight ordinary groups.
 
 ## Stale heads and document purge
 
-Stale container and inline document-rekey errors return at most 16 compact
-principal heads. The API verifies current state with bounded history preparation
-and discloses heads only for principals the requester may read. Built-in create
-and sync workflows recover the signed evidence with the private paged resolver,
-then refresh the parent projection before rebuilding a container create under
-its original lifetime. This keeps public evidence sources current when the retry
-admits newer policies. The hints themselves do not advance trust checkpoints.
-Hosts without a paged resolver cannot consume these hints through a full-history
-fallback. The wire field is `principalHeads`; API-client failures expose
-`stalePrincipalHeads`.
+Stale container and inline
+[document-rekey](../document-rekey-and-audit-history.md) errors return at most
+16 compact principal heads. The API verifies current state with bounded history
+preparation and discloses heads only for [principals](../glossary.md#principal)
+the requester may read. Built-in create and sync workflows recover the signed
+evidence with the private paged resolver, then refresh the parent projection
+before rebuilding a container create under its original lifetime. This keeps
+public evidence sources current when the retry admits newer policies. The hints
+themselves do not advance trust checkpoints. Hosts without a paged resolver
+cannot consume these hints through a full-history fallback. The wire field is
+`principalHeads`; API-client failures expose `stalePrincipalHeads`.
 
-Terminal document purge responses also use `policyEvidence`. Each source ends at
-the cited group head or the first signed directory binding needed to
-authenticate it. Recovery never selects the latest directory merely because it
-exists. Every page reauthorizes the signed purge path and binds the original
+Terminal [document purge](../document-purge-verification.md) responses also use
+`policyEvidence`. Each source ends at the cited group head or the first signed
+directory binding needed to authenticate it. Recovery never selects the latest
+directory merely because it exists. Every page reauthorizes the signed
+[purge path](../glossary.md#authorizing-container-path) and binds the original
 reader, document and organization; a reader who had access at purge time may
 recover the proof after later revocation or group/container deletion. No later
 membership is disclosed through that grant.
@@ -150,19 +156,19 @@ private custody, and checkpoint contracts.
 ## Request costs
 
 The private paged runtime adds directory and group reads for metadata authority
-and scoped projection recovery. Signed entries in a bare policy cache do not
-carry organization, dependency and operation-lifetime bindings; they cannot
-replace that recovery. A completed local stage of an exact pinned head needs no
-confirmation read, and one pass or workflow operation discovers the directory
-once, so the remaining policy reads are one discovery read per operation,
-answered with a bare head when the device already holds it, and first reads of
-heads new to the device. See the [acceptance
-evidence](../principal-history-acceptance.md#ordinary-workflow-cost) for the
-security tradeoff.
+and [scoped projection recovery](principal-history-recovery.md#scoped-recovery).
+Signed entries in a bare policy cache do not carry organization, dependency and
+operation-lifetime bindings; they cannot replace that recovery. A completed
+local stage of an exact pinned head needs no confirmation read, and one pass or
+workflow operation discovers the directory once, so the remaining policy reads
+are one discovery read per operation, answered with a bare head when the device
+already holds it, and first reads of heads new to the device. See the
+[acceptance evidence](../principal-history-acceptance.md#ordinary-workflow-cost)
+for the security tradeoff.
 
-The app's request-volume tests enforce the budgets below, together with
-per-route limits and mutation-count assertions. They are local fixed-cardinality
-measurements, not production benchmarks.
+The app's request-volume tests enforce the [budgets](../request-budgets.md)
+below, together with per-route limits and mutation-count assertions. They are
+local fixed-cardinality measurements, not production benchmarks.
 
 `OrganizationBootstrapRequestVolume.test.tsx` measures 30 requests for personal
 bootstrap with a ceiling of 31, and caps creating and activating another
@@ -195,14 +201,16 @@ attachment-sharing fixture in `DualPaneProvider.sharing.test.tsx` measures 59
 requests and permits 66, with body ceilings of 130,000 request bytes and 560,000
 response bytes (0.51 MB measured). Container mutation acknowledgements carry
 hashes rather than echoes, which keeps the policy commit at about 73 KB.
-Container mutations cite stored manifests by `{containerId, manifestHash}` and
-principal policies by head rather than echoing path bundles or policies.
+Container mutations cite stored [manifests](../glossary.md#access-manifest) by
+`{containerId, manifestHash}` and principal policies by head rather than echoing
+path bundles or policies.
 
 `ExplorerUploadRequestVolume.test.tsx` measures 6 calls and 29 KB received for a
-small Explorer upload and permits 7 calls and 32,500 response bytes; its blob
-stage costs three calls (initiate with the first part's upload source, the part
-bytes, and the attachment bind that completes the stage and carries the
-document's first content update).
+small Explorer upload and permits 7 calls and 32,500 response bytes; its
+[blob stage](../glossary.md#blob-stage) costs three calls (initiate with the
+first part's upload source, the part bytes, and the
+[attachment bind](../glossary.md#attachment-binding) that completes the stage
+and carries the document's first content update).
 
 `FolderMutationRequestVolume.test.tsx` sets these ceilings, which include
 private current-policy reads:

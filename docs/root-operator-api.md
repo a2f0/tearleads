@@ -2,8 +2,9 @@
 
 The `/root` routes serve internal staff and technical support only. They are
 registered in the protocol operation registry and the generated OpenAPI
-contract, so the root console reaches them through the typed client; access is
-enforced by the API, never by the client.
+contract, so the
+[root console](./developer/client-sdk.md#root-operator-lookups) reaches them
+through the typed client; access is enforced by the API, never by the client.
 
 ## Routes
 
@@ -29,23 +30,25 @@ enforced by the API, never by the client.
 These routes run `requireAuth` then `requireRoot`, which admits only identities
 whose `users.is_root` flag is set. The flag is an operational boolean for
 internal staff and technical support, granted and revoked with the API CLI's
-`make-admin` / `revoke-admin` commands; it carries no access-plane keys.
+`make-admin` / `revoke-admin` commands; it carries no
+[access-plane](./access-plane.md) keys.
 `users.last_active_at` is written by the session middleware's throttled
 activity path so operators can see when an identity was last seen.
 
 ## Audit trail
 
 Every root handler records a `root_audit_events` row — actor, operation id,
-target identity or organization, applied filters, and request IP — before it
-reads or changes anything it serves. A listing narrowed by an exact identifier
-(a user ID, a full signing key fingerprint, an organization ID search, or an
-audit-trail subject) names that identity or organization as its target, so it
-appears in that subject's audit trail. A request whose row cannot be written
-fails with a 500 instead of being answered unrecorded, and a suspension it
-carried is not applied; requests refused by `requireAuth` or `requireRoot`
-record nothing, while a suspension the route itself refuses is still recorded.
-The CLI's `make-admin` / `revoke-admin` record each change to `users.is_root`
-in the same table, with no actor, in the transaction that changes the flag.
+target identity or [organization](./glossary.md#organization), applied filters,
+and request IP — before it reads or changes anything it serves. A listing
+narrowed by an exact identifier (a user ID, a full signing key fingerprint, an
+organization ID search, or an audit-trail subject) names that identity or
+organization as its target, so it appears in that subject's audit trail. A
+request whose row cannot be written fails with a 500 instead of being answered
+unrecorded, and a suspension it carried is not applied; requests refused by
+`requireAuth` or `requireRoot` record nothing, while a suspension the route
+itself refuses is still recorded. The CLI's `make-admin` / `revoke-admin` record
+each change to `users.is_root` in the same table, with no actor, in the
+transaction that changes the flag.
 
 ## Account suspension
 

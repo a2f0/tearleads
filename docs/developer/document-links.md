@@ -1,13 +1,15 @@
 # Device-first document links
 
-Explorer creates document links through the SDK's `linkDocumentToContainer`.
-The operation needs a local database and a synced document identity; it does not
-wait for authentication, signing keys, a server write, or a refresh.
+Explorer creates [document links](../document-link-and-sync-protocol.md) through
+the SDK's `linkDocumentToContainer`. The operation needs a local database and a
+synced document identity; it does not wait for authentication, signing keys, a
+server write, or a refresh.
 
 The SDK commits the document summary, link projection, and structural intent in
 one transaction. It then publishes a placement change and schedules background
-sync. A failed local commit publishes nothing. The preferred container and
-content key epoch stay unchanged.
+sync. A failed local commit publishes nothing. The preferred
+[container](../glossary.md#container) and
+[content key](../glossary.md#content-key) epoch stay unchanged.
 
 Additional link targets live in `document_intent_link_targets`, keyed by the
 revision of the document's placement intent in `local_intents`. Sharing that
@@ -20,23 +22,27 @@ a new revision and cancels any queued addition for that target. A partially
 successful replay cannot resurrect the removed link. Replay reads the parent and
 its targets in one serialized transaction.
 
-Replay uses current, verified writer projections to submit signed link mutations.
-It adds only explicitly queued targets, preserves unrelated remote links, and
-does not restore a preferred link removed by a peer. Additions do not rotate the
-content key; queued removals require a full-history rotation proof. Network
+Replay uses current, verified
+[writer projections](../glossary.md#writer-projection) to submit signed link
+mutations. It adds only explicitly queued targets, preserves unrelated remote
+links, and does not restore a preferred link removed by a peer. Additions do not
+[rotate](../glossary.md#rotate) the content key; queued removals require a
+[full-history rotation proof](../document-rekey-and-audit-history.md). Network
 failures leave the durable intent available for retry. Permission denials and
-vanished containers use the structural queue's recovery policy. Successful
+vanished containers use the
+[structural queue's recovery policy](../sync-edge-cases.md). Successful
 settlement clears the parent intent and its targets atomically with the verified
 document state.
 
 Document deletion and scoped remote reset remove the associated targets.
 Container reassignment retargets pending additions. Container deletion or
 revoked access prunes obsolete additions and rehomes the preferred container to
-a surviving link. Queued removals remain until the signed document manifest
-proves them absent. Both paths change the revision so an in-flight response
-cannot overwrite recovery. Intents without surviving work are removed; those
-without a surviving destination remain unavailable until a new local action
-retargets them.
+a surviving link. Queued removals remain until the
+[signed document manifest](../glossary.md#document-link-set-manifest) proves
+them absent. Both paths change the revision so an in-flight response cannot
+overwrite recovery. Intents without surviving work are removed; those without a
+surviving destination remain unavailable until a new local action retargets
+them.
 
 Container listings discover document ids; their placement and link arrays do
 not establish authority. Before inserting a discovered document or replacing
@@ -47,11 +53,11 @@ later retry, allowing the listing watermark and verified siblings to advance.
 A signed head that no longer links any of the listed lanes discards that stale
 listing item when its hash matches the listing or its epoch is strictly newer.
 A different same-epoch head may lag a link addition, so the candidate remains
-pending until the named head arrives. A verified terminal purge can also
-settle an unapplied candidate. Later lane listing tombstones discard pending
-hints for that placement, without touching local placement rows; those still
-require signed removal evidence. Pending local moves keep their transaction
-guards.
+pending until the named head arrives. A
+[verified terminal purge](../document-purge-verification.md) can also settle an
+unapplied candidate. Later lane listing tombstones discard pending hints for
+that placement, without touching local placement rows; those still require
+signed removal evidence. Pending local moves keep their transaction guards.
 
 Listing tombstones likewise remove a placement only when a verified head omits
 it. A head that still links it keeps the placement visible and retains a
@@ -61,13 +67,14 @@ evidence is unavailable. If every placement is hidden, the document remains
 available through orphan recovery. The local tombstone-hold row records
 whether a pending tombstone hides its placement.
 
-Principal policy reads needed for verification return the same 403 body for an
-unknown principal and an unreadable one. Candidate container references are
-only search hints: an anchored candidate never suppresses the bounded
-descendant scan, and a verified readable path must justify the policy read.
-Stale-policy mutation replies carry at most 16 readable bundles. Container
-creation accepts successive repair pages, with a maximum of 16 rounds and no
-retry for an identical page.
+[Principal policy](../glossary.md#principal-policy-state) reads needed for
+verification return the same 403 body for an unknown principal and an unreadable
+one. Candidate container references are only search hints: an anchored candidate
+never suppresses the bounded descendant scan, and a verified
+[readable path](../glossary.md#authorizing-container-path) must justify the
+policy read. Stale-policy mutation replies carry at most 16 readable bundles.
+Container creation accepts successive repair pages, with a maximum of 16 rounds
+and no retry for an identical page.
 
 Listing discovery retains candidates durably before advancing watermarks. A
 durable local request sequence orders overlapping listings; untrusted server
@@ -80,21 +87,22 @@ pass; later calls or background reconciliation resume the durable remainder.
 Signed heads are cached by document id and exact manifest hash. Reuse also
 requires an exact match with the durable document verification checkpoint; a
 head verified by another path cannot be rolled back through this cache.
-Organization provisioning (registration and additional organizations) seeds
-this cache with the epoch-1 heads of the roster and organization profile
-documents. The client signed those heads; the provisioning response must
-acknowledge each exactly, and the same transaction pins them as the documents'
-verification checkpoints, so the first discovery of a seeded document needs no
-writer-projection GET.
+[Organization](../glossary.md#organization) provisioning (registration and
+additional organizations) seeds this cache with the epoch-1 heads of the roster
+and organization profile documents. The client signed those heads; the
+provisioning response must acknowledge each exactly, and the same transaction
+pins them as the documents' verification checkpoints, so the first discovery of
+a seeded document needs no writer-projection GET.
 Unavailable candidates retry independently with the tombstone backoff (fifteen
 minutes, doubling to thirty-two hours); verified siblings and tombstones
 settle immediately. Pending candidates are acknowledged only after local
 apply, and a newer candidate cannot be removed by an older attempt's
-acknowledgement. The background reconciler publishes each partial result and
-schedules the next batch or delayed retry, keeping the open container at
-active priority and cancelling timers when its lifecycle stops. A refuted
-tombstone stays visible during later network failures while its evidence is
-retried.
+acknowledgement. The
+[background reconciler](./device-first.md#layer-b--reconciliationservice)
+publishes each partial result and schedules the next batch or delayed retry,
+keeping the open container at active priority and cancelling timers when its
+lifecycle stops. A refuted tombstone stays visible during later network failures
+while its evidence is retried.
 
 A pending evidence retry is settled for the current reconciliation sweep, so
 it does not retain a force request or trigger repeated automatic pulls. A

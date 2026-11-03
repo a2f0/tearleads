@@ -10,15 +10,19 @@ when real subscribers depend on it.
 
 ## Product invariant
 
-- A personal organization may subscribe in a native app. Apple or Google is the
-  store of record and RevenueCat mirrors the `sync` entitlement.
-- A custom organization subscribes on the web. Stripe is the store of record and
-  RevenueCat mirrors the same entitlement.
-- Native stores use fixed products, never Stripe-style quantity. Stripe uses
-  the same fixed tiers with subscription-item quantity `1`.
+- A personal [organization](../glossary.md#organization) may subscribe in a
+  native app. Apple or Google is the store of record and RevenueCat mirrors the
+  `sync` [entitlement](./revenuecat-billing.md#entitlement).
+- A custom organization [subscribes on the web](./stripe-checkout-client.md).
+  Stripe is the store of record and RevenueCat mirrors the same entitlement.
+- [Native stores](./revenuecat-native-stores.md) use fixed products, never
+  Stripe-style quantity. Stripe uses the same fixed tiers with subscription-item
+  quantity `1`.
 - Cancellation is routed to the store of record. Either client can open the
   provider management surface, and either client can call the Tearleads Stripe
-  cancellation endpoint. Provider webhooks keep server access in sync.
+  cancellation endpoint. Provider
+  [webhooks](./revenuecat-billing.md#revenuecat-webhook-server) keep server
+  access in sync.
 - A Stripe Customer must carry the checkout billing email. The public no-code
   Stripe portal uses that address for authentication when the buyer has lost
   the key-derived Tearleads identity.
@@ -98,10 +102,11 @@ Official references:
   `charges_enabled`, `payouts_enabled`, `details_submitted`, and the account
   requirements; after creating a webhook, store its returned signing secret in
   the matching tier environment without printing it.
-- RevenueCat MCP can configure Test Store prices with
-  `create_product_prices`; amounts are currency micros (`5000000` = USD $5).
-  Read the prices back with `list_prices`, then verify the product is still
-  attached to both its fixed-tier package and the `sync` entitlement.
+- RevenueCat MCP can configure
+  [Test Store](./revenuecat-native-stores.md#fastest-path-revenuecat-test-store)
+  prices with `create_product_prices`; amounts are currency micros (`5000000` =
+  USD $5). Read the prices back with `list_prices`, then verify the product is
+  still attached to both its fixed-tier package and the `sync` entitlement.
 - RevenueCat may omit production `strp_…` and `rcb_…` public keys while the
   connected Stripe account is not activated for live charges. Re-list the app
   public API keys after Stripe activation instead of copying sandbox keys into
@@ -177,8 +182,11 @@ Treat provider configuration as a declarative reconciliation job:
    packages, and webhooks; deployed environment variables.
 5. Verify product price, period, capacity metadata, package attachment,
    entitlement attachment, webhook target, and environment after each write.
-6. Deploy the API Worker before clients. [`packages/api/scripts/deployApi.sh`](../../packages/api/scripts/deployApi.sh)
-   syncs the billing secrets, and the Worker's Cron Trigger runs seat sync.
+6. Deploy the [API Worker](./infrastructure.md) before clients.
+   [`packages/api/scripts/deployApi.sh`](../../packages/api/scripts/deployApi.sh)
+   syncs the billing secrets, and the Worker's
+   [Cron Trigger](./revenuecat-billing.md#billing-maintenance-worker) runs seat
+   sync.
 7. Test purchase, tier change, cancellation, expiration, restore, and webhook
    redelivery in staging before enabling live checkout.
 
@@ -193,13 +201,14 @@ items use quantity `1`; the Prices carry tier/capacity metadata. Register the
 staging and production `/billing/stripe/webhook` endpoints for `invoice.paid`,
 using a different signing secret for each endpoint.
 
-For both Stripe modes, configure the default Customer Portal to cancel at the
-end of the billing period, then **Activate link** under **Ways to get started**.
-Put the generated `https://billing.stripe.com/...` link in the matching
-deployment environment as `PUBLIC_STRIPE_CUSTOMER_PORTAL_URL`; the public
-website exposes it at `/manage-subscription`. Activation of the shareable link
-is a Stripe Dashboard owner action, unavailable through the connected Stripe
-API tool. Audit `login_page.enabled`, the cancellation mode, and the
+For both Stripe modes, configure the default
+[Customer Portal](./stripe-checkout-client.md#subscription-management) to cancel
+at the end of the billing period, then **Activate link** under **Ways to get
+started**. Put the generated `https://billing.stripe.com/...` link in the
+matching deployment environment as `PUBLIC_STRIPE_CUSTOMER_PORTAL_URL`; the
+public website exposes it at `/manage-subscription`. Activation of the shareable
+link is a Stripe Dashboard owner action, unavailable through the connected
+Stripe API tool. Audit `login_page.enabled`, the cancellation mode, and the
 website environment before handoff. Stripe chooses the most recently created
 active Customer when an email matches more than one Customer object.
 

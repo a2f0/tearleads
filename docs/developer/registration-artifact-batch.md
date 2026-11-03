@@ -2,11 +2,13 @@
 
 ## Result
 
-On October 26, 2026, batching each verified policy's current payload and member
-envelopes reduced full SDK account registration from **878 to 834 SQL
-statements (44 fewer, 5.0%)**. The reduction reproduced on local PostgreSQL and
-in staging. All nine staging accounts registered, logged in, and revoked their
-sessions successfully.
+On October 26, 2026, batching each verified
+[policy's](../glossary.md#principal-policy-state) current payload and
+[member envelopes](../glossary.md#member-envelope) reduced full SDK account
+[registration](../container-dek-onboarding.md#registration-flow) from **878 to
+834 SQL statements (44 fewer, 5.0%)**. The reduction reproduced on local
+PostgreSQL and in staging. All nine staging accounts registered, logged in, and
+revoked their sessions successfully.
 
 The latency result is inconclusive. The candidate's median was lower, but
 baseline latency moved substantially during the experiment. Three serial
@@ -31,11 +33,12 @@ logout succeeded. Missing events are not treated as zero CPU or zero statements.
 
 ## What changed
 
-`Access Plane & Keying` now reads a pinned state's payload and member envelopes
-with a tagged `UNION ALL` when `Principal Policies` supplies verified history.
-This saves one database command per such bundle without repeating the encrypted
-payload for each member. The existing unique indexes serve both predicates;
-there is no schema, isolation, locking, or protocol change.
+[`Access Plane & Keying`](../subsystems.md#registry) now reads a pinned state's
+payload and member envelopes with a tagged `UNION ALL` when `Principal Policies`
+supplies verified history. This saves one database command per such bundle
+without repeating the encrypted payload for each member. The existing unique
+indexes serve both predicates; there is no schema, isolation, locking, or
+protocol change.
 
 Each call still reads fresh artifacts. Existing history verification and
 `verifyPrincipalPolicyCurrent` still bind the payload and envelopes to the
@@ -99,18 +102,20 @@ before attempting larger batching changes.
 
 ## Validation
 
-- Eleven focused tests passed on each of PGlite, SQLite, and PostgreSQL:
-  artifact parity, empty and 64-member sets, pinned-state isolation,
-  missing-payload behavior, fresh tamper detection, statement budgets, and
-  registration rollback/retry.
+- Eleven focused tests passed on each of
+  [PGlite, SQLite, and PostgreSQL](api-persistence.md#database): artifact
+  parity, empty and 64-member sets, pinned-state isolation, missing-payload
+  behavior, fresh tamper detection, statement budgets, and registration
+  rollback/retry.
 - The new envelope-tamper test failed when the final verifier guard was removed
   and passed with that guard restored. Subsequent coverage also added an
   other-type payload decoy to exercise that query's principal-type predicate;
   removing the predicate made that parity test fail too.
 - All 98 PostgreSQL concurrency tests passed. Three remote-Turso-specific tests
   were skipped; no remote Turso run was performed.
-- TypeScript, architecture checks, and `check:fast` passed. Independent review
-  of the deployed candidate found no blocking or major issues.
+- TypeScript, architecture checks, and [`check:fast`](verification.md) passed.
+  Independent review of the deployed candidate found no blocking or major
+  issues.
 
 Tests and this report added after the deployed candidate do not change its
 runtime implementation. The measured 44-statement saving is the firm result;

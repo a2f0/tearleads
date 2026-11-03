@@ -1,7 +1,7 @@
 # Initializing the client SDK
 
-Initialize the host database, configure the SDK, then create or restore the
-identity. Examples assume the public `@tearleads/client-sdk` and
+Initialize the [host database](sqlite-setup.md), configure the SDK, then create
+or restore the identity. Examples assume the public `@tearleads/client-sdk` and
 `@tearleads/client-sdk/sqlite` entry points from the [SDK guide](client-sdk.md).
 
 ## SQLite and runtime lifecycle
@@ -73,8 +73,9 @@ for the exact signatures.
 
 Identity setup is asynchronous because the signing fingerprint is derived from
 the public key and local root setup requires SQLite. `generate()` requires a
-ready SQLite database, creates or reuses the local root container, and stores it
-on `tearleads.session.containerId` before resolving with `rootContainerId`,
+ready SQLite database, creates or reuses the local
+[root container](../glossary.md#root-container), and stores it on
+`tearleads.session.containerId` before resolving with `rootContainerId`,
 `rootContainerCreated`, `seedPhrase`, and `userId`.
 
 The root belongs to the local database. A new identity that needs a fresh root
@@ -158,8 +159,9 @@ new Tearleads({
 
 The example uses a `LocalKeyringSession`-derived key; hosts can pass any
 supported key type directly, or use
-`createLazyEncryptedBlobStore(namespace, keyProvider)` to defer async keyring
-loading and retry transient load failures.
+`createLazyEncryptedBlobStore(namespace, keyProvider)` to defer async
+[keyring](../glossary.md#local-keyring) loading and retry transient load
+failures.
 
 `createEncryptedBlobStore(namespace, options)` requires OPFS and stores
 authenticated 5 MiB chunks. String keys use PBKDF2-SHA256; raw 32-byte and

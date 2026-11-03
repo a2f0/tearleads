@@ -8,8 +8,8 @@ the app runs are the exceptions.
 Server-Timing: total;dur=182.4, db;dur=171.9
 ```
 
-The deployed Workers also log one JSON line per request, because
-[`packages/api/wrangler.jsonc`](../../packages/api/wrangler.jsonc) sets
+The [deployed Workers](infrastructure.md) also log one JSON line per request,
+because [`packages/api/wrangler.jsonc`](../../packages/api/wrangler.jsonc) sets
 `API_REQUEST_COST_LOG=true` for staging and production. Tests and local servers
 stay quiet unless that variable is set.
 
@@ -42,9 +42,10 @@ The middleware lives in [`packages/api/src/diagnostics/requestCost.ts`](../../pa
   includes the Hyperdrive handshake. Concurrent queries can make `dbMs`
   exceed `wallMs`.
 - A large `wallMs` with a small `dbMs` points outside the instrumented database
-  calls. A large `dbMs` with many `statements` makes serial round trips a useful
-  hypothesis, but count alone cannot exclude expensive queries, lock waits,
-  or scheduling delays. Use query timings and plans to distinguish them.
+  calls. A large `dbMs` with many `statements` makes
+  [serial round trips](../request-budgets.md) a useful hypothesis, but count
+  alone cannot exclude expensive queries, lock waits, or scheduling delays. Use
+  query timings and plans to distinguish them.
 - `wallMs` stops when the handler and read-model hint verification return.
   It excludes the Worker's body admission queue, response body streaming, and
   `waitUntil` work after the response.

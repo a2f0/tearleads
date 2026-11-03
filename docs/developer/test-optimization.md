@@ -23,8 +23,9 @@ identify leads, not elapsed time. The known expensive files are:
 - **API**: `src/workflows/documents/storedDocumentHistory.test.ts` and
   `src/workflows/containers/writerProjection/storedManifestHistory.test.ts`
   (4,098-entry signed histories), `src/routes/documents/automaticAncestorRepair.test.ts`,
-  `src/routes/containers/mutations.test.ts`, writer projections, and
-  rotation-carried rekeys.
+  `src/routes/containers/mutations.test.ts`,
+  [writer projections](../glossary.md#writer-projection), and rotation-carried
+  [rekeys](../glossary.md#rekey).
 - **Client SDK**: `syncRepairLimits.test.ts`,
   `projectionAuthorityPageBudget.test.ts`, and
   `syncContainerRekeyPrefix.test.ts`.
@@ -34,9 +35,10 @@ identify leads, not elapsed time. The known expensive files are:
 
 Some of that cost is deliberate:
 
-- The 4,098-entry document and container histories exceed 4,096 entries on
-  purpose; shrinking them would drop the regression they guard. Building the
-  signed history dominates their cost; verification is the smaller part.
+- The 4,098-entry document and container histories exceed
+  [4,096 entries](../limits.md#container-hierarchy) on purpose; shrinking them
+  would drop the regression they guard. Building the signed history dominates
+  their cost; verification is the smaller part.
 - `DualPaneProvider.recoveredNoteBackspace.test.tsx` is CPU-bound. Each of its
   51 sequential uploads spends roughly 100-200 ms in client commit, upload, and
   API work, and each cell of its creator, editor, and sync-mode matrix drives a
@@ -48,17 +50,18 @@ Some of that cost is deliberate:
 
 - **Build immutable signed fixtures once.** `syncContainerRekeyPrefix.test.ts`
   builds its 17-level signed ancestor graph in `beforeAll`. Each case clones
-  the graph and key data, rebuilds its identity resolver, re-registers manifest
-  citations after the preload's registry reset, and opens a fresh database. No
-  checkpoint or mutation response is shared between cases.
+  the graph and key data, rebuilds its identity resolver, re-registers
+  [manifest](../glossary.md#access-manifest) citations after the preload's
+  registry reset, and opens a fresh database. No checkpoint or mutation response
+  is shared between cases.
 - **Thread acknowledged state through setup chains.**
   `automaticAncestorRepair.test.ts` passes each child's acknowledged manifest
   and key record into the next parent projection instead of refetching the
   growing parent path at every level. Setup uses real SDK creation, API
   writes, crypto verification, and acknowledgement; the root is fetched again
   before rotation, and repair and reads use independent cold SDK databases.
-  The deep cases create 18 descendants and assert the 16-repair prefix
-  boundary.
+  The deep cases create 18 descendants and assert the
+  [16-repair prefix boundary](../limits.md#container-keying).
 - **Settle the app runtime in short `act` slices.** React holds commits
   scheduled inside an async `act` scope until the scope exits. A wait inside one
   long scope can therefore block the commit it waits for: Org Manager keeps its
@@ -75,9 +78,11 @@ Some of that cost is deliberate:
   short timeouts in `organizationReadModelRealtime.idle.test.ts` emit that
   diagnostic on purpose.
 - **Sign a single successor in-process.** `test/helpers/longPrincipalHistory.ts`
-  in the API signs one new principal version in the test process and starts
-  signing workers only for longer histories, including the opt-in 16,384-version
-  regression in `test/slow/principalHistoryAvailability.test.ts`. Both paths
+  in the API signs one new
+  [principal version](../glossary.md#principal-policy-state) in the test process
+  and starts signing workers only for longer histories, including the opt-in
+  [16,384-version regression](../principal-history-acceptance.md) in
+  `test/slow/principalHistoryAvailability.test.ts`. Both paths
   call `signPrincipalState`, and signing does not populate verification caches.
 - **Wrap timer-backed retries and async UI actions in `act`.** Explorer's
   menu-retry waits run inside `act`, and the recovery-key actions use async

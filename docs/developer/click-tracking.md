@@ -2,7 +2,8 @@
 
 The website and browser app explicitly initialize `@a2f0/ct-client` in their
 deployment entrypoints. The shared app, SDK, Capacitor, and Electrobun packages
-never initialize CT. Production builds collect only on these exact HTTPS origins:
+never initialize CT. Production builds collect only on these exact
+[HTTPS origins](infrastructure.md#public-hostnames):
 
 | App dimension | Production | Staging |
 | --- | --- | --- |

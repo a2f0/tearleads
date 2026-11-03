@@ -7,9 +7,9 @@ define executable request, response, and verifier behavior.
 
 ## Access Epoch
 
-The monotonically advancing epoch of an access manifest or encrypted content
-key. Document updates are epoch-bound: clients decrypt an update only with the
-document key material for the update's epoch.
+The monotonically advancing epoch of an [access manifest](#access-manifest) or
+encrypted [content key](#content-key). Document updates are epoch-bound: clients
+decrypt an update only with the document key material for the update's epoch.
 
 Related docs:
 
@@ -31,10 +31,12 @@ Related docs:
 
 ## Access Manifest
 
-A canonical, client-verifiable snapshot derived from signed access events. A
-manifest commits to object identity, organization, epoch, predecessor, event
-hash, structural state, grants, referenced principal heads, and key-target
-hash. Projection rows are caches of manifest state; they are not authority.
+A canonical, client-verifiable snapshot derived from
+[signed access events](#access-event). A manifest commits to object identity,
+organization, epoch, predecessor, event hash, structural state,
+[grants](#grant), referenced principal heads, and
+[key-target hash](#target-hash). [Projection rows](#projection-row) are caches
+of manifest state; they are not authority.
 
 Related docs:
 
@@ -44,8 +46,10 @@ Related docs:
 ## Access Plane
 
 The protocol plane that owns authorization state and key-target derivation. It
-includes signed principal policies, access manifests, container KEKs,
-content-key bundles, and write headers.
+includes signed [principal policies](#principal-policy-state),
+[access manifests](#access-manifest), [container KEKs](#container-kek),
+[content-key bundles](#content-key-bundle), and
+[write headers](#signed-write-header).
 
 Related docs:
 
@@ -54,9 +58,9 @@ Related docs:
 
 ## Attachment Binding
 
-A server-visible signed relationship between a document slot and a blob. Active
-bindings are the authority for attachment listing, blob reachability, blob read
-access, replacement, and detach behavior.
+A server-visible signed relationship between a [document slot](#attachment-slot)
+and a [blob](#blob). Active bindings are the authority for attachment listing,
+blob reachability, blob read access, replacement, and detach behavior.
 
 Related docs:
 
@@ -66,9 +70,10 @@ Related docs:
 
 ## Attachment Plane
 
-The protocol plane for encrypted blob staging and signed attachment
-bind/detach metadata. Attachment metadata stays server-indexable even though
-blob bytes and document content remain encrypted.
+The protocol plane for encrypted [blob staging](#blob-stage) and signed
+[attachment bind/detach](#attachment-binding) metadata. Attachment metadata
+stays server-indexable even though blob bytes and document content remain
+encrypted.
 
 Related docs:
 
@@ -77,9 +82,10 @@ Related docs:
 
 ## Attachment Slot
 
-An opaque stable identifier inside a document, such as a product-level "front
-image" or "back image" slot. The protocol only treats it as a `slotId`; at
-most one active binding may occupy a slot at a time.
+An opaque stable identifier inside a [document](#document), such as a
+product-level "front image" or "back image" slot. The protocol only treats it as
+a `slotId`; at most one [active binding](#attachment-binding) may occupy a slot
+at a time.
 
 Related docs:
 
@@ -99,8 +105,9 @@ Related docs:
 
 ## Blob
 
-An encrypted binary object stored separately from document CRDT updates. Blob
-access is derived from active signed attachment bindings and the linked
+An encrypted binary object stored separately from
+[document CRDT updates](#loro-update). Blob access is derived from active
+[signed attachment bindings](#attachment-binding) and the linked
 document/container access graph.
 
 Related docs:
@@ -110,8 +117,9 @@ Related docs:
 
 ## Blob Content-Key Bundle
 
-The wrapped blob content key plus the derived container KEK target envelopes
-for the blob's active attachment bindings. The bundle is persisted in blob
+The wrapped [blob content key](#content-key) plus the derived
+[container KEK](#container-kek) target envelopes for the blob's active
+[attachment bindings](#attachment-binding). The bundle is persisted in blob
 content-key epoch and target rows, returned by attachment listing or bind
 responses, and is not embedded in committed blob encrypted bytes.
 
@@ -122,10 +130,11 @@ Related docs:
 
 ## Blob Stage
 
-A temporary holding record for encrypted blob bytes before an attachment bind
-promotes them to committed blob storage. The server validates byte length,
-digest, ownership, and expiry, but does not decrypt the bytes. Stages are
-multipart uploads that the attachment bind assembles and verifies.
+A temporary holding record for [encrypted blob bytes](#blob) before an
+[attachment bind](#attachment-binding) promotes them to committed blob storage.
+The server validates byte length, digest, ownership, and expiry, but does not
+decrypt the bytes. Stages are multipart uploads that the attachment bind
+assembles and verifies.
 
 Related docs:
 
@@ -145,10 +154,10 @@ Related docs:
 ## Container
 
 The tree-structured object where access control is applied. A container carries
-direct grants, parent linkage, a metadata document id, and a current container
-KEK epoch. Documents appear under containers through document link-set
-manifests; a document may be linked to more than one container in the same
-organization.
+[direct grants](#grant), parent linkage, a metadata document id, and a current
+[container KEK](#container-kek) epoch. Documents appear under containers through
+[document link-set manifests](#document-link-set-manifest); a document may be
+linked to more than one container in the same [organization](#organization).
 
 Related docs:
 
@@ -159,9 +168,9 @@ Related docs:
 ## Container KEK
 
 A container key-encryption key. Container KEKs deliver document and blob
-content keys to authorized targets without exposing plaintext content keys to
-the server. Each container has a current KEK epoch, and child containers may
-inherit through parent KEK edges.
+[content keys](#content-key) to [authorized targets](#key-target) without
+exposing plaintext content keys to the server. Each container has a current KEK
+epoch, and child containers may inherit through parent KEK edges.
 
 Related docs:
 
@@ -171,12 +180,12 @@ Related docs:
 ## Container KEK Keyring
 
 The container's complete predecessor KEK history sealed under the current
-epoch's KEK — the snapshot read path for history-inclusive access. One
-decrypt yields every retained historical KEK; each entry is verified against
-its material-committing epoch id, and the sealed length is an exact function
-of the epoch number. Rewritten at every rotation by re-sealing the previous
-entries plus the retiring key. Distinct from the Local Keyring, which wraps a
-device's root key material.
+epoch's KEK — the snapshot read path for history-inclusive access. One decrypt
+yields every retained historical KEK; each entry is verified against its
+material-committing epoch id, and the sealed length is an exact function of the
+epoch number. Rewritten at every rotation by re-sealing the previous entries
+plus the retiring key. Distinct from the [Local Keyring](#local-keyring), which
+wraps a device's root key material.
 
 Related docs:
 
@@ -184,10 +193,10 @@ Related docs:
 
 ## Container KEK Predecessor Bridge
 
-The write-once append-only log entry a rotation stores alongside the keyring:
-the retiring KEK encrypted under the new KEK, hash-committed by the signed
-rotation event. Never rewritten by later rotations, which makes the bridge
-log ground truth for rebuilding a damaged keyring via
+The write-once append-only log entry a rotation stores alongside the
+[keyring](#container-kek-keyring): the retiring KEK encrypted under the new KEK,
+hash-committed by the signed rotation event. Never rewritten by later rotations,
+which makes the bridge log ground truth for rebuilding a damaged keyring via
 `GET /containers/:id/kek-log`.
 
 Related docs:
@@ -197,9 +206,9 @@ Related docs:
 
 ## Content Key
 
-The symmetric key used to encrypt a document update stream or blob record. It
-is wrapped to the current verified target set rather than stored in plaintext
-server-side.
+The symmetric key used to encrypt a [document update stream](#loro-update) or
+[blob record](#blob). It is wrapped to the current
+[verified target set](#key-target) rather than stored in plaintext server-side.
 
 Related docs:
 
@@ -208,9 +217,9 @@ Related docs:
 
 ## Content-Key Bundle
 
-The collection of wrapped content-key material for one document or blob content
-key epoch. A bundle must match the target hash derived from verified access
-state before the API or app accepts it.
+The collection of wrapped [content-key material](#content-key) for one document
+or blob content key epoch. A bundle must match the [target hash](#target-hash)
+derived from verified access state before the API or app accepts it.
 
 Related docs:
 
@@ -220,8 +229,8 @@ Related docs:
 ## DEK
 
 Data-encryption key. In these docs, DEK usually means the plaintext symmetric
-content key for a document epoch or blob record. The server stores ciphertext
-and wrapped keys, not plaintext DEKs.
+[content key](#content-key) for a document epoch or blob record. The server
+stores ciphertext and wrapped keys, not plaintext DEKs.
 
 Related docs:
 
@@ -231,8 +240,9 @@ Related docs:
 ## Document
 
 An encrypted CRDT object whose plaintext is opaque to the server. Documents do
-not own direct ACLs. Access is resolved through their signed link-set manifest
-and the active linked container paths.
+not own direct ACLs. Access is resolved through their
+[signed link-set manifest](#document-link-set-manifest) and the active
+[linked container paths](#authorizing-container-path).
 
 Related docs:
 
@@ -241,9 +251,10 @@ Related docs:
 
 ## Document Link-Set Manifest
 
-The access manifest for a document's linked container set. It names the
-containers that project the document into navigation and access decisions, and
-it is advanced by signed `document.link` and `document.unlink` events.
+The [access manifest](#access-manifest) for a document's linked container set.
+It names the [containers](#container) that project the document into navigation
+and access decisions, and it is advanced by signed `document.link` and
+`document.unlink` events.
 
 Related docs:
 
@@ -252,9 +263,9 @@ Related docs:
 
 ## Document Plane
 
-The protocol plane for encrypted Loro updates plus visible causal metadata.
-The server indexes and relays encrypted updates but does not decrypt document
-content.
+The protocol plane for [encrypted Loro updates](#loro-update) plus visible
+causal metadata. The server indexes and relays encrypted updates but does not
+decrypt document content.
 
 Related docs:
 
@@ -264,9 +275,10 @@ Related docs:
 ## Effective Access
 
 The access level derived by walking the relevant signed manifest graph, such as
-the root-to-target container path and referenced managed-principal policy
-heads. Effective access is computed from verifiable state, not trusted from a
-single mutable projection row.
+the [root-to-target container path](#authorizing-container-path) and referenced
+[managed-principal policy heads](#principal-policy-state). Effective access is
+computed from verifiable state, not trusted from a single
+[mutable projection row](#projection-row).
 
 Related docs:
 
@@ -298,20 +310,63 @@ Related docs:
 
 ## Grant
 
-A signed `read`, `write`, or `admin` container assignment to a user or group,
-inherited along container paths. Group grants require active signed group
-policy; organizations receive no grants and use the reserved groups instead.
+A signed `read`, `write`, or `admin` [container](#container) assignment to a
+user or group, inherited along container paths. Group grants require active
+signed [group policy](#principal-policy-state); [organizations](#organization)
+receive no grants and use the reserved groups instead.
 
 Related docs:
 
 - [access-plane.md](./access-plane.md#containers)
 - [keying-design.md](./keying-design.md#authorization-rules)
 
+## Identity Link
+
+A public permalink that names one user's exact identity keys. It encodes the
+identity trust domain (the API service), the user ID, and a SHA-256
+fingerprint over a versioned, domain-separated tuple of both values plus the
+user's ML-DSA-87 signing and ML-KEM-1024 encapsulation public keys. It holds no
+secret and grants no access, so it can be shared and reused.
+
+Verifying a link fetches the user's keys from the server, validates them, and
+accepts them only if they hash to the link's fingerprint, before anything is
+pinned. A server that substitutes keys therefore fails verification instead of
+being trusted on first use. The link is only as trustworthy as the channel that
+delivered it: exchange it through one you already trust (in person, or a
+messenger whose contact you know). Once verified, the keys are recorded as an
+[identity pin](#identity-pin) with `link` provenance. A link that disagrees
+with an existing pin fails and changes nothing, and a link for another service
+is refused before any fetch.
+
+Only a `link` or `self` pin admits a user: adding a contact, a roster or group
+member, or a share recipient. Copying another user's link re-shares it only
+from such a pin, never from an `observed` one.
+
+Related docs:
+
+- [trusted-user-identity.md](./developer/trusted-user-identity.md#identity-links)
+- [security-guarantees.md](./security-guarantees.md)
+
+## Identity Pin
+
+The durable, local record binding `(identityTrustDomain, userId)` to one
+user's signing and encapsulation public keys. Pins are never deleted and their
+keys never change; any later key change is a hard failure before key use. Each
+pin records its provenance: `self` (this device's own keys), `link` (a
+verified [identity link](#identity-link)), or `observed` (the server's first
+answer for a user that signed state already references). Provenance only
+rises. Within a trust domain a signing key is pinned to at most one user.
+
+Related docs:
+
+- [trusted-user-identity.md](./developer/trusted-user-identity.md#pinning)
+- [trusted-user-identity.md](./developer/trusted-user-identity.md#provenance)
+
 ## Key Target
 
 One recipient target for wrapped key material: a user's encapsulation key, a
-group principal key, or a container KEK. The target hash commits to the sorted
-derived target set.
+[group principal key](#managed-principal), or a [container KEK](#container-kek).
+The [target hash](#target-hash) commits to the sorted derived target set.
 
 Related docs:
 
@@ -332,9 +387,9 @@ Related docs:
 
 ## Loro Update
 
-An encrypted CRDT update produced by the Loro document layer. The server can
-see causal metadata such as version-vector spans, but the update payload remains
-encrypted with the document content key.
+An encrypted CRDT update produced by the Loro document layer. The server can see
+causal metadata such as [version-vector spans](#version-vector), but the update
+payload remains encrypted with the [document content key](#content-key).
 
 Related docs:
 
@@ -342,9 +397,11 @@ Related docs:
 
 ## Managed Principal
 
-A group or organization whose membership and key epoch are represented by a
-signed principal policy chain. Managed-principal grants fail closed when the
-policy state or member envelopes needed for verification are missing or stale.
+A group or [organization](#organization) whose membership and key epoch are
+represented by a [signed principal policy chain](#principal-policy-state).
+Managed-principal grants [fail closed](#fail-closed) when the policy state or
+[member envelopes](#member-envelope) needed for verification are missing or
+stale.
 
 Related docs:
 
@@ -353,9 +410,9 @@ Related docs:
 
 ## Member Envelope
 
-Encrypted key material that delivers a managed principal's active key epoch to
-one direct member. Member envelopes must match the active direct membership
-projection and recipient key fingerprints.
+Encrypted key material that delivers a [managed principal's](#managed-principal)
+[active key epoch](#epoch) to one direct member. Member envelopes must match the
+active direct membership projection and recipient key fingerprints.
 
 Related docs:
 
@@ -365,13 +422,14 @@ Related docs:
 ## Organization
 
 The top-level ownership and policy boundary for user data. Registration creates
-a default organization, reserved `Admins` and `Members` groups, and a root
-container. The organization row stores `adminGroupId` and `memberGroupId`.
-Reachability through `Admins` is org-admin authority. Reachability through
-`Members` is organization membership. Org-manager directory lifecycle is stored
-in organization roster entries so disabled users can remain visible after access
-removal. Organization policy commits authority, not container grants;
-org-manager product roles come from the reserved groups.
+a default organization, reserved `Admins` and `Members` groups, and a
+[root container](#root-container). The organization row stores `adminGroupId`
+and `memberGroupId`. Reachability through `Admins` is org-admin authority.
+Reachability through `Members` is organization membership. Org-manager directory
+lifecycle is stored in [organization roster entries](#organization-roster-entry)
+so disabled users can remain visible after access removal. Organization policy
+commits authority, not [container grants](#grant); org-manager product roles
+come from the reserved groups.
 
 Related docs:
 
@@ -382,8 +440,8 @@ Related docs:
 
 The reserved organization-scoped `Admins` group. Reachable users have
 organization-admin authority, including admin-only org-manager mutations and
-org-scoped principal policy successor signing when the API verifies that
-authority.
+org-scoped [principal policy](#principal-policy-state) successor signing when
+the API verifies that authority.
 
 Related docs:
 
@@ -393,11 +451,17 @@ Related docs:
 ## Organization Members Group
 
 The reserved organization-scoped `Members` group. Reachable users belong to the
-organization. Active roster entries are synchronized from this group's signed
-reachability, but disabled roster entries may remain visible without granting
-access. `Admins` is not nested into `Members` — principals contain only users —
-so the policy write instead rejects any managed principal naming a user who is
-not an active roster entry, which keeps every admin an organization member.
+organization. Active [roster entries](#organization-roster-entry) are
+synchronized from this group's signed reachability, but disabled roster entries
+may remain visible without granting access. `Admins` is not nested into
+`Members` — principals contain only users — so the policy write instead rejects
+any [managed principal](#managed-principal) naming a user who is not an active
+roster entry, which keeps every admin an organization member.
+
+Related docs:
+
+- [organization-memberships.md](./organization-memberships.md)
+- [access-plane.md](./access-plane.md#principals)
 
 ## Organization Roster Entry
 
@@ -405,7 +469,7 @@ An organization-scoped product row that records directory lifecycle state for a
 user. It stores server-visible routing/status metadata such as `status`,
 `joinedAt`, `disabledAt`, `disabledByUserId`, and optional `profileDocumentId`.
 It does not store plaintext profile fields such as email, first name, or last
-name; those belong in encrypted documents.
+name; those belong in [encrypted documents](#document).
 
 Related docs:
 
@@ -415,8 +479,9 @@ Related docs:
 ## Principal
 
 An entity that can receive access or key material. Users are principals with
-registered signing and encapsulation keys; groups and organizations are managed
-principals with signed policy state.
+registered signing and encapsulation keys; groups and organizations are
+[managed principals](#managed-principal) with
+[signed policy state](#principal-policy-state).
 
 Related docs:
 
@@ -425,9 +490,10 @@ Related docs:
 
 ## Principal Policy State
 
-The signed state chain for a managed principal. It commits to membership,
-projection roots, key epoch, encrypted payload hash, signer, and predecessor
-state so clients can verify group or organization authority.
+The signed state chain for a [managed principal](#managed-principal). It commits
+to membership, projection roots, [key epoch](#epoch), encrypted payload hash,
+signer, and predecessor state so clients can verify group or organization
+authority.
 
 Related docs:
 
@@ -447,9 +513,9 @@ Related docs:
 
 ## Rekey
 
-Advancing key material to a new epoch. Container rekeys rotate
-container KEKs; document or blob rekeys advance content-key material for later
-writes.
+Advancing key material to a [new epoch](#epoch). Container rekeys rotate
+[container KEKs](#container-kek); document or blob rekeys advance
+[content-key material](#content-key) for later writes.
 
 Related docs:
 
@@ -458,9 +524,10 @@ Related docs:
 
 ## Rewrap
 
-An additive-access operation that keeps the same plaintext content key but
-adds or updates wrapped key material for a changed target set. Rewrap does not
-by itself require re-encrypting document content.
+An additive-access operation that keeps the same
+[plaintext content key](#content-key) but adds or updates wrapped key material
+for a [changed target set](#key-target). Rewrap does not by itself require
+re-encrypting document content.
 
 Related docs:
 
@@ -469,9 +536,9 @@ Related docs:
 
 ## Rotate
 
-A subtractive-access operation that stops using prior plaintext key material
-for future writes. For documents, rotate means later writes use a fresh DEK and
-normally begin from a fresh encrypted baseline.
+A subtractive-access operation that stops using prior plaintext key material for
+future writes. For documents, rotate means later writes use a [fresh DEK](#dek)
+and normally begin from a fresh encrypted baseline.
 
 Related docs:
 
@@ -480,8 +547,9 @@ Related docs:
 
 ## Root Container
 
-The top container for an organization. It has no parent container and anchors
-the container hierarchy used for path-based access resolution.
+The top container for an [organization](#organization). It has no parent
+container and anchors the container hierarchy used for path-based access
+resolution.
 
 Related docs:
 
@@ -490,9 +558,10 @@ Related docs:
 
 ## Signed Write Header
 
-A signed commitment that binds an encrypted document update or blob record to
-the object id, access manifest hash, content-key epoch, target hash, metadata
-hash, ciphertext hash, nonce domain, writer identity, and encryption suite.
+A signed commitment that binds an [encrypted document update](#loro-update) or
+blob record to the object id, [access manifest hash](#access-manifest),
+content-key epoch, [target hash](#target-hash), metadata hash, ciphertext hash,
+nonce domain, writer identity, and encryption suite.
 
 Related docs:
 
@@ -501,9 +570,10 @@ Related docs:
 
 ## Target Hash
 
-The digest of the sorted derived key target set for a document, blob, or
-manifest state. A submitted content-key bundle or write header must match the
-expected target hash before it is accepted.
+The digest of the sorted derived [key target set](#key-target) for a document,
+blob, or manifest state. A submitted [content-key bundle](#content-key-bundle)
+or [write header](#signed-write-header) must match the expected target hash
+before it is accepted.
 
 Related docs:
 
@@ -513,8 +583,8 @@ Related docs:
 ## Version Vector
 
 Visible causal metadata for Loro sync. Clients submit their local frontier, and
-the server uses stored update spans to return encrypted updates not covered by
-that frontier.
+the server uses stored update spans to return [encrypted updates](#loro-update)
+not covered by that frontier.
 
 Related docs:
 
@@ -522,9 +592,9 @@ Related docs:
 
 ## Writer Projection
 
-A server response that packages an object's signed access history, wrapped
-key material, and key targets so a client can unwrap its keys and prepare
-writes. Serving one requires current read access; write authorization is
+A server response that packages an object's signed access history, wrapped key
+material, and [key targets](#key-target) so a client can unwrap its keys and
+prepare writes. Serving one requires current read access; write authorization is
 checked when a write commits.
 
 Related docs:

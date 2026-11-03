@@ -1,11 +1,12 @@
 # RevenueCat Native Stores
 
 How the App Store and Play Store lane differs from the web lane described in
-[revenuecat-billing.md](./revenuecat-billing.md). Web sells through direct Stripe
-checkout and keeps RevenueCat only for entitlement mirroring; the native shells
-have no direct-checkout capability, so they keep RevenueCat's provider-hosted
-store sheet. Native purchases can fund only the buyer's personal organization;
-the mobile billing panel directs custom-organization admins to web checkout.
+[revenuecat-billing.md](./revenuecat-billing.md). Web sells through
+[direct Stripe checkout](./stripe-checkout-client.md) and keeps RevenueCat only
+for entitlement mirroring; the native shells have no direct-checkout capability,
+so they keep RevenueCat's provider-hosted store sheet. Native purchases can fund
+only the buyer's [personal organization](../glossary.md#organization); the
+mobile billing panel directs custom-organization admins to web checkout.
 
 ## The client adapter
 
@@ -54,11 +55,12 @@ Native-specific behavior:
   next `logIn` leaves a stray anonymous customer per fresh install.
 - **Org binding rides the subscriber attribute.** A native store purchase
   carries no transaction metadata, so `orgId` is set as a customer-level
-  subscriber attribute immediately before the purchase and the webhook resolves
-  against it. The attribute is **mutable** — a later purchase for another org
-  overwrites it — so it cannot attribute a purchase that completes after
-  another has started. The server therefore accepts the grant only when the
-  attributed organization is still the buyer's personal organization.
+  subscriber attribute immediately before the purchase and the
+  [webhook](./revenuecat-billing.md#revenuecat-webhook-server) resolves against
+  it. The attribute is **mutable** — a later purchase for another org overwrites
+  it — so it cannot attribute a purchase that completes after another has
+  started. The server therefore accepts the grant only when the attributed
+  organization is still the buyer's personal organization.
 
 The key is selected by `Capacitor.getPlatform()`, and the Capacitor web preview
 (`cap run` in a browser) always gets the unavailable stub: it has no store
@@ -73,7 +75,8 @@ the `sync` entitlement. The pinned `@revenuecat/purchases-capacitor` satisfies
 RevenueCat's minimum Test Store-compatible Capacitor SDK (11.2.6). RevenueCat
 reports these webhook events with `store: "TEST_STORE"` and
 `environment: "SANDBOX"`; the server treats them as native purchases, including
-the personal-organization restriction, and staging must opt into sandbox events.
+the personal-organization restriction, and staging must
+[opt into sandbox events](#sandbox-events).
 
 Pass the public Test Store key as a one-build override. The run scripts keep an
 already-exported value, so the platform keys in `.secrets` stay untouched:
@@ -92,8 +95,8 @@ VITE_REVENUECAT_IOS_API_KEY=test_... \
 ./scripts/dev/runIos.sh
 ```
 
-Then sign in, open Organization Manager → Billing as an organization admin, and
-verify:
+Then sign in, open Organization Manager → Billing as an
+[organization admin](../glossary.md#organization-admins-group), and verify:
 
 1. Solo ($5), Team up to 5 ($10), and Team up to 10 ($20) load from the current
    offering.
@@ -172,14 +175,15 @@ key in production's `shared.env` is the default comparison baseline. Env-only CI
 and key-rotation workflows may instead export the independent
 `NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY` or
 `NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_ANDROID_API_KEY` baseline. Without
-either default or an explicit baseline, staging fails closed. Staging may
-override the shared `VITE_REVENUECAT_SYNC_ENTITLEMENT` when its project uses a
-different entitlement identifier. Production releases likewise reject the
-resolved platform key unless it exactly matches its independent production
-baseline. The allowlist controls dotenv imports only; callers remain responsible
-for variables they export explicitly. A shared `VITE_*` setting that staging
-must inherit belongs in `NATIVE_SHARED_VITE_ENV_NAMES`; any other is stripped
-from staging dotenv imports.
+either default or an explicit baseline, staging
+[fails closed](../glossary.md#fail-closed). Staging may override the shared
+`VITE_REVENUECAT_SYNC_ENTITLEMENT` when its project uses a different entitlement
+identifier. Production releases likewise reject the resolved platform key unless
+it exactly matches its independent production baseline. The allowlist controls
+dotenv imports only; callers remain responsible for variables they export
+explicitly. A shared `VITE_*` setting that staging must inherit belongs in
+`NATIVE_SHARED_VITE_ENV_NAMES`; any other is stripped from staging dotenv
+imports.
 
 The staging tier must also have `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` in
 staging's `app.env` when its API Worker deploys. This controls webhook
@@ -338,13 +342,16 @@ deploy step.
 - Store products encode fixed capacity; they never carry Stripe-style item
   quantity. The webhook maps the product identifier to capacity 1, 5, or 10.
 - Promotional grants use tier stems plus a `promotional:` prefix;
-  capacity follows canonical roster tiers, not native limits.
+  capacity follows
+  [canonical roster tiers](./revenuecat-billing.md#fixed-tiers), not native
+  limits.
 - A native grant is applied only to the buyer's personal organization. A grant
   aimed at a custom organization is recorded as ignored, even when the buyer is
   its admin.
 - Adding members beyond a native product's capacity returns a conflict until
   the admin upgrades through the store. Stripe-backed custom organizations
-  change Price automatically when their roster crosses 1/5/10 boundaries.
+  change Price automatically when their
+  [roster](../glossary.md#organization-roster-entry) crosses 1/5/10 boundaries.
 - Native option filtering uses the active-member count returned with the server
   billing snapshot, not a local directory projection. If the roster still races
   a completed store purchase, the paid tier is activated and alerted rather

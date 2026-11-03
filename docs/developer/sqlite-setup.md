@@ -39,10 +39,12 @@ const { rootContainerId } = await tearleads.identity.generate();
 ```
 
 SQLite defaults to `"memory"`, which loses its database on worker restart or
-page reload. This example explicitly uses durable OPFS storage, requiring a
+page reload. This example explicitly uses
+[durable OPFS storage](../cipher-suites.md#opfs-local-storage), requiring a
 secure context. If OPFS is unavailable, initialization fails; it does not
-silently fall back to memory. The host must retain the keyring to reopen the
-encrypted database.
+silently fall back to memory. The host must retain the
+[keyring](../glossary.md#local-keyring) to reopen the
+[encrypted database](../cipher-suites.md#at-rest-database).
 
 Serve the worker and WASM assets as described in the
 [SDK README](../../packages/client-sdk/README.md#quick-start). To initialize

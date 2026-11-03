@@ -1,26 +1,27 @@
 # Billing History
 
-`GET /organizations/:id/billing/history` is admin-only and combines four
-durable record categories: RevenueCat lifecycle events, internal free-trial
-lifecycle events, the internal licensed-seat ledger, and append-only Stripe
+`GET /organizations/:id/billing/history` is
+[admin-only](../glossary.md#organization-admins-group) and combines four durable
+record categories: [RevenueCat](revenuecat-billing.md) lifecycle events,
+internal free-trial lifecycle events, the internal licensed-seat ledger, and
+append-only [Stripe](revenuecat-billing.md#direct-stripe-checkout-server-side)
 paid-invoice snapshots. Internal trial events preserve the initialized and
 expired 10-seat capacity snapshots without duplicating their correlated seat
-ledger rows.
-Per-user assignment and release rows stay in the seat-event table but are
-excluded from this capacity-focused admin summary.
+ledger rows. Per-user assignment and release rows stay in the seat-event table
+but are excluded from this capacity-focused admin summary.
 
 Stripe invoice totals preserve the provider's exact `amount_paid` in currency
 minor units. Tier capacity, plan price, recurring interval and interval count,
 Price ID, and billing period come from the matching non-proration invoice
 line—not mutable current subscription state. Capacity is resolved from the
-line's immutable monthly USD Price economics against the canonical tier
-registry (falling back to a currently configured Price ID only when a line
-payload omits those economics), so Price rotation does not collapse historical fixed
-tiers to item quantity `1`. Creation and cycle invoices use a pinned-API lookup
-when the signed webhook's line details are incomplete or could be enriched;
-only those reasons advance seat-period state. Paid subscription update and
-threshold invoices are audited too, but they never make fulfillment retry
-solely for missing reporting details.
+line's immutable monthly USD Price economics against the
+[canonical tier registry](revenuecat-billing.md#fixed-tiers) (falling back to a
+currently configured Price ID only when a line payload omits those economics),
+so Price rotation does not collapse historical fixed tiers to item quantity `1`.
+Creation and cycle invoices use a pinned-API lookup when the signed webhook's
+line details are incomplete or could be enriched; only those reasons advance
+seat-period state. Paid subscription update and threshold invoices are audited
+too, but they never make fulfillment retry solely for missing reporting details.
 
 If an invoice has no unambiguous recurring plan line (for example, a
 proration-only update), its exact total is still recorded while capacity and price
@@ -32,17 +33,18 @@ renewal is acknowledged without changing the renewal baseline.
 
 Fields unavailable from the provider, or not applicable to a category, stay
 `null` instead of being reconstructed, with one narrow exception: an applied
-RevenueCat grant from the App Store, Play Store, or RevenueCat Test Store may
-resolve its fixed tier from the recorded product id. That projection supplies
-the tier's seat capacity and canonical monthly USD list price. RevenueCat's
-separate purchased-currency price is persisted from the webhook and exposed as
-the paid total only for an applied production `INITIAL_PURCHASE`, `RENEWAL`, or
-`NON_RENEWING_PURCHASE` outside a trial period. Sandbox and trial prices never
-imply a real payment, and missing transaction facts produce no unavailable-total
-row in the UI. Revocations, ignored events, promotional grants, Stripe-originated
-events, unknown products, and rows without recognized store provenance remain
-unenriched. A durable seat-ledger snapshot takes precedence over catalog
-capacity when one exists.
+RevenueCat grant from the
+[App Store, Play Store, or RevenueCat Test Store](revenuecat-native-stores.md)
+may resolve its fixed tier from the recorded product id. That projection
+supplies the tier's seat capacity and canonical monthly USD list price.
+RevenueCat's separate purchased-currency price is persisted from the webhook and
+exposed as the paid total only for an applied production `INITIAL_PURCHASE`,
+`RENEWAL`, or `NON_RENEWING_PURCHASE` outside a trial period. Sandbox and trial
+prices never imply a real payment, and missing transaction facts produce no
+unavailable-total row in the UI. Revocations, ignored events, promotional
+grants, Stripe-originated events, unknown products, and rows without recognized
+store provenance remain unenriched. A durable seat-ledger snapshot takes
+precedence over catalog capacity when one exists.
 
 Incomplete paid-invoice deliveries are retried when creation or renewal
 fulfillment depends on them. Other billing reasons preserve an exact total-only
@@ -53,10 +55,11 @@ resolution attempt recovers them; a definitive 404 is acknowledged, while
 transient provider failures remain retryable.
 
 The first snapshot for an invoice id remains immutable. A redelivery whose
-organization, subscription, billing reason, currency, or paid total changes is
-treated as a hard conflict. Differences limited to line attribution or event
-metadata preserve the first snapshot while allowing idempotent seat and
-RevenueCat fulfillment to finish after a downstream partial failure.
+[organization](../glossary.md#organization), subscription, billing reason,
+currency, or paid total changes is treated as a hard conflict. Differences
+limited to line attribution or event metadata preserve the first snapshot while
+allowing idempotent seat and RevenueCat fulfillment to finish after a downstream
+partial failure.
 
 Never derive an invoice total from seats multiplied by unit price. The paid
 total can include prorations, taxes, discounts, credits, and other adjustments;
@@ -66,6 +69,6 @@ only the recorded provider amount is authoritative.
 
 The billing history tables (`organization_billing_lifecycle_events`,
 `organization_billing_seat_events`, and `organization_billing_invoice_events`)
-are part of each dialect's `0000_greenfield_baseline`. Billing events write
-their audit evidence when the provider event is processed; initialization does
-not synthesize historical rows.
+are part of each [dialect's](api-persistence.md#database)
+`0000_greenfield_baseline`. Billing events write their audit evidence when the
+provider event is processed; initialization does not synthesize historical rows.

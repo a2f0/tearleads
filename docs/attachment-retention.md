@@ -1,6 +1,7 @@
 # Attachment Retention
 
-This document defines attachment/blob retention semantics for the access plane.
+This document defines attachment/blob retention semantics for the
+[access plane](./access-plane.md).
 
 For shared protocol terminology, see [glossary.md](./glossary.md).
 
@@ -8,13 +9,16 @@ For shared protocol terminology, see [glossary.md](./glossary.md).
 
 Attachment/blob retention is live-only.
 
-The server retains attachment blob bytes, blob content-key epochs, and blob
+The server retains attachment [blob](./glossary.md#blob) bytes,
+[blob content-key](./glossary.md#blob-content-key-bundle) epochs, and blob
 content-key target rows only while at least one active `attachment_bindings` row
 references that blob, plus the garbage-collection grace period after the last
 one is removed.
 
-When a signed attachment mutation deactivates an attachment binding through
-`attachment.detach` or a same-slot `attachment.bind` replacement:
+When a signed attachment mutation deactivates an
+[attachment binding](./glossary.md#attachment-binding) through
+`attachment.detach` or a [same-slot](./glossary.md#attachment-slot)
+`attachment.bind` replacement:
 
 - the old binding is marked detached during the atomic mutation
 - if another active binding still references the old blob, the blob and its
@@ -23,27 +27,29 @@ When a signed attachment mutation deactivates an attachment binding through
   `blobs.dereferencedAt`, starting the garbage-collection grace period
 - after the grace period, GC locks the blob and rechecks active reachability; a
   rebind revives it, otherwise GC prunes the blob row, blob content-key epochs,
-  blob content-key target rows, write headers, and detached binding rows
+  blob content-key target rows,
+  [write headers](./glossary.md#signed-write-header), and detached binding rows
 - a failed live-state reclaim records `blobs.reclaimAttemptedAt`; maintenance
   reserves capacity for new work and retries without changing the original
   `dereferencedAt` lifecycle timestamp
 - the blob registry (`blob_audit_objects`) permanently retains the blob
   generation's `organizationId`, so pruned ids remain concealed from every
-  other organization
+  other [organization](./glossary.md#organization)
 - pruning retains `blob_audit_objects.liveStorageKey` as durable
   physical-deletion work; maintenance records `objectDeleteAttemptedAt` before
   each try, reserves batch capacity for both new work and retries, and then
   clears the storage key and records `objectDeletedAt` after deletion succeeds
 - object deletion or acknowledgement failures keep the durable row retryable
-  and make the maintenance command fail after independent stage cleanup finishes
+  and make the maintenance command fail after independent
+  [stage](./glossary.md#blob-stage) cleanup finishes
 
 Detached attachment bindings are transient replacement metadata. They are not a
 historical attachment log, tombstone store, history manifest, or recovery index.
 
 ## Product Semantics
 
-The system guarantees live document state and live attachment availability, not
-durable attachment history.
+The system guarantees live [document](./glossary.md#document) state and live
+attachment availability, not durable attachment history.
 
 Consequences:
 
@@ -74,11 +80,14 @@ Useful historical attachment retention requires deciding:
 - how historical attachment records relate to document update history and
   baseline checkpoints
 
-The container KEK keyring partly answers how historical blob bytes are keyed
-after access shrink, and the consequence is container-wide: retained blob
-ciphertext whose content key is wrapped under a recoverable old container KEK
-is decryptable to every current member through the sealed keyring — access
-shrink rotates keys forward, it does not re-encrypt or orphan history.
+The [container KEK keyring](./glossary.md#container-kek-keyring) partly
+answers how historical blob bytes are keyed after access shrink, and the
+consequence is container-wide: retained blob ciphertext whose
+[content key](./glossary.md#content-key) is wrapped under a recoverable old
+[container KEK](./glossary.md#container-kek) is decryptable to every current
+member through the sealed keyring — access shrink
+[rotates](./glossary.md#rotate) keys forward, it does not re-encrypt or orphan
+history.
 Pruned blob bytes remain unavailable for the opposite reason: the bytes no
 longer exist, regardless of key reachability.
 
@@ -98,12 +107,12 @@ This retention model does not provide:
 ## Attachment History
 
 The server keeps no separate attachment audit ledger. Each bind and detach is a
-signed access event, persisted with its signed body in `access_events`, and each
-staged blob carries a signed write header, so a binding's authorship stays
-verifiable. Attach, replace, and detach register every referenced blob
-generation in `blob_audit_objects` before live pruning can remove its row; the
-registry records which generations existed and who owns them, not when they were
-bound.
+signed [access event](./glossary.md#access-event), persisted with its signed
+body in `access_events`, and each staged blob carries a signed write header, so
+a binding's authorship stays verifiable. Attach, replace, and detach register
+every referenced blob generation in `blob_audit_objects` before live pruning can
+remove its row; the registry records which generations existed and who owns
+them, not when they were bound.
 
 See [document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md)
 for what signed write headers do and do not detect.

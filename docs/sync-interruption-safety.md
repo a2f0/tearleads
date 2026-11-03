@@ -1,19 +1,21 @@
 # Sync Interruption Safety
 
-Multi-request document, container, and attachment sync must survive request
+Multi-request [document](./glossary.md#document),
+[container](./glossary.md#container), and attachment sync must survive request
 failures, lost acknowledgements, local persistence failures, and retries. This
-document lines up those client workflows with the server's commit boundaries
-and names the regression tests that enforce each guarantee. It covers only the
-flows listed here; it does not prove every application workflow
-interruption-safe.
+document lines up those [client workflows](./client-sync-ordering.md) with the
+server's commit boundaries and names the regression tests that enforce each
+guarantee. It covers only the flows listed here; it does not prove every
+application workflow interruption-safe.
 
 ## Guarantees
 
 ### Stage cleanup never deletes promoted attachment bytes
 
-An attachment bind promotes a multipart stage into a blob in a database
-transaction. Promotion locks the stage before checking its expiry and holds
-that lock through commit. Expiry cleanup first updates each candidate to a
+An [attachment bind](./glossary.md#attachment-binding) promotes a
+[multipart stage](./glossary.md#blob-stage) into a [blob](./glossary.md#blob) in
+a database transaction. Promotion locks the stage before checking its expiry and
+holds that lock through commit. Expiry cleanup first updates each candidate to a
 durable expired state, which serializes with that lock and returns no stage if
 promotion already consumed it; only then does cleanup touch object storage.
 Object-store I/O happens after the cleanup update commits, and a failed cleanup
@@ -39,8 +41,10 @@ persist the required state.
 
 A bind consumes its stage and permanently reserves its blob id. Normal recovery
 adopts the matching active binding. If another device detaches or replaces that
-binding first, it no longer appears in the active-slot listing, and the server
-rejects the old blob id as already used, even after garbage collection.
+binding first, it no longer appears in the
+[active-slot](./glossary.md#attachment-slot) listing, and the server rejects the
+old blob id as already used, even after
+[garbage collection](./loro-e2ee-sync-protocol.md#orphan-blob-detection).
 
 After a definitive stage absence or expiry, the document owner therefore reads
 bindings afresh, evicting the API client's cached listing. A matching active
@@ -64,9 +68,10 @@ and resuming from the resulting persisted state.
 | Remote document deletion | A coded missing-document response is only a discovery signal. Verified purge proof and local teardown commit together; an unavailable proof leaves local data intact. |
 
 Retries are event-driven: reconnect, startup, further changes, or manual sync.
-Permission failures and exhausted conflict-recovery budgets can remain parked
-until their recovery signal or a manual retry. Preserved work does not imply
-continuous automatic retries during an outage.
+Permission failures and exhausted conflict-recovery budgets can remain
+[parked](./sync-edge-cases.md#queue-statuses) until their recovery signal or a
+manual retry. Preserved work does not imply continuous automatic retries during
+an outage.
 
 ## Regression tests
 

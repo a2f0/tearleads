@@ -1,15 +1,18 @@
 # Raw Document-History Recovery
 
 Raw history is a deliberate recovery mode for clients that must reconstruct a
-document without trusting a writer-supplied rotation-baseline coverage claim.
-The server still authenticates the request and freezes pagination at one commit
-LSN, but it bypasses baseline redirection and returns every retained missing
-update plus the content-key bundle for every served epoch.
+document without trusting a writer-supplied
+[rotation-baseline coverage claim](./document-rekey-and-audit-history.md#declared-coverage-is-trusted-not-verified).
+The server still authenticates the request and freezes pagination at one
+[commit LSN](./glossary.md#commit-lsn), but it bypasses baseline redirection and
+returns every retained missing update plus the
+[content-key bundle](./glossary.md#content-key-bundle) for every served epoch.
 
 ## Client Contract
 
-Call `syncRemoteDocument` with `historyMode: "raw"`, a null local version
-vector, and no outgoing updates. Ordinary sync omits `historyMode`.
+Call `syncRemoteDocument` with `historyMode: "raw"`, a null local
+[version vector](./glossary.md#version-vector), and no outgoing updates.
+Ordinary sync omits `historyMode`.
 
 A raw consumer must:
 
@@ -30,11 +33,12 @@ declared version-vector coverage is the value raw recovery is designed not to
 trust. The server retains original ciphertext, so the ordinary stream remains
 the recovery source of truth.
 
-The built-in document content-key rotation preflight implements this contract.
-An interrupted page, a poison update, a changing document generation, or a
-superseding pane leaves the previous durable document intact. Durable pending
-ordinary rows are settled remotely before the baseline can be returned. Queued
-rotation checkpoints remain excluded from reconstruction.
+The built-in document content-key [rotation](./glossary.md#rotate) preflight
+implements this contract. An interrupted page, a poison update, a changing
+document generation, or a superseding pane leaves the previous durable document
+intact. Durable pending ordinary rows are settled remotely before the baseline
+can be returned. Queued rotation checkpoints remain excluded from
+reconstruction.
 
 If a checkpoint is the only durable carrier of an operation, the client cannot
 prove that operation originated locally rather than in a forged checkpoint. A
@@ -81,60 +85,64 @@ record saves capture that generation before waiting for the mutation queue; a
 writer released after recovery must reject its stale fence and reload instead
 of appending history or publishing its pre-recovery document.
 
-Custom `DocumentsPersistence` adapters opt in by declaring
-`supportsAtomicRecoveryHistoryPruning: true` and implementing that guarantee in
-`commitDocumentMutation`: rejecting ordinary pending rows, selecting every
-queued checkpoint and its matching tail plus other exact-history-matching rows,
-rejecting an unrelated or same-frontier forged tail, and rejecting any selected
-tail that lacks a durable row identifier and therefore cannot be pruned.
-Replacing the checkpoint, pruning the selected rows, and committing the
-canonical document must be one guarded transaction. Rotation recovery refuses
-adapters that declare the capability `false`. If the exact checkpoint-history
-gate or canonical-record comparison rejects the recovery candidate, or if
-volatile runtime/trust ownership changes before the transaction commits, the
-adapter rolls back the complete install, including checkpoint/tail pruning,
-projection writes, and pending-row settlement. The checkpoint gate must reject
-a candidate that does not dominate the stored version vector or does not retain
-the stored checkpoint's exact operation-log prefix; the in-memory conformance
-adapters exercise the same stale and same-frontier-fork rejection as SQLite.
-The generation guard and SQLite `COMMIT` dispatch share one synchronous slice,
-so ownership cannot change between the final decision and commit dispatch.
+[Custom `DocumentsPersistence` adapters](./developer/custom-document-persistence.md)
+opt in by declaring `supportsAtomicRecoveryHistoryPruning: true` and
+implementing that guarantee in `commitDocumentMutation`: rejecting ordinary
+pending rows, selecting every queued checkpoint and its matching tail plus other
+exact-history-matching rows, rejecting an unrelated or same-frontier forged
+tail, and rejecting any selected tail that lacks a durable row identifier and
+therefore cannot be pruned. Replacing the checkpoint, pruning the selected rows,
+and committing the canonical document must be one guarded transaction. Rotation
+recovery refuses adapters that declare the capability `false`. If the exact
+checkpoint-history gate or canonical-record comparison rejects the recovery
+candidate, or if volatile runtime/trust ownership changes before the transaction
+commits, the adapter rolls back the complete install, including checkpoint/tail
+pruning, projection writes, and pending-row settlement. The checkpoint gate must
+reject a candidate that does not dominate the stored version vector or does not
+retain the stored checkpoint's exact operation-log prefix; the in-memory
+conformance adapters exercise the same stale and same-frontier-fork rejection as
+SQLite. The generation guard and SQLite `COMMIT` dispatch share one synchronous
+slice, so ownership cannot change between the final decision and commit
+dispatch.
 
 If a retained update references a present, verified content-key bundle whose
 key is no longer reachable — including a predecessor epoch whose retained
-keyring is absent — the public `DocumentRawHistoryUnavailableError` reports the
-stable code `document_raw_history_epoch_unavailable` and numeric
-`contentKeyEpoch`. Callers do not need to parse an integrity-error message, and
-the failed recovery does not install partial document state. An absent bundle
-cannot establish that distinction before its update is authenticated, so it
-remains a poison incident instead of being reported as benign history
-unavailability.
+[keyring](./glossary.md#container-kek-keyring) is absent — the public
+`DocumentRawHistoryUnavailableError` reports the stable code
+`document_raw_history_epoch_unavailable` and numeric `contentKeyEpoch`. Callers
+do not need to parse an integrity-error message, and the failed recovery does
+not install partial document state. An absent bundle cannot establish that
+distinction before its update is authenticated, so it remains a poison incident
+instead of being reported as benign history unavailability.
 
 The raw consumer checks every referenced epoch before reporting unavailability
 so a malformed bundle in the same page always takes poison-isolation
 precedence. Within a multi-target bundle it likewise aggregates
 unreachable-target causes, so integrity failures outrank an absent predecessor
 keyring regardless of target order. Failures for a shared predecessor epoch are
-merged with the same priority across authorizing paths, so an earlier
+merged with the same priority across
+[authorizing paths](./glossary.md#authorizing-container-path), so an earlier
 unavailable path cannot hide a later integrity failure. Before reporting an
 unavailable epoch, the client decrypts and import-validates every sibling whose
-content key is available. Any poison retains precedence, including an
-unresolved dependency: the wire contract authenticates operation ranges but not
-an exact dependency set, so the client cannot prove that an unavailable sibling
-carries that parent. Every encrypted record is structurally parsed and checked
-against its authenticated header before any missing epoch can be classified as
-benign unavailability. Every historical bundle's target list is also recomputed
-and compared with its committed target hash, and that hash plus the link-set
-manifest must match every authenticated update header for the epoch.
+content key is available. Any poison retains precedence, including an unresolved
+dependency: the wire contract authenticates operation ranges but not an exact
+dependency set, so the client cannot prove that an unavailable sibling carries
+that parent. Every encrypted record is structurally parsed and checked against
+its authenticated header before any missing epoch can be classified as benign
+unavailability. Every historical bundle's target list is also recomputed and
+compared with its committed [target hash](./glossary.md#target-hash), and that
+hash plus the [link-set manifest](./glossary.md#document-link-set-manifest) must
+match every authenticated update header for the epoch.
 
-When this error is derived using a cached writer projection, whether supplied
-by the caller or returned by the API client, the client evicts and resolves
-that projection once before exposing the error; a fresh projection may restore
-access to retained predecessor keys. A raw pagination conflict never restarts
-or resubmits the frozen cursor, including when the first attempt was built from
-persisted projection state. Any raw-page validation failure is terminal for
-that frozen cursor as well, including a plain importer error that does not
-carry a specialized isolation type.
+When this error is derived using a cached
+[writer projection](./glossary.md#writer-projection), whether supplied by the
+caller or returned by the API client, the client evicts and resolves that
+projection once before exposing the error; a fresh projection may restore access
+to retained predecessor keys. A raw pagination conflict never restarts or
+resubmits the frozen cursor, including when the first attempt was built from
+persisted projection state. Any raw-page validation failure is terminal for that
+frozen cursor as well, including a plain importer error that does not carry a
+specialized isolation type.
 
 ## Verification
 
