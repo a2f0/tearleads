@@ -20,12 +20,12 @@ higher-capacity products are **Upgrade**, lower-capacity products are
 **Scheduled** until the effective lifecycle event arrives.
 
 [`capacitorPurchases.ts`](../../packages/app-capacitor/src/billing/capacitorPurchases.ts)
-adapts `@revenuecat/purchases-capacitor` to the shared `RevenueCatBackend`. What
-is specific to the native bridge, as opposed to the web one:
+adapts `@revenuecat/purchases-capacitor` to the shared `RevenueCatBackend`.
+Native-specific behavior:
 
 - **The bridge is untyped at runtime.** A `CustomerInfo` or package can arrive
-  partial or nullish, so every field read is guarded rather than trusted; a bad
-  payload reads as "no entitlement", never a crash.
+  partial or nullish, so every field read is guarded; a bad payload reads as
+  "no entitlement", never a crash.
 - **Native purchases use a bounded first-party bridge.** The Android and iOS
   `RevenueCatPurchasePlugin` implementations cache during preparation and buy
   that exact package without another offerings lookup. No fallback exists:
@@ -35,12 +35,11 @@ is specific to the native bridge, as opposed to the web one:
   also preserves StoreKit domain/code. Other operations use the official
   plugin. The System Monitor excludes receipt, account, and free-form text.
 - **A dismissed store sheet is a cancellation, not a failure.** The bridge
-  serializes RevenueCat's `PurchasesError` across the native boundary, so what
-  arrives is a plain object — `instanceof` cannot work the way it does on web.
-  The adapter matches `code === PURCHASE_CANCELLED_ERROR` and rethrows the
-  shared `PurchaseCancelledError`, which is the only rejection
-  `useSubscribeAction` treats as a no-op. Without it, backing out of the sheet
-  surfaces "Failed to subscribe".
+  serializes RevenueCat's `PurchasesError` into a plain object, so `instanceof`
+  cannot match it as on web. The adapter matches
+  `code === PURCHASE_CANCELLED_ERROR` and rethrows the shared
+  `PurchaseCancelledError`, the only rejection `useSubscribeAction` treats as a
+  no-op. Without it, backing out of the sheet surfaces "Failed to subscribe".
 - **`abortSignal` is honored before the native purchase call, and only before
   it.** A presented StoreKit or Play sheet has no programmatic dismissal, so the
   abort is checked on entry and after both the adapter and native package
@@ -52,15 +51,14 @@ is specific to the native bridge, as opposed to the web one:
   flow's outcome stays a pre-sheet abort.
 - **Configure binds the known buyer.** `Purchases.configure` receives the
   `appUserID` when the sdk has one; configuring anonymously and aliasing on the
-  following `logIn` leaves a stray anonymous customer per fresh install.
+  next `logIn` leaves a stray anonymous customer per fresh install.
 - **Org binding rides the subscriber attribute.** A native store purchase
   carries no transaction metadata, so `orgId` is set as a customer-level
   subscriber attribute immediately before the purchase and the webhook resolves
   against it. The attribute is **mutable** — a later purchase for another org
   overwrites it — so it cannot attribute a purchase that completes after
-  another has started. The server therefore accepts the
-  grant only when the attributed organization is still the buyer's personal
-  organization.
+  another has started. The server therefore accepts the grant only when the
+  attributed organization is still the buyer's personal organization.
 
 The key is selected by `Capacitor.getPlatform()`, and the Capacitor web preview
 (`cap run` in a browser) always gets the unavailable stub: it has no store
@@ -68,8 +66,8 @@ bridge, regardless of which keys are inlined.
 
 ## Fastest path: RevenueCat Test Store
 
-Use the Test Store first to prove the app-side flow before waiting on App Store
-Connect or Play Console. The `default` offering should contain `solo`, `team_5`,
+Prove the app-side flow with the Test Store before waiting on App Store Connect
+or Play Console. The `default` offering should contain `solo`, `team_5`,
 and `team_10` packages backed by matching Test Store products and attached to
 the `sync` entitlement. The pinned `@revenuecat/purchases-capacitor` satisfies
 RevenueCat's minimum Test Store-compatible Capacitor SDK (11.2.6). RevenueCat
@@ -77,16 +75,16 @@ reports these webhook events with `store: "TEST_STORE"` and
 `environment: "SANDBOX"`; the server treats them as native purchases, including
 the personal-organization restriction, and staging must opt into sandbox events.
 
-Pass the public Test Store key as a one-build override. The run scripts preserve
-an already-exported value, so the platform keys in `.secrets` remain untouched:
+Pass the public Test Store key as a one-build override. The run scripts keep an
+already-exported value, so the platform keys in `.secrets` stay untouched:
 
 ```sh
 VITE_REVENUECAT_IOS_API_KEY=test_... ./scripts/dev/runIos.sh
 VITE_REVENUECAT_ANDROID_API_KEY=test_... ./scripts/dev/runAndroid.sh
 ```
 
-For an end-to-end staging test, point the mobile bundle at the reachable staging
-API instead of the local default:
+For an end-to-end staging test, point the mobile bundle at the staging API
+instead of the local default:
 
 ```sh
 VITE_API_BASE_URL=https://api-staging.tearleads.com \
@@ -95,7 +93,7 @@ VITE_REVENUECAT_IOS_API_KEY=test_... \
 ```
 
 Then sign in, open Organization Manager → Billing as an organization admin, and
-verify this sequence:
+verify:
 
 1. Solo ($5), Team up to 5 ($10), and Team up to 10 ($20) load from the current
    offering.
@@ -109,8 +107,8 @@ verify this sequence:
    billing snapshot and the activation-pending state clears.
 6. Restore Purchases completes and the entitlement remains active.
 
-Repeat step 1 from a custom organization and verify that no store options are
-loaded and the panel says to subscribe on the web.
+Repeat step 1 from a custom organization and verify that no store options load
+and the panel says to subscribe on the web.
 
 This proves the Capacitor bridge, shared billing UI, identity, org attribution,
 webhook, and entitlement mapping. It does not exercise StoreKit or Google Play
@@ -301,24 +299,23 @@ inline.
 
 ## Sandbox events
 
-A purchase made against a store sandbox — StoreKit sandbox, TestFlight, Play
-internal testing — costs the tester nothing but reaches the RevenueCat webhook as
-an event otherwise **indistinguishable** from a paid one: same type, same
-entitlement, same subscriber attributes. The only difference is the event's
-`environment` field (`SANDBOX` / `PRODUCTION`).
+A store-sandbox purchase — StoreKit sandbox, TestFlight, Play internal testing
+— costs the tester nothing but reaches the RevenueCat webhook as an event
+otherwise **indistinguishable** from a paid one: same type, entitlement, and
+subscriber attributes. Only the event's `environment` field (`SANDBOX` /
+`PRODUCTION`) differs.
 
 Stripe-store events are exempt from the guard: RevenueCat marks Stripe
 *test-mode* transactions `SANDBOX` too, and gating them would stop a tier that
 tests direct Stripe checkout with test-mode keys from applying its own web
-billing. What stands in for the guard there is Stripe's own attribution — a
-foreign-mode subscription resolves through neither the durable binding nor the
-exact `sub_…` lookup, both of which run against that tier's own Stripe key and
-fail closed.
+billing. Stripe's own attribution stands in for the guard: a foreign-mode
+subscription resolves through neither the durable binding nor the exact `sub_…`
+lookup, both of which run against that tier's own Stripe key and fail closed.
 
 `classifyRevenueCatEvent` therefore ignores sandbox events unless the tier sets
-`REVENUECAT_ALLOW_SANDBOX_EVENTS=true`. It fails closed, so production simply
-omits the variable; set it on the tier where native purchases are exercised, or
-sandbox testing there will look like a webhook that silently does nothing.
+`REVENUECAT_ALLOW_SANDBOX_EVENTS=true`. It fails closed, so production omits
+the variable; set it on the tier where native purchases are exercised, or
+sandbox testing there looks like a webhook that silently does nothing.
 
 - Both halves are ignored, not just grants. Applying a sandbox *revoke* against
   a production tier could disable sync an organization actually paid for.
@@ -331,10 +328,10 @@ sandbox testing there will look like a webhook that silently does nothing.
 - An event with **no** `environment` is treated as production: RevenueCat has not
   always sent the field, and a redelivered old event must keep its paid meaning.
 
-Because this is a tier-level policy synced as a Worker secret by
+This tier-level policy is synced as a Worker secret by
 [`packages/api/scripts/deployApi.sh`](../../packages/api/scripts/deployApi.sh),
-it only reaches a deployed tier through the API deploy step, like the webhook
-secret.
+so, like the webhook secret, it reaches a deployed tier only through the API
+deploy step.
 
 ## Product and organization policy
 

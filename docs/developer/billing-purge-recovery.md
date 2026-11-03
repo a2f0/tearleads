@@ -6,11 +6,11 @@ and purges organization-owned remote data. Sync remains blocked after the state
 reaches `purged`; a replacement organization is required before it can resume.
 
 `clearRemoteSyncState(execSql, { organizationId })` works while sync is
-blocked. It clears only that organization's server-derived rows,
-cursors, remote identifiers, and queued remote work. Durable local Loro history
-and attachment sources remain available for republishing. A replacement reset
-also accepts a fresh organization id and root container id and rebinds the
-retained local records to them.
+blocked. It clears only that organization's server-derived rows, cursors,
+remote identifiers, and queued remote work; durable local Loro history and
+attachment sources stay available for republishing. A replacement reset also
+accepts a fresh organization id and root container id and rebinds the retained
+local records to them.
 
 Reset scope comes from local container ownership and document projections,
 including document-to-container links. Organization and roster profile pointers
@@ -65,21 +65,21 @@ organization's proof cannot populate reused local IDs after recovery. Missing
 organization scope leaves discovery pending.
 See [the bounded recovery model](../../formal/local-trust/PurgeRecovery.md).
 
-Re-shared folders also recover on other members' devices. The client
-pins the organization's verified genesis signer and key fingerprint only after
+Re-shared folders also recover on other members' devices. The client pins
+the organization's verified genesis signer and key fingerprint only after
 matching them to the verified personal root's creation signer. A separately
 signed directory citing genuine group policies cannot nominate a different
-founder. The pin survives cache eviction, logout, and backup restore.
-A replacement chain must be signed by that original founder, and the
-destination folder must be created by the same user. The verified destination's
-organization genesis and root genesis must match the proof. Its root and reserved
-group genesis checkpoints are pinned before adoption. The held-folder rebind
-keeps queued edits and resets the remote metadata stream.
+founder. The pin survives cache eviction, logout, and backup restore. A
+replacement chain must be signed by that original founder, and the destination
+folder must be created by the same user. The verified destination's
+organization genesis and root genesis must match the proof; its root and
+reserved group genesis checkpoints are pinned before adoption. The held-folder
+rebind keeps queued edits and resets the remote metadata stream.
 
 `GET /containers/:id/replacement-authorizations/:replacesOrganizationId` serves
-the chain only to a current reader of the destination container. Former members
-cannot discover replacement IDs merely through the old roster. A disabled
-member can follow when deliberately invited and granted access in the
+the chain only to a current reader of the destination container, so former
+members cannot discover replacement IDs merely through the old roster. A
+disabled member can follow when deliberately invited and granted access in the
 new organization; no old grant or roster status automatically grants new access.
 Missing authority or proof leaves the old binding and queued edits untouched.
 Multiple replacements use a continuous signed chain, without a lifetime cap.
@@ -93,8 +93,8 @@ organization and root-container ids; callers use the organization id for trial
 or checkout and retry recovery. The app's Organization Billing panel performs
 this handoff automatically. It keeps the purged organization active locally,
 targets every replacement billing read and purchase explicitly, and retries the
-same durable recovery after billing becomes sync-eligible.
-The old organization's local data and the server default-organization pointer
+same durable recovery after billing becomes sync-eligible. The old
+organization's local data and the server default-organization pointer
 remain bound to the old id during this billing wait, so re-authentication still
 opens the retained organization. Once the replacement is sync-eligible, the
 session clears the purged organization's remote state transactionally, then
@@ -105,8 +105,8 @@ resume under the new id. Lost responses and interrupted resets remain
 idempotent.
 
 SDK organization billing methods that can initiate a replacement purchase
-accept an explicit organization id. Hosts must use that target while recovery
-is waiting rather than temporarily switching the session, which would make a
+accept an explicit organization id. While recovery waits, hosts must use
+that target rather than temporarily switching the session, which would make a
 restart lose the purged source id before local rebind and server finalization.
 
 Only one replacement can win. When two devices race with different candidate

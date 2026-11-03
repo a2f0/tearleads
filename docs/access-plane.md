@@ -74,17 +74,17 @@ projections for container and direct organization authorization. This includes
 the signed history, signer identity fingerprints, projection and membership
 roots, current payload and member-envelope commitments, transition rules, and
 any exact reserved-`Admins` authority citations. Direct edits to permission
-projection rows therefore fail with an integrity conflict even when the API
-process itself is honest but its database contents were altered.
+projection rows therefore fail with an integrity conflict, even when the API
+process is honest but its database was altered.
 Direct organization authorization also verifies the signed organization
 authority descriptor before trusting the database's reserved `Admins` and
 `Members` identifiers, so repointing either identifier to another valid group
 fails closed.
 
-The organization authority descriptor also commits the exact current head of
-every organization group. It is version 2, and verification rejects other
-versions. Clients pair every group successor with an organization-policy
-successor through one atomic policy commit. Before
+The organization authority descriptor (version 2; verification rejects other
+versions) also commits the exact current head of every organization group.
+Clients pair every group successor with an organization-policy successor
+through one atomic policy commit. Before
 using a group for sharing or rotation-staleness decisions, a client verifies
 the organization policy and reserved `Admins` head, then requires the served
 group bundle to match the directory's exact head. Serving an older, otherwise
@@ -214,7 +214,7 @@ Blob bytes are stored separately from signed attachment state. A blob is
 readable when at least one active attachment binding points to a readable
 document.
 
-Blob encrypted bytes are also stored separately from blob content-key bundles.
+Blob encrypted bytes are also stored apart from blob content-key bundles.
 The encrypted payload record commits to the blob id, content-key epoch,
 content-record id, metadata hash, nonce-domain hash, IV, suite, and ciphertext.
 The key package lives in blob content-key epoch/target rows and is returned by

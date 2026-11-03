@@ -13,8 +13,7 @@ Core rules:
 - Attachment metadata stays server-indexable so the server can stage uploads,
   enforce permission changes, and collect orphaned blobs.
 
-Document sync is therefore not a single protocol surface. It has three adjacent
-planes:
+Document sync therefore spans three adjacent planes:
 
 1. document plane: encrypted Loro updates
 2. attachment plane: blob stage plus atomic attachment-binding metadata
@@ -119,8 +118,8 @@ For the full HTTP surface, see
 For the cross-package handshake, proof, blob stage, attach, and slot contract,
 see [protocol-specification.md](./protocol-specification.md).
 
-The server does not decrypt document content. It filters updates using the
-visible partial version-vector metadata supplied with each encrypted update.
+The server does not decrypt document content; it filters updates by the visible
+partial version-vector metadata supplied with each encrypted update.
 `document_update_spans` is the server-side causal indexing primitive: it stores
 one row per document/update peer span with start and end counters, plus indexes
 for `(document_id, peer_id, end_counter)` and unique update/peer lookups. The
@@ -131,8 +130,8 @@ covered by the client's frontier instead of loading full document history into
 application memory. Sync responses include a `commitLsn`: accepted
 current-epoch writes return the append LSN, and read-only syncs return the
 current WAL LSN observed after the missing-update read. Sync requests may
-include `minLsn` as a consistency hook for replica-safe read-after-write
-behavior. Every response declares its mode. A remote-primary backend without a
+include `minLsn` as a consistency hook for replica-safe read-after-write.
+Every response declares its mode. A remote-primary backend without a
 portable WAL position returns `commitLsnMode: "untracked"` and the `0/0` reset
 sentinel. Tracked mode retains the normal `commitLsn >= minLsn` requirement.
 
@@ -217,8 +216,8 @@ not reliably:
 - maintain attachment indexes
 - identify orphaned blobs
 
-Attachment state therefore cannot be only "whatever is implied by decrypted
-Loro content on the client." Some attachment metadata is visible.
+Attachment state therefore cannot live only in decrypted Loro content on the
+client; some attachment metadata is visible.
 
 ## Reference Model
 
@@ -287,16 +286,16 @@ For the attachment/blob retention decision, see
 bytes, signed tombstones, and attachment manifests are not retained or part
 of the live attachment binding contract.
 
-For the access-plane model, the important semantic is:
+For the access-plane model:
 
 - blobs are first-class encrypted objects
 - blobs may be attached to multiple documents
 - a blob's effective recipients are derived from the union of the principals of
   the documents that currently reference it
 
-So attach and detach are not only indexing operations. They are also
-security-relevant graph mutations that may require blob content-key epoch
-changes and wrapped-key bundle changes for the blob object.
+Attach and detach are therefore also security-relevant graph mutations, not
+only indexing operations: they may require blob content-key epoch and
+wrapped-key bundle changes for the blob object.
 
 ### 3. Access Plane
 
@@ -310,10 +309,8 @@ This plane owns:
 - `accessEpoch`
 - wrapped content keys / key-target envelopes
 
-Limitation:
-
-Permission revocation is not retroactive. If a client has already received the
-relevant DEK or plaintext, removing that client from a group does not make them
+Limitation: permission revocation is not retroactive. Removing a client that
+already received the relevant DEK or plaintext from a group does not make it
 forget it. Revocation controls subsequent access unless old ciphertext is
 re-encrypted.
 
@@ -414,14 +411,12 @@ render inline placeholders or cards, but the server never parses or indexes
 encrypted Loro diffs to answer attachment questions.
 
 Human-meaningful attachment semantics such as `front`, `back`, `cover`, or
-`inline` are not server-visible. The visible field is an opaque `slotId`, not a
-semantic label.
-
+`inline` are not server-visible; the visible field is an opaque `slotId`.
 Authoritative attach/detach state therefore lives beside Loro, not inside
 opaque encrypted diffs; note content may carry a slot reference only for the
 editor.
 
-One practical consequence is:
+Consequently:
 
 - document access derives from linked containers
 - blob access derives from active attachment bindings and linked documents

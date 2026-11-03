@@ -30,7 +30,7 @@ export const securitySummary: readonly SecuritySummaryRow[] = [
     id: "sharing",
     title: "Verified sharing",
     protection:
-      "The app works out who can receive a folder's keys from signed access records and group policies that it verifies itself, so access follows signatures rather than the server's membership rows.",
+      "The app decides who can receive a folder's keys from signed access records and group policies it verifies itself, not from the server's membership rows.",
     href: "/security/#verified-sharing",
   },
   {
@@ -48,7 +48,7 @@ export const securitySummary: readonly SecuritySummaryRow[] = [
     id: "your-device",
     title: "Encrypted at rest",
     protection:
-      "Local data is stored encrypted, under keys protected by a host wrapping key, and you can add a PIN lock.",
+      "Local data is encrypted under keys protected by a host wrapping key. You can add a PIN lock.",
     href: "/security/#local-storage",
   },
 ];

@@ -6,19 +6,19 @@ The `protect-main` GitHub ruleset must require `CI gate`, `Lint`,
 with strict base freshness and no bypass actors. The ruleset is repository
 configuration; editing a workflow alone does not make a check required.
 
-`CI gate` runs on every pull request and main-branch push. It requires lint,
-workspace builds, TypeScript, package tests, the web build, and Postgres
-concurrency and Windows CEF persistence to pass on every PR. It also waits for
-native purchase bridge compiles, Lean proofs, and Terraform checks whenever
-their paths change.
+`CI gate` runs on every pull request and main-branch push. On every PR it
+requires lint, workspace builds, TypeScript, package tests, the web build,
+Postgres concurrency, and Windows CEF persistence to pass. It also waits for
+native purchase bridge compiles, Lean proofs, and Terraform checks when their
+paths change.
 The platform workflows are reusable and keep their standalone manual dispatch
 entry points. `Lint` passes pull-request names to
 `agent-tool branch check --pre-push` as stdin ref tuples, so the policy also
 applies to pull requests from clones without hooks.
 
 The API, app, and client SDK suites each run in a `Test (...)` job of their own,
-and `Build and test` runs the remaining package tests. The gate requires both
-jobs, so the suites need no ruleset entries of their own. Turbo serves cached
+and `Build and test` runs the remaining package tests. The gate requires both,
+so the suites need no ruleset entries. Turbo serves cached
 results from the GitHub Actions cache: a pull request reads entries written on
 its own ref or on `main`, while `main` never reads an entry a pull request wrote.
 The nightly `Uncached tests` workflow calls the entire CI workflow with
@@ -26,9 +26,9 @@ The nightly `Uncached tests` workflow calls the entire CI workflow with
 models. Manual workflow dispatches also bypass the cache.
 
 CI runs the Postgres concurrency probe, Windows CEF persistence probe, and native
-purchase bridge compiles through dedicated root Turbo tasks. They cache a
-successful verification with no build artifacts, keyed on their workspace source
-dependencies and external scripts. Windows and native tasks also hash the hosted
+purchase bridge compiles as dedicated root Turbo tasks. Each caches a successful
+verification without build artifacts, keyed on its workspace source dependencies
+and external scripts. Windows and native tasks also hash the hosted
 runner image version; Postgres hashes the service image. The native release tests
 in `Lint` reuse the same `app-capacitor#test` task as `Build and test`.
 
@@ -40,20 +40,20 @@ Implementation projections, conformance tests, and other static checks still run
 Local `check:fast`, pre-push, and the direct model commands still execute TLC.
 
 Website-only source changes and website version bumps leave application test and
-platform verification hashes unchanged. Shared UI changes invalidate the website
-and app consumers; shared validators can also invalidate API and SDK checks.
-Website deployment scripts have tests in `app-capacitor`, so changes to those
-scripts also invalidate its suite. Local screenshot captures feed only the
-website build; CI does not recapture them. No application-code extraction is
-needed to keep ordinary website edits independent.
+platform verification hashes unchanged, so ordinary website edits stay
+independent without extracting application code. Shared UI changes invalidate
+the website and app consumers; shared validators can also invalidate API and SDK
+checks. Website deployment scripts are tested in `app-capacitor`, so changing
+them invalidates its suite. Local screenshot captures feed only the website
+build; CI does not recapture them.
 
 A cache miss can still occur while `main` is producing a new result: a PR cannot
 reuse another PR's cache or a task that has not finished. The
 [GitHub cache access rules](https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#restrictions-for-accessing-a-cache)
 apply to the Turbo cache bridge. A PR that starts its long suites before the
 preceding `main` run finishes executes them; a later run reuses the results.
-A job starting is not itself evidence of a cache miss, because a cache hit
-still runs the job and replays the task log. The web application build is
+A running job does not indicate a cache miss: a hit still runs the job and
+replays the task log. The web application build is
 uncached because it embeds the current Git commit.
 
 [`scripts/checks/ciPolicy.ts`](../../scripts/checks/ciPolicy.ts) owns path
@@ -75,8 +75,8 @@ The shared `agent-tool pr merge` helper reads the core checks from
 `merge.requiredChecks` in `agent-tool.json`. It independently requires them to
 succeed in the CI workflow on the exact head it will merge, and rejects any
 other reported failed or pending check. Missing checks and API errors stop the
-merge. This also protects standalone helper calls; waiting only for whichever
-checks a ruleset happens to require is insufficient. With
+merge. This also protects standalone helper calls, where waiting only for the
+checks a ruleset requires would be insufficient. With
 `merge.requireStrictBaseFreshness`, the helper also refuses to merge unless the
 base's effective rules include an active strict status rule that the
 authenticated actor cannot bypass. Update `agent-tool.json` together with the

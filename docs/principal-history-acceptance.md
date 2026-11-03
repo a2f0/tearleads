@@ -54,7 +54,7 @@ details](principal-history-transport.md#measuring-http-work).
 ## Concurrent prefix publication
 
 Repeated recovery of identical current artifacts preserves the completed
-prefix's sealed progress. A reader therefore cannot invalidate a pending
+prefix's sealed progress, so a reader cannot invalidate a pending
 acknowledgement merely by resealing its unchanged predecessor. The signed
 regression in `retainAcknowledgedPrincipalCurrents.recoveryRace.test.ts` fails
 if that preservation is removed. Explicit replacement of a rejected prefix still
@@ -91,8 +91,8 @@ request costs](developer/current-principal-consumers.md#request-costs).
 
 `principalPolicyCacheForVerifiedPolicies` retains signatures and exact
 references but does not bind entries to an organization, dependency set or live
-recovery lease. Built-in verifiers therefore consult the scoped resolver before
-that cache, even for entries produced earlier in the same caller. Current-only
+recovery lease, so built-in verifiers consult the scoped resolver before that
+cache, even for entries produced earlier in the same caller. Current-only
 entries with `retainedHistory` never take the bare-cache path, and a complete
 cached history cannot bypass scoped resolution.
 `runtimePolicyRecoveryLocal.test.ts` proves that a held full bundle cannot

@@ -3,29 +3,25 @@
 A client may lose an HTTP response after a standalone organization policy, a
 compound group-and-organization policy request, or group creation/deletion
 commits. Retrying the exact request returns its original acknowledgement even
-after later policy versions commit. A durable receipt is written in the same
-transaction as the policies and
-binds the entire canonical request, authenticated requester, organization, and
-target group when applicable. Separate hash domains distinguish standalone,
-compound, creation and deletion requests. Existing mutation locks serialize
-concurrent exact retries.
-A replay does not change current heads or publish another access or sharing
-notification.
-
+after later policy versions commit. A durable receipt, written in the same
+transaction as the policies, binds the entire canonical request, authenticated
+requester, organization, and target group when applicable. Separate hash domains
+distinguish standalone, compound, creation and deletion requests. Existing
+mutation locks serialize concurrent exact retries. A replay does not change
+current heads or publish another access or sharing notification.
 These receipts report historical outcomes; they do not establish current
 authority or authorize a newly constructed request. The authenticated requester
 must still be a current organization administrator to read a receipt; a revoked
 requester receives 403, not a claim that the commit rolled back. Reading an
-existing acknowledgement does not require current sync entitlement or rerun
-roster billing checks: it reports a past commit without authorizing another.
-Invalid stored
-receipts fail closed. Compound container results still require their original
-acknowledgement rows, so purging an organization cannot leave a response in an
-embedded copy. Group deletion removes that group's compound and creation
-receipts. Deletion receipts keep a null database group ID so removing the group
-cannot delete the acknowledgement; the hash still binds its exact target.
-Organization purge removes these receipts together with standalone receipts.
-A null database group ID therefore does not identify the operation domain.
+existing acknowledgement neither requires current sync entitlement nor reruns
+roster billing checks. Invalid stored receipts fail closed. Compound container
+results still require their original acknowledgement rows, so purging an
+organization cannot leave a response in an embedded copy. Group deletion removes
+that group's compound and creation receipts. Deletion receipts keep a null
+database group ID so removing the group cannot delete the acknowledgement; the
+hash still binds its exact target. Organization purge removes these receipts
+together with standalone receipts. A null database group ID therefore does not
+identify the operation domain.
 
 Clients must preserve the authored request while its outcome is unknown.
 The SDK's principal policy journal does this for all four operation kinds. See
@@ -34,16 +30,17 @@ revocation and recovery scenario.
 
 Receipts survive until their group or organization is deleted. Expiring them on
 a time limit would make an old unknown outcome indistinguishable from a failed
-commit. Each receipt stores only one or two exact public state references. Replay
-loads the immutable state and its public artifacts and reconstructs retired member
-envelopes from the authenticated, hash-matched original request. The receipt keeps
-no payload, envelope, projection, grant or container-result copy. Rotation can
-therefore remove superseded envelope rows without losing the original
-acknowledgement. Reference substitution or missing immutable state fails closed.
-Reconstructed signature bytes, ciphertext, projection and grants must match the
-receipt-authenticated original request; the state hash alone cannot authenticate
-signature bytes. Altered retired artifacts cannot return a successful receipt.
-Storage still grows by a fixed-size record per accepted commit.
+commit. Each receipt stores only one or two exact public state references.
+Replay loads the immutable state and its public artifacts and reconstructs
+retired member envelopes from the authenticated, hash-matched original request.
+The receipt keeps no payload, envelope, projection, grant or container-result
+copy, so rotation can remove superseded envelope rows without losing the
+original acknowledgement. Reference substitution or missing immutable state
+fails closed. Reconstructed signature bytes, ciphertext, projection and grants
+must match the receipt-authenticated original request; the state hash alone
+cannot authenticate signature bytes. Altered retired artifacts cannot return a
+successful receipt. Storage still grows by a fixed-size record per accepted
+commit.
 
 ## Group creation and deletion transport
 
@@ -65,16 +62,16 @@ compound and standalone organization policy requests.
 ## Durable principal requests
 
 The `Tearleads` runtime saves the complete JSON request before submitting a
-compound policy, standalone organization policy, group creation or group deletion
-mutation. A separate signature by the local
-actor authenticates the whole wire body, including ciphertext and envelopes
-outside individual state signatures. Its domain binds the API identity trust
-domain, organization, actor and signing fingerprint. The local SQLite executor
-owns the journal; a captured database/session generation guards every write and
-dispatch. It requires the same signing identity after restart and does not rely
-on the ephemeral history-cache key.
-Sealing verifies the new journal signature against the actor's public key before
-claiming its lane, so a mismatched signing key pair cannot create unreadable work.
+compound policy, standalone organization policy, group creation or group
+deletion mutation. A separate signature by the local actor authenticates the
+whole wire body, including ciphertext and envelopes outside individual state
+signatures. Its domain binds the API identity trust domain, organization, actor
+and signing fingerprint. The local SQLite executor owns the journal; a captured
+database/session generation guards every write and dispatch. It requires the
+same signing identity after restart and does not rely on the ephemeral
+history-cache key. Sealing verifies the new journal signature against the
+actor's public key before claiming its lane, so a mismatched signing key pair
+cannot create unreadable work.
 
 One unresolved request owns each actor/organization lane. A concurrent author
 cannot replace it. Cache resets retain authored work. The runtime resolves it
@@ -88,20 +85,20 @@ are left to ordinary verified recovery, so an older receipt cannot roll them bac
 Calls sharing an executor and scope serialize submission, recovery and explicit
 abandonment. Recovery waits for an owned dispatch instead of sending it again.
 This in-memory wait does not span separate executors or tabs; durable claims and
-server transaction receipts still protect concurrent transport attempts.
-Runtime recovery has a host-configurable request deadline; expiration retains
-the journal.
-Read-only inspection can observe an in-flight request without waiting for its
-acknowledgement. Retry, abandonment and discard still wait for an owned dispatch.
+server transaction receipts still protect concurrent transport attempts. Runtime
+recovery has a host-configurable request deadline; expiration retains the
+journal. Read-only inspection can observe an in-flight request without waiting
+for its acknowledgement. Retry, abandonment and discard still wait for an owned
+dispatch.
 
 A known first-attempt refusal or cancellation before dispatch retires the
-journal. A disconnected request, an
-invalid acknowledgement or an expired lifetime leaves it pending. Once an
-outcome is uncertain, a later refusal, including 403, 409 or the coded rollback
-503, cannot prove the first attempt rolled back and does not clear its record.
-Corrupt authored work is retained and rejected before network submission.
-A lifetime change also preserves a definitive refusal whose old scope can no
-longer clear the record; a fresh scope must recover it or explicitly abandon it.
+journal. A disconnected request, an invalid acknowledgement or an expired
+lifetime leaves it pending. Once an outcome is uncertain, a later refusal,
+including 403, 409 or the coded rollback 503, cannot prove the first attempt
+rolled back and does not clear its record. Corrupt authored work is retained and
+rejected before network submission. A lifetime change also preserves a
+definitive refusal whose old scope can no longer clear the record; a fresh scope
+must recover it or explicitly abandon it.
 
 Hosts can inspect authenticated work with `readJournaledPrincipalMutation`.
 After an explicit user or host decision, `abandonJournaledPrincipalMutation`
@@ -135,51 +132,51 @@ unknown-outcome acknowledgement. They discard only the unchanged, still-unreadab
 record and do not submit it or change policy pins. Org Manager exposes the same
 confirmation for this case.
 
-Journal scope includes the API origin and signing fingerprint. A different origin
-or rotated identity does not inherit or replay the former scope's records; those
-rows remain until the former scope is restored or the database is explicitly reset.
-Auth-token renewal within the same signed identity and organization preserves
-journal custody and the pending-work facade's captured lifetime. A definite
-initial authentication refusal can therefore retire
-its request after renewal; a later operation must not replay that refused change.
-Identity, organization, authentication-state or database changes still expire
-custody, even if the original scope is restored before the response arrives.
-History verification retains its separate, stricter token lifetime. A fresh
-runtime can recover uncertain signed bytes in the same identity scope.
+Journal scope includes the API origin and signing fingerprint. A different
+origin or rotated identity does not inherit or replay the former scope's
+records; those rows remain until the former scope is restored or the database is
+explicitly reset. Auth-token renewal within the same signed identity and
+organization preserves journal custody and the pending-work facade's captured
+lifetime, so a definite initial authentication refusal can retire its request
+after renewal; a later operation must not replay that refused change. Identity,
+organization, authentication-state or database changes still expire custody,
+even if the original scope is restored before the response arrives. History
+verification retains its separate, stricter token lifetime. A fresh runtime can
+recover uncertain signed bytes in the same identity scope.
 
 Advanced hosts can call `submitJournaledPrincipalMutation` and
-`recoverJournaledPrincipalMutation` with an explicit `PrincipalMutationJournalContext`.
-Supply a stable trusted scope, the actor's signing key pair, durable `ExecSql`,
-a lifetime guard, and a status-bearing API submission function. Resolve pending
-work before preparing a new request and keep API-client failure classifications
-intact. The helpers return ordinary receipts, not verified policy capabilities.
-If a submission adapter throws, the saved request remains unresolved and the
-helper throws `PrincipalMutationOutcomeUnknownError` with the original error as
-its cause. A thrown exception cannot establish that dispatch did not commit.
-Built-in interactive dispatch and recovery default to a 60-second deadline,
-combined with any caller cancellation signal. Set
+`recoverJournaledPrincipalMutation` with an explicit
+`PrincipalMutationJournalContext`. Supply a stable trusted scope, the actor's
+signing key pair, durable `ExecSql`, a lifetime guard, and a status-bearing API
+submission function. Resolve pending work before preparing a new request and
+keep API-client failure classifications intact. The helpers return ordinary
+receipts, not verified policy capabilities. If a submission adapter throws, the
+saved request remains unresolved and the helper throws
+`PrincipalMutationOutcomeUnknownError` with the original error as its cause. A
+thrown exception cannot establish that dispatch did not commit. Built-in
+interactive dispatch and recovery default to a 60-second deadline, combined with
+any caller cancellation signal. Set
 `new Tearleads({ principalMutationTimeoutMs: 120_000 })` for a larger budget.
-The value must be a positive integer at most 2,147,483,647 milliseconds. It covers
-the entire submission, including preparation continuations; it is not a claim
-that every healthy compound commit finishes within the default. Hosts with large
-rewraps or slow servers should configure their own budget. A fresh client with a
-longer deadline can retry the exact saved request after timeout. Expiry preserves
-uncertain work and releases the local lane so inspection and actions can proceed.
-All four operation kinds share the same lane and require an explicit signed
-operation kind: `compound`, `organization`, `group-create`, or `group-delete`.
-Standalone organization rows have no group target. Missing or unsupported kinds
-are rejected. Recovery dispatches only that authenticated route and
-checks the matching receipt before removing the journal row. Group creation also
-checks the exact authored genesis against the returned summary; deletion checks
-both organization and deleted group IDs.
+The value must be a positive integer at most 2,147,483,647 milliseconds. It
+covers the entire submission, including preparation continuations; it is not a
+claim that every healthy compound commit finishes within the default. Hosts with
+large rewraps or slow servers should configure their own budget. A fresh client
+with a longer deadline can retry the exact saved request after timeout. Expiry
+preserves uncertain work and releases the local lane so inspection and actions
+can proceed. All four operation kinds share the same lane and require an
+explicit signed operation kind: `compound`, `organization`, `group-create`, or
+`group-delete`. Standalone organization rows have no group target. Missing or
+unsupported kinds are rejected. Recovery dispatches only that authenticated
+route and checks the matching receipt before removing the journal row. Group
+creation also checks the exact authored genesis against the returned summary;
+deletion checks both organization and deleted group IDs.
 
-Real HTTP tests with SQLite and PostgreSQL withhold a committed response, advance
-the policy from another client, and recover the first receipt without a duplicate
-commit. Process cases cover compound, standalone organization, group creation
-and group deletion writes. They kill the submitting SDK process after commit but
-before acknowledgement, advance the directory, then start a fresh process with
-only its restored identity and SQLite file. Removing the journal makes recovery
-fail.
-These tests use native SQLite to exercise disk durability.
-The in-process test uses the production WASM SQLite engine; browser OPFS process
-recovery is not established by these tests.
+Real HTTP tests with SQLite and PostgreSQL withhold a committed response,
+advance the policy from another client, and recover the first receipt without a
+duplicate commit. Process cases cover compound, standalone organization, group
+creation and group deletion writes. They kill the submitting SDK process after
+commit but before acknowledgement, advance the directory, then start a fresh
+process with only its restored identity and SQLite file. Removing the journal
+makes recovery fail. These tests use native SQLite to exercise disk durability.
+The in-process test uses the production WASM SQLite engine; these tests do not
+establish browser OPFS process recovery.

@@ -23,9 +23,9 @@ the tree nor drive discovery from render effects.
 `ready` is a pure function of **local hydration** — never of auth, network, or
 remote sync. First paint renders the full container tree and the active
 container's document list from the local SQLite/OPFS projection. Auth-gain,
-online-regain, and WS events are *reconcile-in-place* signals, not resets: the
-already-visible list is patched with fresh data rather than blanked and
-re-fetched.
+online-regain, and WS events are *reconcile-in-place* signals, not resets: they
+patch the already-visible list with fresh data instead of blanking and
+re-fetching it.
 
 Local reads are network-free. `workflows/container-contents/documentQueries/`
 (`listContainerItemWindow`, `loadDocumentSummary`,
@@ -88,11 +88,10 @@ Module: `client-sdk/src/sync/reconciliation/` (`service.ts`, `queue.ts`,
 `triggers.ts`, and the backfill and probe helpers beside them).
 
 The sole owner of remote reconciliation. It wraps `DomainSyncCoordinator`
-(which provides prioritized lanes, offline tolerance, and idle waiting) and adds
-a priority queue and policy, with the rule that nothing it does is awaited by
-the UI. Its discovery lane runs in the `"document"` phase, which the
-coordinator ranks after `"structural"` container hydration/metadata, so the
-tree reconciles before document discovery.
+(prioritized lanes, offline tolerance, and idle waiting) and adds a priority
+queue and policy; the UI awaits nothing it does. Its discovery lane runs in the
+`"document"` phase, which the coordinator ranks after `"structural"` container
+hydration/metadata, so the tree reconciles before document discovery.
 
 ```ts
 interface ReconciliationService {
@@ -180,7 +179,7 @@ Three bounded probes close gaps that container discovery cannot observe:
 A socket opens with no server-side container interest, and the server keeps no
 copy of a closed socket's set. The client waits while the local container tree
 is `ready=false`; its placeholder empty node list is never declared.
-`known_containers_ack` follows installation of the authorized subset. It also
+`known_containers_ack` follows installation of the authorized subset and also
 acknowledges denied stale IDs so reconnect reconciliation can run.
 
 All three probes use normal document sync: verified Loro updates are projected
@@ -314,16 +313,15 @@ Eager system-container creates are not seeded.
 
 ## Offline contract and coverage
 
-Local reads use persisted content. A remote document or attachment that has
-never been downloaded still requires connectivity to obtain its bytes. Loading
-the application bundle and initializing the platform's local database are
-separate from the SDK's network-free read contract. Sharing, peer-key
-lookup/import, link/unlink of remotely synced documents, organization
-provisioning, and permanent remote deletion are explicit online operations;
-moving a document, including to Trash, queues its remote link-set work
-durably. Background reconciliation can issue requests when online, but local
-first paint and ordinary persistence never wait for it. A failed SQLite or blob
-write is still an operation failure.
+Local reads use persisted content. A remote document or attachment never
+downloaded still needs connectivity for its bytes. Loading the application
+bundle and initializing the platform's local database are separate from the
+SDK's network-free read contract. Sharing, peer-key lookup/import, link/unlink
+of remotely synced documents, organization provisioning, and permanent remote
+deletion are explicit online operations; moving a document, including to Trash,
+queues its remote link-set work durably. Background reconciliation can issue
+requests when online, but local first paint and ordinary persistence never wait
+for it. A failed SQLite or blob write is still an operation failure.
 
 | Seam | Invariant | Enforced by |
 | --- | --- | --- |

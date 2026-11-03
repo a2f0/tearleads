@@ -1,9 +1,8 @@
 # Client Sync Ordering
 
-This document describes the client-side ordering used by
-`@tearleads/client-sdk` when a domain has several kinds of queued sync work.
-It complements the wire-protocol documents; it does not define new HTTP routes
-or server transactions.
+This document describes the client-side ordering `@tearleads/client-sdk` uses
+when a domain has several kinds of queued sync work. It complements the
+wire-protocol documents and defines no new HTTP routes or server transactions.
 
 For one `DomainScope`, the SDK uses one in-process sync coordinator. Sync lanes
 drain through a phase barrier:
@@ -22,12 +21,12 @@ lane performs the work, and upload callbacks update progress and terminal state.
 Manual Sync requests the structural and document owners, never the observational
 rows themselves.
 
-The coordinator is non-preemptive. If a document pass has already started, a
-new structural request waits for the running document passes to finish and
-blocks additional document starts until structural work drains. The ordering
-guarantee is for queued work on one client runtime and one domain scope; other
-devices and other domain scopes synchronize independently and are validated by
-the server protocol.
+The coordinator is non-preemptive. If a document pass has already started, a new
+structural request waits for the running document passes to finish and blocks
+additional document starts until structural work drains. The ordering guarantee
+covers queued work on one client runtime and one domain scope; other devices and
+domain scopes synchronize independently and are validated by the server
+protocol.
 
 **Watchdog exception.** A lane exceeding its watchdog is abandoned, not
 cancelled, so the pump may advance while its tail remains in flight. Its run
@@ -77,9 +76,9 @@ When a move is accepted, the lane updates the local snapshot, requests document
 sync for the domain, and requests a structural follow-up. Because that follow-up
 is structural, it drains before the requested document lanes.
 
-Remote container hydration is read/discovery work, not a sync lane. It can
-prime local state and schedule the structural lane, but it is not allowed to
-write document content or blob attachment state. One hydration pass, one
+Remote container hydration is read/discovery work, not a sync lane. It can prime
+local state and schedule the structural lane, but must not write document
+content or blob attachment state. One hydration pass, one
 document discovery pass, and one document move (its link and unlink legs) each
 discover the organization directory once and share that view; see [operation
 recovery batch](developer/current-principal-consumers.md#operation-recovery-batch).
@@ -88,9 +87,8 @@ Document syncs scheduled through document stores remain separate operations.
 ## Document Phase
 
 Each document store has its own `documents:${localId}` lane. Blob attachment
-work is part of that document lane; there is no independent pump-driven blob
-sync lane. A separate blob row in diagnostics is only a view of the upload that
-the document lane already owns.
+work is part of that lane; there is no independent pump-driven blob sync lane,
+and a diagnostics blob row only views the upload that the document lane owns.
 
 ### Remote pull eligibility
 
@@ -176,9 +174,8 @@ underlying connection is no longer usable.
 
 The coordinator coalesces repeated requests. A successful probe imports and
 persists remote Loro updates before hydrating the active attachment bindings and
-encrypted blob bytes. A lane reported as complete therefore means its callback
-returned; it does not, by itself, prove that an HTTP probe was eligible or
-successful.
+encrypted blob bytes. A lane reported as complete therefore means only that its
+callback returned, not that an HTTP probe was eligible or successful.
 
 A document pass runs in this order:
 
@@ -205,12 +202,11 @@ A document pass runs in this order:
    pass. All downloaded bindings and bytes still undergo signature and digest
    verification.
 
-This means a local document can be created remotely before either attachment
-binds or Loro diffs are sent. Attachment binds may also be sent before pending
-Loro diffs from the same local edit pass. That is intentional: server-visible
-attachment binding state is authoritative for blob reachability, while the
-encrypted Loro payload may reference attachment slots only for editor
-semantics.
+So a local document can be created remotely before either attachment binds or
+Loro diffs are sent, and attachment binds may be sent before pending Loro diffs
+from the same local edit pass. This is intentional: server-visible attachment
+binding state is authoritative for blob reachability, while the encrypted Loro
+payload may reference attachment slots only for editor semantics.
 
 If an attachment upload completes, the document lane requests a follow-up pass
 and returns before regular Loro sync. This keeps each pass small and ensures
@@ -247,18 +243,17 @@ detect mutation between passes.
 ## Blob Synchronization
 
 Blob work remains inside its owning document lane because that lane preserves
-its prerequisites: structural work drains first, the remote document exists,
-the current writer projection is verified, and only then are encrypted bytes
-staged and bound. Byte I/O uses a separate FIFO pool with four permits per API
-client, shared by sync hydration downloads and multipart uploads. Relink
-key-authentication downloads use their existing path. A permit
-covers upload encryption through the part response, or a complete download
-stream; permits are released on success and failure. A new stage's first
-parts are encrypted before the stage exists, to describe them in its
-initiation, so each holds its permit from encryption until its upload ends:
-the upload awaits one permit and takes further ones only if they are free,
-since two uploads each waiting for a second permit while holding a first
-would deadlock the pool. Document lanes await their
+its prerequisites: structural work drains first, the remote document exists, the
+current writer projection is verified, and only then are encrypted bytes staged
+and bound. Byte I/O uses a separate FIFO pool with four permits per API client,
+shared by sync hydration downloads and multipart uploads. Relink
+key-authentication downloads use their existing path. A permit covers upload
+encryption through the part response, or a complete download stream; permits are
+released on success and failure. A new stage's first parts are encrypted before
+the stage exists, to describe them in its initiation, so each holds its permit
+from encryption until its upload ends: the upload awaits one permit and takes
+further ones only if they are free, since two uploads each waiting for a second
+permit while holding a first would deadlock the pool. Document lanes await their
 transfers and retain ownership of binding and persistence.
 
 Unlinking an attachment from a synced document is the mirror case. The local

@@ -12,7 +12,7 @@ import "../styles/features.css";
 const tools = [
   {
     name: "Explorer",
-    text: "Organize notes, contacts, files, and structured records such as driver's licenses and passports in nested folders. Import files, download them again, and move items to Trash, where you can recover them.",
+    text: "Organize notes, contacts, files, and structured records such as driver's licenses and passports in nested folders. Import and download files, and recover items moved to Trash.",
   },
   {
     name: "Notes",
@@ -20,7 +20,7 @@ const tools = [
   },
   {
     name: "Contacts",
-    text: "Keep names, nicknames, and profile photos. Add another Tearleads user with their identity link to tie the contact to their verified identity.",
+    text: "Keep names, nicknames, and profile photos. Add a Tearleads user by their identity link to tie the contact to their verified identity.",
   },
   {
     name: "Identity Manager",
@@ -28,7 +28,7 @@ const tools = [
   },
   {
     name: "Backup / Restore",
-    text: "Export a password-protected backup of your local data and the file contents stored on the device, and restore it from the file.",
+    text: "Export a password-protected backup of your local data and on-device file contents, and restore from it.",
   },
   {
     name: "Org Manager",
@@ -54,7 +54,7 @@ const tools = [
         <SectionHeader
           titleId="tools-title"
           title="Tools"
-          lede="On desktop, each tool opens in its own window. On phones and tablets, tools open one at a time, with back navigation. Light and dark themes are included."
+          lede="On desktop, each tool opens in its own window; on phones and tablets, one at a time, with back navigation. Light and dark themes included."
         />
         <dl class="site-spec">
           {tools.map((tool) => (
@@ -79,7 +79,7 @@ const tools = [
         <SectionHeader
           titleId="device-title"
           title="On your device"
-          lede="Content on your device is encrypted, and you can read and edit it offline. Edits save locally and sync as soon as you're back online."
+          lede="Content on your device is encrypted, and you can read and edit it offline. Edits save locally and sync when you're back online."
         />
         <div class="features-split-body">
           <dl class="site-spec">
@@ -95,7 +95,7 @@ const tools = [
               <dt>Backups</dt>
               <dd>
                 Keep a backup file somewhere you control. It includes your local
-                data and the file contents stored on the device.
+                data and on-device file contents.
               </dd>
             </div>
           </dl>
@@ -120,8 +120,8 @@ const tools = [
             <div>
               <h3>Sync</h3>
               <p>
-                Changes you make are queued on your device and sent when you're
-                online, and changes from your other devices are merged in.
+                Changes queue on your device and send when you're online;
+                changes from your other devices merge in.
                 Document and file contents are encrypted before they reach the
                 service.
               </p>
@@ -130,9 +130,9 @@ const tools = [
               <h3>Sharing</h3>
               <p>
                 Share a folder with users and groups in your organization, with
-                read, write, or admin access. To share with someone, first add
-                them to your organization's roster; each roster member counts
-                toward your plan's capacity.
+                read, write, or admin access. Recipients must be on your
+                organization's roster, and each roster member counts toward
+                your plan's capacity.
               </p>
             </div>
           </div>
@@ -157,7 +157,7 @@ const tools = [
       <SectionHeader
         titleId="authorship-title"
         title="Authorship"
-        lede="Document Info in Explorer lists a note's contributors with their edit counts and highlights which contributor wrote each character. The same view shows the note's links, attachments, and security details."
+        lede="Document Info in Explorer lists a note's contributors with their edit counts and highlights who wrote each character. It also shows the note's links, attachments, and security details."
       >
         <a slot="action" class="site-link" href="/features/authorship/">
           Explore authorship<span aria-hidden="true"> →</span>

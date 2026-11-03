@@ -2,12 +2,12 @@
 
 ## Routine
 
-Use the repository's pinned Bun version. Run `bun audit --json` after dependency
-updates, before a release, and during monthly maintenance. Keep the output with
-the review; use `bun pm why <package>` and inspect the actual consumer code to
-classify each finding. Run the full audit so build, deploy, and test tools remain
-visible. A development dependency can still process hostile input or run with
-deployment credentials.
+With the repository's pinned Bun version, run `bun audit --json` after
+dependency updates, before a release, and during monthly maintenance. Keep the
+output with the review; classify each finding with `bun pm why <package>` and
+the actual consumer code. Run the full audit so build, deploy, and test tools
+stay visible: a development dependency can still process hostile input or run
+with deployment credentials.
 
 For the Ruby graph, install the audit tool with `gem install bundler-audit`,
 then run `bundle-audit check --update` from
@@ -18,12 +18,12 @@ Prioritize reachable production findings and high/critical findings in every
 environment. Fix or mitigate those before release; any exception needs a named
 owner, advisory/version, input and call-path evidence, review date, and removal
 condition. Unknown reachability is unfinished triage. Lower-severity findings
-also need classification, rather than silent suppression.
+also need classification, not silent suppression.
 
-Prefer targeted updates within the existing dependency ranges. If an upstream
-tool pins a vulnerable transitive version, use a narrowly scoped compatible
-override with a removal condition and validate that consumer. Avoid forcing
-major upgrades solely to clear an unused vulnerable API from the audit output.
+Prefer targeted updates within existing dependency ranges. If an upstream tool
+pins a vulnerable transitive version, use a narrowly scoped compatible override
+with a removal condition and validate that consumer. Do not force major
+upgrades solely to clear an unused vulnerable API from the audit output.
 
 The audit is a manual review step, not a CI or branch-protection gate.
 `bun audit` reports the documented exceptions and exits nonzero; compare that
@@ -31,10 +31,10 @@ output with this record rather than ignoring it.
 
 ## Current record
 
-This document lists the active overrides and exceptions. Reconcile it on each
+This document lists the active overrides and exceptions; reconcile it on each
 upgrade and remove resolved entries. Advisory counts and clean-audit claims
-belong in the upgrade PR, because they describe a particular lockfile and
-advisory snapshot.
+belong in the upgrade PR, since they describe one lockfile and advisory
+snapshot.
 
 The parent/version-scoped overrides require Bun lockfile format 3. Keep
 developer and CI Bun versions aligned with `.mise.toml`; see
@@ -47,11 +47,11 @@ named parent, whichever comes first. Remove each override once the parent
 resolves a patched version itself and a fresh audit confirms it.
 `bun run test:static-analysis` fails if an exact parent version named by an
 override disappears or another version of that parent enters `bun.lock`,
-requiring its removal or a reviewed update.
-This checks configuration drift; a fresh audit still determines safety.
-Nested objects preserve npm consumer compatibility as well as Bun resolution.
-Validate the exact parent selectors with fresh resolutions as well as the
-existing lockfile when changing an override.
+requiring its removal or a reviewed update. This checks configuration drift; a
+fresh audit still determines safety. Nested objects preserve npm consumer
+compatibility as well as Bun resolution. When changing an override, validate
+the exact parent selectors with fresh resolutions as well as the existing
+lockfile.
 
 | Parent/version | Override | Advisory rationale and validation |
 | --- | --- | --- |
@@ -141,4 +141,4 @@ without re-triage.
 Reproduce paths with `bun pm why <package>` and inspect the resolved packages
 in `node_modules/.bun/`. Audit coverage is the locked npm and Ruby graphs;
 platform native binaries additionally rely on their official advisories and
-release notes, rather than a claim that Bun audits every bundled system library.
+release notes, not on a claim that Bun audits every bundled system library.

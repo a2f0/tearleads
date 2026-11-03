@@ -1,6 +1,6 @@
 # Static-analysis maintenance
 
-Run `bun run check:fast` for the repository's analysis gates. The additional
+Run `bun run check:fast` for the repository's analysis gates. The
 `bun run test:static-analysis` fixtures exercise Git snapshot selection,
 baseline validation, shell-script discovery, and the
 [audit usage receipt](audit-usage-receipts.md) examples and skill links; they
@@ -9,17 +9,16 @@ also run in `check:fast` and pre-push.
 ## CI and the push gate
 
 CI's `check:fast` and pre-push run the same check list in
-[`scripts/checks/fastChecks.sh`](../../scripts/checks/fastChecks.sh). Add checks
-there so both gates pick them up. Pre-push also checks the names of the branches
-a push creates or updates, Terraform, TypeScript, affected tests, and the pushed
-commit ranges. Each check retains its own push timing row. The branch check
-reads the pushed refs, not the checked-out branch, so `git push origin
-HEAD:<name>` and detached pushes are covered while deletions and tags are
-skipped. Hooks act only in a clone where `install-hooks.sh` ran, so CI's `Lint`
-job checks every pull request's branch name as well. Detached pre-commit checks
-skip only branch naming; the file, source-shape, binary, and staged-content
-checks still run. Push through a configured named remote such as `origin`; URL
-pushes fail before the full gate.
+[`scripts/checks/fastChecks.sh`](../../scripts/checks/fastChecks.sh); add checks
+there. Pre-push also checks the names of the branches a push creates or updates,
+Terraform, TypeScript, affected tests, and the pushed commit ranges. Each check
+retains its own push timing row. The branch check reads the pushed refs, not the
+checked-out branch, so `git push origin HEAD:<name>` and detached pushes are
+covered while deletions and tags are skipped. Hooks act only in a clone where
+`install-hooks.sh` ran, so CI's `Lint` job checks every pull request's branch
+name as well. Detached pre-commit checks skip only branch naming; the file,
+source-shape, binary, and staged-content checks still run. Push through a
+configured named remote such as `origin`; URL pushes fail before the full gate.
 
 Both gates need the mise-pinned Java, TLA+, and oasdiff tools listed in
 `AGENTS.md`, plus a fetched `origin/main` (or an explicit `OPENAPI_BASE_REF`).
@@ -42,15 +41,14 @@ its base before reinstalling. Installing from an older branch can restore a
 hook that predates the guard. Use
 `scripts/git/showPushGateTimings.sh --head <sha>` to inspect each push.
 
-Branch names and binary checks use shared agent-tool commands with the policy
-in `agent-tool.json`. Commit trust checks require a present signature and reject
+Branch names and binary checks use shared agent-tool commands with the policy in
+`agent-tool.json`. Commit trust checks require a present signature and reject
 coauthor trailers on commits newly admitted to the push remote; commits already
 reachable from any of that remote's branches are excluded. New branches also
 exclude local `main`, so the check still has a baseline when the remote has no
-tracking refs.
-Commit messages retain the full pinned commitlint rules; the committed message
-is authoritative for the pre-push trailer check after Git's cleanup.
-Binary and source-shape checks still inspect each pushed tree range.
+tracking refs. Commit messages retain the full pinned commitlint rules; the
+committed message is authoritative for the pre-push trailer check after Git's
+cleanup. Binary and source-shape checks still inspect each pushed tree range.
 
 OpenAPI compatibility exceptions expire when the comparison base contains the
 new contract. Remove their entries from `openApiCompatibilityErrors.ignore` in
@@ -114,12 +112,11 @@ Markdown file except the managed skill copies and fails on:
 pushes past 80 columns before `lint:markdown`. `-- --external` also probes each
 external URL once and fails only on answers that prove a link dead (404, 410,
 or an unknown host); authorization walls, rate limits, and server errors are
-printed as unverified. External probing needs the network, so it is not part of
-any gate; run it when editing links and before a documentation release. Name
-documents as arguments to check only those. The scanner reads a link's
-destination from the line holding its `](`, so keep each destination on that
-line. The `validate-docs` skill walks
-through a full documentation review.
+printed as unverified. External probing needs the network, so it is in no gate;
+run it when editing links and before a documentation release. Name documents as
+arguments to check only those. The scanner reads a link's destination from the
+line holding its `](`, so keep each destination on that line. The
+`validate-docs` skill walks through a full documentation review.
 
 The website publishes the documents listed in
 [`packages/website/src/technicalDocs.ts`](../../packages/website/src/technicalDocs.ts)
@@ -158,8 +155,8 @@ sources) for `localeCompare` called without a locale and for `Intl.Collator`.
 Everything sorted under those roots feeds a hash, Merkle root, signed encoding,
 or stored identity, and locale collation differs between runtimes, so two honest
 devices would disagree. Sort with `compareCanonicalStrings` from
-`@tearleads/crypto` instead; a display-only sort that genuinely needs collation
-must pass an explicit locale and live outside these roots. Roots live in
+`@tearleads/crypto` instead; a display-only sort that needs collation must pass
+an explicit locale and live outside these roots. Roots live in
 [`scripts/checks/canonicalOrdering.ts`](../../scripts/checks/canonicalOrdering.ts).
 
 ## Shell scripts

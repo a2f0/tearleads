@@ -2,10 +2,10 @@
 
 Multi-request document, container, and attachment sync must survive request
 failures, lost acknowledgements, local persistence failures, and retries. This
-document describes how the client workflows for those flows line up with the
-server's commit boundaries and names the regression tests that enforce each
-guarantee. It covers the flows listed here; it is not a proof that every
-workflow in the application is interruption-safe.
+document lines up those client workflows with the server's commit boundaries
+and names the regression tests that enforce each guarantee. It covers only the
+flows listed here; it does not prove every application workflow
+interruption-safe.
 
 ## Guarantees
 

@@ -29,17 +29,17 @@ exists but is still initializing (`"idle"`) or a failed initialization
 `tearleads.database.clear("terminated")`.
 
 Browser and Electron hosts create worker-backed SQLite runtimes with
-`createSQLiteRuntime()` from `@tearleads/client-sdk/sqlite`.
-`SQLiteRuntime` is the host lifecycle object with required `id`, `client`,
-`destroy()`, `deleteData()`, and `terminateNow()` members. It also has optional
-`renewClient()` and `subscribeWorkerError(listener)` methods. Use the exported
-type when implementing a host adapter; the factories provide these methods
-according to their worker capabilities. The runtime starts its worker from
-`/worker.js` unless `workerUrl`
-names another URL. The host serves the SDK's `sqlite/worker.js` there, with
-`sqlite/sqlite3.wasm` beside it (the worker loads it from its own URL), and
-ships `sqlite/sqlite3-licenses.md` with both. Every Tearleads host copies these
-exports, so npm consumers run the same worker the apps do.
+`createSQLiteRuntime()` from `@tearleads/client-sdk/sqlite`. `SQLiteRuntime` is
+the host lifecycle object with required `id`, `client`, `destroy()`,
+`deleteData()`, and `terminateNow()` members and optional `renewClient()` and
+`subscribeWorkerError(listener)` methods. Use the exported type when
+implementing a host adapter; the factories provide these methods according to
+their worker capabilities. The runtime starts its worker from `/worker.js`
+unless `workerUrl` names another URL. The host serves the SDK's
+`sqlite/worker.js` there, with `sqlite/sqlite3.wasm` beside it (the worker loads
+it from its own URL), and ships `sqlite/sqlite3-licenses.md` with both. Every
+Tearleads host copies these exports, so npm consumers run the same worker the
+apps do.
 
 The SQLite facade exposes lower-level database runtime capabilities through SDK
 SQLite vocabulary:
@@ -59,8 +59,7 @@ SQLite vocabulary:
 Host runtime code should use this facade instead of importing
 `createDatabaseRuntime`, `createModuleDatabaseRuntime`, `DatabaseRuntime`, or
 `DatabaseWorkerClient` from `@tearleads/sqlite-worker` directly. Low-level
-SQLite tests import the underlying worker package to exercise the
-worker itself.
+SQLite tests import the underlying worker package to exercise the worker itself.
 
 `destroy()` closes the connection gracefully and preserves its data.
 `deleteData()` deletes the persisted database and terminates its worker, even
@@ -96,42 +95,39 @@ the new identity already being published.
 
 Starting another identity mutation (including clearing keys or `destroy()`)
 supersedes pending generation/import/key-setting calls, even if the newer import
-later fails validation. Superseded calls reject
-instead of restoring old keys; a superseded fingerprint refresh returns the
-current fingerprint. An explicit blob namespace change during root bootstrap
-also cancels generation. Fingerprint refresh observes the current identity and
-does not cancel a pending import or generation. A generation call rejected
-because SQLite is not ready does not cancel a pending import.
-A cancelled bootstrap may have persisted a reusable local root. Cancellation
-before root selection prevents selecting it; cancellation after selection
-leaves that database-local root selected, but does not publish the generated
-keys. Destroying an identity does not clear its database's local root.
-Direct callers of `session.bootstrapLocalRootContainer(isCurrent?)` can supply
-the same currency predicate to prevent a superseded call selecting its root.
+later fails validation. Superseded calls reject instead of restoring old keys; a
+superseded fingerprint refresh returns the current fingerprint. An explicit blob
+namespace change during root bootstrap also cancels generation. Fingerprint
+refresh observes the current identity and does not cancel a pending import or
+generation. A generation call rejected because SQLite is not ready does not
+cancel a pending import. A cancelled bootstrap may have persisted a reusable
+local root. Cancellation before root selection prevents selecting it;
+cancellation after selection leaves that database-local root selected, but does
+not publish the generated keys. Destroying an identity does not clear its
+database's local root. Direct callers of
+`session.bootstrapLocalRootContainer(isCurrent?)` can supply the same currency
+predicate to prevent a superseded call selecting its root.
 
 The `Tearleads` constructor stays synchronous, so constructor-provided identity
-key pairs are available through
-`tearleads.identity.snapshot`, but callers should use
-`refreshSigningFingerprint()` or `setKeyPairs(...)` when they need the derived
+key pairs are available through `tearleads.identity.snapshot`; use
+`refreshSigningFingerprint()` or `setKeyPairs(...)` to obtain the derived
 fingerprint asynchronously.
 
 Generated identities are seed-backed: `generate()` creates a 24-word BIP39
 English phrase on the result/snapshot. `importSeedPhrase(...)` regenerates the
 key pairs; session/container recovery is host-owned.
 
-`identityProvisioning` defaults to `"manual"`. Set it to `"auto"` to provision
-a single-identity SDK instance once SQLite is available. It schedules
-`identity.generate()` when the database
-is ready and no signing key pair exists, and does not initialize SQLite, replace
-an existing signing key, block the constructor, or provision again after a
-successful automatic provisioning.
-Choose either automatic provisioning or an explicitly awaited `generate()`;
-do not start both for the same instance.
-An import or `destroy()` can supersede automatic provisioning. The automatic
-task reports that rejection through `logError("Automatic identity provisioning
-failed")`; it retries only after another database change, provided no signing
-key exists. Hosts intentionally cancelling setup can handle that log outcome
-and explicitly generate when ready.
+`identityProvisioning` defaults to `"manual"`. Set it to `"auto"` to provision a
+single-identity SDK instance once SQLite is available. It schedules
+`identity.generate()` when the database is ready and no signing key pair exists,
+and does not initialize SQLite, replace an existing signing key, block the
+constructor, or provision again after a successful automatic provisioning.
+Choose either automatic provisioning or an explicitly awaited `generate()`; do
+not start both for the same instance. An import or `destroy()` can supersede
+automatic provisioning. The automatic task reports that rejection through
+`logError("Automatic identity provisioning failed")`; it retries only after
+another database change, provided no signing key exists. Hosts intentionally
+cancelling setup can handle that log outcome and explicitly generate when ready.
 
 ## Blob storage and non-browser hosts
 

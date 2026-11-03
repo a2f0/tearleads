@@ -5,7 +5,7 @@ repository snapshots and evaluates their results. Here we use it to investigate
 **repository discoverability**: whether an agent can find the instructions,
 implementation boundaries, and public APIs needed to work on Tearleads.
 
-A passing task is evidence about that task, agent, and environment. It is not an
+A passing task is evidence about that task, agent, and environment, not an
 aggregate agent-friendliness score. The initial suite uses inspection tasks;
 it does not test a clean install, compilation, or bug-fix quality.
 
@@ -33,8 +33,8 @@ the installation prerequisites below. Live evaluations remain opt-in.
 The native installer currently supports **macOS arm64**. It requires Bun from
 this repository, Node 22 or newer, npm, pnpm, Git, Python 3.12 or newer,
 `redis-server`, Claude Code, and Codex on `PATH`. Scope's own `packageManager`
-field selects its pinned pnpm version. The host agent CLIs are supplied by the
-operator; their versions are recorded rather than installed by this command.
+field selects its pinned pnpm version. The operator supplies the host agent
+CLIs; this command records their versions rather than installing them.
 
 Sign in to Claude Code and run `codex login` using ChatGPT authentication first.
 This adapter accepts `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`), or
@@ -72,10 +72,10 @@ unexpected Host headers, cross-site browser requests, and Origins other than
 their own address or the exact local portal. The Judge also requires JSON.
 These guards run before upstream request and WebSocket handlers: loopback alone
 does not prevent a malicious website from reaching an unauthenticated API via
-CORS or DNS rebinding. Open the portal using its `127.0.0.1` URL.
-Services inherit only a small set of
-host environment variables; only the worker receives the Claude OAuth token.
-It is a development stack for trusted source on your machine. The native Claude
+CORS or DNS rebinding. Open the portal using its `127.0.0.1` URL. Services
+inherit only a small set of host environment variables; only the worker
+receives the Claude OAuth token. It is a development stack for trusted source
+on your machine. The native Claude
 worker runs outside a container with host access and upstream Scope owns
 `/tmp/workspaces`; run only one native worker on the host. Startup refuses a
 nonempty existing workspace directory. Do not put unrelated work there.
@@ -117,9 +117,9 @@ pilot's source-only archive remains historical evidence. Git-capable snapshots
 remove that harness limitation, but the inspection suite still does not install
 tools or run builds. The Judge rejects symlinks in result archives, including
 links generated under `node_modules/.bin`; an execution harness must exclude
-installed dependencies when packaging its grading evidence.
-Future execution tasks must explicitly review mise trust
-and provision the [verification prerequisites](verification.md#prerequisites).
+installed dependencies when packaging its grading evidence. Future execution
+tasks must explicitly review mise trust and provision the
+[verification prerequisites](verification.md#prerequisites).
 
 Calibration sends a known correct report and a deliberately incorrect report
 to the Judge against source evidence. It expects 4/4 and 1/4 criteria to pass,
@@ -156,8 +156,8 @@ uses Scope's workspace/session IDs to attach tool calls and results from the
 matching host Claude session. It excludes reasoning content and other sessions.
 If that session file is unavailable, only truncated Scope tool events may remain;
 missing execution evidence cannot establish a passing execution criterion.
-Inspect failures to
-distinguish repository friction from agent mistakes and environment failures.
+Inspect failures to distinguish repository friction from agent mistakes and
+environment failures.
 If polling times out, the request may remain active: inspect its link before
 submitting again. A failed evaluation is a finding; an infrastructure error
 stops the remaining batch.

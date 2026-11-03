@@ -1,7 +1,7 @@
 # Authoring from current principal policies
 
-The mutation primitives accept current artifacts with their verified policy
-with no manufactured predecessors. Built-in member addition/removal and group
+The mutation primitives accept current artifacts with their verified policy,
+without manufactured predecessors. Built-in member addition/removal and group
 grant revocation require paged current-policy recovery and private history
 custody. They retain the exact compound receipt before acknowledging container
 plans. Missing custody refuses the operation before dispatch.
@@ -25,9 +25,9 @@ asynchronous verification.
 A successful result retains only its direct predecessor and successor. Repeated
 calls do not accumulate complete history. This result does not advance durable
 checkpoints, publish a resumable prefix, or prove arbitrary older citations.
-Callers must retain or recover the evidence needed for those operations and
-apply the atomic checkpoint and acknowledgement rules. In particular,
-admit the acknowledged successor before another mutation. A checkpoint older
+Callers must retain or recover the evidence those operations need and apply
+the atomic checkpoint and acknowledgement rules; in particular, admit the
+acknowledged successor before another mutation. A checkpoint older
 than the retained predecessor needs additional verified history; the two-entry
 result alone cannot advance it.
 
@@ -36,11 +36,10 @@ guard. `verifyPrincipalPolicyCurrentMutation` binds the group's artifacts to the
 crypto verifier's private snapshot and checks the next signer at the selected
 external authority, including its remembered authority floor. Copied public
 verification objects are refused. Builders own mutable inputs before yielding,
-check the supplied local
-checkpoint and signer authority, and refuse to return a signed request after
-expiry. The full-bundle variant still performs complete bundle verification.
-These checks authorize construction of a request; the API must independently
-verify it and commit against its current policy heads.
+check the supplied local checkpoint and signer authority, and refuse to return
+a signed request after expiry. The full-bundle variant still performs complete
+bundle verification. These checks authorize construction of a request; the API
+must independently verify it and commit against its current policy heads.
 
 The internal preparation and state-acknowledgement helpers also accept verified
 current evidence. They verify a single group or organization successor with
@@ -68,9 +67,9 @@ Before submission, call `captureAcknowledgedPrincipalPredecessor` with that
 recovery context and keep its sealed result in the required `predecessor` field.
 The predecessor must have a durable checkpoint and an authenticated completed
 prefix at capture time. Built-in mutation leases capture this evidence before
-calling the authoring and dispatch callback. This function does not fetch policy
-history or send a mutation;
-trusted signing identity or authority resolution may perform their own reads.
+calling the authoring and dispatch callback. This function does not fetch
+policy history or send a mutation; trusted signing identity or authority
+resolution may perform their own reads.
 
 It restores the authenticated verifier, checks the complete receipt and signed
 successor, then stores a single evidence entry and its index nodes. All
@@ -91,8 +90,8 @@ can retry retaining the same receipt. A pin alone cannot distinguish an honest
 successor from a fork; both defer until scoped history proves receipt membership.
 A genesis receipt still refuses any pin. Missing pins, equal-version conflicts,
 forks proven by scoped history and tampered evidence still fail; no exception
-handler treats verification failures as successful races. Optional
-grant retirements must refer to an included policy's signed current or
+handler treats verification failures as successful races. Optional grant
+retirements must refer to an included policy's signed current or
 predecessor grants; the exported `AcknowledgedPrincipalCurrentRetirement` type
 describes those inputs. When a batch contains groups, it must also contain
 their directory receipt, whose signed descriptor binds each group's exact
@@ -112,8 +111,9 @@ consecutive version and predecessor hash must match. It retains at most 128
 requested citations plus the predecessor/successor pair, preserving successor
 membership and its private authority cursor. Copies and mutated public artifacts
 cannot supply evidence. Container rematerialization selects only each path's
-citations, including carried descendant rekeys. Planning never admits a speculative
-successor; served historical references still resolve to acknowledged policies.
+citations, including carried descendant rekeys. Planning never admits a
+speculative successor; served historical references still resolve to
+acknowledged policies.
 
 `Organizations.addUserToGroup` and `removeUserFromGroup` return
 `OrganizationGroupMutationReceipt`; the group result of `revokeGrant` uses the
@@ -129,8 +129,8 @@ key buffers remain unchanged.
 ## Directory deletion
 
 Built-in group deletion recovers the current directory and strict Admins
-evidence, checks the signing administrator, and signs the directory successor without
-loading the deleted group's history. It refuses deletion of either reserved
+evidence, checks the signing administrator, and signs the directory successor
+without loading the deleted group's history. It refuses deletion of either reserved
 group, checks the exact response target and artifacts, and retains the directory
 successor under the original identity/database lease. Unresolved earlier compound
 policy work blocks discovery. Private custody is required. Creation and deletion

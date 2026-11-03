@@ -34,7 +34,7 @@ commits the seed in the create transaction under the same write-header, target,
 and billing checks as a standalone sync, so a seed a sync would refuse fails the
 create, and nothing commits. The response's `initialSync` names the accepted
 update id and the commit position, which the client records as its first sync's.
-The route publishes the seed's update hint. The client settles its queued row
+The route publishes the seed's update hint; the client settles its queued row
 only when that acknowledgement names it. Settling the seed answers only the
 update signal the client held before submitting the create, so the pass skips
 its pull. A peer can edit the document before the response arrives, so the
@@ -59,11 +59,10 @@ bound to the changed document, with `blobId`, the immutable `contentKeyEpoch`,
 and complete wrapped `targets` for every active binding and resulting linked
 container. Document creation signs an empty array. The event signature covers
 the envelopes inline. Clients authenticate the existing blob ciphertext before
-rewrapping its content key for new destination KEKs. Retaining or removing
-existing envelopes verifies signed binding scope without fetching ciphertext.
-This authentication streams bounded chunks and checks the complete signed
-ciphertext hash; it does
-not retain whole attachments in memory between bindings. The API checks the
+rewrapping its content key for new destination KEKs; this streams bounded
+chunks, checks the complete signed ciphertext hash, and does not retain whole
+attachments in memory between bindings. Retaining or removing existing envelopes
+verifies signed binding scope without fetching ciphertext. The API checks the
 active binding frontier under the document-head lock, then takes sorted blob
 locks and commits links and envelopes atomically. Another document sharing a
 blob retains its own envelopes. Returning to a retired target reuses its
@@ -159,8 +158,8 @@ covers every update the client is missing before that baseline.
 An explicit read-only `historyMode: "raw"` request bypasses that redirect and
 returns every retained update missing from the supplied frontier. Each page
 includes the content-key bundle for every epoch represented by its updates.
-Raw mode is intended for deliberate recovery or diagnosis by clients that can
-still unwrap the historical keys; it cannot make old ciphertext readable to a
+Raw mode is for deliberate recovery or diagnosis by clients that can still
+unwrap the historical keys; it cannot make old ciphertext readable to a
 newly authorized reader who never possessed those keys. The opaque continuation
 cursor binds the selected history mode, so callers cannot change modes midway
 through a frozen pull snapshot.
@@ -215,5 +214,5 @@ hash, key epoch and key fingerprint. The client recovers signed evidence through
 the paged history resolver, restricted to principals named by its submitted
 rekeys, before it refetches the writer projection and replans. Error hints alone
 never admit checkpoints. Exact scoped references and the original runtime
-lifetime must remain valid throughout recovery. The retry remains bounded by
+lifetime must remain valid throughout recovery, and the retry stays bounded by
 the normal stale-state budget. Other conflict codes ignore repair heads.

@@ -136,8 +136,7 @@ Each `RecipientEntry` contains:
 The wrapping IV is derived from `kemCipherText.slice(0, 12)`, matching the
 convention used by `encryptForRecipients`.
 
-`encryptForRecipients` delegates to `wrapDekForRecipients` internally for
-the key wrapping step.
+`encryptForRecipients` delegates key wrapping to `wrapDekForRecipients`.
 
 ### `unwrapDek`
 
@@ -332,9 +331,9 @@ read model derived from decrypted contact documents, not an SDK platform table.
 ## Adding Users To An Organization
 
 Adding a user to an organization means updating the reserved `Members` group
-policy. If the user should administer the organization, update the reserved
-`Admins` group policy as well. Those group policies are signed principal
-states, so access remains a projection of tamper-resistant group membership.
+policy, plus the reserved `Admins` group policy if the user should administer
+the organization. Those group policies are signed principal states, so access
+remains a projection of tamper-resistant group membership.
 The roster row is product lifecycle state only.
 
 1. Org admin publishes a signed `Members` or `Admins` group policy update and

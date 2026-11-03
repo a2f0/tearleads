@@ -96,9 +96,9 @@ Validation proves the phrase's format and checksum, not its ownership; users
 must scan their own backup, since restoring another person's QR selects that
 person's identity. Revealed keys are hidden and staged restore phrases are
 cleared on page hiding or backgrounding, but this cannot prevent screenshots or
-photographs. A native camera capture uses a temporary file that
-the adapter deletes before returning the photo for decoding; deletion failures
-are reported and the capture is rejected. Any retained image of the QR grants
+photographs. A native camera capture uses a temporary file that the adapter
+deletes before returning the photo for decoding; deletion failures are
+reported and the capture is rejected. Any retained image of the QR grants
 the same identity access as the recovery phrase itself.
 
 ## Protocol Handshake
@@ -254,9 +254,9 @@ aborts instead of reporting success.
 
 The client records typed keying-verification failures from document sync,
 container reconciliation, managed-principal operations, and the trusted-user
-identity gateway. Recording happens before the original terminal error is
-re-thrown, and an exact error object is recorded only once even if it crosses
-several instrumented boundaries. A host callback or subscriber cannot replace
+identity gateway before re-throwing the original terminal error. An exact error
+object is recorded only once even if it crosses several instrumented
+boundaries. A host callback or subscriber cannot replace
 the verification failure if it throws. Ordinary network and local-database
 availability failures remain retryable operational errors and are not labeled
 as tampering.
@@ -281,9 +281,8 @@ envelopes commit atomically; the server cannot wrap without the principal key.
 ### Revocation Depends On Principal Key Rotation
 
 `keyEpoch` and the principal key fingerprint are signed and participate in
-object references to group policy state. That lets clients
-detect mismatches between an object reference and the policy/key epoch used to
-decrypt it.
+object references to group policy state, so clients can detect mismatches
+between an object reference and the policy/key epoch used to decrypt it.
 
 Validation records and checks key epochs, but membership removal only protects
 subsequent object envelopes when the principal key rotates. If a removed member
@@ -295,12 +294,11 @@ member envelopes for the remaining members.
 
 ### Managed Grants Fail Closed
 
-Group container grants require an active signed group state. If a
-managed principal grant cannot be resolved to active signed state, recipient
-resolution fails rather than degrading to unsigned expanded users.
-
-This prevents unsigned group rows from creating crypto recipients. Organization
-policies commit authority, not container grants.
+Group container grants require an active signed group state. If a managed
+principal grant cannot be resolved to one, recipient resolution fails rather
+than degrading to unsigned expanded users, so unsigned group rows cannot create
+crypto recipients. Organization policies commit authority, not container
+grants.
 
 ### Signed Access Manifests
 
@@ -606,7 +604,7 @@ the inner envelope is encrypted with a PBKDF2-SHA256/AES-GCM key derived from
 the supplied PIN. Reopening the local session requires both the host wrapping
 key and the PIN; the default browser local keyring does not require a PIN.
 
-This local keyring protects local database and blob-store keys at rest on the
+This keyring protects local database and blob-store keys at rest on the
 client device. It does not change server-side access authorization, signed
 manifest verification, content-key bundle validation, or remote ciphertext
 confidentiality.
@@ -622,8 +620,8 @@ is not global transparency unless clients pin or witness tree heads.
 
 ### Rollback And Split-View
 
-Principal state hash chains detect inconsistent chains. They do not, by
-themselves, prove that the returned head is the latest head.
+Principal state hash chains detect inconsistent chains but do not, by
+themselves, prove that the returned head is the latest.
 
 A server that has older valid signed states can replay an older valid chain
 unless the client has an independent monotonic checkpoint, highest-seen

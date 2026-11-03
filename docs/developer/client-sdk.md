@@ -13,8 +13,8 @@ import { Tearleads } from "@tearleads/client-sdk";
 const tearleads = new Tearleads();
 ```
 
-Initialize a SQLite runtime as shown in [SQLite setup](sqlite-setup.md),
-then configure the SDK before using persistence, sync, or identity generation:
+Initialize a SQLite runtime per [SQLite setup](sqlite-setup.md), then
+configure the SDK before using persistence, sync, or identity generation:
 
 ```ts
 tearleads.database.configure({
@@ -49,8 +49,8 @@ Verified writer projections leave their access-manifest bundles and container
 KEK levels in the local `verified_access_manifest_bundles` table (at most 1,024
 rows, oldest evicted first, cleared with an organization's remote reset). Later
 reads cite up to 48 from the read object's organization so the API omits those
-bytes; the SDK refills and re-verifies them. The table is a byte cache, not a checkpoint:
-losing it only makes reads larger. See
+bytes; the SDK refills and re-verifies them. The table is a byte cache, not a
+checkpoint: losing it only makes reads larger. See
 [incremental evidence](../projection-policy-evidence.md#cost-and-retained-history-tradeoff).
 
 Principal-policy warming verifies and persists its cache. Group policy writes
@@ -322,7 +322,7 @@ const tearleads = new Tearleads({
 });
 ```
 
-Every option is optional: defaults are same-origin API paths, anonymous memory
+All options are optional: defaults are same-origin API paths, anonymous memory
 blob storage (OPFS after identity setup), manual identity provisioning, ignored
 `log` messages, `console.error` errors, and an idle database.
 
@@ -362,8 +362,7 @@ blob storage selection, see [SDK initialization](sdk-initialization.md).
 
 ## Local Keyring
 
-The SDK exports a local keyring helper for host-controlled at-rest secret
-management:
+The SDK exports local keyring helpers for host-controlled at-rest secrets:
 
 ```ts
 import {
@@ -401,19 +400,18 @@ manifest store.
 WKWebView-based shells that cannot structured-clone `CryptoKey` objects into
 IndexedDB can use `createWebViewLocalKeyring()`. It uses the same manifest and
 wrapping-key ids as `createBrowserLocalKeyring()`, but writes new wrapping keys
-as raw AES-256 bytes to avoid the WebKit keychain clone path. It does not
-interchange records with the browser `CryptoKey` mode, so hosts must choose the
-appropriate storage mode before creating local identity data. Raw-byte storage
-is weaker at rest, so browser hosts should keep the default
-`createBrowserLocalKeyring()` wiring when `CryptoKey` cloning works.
+as raw AES-256 bytes to avoid the WebKit keychain clone path. Its records do not
+interchange with the browser `CryptoKey` mode, so hosts must choose a storage
+mode before creating local identity data. Raw-byte storage is weaker at rest:
+keep the default `createBrowserLocalKeyring()` when `CryptoKey` cloning works.
 
 `createPinCodeBrowserLocalKeyring({ pinCode })` enables opt-in PIN
 locking.
 
 `WrappingKeyKeystore` is the platform boundary. Browser, Electron, iOS, and
-Android hosts should implement it with their available keychain or secure
-storage primitive. The SDK stores only a manifest containing a wrapped
-account-root secret; the unwrapped account root is used with HKDF to derive:
+Android hosts should implement it with their keychain or secure storage
+primitive. The SDK stores only a manifest containing a wrapped account-root
+secret; HKDF over the unwrapped account root derives:
 
 - `session.sqliteKey` for SQLCipher/SQLite initialization
 - `session.blobStoreKey` for encrypted local blob storage
@@ -427,22 +425,22 @@ The manifest is explicit JSON with format
 The wrapped root envelope uses format `tearleads.wrapped-local-secret` and
 binds the wrapping context to the normalized scope plus key purpose.
 
-Scopes are intentionally part of derivation and wrapping associated data:
+Scopes are part of derivation and wrapping associated data:
 `namespace` is required, while `accountId` and `signingFingerprint` are optional
 isolation fields. `localKeyringScopeKey(scope)` provides the canonical storage
 key when a manifest store needs a stable index.
 
 `createMemoryWrappingKeyKeystore()` and
 `createMemoryLocalKeyringManifestStore()` are process-local helpers for tests
-and development wiring. They are not a durable or platform-secure keychain.
+and development, not a durable or platform-secure keychain.
 The browser IndexedDB helper is durable but origin-bound: same-origin code can
 ask the stored `CryptoKey` to unwrap the local secret even though it cannot
 export the key bytes. Hosts needing unlock can use
 `createPinCodeWrappingKeyKeystore`, passphrases, OS keychains, or secure
 enclaves.
 
-Call `session.dispose()` when a host is done with a local keyring session; it
-zeroes the in-memory root and derived byte keys owned by that session.
+Call `session.dispose()` when done with a local keyring session; it zeroes
+the session's in-memory root and derived byte keys.
 Built-in keyrings implement optional `close()` for resource release; caller-held
 sessions stay valid until `session.dispose()`.
 
@@ -485,7 +483,7 @@ restore org. Activate it, then call
 
 ## Public API Entry Points
 
-Supported package entry points are:
+Supported package entry points:
 
 | Entry point | Use for |
 | --- | --- |
@@ -504,13 +502,13 @@ owns its runtime adapter boundary, and production source never imports the
 testing entry point.
 
 Do not import `@tearleads/client-sdk/data/*` from host code. The root entry
-point aggregates documented public facades and does not make `data/*` internals,
-deep workflow files, or store implementation files public. Promote a contract
-through the root entry point when it is meant to become public.
+point aggregates documented public facades; `data/*` internals, deep workflow
+files, and store implementation files stay private. To make a contract public,
+promote it through the root entry point.
 
 When a lower-level workflow facade name conflicts with a root service type, the
-root meaning stays stable and the lower-level name is exposed under a distinct
-alias. For example, root `ContainerDocumentLinkInput` is the high-level client
+root meaning stays stable and the lower-level name gets a distinct alias. For
+example, root `ContainerDocumentLinkInput` is the high-level client
 document-link input, while the lower-level container query link input is
 `ContainerDocumentQueriesLinkInput`.
 
@@ -552,12 +550,12 @@ A self-revoke that removes write access on an owed level is refused atomically
 with `container_descendant_rekeys_inaccessible`; another authorized member must
 complete it. The SDK reports the refusal and returns null. Proactively carried
 rekeys are also refused by the batch's signature/authorization verification.
-The set is empty for almost every rotation,
-since a child container carries no direct
-grant unless shared. At most 64 rekeys ride one rotation; beyond that the
-remainder repairs lazily rather than refuse a revocation. Custom adapters opt in
-by supplying the status-bearing `rekeyContainerResult`, `revokeContainerResult`,
-or `moveContainerResult`, and `getContainerWriterProjection`.
+The set is empty for almost every rotation, since a child container carries
+no direct grant unless shared. At most 64 rekeys ride one rotation; beyond that
+the remainder repairs lazily rather than refuse a revocation. Custom adapters
+opt in by supplying the status-bearing `rekeyContainerResult`,
+`revokeContainerResult`, or `moveContainerResult`, and
+`getContainerWriterProjection`.
 
 A user share whose path advanced in flight, most often under this device's own
 held-descendant re-citation, is planned once more from a fresh projection that
@@ -737,7 +735,7 @@ allow an initial read before the trailing refresh.
 ## Organization policy history
 
 Organization policy history details are derived in memory from the signed
-records returned by `GET /organizations/:organizationId/policy-history`, bound
+records of `GET /organizations/:organizationId/policy-history`, bound
 to the exact selected organization state hash. Historical directory payloads
 are checked against their signed hashes, and group membership/grant snapshots
 are verified against every referenced directory head. This read endpoint is
@@ -852,7 +850,7 @@ p50/p95 over the latest 256 plus count, total, and max since reset.
 `serverDuration` and `databaseDuration` summarize the API's `Server-Timing`
 `total` and `db` (I/O wait on Workers), null until a response reports them.
 
-Hosts can pass an `ApiRequestMetrics` instance as `apiRequestMetrics` to retain
+Hosts can pass an `ApiRequestMetrics` instance as `apiRequestMetrics` to keep
 counts across SDK disposal/recreation; the app keeps one per API/identity
 namespace for the page's lifetime, shown in System Monitor's **API Requests**
 tab. Reset discards earlier in-flight completions without affecting the

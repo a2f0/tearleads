@@ -1,9 +1,9 @@
 # Scope discoverability pilot — 2026-10-26
 
 This pilot measures whether an agent can discover supported workflows and
-implementation boundaries by inspecting Tearleads. Passing a criterion means
-its report answered that question with source evidence. It does not mean the
-repository has no onboarding friction or that a clean machine can build it.
+implementation boundaries by inspecting Tearleads. A passed criterion means its
+report answered that question with source evidence, not that the repository has
+no onboarding friction or that a clean machine can build it.
 
 ## Conditions and provenance
 
@@ -20,10 +20,10 @@ repository has no onboarding friction or that a clean machine can build it.
   (only report existence passed), unknown criterion HTTP 500.
 
 The local receipt is
-`.scope/benchmarks/1793014297971-agent-friendliness-v1/receipt.json`.
-Its adjacent task files retain the reports, full verdicts and artifact URLs.
-The registration remains pinned to this source commit even after this findings
-document is committed.
+`.scope/benchmarks/1793014297971-agent-friendliness-v1/receipt.json`; its
+adjacent task files retain the reports, full verdicts and artifact URLs. The
+registration stays pinned to this source commit even after this document is
+committed.
 
 ## Results
 
@@ -55,12 +55,12 @@ that recovery explains how passing criteria can coexist with useful findings.
    [The service facade](../../packages/api/src/services/documents/documentMutations.ts)
    delegates to
    [the create workflow](../../packages/api/src/workflows/documents/mutations/createDocument.ts),
-   which owns the transaction. AGENTS.md agrees with the implementation.
-   The guide's layer diagram and ownership wording should be reconciled.
+   which owns the transaction, as AGENTS.md says. Reconcile the guide's layer
+   diagram and ownership wording.
 3. **Clarify the common SDK creation path.** The agent found that the app uses
    `documents.open()` to create local document state and sync it later. It also
    found lower-level root exports such as `createRemoteDocument`. A short
-   decision guide would make the intended entry point easier to choose without
+   decision guide would let agents choose the intended entry point without
    tracing store internals. This is a discoverability proposal, not evidence
    that either API is broken.
 4. **Prepare a Git checkout before testing execution.** `git archive` omits
@@ -84,13 +84,13 @@ architecture passed; SDK onboarding lost one criterion because the Judge could
 not verify the reported shell errors. That failure belongs to evidence capture,
 not SDK readiness. The original portal grades remain intact for auditability.
 
-The adapter was repaired to resolve the exact workspace and Claude session from
-Scope's run log and attach that session's tool calls and results. It excludes
+The repaired adapter resolves the exact workspace and Claude session from
+Scope's run log and attaches that session's tool calls and results, excluding
 reasoning content, unrelated sessions, and prior Judge feedback. Saved outputs
 were regraded with the same criteria and Judge model; no coding agent was rerun.
-The corrected regrade passed **6/6 criteria** (2/2 in each task), with the same
-source outputs and criterion definitions. The SDK verdict now cites the
-captured zsh and mise failures in `evidence/native-tools.json`.
+The corrected regrade passed **6/6 criteria** (2/2 in each task). The SDK
+verdict now cites the captured zsh and mise failures in
+`evidence/native-tools.json`.
 
 - Judge repair: `9c55adf36d9db96e4eefd6df6b639879b5d36bb5`.
 - Corrected receipt: `.scope/regrades/1793016222066/receipt.json`.
