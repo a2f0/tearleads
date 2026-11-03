@@ -1,4 +1,4 @@
-import { beforeAll, expect, test } from "bun:test";
+import { afterEach, beforeAll, expect, test } from "bun:test";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
 import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
 import { runCli } from "./cli";
@@ -6,15 +6,26 @@ import { testContext } from "./cli.testUtils";
 import { openLocalDatabase } from "./localDatabase";
 
 let apiBaseUrl = "";
+// Requests matching `method pathname` get a 503 instead of reaching the API.
+let failing: RegExp | null = null;
 
 beforeAll(async () => {
   await initializeApiDatabase();
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
-    fetch: (request) => routeApp.fetch(request),
+    fetch: (request) => {
+      const { pathname } = new URL(request.url);
+      return failing?.test(`${request.method} ${pathname}`)
+        ? new Response("unavailable", { status: 503 })
+        : routeApp.fetch(request);
+    },
   });
   apiBaseUrl = server.url.origin;
+});
+
+afterEach(() => {
+  failing = null;
 });
 
 /** Registers a fresh account the way an app install does and returns its key. */
@@ -79,7 +90,13 @@ test("login verifies and saves the key; later commands sign in with it", async (
   output.stdout.length = 0;
   expect(await runCli(["ls"], context)).toBe(0);
   expect(output.stderr).toEqual([]);
+  // Registration provisions the root and two system folders; all three load
+  // before `ls` prints.
+  expect(output.stdout).toHaveLength(3);
   expect(output.stdout[0]).toEndWith(`  ${account.rootContainerId}`);
+  expect(
+    output.stdout.filter((line) => line.includes("[system]")),
+  ).toHaveLength(2);
 }, 60_000);
 
 test("each command revokes the session it opened", async () => {
@@ -136,4 +153,41 @@ test("a key for an account the API does not know is not saved", async () => {
   expect(await runCli(["login"], context)).toBe(1);
   expect(output.stderr.join("\n")).not.toContain(unknown ?? "-");
   expect(keyStore.items.size).toBe(0);
+}, 60_000);
+
+async function signedInContext() {
+  const account = await registerAccount();
+  const setup = testContext({ apiBaseUrl, recoveryKey: account.seedPhrase });
+  expect(await runCli(["login"], setup.context)).toBe(0);
+  setup.output.stdout.length = 0;
+  return setup;
+}
+
+test("ls fails instead of printing a partial tree when the listing fails", async () => {
+  const { context, output } = await signedInContext();
+  failing = /^POST \/containers\/parent-lanes\/query$/u;
+
+  expect(await runCli(["ls"], context)).toBe(1);
+  expect(output.stdout).toEqual([]);
+  expect(output.stderr.join("\n")).toContain("/containers/parent-lanes/query");
+}, 60_000);
+
+test("ls fails when a folder's metadata cannot be pulled", async () => {
+  const { context, output } = await signedInContext();
+  failing = /^POST \/documents\/[^/]+\/sync$/u;
+
+  expect(await runCli(["ls"], context)).toBe(1);
+  expect(output.stdout).toEqual([]);
+  expect(output.stderr.join("\n")).toContain("may be partial");
+}, 60_000);
+
+test("a session the API will not revoke fails the command", async () => {
+  const { context, output } = await signedInContext();
+  failing = /^POST \/auth\/logout$/u;
+
+  expect(await runCli(["whoami"], context)).toBe(1);
+  expect(output.stdout).toEqual([]);
+  expect(output.stderr).toEqual([
+    "Could not revoke this command's session on the API; it stays valid until it expires.",
+  ]);
 }, 60_000);

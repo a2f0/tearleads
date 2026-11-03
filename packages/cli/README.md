@@ -45,6 +45,10 @@ Nothing but the recovery key outlives a command, so each run costs a full
 pull of the folders it lists. Organization names show as "name not synced"
 until their profile documents are pulled, which this version does not yet do.
 
+A command fails rather than print a partial result when any API request
+fails or gets no response, and also when its session cannot be revoked.
+Names from the API are printed with control characters escaped.
+
 The recovery key is the whole identity: anyone holding it can act as you.
 It reaches the Keychain through `security -i` on stdin, never through a
 process argument.

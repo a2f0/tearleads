@@ -1,6 +1,7 @@
 import type { OrganizationMembership } from "@tearleads/client-sdk";
 import type { CommandInput } from "../cliContext";
 import { formatFolderTree, loadFolderTree } from "../folderTree";
+import { printable } from "../printable";
 import { withSavedSession } from "./account";
 
 function membershipFlags(membership: OrganizationMembership): string {
@@ -13,13 +14,14 @@ function membershipFlags(membership: OrganizationMembership): string {
 }
 
 export async function listOrganizations(input: CommandInput): Promise<void> {
-  const lines = await withSavedSession(input, async ({ sdk }) => {
+  const lines = await withSavedSession(input, async (session) => {
+    const { sdk } = session;
     const memberships = await sdk.organizations.memberships.refresh();
     if (!memberships) {
       throw new Error("Could not read organization memberships from the API.");
     }
     // Names come from organization profiles, which arrive with the folders.
-    await loadFolderTree(sdk);
+    await loadFolderTree(session);
     const local = await sdk.organizations.listLocalOrganizations();
     const names = new Map(
       local.map((organization) => [
@@ -27,21 +29,22 @@ export async function listOrganizations(input: CommandInput): Promise<void> {
         organization.name,
       ]),
     );
-    return memberships.map(
-      (membership) =>
+    return memberships.map((membership) =>
+      printable(
         `${membership.organizationId}  ${names.get(membership.organizationId) ?? "(name not synced)"}${membershipFlags(membership)}`,
+      ),
     );
   });
   for (const line of lines) input.context.stdout(line);
 }
 
 export async function listFolders(input: CommandInput): Promise<void> {
-  const lines = await withSavedSession(input, async ({ sdk }) => {
-    const organizationId = sdk.session.organizationId;
+  const lines = await withSavedSession(input, async (session) => {
+    const organizationId = session.sdk.session.organizationId;
     if (!organizationId) {
       throw new Error("The session has no organization.");
     }
-    return formatFolderTree(await loadFolderTree(sdk), organizationId);
+    return formatFolderTree(await loadFolderTree(session), organizationId);
   });
   for (const line of lines) input.context.stdout(line);
 }

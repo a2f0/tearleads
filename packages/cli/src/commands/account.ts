@@ -1,4 +1,5 @@
 import type { CommandInput } from "../cliContext";
+import { printable } from "../printable";
 import { normalizeRecoveryKey } from "../recoveryKey";
 import { type CliSession, withSession } from "../session";
 
@@ -45,7 +46,7 @@ export async function login(input: CommandInput): Promise<void> {
     async (session) => session.userId,
   );
   await context.keyStore.save(target, recoveryKey);
-  context.stdout(`Signed in to ${target} as ${userId}.`);
+  context.stdout(printable(`Signed in to ${target} as ${userId}.`));
   context.stdout("The recovery key is saved in the Keychain.");
 }
 
@@ -65,5 +66,5 @@ export async function whoami(input: CommandInput): Promise<void> {
     `fingerprint   ${sdk.identity.signingFingerprint ?? "-"}`,
     `organization  ${sdk.session.organizationId ?? "-"}`,
   ]);
-  for (const line of lines) input.context.stdout(line);
+  for (const line of lines) input.context.stdout(printable(line));
 }

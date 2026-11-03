@@ -2,6 +2,7 @@ import { parseArgs } from "node:util";
 import type { CliContext, CommandInput } from "./cliContext";
 import { login, logout, whoami } from "./commands/account";
 import { listFolders, listOrganizations } from "./commands/browse";
+import { printable } from "./printable";
 import { isTargetName } from "./targets";
 
 export const usage = `Usage: tearleads <command> [--env production|staging] [--org <id>]
@@ -81,7 +82,9 @@ export async function runCli(
     });
     return 0;
   } catch (error) {
-    context.stderr(error instanceof Error ? error.message : String(error));
+    context.stderr(
+      printable(error instanceof Error ? error.message : String(error)),
+    );
     return 1;
   }
 }

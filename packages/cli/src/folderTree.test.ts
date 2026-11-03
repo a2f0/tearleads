@@ -45,3 +45,11 @@ test("folders render as a name-sorted tree of one organization", () => {
     "Shared  orphan",
   ]);
 });
+
+test("a shared folder's name cannot inject terminal control sequences", () => {
+  const nodes = [folder("evil", "Shared\u001b[2J\u001b]0;pwned\u0007", null)];
+
+  expect(formatFolderTree(nodes, "org-1")).toEqual([
+    "Shared\\u{001b}[2J\\u{001b}]0;pwned\\u{0007}  evil",
+  ]);
+});
