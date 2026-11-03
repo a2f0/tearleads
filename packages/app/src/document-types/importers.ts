@@ -2,13 +2,13 @@ import type {
   DocumentAttachmentUpload,
   StoredDocumentKind,
 } from "@tearleads/client-sdk";
-import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
 import {
   ENV_FILE_DOCUMENT_KIND,
   ENV_FILE_VARIABLE_KEY_FIELD,
   ENV_FILE_VARIABLE_VALUE_FIELD,
   parseEnvFileText,
-} from "./env-file/envFileDocumentDefinition";
+} from "@tearleads/client-sdk";
+import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
 import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { IMAGE_DOCUMENT_KIND } from "./image/imageDocumentDefinition";
 import { JSON_FILE_DOCUMENT_KIND } from "./json-file/jsonFileDocumentDefinition";

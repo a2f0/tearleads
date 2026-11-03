@@ -180,6 +180,12 @@ put content known at creation into the birth update beside the kind and text,
 so the first sync can send it inside the create. An existing record ignores
 them; fields need a non-note kind.
 
+The `.env` file kind is SDK-owned so every host writes the same shape:
+`ENV_FILE_DOCUMENT_KIND`, the `ENV_FILE_NAME_FIELD` structured field, one row
+per variable keyed by `ENV_FILE_VARIABLE_KEY_FIELD` and
+`ENV_FILE_VARIABLE_VALUE_FIELD`, and `parseEnvFileText` with
+`isValidEnvFileVariableName` for importing `.env` text.
+
 For bounded UI hydration, resolve `localId` with
 `tearleads.documents.findLocalIdByDocumentId(documentId)`, open with
 `remoteSyncMode: "on-demand"`, and await `requestRemoteSyncAndWait(signal)`.

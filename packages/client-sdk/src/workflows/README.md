@@ -163,6 +163,9 @@ the reference consumer; ordinary sync omits the mode. Raw consumers can handle
 `DocumentRawHistoryUnavailableError` by its stable code and numeric content-key
 epoch without parsing an integrity-error message.
 
+Hosts creating `.env` file documents use the SDK-owned `ENV_FILE_*` kind and
+field names with `parseEnvFileText`, so the app and CLI write one shape.
+
 Document stores and container metadata report incoming-update quarantines
 through the optional `util.logError(message, error)` callback after recording
 the durable failure. The `Tearleads` client supplies its host logger; direct
