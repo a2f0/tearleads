@@ -61,6 +61,7 @@
           "options": {
             "paths": {
               "@tearleads/api": "Do not import from the API server package",
+              "hono/compress": "Do not compress responses in app code: Cloudflare compresses them at the edge, and the Workers runtime encodes a body again to match the Content-Encoding the app set (double gzip)",
               "app-web": "Do not import from app-web — it is a deployment target",
               "app-capacitor": "Do not import from app-capacitor — it is a deployment target",
               "app-electrobun": "Do not import from app-electrobun — it is a deployment target",
