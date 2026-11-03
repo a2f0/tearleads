@@ -1,5 +1,4 @@
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
-import { useRoutedLayoutActive } from "@tearleads/windowing";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
   MiniAppButton,
@@ -333,13 +332,11 @@ export function GrantTable({
 }) {
   const virtualGrants = useMiniAppCompactTableRows({ rows: grants });
   const { compact, rowHeight } = virtualGrants;
-  // Touch layouts have no right-click; the kebab replaces the inline Revoke
-  // button and opens the same Open / Revoke menu right-click / long-press does.
-  const showActions = useRoutedLayoutActive() && Boolean(openGrantContextMenu);
-  const { columns, visibleColumnIds } = useOrgManagerTableColumns(
+  // The kebab replaces the inline Revoke button and opens the same Open /
+  // Revoke menu right-click / long-press does.
+  const { columns, showActions, visibleColumnIds } = useOrgManagerTableColumns(
     GRANT_TABLE_COLUMNS_CONFIG,
-    showActions,
-    compact,
+    { compact, openRowContextMenu: openGrantContextMenu },
   );
 
   if (grants.length === 0) {

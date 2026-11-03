@@ -77,7 +77,6 @@ function NotesList({
   rowHeight = MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
   selectNote,
   selectedNoteId,
-  showActions = false,
   showFullLabel = false,
   showMetadata = false,
 }: NotesListProps) {
@@ -125,9 +124,7 @@ function NotesList({
               const title = getNoteTitle(note);
               return (
                 <MiniAppVirtualListRow
-                  className={classNames(
-                    showActions && "mini-app-virtual-list-row--actions",
-                  )}
+                  className="mini-app-virtual-list-row--actions"
                   key={note.id}
                 >
                   <MiniAppRowButton
@@ -148,14 +145,12 @@ function NotesList({
                       <MiniAppRowText>{title}</MiniAppRowText>
                     )}
                   </MiniAppRowButton>
-                  {showActions ? (
-                    <MiniAppRowActionsKebab
-                      openContextMenu={(event) =>
-                        handleNoteContextMenu(event, note.id)
-                      }
-                      rowName={title}
-                    />
-                  ) : null}
+                  <MiniAppRowActionsKebab
+                    openContextMenu={(event) =>
+                      handleNoteContextMenu(event, note.id)
+                    }
+                    rowName={title}
+                  />
                 </MiniAppVirtualListRow>
               );
             })}
@@ -181,7 +176,6 @@ export function NotesListHome(props: NotesSidebarProps) {
         bleed
         divided
         rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
-        showActions
         showFullLabel
         showMetadata
       />
@@ -189,7 +183,7 @@ export function NotesListHome(props: NotesSidebarProps) {
   );
 }
 
-function NotesSidebar(props: NotesSidebarProps & { showActions: boolean }) {
+function NotesSidebar(props: NotesSidebarProps) {
   return (
     <MiniAppSidebar
       className="mini-app-sidebar--virtual"

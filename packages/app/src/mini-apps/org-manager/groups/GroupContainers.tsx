@@ -145,8 +145,7 @@ export function GroupContainers({
   const { compact, rowHeight } = virtualContainers;
   const { columns, visibleColumnIds } = useOrgManagerTableColumns(
     GROUP_CONTAINER_TABLE_COLUMNS_CONFIG,
-    false,
-    compact,
+    { compact },
   );
 
   if (containers.length === 0) {

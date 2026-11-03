@@ -394,29 +394,28 @@ test("org manager groups view exposes new group from group row context menus", (
   expect(openCreateGroupDialogCount).toBe(1);
 });
 
-test("org manager groups view shows a touch kebab that opens the group menu", () => {
-  document.documentElement.setAttribute("data-navigation-mode", "routed");
-  const deletedGroupIds: string[] = [];
-  const view = renderGroupsView({
-    deleteGroup: (groupId) => deletedGroupIds.push(groupId),
-    groups: [customGroup],
-    selectedGroup: null,
-    selectedGroupId: null,
+for (const mode of ["windowed", "routed"] as const) {
+  test(`org manager groups view shows a kebab that opens the group menu (${mode})`, () => {
+    document.documentElement.setAttribute("data-navigation-mode", mode);
+    const deletedGroupIds: string[] = [];
+    const view = renderGroupsView({
+      deleteGroup: (groupId) => deletedGroupIds.push(groupId),
+      groups: [customGroup],
+      selectedGroup: null,
+      selectedGroupId: null,
+    });
+
+    fireEvent.click(
+      view.getByRole("button", {
+        name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${customGroup.name}`,
+      }),
+    );
+    fireEvent.click(
+      view.getByRole("button", { name: ORG_MANAGER_LABELS.deleteGroupAction }),
+    );
+    expect(deletedGroupIds).toEqual([customGroup.groupId]);
   });
-
-  fireEvent.click(
-    view.getByRole("button", {
-      name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${customGroup.name}`,
-    }),
-  );
-  fireEvent.click(
-    view.getByRole("button", {
-      name: ORG_MANAGER_LABELS.deleteGroupAction,
-    }),
-  );
-
-  expect(deletedGroupIds).toEqual([customGroup.groupId]);
-});
+}
 
 test("org manager groups view uses two-line summaries on phone layouts", () => {
   usePhoneLayout();

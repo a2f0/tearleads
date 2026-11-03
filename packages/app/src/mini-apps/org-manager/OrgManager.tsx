@@ -5,7 +5,6 @@ import {
   useWindowRefreshMenuItem,
 } from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useState } from "react";
-import { ShareIdentityLink } from "../../components/identity/ShareIdentityLink";
 import {
   MiniAppButton,
   MiniAppRoot,
@@ -48,42 +47,39 @@ function OrgManagerDirectoryContent({
   syncSeatUserIds: ReadonlySet<string> | null;
 }) {
   return (
-    <>
-      <ShareIdentityLink />
-      <DirectoryView
-        canImportRosterUser={model.canImportRosterUser}
-        canUpdateSelectedRosterEntry={model.canUpdateSelectedRosterEntry}
-        canRevokeGrants={model.canRevokeGrants}
-        closeImportUserDialog={model.closeImportUserDialog}
-        detail={model.userDetail}
-        directory={model.directory}
-        error={model.error}
-        importRosterUser={model.importRosterUser}
-        importUserIdDraft={model.importUserIdDraft}
-        isImportUserDialogOpen={model.isImportUserDialogOpen}
-        loadingUserDetail={model.loadingUserDetail}
-        memberGroupId={model.memberGroupId}
-        organizationId={organizationId}
-        pending={model.dataPending}
-        mutating={model.mutating}
-        openDirectoryContextMenu={(event) =>
-          model.contextMenuState.handleSidebarContextMenu(event, "directory")
-        }
-        openRosterUserContextMenu={
-          model.contextMenuState.handleRosterUserContextMenu
-        }
-        openGrantRoute={model.openGrantRoute}
-        openGroupRoute={model.openGroupRoute}
-        profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
-        revokeGrant={revokeGrant}
-        rosterProfileEditRequest={model.rosterProfileEditRequest}
-        selectedUserId={model.selectedUserId}
-        selectUser={model.selectUser}
-        setSelectedProfileDisplayName={model.setSelectedProfileDisplayName}
-        setImportUserIdDraft={model.setImportUserIdDraft}
-        syncSeatUserIds={syncSeatUserIds}
-      />
-    </>
+    <DirectoryView
+      canImportRosterUser={model.canImportRosterUser}
+      canUpdateSelectedRosterEntry={model.canUpdateSelectedRosterEntry}
+      canRevokeGrants={model.canRevokeGrants}
+      closeImportUserDialog={model.closeImportUserDialog}
+      detail={model.userDetail}
+      directory={model.directory}
+      error={model.error}
+      importRosterUser={model.importRosterUser}
+      importUserIdDraft={model.importUserIdDraft}
+      isImportUserDialogOpen={model.isImportUserDialogOpen}
+      loadingUserDetail={model.loadingUserDetail}
+      memberGroupId={model.memberGroupId}
+      organizationId={organizationId}
+      pending={model.dataPending}
+      mutating={model.mutating}
+      openDirectoryContextMenu={(event) =>
+        model.contextMenuState.handleSidebarContextMenu(event, "directory")
+      }
+      openRosterUserContextMenu={
+        model.contextMenuState.handleRosterUserContextMenu
+      }
+      openGrantRoute={model.openGrantRoute}
+      openGroupRoute={model.openGroupRoute}
+      profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
+      revokeGrant={revokeGrant}
+      rosterProfileEditRequest={model.rosterProfileEditRequest}
+      selectedUserId={model.selectedUserId}
+      selectUser={model.selectUser}
+      setSelectedProfileDisplayName={model.setSelectedProfileDisplayName}
+      setImportUserIdDraft={model.setImportUserIdDraft}
+      syncSeatUserIds={syncSeatUserIds}
+    />
   );
 }
 

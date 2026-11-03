@@ -176,11 +176,12 @@ test("org manager directory table stays single-line in narrow windowed mode", ()
   });
 
   expect(table.querySelector(".mini-app-compact-table-lines")).toBeNull();
+  // Three data cells plus the row actions cell.
   expect(
     table.querySelectorAll(
       "tbody .mini-app-table-row:not(.mini-app-virtual-table-spacer-row) td",
     ),
-  ).toHaveLength(3);
+  ).toHaveLength(4);
   const frame = table.parentElement;
   expect(frame?.classList.contains("mini-app-table-frame--two-line")).toBe(
     false,
@@ -274,12 +275,11 @@ test("org manager directory table stays single-line on routed tablets", () => {
   );
 });
 
-test("org manager directory table has no kebab on the desktop layout", () => {
+test("org manager directory table has no kebab without a row context menu", () => {
   const view = render(
     <DirectoryTable
       directory={directory}
       pending={false}
-      openRosterUserContextMenu={() => undefined}
       selectedUserId={null}
       selectUser={() => undefined}
     />,
@@ -292,30 +292,38 @@ test("org manager directory table has no kebab on the desktop layout", () => {
   ).toBeNull();
 });
 
-test("org manager directory table opens the row context menu from the touch kebab", () => {
-  document.documentElement.setAttribute("data-navigation-mode", "routed");
-  const contextMenuUserIds: string[] = [];
-  const view = render(
-    <DirectoryTable
-      directory={directory}
-      pending={false}
-      openRosterUserContextMenu={(event, userId) => {
-        event.preventDefault();
-        contextMenuUserIds.push(userId);
-      }}
-      selectedUserId={null}
-      selectUser={() => undefined}
-    />,
-  );
+for (const mode of ["windowed", "routed"] as const) {
+  test(`org manager directory table opens the row context menu from the kebab (${mode})`, () => {
+    document.documentElement.setAttribute("data-navigation-mode", mode);
+    const contextMenuUserIds: string[] = [];
+    const view = render(
+      <DirectoryTable
+        directory={directory}
+        pending={false}
+        openRosterUserContextMenu={(event, userId) => {
+          event.preventDefault();
+          contextMenuUserIds.push(userId);
+        }}
+        selectedUserId={null}
+        selectUser={() => undefined}
+      />,
+    );
+    const table = view.getByRole("table", {
+      name: ORG_MANAGER_LABELS.directory,
+    });
 
-  fireEvent.click(
-    view.getByRole("button", {
-      name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${compactFingerprint(rosterUser.userId)}`,
-    }),
-  );
+    expect(
+      table.querySelector("thead th.mini-app-row-actions-column"),
+    ).toBeTruthy();
+    fireEvent.click(
+      view.getByRole("button", {
+        name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${compactFingerprint(rosterUser.userId)}`,
+      }),
+    );
 
-  expect(contextMenuUserIds).toEqual([rosterUser.userId]);
-});
+    expect(contextMenuUserIds).toEqual([rosterUser.userId]);
+  });
+}
 
 test("org manager directory columns menu rides the touch actions header", () => {
   document.documentElement.setAttribute("data-navigation-mode", "routed");

@@ -1,5 +1,4 @@
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
-import { useRoutedLayoutActive } from "@tearleads/windowing";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import {
@@ -195,12 +194,9 @@ function GroupTable({
 }) {
   const virtualGroups = useMiniAppCompactTableRows({ rows: groups });
   const { compact, rowHeight } = virtualGroups;
-  // Touch layouts have no right-click; add the kebab as the touch stand-in.
-  const showActions = useRoutedLayoutActive();
-  const { columns, visibleColumnIds } = useOrgManagerTableColumns(
+  const { columns, showActions, visibleColumnIds } = useOrgManagerTableColumns(
     GROUP_TABLE_COLUMNS_CONFIG,
-    showActions,
-    compact,
+    { compact, openRowContextMenu: openGroupContextMenu },
   );
 
   if (groups.length === 0) {
