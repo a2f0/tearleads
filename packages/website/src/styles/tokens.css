@@ -122,6 +122,7 @@ html:root {
   --shots-border: var(--site-line);
   --shots-accent: var(--site-ink);
   --shots-accent-ink: var(--site-surface);
+  --shots-link: var(--site-ink);
   --shots-focus: var(--site-focus);
   --shots-radius: var(--site-radius);
   --shots-button-size: var(--site-target);

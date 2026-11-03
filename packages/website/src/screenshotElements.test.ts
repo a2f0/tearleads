@@ -141,6 +141,8 @@ test("the home carousel loops every phone screen and links to its page", async (
     project: "mobile",
     "link-base": SCREENSHOTS_BASE_PATH,
     label: "Tearleads on a phone",
+    "view-all-href": "/screenshots/mobile/explorer/",
+    "view-all-label": "All screenshots",
   });
   const slides = [
     ...carousel.querySelectorAll(".shots-carousel-slide:not([data-clone])"),
@@ -161,4 +163,15 @@ test("the home carousel loops every phone screen and links to its page", async (
     "/screenshots/mobile/notes/",
   ]);
   expect(carousel.querySelectorAll(".shots-carousel-step")).toHaveLength(2);
+  // The view-all link leads the controls row, ahead of the step buttons, and
+  // points at a route the build renders.
+  const controls = carousel.querySelector(".shots-carousel-controls");
+  const viewAll = controls?.firstElementChild;
+  expect(viewAll?.className).toBe("shots-carousel-view-all");
+  expect(viewAll?.textContent).toBe("All screenshots");
+  const href = viewAll?.getAttribute("href");
+  const routes = screenshotRoutes(manifest).map(
+    (route) => `${SCREENSHOTS_BASE_PATH}/${route.params.slug}/`,
+  );
+  expect(routes).toContain(href ?? "");
 });

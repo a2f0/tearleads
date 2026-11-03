@@ -88,6 +88,22 @@ test("the Home carousel renders every phone screen, in manifest order", () => {
   );
 });
 
+test("the carousel's own controls row carries the All screenshots link", () => {
+  // agent-tool renders it from view-all-href; the static markup repeats the
+  // row so the link is there before the element upgrades and without script.
+  expect(home).toContain('view-all-href="/screenshots/mobile/explorer/"');
+  expect(home).toContain('view-all-label="All screenshots"');
+  const links = [
+    ...home.matchAll(
+      /<a class="shots-carousel-view-all" href="([^"]+)">([^<]+)<\/a>/g,
+    ),
+  ];
+  expect(links.map((match) => [match[1], match[2]])).toEqual([
+    ["/screenshots/mobile/explorer/", "All screenshots"],
+  ]);
+  expect(home).not.toContain("phone-carousel-all");
+});
+
 test("only the first phone loads eagerly, and every phone declares its size", () => {
   const images = phoneImages(home);
   expect(images[0]).toContain('loading="eager"');

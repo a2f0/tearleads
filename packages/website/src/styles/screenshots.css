@@ -26,43 +26,34 @@
   font: 500 var(--site-text-mono-sm) / 1.4 var(--site-font-mono);
 }
 
-.phone-carousel-all {
-  display: flex;
-  align-items: center;
-  width: fit-content;
-  min-height: var(--site-target);
+/* agent-tool's view-all link (view-all-href) shares the row of the step
+   buttons; give it the site's text-link style and a full-size target. The
+   arrow is decoration, so it is hidden from the accessible name. */
+.phone-carousel .shots-carousel-view-all {
+  /* A flex item of the controls row: its text stays inline so one underline
+     runs under the label and the arrow, and padding makes the target. */
+  padding-block: calc((var(--site-target) - 1.2em) / 2);
+  color: var(--shots-link);
+  font: 600 var(--site-text-mono) / 1.2 var(--site-font-mono);
+  text-decoration: underline 1px;
+  text-underline-offset: 4px;
+  /* Underline the space before the generated arrow too. */
+  text-decoration-skip-spaces: none;
 }
 
-/* Once the carousel runs, the link shares the row of its step buttons. */
-screenshot-carousel[data-state="ready"] + .phone-carousel-all {
-  position: relative;
-  margin-top: calc(-1 * var(--site-target));
+.phone-carousel .shots-carousel-view-all::after {
+  content: " →" / "";
+  white-space: pre;
 }
 
-/* @tearleads/ui resets every button's border-radius to 0, which outranks
-   agent-tool's zero-specificity :where() rules; give its buttons (round
-   controls, thumbnails, and the stage's device bezel) their radii back. */
-:is(screenshot-gallery, screenshot-carousel)
-:is(
-  .shots-toggle-button,
-  .shots-icon-button,
-  .shots-lightbox-close,
-  .shots-carousel-step
-) {
-  border-radius: 999px;
+.phone-carousel .shots-carousel-view-all:focus-visible {
+  text-decoration-thickness: 2px;
 }
 
-screenshot-gallery :is(.shots-frame, .shots-thumb) {
-  border-radius: calc(var(--shots-radius) / 2);
-}
-
-screenshot-gallery
-  :is(.shots-gallery[data-frame="phone"], .shots-gallery[data-frame="tablet"])
-  .shots-frame:not(.shots-missing) {
-  border-radius: calc(
-    var(--shots-frame-radius, 1.5rem) +
-    var(--shots-frame-pad, 0.6rem)
-  );
+@media (hover: hover) {
+  .phone-carousel .shots-carousel-view-all:hover {
+    text-decoration-thickness: 2px;
+  }
 }
 
 .screenshots-gallery {
