@@ -150,7 +150,10 @@ bun run --cwd packages/website preview
 `bun run screenshots` builds the SDK and SQLite prerequisites, creates an
 encrypted backup from the commit-pinned `@a2f0/continuity` development
 dependency, restores it through the app, and captures desktop, phone, and tablet
-in light and dark themes. Phone and tablet captures are saved as device screens,
+in light and dark themes. Phones are captured at the iPhone 13's full 390x844
+screen (1170x2532 pixels), like an installed app rather than Safari's shorter
+viewport, and every frame sizes from each image's recorded width and height.
+Phone and tablet captures are saved as device screens,
 with the display's rounded corners transparent and without the in-app test
 banner; the home page frames phone captures in a device bezel. Contacts include
 portraits; document details include the fictional driver's license, passport,
