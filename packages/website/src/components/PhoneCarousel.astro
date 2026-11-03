@@ -20,7 +20,9 @@ import "../styles/screenshots.css";
  * JavaScript, crawlers, and the first paint) and use the element's own markup
  * and classes, so upgrading it swaps them without moving the layout. Only the
  * first phone, the hero's likely largest paint, loads eagerly and at high
- * priority. Without a phone capture (CI and test builds stage an empty
+ * priority. The element renders the "All screenshots" link in its controls
+ * row from `view-all-href`; the static markup carries the same row. Without a
+ * phone capture (CI and test builds stage an empty
  * manifest) the row renders nothing, so the hero must read well without it.
  */
 const manifest = await loadScreenshotManifest(publicDir);
@@ -41,6 +43,12 @@ const slides = projectScreens(manifest, "mobile").flatMap((name) => {
     },
   ];
 });
+const viewAllHref = screenshotPath(
+  SCREENSHOTS_BASE_PATH,
+  "mobile",
+  slides[0]?.name ?? "",
+);
+const viewAllLabel = "All screenshots";
 ---
 
 {slides.length > 0 && (
@@ -50,6 +58,8 @@ const slides = projectScreens(manifest, "mobile").flatMap((name) => {
       project="mobile"
       link-base={SCREENSHOTS_BASE_PATH}
       label="Tearleads on a phone"
+      view-all-href={viewAllHref}
+      view-all-label={viewAllLabel}
     >
       <div class="shots-carousel" role="region" aria-label="Tearleads on a phone" data-frame="phone">
         <div class="shots-carousel-track" tabindex="0">
@@ -84,11 +94,11 @@ const slides = projectScreens(manifest, "mobile").flatMap((name) => {
             ))}
           </ul>
         </div>
+        <div class="shots-carousel-controls">
+          <a class="shots-carousel-view-all" href={viewAllHref}>{viewAllLabel}</a>
+        </div>
       </div>
     </screenshot-carousel>
-    <a class="site-link phone-carousel-all" href={screenshotPath(SCREENSHOTS_BASE_PATH, "mobile", slides[0]?.name ?? "")}>
-      All screenshots<span aria-hidden="true"> →</span>
-    </a>
   </div>
 )}
 
