@@ -85,7 +85,8 @@ function renderSections() {
   );
 }
 
-test("shows organization metadata system grants by default", () => {
+test("shows organization metadata system grants with the flag off", () => {
+  saveAppFeatureFlag(HIDE_SYSTEM_GRANTS_KEY, "disabled");
   const view = renderSections();
 
   expect(view.getAllByText("Org Metadata").length).toBeGreaterThan(0);
@@ -93,8 +94,7 @@ test("shows organization metadata system grants by default", () => {
   expect(view.getAllByText("Org Root").length).toBeGreaterThan(0);
 });
 
-test("the flag hides organization metadata system grants but not root Admins", () => {
-  saveAppFeatureFlag(HIDE_SYSTEM_GRANTS_KEY, "enabled");
+test("hides organization metadata system grants but not root Admins by default", () => {
   const view = renderSections();
 
   expect(view.queryByText("Org Metadata")).toBeNull();
