@@ -11,8 +11,8 @@ direction stays enforced by the lanes, layers, and
 `dependency-cruiser.config.ts`. A subsystem may span layers: `Containers` covers
 its routes, service facade, and orchestration workflows. A subsystem that
 declares a **surface** is also a boundary: other subsystems import only its
-surface files. See [AGENTS.md "## Subsystems"](../AGENTS.md#subsystems) for the
-related axes.
+surface files. See the [architecture vocabulary](developer/architecture-vocabulary.md)
+for the related axes.
 
 ## How it is kept honest
 
