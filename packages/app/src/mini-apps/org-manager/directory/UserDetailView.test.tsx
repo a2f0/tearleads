@@ -87,6 +87,7 @@ function renderUserDetailView(
 ) {
   return render(
     <UserDetailView
+      memberGroupId={null}
       canEditRosterProfile={false}
       canRevokeGrants={false}
       detail={detail}
@@ -219,6 +220,7 @@ test("a roster edit request opens the profile tab", async () => {
   );
   view.rerender(
     <UserDetailView
+      memberGroupId={null}
       canEditRosterProfile={true}
       canRevokeGrants={false}
       detail={detail}

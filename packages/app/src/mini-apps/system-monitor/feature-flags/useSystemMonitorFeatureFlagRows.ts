@@ -21,6 +21,10 @@ export const FEATURE_FLAG_DETAILS = {
     label: "Explorer header sync indicator",
     switchLabel: "Show Explorer header sync indicator",
   },
+  "hide-org-manager-system-grants": {
+    label: "Hide Org Manager system grants",
+    switchLabel: "Hide Org Manager system grants",
+  },
   "linked-document-activation-controls": {
     label: "Linked document activation controls",
     switchLabel: "Enable linked document activation controls",

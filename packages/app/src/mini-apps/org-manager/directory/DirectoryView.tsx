@@ -26,6 +26,7 @@ export function DirectoryView({
   importUserIdDraft,
   isImportUserDialogOpen,
   loadingUserDetail,
+  memberGroupId,
   organizationId,
   pending,
   mutating,
@@ -53,6 +54,7 @@ export function DirectoryView({
   importUserIdDraft: string;
   isImportUserDialogOpen: boolean;
   loadingUserDetail: boolean;
+  memberGroupId: string | null;
   organizationId: string;
   pending: boolean;
   mutating: boolean;
@@ -117,6 +119,7 @@ export function DirectoryView({
           canRevokeGrants={canRevokeGrants}
           detail={detail}
           key={selectedUserId}
+          memberGroupId={memberGroupId}
           pending={loadingUserDetail || pending}
           mutating={mutating}
           onRosterProfileDisplayNameChange={setSelectedProfileDisplayName}
