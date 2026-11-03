@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ShareIdentityLink } from "../../../components/identity/ShareIdentityLink";
+import { CopyMyIdentityLinkButton } from "../../../components/identity/CopyMyIdentityLinkButton";
 import {
   MiniAppClipboardButton,
   MiniAppSection,
@@ -112,7 +112,7 @@ export function IdentityManagerGeneralSection({
           {identityMutations.identityError}
         </MiniAppStatus>
       )}
-      <ShareIdentityLink />
+      <CopyMyIdentityLinkButton />
       <dl className="identity-manager-details">
         {isDeveloperMode && <IdentityDeveloperDetails model={model} />}
         <dt>Authentication</dt>
