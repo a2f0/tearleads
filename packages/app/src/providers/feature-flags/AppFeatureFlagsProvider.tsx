@@ -35,8 +35,7 @@ function featureFlagModeFromEnabled(enabled: boolean): AppFeatureFlagMode {
 function loadEnabledAppFeatureFlags(): ReadonlySet<AppFeatureFlagId> {
   return new Set(
     APP_FEATURE_FLAG_IDS.filter(
-      (flag) =>
-        loadAppFeatureFlag(appFeatureFlagStorageKey(flag)) === "enabled",
+      (flag) => loadAppFeatureFlag(flag) === "enabled",
     ),
   );
 }

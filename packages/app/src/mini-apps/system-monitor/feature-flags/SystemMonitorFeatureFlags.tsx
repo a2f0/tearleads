@@ -11,22 +11,18 @@ import {
   formatFeatureFlagState,
 } from "./useSystemMonitorFeatureFlagRows";
 
-// One flag's row: the name, its current state as text, and the switch. Every
+// One flag's row: the label, its current state as text, and the switch. Every
 // flag renders identically, so the row owns its own `useId` rather than making
-// the panel below thread one per flag.
+// the panel below thread one per flag. The label is phrased as the action the
+// switch performs, so it doubles as the switch's accessible name.
 function SystemMonitorFeatureFlagToggle({
   enabled,
   label,
   onChange,
-  switchLabel,
 }: {
   enabled: boolean;
   label: string;
   onChange: (enabled: boolean) => void;
-  // The switch's accessible name, phrased as the action it performs — it is
-  // what tests and screen readers address the control by, so it stays distinct
-  // from the row's display label.
-  switchLabel: string;
 }) {
   const toggleId = useId();
 
@@ -39,7 +35,7 @@ function SystemMonitorFeatureFlagToggle({
         </span>
         <MiniAppCheckbox
           aria-checked={enabled}
-          aria-label={switchLabel}
+          aria-label={label}
           checked={enabled}
           id={toggleId}
           role="switch"
@@ -68,7 +64,6 @@ export function SystemMonitorFeatureFlags() {
           onChange={(enabled) => {
             setEnabled(flag, enabled);
           }}
-          switchLabel={FEATURE_FLAG_DETAILS[flag].switchLabel}
         />
       ))}
     </MiniAppSection>
