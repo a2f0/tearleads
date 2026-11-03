@@ -65,10 +65,11 @@ The stored shapes enforce:
   data.
 - Signed write headers are the write-integrity mechanism (see
   [document write integrity](../document-rekey-and-audit-history.md#write-integrity));
-  there is no server-side audit hash chain. A rotation baseline's update row
-  keeps only the source [version vector](../glossary.md#version-vector) its
-  readers consume, and `access_events.dependency_manifest_hashes` is the only
-  copy of an event's dependency citations.
+  there is no server-side audit hash chain. A
+  [rotation baseline](../glossary.md#rotation-baseline)'s update row keeps only
+  the source [version vector](../glossary.md#version-vector) its readers
+  consume, and `access_events.dependency_manifest_hashes` is the only copy of an
+  event's dependency citations.
 - The client SDK's outbound write queue lives in `document_history_updates`
   (`update_id` plus the queue columns). A local database without `update_id`
   is refused at startup with the obsolete-schema error, and edits it had not
@@ -83,8 +84,9 @@ document, and blob mutation in that organization is refused with
 `402 billing_inactive`, and a
 [replacement organization](./billing-purge-recovery.md) is provisioned under a
 fresh organization id. Purged ids are never recreated under the same
-`(kind, organization, id)` key, so client checkpoints keyed that way cannot
-observe a false rollback.
+`(kind, organization, id)` key, so client
+[checkpoints](../glossary.md#checkpoint) keyed that way cannot observe a false
+rollback.
 
 ### Connection settings
 

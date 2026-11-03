@@ -46,18 +46,19 @@ them.
 
 Container listings discover document ids; their placement and link arrays do
 not establish authority. Before inserting a discovered document or replacing
-its link rows, the SDK loads and verifies its signed head, uses that head's
-links and manifest hash, and requires an epoch at least as recent as both the
-listing and local state. Unavailable evidence is retained per document for a
-later retry, allowing the listing watermark and verified siblings to advance.
-A signed head that no longer links any of the listed lanes discards that stale
-listing item when its hash matches the listing or its epoch is strictly newer.
-A different same-epoch head may lag a link addition, so the candidate remains
-pending until the named head arrives. A
-[verified terminal purge](../document-purge-verification.md) can also settle an
-unapplied candidate. Later lane listing tombstones discard pending hints for
-that placement, without touching local placement rows; those still require
-signed removal evidence. Pending local moves keep their transaction guards.
+its link rows, the SDK loads and verifies its signed
+[head](../glossary.md#head), uses that head's links and manifest hash, and
+requires an epoch at least as recent as both the listing and local state.
+Unavailable evidence is retained per document for a later retry, allowing the
+listing watermark and verified siblings to advance. A signed head that no longer
+links any of the listed lanes discards that stale listing item when its hash
+matches the listing or its epoch is strictly newer. A different same-epoch head
+may lag a link addition, so the candidate remains pending until the named head
+arrives. A [verified terminal purge](../document-purge-verification.md) can also
+settle an unapplied candidate. Later lane listing tombstones discard pending
+hints for that placement, without touching local placement rows; those still
+require signed removal evidence. Pending local moves keep their transaction
+guards.
 
 Listing tombstones likewise remove a placement only when a verified head omits
 it. A head that still links it keeps the placement visible and retains a
@@ -85,19 +86,18 @@ roughly one reconciliation pass per 32 candidate rows; each extra pass repeats
 the listing and delta reconciliation. Explicit discovery calls run one bounded
 pass; later calls or background reconciliation resume the durable remainder.
 Signed heads are cached by document id and exact manifest hash. Reuse also
-requires an exact match with the durable document verification checkpoint; a
-head verified by another path cannot be rolled back through this cache.
-[Organization](../glossary.md#organization) provisioning (registration and
-additional organizations) seeds this cache with the epoch-1 heads of the roster
-and organization profile documents. The client signed those heads; the
-provisioning response must acknowledge each exactly, and the same transaction
-pins them as the documents' verification checkpoints, so the first discovery of
-a seeded document needs no writer-projection GET.
+requires an exact match with the durable document verification
+[checkpoint](../glossary.md#checkpoint); a head verified by another path cannot
+be rolled back through this cache. [Organization](../glossary.md#organization)
+provisioning (registration and additional organizations) seeds this cache with
+the epoch-1 heads of the roster and organization profile documents. The client
+signed those heads; the provisioning response must acknowledge each exactly, and
+the same transaction pins them as the documents' verification checkpoints, so
+the first discovery of a seeded document needs no writer-projection GET.
 Unavailable candidates retry independently with the tombstone backoff (fifteen
-minutes, doubling to thirty-two hours); verified siblings and tombstones
-settle immediately. Pending candidates are acknowledged only after local
-apply, and a newer candidate cannot be removed by an older attempt's
-acknowledgement. The
+minutes, doubling to thirty-two hours); verified siblings and tombstones settle
+immediately. Pending candidates are acknowledged only after local apply, and a
+newer candidate cannot be removed by an older attempt's acknowledgement. The
 [background reconciler](./device-first.md#layer-b--reconciliationservice)
 publishes each partial result and schedules the next batch or delayed retry,
 keeping the open container at active priority and cancelling timers when its

@@ -9,10 +9,10 @@ the policies, binds the entire canonical request, authenticated requester,
 [organization](../glossary.md#organization), and target group when applicable.
 Separate hash domains distinguish standalone, compound, creation and deletion
 requests. Existing mutation locks serialize concurrent exact retries. A replay
-does not change current heads or publish another access or sharing notification.
-These receipts report historical outcomes; they do not establish current
-authority or authorize a newly constructed request. The authenticated requester
-must still be a current
+does not change current [heads](../glossary.md#head) or publish another access
+or sharing notification. These receipts report historical outcomes; they do not
+establish current authority or authorize a newly constructed request. The
+authenticated requester must still be a current
 [organization administrator](../glossary.md#organization-admins-group) to read a
 receipt; a revoked requester receives 403, not a claim that the commit rolled
 back. Reading an existing acknowledgement neither requires current sync
@@ -87,8 +87,9 @@ before reading the policies for another group change, creation, deletion or
 group share. Read-only policy verification never triggers recovery or submits
 saved work. Recovery resends only the authenticated saved body and verifies the
 exact receipt artifacts. It neither reruns the original application callback
-nor invents a complete verified history from the receipt. Current checkpoints
-are left to ordinary verified recovery, so an older receipt cannot roll them back.
+nor invents a complete verified history from the receipt. Current
+[checkpoints](../glossary.md#checkpoint) are left to ordinary verified recovery,
+so an older receipt cannot roll them back.
 
 Calls sharing an executor and scope serialize submission, recovery and explicit
 abandonment. Recovery waits for an owned dispatch instead of sending it again.

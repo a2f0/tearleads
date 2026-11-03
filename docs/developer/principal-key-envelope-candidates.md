@@ -18,7 +18,8 @@ claimed fingerprint does not establish that a candidate private key is valid:
 that key must actually open the requested recipient wrap. Container projection
 verification independently checks signed policy authority, the KEK material
 identity, and the signed wrapping public key. This lookup never creates a
-verified policy, advances a checkpoint, or accepts a prefix as a trust anchor.
+verified policy, advances a [checkpoint](../glossary.md#checkpoint), or accepts
+a prefix as a trust anchor.
 
 The lookup does not read `previous_states_json` or return policy histories.
 Malformed JSON is excluded by the fingerprint index expression; malformed

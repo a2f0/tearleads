@@ -67,7 +67,7 @@ Document write routes:
     required `supportsPullPagination: true`, optional read-only `pullCursor`
     and `historyMode`, and `outgoingUpdates[]`
   - path references name stored signed container manifests;
-    `expectedLinkSetManifestHash` pins the document head
+    `expectedLinkSetManifestHash` pins the document [head](./glossary.md#head)
   - each outgoing update includes `id`, encrypted `encryptedData`, visible
     `partialStartVersionVector`, visible `partialEndVersionVector`, required
     `plaintextHash`, optional checkpoint fields, and a signed `writeHeader`; its

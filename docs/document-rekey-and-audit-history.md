@@ -77,7 +77,8 @@ device's [signed write header](./glossary.md#signed-write-header), and clients
 verify it on every synced record (see [Write Integrity](#write-integrity)).
 Integrity of accepted history therefore does not rest on server bookkeeping. The
 server keeps no separate audit ledger: a nullable `document_updates` column only
-marks which retained updates are rotation baselines, and `blob_audit_objects`
+marks which retained updates are
+[rotation baselines](./glossary.md#rotation-baseline), and `blob_audit_objects`
 registers every blob generation an attachment binding referenced.
 
 ## Rekey / Rebaseline Model
@@ -287,8 +288,8 @@ The persistence seams are:
 - rotation-baseline markers in `document_updates`
 - live blob reachability in `attachment_bindings`
 - the blob registry in `blob_audit_objects`
-- [access-plane](./access-plane.md) material in signed access manifest heads and
-  key-target tables
+- [access-plane](./access-plane.md) material in signed access manifest
+  [heads](./glossary.md#head) and key-target tables
 - live blob bytes in `blobs`
 
 The server retains every original encrypted document update in

@@ -3,10 +3,11 @@
 Org Manager label hydration and runtime metadata-root verification use paged
 current [policies](../glossary.md#principal-policy-state) and require
 [private history custody](principal-history-recovery.md#key-custody). Labels
-bind to the exact signed directory and group heads. Their current artifacts stay
-paired with verified policies; they are never stored as fabricated full bundles.
-Directory/Admins admission still checks durable pins. Name reads alone leave
-other group checkpoints unchanged. Metadata roots select their exact older
+bind to the exact signed directory and group [heads](../glossary.md#head). Their
+current artifacts stay paired with verified policies; they are never stored as
+fabricated full bundles. Directory/Admins admission still checks durable pins.
+Name reads alone leave other group [checkpoints](../glossary.md#checkpoint)
+unchanged. Metadata roots select their exact older
 [Admins](../glossary.md#organization-admins-group) and
 [Members](../glossary.md#organization-members-group) citations, so an honest
 stale root remains distinguishable from a forged reference. These paths retain

@@ -69,8 +69,8 @@ This avoids a circular foreign key between organizations and containers.
  [member envelope](./glossary.md#member-envelope) wrapping the group key to that
  user.
 3. Create the initial organization policy and member envelope. Its authority
- descriptor binds both reserved group IDs and their initial heads. The
- organization policy is cryptographic
+ descriptor binds both reserved group IDs and their initial
+ [heads](./glossary.md#head). The organization policy is cryptographic
  [principal state](./glossary.md#principal-policy-state), not the org-manager
  product role source.
 4. Create the initial root metadata [Loro update](./glossary.md#loro-update)

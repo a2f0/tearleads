@@ -7,8 +7,9 @@ kinds:
 - **immutable** pins, here terminal purge decisions: once set, a pin never
   changes, and a backup carrying a different value is refused;
 - **append-only** evidence, here security incidents: a restore only adds;
-- **monotone** checkpoints, here a verification checkpoint: a restore never
-  moves one below its position or swaps the hash signed at a position.
+- **monotone** [checkpoints](../../docs/glossary.md#checkpoint), here a
+  verification checkpoint: a restore never moves one below its position or swaps
+  the hash signed at a position.
 
 A purge value abstracts the organization, document manifest hash, and purge
 event hash; any difference for the same document is a conflict, without an
@@ -47,7 +48,9 @@ deliberately not anchors, because losing them costs only a refetch:
 `principal_policies` and `principal_policy_bundle_history` cache verified
 bundles; `principal_history_prefixes`, `principal_history_entries`, and
 `principal_history_nodes` hold proof material checked against a private root;
-and the organization read model is presentation state.
+and the
+[organization read model](../../docs/glossary.md#organization-read-model) is
+presentation state.
 
 The bounded configuration uses one document, two conflicting purge decisions,
 two incidents, and a checkpoint with two positions and two hashes. TLC checks

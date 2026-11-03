@@ -5,8 +5,8 @@ when a domain has several kinds of queued sync work. It complements the
 [wire-protocol documents](./protocol-specification.md) and defines no new HTTP
 routes or server transactions.
 
-For one `DomainScope`, the SDK uses one in-process sync coordinator. Sync lanes
-drain through a phase barrier:
+For one `DomainScope`, the SDK uses one in-process sync coordinator.
+[Sync lanes](./glossary.md#sync-lane) drain through a phase barrier:
 
 1. Structural lanes.
 2. Up to four [document](./glossary.md#document) lanes concurrently.
@@ -96,9 +96,10 @@ and a diagnostics blob row only views the upload that the document lane owns.
 
 ### Remote pull eligibility
 
-Scheduling a document lane and probing the remote document head are separate
-decisions. A clean ordinary document skips HTTP unless it has outgoing work or
-a remote-revalidation signal. The following signals require a probe:
+Scheduling a document lane and probing the remote document
+[head](./glossary.md#head) are separate decisions. A clean ordinary document
+skips HTTP unless it has outgoing work or a remote-revalidation signal. The
+following signals require a probe:
 
 - initializing an opened store from a persisted record with a remote
   `documentId` arms one startup probe, because

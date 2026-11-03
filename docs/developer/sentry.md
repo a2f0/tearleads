@@ -180,16 +180,16 @@ Failed local document writes and failed
 [sync-lane](../sync-edge-cases.md#the-failure-isolation-model) runs report the
 same way. The document write chain deliberately swallows its errors so an
 un-awaited edit cannot reject; a failed content, row, or attachment write still
-reaches the logger with the original `Error`. Sync lanes report through an
-observability-only lane callback that is separate from the lane's own error
-handling. Both suppress an identical repeat — the write chain per document
-store, a lane per registered lane, and a lane's signature is deliberately never
-cleared by a later success, because a lane alternating between failure and
-recovery would otherwise refill the local log. A vanished local database is
-teardown rather than lost durability and stays local, as do offline and expected
-HTTP outcomes, which never reach these paths. Messages are fixed literals:
-document, row, container, and lane identifiers stay in the local log line and
-are never reported.
+reaches the logger with the original `Error`.
+[Sync lanes](../glossary.md#sync-lane) report through an observability-only lane
+callback that is separate from the lane's own error handling. Both suppress an
+identical repeat — the write chain per document store, a lane per registered
+lane, and a lane's signature is deliberately never cleared by a later success,
+because a lane alternating between failure and recovery would otherwise refill
+the local log. A vanished local database is teardown rather than lost durability
+and stays local, as do offline and expected HTTP outcomes, which never reach
+these paths. Messages are fixed literals: document, row, container, and lane
+identifiers stay in the local log line and are never reported.
 
 The local database lifecycle reports its own failures the same way. Wiping a
 persisted database that cannot be decrypted with the resolved key — the most

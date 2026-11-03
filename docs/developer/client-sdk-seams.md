@@ -115,7 +115,8 @@ adapter supplied it. Say so in the port's doc comment.
 
 Add a port only for a collaborator that has, or a test needs, a second
 implementation. Registration replays provisioned bundles and the
-directory check serves pinned heads, so the readers earn their ports.
+directory check serves pinned [heads](../glossary.md#head), so the readers earn
+their ports.
 
 Do not wrap single-implementation code in an interface. Principal-policy
 persistence spans about thirteen modules with one SQLite implementation, and
@@ -196,7 +197,7 @@ declares a `surface`, listed in `clientSdkSurfaces.ts`: the files other
 subsystems may import. It holds the subsystem's facade indexes, the contract
 modules it means to share, such as types, errors, document kinds, and its main
 persistence module, and the capabilities other subsystems build on, such as
-keying checkpoint persistence or
+keying [checkpoint](../glossary.md#checkpoint) persistence or
 [admin-signer verification](../security-guarantees.md#admin-signer-authorization).
 SQLite Runtime and SDK Shared Utilities declare none, so any of their files may
 be imported.

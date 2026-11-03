@@ -2,20 +2,20 @@
 
 The [principal-policy](./glossary.md#principal-policy-state) GET route returns
 [at most 32 historical entries](./limits.md#principals) per page,
-plus the artifacts for one pinned signed head. The initial request chooses the
-current head; subsequent requests send its `stateHash` and the returned
-`historyPage.nextAfterVersion` as `afterVersion`. A null next cursor means the
-entire prefix before that head has been delivered. A later policy update does
-not move the requested pin. An unpinned read may instead name the head its
-client holds as `ifVersion` and `ifStateHash`; when that pair is the live head,
-the reply is `{unchanged: true, head}` with no artifacts or history. Any other
-live head gets the ordinary first page. The pair is refused together with
-`stateHash` or `afterVersion`, or alone. Every page rechecks current read
-authorization and verifies the current policy before reading historical data;
-historical membership does not restore revoked access. Each returned historical
-entry is checked against the server's locally authenticated prefix and inclusion
-index; see [incremental
-verification](principal-history-pages.md#api-verified-progress).
+plus the artifacts for one pinned signed [head](./glossary.md#head). The initial
+request chooses the current head; subsequent requests send its `stateHash` and
+the returned `historyPage.nextAfterVersion` as `afterVersion`. A null next
+cursor means the entire prefix before that head has been delivered. A later
+policy update does not move the requested pin. An unpinned read may instead name
+the head its client holds as `ifVersion` and `ifStateHash`; when that pair is
+the live head, the reply is `{unchanged: true, head}` with no artifacts or
+history. Any other live head gets the ordinary first page. The pair is refused
+together with `stateHash` or `afterVersion`, or alone. Every page rechecks
+current read authorization and verifies the current policy before reading
+historical data; historical membership does not restore revoked access. Each
+returned historical entry is checked against the server's locally authenticated
+prefix and inclusion index; see
+[incremental verification](principal-history-pages.md#api-verified-progress).
 
 The API client rejects head/artifact changes, gaps, reordered entries, repeated
 cursors, and premature completion. Its authentication and cancellation context
@@ -42,11 +42,11 @@ artifacts, cursor, completion state, organization, trust context, and reference
 selection. The transaction compares prior progress before replacing it and gates
 commit on the caller's current operation. A shared authenticated completed
 prefix can serve new heads and selections; proof lookups select historical
-entries and the current local checkpoint against its private verified root.
-Cache loss permits one bounded genesis rebuild. The returned sparse
-current-policy capability does not advance a trusted application checkpoint. See
-the [recovery contract](developer/principal-history-recovery.md) for key
-custody, lifetime guards and cache recovery.
+entries and the current local [checkpoint](./glossary.md#checkpoint) against its
+private verified root. Cache loss permits one bounded genesis rebuild. The
+returned sparse current-policy capability does not advance a trusted application
+checkpoint. See the [recovery contract](developer/principal-history-recovery.md)
+for key custody, lifetime guards and cache recovery.
 
 ## Preparation continuations
 

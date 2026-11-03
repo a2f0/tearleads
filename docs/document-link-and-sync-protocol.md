@@ -22,10 +22,11 @@ and link-set mutation routes use signed document
 - a document [content-key bundle](./glossary.md#content-key-bundle)
 
 The API verifies the event, verifies
-[container path](./glossary.md#authorizing-container-path) heads, loads
-referenced [principal policies](./glossary.md#principal-policy-state), derives
-the document link-set manifest, stores the manifest head, and validates the
-submitted content-key bundle against derived document
+[container path](./glossary.md#authorizing-container-path)
+[heads](./glossary.md#head), loads referenced
+[principal policies](./glossary.md#principal-policy-state), derives the document
+link-set manifest, stores the manifest head, and validates the submitted
+content-key bundle against derived document
 [KEK targets](./glossary.md#key-target).
 
 A create may also carry an `initialSync` seed: a `DocumentSyncRequest` holding
@@ -90,7 +91,7 @@ inside the mutation transaction under the document manifest-head write lock.
 Sync writers hold the corresponding exclusive lock, so no update can commit
 between the emptiness proof and the unlink. A baseline-less unlink against a
 non-empty committed frontier is rejected as a conflict. A link must not carry a
-rotation baseline, so it may advance the
+[rotation baseline](./glossary.md#rotation-baseline), so it may advance the
 [content-key epoch](./glossary.md#access-epoch) only under the same emptiness
 proof; otherwise the link is rejected as a conflict. A stored rotation baseline
 counts as a committed update. Honest clients link at the current epoch.

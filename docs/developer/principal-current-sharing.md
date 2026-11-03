@@ -6,17 +6,18 @@ duplicate-share [epoch](../glossary.md#epoch) checks, group-share planning,
 [grant](../glossary.md#grant) minting, and current-grant confirmation. These
 reads discover the signed [organization](../glossary.md#organization) directory,
 verify its [Admins](../glossary.md#organization-admins-group) reference, and
-select the group's exact directory head. They do not require the reader to be a
-group administrator; authoring a new group grant has a separate authority check.
+select the group's exact directory [head](../glossary.md#head). They do not
+require the reader to be a group administrator; authoring a new group grant has
+a separate authority check.
 
 When a chosen name is supplied, the read binds it to the verified encrypted
-group metadata before admitting the share's group checkpoint. Metadata
-verification can advance its own verified container and reserved-group
-checkpoints. Grant confirmation also binds the caller's expected head,
-including its hash, version, key epoch, and key fingerprint. A valid user-only
-[container](../glossary.md#container) projection cannot confirm a group grant.
-The container projection is verified against the admitted policy selections
-before its grants are inspected.
+group metadata before admitting the share's group
+[checkpoint](../glossary.md#checkpoint). Metadata verification can advance its
+own verified container and reserved-group checkpoints. Grant confirmation also
+binds the caller's expected head, including its hash, version, key epoch, and
+key fingerprint. A valid user-only [container](../glossary.md#container)
+projection cannot confirm a group grant. The container projection is verified
+against the admitted policy selections before its grants are inspected.
 
 The [private custody lease](./principal-history-recovery.md#key-custody) spans
 recovery, metadata verification, atomic checkpoint admission, and the consuming

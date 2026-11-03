@@ -1,15 +1,15 @@
 # Durable principal-history recovery
 
-For a known signed [principal](../glossary.md#principal) head,
-`recoverPrincipalPolicyHistory` verifies
+For a known signed [principal](../glossary.md#principal)
+[head](../glossary.md#head), `recoverPrincipalPolicyHistory` verifies
 `ApiClient.getPrincipalPolicyPages` incrementally and stores accepted progress
 in local SQLite. Provide a `historyReader`, `expectedHead`, `organizationId`,
 `execSql`, a [trusted identity](trusted-user-identity.md) resolver, and a
-`stillCurrent` guard covering the
-session and database lifetime, including organization reset. Invalidate the
-guard before resetting so an in-flight recovery cannot recreate provisional rows
-afterward. `protection.localKey` must be a private 32-byte client-controlled
-key; `protection.context` must identify the local identity, API trust domain,
+`stillCurrent` guard covering the session and database lifetime, including
+organization reset. Invalidate the guard before resetting so an in-flight
+recovery cannot recreate provisional rows afterward. `protection.localKey` must
+be a private 32-byte client-controlled key; `protection.context` must identify
+the local identity, [API trust domain](../glossary.md#identity-trust-domain),
 and trust policy revision consistently across restarts. Never obtain either
 trust decision from server-issued continuation data. Rotate the key or context
 when retiring prior verification decisions.
@@ -59,12 +59,13 @@ are shared per database and organization, avoiding concurrent writes to
 directory or [Admins](../glossary.md#organization-admins-group) progress.
 [Container](../glossary.md#container) and [document](../glossary.md#document)
 authorization and mutation planning accept the resulting current policy with
-selected historical citations. The projection checkpoint batch also carries
-every verified directory/Admins dependency. In-memory reuse preserves that
-organization binding and lifetime, rechecks all dependency pins, and refreshes
-missing evidence when a durable pin advances. Conflicting pins still fail.
-Runtime offline state selects local-only recovery. Explicit full-bundle
-utilities are outside built-in runtime recovery.
+selected historical citations. The projection
+[checkpoint](../glossary.md#checkpoint) batch also carries every verified
+directory/Admins dependency. In-memory reuse preserves that organization binding
+and lifetime, rechecks all dependency pins, and refreshes missing evidence when
+a durable pin advances. Conflicting pins still fail. Runtime offline state
+selects local-only recovery. Explicit full-bundle utilities are outside built-in
+runtime recovery.
 
 Org Manager labels and metadata roots also consume verified current policies;
 see [current-policy consumers](current-principal-consumers.md) for exact-head

@@ -47,12 +47,12 @@
       "bytes": 55522
     },
     "docs/developer/device-first.md": {
-      "lines": 361,
-      "bytes": 21172
+      "lines": 362,
+      "bytes": 21226
     },
     "docs/developer/principal-history-recovery.md": {
-      "lines": 320,
-      "bytes": 20088
+      "lines": 321,
+      "bytes": 20180
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 363,
@@ -60,39 +60,39 @@
     },
     "docs/developer/sentry.md": {
       "lines": 343,
-      "bytes": 20728
+      "bytes": 20756
     },
     "docs/glossary.md": {
-      "lines": 603,
-      "bytes": 23102
+      "lines": 747,
+      "bytes": 30768
     },
     "docs/keying-design.md": {
-      "lines": 1207,
-      "bytes": 59620
+      "lines": 1208,
+      "bytes": 59744
     },
     "docs/limits.md": {
       "lines": 203,
-      "bytes": 21328
+      "bytes": 21350
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 495,
-      "bytes": 22781
+      "bytes": 22803
     },
     "docs/openapi.json": {
       "lines": 68725,
       "bytes": 2773161
     },
     "docs/organization-read-model-sync.md": {
-      "lines": 333,
-      "bytes": 20435
+      "lines": 334,
+      "bytes": 20498
     },
     "docs/protocol-specification.md": {
-      "lines": 856,
-      "bytes": 46839
+      "lines": 857,
+      "bytes": 46889
     },
     "docs/security-guarantees.md": {
-      "lines": 867,
-      "bytes": 50939
+      "lines": 868,
+      "bytes": 51028
     },
     "docs/subsystems.md": {
       "lines": 118,
@@ -119,8 +119,8 @@
       "bytes": 550577
     },
     "formal/models.md": {
-      "lines": 398,
-      "bytes": 20794
+      "lines": 400,
+      "bytes": 20942
     },
     "packages/api-client/src/ApiClient.ts": {
       "lines": 2134,
