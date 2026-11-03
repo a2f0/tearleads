@@ -112,6 +112,22 @@ html:root {
   --color-hairline: var(--site-line);
   --emphasis-surface: var(--site-ink);
   --emphasis-text: var(--site-bg);
+
+  /* --- Map agent-tool's screenshot gallery and carousel onto site tokens --- */
+  --shots-font: var(--site-font-mono);
+  --shots-ink: var(--site-ink);
+  --shots-ink-muted: var(--site-ink-2);
+  --shots-surface: var(--site-surface);
+  --shots-surface-raised: var(--site-surface-muted);
+  --shots-border: var(--site-line);
+  --shots-accent: var(--site-ink);
+  --shots-accent-ink: var(--site-surface);
+  --shots-focus: var(--site-focus);
+  --shots-radius: var(--site-radius);
+  --shots-button-size: var(--site-target);
+  --shots-bezel: var(--site-bezel);
+  --shots-bezel-edge: var(--site-bezel-edge);
+  --shots-shadow: var(--site-shadow-lg);
 }
 
 @media (min-width: 700px) {

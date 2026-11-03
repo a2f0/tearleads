@@ -20,7 +20,7 @@ beforeAll(async () => {
   // Direct Astro builds skip prebuild; stage what it would (seoBuild.test.ts).
   for (const command of [
     [process.execPath, "run", "images"],
-    [process.execPath, "scripts/buildScreenshots.ts"],
+    [process.execPath, "run", "screenshots"],
   ]) {
     const preparation = Bun.spawnSync(command, {
       cwd: website,

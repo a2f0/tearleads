@@ -331,7 +331,11 @@ const productionConfig = {
         "src/docLinksPlugin.ts!",
         "src/seoIntegration.ts!",
       ],
-      project: ["src/**/*.{astro,ts,tsx}!", "!src/**/*.test.ts"],
+      project: [
+        "src/**/*.{astro,ts,tsx}!",
+        "!src/**/*.test.ts",
+        "!src/**/*.testUtils.ts",
+      ],
       // Imported only by astro.config.ts, which the production pass does not
       // trace (see above).
       ignoreDependencies: [

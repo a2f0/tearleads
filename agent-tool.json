@@ -75,6 +75,101 @@
       }
     ]
   },
+  "screenshots": {
+    "targets": {
+      "website": {
+        "dir": "packages/website/public/screenshot-gallery",
+        "urlPrefix": "/screenshot-gallery/",
+        "projects": {
+          "windowed": { "label": "Desktop", "dir": "web" },
+          "mobile": { "label": "Phone", "frame": "phone" },
+          "tablet": { "label": "Tablet", "dir": "ipad" }
+        },
+        "themes": ["light", "dark"],
+        "screens": [
+          "home",
+          {
+            "name": "explorer",
+            "label": "Explorer",
+            "alt": "Explorer, listing folders, notes, and records such as a credit card, a birth certificate, and tools."
+          },
+          {
+            "name": "contacts",
+            "label": "Contacts",
+            "alt": "Contacts: a list of people with their profile photos."
+          },
+          "org-manager",
+          { "name": "org-manager-roster", "label": "Org Manager: Roster" },
+          { "name": "org-manager-groups", "label": "Org Manager: Groups" },
+          { "name": "org-manager-grants", "label": "Org Manager: Grants" },
+          {
+            "name": "org-manager-organization",
+            "label": "Org Manager: Organization"
+          },
+          { "name": "org-manager-usage", "label": "Org Manager: Usage" },
+          { "name": "org-manager-billing", "label": "Org Manager: Billing" },
+          {
+            "name": "notes",
+            "label": "Notes",
+            "alt": "Notes: a list of notes with the time each was modified."
+          },
+          "identity-manager",
+          { "name": "backup-restore", "label": "Backup / Restore" },
+          "system-monitor",
+          { "name": "note-detail", "label": "Note" },
+          {
+            "name": "note-blame",
+            "label": "Note authorship",
+            "alt": "Document Info for a shared note, with each contributor's text highlighted in their color."
+          },
+          {
+            "name": "contact-detail",
+            "label": "Contact",
+            "alt": "A contact, with a profile photo, nickname, and name fields."
+          },
+          {
+            "name": "drivers-license-detail",
+            "label": "Driver's license",
+            "alt": "A driver's license record, with its license number, expiration date, and front image."
+          },
+          {
+            "name": "passport-detail",
+            "label": "Passport",
+            "alt": "A passport record, with the holder's name, passport number, issuing country, and passport image."
+          },
+          { "name": "credit-card-detail", "label": "Credit card" },
+          { "name": "birth-certificate-detail", "label": "Birth certificate" },
+          {
+            "name": "birth-certificate-image",
+            "label": "Birth certificate image"
+          },
+          { "name": "credit-card-image", "label": "Credit card image" },
+          {
+            "name": "family-photo-1",
+            "label": "Family dinner",
+            "alt": "A family photo, Sunday dinner at Mom's, opened with its file details."
+          },
+          { "name": "family-photo-2", "label": "Family walk" },
+          {
+            "name": "tool-detail-1",
+            "label": "Drill",
+            "alt": "A drill's record, with its make, model, serial number, and equipment photos."
+          },
+          { "name": "tool-detail-2", "label": "Circular saw" },
+          { "name": "appliance-detail-1", "label": "Washing machine" },
+          { "name": "appliance-detail-2", "label": "Refrigerator" },
+          { "name": "tool-receipt", "label": "Tool receipt" },
+          { "name": "appliance-receipt", "label": "Appliance receipt" },
+          { "name": "weight-detail", "label": "Weight tracker" },
+          {
+            "name": "blood-pressure-detail",
+            "label": "Blood pressure tracker",
+            "alt": "A blood pressure tracker, charting systolic and diastolic readings and pulse over time."
+          }
+        ]
+      }
+    }
+  },
   "images": {
     "targets": {
       "website": {

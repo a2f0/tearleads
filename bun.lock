@@ -5,7 +5,7 @@
     "": {
       "name": "tearleads",
       "devDependencies": {
-        "@a2f0/agent-tool": "0.1.31",
+        "@a2f0/agent-tool": "0.1.32",
         "@azure/storage-blob": "12.30.0",
         "@biomejs/biome": "2.5.15",
         "@commitlint/cli": "21.2.4",
@@ -354,6 +354,7 @@
       "name": "website",
       "version": "0.1.38",
       "dependencies": {
+        "@a2f0/agent-tool": "0.1.32",
         "@a2f0/ct-client": "0.1.5",
         "@astrojs/markdown-satteri": "0.4.5",
         "@astrojs/react": "7.1.1",
@@ -427,7 +428,7 @@
     },
   },
   "packages": {
-    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.31", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-KrkeKPlyU0z9ROBU+HP/rAK//jRLCnzvjYH412REIoeZvnjq+vjSo41HsQGjPJ1RXVO30RPFHfCkK1IhU0rncQ=="],
+    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.32", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-EW0QaQlrgNIpJfGXlq6ikftmgc8LV/3G2dTWJPaIETKPEQtLssjVSYHfBARsMY+LNhPwM1/6kcbb9MGLRQBjaQ=="],
 
     "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#ccec49f", {}, "a2f0-continuity-ccec49f", "sha512-SwQMufS2JVURyMbhehQMLvNnvuJsqDQihxvsLGnFjeVWwsweJTRy9esLA4dnJziHq2u36qlSG0uzAsQOk0hAbQ=="],
 

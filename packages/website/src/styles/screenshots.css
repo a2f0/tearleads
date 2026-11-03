@@ -1,0 +1,79 @@
+/*
+ * Layout around agent-tool's <screenshot-carousel> (home hero,
+ * PhoneCarousel.astro) and <screenshot-gallery> (/screenshots). Their colors,
+ * bezel, and type come from the --shots-* mapping in tokens.css; this sheet
+ * only places them on the page.
+ */
+
+.phone-carousel {
+  margin-top: var(--site-space-8);
+}
+
+/* The row bleeds into the page gutters so a cut-off phone at the edge signals
+   that it scrolls. */
+.phone-carousel screenshot-carousel {
+  --shots-carousel-padding: var(--site-gutter);
+  --shots-carousel-gap: var(--site-space-5);
+  --shots-carousel-slide-width: clamp(13.5rem, 60vw, 16.5rem);
+
+  display: block;
+  margin-inline: calc(-1 * var(--site-gutter));
+}
+
+.phone-carousel .shots-carousel-slide figcaption {
+  margin-top: var(--site-space-4);
+  color: var(--site-ink-2);
+  font: 500 var(--site-text-mono-sm) / 1.4 var(--site-font-mono);
+}
+
+.phone-carousel-all {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  min-height: var(--site-target);
+}
+
+/* Once the carousel runs, the link shares the row of its step buttons. */
+screenshot-carousel[data-state="ready"] + .phone-carousel-all {
+  position: relative;
+  margin-top: calc(-1 * var(--site-target));
+}
+
+/* @tearleads/ui resets every button's border-radius to 0, which outranks
+   agent-tool's zero-specificity :where() rules; give its buttons (round
+   controls, thumbnails, and the stage's device bezel) their radii back. */
+:is(screenshot-gallery, screenshot-carousel)
+:is(
+  .shots-toggle-button,
+  .shots-icon-button,
+  .shots-lightbox-close,
+  .shots-carousel-step
+) {
+  border-radius: 999px;
+}
+
+screenshot-gallery :is(.shots-frame, .shots-thumb) {
+  border-radius: calc(var(--shots-radius) / 2);
+}
+
+screenshot-gallery
+  :is(.shots-gallery[data-frame="phone"], .shots-gallery[data-frame="tablet"])
+  .shots-frame:not(.shots-missing) {
+  border-radius: calc(
+    var(--shots-frame-radius, 1.5rem) +
+    var(--shots-frame-pad, 0.6rem)
+  );
+}
+
+.screenshots-gallery {
+  display: block;
+  margin-top: var(--site-space-6);
+}
+
+.screenshots-still {
+  display: block;
+  max-width: 100%;
+  max-height: 80vh;
+  width: auto;
+  height: auto;
+}

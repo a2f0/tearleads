@@ -1,30 +1,17 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { releaseNotice } from "./config";
+import { pngHeader, stageScreenshots } from "./stageScreenshots.testUtils";
 
-// Builds the site against a fixture gallery (WEBSITE_PUBLIC_DIR), so the Home
-// carousel renders from a populated manifest without touching public/.
+// Builds the site against a fixture gallery (WEBSITE_PUBLIC_DIR), staged by
+// agent-tool with this repository's configuration, so the Home carousel and
+// the gallery render from a populated manifest without touching public/.
 const website = resolve(import.meta.dir, "..");
 let root = "";
 let home = "";
 let gallery = "";
 let screen = "";
-
-// The PNG signature plus an IHDR chunk: the staging script reads only the
-// width and height from the first 24 bytes.
-function pngHeader(width: number, height: number): Uint8Array {
-  const bytes = new Uint8Array(33);
-  const view = new DataView(bytes.buffer);
-  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
-  view.setUint32(8, 13);
-  bytes.set(new TextEncoder().encode("IHDR"), 12);
-  view.setUint32(16, width);
-  view.setUint32(20, height);
-  bytes.set([8, 6, 0, 0, 0], 24);
-  return bytes;
-}
 
 async function run(command: string[], env: NodeJS.ProcessEnv): Promise<void> {
   const child = Bun.spawn(command, {
@@ -42,24 +29,18 @@ async function run(command: string[], env: NodeJS.ProcessEnv): Promise<void> {
 }
 
 beforeAll(async () => {
-  root = await mkdtemp(join(tmpdir(), "tearleads-home-carousel-"));
-  // Mobile captures, as the capture run names its directories: light explorer
-  // and notes, a dark explorer, and a contacts capture in dark only.
-  for (const [theme, name] of [
-    ["light", "explorer"],
-    ["dark", "explorer"],
-    ["light", "notes"],
-    ["dark", "contacts"],
-  ] as const) {
-    const directory = join(root, "captures", "mobile", theme);
-    await mkdir(directory, { recursive: true });
-    await writeFile(join(directory, `${name}.png`), pngHeader(1170, 2532));
-  }
-  const publicDir = join(root, "public");
-  await run([process.execPath, "scripts/buildScreenshots.ts"], {
-    SCREENSHOTS_CAPTURE_DIR: join(root, "captures"),
-    SCREENSHOTS_OUTPUT_DIR: join(publicDir, "screenshot-gallery"),
+  // Mobile captures: light and dark explorer, light notes, and contacts in
+  // dark only; a desktop capture that the phone row must leave out.
+  const phone = pngHeader(1170, 2532);
+  const staged = await stageScreenshots({
+    "mobile/light/explorer.png": phone,
+    "mobile/dark/explorer.png": phone,
+    "mobile/light/notes.png": phone,
+    "mobile/dark/contacts.png": phone,
+    "web/light/home.png": pngHeader(2880, 1658),
   });
+  root = staged.root;
+  expect(staged.code, staged.log).toBe(0);
   const output = join(root, "dist");
   await run(
     [resolve(website, "node_modules/.bin/astro"), "build", "--outDir", output],
@@ -67,7 +48,7 @@ beforeAll(async () => {
       ASTRO_TELEMETRY_DISABLED: "1",
       NODE_ENV: "test",
       PUBLIC_ENVIRONMENT: "",
-      WEBSITE_PUBLIC_DIR: publicDir,
+      WEBSITE_PUBLIC_DIR: staged.publicDir,
     },
   );
   home = await Bun.file(join(output, "index.html")).text();
@@ -81,39 +62,54 @@ afterAll(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-test("the Home carousel shows phones with light captures, in order", () => {
-  expect(home).toContain("data-phone-carousel");
-  const sources = [
-    ...home.matchAll(/<img src="(\/screenshot-gallery\/img\/[^"]+)"/g),
-  ].map((match) => match[1] ?? "");
-  expect(sources).toHaveLength(2);
-  expect(sources[0]).toContain("explorer");
-  expect(sources[1]).toContain("notes");
-  // Contacts has no light capture, so it is left out.
-  expect(home).not.toContain("Contacts on a phone");
+function phoneImages(page: string): string[] {
+  return [
+    ...page.matchAll(/<img src="\/screenshot-gallery\/img\/mobile\/[^>]+>/g),
+  ].map((match) => match[0]);
+}
+
+test("the Home carousel renders every phone screen, in manifest order", () => {
+  expect(home).toContain("<screenshot-carousel");
+  expect(home).toContain('manifest="/screenshot-gallery/manifest.json"');
+  const images = phoneImages(home);
+  expect(images).toHaveLength(3);
+  expect(images[0]).toContain("/light/explorer.png");
+  // Contacts has no light capture, so its dark capture is the image.
+  expect(images[1]).toContain("/dark/contacts.png");
+  expect(images[2]).toContain("/light/notes.png");
+  expect(home).not.toContain("/screenshot-gallery/img/windowed/");
   expect(home).toContain('media="(prefers-color-scheme: dark)"');
   expect(home).toContain('href="/screenshots/mobile/explorer/"');
+  expect(home).toContain("<figcaption>Notes</figcaption>");
+  expect(home).toContain(
+    'alt="Notes: a list of notes with the time each was modified."',
+  );
 });
 
 test("only the first phone loads eagerly, and every phone declares its size", () => {
-  const images = [
-    ...home.matchAll(/<img src="\/screenshot-gallery\/img\/mobile\/[^>]+>/g),
-  ].map((match) => match[0]);
-  expect(images).toHaveLength(2);
+  const images = phoneImages(home);
   expect(images[0]).toContain('loading="eager"');
   expect(images[0]).toContain('fetchpriority="high"');
-  expect(images[1]).toContain('loading="lazy"');
-  expect(images[1]).not.toContain('fetchpriority="high"');
+  for (const image of images.slice(1)) {
+    expect(image).toContain('loading="lazy"');
+    expect(image).not.toContain('fetchpriority="high"');
+  }
   for (const image of images) {
     expect(image).toContain('width="1170" height="2532"');
     expect(image).toContain('decoding="async"');
   }
 });
 
-test("the step buttons stay hidden until the script wires them", () => {
-  expect(home).toMatch(/class="phone-carousel-steps"[^>]*\shidden/);
-  expect(home).toContain('aria-label="Previous screens"');
-  expect(home).toContain('aria-label="Next screens"');
+test("the gallery page renders agent-tool's gallery with Tearleads titles", () => {
+  expect(gallery).toContain("<screenshot-gallery");
+  expect(gallery).toContain('base-path="/screenshots"');
+  expect(gallery).toContain('heading-id="page-title"');
+  expect(gallery).toContain('title-template="{heading} | Tearleads"');
+  expect(screen).toContain('initial-project="mobile"');
+  expect(screen).toContain('initial-screen="notes"');
+  expect(screen).toContain(
+    "<title>Notes, phone screenshot | Tearleads</title>",
+  );
 });
 
 test("a screen page's heading names its screen; the index keeps its own", () => {
