@@ -8,6 +8,8 @@ import { openLocalDatabase } from "./localDatabase";
 let apiBaseUrl = "";
 // Requests matching `method pathname` get a 503 instead of reaching the API.
 let failing: RegExp | null = null;
+// Every `method pathname` the API received, in order.
+const requests: string[] = [];
 
 beforeAll(async () => {
   await initializeApiDatabase();
@@ -16,6 +18,7 @@ beforeAll(async () => {
     port: 0,
     fetch: (request) => {
       const { pathname } = new URL(request.url);
+      requests.push(`${request.method} ${pathname}`);
       return failing?.test(`${request.method} ${pathname}`)
         ? new Response("unavailable", { status: 503 })
         : routeApp.fetch(request);
@@ -189,5 +192,31 @@ test("a session the API will not revoke fails the command", async () => {
   expect(output.stdout).toEqual([]);
   expect(output.stderr).toEqual([
     "Could not revoke this command's session on the API; it stays valid until it expires.",
+  ]);
+}, 60_000);
+
+test("ls applies the user's sync pauses before pulling any folder", async () => {
+  const { context } = await signedInContext();
+  requests.length = 0;
+
+  expect(await runCli(["ls"], context)).toBe(0);
+  const memberships = requests.indexOf("GET /organization-memberships");
+  const firstPull = requests.findIndex(
+    (request) =>
+      request.startsWith("POST /containers/") ||
+      request.startsWith("POST /documents/"),
+  );
+  expect(memberships).toBeGreaterThan(-1);
+  expect(firstPull).toBeGreaterThan(memberships);
+}, 60_000);
+
+test("ls fails when memberships, and so sync pauses, cannot be read", async () => {
+  const { context, output } = await signedInContext();
+  failing = /^GET \/organization-memberships$/u;
+
+  expect(await runCli(["ls"], context)).toBe(1);
+  expect(output.stdout).toEqual([]);
+  expect(output.stderr).toEqual([
+    "Could not read organization memberships from the API.",
   ]);
 }, 60_000);

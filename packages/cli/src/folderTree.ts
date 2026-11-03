@@ -1,11 +1,17 @@
 import {
   type ContainerNode,
   getOrCreateDomainSyncCoordinator,
+  type OrganizationMembership,
 } from "@tearleads/client-sdk";
 import { printable } from "./printable";
 import type { CliSession } from "./session";
 
 const POLL_INTERVAL_MS = 25;
+
+export interface LoadedFolderTree {
+  readonly memberships: readonly OrganizationMembership[];
+  readonly nodes: readonly ContainerNode[];
+}
 
 async function until(
   check: () => boolean,
@@ -18,6 +24,25 @@ async function until(
       throw new Error(`Timed out waiting for ${label}.`);
     }
     await Bun.sleep(POLL_INTERVAL_MS);
+  }
+}
+
+async function beforeDeadline<T>(
+  work: Promise<T>,
+  deadline: number,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Timed out waiting for ${label}.`)),
+      Math.max(0, deadline - Date.now()),
+    );
+  });
+  try {
+    return await Promise.race([work, expired]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -37,18 +62,33 @@ async function assertNoFailedFolderPulls(session: CliSession): Promise<void> {
 
 /**
  * Pulls the signed-in organization's folders from the API into this run's
- * empty database and waits, within `timeoutMs`, until every sync lane is idle.
- * Fails rather than return a partial tree when any request failed.
+ * empty database and waits, within `timeoutMs` overall, until every sync lane
+ * is idle. Fails rather than return a partial tree when any request failed.
  */
 export async function loadFolderTree(
   session: CliSession,
   timeoutMs = 60_000,
-): Promise<readonly ContainerNode[]> {
+): Promise<LoadedFolderTree> {
   const { sdk } = session;
+  const deadline = Date.now() + timeoutMs;
+  // Apply the user's per-organization sync pauses before anything pulls, so a
+  // paused organization's content is not downloaded.
+  const memberships = await beforeDeadline(
+    sdk.organizations.memberships.refresh(),
+    deadline,
+    "organization memberships",
+  );
+  if (!memberships) {
+    throw new Error("Could not read organization memberships from the API.");
+  }
   const store = sdk.containerContents.openTree();
   store.updateRuntime(sdk.containerContents.workflowRuntime());
-  await until(() => store.getSnapshot().ready, "the folder tree", timeoutMs);
-  if (!(await store.refresh())) {
+  await until(
+    () => store.getSnapshot().ready,
+    "the folder tree",
+    deadline - Date.now(),
+  );
+  if (!(await beforeDeadline(store.refresh(), deadline, "folders"))) {
     throw new Error("Could not load folders from the API.");
   }
   // `refresh` resolves once the listing is applied; folder metadata and
@@ -56,12 +96,15 @@ export async function loadFolderTree(
   const coordinator = getOrCreateDomainSyncCoordinator(
     sdk.runtime.input().state.domainScope,
   );
-  if (!(await coordinator.waitForIdle({ timeoutMs }))) {
+  const idle = await coordinator.waitForIdle({
+    timeoutMs: Math.max(0, deadline - Date.now()),
+  });
+  if (!idle) {
     throw new Error("Timed out waiting for folders to finish loading.");
   }
   session.assertNoFailures();
   await assertNoFailedFolderPulls(session);
-  return store.getSnapshot().nodes;
+  return { memberships, nodes: store.getSnapshot().nodes };
 }
 
 function compareNames(left: ContainerNode, right: ContainerNode): number {

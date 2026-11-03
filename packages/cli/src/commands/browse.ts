@@ -15,14 +15,9 @@ function membershipFlags(membership: OrganizationMembership): string {
 
 export async function listOrganizations(input: CommandInput): Promise<void> {
   const lines = await withSavedSession(input, async (session) => {
-    const { sdk } = session;
-    const memberships = await sdk.organizations.memberships.refresh();
-    if (!memberships) {
-      throw new Error("Could not read organization memberships from the API.");
-    }
     // Names come from organization profiles, which arrive with the folders.
-    await loadFolderTree(session);
-    const local = await sdk.organizations.listLocalOrganizations();
+    const { memberships } = await loadFolderTree(session);
+    const local = await session.sdk.organizations.listLocalOrganizations();
     const names = new Map(
       local.map((organization) => [
         organization.organizationId,
@@ -44,7 +39,8 @@ export async function listFolders(input: CommandInput): Promise<void> {
     if (!organizationId) {
       throw new Error("The session has no organization.");
     }
-    return formatFolderTree(await loadFolderTree(session), organizationId);
+    const { nodes } = await loadFolderTree(session);
+    return formatFolderTree(nodes, organizationId);
   });
   for (const line of lines) input.context.stdout(line);
 }
