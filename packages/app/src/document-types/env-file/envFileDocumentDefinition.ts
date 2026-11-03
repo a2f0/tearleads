@@ -1,14 +1,21 @@
 import { FileCodeIcon } from "@phosphor-icons/react/dist/csr/FileCode";
+import type { ENV_FILE_DOCUMENT_KIND as SDK_ENV_FILE_DOCUMENT_KIND } from "@tearleads/client-sdk";
 import {
   type DocumentFieldValidationIssue,
   type DocumentRowSummary,
-  ENV_FILE_DOCUMENT_KIND,
   ENV_FILE_NAME_FIELD,
   ENV_FILE_VARIABLE_KEY_FIELD,
   isValidEnvFileVariableName,
   readStringDocumentField,
 } from "@tearleads/client-sdk";
 import type { AppDocumentProjectorDefinition } from "../types";
+
+// Module-scope code must not read SDK values: in the Bun dev bundle the SDK
+// root finishes evaluating only after its async Loro WASM dependency, so app
+// modules evaluated first see its namespace as null. The type ties this
+// module-scope copy to the SDK's kind; function bodies read the SDK directly.
+export const ENV_FILE_DOCUMENT_KIND: typeof SDK_ENV_FILE_DOCUMENT_KIND =
+  "env_file";
 
 const ENV_FILE_UNTITLED_TITLE = "Untitled .env file";
 

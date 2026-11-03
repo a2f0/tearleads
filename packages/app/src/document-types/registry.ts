@@ -1,7 +1,6 @@
 import type { Icon } from "@phosphor-icons/react";
 import { FileIcon } from "@phosphor-icons/react/dist/csr/File";
 import {
-  ENV_FILE_DOCUMENT_KIND,
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
@@ -22,6 +21,7 @@ import { DefaultLoroDocumentApp } from "./default-loro/DefaultLoroDocumentApp";
 import { DriverLicenseDocumentApp } from "./drivers-license/DriverLicenseApp";
 import { DRIVER_LICENSE_DOCUMENT_KIND } from "./drivers-license/driverLicenseDocumentDefinition";
 import { EnvFileDocumentApp } from "./env-file/EnvFileApp";
+import { ENV_FILE_DOCUMENT_KIND } from "./env-file/envFileDocumentDefinition";
 import { GenericFileDocumentApp } from "./generic-file/GenericFileDocumentApp";
 import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { ImageDocumentApp } from "./image/ImageDocumentApp";
