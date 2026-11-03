@@ -14,13 +14,13 @@ document response, and the SDK reuses its verified result across those paths.
 
 The API authorizes the container or document before loading this evidence. The
 response carries one organization history source, one source per required group,
-and the directory payloads that bind those heads. Each source contains an exact
-signed head reference and an object/user-scoped read grant. Each directory
-payload includes the signed state reference that authenticates it. Public
-history pages supply the complete signed predecessor chains without group
-payload ciphertexts or [member key envelopes](./glossary.md#member-envelope),
-which group deletion erases. Every page checks current access to the original
-object.
+and the directory payloads that bind those [heads](./glossary.md#head). Each
+source contains an exact signed head reference and an object/user-scoped read
+grant. Each directory payload includes the signed state reference that
+authenticates it. Public history pages supply the complete signed predecessor
+chains without group payload ciphertexts or
+[member key envelopes](./glossary.md#member-envelope), which group deletion
+erases. Every page checks current access to the original object.
 
 The SDK verifies signatures and predecessor chains, hashes each directory
 payload against its signed
@@ -30,9 +30,10 @@ supplied group head to a signed
 authenticated chain supplies older cited states. External group authority must
 belong to that organization's
 [Admins group](./glossary.md#organization-admins-group). Existing durable
-checkpoints reject conflicting chains. Missing required bindings, duplicate
-payloads, foreign groups, and unsigned evidence are refused before manifest
-authorization. Unrelated directory payload bodies are omitted.
+[checkpoints](./glossary.md#checkpoint) reject conflicting chains. Missing
+required bindings, duplicate payloads, foreign groups, and unsigned evidence are
+refused before manifest authorization. Unrelated directory payload bodies are
+omitted.
 
 Historical evidence does not become a current policy bundle or advance
 principal checkpoints. Current key unwrapping requires encrypted member

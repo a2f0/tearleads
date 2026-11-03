@@ -2,10 +2,11 @@
 
 [Projection evidence](../projection-policy-evidence.md) reads one current
 [organization](../glossary.md#organization) directory and the requested group
-heads. A deleted group's last directory citation comes from the indexed
-`principal_directory_bindings` table, so looking up a group does not load every
-historical organization payload. The lookup is bounded by the projection's
-exact organization version, including when newer directories exist.
+[heads](../glossary.md#head). A deleted group's last directory citation comes
+from the indexed `principal_directory_bindings` table, so looking up a group
+does not load every historical organization payload. The lookup is bounded by
+the projection's exact organization version, including when newer directories
+exist.
 
 The transaction accepting an
 [organization policy](../glossary.md#principal-policy-state) records the first

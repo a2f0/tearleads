@@ -1,9 +1,10 @@
 # Realtime hint privacy
 
-Realtime hints request HTTP refreshes; they do not establish content or access.
-The gateway routes [container](../glossary.md#container) mutations to watchers
-of the container and its current and previous parents, then constructs a frame
-for each recipient's verified interests.
+[Realtime hints](../glossary.md#realtime-hint) request HTTP refreshes; they do
+not establish content or access. The gateway routes
+[container](../glossary.md#container) mutations to watchers of the container and
+its current and previous parents, then constructs a frame for each recipient's
+verified interests.
 
 Interest belongs to one open socket. A socket opens with no container interest
 and the server sends nothing on open; the client declares its authoritative

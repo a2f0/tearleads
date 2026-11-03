@@ -82,8 +82,8 @@ passes during cold bootstrap, not HTTP requests.
 
 Most policy reads in these budgets come from private metadata-root authority:
 each workflow operation reads the server-current
-[organization policy](./glossary.md#principal-policy-state) once, and a head new
-to the device needs its first read. See
+[organization policy](./glossary.md#principal-policy-state) once, and a
+[head](./glossary.md#head) new to the device needs its first read. See
 [current-policy request costs](developer/current-principal-consumers.md#request-costs)
 and [principal-history acceptance](principal-history-acceptance.md) for that
 security tradeoff.
@@ -154,11 +154,12 @@ signed paths. Projection reads instead cite
 ### Current policy before signed mutations
 
 Group creation and membership changes spend most of their requests reading
-policy heads and refreshing the organization read model. Those reads feed
-signed compare-and-swap mutations, so reusing stale authorization state to save
-them is not an option. Unlinking a document reads a current writer projection
-and runs a rotation-preflight sync; dropping either would need another proof
-that the client holds current authorization and complete history. Moving a
-document to Trash is a
+policy heads and refreshing the
+[organization read model](./glossary.md#organization-read-model). Those reads
+feed signed compare-and-swap mutations, so reusing stale authorization state to
+save them is not an option. Unlinking a document reads a current writer
+projection and runs a rotation-preflight sync; dropping either would need
+another proof that the client holds current authorization and complete history.
+Moving a document to Trash is a
 [durable link-then-unlink workflow](./developer/document-links.md): an outage
 can briefly leave both links present, and a retry completes the remaining leg.

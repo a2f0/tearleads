@@ -27,12 +27,13 @@ private personal genesis; an ordinary organization/root signature is not
 replacement intent. The domain-separated authorization commits all three
 principal genesis hashes and the root manifest hash.
 
-An old checkpoint at version two and a replacement genesis at version one model
-separate organization namespaces, including reused local object IDs. Discovery
-covers live signed heads; globally terminal signed document purge evidence is
-outside this ownership comparison. The enabled-action invariants ensure either
-honest device can authenticate and reset without requiring its own losing
-candidate to win. They do not claim progress under unavailable evidence,
+An old [checkpoint](../../docs/glossary.md#checkpoint) at version two and a
+replacement genesis at version one model separate organization namespaces,
+including reused local object IDs. Discovery covers live signed
+[heads](../../docs/glossary.md#head); globally terminal signed document purge
+evidence is outside this ownership comparison. The enabled-action invariants
+ensure either honest device can authenticate and reset without requiring its own
+losing candidate to win. They do not claim progress under unavailable evidence,
 billing, network loss, identity changes, or unfair scheduling. Durable attempt
 replay, SQLite atomicity, same-epoch conflict rejection, and finalization
 response checks are runtime test obligations rather than modeled transaction

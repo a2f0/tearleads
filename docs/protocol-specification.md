@@ -147,9 +147,9 @@ type AccessManifest = {
 };
 ```
 
-Write headers commit encrypted content records to the object, access head,
-[key epoch](./glossary.md#epoch), target set, ciphertext hash, metadata hash,
-nonce domain, and writer identity:
+Write headers commit encrypted content records to the object, access
+[head](./glossary.md#head), [key epoch](./glossary.md#epoch), target set,
+ciphertext hash, metadata hash, nonce domain, and writer identity:
 
 ```ts
 type WriteHeader = {
@@ -222,11 +222,12 @@ committing the exact initial heads of both reserved groups.
 The response returns each created container and document head, each acknowledged
 by hash as described under container mutation conflicts below. The client checks
 every one against the request it signed before pinning it as a local
-verification checkpoint. The acknowledged heads of the roster and organization
-profile documents also seed discovery evidence, and the founding policy heads
-seed verified [recovery progress](./developer/principal-history-recovery.md), so
-the device fetches neither those documents' writer projections nor the founding
-groups' history. Creating an additional organization follows the same rule.
+verification [checkpoint](./glossary.md#checkpoint). The acknowledged heads of
+the roster and organization profile documents also seed discovery evidence, and
+the founding policy heads seed verified
+[recovery progress](./developer/principal-history-recovery.md), so the device
+fetches neither those documents' writer projections nor the founding groups'
+history. Creating an additional organization follows the same rule.
 
 `organizations.adminGroupId` is the reserved org-admin authority. Reachability
 through it grants org-admin behavior. `organizations.memberGroupId` is the

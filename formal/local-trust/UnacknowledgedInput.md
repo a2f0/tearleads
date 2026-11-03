@@ -31,10 +31,11 @@ identity that never authenticated. A pending container create has its own model,
 adoption and owed move share no state with these rules.
 
 The identity abstraction is a signing-key fingerprint within one SDK client's
-API trust domain. Host-restored context is trusted and was loaded from encrypted
-storage keyed by that fingerprint. Unacknowledged local user selections and
-failed registration pins are not acknowledgments. The model does not prove
-cryptography, storage encryption, first-contact identity assignment, legitimate
-relinking after adoption, or later document synchronization. The private-key
-consistency check sits below this model's cryptographic abstraction; its
-regression uses real ML-KEM envelopes, including a forged public-key part.
+[API trust domain](../../docs/glossary.md#identity-trust-domain). Host-restored
+context is trusted and was loaded from encrypted storage keyed by that
+fingerprint. Unacknowledged local user selections and failed registration pins
+are not acknowledgments. The model does not prove cryptography, storage
+encryption, first-contact identity assignment, legitimate relinking after
+adoption, or later document synchronization. The private-key consistency check
+sits below this model's cryptographic abstraction; its regression uses real
+ML-KEM envelopes, including a forged public-key part.

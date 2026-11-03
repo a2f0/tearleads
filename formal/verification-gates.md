@@ -64,11 +64,12 @@ Shared crypto authorization requires a
 [path](../docs/glossary.md#authorizing-container-path) with a root, contiguous
 parent IDs, one organization, and no repeated container IDs. The current and
 historical access folds enforce this before combining
-[grants](../docs/glossary.md#grant) from individually verified heads; the
-state-only fold is a calculation over already-trusted states. The API and SDK
-check path structure independently. Creation-time parent hashes need not equal
-served heads: honest ancestor advancement and historical citations remain
-accepted, as the no-brick projection traces verify.
+[grants](../docs/glossary.md#grant) from individually verified
+[heads](../docs/glossary.md#head); the state-only fold is a calculation over
+already-trusted states. The API and SDK check path structure independently.
+Creation-time parent hashes need not equal served heads: honest ancestor
+advancement and historical citations remain accepted, as the no-brick projection
+traces verify.
 
 Keying properties run eight generated cases each; transparency properties run
 forty each with trees up to 192 leaves. These randomized runs shrink failures

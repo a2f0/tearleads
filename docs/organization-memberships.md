@@ -123,17 +123,17 @@ A member cannot remove themselves, so leaving is a request an administrator
 acts on. The member's device first discovers and verifies the organization's
 current policy, then signs `{organizationId, userId, requestedAt, membersHead}`
 under the `tearleads.organization-leave-request.v2` domain with the member's
-identity signing key. `membersHead` is the exact head of the reserved Members
-group in that policy. The member files it with `PUT
-/organization-memberships/{organizationId}/leave-request`; `DELETE` withdraws
-it. The API checks that the request names the caller and the path's
+identity signing key. `membersHead` is the exact [head](./glossary.md#head) of
+the reserved Members group in that policy. The member files it with
+`PUT /organization-memberships/{organizationId}/leave-request`; `DELETE`
+withdraws it. The API checks that the request names the caller and the path's
 organization, was signed within ten minutes, and verifies against the caller's
 registered signing key; the window bounds how long a captured signature could
-re-file a withdrawn request. It also checks that `membersHead` is a stored
-state of the organization's Members group and that the member is in every
-Members state from that one on. It refuses a personal organization and a member
-who is the organization's only administrator, since no one else could approve
-the removal. Organizations offers to ask on every listed membership except the
+re-file a withdrawn request. It also checks that `membersHead` is a stored state
+of the organization's Members group and that the member is in every Members
+state from that one on. It refuses a personal organization and a member who is
+the organization's only administrator, since no one else could approve the
+removal. Organizations offers to ask on every listed membership except the
 personal one, and to withdraw once asked.
 
 The request is stored on the member's roster row and reaches administrators in

@@ -20,25 +20,27 @@ receipt or a later descendant.
 
 Bounds are two principals, a predecessor, its acknowledged successor and one
 later descendant. One reader can recover either the receipt branch or a fork,
-before or after preparation, with or without checkpoint admission, or pin a head
-without a scoped prefix. A receipt older than such a pin is deferred as an
-ordinary retryable error even when the pin lies on a fork: its branch is unknown
-until scoped history covers it. `DeferralNeedsUncoveredPin` keeps that outcome
-from replacing ordinary completion. `RecoverAndRetry` models the later scoped
-read and host retry, after which an honest receipt completes and a fork refuses.
-Signatures, private prefix authentication and Merkle membership proofs are
-abstracted as the authenticated branch relation. Runtime tests exercise real
-signatures, SQLite transactions, private progress and proof verification. The
-model treats compound writes as one atomic action; injected SQL failure tests
-cover rollback. It does not model arbitrary reader starvation: production permits
-eight local publication attempts (seven retries) before returning an ordinary
-retryable error. The model assumes weak fairness of local reconciliation and of
-the later scoped read and host retry. It does not claim progress while history
-remains unavailable or a host never retries. Under those assumptions,
-`HonestReceiptCompletes` requires actual publication; deferral alone does not
-satisfy it. Six negative controls independently remove predecessor capture,
-receipt ancestry, monotonic publication, CAS retry, uncovered-pin deferral and
-the deferred receipt's recovery/retry.
+before or after preparation, with or without
+[checkpoint](../../docs/glossary.md#checkpoint) admission, or pin a
+[head](../../docs/glossary.md#head) without a scoped prefix. A receipt older
+than such a pin is deferred as an ordinary retryable error even when the pin
+lies on a fork: its branch is unknown until scoped history covers it.
+`DeferralNeedsUncoveredPin` keeps that outcome from replacing ordinary
+completion. `RecoverAndRetry` models the later scoped read and host retry, after
+which an honest receipt completes and a fork refuses. Signatures, private prefix
+authentication and Merkle membership proofs are abstracted as the authenticated
+branch relation. Runtime tests exercise real signatures, SQLite transactions,
+private progress and proof verification. The model treats compound writes as one
+atomic action; injected SQL failure tests cover rollback. It does not model
+arbitrary reader starvation: production permits eight local publication attempts
+(seven retries) before returning an ordinary retryable error. The model assumes
+weak fairness of local reconciliation and of the later scoped read and host
+retry. It does not claim progress while history remains unavailable or a host
+never retries. Under those assumptions, `HonestReceiptCompletes` requires actual
+publication; deferral alone does not satisfy it. Six negative controls
+independently remove predecessor capture, receipt ancestry, monotonic
+publication, CAS retry, uncovered-pin deferral and the deferred receipt's
+recovery/retry.
 
 `retainAcknowledgedPrincipalCurrents.pinRecovery.test.ts` admits a genuinely
 verified successor pin without its scoped prefix. The same receipt first defers

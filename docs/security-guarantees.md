@@ -15,9 +15,10 @@ key is authentic and the client receives the referenced policy bundle.
 The system does not provide a universal guarantee that an honest client can
 detect every compromised-server behavior. A compromised server can still deny
 service, omit state, replay older valid state when the client has no
-checkpoint, show split views to different clients without gossip or
-witnessing, or substitute identity keys on first contact with a user whose
-[identity link](./glossary.md#identity-link) the client has not verified.
+[checkpoint](./glossary.md#checkpoint), show split views to different clients
+without gossip or witnessing, or substitute identity keys on first contact with
+a user whose [identity link](./glossary.md#identity-link) the client has not
+verified.
 
 The confidentiality boundary is:
 
@@ -30,7 +31,7 @@ The confidentiality boundary is:
 - The server cannot make an honest client accept object grants or recipient
   targets that are not justified by signed
   [access manifests](./glossary.md#access-manifest) and verified
-  [principal](./glossary.md#principal) policy heads.
+  [principal](./glossary.md#principal) policy [heads](./glossary.md#head).
 
 ## Threat Model
 
@@ -47,15 +48,15 @@ The properties are relative to the authenticity of registered
 [user identity keys](developer/trusted-user-identity.md). The client fetches
 each complete user identity through one strict gateway, checks both key
 fingerprints, and durably [pins](./glossary.md#identity-pin) the exact bundle by
-trust domain and `userId`. The reverse signing-fingerprint-to-user binding is
-also unique within that trust domain and checked in the same durable
-transaction. A new session without restored acknowledgments cannot bind a known
-signing identity to a different user. Later substitutions hard-fail, and policy
-verification also checks the signing fingerprint in signed state. Verifying
-signed state pins a referenced user on first sight (`observed`); only an
-independently exchanged identity link (`link`) or the device's own keys (`self`)
-admit a user as a contact, roster or group member, or share recipient. Neither
-mechanism proves global currentness.
+[trust domain](./glossary.md#identity-trust-domain) and `userId`. The reverse
+signing-fingerprint-to-user binding is also unique within that trust domain and
+checked in the same durable transaction. A new session without restored
+acknowledgments cannot bind a known signing identity to a different user. Later
+substitutions hard-fail, and policy verification also checks the signing
+fingerprint in signed state. Verifying signed state pins a referenced user on
+first sight (`observed`); only an independently exchanged identity link (`link`)
+or the device's own keys (`self`) admit a user as a contact, roster or group
+member, or share recipient. Neither mechanism proves global currentness.
 
 ## Root And System Destinations
 

@@ -1,13 +1,14 @@
 # Epoch Advances Without a Covering Baseline
 
 [`EmptyFrontierUnlink.tla`](./EmptyFrontierUnlink.tla) models the acceptance
-gates for the two content-key epoch advances that carry no rotation baseline: a
-document unlink submitted without one, and a link that advances the epoch. A
-rotation strands every committed update that no baseline sealed to the new epoch
-covers. A document with an empty committed frontier cannot produce a baseline at
-all — a zero-span full-history snapshot encodes no replayable history — so the
-server accepts a baseline-less unlink only after proving the committed frontier
-is empty inside the mutation transaction, under the document manifest-head write
+gates for the two content-key epoch advances that carry no
+[rotation baseline](../../docs/glossary.md#rotation-baseline): a document unlink
+submitted without one, and a link that advances the epoch. A rotation strands
+every committed update that no baseline sealed to the new epoch covers. A
+document with an empty committed frontier cannot produce a baseline at all — a
+zero-span full-history snapshot encodes no replayable history — so the server
+accepts a baseline-less unlink only after proving the committed frontier is
+empty inside the mutation transaction, under the document manifest-head write
 lock that sync writers also take exclusively. A link never carries a baseline,
 so it may advance the epoch only under the same emptiness proof.
 

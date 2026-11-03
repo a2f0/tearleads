@@ -51,8 +51,8 @@ Verified [writer projections](../glossary.md#writer-projection) leave their
 `verified_access_manifest_bundles` table (at most 1,024 rows, oldest evicted
 first, cleared with an organization's remote reset). Later reads cite up to 48
 from the read object's organization so the API omits those bytes; the SDK
-refills and re-verifies them. The table is a byte cache, not a checkpoint:
-losing it only makes reads larger. See
+refills and re-verifies them. The table is a byte cache, not a
+[checkpoint](../glossary.md#checkpoint): losing it only makes reads larger. See
 [incremental evidence](../projection-policy-evidence.md#cost-and-retained-history-tradeoff).
 
 [Principal-policy](../glossary.md#principal-policy-state) warming verifies and
@@ -196,20 +196,22 @@ chains; sync derives successor targets and coded retries. Preserve
 `KeyingVerificationError`; missing [raw-history](../raw-document-history-recovery.md)
 epochs throw `DocumentRawHistoryUnavailableError`.
 
-Custom sync lanes may provide `SyncLaneConfig.priority()`: lower finite numbers
-start first within a [phase](../client-sync-ordering.md), with fair rotation
-among ties. Missing, throwing, or nonfinite priority values use zero. Structural
-work remains a phase barrier; priority never interrupts a running callback.
+Custom [sync lanes](../glossary.md#sync-lane) may provide
+`SyncLaneConfig.priority()`: lower finite numbers start first within a
+[phase](../client-sync-ordering.md), with fair rotation among ties. Missing,
+throwing, or nonfinite priority values use zero. Structural work remains a phase
+barrier; priority never interrupts a running callback.
 
 Custom container mutation APIs must implement `ContainerReciteApi` (including
 `reciteContainer`); the built-in API client supplies it. Container mutations
 and atomic group-policy rematerializations schedule non-blocking
 [re-cites](../security-guarantees.md#held-descendant-re-citation) for
-already-held verified descendants, retaining up to 256 heads and sending at
-most eight re-cites per pass, spaced 250 ms apart. No subtree fetch or retry
-occurs, and keys and grants stay unchanged. It is not a descendant-rekey or
-freshness guarantee. These mutation facades require `reportSecurityIncident`;
-the built-in runtime wires its durable incident service. Re-citation stops at
+already-held verified descendants, retaining up to 256
+[heads](../glossary.md#head) and sending at most eight re-cites per pass, spaced
+250 ms apart. No subtree fetch or retry occurs, and keys and grants stay
+unchanged. It is not a descendant-rekey or freshness guarantee. These mutation
+facades require `reportSecurityIncident`; the built-in runtime wires its durable
+incident service. Re-citation stops at
 [container epoch 512](../limits.md#container-keying) to reserve the remaining
 verifier history budget for ordinary mutations. Organization grant revocation
 requires a live `stillCurrent` guard. The client facade binds it, and group
@@ -363,10 +365,11 @@ with `securityIncidents.record(error, context)`, given a
 `"recorded"` once durable, else `"buffered"` (retry pending) or `"failed"`, so
 claim a recording only on `"recorded"`. An incident holds the code, operation,
 first/last timestamps, repeat count, protocol hashes, and object identity and
-trust domain when known; equivalent repeats coalesce, the newest 1,000 rows per
-trust domain are kept, and no error text or content is stored. `list()` is
-`null` while the database is unavailable; startup detections wait in a bounded,
-redacted buffer. Transport errors add none.
+[trust domain](../glossary.md#identity-trust-domain) when known; equivalent
+repeats coalesce, the newest 1,000 rows per trust domain are kept, and no error
+text or content is stored. `list()` is `null` while the database is unavailable;
+startup detections wait in a bounded, redacted buffer. Transport errors add
+none.
 
 For SQLite initialization, runtime lifecycle methods, identity generation, and
 blob storage selection, see [SDK initialization](sdk-initialization.md).

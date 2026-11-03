@@ -15,8 +15,9 @@ protocol terminology, see [glossary.md](./glossary.md).
 The signed [access-event](./glossary.md#access-event), access-manifest,
 container KEK, document content-key, blob content-key,
 [principal-policy](./glossary.md#principal-policy-state),
-[write-header](./glossary.md#signed-write-header), and local checkpoint
-primitives define the executable keying boundary. Transparency deployment,
+[write-header](./glossary.md#signed-write-header), and local
+[checkpoint](./glossary.md#checkpoint) primitives define the executable keying
+boundary. Transparency deployment,
 [first-contact identity trust](./developer/trusted-user-identity.md), verifier
 use at every client encryption decision, and historical replay are separate
 deployment boundaries.
@@ -96,15 +97,15 @@ Second, user identity keys need an authority outside mutable API rows, such as:
 
 Production clients implement the first option as
 [identity links](./developer/trusted-user-identity.md#identity-links): a link
-binds the user ID, trust domain, algorithms, and both public keys. Every
-admission (contact, roster user, group member, share recipient, roster profile)
-requires a [pin](./glossary.md#identity-pin) that a link or the device's own
-keys established; pin
-[provenance](./developer/trusted-user-identity.md#provenance) keeps a
-first-sight pin from standing in. Signer resolution and other verification of
-referenced users still pin on first sight, so first-contact key substitution
-remains possible for an identity no link has verified. No object keying
-algorithm can fully fix that by itself.
+binds the user ID, [trust domain](./glossary.md#identity-trust-domain),
+algorithms, and both public keys. Every admission (contact, roster user, group
+member, share recipient, roster profile) requires a
+[pin](./glossary.md#identity-pin) that a link or the device's own keys
+established; pin [provenance](./developer/trusted-user-identity.md#provenance)
+keeps a first-sight pin from standing in. Signer resolution and other
+verification of referenced users still pin on first sight, so first-contact key
+substitution remains possible for an identity no link has verified. No object
+keying algorithm can fully fix that by itself.
 
 [Organization](./glossary.md#organization) administration uses reserved groups:
 `Admins` authorizes admins, and `Members` drives the roster. `Admins` is not
@@ -113,9 +114,9 @@ nested into `Members`; instead a
 [roster entries](./glossary.md#organization-roster-entry). The signed
 organization payload binds both IDs, and `Admins` contains only `admin` users.
 Each signed principal state uses a null `externalAuthority` for direct
-authorization or the exact Admins head for external authorization. Citations
-match exact signed Admins states without in-chain rollback; only API commits
-require the current head.
+authorization or the exact Admins [head](./glossary.md#head) for external
+authorization. Citations match exact signed Admins states without in-chain
+rollback; only API commits require the current head.
 Display/[read-model](./organization-read-model-sync.md) projections never
 provide keying inputs.
 
@@ -1167,8 +1168,8 @@ The protocol covers:
 6. Signed document link/unlink manifests and multi-container target validation.
 7. Blob attachment binding/detach with blob KEK targets and staged blob
  write headers.
-8. Rotation-baseline markers and the attachment blob registry for signed
- write paths.
+8. [Rotation-baseline](./glossary.md#rotation-baseline) markers and the
+ attachment blob registry for signed write paths.
 
 Deployment boundaries:
 

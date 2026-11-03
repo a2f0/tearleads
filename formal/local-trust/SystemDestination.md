@@ -29,13 +29,14 @@ that rejects every independent metadata root. Signature checks and organization
 matching are abstracted by the verified manifest boundary. Hydration rejects
 invalid topology, and `SystemWritesUseValidTopology` covers its use boundary.
 A metadata root remains a system destination and never becomes the session root
-for pre-login content. Classification does not advance write-authority checkpoints
-or require KEK decryption; actual writes verify current authority separately.
-Root and system parent edges cannot move, and signed slots are immutable. It models
-one classification snapshot, not network availability, listing completeness, cache
-lifetime, or authoring races. Root identity comes from server acknowledgements
-and must also match a signed parentless manifest; an unsigned login response
-alone is insufficient to make an ordinary shared folder a root.
+for pre-login content. Classification does not advance write-authority
+[checkpoints](../../docs/glossary.md#checkpoint) or require KEK decryption;
+actual writes verify current authority separately. Root and system parent edges
+cannot move, and signed slots are immutable. It models one classification
+snapshot, not network availability, listing completeness, cache lifetime, or
+authoring races. Root identity comes from server acknowledgements and must also
+match a signed parentless manifest; an unsigned login response alone is
+insufficient to make an ordinary shared folder a root.
 
 Each of the eleven guards has a negative control. The shared-system invariant
 keeps extra recipients from becoming a reason to refuse a legitimate Trash or
@@ -78,9 +79,10 @@ the acknowledged root only becomes the pre-login merge target when its verified
 epoch-1 `container.create` was signed by the session user: every acknowledged
 organization was created by that user, whose device signed the root, so a root
 created by anyone else is a substitution however it is granted. The lineage is
-already verified when the head is, and the creator check also runs on cached
-role reuse. The model keeps `rootCreatorIsUser` as an unconstrained boolean and
-`Login` as a free action; the negative controls flip each rule alone.
+already verified when the [head](../../docs/glossary.md#head) is, and the
+creator check also runs on cached role reuse. The model keeps
+`rootCreatorIsUser` as an unconstrained boolean and `Login` as a free action;
+the negative controls flip each rule alone.
 
 A missing root row does not relax destination scope: slot lookup still checks
 the active organization and any acknowledged root id before choosing a target.

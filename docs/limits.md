@@ -161,7 +161,7 @@ the Worker. The Worker carries an `aws:us-east-1` placement hint.
 
 Cold verification still grows with total signed history, across resumable
 requests. Preparation runs outside the final mutation transaction; each final
-commit rechecks current authorization and exact heads. The
+commit rechecks current authorization and exact [heads](./glossary.md#head). The
 [HTTP acceptance evidence](principal-history-acceptance.md) exercises revocation
 and cold historical decryption through version 16,385 with a 15-second deadline
 per response, on SQLite and networked PostgreSQL. Those fixed-cardinality tests

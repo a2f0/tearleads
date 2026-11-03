@@ -228,8 +228,8 @@ its initial roster and organization-profile bodies atomically with their
 recover the seed history and display the organization name immediately; later
 profile edits follow normal billing eligibility. The provisioning response
 acknowledges every committed seed update, which the client persists as settled,
-and acknowledged profile-document heads seed discovery evidence
-([document links](document-links.md)).
+and acknowledged profile-document [heads](../glossary.md#head) seed discovery
+evidence ([document links](document-links.md)).
 
 All results flow into Layer A, never back to React directly. The service has no
 React imports; `bun run lint:architecture` enforces this.
@@ -299,7 +299,8 @@ Ordinary container write:
 
 1. The mini-app calls `open().containerStore.moveContainer(...)`.
 2. The store persists the change and its `local_intents` row, then notifies.
-3. The promise settles without waiting for HTTP; the sync lane converges later.
+3. The promise settles without waiting for HTTP; the
+   [sync lane](../glossary.md#sync-lane) converges later.
 
 A device-first document or folder whose whole content is one queued update
 sends it with its create ([create seed](../document-link-and-sync-protocol.md)).

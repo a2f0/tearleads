@@ -17,11 +17,11 @@ remain authoritative.
 
 The signed organization-policy payload carries a version-2 authority descriptor
 binding the organization to its immutable reserved `Admins` and `Members`
-group IDs and to an exact sorted directory of every current group policy head.
-Provisioning and later organization-policy writes must match the reserved IDs
-and authoritative group set. The reserved `Admins` policy contains direct
-`admin` users only, so clients can verify its complete chain without consulting
-roster or group-catalog projections.
+group IDs and to an exact sorted directory of every current group policy
+[head](./glossary.md#head). Provisioning and later organization-policy writes
+must match the reserved IDs and authoritative group set. The reserved `Admins`
+policy contains direct `admin` users only, so clients can verify its complete
+chain without consulting roster or group-catalog projections.
 
 A personal organization belongs to the user whose server-side
 `defaultOrganizationId` names it. That user must remain in `Members` and retain
@@ -85,9 +85,10 @@ policy verification runs.
 
 ## Ordering and replay
 
-Every authoritative mutation that changes an organization read model increments
-its `organization_read_model_heads` cursor and, in the same update, stamps each
-lane it changed with the new cursor value (`directory_cursor`, `groups_cursor`,
+Every authoritative mutation that changes an
+[organization read model](./glossary.md#organization-read-model) increments its
+`organization_read_model_heads` cursor and, in the same update, stamps each lane
+it changed with the new cursor value (`directory_cursor`, `groups_cursor`,
 `group_memberships_cursor`, `grants_cursor`, `organization_policy_cursor`). A
 membership change also stamps the changed group's `groups.membership_cursor`,
 and a group deletion stamps its tombstone's `deleted_cursor`. All of it happens
