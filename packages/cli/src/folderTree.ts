@@ -65,10 +65,36 @@ async function assertNoFailedFolderPulls(session: CliSession): Promise<void> {
  * empty database and waits, within `timeoutMs` overall, until every sync lane
  * is idle. Fails rather than return a partial tree when any request failed.
  */
+function selectOrganization(
+  session: CliSession,
+  memberships: readonly OrganizationMembership[],
+  organizationId: string,
+): void {
+  const membership = memberships.find(
+    (candidate) => candidate.organizationId === organizationId,
+  );
+  if (!membership) {
+    throw new Error(`You are not a member of organization ${organizationId}.`);
+  }
+  // The SDK exempts the active organization from sync pauses, so switching to
+  // a paused one would download what the user paused.
+  if (membership.syncPaused) {
+    throw new Error(
+      `Sync of organization ${organizationId} is paused for your devices; resume it in the app to list it here.`,
+    );
+  }
+  session.sdk.session.setOrganizationId(organizationId);
+}
+
 export async function loadFolderTree(
   session: CliSession,
-  timeoutMs = 60_000,
+  options: {
+    /** Makes this organization active after checking it is not paused. */
+    readonly organizationId?: string | undefined;
+    readonly timeoutMs?: number;
+  } = {},
 ): Promise<LoadedFolderTree> {
+  const timeoutMs = options.timeoutMs ?? 60_000;
   const { sdk } = session;
   const deadline = Date.now() + timeoutMs;
   // Apply the user's per-organization sync pauses before anything pulls, so a
@@ -80,6 +106,9 @@ export async function loadFolderTree(
   );
   if (!memberships) {
     throw new Error("Could not read organization memberships from the API.");
+  }
+  if (options.organizationId) {
+    selectOrganization(session, memberships, options.organizationId);
   }
   const store = sdk.containerContents.openTree();
   store.updateRuntime(sdk.containerContents.workflowRuntime());

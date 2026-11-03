@@ -22,16 +22,7 @@ export async function withSavedSession<T>(
   work: (session: CliSession) => Promise<T>,
 ): Promise<T> {
   const recoveryKey = await requireRecoveryKey(input);
-  return withSession(
-    input.context.apiBaseUrl(input.target),
-    recoveryKey,
-    async (session) => {
-      if (input.organizationId) {
-        session.sdk.session.setOrganizationId(input.organizationId);
-      }
-      return work(session);
-    },
-  );
+  return withSession(input.context.apiBaseUrl(input.target), recoveryKey, work);
 }
 
 export async function login(input: CommandInput): Promise<void> {

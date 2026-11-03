@@ -35,11 +35,13 @@ export async function listOrganizations(input: CommandInput): Promise<void> {
 
 export async function listFolders(input: CommandInput): Promise<void> {
   const lines = await withSavedSession(input, async (session) => {
+    const { nodes } = await loadFolderTree(session, {
+      organizationId: input.organizationId,
+    });
     const organizationId = session.sdk.session.organizationId;
     if (!organizationId) {
       throw new Error("The session has no organization.");
     }
-    const { nodes } = await loadFolderTree(session);
     return formatFolderTree(nodes, organizationId);
   });
   for (const line of lines) input.context.stdout(line);

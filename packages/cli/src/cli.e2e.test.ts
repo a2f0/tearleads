@@ -220,3 +220,77 @@ test("ls fails when memberships, and so sync pauses, cannot be read", async () =
     "Could not read organization memberships from the API.",
   ]);
 }, 60_000);
+
+/** Signs in with `seedPhrase`, runs `work`, and signs out. */
+async function asDevice<T>(
+  seedPhrase: string,
+  work: (sdk: Tearleads) => Promise<T>,
+): Promise<T> {
+  const database = await openLocalDatabase();
+  const sdk = new Tearleads({
+    apiBaseUrl,
+    blobStoreFactory: () => createMemoryBlobStore(),
+    database: { client: database.client, id: crypto.randomUUID() },
+    identityProvisioning: "manual",
+    logger: { log: () => undefined, logError: () => undefined },
+  });
+  try {
+    await sdk.identity.importSeedPhrase(seedPhrase);
+    if (!(await sdk.session.login())) throw new Error("could not sign in");
+    return await work(sdk);
+  } finally {
+    await sdk.session.logoutRemote();
+    sdk.dispose();
+    database.close();
+  }
+}
+
+test("ls --org refuses an organization whose sync the user paused", async () => {
+  const account = await registerAccount();
+  const organizationId = await asDevice(account.seedPhrase, async (sdk) => {
+    const created = await sdk.session.createOrganization();
+    if (!created) throw new Error("could not create an organization");
+    const paused = await sdk.organizations.memberships.setSyncPaused(
+      created.organizationId,
+      true,
+    );
+    expect(paused.status).toBe("updated");
+    return created.organizationId;
+  });
+  const { context, output } = testContext({
+    apiBaseUrl,
+    recoveryKey: account.seedPhrase,
+  });
+  expect(await runCli(["login"], context)).toBe(0);
+  output.stdout.length = 0;
+  requests.length = 0;
+
+  expect(await runCli(["ls", "--org", organizationId], context)).toBe(1);
+  expect(output.stdout).toEqual([]);
+  expect(output.stderr).toEqual([
+    `Sync of organization ${organizationId} is paused for your devices; resume it in the app to list it here.`,
+  ]);
+  expect(
+    requests.filter(
+      (request) =>
+        request.startsWith("POST /containers/") ||
+        request.startsWith("POST /documents/"),
+    ),
+  ).toEqual([]);
+
+  await asDevice(account.seedPhrase, (sdk) =>
+    sdk.organizations.memberships.setSyncPaused(organizationId, false),
+  );
+  expect(await runCli(["ls", "--org", organizationId], context)).toBe(0);
+  expect(output.stdout.length).toBeGreaterThan(0);
+}, 60_000);
+
+test("ls --org refuses an organization the user does not belong to", async () => {
+  const { context, output } = await signedInContext();
+  const stranger = crypto.randomUUID();
+
+  expect(await runCli(["ls", "--org", stranger], context)).toBe(1);
+  expect(output.stderr).toEqual([
+    `You are not a member of organization ${stranger}.`,
+  ]);
+}, 60_000);

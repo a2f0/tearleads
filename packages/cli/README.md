@@ -49,6 +49,8 @@ until their profile documents are pulled, which this version does not yet do.
 A command fails rather than print a partial result when any API request
 fails or gets no response, and also when its session cannot be revoked.
 Names from the API are printed with control characters escaped.
+`ls --org <id>` refuses an organization you do not belong to or whose sync
+you paused, so it never downloads paused content.
 
 The recovery key is the whole identity: anyone holding it can act as you.
 It reaches the Keychain through `security -i` on stdin, never through a
