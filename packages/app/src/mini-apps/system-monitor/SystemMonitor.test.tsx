@@ -8,14 +8,14 @@ import {
   PANE_ASYNC_TEST_TIMEOUT_MS,
   renderPane,
 } from "../../../test/helpers/paneTestUtils";
+import {
+  DeveloperModeProvider,
+  developerModeStorageKey,
+} from "../../providers/developer-mode/DeveloperModeProvider";
 import { DualPaneProvider, PaneSideProvider } from "../../shell/pane/dual-pane";
 import { PaneProvider } from "../../shell/pane/runtime/PaneProvider";
 import { Pane } from "../../shell/pane/shell/Pane";
-import { SystemMonitorDeveloperModeProvider } from "./systemMonitorDeveloperMode";
-import {
-  systemMonitorDeveloperModeStorageKey,
-  systemMonitorModeStorageKey,
-} from "./systemMonitorMode";
+import { systemMonitorModeStorageKey } from "./systemMonitorMode";
 
 afterEach(async () => {
   await cleanupPaneTestEnvironment();
@@ -24,7 +24,7 @@ afterEach(async () => {
 
 // renderPane() mounts the left pane, so the persisted mode lands under this key.
 const MODE_KEY = systemMonitorModeStorageKey("left");
-const DEVELOPER_MODE_KEY = systemMonitorDeveloperModeStorageKey();
+const DEVELOPER_MODE_KEY = developerModeStorageKey();
 
 function spyPushState(onPush: (url: string | URL | null | undefined) => void) {
   const originalPushState = window.history.pushState;
@@ -51,7 +51,7 @@ function renderRoutedPane({
   // Layout mounts the developer-mode provider above the panes in production,
   // so this routed harness mirrors that composition.
   return render(
-    <SystemMonitorDeveloperModeProvider>
+    <DeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">
           <PaneProvider
@@ -61,7 +61,7 @@ function renderRoutedPane({
           </PaneProvider>
         </PaneSideProvider>
       </DualPaneProvider>
-    </SystemMonitorDeveloperModeProvider>,
+    </DeveloperModeProvider>,
   );
 }
 

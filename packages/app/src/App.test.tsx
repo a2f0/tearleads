@@ -16,7 +16,7 @@ import {
 import { MockWorker } from "../test/helpers/mockWorker";
 import { getAllPaneStatusTexts } from "../test/helpers/paneTestUtils";
 import { App } from "./App";
-import { SystemMonitorDeveloperModeProvider } from "./mini-apps/system-monitor/systemMonitorDeveloperMode";
+import { DeveloperModeProvider } from "./providers/developer-mode/DeveloperModeProvider";
 import { DualPaneProvider, PaneSideProvider } from "./shell/pane/dual-pane";
 import { PaneProvider } from "./shell/pane/runtime/PaneProvider";
 import { Pane } from "./shell/pane/shell/Pane";
@@ -61,7 +61,7 @@ function PaneNavigationHarness({
   // Mirrors production composition: Layout mounts the developer-mode provider
   // above every Pane.
   return (
-    <SystemMonitorDeveloperModeProvider>
+    <DeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">
           <PaneProvider hostConfig={hostConfig}>
@@ -77,7 +77,7 @@ function PaneNavigationHarness({
           </PaneProvider>
         </PaneSideProvider>
       </DualPaneProvider>
-    </SystemMonitorDeveloperModeProvider>
+    </DeveloperModeProvider>
   );
 }
 

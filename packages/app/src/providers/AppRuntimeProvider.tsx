@@ -11,6 +11,7 @@ import { FileSaverProvider } from "./file-saver/FileSaverProvider";
 import { FileViewerProvider } from "./file-viewer/FileViewerProvider";
 import { AppHostConfigProvider } from "./host/AppHostConfigProvider";
 import { IdentityProvider } from "./identity/IdentityProvider";
+import { IdentityLinkResolverProvider } from "./identity-links/IdentityLinkResolverProvider";
 import { LocalKeyringLockProvider } from "./local-keyring/LocalKeyringLockProvider";
 import { DiagnosticsIdentityReset } from "./logging/DiagnosticsIdentityReset";
 import { LogProvider } from "./logging/LogProvider";
@@ -63,7 +64,11 @@ export function AppRuntimeProvider({
                                       enabled={autoProvisionEnabled}
                                     />
                                   )}
-                                  <BillingProvider>{children}</BillingProvider>
+                                  <BillingProvider>
+                                    <IdentityLinkResolverProvider>
+                                      {children}
+                                    </IdentityLinkResolverProvider>
+                                  </BillingProvider>
                                 </SystemBootstrapProvider>
                               </DeviceFirstProvider>
                             </UserSystemContainersProvider>

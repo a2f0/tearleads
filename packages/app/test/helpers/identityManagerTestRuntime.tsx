@@ -8,6 +8,7 @@ import {
   createAppHostConfig,
 } from "../../src/host/AppHostConfig";
 import { AppRuntimeProvider } from "../../src/providers/AppRuntimeProvider";
+import { DeveloperModeProvider } from "../../src/providers/developer-mode/DeveloperModeProvider";
 import { useTearleads } from "../../src/providers/sdk/TearleadsProvider";
 import { withManualIdentity } from "./manualIdentityProfile";
 import { MockWorker } from "./mockWorker";
@@ -77,10 +78,12 @@ export function IdentityManagerTestRuntime({
   onTearleadsReady: (tearleads: Tearleads) => void;
 }>) {
   return (
-    <AppRuntimeProvider autoProvisionEnabled={false} hostConfig={hostConfig}>
-      <TearleadsProbe onReady={onTearleadsReady} />
-      {children}
-    </AppRuntimeProvider>
+    <DeveloperModeProvider>
+      <AppRuntimeProvider autoProvisionEnabled={false} hostConfig={hostConfig}>
+        <TearleadsProbe onReady={onTearleadsReady} />
+        {children}
+      </AppRuntimeProvider>
+    </DeveloperModeProvider>
   );
 }
 

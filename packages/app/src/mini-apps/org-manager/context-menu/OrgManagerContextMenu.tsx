@@ -11,6 +11,7 @@ import {
   useContextMenuState,
 } from "@tearleads/windowing";
 import { type MouseEvent, useCallback } from "react";
+import { CopyIdentityLinkMenuItem } from "../../../components/identity/CopyIdentityLinkMenuItem";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerView } from "../routes";
 
@@ -137,6 +138,7 @@ function RosterUserContextMenu(
           importRosterUserIntoContacts(userId);
         }}
       />
+      <CopyIdentityLinkMenuItem onSelect={closeContextMenu} userId={userId} />
     </Menu>
   );
 }

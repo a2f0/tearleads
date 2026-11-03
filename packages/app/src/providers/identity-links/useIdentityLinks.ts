@@ -22,6 +22,12 @@ export function useIdentityLinks() {
     () => sdk.userIdentities.createLink(appUrl()),
     [appUrl, sdk],
   );
+  const createLinkFor = useCallback(
+    // Async so an unconfigured app URL rejects instead of throwing.
+    async (userId: string) =>
+      sdk.userIdentities.createLinkFor(userId, appUrl()),
+    [appUrl, sdk],
+  );
   const linkFromToken = useCallback(
     (token: string) =>
       identityLinkFromToken(token, {
@@ -39,5 +45,11 @@ export function useIdentityLinks() {
     (userId: string) => sdk.userIdentities.resolveVerified(userId),
     [sdk],
   );
-  return { createLink, verifyLink, resolveVerified, linkFromToken };
+  return {
+    createLink,
+    createLinkFor,
+    verifyLink,
+    resolveVerified,
+    linkFromToken,
+  };
 }

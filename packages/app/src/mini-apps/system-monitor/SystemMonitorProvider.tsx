@@ -6,8 +6,8 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useDeveloperMode } from "../../providers/developer-mode/DeveloperModeProvider";
 import { usePaneSide } from "../../shell/pane/dual-pane/usePaneSide";
-import { useSystemMonitorDeveloperMode } from "./systemMonitorDeveloperMode";
 import {
   DEFAULT_SYSTEM_MONITOR_MODE,
   loadSystemMonitorMode,
@@ -45,8 +45,7 @@ export function SystemMonitorProvider({ children }: PropsWithChildren) {
   const [mode, setMode] = useState<SystemMonitorMode>(() =>
     loadSystemMonitorMode(storageKey),
   );
-  const { isDeveloperMode, toggleDeveloperMode } =
-    useSystemMonitorDeveloperMode();
+  const { isDeveloperMode, toggleDeveloperMode } = useDeveloperMode();
 
   // Persist on the user's action only — never on mount — so a fresh load
   // leaves storage untouched until the monitor is actually pinned/unpinned.

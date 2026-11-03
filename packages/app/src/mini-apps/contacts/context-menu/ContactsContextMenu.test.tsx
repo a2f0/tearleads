@@ -2,6 +2,11 @@ import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useState } from "react";
+import {
+  flushIdentityLinkResolution,
+  TestIdentityLinkResolver,
+} from "../../../../test/helpers/identityLinkResolverTestKit";
+import { COPY_IDENTITY_LINK_LABEL } from "../../../components/identity/CopyIdentityLinkMenuItem";
 import type { ContactEntry } from "../../../document-types/contact/contactDocumentModel";
 import { CONTACTS_LABELS } from "../labels";
 import {
@@ -38,6 +43,9 @@ function installClipboardWriteMock(): string[] {
   return writes;
 }
 
+const VERIFIED_LINK = "https://app.example.test/app/contacts/import/ada";
+const VERIFIED_LINKS = { "ada-user": VERIFIED_LINK };
+
 function ContactsContextMenuLayerHarness(params: {
   canRemoveContextMenuContact?: boolean | undefined;
   contextMenuContactUserId?: string | null | undefined;
@@ -51,21 +59,23 @@ function ContactsContextMenuLayerHarness(params: {
     useState<ContactsContextMenuState | null>(params.contextMenu);
 
   return (
-    <ContactsContextMenuLayer
-      canRemoveContextMenuContact={params.canRemoveContextMenuContact ?? true}
-      canWrite={true}
-      closeContextMenu={() => setContextMenu(null)}
-      contextMenuContactUserId={params.contextMenuContactUserId ?? null}
-      contextMenu={contextMenu}
-      openImportContactRoute={
-        params.openImportContactRoute ?? (() => undefined)
-      }
-      openNewContactRoute={params.openNewContactRoute ?? (() => undefined)}
-      ready={params.ready ?? true}
-      removeContextMenuContact={
-        params.removeContextMenuContact ?? (async () => undefined)
-      }
-    />
+    <TestIdentityLinkResolver links={VERIFIED_LINKS}>
+      <ContactsContextMenuLayer
+        canRemoveContextMenuContact={params.canRemoveContextMenuContact ?? true}
+        canWrite={true}
+        closeContextMenu={() => setContextMenu(null)}
+        contextMenuContactUserId={params.contextMenuContactUserId ?? null}
+        contextMenu={contextMenu}
+        openImportContactRoute={
+          params.openImportContactRoute ?? (() => undefined)
+        }
+        openNewContactRoute={params.openNewContactRoute ?? (() => undefined)}
+        ready={params.ready ?? true}
+        removeContextMenuContact={
+          params.removeContextMenuContact ?? (async () => undefined)
+        }
+      />
+    </TestIdentityLinkResolver>
   );
 }
 
@@ -169,7 +179,7 @@ test("contacts row context menu removes contacts", () => {
   expect(removeContactCount).toBe(1);
 });
 
-test("contacts row context menu copies contact user ids", () => {
+test("contacts row context menu copies a verified contact's identity link", async () => {
   const clipboardWrites = installClipboardWriteMock();
   const view = render(
     <ContactsContextMenuLayerHarness
@@ -182,32 +192,43 @@ test("contacts row context menu copies contact user ids", () => {
   );
 
   fireEvent.click(
-    view.getByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
+    await view.findByRole("button", { name: COPY_IDENTITY_LINK_LABEL }),
   );
 
-  expect(clipboardWrites).toEqual(["ada-user"]);
+  expect(clipboardWrites).toEqual([VERIFIED_LINK]);
   expect(
-    view.queryByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
+    view.queryByRole("button", { name: COPY_IDENTITY_LINK_LABEL }),
   ).toBeNull();
+  expect(view.queryByRole("button", { name: "Copy user ID" })).toBeNull();
 });
 
-test("contacts row context menu hides copy without a contact user id", () => {
-  const view = render(
-    <ContactsContextMenuLayerHarness
-      contextMenu={{
-        id: { contactId: "ada", kind: "contact" },
-        position: { x: 12, y: 34 },
-      }}
-      contextMenuContactUserId={null}
-    />,
-  );
+for (const [name, userId] of [
+  ["without a contact user id", null],
+  ["for a contact no link verified", "grace-user"],
+] as const) {
+  test(`contacts row context menu omits the identity link ${name}`, async () => {
+    installClipboardWriteMock();
+    const view = render(
+      <ContactsContextMenuLayerHarness
+        contextMenu={{
+          id: { contactId: "ada", kind: "contact" },
+          position: { x: 12, y: 34 },
+        }}
+        contextMenuContactUserId={userId}
+      />,
+    );
 
-  expect(
-    view.queryByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
-  ).toBeNull();
-});
+    await view.findByRole("button", {
+      name: CONTACTS_LABELS.removeContactAction,
+    });
+    await flushIdentityLinkResolution();
+    expect(
+      view.queryByRole("button", { name: COPY_IDENTITY_LINK_LABEL }),
+    ).toBeNull();
+  });
+}
 
-test("contacts row context menu hides copy without clipboard access", () => {
+test("contacts row context menu hides the identity link without clipboard access", async () => {
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
     value: undefined,
@@ -223,8 +244,9 @@ test("contacts row context menu hides copy without clipboard access", () => {
     />,
   );
 
+  await flushIdentityLinkResolution();
   expect(
-    view.queryByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
+    view.queryByRole("button", { name: COPY_IDENTITY_LINK_LABEL }),
   ).toBeNull();
 });
 

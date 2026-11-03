@@ -9,11 +9,9 @@ import type {
 afterEach(cleanup);
 
 const values: ContactFieldValues = {
-  encapsulationPublicKey: "public-key",
   firstName: "Ada",
   lastName: "Lovelace",
   nickname: "Countess",
-  userId: "ada-user",
 };
 
 test("read mode shows values as text without editable inputs", () => {
@@ -34,15 +32,32 @@ test("read mode leaves out empty fields", () => {
     <ContactFields
       isEditing={false}
       onFieldCommit={() => undefined}
-      values={{ ...values, userId: "" }}
+      values={{ ...values, lastName: "" }}
     />,
   );
 
-  expect(view.queryByText("Tearleads user ID")).toBeNull();
-  expect(view.queryByRole("button", { name: "Copy user ID" })).toBeNull();
+  expect(view.queryByText("Last name")).toBeNull();
   expect(view.getByText("Nickname")).toBeTruthy();
   expect(view.queryByText("None")).toBeNull();
 });
+
+for (const isEditing of [false, true]) {
+  test(`${isEditing ? "edit" : "read"} mode never shows a user ID or public key`, () => {
+    const view = render(
+      <ContactFields
+        isEditing={isEditing}
+        onFieldCommit={() => undefined}
+        values={values}
+      />,
+    );
+
+    expect(view.queryByText("Tearleads user ID")).toBeNull();
+    expect(view.queryByLabelText("Tearleads user ID")).toBeNull();
+    expect(view.queryByText("Public key")).toBeNull();
+    expect(view.queryByLabelText("Public key")).toBeNull();
+    expect(view.queryByRole("button", { name: "Copy user ID" })).toBeNull();
+  });
+}
 
 test("read mode with no filled-in fields says so", () => {
   const view = render(
@@ -50,11 +65,9 @@ test("read mode with no filled-in fields says so", () => {
       isEditing={false}
       onFieldCommit={() => undefined}
       values={{
-        encapsulationPublicKey: "",
         firstName: "",
         lastName: " ",
         nickname: "",
-        userId: "",
       }}
     />,
   );
@@ -67,11 +80,11 @@ test("edit mode keeps empty fields so they can be filled in", () => {
     <ContactFields
       isEditing={true}
       onFieldCommit={() => undefined}
-      values={{ ...values, userId: "" }}
+      values={{ ...values, lastName: "" }}
     />,
   );
 
-  expect(view.getByLabelText("Tearleads user ID")).toBeTruthy();
+  expect(view.getByLabelText("Last name")).toBeTruthy();
 });
 
 test("edit mode exposes editable inputs seeded from values", () => {

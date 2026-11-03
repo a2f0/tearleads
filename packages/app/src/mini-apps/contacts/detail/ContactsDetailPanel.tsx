@@ -46,11 +46,9 @@ type SelectedContactEntry = ContactEntries[number];
 
 function toContactFieldValues(entry: SelectedContactEntry): ContactFieldValues {
   return {
-    encapsulationPublicKey: entry.encapsulationPublicKey ?? "",
     firstName: entry.firstName,
     lastName: entry.lastName,
     nickname: entry.nickname ?? "",
-    userId: entry.userId ?? "",
   };
 }
 

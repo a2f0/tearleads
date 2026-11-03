@@ -38,6 +38,7 @@ test("resolveVerified returns only the identity the trust service verified", asy
             })
           : null,
       createLink: async () => unused(),
+      createLinkFor: async () => unused(),
       verifyLink: async () => unused(),
     },
   });
@@ -59,12 +60,14 @@ test("the public surface offers no user-ID lookup that trusts on first use", () 
     identityLinks: {
       resolveVerified: async () => null,
       createLink: async () => unused(),
+      createLinkFor: async () => unused(),
       verifyLink: async () => unused(),
     },
   });
 
   expect(Object.keys(userIdentities).sort()).toEqual([
     "createLink",
+    "createLinkFor",
     "resolveVerified",
     "verifyLink",
   ]);
@@ -85,6 +88,7 @@ test("verifyLink reports and preserves typed integrity failures", async () => {
     identityLinks: {
       resolveVerified: async () => null,
       createLink: async () => unused(),
+      createLinkFor: async () => unused(),
       verifyLink: async () => {
         throw mismatch;
       },

@@ -1,8 +1,8 @@
 import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
-import { ClipboardIcon } from "@phosphor-icons/react/dist/csr/Clipboard";
 import { UserMinusIcon } from "@phosphor-icons/react/dist/csr/UserMinus";
 import { type ContextMenuState, Menu, MenuItem } from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useMemo } from "react";
+import { CopyIdentityLinkMenuItem } from "../../../components/identity/CopyIdentityLinkMenuItem";
 import { useMiniAppListContextMenu } from "../../shared/list-panel/useMiniAppListContextMenu";
 import { NewContactIcon } from "../../shared/newContactIcon";
 import { CONTACTS_LABELS } from "../labels";
@@ -136,10 +136,6 @@ export function ContactsContextMenuLayer(params: {
     return null;
   }
 
-  // The Clipboard API is genuinely absent in insecure contexts; the copy item
-  // simply stays hidden there.
-  const { clipboard } = navigator;
-
   return (
     <Menu
       position={contextMenu.position}
@@ -169,18 +165,10 @@ export function ContactsContextMenuLayer(params: {
         </>
       ) : (
         <>
-          {clipboard && contextMenuContactUserId && (
-            <MenuItem
-              icon={ClipboardIcon}
-              label={CONTACTS_LABELS.copyUserIdAction}
-              onClick={() => {
-                closeContextMenu();
-                void clipboard
-                  .writeText(contextMenuContactUserId)
-                  .catch(() => undefined);
-              }}
-            />
-          )}
+          <CopyIdentityLinkMenuItem
+            onSelect={closeContextMenu}
+            userId={contextMenuContactUserId}
+          />
           <MenuItem
             icon={UserMinusIcon}
             label={CONTACTS_LABELS.removeContactAction}

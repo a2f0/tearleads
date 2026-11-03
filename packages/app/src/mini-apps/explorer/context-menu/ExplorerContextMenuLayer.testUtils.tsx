@@ -3,6 +3,10 @@ import {
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
 import { useState } from "react";
+import {
+  type IdentityLinkResolver,
+  IdentityLinkResolverContext,
+} from "../../../providers/identity-links/IdentityLinkResolverProvider";
 import type { ExplorerContextMenuModel } from "../hooks/explorerPanelStateTypes";
 import type {
   ExplorerContainerContextMenuVariant,
@@ -31,6 +35,8 @@ export function ExplorerContextMenuLayerHarness(params: {
   canUploadToContextMenuNode?: boolean;
   containerContextMenuVariant?: ExplorerContainerContextMenuVariant;
   contextMenu?: ExplorerContextMenuState | null;
+  contextMenuContactUserId?: string | null;
+  identityLinks?: Readonly<Record<string, string>>;
   deleteDocument?: (localId: string, containerId: string) => Promise<unknown>;
   downloadDocument?: (localId: string) => void;
   triggerUpload?: (containerId: string) => void;
@@ -48,6 +54,11 @@ export function ExplorerContextMenuLayerHarness(params: {
         position: { x: 12, y: 34 },
       },
     );
+  const links = params.identityLinks;
+  const [resolver] = useState<IdentityLinkResolver>(() => ({
+    createLinkFor: async (userId) => links?.[userId] ?? null,
+    isCurrent: () => true,
+  }));
   const contextMenuState: ExplorerContextMenuModel = {
     canCreateChildContextMenuNode: params.canCreateChildContextMenuNode ?? true,
     canCreateContactContextMenuNode: true,
@@ -70,31 +81,36 @@ export function ExplorerContextMenuLayerHarness(params: {
   };
 
   return (
-    <ExplorerContextMenuLayer
-      canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
-      canDownloadSelectedDocument={params.canDownloadSelectedDocument ?? false}
-      canLinkSelectedDocument={false}
-      canMoveSelectedDocument={false}
-      canPurgeSelectedDocument={params.canPurgeSelectedDocument ?? false}
-      contextMenuState={contextMenuState}
-      deleteDocument={params.deleteDocument ?? (async () => null)}
-      downloadDocument={params.downloadDocument ?? (() => {})}
-      moveContainerToTrash={params.moveContainerToTrash ?? (async () => null)}
-      openContainerInfoRoute={params.openContainerInfoRoute ?? (() => {})}
-      openCreateChildModal={() => {}}
-      openDocumentInfoRoute={() => {}}
-      openEmptyTrashModal={() => {}}
-      openLinkDocumentModal={() => {}}
-      openMoveDocumentModal={() => {}}
-      openMoveModal={() => {}}
-      openNewContactDocument={params.openNewContactDocument ?? (() => {})}
-      openNewStructuredDocumentRoute={
-        params.openNewStructuredDocumentRoute ?? (() => {})
-      }
-      openPurgeModal={params.openPurgeModal ?? (() => {})}
-      openRenameModal={() => {}}
-      purgeDocument={params.purgeDocument ?? (async () => null)}
-      triggerUpload={params.triggerUpload ?? (() => {})}
-    />
+    <IdentityLinkResolverContext.Provider value={resolver}>
+      <ExplorerContextMenuLayer
+        canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
+        canDownloadSelectedDocument={
+          params.canDownloadSelectedDocument ?? false
+        }
+        canLinkSelectedDocument={false}
+        canMoveSelectedDocument={false}
+        canPurgeSelectedDocument={params.canPurgeSelectedDocument ?? false}
+        contextMenuContactUserId={params.contextMenuContactUserId ?? null}
+        contextMenuState={contextMenuState}
+        deleteDocument={params.deleteDocument ?? (async () => null)}
+        downloadDocument={params.downloadDocument ?? (() => {})}
+        moveContainerToTrash={params.moveContainerToTrash ?? (async () => null)}
+        openContainerInfoRoute={params.openContainerInfoRoute ?? (() => {})}
+        openCreateChildModal={() => {}}
+        openDocumentInfoRoute={() => {}}
+        openEmptyTrashModal={() => {}}
+        openLinkDocumentModal={() => {}}
+        openMoveDocumentModal={() => {}}
+        openMoveModal={() => {}}
+        openNewContactDocument={params.openNewContactDocument ?? (() => {})}
+        openNewStructuredDocumentRoute={
+          params.openNewStructuredDocumentRoute ?? (() => {})
+        }
+        openPurgeModal={params.openPurgeModal ?? (() => {})}
+        openRenameModal={() => {}}
+        purgeDocument={params.purgeDocument ?? (async () => null)}
+        triggerUpload={params.triggerUpload ?? (() => {})}
+      />
+    </IdentityLinkResolverContext.Provider>
   );
 }

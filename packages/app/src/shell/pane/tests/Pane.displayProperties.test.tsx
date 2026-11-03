@@ -8,7 +8,7 @@ import {
   PANE_ASYNC_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/paneTestUtils";
 import { renderEmptyDesktop } from "../../../../test/helpers/renderEmptyDesktop";
-import { SystemMonitorDeveloperModeProvider } from "../../../mini-apps/system-monitor/systemMonitorDeveloperMode";
+import { DeveloperModeProvider } from "../../../providers/developer-mode/DeveloperModeProvider";
 import { ThemeProvider } from "../../../theme/ThemeProvider";
 import { APP_THEMES } from "../../../theme/themes";
 import { WallpaperProvider } from "../../../theme/WallpaperProvider";
@@ -23,7 +23,7 @@ function renderThemedPane() {
   return renderEmptyDesktop(
     <ThemeProvider themes={APP_THEMES}>
       <WallpaperProvider>
-        <SystemMonitorDeveloperModeProvider>
+        <DeveloperModeProvider>
           <DualPaneProvider>
             <PaneSideProvider side="left">
               <PaneProvider hostConfig={createTestHostConfig()}>
@@ -32,7 +32,7 @@ function renderThemedPane() {
               </PaneProvider>
             </PaneSideProvider>
           </DualPaneProvider>
-        </SystemMonitorDeveloperModeProvider>
+        </DeveloperModeProvider>
       </WallpaperProvider>
     </ThemeProvider>,
   );
