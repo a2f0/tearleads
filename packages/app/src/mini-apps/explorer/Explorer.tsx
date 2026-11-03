@@ -420,6 +420,7 @@ function ExplorerContent() {
         canLinkSelectedDocument={model.canLinkContextMenuDocument}
         canMoveSelectedDocument={model.canMoveContextMenuDocument}
         canPurgeSelectedDocument={model.canPurgeContextMenuDocument}
+        contextMenuContactUserId={model.contextMenuContactUserId}
         contextMenuState={model.contextMenuState}
         deleteDocument={model.deleteDocument}
         downloadDocument={downloadDocument}

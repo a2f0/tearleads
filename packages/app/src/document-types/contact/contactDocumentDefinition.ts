@@ -30,7 +30,8 @@ function deriveContactTitle(fields: ContactDocumentFields): string {
     return fullName;
   }
 
-  return fields.userId.trim() || "Untitled contact";
+  // The Tearleads user ID stays out of display titles.
+  return "Untitled contact";
 }
 
 export function readContactFieldsFromRecord(

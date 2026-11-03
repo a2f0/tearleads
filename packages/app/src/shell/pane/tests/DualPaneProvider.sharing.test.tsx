@@ -52,6 +52,8 @@ import {
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiRequestMetrics";
 
+const UNNAMED_CONTACT_TITLE = "Untitled contact";
+
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Measure after provisioning/roster import, including background settlement.
   // Retain headroom for independently scheduled verification/recovery pulls.
@@ -167,7 +169,7 @@ test(
           name: "You",
         }) ??
           within(ownerContactsItemsTable).queryByRole("button", {
-            name: ownerUserId,
+            name: UNNAMED_CONTACT_TITLE,
           }),
       ).toBeTruthy();
     });
@@ -215,7 +217,7 @@ test(
           }) ?? sharedContactsItemsTable;
         return Boolean(
           within(sharedContactsItemsTable).queryByRole("button", {
-            name: ownerUserId,
+            name: UNNAMED_CONTACT_TITLE,
           }),
         );
       },
@@ -225,11 +227,17 @@ test(
     expect(
       within(sharedContactsItemsTable).queryByRole("button", { name: "You" }),
     ).toBeNull();
+    // The owner's unnamed self contact never shows the owner's user ID.
     expect(
       within(sharedContactsItemsTable).getByRole("button", {
-        name: ownerUserId,
+        name: UNNAMED_CONTACT_TITLE,
       }),
     ).toBeTruthy();
+    expect(
+      within(sharedContactsItemsTable).queryByRole("button", {
+        name: ownerUserId,
+      }),
+    ).toBeNull();
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       postShareBaseline,

@@ -1,6 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
+import {
+  flushIdentityLinkResolution,
+  mockClipboardWrites,
+  TestIdentityLinkResolver,
+} from "../../../../test/helpers/identityLinkResolverTestKit";
+import { COPY_IDENTITY_LINK_LABEL } from "../../../components/identity/CopyIdentityLinkMenuItem";
 import { ORG_MANAGER_LABELS } from "../labels";
 import {
   OrgManagerContextMenuLayer,
@@ -8,6 +14,9 @@ import {
 } from "./OrgManagerContextMenu";
 
 afterEach(() => cleanup());
+
+const VERIFIED_LINK = "https://app.example.test/app/contacts/import/ada";
+const VERIFIED_LINKS = { "user-1": VERIFIED_LINK };
 
 function ContextMenuLayerHarness(params: {
   canDisableContextMenuRosterUser?: boolean | undefined;
@@ -27,31 +36,37 @@ function ContextMenuLayerHarness(params: {
     useState<OrgManagerContextMenuState | null>(params.contextMenu);
 
   return (
-    <OrgManagerContextMenuLayer
-      canCreateGroup={params.canCreateGroup ?? true}
-      canDisableContextMenuRosterUser={
-        params.canDisableContextMenuRosterUser ?? true
-      }
-      canEditContextMenuRosterUser={params.canEditContextMenuRosterUser ?? true}
-      canImportRosterUser={params.canImportRosterUser ?? true}
-      closeContextMenu={() => setContextMenu(null)}
-      contextMenu={contextMenu}
-      contextMenuRosterUserAskedToLeave={
-        params.contextMenuRosterUserAskedToLeave ?? false
-      }
-      disableRosterUser={params.disableRosterUser ?? (() => undefined)}
-      importRosterUserIntoContacts={
-        params.importRosterUserIntoContacts ?? (() => undefined)
-      }
-      loading={false}
-      mutating={false}
-      openCreateGroupDialog={params.openCreateGroupDialog ?? (() => undefined)}
-      openImportUserDialog={params.openImportUserDialog ?? (() => undefined)}
-      openRosterUser={params.openRosterUser ?? (() => undefined)}
-      openRosterUserForEditing={
-        params.openRosterUserForEditing ?? (() => undefined)
-      }
-    />
+    <TestIdentityLinkResolver links={VERIFIED_LINKS}>
+      <OrgManagerContextMenuLayer
+        canCreateGroup={params.canCreateGroup ?? true}
+        canDisableContextMenuRosterUser={
+          params.canDisableContextMenuRosterUser ?? true
+        }
+        canEditContextMenuRosterUser={
+          params.canEditContextMenuRosterUser ?? true
+        }
+        canImportRosterUser={params.canImportRosterUser ?? true}
+        closeContextMenu={() => setContextMenu(null)}
+        contextMenu={contextMenu}
+        contextMenuRosterUserAskedToLeave={
+          params.contextMenuRosterUserAskedToLeave ?? false
+        }
+        disableRosterUser={params.disableRosterUser ?? (() => undefined)}
+        importRosterUserIntoContacts={
+          params.importRosterUserIntoContacts ?? (() => undefined)
+        }
+        loading={false}
+        mutating={false}
+        openCreateGroupDialog={
+          params.openCreateGroupDialog ?? (() => undefined)
+        }
+        openImportUserDialog={params.openImportUserDialog ?? (() => undefined)}
+        openRosterUser={params.openRosterUser ?? (() => undefined)}
+        openRosterUserForEditing={
+          params.openRosterUserForEditing ?? (() => undefined)
+        }
+      />
+    </TestIdentityLinkResolver>
   );
 }
 
@@ -261,4 +276,55 @@ test("a member who asked to leave is removed by approving the request", () => {
     }),
   );
   expect(disabledUserIds).toEqual(["user-1"]);
+});
+
+test("org manager roster user menu copies a verified user's identity link", async () => {
+  const clipboard = mockClipboardWrites();
+  try {
+    const view = render(
+      <ContextMenuLayerHarness
+        contextMenu={{
+          id: { kind: "directory-user", userId: "user-1" },
+          position: { x: 12, y: 34 },
+        }}
+      />,
+    );
+
+    fireEvent.click(
+      await view.findByRole("button", { name: COPY_IDENTITY_LINK_LABEL }),
+    );
+
+    expect(clipboard.writes).toEqual([VERIFIED_LINK]);
+    expect(
+      view.queryByRole("button", { name: COPY_IDENTITY_LINK_LABEL }),
+    ).toBeNull();
+  } finally {
+    clipboard.restore();
+  }
+});
+
+test("org manager roster user menu omits the identity link for an unverified user", async () => {
+  const clipboard = mockClipboardWrites();
+  try {
+    const view = render(
+      <ContextMenuLayerHarness
+        contextMenu={{
+          id: { kind: "directory-user", userId: "user-2" },
+          position: { x: 12, y: 34 },
+        }}
+      />,
+    );
+
+    await flushIdentityLinkResolution();
+    expect(
+      view.getByRole("button", {
+        name: ORG_MANAGER_LABELS.openRosterEntryAction,
+      }),
+    ).toBeTruthy();
+    expect(
+      view.queryByRole("button", { name: COPY_IDENTITY_LINK_LABEL }),
+    ).toBeNull();
+  } finally {
+    clipboard.restore();
+  }
 });

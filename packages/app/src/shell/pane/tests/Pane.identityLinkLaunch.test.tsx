@@ -5,7 +5,7 @@ import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
 } from "../../../../test/helpers/paneTestUtils";
-import { SystemMonitorDeveloperModeProvider } from "../../../mini-apps/system-monitor/systemMonitorDeveloperMode";
+import { DeveloperModeProvider } from "../../../providers/developer-mode/DeveloperModeProvider";
 import { DualPaneProvider, PaneSideProvider } from "../dual-pane";
 import { PaneProvider } from "../runtime/PaneProvider";
 import { Pane } from "../shell/Pane";
@@ -38,7 +38,7 @@ for (const [mode, native] of [
     window.history.replaceState(null, "", new URL(link).pathname);
     expect(window.location.pathname).toBe(new URL(link).pathname);
     const view = render(
-      <SystemMonitorDeveloperModeProvider>
+      <DeveloperModeProvider>
         <DualPaneProvider>
           <PaneSideProvider side="left">
             <PaneProvider
@@ -58,7 +58,7 @@ for (const [mode, native] of [
             </PaneProvider>
           </PaneSideProvider>
         </DualPaneProvider>
-      </SystemMonitorDeveloperModeProvider>,
+      </DeveloperModeProvider>,
     );
     await view.findByRole(
       "textbox",
@@ -85,6 +85,8 @@ for (const [mode, native] of [
     );
     expect(currentInput().value).toContain(new URL(link).pathname);
     fireEvent.click(view.getByRole("button", { name: "Verify and Add" }));
-    await view.findByText(peerId, {}, { timeout: 15_000 });
+    // The verified, still unnamed contact opens; its user ID stays hidden.
+    await view.findByText("Unnamed contact", {}, { timeout: 15_000 });
+    expect(view.queryByText(peerId)).toBeNull();
   }, 30_000);
 }

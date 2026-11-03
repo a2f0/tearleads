@@ -11,6 +11,7 @@ import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/dist/csr/WarningCircle";
 import { Menu, MenuItem } from "@tearleads/windowing";
+import { CopyIdentityLinkMenuItem } from "../../../components/identity/CopyIdentityLinkMenuItem";
 import { DiagnosticMenuItem } from "../../../components/shared/DiagnosticMenuItem";
 import type { DiagnosticAction } from "../../../host/AppDiagnostics";
 import type { ExplorerContextMenuModel } from "../hooks/explorerPanelStateTypes";
@@ -49,6 +50,7 @@ interface ExplorerDocumentContextMenuProps {
   canPurgeSelectedDocument: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerDocumentContextMenuState;
+  contextMenuContactUserId: string | null;
   deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
   downloadDocument: (localId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
@@ -66,6 +68,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
     canPurgeSelectedDocument,
     closeContextMenu,
     contextMenu,
+    contextMenuContactUserId,
     deleteDocument,
     downloadDocument,
     openDocumentInfoRoute,
@@ -90,6 +93,10 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
             contextMenu.id.containerId,
           );
         }}
+      />
+      <CopyIdentityLinkMenuItem
+        onSelect={closeContextMenu}
+        userId={contextMenuContactUserId}
       />
       <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
@@ -409,6 +416,7 @@ export function ExplorerContextMenuLayer(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canPurgeSelectedDocument: boolean;
+  contextMenuContactUserId: string | null;
   contextMenuState: ExplorerContextMenuModel;
   deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
   downloadDocument: (localId: string) => void;

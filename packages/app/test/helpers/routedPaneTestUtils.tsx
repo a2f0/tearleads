@@ -1,5 +1,5 @@
 import { type RenderResult, render } from "@testing-library/react";
-import { SystemMonitorDeveloperModeProvider } from "../../src/mini-apps/system-monitor/systemMonitorDeveloperMode";
+import { DeveloperModeProvider } from "../../src/providers/developer-mode/DeveloperModeProvider";
 import {
   DualPaneProvider,
   PaneSideProvider,
@@ -14,7 +14,7 @@ export function renderRoutedPane(): RenderResult {
   // Mirrors production composition: Layout mounts the developer-mode provider
   // above every Pane.
   return render(
-    <SystemMonitorDeveloperModeProvider>
+    <DeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">
           <PaneProvider hostConfig={createTestHostConfig()}>
@@ -22,7 +22,7 @@ export function renderRoutedPane(): RenderResult {
           </PaneProvider>
         </PaneSideProvider>
       </DualPaneProvider>
-    </SystemMonitorDeveloperModeProvider>,
+    </DeveloperModeProvider>,
   );
 }
 

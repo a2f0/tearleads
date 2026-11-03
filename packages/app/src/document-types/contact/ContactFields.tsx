@@ -1,9 +1,7 @@
-import { type ReactNode, useEffect, useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
-  MiniAppClipboardButton,
   MiniAppInput,
   MiniAppStatus,
-  MiniAppTextarea,
 } from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
@@ -16,7 +14,6 @@ import {
   type ContactFieldDescriptor,
   type ContactFieldKey,
   type ContactFieldValues,
-  getContactCopyLabel,
 } from "./contactFieldDescriptors";
 
 type ContactFieldCommit = (key: ContactFieldKey, value: string) => void;
@@ -32,11 +29,9 @@ function useSyncedFieldValue(value: string) {
 }
 
 function ContactReadFieldRow({
-  action,
   label,
   value,
 }: {
-  action?: ReactNode | undefined;
   label: string;
   value: string;
 }) {
@@ -49,7 +44,6 @@ function ContactReadFieldRow({
           {trimmed}
         </MiniAppRowText>
       </MiniAppRowStack>
-      {action}
     </MiniAppRow>
   );
 }
@@ -73,43 +67,17 @@ function ContactEditFieldRow({
     }
   };
 
-  const control =
-    descriptor.control === "textarea" ? (
-      <MiniAppTextarea
-        id={inputId}
-        aria-label={descriptor.label}
-        value={localValue}
-        placeholder={descriptor.placeholder}
-        onChange={(event) => setLocalValue(event.target.value)}
-        onBlur={commitOnBlur}
-        disabled={disabled}
-      />
-    ) : (
+  return (
+    <div className="mini-app-field">
+      <label htmlFor={inputId}>{descriptor.label}</label>
       <MiniAppInput
         id={inputId}
         aria-label={descriptor.label}
         value={localValue}
-        placeholder={descriptor.placeholder}
         onChange={(event) => setLocalValue(event.target.value)}
         onBlur={commitOnBlur}
         disabled={disabled}
       />
-    );
-
-  return (
-    <div className="mini-app-field">
-      <label htmlFor={inputId}>{descriptor.label}</label>
-      {descriptor.copyable ? (
-        <div className="mini-app-field-control">
-          {control}
-          <MiniAppClipboardButton
-            label={getContactCopyLabel(descriptor)}
-            value={localValue}
-          />
-        </div>
-      ) : (
-        control
-      )}
     </div>
   );
 }
@@ -160,14 +128,6 @@ export function ContactFields({
       {filled.map((descriptor) => (
         <ContactReadFieldRow
           key={descriptor.key}
-          action={
-            descriptor.copyable ? (
-              <MiniAppClipboardButton
-                label={getContactCopyLabel(descriptor)}
-                value={values[descriptor.key]}
-              />
-            ) : undefined
-          }
           label={descriptor.label}
           value={values[descriptor.key]}
         />

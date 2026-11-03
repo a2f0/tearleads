@@ -1,11 +1,5 @@
-import {
-  saveSystemMonitorDeveloperMode,
-  systemMonitorDeveloperModeStorageKey,
-} from "../../src/mini-apps/system-monitor/systemMonitorMode";
+import { saveDeveloperMode } from "../../src/providers/developer-mode/DeveloperModeProvider";
 
 export function enableSystemMonitorDeveloperMode(): void {
-  saveSystemMonitorDeveloperMode(
-    systemMonitorDeveloperModeStorageKey(),
-    "enabled",
-  );
+  saveDeveloperMode("enabled");
 }

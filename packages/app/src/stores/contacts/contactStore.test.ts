@@ -192,7 +192,7 @@ test("contacts store persists contacts as documents with app-owned projections",
           containerId: CONTACTS_CONTAINER_ID,
           documentKind: "contact",
           id: importedContactId,
-          title: peerKey.userId,
+          title: "Untitled contact",
         },
       ]),
     );
@@ -251,7 +251,7 @@ test("contacts store imports self keys without a synthetic nickname", async () =
     expect(documentProjections).toContainEqual(
       expect.objectContaining({
         id: contactId,
-        title: selfKey.userId,
+        title: "Untitled contact",
       }),
     );
   } finally {

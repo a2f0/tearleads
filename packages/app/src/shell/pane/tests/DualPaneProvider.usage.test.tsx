@@ -27,13 +27,13 @@ import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { useRegisterCurrentIdentity } from "../../../identity/useRegisterCurrentIdentity";
 import { ORG_MANAGER_LABELS } from "../../../mini-apps/org-manager/labels";
 import { DATA_USAGE_LABELS } from "../../../mini-apps/shared/dataUsageLabels";
-import { SystemMonitorDeveloperModeProvider } from "../../../mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
 } from "../../../mini-apps/system-monitor/systemMonitorMode";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../../providers/db/DatabaseProvider";
+import { DeveloperModeProvider } from "../../../providers/developer-mode/DeveloperModeProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { DualPaneProvider, PaneSideProvider } from "../dual-pane";
 import { PaneProvider } from "../runtime/PaneProvider";
@@ -107,7 +107,7 @@ function renderSinglePane() {
   // Mirrors production composition: Layout mounts the developer-mode provider
   // above every Pane.
   return renderEmptyDesktop(
-    <SystemMonitorDeveloperModeProvider>
+    <DeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">
           <PaneProvider hostConfig={hostConfig}>
@@ -117,7 +117,7 @@ function renderSinglePane() {
           </PaneProvider>
         </PaneSideProvider>
       </DualPaneProvider>
-    </SystemMonitorDeveloperModeProvider>,
+    </DeveloperModeProvider>,
   );
 }
 
