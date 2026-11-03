@@ -6,12 +6,13 @@ Conversation, PR descriptions, and code review use it to say _where a feature
 lives_ and _who owns it_.
 
 A subsystem is an ownership and navigation index over existing paths. Import
-direction stays enforced by the lanes, layers, and planes in
+direction stays enforced by the lanes, layers, and
+[planes](./api-architecture.md#protocol-planes) in
 `dependency-cruiser.config.ts`. A subsystem may span layers: `Containers` covers
 its routes, service facade, and orchestration workflows. A subsystem that
 declares a **surface** is also a boundary: other subsystems import only its
-surface files.
-See AGENTS.md "## Subsystems" for the related axes.
+surface files. See [AGENTS.md "## Subsystems"](../AGENTS.md#subsystems) for the
+related axes.
 
 ## How it is kept honest
 

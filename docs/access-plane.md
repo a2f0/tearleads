@@ -2,21 +2,25 @@
 
 ## Summary
 
-The access plane is driven by signed access events and derived access
-manifests. The server stores and indexes those manifests, but the authorization
-state itself is client-verifiable.
+The [access plane](./glossary.md#access-plane) is driven by signed
+[access events](./glossary.md#access-event) and derived
+[access manifests](./glossary.md#access-manifest). The server stores and
+indexes those manifests, but the authorization state itself is
+client-verifiable.
 
 For shared protocol terminology, see [glossary.md](./glossary.md).
 
 Protected objects are:
 
-- containers
-- documents
-- blobs
+- [containers](./glossary.md#container)
+- [documents](./glossary.md#document)
+- [blobs](./glossary.md#blob)
 
-Container manifests carry direct grants and parent links. Document manifests
-carry linked container ids. Blob access is derived from active signed attachment
-bindings and the linked document manifests.
+Container manifests carry direct [grants](./glossary.md#grant) and parent
+links. [Document manifests](./glossary.md#document-link-set-manifest) carry
+linked container ids. Blob access is derived from active signed
+[attachment bindings](./glossary.md#attachment-binding) and the linked document
+manifests.
 
 ![Access lookup and keying across principals, containers, documents, Loro
 updates, and blobs](./diagrams/access-and-keying.svg)
@@ -31,7 +35,8 @@ The authority chain is:
 1. A user signs an access event.
 2. The event body deterministically derives the next object manifest state.
 3. The manifest hash becomes the stored object head.
-4. Key-target tables store the wrapped material that matches that manifest.
+4. [Key-target](./glossary.md#key-target) tables store the wrapped material
+   that matches that manifest.
 
 The durable tables are:
 
@@ -56,8 +61,10 @@ manifest path. They do not maintain a parallel mutable grant or epoch table.
 
 ## Principals
 
-Users have registered signing and encapsulation keys. Groups and organizations
-are managed principals with signed policy state:
+Users have registered signing and encapsulation keys. Groups and
+[organizations](./glossary.md#organization) are
+[managed principals](./glossary.md#managed-principal) with signed
+[policy state](./glossary.md#principal-policy-state):
 
 - `principal_states` (its `container_grants` column holds each state's
   committed container-grant set, checked against the signed `grantRoot`)
@@ -66,16 +73,18 @@ are managed principals with signed policy state:
 - `principal_member_envelopes`
 
 Group container grants require referenced signed group-policy heads.
-Managed-principal access fails closed when the referenced policy state or member
-envelopes are missing or stale.
+Managed-principal access [fails closed](./glossary.md#fail-closed) when the
+referenced policy state or [member envelopes](./glossary.md#member-envelope)
+are missing or stale.
 
 The API re-verifies stored policy bundles before returning them or using their
 projections for container and direct organization authorization. This includes
 the signed history, signer identity fingerprints, projection and membership
 roots, current payload and member-envelope commitments, transition rules, and
 any exact reserved-`Admins` authority citations. Direct edits to permission
-projection rows therefore fail with an integrity conflict, even when the API
-process is honest but its database was altered.
+[projection rows](./glossary.md#projection-row) therefore fail with an
+integrity conflict, even when the API process is honest but its database was
+altered.
 Direct organization authorization also verifies the signed organization
 authority descriptor before trusting the database's reserved `Admins` and
 `Members` identifiers, so repointing either identifier to another valid group
@@ -117,8 +126,9 @@ or document-link projection rows.
 Repointing a database head to a genuine older signed manifest is a replay, not
 a forgery, and the API has no independent checkpoint outside that database from
 which to detect it. A client that has persisted a newer checkpoint rejects the
-rollback. Cold-client rollback and truncation require an external transparency
-source, witness, or gossip peer to detect reliably.
+rollback. [Cold-client rollback](./security-guarantees.md#rollback-and-split-view)
+and truncation require an external transparency source, witness, or gossip peer
+to detect reliably.
 
 Container grants accept active users and groups from the container's
 organization only. Cross-organization sharing first adds the recipient user to
@@ -134,10 +144,12 @@ batch against current signed manifests before committing either side.
 
 Organizations also carry two reserved group pointers:
 
-- `adminGroupId` points to the reserved `Admins` group. Users reachable through
- this group have organization-admin authority.
-- `memberGroupId` points to the reserved `Members` group. Users reachable
- through this group belong to the organization.
+- `adminGroupId` points to the
+ [reserved `Admins` group](./glossary.md#organization-admins-group). Users
+ reachable through this group have organization-admin authority.
+- `memberGroupId` points to the
+ [reserved `Members` group](./glossary.md#organization-members-group). Users
+ reachable through this group belong to the organization.
 
 A managed principal's recipient key is the key of its current signed state. No
 per-epoch key table backs it: the policy transition rule refuses a key change
@@ -149,13 +161,15 @@ Built-in container grants are derived, not stored. The organization row also
 records `rootContainerId`, and a grant is built-in exactly when it is `Admins`
 at `admin` on that root, or `Admins` at `admin` or `Members` at `read` on the
 organization metadata container (the derived system slot). Container
-mutations refuse revoking a built-in grant or changing its level, but rotation
-may rewrap it at the same level.
+mutations refuse revoking a built-in grant or changing its level, but
+[rotation](./glossary.md#rotate) may [rewrap](./glossary.md#rewrap) it at the
+same level.
 
 Registration creates both groups atomically, seeding each with the single
 registering user, and commits both initial heads in the organization policy.
 Principals contain only users; policy writes enforce that managed principals
-name active roster entries and that every Admins user remains a Members user.
+name active [roster entries](./glossary.md#organization-roster-entry) and that
+every Admins user remains a Members user.
 Org-manager keeps separate roster rows for directory lifecycle state. Active
 roster entries are synchronized from users reachable through `Members`, while
 disabled roster entries can remain visible after access removal. The roster is
@@ -171,7 +185,9 @@ authorization.
 
 ## Containers
 
-Containers form a tree. A container access manifest includes:
+Containers form a tree. A
+[container access manifest](./keying-design.md#container-access-manifests)
+includes:
 
 - `containerId`
 - `organizationId`
@@ -183,15 +199,19 @@ Containers form a tree. A container access manifest includes:
 - `directGrants`
 - `referencedPrincipalHeads`
 
-Effective access is resolved across the manifest path from root to target.
-Grants are additive along that path. A read grant authorizes listing and reading
-objects under the container. Writer projections, which carry the KEK material
-a client needs to prepare writes, are served with current read access; write
-authorization is checked when the write commits.
+[Effective access](./glossary.md#effective-access) is resolved across the
+manifest path from root to target. Grants are additive along that path. A read
+grant authorizes listing and reading objects under the container.
+[Writer projections](./glossary.md#writer-projection), which carry the
+[KEK](./glossary.md#container-kek) material a client needs to prepare writes,
+are served with current read access; write authorization is checked when the
+write commits.
 
 ## Documents
 
-Documents do not own direct ACLs. A document link-set manifest includes:
+Documents do not own direct ACLs. A
+[document link-set manifest](./keying-design.md#document-link-set-manifests)
+includes:
 
 - `documentId`
 - `organizationId`
@@ -201,8 +221,8 @@ Documents do not own direct ACLs. A document link-set manifest includes:
 
 A user can read a document when at least one linked container path grants read
 or stronger access. The document `accessEpoch` exposed by list/sync surfaces is
-the document manifest epoch. The document access-state hash exposed by list
-surfaces is the document manifest hash.
+the document manifest [epoch](./glossary.md#access-epoch). The document
+access-state hash exposed by list surfaces is the document manifest hash.
 
 The server maintains `access_manifest_document_link_projection` from the signed
 document manifest so container document listings can be indexed without parsing
@@ -214,7 +234,8 @@ Blob bytes are stored separately from signed attachment state. A blob is
 readable when at least one active attachment binding points to a readable
 document.
 
-Blob encrypted bytes are also stored apart from blob content-key bundles.
+Blob encrypted bytes are also stored apart from
+[blob content-key bundles](./glossary.md#blob-content-key-bundle).
 The encrypted payload record commits to the blob id, content-key epoch,
 content-record id, metadata hash, nonce-domain hash, IV, suite, and ciphertext.
 The key package lives in blob content-key epoch/target rows and is returned by
@@ -223,32 +244,37 @@ attachment listing or bind responses for authorized document readers.
 Attachment bind and detach mutations store signed access events and update the
 live `attachment_bindings` projection. Detached bindings are transient live
 metadata; the signed bind and detach events stay in `access_events`, and there is
-no separate attachment audit ledger.
+no separate
+[attachment audit ledger](./attachment-retention.md#attachment-history).
 
 ## Write Flow
 
-Document writes submit:
+[Document writes](./document-link-and-sync-protocol.md) submit:
 
 - `contentKeyEpoch`
 - `expectedLinkSetManifestHash`
 - `expectedTargetHash`
 - optional `contentKeyBundle`
 - optional signed `containerRekeys[]`
-- signed write headers for outgoing updates
+- [signed write headers](./glossary.md#signed-write-header) for outgoing
+  updates
 
-The server accepts writes only when the submitted manifest hash and target hash
-match the stored heads and derived key-target material.
+The server accepts writes only when the submitted manifest hash and
+[target hash](./glossary.md#target-hash) match the stored heads and derived
+key-target material.
 
 Blob bind writes submit:
 
 - signed attachment event and body
 - verified document manifest
-- authorizing container paths
+- [authorizing container paths](./glossary.md#authorizing-container-path)
 - optional signed `containerRekeys[]`
 - blob content-key bundle
 - optional staged blob write header
 
-Blob stages are created through the multipart staging routes. Each encrypted
+[Blob stages](./glossary.md#blob-stage) are created through the
+[multipart staging routes](./protocol-specification.md#blob-stage-protocol).
+Each encrypted
 part receives an S3/R2 upload URL that lasts at most five minutes and never
 outlives the stage, issued after stage-owner and identity checks: the parts sent
 first in the stage initiation response, later parts just before they are sent.

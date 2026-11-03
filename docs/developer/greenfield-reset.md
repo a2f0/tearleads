@@ -46,13 +46,16 @@ Check these before teardown:
 - Clean source, available `ship-pr` skill, required build/check tooling from
   `.mise.toml`, and release prerequisites in the
   [release runbook](greenfield-reset-releases.md).
-- Authenticated Terraform state backend (the tier's R2 state key), Cloudflare
-  (the Terraform token, which the deploy scripts also export for Wrangler), and
-  PlanetScale access. Do not print tokens while checking.
+- Authenticated
+  [Terraform state backend](./infrastructure.md#infrastructure-lifecycle) (the
+  tier's R2 state key), Cloudflare (the Terraform token, which the deploy
+  scripts also export for Wrangler), and PlanetScale access. Do not print tokens
+  while checking.
 - Each stack's state key and resource identities; current database branch ID,
   connection metadata, blob count, multipart uploads, and
-  relevant external billing state. Preserve the production
-  migration connection privately until the old database has been removed.
+  relevant external [billing state](./revenuecat-billing.md). Preserve the
+  production migration connection privately until the old database has been
+  removed.
 - Old API/app/demo/site health and current download manifests/store numbers.
   Distinguish a pre-existing outage from a reset failure.
 - Inspect saved deletion plans for exactly the selected stacks. If source or
@@ -260,12 +263,13 @@ tier before long store uploads.
   `DOCUMENT_SYNC_CURSOR_HMAC_KEY` and report any requested rotation separately;
   recreating infrastructure does not change persistent env-file values. Rotating
   that key also retires every stored-history verification marker, so each
-  object's next projection read verifies its retained history in full once and
-  writes the markers back.
+  object's next [projection read](../glossary.md#writer-projection) verifies its
+  retained history in full once and writes the markers back.
 - **Existing client devices:** a reset wipes the server but not the devices
-  that used it, and each keeps its identity-trust store. That store binds each
-  signing key to one user, so on such a device registration is declined, and
-  login fails because the server no longer knows the key. Clearing the
+  that used it, and each keeps its
+  [identity-trust store](./trusted-user-identity.md#pinning). That store binds
+  each signing key to one user, so on such a device registration is declined,
+  and login fails because the server no longer knows the key. Clearing the
   device's local app data recreates the trust store; the SDK never clears it on
   the server's say-so. Tell anyone who used the environment to do this, and use
   fresh profiles for post-reset checks.

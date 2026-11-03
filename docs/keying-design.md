@@ -1,20 +1,25 @@
 # Keying Design
 
-This document describes the access and key-delivery model: signed access
-manifests, the container KEK hierarchy that delivers document and blob keys,
-local-first container creation, and how the protocol treats unauthorized
-grants, rollback, split views, and first-contact identity keys (see
+This document describes the access and key-delivery model: signed
+[access manifests](./glossary.md#access-manifest), the
+[container KEK](./glossary.md#container-kek) hierarchy that delivers document
+and blob keys, local-first container creation, and how the protocol treats
+unauthorized [grants](./glossary.md#grant), rollback, split views, and
+first-contact identity keys (see
 [security-guarantees.md](./security-guarantees.md)).
 
 HTTP routes use the signed mutation surface summarized in
 [api-architecture.md](./api-architecture.md#http-protocol-surface). For shared
 protocol terminology, see [glossary.md](./glossary.md).
 
-The signed access-event, access-manifest, container KEK, document
-content-key, blob content-key, principal-policy, write-header, and local
-checkpoint primitives define the executable keying boundary. Transparency
-deployment, first-contact identity trust, verifier use at every client
-encryption decision, and historical replay are separate deployment boundaries.
+The signed [access-event](./glossary.md#access-event), access-manifest,
+container KEK, document content-key, blob content-key,
+[principal-policy](./glossary.md#principal-policy-state),
+[write-header](./glossary.md#signed-write-header), and local checkpoint
+primitives define the executable keying boundary. Transparency deployment,
+[first-contact identity trust](./developer/trusted-user-identity.md), verifier
+use at every client encryption decision, and historical replay are separate
+deployment boundaries.
 
 ## Design Properties
 
@@ -25,7 +30,7 @@ encryption decision, and historical replay are separate deployment boundaries.
  convention.
 - Server-visible structure remains the input to access derivation.
 - End-to-end encryption is preserved: the server stores ciphertext and wrapped
- keys, not plaintext content keys.
+ keys, not plaintext [content keys](./glossary.md#content-key).
 - Revocation is forward-looking unless content is re-encrypted.
 - Local-first creation uses signed local intents rather than fake server access
  hashes.
@@ -34,8 +39,9 @@ encryption decision, and historical replay are separate deployment boundaries.
 
 - The protocol does not retroactively revoke bytes or keys already
  distributed.
-- The protocol does not hide container, document, or blob structure from the
- server.
+- The protocol does not hide [container](./glossary.md#container),
+ [document](./glossary.md#document), or [blob](./glossary.md#blob) structure
+ from the server.
 - The protocol does not prevent denial of service, withholding, or delayed
  publication.
 - First-contact identity trust requires a trust root outside mutable API rows.
@@ -72,12 +78,13 @@ failures.
 
 Principal policy uses the signed group/organization model with two rules.
 
-First, any principal transition that removes a reader, demotes a role that can
-read, disables a member, or changes a member key in a way that shrinks future
-access must advance the principal key epoch. Clients and the API both reject
-shrinking policy transitions that reuse the old principal key epoch. Removing a
-container grant must advance it too, since wraps sealed to the old key are
-retained; both enforce that.
+First, any [principal](./glossary.md#principal) transition that removes a
+reader, demotes a role that can read, disables a member, or changes a member key
+in a way that shrinks future access must advance the principal key
+[epoch](./glossary.md#epoch). Clients and the API both reject shrinking policy
+transitions that reuse the old principal key epoch. Removing a container grant
+must advance it too, since wraps sealed to the old key are retained; both
+enforce that.
 
 Second, user identity keys need an authority outside mutable API rows, such as:
 
@@ -90,21 +97,27 @@ Second, user identity keys need an authority outside mutable API rows, such as:
 Production clients implement the first option as
 [identity links](./developer/trusted-user-identity.md#identity-links): a link
 binds the user ID, trust domain, algorithms, and both public keys. Every
-admission (contact, roster user, group member, share recipient, roster
-profile) requires a pin that a link or the device's own keys established; pin
-provenance keeps a first-sight pin from standing in. Signer resolution and
-other verification of referenced users still pin on first sight, so
-first-contact key substitution remains possible for an identity no link has
-verified. No object keying algorithm can fully fix that by itself.
+admission (contact, roster user, group member, share recipient, roster profile)
+requires a [pin](./glossary.md#identity-pin) that a link or the device's own
+keys established; pin
+[provenance](./developer/trusted-user-identity.md#provenance) keeps a
+first-sight pin from standing in. Signer resolution and other verification of
+referenced users still pin on first sight, so first-contact key substitution
+remains possible for an identity no link has verified. No object keying
+algorithm can fully fix that by itself.
 
-Organization administration uses reserved groups: `Admins` authorizes admins,
-and `Members` drives the roster. `Admins` is not nested into `Members`; instead
-a managed principal may name only active roster entries. The signed organization
-payload binds both IDs, and `Admins` contains only `admin` users. Each signed
-principal state uses a null `externalAuthority` for direct authorization or the
-exact Admins head for external authorization. Citations match exact signed
-Admins states without in-chain rollback; only API commits require the current
-head. Display/read-model projections never provide keying inputs.
+[Organization](./glossary.md#organization) administration uses reserved groups:
+`Admins` authorizes admins, and `Members` drives the roster. `Admins` is not
+nested into `Members`; instead a
+[managed principal](./glossary.md#managed-principal) may name only active
+[roster entries](./glossary.md#organization-roster-entry). The signed
+organization payload binds both IDs, and `Admins` contains only `admin` users.
+Each signed principal state uses a null `externalAuthority` for direct
+authorization or the exact Admins head for external authorization. Citations
+match exact signed Admins states without in-chain rollback; only API commits
+require the current head.
+Display/[read-model](./organization-read-model-sync.md) projections never
+provide keying inputs.
 
 ## Signed Access Manifests
 
@@ -116,10 +129,12 @@ Protected manifest scopes:
 - organization;
 - container;
 - document link set;
-- blob attachment/target set, derived from signed attachment binding events.
+- blob attachment/target set, derived from signed
+  [attachment binding](./glossary.md#attachment-binding) events.
 
-The API may store materialized projection rows, but they are not authority. A
-client verifies manifests and derives projections locally.
+The API may store materialized [projection rows](./glossary.md#projection-row),
+but they are not authority. A client verifies manifests and derives projections
+locally.
 
 ### Access Event Shape
 
@@ -159,10 +174,11 @@ The event body is type-specific. For example, `container.grant` includes the
 subject principal, access level, current referenced principal policy head, and
 the container manifest hash being advanced. `document.link` includes the
 document manifest hash and target container manifest hash. `attachment.bind`
-includes document id, slot id, blob id, expected binding id, and document
-manifest hash. Attachment events use `objectKind: "blob"` when they advance
-the blob target/binding manifest; the attachment-specific identity lives in the
-event body, not in a separate fourth manifest kind.
+includes document id, [slot](./glossary.md#attachment-slot) id, blob id,
+expected binding id, and document manifest hash. Attachment events use
+`objectKind: "blob"` when they advance the blob target/binding manifest; the
+attachment-specific identity lives in the event body, not in a separate fourth
+manifest kind.
 
 ### Manifest Shape
 
@@ -230,10 +246,10 @@ Container manifest inputs:
 - previous container manifest hash;
 - authorizing signed event hash.
 
-A container's effective access is derived by walking ancestor container
-manifest heads and unioning their direct grants. For runtime efficiency, the
-server may materialize ancestor paths and effective grant summaries, but a
-client can verify the path from signed manifest hashes.
+A container's [effective access](./glossary.md#effective-access) is derived by
+walking ancestor container manifest heads and unioning their direct grants. For
+runtime efficiency, the server may materialize ancestor paths and effective
+grant summaries, but a client can verify the path from signed manifest hashes.
 
 Scaling rule: sharing or revoking a container must not rewrite every
 descendant container manifest. Descendants inherit through their parent edge and
@@ -263,7 +279,7 @@ The document's write targets are derived at write time:
 1. verify the document link-set manifest;
 2. load and verify each active linked container's current manifest head;
 3. resolve each linked container's current container KEK epoch;
-4. sort and hash those KEK targets.
+4. sort and hash those [KEK targets](./glossary.md#key-target).
 
 So a container grant change does not cause writes to thousands of document
 link-set manifests. Existing documents see the new container KEK state
@@ -367,22 +383,23 @@ Every epoch after the first stores two immutable rotation artifacts, both
 committed by hash in the signed move, rekey, or revoke event so server-side
 ciphertext substitution is detectable before decryption.
 
-The **predecessor bridge** is the append-only log entry: the immediately
-preceding KEK encrypted under the new KEK, binding the container id and both
-committed epoch ids as AES-GCM additional data. It is written exactly once by
-the rotator — the only party the protocol guarantees held both keys — and is
-never rewritten by any later rotation. The bridge's wrapping suite and version
-are persisted per row so a suite change is representable.
+The [**predecessor bridge**](./glossary.md#container-kek-predecessor-bridge) is
+the append-only log entry: the immediately preceding KEK encrypted under the new
+KEK, binding the container id and both committed epoch ids as AES-GCM additional
+data. It is written exactly once by the rotator — the only party the protocol
+guarantees held both keys — and is never rewritten by any later rotation. The
+bridge's wrapping suite and version are persisted per row so a suite change is
+representable.
 
-The **sealed keyring** is the snapshot read path: the container's complete
-predecessor key history — one fixed-width record per epoch, in ascending
-order — AEAD-sealed under the new KEK. A client that unwraps the current KEK
-opens the keyring in one decrypt and holds every retained historical KEK; no
-chain walk occurs on the hot path. Entry ordinal `i` is key epoch `i + 1`, so
-the sealed ciphertext length for key epoch `n` is an equality
-(`8 + (n - 1) * 64 + 16` bytes), which the server enforces at write time on a
-blob it cannot decrypt and clients enforce again after opening. Each recovered
-entry is verified against its material-committing epoch id before use.
+The [**sealed keyring**](./glossary.md#container-kek-keyring) is the snapshot
+read path: the container's complete predecessor key history — one fixed-width
+record per epoch, in ascending order — AEAD-sealed under the new KEK. A client
+that unwraps the current KEK opens the keyring in one decrypt and holds every
+retained historical KEK; no chain walk occurs on the hot path. Entry ordinal `i`
+is key epoch `i + 1`, so the sealed ciphertext length for key epoch `n` is an
+equality (`8 + (n - 1) * 64 + 16` bytes), which the server enforces at write
+time on a blob it cannot decrypt and clients enforce again after opening. Each
+recovered entry is verified against its material-committing epoch id before use.
 
 Initial epochs have every rotation-artifact field null; later epochs have all
 of them populated (a database check constraint enforces the all-or-none
@@ -453,10 +470,11 @@ Subtractive changes:
 - do not rewrite old document/blob bytes unless a separate re-encryption job is
  requested.
 
-Lazy descendant rekey is acceptable, but writes must fail closed: if a document
-write targets a container whose current key epoch is still reachable through a
-revoked ancestor key, a post-revocation descendant KEK epoch must be
-materialized before the write is accepted.
+Lazy descendant [rekey](./glossary.md#rekey) is acceptable, but writes must
+[fail closed](./glossary.md#fail-closed): if a document write targets a
+container whose current key epoch is still reachable through a revoked ancestor
+key, a post-revocation descendant KEK epoch must be materialized before the
+write is accepted.
 
 That materialization is a key-maintenance transition, not an access-control
 transition. A current writer may submit a signed `container.rekey` event when
@@ -471,11 +489,11 @@ to the id signed in the manifest.
 Current access is history-inclusive. A newly admitted user receives only a
 current recipient wrap, then opens the sealed keyring for every retained
 historical KEK; reading history needs no old user/principal envelope. Revocation
-remains forward-only because a user who possessed an old KEK may retain it,
-but a current user does not depend on a retained device, an old principal key,
-or a document rebaseline to read retained history. Fresh baselines remain a
-sync optimization and content-key rotation mechanism, not a key-recovery or
-liveness dependency.
+remains forward-only because a user who possessed an old KEK may retain it, but
+a current user does not depend on a retained device, an old principal key, or a
+document rebaseline to read retained history. Fresh baselines remain a sync
+optimization and content-key [rotation](./glossary.md#rotate) mechanism, not a
+key-recovery or liveness dependency.
 
 This also exposes retained-history metadata to every current member even before
 decryption: keyring size (and therefore rotation count), material-committing
@@ -584,7 +602,8 @@ keyring.
 
 ## Document Content Keys
 
-A document has one canonical content-key bundle per document key epoch.
+A document has one canonical
+[content-key bundle](./glossary.md#content-key-bundle) per document key epoch.
 
 Document write targets are the current KEK epochs of every linked container:
 
@@ -604,7 +623,7 @@ For a content write, the client:
 3. derives the sorted target list;
 4. computes `documentKeyTargetHash`;
 5. verifies that the current canonical document content-key bundle commits to
- that exact target hash;
+ that exact [target hash](./glossary.md#target-hash);
 6. signs the encrypted write header over object id, document epoch, manifest
  hash, target hash, update metadata, and ciphertext hash.
 
@@ -683,20 +702,20 @@ encryption domain:
  same object/content-key epoch.
 
 For document updates, the header's signed `metadataHash` also commits a
-domain-separated HMAC of the plaintext update bytes. Its key is derived by
-HKDF from the document content key and record domain, so authorized readers can
+domain-separated HMAC of the plaintext update bytes. Its key is derived by HKDF
+from the document content key and record domain, so authorized readers can
 verify it without exposing an offline plaintext-confirmation oracle to the
 server. A content-key holder can also generate a commitment for arbitrary
 plaintext, so this binds the record against server or storage substitution, not
 against a malicious authorized reader. Readers authenticate the metadata,
 decrypt the record, and reject a plaintext-hash mismatch before importing it
-into Loro. Retained history thereby keeps a keyed identity for an authored
-plaintext while retaining its ciphertext, provided the signed header,
-original content-record id and epoch, and corresponding content key remain
-available. A full-history rotation snapshot's commitment is not comparable to
-its constituent per-update commitments, so this is weaker than per-update
-re-encryption with inner author signatures, which the protocol does not
-implement.
+into [Loro](./loro-e2ee-sync-protocol.md). Retained history thereby keeps a
+keyed identity for an authored plaintext while retaining its ciphertext,
+provided the signed header, original content-record id and epoch, and
+corresponding content key remain available. A full-history rotation snapshot's
+commitment is not comparable to its constituent per-update commitments, so this
+is weaker than per-update re-encryption with inner author signatures, which the
+protocol does not implement.
 
 The content-record suite is `aes-256-gcm-hkdf-sha256-record-key`. A content
 writer supplies a UUIDv4 `contentRecordId`, commits the suite in the signed
@@ -718,8 +737,8 @@ forward-only unless old ciphertext is re-encrypted.
 
 ### Content-Key And KEK Wrapping Suites
 
-Content-key and KEK wraps do not use the content-record HKDF suite. Their suite
-identifiers are:
+Content-key and KEK wraps do not use the content-record HKDF suite. Their
+[suite identifiers](./cipher-suites.md) are:
 
 - document content-key to container KEK:
   `tearleads.document.content-key-wrap.aes-256-gcm-container-kek`
@@ -838,15 +857,15 @@ object-kind-specific AES-GCM suite, a canonical base64 12-byte IV, and a
 canonical base64 48-byte wrapped 32-byte key plus authentication tag. The API
 applies it to newly wrapped material, additionally requiring the wrapping
 metadata to carry exactly `suite` and `iv`, and rejects a failing submission
-before persistence. Clients apply the same check when reading a stored
-envelope, minus that exact-key requirement, so an unrecognized metadata key can
-never make a decryptable envelope unreadable. Every submitted envelope is held
-to the strict submission shape, including retained wraps that link, unlink,
-bind, rewrap, and sync writes resubmit verbatim; there is no retained-envelope
-exemption. Stored projection reads remain available for diagnostics, but
-malformed stored material cannot be resubmitted unchanged.
-When a bundle submission is both malformed and stale, staleness usually wins:
-the target hash and current-target checks run first, and only the target-set
+before persistence. Clients apply the same check when reading a stored envelope,
+minus that exact-key requirement, so an unrecognized metadata key can never make
+a decryptable envelope unreadable. Every submitted envelope is held to the
+strict submission shape, including retained wraps that link, unlink, bind,
+[rewrap](./glossary.md#rewrap), and sync writes resubmit verbatim; there is no
+retained-envelope exemption. Stored projection reads remain available for
+diagnostics, but malformed stored material cannot be resubmitted unchanged. When
+a bundle submission is both malformed and stale, staleness usually wins: the
+target hash and current-target checks run first, and only the target-set
 comparison is ordered after the envelope shape check. A blob rewrap has no
 preceding target-hash check — it recomputes the hash afterward — but its epoch
 and coverage checks still run first.
@@ -866,20 +885,22 @@ for other active bindings.
 Blob encrypted bytes and blob key packages are separate records. The encrypted
 blob record carries the encrypted payload and its metadata: blob id, byte
 length, content-key epoch, content record id, nonce-domain hash, metadata hash,
-IV, suite, and ciphertext. The blob content-key bundle lives in
-`blob_content_key_epochs` and
-`blob_content_key_targets`, and attachment listing/bind responses return that
-bundle alongside server-visible binding metadata.
+IV, suite, and ciphertext. The
+[blob content-key bundle](./glossary.md#blob-content-key-bundle) lives in
+`blob_content_key_epochs` and `blob_content_key_targets`, and attachment
+listing/bind responses return that bundle alongside server-visible binding
+metadata.
 
-Before promotion, the API hashes the staged object stream and validates it
-with the same binary-envelope parser SDK readers use: magic, bounded canonical
-JSON header, exact fields, suite/version, chunk layout, canonical 12-byte IV,
-and total encrypted length. The header buffer is bounded by 64 KiB plus the fixed
-prefix, and validation shares the existing hashing pass. The transaction also
-binds the parsed blob id, content-key epoch, record id, metadata hash, and nonce
-domain to the signed write header. Rejection rolls back promotion and binding.
-These checks reject malformed framing; an authorized writer can still submit
-well-shaped ciphertext that fails authentication or contains unwanted content.
+Before promotion, the API hashes the [staged](./glossary.md#blob-stage) object
+stream and validates it with the same binary-envelope parser SDK readers use:
+magic, bounded canonical JSON header, exact fields, suite/version, chunk layout,
+canonical 12-byte IV, and total encrypted length. The header buffer is bounded
+by 64 KiB plus the fixed prefix, and validation shares the existing hashing
+pass. The transaction also binds the parsed blob id, content-key epoch, record
+id, metadata hash, and nonce domain to the signed write header. Rejection rolls
+back promotion and binding. These checks reject malformed framing; an authorized
+writer can still submit well-shaped ciphertext that fails authentication or
+contains unwanted content.
 
 This separation lets key packages change without restaging immutable blob
 bytes. If active bindings grow, the same blob content key can be wrapped to the
@@ -902,9 +923,10 @@ content-key epoch.
 
 Local-first creation queues local intents, not fake access hashes. The SDK's
 durable outbox (`local_intents`) holds container creates, container moves, and
-document placements, one intent per lane and subject, replayed in creation
-order. An intent records its target, sync status, and, once a create is
-accepted, the remote container id and metadata access-state hash.
+document placements, one intent per lane and subject,
+[replayed in creation order](./client-sync-ordering.md#structural-phase). An
+intent records its target, sync status, and, once a create is accepted, the
+remote container id and metadata access-state hash.
 
 Replay signs each access event against the latest verified remote manifests.
 A child under a local-only parent waits until the parent's create is accepted:
@@ -927,7 +949,8 @@ with an optional transparency log for cross-client append-only proofs.
 
 Minimum:
 
-- clients durably pin each first-seen complete identity bundle;
+- clients durably [pin](./glossary.md#identity-pin) each first-seen complete
+  identity bundle;
 - clients persist highest-seen principal policy version/hash per principal;
 - clients persist highest-seen access manifest epoch/hash per object;
 - clients refuse to move backwards without explicit recovery UX.
@@ -1136,8 +1159,9 @@ The protocol covers:
 1. Canonical encodings and shared verifier APIs for Keying objects.
 2. Signed access event and manifest types for containers, document link sets,
  and attachment binding events.
-3. Principal-policy state storage, admin-signer checks, member envelopes, and
- local checkpoint verifier primitives.
+3. Principal-policy state storage, admin-signer checks,
+ [member envelopes](./glossary.md#member-envelope), and local checkpoint
+ verifier primitives.
 4. Container KEK epoch/wrap storage and target derivation.
 5. Document create/sync with document KEK targets and signed write headers.
 6. Signed document link/unlink manifests and multi-container target validation.

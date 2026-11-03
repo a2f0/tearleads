@@ -3,7 +3,10 @@
 This document specifies messages, proofs, encrypted payload boundaries, and
 validation rules across `@tearleads/client-sdk`,
 [`packages/api`](../packages/api/), and shared `@tearleads/*` packages for
-identity, access, document sync, blob staging, attachment binding, and slots.
+identity, access, [document](./glossary.md#document) sync,
+[blob staging](./glossary.md#blob-stage),
+[attachment binding](./glossary.md#attachment-binding), and
+[slots](./glossary.md#attachment-slot).
 
 The executable contract is layered:
 
@@ -17,7 +20,8 @@ The executable contract is layered:
 - [`packages/api/src/workflows`](../packages/api/src/workflows/) defines
   authorized transactional transitions.
 - [`packages/client-sdk/src/workflows`](../packages/client-sdk/src/workflows/)
-  defines local decisions and fail-closed response verification.
+  defines local decisions and [fail-closed](./glossary.md#fail-closed) response
+  verification.
 
 For document sync, `DocumentSyncRequestSchema` and `DocumentSyncResponseSchema`
 are normative wire grammar and derive TS types; request and response predicates
@@ -50,11 +54,13 @@ Related documents:
 
 ## Goals
 
-- Keep document and blob plaintext opaque to the server.
-- Make access and key-target state client-verifiable.
-- Bind every encrypted content record to a signed write header.
-- Bind every structural access mutation to a signed access event and derived
-  manifest.
+- Keep document and [blob](./glossary.md#blob) plaintext opaque to the server.
+- Make access and [key-target](./glossary.md#key-target) state
+  client-verifiable.
+- Bind every encrypted content record to a
+  [signed write header](./glossary.md#signed-write-header).
+- Bind every structural access mutation to a signed
+  [access event](./glossary.md#access-event) and derived manifest.
 - Keep blob attachment state server-indexable without exposing document
   plaintext.
 - Let the app fail closed when required cryptographic policy material is
@@ -64,10 +70,15 @@ Related documents:
 
 The protocol has three adjacent planes:
 
-- Document plane: encrypted Loro updates plus visible causal metadata.
-- Attachment plane: blob staging plus signed attachment bind/detach metadata.
-- Access plane: signed principal policies, access manifests, container KEKs,
-  content-key bundles, and write headers.
+- [Document plane](./glossary.md#document-plane): encrypted
+  [Loro updates](./glossary.md#loro-update) plus visible causal metadata.
+- [Attachment plane](./glossary.md#attachment-plane): blob staging plus signed
+  attachment bind/detach metadata.
+- [Access plane](./glossary.md#access-plane): signed
+  [principal policies](./glossary.md#principal-policy-state),
+  [access manifests](./glossary.md#access-manifest),
+  [container KEKs](./glossary.md#container-kek),
+  [content-key bundles](./glossary.md#content-key-bundle), and write headers.
 
 The planes are separate but not independent. A document sync write needs access
 proofs and content-key targets. A blob bind needs a staged encrypted blob,
@@ -136,9 +147,9 @@ type AccessManifest = {
 };
 ```
 
-Write headers commit encrypted content records to the object, access head, key
-epoch, target set, ciphertext hash, metadata hash, nonce domain, and writer
-identity:
+Write headers commit encrypted content records to the object, access head,
+[key epoch](./glossary.md#epoch), target set, ciphertext hash, metadata hash,
+nonce domain, and writer identity:
 
 ```ts
 type WriteHeader = {
@@ -164,29 +175,37 @@ type WriteHeader = {
 ```
 
 The header's `dependencyManifestHashes` is the sorted, unique union of all
-manifest hashes in the complete authorizing container paths. Submission must
-cite the verified current paths; historical reads rebuild those exact signed
-paths and use referenced group membership. The API retains the dependencies
-of retained document and blob headers for fresh-device verification.
-All signed timestamps use the exact UTC `Date.toISOString()` representation.
+manifest hashes in the complete
+[authorizing container paths](./glossary.md#authorizing-container-path).
+Submission must cite the verified current paths; historical reads rebuild those
+exact signed paths and use referenced group membership. The API retains the
+dependencies of retained document and blob headers for fresh-device
+verification. All signed timestamps use the exact UTC `Date.toISOString()`
+representation.
 
 The API treats route JSON as untrusted input until the shared verifiers produce
 branded verified values. The app applies the same discipline before persisting
-writer projections, accepting response key material, or decrypting content.
+[writer projections](./glossary.md#writer-projection), accepting response key
+material, or decrypting content.
 
 ## Identity And Session Handshake
 
-Registration is a bootstrap protocol, not only an account create call.
-`POST /auth/register` submits:
+Registration is a
+[bootstrap protocol](./container-dek-onboarding.md#registration-flow), not only
+an account create call. `POST /auth/register` submits:
 
 - `userId`, `organizationId`, and `rootContainerId`
 - signing and encapsulation public keys, each as canonical padded base64 of
   its fixed-length bytes
-- the initial reserved `Admins` group policy and direct member envelope
-- the initial reserved `Members` group policy, holding the registering user
-- the initial signed organization policy state and direct member envelope
-- signed create requests for the root container, its metadata document, and the
-  organization metadata container
+- the initial reserved [`Admins` group](./glossary.md#organization-admins-group)
+  policy and direct [member envelope](./glossary.md#member-envelope)
+- the initial reserved
+  [`Members` group](./glossary.md#organization-members-group) policy, holding
+  the registering user
+- the initial signed [organization](./glossary.md#organization) policy state and
+  direct member envelope
+- signed create requests for the [root container](./glossary.md#root-container),
+  its metadata document, and the organization metadata container
 - optional create requests for the organization profile document, the
   roster-profile container and document, and initial system containers
 
@@ -205,21 +224,22 @@ by hash as described under container mutation conflicts below. The client checks
 every one against the request it signed before pinning it as a local
 verification checkpoint. The acknowledged heads of the roster and organization
 profile documents also seed discovery evidence, and the founding policy heads
-seed verified recovery progress, so the device fetches neither those documents'
-writer projections nor the founding groups' history. Creating an additional
-organization follows the same rule.
+seed verified [recovery progress](./developer/principal-history-recovery.md), so
+the device fetches neither those documents' writer projections nor the founding
+groups' history. Creating an additional organization follows the same rule.
 
 `organizations.adminGroupId` is the reserved org-admin authority. Reachability
 through it grants org-admin behavior. `organizations.memberGroupId` is the
-reserved org-membership authority. Reachability through it drives active roster
-state; disabled roster rows can remain visible without access. The organization
-principal policy remains signed principal state, but it is not the product role
-source for org-manager.
+reserved [org-membership](./organization-memberships.md) authority. Reachability
+through it drives active roster state; disabled
+[roster rows](./glossary.md#organization-roster-entry) can remain visible
+without access. The organization principal policy remains signed principal
+state, but it is not the product role source for org-manager.
 
-Organization read-model and data-usage denials use
-`organization_presentation_access_denied` on both the existing `403` access
-denial and `404` missing-organization responses. The code gives clients exact
-authority to hide and purge that requester's local presentation projection
+[Organization read-model](./organization-read-model-sync.md) and data-usage
+denials use `organization_presentation_access_denied` on both the existing `403`
+access denial and `404` missing-organization responses. The code gives clients
+exact authority to hide and purge that requester's local presentation projection
 without matching diagnostic text. An uncoded, malformed, or unknown failure is
 ambiguous: clients report it and retain last-known-good data.
 
@@ -235,9 +255,10 @@ Authentication uses challenge signing:
 1. `POST /auth/challenge` stores a short-lived challenge for a registered
    signing-key fingerprint.
 2. `POST /auth/verify` verifies the signature (canonical padded base64 of the
-   ML-DSA-87 signature bytes) over the challenge and this API's origin, then
-   issues a session token and its first single-use, sixty-second
-   websocket ticket; later connects mint one with `POST /auth/ws-ticket`.
+   [ML-DSA-87](./cipher-suites.md#ml-dsa-87-signatures) signature bytes) over
+   the challenge and this API's origin, then issues a session token and its
+   first single-use, sixty-second websocket ticket; later connects mint one with
+   `POST /auth/ws-ticket`.
 3. `GET /auth/sessions`, `DELETE /auth/sessions/:sessionId`, and
    `POST /auth/logout` manage authenticated session tokens.
 4. Authenticated mutation routes require the session user and fingerprint to
@@ -265,22 +286,23 @@ Group creation uses the same rule: `POST /organizations/:organizationId/groups`
 stores the group row, initial group policy, and matching organization-policy
 successor in one transaction, or stores none of them.
 
-A state commits the principal identity, version and predecessor, key epoch and
-encapsulation key, membership/projection/envelope roots, payload hash, member
-count, signer identity, and timestamp. The API verifies those commitments,
-signature, chain, and admin-signer rule before atomically storing the state,
-payload, projection, and exact envelope set. Initial signers are admins in the
-new projection; successor signers are admins in the prior projection or, for
-org-scoped updates, independently proven members of the reserved `Admins`
-group. Clients verify the complete bundle again before caching or key use.
+A state commits the [principal](./glossary.md#principal) identity, version and
+predecessor, key epoch and encapsulation key, membership/projection/envelope
+roots, payload hash, member count, signer identity, and timestamp. The API
+verifies those commitments, signature, chain, and admin-signer rule before
+atomically storing the state, payload, projection, and exact envelope set.
+Initial signers are admins in the new projection; successor signers are admins
+in the prior projection or, for org-scoped updates, independently proven members
+of the reserved `Admins` group. Clients verify the complete bundle again before
+caching or key use.
 
-Public keys and envelope fields use canonical base64 and exact ML-KEM-1024
-sizes: 1568-byte public keys/ciphertexts and a 3184-byte wrapped secret plus
-AES-GCM tag. Envelopes cover the direct projection one-to-one and bind each
-member id, recipient fingerprint, KEM ciphertext, and wrapped key. The root
-does not commit active state; separate policy validation binds the principal
-and key epoch. Principal-state signing and hashing use the domain
-`tearleads.principal-state`.
+Public keys and envelope fields use canonical base64 and exact
+[ML-KEM-1024](./cipher-suites.md#ml-kem-1024-key-encapsulation) sizes: 1568-byte
+public keys/ciphertexts and a 3184-byte wrapped secret plus AES-GCM tag.
+Envelopes cover the direct projection one-to-one and bind each member id,
+recipient fingerprint, KEM ciphertext, and wrapped key. The root does not commit
+active state; separate policy validation binds the principal and key epoch.
+Principal-state signing and hashing use the domain `tearleads.principal-state`.
 
 `memberEnvelopesRoot` is mandatory; a state missing it, required policy
 material, or envelope material fails closed.
@@ -296,21 +318,23 @@ from its own verified history and re-reads unconditionally on any other reply.
 
 ## Container Access And KEK Protocol
 
-Container create bodies and manifest structural state carry a required nullable
-`systemSlot`. A non-null slot is signed, immutable, and allowed only on a root
-child created by a root administrator. Composite create requests must repeat
-the exact signed value. Normal children may still be created by writers.
+[Container](./glossary.md#container) create bodies and manifest structural state
+carry a required nullable `systemSlot`. A non-null slot is signed, immutable,
+and allowed only on a root child created by a root administrator. Composite
+create requests must repeat the exact signed value. Normal children may still be
+created by writers.
 
-Before adopting a listed root or system destination, the SDK verifies its
-writer projection and uses the manifest's parent edge, metadata document id,
-and slot. Pre-login content merges only into the session root id with a signed
-parentless manifest in the session organization. Login returns that root id
-(or null after purge); the login response alone does not authenticate its role.
-Shared system containers remain valid destinations. Projection GETs require
-read access; signed mutations still enforce their own write/admin authority.
-Destination classification verifies signed history without advancing write
-checkpoints. Root and system containers cannot move, so their roles and parent
-identity remain stable across later grants, recitations, and rekeys.
+Before adopting a listed root or system destination, the SDK verifies its writer
+projection and uses the manifest's parent edge, metadata document id, and slot.
+Pre-login content merges only into the session root id with a signed parentless
+manifest in the session organization. Login returns that root id (or null after
+purge); the login response alone does not authenticate its role. Shared system
+containers remain valid destinations. Projection GETs require read access;
+signed mutations still enforce their own write/admin authority. Destination
+classification verifies signed history without advancing write checkpoints. Root
+and system containers cannot move, so their roles and parent identity remain
+stable across later [grants](./glossary.md#grant), recitations, and
+[rekeys](./glossary.md#rekey).
 
 Signed container mutation routes are:
 
@@ -343,11 +367,13 @@ Each signed mutation request carries:
   heads of the principal policies the mutation was planned against, at most
   4,096 (`MAX_CONTAINER_PRINCIPAL_POLICY_REFS`), never the policies themselves
 - a container key epoch
-- a required nullable predecessor bridge (`null` for creates and same-epoch
-  mutations; populated for every KEK rotation)
-- a required nullable sealed keyring (`null` for creates and same-epoch
-  mutations; for every rotation, the complete predecessor key history sealed
-  under the new KEK, with its hash committed in the signed event body)
+- a required nullable
+  [predecessor bridge](./glossary.md#container-kek-predecessor-bridge) (`null`
+  for creates and same-epoch mutations; populated for every KEK rotation)
+- a required nullable [sealed keyring](./glossary.md#container-kek-keyring)
+  (`null` for creates and same-epoch mutations; for every rotation, the complete
+  predecessor key history sealed under the new KEK, with its hash committed in
+  the signed event body)
 - KEK wraps for derived recipient targets
 - `parentKekRef`: `{containerId, containerKeyEpochId, keyEpochHash}`, citing
   the parent's current KEK epoch for a child container (never the parent's
@@ -371,9 +397,10 @@ manifest and every path element must also be the container's current head, and
 the signed event's `dependencyManifestHashes` must equal the cited hashes, so a
 stale or uncited head is refused. Only the new manifest the mutation commits
 travels in full; a recitation cites its previous head and current path the same
-way. Container KEK wraps target direct users, managed principals, or the parent
-container KEK. A child container can inherit access through parent KEK edges
-without rewriting every descendant object when an ancestor grant changes.
+way. Container KEK wraps target direct users,
+[managed principals](./glossary.md#managed-principal), or the parent container
+KEK. A child container can inherit access through parent KEK edges without
+rewriting every descendant object when an ancestor grant changes.
 
 For a rotation, the API also verifies that the bridge connects the stored
 current epoch to exactly the proposed next epoch, that the keyring is sealed to
@@ -421,14 +448,15 @@ manifest citations equal the stub's; otherwise it refetches once with no hints.
 Hints grant nothing: the projection is authorized, and the rebuilt projection
 validated and verified, exactly as without them.
 
-The client cites from its verified-bundle cache, never across organizations:
-the latest verified KEK level of each container on the target's lineage,
-then those objects' bundles, then its organization's most recently verified
-bundles. Lineage follows stored container parents. A container the device has
-not stored yet, such as a folder a hydration pass prefetches from a listing,
-takes its listed parent's lineage, and the listing's organization is one more
-source that must agree; a wrong listing only changes which held bytes are
-cited.
+The client cites from its
+[verified-bundle cache](./projection-policy-evidence.md#cost-and-retained-history-tradeoff),
+never across organizations: the latest verified KEK level of each container on
+the target's lineage, then those objects' bundles, then its organization's most
+recently verified bundles. Lineage follows stored container parents. A container
+the device has not stored yet, such as a folder a hydration pass prefetches from
+a listing, takes its listed parent's lineage, and the listing's organization is
+one more source that must agree; a wrong listing only changes which held bytes
+are cited.
 
 Principal rotations and membership mutations rematerialize every retained
 group container grant in the same transaction as the new principal state. The
@@ -610,7 +638,7 @@ Binding uses:
 - `authorizingContainerPathRefs` citing stored container manifests; the API
   resolves the document manifest from its own store
 - optional `containerRekeys[]`
-- blob content-key bundle
+- [blob content-key bundle](./glossary.md#blob-content-key-bundle)
 - optional `stagedBlob` with `stageId` and signed blob write header
 - optional `documentSync`: the document's deferred first update, held to the
   same shape as a create's `initialSync` seed (one outgoing update from an
@@ -632,8 +660,8 @@ For bind, the API verifies:
 - submitted blob content-key targets and their hash match only the new binding's
   current derived KEK targets; any other binding in the submission is refused
 - staged blob write header matches blob id, blob access manifest hash,
-  content-key epoch, target hash, `ciphertextHash` matching the staged
-  SHA-256, and writer identity
+  content-key epoch, [target hash](./glossary.md#target-hash), `ciphertextHash`
+  matching the staged SHA-256, and writer identity
 
 After verification, the API promotes staged bytes when supplied, detaches the
 previous active slot binding if present, stores the new binding, persists blob
@@ -645,22 +673,23 @@ document plus linked containers for sync discovery.
 When the request carries `documentSync`, the API then commits it in the same
 transaction, after the binding row, under every check a standalone sync makes
 (write header, target and link-set expectations, billing, minimum commit
-position). The bind writes no link-set manifest, so the update's
+position). The bind writes no
+[link-set manifest](./glossary.md#document-link-set-manifest), so the update's
 `expectedLinkSetManifestHash` is checked against the head the bind locked. A
 `documentSync` the sync route would refuse fails the whole bind. To keep the
 global container head -> document head -> blob row lock order, a bind carrying
-`documentSync` locks the document head `FOR UPDATE` (instead of `FOR SHARE`)
-and the update's authorizing container heads before any blob row, and the
-update's write refuses with `409` rather than lock a head the bind did not
-already hold. The response's `documentSync` names the accepted update ids, the
-commit position read after commit, and its mode, as a create's `initialSync`
-does; the bind's realtime hint names the update ids. Explorer import sends the
-document's held-back first update this way when its create and its only
-attachment's bind run in one pass. The client settles its queued row only when
-the acknowledgement names it; a bind refused with `400`, `403`, `404`, or `409`
-is sent once more without `documentSync`, and the row then syncs on its own. A
-lost response leaves the row queued; binding adoption by slot and update-id
-recovery are unchanged.
+`documentSync` locks the document head `FOR UPDATE` (instead of `FOR SHARE`) and
+the update's authorizing container heads before any blob row, and the update's
+write refuses with `409` rather than lock a head the bind did not already hold.
+The response's `documentSync` names the accepted update ids, the commit position
+read after commit, and its mode, as a create's `initialSync` does; the bind's
+[realtime hint](./developer/realtime-hints.md) names the update ids. Explorer
+import sends the document's held-back first update this way when its create and
+its only attachment's bind run in one pass. The client settles its queued row
+only when the acknowledgement names it; a bind refused with `400`, `403`, `404`,
+or `409` is sent once more without `documentSync`, and the row then syncs on its
+own. A lost response leaves the row queued; binding adoption by slot and
+update-id recovery are unchanged.
 
 Detach uses:
 
@@ -707,7 +736,8 @@ object-store URL, or `kind: "api"` when the store cannot sign. The `/bytes`
 route streams committed encrypted bytes as `application/octet-stream` with blob
 id, byte length, and SHA-256 digest headers. The app combines the attachment
 listing's blob content-key bundle with verified document/container access
-material to unwrap the blob content key and decrypt the committed bytes.
+material to unwrap the blob [content key](./glossary.md#content-key) and decrypt
+the committed bytes.
 
 The stored blob wrap set and current access-target projection are distinct.
 Container rotation does not rotate immutable blob ciphertext: a cold reader may
@@ -740,9 +770,9 @@ stores the terminal event, and then removes the document's mutable row, content
 keys, encrypted updates, attachments, and live-head pointer. It retains the
 signed document manifest chain and the exact signed authorization path plus its
 verification dependencies so a device authorized through that purge-time path
-can retrieve the proof from `GET /documents/:documentId/purge` after the live
-document is gone. A user whose only access came through a path unlinked before
-the purge cannot retrieve it.
+can retrieve the [proof](./document-purge-verification.md) from
+`GET /documents/:documentId/purge` after the live document is gone. A user whose
+only access came through a path unlinked before the purge cannot retrieve it.
 
 The proof carries redacted principal-policy snapshots for every group head its
 container evidence references. Each snapshot retains the signed public state
@@ -821,5 +851,6 @@ The protocol is fail-closed:
 - unavailable policy, key, blob, or document material is an availability
   failure, not permission to bypass verification
 
-Projection tables are indexes and caches for list and lookup performance, not
-authority for encryption targets or access proofs.
+[Projection tables](./glossary.md#projection-row) are indexes and caches for
+list and lookup performance, not authority for encryption targets or access
+proofs.

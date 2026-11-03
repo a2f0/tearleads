@@ -1,27 +1,30 @@
 # Principal policy commit outcomes
 
-A client may lose an HTTP response after a standalone organization policy, a
-compound group-and-organization policy request, or group creation/deletion
-commits. Retrying the exact request returns its original acknowledgement even
-after later policy versions commit. A durable receipt, written in the same
-transaction as the policies, binds the entire canonical request, authenticated
-requester, organization, and target group when applicable. Separate hash domains
-distinguish standalone, compound, creation and deletion requests. Existing
-mutation locks serialize concurrent exact retries. A replay does not change
-current heads or publish another access or sharing notification.
+A client may lose an HTTP response after a standalone
+[organization policy](../glossary.md#principal-policy-state), a compound
+group-and-organization policy request, or group creation/deletion commits.
+Retrying the exact request returns its original acknowledgement even after later
+policy versions commit. A durable receipt, written in the same transaction as
+the policies, binds the entire canonical request, authenticated requester,
+[organization](../glossary.md#organization), and target group when applicable.
+Separate hash domains distinguish standalone, compound, creation and deletion
+requests. Existing mutation locks serialize concurrent exact retries. A replay
+does not change current heads or publish another access or sharing notification.
 These receipts report historical outcomes; they do not establish current
 authority or authorize a newly constructed request. The authenticated requester
-must still be a current organization administrator to read a receipt; a revoked
-requester receives 403, not a claim that the commit rolled back. Reading an
-existing acknowledgement neither requires current sync entitlement nor reruns
-roster billing checks. Invalid stored receipts fail closed. Compound container
-results still require their original acknowledgement rows, so purging an
-organization cannot leave a response in an embedded copy. Group deletion removes
-that group's compound and creation receipts. Deletion receipts keep a null
-database group ID so removing the group cannot delete the acknowledgement; the
-hash still binds its exact target. Organization purge removes these receipts
-together with standalone receipts. A null database group ID therefore does not
-identify the operation domain.
+must still be a current
+[organization administrator](../glossary.md#organization-admins-group) to read a
+receipt; a revoked requester receives 403, not a claim that the commit rolled
+back. Reading an existing acknowledgement neither requires current sync
+entitlement nor reruns roster billing checks. Invalid stored receipts
+[fail closed](../glossary.md#fail-closed). Compound container results still
+require their original acknowledgement rows, so purging an organization cannot
+leave a response in an embedded copy. Group deletion removes that group's
+compound and creation receipts. Deletion receipts keep a null database group ID
+so removing the group cannot delete the acknowledgement; the hash still binds
+its exact target. Organization purge removes these receipts together with
+standalone receipts. A null database group ID therefore does not identify the
+operation domain.
 
 Clients must preserve the authored request while its outcome is unknown.
 The SDK's principal policy journal does this for all four operation kinds. See
@@ -32,25 +35,29 @@ Receipts survive until their group or organization is deleted. Expiring them on
 a time limit would make an old unknown outcome indistinguishable from a failed
 commit. Each receipt stores only one or two exact public state references.
 Replay loads the immutable state and its public artifacts and reconstructs
-retired member envelopes from the authenticated, hash-matched original request.
-The receipt keeps no payload, envelope, projection, grant or container-result
-copy, so rotation can remove superseded envelope rows without losing the
-original acknowledgement. Reference substitution or missing immutable state
-fails closed. Reconstructed signature bytes, ciphertext, projection and grants
-must match the receipt-authenticated original request; the state hash alone
-cannot authenticate signature bytes. Altered retired artifacts cannot return a
-successful receipt. Storage still grows by a fixed-size record per accepted
-commit.
+retired [member envelopes](../glossary.md#member-envelope) from the
+authenticated, hash-matched original request. The receipt keeps no payload,
+envelope, projection, [grant](../glossary.md#grant) or container-result copy, so
+[rotation](../glossary.md#rotate) can remove superseded envelope rows without
+losing the original acknowledgement. Reference substitution or missing immutable
+state fails closed. Reconstructed signature bytes, ciphertext, projection and
+grants must match the receipt-authenticated original request; the state hash
+alone cannot authenticate signature bytes. Altered retired artifacts cannot
+return a successful receipt. Storage still grows by a fixed-size record per
+accepted commit.
 
 ## Group creation and deletion transport
 
-Creation and deletion use the bounded history transaction runner. A validated 202
-or coded 503 with `committed:false` is emitted only after rollback, including any
-new group, deletion, directory successor, read-model change and receipt. The API
-client retries only validated preparation continuations with the original request
-bytes and identity. Its `createOrganizationGroupResult` and
-`deleteOrganizationGroupResult` methods preserve unknown outcomes and accept
-cancellation options; the nullable methods delegate to those results.
+Creation and deletion use the bounded history transaction runner. A validated
+202 or coded 503 with `committed:false` is emitted only after rollback,
+including any new group, deletion, directory successor,
+[read-model](../organization-read-model-sync.md) change and receipt. The API
+client retries only validated
+[preparation continuations](../principal-history-transport.md#preparation-continuations)
+with the original request bytes and identity. Its
+`createOrganizationGroupResult` and `deleteOrganizationGroupResult` methods
+preserve unknown outcomes and accept cancellation options; the nullable methods
+delegate to those results.
 
 Creation receipts reconstruct the original group summary and directory outcome,
 even after later policies advance. Deletion receipts reconstruct the original
@@ -65,8 +72,9 @@ The `Tearleads` runtime saves the complete JSON request before submitting a
 compound policy, standalone organization policy, group creation or group
 deletion mutation. A separate signature by the local actor authenticates the
 whole wire body, including ciphertext and envelopes outside individual state
-signatures. Its domain binds the API identity trust domain, organization, actor
-and signing fingerprint. The local SQLite executor owns the journal; a captured
+signatures. Its domain binds the API
+[identity trust domain](trusted-user-identity.md), organization, actor and
+signing fingerprint. The local SQLite executor owns the journal; a captured
 database/session generation guards every write and dispatch. It requires the
 same signing identity after restart and does not rely on the ephemeral
 history-cache key. Sealing verifies the new journal signature against the
@@ -160,16 +168,17 @@ any caller cancellation signal. Set
 The value must be a positive integer at most 2,147,483,647 milliseconds. It
 covers the entire submission, including preparation continuations; it is not a
 claim that every healthy compound commit finishes within the default. Hosts with
-large rewraps or slow servers should configure their own budget. A fresh client
-with a longer deadline can retry the exact saved request after timeout. Expiry
-preserves uncertain work and releases the local lane so inspection and actions
-can proceed. All four operation kinds share the same lane and require an
-explicit signed operation kind: `compound`, `organization`, `group-create`, or
-`group-delete`. Standalone organization rows have no group target. Missing or
-unsupported kinds are rejected. Recovery dispatches only that authenticated
-route and checks the matching receipt before removing the journal row. Group
-creation also checks the exact authored genesis against the returned summary;
-deletion checks both organization and deleted group IDs.
+large [rewraps](../glossary.md#rewrap) or slow servers should configure their
+own budget. A fresh client with a longer deadline can retry the exact saved
+request after timeout. Expiry preserves uncertain work and releases the local
+lane so inspection and actions can proceed. All four operation kinds share the
+same lane and require an explicit signed operation kind: `compound`,
+`organization`, `group-create`, or `group-delete`. Standalone organization rows
+have no group target. Missing or unsupported kinds are rejected. Recovery
+dispatches only that authenticated route and checks the matching receipt before
+removing the journal row. Group creation also checks the exact authored genesis
+against the returned summary; deletion checks both organization and deleted
+group IDs.
 
 Real HTTP tests with SQLite and PostgreSQL withhold a committed response,
 advance the policy from another client, and recover the first receipt without a

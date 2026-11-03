@@ -12,7 +12,8 @@ Production uses `tearleads.com`, `app.tearleads.com`, `demo.tearleads.com`, and
 `api.tearleads.com`. Staging uses `website-staging.tearleads.com`,
 `app-staging.tearleads.com`, `demo-staging.tearleads.com`, and
 `api-staging.tearleads.com`. The demo hosts serve the two-pane demo variant of
-the same bundle. Realtime events share each tier's API hostname at `/events`.
+the same bundle. [Realtime events](realtime-hints.md) share each tier's API
+hostname at `/events`.
 
 Production web hosts are indexable, and the demo hosts' shell names the app root
 as its canonical URL. Staging web hosts name no canonical URL and send
@@ -103,7 +104,9 @@ Each tier is four Cloudflare Workers plus independent Terraform stacks:
 - [`packages/api`](../../packages/api/) deploys `tearleads-platform-api-<tier>`:
   the Hono API, two SQLite Durable Objects (`KeyValueStore`, which holds
   sessions and tickets, and `RealtimeHub`, which owns every WebSocket), and the
-  Cron Triggers that run blob garbage collection hourly and billing maintenance
+  Cron Triggers that run
+  [blob garbage collection](../attachment-retention.md#operations) hourly and
+  [billing maintenance](revenuecat-billing.md#billing-maintenance-worker)
   every minute. A placement hint keeps it near PlanetScale Postgres in
   `us-east-1`, because registration performs many sequential database queries
   inside one transaction and cross-region round trips exceed Cloudflare's
@@ -170,8 +173,9 @@ stack wrappers refuse a production `destroy`; the teardown applies saved destroy
 plans.
 
 The deployed API allows browser requests from every origin (`API_CORS_ORIGINS=*`)
-for SDK hosts, with explicit bearer-token and protocol headers and no cookie
-credentials. Stripe checkout and portal return URLs use the independent
+for [SDK hosts](sdk-hosting.md), with explicit bearer-token and protocol headers
+and no cookie credentials. [Stripe checkout](stripe-checkout-client.md) and
+portal return URLs use the independent
 `API_BILLING_RETURN_ORIGINS` allowlist. Deployments derive it from the tier's app
 and demo hosts plus native loopback origins; a tier setting replaces that list.
 Wildcards are rejected for billing. Local servers default to unrestricted CORS
@@ -180,7 +184,8 @@ and no billing return origins; configure the billing list to use hosted checkout
 The Worker connects through its `HYPERDRIVE` binding. The Postgres stack
 configures Hyperdrive with the runtime login, PlanetScale's pooled port 6432,
 TLS with WebPKI certificate validation, and query caching disabled. Fresh reads
-are required for sync cursors, access epochs, and session revocation. The
+are required for sync cursors, [access epochs](../glossary.md#access-epoch), and
+session revocation. The
 Cloudflare deployment token needs Hyperdrive Edit.
 
 The API deploy reads `hyperdrive_id` from Terraform and fills the selected
@@ -192,22 +197,23 @@ deploy host receives the migration login, which connects directly on port 5432.
 Run the tier deployment scripts to resolve the binding; a bare `wrangler deploy`
 has no configuration ID.
 
-`POSTGRES_REQUEST_SCOPED` gives each request its own pool of up to four
-connections (`POSTGRES_POOL_MAX`): Workers cannot share sockets across
-requests, even through Hyperdrive. The pool closes when the request finishes;
-Hyperdrive retains the origin connections. Transient acquisition failures retry
-once before any SQL runs; an exhausted connection or checkout timeout returns
-HTTP 503. The pool never retries queries or transaction callbacks after
-acquisition. Sentry records the acquisition stage, attempt count, and bounded
-pool counters; see [API diagnostics](api-sentry.md). The 30 s idle timeout
-allows reuse during a long request. `POSTGRES_COALESCE_WRITES` gathers each
-query's protocol messages into one socket write. `POSTGRES_POOL_MAX_USES=1`
-applies only to work outside an event scope, whose sockets must not survive a
-checkout. The realtime hub also scopes its HTTP, RPC, WebSocket, and alarm
-events, closing their pools before it can hibernate. See
-[realtime hub hibernation](realtime-hints.md#cloudflare-hub-hibernation).
-The `local` Wrangler environment keeps the direct
-Postgres transport for workerd tests. Deployed environments require Hyperdrive.
+`POSTGRES_REQUEST_SCOPED` gives each request its own
+[pool](../limits.md#database-connections) of up to four connections
+(`POSTGRES_POOL_MAX`): Workers cannot share sockets across requests, even
+through Hyperdrive. The pool closes when the request finishes; Hyperdrive
+retains the origin connections. Transient acquisition failures retry once before
+any SQL runs; an exhausted connection or checkout timeout returns HTTP 503. The
+pool never retries queries or transaction callbacks after acquisition. Sentry
+records the acquisition stage, attempt count, and bounded pool counters; see
+[API diagnostics](api-sentry.md). The 30 s idle timeout allows reuse during a
+long request. `POSTGRES_COALESCE_WRITES` gathers each query's protocol messages
+into one socket write. `POSTGRES_POOL_MAX_USES=1` applies only to work outside
+an event scope, whose sockets must not survive a checkout. The realtime hub also
+scopes its HTTP, RPC, WebSocket, and alarm events, closing their pools before it
+can hibernate. See
+[realtime hub hibernation](realtime-hints.md#cloudflare-hub-hibernation). The
+`local` Wrangler environment keeps the direct Postgres transport for workerd
+tests. Deployed environments require Hyperdrive.
 
 Keep the `aws:us-east-1` placement hint until measurements from multiple client
 regions justify Smart Placement. Hyperdrive removes connection setup costs, but

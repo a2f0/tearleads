@@ -182,22 +182,25 @@ while retaining hostname and TLS checks. Record that workaround and repeat the
 normal-resolver check after caches recover; do not alter unrelated DNS settings.
 
 With isolated fresh profiles and disposable identities in the reset's authorized
-test scope, verify registration/login, creation of a container and document,
-encrypted blob upload/download, synchronization to a second fresh client, and
-persistence after reopening. Use the current public app/SDK flows; do not insert
-rows directly or weaken signed-artifact validation. Clean up only the test data
-created by this run through supported deletion, and report any residue. If live
-account creation is outside the selected scope, report that functional check as
-not performed; HTTP checks alone are not an end-to-end sync test.
+test scope, verify registration/login, creation of a
+[container](../glossary.md#container) and [document](../glossary.md#document),
+encrypted [blob](../glossary.md#blob) upload/download, synchronization to a
+second fresh client, and persistence after reopening. Use the current public
+app/SDK flows; do not insert rows directly or weaken signed-artifact validation.
+Clean up only the test data created by this run through supported deletion, and
+report any residue. If live account creation is outside the selected scope,
+report that functional check as not performed; HTTP checks alone are not an
+end-to-end sync test.
 
 The current fresh web profile registers automatically. For recovery into the
 second profile, wait for the explicit recovery-complete state before navigating
 away. Wait for the note and blob to arrive before downloading. For cleanup, move
-the test folder to Trash and use Delete Forever; wait for purge completion before
-closing its progress dialog. Account identities and system metadata may remain
-when the app has no account-deletion flow. Purged blobs also remain until the
-normal GC grace period expires; report both residues without shortening retention
-or deleting objects directly.
+the test folder to Trash and use Delete Forever; wait for purge completion
+before closing its progress dialog. Account identities and system metadata may
+remain when the app has no account-deletion flow. Purged blobs also remain until
+the normal [GC grace period](../attachment-retention.md#retention-model)
+expires; report both residues without shortening retention or deleting objects
+directly.
 
 Verify old server sessions are refused where a safely held test token permits,
 and that production and staging point to different databases/blob buckets and

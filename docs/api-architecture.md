@@ -13,9 +13,9 @@ For shared protocol terminology, see [glossary.md](./glossary.md).
 
 The protocol has three main planes:
 
-1. document plane
-2. attachment plane
-3. access plane
+1. [document plane](./glossary.md#document-plane)
+2. [attachment plane](./glossary.md#attachment-plane)
+3. [access plane](./glossary.md#access-plane)
 
 These are described in [loro-e2ee-sync-protocol.md](./loro-e2ee-sync-protocol.md).
 The cross-package handshake and proof contract is specified in
@@ -24,7 +24,8 @@ The cross-package handshake and proof contract is specified in
 A single use case can touch more than one plane. For example:
 
 - `shareContainer` is mostly access-plane work
-- `createContainer` touches access plane and metadata-document setup
+- `createContainer` touches [access plane](./access-plane.md) and
+  metadata-document setup
 - signed document/blob mutations span document, attachment, and access
  planes
 
@@ -102,23 +103,25 @@ Read surfaces:
 | List organization group members | `GET /organizations/:organizationId/groups/:groupId/members` |
 | Reconcile the organization read model | `GET /organizations/:organizationId/read-model` |
 
-The organization directory and group list have no routes of their own; clients
-read them from the organization read-model feed.
+The [organization](./glossary.md#organization) directory and group list have no
+routes of their own; clients read them from the
+[organization read-model feed](./organization-read-model-sync.md).
 
-The document sync request names protocol fields:
-`contentKeyEpoch`, `expectedLinkSetManifestHash`, `expectedTargetHash`,
+The [document sync request](./document-link-and-sync-protocol.md) names protocol
+fields: `contentKeyEpoch`, `expectedLinkSetManifestHash`, `expectedTargetHash`,
 optional `contentKeyBundle`, optional `containerRekeys`, `inlineRekeyCommitId`
 exactly when that rekey array is non-empty, optional
 `authorizingContainerPathRefs`, `localVersionVector`, optional `minLsn`,
 required `supportsPullPagination: true`, optional `pullCursor`, optional
 `historyMode: "raw"`, and `outgoingUpdates[]` with a per-update `writeHeader`.
 Cursor continuations and raw-history pulls are read-only. The path references
-identify signed container manifests already held by the API; the expected
-link-set hash pins the server-resolved document manifest.
-Responses return `documentId`, `acceptedOutgoingUpdateIds`, `commitLsn`,
-`commitLsnMode`, the current-epoch `contentKeyBundle`, the `contentKeyBundles`
-array of older epochs that served updates cite (empty for an empty probe or a
-page at the current epoch; never a repeat of `contentKeyBundle`),
+identify signed [container manifests](./glossary.md#access-manifest) already
+held by the API; the expected link-set hash pins the server-resolved
+[document manifest](./glossary.md#document-link-set-manifest). Responses return
+`documentId`, `acceptedOutgoingUpdateIds`, `commitLsn`, `commitLsnMode`, the
+current-epoch `contentKeyBundle`, the `contentKeyBundles` array of older
+[epochs](./glossary.md#epoch) that served updates cite (empty for an empty probe
+or a page at the current epoch; never a repeat of `contentKeyBundle`),
 `documentKekTargets`, `pullPage: {hasMore, nextCursor}`, and encrypted
 `updates[]`.
 
@@ -164,7 +167,8 @@ For service-backed routes, this layer:
 - loads auth/session context
 - calls a service
 - converts service results and errors into HTTP responses
-- publishes best-effort realtime hints after successful document mutations
+- publishes best-effort [realtime hints](./developer/realtime-hints.md) after
+  successful document mutations
 
 Document routes own that last step: `respondWithDocumentCreate` in
 `routes/documents/mutations.ts` calls `publishDocumentUpdateCreatedEvent` after
@@ -208,9 +212,13 @@ production layer that imports `access/read` and `access/write`. See
 
 Reusable logic more specific than generic infrastructure but below a use case:
 
-- `packages/api/src/access/**`: signed manifests, KEK state, content-key
-  bundles, attachment bindings, and principal state and member-envelope stores
-  (see [the access layout](../packages/api/src/access/README.md))
+- `packages/api/src/access/**`: signed manifests,
+  [KEK state](./glossary.md#container-kek),
+  [content-key bundles](./glossary.md#content-key-bundle),
+  [attachment bindings](./glossary.md#attachment-binding), and
+  [principal state](./glossary.md#principal-policy-state) and
+  [member-envelope](./glossary.md#member-envelope) stores (see
+  [the access layout](../packages/api/src/access/README.md))
 - `packages/api/src/documents/**`: document update storage, sync baselines,
   and edit attribution
 
@@ -261,13 +269,13 @@ service module, not only in a route body.
 The service layer covers these route-backed capabilities:
 
 - auth challenge, verify, register, and user-identity lookup
-- multipart blob staging, blob downloads, raw blob byte reads, attachment
-  binding, and detach mutations
-- container creation, metadata-document creation, listing, sharing, rekey,
-  movement, re-citation, deletion, KEK-log reads, replacement lineage, and
-  document listing
-- document creation, sync storage, purge, writer projection, and edit
-  attribution
+- multipart [blob staging](./glossary.md#blob-stage), blob downloads, raw blob
+  byte reads, attachment binding, and detach mutations
+- container creation, metadata-document creation, listing, sharing,
+  [rekey](./glossary.md#rekey), movement, re-citation, deletion, KEK-log reads,
+  replacement lineage, and document listing
+- document creation, sync storage, purge,
+  [writer projection](./glossary.md#writer-projection), and edit attribution
 - document attachment listing
 - document link and unlink mutations
 - principal policy reads and writes, and projection policy history
@@ -309,16 +317,17 @@ the destination organization from the verified document projection. Stages
 persist that organization, use
 `organizations/<organizationId>/blob-stages/<stageId>` keys, and can only be
 promoted into that organization. The full key is preserved in `blobs` and
-`blob_audit_objects` through physical deletion retries. Organization purge also
-expires its staged uploads and waits for their object-store cleanup.
+`blob_audit_objects` through physical deletion retries.
+[Organization purge](./developer/billing-lapse-recovery.md) also expires its
+staged uploads and waits for their object-store cleanup.
 
 Document attachment listing lives in a document service. The
 `/documents/:documentId/attachments` route maps service errors to HTTP
 responses, while the service owns document-read authorization and active
 attachment binding lookup through the injected runtime database. It also loads
-the latest blob content-key bundle for each active blob from the blob
-content-key store, so callers do not rely on encrypted blob bytes to carry key
-material.
+the latest [blob content-key bundle](./glossary.md#blob-content-key-bundle) for
+each active blob from the blob content-key store, so callers do not rely on
+encrypted blob bytes to carry key material.
 
 Blob reads live in blob services. The `/blobs/:blobId/download`
 JSON route and the `/blobs/:blobId/bytes` octet-stream route map service errors
@@ -333,10 +342,11 @@ Document creation and sync writes are signed mutation services. The document
 route validates request shape and maps service errors to HTTP responses. The
 `services/documents/documentMutations` facade delegates to
 `workflows/documents/mutations`, which owns transaction boundaries
-and composes manifest verification, content-key target validation, write-header
-verification, and update storage through the access layer.
-The neutral `documentUpdateStore` owns causally-missing update reads for
-sync responses.
+and composes manifest verification,
+[content-key target](./glossary.md#key-target) validation,
+[write-header](./glossary.md#signed-write-header) verification, and update
+storage through the access layer. The neutral `documentUpdateStore` owns
+causally-missing update reads for sync responses.
 
 Blob attachment mutations are signed blob services. They own server-visible
 attachment binding changes, staged blob promotion, blob key-target validation,

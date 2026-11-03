@@ -26,11 +26,13 @@ its boundary. Three negative controls remove the structural mutation guards.
 
 [`container-keying/ContainerGrantScope.tla`](./container-keying/ContainerGrantScope.tla)
 models the accepted container-grant domain. TLC checks that every reachable
-grant names either a group in the container's organization or an active direct
-user in that organization; an organization principal is never a container
+[grant](../docs/glossary.md#grant) names either a group in the container's
+organization or an active direct user in that organization; an
+[organization](../docs/glossary.md#organization) principal is never a container
 grant subject. It also models roster removal as a guarded transition: a user
 must first be unshared from every directly granted container, whose revoke is a
-container KEK rotation in the runtime and in the keyring model below.
+[container KEK](../docs/glossary.md#container-kek) rotation in the runtime and
+in the keyring model below.
 
 A grant request may name any principal, and each API refusal is a parameter
 with a registered negative control. See the
@@ -40,22 +42,23 @@ with a registered negative control. See the
 
 [`container-keying/KeyringReachability.tla`](./container-keying/KeyringReachability.tla)
 models cold recovery from persisted user/group recipient wraps, immutable
-predecessor bridges, and sealed historical keyrings. Its `Members` abstraction
-is the set of users authorized by active direct-user or same-organization group
-grants; organization principals are not recovery recipients. `Descendants`
-extend it with child containers whose key epochs pin the parent epoch current
-when they were minted: a descendant verifies against any pinned epoch the
-parent's retained history still covers, and the negative control
-`strict-parent-epoch-pin-strands-descendant` accepts only the parent's current
-epoch, under which an ancestor rotation strands the subtree. An honest rotation
-may also seal a forged entry, an invented epoch id over server-chosen material
-that passes its material check, whether rebuilt for a repair or carried in the
-served keyring. `RotationsSealOnlySignedLineage` requires that it never does.
-Each projection's server chooses whether the lineage arrives under the
+[predecessor bridges](../docs/glossary.md#container-kek-predecessor-bridge), and
+sealed historical [keyrings](../docs/glossary.md#container-kek-keyring). Its
+`Members` abstraction is the set of users authorized by active direct-user or
+same-organization group grants; organization principals are not recovery
+recipients. `Descendants` extend it with child containers whose key epochs pin
+the parent epoch current when they were minted: a descendant verifies against
+any pinned epoch the parent's retained history still covers, and the negative
+control `strict-parent-epoch-pin-strands-descendant` accepts only the parent's
+current epoch, under which an ancestor rotation strands the subtree. An honest
+rotation may also seal a forged entry, an invented epoch id over server-chosen
+material that passes its material check, whether rebuilt for a repair or carried
+in the served keyring. `RotationsSealOnlySignedLineage` requires that it never
+does. Each projection's server chooses whether the lineage arrives under the
 container's own KEK or its parent's; the control
-`kek-history-anchor-seals-relocated-forgery` confines the check to the KEK's
-own served history, and a forgery is sealed only once the server moves the
-lineage under the parent. See the
+`kek-history-anchor-seals-relocated-forgery` confines the check to the KEK's own
+served history, and a forgery is sealed only once the server moves the lineage
+under the parent. See the
 [mapping and boundaries](./container-keying/KeyringReachability.md).
 
 [`container-keying/GroupGrantRevocation.tla`](./container-keying/GroupGrantRevocation.tla)
@@ -81,12 +84,12 @@ why lifetime caps fail and citing needs held bytes and cited-only omission. Read
 and revocation predicates hold by definition; no verifier or resource bound is
 modeled. See the
 [mapping and runtime regressions](./container-keying/ManifestHistory.md).
-Principal state models cover
-[version availability](./container-keying/PrincipalHistory.md)
-and [page verification](./container-keying/PrincipalHistoryPages.md), including
+[Principal state](../docs/glossary.md#principal-policy-state) models cover
+[version availability](./container-keying/PrincipalHistory.md) and
+[page verification](./container-keying/PrincipalHistoryPages.md), including
 [authenticated resumption](./container-keying/PrincipalHistoryResume.md) and
-[recovery reuse](./container-keying/PrincipalRecoveryReuse.md) with
-conditional discovery.
+[recovery reuse](./container-keying/PrincipalRecoveryReuse.md) with conditional
+discovery.
 
 ### No Bricked Device
 
@@ -177,30 +180,34 @@ componentwise-counter oracle on every push. See the
 ### Deferred Document-Tail Settlement
 
 [`document-sync/DeferredTailSettlement.tla`](./document-sync/DeferredTailSettlement.tla)
-models the device-first outgoing-delta marker across local edits, durable
-queue writes, restarts, sync preparation, server acceptance, incoming updates,
-reset/reinitialize, relink, and deletion, and requires that persisted coverage
-never outruns accepted or durably queued work and that a stale completion can
-never publish into a replacement generation. See the
+models the [device-first](../docs/developer/device-first.md) outgoing-delta
+marker across local edits, durable queue writes, restarts, sync preparation,
+server acceptance, incoming updates, reset/reinitialize, relink, and deletion,
+and requires that persisted coverage never outruns accepted or durably queued
+work and that a stale completion can never publish into a replacement
+generation. See the
 [production mapping, explored orderings, invariants, and bounds](./document-sync/DeferredTailSettlement.md).
 
 ### Opened-Document Recovery Probes
 
-Raw-history reconstruction before key rotation is covered separately by
+[Raw-history reconstruction](../docs/raw-document-history-recovery.md) before
+key rotation is covered separately by
 [RawHistoryRecovery](./document-sync/RawHistoryRecovery.md), including install
 ownership, checkpoint retirement, waiting writers, and fair worker termination.
 
 [`document-sync/RestartProbeConvergence.tla`](./document-sync/RestartProbeConvergence.tla)
 models startup and acknowledged-reconnect probes, peer writes during the
-handshake or an in-flight pull, and signal-sequence coalescing for encrypted Loro
-body and attachment-slot state. See the
+handshake or an in-flight pull, and signal-sequence coalescing for encrypted
+Loro body and [attachment-slot](../docs/glossary.md#attachment-slot) state. See
+the
 [production mapping and model boundary](./document-sync/RestartProbeConvergence.md)
 for the action seams, fairness assumptions, and excluded blob-hydration layer.
 
 ### Epoch Advances Without a Covering Baseline
 
 [`document-sync/EmptyFrontierUnlink.tla`](./document-sync/EmptyFrontierUnlink.tla)
-models the acceptance gates for the two content-key epoch advances that carry no
+models the acceptance gates for the two
+[content-key](../docs/glossary.md#content-key) epoch advances that carry no
 rotation baseline: a document unlink submitted without one, and a link that
 advances the epoch. Both require a committed frontier proved empty under the
 document manifest-head write lock, and a covering unlink's baseline is refused
@@ -216,9 +223,9 @@ of a single-device move.
 
 ### Attachment Envelope Authority
 
-[BlobEnvelopeAuthority](./document-sync/BlobEnvelopeAuthority.md) checks that
-a binding writer preserves other active bindings’ envelopes and that fresh
-wraps use verified current container heads.
+[BlobEnvelopeAuthority](./document-sync/BlobEnvelopeAuthority.md) checks that a
+[binding](../docs/glossary.md#attachment-binding) writer preserves other active
+bindings’ envelopes and that fresh wraps use verified current container heads.
 
 ### Attachment Content Identity
 
@@ -255,8 +262,10 @@ from the verified head without a second rotation, and the lost result schedules
 that replay itself. See the [mapping](./local-trust/ContainerMoveReplay.md).
 
 [`local-trust/DurableIdentityBinding.tla`](./local-trust/DurableIdentityBinding.tla)
-checks that persistent fingerprint-to-user bindings survive session recreation
-and stay unique per trust domain, and that only link or self pins admit. See the
+checks that persistent
+[fingerprint-to-user bindings](../docs/developer/trusted-user-identity.md#pinning)
+survive session recreation and stay unique per trust domain, and that only
+[link or self pins](../docs/glossary.md#identity-pin) admit. See the
 [mapping and boundaries](./local-trust/DurableIdentityBinding.md).
 
 ### Queued Document Creation
@@ -284,9 +293,10 @@ group-chain, reference, and parent organization choices at the cache boundary.
 
 ### Verified Root and System Destinations
 
-[SystemDestination](./local-trust/SystemDestination.md) models signed destination
-roles, acknowledged roots, administrator-only slot creation, and immutable
-root/system parent edges.
+[SystemDestination](./local-trust/SystemDestination.md) models
+[signed destination roles](../docs/security-guarantees.md#root-and-system-destinations),
+acknowledged roots, administrator-only slot creation, and immutable root/system
+parent edges.
 
 [RootDocumentPriming](./local-trust/RootDocumentPriming.md) checks that documents
 deferred during root verification are scheduled after remote acknowledgement.
@@ -342,10 +352,11 @@ its deadline. See the
 
 [`realtime/OrganizationReadModelStamps.tla`](./realtime/OrganizationReadModelStamps.tla)
 checks that each source mutation stamps every lane or group it changed with the
-organization's new cursor, so a delta from any cursor reloads every changed
-entity and never skips a change. A change to Admins also stamps the directory,
-whose pending leave requests depend on the reader's role, so a new
-administrator's next delta carries them. See the
+organization's new cursor, so a
+[delta](../docs/organization-read-model-sync.md#snapshot-and-delta-contract)
+from any cursor reloads every changed entity and never skips a change. A change
+to Admins also stamps the directory, whose pending leave requests depend on the
+reader's role, so a new administrator's next delta carries them. See the
 [mapping and negative controls](./realtime/OrganizationReadModelStamps.md).
 
 ## Blob Attachments
@@ -368,8 +379,9 @@ current store's detach pass sees, before and after a restart. See the
 
 ### Stage Promotion and Server Reclamation
 
-[StagePromotion](./blob-attachments/StagePromotion.md) models staging,
-promotion, the sweep and stage cleanup across the database and object store.
+[StagePromotion](./blob-attachments/StagePromotion.md) models
+[staging](../docs/glossary.md#blob-stage), promotion, the sweep and stage
+cleanup across the database and object store.
 
 ## Backup and Restore
 

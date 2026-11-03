@@ -1,35 +1,41 @@
 # Document Rekey, Rebaselines, And Write History
 
-This document defines document rekey, fresh-baseline generation, offline merge
-handling, and how accepted document write history is authenticated.
+This document defines document [rekey](./glossary.md#rekey), fresh-baseline
+generation, offline merge handling, and how accepted document write history is
+authenticated.
 
 For shared protocol terminology, see [glossary.md](./glossary.md).
 
-It is separate from the signed group / organization policy-state design, which
-protects who should have access. This document covers how document content and
-history behave when access epochs change.
+It is separate from the signed group / organization
+[policy-state](./glossary.md#principal-policy-state) design, which protects who
+should have access. This document covers how document content and history behave
+when [access epochs](./glossary.md#access-epoch) change.
 
 ## Behavior
 
 ### Document Updates Are Epoch-Bound
 
-- each encrypted Loro update carries one `accessEpoch`
-- each encrypted Loro update is encrypted with the document DEK for that epoch
+- each encrypted [Loro update](./glossary.md#loro-update) carries one
+  `accessEpoch`
+- each encrypted Loro update is encrypted with the document
+  [DEK](./glossary.md#dek) for that epoch
 - a client only decrypts updates that match the epoch + DEK it currently
  resolved
 
 So a client does not replay arbitrary mixed-epoch document history with a
-single key. Once a document DEK rotates, subsequent updates are expected to use
-the new epoch's DEK.
+single key. Once a document DEK [rotates](./glossary.md#rotate), subsequent
+updates are expected to use the new epoch's DEK.
 
 ### Rewrap Reuses The Active DEK
 
 When a target change is additive, the client can keep using the prior
-document DEK, materialize a current-epoch content-key bundle for the expanded
-target set, and retry any local pending Loro updates under the new epoch.
+document DEK, materialize a current-epoch
+[content-key bundle](./glossary.md#content-key-bundle) for the expanded target
+set, and retry any local pending Loro updates under the new epoch.
 
-This additive-access path does not require a fresh baseline solely because the
-access epoch changed.
+This
+[additive-access path](./keying-design.md#additive-versus-subtractive-changes)
+does not require a fresh baseline solely because the access epoch changed.
 
 ### Rotate Means Fresh Baseline For Later Writes
 
@@ -46,16 +52,16 @@ Distinction:
 
 ### Blob History Is Live-Only
 
-Blob GC is based on active attachment reachability, not historical document
-replay. If a blob is no longer referenced by any active
+[Blob](./glossary.md#blob) GC is based on active attachment reachability, not
+historical document replay. If a blob is no longer referenced by any active
 `attachment_bindings`, attachment bind/detach cleanup stamps `dereferencedAt`
-and starts a grace period. A bind during that window revives the blob. After
-the grace period, GC locks and rechecks reachability before pruning the blob
-row, blob content-key epochs, blob content-key target rows, write header, and
+and starts a grace period. A bind during that window revives the blob. After the
+grace period, GC locks and rechecks reachability before pruning the blob row,
+blob content-key epochs, blob content-key target rows, write header, and
 detached binding rows. The blob registry (`blob_audit_objects`) retains durable
-physical-deletion work.
-If another active binding still references the blob, the live rows remain until
-the final active binding is deactivated.
+physical-deletion work. If another
+[active binding](./glossary.md#attachment-binding) still references the blob,
+the live rows remain until the final active binding is deactivated.
 
 Historical attachment bytes are therefore not durable. Detached bindings are
 transient replacement metadata, not an attachment history log. Document update
@@ -67,12 +73,12 @@ The attachment/blob retention policy is defined in
 ### Signed Write Headers Authenticate History
 
 Every retained document update and every attachment blob carries the writer
-device's signed write header, and clients verify it on every synced record (see
-[Write Integrity](#write-integrity)). Integrity of accepted history therefore
-does not rest on server bookkeeping. The server keeps no separate audit ledger:
-a nullable `document_updates` column only marks which retained updates are
-rotation baselines, and `blob_audit_objects` registers every blob generation an
-attachment binding referenced.
+device's [signed write header](./glossary.md#signed-write-header), and clients
+verify it on every synced record (see [Write Integrity](#write-integrity)).
+Integrity of accepted history therefore does not rest on server bookkeeping. The
+server keeps no separate audit ledger: a nullable `document_updates` column only
+marks which retained updates are rotation baselines, and `blob_audit_objects`
+registers every blob generation an attachment binding referenced.
 
 ## Rekey / Rebaseline Model
 
@@ -99,11 +105,12 @@ content for an epoch that already exists because authorization state changed.
 
 ### Baselines Carry Frontier Metadata
 
-Baseline updates can carry the source version vector / causal frontier used to
-build the proposed baseline. The writer's signed metadata hash commits to that
-frontier, and the update row repeats it so the server can find baselines
-without parsing write headers. Readers recompute the metadata hash
-from the served frontier, so a frontier altered in storage fails verification.
+Baseline updates can carry the source
+[version vector](./glossary.md#version-vector) / causal frontier used to build
+the proposed baseline. The writer's signed metadata hash commits to that
+frontier, and the update row repeats it so the server can find baselines without
+parsing write headers. Readers recompute the metadata hash from the served
+frontier, so a frontier altered in storage fails verification.
 
 The server does not turn that source frontier into a compare-and-set gate on
 accepted sync updates. A retained client that loses a rotate race adopts the
@@ -116,20 +123,21 @@ Normal sync can omit older ciphertext when an authenticated replayable baseline
 older update. The server retains every original encrypted document update;
 there is no document-payload GC or pruner.
 
-Under E2EE the server cannot open the baseline snapshot, so it cannot verify
-that its ciphertext carries the operations it claims to cover. A malicious
-authorized writer can redirect readers away from older ciphertext. Because
-version vectors describe causal shape rather than content, a rotation-capable
-writer can also sign a full-history snapshot with the same frontier but
-fabricated prior plaintext.
+Under [E2EE](./loro-e2ee-sync-protocol.md) the server cannot open the baseline
+snapshot, so it cannot verify that its ciphertext carries the operations it
+claims to cover. A malicious authorized writer can redirect readers away from
+older ciphertext. Because version vectors describe causal shape rather than
+content, a rotation-capable writer can also sign a full-history snapshot with
+the same frontier but fabricated prior plaintext.
 
 The resulting risk has these bounds:
 
 - the attack requires an authorized writer. Current access is
   history-inclusive: a writer added after rotation recovers every retained
-  container KEK through the sealed keyring, so any authorized writer can read
-  old history and could substitute content while preserving the visible
-  version-vector shape
+  [container KEK](./glossary.md#container-kek) through the
+  [sealed keyring](./glossary.md#container-kek-keyring), so any authorized
+  writer can read old history and could substitute content while preserving the
+  visible version-vector shape
 - the declaration is durable and attributable: the baseline's signed write
   header commits to its frontier through the metadata hash and names the
   writer device. Signed ciphertext hashes and a record-key-derived HMAC
@@ -194,8 +202,8 @@ operation history needed for merging, rotation, and recovery.
 
 If a client lost write access before reconnecting, later writes should be
 rejected when it comes back online — not because the edits are
-unrepresentable, but because they come from a principal that is no longer
-authorized.
+unrepresentable, but because they come from a
+[principal](./glossary.md#principal) that is no longer authorized.
 
 If desired, revoked offline edits can be preserved as local drafts or forks,
 but they should not be accepted as canonical writes after revocation.
@@ -211,10 +219,10 @@ Winning-baseline generation relies on the retained-client case. Fresh-client
 bootstrap is the supported recovery path: a pristine client unwraps the
 current container KEK from its recipient wrap, opens the sealed keyring for
 every retained historical KEK, fetches prior readable epoch bundles, unwraps
-their content keys through those historical KEKs, and rematerializes current
-state with no local copy and no other client online. Reading never depends on
-that client subsequently writing a baseline, though a full-history baseline it
-later writes serves ordinary sync optimization.
+their [content keys](./glossary.md#content-key) through those historical KEKs,
+and rematerializes current state with no local copy and no other client online.
+Reading never depends on that client subsequently writing a baseline, though a
+full-history baseline it later writes serves ordinary sync optimization.
 
 ## Write Integrity
 
@@ -222,7 +230,8 @@ Signed policy state protects authorization inputs:
 
 - signed group / organization snapshots
 - hash-chained policy-state versions
-- signed access manifests that reference those policy states
+- signed [access manifests](./glossary.md#access-manifest) that reference those
+  policy states
 
 Document content history is protected separately, by a per-device signed write
 header on every content record.
@@ -235,8 +244,8 @@ Every accepted document update stores the writer's signed write header in
 
 - the organization, object, content-key epoch, encryption suite, and content
   record id
-- the access manifest hash and key-target hash the write was authorized
-  under, plus the dependency manifest hashes it cites
+- the access manifest hash and [key-target hash](./glossary.md#target-hash) the
+  write was authorized under, plus the dependency manifest hashes it cites
 - `ciphertextHash` over the encrypted record
 - `metadataHash` over the update id, both partial version vectors, the
   record-key-derived plaintext HMAC, and, for a baseline, its checkpoint kind
@@ -248,8 +257,8 @@ it again on every synced update: it recomputes the ciphertext hash and the
 metadata hash from the served record and checks the writer's signature
 ([`packages/client-sdk/src/data/documents/shared/sync/syncResponses.ts`](../packages/client-sdk/src/data/documents/shared/sync/syncResponses.ts)).
 A tampered ciphertext, version vector, plaintext HMAC, or baseline frontier
-therefore fails closed on the client, and a tampered baseline cannot redirect a
-reader to partial state.
+therefore [fails closed](./glossary.md#fail-closed) on the client, and a
+tampered baseline cannot redirect a reader to partial state.
 
 Signatures are per device, matching how CRDT authorship behaves: several
 devices of one user author concurrently and each signs with its own key.
@@ -261,10 +270,11 @@ served every record. Tail deletion (the server dropping the newest updates) and
 a database restored from backup are not detectable by a fresh device, which has
 no earlier view to compare against. A retained device keeps its local history.
 
-Detecting either needs a transparency log whose signed tree heads clients pin.
-The server keeps no unsigned per-document hash chain: a chain the server
-computes, stores, and never serves is no stronger than the rows it covers, and a
-restored backup carries a self-consistent chain.
+Detecting either needs a
+[transparency log](./security-guarantees.md#transparency-requires-a-pinned-view-or-witnessing)
+whose signed tree heads clients pin. The server keeps no unsigned per-document
+hash chain: a chain the server computes, stores, and never serves is no stronger
+than the rows it covers, and a restored backup carries a self-consistent chain.
 
 ## Storage Decomposition
 
@@ -277,7 +287,8 @@ The persistence seams are:
 - rotation-baseline markers in `document_updates`
 - live blob reachability in `attachment_bindings`
 - the blob registry in `blob_audit_objects`
-- access-plane material in signed access manifest heads and key-target tables
+- [access-plane](./access-plane.md) material in signed access manifest heads and
+  key-target tables
 - live blob bytes in `blobs`
 
 The server retains every original encrypted document update in

@@ -1,27 +1,29 @@
 # Request budgets
 
-App tests pin the HTTP cost of each user-visible operation: a total request
-ceiling, per-endpoint ceilings, the exact number of committed mutations, and
-for the larger sharing fixtures, request and response body bytes. The tests
-drive the real application, SDK and test API, and each ceiling includes the
-background convergence that follows a successful operation.
+App tests pin the [HTTP cost](./developer/api-request-cost.md) of each
+user-visible operation: a total request ceiling, per-endpoint ceilings, the
+exact number of committed mutations, and for the larger sharing fixtures,
+request and response body bytes. The tests drive the real application, SDK and
+test API, and each ceiling includes the background convergence that follows a
+successful operation.
 
 The ceilings are healthy-network fixture budgets with a few requests of
 scheduling headroom. They are not retry limits or outage caps, and they do not
 claim that larger organizations, paginated listings, larger attachments or
-failures cost the same. Separate tests cover failure convergence and bounded
-retry.
+failures cost the same. Separate tests cover
+[failure convergence](./sync-interruption-safety.md) and bounded retry.
 
 ## Measurement
 
 `measureWorkflowRequests` ([`packages/app/test/helpers/workflowRequestBudget.ts`](../packages/app/test/helpers/workflowRequestBudget.ts))
 waits for the pane runtime to settle, runs the operation, waits until every
 expected mutation has committed with status 200, settles again, and then checks
-the budget. Local-first actions can return before their durable queue
-registers with the sync coordinator, so idle alone does not prove a mutation
-completed. A `202` principal-history preparation response is excluded from the
-count only when it validates and an identical request later commits, and only
-up to the mutation's `maxPreparations` allowance.
+the budget. [Local-first actions](./developer/device-first.md) can return before
+their durable queue registers with the sync coordinator, so idle alone does not
+prove a mutation completed. A `202`
+[principal-history preparation](./principal-history-transport.md) response is
+excluded from the count only when it validates and an identical request later
+commits, and only up to the mutation's `maxPreparations` allowance.
 
 `expectProxiedApiRequestBudget`
 ([`packages/app/test/helpers/proxiedApiRequestBudget.ts`](../packages/app/test/helpers/proxiedApiRequestBudget.ts))
@@ -79,8 +81,9 @@ unless noted.
 passes during cold bootstrap, not HTTP requests.
 
 Most policy reads in these budgets come from private metadata-root authority:
-each workflow operation reads the server-current organization policy once, and
-a head new to the device needs its first read. See
+each workflow operation reads the server-current
+[organization policy](./glossary.md#principal-policy-state) once, and a head new
+to the device needs its first read. See
 [current-policy request costs](developer/current-principal-consumers.md#request-costs)
 and [principal-history acceptance](principal-history-acceptance.md) for that
 security tradeoff.
@@ -91,12 +94,13 @@ These choices keep request counts above the minimum on purpose.
 
 ### Authoritative reconciliation
 
-Realtime events are volatile hints. Interest routes them to the right lanes but
-grants no access, and a hint can be lost. Recovery therefore comes from
-authoritative reconciliation ([`packages/client-sdk/src/sync/reconciliation/`](../packages/client-sdk/src/sync/reconciliation/)),
+Realtime events are [volatile hints](./developer/realtime-hints.md). Interest
+routes them to the right lanes but grants no access, and a hint can be lost.
+Recovery therefore comes from authoritative reconciliation
+([`packages/client-sdk/src/sync/reconciliation/`](../packages/client-sdk/src/sync/reconciliation/)),
 not from replaying a durable delta log, which would need its own replay
-authorization, atomic event durability, retention, acknowledgements and
-ordered local application.
+authorization, atomic event durability, retention, acknowledgements and ordered
+local application.
 
 - Initial hydration discovers authorized parent and document lanes. The initial
   missing-document probe reuses a completed unwatermarked discovery listing
@@ -107,8 +111,9 @@ ordered local application.
   remove a nested revoked or deleted child. Newer force generations survive
   older completions, and temporary failures keep the force with bounded
   automatic retries.
-- A reconnect drops cached writer projections, installs and acknowledges the
-  current interest set, and then runs reconciliation
+- A reconnect drops cached
+  [writer projections](./glossary.md#writer-projection), installs and
+  acknowledges the current interest set, and then runs reconciliation
   ([`packages/app/src/providers/sdk/serverEventsBinding.ts`](../packages/app/src/providers/sdk/serverEventsBinding.ts)).
   Distinct login sessions of the same identity receive each other's events, so
   session origin alone cannot suppress a sibling client's read-model refresh.
@@ -127,13 +132,14 @@ Document sync stays one bounded request per document, with independent
 authorization, structural ordering, and per-document `409` and retry behavior.
 Batching sync probes would cut HTTP calls without showing less database or
 cryptographic work. Listing is batched instead:
-`POST /containers/documents/query` lists up to 32 container lanes
-(`MAX_CONTAINER_DOCUMENT_LANES`) per request, each through the singular listing
-with its own readable-container gate, access resolver, watermark and page
-bound. The lanes share one request-scoped cache of verified principal policies
-by reference, and a lane's linked containers reuse the policies its gate
-loaded, so batching also saves statements; every container path is still
-verified.
+`POST /containers/documents/query` lists up to 32
+[container](./glossary.md#container) lanes (`MAX_CONTAINER_DOCUMENT_LANES`) per
+request, each through the singular listing with its own readable-container gate,
+access resolver, watermark and page bound. The lanes share one request-scoped
+cache of verified principal policies by reference, and a lane's linked
+containers reuse the policies its gate loaded, so batching also saves
+statements; every [container path](./glossary.md#authorizing-container-path) is
+still verified.
 
 ### Separate projection reads
 
@@ -141,9 +147,9 @@ Container and document writer projections stay separate, independently
 verified reads rather than being inlined into listings. Listing rows and access
 resolution do not share a transaction snapshot, and inlining would need new
 snapshot, response-size, verification and cache-race rules and would duplicate
-signed paths. Projection reads instead cite manifest bundles the device already
-holds; see [the incremental evidence
-contract](projection-policy-evidence.md#cost-and-retained-history-tradeoff).
+signed paths. Projection reads instead cite
+[manifest](./glossary.md#access-manifest) bundles the device already holds; see
+[the incremental evidence contract](projection-policy-evidence.md#cost-and-retained-history-tradeoff).
 
 ### Current policy before signed mutations
 
@@ -153,5 +159,6 @@ signed compare-and-swap mutations, so reusing stale authorization state to save
 them is not an option. Unlinking a document reads a current writer projection
 and runs a rotation-preflight sync; dropping either would need another proof
 that the client holds current authorization and complete history. Moving a
-document to Trash is a durable link-then-unlink workflow: an outage can briefly
-leave both links present, and a retry completes the remaining leg.
+document to Trash is a
+[durable link-then-unlink workflow](./developer/document-links.md): an outage
+can briefly leave both links present, and a retry completes the remaining leg.

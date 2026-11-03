@@ -18,15 +18,18 @@ The CI build lane selects Node 24.22.1 LTS explicitly and includes its version
 in `CI_TOOLCHAIN`, so a runner's ambient Node cannot determine or cache those
 build results. The nightly `Uncached tests` workflow reuses that lane.
 
-Shared agent workflows use an exact npm version of `@a2f0/agent-tool`. After
-changing it, run `bun run agents:sync` and commit the lockfile, the managed
-skill and permission manifests, the skills, and the generated
-[`.claude/settings.json`](../.claude/settings.json) and
-[`.codex/rules/agent-tool.rules`](../.codex/rules/agent-tool.rules) together.
-Check hook installation and the branch, commit, CI-gate, and release-policy
-fixtures; the repository's own Turbo verification and Java/TLA toolchain checks
-stay in place. Run `bun run test:static-analysis` and `bun run test:npm-publish`
-before the normal full gate.
+[Shared agent workflows](../AGENTS.md#agent-tooling-and-shipping) use an exact
+npm version of `@a2f0/agent-tool`. After changing it, run `bun run agents:sync`
+and commit the lockfile, the managed skill and
+[permission manifests](developer/static-analysis.md#harness-permissions), the
+skills, and the generated [`.claude/settings.json`](../.claude/settings.json)
+and [`.codex/rules/agent-tool.rules`](../.codex/rules/agent-tool.rules)
+together. Check
+[hook installation](developer/static-analysis.md#ci-and-the-push-gate) and the
+branch, commit, CI-gate, and release-policy fixtures; the repository's own Turbo
+verification and Java/TLA toolchain checks stay in place. Run
+`bun run test:static-analysis` and `bun run test:npm-publish` before the normal
+[full gate](developer/verification.md#before-a-push).
 
 ## Current constraints
 
@@ -73,8 +76,9 @@ Run the relevant regressions and validate the affected integrations when
 upgrading these dependencies:
 
 - Zod/OpenAPI changes preserve registered wire contracts and tested runtime
-  refinements. Crypto changes preserve recovery-key BIP39 phrases and complete
-  identity key hashes in the deterministic test vectors.
+  refinements. Crypto changes preserve
+  [recovery-key](security-guarantees.md#recovery-key-disclosure) BIP39 phrases
+  and complete identity key hashes in the deterministic test vectors.
 - Sentry uses explicit `dataCollection` exclusions and server-only exports;
   preserve diagnostics allowlists and the
   [privacy regressions](../packages/diagnostics/src/collectionPolicy.test.ts).
@@ -92,12 +96,13 @@ checks and builds that consume the changed dependencies. Run both Knip modes
 when production dependencies change, and follow the
 [dependency audit policy](developer/dependency-audit.md) for advisories.
 
-Always run a complete preview before infrastructure apply or deployment; skip
-upgrades that destroy, replace, recreate, or cannot establish safety. The current
-state must own the live resources, and previews must use authenticated target
-accounts. If ownership or credentials are unavailable, hold the affected
-Terraform and Wrangler upgrades and record the reason in the PR.
-Bundle builds and mocked Terraform tests validate code only.
+Always run a complete preview before
+[infrastructure apply or deployment](developer/infrastructure.md#infrastructure-lifecycle);
+skip upgrades that destroy, replace, recreate, or cannot establish safety. The
+current state must own the live resources, and previews must use authenticated
+target accounts. If ownership or credentials are unavailable, hold the affected
+Terraform and Wrangler upgrades and record the reason in the PR. Bundle builds
+and mocked Terraform tests validate code only.
 
 Terraform provider updates require reviewed plans and lockfiles for Linux amd64
 and macOS arm64. SQLite archive updates require a verified checksum and a
@@ -110,12 +115,12 @@ fixture when upgrading. The pinned SQLite3MultipleCiphers 2.6.1 [ChaCha20
 parameter
 table](https://github.com/utelle/SQLite3MultipleCiphers/blob/v2.6.1/src/cipher_chacha20.c#L14-L48)
 keeps legacy mode 0 and 64007 key-derivation iterations; check those defaults
-and persisted-file compatibility before changing the cipher or its version. The
-memory OPFS shim exercises the real codec; browser OPFS checks remain necessary
-for changes to the browser storage integration. Native updates require their
-platform builds in addition to the workspace checks. Deployments use the
-reviewed source and lockfiles; dependency updates do not implicitly reset
-application databases.
+and persisted-file compatibility before changing the [cipher](cipher-suites.md)
+or its version. The memory OPFS shim exercises the real codec; browser OPFS
+checks remain necessary for changes to the browser storage integration. Native
+updates require their platform builds in addition to the workspace checks.
+Deployments use the reviewed source and lockfiles; dependency updates do not
+implicitly reset application databases.
 
 Keep this document and the linked audit notes current: reconcile constraints
 against the final dependency graph, update rationale and removal checks in

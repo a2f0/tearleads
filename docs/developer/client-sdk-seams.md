@@ -11,7 +11,8 @@ reference.
 - **Port**: an interface named for what a component needs (`…Reader`,
   `…Clock`, `registerLane`), not for who provides it.
 - **Adapter**: the object that satisfies a port. Often an existing object
-  already does, as the API client does for the principal-policy readers.
+  already does, as the API client does for the
+  [principal-policy](../glossary.md#principal-policy-state) readers.
 - **Host interface**: the set of ports one component receives from its caller,
   such as `ReconciliationHost`.
 - **Composition root**: where production adapters are wired to ports:
@@ -35,7 +36,7 @@ reference.
 ## Where code goes
 
 `data/`, `workflows/`, and `client/` hold folders, not loose modules, and each
-folder maps to a subsystem in
+folder maps to a [subsystem](../subsystems.md) in
 [`scripts/architecture/subsystems.ts`](../../scripts/architecture/subsystems.ts)
 or names one shared role.
 
@@ -45,8 +46,8 @@ other file there.
 - Domain folders (`blobs/`, `containers/`, `documents/`, `principals/`,
   `sync/`, `trustedUserIdentity/`) hold that domain's contracts and helpers.
 - `keyingProjectionVerification/` is entered through its `index.ts` facade;
-  `keying/` holds the keying primitives it shares with persistence and
-  workflows.
+  `keying/` holds the [keying primitives](../keying-design.md) it shares with
+  persistence and workflows.
 - `shared/` holds only contracts and helpers every layer uses with no
   subsystem of their own: `DomainScope`, the `SecurityIncidentReporter` port,
   `errorMessage`, record readers, and User Timing marks. A helper one
@@ -122,9 +123,9 @@ tests already run against in-memory SQLite; a store port there would add
 indirection without a second adapter.
 
 Do not replace a fake that exercises trust-boundary code. Tests that serve
-policy pages from a `Bun.serve` fake run the real API client iterator, which
-checks head pinning, ordering, cursors, and resume. An in-memory reader would
-skip those checks.
+[policy pages](../principal-history-transport.md) from a `Bun.serve` fake run
+the real API client iterator, which checks head pinning, ordering, cursors, and
+resume. An in-memory reader would skip those checks.
 
 Do not merge look-alike code on verifier paths when the call sites differ. Four
 workflows read "the retained bundle at this head, else the current one", but
@@ -195,8 +196,10 @@ declares a `surface`, listed in `clientSdkSurfaces.ts`: the files other
 subsystems may import. It holds the subsystem's facade indexes, the contract
 modules it means to share, such as types, errors, document kinds, and its main
 persistence module, and the capabilities other subsystems build on, such as
-keying checkpoint persistence or admin-signer verification. SQLite Runtime and
-SDK Shared Utilities declare none, so any of their files may be imported.
+keying checkpoint persistence or
+[admin-signer verification](../security-guarantees.md#admin-signer-authorization).
+SQLite Runtime and SDK Shared Utilities declare none, so any of their files may
+be imported.
 
 `bun run lint:architecture` fails when an import enters another subsystem
 outside its surface, type-only imports included. Tolerated deep imports are
@@ -281,9 +284,10 @@ Probe each new rule with a temporary violating import before relying on it.
   `tsc --build` can report success while a dependent still uses the old shape.
 - A renamed option on an exported function is a public API change even when no
   export name changes. Call it out in the pull request.
-- Formal abstraction maps under [`formal/`](../../formal/) name production
-  seams, and `bun run lint:formal-maps` fails when a named function disappears.
-  Update the map in the same change.
+- [Formal abstraction maps](../../formal/README.md#abstraction-maps) under
+  [`formal/`](../../formal/) name production seams, and
+  `bun run lint:formal-maps` fails when a named function disappears. Update the
+  map in the same change.
 - Moving files means searching scripts, docs, and [`formal/`](../../formal/) for
   every old path, tests included. Protocol projection scripts such as
   [`scripts/protocol/checkRestartProbeProjection.ts`](../../scripts/protocol/checkRestartProbeProjection.ts)
@@ -301,4 +305,5 @@ Probe each new rule with a temporary violating import before relying on it.
   does.
 - Expensive signed fixtures are built once per test process and copied per
   caller with `structuredClone`. The copy drops symbol-keyed brands such as the
-  trusted-identity brand, so rebuild those from the copied data.
+  [trusted-identity](./trusted-user-identity.md) brand, so rebuild those from
+  the copied data.

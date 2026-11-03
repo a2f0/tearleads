@@ -22,8 +22,9 @@ so the suites need no ruleset entries. Turbo serves cached
 results from the GitHub Actions cache: a pull request reads entries written on
 its own ref or on `main`, while `main` never reads an entry a pull request wrote.
 The nightly `Uncached tests` workflow calls the entire CI workflow with
-`force: true`, including Postgres, Windows, native bridge compiles, and protocol
-models. Manual workflow dispatches also bypass the cache.
+`force: true`, including Postgres, Windows, native bridge compiles, and
+[protocol models](../../formal/README.md). Manual workflow dispatches also
+bypass the cache.
 
 CI runs the Postgres concurrency probe, Windows CEF persistence probe, and native
 purchase bridge compiles as dedicated root Turbo tasks. Each caches a successful
@@ -37,7 +38,9 @@ in `Lint` reuse the same `app-capacitor#test` task as `Build and test`.
 checker scripts, tool pins, and Java runtime identity. The wrapper validates the
 installed Java version and jar digest before every lookup, including cache hits.
 Implementation projections, conformance tests, and other static checks still run.
-Local `check:fast`, pre-push, and the direct model commands still execute TLC.
+Local [`check:fast`](./verification.md#before-a-push),
+[pre-push](./static-analysis.md#ci-and-the-push-gate), and the direct model
+commands still execute TLC.
 
 Website-only source changes and website version bumps leave application test and
 platform verification hashes unchanged, so ordinary website edits stay

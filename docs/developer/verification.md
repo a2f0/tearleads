@@ -22,11 +22,12 @@ Each runs `build:packages` (SQLite, the client SDK, and the Electrobun devkit),
 TypeScript, `check:fast`, and then the full or affected Turbo tests. Builds
 finish before tests begin.
 
-Rebuild the client SDK before its own tests: `scripts/distArtifacts.test.ts`
-inspects `dist`, and a few tests import `@tearleads/client-sdk`. `turbo run test`
-builds the SDK first; a bare `bun run test` in the package does not, because a
-test script that rebuilt `dist` would delete it under other packages' tests
-running alongside it in Turbo.
+Rebuild the [client SDK](client-sdk.md) before its own tests:
+`scripts/distArtifacts.test.ts` inspects `dist`, and a few tests import
+`@tearleads/client-sdk`. `turbo run test` builds the SDK first; a bare
+`bun run test` in the package does not, because a test script that rebuilt
+`dist` would delete it under other packages' tests running alongside it in
+Turbo.
 
 The Turbo test and E2E scripts first record the planned tasks, then require a
 fresh run summary proving every planned task succeeded, by execution or from
@@ -48,16 +49,18 @@ For `@tearleads/api` and `@tearleads/client-sdk`, this command runs
 script. Other selections run `build:packages`, which also prepares the
 Electrobun devkit. The focused API and SDK suites need no desktop toolchain.
 Additional arguments go to that script as separate arguments, including patterns
-with spaces. The API script tests both database backends (`memory` and
-`sqlite`). Package mode does not run TypeScript, static checks, or browser E2E
-tests; use `check:affected` or `check` for a handoff. Dependencies must already
-be installed; the runner does not install tools or change the lockfile.
+with spaces. The API script tests both
+[database backends](api-persistence.md#database) (`memory` and `sqlite`).
+Package mode does not run TypeScript, static checks, or browser E2E tests; use
+`check:affected` or `check` for a handoff. Dependencies must already be
+installed; the runner does not install tools or change the lockfile.
 
-CI runs the same API and SDK tests through `runVerifiedTurbo.ts test` with a
-workspace filter; Turbo builds their dependencies first. Prefer `check:package`
-locally for its source-fingerprinted report and forwarded test arguments. To
-narrow API tests, use `--test-name-pattern`; its runner always selects `src`
-and runs both backends, regardless of an outer `API_DATABASE` value.
+[CI](ci-merge-gate.md) runs the same API and SDK tests through
+`runVerifiedTurbo.ts test` with a workspace filter; Turbo builds their
+dependencies first. Prefer `check:package` locally for its source-fingerprinted
+report and forwarded test arguments. To narrow API tests, use
+`--test-name-pattern`; its runner always selects `src` and runs both backends,
+regardless of an outer `API_DATABASE` value.
 
 Each run prints the path to a JSON report under the checkout's Git directory:
 `git rev-parse --git-path verification` locates the report directory, including
@@ -75,18 +78,20 @@ the SDK build replaces output that dependent tests consume.
 
 ## Multi-party scenarios
 
-[`packages/bob-and-alice`](../../packages/bob-and-alice/) checks keying behavior
-end to end. Each device is a full `Tearleads` client with its own SQLite
-database, talking over HTTP to the API served in-process from
-`@tearleads/api/test-runtime`. A reference model of grants, parent pointers,
-group memberships, and document links decides who should read and write each
-document, and every scenario compares each device's reads with it.
+[`packages/bob-and-alice`](../../packages/bob-and-alice/) checks
+[keying](../keying-design.md) behavior end to end. Each device is a full
+`Tearleads` client with its own SQLite database, talking over HTTP to the API
+served in-process from `@tearleads/api/test-runtime`. A reference model of
+[grants](../glossary.md#grant), parent pointers, group memberships, and
+[document links](../document-link-and-sync-protocol.md) decides who should read
+and write each [document](../glossary.md#document), and every scenario compares
+each device's reads with it.
 
 Add a scenario when a change can alter who reads or writes a document:
-sharing, group membership, revocation, moves, links, key rotation, or reading
-from a fresh install. Run them with
-`bun run check:package @tearleads/bob-and-alice`. The package's Turbo test task
-depends on `@tearleads/api#sources`, so an API change misses its cache.
+sharing, group membership, revocation, moves, links,
+[key rotation](../glossary.md#rotate), or reading from a fresh install. Run them
+with `bun run check:package @tearleads/bob-and-alice`. The package's Turbo test
+task depends on `@tearleads/api#sources`, so an API change misses its cache.
 Pin a reproducible open bug in `knownIssues.test.ts` as `test.failing`. See
 the [package README](../../packages/bob-and-alice/README.md).
 
@@ -98,8 +103,9 @@ OpenAPI changes, and record source fingerprints. Fetch `origin/main` before
 base-sensitive checks, or set `OPENAPI_BASE_REF` to the intended comparison ref.
 
 Review `.mise.toml`, then run `mise trust` in this checkout before `mise install`.
-Trust is path-specific: a fresh clone or Scope workspace can require a separate
-review. Do not disable trust globally to work around a shell startup error.
+Trust is path-specific: a fresh clone or [Scope](scope.md) workspace can require
+a separate review. Do not disable trust globally to work around a shell startup
+error.
 
 | Command | Prerequisites beyond the checkout |
 | --- | --- |
@@ -118,15 +124,17 @@ dependencies and SQLite artifacts cached, focused SDK tests need no npm access.
 Other workspaces can add their own test prerequisites; check their README and
 `test` script.
 
-For a checkout whose mise configuration cannot be trusted, the protocol and
-OpenAPI checks accept the explicit pinned-tool paths documented in
-[AGENTS.md](../../AGENTS.md). This supplies tools without changing trust state.
+For a checkout whose mise configuration cannot be trusted, the
+[protocol](../../formal/README.md) and OpenAPI checks accept the explicit
+pinned-tool paths documented in [AGENTS.md](../../AGENTS.md). This supplies
+tools without changing trust state.
 
 ## Before a push
 
-The push gate runs its checks in order and stops at the first failure, so a
-late-caught mistake still costs every check queued ahead of it. Run two cheap
-checks by hand rather than discovering their failures minutes into a push:
+The [push gate](static-analysis.md#ci-and-the-push-gate) runs its checks in
+order and stops at the first failure, so a late-caught mistake still costs every
+check queued ahead of it. Run two cheap checks by hand rather than discovering
+their failures minutes into a push:
 
 - `bun tsc --build --pretty false` after any type or signature change. It is
   **not** part of `check:fast`; pre-push, `check:affected`, and `check` run it.

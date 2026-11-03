@@ -1,13 +1,16 @@
 # Principal key envelope candidates
 
-Paged principal recovery stores the current encrypted member envelopes with its
-completed prefix. Container key unwrapping can use those envelopes without
-materializing a full policy history. The local lookup selects only the requested
-principal-key fingerprints from current bundles, retained bundles, completed
-prefixes and stages, and the encrypted envelope archive. It selects at most one
-candidate per source and fingerprint and removes duplicate encoded candidates.
-SQLite indexes cover the fingerprint and newest-candidate ordering. The archive
-preserves distinct key epochs while disposable stages are reclaimed; see
+[Paged principal recovery](./principal-history-recovery.md) stores the current
+encrypted [member envelopes](../glossary.md#member-envelope) with its completed
+prefix. [Container key](../glossary.md#container-kek) unwrapping can use those
+envelopes without materializing a full
+[policy history](../glossary.md#principal-policy-state). The local lookup
+selects only the requested principal-key fingerprints from current bundles,
+retained bundles, completed prefixes and stages, and the encrypted envelope
+archive. It selects at most one candidate per source and fingerprint and removes
+duplicate encoded candidates. SQLite indexes cover the fingerprint and
+newest-candidate ordering. The archive preserves distinct key
+[epochs](../glossary.md#epoch) while disposable stages are reclaimed; see
 [cache retention](principal-history-cache.md) for its limits.
 
 These are untrusted encrypted key candidates, not authorization evidence. A
@@ -19,7 +22,8 @@ verified policy, advances a checkpoint, or accepts a prefix as a trust anchor.
 
 The lookup does not read `previous_states_json` or return policy histories.
 Malformed JSON is excluded by the fingerprint index expression; malformed
-envelope objects are ignored. The principal-history verifier still authenticates
+envelope objects are ignored. The
+[principal-history verifier](../principal-history-pages.md) still authenticates
 its saved prefix and current artifacts when recovering policy authority.
 
 The regression uses a substituted candidate whose metadata claims the requested
