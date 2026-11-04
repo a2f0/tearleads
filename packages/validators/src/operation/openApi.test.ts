@@ -17,6 +17,7 @@ import {
   openApiDocument,
   renderOpenApi,
 } from "./openApi";
+import { httpStatusDescription } from "./openApiPresentation";
 import {
   createContainerMutation,
   createSyncRequest,
@@ -89,15 +90,11 @@ test("document sync emits its operation registry as OpenAPI 3.1", () => {
   expect(Object.keys(syncPost.responses).join(",")).toBe(
     "200,400,401,402,403,404,409,413,500,503",
   );
-  for (const status of ["400", "402", "403", "500", "503"]) {
-    expect(
-      syncPost.responses[status]?.content?.["application/json"],
-    ).toBeDefined();
-    expect(syncPost.responses[status]?.description).toBe(
-      "Failure JSON response",
-    );
+  for (const status of ["400", "402", "403", "409", "500", "503"]) {
+    const response = syncPost.responses[status];
+    expect(response?.content?.["application/json"]).toBeDefined();
+    expect(response?.description).toBe(httpStatusDescription(Number(status)));
   }
-  expect(syncPost.responses["409"]?.description).toBe("Failure JSON response");
   expect(syncPost.responses["413"]?.description).toBe(
     "Serialized document sync requests are limited to 16777216 bytes",
   );

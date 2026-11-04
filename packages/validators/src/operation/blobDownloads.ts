@@ -40,6 +40,7 @@ export const getBlobDownloadOperation = defineJsonOperation({
   },
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "blobs.download.get",
+  summary: "Get a blob download source",
   method: "GET",
   params: BlobBytesPathParamsSchema,
   path: "/blobs/{blobId}/download",
