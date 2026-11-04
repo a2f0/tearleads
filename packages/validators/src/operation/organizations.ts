@@ -201,7 +201,7 @@ export const deleteOrganizationGroupOperation = defineJsonOperation({
   id: "organizations.groups.delete",
   summary: "Delete an organization group",
   description:
-    "Deletes a group through a signed organization policy successor that drops it from the directory, leaving a tombstone so its id can never be reused. Only organization administrators may call it. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` proves nothing was written.",
+    "Deletes a group through a signed organization policy successor that drops it from the directory, leaving a tombstone so its id can never be reused. Only organization administrators may call it. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.",
   method: "DELETE",
   params: OrganizationGroupPathParamsSchema,
   path: "/organizations/{organizationId}/groups/{groupId}",

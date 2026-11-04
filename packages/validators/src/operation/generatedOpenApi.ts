@@ -1181,7 +1181,7 @@ export type paths = {
         post?: never;
         /**
          * Delete an organization group
-         * @description Deletes a group through a signed organization policy successor that drops it from the directory, leaving a tombstone so its id can never be reused. Only organization administrators may call it. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` proves nothing was written.
+         * @description Deletes a group through a signed organization policy successor that drops it from the directory, leaving a tombstone so its id can never be reused. Only organization administrators may call it. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.
          */
         delete: operations["organizations.groups.delete"];
         options?: never;
@@ -1950,7 +1950,7 @@ export type components = {
             createdAt: string;
             /** @description Epoch of the document's current link-set manifest. */
             currentAccessEpoch: number;
-            /** @description Hash of the document's current access state; it changes when its links or their access change. */
+            /** @description Hash of the document's current link-set manifest. */
             currentAccessStateHash: string;
             /**
              * @description The caller's access, derived from signed grants along the linked container paths.

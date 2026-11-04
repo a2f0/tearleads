@@ -181,8 +181,7 @@ describeSchema(
   "One document in a container listing, with the caller's effective access to it.",
   {
     currentAccessEpoch: "Epoch of the document's current link-set manifest.",
-    currentAccessStateHash:
-      "Hash of the document's current access state; it changes when its links or their access change.",
+    currentAccessStateHash: "Hash of the document's current link-set manifest.",
     effectiveAccessLevel:
       "The caller's access, derived from signed grants along the linked container paths.",
     linkedContainerIds: "Containers the document is linked into.",
