@@ -29,6 +29,8 @@ export const getProjectionPolicyHistoryOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500, 503],
   id: "principals.history.get",
   summary: "Page projection policy history",
+  description:
+    "Pages public signed policy snapshots, up to 32 predecessor states at a time, for a principal head cited by an object the caller can read. The opaque `grant` query value names that object and head, and every page rechecks current access to it. A 202 asks the client to retry the identical request after policy history is prepared.",
   method: "GET",
   params: z.strictObject({}),
   path: "/principals/history",

@@ -322,6 +322,8 @@ const productionConfig = {
         "!src/operation/openApiPresentation.ts",
         "!src/operation/openApiResponseMetadata.ts",
         "!src/operation/generatedOpenApi.ts",
+        "!src/schemaDescriptions.ts",
+        "!src/schemaDescriptions/**",
       ],
     },
     "packages/website": {

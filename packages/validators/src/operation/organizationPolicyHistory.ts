@@ -30,6 +30,8 @@ export const getOrganizationPolicyHistoryOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500, 503],
   id: "organizations.policyHistory.get",
   summary: "Page organization policy history",
+  description:
+    "Pages the organization's signed policy history up to an exact head, with public group policy snapshots, so clients can verify and display what changed and who signed it. Any organization member may call it. A 202 asks the client to retry the identical request after the server prepares that history.",
   method: "GET",
   params: OrganizationPathParamsSchema,
   path: "/organizations/{organizationId}/policy-history",

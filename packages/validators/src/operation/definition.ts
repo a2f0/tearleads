@@ -16,6 +16,13 @@ export interface RuntimeRefinement {
 export interface HttpOperation {
   readonly auth: "none" | "session";
   readonly body?: z.ZodType;
+  /**
+   * One to three plain sentences for a reader who has never seen the code:
+   * what the operation does and why a client calls it, who may call it, and
+   * the failure or idempotency behavior a caller must know. The OpenAPI
+   * operation description; do not repeat the summary.
+   */
+  readonly description: string;
   readonly emptyResponseStatuses?: readonly number[];
   readonly failureResponses?: Readonly<Record<number, z.ZodType>>;
   readonly failureStatuses: readonly number[];

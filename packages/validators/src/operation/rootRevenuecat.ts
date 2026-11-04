@@ -45,6 +45,8 @@ export const listRootOrganizationRevenuecatEventsOperation =
     failureStatuses: [400, 401, 403, 500],
     id: "root.organizations.revenuecatEvents.list",
     summary: "Page an organization's RevenueCat deliveries",
+    description:
+      "Pages an organization's stored RevenueCat webhook deliveries, newest first by event time, whatever their outcome, including transfers that moved a purchase away from it. Only root operators may call it, and each request is recorded in the root audit trail.",
     method: "GET",
     params: z.strictObject({ organizationId: uuidV4StringSchema }),
     path: "/root/organizations/{organizationId}/revenuecat-events",
@@ -62,6 +64,8 @@ export const listRootRevenuecatEventsReportOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 500],
   id: "root.reports.revenuecatEvents.list",
   summary: "Page unmatched or ignored RevenueCat deliveries",
+  description:
+    "Pages RevenueCat deliveries across all organizations that matched no organization or that the handler ignored. Only root operators may call it, and each request is recorded in the root audit trail.",
   method: "GET",
   params: z.strictObject({}),
   path: "/root/reports/revenuecat-events",

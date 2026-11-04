@@ -1,5 +1,8 @@
 import type { z } from "zod";
-import { JSON_SCHEMA_COMPONENT_KEY } from "../jsonSchema";
+import {
+  JSON_SCHEMA_COMPONENT_KEY,
+  JSON_SCHEMA_FIELD_DESCRIPTION_KEY,
+} from "../jsonSchemaAnnotations";
 import * as realtimeSchemas from "../realtime";
 import * as requestSchemas from "../request";
 import * as responseSchemas from "../response";
@@ -127,13 +130,21 @@ function extractComponents(
     return value;
   }
 
-  const { [JSON_SCHEMA_COMPONENT_KEY]: name, ...rest } = value;
+  const {
+    [JSON_SCHEMA_COMPONENT_KEY]: name,
+    [JSON_SCHEMA_FIELD_DESCRIPTION_KEY]: fieldDescription,
+    ...rest
+  } = value;
   const extracted: Record<string, unknown> = {};
   for (const [key, child] of Object.entries(rest)) {
     extracted[key] = extractComponents(child, components);
   }
+  const useDescription =
+    typeof fieldDescription === "string"
+      ? { description: fieldDescription }
+      : {};
   if (typeof name !== "string" || !isComponentShape(extracted)) {
-    return extracted;
+    return { ...extracted, ...useDescription };
   }
 
   const canonical = canonicalJson(extracted);
@@ -142,13 +153,14 @@ function extractComponents(
     throw new Error(`OpenAPI component ${name} projects inconsistently`);
   }
   components.set(name, { canonical, schema: extracted });
-  return { $ref: `${COMPONENT_REFERENCE_PREFIX}${name}` };
+  return { $ref: `${COMPONENT_REFERENCE_PREFIX}${name}`, ...useDescription };
 }
 
 /**
  * Moves every named schema out of `paths` into `components.schemas` and
- * replaces each use with a `$ref`. Resolving the references gives back the
- * inline document, which tests compare against the unnamed projection.
+ * replaces each use with a `$ref`, keeping a field description beside it.
+ * Resolving the references gives back the inline document, which tests
+ * compare against the unnamed projection.
  */
 export function referenceOpenApiComponents<
   Document extends { readonly components: object; readonly paths: object },
@@ -185,7 +197,7 @@ export function resolveOpenApiComponents(
   if (!isRecord(value)) {
     return value;
   }
-  const { $ref: reference } = value;
+  const { $ref: reference, ...siblings } = value;
   if (
     typeof reference === "string" &&
     reference.startsWith(COMPONENT_REFERENCE_PREFIX)
@@ -194,7 +206,9 @@ export function resolveOpenApiComponents(
     if (schema === undefined) {
       throw new Error(`Unknown OpenAPI component reference ${reference}`);
     }
-    return resolveOpenApiComponents(schema, schemas);
+    // A sibling (a use-site description) overrides the component's keyword.
+    const resolved = resolveOpenApiComponents(schema, schemas);
+    return isRecord(resolved) ? { ...resolved, ...siblings } : resolved;
   }
   return Object.fromEntries(
     Object.entries(value).map(([key, child]) => [

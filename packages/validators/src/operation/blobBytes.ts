@@ -162,6 +162,8 @@ export const getBlobBytesOperation = defineHttpOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "blobs.bytes.get",
   summary: "Get committed blob bytes",
+  description:
+    "Streams a committed blob's encrypted bytes, with its byte length and SHA-256 digest in response headers so the client can verify them. Requires read access through at least one active attachment binding's document.",
   method: "GET",
   params: BlobBytesPathParamsSchema,
   path: "/blobs/{blobId}/bytes",
@@ -186,6 +188,8 @@ export const uploadMultipartBlobPartBytesOperation = defineHttpOperation({
   headers: MultipartBlobPartHeadersSchema,
   id: "blobs.multipartStages.parts.upload",
   summary: "Upload multipart blob part bytes through the API",
+  description:
+    "Uploads one part's encrypted bytes through the API, for object stores that cannot sign direct upload URLs. Only the stage's owner may call it, and stores that do sign URLs reject this route. The part's declared byte length and SHA-256 headers must match the bytes sent.",
   method: "PUT",
   params: MultipartBlobPartPathParamsSchema,
   path: "/blobs/stages/multipart/{stageId}/parts/{partNumber}/bytes",

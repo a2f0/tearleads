@@ -40,6 +40,8 @@ export const initiateMultipartBlobStageOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "blobs.multipartStages.initiate",
   summary: "Initiate a multipart blob stage",
+  description:
+    "Opens a blob stage for an encrypted upload, declaring the final byte length, SHA-256 digest, and organization, and returns upload sources for the first parts so they can start at once. The caller must belong to the organization. The stage expires after one hour; nothing becomes readable until an attachment bind promotes it.",
   method: "POST",
   params: InitiateMultipartBlobStagePathParamsSchema,
   path: "/blobs/stages/multipart",
@@ -61,6 +63,8 @@ export const getMultipartBlobStageOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "blobs.multipartStages.get",
   summary: "Get multipart blob stage status",
+  description:
+    "Returns a blob stage's status so a client can resume an interrupted upload. Only the exact 404 `multipart_blob_stage_not_found` or 409 `multipart_blob_stage_expired` responses prove the stage is gone and permit starting a fresh one; any other failure means the client should keep its resumable state.",
   method: "GET",
   params: MultipartBlobStagePathParamsSchema,
   path: "/blobs/stages/multipart/{stageId}",

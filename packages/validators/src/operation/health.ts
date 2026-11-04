@@ -17,6 +17,8 @@ export const getHealthOperation = defineJsonOperation({
   failureStatuses: [413, 500],
   id: "health.get",
   summary: "Health check",
+  description:
+    "Returns `ok` when the API process is serving requests; load balancers and clients use it as a liveness probe. It needs no session, and a request that carries a body is refused with 413.",
   method: "GET",
   params: HealthPathParamsSchema,
   path: "/",
