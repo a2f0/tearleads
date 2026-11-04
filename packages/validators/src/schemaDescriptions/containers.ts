@@ -240,7 +240,7 @@ describeSchema(
     bridge:
       "The predecessor bridge: the previous epoch's KEK encrypted under this one, or null for the first epoch.",
     keyring:
-      "Keyring sealed under this epoch's KEK, or null for the first epoch.",
+      "Keyring sealed under this epoch's KEK, served only for the epoch the request names in `keyringForEpoch` (a page carries at most one); null otherwise and for the first epoch.",
     parentContainerKeyEpochId:
       "The parent container's KEK epoch at this epoch, or null for a container with no parent.",
     wraps:

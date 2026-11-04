@@ -430,7 +430,7 @@ export type paths = {
         };
         /**
          * Page a container's KEK rotation log
-         * @description Pages a container's append-only KEK rotation log: every epoch with its write-once predecessor bridge and sealed keyring. Clients use it to rebuild or repair a damaged container KEK keyring. Any current reader of the container may page the whole log, because current read access includes retained history.
+         * @description Pages a container's append-only KEK rotation log: every epoch with its write-once predecessor bridge and retained wraps, plus the sealed keyring of one epoch the request names. Clients use it to rebuild or repair a damaged container KEK keyring. Any current reader of the container may page the whole log, because current read access includes retained history.
          */
         get: operations["containers.kekLog.get"];
         put?: never;
@@ -2000,7 +2000,7 @@ export type components = {
             } | null;
             containerKeyEpoch: number;
             containerKeyEpochId: string;
-            /** @description Keyring sealed under this epoch's KEK, or null for the first epoch. */
+            /** @description Keyring sealed under this epoch's KEK, served only for the epoch the request names in `keyringForEpoch` (a page carries at most one); null otherwise and for the first epoch. */
             keyring: components["schemas"]["ContainerKekKeyringWireRecord"] | null;
             /** @description The parent container's KEK epoch at this epoch, or null for a container with no parent. */
             parentContainerKeyEpochId: string | null;

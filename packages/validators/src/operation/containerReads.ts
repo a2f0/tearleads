@@ -81,7 +81,7 @@ export const getContainerKekLogOperation = defineJsonOperation({
   id: "containers.kekLog.get",
   summary: "Page a container's KEK rotation log",
   description:
-    "Pages a container's append-only KEK rotation log: every epoch with its write-once predecessor bridge and sealed keyring. Clients use it to rebuild or repair a damaged container KEK keyring. Any current reader of the container may page the whole log, because current read access includes retained history.",
+    "Pages a container's append-only KEK rotation log: every epoch with its write-once predecessor bridge and retained wraps, plus the sealed keyring of one epoch the request names. Clients use it to rebuild or repair a damaged container KEK keyring. Any current reader of the container may page the whole log, because current read access includes retained history.",
   method: "GET",
   params: ContainerReadPathParamsSchema,
   path: "/containers/{containerId}/kek-log",
