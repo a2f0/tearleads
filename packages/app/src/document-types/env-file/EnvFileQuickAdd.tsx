@@ -1,11 +1,11 @@
+import {
+  ENV_FILE_VARIABLE_NAME_PATTERN,
+  isValidEnvFileVariableName,
+} from "@tearleads/client-sdk";
 import { TrackerInputField } from "../shared/TrackerFormControls";
 import { TrackerQuickAdd } from "../shared/TrackerQuickAdd";
 import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import { EnvFileValueField } from "./EnvFileValueField";
-import {
-  ENV_FILE_VARIABLE_NAME_PATTERN,
-  isValidEnvFileVariableName,
-} from "./envFileDocumentDefinition";
 
 export interface EnvFileQuickVariable {
   key: string;

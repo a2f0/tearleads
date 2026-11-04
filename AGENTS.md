@@ -152,6 +152,8 @@ deleted as soon as the default branch contains the new contract.
 - `packages/website`: marketing/docs site. It may share UI, but must not import
   application implementation code.
 - `packages/performance`: SDK/DB probes; no inbound imports or live CI runs.
+- `packages/cli`: the `tearleads` command line, an SDK host; no inbound
+  imports.
 
 ## Dependency Direction
 

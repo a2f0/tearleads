@@ -113,7 +113,8 @@
     "knip": "bun run lint:knip:all",
     "perf:provision": "bun run --cwd packages/performance provision",
     "test:knip:production": "bun scripts/testing/testKnipProduction.ts",
-    "perf:database": "bun run --cwd packages/performance database"
+    "perf:database": "bun run --cwd packages/performance database",
+    "tearleads": "bun run --cwd packages/cli start"
   },
   "workspaces": [
     "packages/api",
@@ -125,6 +126,7 @@
     "packages/app-capacitor",
     "packages/app-electrobun",
     "packages/bob-and-alice",
+    "packages/cli",
     "packages/client-sdk",
     "packages/crypto",
     "packages/diagnostics",

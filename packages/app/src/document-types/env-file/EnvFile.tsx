@@ -1,3 +1,9 @@
+import {
+  ENV_FILE_DOCUMENT_KIND,
+  ENV_FILE_NAME_FIELD,
+  ENV_FILE_VARIABLE_KEY_FIELD,
+  ENV_FILE_VARIABLE_VALUE_FIELD,
+} from "@tearleads/client-sdk";
 import { useId } from "react";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import { StructuredDocument } from "../shared/StructuredDocument";
@@ -13,12 +19,6 @@ import {
 import { EnvFileQuickAdd, type EnvFileQuickVariable } from "./EnvFileQuickAdd";
 import { EnvFileReadTable } from "./EnvFileReadTable";
 import { EnvFileVariableReadRow } from "./EnvFileVariableReadRow";
-import {
-  ENV_FILE_DOCUMENT_KIND,
-  ENV_FILE_NAME_FIELD,
-  ENV_FILE_VARIABLE_KEY_FIELD,
-  ENV_FILE_VARIABLE_VALUE_FIELD,
-} from "./envFileDocumentDefinition";
 import { type EnvVariableRow, toEnvVariableRows } from "./envFileVariables";
 import "./EnvFile.css";
 
