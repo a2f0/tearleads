@@ -182,10 +182,6 @@
       "lines": 589,
       "bytes": 19305
     },
-    "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3796,
-      "bytes": 126294
-    },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1241,
       "bytes": 41011
