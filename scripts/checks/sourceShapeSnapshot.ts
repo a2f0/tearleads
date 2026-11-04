@@ -2,6 +2,8 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 
 const baselinePath = "scripts/checks/sourceShapeBaseline.json";
+// Lists the agent-tool managed skills, which the check excludes.
+export const managedSkillsManifestPath = ".agent-tool-skills.json";
 
 function git(args: readonly string[], input?: string): Buffer {
   return execFileSync("git", args, { input, maxBuffer: 128 * 1024 * 1024 });
@@ -117,7 +119,7 @@ export function sourceShapeSnapshot(args: readonly string[]) {
     : changed;
   const oids = [
     ...new Set(
-      [...files, baselinePath].flatMap((path) => {
+      [...files, baselinePath, managedSkillsManifestPath].flatMap((path) => {
         const oid = blobs.get(path);
         return oid ? [oid] : [];
       }),

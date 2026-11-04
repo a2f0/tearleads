@@ -146,12 +146,25 @@ baseline rejects unknown fields, invalid counts, empty or duplicate export
 allowances, and unused permissions. Remove suppression counts and star-export
 specifiers together with the source constructs they allow.
 
-File-size allowances are ceilings: shrinking an over-limit file does not
-require updating its exact line and byte counts. Once a file fits the default
-budget, remove its allowance. Increases require reviewer context. Holistic
-dependency-cruiser configuration and long-form design or reference documents
-can warrant larger budgets when splitting would obscure the relationships they
-describe; the numeric allowance is still the enforced limit.
+The default budget is 500 lines and 20,000 bytes per file; Markdown gets
+40,000 bytes under the same line limit, because prose, tables, and link markup
+are byte-heavy. File-size allowances are exact: an allowance above its file's
+current size fails as stale, so a commit that shrinks an over-limit file lowers
+its allowance in the same commit, and the slack cannot be spent later without
+review. Once a file fits the default budget, remove its allowance. Increases
+require reviewer context. Holistic dependency-cruiser configuration and
+long-form design or reference documents can warrant larger budgets when
+splitting would obscure the relationships they describe; the numeric allowance
+is still the enforced limit.
+
+Generated and tool-owned files are excluded rather than given allowances,
+because their generators and drift checks own their shape: the OpenAPI
+artifact and its generated types, protocol trace and Lean vector fixtures, the
+Xcode project file, and every skill listed in
+[`.agent-tool-skills.json`](../../.agent-tool-skills.json). Add a new
+generated output to `ignoredPathPatterns` in
+[`scripts/checks/lintSourceShape.ts`](../../scripts/checks/lintSourceShape.ts)
+together with the generator.
 
 ## Skill placeholders
 
