@@ -221,6 +221,7 @@ export const EXPLORER_LABELS = {
   documentInfoEpochPrefix: "epoch",
   documentInfoFieldBlameHeading: "Field Blame",
   documentInfoGetInfoAction: "Get Info",
+  documentInfoAttributionTab: "Attribution",
   documentInfoBlobsTab: "Blobs",
   documentInfoGeneralHeading: "General Details",
   documentInfoGeneralTab: "General",

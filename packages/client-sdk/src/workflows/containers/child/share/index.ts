@@ -21,6 +21,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../../data/keyingProjectionVerification";
+import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
 import type { SecurityIncidentReporter } from "../../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
@@ -143,13 +144,16 @@ async function shareRemoteContainerOnce(
     );
   } catch (error) {
     // The path the share was handed predates a pin this device has since
-    // advanced, most often through its own re-citation. A fresh projection
-    // is held to the same pins, so a server that rolls a head back still
-    // fails the share, on its second plan.
+    // advanced, most often through its own re-citation, or its principal
+    // history stops short of a checkpoint another workflow pinned meanwhile
+    // (a retryable missing dependency, as a create refreshes). A fresh
+    // projection is held to the same pins, so a server that rolls a head
+    // back or withholds history still fails the share, on its second plan.
     if (
       retriesStalePath &&
-      error instanceof KeyingVerificationError &&
-      error.code === "rollback"
+      ((error instanceof KeyingVerificationError &&
+        error.code === "rollback") ||
+        error instanceof ProjectionDependencyUnavailableError)
     )
       return STALE_PATH;
     throw error;
@@ -185,7 +189,8 @@ async function shareRemoteContainerOnce(
  * Share a container with a user. A head on the signed path can advance while
  * the share is in flight, most often under this device's own background
  * re-citation of held descendants after a share above it. The API refuses
- * that as a stale path, and the share is planned once more from a fresh
+ * that as a stale path, and verification refuses a projection behind a local
+ * pin or checkpoint; either way the share is planned once more from a fresh
  * projection, as a create under a stale parent is.
  */
 export async function shareRemoteContainer(

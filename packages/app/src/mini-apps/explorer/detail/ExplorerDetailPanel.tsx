@@ -292,6 +292,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         canShareContainer={canWriteContainerNode(infoNode)}
         canShareWithPeer={params.canShareWithPeer}
         loadContainerInfo={params.loadContainerInfo}
+        logError={params.logError}
         onOpenGrant={params.onOpenGrant}
         readModelProjection={params.readModelProjection}
         readModelRevision={params.readModelRevision}

@@ -14,6 +14,7 @@ import {
   createRecipientIdentityResolver,
   SIGNED_AT,
 } from "../../../../../test/helpers/containerFixtures";
+import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { containerWriterProjectionFromSharePlan } from "../rekey/rekeyProjection";
 import { shareRemoteContainer } from "./index";
 
@@ -29,7 +30,10 @@ const STALE_PATH: Refusal = {
   status: 409,
 };
 
-async function shareAgainst(refusals: readonly Refusal[]) {
+async function shareAgainst(
+  refusals: readonly Refusal[],
+  unavailablePlans = 0,
+) {
   const parent = await createParentProjection();
   const { author } = await createAuthor({
     organizationId: parent.projection.organizationId,
@@ -38,6 +42,7 @@ async function shareAgainst(refusals: readonly Refusal[]) {
   const database = await createTestExecSql("container-share-stale-path");
   const submitted: ContainerMutationRequest[] = [];
   const counts = { evicted: 0, projections: 0, reported: 0 };
+  const resolveOwnerKey = createParentProjectionUserKeyResolver(parent);
   try {
     const shared = await shareRemoteContainer({
       reportSecurityIncident: async () => {},
@@ -77,7 +82,15 @@ async function shareAgainst(refusals: readonly Refusal[]) {
       containerId: parent.projection.containerId,
       execSql: database.execSql,
       recipientUserId: "user-2",
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      resolveProjectionUserKey: async (userId) => {
+        // Planning a projection whose history stops short of a checkpoint
+        // pinned meanwhile, the first time(s) the share plans.
+        if (counts.projections <= unavailablePlans)
+          throw new ProjectionDependencyUnavailableError(
+            "Public history cannot connect to the newer durable checkpoint",
+          );
+        return resolveOwnerKey(userId);
+      },
       resolveTrustedUserIdentity: createRecipientIdentityResolver({
         encapsulationPublicKey: generateKemSeedAndKeyPair().publicKey,
         signingKeyFingerprint: author.signerKeyFingerprint,
@@ -104,6 +117,22 @@ test("a share refused for anything but a stale path is final and reported", asyn
   expect(shared).toBeNull();
   expect(submitted).toHaveLength(1);
   expect(counts).toEqual({ evicted: 0, projections: 1, reported: 1 });
+});
+
+// Another workflow can pin a principal checkpoint past the history a share's
+// projection carries; verification refuses that as a retryable missing
+// dependency, which a fresh projection resolves, as a create's refresh does.
+test("a share whose history misses a newer checkpoint is planned again", async () => {
+  const { counts, shared, submitted } = await shareAgainst([], 1);
+  expect(shared).not.toBeNull();
+  expect(submitted).toHaveLength(1);
+  expect(counts).toEqual({ evicted: 1, projections: 2, reported: 0 });
+});
+
+test("a share whose history stays behind the checkpoint still fails", async () => {
+  await expect(shareAgainst([], 2)).rejects.toMatchObject({
+    name: "ProjectionDependencyUnavailableError",
+  });
 });
 
 test("a share is planned again only once", async () => {

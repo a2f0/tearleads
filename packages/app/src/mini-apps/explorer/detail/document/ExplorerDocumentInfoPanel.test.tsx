@@ -19,11 +19,30 @@ import {
 
 afterEach(() => cleanup());
 
+function openAttributionTab(view: ReturnType<typeof renderDocumentInfoPanel>) {
+  fireEvent.click(view.getByRole("tab", { name: "Attribution" }));
+}
+
+test("attribution sections live on their own tab, not the general tab", async () => {
+  const view = renderDocumentInfoPanel({
+    fallbackDocumentSummary: documentSummary,
+  });
+
+  await view.findByText("General Details");
+  expect(view.queryByText("Contributors")).toBeNull();
+
+  openAttributionTab(view);
+
+  expect(await view.findByText("Contributors")).toBeTruthy();
+  expect(view.queryByText("General Details")).toBeNull();
+});
+
 test("document info hides edit ranges until the feature flag is enabled", async () => {
   const view = renderDocumentInfoPanel({
     fallbackDocumentSummary: documentSummary,
   });
 
+  openAttributionTab(view);
   await view.findByText("Contributors");
   expect(view.queryByText("Edit Ranges")).toBeNull();
   expect(view.queryByRole("button", { name: "Show edit ranges" })).toBeNull();
@@ -64,6 +83,7 @@ test("truncated attribution never points at the gated edit ranges", async () => 
     }),
   });
 
+  openAttributionTab(view);
   expect(
     await view.findByText(
       "Edit attribution is too large for a complete summary.",
@@ -99,6 +119,7 @@ test("document info does not load detailed edit ranges until requested", async (
     },
   });
 
+  openAttributionTab(view);
   await view.findByRole("button", { name: "Show edit ranges" });
   expect(rangeRequestCount).toBe(0);
   fireEvent.click(view.getByRole("button", { name: "Show edit ranges" }));

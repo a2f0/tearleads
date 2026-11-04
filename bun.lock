@@ -98,7 +98,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.110",
+      "version": "0.1.111",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -190,7 +190,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.28",
+      "version": "0.1.29",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -224,7 +224,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
@@ -236,7 +236,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.134",
+      "version": "0.1.135",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",

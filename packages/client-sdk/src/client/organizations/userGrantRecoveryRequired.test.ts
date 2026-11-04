@@ -28,6 +28,14 @@ for (const missing of ["custody", "pages"] as const) {
           property === "getProjectionPolicyHistoryPages"
         )
           return undefined;
+        if (
+          property === "evictContainerWriterProjection" ||
+          property === "evictWriterProjectionsCiting"
+        ) {
+          return () => {
+            f.calls.push(`api:${property}`);
+          };
+        }
         if (property === "getContainerWriterProjection") {
           return async () => {
             f.calls.push("api:getContainerWriterProjection");
@@ -63,7 +71,13 @@ for (const missing of ["custody", "pages"] as const) {
           },
         } as OrganizationReadModelCoordinator,
       }).catch((error: unknown) => error);
+      // A missing dependency gets the revoke's one bounded refresh (evict and
+      // refetch the projection) and then fails the same way, still before any
+      // full read or write.
       expect(f.calls.filter((call) => !call.startsWith("sql:"))).toEqual([
+        "api:getContainerWriterProjection",
+        "api:evictContainerWriterProjection",
+        "api:evictWriterProjectionsCiting",
         "api:getContainerWriterProjection",
       ]);
       expect(
