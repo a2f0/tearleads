@@ -12,6 +12,18 @@ caching, and npm trusted publishing keeps `actions/setup-node`. Windows jobs
 keep `oven-sh/setup-bun`; their Bun pins must match `.mise.toml`, since
 `mise.lock` covers macOS arm64 and Linux x64, not Windows.
 
+Regenerate TLA+ integrity with `mise lock`, targeting every recorded platform,
+not only the host. For the Linux entries, use:
+
+```sh
+mise lock --platform linux-x64,linux-x64-baseline,linux-x64-musl,linux-x64-musl-baseline github:tlaplus/tlaplus
+```
+
+Verify the downloaded JAR against the digest in
+[`scripts/checks/tlaToolsPin.sh`](../scripts/checks/tlaToolsPin.sh), preserve
+unrelated lock entries, and require the matching CI platform's locked install.
+A passing macOS model check does not prove Linux's lock is complete.
+
 Astro's CLI uses Node even when Bun starts the website tests. Keep a supported
 Node on `PATH` for local website builds; Astro 7.4.5 requires at least 22.23.4.
 The CI build lane selects Node 24.22.2 LTS explicitly and includes its version
