@@ -241,6 +241,12 @@ describe("types and constraints in words", () => {
     expect(
       describeFixture({ type: "object", additionalProperties: false }).type,
     ).toEqual([{ kind: "text", text: "empty object" }]);
+    // JSON Schema allows unlisted fields unless additionalProperties is false.
+    const listed = { type: "object", properties: { a: { type: "string" } } };
+    expect(describeFixture(listed).otherFields).toBe(true);
+    expect(
+      describeFixture({ ...listed, additionalProperties: false }).otherFields,
+    ).toBe(false);
   });
 });
 

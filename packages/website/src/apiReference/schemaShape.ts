@@ -313,7 +313,8 @@ export class SchemaDescriber {
     return {
       ...plain([text("object")], literals),
       fields,
-      otherFields: additional !== undefined && additional !== false,
+      // JSON Schema allows unlisted fields unless additionalProperties is false.
+      otherFields: additional !== false,
     };
   }
 
