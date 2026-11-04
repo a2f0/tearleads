@@ -4,20 +4,23 @@ import type {
 } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import { ContactAvatarControl } from "../../../document-types/contact/ContactAvatarControl";
-import { getContactDisplayName } from "../../../document-types/contact/contactDocumentModel";
 import { useContactAvatarUrls } from "../../../document-types/contact/useContactAvatarUrls";
-import { CONTACTS_LABELS } from "../labels";
+import { getViewerRelativeContactLabel } from "../../../stores/contacts/contactLabels";
 import type { ContactEntries } from "../types";
 
 export function ContactsAvatarSection({
   blobStore,
   canEdit,
+  currentSigningFingerprint,
+  currentUserId,
   entry,
   removeContactAvatar,
   setContactAvatar,
 }: {
   blobStore: BlobStore;
   canEdit: boolean;
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   entry: ContactEntries[number];
   removeContactAvatar: (contactId: string) => void;
   setContactAvatar: (
@@ -27,7 +30,13 @@ export function ContactsAvatarSection({
 }) {
   const avatarEntries = useMemo(() => [entry], [entry]);
   const avatarUrlByContactId = useContactAvatarUrls(avatarEntries, blobStore);
-  const displayName = getContactDisplayName(entry);
+  // Same viewer-relative label as the sidebar row, so an unnamed self contact
+  // reads "You" on both sides.
+  const displayName = getViewerRelativeContactLabel(
+    entry,
+    currentSigningFingerprint,
+    currentUserId,
+  );
 
   // The photo and name head the card, so the person is named before the
   // fields that describe them.
@@ -41,9 +50,7 @@ export function ContactsAvatarSection({
         onApplyAvatar={(upload) => setContactAvatar(entry.id, upload)}
         onRemoveAvatar={() => removeContactAvatar(entry.id)}
       />
-      <h2 className="contacts-detail-name">
-        {displayName || CONTACTS_LABELS.unnamedContact}
-      </h2>
+      <h2 className="contacts-detail-name">{displayName}</h2>
     </div>
   );
 }

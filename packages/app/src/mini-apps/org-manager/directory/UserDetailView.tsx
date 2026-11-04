@@ -31,7 +31,7 @@ import {
   useMiniAppVirtualRows,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
-import { compactFingerprint } from "../display";
+import { compactFingerprint, getRosterUserLabel } from "../display";
 import { GrantSections } from "../grants/GrantSections";
 import { groupDisplayName, ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerGrantRouteRef } from "../routes";
@@ -305,10 +305,7 @@ export function UserDetailView({
       <MiniAppHeader className="org-manager-detail-header">
         <MiniAppHeaderCopy>
           <strong title={detail.user.userId}>
-            {profileDisplayName ??
-              (detail.user.isSelf
-                ? ORG_MANAGER_LABELS.self
-                : compactFingerprint(detail.user.userId))}
+            {getRosterUserLabel(detail.user, profileDisplayName)}
           </strong>
           <span title={detail.user.signingKeyFingerprint}>
             {compactFingerprint(detail.user.signingKeyFingerprint)}

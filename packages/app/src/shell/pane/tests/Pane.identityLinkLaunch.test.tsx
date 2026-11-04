@@ -86,7 +86,11 @@ for (const [mode, native] of [
     expect(currentInput().value).toContain(new URL(link).pathname);
     fireEvent.click(view.getByRole("button", { name: "Verify and Add" }));
     // The verified, still unnamed contact opens; its user ID stays hidden.
-    await view.findByText("Unnamed contact", {}, { timeout: 15_000 });
+    await view.findByRole(
+      "heading",
+      { name: "Untitled contact" },
+      { timeout: 15_000 },
+    );
     expect(view.queryByText(peerId)).toBeNull();
   }, 30_000);
 }
