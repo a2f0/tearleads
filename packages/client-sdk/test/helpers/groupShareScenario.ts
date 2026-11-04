@@ -195,6 +195,8 @@ async function createGroupSharePolicies(input: {
 interface GroupShareScenarioInput {
   currentGroupKeyEpoch: number;
   currentPolicyError?: unknown;
+  // Fails only the first N group reads with currentPolicyError (all when unset).
+  currentPolicyErrorReads?: number | undefined;
   // Defaults to the group's signed name for a share that could mint a grant;
   // `null` omits it, to exercise the facade's guard against a nameless mint.
   expectedGroupName?: string | null | undefined;
@@ -260,7 +262,11 @@ function createGroupShareScenarioRuntimeInput(input: {
       ) {
         if (principalType === "group" && principalId !== ADMIN_GROUP_ID) {
           recorder.currentPolicyCalls.push({ principalId, principalType });
-          if (scenario.currentPolicyError) {
+          if (
+            scenario.currentPolicyError &&
+            recorder.currentPolicyCalls.length <=
+              (scenario.currentPolicyErrorReads ?? Number.POSITIVE_INFINITY)
+          ) {
             if (scenario.currentPolicyError instanceof Error)
               throw scenario.currentPolicyError;
             throw new Error("current principal policy unavailable");
