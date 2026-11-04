@@ -8,9 +8,10 @@ It is workspace-only for now and runs from source with Bun on macOS.
 
 ## Quick start
 
-From the repository root, after `bun install`:
+From the repository root:
 
 ```sh
+bun install                 # links the CLI's workspace dependencies
 bun run build:runtime       # SQLite and the client SDK, which the CLI loads
 bun run tearleads login     # paste the recovery key from Identity Manager
 bun run tearleads whoami
