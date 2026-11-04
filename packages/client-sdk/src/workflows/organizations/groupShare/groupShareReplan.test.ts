@@ -32,6 +32,18 @@ class FakeShareApi {
     this.#log.push("share");
     return null;
   }
+  async commitOrganizationGroupPolicyResult(): Promise<null> {
+    this.#log.push("commit-result");
+    return null;
+  }
+  async reciteContainer(): Promise<null> {
+    this.#log.push("recite");
+    return null;
+  }
+  async listContainerParentLanes(): Promise<null> {
+    this.#log.push("list");
+    return null;
+  }
 }
 
 function shareInput(api: FakeShareApi, stillCurrent?: () => boolean) {
@@ -105,6 +117,37 @@ test("stale evidence after a group policy write is never replanned", async () =>
   expect(outcome).toBeInstanceOf(ProjectionDependencyUnavailableError);
   expect(api.calls).toEqual(["commit"]);
   expect(api.evicted).toEqual([]);
+});
+
+// The runtime path commits through the status-bearing method, and any method
+// not known to be a read counts as a write, so a new write cannot slip past.
+for (const write of [
+  "commitOrganizationGroupPolicyResult",
+  "reciteContainer",
+] as const) {
+  test(`stale evidence after ${write} is never replanned`, async () => {
+    const { api, outcome } = await run([
+      async (input) => {
+        await input.apiClient[write]();
+        throw stale();
+      },
+    ]);
+    expect(outcome).toBeInstanceOf(ProjectionDependencyUnavailableError);
+    expect(api.evicted).toEqual([]);
+  });
+}
+
+test("reads before stale evidence still allow the replan", async () => {
+  const { api, outcome } = await run([
+    async (input) => {
+      await input.apiClient.getContainerWriterProjection();
+      await input.apiClient.listContainerParentLanes();
+      throw stale();
+    },
+    async () => "shared",
+  ]);
+  expect(outcome).toBe("shared");
+  expect(api.calls).toEqual(["read", "list"]);
 });
 
 test("stale evidence after a share submission is never replanned", async () => {

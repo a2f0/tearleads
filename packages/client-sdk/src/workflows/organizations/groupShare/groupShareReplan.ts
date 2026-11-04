@@ -2,12 +2,18 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 
-/** The share's remote writes; nothing may be replanned once one has run. */
-const GROUP_SHARE_WRITES = new Set([
-  "commitOrganizationGroupPolicy",
-  "shareContainer",
-  "shareContainerResult",
-]);
+/**
+ * Client calls that leave the server unchanged. Every other call counts as a
+ * write (the group policy commit in either form, the share, a recitation), so
+ * a write method added later blocks the replan rather than slipping past it.
+ * Recovery settles an earlier journaled mutation, never this share's.
+ */
+function isReadOnlyCall(method: string): boolean {
+  return (
+    /^(evict|get|list)[A-Z]/u.test(method) ||
+    method === "recoverPendingPrincipalMutation"
+  );
+}
 
 interface ReplannableGroupShareInput<Api extends object> {
   readonly apiClient: Api & {
@@ -37,7 +43,7 @@ function recordWrites<Api extends object>(api: Api, onWrite: () => void): Api {
       if (typeof value !== "function") return value;
       const bound = (...args: unknown[]): unknown =>
         Reflect.apply(value, target, args);
-      if (typeof property !== "string" || !GROUP_SHARE_WRITES.has(property))
+      if (typeof property === "string" && isReadOnlyCall(property))
         return bound;
       return (...args: unknown[]): unknown => {
         onWrite();
