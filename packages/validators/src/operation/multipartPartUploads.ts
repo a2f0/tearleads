@@ -41,6 +41,7 @@ export const authorizeMultipartBlobPartUploadOperation = defineJsonOperation({
   },
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "blobs.multipartStages.parts.authorize",
+  summary: "Authorize a direct multipart blob part upload",
   method: "POST",
   params: MultipartBlobPartPathParamsSchema,
   path: "/blobs/stages/multipart/{stageId}/parts/{partNumber}/upload",
