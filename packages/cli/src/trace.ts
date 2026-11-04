@@ -42,7 +42,11 @@ export function createTracer(options: TracerOptions): Tracer {
   const event = (message: string) => {
     if (!options.enabled) return;
     const elapsed = ((now() - startedAt) / 1000).toFixed(3).padStart(8);
-    write(`${clock().toISOString()} +${elapsed}s  ${printable(message)}`);
+    const prefix = `${clock().toISOString()} +${elapsed}s  `;
+    // Multi-line text (stack traces) keeps one timestamped line per line.
+    for (const line of message.split(/\r?\n/u)) {
+      write(`${prefix}${printable(line)}`);
+    }
   };
 
   return {

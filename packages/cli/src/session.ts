@@ -1,3 +1,4 @@
+import { format } from "node:util";
 import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
 import { openLocalDatabase } from "./localDatabase";
 import { TracingApiRequestMetrics } from "./sdkTracing";
@@ -33,7 +34,7 @@ function labelConsoleOutput(tracer: Tracer): () => void {
   );
   for (const method of CONSOLE_METHODS) {
     console[method] = (...args: unknown[]) => {
-      tracer.event(`console.${method}: ${args.map(String).join(" ")}`);
+      tracer.event(`console.${method}: ${format(...args)}`);
     };
   }
   return () => {

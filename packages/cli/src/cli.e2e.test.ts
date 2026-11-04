@@ -376,12 +376,18 @@ test("while tracing, stray console output is labeled with its source", async () 
   onRequest = (request) => {
     if (request !== "GET /organization-memberships") return;
     console.log("");
-    console.warn("from a dependency");
+    console.warn("from a dependency", { code: 7 }, new Error("deep cause"));
   };
 
   expect(await runCli(["ls", "--trace"], context)).toBe(0);
   expect(console.log).toBe(log);
   const messages = output.stderr.map((line) => line.replace(TRACE_LINE, ""));
-  expect(messages).toContain("console.warn: from a dependency");
+  const start = messages.findIndex((line) => line.startsWith("console.warn: "));
+  // Formatted as console prints it: object fields and the error's stack,
+  // one trace line per line.
+  expect(messages[start]).toBe(
+    "console.warn: from a dependency { code: 7 } Error: deep cause",
+  );
+  expect(messages[start + 1]).toContain("cli.e2e.test.ts");
   expect(messages).toContain("console.log: ");
 }, 60_000);

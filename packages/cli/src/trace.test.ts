@@ -84,6 +84,16 @@ test("traced text is escaped like other output", () => {
   expect(lines[0]).toEndWith("name \\u{001b}[2J");
 });
 
+test("multi-line text becomes one timestamped line per line", () => {
+  const { lines, tracer } = fakeTracer();
+  tracer.event("Error: boom\n    at work (file.ts:1:2)");
+
+  expect(lines.map(message)).toEqual([
+    "Error: boom",
+    "    at work (file.ts:1:2)",
+  ]);
+});
+
 test("a disabled tracer writes nothing and still runs spans", async () => {
   const { lines, tracer } = fakeTracer(false);
   tracer.event("hidden");
