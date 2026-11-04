@@ -11,6 +11,20 @@ interface OpenIdentityManagerResult {
 }
 
 const LOCAL_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
+// DeveloperModeProvider's key. Identity Manager shows the Signing Key and
+// Organization ID rows this setup reads only in developer mode, so auth turns
+// it on and the reload before any capture runs with it off again.
+const DEVELOPER_MODE_STORAGE_KEY = "tearleads.system-monitor:developer-mode";
+
+async function setDeveloperMode(page: Page, enabled: boolean): Promise<void> {
+  await page.evaluate(
+    ([key, on]) => {
+      if (on) localStorage.setItem(key, "enabled");
+      else localStorage.removeItem(key);
+    },
+    [DEVELOPER_MODE_STORAGE_KEY, enabled] as const,
+  );
+}
 
 async function readPersistedSessionSnapshot(page: Page): Promise<string> {
   return page.evaluate((prefix) => {
@@ -125,6 +139,9 @@ export async function authenticateOrRegisterScreenshotIdentity(
   page: Page,
   routed: boolean,
 ): Promise<void> {
+  await setDeveloperMode(page, true);
+  await page.reload();
+  await waitForBooted(page);
   const { close, scope } = await openIdentityManager(page, routed);
   const authenticated = scope.getByText("Authenticated", { exact: true });
   let persistedSessionBefore: string | null = null;
@@ -159,6 +176,7 @@ export async function authenticateOrRegisterScreenshotIdentity(
     await waitForPersistedSessionUpdate(page, persistedSessionBefore);
   }
   await close();
+  await setDeveloperMode(page, false);
 
   // Registration/login updates the live Identity Manager immediately, while
   // other mini-app providers can still hold the signed-out snapshot from this
