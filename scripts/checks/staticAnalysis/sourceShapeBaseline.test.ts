@@ -111,17 +111,67 @@ test("untracked and excluded permissions are rejected", () => {
   expect(result.output).toContain("excluded file");
 });
 
-test("size ceilings remain budgets, but unnecessary allowances must go", () => {
+test("size allowances ratchet to the exact size, and unnecessary ones must go", () => {
   const repo = setup();
-  repo.write("source.ts", "\n".repeat(501));
+  repo.write("source.ts", "\n".repeat(601));
   repo.baseline({
     ...emptyBaseline,
-    fileSizes: { "source.ts": { lines: 600, bytes: 1000 } },
+    fileSizes: { "source.ts": { lines: 601, bytes: 601 } },
   });
   repo.git("add", ".");
   expect(repo.scan().code).toBe(0);
-  repo.write("source.ts", "\n".repeat(601));
-  expect(repo.scan().code).toBe(1);
+  repo.write("source.ts", "\n".repeat(602));
+  expect(repo.scan().output).toContain("baseline allows 601 lines/601 bytes");
+  repo.write("source.ts", "\n".repeat(600));
+  expect(repo.scan()).toMatchObject({
+    code: 1,
+    output: expect.stringContaining("lower it to the current size"),
+  });
   repo.write("source.ts", cleanSource);
   expect(repo.scan().output).toContain("baseline is no longer needed");
+});
+
+test("Markdown gets a larger byte budget under the same line limit", () => {
+  const repo = setup();
+  const line = `${"x".repeat(99)}\n`;
+  repo.write("guide.md", line.repeat(300));
+  repo.write("source.ts", `//${line}`.repeat(250));
+  repo.git("add", ".");
+  const result = repo.scan();
+  expect(result.output).not.toContain("guide.md");
+  expect(result.output).toContain(
+    "source.ts: file size is 250 lines/25500 bytes but default budget allows 500 lines/20000 bytes",
+  );
+  repo.write("guide.md", line.repeat(401));
+  expect(repo.scan().output).toContain(
+    "guide.md: file size is 401 lines/40100 bytes but default budget allows 500 lines/40000 bytes",
+  );
+});
+
+test("generated files and agent-tool managed skills are excluded", () => {
+  const repo = setup();
+  const oversized = "\n".repeat(501);
+  const skill = ".claude/skills/managed/SKILL.md";
+  repo.write("docs/openapi.json", oversized);
+  repo.write(skill, `${oversized}${suppressedSource}`);
+  repo.write(".claude/skills/local/SKILL.md", oversized);
+  repo.write(
+    ".agent-tool-skills.json",
+    JSON.stringify({ schemaVersion: 1, files: { [skill]: "hash" } }),
+  );
+  repo.git("add", ".");
+  const result = repo.scan();
+  expect(result.output).not.toContain("openapi.json");
+  expect(result.output).not.toContain(skill);
+  expect(result.output).toContain(".claude/skills/local/SKILL.md");
+  repo.commit();
+  repo.write(skill, `${oversized}${oversized}`);
+  repo.git("add", skill);
+  expect(repo.scan("--staged").code).toBe(0);
+  const exempt = repo.commit();
+  repo.write(".agent-tool-skills.json", JSON.stringify({ files: {} }));
+  repo.git("add", ".agent-tool-skills.json");
+  expect(repo.scan("--staged").output).toContain(skill);
+  repo.commit();
+  expect(repo.scan("--range", `${exempt}..HEAD`).output).toContain(skill);
 });

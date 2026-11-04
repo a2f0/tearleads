@@ -4,10 +4,16 @@ import {
   type SuppressionCounts,
   suppressionKinds,
 } from "./sourceShapeBaseline";
-import { sourceShapeSnapshot } from "./sourceShapeSnapshot";
+import {
+  managedSkillsManifestPath,
+  sourceShapeSnapshot,
+} from "./sourceShapeSnapshot";
 
 const lineLimit = 500;
 const byteLimit = 20_000;
+// Prose, link markup, and tables make Markdown byte-heavy for its line count,
+// so documents get a larger byte budget under the same line limit.
+const markdownByteLimit = 40_000;
 
 const snapshot = sourceShapeSnapshot(process.argv.slice(2));
 const baselineBuffer = snapshot.read("scripts/checks/sourceShapeBaseline.json");
@@ -65,6 +71,13 @@ const ignoredPathPatterns = [
   /^packages\/api-shared\/drizzle-sqlite\/[^/]+\.sql$/,
   /^packages\/api-shared\/drizzle-sqlite\/meta\/[^/]+\.json$/,
   /^packages\/website\/\.astro\//,
+  // Generated or tool-owned files, each kept current by its own generator or
+  // drift check rather than edited by hand.
+  /^docs\/openapi\.json$/,
+  /^packages\/validators\/src\/operation\/generatedOpenApi\.ts$/,
+  /^formal\/document-sync\/BaselineDominanceTraces\.json$/,
+  /^formal\/lean\/vectors\/[^/]+\.json$/,
+  /^packages\/app-capacitor\/ios\/App\/App\.xcodeproj\/project\.pbxproj$/,
   /^playwright-report\//,
   /^scripts\/checks\/lintSourceShape\.ts$/,
   /^scripts\/checks\/sourceShapeBaseline\.json$/,
@@ -84,15 +97,36 @@ function extensionOf(filePath: string): string {
   return match?.[0] ?? "";
 }
 
-function shouldScan(filePath: string): boolean {
-  return (
-    scanExtensions.has(extensionOf(filePath)) &&
-    !ignoredPathPatterns.some((pattern) => pattern.test(filePath))
+// Skills agent-tool manages are copied verbatim from upstream and checked by
+// `agents:check`; this repository cannot change their shape.
+function managedSkillPaths(): ReadonlySet<string> {
+  const manifest = snapshot.read(managedSkillsManifestPath);
+  if (!manifest) return new Set();
+  const parsed: unknown = JSON.parse(manifest.toString("utf8"));
+  const files =
+    typeof parsed === "object" && parsed !== null && "files" in parsed
+      ? parsed.files
+      : undefined;
+  return new Set(
+    typeof files === "object" && files !== null ? Object.keys(files) : [],
   );
 }
 
+const managedSkills = managedSkillPaths();
+
+function isExcluded(filePath: string): boolean {
+  return (
+    managedSkills.has(filePath) ||
+    ignoredPathPatterns.some((pattern) => pattern.test(filePath))
+  );
+}
+
+function shouldScan(filePath: string): boolean {
+  return scanExtensions.has(extensionOf(filePath)) && !isExcluded(filePath);
+}
+
 function shouldCheckFileSize(filePath: string): boolean {
-  return !ignoredPathPatterns.some((pattern) => pattern.test(filePath));
+  return !isExcluded(filePath);
 }
 
 function countMatches(source: string, pattern: RegExp): number {
@@ -119,8 +153,11 @@ function fileSizeOf(buffer: Buffer): FileSizeBudget {
   };
 }
 
-function isOverDefaultBudget(size: FileSizeBudget): boolean {
-  return size.lines > lineLimit || size.bytes > byteLimit;
+function defaultBudgetFor(filePath: string): FileSizeBudget {
+  return {
+    bytes: extensionOf(filePath) === ".md" ? markdownByteLimit : byteLimit,
+    lines: lineLimit,
+  };
 }
 
 function isOverBudget(size: FileSizeBudget, budget: FileSizeBudget): boolean {
@@ -136,31 +173,43 @@ function findFileSizeViolations(
   size: FileSizeBudget,
 ): Violation[] {
   const baselineBudget = fileSizeBaseline[filePath];
+  const defaultBudget = defaultBudgetFor(filePath);
 
   if (baselineBudget) {
-    if (!isOverDefaultBudget(size)) {
+    if (!isOverBudget(size, defaultBudget)) {
       return [
         {
-          detail: `file size baseline is no longer needed; current size is ${formatFileSize(size)} under the default ${lineLimit} lines/${byteLimit} bytes budget`,
+          detail: `file size baseline is no longer needed; current size is ${formatFileSize(size)} under the default ${formatFileSize(defaultBudget)} budget`,
           filePath,
         },
       ];
     }
 
-    return isOverBudget(size, baselineBudget)
+    if (isOverBudget(size, baselineBudget)) {
+      return [
+        {
+          detail: `file size is ${formatFileSize(size)} but baseline allows ${formatFileSize(baselineBudget)}`,
+          filePath,
+        },
+      ];
+    }
+
+    // Allowances ratchet: slack left by a shrinking file would let it regrow
+    // without review, so the allowance must match the current size exactly.
+    return isOverBudget(baselineBudget, size)
       ? [
           {
-            detail: `file size is ${formatFileSize(size)} but baseline allows ${formatFileSize(baselineBudget)}`,
+            detail: `file size baseline is stale; current size is ${formatFileSize(size)} but baseline allows ${formatFileSize(baselineBudget)}; lower it to the current size`,
             filePath,
           },
         ]
       : [];
   }
 
-  return isOverDefaultBudget(size)
+  return isOverBudget(size, defaultBudget)
     ? [
         {
-          detail: `file size is ${formatFileSize(size)} but default budget allows ${lineLimit} lines/${byteLimit} bytes`,
+          detail: `file size is ${formatFileSize(size)} but default budget allows ${formatFileSize(defaultBudget)}`,
           filePath,
         },
       ]
