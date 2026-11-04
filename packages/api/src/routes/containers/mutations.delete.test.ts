@@ -162,7 +162,8 @@ test("DELETE /containers/:id still rejects a metadata folder holding a user docu
   });
 });
 
-test("DELETE /containers/:containerId removes a leaf and emits deleted tombstones", async () => {
+/** A root child shared with a user directly and with a group member. */
+async function arrangeLeafSharedWithUserAndGroup() {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const recipient = createTestUser();
@@ -226,24 +227,12 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
     current: group,
   });
   const groupSharedChild = await firstCompoundMutation(grantedGroup);
+  return { groupMember, groupSharedChild, owner, recipient, root };
+}
 
-  const recipientBaselineResponse = await listRootContainers({
-    token: recipient.token,
-  });
-  expect(recipientBaselineResponse.status).toBe(200);
-  const recipientBaseline = await readLanePage(recipientBaselineResponse);
-  expect(
-    recipientBaseline.items.map((container: { id: string }) => container.id),
-  ).toContain(groupSharedChild.containerId);
-
-  const groupMemberBaselineResponse = await listRootContainers({
-    token: groupMember.token,
-  });
-  expect(groupMemberBaselineResponse.status).toBe(200);
-  const groupMemberBaseline = await readLanePage(groupMemberBaselineResponse);
-  expect(
-    groupMemberBaseline.items.map((container: { id: string }) => container.id),
-  ).toContain(groupSharedChild.containerId);
+test("DELETE /containers/:containerId removes a leaf and stores deleted tombstones for every reader", async () => {
+  const { groupMember, groupSharedChild, owner, recipient, root } =
+    await arrangeLeafSharedWithUserAndGroup();
 
   const deleteResponse = await deleteContainerForUser({
     containerId: groupSharedChild.containerId,
@@ -300,6 +289,35 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
       },
     ]),
   );
+});
+
+test("DELETE /containers/:containerId emits deleted tombstones to direct and group readers", async () => {
+  const { groupMember, groupSharedChild, owner, recipient, root } =
+    await arrangeLeafSharedWithUserAndGroup();
+
+  const recipientBaselineResponse = await listRootContainers({
+    token: recipient.token,
+  });
+  expect(recipientBaselineResponse.status).toBe(200);
+  const recipientBaseline = await readLanePage(recipientBaselineResponse);
+  expect(
+    recipientBaseline.items.map((container: { id: string }) => container.id),
+  ).toContain(groupSharedChild.containerId);
+
+  const groupMemberBaselineResponse = await listRootContainers({
+    token: groupMember.token,
+  });
+  expect(groupMemberBaselineResponse.status).toBe(200);
+  const groupMemberBaseline = await readLanePage(groupMemberBaselineResponse);
+  expect(
+    groupMemberBaseline.items.map((container: { id: string }) => container.id),
+  ).toContain(groupSharedChild.containerId);
+
+  const deleteResponse = await deleteContainerForUser({
+    containerId: groupSharedChild.containerId,
+    token: owner.token,
+  });
+  expect(deleteResponse.status).toBe(200);
 
   const recipientDeltaResponse = await listRootContainers({
     token: recipient.token,

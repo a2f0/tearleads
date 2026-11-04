@@ -112,7 +112,8 @@ test("POST /containers/:containerId/share allows additional root group grants", 
   });
 });
 
-test("POST /containers/:containerId/share stores group KEK targets and rejects stale group policy", async () => {
+/** A child shared with a user, then with a group, on one KEK epoch. */
+async function shareChildWithUserThenGroup() {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const directRecipient = createTestUser();
@@ -166,6 +167,80 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
     current: initialGroup,
   });
   const shared = await firstCompoundMutation(grantedGroup);
+  return {
+    created,
+    createdBundle,
+    directRecipient,
+    directRecipientKey,
+    grantedGroup,
+    groupPrincipalId,
+    initialGroup,
+    owner,
+    root,
+    shared,
+    userShared,
+    userSharedBundle,
+  };
+}
+
+/** Adds a second group's grant on top of {@link shareChildWithUserThenGroup}. */
+async function addSecondGroupGrant(
+  context: Awaited<ReturnType<typeof shareChildWithUserThenGroup>>,
+) {
+  const {
+    created,
+    createdBundle,
+    directRecipientKey,
+    grantedGroup,
+    owner,
+    root,
+    shared,
+    userSharedBundle,
+  } = context;
+  const secondGroupPrincipalId = crypto.randomUUID();
+  const secondGroup = await putGroupPrincipalPolicy({
+    actor: owner,
+    principalId: secondGroupPrincipalId,
+    signedAt: "2026-04-30T00:00:30.000Z",
+  });
+  const sharedBundle = accessManifestFromResponse(shared);
+  const secondGrantedGroup = await commitGroupGrant({
+    actor: owner,
+    buildMutation: ({ policy, reference }) =>
+      buildGroupGrantRequest({
+        containerManifestHistory: [
+          createdBundle,
+          userSharedBundle,
+          sharedBundle,
+        ],
+        parentKekState: root.kekState,
+        previous: sharedBundle,
+        previousContainerPath: [root.bundle, sharedBundle],
+        previousKekState: kekStateFromResponse(shared),
+        principalPolicies: [grantedGroup.policy],
+        principalPolicy: policy,
+        principalReference: reference,
+        signer: owner,
+        userRecipientKeys: [directRecipientKey],
+      }),
+    containerId: created.containerId,
+    current: secondGroup,
+    signedAt: "2026-04-30T00:00:31.000Z",
+  });
+  const secondGroupShared = await firstCompoundMutation(secondGrantedGroup);
+  return { secondGrantedGroup, secondGroupPrincipalId, secondGroupShared };
+}
+
+test("POST /containers/:containerId/share stores group KEK targets beside a direct user grant", async () => {
+  const {
+    directRecipient,
+    directRecipientKey,
+    grantedGroup,
+    groupPrincipalId,
+    root,
+    shared,
+    userShared,
+  } = await shareChildWithUserThenGroup();
 
   expect(shared.containerKek.containerKeyEpochId).toBe(
     userShared.containerKek.containerKeyEpochId,
@@ -204,38 +279,13 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
       recipientKeyFingerprint: directRecipientKey.recipientKeyFingerprint,
     },
   ]);
+});
 
-  const secondGroupPrincipalId = crypto.randomUUID();
-  const secondGroup = await putGroupPrincipalPolicy({
-    actor: owner,
-    principalId: secondGroupPrincipalId,
-    signedAt: "2026-04-30T00:00:30.000Z",
-  });
-  const sharedBundle = accessManifestFromResponse(shared);
-  const secondGrantedGroup = await commitGroupGrant({
-    actor: owner,
-    buildMutation: ({ policy, reference }) =>
-      buildGroupGrantRequest({
-        containerManifestHistory: [
-          createdBundle,
-          userSharedBundle,
-          sharedBundle,
-        ],
-        parentKekState: root.kekState,
-        previous: sharedBundle,
-        previousContainerPath: [root.bundle, sharedBundle],
-        previousKekState: kekStateFromResponse(shared),
-        principalPolicies: [grantedGroup.policy],
-        principalPolicy: policy,
-        principalReference: reference,
-        signer: owner,
-        userRecipientKeys: [directRecipientKey],
-      }),
-    containerId: created.containerId,
-    current: secondGroup,
-    signedAt: "2026-04-30T00:00:31.000Z",
-  });
-  const secondGroupShared = await firstCompoundMutation(secondGrantedGroup);
+test("POST /containers/:containerId/share keeps the KEK epoch for a second group grant", async () => {
+  const context = await shareChildWithUserThenGroup();
+  const { grantedGroup, groupPrincipalId, shared } = context;
+  const { secondGrantedGroup, secondGroupPrincipalId, secondGroupShared } =
+    await addSecondGroupGrant(context);
   expect(secondGroupShared.containerKek.containerKeyEpochId).toBe(
     shared.containerKek.containerKeyEpochId,
   );
@@ -256,6 +306,12 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
     ),
     recipientKeyFingerprint: secondGrantedGroup.reference.keyFingerprint,
   });
+});
+
+test("POST /containers/:containerId/share rejects a group grant citing a stale group policy", async () => {
+  const context = await shareChildWithUserThenGroup();
+  const { grantedGroup, groupPrincipalId, initialGroup, owner, root } = context;
+  const { secondGroupShared } = await addSecondGroupGrant(context);
 
   await putGroupPrincipalPolicy({
     actor: owner,
