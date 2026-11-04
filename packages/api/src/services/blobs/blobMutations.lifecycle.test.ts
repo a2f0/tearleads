@@ -23,8 +23,8 @@ import {
   type StoredContainerFixture,
   type StoredDocumentFixture,
   stageEncryptedBlob,
-  verifyAccessEvent,
 } from "../../../test/helpers/blobMutationFixtures";
+import { createSignedAccessEvent } from "../../../test/helpers/keyingWriterProjectionKit";
 import { createFailingRuntime } from "../../../test/helpers/serviceRuntime";
 import {
   BlobMutationError,
@@ -46,7 +46,7 @@ async function buildDetachRequest(input: {
     slotId: input.binding.slotId,
     documentManifestHash: input.document.bundle.manifestHash,
   };
-  const event = await verifyAccessEvent({
+  const event = await createSignedAccessEvent({
     body,
     dependencyManifestHashes: [
       input.document.bundle.manifestHash,

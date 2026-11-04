@@ -3,11 +3,7 @@ import { db } from "@tearleads/api-shared/postgres";
 import { documents } from "@tearleads/api-shared/schema";
 import type {
   AttachmentBindAccessEventBody,
-  AttachmentDetachAccessEventBody,
-  ContainerKeyEpoch,
-  ContainerKeyWrap,
   KeyingCanonicalJson,
-  VerifiedAccessEvent,
   VerifiedAttachmentBinding,
   VerifiedBlobKekTargets,
   VerifiedContainerAccessManifest,
@@ -17,30 +13,24 @@ import type {
 } from "@tearleads/crypto";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
-  computeAccessEventBodyHash,
   computeAccessManifestHash,
   computeContentRecordNonceDomainHash,
   deriveBlobKekTargets,
   deriveDocumentLinkSetManifest,
-  signAccessEvent,
   signWriteHeader,
   verifyAttachmentBindingEvent,
-  verifyContainerKekState,
   verifyDocumentLinkSetManifest,
-  verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import type { TestUser } from "@tearleads/test-utils";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
-import { getAccessManifestBundle } from "../../src/access/read/accessManifestStore";
-import {
-  getCurrentContainerKeyEpoch,
-  listContainerKeyWraps,
-} from "../../src/access/read/containerKekStore";
 import { storeVerifiedAccessManifest } from "../../src/access/write/accessManifestStore";
 import { fixtureBlobMetadataHash } from "./blobEnvelope";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
-import { getRootContainerForUser } from "./personalRootContainer";
-import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
+import {
+  asVerifiedContainerManifest,
+  bootstrapRoot as bootstrapStoredRoot,
+  createSignedAccessEvent,
+} from "./keyingWriterProjectionKit";
 import { registerUser } from "./registerUser";
 import { createServiceTestRuntime } from "./serviceRuntime";
 import { stageBlobEnvelopeFixture } from "./stagedBlobEnvelope";
@@ -67,124 +57,16 @@ export async function registerOnly(user: TestUser): Promise<void> {
   await registerUser(user);
 }
 
-export async function verifyAccessEvent(input: {
-  readonly body:
-    | AttachmentBindAccessEventBody
-    | AttachmentDetachAccessEventBody
-    | {
-        readonly eventType: "document.link";
-        readonly containerId: string;
-        readonly containerManifestHash: string;
-      };
-  readonly dependencyManifestHashes?: readonly string[];
-  readonly objectId: string;
-  readonly objectKind: "blob" | "container" | "document";
-  readonly organizationId: string;
-  readonly previousManifestHash: string | null;
-  readonly signer: TestUser;
-}): Promise<VerifiedAccessEvent> {
-  const event = await signAccessEvent(
-    {
-      version: 1,
-      eventId: crypto.randomUUID(),
-      eventType: input.body.eventType,
-      objectKind: input.objectKind,
-      objectId: input.objectId,
-      organizationId: input.organizationId,
-      previousManifestHash: input.previousManifestHash,
-      dependencyManifestHashes: [...(input.dependencyManifestHashes ?? [])],
-      bodyHash: await computeAccessEventBodyHash(
-        input.body as unknown as KeyingCanonicalJson,
-      ),
-      signerUserId: input.signer.userId,
-      signerDeviceId: "test-device",
-      signerKeyFingerprint: input.signer.fingerprint,
-      signedAt: "2026-04-27T12:00:00.000Z",
-    },
-    input.signer.signing.signingPrivateKey,
-  );
-  const verified = await verifySignedAccessEvent({
-    body: input.body as unknown as KeyingCanonicalJson,
-    event,
-    signerPublicKey: input.signer.signing.signingPublicKey,
-  });
-
-  expect(verified.ok).toBe(true);
-  if (!verified.ok) {
-    throw verified.error;
-  }
-
-  return verified.value;
-}
-
-function toContainerKeyEpoch(
-  keyEpoch: Awaited<ReturnType<typeof getCurrentContainerKeyEpoch>>,
-): ContainerKeyEpoch {
-  if (!keyEpoch) {
-    throw new Error("Expected container key epoch");
-  }
-
-  return {
-    id: keyEpoch.id,
-    containerId: keyEpoch.containerId,
-    keyEpoch: keyEpoch.keyEpoch,
-    accessManifestHash: keyEpoch.accessManifestHash,
-    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-    createdByEventHash: keyEpoch.createdByEventHash,
-    createdByManifestHash: keyEpoch.createdByManifestHash,
-  };
-}
-
-function toContainerKeyWrap(
-  wrap: Awaited<ReturnType<typeof listContainerKeyWraps>>[number],
-): ContainerKeyWrap {
-  return {
-    containerKeyEpochId: wrap.containerKeyEpochId,
-    recipientKind: wrap.recipientKind,
-    recipientId: wrap.recipientId,
-    recipientKeyEpochId: wrap.recipientKeyEpochId,
-    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-    kemCipherText: wrap.kemCipherText,
-    wrappedKey: wrap.wrappedKey,
-    wrapManifestHash: wrap.wrapManifestHash,
-  };
-}
-
+/**
+ * The registered root as this file's verified fixture shape; the shared kit
+ * reads it back from the store and verifies its KEK state.
+ */
 export async function bootstrapRoot(
   owner: TestUser,
 ): Promise<StoredContainerFixture> {
-  const rootContainer = await getRootContainerForUser(owner.userId);
-  const keyEpoch = toContainerKeyEpoch(
-    await getCurrentContainerKeyEpoch(rootContainer.id, db),
-  );
-  const bundle = await getAccessManifestBundle(keyEpoch.accessManifestHash, db);
-  if (!bundle) {
-    throw new Error("Expected registered root container manifest");
-  }
-  const wraps = (await listContainerKeyWraps(keyEpoch.id, db)).map(
-    toContainerKeyWrap,
-  );
-  const adminPolicy = await loadVerifiedPrincipalPolicy(
-    db,
-    "group",
-    rootContainer.adminGroupId,
-  );
-  const kekState = await verifyContainerKekState({
-    containerManifest: bundle as unknown as VerifiedContainerAccessManifest,
-    keyEpoch,
-    principalPolicies: [adminPolicy],
-    wraps,
-  });
-  expect(kekState.ok).toBe(true);
-  if (!kekState.ok) {
-    throw kekState.error;
-  }
+  const root = await bootstrapStoredRoot(owner);
 
-  return {
-    bundle: bundle as unknown as VerifiedContainerAccessManifest,
-    kekState: kekState.value,
-    principalPolicies: [adminPolicy],
-  };
+  return { ...root, bundle: asVerifiedContainerManifest(root.bundle) };
 }
 
 export async function createDocumentFixture(input: {
@@ -199,7 +81,7 @@ export async function createDocumentFixture(input: {
     containerId: input.container.bundle.state.containerId,
     containerManifestHash: input.container.bundle.manifestHash,
   };
-  const event = await verifyAccessEvent({
+  const event = await createSignedAccessEvent({
     body,
     dependencyManifestHashes: [input.container.bundle.manifestHash],
     objectId: documentId,
@@ -346,7 +228,7 @@ export async function buildBindRequest(input: {
     expectedBindingId: input.expectedBindingId,
     documentManifestHash: input.document.bundle.manifestHash,
   };
-  const event = await verifyAccessEvent({
+  const event = await createSignedAccessEvent({
     body,
     dependencyManifestHashes: [
       input.document.bundle.manifestHash,

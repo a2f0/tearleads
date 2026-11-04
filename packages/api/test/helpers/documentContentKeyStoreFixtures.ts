@@ -8,7 +8,6 @@ import {
   type AccessManifest,
   computeAccessEventBodyHash,
   computeAccessManifestHash,
-  computeKeyingDomainHash,
   deriveDocumentLinkSetManifest,
   generateSigningSeedAndKeyPair,
   type KeyingCanonicalJson,
@@ -26,12 +25,7 @@ import type { DocumentContentKeyTargetEnvelope } from "../../src/access/read/doc
 import type { resolveCurrentDocumentKekTargets } from "../../src/access/read/documentKekTargets";
 import { storeVerifiedAccessManifest } from "../../src/access/write/accessManifestStore";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
-
-export async function hashOf(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
-    label,
-  });
-}
+import { hashOf } from "./keyingLabelHash";
 
 async function createVerifiedEvent(input: {
   readonly body: Record<string, unknown>;

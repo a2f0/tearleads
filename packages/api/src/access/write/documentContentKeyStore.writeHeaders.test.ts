@@ -5,7 +5,7 @@ import {
   computeContentRecordNonceDomainHash,
   type WriteHeader,
 } from "@tearleads/crypto";
-import { hashOf } from "../../../test/helpers/documentContentKeyStoreFixtures";
+import { hashOf } from "../../../test/helpers/keyingLabelHash";
 import { listDocumentContentWriteHeaders } from "../read/documentContentKeyStore";
 import {
   DocumentContentKeyBundleError,
