@@ -10,6 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildPackage } from "./buildPackage";
+import { writeHistorySmoke } from "./packageHistorySmoke";
 
 // Installs the packed package into a fresh project, outside this workspace,
 // and uses it there: proof that what npm receives works on its own (module
@@ -184,19 +185,12 @@ function typecheckDeclarations(projectDir: string, tsconfig: string) {
   }
 }
 
-try {
-  const distDir = join(workDir, "dist");
-  await buildPackage(distDir);
-  run(["npm", "pack", "--pack-destination", workDir], distDir);
-  const tarball = readdirSync(workDir).find((file) => file.endsWith(".tgz"));
-  if (!tarball) {
-    throw new Error("npm pack produced no tarball");
-  }
-
-  const projectDir = join(workDir, "consumer");
-  writeConsumer(projectDir, join(workDir, tarball));
-  run(["bun", "install"], projectDir);
+function checkConsumer(projectDir: string, tarball: string, installer: string) {
+  writeConsumer(projectDir, tarball);
+  writeHistorySmoke(projectDir);
+  run([installer, "install", "--ignore-scripts"], projectDir);
   run(["bun", "test"], projectDir);
+  run(["node", "history-smoke.mjs"], projectDir);
   run(["node", "node-imports.mjs"], projectDir);
   run(
     ["node", "--check", "node_modules/@tearleads/client-sdk/sqlite/worker.js"],
@@ -218,6 +212,24 @@ try {
     ],
     projectDir,
   );
+}
+
+try {
+  const distDir = join(workDir, "dist");
+  await buildPackage(distDir);
+  run(["npm", "pack", "--pack-destination", workDir], distDir);
+  const tarball = readdirSync(workDir).find((file) => file.endsWith(".tgz"));
+  if (!tarball) {
+    throw new Error("npm pack produced no tarball");
+  }
+
+  for (const installer of ["bun", "npm"]) {
+    checkConsumer(
+      join(workDir, `consumer-${installer}`),
+      join(workDir, tarball),
+      installer,
+    );
+  }
   console.log(
     "Smoke test passed: the packed package installs, runs under Bun and Node, typechecks, and bundles.",
   );

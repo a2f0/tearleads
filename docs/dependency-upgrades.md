@@ -64,8 +64,16 @@ remove them when the stated checks pass without the pin.
   the unchanged rotation provenance guard correctly rejects unequal identities.
   Revisit only when the [history identity regression](../packages/loro/src/historyIdentity.test.ts)
   and complete SDK rotation, recovery, provenance, and settlement suites pass.
-  Preserve operation-history verification; text or vector equality cannot
-  replace it.
+  The [SDK publish manifest](../packages/client-sdk/scripts/publishManifest.ts)
+  preserves this hold as an exact version resolved from the declaring catalog;
+  unrelated externals retain caret ranges. Do not remove that publication hold
+  until fresh Bun and npm installs of the packed SDK pass the same history
+  regression through the installed wrapper, including split-commit replay under
+  Node. The [package smoke](../packages/client-sdk/scripts/smokePackage.ts) runs
+  these behavioral checks before automatic publishing. After publication, repeat
+  the consumer checks against the actual registry archive: a local candidate is
+  not proof of the released package. Preserve operation-history verification;
+  text or vector equality cannot replace it.
 - Electrobun consumes its generated Hutch SDK and TypeScript configuration.
   `prepare:devkit` prepares ignored SDK output before standalone checks.
   Keep the paired toolchain and Windows host-transport fix; validate macOS,

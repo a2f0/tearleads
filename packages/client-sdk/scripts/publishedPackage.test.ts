@@ -48,8 +48,14 @@ test("the published manifest is consumable outside the workspace", () => {
       default: "./data/trustedUserIdentity/testFixtures.js",
     },
   });
-  for (const range of Object.values(manifest.dependencies)) {
-    expect(range).toMatch(/^\^\d+\.\d+\.\d+$/);
+  const { catalog }: { catalog: Record<string, string> } = JSON.parse(
+    readFileSync(join(import.meta.dir, "../../../package.json"), "utf8"),
+  );
+  expect(manifest.dependencies["loro-crdt"]).toBe(catalog["loro-crdt"]);
+  for (const [name, range] of Object.entries(manifest.dependencies)) {
+    if (name !== "loro-crdt") {
+      expect(range).toMatch(/^\^\d+\.\d+\.\d+$/);
+    }
   }
   expect(Object.keys(manifest.dependencies)).toEqual([
     "@noble/hashes",
