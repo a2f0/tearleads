@@ -23,7 +23,7 @@ import {
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { isKeyboardActivationKey } from "../../../utils/keyboardActivation";
-import { compactFingerprint } from "../display";
+import { getRosterUserLabel } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { useOrgManagerTableColumns } from "../orgManagerTableColumns";
 
@@ -95,9 +95,9 @@ function getDirectoryUserDisplayName(
   user: Pick<OrganizationDirectoryUser, "isSelf" | "userId">,
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined,
 ): string {
-  return (
-    profileDisplayNamesByUserId?.get(user.userId) ??
-    (user.isSelf ? ORG_MANAGER_LABELS.self : compactFingerprint(user.userId))
+  return getRosterUserLabel(
+    user,
+    profileDisplayNamesByUserId?.get(user.userId),
   );
 }
 

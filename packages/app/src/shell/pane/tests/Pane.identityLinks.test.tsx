@@ -134,7 +134,9 @@ test("local identity links onboard contacts and roster users; a mismatch never g
   const aliceContacts = await openMiniApp(alice, "Contacts");
   await importMiniAppContact(aliceContacts, bobLink);
   expect(
-    await within(aliceContacts).findByText("Unnamed contact"),
+    await within(aliceContacts).findByRole("heading", {
+      name: "Untitled contact",
+    }),
   ).toBeTruthy();
   expect(within(aliceContacts).queryByText(bobId)).toBeNull();
 }, 120_000);

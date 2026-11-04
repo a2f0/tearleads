@@ -30,6 +30,8 @@ function ContactsDetailRoute({
       canCreate={model.canCreate}
       canImport={model.canImport}
       createDraftContact={model.createDraftContact}
+      currentSigningFingerprint={model.currentSigningFingerprint}
+      currentUserId={model.currentUserId}
       draftFirstName={model.draftFirstName}
       draftLastName={model.draftLastName}
       draftNickname={model.draftNickname}

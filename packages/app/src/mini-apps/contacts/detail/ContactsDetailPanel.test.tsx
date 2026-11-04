@@ -9,6 +9,7 @@ import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ContactEntry } from "../../../document-types/contact/contactDocumentModel";
 import { createAppHostConfig } from "../../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
+import { getSelfContactLocalId } from "../../../stores/contacts/selfContact";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
 import { ContactsDetailPanel } from "./ContactsDetailPanel";
@@ -48,6 +49,8 @@ function createContactsDetailPanelProps(
     canCreate: false,
     canImport: false,
     createDraftContact: async () => undefined,
+    currentSigningFingerprint: null,
+    currentUserId: "self-user",
     draftFirstName: "",
     draftLastName: "",
     draftNickname: "",
@@ -249,6 +252,38 @@ test("contacts new-contact route moves back and create to chrome", async () => {
 
   expect(backCount).toBe(1);
   expect(createCount).toBe(1);
+});
+
+test("contacts detail names an unnamed self contact You, like its sidebar row", () => {
+  // Identified through its signing-fingerprint local ID (isSelf would also
+  // render the runtime-backed "Copy my identity link" button).
+  const unnamed = {
+    ...contactEntry,
+    firstName: "",
+    lastName: "",
+    nickname: "",
+  };
+  const selfId = getSelfContactLocalId("self-fingerprint");
+  const view = renderContactsDetailPanel({
+    currentSigningFingerprint: "self-fingerprint",
+    entries: [{ ...unnamed, id: selfId }],
+    selectedContactId: selfId,
+  });
+  expect(view.getByRole("heading", { name: "You" })).toBeTruthy();
+
+  view.rerender(
+    <AppHostConfigProvider value={hostConfig}>
+      <WindowMenuProvider>
+        <ContactsDetailPanel
+          {...createContactsDetailPanelProps({
+            entries: [{ ...unnamed, id: "peer", userId: "peer-user" }],
+            selectedContactId: "peer",
+          })}
+        />
+      </WindowMenuProvider>
+    </AppHostConfigProvider>,
+  );
+  expect(view.getByRole("heading", { name: "Untitled contact" })).toBeTruthy();
 });
 
 test("contacts detail hides the user ID and public key in read and edit mode", async () => {

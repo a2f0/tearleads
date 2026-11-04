@@ -19,7 +19,11 @@ import {
   MiniAppTabPanel,
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
-import { compactFingerprint, EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
+import {
+  compactFingerprint,
+  EMPTY_PROFILE_DISPLAY_NAMES,
+  getRosterUserLabel,
+} from "../display";
 import {
   getOrgManagerEpochLabel,
   groupDisplayName,
@@ -152,9 +156,7 @@ export function GroupDetailSection({
               <datalist id={addUserListId}>
                 {addableUsers.map((user) => (
                   <option key={user.userId} value={user.userId}>
-                    {user.isSelf
-                      ? ORG_MANAGER_LABELS.self
-                      : compactFingerprint(user.userId)}
+                    {getRosterUserLabel(user)}
                   </option>
                 ))}
               </datalist>

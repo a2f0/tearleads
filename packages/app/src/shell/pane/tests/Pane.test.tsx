@@ -264,7 +264,9 @@ test(
 
     await waitFor(() => {
       // Both windows list the unnamed contact without its user ID.
-      expect(view.getAllByText("Untitled contact")).toHaveLength(2);
+      expect(
+        view.getAllByRole("button", { name: "Untitled contact" }),
+      ).toHaveLength(2);
     });
 
     expect(view.queryByText(/11111111/u)).toBeNull();

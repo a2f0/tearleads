@@ -61,6 +61,8 @@ function toContactEntryPatch(
 
 function ContactsSelectionState({
   blobStore,
+  currentSigningFingerprint,
+  currentUserId,
   entries,
   ready,
   removeContactAvatar,
@@ -69,6 +71,8 @@ function ContactsSelectionState({
   updateContact,
 }: {
   blobStore: BlobStore;
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   entries: ContactEntries;
   ready: boolean;
   removeContactAvatar: RemoveContactAvatar;
@@ -132,6 +136,8 @@ function ContactsSelectionState({
       <ContactsAvatarSection
         blobStore={blobStore}
         canEdit={isEditing && canEditSelectedEntry}
+        currentSigningFingerprint={currentSigningFingerprint}
+        currentUserId={currentUserId}
         entry={selectedEntry}
         removeContactAvatar={removeContactAvatar}
         setContactAvatar={setContactAvatar}
@@ -230,6 +236,8 @@ export function ContactsDetailPanel(params: {
   canCreate: boolean;
   canImport: boolean;
   createDraftContact: () => Promise<void>;
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   draftFirstName: string;
   draftLastName: string;
   draftNickname: string;
@@ -331,6 +339,8 @@ export function ContactsDetailPanel(params: {
     <ContactsDetailContextTarget onAreaContextMenu={onAreaContextMenu}>
       <ContactsSelectionState
         blobStore={blobStore}
+        currentSigningFingerprint={params.currentSigningFingerprint}
+        currentUserId={params.currentUserId}
         entries={entries}
         ready={ready}
         removeContactAvatar={removeContactAvatar}
