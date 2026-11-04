@@ -223,7 +223,8 @@ Do not edit generated or build output directly:
 - Do not grow an over-limit file as an incidental edit. Split by behavior,
   storage concern, workflow step, or UI subcomponent. If an over-limit file
   intentionally grows, update its line/byte budget in
-  `scripts/checks/sourceShapeBaseline.json` with reviewer context.
+  `scripts/checks/sourceShapeBaseline.json` with reviewer context; when one
+  shrinks, lower its budget to the new size in the same commit.
 - Treat package root barrels and workflow facades as API policy. Add explicit
   named exports; new `export *` barrels must be added to the source-shape
   baseline intentionally.
