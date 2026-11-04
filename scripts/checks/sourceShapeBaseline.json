@@ -98,14 +98,6 @@
       "lines": 576,
       "bytes": 17511
     },
-    "packages/api/src/access/write/documentContentKeyStore.test.ts": {
-      "lines": 1082,
-      "bytes": 33545
-    },
-    "packages/api/src/access/write/principalStateStore.test.ts": {
-      "lines": 904,
-      "bytes": 28743
-    },
     "packages/api/src/billing/stripeApi.test.ts": {
       "lines": 575,
       "bytes": 18467
@@ -145,10 +137,6 @@
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
       "lines": 552,
       "bytes": 17879
-    },
-    "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1146,
-      "bytes": 34769
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 568,

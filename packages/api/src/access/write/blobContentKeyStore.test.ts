@@ -11,11 +11,11 @@ import { eq } from "drizzle-orm";
 import {
   attachBlob,
   ensureContainerHead,
-  hashOf,
   setDocumentHead,
   targetEnvelopes,
 } from "../../../test/helpers/blobContentKeyStoreFixtures";
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
+import { hashOf } from "../../../test/helpers/keyingLabelHash";
 import { getLatestBlobContentKeyBundle } from "../read/blobContentKeyStore";
 import { resolveCurrentBlobKekTargets } from "../read/blobKekTargets";
 import {
