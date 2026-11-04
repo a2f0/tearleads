@@ -34,6 +34,14 @@
     "packages/loro/src/index.ts": ["./shared"]
   },
   "fileSizes": {
+    ".agents/skills/update-dependencies/SKILL.md": {
+      "lines": 357,
+      "bytes": 24192
+    },
+    ".claude/skills/update-dependencies/SKILL.md": {
+      "lines": 357,
+      "bytes": 24192
+    },
     "dependency-cruiser.config.ts": {
       "lines": 543,
       "bytes": 16294

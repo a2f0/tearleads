@@ -26,6 +26,38 @@ test("full-history identity is stable after snapshot import", async () => {
   );
 });
 
+test("snapshot identity matches replay of separately exported commits", async () => {
+  const source = await createDocument("segmented-history-source");
+  const restored = await createDocument("segmented-history-restored");
+  const replayed = await createDocument("segmented-history-replayed");
+  try {
+    source.getText("text").update("survives key");
+    source.commit();
+    const first = exportUpdatesSince(source);
+    const firstVersion = encodeVersionVector(source);
+    source.getText("text").update("survives key rotation");
+    source.commit();
+    const second = exportUpdatesSince(source, firstVersion);
+
+    importSnapshot(restored, exportFullHistorySnapshot(source));
+    importUpdates(replayed, [first, second]);
+    const version = encodeVersionVector(restored);
+    expect(versionVectorsEqual(encodeVersionVector(replayed), version)).toBe(
+      true,
+    );
+    expect(restored.getText("text").toString()).toBe("survives key rotation");
+    expect(replayed.getText("text").toString()).toBe("survives key rotation");
+    // Equal text and frontier are not sufficient for rotation provenance.
+    expect(exportFullHistoryIdentity(replayed, version)).toBe(
+      exportFullHistoryIdentity(restored),
+    );
+  } finally {
+    source.free();
+    restored.free();
+    replayed.free();
+  }
+});
+
 test("full-history identity detects forged operations at the same frontier", async () => {
   const genuine = await createDocument("history-identity-fork");
   genuine.getText("text").update("genuine first");

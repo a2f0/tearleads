@@ -10,8 +10,11 @@ review policy and `agent-tool.json` when present. Keep project validation comman
 and release rules in the repository; do not assume Bun, a workspace layout, or
 particular CI job names.
 
-Select a reviewer different from the coordinating agent when possible. Honor a
-requested reviewer or effort; otherwise use an available independent reviewer.
+Select an independent reviewer using a different model/provider from the author
+when possible, not merely a different CLI: Hermes and OpenCode can use the same
+model as another harness. Hermes can coordinate this skill but is not a `review`
+adapter. Honor a requested reviewer or effort; otherwise use an available
+independent reviewer.
 Run `agent-tool doctor` if CLI compatibility is uncertain.
 
 Run noisy validation or repair checks through

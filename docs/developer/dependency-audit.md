@@ -34,7 +34,10 @@ output with this record rather than ignoring it.
 This document lists the active overrides and exceptions; reconcile it on each
 upgrade and remove resolved entries. Advisory counts and clean-audit claims
 belong in the upgrade PR, since they describe one lockfile and advisory
-snapshot.
+snapshot. The `braces@3.0.3` exception was removed because
+[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) was
+withdrawn on October 23, 2026; its presence in the lockfile does not reactivate
+that advisory. Re-triage if upstream publishes a replacement advisory.
 
 The parent/version-scoped overrides require Bun lockfile format 3. Keep
 developer and CI Bun versions aligned with `.mise.toml`; see
@@ -55,13 +58,15 @@ lockfile.
 
 | Parent/version | Override | Advisory rationale and validation |
 | --- | --- | --- |
+| `markdownlint@0.42.0` | `re2js: 2.8.7` | Fixes [quadratic lookbehind matching](https://github.com/le0pard/re2js/security/advisories/GHSA-gg6h-894w-4m9c) in the exact-pinned 2.8.6. Use the security patch rather than forcing the later DFA-engine changes; the CLI regressions exercise repeated reversed links, Unicode link whitespace, line-length handling, and TOML options. Remove when Markdownlint selects a fixed release itself. |
 | `miniflare@5.20260811.1-alpha` | `sharp: 0.35.5` | Fixes [librsvg memory corruption](https://github.com/advisories/GHSA-wq5f-xc86-pv6w). Check Wrangler-resolved Sharp's librsvg against the advisory, then exercise native SVG resize and the local Miniflare IMAGES binding with decoded pixel assertions. |
 | `miniflare@5.20260811.1-alpha` | `undici: 7.30.1` | Replaces Miniflare's pinned 7.29.0 for [unbounded decompression](https://github.com/nodejs/undici/security/advisories/GHSA-3xpg-4rpp-hhhm), [WebSocket subprotocol denial of service](https://github.com/nodejs/undici/security/advisories/GHSA-rfgv-xxqx-mfg5), [excessive content-encoding crashes](https://github.com/nodejs/undici/security/advisories/GHSA-xjj6-f33q-929c), [EventSource memory exhaustion](https://github.com/nodejs/undici/security/advisories/GHSA-4qv8-2p9j-2685), and [integrity-token bypass](https://github.com/nodejs/undici/security/advisories/GHSA-f72v-6w45-q472); exercise local Miniflare requests and both Wrangler environment bundles against the retained HTTP API when changing this override. |
 
-The Wrangler CLI stays at 4.123.0: a bundle dry run cannot prove live Worker
-resource safety without deployment credentials and account identity. Revisit
-when complete authenticated previews establish resource safety. Local Miniflare
-override checks do not establish live binding, route, or migration safety.
+The Wrangler CLI stays at 4.123.0: authenticated account and binding discovery
+is not a full state-owned preview of every staging and production resource.
+Revisit when complete authenticated previews establish resource safety. Local
+Miniflare checks and bundle dry runs do not establish live binding, route,
+migration, or secret-sync safety.
 
 ## Markdownlint patch
 
@@ -79,7 +84,7 @@ review by **2026-11-07**.
 
 ## Stripe client and server compatibility
 
-Stripe.js 10 (`@stripe/stripe-js` 10.1.0 is locked) loads the Endive API
+Stripe.js 10 (`@stripe/stripe-js` 10.2.1 is locked) loads the Endive API
 version; see its
 [10.0 release notes](https://github.com/stripe/stripe-js/releases/tag/v10.0.0).
 The [checkout](./stripe-checkout-client.md) does not use the Payment Request
@@ -109,28 +114,28 @@ consumer/version or usage changes. These exceptions cover only the observed
 call paths and advisories. Do not accept external input through these paths
 without re-triage.
 
-- **`braces@3.0.3`, high,
-  [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm).**
-  Path: `markdownlint-cli2@0.24.0` → `globby` → `fast-glob` → `micromatch`,
-  the only consumer in the lockfile. Patterns come from repository-owned
-  configuration and CLI arguments, not application requests or uploaded data.
-  Accept the unresolved tooling finding with that trusted-pattern boundary;
-  re-triage immediately if micromatch/fast-glob enters runtime code or accepts
-  untrusted patterns, including application requests or uploaded data;
-  update promptly when an owning dependency resolves a fixed release.
 - **`esbuild@0.18.20`, moderate,
   [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99).**
   Path: development `drizzle-kit@0.31.11` → `@esbuild-kit/esm-loader@2.6.5` →
   `@esbuild-kit/core-utils@3.3.2`. The installed loader calls `transform`, not
   the vulnerable HTTP `serve` API. Keep its `~0.18.20` constraint; remove this
   exception when Drizzle replaces the loader or resolves esbuild >=0.25.0.
-- **`uuid@7.0.3`, moderate,
-  [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq).**
-  Path: `@capacitor/cli@8.5.3` → `xcode@3.0.1`. `pbxProject.generateUuid`
-  uses only `uuid.v4()` without an output buffer; the affected `v3`/`v5`/`v6`
-  buffer APIs are absent. Remove when Xcode tooling adopts uuid >=11.1.1 or
-  removes this dependency. Revalidate native regeneration and simulator builds
-  when changing this tooling.
+- **`glob@13.0.6`, moderate,
+  [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4).**
+  Path: `@capacitor/cli@8.6.0` → `rimraf@6.1.3`. The CLI calls
+  `rimraf.sync` with repository-derived paths, without a glob option or an
+  AbortSignal timeout. It does not expose traversal to application input.
+  Keep the parent's glob 13 constraint rather than forcing a major upgrade;
+  remove when rimraf adopts glob >=14.0.2. Re-triage before adding glob options
+  or using cancellation to bound traversal.
+- **`minimatch@5.1.9` and `10.2.6`, moderate,
+  [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249).**
+  Paths: `openapi-typescript@7.13.0` → `@redocly/openapi-core@1.34.20`, and
+  Capacitor's rimraf/glob chain above. Redocly's `matchUrl` receives
+  repository-owned OpenAPI configuration patterns, not application requests;
+  Capacitor does not enable rimraf's glob branch. Do not accept untrusted
+  patterns through either path. Remove when the owners support minimatch
+  >=11.0.1; keep their current major API constraints until then.
 - **`katex@0.16.47`, low,
   [GHSA-238p-pmpm-9mq7](https://github.com/advisories/GHSA-238p-pmpm-9mq7).**
   Path: `markdownlint@0.42.0` → `micromark-extension-math@3.1.0`. Lint reads

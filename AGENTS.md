@@ -52,8 +52,8 @@ Run the smallest command that matches the handoff risk:
   `lint:biome:promises`.
 - `bun run lint:knip:production`: production-only dependency and source
   reachability.
-- `bun run test:knip:production`: production entrypoint regression fixtures.
-  Run `bun install` to apply the pinned dependency patch in `patches/`.
+- `bun run test:knip:production`: production entrypoint regression fixtures
+  against the pinned upstream Knip implementation.
 - `bun run test:architecture`: graph health and runtime dependency regression
   fixtures; included in `check:fast`.
 - `bun run test:static-analysis`: Git snapshot, source-shape baseline, and

@@ -12,9 +12,21 @@ caching, and npm trusted publishing keeps `actions/setup-node`. Windows jobs
 keep `oven-sh/setup-bun`; their Bun pins must match `.mise.toml`, since
 `mise.lock` covers macOS arm64 and Linux x64, not Windows.
 
+Regenerate TLA+ integrity with `mise lock`, targeting every recorded platform,
+not only the host. For the Linux entries, use:
+
+```sh
+mise lock --platform linux-x64,linux-x64-baseline,linux-x64-musl,linux-x64-musl-baseline github:tlaplus/tlaplus
+```
+
+Verify the downloaded JAR against the digest in
+[`scripts/checks/tlaToolsPin.sh`](../scripts/checks/tlaToolsPin.sh), preserve
+unrelated lock entries, and require the matching CI platform's locked install.
+A passing macOS model check does not prove Linux's lock is complete.
+
 Astro's CLI uses Node even when Bun starts the website tests. Keep a supported
-Node on `PATH` for local website builds; Astro 7.4.2 requires at least 22.23.4.
-The CI build lane selects Node 24.22.1 LTS explicitly and includes its version
+Node on `PATH` for local website builds; Astro 7.4.5 requires at least 22.23.4.
+The CI build lane selects Node 24.22.2 LTS explicitly and includes its version
 in `CI_TOOLCHAIN`, so a runner's ambient Node cannot determine or cache those
 build results. The nightly `Uncached tests` workflow reuses that lane.
 
@@ -36,16 +48,24 @@ verification and Java/TLA toolchain checks stay in place. Run
 Revisit these constraints when updating their owning package or runtime, and
 remove them when the stated checks pass without the pin.
 
-- Biome stays on 2.5.15: in 2.6.2, `noInvalidGridAreas` compares grid row byte
-  lengths instead of grid-cell counts and rejects valid layouts. Revisit with
-  `bun run lint:biome` on a release that fixes the rule; keep the layout rules
-  enabled.
+- Biome stays on 2.5.15. Version 2.6.4 fixes the grid-area regression, but its
+  new Markdown formatter rewrites managed skill frontmatter and tables. Adopt
+  it only with an owning-tool formatting migration that preserves generated
+  skills and passes `bun run lint:biome` without disabling layout rules or
+  excluding existing check inputs.
 - TypeScript stays on 6.0.3 while the lint scripts use its JavaScript compiler
   API. Move beyond that line only after those consumers and the static gates
   work with the replacement API; a passing compiler alone is insufficient.
 - MSW stays on 2.15.0: 3.0.3 bypasses request handlers under pinned Bun 1.4.3.
   Revisit when MSW/Bun changes, proving interception and strict unhandled-request
   rejection under the pinned Bun runtime, not only Node.
+- Loro stays on 1.16.4. On 1.17.1, snapshot reimport and segmented update replay
+  can export different operation grouping despite equal text and version vectors;
+  the unchanged rotation provenance guard correctly rejects unequal identities.
+  Revisit only when the [history identity regression](../packages/loro/src/historyIdentity.test.ts)
+  and complete SDK rotation, recovery, provenance, and settlement suites pass.
+  Preserve operation-history verification; text or vector equality cannot
+  replace it.
 - Electrobun consumes its generated Hutch SDK and TypeScript configuration.
   `prepare:devkit` prepares ignored SDK output before standalone checks.
   Keep the paired toolchain and Windows host-transport fix; validate macOS,
@@ -54,6 +74,10 @@ remove them when the stated checks pass without the pin.
 - RevenueCat native SDK pins follow the Capacitor purchase bridge's dependency
   chain, including the direct Xcode package pin. Align those pins before
   rebuilding both native platforms; do not update transitive SDKs independently.
+  Keep bridge 13.7.4 until the [v14 asynchronous-call and store-error
+  migration](https://github.com/RevenueCat/purchases-capacitor/blob/14.0.0/migrations/v14-MIGRATION.md)
+  is validated through native startup, purchase, and restore on both platforms.
+  Compile and bridge-unit tests alone do not establish live store behavior.
 - Android uses AGP 9's built-in Kotlin support, compile SDK 37, AndroidX Core
   1.19.1, and the Capacitor template's Cordova 14.0.1. Biometric 8.9.1 supports
   the hidden `FingerprintManager` API through reflection. Keep target SDK 36
@@ -65,8 +89,9 @@ remove them when the stated checks pass without the pin.
 - CI uses PostgreSQL 18.6; staging and production each use an independent
   PlanetScale PostgreSQL stack. Validate each affected deployment's supported
   database version when changing this matrix.
-- The Knip production-entry and Capacitor Swift-manifest patches retain their
-  rationale and removal checks in [dependency patches](../patches/README.md).
+- The Capacitor Swift-manifest patch retains its rationale and removal checks
+  in [dependency patches](../patches/README.md). Keep the Knip production-entry
+  regression when updating Knip; the upstream implementation now passes it.
   Security overrides and the Markdownlint patch are maintained with the
   [current advisory exceptions](developer/dependency-audit.md).
 

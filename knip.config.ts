@@ -13,11 +13,7 @@ const rootToolingWorkspace = {
     "scripts/dev/scope/**/*.test.ts",
   ],
   project: ["scripts/dev/scope/**/*.ts"],
-  // `markdownlint-cli2` is invoked as `bun --bun x markdownlint-cli2` so it runs
-  // on Bun rather than an unpinned Node (its bin declares `engines.node >=22`,
-  // and neither `.mise.toml` nor CI installs Node). Knip cannot resolve the
-  // binary through `bun x`, so the dependency has to be declared used here.
-  ignoreDependencies: ["@commitlint/cli", "lint-staged", "markdownlint-cli2"],
+  ignoreDependencies: ["@commitlint/cli", "lint-staged"],
   // Codex is an operator-installed CLI, checked during Judge startup.
   ignoreBinaries: ["codex", "du", "pwsh", "shellcheck", "tokei"],
 };
@@ -56,8 +52,6 @@ const baseConfig = {
         "scripts/workerDefines.ts",
       ],
       project: ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
-      // `cloudflare:workers` is a runtime-provided module, not a package.
-      ignoreDependencies: ["cloudflare"],
     },
     "packages/api-client": {
       entry: ["src/**/*.test.ts"],
@@ -108,7 +102,6 @@ const baseConfig = {
       },
     },
     "packages/app-capacitor": {
-      entry: ["scripts/buildWorker.ts"],
       project: ["scripts/**/*.ts", "src/**/*.{ts,tsx}"],
       ignoreDependencies: capacitorNativePluginDependencies,
     },

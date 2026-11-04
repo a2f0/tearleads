@@ -1,6 +1,6 @@
 {
   "name": "website",
-  "version": "0.1.43",
+  "version": "0.1.44",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -17,14 +17,14 @@
     "destroy:assets": "wrangler delete"
   },
   "dependencies": {
-    "@a2f0/agent-tool": "0.1.37",
-    "@a2f0/ct-client": "0.1.5",
-    "@astrojs/markdown-satteri": "0.4.5",
-    "@astrojs/react": "7.1.1",
+    "@a2f0/agent-tool": "0.1.39",
+    "@a2f0/ct-client": "0.1.6",
+    "@astrojs/markdown-satteri": "0.4.6",
+    "@astrojs/react": "7.1.2",
     "@phosphor-icons/react": "2.1.10",
     "@tearleads/ui": "workspace:*",
     "@tearleads/validators": "workspace:*",
-    "astro": "7.4.2",
+    "astro": "7.4.5",
     "github-slugger": "2.0.0",
     "react": "catalog:react",
     "react-dom": "catalog:react"

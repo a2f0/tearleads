@@ -88,3 +88,28 @@ test("malformed TOML remains a configuration failure", () => {
     /Unable to use configuration file.*Invalid TOML document: invalid value/,
   );
 });
+
+test("repeated reversed links retain RE2JS lookbehind matching", () => {
+  const result = lint(
+    `[tool.markdownlint-cli2.config]
+default = false
+MD011 = true
+`,
+    "(https://example.com)[first]\n(https://example.org)[second]\n",
+  );
+  expect(result.code).toBe(1);
+  expect(result.output).toContain("check.md:1");
+  expect(result.output).toContain("check.md:2");
+  expect(result.output.match(/MD011\/no-reversed-links/g)).toHaveLength(2);
+});
+
+test("Unicode link labels retain RE2JS whitespace detection", () => {
+  const config = `[tool.markdownlint-cli2.config]
+default = false
+MD039 = true
+`;
+  const invalid = lint(config, "[ 😀 label ](https://example.com)\n");
+  expect(invalid.code).toBe(1);
+  expect(invalid.output).toContain("MD039/no-space-in-links");
+  expect(lint(config, "[😀 label](https://example.com)\n").code).toBe(0);
+});
