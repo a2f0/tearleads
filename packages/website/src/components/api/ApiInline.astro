@@ -1,0 +1,17 @@
+---
+/** A type or constraint phrase: text, code values, and schema links. */
+import type { Inline } from "../../apiReference/constraints";
+import { schemaPath } from "../../apiReference/referenceIndex";
+
+interface Props {
+  readonly parts: Inline;
+}
+
+const { parts } = Astro.props;
+---
+
+{parts.map((part) => {
+  if (part.kind === "text") return part.text;
+  if (part.kind === "code") return <code>{part.text}</code>;
+  return <a class="api-schema-link" href={schemaPath(part.name)}>{part.name}</a>;
+})}

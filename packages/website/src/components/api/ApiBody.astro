@@ -1,0 +1,23 @@
+---
+/** A request or response body: its media type, type, and field tree. */
+import type { BodyView } from "../../apiReference/referencePages";
+import ApiInline from "./ApiInline.astro";
+import ApiShapeTree from "./ApiShapeTree.astro";
+
+interface Props {
+  readonly body: BodyView;
+}
+
+const { body } = Astro.props;
+const type =
+  body.schemaName === undefined
+    ? body.shape.type
+    : [{ kind: "schema" as const, name: body.schemaName }];
+---
+
+<p class="api-body-type">
+  <span class="api-body-media"><code>{body.mediaType}</code></span>
+  <span class="api-type"><ApiInline parts={type} /></span>
+  {body.shape.nullable && <span class="api-flag">nullable</span>}
+</p>
+<ApiShapeTree shape={body.shape} depth={0} />
