@@ -4,6 +4,7 @@ import {
   type OrganizationMembership,
 } from "@tearleads/client-sdk";
 import { printable } from "./printable";
+import { traceSyncLanes } from "./sdkTracing";
 import type { CliSession } from "./session";
 
 const POLL_INTERVAL_MS = 25;
@@ -95,14 +96,16 @@ export async function loadFolderTree(
   } = {},
 ): Promise<LoadedFolderTree> {
   const timeoutMs = options.timeoutMs ?? 60_000;
-  const { sdk } = session;
+  const { sdk, tracer } = session;
   const deadline = Date.now() + timeoutMs;
   // Apply the user's per-organization sync pauses before anything pulls, so a
   // paused organization's content is not downloaded.
-  const memberships = await beforeDeadline(
-    sdk.organizations.memberships.refresh(),
-    deadline,
-    "organization memberships",
+  const memberships = await tracer.span("read memberships", () =>
+    beforeDeadline(
+      sdk.organizations.memberships.refresh(),
+      deadline,
+      "organization memberships",
+    ),
   );
   if (!memberships) {
     throw new Error("Could not read organization memberships from the API.");
@@ -110,14 +113,35 @@ export async function loadFolderTree(
   if (options.organizationId) {
     selectOrganization(session, memberships, options.organizationId);
   }
+  // Trace the lanes of the scope the pulls run in, after any switch.
+  const stopSyncTrace = traceSyncLanes(sdk, tracer);
+  try {
+    const nodes = await pullFolders(session, deadline);
+    tracer.event(`folder tree holds ${nodes.length} folder(s)`);
+    return { memberships, nodes };
+  } finally {
+    stopSyncTrace();
+  }
+}
+
+async function pullFolders(
+  session: CliSession,
+  deadline: number,
+): Promise<readonly ContainerNode[]> {
+  const { sdk, tracer } = session;
   const store = sdk.containerContents.openTree();
   store.updateRuntime(sdk.containerContents.workflowRuntime());
-  await until(
-    () => store.getSnapshot().ready,
-    "the folder tree",
-    deadline - Date.now(),
+  await tracer.span("open local folder tree", () =>
+    until(
+      () => store.getSnapshot().ready,
+      "the folder tree",
+      deadline - Date.now(),
+    ),
   );
-  if (!(await beforeDeadline(store.refresh(), deadline, "folders"))) {
+  const listed = await tracer.span("list folders", () =>
+    beforeDeadline(store.refresh(), deadline, "folders"),
+  );
+  if (!listed) {
     throw new Error("Could not load folders from the API.");
   }
   // `refresh` resolves once the listing is applied; folder metadata and
@@ -125,15 +149,15 @@ export async function loadFolderTree(
   const coordinator = getOrCreateDomainSyncCoordinator(
     sdk.runtime.input().state.domainScope,
   );
-  const idle = await coordinator.waitForIdle({
-    timeoutMs: Math.max(0, deadline - Date.now()),
-  });
+  const idle = await tracer.span("pull folder metadata (sync idle)", () =>
+    coordinator.waitForIdle({ timeoutMs: Math.max(0, deadline - Date.now()) }),
+  );
   if (!idle) {
     throw new Error("Timed out waiting for folders to finish loading.");
   }
   session.assertNoFailures();
   await assertNoFailedFolderPulls(session);
-  return { memberships, nodes: store.getSnapshot().nodes };
+  return store.getSnapshot().nodes;
 }
 
 function compareNames(left: ContainerNode, right: ContainerNode): number {

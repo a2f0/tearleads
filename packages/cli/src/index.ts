@@ -8,12 +8,15 @@ if (process.platform !== "darwin") {
   process.exit(1);
 }
 
+const { TEARLEADS_TRACE } = process.env;
 const exitCode = await runCli(process.argv.slice(2), {
   apiBaseUrl: (target) => targets[target],
   keyStore: createKeychainRecoveryKeyStore(),
   readRecoveryKey: readSecret,
-  stderr: (line) => console.error(line),
-  stdout: (line) => console.log(line),
+  // Written directly, not through `console`, which tracing labels.
+  stderr: (line) => process.stderr.write(`${line}\n`),
+  stdout: (line) => process.stdout.write(`${line}\n`),
+  traceByDefault: TEARLEADS_TRACE === "1",
 });
 // SDK background work can hold timers after dispose; the command is done.
 process.exit(exitCode);
