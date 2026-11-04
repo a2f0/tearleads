@@ -83,7 +83,7 @@ export const createStripeCheckoutSessionOperation = defineJsonOperation({
   id: "organizations.billing.stripe.checkoutSession.create",
   summary: "Create an embedded Stripe checkout session",
   description:
-    "Creates a Stripe-hosted checkout session as a fallback to the inline form and returns its URL, or null when hosted checkout is unavailable or the organization is ineligible. Only organization administrators may call it, and `returnUrl` must be on an approved app origin. It shares the inline checkout's attempt, so identical retries are safe and conflicting ones return 409.",
+    "Creates a Stripe-hosted checkout session as a fallback to the inline form and returns its URL, or null when Stripe checkout is not configured; an ineligible organization gets an error instead. Only organization administrators may call it, and `returnUrl` must be on an approved app origin. It shares the inline checkout's attempt, so identical retries are safe and conflicting ones return 409.",
   method: "POST",
   params: StripeCheckoutPathParamsSchema,
   path: "/organizations/{organizationId}/billing/stripe/checkout-session",
@@ -99,7 +99,7 @@ export const createStripePortalOperation = defineJsonOperation({
   id: "organizations.billing.stripe.portal.create",
   summary: "Create a Stripe customer portal session",
   description:
-    "Creates a Stripe customer portal session where an administrator updates payment details or downloads invoices, and returns its URL, or null when the organization has no Stripe subscription. Only organization administrators may call it, and `returnUrl` must be on an approved app origin.",
+    "Creates a Stripe customer portal session where an administrator updates payment details or downloads invoices, and returns its URL, or null when Stripe is not configured or the organization has no live Stripe subscription. Only organization administrators may call it, and `returnUrl` must be on an approved app origin.",
   method: "POST",
   params: StripeCheckoutPathParamsSchema,
   path: "/organizations/{organizationId}/billing/stripe/portal",

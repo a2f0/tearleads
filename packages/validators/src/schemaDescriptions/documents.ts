@@ -280,10 +280,10 @@ describeSchema(
 
 describeSchema(
   DocumentPurgeResponseSchema,
-  "The purge proof, plus the blob storage the purge released.",
+  "The purge proof. Blobs only this document referenced are soft-deleted and reclaimed later by garbage collection.",
   {
     reclaimedBlobStorageKeys:
-      "Object-store keys of blobs only this document referenced.",
+      "Object-store keys reclaimed during the request; currently always empty, because reclamation is deferred.",
   },
 );
 

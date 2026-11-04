@@ -324,13 +324,13 @@ describeSchema(
   StripeCheckoutSessionResponseSchema,
   "A hosted Stripe Checkout page.",
   {
-    url: "Checkout URL, or null when hosted checkout is unavailable or the organization is ineligible.",
+    url: "Checkout URL, or null when Stripe checkout is not configured.",
   },
 );
 
 describeSchema(StripePortalResponseSchema, "A Stripe customer portal page.", {
   portalUrl:
-    "Portal URL, or null when the organization has no Stripe subscription.",
+    "Portal URL, or null when Stripe is not configured or the organization has no live Stripe subscription.",
 });
 
 describeSchema(

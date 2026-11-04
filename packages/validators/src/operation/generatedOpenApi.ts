@@ -1060,7 +1060,7 @@ export type paths = {
         put?: never;
         /**
          * Create an embedded Stripe checkout session
-         * @description Creates a Stripe-hosted checkout session as a fallback to the inline form and returns its URL, or null when hosted checkout is unavailable or the organization is ineligible. Only organization administrators may call it, and `returnUrl` must be on an approved app origin. It shares the inline checkout's attempt, so identical retries are safe and conflicting ones return 409.
+         * @description Creates a Stripe-hosted checkout session as a fallback to the inline form and returns its URL, or null when Stripe checkout is not configured; an ineligible organization gets an error instead. Only organization administrators may call it, and `returnUrl` must be on an approved app origin. It shares the inline checkout's attempt, so identical retries are safe and conflicting ones return 409.
          */
         post: operations["organizations.billing.stripe.checkoutSession.create"];
         delete?: never;
@@ -1100,7 +1100,7 @@ export type paths = {
         put?: never;
         /**
          * Create a Stripe customer portal session
-         * @description Creates a Stripe customer portal session where an administrator updates payment details or downloads invoices, and returns its URL, or null when the organization has no Stripe subscription. Only organization administrators may call it, and `returnUrl` must be on an approved app origin.
+         * @description Creates a Stripe customer portal session where an administrator updates payment details or downloads invoices, and returns its URL, or null when Stripe is not configured or the organization has no live Stripe subscription. Only organization administrators may call it, and `returnUrl` must be on an approved app origin.
          */
         post: operations["organizations.billing.stripe.portal.create"];
         delete?: never;
@@ -2713,7 +2713,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description The purge proof, plus the blob storage the purge released. */
+        /** @description The purge proof. Blobs only this document referenced are soft-deleted and reclaimed later by garbage collection. */
         DocumentPurgeResponse: {
             authorizingContainerPath: components["schemas"]["AccessManifestBundleWireResponse"][];
             documentContainerManifestHistory: components["schemas"]["AccessManifestBundleWireResponse"][];
@@ -2724,7 +2724,7 @@ export type components = {
             policyEvidence: components["schemas"]["ProjectionPolicyEvidenceResponse"];
             purgedAt: string;
             purgeEvent: components["schemas"]["AccessEventBundleWireResponse"];
-            /** @description Object-store keys of blobs only this document referenced. */
+            /** @description Object-store keys reclaimed during the request; currently always empty, because reclamation is deferred. */
             reclaimedBlobStorageKeys: string[];
         } & {
             [key: string]: unknown;
@@ -4616,14 +4616,14 @@ export type components = {
         };
         /** @description A hosted Stripe Checkout page. */
         StripeCheckoutSessionResponse: {
-            /** @description Checkout URL, or null when hosted checkout is unavailable or the organization is ineligible. */
+            /** @description Checkout URL, or null when Stripe checkout is not configured. */
             url: string | null;
         } & {
             [key: string]: unknown;
         };
         /** @description A Stripe customer portal page. */
         StripePortalResponse: {
-            /** @description Portal URL, or null when the organization has no Stripe subscription. */
+            /** @description Portal URL, or null when Stripe is not configured or the organization has no live Stripe subscription. */
             portalUrl: string | null;
         } & {
             [key: string]: unknown;
