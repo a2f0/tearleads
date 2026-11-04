@@ -2,11 +2,11 @@
 EXTENDS Naturals, FiniteSets
 
 CONSTANTS ProtectPending, CheckEpoch, CheckRevision, CheckReadPlacement,
-          CheckReadMembership, CaptureSettledEpoch, KeepNewestPageLinks,
+          CheckReadMembership, CaptureSettledEpoch,
           ProtectPendingTombstones, TombstonesRequireSignedEvidence,
           CheckPageSignature, CheckTombstoneEvidenceEpoch
 ASSUME {ProtectPending, CheckEpoch, CheckRevision, CheckReadPlacement,
-        CheckReadMembership, CaptureSettledEpoch, KeepNewestPageLinks,
+        CheckReadMembership, CaptureSettledEpoch,
         ProtectPendingTombstones, TombstonesRequireSignedEvidence,
         CheckPageSignature, CheckTombstoneEvidenceEpoch}
        \subseteq BOOLEAN
@@ -106,17 +106,6 @@ CapturePage ==
                   remoteLinks, remoteEpoch, attempt, attemptTarget, phase,
                   readLinks, readReady, readSummary, recovering, signed>>
 
-(* All-container discovery merges a previously captured lane with a fresh one. *)
-MergeCurrentPage ==
-  /\ pageReady
-  /\ pageLinks' = IF KeepNewestPageLinks /\ remoteEpoch > pageEpoch
-                     THEN remoteLinks ELSE pageLinks \cup remoteLinks
-  /\ pageEpoch' = IF remoteEpoch > pageEpoch THEN remoteEpoch ELSE pageEpoch
-  /\ UNCHANGED <<revision, pending, desired, localLinks, localEpoch, visible,
-                  remoteLinks, remoteEpoch, attempt, attemptTarget, phase, recovering,
-                  pageReady, readLinks, readReady, readSummary>>
-  /\ UNCHANGED signed
-
 (* A buffered unlink from an earlier restore must not erase a new trash move. *)
 ApplyTombstone ==
   /\ pending
@@ -207,7 +196,7 @@ StablePlacement == localLinks = {desired} \/ (~pending /\ remoteLinks = {} /\ lo
 StableView == visible = {desired} \/ (~pending /\ remoteLinks = {} /\ visible = {})
 
 Next == PeerPurge \/ QueueMove \/ StartReplay \/ Link \/ Unlink \/ Settle \/ LoseResponse
-        \/ CapturePage \/ MergeCurrentPage \/ ApplyPage \/ ApplyTombstone \/ ApplyListingTombstone
+        \/ CapturePage \/ ApplyPage \/ ApplyTombstone \/ ApplyListingTombstone
         \/ StartRead \/ RefreshReadSummary \/ FinishRead
         \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
