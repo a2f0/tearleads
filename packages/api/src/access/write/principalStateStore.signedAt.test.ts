@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -12,22 +11,12 @@ import {
   signPrincipalStateBundle,
   storePrincipalState,
 } from "../../../test/helpers/principalState";
+import { createPrincipalStateSigner } from "../../../test/helpers/principalStateStoreFixtures";
 
 async function createSignedState(signedAt: string) {
   const signing = generateSigningSeedAndKeyPair();
-  const encapsulation = generateKemSeedAndKeyPair();
-  const signerUserId = crypto.randomUUID();
-  const signerUserKeyFingerprint = await toFingerprint(
-    signing.signingPublicKey,
-  );
-  await db.insert(users).values({
-    id: signerUserId,
-    fingerprint: signerUserKeyFingerprint,
-    signingPublicKey: bytesToBase64(signing.signingPublicKey),
-    encapsulationPublicKey: bytesToBase64(encapsulation.publicKey),
-    encapsulationKeyFingerprint: await toFingerprint(encapsulation.publicKey),
-    defaultOrganizationId: crypto.randomUUID(),
-  });
+  const { signerUserId, signerUserKeyFingerprint } =
+    await createPrincipalStateSigner(signing.signingPublicKey);
   const { publicKey } = generateKemSeedAndKeyPair();
   return signPrincipalStateBundle({
     principalType: "group",
