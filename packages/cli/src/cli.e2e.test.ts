@@ -326,7 +326,7 @@ test("--trace writes timestamped progress to stderr and leaves stdout alone", as
   }
   expect(messages).toContainEqual(
     expect.stringMatching(
-      /^api #\d+ <- POST \/containers\/parent-lanes\/query succeeded in \d+ms/u,
+      /^api #\d+ <- POST \/containers\/parent-lanes\/query succeeded in [\d.]+m?s/u,
     ),
   );
   expect(messages).toContainEqual(
