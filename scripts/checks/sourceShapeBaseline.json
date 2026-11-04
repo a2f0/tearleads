@@ -247,8 +247,8 @@
       "bytes": 17705
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 484,
-      "bytes": 22242
+      "lines": 485,
+      "bytes": 22287
     },
     "packages/app/src/mini-apps/explorer/sidebar/ExplorerTree.test.tsx": {
       "lines": 617,

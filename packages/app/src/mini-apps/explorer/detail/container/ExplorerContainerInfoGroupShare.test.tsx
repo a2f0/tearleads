@@ -23,6 +23,7 @@ test("useExplorerContainerInfoGroupShare requires a draft group", async () => {
       draftShareAccessLevel: "write",
       draftShareGroupId: "",
       isSubmitting: false,
+      logError: () => undefined,
       reloadContainerInfo: async () => undefined,
       setIsSubmitting: () => undefined,
       setPanelError: (error) => {
@@ -55,6 +56,7 @@ test("useExplorerContainerInfoGroupShare requires the chosen group's name", asyn
       draftShareAccessLevel: "write",
       draftShareGroupId: "group-1",
       isSubmitting: false,
+      logError: () => undefined,
       reloadContainerInfo: async () => undefined,
       setIsSubmitting: () => undefined,
       setPanelError: (error) => {
@@ -83,6 +85,7 @@ test("useExplorerContainerInfoGroupShare requires the chosen group's name", asyn
 // user chose. That refusal gets its own message instead of the generic one.
 test("useExplorerContainerInfoGroupShare names a signed-name mismatch", async () => {
   const panelErrors: Array<string | null> = [];
+  const logged: Array<[string | Error, unknown]> = [];
   let reloads = 0;
   const view = renderHook(() =>
     useExplorerContainerInfoGroupShare({
@@ -92,6 +95,9 @@ test("useExplorerContainerInfoGroupShare names a signed-name mismatch", async ()
       draftShareGroupId: "group-1",
       draftShareGroupName: "Executives",
       isSubmitting: false,
+      logError: (message, cause) => {
+        logged.push([message, cause]);
+      },
       reloadContainerInfo: async () => {
         reloads += 1;
       },
@@ -115,6 +121,9 @@ test("useExplorerContainerInfoGroupShare names a signed-name mismatch", async ()
     "The chosen group's name does not match its signed policy. Nothing was shared; reload and choose again.",
   );
   expect(reloads).toBe(0);
+  // The panel's label names no cause, so the thrown error is logged.
+  expect(logged).toHaveLength(1);
+  expect(logged[0]?.[1]).toBeInstanceOf(GroupShareNameMismatchError);
 });
 
 test("useExplorerContainerInfoGroupShare reloads with an optimistic grant", async () => {
@@ -134,6 +143,7 @@ test("useExplorerContainerInfoGroupShare reloads with an optimistic grant", asyn
       draftShareGroupId: "group-1",
       draftShareGroupName: "Group One",
       isSubmitting: false,
+      logError: () => undefined,
       reloadContainerInfo: async (options) => {
         reloadOptions = options;
       },

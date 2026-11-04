@@ -43,6 +43,7 @@ interface Props {
   canShareContainer: boolean;
   canShareWithPeer: boolean;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
+  logError: (message: string | Error, cause?: unknown) => void;
   onOpenGrant: (
     grant: {
       containerId: string;
@@ -108,6 +109,7 @@ function useExplorerContainerInfoPanelState(params: Props) {
         )?.name
       : undefined,
     isSubmitting,
+    logError: params.logError,
     reloadContainerInfo: containerInfoState.reloadContainerInfo,
     setIsSubmitting,
     setPanelError: containerInfoState.setPanelError,
@@ -117,6 +119,7 @@ function useExplorerContainerInfoPanelState(params: Props) {
     canShareContainer: params.canShareContainer,
     containerId,
     isSubmitting,
+    logError: params.logError,
     peerUserId: params.peerUserId,
     reloadContainerInfo: containerInfoState.reloadContainerInfo,
     setIsSubmitting,
