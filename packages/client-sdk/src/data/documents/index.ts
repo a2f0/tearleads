@@ -38,3 +38,13 @@ export {
   summarizeDocumentContributors,
   writerByPeerId,
 } from "./editAttribution";
+export {
+  ENV_FILE_DOCUMENT_KIND,
+  ENV_FILE_NAME_FIELD,
+  ENV_FILE_VARIABLE_KEY_FIELD,
+  ENV_FILE_VARIABLE_NAME_PATTERN,
+  ENV_FILE_VARIABLE_VALUE_FIELD,
+  type EnvFileVariable,
+  isValidEnvFileVariableName,
+  parseEnvFileText,
+} from "./envFile";

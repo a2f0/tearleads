@@ -69,6 +69,12 @@ export const workspaceRegistry = [
     role: "test-support",
   },
   {
+    directory: "cli",
+    key: "cli",
+    packageName: "@tearleads/cli",
+    role: "application",
+  },
+  {
     directory: "client-sdk",
     key: "clientSdk",
     packageName: "@tearleads/client-sdk",

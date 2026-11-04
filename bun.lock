@@ -222,9 +222,21 @@
         "@types/bun": "catalog:",
       },
     },
+    "packages/cli": {
+      "name": "@tearleads/cli",
+      "version": "0.1.0",
+      "dependencies": {
+        "@tearleads/client-sdk": "workspace:*",
+        "@tearleads/sqlite-worker": "workspace:*",
+      },
+      "devDependencies": {
+        "@tearleads/api": "workspace:*",
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.131",
+      "version": "0.1.132",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -1145,6 +1157,8 @@
     "@tearleads/api-shared": ["@tearleads/api-shared@workspace:packages/api-shared"],
 
     "@tearleads/bob-and-alice": ["@tearleads/bob-and-alice@workspace:packages/bob-and-alice"],
+
+    "@tearleads/cli": ["@tearleads/cli@workspace:packages/cli"],
 
     "@tearleads/client-sdk": ["@tearleads/client-sdk@workspace:packages/client-sdk"],
 

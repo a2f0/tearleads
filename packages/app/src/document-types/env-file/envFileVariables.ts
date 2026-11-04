@@ -1,4 +1,8 @@
 import type { DocumentRow } from "@tearleads/client-sdk";
+import {
+  ENV_FILE_VARIABLE_KEY_FIELD,
+  ENV_FILE_VARIABLE_VALUE_FIELD,
+} from "@tearleads/client-sdk";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import type { RowDetailField } from "../shared/DocumentRowDetail";
 import {
@@ -8,10 +12,6 @@ import {
   toTrackerRows,
   trackerDetailFields,
 } from "../shared/trackerRows";
-import {
-  ENV_FILE_VARIABLE_KEY_FIELD,
-  ENV_FILE_VARIABLE_VALUE_FIELD,
-} from "./envFileDocumentDefinition";
 
 export interface EnvVariableRow extends TrackerRow {
   key: string;
