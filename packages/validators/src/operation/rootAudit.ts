@@ -26,6 +26,7 @@ export const listRootAuditEventsOperation = defineJsonOperation({
   },
   failureStatuses: [400, 401, 403, 500],
   id: "root.auditEvents.list",
+  summary: "Page recorded operator actions",
   method: "GET",
   params: z.strictObject({}),
   path: "/root/audit-events",

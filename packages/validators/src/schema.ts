@@ -3,7 +3,6 @@ import { isPlainObject } from "./isPlainObject";
 import {
   registerJsonSchemaFragment,
   registerJsonSchemaView,
-  toJsonSchema,
 } from "./jsonSchema";
 import {
   AUTH_CHALLENGE_HEX_LENGTH,
@@ -215,16 +214,10 @@ export function arraySchema<ItemSchema extends z.ZodType>(
     return registerJsonSchemaView(runtimeSchema, viewSchema);
   }
   // The projector rejects checks on a registered view, so the advertised
-  // ceiling is attached as an explicit fragment instead — the generated
-  // OpenAPI carries maxItems, and the runtime refinement above enforces it.
-  return registerJsonSchemaFragment(runtimeSchema, {
-    // Project the item through this package's own projector so the emitted
-    // item schema — and the types generated from it — stay identical to the
-    // unbounded case; only maxItems is added.
-    items: toJsonSchema(itemSchema),
-    maxItems,
-    type: "array",
-  });
+  // ceiling is added to the view's projection instead — the generated OpenAPI
+  // carries maxItems, and the runtime refinement above enforces it. The item
+  // still projects lazily, so a named item schema stays a component reference.
+  return registerJsonSchemaView(runtimeSchema, viewSchema, { maxItems });
 }
 
 /**
@@ -267,14 +260,10 @@ export function boundedNonEmptyArraySchema<ItemSchema extends z.ZodType>(
   itemSchema: ItemSchema,
   maxItems: number,
 ) {
-  return registerJsonSchemaFragment(
+  return registerJsonSchemaView(
     arraySchema(itemSchema, maxItems).refine((values) => values.length > 0),
-    {
-      items: toJsonSchema(itemSchema),
-      maxItems,
-      minItems: 1,
-      type: "array",
-    },
+    z.array(itemSchema),
+    { maxItems, minItems: 1 },
   );
 }
 

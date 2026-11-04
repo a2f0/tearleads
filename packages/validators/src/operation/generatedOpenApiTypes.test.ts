@@ -162,8 +162,8 @@ type GeneratedUserIdentityResponse =
 type GeneratedWebSocketTicketOperation = operations["auth.webSocketTicket"];
 type GeneratedWebSocketTicketResponse =
   GeneratedWebSocketTicketOperation["responses"][200]["content"]["application/json"];
+// Named schemas are the only shared components the generator emits.
 type EmptyGeneratedComponents = {
-  schemas: never;
   responses: never;
   parameters: never;
   requestBodies: never;
@@ -176,7 +176,7 @@ function assertType<Condition extends true>(_condition?: Condition): void {}
 test("generated OpenAPI types match the document sync structural contract", () => {
   assertType<IsEqual<webhooks, Record<string, never>>>();
   assertType<IsEqual<$defs, Record<string, never>>>();
-  assertType<IsEqual<components, EmptyGeneratedComponents>>();
+  assertType<IsEqual<Omit<components, "schemas">, EmptyGeneratedComponents>>();
   assertType<
     IsNotEqual<
       NormalizeWireType<

@@ -23,6 +23,7 @@ export const getContainerReplacementAuthorizationsOperation =
     },
     failureStatuses: [400, 401, 403, 404, 409, 500],
     id: "containers.replacementAuthorizations.get",
+    summary: "Get a re-shared container's replacement lineage",
     method: "GET",
     params: z.strictObject({
       containerId: uuidV4StringSchema,

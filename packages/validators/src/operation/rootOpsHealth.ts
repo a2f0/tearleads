@@ -15,6 +15,7 @@ export const getRootOpsHealthReportOperation = defineJsonOperation({
   },
   failureStatuses: [401, 403, 500],
   id: "root.reports.opsHealth.get",
+  summary: "Report billing maintenance trouble",
   method: "GET",
   params: z.strictObject({}),
   path: "/root/reports/ops-health",

@@ -23,6 +23,7 @@ type JsonSchemaProjection = (
       readonly schema: z.core.JSONSchema.BaseSchema;
     }
   | {
+      readonly keywords?: z.core.JSONSchema.BaseSchema;
       readonly kind: "zod";
       readonly schema: z.core.$ZodType;
     }
@@ -85,15 +86,18 @@ function registerProjection(
  * Associates an identity-preserving runtime schema with a structurally
  * equivalent schema that Zod can project to JSON Schema. Zod carries custom
  * registry entries across schema clones, but projection rejects inherited
- * views until the clone is registered explicitly.
+ * views until the clone is registered explicitly. `keywords` are added to the
+ * view's projection, such as a maxItems the runtime schema enforces itself.
  */
 export function registerJsonSchemaView<RuntimeSchema extends z.ZodType>(
   runtimeSchema: RuntimeSchema,
   viewSchema: z.core.$ZodType,
+  keywords?: z.core.JSONSchema.BaseSchema,
 ): RuntimeSchema {
   return registerProjection(runtimeSchema, {
     kind: "zod",
     schema: viewSchema,
+    ...(keywords === undefined ? {} : { keywords }),
   });
 }
 
@@ -140,20 +144,10 @@ export function registerJsonSchemaRuntimeRefinements<
     throw new Error("Runtime refinements require at least one refinement id");
   }
 
-  return registerProjection(
-    runtimeSchema,
-    projection.kind === "zod"
-      ? {
-          kind: "zod",
-          runtimeRefinementIds: ids,
-          schema: projection.schema,
-        }
-      : {
-          kind: "fragment",
-          runtimeRefinementIds: ids,
-          schema: projection.schema,
-        },
-  );
+  return registerProjection(runtimeSchema, {
+    ...projection,
+    runtimeRefinementIds: ids,
+  });
 }
 
 function replaceJsonSchema(
@@ -350,6 +344,15 @@ function assertJsonWireSchemaRoot(schema: z.core.$ZodType): void {
   assertJsonWireSchema(schema, "root", new Set(), new WeakSet());
 }
 
+/** Names a projected schema; the OpenAPI renderer moves it to components. */
+export const JSON_SCHEMA_COMPONENT_KEY = "x-tearleads-component";
+
+interface ProjectionState {
+  readonly componentNames: ReadonlyMap<z.core.$ZodType, string>;
+  readonly resolving: Set<z.core.$ZodType>;
+  readonly runtimeRefinementIds: Set<string>;
+}
+
 interface JsonSchemaOverrideContext {
   readonly jsonSchema: z.core.JSONSchema.BaseSchema;
   readonly path: readonly (number | string)[];
@@ -358,20 +361,21 @@ interface JsonSchemaOverrideContext {
 
 function projectionJsonSchema(
   projection: JsonSchemaProjection,
-  resolving: Set<z.core.$ZodType>,
-  runtimeRefinementIds: Set<string>,
+  state: ProjectionState,
 ): z.core.JSONSchema.BaseSchema {
   if (projection.kind === "fragment") {
     return projection.schema;
   }
-  return projectJsonSchema(projection.schema, resolving, runtimeRefinementIds);
+  return {
+    ...projectJsonSchema(projection.schema, state),
+    ...projection.keywords,
+  };
 }
 
 function applyRegisteredView(
   context: JsonSchemaOverrideContext,
   view: JsonSchemaView | undefined,
-  resolving: Set<z.core.$ZodType>,
-  runtimeRefinementIds: Set<string>,
+  state: ProjectionState,
 ): boolean {
   if (view === undefined) {
     return false;
@@ -382,19 +386,18 @@ function applyRegisteredView(
     throw new Error(`Unknown JSON Schema view ${view.key}`);
   }
   for (const id of projection.runtimeRefinementIds ?? []) {
-    runtimeRefinementIds.add(id);
+    state.runtimeRefinementIds.add(id);
   }
   replaceJsonSchema(
     context.jsonSchema,
-    projectionJsonSchema(projection, resolving, runtimeRefinementIds),
+    projectionJsonSchema(projection, state),
   );
   return true;
 }
 
 function overrideJsonSchema(
   context: JsonSchemaOverrideContext,
-  resolving: Set<z.core.$ZodType>,
-  runtimeRefinementIds: Set<string>,
+  state: ProjectionState,
 ): void {
   const location = context.path.join(".") || "root";
   const view = jsonSchemaViewRegistry.get(context.zodSchema);
@@ -409,7 +412,7 @@ function overrideJsonSchema(
       `Inherited JSON Schema view must be registered directly at ${location}`,
     );
   }
-  if (applyRegisteredView(context, view, resolving, runtimeRefinementIds)) {
+  if (applyRegisteredView(context, view, state)) {
     return;
   }
   if (hasCheckRequiringView(context.zodSchema)) {
@@ -429,21 +432,24 @@ function overrideJsonSchema(
 
 function projectJsonSchema(
   schema: z.core.$ZodType,
-  resolving: Set<z.core.$ZodType>,
-  runtimeRefinementIds: Set<string>,
+  state: ProjectionState,
 ): z.core.JSONSchema.BaseSchema {
   assertJsonWireSchemaRoot(schema);
-  if (resolving.has(schema)) {
+  if (state.resolving.has(schema)) {
     throw new Error("JSON Schema views must not form a cycle");
   }
 
-  resolving.add(schema);
+  state.resolving.add(schema);
   try {
     const result = z.toJSONSchema(schema, {
       io: "input",
       unrepresentable: "any",
       override(context) {
-        overrideJsonSchema(context, resolving, runtimeRefinementIds);
+        overrideJsonSchema(context, state);
+        const name = state.componentNames.get(context.zodSchema);
+        if (name !== undefined) {
+          Reflect.set(context.jsonSchema, JSON_SCHEMA_COMPONENT_KEY, name);
+        }
       },
     });
 
@@ -451,7 +457,7 @@ function projectJsonSchema(
     preserveTypeUnionEncoding(result);
     return result;
   } finally {
-    resolving.delete(schema);
+    state.resolving.delete(schema);
   }
 }
 
@@ -471,12 +477,21 @@ interface JsonSchemaProjectionResult {
   readonly runtimeRefinementIds: readonly string[];
 }
 
+/**
+ * `componentNames` marks each named schema's projection with
+ * JSON_SCHEMA_COMPONENT_KEY; without it the projection is fully inline.
+ */
 export function toJsonSchemaProjection(
   schema: z.core.$ZodType,
+  componentNames: ReadonlyMap<z.core.$ZodType, string> = new Map(),
 ): JsonSchemaProjectionResult {
-  const runtimeRefinementIds = new Set<string>();
+  const state: ProjectionState = {
+    componentNames,
+    resolving: new Set(),
+    runtimeRefinementIds: new Set(),
+  };
   return {
-    jsonSchema: projectJsonSchema(schema, new Set(), runtimeRefinementIds),
-    runtimeRefinementIds: [...runtimeRefinementIds].sort(),
+    jsonSchema: projectJsonSchema(schema, state),
+    runtimeRefinementIds: [...state.runtimeRefinementIds].sort(),
   };
 }

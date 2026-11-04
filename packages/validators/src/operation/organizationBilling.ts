@@ -57,6 +57,7 @@ function defineOrganizationBillingReadOperation<
   readonly path: Path;
   readonly response: ResponseSchema;
   readonly runtimeRefinements?: readonly RuntimeRefinement[];
+  readonly summary: string;
 }) {
   return defineJsonOperation({
     auth: "session",
@@ -67,6 +68,7 @@ function defineOrganizationBillingReadOperation<
     params: OrganizationBillingPathParamsSchema,
     path: input.path,
     responses: { 200: input.response },
+    summary: input.summary,
     ...(input.runtimeRefinements === undefined
       ? {}
       : { runtimeRefinements: input.runtimeRefinements }),
@@ -76,6 +78,7 @@ function defineOrganizationBillingReadOperation<
 export const getOrganizationBillingOperation =
   defineOrganizationBillingReadOperation({
     id: "organizations.billing.get",
+    summary: "Get organization billing",
     path: "/organizations/{organizationId}/billing",
     response: OrganizationBillingResponseSchema,
     runtimeRefinements: [organizationBillingAssignedSeatsRefinement],
@@ -84,6 +87,7 @@ export const getOrganizationBillingOperation =
 export const getOrganizationBillingHistoryOperation =
   defineOrganizationBillingReadOperation({
     id: "organizations.billing.history.get",
+    summary: "Get organization billing history",
     path: "/organizations/{organizationId}/billing/history",
     response: OrganizationBillingHistoryResponseSchema,
   });
@@ -91,6 +95,7 @@ export const getOrganizationBillingHistoryOperation =
 export const getOrganizationBillingManagementUrlOperation =
   defineOrganizationBillingReadOperation({
     id: "organizations.billing.managementUrl.get",
+    summary: "Get the organization billing management URL",
     path: "/organizations/{organizationId}/billing/management-url",
     response: OrganizationBillingManagementUrlResponseSchema,
   });
@@ -104,6 +109,7 @@ export const getOrganizationNativePurchaseEligibilityOperation =
     },
     failureStatuses: [400, 401, 403, 404, 409, 500],
     id: "organizations.billing.native.eligibility.get",
+    summary: "Get native store purchase eligibility",
     method: "GET",
     params: OrganizationBillingPathParamsSchema,
     path: "/organizations/{organizationId}/billing/native/eligibility",
@@ -119,6 +125,7 @@ export const startOrganizationTrialOperation = defineJsonOperation({
   },
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "organizations.billing.trial.start",
+  summary: "Start an organization trial",
   method: "POST",
   params: OrganizationBillingPathParamsSchema,
   path: "/organizations/{organizationId}/billing/trial",
@@ -136,6 +143,7 @@ export const claimNativeOrganizationSubscriptionOperation = defineJsonOperation(
     },
     failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     id: "organizations.billing.native.claim",
+    summary: "Claim a native store subscription",
     method: "POST",
     params: OrganizationBillingNativeClaimPathParamsSchema,
     path: "/organizations/{organizationId}/billing/native/{store}/claim",

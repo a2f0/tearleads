@@ -78,6 +78,7 @@ export const createDocumentOperation = defineJsonOperation({
   failureResponses: documentMutationFailureResponses,
   failureStatuses: documentMutationFailureStatuses,
   id: "documents.create",
+  summary: "Create a document",
   method: "POST",
   params: EmptyDocumentMutationPathParamsSchema,
   path: "/documents",
@@ -91,13 +92,14 @@ export const createDocumentOperation = defineJsonOperation({
 function defineDocumentLinkSetMutationOperation<
   const Id extends string,
   const Path extends `/${string}`,
->(input: { readonly id: Id; readonly path: Path }) {
+>(input: { readonly id: Id; readonly path: Path; readonly summary: string }) {
   return defineJsonOperation({
     auth: "session",
     body: DocumentLinkSetMutationRequestSchema,
     failureResponses: documentMutationFailureResponses,
     failureStatuses: documentMutationFailureStatuses,
     id: input.id,
+    summary: input.summary,
     method: "POST",
     params: DocumentMutationPathParamsSchema,
     path: input.path,
@@ -111,11 +113,13 @@ function defineDocumentLinkSetMutationOperation<
 
 export const linkDocumentOperation = defineDocumentLinkSetMutationOperation({
   id: "documents.link",
+  summary: "Link a document to a container",
   path: "/documents/{documentId}/link",
 });
 
 export const unlinkDocumentOperation = defineDocumentLinkSetMutationOperation({
   id: "documents.unlink",
+  summary: "Unlink a document from a container",
   path: "/documents/{documentId}/unlink",
 });
 
@@ -134,6 +138,7 @@ export const purgeDocumentOperation = defineJsonOperation({
   failureResponses: documentPurgeFailureResponses,
   failureStatuses: documentMutationFailureStatuses,
   id: "documents.purge",
+  summary: "Purge a document",
   method: "POST",
   params: DocumentMutationPathParamsSchema,
   path: "/documents/{documentId}/purge",
@@ -150,6 +155,7 @@ export const getDocumentPurgeProofOperation = defineJsonOperation({
   failureResponses: documentPurgeFailureResponses,
   failureStatuses: documentMutationFailureStatuses,
   id: "documents.purgeProof",
+  summary: "Get a document purge proof",
   method: "GET",
   params: DocumentMutationPathParamsSchema,
   path: "/documents/{documentId}/purge",
