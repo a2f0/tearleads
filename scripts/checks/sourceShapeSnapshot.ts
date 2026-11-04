@@ -113,7 +113,11 @@ export function sourceShapeSnapshot(args: readonly string[]) {
     git(["diff", "--name-only", "--no-renames", "-z", base, head, "--"]),
   );
   const blobs = treeBlobs(head);
-  const full = changed.includes(baselinePath);
+  // Both files decide what unchanged source is allowed, so either one changing
+  // rechecks the whole snapshot.
+  const full =
+    changed.includes(baselinePath) ||
+    changed.includes(managedSkillsManifestPath);
   const files = full
     ? [...new Set([...blobs.keys(), ...changed])].sort()
     : changed;

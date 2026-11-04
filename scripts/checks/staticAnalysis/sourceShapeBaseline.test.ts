@@ -168,4 +168,10 @@ test("generated files and agent-tool managed skills are excluded", () => {
   repo.write(skill, `${oversized}${oversized}`);
   repo.git("add", skill);
   expect(repo.scan("--staged").code).toBe(0);
+  const exempt = repo.commit();
+  repo.write(".agent-tool-skills.json", JSON.stringify({ files: {} }));
+  repo.git("add", ".agent-tool-skills.json");
+  expect(repo.scan("--staged").output).toContain(skill);
+  repo.commit();
+  expect(repo.scan("--range", `${exempt}..HEAD`).output).toContain(skill);
 });

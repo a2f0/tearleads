@@ -141,7 +141,8 @@ grant an unstaged allowance. Renames check both the old and new path.
 
 Changing
 [`scripts/checks/sourceShapeBaseline.json`](../../scripts/checks/sourceShapeBaseline.json)
-triggers a full scan of the selected snapshot, including unchanged source. The
+or [`.agent-tool-skills.json`](../../.agent-tool-skills.json) triggers a full
+scan of the selected snapshot, including unchanged source. The
 baseline rejects unknown fields, invalid counts, empty or duplicate export
 allowances, and unused permissions. Remove suppression counts and star-export
 specifiers together with the source constructs they allow.
