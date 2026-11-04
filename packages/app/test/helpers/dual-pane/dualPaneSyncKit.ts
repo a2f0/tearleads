@@ -77,7 +77,8 @@ function isSuccessfulBlobAttachmentBinding(
 export async function waitForRemoteAttachmentBlob() {
   await waitForCondition(
     () => listProxiedApiRequests().some(isSuccessfulBlobAttachmentBinding),
-    `Note attachment blob was not uploaded before sharing.\nrequests=\n${summarizeProxiedApiRequests()}`,
+    () =>
+      `Note attachment blob was not uploaded before sharing.\nrequests=\n${summarizeProxiedApiRequests()}`,
     DUAL_PANE_TEST_TIMEOUT_MS,
   );
 }

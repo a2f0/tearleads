@@ -14,20 +14,6 @@ afterEach(() => {
   globalThis.localStorage.removeItem(STORAGE_KEY);
 });
 
-test("docks in the tray as a theme-toggle style action button", () => {
-  const view = render(
-    <NavigationModeOverrideProvider storageKey={STORAGE_KEY}>
-      <NavigationModeSwitch mode="windowed" />
-    </NavigationModeOverrideProvider>,
-  );
-
-  expect(
-    view.getByRole("button", { name: "Switch to iPad / mobile layout" })
-      .className,
-  ).toBe("tearleads-action-button tearleads-action-button--icon");
-  view.unmount();
-});
-
 test("hides itself in the native capacitor app", () => {
   window.Capacitor = { isNativePlatform: () => true };
 

@@ -1,5 +1,6 @@
 import { beforeEach, expect, test } from "bun:test";
 import { waitForAppTestRuntimeToSettle } from "../../../test/helpers/appRuntimeIdle";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
 import { observeOrganizationRuntime } from "../../../test/helpers/organizationRuntimeIdle";
 import { cleanupPaneTestEnvironment } from "../../../test/helpers/paneTestUtils";
 import {
@@ -17,7 +18,7 @@ import {
 
 // Idle observes global API activity too; drain previous real runtimes before
 // these fake-runtime assertions so unrelated requests cannot own their timeout.
-beforeEach(cleanupPaneTestEnvironment);
+beforeEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("runtime idle waits for organization interest acknowledgement", async () => {
   const runtime = createRuntimeHarness();

@@ -12,11 +12,12 @@ import {
   TestWebSocket,
 } from "../../../test/helpers/identityManagerTestRuntime";
 import "../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
 import { IdentityManager } from "./IdentityManager";
 
 const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
 
-afterEach(cleanupIdentityManagerTestEnvironment);
+afterEach(cleanupIdentityManagerTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("local-only identity can log in without a persisted user id", async () => {
   const originalWebSocket = globalThis.WebSocket;

@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 import { openSystemMonitor } from "../../../../test/helpers/openSystemMonitor";
 import {
   cleanupPaneTestEnvironment,
@@ -12,7 +13,7 @@ import { ENVIRONMENT_LABELS } from "./useSystemEnvironment";
 afterEach(async () => {
   await cleanupPaneTestEnvironment();
   window.history.replaceState(null, "", "/");
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 function installClipboard(writeText: Clipboard["writeText"]): void {
   Object.defineProperty(Navigator.prototype, "clipboard", {

@@ -101,24 +101,6 @@ export function verifyStripeSignature(input: {
   });
 }
 
-/**
- * Extracts the subscription id from an `invoice.paid` event for a NEW
- * subscription (`billing_reason: subscription_create`); null for every other
- * event. The invoice's subscription reference moved between Stripe API
- * versions — top-level `subscription` (string or expanded object) vs.
- * `parent.subscription_details.subscription` — and the webhook payload's shape
- * follows the ACCOUNT's default version rather than the version this server
- * pins on its own calls, so both shapes are read. The subscription's
- * authoritative metadata is then fetched separately (stripeApi
- * `getSubscriptionBinding`) rather than trusted from the event.
- */
-export function extractPaidSubscriptionId(event: unknown): string | null {
-  const invoice = extractPaidSubscriptionInvoice(event);
-  return invoice?.billingReason === "subscription_create"
-    ? invoice.subscriptionId
-    : null;
-}
-
 export type StripeInvoiceBillingReason = z.output<typeof billingReasonSchema>;
 
 export interface StripePaidInvoiceLineSnapshot {

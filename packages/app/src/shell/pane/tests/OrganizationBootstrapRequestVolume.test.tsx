@@ -12,6 +12,7 @@ import { openOrgManager } from "../../../../test/helpers/dual-pane/dualPaneShari
 import { createAdditionalOrganization } from "../../../../test/helpers/dual-pane/organizationCreation";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
 import {
@@ -20,7 +21,7 @@ import {
 } from "../../../../test/helpers/paneTestUtils";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test(
   "personal organization bootstrap has a complete request budget",

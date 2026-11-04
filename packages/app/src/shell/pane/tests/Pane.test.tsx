@@ -3,7 +3,10 @@ import { fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { registerAndWaitForUserId } from "../../../../test/helpers/identityPaneTestUtils";
 import { mockIdentityLink } from "../../../../test/helpers/mockIdentityLink";
-import { useTestApiAppHandlers } from "../../../../test/helpers/mswServer";
+import {
+  MOCK_SERVER_RESET_TIMEOUT_MS,
+  useTestApiAppHandlers,
+} from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   createExplorerChildContainer,
@@ -21,7 +24,7 @@ import {
 } from "../../../../test/helpers/paneTestUtils";
 import { renderRoutedPane } from "../../../../test/helpers/routedPaneTestUtils";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 async function openRoutedSystemMonitorStatus(
   view: ReturnType<typeof renderPane>,
@@ -388,30 +391,33 @@ test(
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 );
 
-test("explorer exposes structured document creation from the file menu", async () => {
-  const view = renderPane();
+test(
+  "explorer exposes structured document creation from the file menu",
+  async () => {
+    const view = renderPane();
+    await generateIdentityAndWaitForDb(view);
 
-  await generateIdentityAndWaitForDb(view);
+    const explorer = await openExplorer(view);
 
-  const explorer = await openExplorer(view);
+    expect(within(explorer).queryByRole("button", { name: "Note" })).toBeNull();
 
-  expect(within(explorer).queryByRole("button", { name: "Note" })).toBeNull();
+    await openExplorerNewStructuredDocumentRoute(explorer);
 
-  await openExplorerNewStructuredDocumentRoute(explorer);
+    // Exit the new-document route by selecting the root container in the sidebar
+    // (the "Back to Container" toolbar button was removed).
+    fireEvent.click(getExplorerContainerItem(explorer, "/"));
 
-  // Exit the new-document route by selecting the root container in the sidebar
-  // (the "Back to Container" toolbar button was removed).
-  fireEvent.click(getExplorerContainerItem(explorer, "/"));
+    await waitFor(() => {
+      expect(
+        within(explorer).getByRole("table", { name: "Items in /" }),
+      ).toBeTruthy();
+    });
+    expect(within(explorer).queryByRole("button", { name: "Note" })).toBeNull();
 
-  await waitFor(() => {
-    expect(
-      within(explorer).getByRole("table", { name: "Items in /" }),
-    ).toBeTruthy();
-  });
-  expect(within(explorer).queryByRole("button", { name: "Note" })).toBeNull();
-
-  view.unmount();
-});
+    view.unmount();
+  },
+  PANE_ASYNC_TEST_TIMEOUT_MS,
+);
 
 test(
   "registered explorer shows user system containers",

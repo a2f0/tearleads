@@ -7,6 +7,7 @@ import {
 import { registerAndWaitForUserId } from "../../../test/helpers/identityPaneTestUtils";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../../test/helpers/mswServer";
 import {
@@ -26,7 +27,7 @@ import { waitForPersonalBootstrap } from "../../../test/helpers/waitForPersonalB
 
 afterEach(async () => {
   await cleanupPaneTestEnvironment();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 // Baseline for the request volume produced by attaching a single small image
 // via Explorer's container "Upload" action. Measured as the delta after the

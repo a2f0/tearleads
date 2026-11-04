@@ -9,11 +9,12 @@ import { waitFor } from "@testing-library/react";
 import { createHeadlessApiClient } from "../../../test/helpers/headlessApiClient";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../test/helpers/mswServer";
 
-afterEach(resetMockServer);
+afterEach(resetMockServer, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test.each([false, true])(
   "a queued move recovers beside a held autosave (same context: %s)",

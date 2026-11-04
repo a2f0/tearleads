@@ -18,6 +18,7 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -27,7 +28,7 @@ afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("Peer 2 cannot remove Peer 1 from the personal org after becoming an admin", async () => {
   useTestApiAppHandlers();

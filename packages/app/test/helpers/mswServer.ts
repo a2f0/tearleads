@@ -64,7 +64,13 @@ interface TestApiAppHandlerOptions {
   responseDelayMs?: number;
 }
 
-let activeProxiedApiRequestCount = 0;
+interface ActiveProxiedApiRequest {
+  readonly label: string;
+  readonly startedAt: number;
+}
+
+// In-flight proxied requests, so a settle timeout can name what it waited on.
+const activeProxiedApiRequests = new Set<ActiveProxiedApiRequest>();
 let testApiAppPromise: Promise<TestApiApp> | null = null;
 
 interface AppTestProcessState {
@@ -617,7 +623,7 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
 async function waitForProxiedApiRequestsToDrain(
   deadline: number,
 ): Promise<void> {
-  while (activeProxiedApiRequestCount > 0) {
+  while (activeProxiedApiRequests.size > 0) {
     const remainingMs = remainingTimeoutMs(deadline);
     if (remainingMs <= 0) {
       return;
@@ -640,7 +646,7 @@ async function waitForProxiedApiNetworkIdle(
 
     const nextRequestCount = proxiedApiRequests.length;
     if (
-      activeProxiedApiRequestCount === 0 &&
+      activeProxiedApiRequests.size === 0 &&
       nextRequestCount === lastRequestCount
     ) {
       if (Date.now() - quietStartedAt >= quietMs) {
@@ -664,13 +670,25 @@ async function waitForProxiedApiNetworkIdle(
 
 export function getProxiedApiNetworkActivitySnapshot(): ProxiedApiNetworkActivitySnapshot {
   return {
-    activeRequestCount: activeProxiedApiRequestCount,
+    activeRequestCount: activeProxiedApiRequests.size,
     completedRequestCount: proxiedApiRequests.length,
   };
 }
 
+const PROXIED_API_SETTLE_TIMEOUT_MS = 10_000;
+
+/**
+ * Hook timeout for any `afterEach`/`beforeEach` that resets the mock server.
+ * The reset may wait {@link PROXIED_API_SETTLE_TIMEOUT_MS} for in-flight API
+ * requests and then truncate the API database, so Bun's 5 s hook default can
+ * abandon it halfway: the test fails as an anonymous hook timeout and the next
+ * test inherits unreset state. This bound lets the reset finish, or fail with
+ * its own diagnostic.
+ */
+export const MOCK_SERVER_RESET_TIMEOUT_MS = PROXIED_API_SETTLE_TIMEOUT_MS * 2;
+
 async function waitForProxiedApiRequestsToSettle(
-  timeoutMs = 10_000,
+  timeoutMs = PROXIED_API_SETTLE_TIMEOUT_MS,
   quietMs = 50,
 ): Promise<void> {
   const settled = await waitForProxiedApiNetworkIdle(timeoutMs, quietMs);
@@ -679,8 +697,12 @@ async function waitForProxiedApiRequestsToSettle(
   }
 
   const state = getProxiedApiNetworkActivitySnapshot();
+  const now = Date.now();
+  const active = [...activeProxiedApiRequests]
+    .map(({ label, startedAt }) => `${label} (${now - startedAt}ms)`)
+    .join(", ");
   throw new Error(
-    `Timed out waiting for proxied API network idle before resetting mock server. activeRequests=${state.activeRequestCount}, completedRequests=${state.completedRequestCount}, timeoutMs=${timeoutMs}, quietMs=${quietMs}`,
+    `Timed out waiting for proxied API network idle before resetting mock server. activeRequests=${state.activeRequestCount} [${active}], completedRequests=${state.completedRequestCount}, timeoutMs=${timeoutMs}, quietMs=${quietMs}`,
   );
 }
 
@@ -743,7 +765,7 @@ export async function resetMockServer(
   );
   await resetTestApiDatabase();
   testApiAppPromise = null;
-  activeProxiedApiRequestCount = 0;
+  activeProxiedApiRequests.clear();
   mockAuthContext = null;
   mockUserIdentitiesByUserId.clear();
   eventRouter.clear();
@@ -763,7 +785,11 @@ async function proxyRequestToApiApp(
   request: Request,
   options: TestApiAppHandlerOptions = {},
 ): Promise<Response> {
-  activeProxiedApiRequestCount += 1;
+  const activeRequest: ActiveProxiedApiRequest = {
+    label: `${request.method} ${new URL(request.url).pathname}`,
+    startedAt: Date.now(),
+  };
+  activeProxiedApiRequests.add(activeRequest);
   try {
     const apiApp = await ensureTestApiApp();
     const requestBody =
@@ -798,7 +824,7 @@ async function proxyRequestToApiApp(
       headers: toHeadersObject(response.headers),
     });
   } finally {
-    activeProxiedApiRequestCount -= 1;
+    activeProxiedApiRequests.delete(activeRequest);
   }
 }
 

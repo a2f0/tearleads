@@ -1,7 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { FailingInitMockWorker } from "../../../test/helpers/mockWorker";
-import { useTestApiAppHandlers } from "../../../test/helpers/mswServer";
+import {
+  MOCK_SERVER_RESET_TIMEOUT_MS,
+  useTestApiAppHandlers,
+} from "../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
@@ -20,7 +23,7 @@ const OFFLINE_NAMESPACE = "explorer-offline-boot";
 
 afterEach(async () => {
   await cleanupPaneTestEnvironment();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 async function openExplorerWindow(
   view: ReturnType<typeof renderPane>,

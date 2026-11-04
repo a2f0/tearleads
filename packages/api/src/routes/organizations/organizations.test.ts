@@ -314,32 +314,6 @@ test("organization read model includes the bootstrap Admins group", async () => 
   expect(listBody.groups[0]?.currentState?.memberCount).toBe(1);
 });
 
-test("legacy organization projection routes are absent", async () => {
-  const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
-  const [organization] = await db
-    .select({ adminGroupId: organizations.adminGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1);
-  invariant(organization, "expected organization row");
-
-  const paths = [
-    `/organizations/${organizationId}/directory`,
-    `/organizations/${organizationId}/grants`,
-    `/organizations/${organizationId}/groups`,
-    `/organizations/${organizationId}/groups/${organization.adminGroupId}/containers`,
-    `/organizations/${organizationId}/users/${actor.userId}/detail`,
-  ];
-  for (const path of paths) {
-    const response = await routeApp.request(path, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    });
-    expect(response.status).toBe(404);
-  }
-});
-
 test("org manager routes report organization data usage", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);

@@ -20,12 +20,13 @@ import {
 } from "../../../../test/helpers/dualPaneRequestSummary";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
 import { cleanupPaneTestEnvironment } from "../../../../test/helpers/paneTestUtils";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 const FOLDER_NAME = "Trash race folder";
 const NOTE_TITLE = "Trash race note";

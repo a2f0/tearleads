@@ -2,6 +2,7 @@ import "../../../../test/helpers/mswServer";
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, within } from "@testing-library/react";
 import { cleanupIdentityManagerTestEnvironment } from "../../../../test/helpers/identityManagerTestRuntime";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 import { renderRootWithSession } from "../../../../test/helpers/renderRootConsole";
 import {
   ROOT_TEST_IDENTITIES,
@@ -13,7 +14,7 @@ const organizationId = ROOT_TEST_ORGANIZATION.organization.organizationId;
 
 afterEach(async () => {
   await cleanupIdentityManagerTestEnvironment();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 async function openReport(
   view: Awaited<ReturnType<typeof renderRootWithSession>>["view"],

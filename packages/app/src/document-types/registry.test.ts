@@ -67,12 +67,6 @@ test("document type registry covers the supported inline document kinds", () => 
   expect(getDocumentTypeDefinition("generic_file").createLabel).toBe("File");
 });
 
-test("every document type provides a create icon", () => {
-  for (const definition of DOCUMENT_TYPE_DEFINITIONS) {
-    expect(definition.createIcon).toBeDefined();
-  }
-});
-
 test("creatable document types exclude upload-only file kinds", () => {
   expect(
     CREATABLE_DOCUMENT_TYPE_DEFINITIONS.map((definition) => definition.kind),

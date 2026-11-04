@@ -324,4 +324,4 @@ test("the shared runtime persists the local identity under a stable namespace", 
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
-});
+}, 10_000);

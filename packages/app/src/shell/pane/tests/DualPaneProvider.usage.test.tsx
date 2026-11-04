@@ -15,6 +15,7 @@ import {
 } from "../../../../test/helpers/appRuntimeIdle";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -52,7 +53,7 @@ afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 async function interact(operation: () => void): Promise<void> {
   await act(async () => {
@@ -306,7 +307,8 @@ test(
         clickAvailableOrgManagerRefresh(pane);
         return false;
       },
-      `Org Manager usage did not report the bootstrap document baseline.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+      () =>
+        `Org Manager usage did not report the bootstrap document baseline.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
       // The post-auth Contacts promotion pass that yields documents 5 and 7 is
       // verification-gated since #2276 and exceeds 10s under a loaded runner.
       40_000,

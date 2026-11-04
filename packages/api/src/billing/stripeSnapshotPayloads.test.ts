@@ -3,7 +3,6 @@ import { workersFetch } from "../../test/helpers/workersFetch";
 import { getSubscriptionBinding } from "./stripeSubscriptionBinding";
 import {
   extractPaidInvoiceLineList,
-  extractPaidSubscriptionId,
   extractPaidSubscriptionInvoice,
 } from "./stripeWebhook";
 
@@ -244,7 +243,6 @@ describe("paid invoice events", () => {
     "event %j is not a paid subscription invoice",
     (event) => {
       expect(invoiceFrom(event)).toBeNull();
-      expect(extractPaidSubscriptionId(event)).toBeNull();
     },
   );
 
@@ -316,21 +314,6 @@ describe("paid invoice events", () => {
       ).toEqual(PROCESSING_TIME);
     },
   );
-
-  test("a creation invoice with extra keys yields its subscription id", () => {
-    expect(
-      extractPaidSubscriptionId(
-        paidEvent(
-          {
-            ...PAID_INVOICE,
-            billing_reason: "subscription_create",
-            livemode: true,
-          },
-          { api_version: "2024-06-20" },
-        ),
-      ),
-    ).toBe("sub_1");
-  });
 });
 
 const NULL_LINE = {

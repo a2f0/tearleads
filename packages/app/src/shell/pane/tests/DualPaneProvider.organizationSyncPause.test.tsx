@@ -29,6 +29,7 @@ import {
 import { importPeerIntoRoster } from "../../../../test/helpers/dual-pane/dualPaneRosterKit";
 import { shareContainerWithPeer } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -46,7 +47,7 @@ afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 async function clickMemberCardButton(pane: HTMLElement, name: string) {
   const card = memberOrganizationCard(pane);

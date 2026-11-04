@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { mockIdentityLink } from "../../../../test/helpers/mockIdentityLink";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
@@ -22,7 +23,7 @@ afterEach(async () => {
   await cleanupPaneTestEnvironment();
   browser.happyDOM.setURL(previousUrl);
   window.history.replaceState(null, "", previousUrl);
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 for (const [mode, native] of [
   ["routed", false],

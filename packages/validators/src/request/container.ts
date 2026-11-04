@@ -9,7 +9,6 @@ import {
 } from "../schema";
 import {
   ContainerKekKeyringWireRecordSchema,
-  MAX_INLINE_CONTAINER_REKEYS,
   MAX_ROTATION_CONTAINER_REKEYS,
 } from "../util";
 import {
@@ -113,15 +112,4 @@ export function isContainerMutationRequest(
   value: unknown,
 ): value is ContainerMutationRequest {
   return ContainerMutationRequestSchema.safeParse(value).success;
-}
-
-export function isOptionalContainerMutationRequestArray(
-  value: unknown,
-): value is ContainerMutationRequest[] | undefined {
-  return arraySchema(
-    ContainerMutationRequestSchema,
-    MAX_INLINE_CONTAINER_REKEYS,
-  )
-    .optional()
-    .safeParse(value).success;
 }

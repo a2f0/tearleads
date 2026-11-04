@@ -6,11 +6,12 @@ import { waitFor } from "@testing-library/react";
 import { createHeadlessApiClient } from "../../../test/helpers/headlessApiClient";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../test/helpers/mswServer";
 
-afterEach(resetMockServer);
+afterEach(resetMockServer, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("a committed share racing a local rename preserves both after reconciliation", async () => {
   useTestApiAppHandlers();

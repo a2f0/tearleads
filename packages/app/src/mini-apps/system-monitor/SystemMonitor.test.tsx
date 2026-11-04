@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, render, waitFor } from "@testing-library/react";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
 import { openSystemMonitor } from "../../../test/helpers/openSystemMonitor";
 import {
   cleanupPaneTestEnvironment,
@@ -20,7 +21,7 @@ import { systemMonitorModeStorageKey } from "./systemMonitorMode";
 afterEach(async () => {
   await cleanupPaneTestEnvironment();
   window.history.replaceState(null, "", "/");
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 // renderPane() mounts the left pane, so the persisted mode lands under this key.
 const MODE_KEY = systemMonitorModeStorageKey("left");
@@ -307,38 +308,42 @@ test("pin to desktop closes the window, renders inline, and persists the choice"
 });
 
 for (const tier of ["tablet", "mobile"] as const) {
-  test(`${tier} routed monitor omits windowed-only toolbar actions`, async () => {
-    const restoreMatchMedia = forceRoutedTier(tier);
-    globalThis.localStorage.setItem(DEVELOPER_MODE_KEY, "enabled");
-    const view = renderRoutedPane({ autoProvisionIdentity: true });
+  test(
+    `${tier} routed monitor omits windowed-only toolbar actions`,
+    async () => {
+      const restoreMatchMedia = forceRoutedTier(tier);
+      globalThis.localStorage.setItem(DEVELOPER_MODE_KEY, "enabled");
+      const view = renderRoutedPane({ autoProvisionIdentity: true });
 
-    try {
-      openRoutedMiniAppLink(view, "System Monitor");
-      expect(
-        await view.findByRole("tab", { name: "Feature Flags" }),
-      ).toBeTruthy();
-      expect(
-        view.queryByRole("button", { name: "Disable Developer Mode" }),
-      ).toBeNull();
-      expect(
-        view.queryByRole("button", {
-          name: /Pin to (Desktop|Home Screen)/,
-        }),
-      ).toBeNull();
+      try {
+        openRoutedMiniAppLink(view, "System Monitor");
+        expect(
+          await view.findByRole("tab", { name: "Feature Flags" }),
+        ).toBeTruthy();
+        expect(
+          view.queryByRole("button", { name: "Disable Developer Mode" }),
+        ).toBeNull();
+        expect(
+          view.queryByRole("button", {
+            name: /Pin to (Desktop|Home Screen)/,
+          }),
+        ).toBeNull();
 
-      fireEvent.click(view.getByRole("tab", { name: "Status" }));
-      await waitFor(
-        () => {
-          expect(getPaneStatusText(view)).not.toContain("publicKey: none");
-        },
-        { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
-      );
-      expect(view.queryByRole("button", { name: "Kill Worker" })).toBeNull();
-    } finally {
-      view.unmount();
-      restoreMatchMedia();
-    }
-  });
+        fireEvent.click(view.getByRole("tab", { name: "Status" }));
+        await waitFor(
+          () => {
+            expect(getPaneStatusText(view)).not.toContain("publicKey: none");
+          },
+          { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+        );
+        expect(view.queryByRole("button", { name: "Kill Worker" })).toBeNull();
+      } finally {
+        view.unmount();
+        restoreMatchMedia();
+      }
+    },
+    PANE_ASYNC_TEST_TIMEOUT_MS,
+  );
 }
 
 test("closing the window via its X button leaves the Start menu to reopen it", async () => {
@@ -380,22 +385,26 @@ test("a pinned monitor renders inline (status + log) on load", () => {
   view.unmount();
 });
 
-test("clicking the Start menu entry while pinned pops back out to a window", async () => {
-  const view = renderPane({ pinSystemMonitor: true });
+test(
+  "clicking the Start menu entry while pinned pops back out to a window",
+  async () => {
+    const view = renderPane({ pinSystemMonitor: true });
 
-  expect(view.container.querySelector(".pane-content")).not.toBeNull();
+    expect(view.container.querySelector(".pane-content")).not.toBeNull();
 
-  openSystemMonitor(view);
+    openSystemMonitor(view);
 
-  await waitFor(
-    () => {
-      expect(view.container.querySelector(".window")).not.toBeNull();
-      // Inline render is gone once unpinned.
-      expect(view.container.querySelector(".pane-content")).toBeNull();
-    },
-    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
-  );
-  expect(globalThis.localStorage.getItem(MODE_KEY)).toBe("windowed");
+    await waitFor(
+      () => {
+        expect(view.container.querySelector(".window")).not.toBeNull();
+        // Inline render is gone once unpinned.
+        expect(view.container.querySelector(".pane-content")).toBeNull();
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+    expect(globalThis.localStorage.getItem(MODE_KEY)).toBe("windowed");
 
-  view.unmount();
-});
+    view.unmount();
+  },
+  PANE_ASYNC_TEST_TIMEOUT_MS,
+);

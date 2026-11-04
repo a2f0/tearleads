@@ -1,8 +1,5 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
-import {
-  getMiniAppVirtualWindowRange,
-  MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
-} from "../../../components/mini-app/virtual/MiniAppVirtual";
+import { MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import type { ExplorerSidebarTreeEntry } from "./ExplorerSidebarRows";
 
 export const EXPLORER_SIDEBAR_ROW_HEIGHT = MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT;
@@ -69,14 +66,4 @@ export function listExpandedExplorerTreeContainerIds(
 
 export function getExplorerTreeIdSetKey(ids: ReadonlySet<string>): string {
   return Array.from(ids).sort().join("\u0000");
-}
-
-export function getExplorerSidebarWindowRange(params: {
-  scrollTop: number;
-  viewportHeight: number;
-}): { limit: number; offset: number } {
-  return getMiniAppVirtualWindowRange({
-    ...params,
-    rowHeight: EXPLORER_SIDEBAR_ROW_HEIGHT,
-  });
 }

@@ -16,12 +16,6 @@ export {
   saveContainerSyncWatermark,
 } from "./containerPersistence";
 export {
-  discoverContainerDocumentsFromApi,
-  hasUndiscoveredDocumentUpdateEvent,
-  type RefreshAllContainerDocumentsFromApiOptions,
-  refreshAllContainerDocumentsFromApi,
-} from "./documentDiscovery";
-export {
   initializeDocumentLinksSchema,
   listDocumentLinkedContainerIds,
   replaceDocumentLinks,

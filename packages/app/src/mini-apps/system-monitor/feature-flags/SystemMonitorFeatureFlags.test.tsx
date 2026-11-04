@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, waitFor } from "@testing-library/react";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 import { openSystemMonitor } from "../../../../test/helpers/openSystemMonitor";
 import {
   cleanupPaneTestEnvironment,
@@ -10,7 +11,7 @@ import { appFeatureFlagStorageKey } from "../../../providers/feature-flags/appFe
 afterEach(async () => {
   await cleanupPaneTestEnvironment();
   window.history.replaceState(null, "", "/");
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 const BUILT_IN_SYSTEM_CONTAINERS_FEATURE_FLAG_KEY = appFeatureFlagStorageKey(
   "built-in-system-containers",

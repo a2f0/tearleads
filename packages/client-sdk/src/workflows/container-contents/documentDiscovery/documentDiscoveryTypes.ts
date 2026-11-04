@@ -215,11 +215,6 @@ export interface ListedContainerDocuments {
   tombstones: ContainerDocumentTombstone[];
 }
 
-export interface ContainerParentDiscoveryLane {
-  parentId: string | null;
-  watermark: SyncWatermark | null;
-}
-
 export interface ListedContainerDocumentsLane {
   containerId: string;
   listedDocuments: ListedContainerDocuments | null;
@@ -228,20 +223,4 @@ export interface ListedContainerDocumentsLane {
 export interface DiscoverAllContainerDocumentsOptions
   extends Omit<DiscoverContainerDocumentsOptions, "containerId"> {
   containerIds: ReadonlyArray<string>;
-}
-
-export interface RefreshAllContainerDocumentsOptions
-  extends Omit<DiscoverAllContainerDocumentsOptions, "containerIds"> {
-  listContainerParentLanes: ContainerDocumentDiscoveryApi["listContainerParentLanes"];
-}
-
-export interface RefreshAllContainerDocumentsFromApiOptions
-  extends Omit<
-    RefreshAllContainerDocumentsOptions,
-    "listContainerDocumentLanes" | "listContainerParentLanes"
-  > {
-  readonly apiClient: Pick<
-    ContainerDocumentDiscoveryApi,
-    "listContainerDocumentLanes" | "listContainerParentLanes"
-  >;
 }

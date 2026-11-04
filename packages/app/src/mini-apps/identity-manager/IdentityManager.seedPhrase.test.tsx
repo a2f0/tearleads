@@ -9,11 +9,12 @@ import {
 } from "../../../test/helpers/identityManagerTestRuntime";
 import { cleanupRecoveryKeyTestEnvironment } from "../../../test/helpers/recoveryKeyTestKit";
 import "../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
 import { IdentityManager } from "./IdentityManager";
 
 const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
 
-afterEach(cleanupRecoveryKeyTestEnvironment);
+afterEach(cleanupRecoveryKeyTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("identity manager exposes the recovery key for seed-backed identities", async () => {
   const originalWebSocket = globalThis.WebSocket;

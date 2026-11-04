@@ -21,6 +21,7 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -29,7 +30,7 @@ afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 function createdDocumentIds(startIndex: number): string[] {
   return listProxiedApiRequests()

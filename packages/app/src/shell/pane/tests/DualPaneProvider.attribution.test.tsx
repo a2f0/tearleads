@@ -6,6 +6,7 @@ import {
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import {
+  DUAL_PANE_TEST_TIMEOUT_MS,
   getExplorerSidebarItem,
   getPaneRoot,
   getPaneUserId,
@@ -27,6 +28,7 @@ import { importPeerIntoRoster } from "../../../../test/helpers/dual-pane/dualPan
 import { shareContainerWithPeer } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -47,7 +49,7 @@ afterEach(async () => {
   window.location.href = originalPageUrl;
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 async function openNoteInfo(pane: HTMLElement, title: string) {
   await interact(() => {
@@ -72,19 +74,25 @@ async function expectNoteAttribution(
   await clickExplorerRefresh(pane);
   const requestStartIndex = listProxiedApiRequests().length;
   await openNoteInfo(pane, title);
-  await waitFor(() => {
-    const heading = within(pane).getByRole("heading", { name: "Contributors" });
-    const section = heading.parentElement;
-    invariant(section, "Expected contributors section.");
-    expect(section.querySelectorAll("tbody tr").length).toBe(
-      writerUserIds.length,
-    );
-    for (const writerUserId of writerUserIds) {
-      expect(
-        section.querySelector(`[title*="${writerUserId}"]`),
-      ).not.toBeNull();
-    }
-  });
+  // Get Info verifies and loads attribution remotely: >1 s on slow cores.
+  await waitFor(
+    () => {
+      const heading = within(pane).getByRole("heading", {
+        name: "Contributors",
+      });
+      const section = heading.parentElement;
+      invariant(section, "Expected contributors section.");
+      expect(section.querySelectorAll("tbody tr").length).toBe(
+        writerUserIds.length,
+      );
+      for (const writerUserId of writerUserIds) {
+        expect(
+          section.querySelector(`[title*="${writerUserId}"]`),
+        ).not.toBeNull();
+      }
+    },
+    { timeout: DUAL_PANE_TEST_TIMEOUT_MS },
+  );
   expect(
     within(pane).queryByText(/Edit attribution could not be loaded/u),
   ).toBeNull();

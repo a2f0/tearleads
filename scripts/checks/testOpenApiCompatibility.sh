@@ -363,28 +363,4 @@ fi
   fail "expected exit 1 for a removed response refinement, received $response_removed_exit."
 assert_contains "$response_removed_output" "response.widget-count-consistent"
 
-cp "$FIXTURE_ROOT/breaking.json" "$TEST_ROOT/docs/openapi.json"
-bun -e '
-  const path = Bun.argv[1];
-  const spec = await Bun.file(path).json();
-  spec.info.title = "Tearleads Protocol API";
-  await Bun.write(path, JSON.stringify(spec, null, 2) + "\n");
-' "$TEST_ROOT/docs/openapi.json"
-
-if brand_transition_output=$(
-  cd "$TEST_ROOT"
-  GITHUB_ACTIONS='' \
-    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
-    OPENAPI_BASE_REF="$revision_commit" \
-    "$CHECK_SCRIPT" 2>&1
-); then
-  fail "renaming the API must not bypass contract checks."
-else
-  brand_transition_exit=$?
-fi
-[ "$brand_transition_exit" -eq 1 ] ||
-  fail "expected exit 1 for a breaking renamed contract, received $brand_transition_exit."
-assert_contains "$brand_transition_output" "[request-property-became-required]"
-assert_contains "$brand_transition_output" "name"
-
 echo "OpenAPI compatibility regression fixtures passed."

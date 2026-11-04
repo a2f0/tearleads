@@ -7,6 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import invariant from "invariant";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
@@ -22,7 +23,7 @@ import {
 afterEach(async () => {
   cleanup();
   await cleanupPaneTestEnvironment();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 const SELECTED_NOTE_TITLE = "remount route note";
 const TEST_TIMEOUT_MS = 60_000;

@@ -3,6 +3,7 @@ import { fireEvent, waitFor, within } from "@testing-library/react";
 import { registerAndWaitForUserId } from "../../../../test/helpers/identityPaneTestUtils";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
 import { openSystemMonitor } from "../../../../test/helpers/openSystemMonitor";
@@ -20,7 +21,7 @@ import {
 } from "../../../../test/helpers/paneTestUtils";
 import { getApiRequestMetrics } from "../../../providers/api/apiRequestMetrics";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test(
   "restoring an identity and syncing Explorer retains requests before opening the monitor",

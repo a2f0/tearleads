@@ -88,7 +88,8 @@ export async function shareContainerWithPeer(pane: HTMLElement, name: string) {
             request.status === 200 &&
             request.url.endsWith("/share"),
         ),
-    `Container share did not finish.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+    () =>
+      `Container share did not finish.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
 }
 
@@ -218,7 +219,8 @@ export async function shareContainerWithGroup(
                   path.endsWith(`/groups/${selectedGroupId}/policy-commit`))))
           );
         }),
-    `Container group share did not finish.\nnetwork=${JSON.stringify(getProxiedApiNetworkActivitySnapshot())}\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}\npane=${truncateText(pane.textContent ?? "")}`,
+    () =>
+      `Container group share did not finish.\nnetwork=${JSON.stringify(getProxiedApiNetworkActivitySnapshot())}\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}\npane=${truncateText(pane.textContent ?? "")}`,
     15_000,
   );
 
@@ -229,7 +231,8 @@ export async function shareContainerWithGroup(
   });
   await waitForCondition(
     () => Boolean(queryExplorerItemTable(pane)),
-    `Container group share route did not return to the container.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+    () =>
+      `Container group share route did not return to the container.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
 
   return selectedGroupId;
@@ -297,7 +300,8 @@ export async function addPeerToAdminsGroup(
       Array.from(pane.querySelectorAll("strong")).some(
         (element) => element.getAttribute("title") === peerUserId,
       ),
-    `Peer ${peerUserId} did not appear in Admins.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+    () =>
+      `Peer ${peerUserId} did not appear in Admins.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
   expect(
     await settleAppTestRuntimeInAct({
@@ -391,7 +395,8 @@ export async function createGroupAndAddPeer(
       Array.from(pane.querySelectorAll("strong")).some(
         (element) => element.getAttribute("title") === peerUserId,
       ),
-    `Peer ${peerUserId} did not appear in group "${groupName}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+    () =>
+      `Peer ${peerUserId} did not appear in group "${groupName}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
 }
 
@@ -470,7 +475,8 @@ export async function findExplorerInfoGrantRow(
         }) ?? null;
       return row !== null;
     },
-    `Explorer info grant row did not appear.\n${formatExplorerWindowDebug(pane)}\nrequest volume=\n${summarizeProxiedApiRequestVolume(listProxiedApiRequests())}`,
+    () =>
+      `Explorer info grant row did not appear.\n${formatExplorerWindowDebug(pane)}\nrequest volume=\n${summarizeProxiedApiRequestVolume(listProxiedApiRequests())}`,
     15_000,
   );
 

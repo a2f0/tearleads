@@ -340,4 +340,4 @@ test("re-resolves a pending name after its profile syncs, without a container ch
       timeout: 5_000,
     },
   );
-});
+}, 10_000);

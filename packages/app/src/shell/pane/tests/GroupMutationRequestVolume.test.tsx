@@ -16,6 +16,7 @@ import { requestPath } from "../../../../test/helpers/dualPaneRequestSummary";
 import { createPeerIdentityLink } from "../../../../test/helpers/identityLinkFixtures";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
 import {
@@ -27,7 +28,7 @@ import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiReq
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("group creation and adding a peer have separate request budgets", async () => {
   useTestApiAppHandlers();

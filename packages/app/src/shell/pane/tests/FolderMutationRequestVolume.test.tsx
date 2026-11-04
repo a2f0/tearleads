@@ -19,6 +19,7 @@ import {
 import { requestPath } from "../../../../test/helpers/dualPaneRequestSummary";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
 import {
@@ -28,7 +29,7 @@ import {
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 // Compact projections recheck their public history heads; keep those reads
 // separate from the existing mutation and projection-fetch budgets.
 const title = "Budget note";

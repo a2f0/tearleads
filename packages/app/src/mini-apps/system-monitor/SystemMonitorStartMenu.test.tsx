@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, waitFor } from "@testing-library/react";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
@@ -9,7 +10,7 @@ import {
 } from "../../../test/helpers/paneTestUtils";
 import { systemMonitorModeStorageKey } from "./systemMonitorMode";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 const MODE_KEY = systemMonitorModeStorageKey("left");
 
@@ -30,27 +31,31 @@ const MENU_OPENERS = [
 ] as const;
 
 for (const menuOpener of MENU_OPENERS) {
-  test(`${menuOpener.label} opens one window when the monitor is pinned`, async () => {
-    const view = renderPane({ pinSystemMonitor: true });
-    await generateIdentityAndWaitForDb(view);
+  test(
+    `${menuOpener.label} opens one window when the monitor is pinned`,
+    async () => {
+      const view = renderPane({ pinSystemMonitor: true });
+      await generateIdentityAndWaitForDb(view);
 
-    menuOpener.open(view);
-    clickPaneAppMenuItem(view, "System Monitor");
+      menuOpener.open(view);
+      clickPaneAppMenuItem(view, "System Monitor");
 
-    await waitFor(
-      () => {
-        expect(view.container.querySelectorAll(".window")).toHaveLength(1);
-        expect(
-          view.container.querySelector(".pane-main > .pane-content"),
-        ).toBeNull();
-        expect(
-          view.container.querySelector(".pane-main > .pane-log"),
-        ).toBeNull();
-      },
-      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
-    );
-    expect(globalThis.localStorage.getItem(MODE_KEY)).toBe("windowed");
+      await waitFor(
+        () => {
+          expect(view.container.querySelectorAll(".window")).toHaveLength(1);
+          expect(
+            view.container.querySelector(".pane-main > .pane-content"),
+          ).toBeNull();
+          expect(
+            view.container.querySelector(".pane-main > .pane-log"),
+          ).toBeNull();
+        },
+        { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+      );
+      expect(globalThis.localStorage.getItem(MODE_KEY)).toBe("windowed");
 
-    view.unmount();
-  });
+      view.unmount();
+    },
+    PANE_ASYNC_TEST_TIMEOUT_MS,
+  );
 }

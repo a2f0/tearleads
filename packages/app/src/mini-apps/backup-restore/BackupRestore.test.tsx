@@ -13,6 +13,7 @@ import {
   createIdentityManagerHostConfig,
   TestWebSocket,
 } from "../../../test/helpers/identityManagerTestRuntime";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 import {
   backupFileRequiresPassword,
@@ -33,7 +34,7 @@ beforeAll(() => {
 afterAll(() => {
   Reflect.set(globalThis, "WebSocket", originalWebSocket);
 });
-afterEach(cleanupIdentityManagerTestEnvironment);
+afterEach(cleanupIdentityManagerTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 function renderBackupRestore(saveGate?: Promise<void>) {
   const savedFiles: SaveFileRequest[] = [];

@@ -7,6 +7,7 @@ import {
 } from "@tearleads/client-sdk";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { createFakeIndexedDb } from "../../../../test/helpers/fakeIndexedDb";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
@@ -19,7 +20,7 @@ import {
 } from "../../../providers/local-keyring/localKeyringLockSupport";
 import { LOCAL_BLOB_STORE_SCOPE_NAMESPACE } from "../../../providers/local-keyring/localKeyringScopes";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 const PIN_CODE_WRAPPING_ALGORITHM = "pin-code-pbkdf2-sha256-aes-256-gcm";
 const PIN_CODE_PROVIDER = "pin-code";
