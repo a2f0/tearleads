@@ -298,10 +298,6 @@
       "lines": 572,
       "bytes": 21064
     },
-    "packages/client-sdk/src/workflows/container-contents/documentDiscovery/documentDiscovery.test.ts": {
-      "lines": 946,
-      "bytes": 28741
-    },
     "packages/client-sdk/src/workflows/container-contents/documentLinks/index.ts": {
       "lines": 512,
       "bytes": 17960

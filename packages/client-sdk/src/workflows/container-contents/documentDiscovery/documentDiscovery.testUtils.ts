@@ -1,17 +1,19 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
+import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import type { DiscoveredDocumentCandidate } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { upsertAccessManifestCheckpointInTransaction } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { keyingCheckpointTables } from "../../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";
+import { discoverContainerDocumentLanes } from "./documentDiscoveryLanes";
 import type {
   ContainerDocumentDiscoveryApi,
   ContainerDocumentLaneLister,
   ContainerDocumentPlacement,
   ContainerDocumentTombstone,
   ContainerDocumentTombstoneVerdict,
+  DiscoverContainerDocumentsOptions,
   ListContainerDocumentsResponse,
-  ListContainersResponse,
 } from "./documentDiscoveryTypes";
 
 /** A per-container page mock; `null` rejects that container's lane. */
@@ -87,33 +89,21 @@ export const nullContainerDocumentWatermarks = {
   saveContainerDocumentWatermark: async () => {},
 };
 
-type DiscoveryParentLaneRequest = Parameters<
-  ContainerDocumentDiscoveryApi["listContainerParentLanes"]
->[0]["lanes"][number];
-
-export function createDiscoveryParentLaneBatchMock(
-  resolveLane: (
-    input: Omit<DiscoveryParentLaneRequest, "laneId">,
-  ) => Promise<ListContainersResponse | null>,
-  onBatch?:
-    | ((lanes: ReadonlyArray<DiscoveryParentLaneRequest>) => void)
-    | undefined,
-): ContainerDocumentDiscoveryApi["listContainerParentLanes"] {
-  return async ({ lanes }) => {
-    onBatch?.(lanes);
-    const pages = await Promise.all(
-      lanes.map(({ laneId: _laneId, ...lane }) => resolveLane(lane)),
-    );
-    const results = [];
-    for (const [index, lane] of lanes.entries()) {
-      const page = pages[index];
-      if (!page) {
-        return null;
-      }
-      results.push({ laneId: lane.laneId, page });
-    }
-    return { results };
-  };
+/** Runs the production lane path for one container, rethrowing its rejection. */
+export async function discoverContainerDocuments({
+  beginDocumentDiscovery,
+  listContainerDocumentLanes,
+  loadContainerDocumentWatermark,
+  ...lane
+}: DiscoverContainerDocumentsOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
+  const [outcome] = await discoverContainerDocumentLanes({
+    generation: await beginDocumentDiscovery(),
+    lanes: [lane],
+    listContainerDocumentLanes,
+    loadContainerDocumentWatermark,
+  });
+  if (outcome?.status === "rejected") throw outcome.reason;
+  return outcome?.value ?? null;
 }
 
 export async function pinTestDiscoveryHead(

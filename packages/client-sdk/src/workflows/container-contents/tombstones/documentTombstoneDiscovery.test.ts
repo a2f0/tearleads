@@ -13,10 +13,9 @@ import { sqlDocumentsPersistence as documents } from "../../../data/persistence/
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import {
-  discoverAllContainerDocuments,
   discoverContainerDocuments,
-} from "../documentDiscovery";
-import { laneLister } from "../documentDiscovery/documentDiscovery.testUtils";
+  laneLister,
+} from "../documentDiscovery/documentDiscovery.testUtils";
 import type {
   ContainerDocumentTombstone,
   ContainerDocumentTombstoneHoldStore,
@@ -240,9 +239,9 @@ test("an unverifiable tombstone hides the placement until a verified head settle
   }
 });
 
-test("all-container discovery retries the holds of every listed container", async () => {
+test("discovery retries only the listed container's holds", async () => {
   const { close, execSql } = await createTestExecSql(
-    "tombstone-hold-retry-all",
+    "tombstone-hold-retry-lane",
   );
   try {
     const store = await seed(execSql);
@@ -253,16 +252,9 @@ test("all-container discovery retries the holds of every listed container", asyn
     ]);
 
     const retried: ContainerDocumentTombstone[][] = [];
-    await discoverAllContainerDocuments({
-      ...store,
-      containerIds: ["real-folder", "other"],
-      listContainerDocumentLanes: laneLister(async () => ({
-        hasMore: false,
-        items: [],
-        nextWatermark: null,
-        tombstones: [],
-      })),
-      verifyContainerDocumentTombstones: async (candidates) => {
+    await discoverRealFolder(store, {
+      tombstones: [],
+      verify: async (candidates) => {
         retried.push([...candidates]);
         return candidates.map((candidate) => ({
           kind: "refuted",
@@ -272,16 +264,14 @@ test("all-container discovery retries the holds of every listed container", asyn
       },
     });
 
-    expect(retried).toEqual([
-      [{ ...tombstone, containerId: "other" }, tombstone],
-    ]);
+    expect(retried).toEqual([[tombstone]]);
     expect(
       await listContainerDocumentTombstoneHolds(execSql, [
         "real-folder",
         "other",
       ]),
     ).toMatchObject([
-      { containerId: "other", hidden: false },
+      { containerId: "other", hidden: true },
       { containerId: "real-folder", hidden: false },
     ]);
   } finally {

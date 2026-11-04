@@ -457,8 +457,15 @@ export function getPanePublicKey(view: ReturnType<typeof renderPane>): string {
 export async function generateIdentityAndWaitForDb(
   view: ReturnType<typeof renderPane>,
 ) {
+  // After an identity is destroyed the pane re-renders its chrome; wait for
+  // the Menu button rather than assuming it is already back.
+  const menuButton = await view.findByRole(
+    "button",
+    { name: "Menu" },
+    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+  );
   await act(async () => {
-    fireEvent.click(view.getByRole("button", { name: "Menu" }));
+    fireEvent.click(menuButton);
   });
   await act(async () => {
     const menu = view.baseElement.querySelector<HTMLElement>(".menu");

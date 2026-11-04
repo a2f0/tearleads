@@ -214,13 +214,3 @@ export interface ListedContainerDocuments {
   nextWatermark: SyncWatermark | null;
   tombstones: ContainerDocumentTombstone[];
 }
-
-export interface ListedContainerDocumentsLane {
-  containerId: string;
-  listedDocuments: ListedContainerDocuments | null;
-}
-
-export interface DiscoverAllContainerDocumentsOptions
-  extends Omit<DiscoverContainerDocumentsOptions, "containerId"> {
-  containerIds: ReadonlyArray<string>;
-}

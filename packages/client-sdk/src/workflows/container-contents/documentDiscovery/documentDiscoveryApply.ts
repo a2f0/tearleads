@@ -16,7 +16,7 @@ export type ContainerDocumentDiscoveryLane = Omit<
   | "loadContainerDocumentWatermark"
 >;
 
-export async function saveAppliedContainerDocumentWatermark(input: {
+async function saveAppliedContainerDocumentWatermark(input: {
   containerId: string;
   listedDocuments: ListedContainerDocuments;
   saveContainerDocumentWatermark: DiscoverContainerDocumentsOptions["saveContainerDocumentWatermark"];

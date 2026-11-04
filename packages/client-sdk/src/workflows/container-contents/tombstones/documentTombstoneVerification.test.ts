@@ -5,8 +5,8 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/document
 import { createWorkflowInputFixture } from "../../../../test/helpers/internalRuntimeFixtures";
 import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
-import { discoverContainerDocuments } from "../documentDiscovery";
 import {
+  discoverContainerDocuments,
   laneLister,
   nullContainerDocumentWatermarks,
 } from "../documentDiscovery/documentDiscovery.testUtils";

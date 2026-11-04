@@ -7,12 +7,12 @@ import {
 import { documentContainerProjectionTables } from "../../../data/sqlite/schema";
 import { ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import {
+  discoverContainerDocuments,
   laneLister,
   nullContainerDocumentWatermarks,
   pinTestDiscoveryHead,
 } from "./documentDiscovery.testUtils";
 import { createDiscoveredDocumentVerifier } from "./documentDiscoveryEvidence";
-import { discoverAllContainerDocuments } from "./index";
 
 const at = "2026-09-23T00:00:00.000Z";
 const candidate = (id: string): DiscoveredDocumentCandidate => ({
@@ -119,7 +119,7 @@ test("matching signed heads avoid repeat fetches and changed candidates survive 
 });
 
 for (const available of [true, false]) {
-  test(`all-container discovery settles lanes independently (head available=${available})`, async () => {
+  test(`discovery advances the lane on signed-head evidence (head available=${available})`, async () => {
     const { execSql, close } = await createTestExecSql(
       `discovery-lanes-${available}`,
     );
@@ -128,9 +128,9 @@ for (const available of [true, false]) {
       const saved: string[] = [];
       const inputs: unknown[] = [];
       let retries = 0;
-      const result = await discoverAllContainerDocuments({
+      const result = await discoverContainerDocuments({
         ...nullContainerDocumentWatermarks,
-        containerIds: ["a", "b"],
+        containerId: "b",
         beginDocumentDiscovery: () => store.begin(),
         listContainerDocumentLanes: laneLister(async () => ({
           hasMore: false,
@@ -174,7 +174,7 @@ for (const available of [true, false]) {
           saved.push(id);
         },
       });
-      expect(saved.sort()).toEqual(["a", "b"]);
+      expect(saved).toEqual(["b"]);
       expect(retries).toBeGreaterThan(0);
       if (available) {
         expect(result).toHaveLength(1);
@@ -184,7 +184,7 @@ for (const available of [true, false]) {
       } else {
         expect(result).toBeNull();
         expect(inputs).toEqual([]);
-        expect(await store.hasPending(["a", "b"])).toBe(true);
+        expect(await store.hasPending(["b"])).toBe(true);
       }
     } finally {
       close();
