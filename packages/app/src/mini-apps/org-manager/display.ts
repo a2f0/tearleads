@@ -1,5 +1,6 @@
 import type {
   OrganizationContainerGrant,
+  OrganizationDirectoryUser,
   OrganizationGroupContainer,
 } from "@tearleads/client-sdk";
 import { ORG_MANAGER_LABELS } from "./labels";
@@ -23,6 +24,22 @@ export function compactFingerprint(value: string): string {
   }
 
   return `${value.slice(0, 10)}...${value.slice(-6)}`;
+}
+
+// One roster-user label for the directory row, the user detail header, and the
+// group member picker: the roster profile name, else "You" for yourself, else
+// the compact user ID.
+export function getRosterUserLabel(
+  user: Pick<OrganizationDirectoryUser, "isSelf" | "userId">,
+  profileDisplayName?: string | null | undefined,
+): string {
+  if (profileDisplayName) {
+    return profileDisplayName;
+  }
+
+  return user.isSelf
+    ? ORG_MANAGER_LABELS.self
+    : compactFingerprint(user.userId);
 }
 
 export function getAccessLabel(
