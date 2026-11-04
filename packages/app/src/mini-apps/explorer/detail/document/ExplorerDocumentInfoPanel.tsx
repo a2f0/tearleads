@@ -41,12 +41,18 @@ import {
 import { ExplorerLinkedContainerSection } from "./ExplorerLinkedContainers";
 import { useExplorerDocumentInfo } from "./useExplorerDocumentInfo";
 
-type DocumentInfoTabId = "general" | "links" | "blobs" | "security";
+type DocumentInfoTabId =
+  | "general"
+  | "attribution"
+  | "links"
+  | "blobs"
+  | "security";
 
 const DOCUMENT_INFO_TABS: ReadonlyArray<
   MiniAppTabDescriptor<DocumentInfoTabId>
 > = [
   { id: "general", label: EXPLORER_LABELS.documentInfoGeneralTab },
+  { id: "attribution", label: EXPLORER_LABELS.documentInfoAttributionTab },
   { id: "links", label: EXPLORER_LABELS.documentInfoLinksTab },
   { id: "blobs", label: EXPLORER_LABELS.documentInfoBlobsTab },
   { id: "security", label: EXPLORER_LABELS.documentInfoSecurityTab },
@@ -184,6 +190,48 @@ function ExplorerDocumentInfoTabs(params: {
   );
 }
 
+/** Who wrote what: the Attribution tab, split out of General. */
+function ExplorerDocumentInfoAttributionSections(params: {
+  attributionUserLabelResolver?:
+    | ExplorerAttributionUserLabelResolver
+    | undefined;
+  documentInfo: DocumentInfo | null;
+  loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;
+  requestAttributionProfileHydration: ExplorerAttributionProfileHydrationRequester;
+  showDocumentEditRanges: boolean;
+}) {
+  return (
+    <>
+      <ExplorerDocumentInfoContributorsSection
+        attributionUserLabelResolver={params.attributionUserLabelResolver}
+        documentInfo={params.documentInfo}
+      />
+      {params.showDocumentEditRanges ? (
+        <ExplorerDocumentInfoEditRangesSection
+          attributionUserLabelResolver={params.attributionUserLabelResolver}
+          documentInfo={params.documentInfo}
+          loadDocumentAttributionRanges={params.loadDocumentAttributionRanges}
+          requestAttributionProfileHydration={
+            params.requestAttributionProfileHydration
+          }
+        />
+      ) : null}
+      <ExplorerDocumentInfoCharacterBlameSection
+        attributionUserLabelResolver={params.attributionUserLabelResolver}
+        documentInfo={params.documentInfo}
+      />
+      <ExplorerDocumentInfoBlameSection
+        attributionUserLabelResolver={params.attributionUserLabelResolver}
+        documentInfo={params.documentInfo}
+      />
+      <ExplorerDocumentInfoFieldBlameSection
+        attributionUserLabelResolver={params.attributionUserLabelResolver}
+        documentInfo={params.documentInfo}
+      />
+    </>
+  );
+}
+
 function ExplorerDocumentInfoTabPanel(params: {
   activeTab: DocumentInfoTabId;
   activeContainerId: string | null;
@@ -224,41 +272,22 @@ function ExplorerDocumentInfoTabPanel(params: {
       idPrefix={params.idPrefix}
     >
       {params.activeTab === "general" ? (
-        <>
-          <ExplorerDocumentInfoGeneralSection
-            containerName={params.containerName}
-            documentInfo={params.documentInfo}
-            localId={params.localId}
-          />
-          <ExplorerDocumentInfoContributorsSection
-            attributionUserLabelResolver={params.attributionUserLabelResolver}
-            documentInfo={params.documentInfo}
-          />
-          {params.showDocumentEditRanges ? (
-            <ExplorerDocumentInfoEditRangesSection
-              attributionUserLabelResolver={params.attributionUserLabelResolver}
-              documentInfo={params.documentInfo}
-              loadDocumentAttributionRanges={
-                params.loadDocumentAttributionRanges
-              }
-              requestAttributionProfileHydration={
-                params.requestAttributionProfileHydration
-              }
-            />
-          ) : null}
-          <ExplorerDocumentInfoCharacterBlameSection
-            attributionUserLabelResolver={params.attributionUserLabelResolver}
-            documentInfo={params.documentInfo}
-          />
-          <ExplorerDocumentInfoBlameSection
-            attributionUserLabelResolver={params.attributionUserLabelResolver}
-            documentInfo={params.documentInfo}
-          />
-          <ExplorerDocumentInfoFieldBlameSection
-            attributionUserLabelResolver={params.attributionUserLabelResolver}
-            documentInfo={params.documentInfo}
-          />
-        </>
+        <ExplorerDocumentInfoGeneralSection
+          containerName={params.containerName}
+          documentInfo={params.documentInfo}
+          localId={params.localId}
+        />
+      ) : null}
+      {params.activeTab === "attribution" ? (
+        <ExplorerDocumentInfoAttributionSections
+          attributionUserLabelResolver={params.attributionUserLabelResolver}
+          documentInfo={params.documentInfo}
+          loadDocumentAttributionRanges={params.loadDocumentAttributionRanges}
+          requestAttributionProfileHydration={
+            params.requestAttributionProfileHydration
+          }
+          showDocumentEditRanges={params.showDocumentEditRanges}
+        />
       ) : null}
       {params.activeTab === "links" ? (
         <>

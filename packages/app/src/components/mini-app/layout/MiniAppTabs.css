@@ -27,7 +27,15 @@
   background: var(--color-muted);
 }
 
-.mini-app-tab {
+/*
+ * Scoped under `.mini-app-tabs` so it outranks `.mini-app-button` (0,1,0)
+ * whatever order the stylesheets load in. Unscoped, it tied on specificity
+ * and won only by source order: the production bundle put this file after
+ * MiniAppButton.css, but Bun's dev server (the e2e and screenshot server)
+ * linked it first, so inactive tabs kept the button border and read as
+ * buttons in every captured screenshot.
+ */
+.mini-app-tabs .mini-app-tab {
   min-width: 5rem;
   padding-inline: var(--space-sm);
   /* Transparent (not absent) so an inactive tab reserves the selected tab's

@@ -62,6 +62,9 @@ async function openNoteInfo(pane: HTMLElement, title: string) {
     fireEvent.click(within(menu).getByRole("button", { name: "Get Info" }));
   });
   await within(pane).findByText("Document Info");
+  await interact(() => {
+    fireEvent.click(within(pane).getByRole("tab", { name: "Attribution" }));
+  });
 }
 
 async function expectNoteAttribution(

@@ -289,6 +289,8 @@ async function waitForBlame(scope: ScreenshotScope): Promise<Locator> {
   await expect(scope.getByText("Document Info", { exact: true })).toBeVisible({
     timeout: 30_000,
   });
+  // Blame has its own tab; a layout switch can remount the panel on General.
+  await scope.getByRole("tab", { name: "Attribution", exact: true }).click();
   await expect(scope.getByText("Character Blame", { exact: true })).toBeVisible(
     {
       timeout: 60_000,
