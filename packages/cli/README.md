@@ -26,7 +26,7 @@ Keychain under `com.tearleads.cli.recovery-key`. `logout` removes it.
 ## Usage
 
 ```text
-Usage: tearleads <command> [--env production|staging] [--org <id>]
+Usage: tearleads <command> [--env production|staging] [--org <id>] [--trace]
 
 Commands:
   login    Save a recovery key (seed phrase) for the target in the Keychain.
@@ -38,6 +38,28 @@ Commands:
 
 `--env` defaults to `production` (`https://api.tearleads.com`). Each target
 keeps its own saved key.
+
+## Tracing
+
+Add `--trace` (or set `TEARLEADS_TRACE=1`) to see where a command spends its
+time. Progress goes to stderr, so stdout stays the command's normal output:
+
+```sh
+bun run tearleads ls --trace
+bun run tearleads ls --trace 2> trace.log
+```
+
+Each line starts with the wall-clock time and the seconds since the command
+started. The trace shows each step (opening the local database, deriving keys,
+signing in, reading memberships, listing folders, pulling folder metadata,
+revoking the session) with its duration; every API request by method and path
+template, with its outcome, client time, and the API's reported server and
+database time; each sync lane run; and the SDK's own log lines. A summary at
+the end totals each step and lists the endpoints that took the most time.
+
+Requests show path templates, never IDs, queries, or bodies. SDK log lines
+and labeled output from dependencies (`console.warn: ...`) can include folder
+names, so treat a saved trace like the account's data.
 
 ## How it works
 
