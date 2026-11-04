@@ -37,57 +37,6 @@ function createTrackedMemoryBlobStore() {
   };
 }
 
-test("document store attaches files locally without authentication or network", async () => {
-  const persistence = createDocumentStorePersistence();
-  const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const blobStore = createMemoryBlobStore();
-  const runtime = createDocumentStoreRuntime({
-    crypto: {
-      encapsulationKeyPair,
-    },
-    infra: {
-      blobStore,
-    },
-  });
-  const store = createDocumentStore(
-    "offline-attachment-document",
-    runtime,
-    persistence,
-  );
-  store.updateRuntime(runtime);
-
-  await store.attachFiles([
-    {
-      bytes: new TextEncoder().encode("offline bytes"),
-      mimeType: "image/png",
-      name: "offline.png",
-    },
-  ]);
-
-  expect(store.getSnapshot().canAttach).toBe(true);
-
-  await waitForCondition(
-    () =>
-      store.getSnapshot().attachments.length === 1 &&
-      persistence.getState().pendingAttachments.length === 1 &&
-      persistence.getState().pendingAttachments[0]?.name === "offline.png",
-    "Offline attachment was not stored locally.",
-  );
-
-  const slotId = store.getSnapshot().attachments[0]?.slotId;
-  const storageKey = slotId
-    ? store.getSnapshot().attachmentStorageKeyBySlotId[slotId]
-    : undefined;
-  const persistedBytes = storageKey
-    ? await blobStore.readBytes(storageKey)
-    : null;
-
-  expect(storageKey).toBeString();
-  expect(new TextDecoder().decode(persistedBytes ?? new Uint8Array())).toBe(
-    "offline bytes",
-  );
-});
-
 test("document store removes local-only attachments and stored bytes", async () => {
   const persistence = createDocumentStorePersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();

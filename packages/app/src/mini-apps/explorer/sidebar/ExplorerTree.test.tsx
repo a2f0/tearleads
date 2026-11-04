@@ -28,10 +28,7 @@ import {
   createExplorerSidebarRows as createSidebarRows,
   type ExplorerSidebarWindowCall,
 } from "./ExplorerTree.testFixtures";
-import {
-  buildExplorerTree,
-  getExplorerSidebarWindowRange,
-} from "./explorerTreeModel";
+import { buildExplorerTree } from "./explorerTreeModel";
 
 afterEach(() => {
   cleanup();
@@ -188,15 +185,6 @@ test("explorer sidebar requests new document windows as the sidebar scrolls", as
     });
   });
   expect(await view.findByRole("button", { name: "Document 22" })).toBeTruthy();
-});
-
-test("explorer sidebar window range follows row height with overscan", () => {
-  expect(
-    getExplorerSidebarWindowRange({ scrollTop: -100, viewportHeight: 0 }),
-  ).toEqual({ limit: 24, offset: 0 });
-  expect(
-    getExplorerSidebarWindowRange({ scrollTop: 840, viewportHeight: 280 }),
-  ).toEqual({ limit: 26, offset: 22 });
 });
 
 test("explorer sidebar scroll requests windows for each folder independently", async () => {

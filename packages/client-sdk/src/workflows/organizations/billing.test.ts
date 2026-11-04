@@ -1,15 +1,9 @@
 import { expect, test } from "bun:test";
 import type { OrganizationBillingResponse } from "@tearleads/validators/response";
 import {
-  checkNativePurchaseEligibility,
   claimNativeOrganizationSubscription,
-  loadOrganizationBilling,
-  loadOrganizationBillingHistory,
-  loadOrganizationBillingManagementUrl,
   type OrganizationBilling,
-  type OrganizationBillingHistory,
   resolveOrganizationBillingView,
-  startOrganizationTrial,
 } from "./billing";
 
 const NOW_MS = Date.parse("2026-07-01T00:00:00.000Z");
@@ -168,99 +162,6 @@ test.each(["disabled", "deleting", "purged"] as const)(
   },
 );
 
-test("loadOrganizationBilling passes the org id through to the api client", async () => {
-  const calls: string[] = [];
-  const snapshot = billing({ status: "active" });
-  const result = await loadOrganizationBilling({
-    apiClient: {
-      getOrganizationBilling: async (organizationId) => {
-        calls.push(organizationId);
-        return snapshot;
-      },
-    },
-    organizationId: "org-9",
-  });
-  expect(calls).toEqual(["org-9"]);
-  expect(result).toBe(snapshot);
-});
-
-test("loadOrganizationBillingHistory passes the org id through to the api client", async () => {
-  const calls: string[] = [];
-  const history: OrganizationBillingHistory = {
-    organizationId: "org-9",
-    entries: [
-      {
-        id: "revenuecat:event-1",
-        category: "lifecycle",
-        provider: "revenuecat",
-        environment: null,
-        eventType: "INITIAL_PURCHASE",
-        outcome: "applied",
-        occurredAt: iso(0),
-        productId: "sync_solo_monthly",
-        transactionId: "transaction-1",
-        invoiceId: null,
-        subscriptionId: null,
-        billingReason: null,
-        seatCount: null,
-        seatDelta: null,
-        activeSeatCount: null,
-        priceId: null,
-        unitAmount: null,
-        currency: null,
-        interval: null,
-        intervalCount: null,
-        totalAmount: null,
-        totalCurrency: null,
-        periodStartsAt: null,
-        periodEndsAt: null,
-      },
-    ],
-  };
-  const result = await loadOrganizationBillingHistory({
-    apiClient: {
-      getOrganizationBillingHistory: async (organizationId) => {
-        calls.push(organizationId);
-        return history;
-      },
-    },
-    organizationId: "org-9",
-  });
-  expect(calls).toEqual(["org-9"]);
-  expect(result).toBe(history);
-});
-
-test("loadOrganizationBillingManagementUrl passes through the org id", async () => {
-  const calls: string[] = [];
-  const result = await loadOrganizationBillingManagementUrl({
-    apiClient: {
-      getOrganizationBillingManagementUrl: async (organizationId) => {
-        calls.push(organizationId);
-        return { managementUrl: "https://manage.example/x" };
-      },
-    },
-    organizationId: "org-9",
-  });
-  expect(calls).toEqual(["org-9"]);
-  expect(result).toEqual({ managementUrl: "https://manage.example/x" });
-});
-
-test("startOrganizationTrial posts for the given org", async () => {
-  const calls: string[] = [];
-  const snapshot = billing({ status: "trialing", trialEndsAt: iso(DAY_MS) });
-  const result = await startOrganizationTrial({
-    apiClient: {
-      startOrganizationTrial: async (organizationId) => {
-        calls.push(organizationId);
-        return snapshot;
-      },
-    },
-    organizationId: "org-9",
-  });
-  expect(calls).toEqual(["org-9"]);
-  expect(result).toBe(snapshot);
-});
-
 test("claimNativeOrganizationSubscription passes the org and store through", async () => {
   const calls: Array<readonly [string, string]> = [];
   const snapshot = billing({ status: "active" });
@@ -276,26 +177,4 @@ test("claimNativeOrganizationSubscription passes the org and store through", asy
   });
   expect(calls).toEqual([["org-9", "app_store"]]);
   expect(result).toBe(snapshot);
-});
-
-test("checkNativePurchaseEligibility returns the server policy decision", async () => {
-  const calls: Array<[string, string]> = [];
-  const result = await checkNativePurchaseEligibility({
-    apiClient: {
-      getOrganizationNativePurchaseEligibility: async (
-        organizationId,
-        store,
-      ) => {
-        calls.push([organizationId, store]);
-        return { eligible: false, reason: "terminal_organization" };
-      },
-    },
-    organizationId: "org-9",
-    store: "play_store",
-  });
-  expect(calls).toEqual([["org-9", "play_store"]]);
-  expect(result).toEqual({
-    eligible: false,
-    reason: "terminal_organization",
-  });
 });

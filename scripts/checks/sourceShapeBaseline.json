@@ -259,8 +259,8 @@
       "bytes": 17566
     },
     "packages/app/test/helpers/mswServer.ts": {
-      "lines": 815,
-      "bytes": 24488
+      "lines": 841,
+      "bytes": 25613
     },
     "packages/client-sdk/src/Tearleads.test.ts": {
       "lines": 967,
@@ -269,10 +269,6 @@
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 709,
       "bytes": 26491
-    },
-    "packages/client-sdk/src/data/documents/editAttribution.test.ts": {
-      "lines": 570,
-      "bytes": 13767
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
       "lines": 567,
@@ -301,10 +297,6 @@
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
       "lines": 572,
       "bytes": 21064
-    },
-    "packages/client-sdk/src/workflows/container-contents/documentDiscovery/documentDiscovery.test.ts": {
-      "lines": 946,
-      "bytes": 28741
     },
     "packages/client-sdk/src/workflows/container-contents/documentLinks/index.ts": {
       "lines": 512,

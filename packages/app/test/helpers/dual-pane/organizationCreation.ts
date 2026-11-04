@@ -40,7 +40,8 @@ export async function createAdditionalOrganization(
   });
   await waitForCondition(
     () => screen.queryByRole("dialog", { name: "New Organization" }) === null,
-    `Organization creation did not finish: ${dialog.textContent?.trim() ?? "unknown dialog state"}`,
+    () =>
+      `Organization creation did not finish: ${dialog.textContent?.trim() ?? "unknown dialog state"}`,
     20_000,
   );
 }

@@ -1,7 +1,10 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { openIdentityManagerFromPane } from "../../test/helpers/identityPaneTestUtils";
-import { useTestApiAppHandlers } from "../../test/helpers/mswServer";
+import {
+  MOCK_SERVER_RESET_TIMEOUT_MS,
+  useTestApiAppHandlers,
+} from "../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
@@ -13,7 +16,7 @@ import {
   waitForPaneRuntimeToSettle,
 } from "../../test/helpers/paneTestUtils";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test.each([false, true])(
   "a committed registration recovers its original identity and containers (retry: %s)",

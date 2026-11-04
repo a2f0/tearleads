@@ -120,6 +120,7 @@ test("a hung derivation releases the queue and wipes a late key", async () => {
     namespace: LOCAL_SQLITE_SCOPE_NAMESPACE,
   });
   const lateKey = new Uint8Array(32).fill(5);
+  const freshKey = new Uint8Array(32).fill(7);
   const pending = Promise.withResolvers<Uint8Array<ArrayBuffer>>();
   let disposed = false;
   let invalidations = 0;
@@ -127,7 +128,17 @@ test("a hung derivation releases the queue and wipes a late key", async () => {
   const factory = Object.assign(
     () => {
       factories += 1;
-      if (factories > 1) return create();
+      // The follow-up lease settles on microtasks only, so the 30 ms timer that
+      // expires the hung lease cannot also expire it on a loaded host.
+      if (factories > 1)
+        return {
+          ...active,
+          loadSession: async () => ({
+            ...session,
+            deriveKey: async () => freshKey,
+            dispose: () => undefined,
+          }),
+        };
       return {
         ...active,
         loadSession: async () => ({
@@ -149,7 +160,8 @@ test("a hung derivation releases the queue and wipes a late key", async () => {
   const provider = createPrincipalHistoryKeyProvider(factory, 30);
   await expect(provider(scope)).rejects.toThrow("timed out");
   expect(invalidations).toBe(1);
-  expect(await provider(scope)).toHaveLength(32);
+  expect(await provider(scope)).toBe(freshKey);
+  expect(factories).toBe(2);
   pending.resolve(lateKey);
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(lateKey.every((byte) => byte === 0)).toBe(true);

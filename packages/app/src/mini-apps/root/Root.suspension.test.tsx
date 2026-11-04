@@ -2,12 +2,13 @@ import "../../../test/helpers/mswServer";
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { cleanupIdentityManagerTestEnvironment } from "../../../test/helpers/identityManagerTestRuntime";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
 import { renderRootWithSession } from "../../../test/helpers/renderRootConsole";
 import { ROOT_TEST_IDENTITIES } from "../../../test/helpers/rootConsoleFixtures";
 
 afterEach(async () => {
   await cleanupIdentityManagerTestEnvironment();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("operators suspend and lift a member account but not a root one", async () => {
   const { restore, view } = await renderRootWithSession(true);

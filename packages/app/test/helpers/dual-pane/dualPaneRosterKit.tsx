@@ -74,13 +74,18 @@ export async function importPeerIntoRoster(
   // On success `importRosterUser` closes the dialog and selects the imported
   // user; wait for the dialog to close, then let sync settle. Selecting the
   // user can start a roster profile mutation whose completion must commit
-  // before Org Manager releases the deferred organization hint.
+  // before Org Manager releases the deferred organization hint. The import
+  // verifies the link, rotates the Members key epoch and re-shares the org
+  // metadata, so it gets the same budget as a share: ~2.5 s on a fast host,
+  // 12-16 s on four slow cores, where a 10 s wait failed while it progressed.
   await waitForCondition(
     () =>
       within(pane).queryByRole("dialog", {
         name: ORG_MANAGER_LABELS.importUserAction,
       }) === null,
-    `Roster import dialog for ${peerUserId} did not close.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+    () =>
+      `Roster import dialog for ${peerUserId} did not close.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+    POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
   );
   expect(
     await settleAppTestRuntimeInAct({

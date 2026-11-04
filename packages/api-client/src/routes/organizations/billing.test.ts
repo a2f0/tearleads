@@ -59,15 +59,6 @@ test("organization billing client metadata derives from shared operations", () =
   );
 });
 
-test("organization billing client metadata exposes runtime guards", () => {
-  expect(organizationBillingGet.isResponse).toBeDefined();
-  expect(organizationBillingHistoryGet.isResponse).toBeDefined();
-  expect(organizationBillingManagementUrlGet.isResponse).toBeDefined();
-  expect(nativeOrganizationSubscriptionClaim.isResponse).toBeDefined();
-  expect(organizationNativePurchaseEligibilityGet.isResponse).toBeDefined();
-  expect(organizationTrialStart.isResponse).toBeDefined();
-});
-
 test("organization billing client paths preserve legacy input handling", () => {
   expect(organizationBillingGet.path("organization/1")).toBe(
     "/organizations/organization%2F1/billing",

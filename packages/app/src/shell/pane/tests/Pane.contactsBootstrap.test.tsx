@@ -4,7 +4,10 @@ import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { useEffect } from "react";
 import { registerAndWaitForUserId } from "../../../../test/helpers/identityPaneTestUtils";
-import { useTestApiAppHandlers } from "../../../../test/helpers/mswServer";
+import {
+  MOCK_SERVER_RESET_TIMEOUT_MS,
+  useTestApiAppHandlers,
+} from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
@@ -27,7 +30,7 @@ import { DualPaneProvider, PaneSideProvider } from "../dual-pane";
 import { PaneProvider } from "../runtime/PaneProvider";
 import { Pane } from "../shell/Pane";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 function TearleadsProbe({
   onReady,

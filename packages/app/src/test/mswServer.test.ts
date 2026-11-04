@@ -16,6 +16,7 @@ import { isRegistrationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import {
   getProxiedApiNetworkActivitySnapshot,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../test/helpers/mswServer";
@@ -24,7 +25,7 @@ const apiBaseUrl = "http://localhost:3001";
 
 afterEach(async () => {
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

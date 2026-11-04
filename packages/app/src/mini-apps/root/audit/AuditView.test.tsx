@@ -2,11 +2,12 @@ import "../../../../test/helpers/mswServer";
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { fireEvent, within } from "@testing-library/react";
 import { cleanupIdentityManagerTestEnvironment } from "../../../../test/helpers/identityManagerTestRuntime";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 import { renderRootWithSession } from "../../../../test/helpers/renderRootConsole";
 
 afterEach(async () => {
   await cleanupIdentityManagerTestEnvironment();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("an action newer than the console shows its operation id", async () => {
   const { restore, tearleads, view } = await renderRootWithSession(true);

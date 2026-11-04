@@ -27,6 +27,7 @@ import { createPeerIdentityLink } from "../../../../test/helpers/identityLinkFix
 import { mockClipboardWrites } from "../../../../test/helpers/identityLinkResolverTestKit";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -46,7 +47,7 @@ afterEach(async () => {
   browser.happyDOM.setURL(previousUrl);
   window.history.replaceState(null, "", previousUrl);
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 function mismatchedLink(link: string): string {
   const url = new URL(link);

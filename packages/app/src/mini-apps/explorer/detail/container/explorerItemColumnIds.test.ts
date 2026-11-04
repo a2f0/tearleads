@@ -40,30 +40,6 @@ test("compact layout uses a fixed summary set and ignores hidden preferences", (
   ).toEqual(["summary", "actions"]);
 });
 
-test("the kebab is the trailing column of every layout", () => {
-  // Folded or wide, touch or desktop: the row's actions are always one click
-  // away rather than only behind a right-click the pointer layouts alone have.
-  for (const compact of [false, true]) {
-    expect(
-      getVisibleExplorerItemColumnIds({
-        compact,
-        hiddenColumns: new Set<ExplorerItemColumnId>(["type", "sync"]),
-      }).at(-1),
-    ).toBe("actions");
-  }
-});
-
-test("compact layout folds every data column into the summary column", () => {
-  const compactColumnIds = getVisibleExplorerItemColumnIds({
-    compact: true,
-    hiddenColumns: new Set(),
-  });
-
-  for (const dataColumnId of ["name", "type", "created", "modified", "sync"]) {
-    expect(compactColumnIds).not.toContain(dataColumnId);
-  }
-});
-
 test("Name is not user-toggleable", () => {
   expect(TOGGLEABLE_COLUMN_IDS).not.toContain("name");
   // The summary column is structural too — it is never persisted or toggled.

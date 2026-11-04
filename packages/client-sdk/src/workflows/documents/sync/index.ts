@@ -1,6 +1,5 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { isDocumentUpdateCreatedEvent } from "../../../data/documents/documentSync";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
   type DocumentSyncPullContinuation,
@@ -42,16 +41,6 @@ import type {
 } from "./syncAttemptState";
 import { resolveSubmittedDocumentSyncResult } from "./syncSubmittedResult";
 
-export function hasDocumentUpdateEvent(
-  events: ReadonlyArray<unknown>,
-  documentId: string | null | undefined,
-): boolean {
-  if (!documentId) return false;
-  return events.some(
-    (event) =>
-      isDocumentUpdateCreatedEvent(event) && event.documentId === documentId,
-  );
-}
 /**
  * A retryable stale-projection conflict means this writer projection is behind
  * the server. Evict only this document so the next attempt re-derives targets.

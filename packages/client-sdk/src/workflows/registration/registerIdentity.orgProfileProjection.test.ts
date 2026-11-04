@@ -9,7 +9,6 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import {
-  createDocumentProjectorRegistry,
   type DocumentClientProjectionSaveInput,
   type DocumentProjectorDefinition,
   readStringDocumentField,
@@ -206,19 +205,4 @@ test("a later save cannot overwrite the fallback title", async () => {
   } finally {
     close();
   }
-});
-
-test("the default registry titles the org profile kind", () => {
-  const registry = createDocumentProjectorRegistry([]);
-  expect(
-    registry.getUntitledDocumentTitle(ORGANIZATION_PROFILE_DOCUMENT_KIND),
-  ).toBe("Organization Profile");
-  expect(
-    registry.projectStoredDocumentState({
-      documentKind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
-      structuredFields: { name: "Acme Corp" },
-      text: "",
-    }).title,
-  ).toBe("Organization Profile");
-  expect(registry.getUntitledDocumentTitle("note")).toBe("Untitled note");
 });

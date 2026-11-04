@@ -10,10 +10,7 @@ import {
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import {
-  discoverAllContainerDocuments,
   discoverContainerDocuments,
-} from "../documentDiscovery";
-import {
   laneLister,
   nullContainerDocumentWatermarks,
 } from "../documentDiscovery/documentDiscovery.testUtils";
@@ -109,9 +106,8 @@ test.each([
         text: "",
       });
       await links.replaceDocumentLinks(execSql, "remote", ["trash"]);
-      await discoverAllContainerDocuments({
+      const options: Omit<DiscoverContainerDocumentsOptions, "containerId"> = {
         ...nullContainerDocumentWatermarks,
-        containerIds: [first, second],
         listContainerDocumentLanes: laneLister(async (containerId) => ({
           hasMore: false,
           nextWatermark: null,
@@ -132,7 +128,10 @@ test.each([
           links.replaceDocumentLinksBatch(execSql, inputs),
         upsertDiscoveredDocuments: (inputs) =>
           upsertDiscoveredDocuments(execSql, inputs),
-      });
+      };
+      for (const containerId of [first, second]) {
+        await discoverContainerDocuments({ ...options, containerId });
+      }
       expect(await links.listLinkedContainerIds(execSql, "remote")).toEqual([
         "trash",
       ]);
@@ -142,125 +141,115 @@ test.each([
   },
 );
 
-for (const mode of ["single", "all"]) {
-  test(`${mode} discovery cannot return sequentially trashed documents to root`, async () => {
-    const { execSql, close } = await createTestExecSql(
-      `move-discovery-${mode}`,
-    );
-    try {
-      await documents.ensureSchema(execSql);
-      const ids = ["one", "two", "three"];
-      for (const id of ids) {
-        await documents.saveDocument(execSql, {
-          id,
-          documentId: id,
-          containerId: "root",
-          accessEpoch: 1,
-          accessStateHash: "root-hash",
-          snapshotEndVersion: "",
-          text: id,
-        });
-        await links.replaceDocumentLinks(execSql, id, ["root"]);
-      }
-      const options: DiscoverContainerDocumentsOptions = {
-        ...nullContainerDocumentWatermarks,
+test("discovery cannot return sequentially trashed documents to root", async () => {
+  const { execSql, close } = await createTestExecSql("move-discovery-single");
+  try {
+    await documents.ensureSchema(execSql);
+    const ids = ["one", "two", "three"];
+    for (const id of ids) {
+      await documents.saveDocument(execSql, {
+        id,
+        documentId: id,
         containerId: "root",
-        listContainerDocumentLanes: laneLister(async () => ({
-          hasMore: false,
-          nextWatermark: null,
-          tombstones: [],
-          items: ids.map((id) => ({
-            id,
-            createdAt: "2026-09-17T00:00:00.000Z",
-            updatedAt: "2026-09-17T00:00:00.000Z",
-            currentAccessEpoch: 1,
-            currentAccessStateHash: "root-hash",
-            linkedContainerIds: ["root"],
-            referencedPrincipals: [],
-          })),
-        })),
-        replaceDocumentLinksBatch: (inputs) =>
-          links.replaceDocumentLinksBatch(execSql, inputs),
-        upsertDiscoveredDocuments: (inputs) =>
-          upsertDiscoveredDocuments(execSql, inputs),
-      };
-      const discover = () =>
-        mode === "single"
-          ? discoverContainerDocuments(options)
-          : discoverAllContainerDocuments({
-              ...options,
-              containerIds: ["root"],
-            });
-      const rootIds = async () =>
-        (
-          await listContainerContentsDocumentsForContainers(execSql, ["root"], {
-            sortDocumentSummaries: false,
-          })
-        ).documentSummaries
-          .map((row) => row.id)
-          .sort();
-
-      for (const [index, id] of ids.entries()) {
-        // Simulate the atomic local move, then delayed discovery and the
-        // intermediate remote link result while other root rows remain live.
-        await documents.relinkPersistedDocument(execSql, {
-          localId: id,
-          documentId: id,
-          containerId: "trash",
-          accessEpoch: 1,
-        });
-        await links.replaceDocumentLinks(execSql, id, ["trash"]);
-        await intents.enqueueMoveIntent(execSql, {
-          documentId: id,
-          localId: id,
-          sourceContainerId: "root",
-          targetContainerId: "trash",
-          replaceLinkedContainers: true,
-        });
-        await discover();
-        await links.replaceDocumentLinks(execSql, id, ["root", "trash"]);
-        expect(await rootIds()).toEqual(ids.slice(index + 1).sort());
-        expect(await documents.loadDocument(execSql, id)).toMatchObject({
-          containerId: "trash",
-        });
-
-        // Final placement and intent removal commit together. A listing
-        // captured before this commit must stay obsolete after settlement.
-        const intent = (await intents.listPendingMoveIntents(execSql)).find(
-          (row) => row.documentId === id,
-        );
-        if (!intent) throw new Error("Missing move intent");
-        await runSerializedSqlMutation(execSql, (execSql) =>
-          getClientSQLitePersistenceRuntime(execSql).transaction(async () => {
-            await documents.relinkPersistedDocument(execSql, {
-              localId: id,
-              documentId: id,
-              containerId: "trash",
-              accessEpoch: 3,
-              accessStateHash: "trash-hash",
-            });
-            await settleDocumentMoveIntent({
-              execSql,
-              intent,
-              isCurrent: () => true,
-              linkedContainerIds: ["trash"],
-              partial: false,
-            });
-          }),
-        );
-        await discover();
-        expect(await rootIds()).toEqual(ids.slice(index + 1).sort());
-        expect(await documents.loadDocument(execSql, id)).toMatchObject({
-          containerId: "trash",
-          accessEpoch: 3,
-          accessStateHash: "trash-hash",
-        });
-      }
-    } finally {
-      close();
+        accessEpoch: 1,
+        accessStateHash: "root-hash",
+        snapshotEndVersion: "",
+        text: id,
+      });
+      await links.replaceDocumentLinks(execSql, id, ["root"]);
     }
-  });
-}
+    const options: DiscoverContainerDocumentsOptions = {
+      ...nullContainerDocumentWatermarks,
+      containerId: "root",
+      listContainerDocumentLanes: laneLister(async () => ({
+        hasMore: false,
+        nextWatermark: null,
+        tombstones: [],
+        items: ids.map((id) => ({
+          id,
+          createdAt: "2026-09-17T00:00:00.000Z",
+          updatedAt: "2026-09-17T00:00:00.000Z",
+          currentAccessEpoch: 1,
+          currentAccessStateHash: "root-hash",
+          linkedContainerIds: ["root"],
+          referencedPrincipals: [],
+        })),
+      })),
+      replaceDocumentLinksBatch: (inputs) =>
+        links.replaceDocumentLinksBatch(execSql, inputs),
+      upsertDiscoveredDocuments: (inputs) =>
+        upsertDiscoveredDocuments(execSql, inputs),
+    };
+    const discover = () => discoverContainerDocuments(options);
+    const rootIds = async () =>
+      (
+        await listContainerContentsDocumentsForContainers(execSql, ["root"], {
+          sortDocumentSummaries: false,
+        })
+      ).documentSummaries
+        .map((row) => row.id)
+        .sort();
+
+    for (const [index, id] of ids.entries()) {
+      // Simulate the atomic local move, then delayed discovery and the
+      // intermediate remote link result while other root rows remain live.
+      await documents.relinkPersistedDocument(execSql, {
+        localId: id,
+        documentId: id,
+        containerId: "trash",
+        accessEpoch: 1,
+      });
+      await links.replaceDocumentLinks(execSql, id, ["trash"]);
+      await intents.enqueueMoveIntent(execSql, {
+        documentId: id,
+        localId: id,
+        sourceContainerId: "root",
+        targetContainerId: "trash",
+        replaceLinkedContainers: true,
+      });
+      await discover();
+      await links.replaceDocumentLinks(execSql, id, ["root", "trash"]);
+      expect(await rootIds()).toEqual(ids.slice(index + 1).sort());
+      expect(await documents.loadDocument(execSql, id)).toMatchObject({
+        containerId: "trash",
+      });
+
+      // Final placement and intent removal commit together. A listing
+      // captured before this commit must stay obsolete after settlement.
+      const intent = (await intents.listPendingMoveIntents(execSql)).find(
+        (row) => row.documentId === id,
+      );
+      if (!intent) throw new Error("Missing move intent");
+      await runSerializedSqlMutation(execSql, (execSql) =>
+        getClientSQLitePersistenceRuntime(execSql).transaction(async () => {
+          await documents.relinkPersistedDocument(execSql, {
+            localId: id,
+            documentId: id,
+            containerId: "trash",
+            accessEpoch: 3,
+            accessStateHash: "trash-hash",
+          });
+          await settleDocumentMoveIntent({
+            execSql,
+            intent,
+            isCurrent: () => true,
+            linkedContainerIds: ["trash"],
+            partial: false,
+          });
+        }),
+      );
+      await discover();
+      expect(await rootIds()).toEqual(ids.slice(index + 1).sort());
+      expect(await documents.loadDocument(execSql, id)).toMatchObject({
+        containerId: "trash",
+        accessEpoch: 3,
+        accessStateHash: "trash-hash",
+      });
+    }
+  } finally {
+    close();
+  }
+});
 
 test.each([false, true])(
   "a superseded replay cannot commit placement (partial: %s)",

@@ -1,16 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
   canWriteEffectiveAccessLevel,
-  DEFAULT_EFFECTIVE_ACCESS_LEVEL,
   maxEffectiveAccessLevel,
   normalizeEffectiveAccessLevel,
 } from "./accessLevel";
 
 describe("effective access level", () => {
-  test("defaults fail closed to read", () => {
-    expect(DEFAULT_EFFECTIVE_ACCESS_LEVEL).toBe("read");
-  });
-
   test("normalize passes through known levels", () => {
     expect(normalizeEffectiveAccessLevel("read")).toBe("read");
     expect(normalizeEffectiveAccessLevel("write")).toBe("write");

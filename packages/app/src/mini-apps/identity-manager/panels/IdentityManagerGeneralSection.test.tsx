@@ -22,6 +22,7 @@ import {
   installClipboardWriteMock,
 } from "../../../../test/helpers/recoveryKeyTestKit";
 import "../../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 import { saveDeveloperMode } from "../../../providers/developer-mode/DeveloperModeProvider";
 import { IdentityManager } from "../IdentityManager";
 
@@ -42,7 +43,7 @@ const originalWebSocket = globalThis.WebSocket;
 afterEach(async () => {
   Reflect.set(globalThis, "WebSocket", originalWebSocket);
   await cleanupRecoveryKeyTestEnvironment();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 /** Signs in with real local keys and opens the General tab. */
 async function renderSignedInGeneralTab(): Promise<{

@@ -52,6 +52,7 @@ import {
 import { dropNextMswServerEventWhere } from "../../../../test/helpers/mswEventRouter";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -63,7 +64,10 @@ afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
+
+const peerEditSyncFailure = (start: number) => () =>
+  `Peer edit did not complete a successful document sync.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(start))}`;
 
 async function waitForGroupTestRuntimeToSettle() {
   await act(async () => {
@@ -221,9 +225,7 @@ test(
               request.status === 200 &&
               /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)),
           ),
-      `Peer edit did not complete a successful document sync.\nrequests=\n${summarizeProxiedApiRequests(
-        listProxiedApiRequests().slice(peerEditBaseline.requestStartIndex),
-      )}`,
+      peerEditSyncFailure(peerEditBaseline.requestStartIndex),
       15_000,
     );
 
@@ -289,9 +291,7 @@ test(
               request.status === 200 &&
               /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)),
           ),
-      `Peer edit did not complete a successful document sync.\nrequests=\n${summarizeProxiedApiRequests(
-        listProxiedApiRequests().slice(peerEditBaseline.requestStartIndex),
-      )}`,
+      peerEditSyncFailure(peerEditBaseline.requestStartIndex),
       15_000,
     );
     await waitForCondition(

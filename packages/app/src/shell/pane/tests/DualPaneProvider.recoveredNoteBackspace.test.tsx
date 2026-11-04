@@ -36,6 +36,7 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
 import { dropNextMswServerEventWhere } from "../../../../test/helpers/mswEventRouter";
 import {
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -45,7 +46,7 @@ afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 // Reproduce the reported batch while staying within one sync response page.
 const BACKSPACE_COUNT = 51;

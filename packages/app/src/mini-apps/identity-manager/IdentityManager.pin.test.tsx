@@ -8,13 +8,14 @@ import {
   TestWebSocket,
 } from "../../../test/helpers/identityManagerTestRuntime";
 import "../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
 import { IdentityManager } from "./IdentityManager";
 
 const BROWSER_KEYRING_HOST_CONFIG = createIdentityManagerHostConfig({
   browserManagedKeyring: true,
 });
 
-afterEach(cleanupIdentityManagerTestEnvironment);
+afterEach(cleanupIdentityManagerTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("PIN lock setup waits for a generated local key pair", async () => {
   const originalIndexedDB = globalThis.indexedDB;

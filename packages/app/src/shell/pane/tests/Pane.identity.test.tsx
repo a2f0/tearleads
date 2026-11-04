@@ -5,6 +5,7 @@ import {
   openIdentityManagerSection,
   registerAndWaitForUserId,
 } from "../../../../test/helpers/identityPaneTestUtils";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
@@ -22,7 +23,7 @@ import {
 import { enableSystemMonitorDeveloperMode } from "../../../../test/helpers/systemMonitorTestPreferences";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../../components/shared/DestroyKeyPackageConfirmationDialog";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
 

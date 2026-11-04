@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
 import {
   extractPaidInvoiceLineList,
-  extractPaidSubscriptionId,
   extractPaidSubscriptionInvoice,
   type StripeInvoiceBillingReason,
   verifyStripeSignature,
@@ -66,26 +65,6 @@ function paidInvoiceEvent(invoice: Record<string, unknown>): unknown {
     data: { object: { billing_reason: "subscription_create", ...invoice } },
   };
 }
-
-test("extracts the subscription id from both invoice payload shapes", () => {
-  // Older API versions: a top-level subscription reference.
-  expect(
-    extractPaidSubscriptionId(paidInvoiceEvent({ subscription: "sub_old" })),
-  ).toBe("sub_old");
-  expect(
-    extractPaidSubscriptionId(
-      paidInvoiceEvent({ subscription: { id: "sub_expanded" } }),
-    ),
-  ).toBe("sub_expanded");
-  // Newer API versions: nested under parent.subscription_details.
-  expect(
-    extractPaidSubscriptionId(
-      paidInvoiceEvent({
-        parent: { subscription_details: { subscription: "sub_new" } },
-      }),
-    ),
-  ).toBe("sub_new");
-});
 
 test("extracts exact paid-invoice financial and provider event fields", () => {
   const processingTime = new Date("2026-07-04T00:00:00.000Z");
@@ -328,25 +307,6 @@ test("paid-invoice occurrence falls back from event time to processing time", ()
 
   expect(eventTime?.occurredAt).toEqual(new Date(1_783_126_800_000));
   expect(processingFallback?.occurredAt).toEqual(processingTime);
-});
-
-test("extractPaidSubscriptionId ignores other events, renewals, and malformed payloads", () => {
-  expect(
-    extractPaidSubscriptionId({
-      type: "invoice.paid",
-      data: {
-        object: { billing_reason: "subscription_cycle", subscription: "sub" },
-      },
-    }),
-  ).toBeNull();
-  expect(
-    extractPaidSubscriptionId({
-      type: "customer.subscription.updated",
-      data: { object: { subscription: "sub" } },
-    }),
-  ).toBeNull();
-  expect(extractPaidSubscriptionId("not an event")).toBeNull();
-  expect(extractPaidSubscriptionId(null)).toBeNull();
 });
 
 test("ignores unknown billing reasons and invoices without a subscription", () => {

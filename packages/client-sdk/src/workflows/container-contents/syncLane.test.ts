@@ -1,12 +1,7 @@
 import { expect, test } from "bun:test";
 import { createDomainScope } from "../../data/shared/domainScope";
 import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
-import {
-  didRegainSyncPrerequisites,
-  getDomainSyncCoordinatorSnapshot,
-  isDatabaseUnavailableError,
-  type SyncRuntimeStatus,
-} from "../../data/sync/syncCoordinator";
+import { getDomainSyncCoordinatorSnapshot } from "../../data/sync/syncCoordinator";
 import { registerContainerContentsSyncLane } from "./syncLane";
 
 function flushSyncLane() {
@@ -33,60 +28,6 @@ test("registerContainerContentsSyncLane registers the container contents lane fo
   await flushSyncLane();
 
   expect(calls).toEqual(["second"]);
-});
-
-test("didRegainSyncPrerequisites detects restored sync inputs", () => {
-  const runtime: SyncRuntimeStatus = {
-    auth: {
-      isAuthenticated: false,
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-    },
-    state: {
-      online: false,
-    },
-  };
-
-  expect(didRegainSyncPrerequisites(runtime, runtime)).toBe(false);
-  expect(
-    didRegainSyncPrerequisites(runtime, {
-      ...runtime,
-      state: {
-        online: true,
-      },
-    }),
-  ).toBe(true);
-  expect(
-    didRegainSyncPrerequisites(runtime, {
-      ...runtime,
-      auth: {
-        isAuthenticated: true,
-      },
-    }),
-  ).toBe(true);
-  expect(
-    didRegainSyncPrerequisites(runtime, {
-      ...runtime,
-      crypto: {
-        encapsulationKeyPair: {},
-      },
-    }),
-  ).toBe(true);
-});
-
-test("isDatabaseUnavailableError follows wrapped database errors", () => {
-  expect(isDatabaseUnavailableError(new Error("DB has been closed."))).toBe(
-    true,
-  );
-  expect(
-    isDatabaseUnavailableError(
-      new Error("outer", {
-        cause: new Error("Database worker client has been destroyed."),
-      }),
-    ),
-  ).toBe(true);
-  expect(isDatabaseUnavailableError(new Error("other"))).toBe(false);
 });
 
 test("a lane that loses its database completes instead of reporting", async () => {

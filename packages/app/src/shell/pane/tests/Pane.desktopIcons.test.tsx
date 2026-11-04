@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { createMemoryBlobStore } from "@tearleads/client-sdk";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
@@ -10,7 +11,7 @@ import {
 } from "../../../../test/helpers/paneTestUtils";
 import { createBlobStoreDesktopStateStorage } from "../shell/usePaneDesktopStateStorage";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("the desktop layout reads back what it wrote to the blob store", async () => {
   const blobStore = createMemoryBlobStore();

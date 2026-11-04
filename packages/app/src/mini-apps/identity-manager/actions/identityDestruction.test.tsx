@@ -11,12 +11,13 @@ import {
   TestWebSocket,
 } from "../../../../test/helpers/identityManagerTestRuntime";
 import "../../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 import { PANE_ASYNC_TEST_TIMEOUT_MS } from "../../../../test/helpers/paneTestUtils";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { sqliteDbNameForSigningFingerprint } from "../../../providers/db/sqliteDbName";
 import { IdentityManager } from "../IdentityManager";
 
-afterEach(cleanupIdentityManagerTestEnvironment);
+afterEach(cleanupIdentityManagerTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 async function renderDestruction(failure: "sqlite" | "blobs") {
   const originalWebSocket = globalThis.WebSocket;

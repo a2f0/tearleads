@@ -106,10 +106,7 @@ export {
   type DocumentsWorkflowRuntimeInput,
   type DocumentsWorkflowRuntimeInputGroups,
 } from "./runtime";
-export {
-  hasDocumentUpdateEvent,
-  syncRemoteDocument,
-} from "./sync";
+export { syncRemoteDocument } from "./sync";
 export { documentCreateSeedCandidate } from "./sync/initialSync";
 export type { SyncRemoteDocumentInput } from "./sync/readOnlySync";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";

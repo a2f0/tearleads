@@ -1,7 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { waitFor } from "@testing-library/react";
 import { registerAndWaitForUserId } from "../../../../test/helpers/identityPaneTestUtils";
-import { useTestApiAppHandlers } from "../../../../test/helpers/mswServer";
+import {
+  MOCK_SERVER_RESET_TIMEOUT_MS,
+  useTestApiAppHandlers,
+} from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   createExplorerChildContainer,
@@ -20,7 +23,7 @@ import {
   saveAppFeatureFlag,
 } from "../../../providers/feature-flags/appFeatureFlags";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("registered explorer child folders settle to synced in the pane UI", async () => {
   useTestApiAppHandlers();

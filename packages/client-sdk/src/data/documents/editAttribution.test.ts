@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import {
   type DocumentEditAttributionRange,
-  listDocumentAttributionSegments,
   resolveOpIdAttribution,
   summarizeBlameRanges,
   summarizeCharacterBlame,
@@ -100,91 +99,6 @@ test("summarizeDocumentContributors tracks direct vs baseline authority per writ
   expect(contributor?.opCount).toBe(6);
   expect(contributor?.directOpCount).toBe(2);
   expect(contributor?.baselineOpCount).toBe(4);
-});
-
-test("listDocumentAttributionSegments mirrors contributor order, then counter order", () => {
-  const segments = listDocumentAttributionSegments([
-    segment({
-      peerId: "1",
-      startCounter: 3,
-      endCounter: 5,
-      writerUserId: "alice",
-    }),
-    segment({
-      peerId: "1",
-      startCounter: 0,
-      endCounter: 3,
-      writerUserId: "alice",
-    }),
-    segment({
-      peerId: "2",
-      startCounter: 0,
-      endCounter: 9,
-      writerUserId: "bob",
-    }),
-  ]);
-  expect(segments).toEqual([
-    {
-      peerId: "2",
-      startCounter: 0,
-      endCounter: 9,
-      opCount: 9,
-      updateId: "u-1",
-      writerUserId: "bob",
-      writerKeyFingerprint: "fp-bob",
-      authorityKind: "direct",
-    },
-    {
-      peerId: "1",
-      startCounter: 0,
-      endCounter: 3,
-      opCount: 3,
-      updateId: "u-1",
-      writerUserId: "alice",
-      writerKeyFingerprint: "fp-alice",
-      authorityKind: "direct",
-    },
-    {
-      peerId: "1",
-      startCounter: 3,
-      endCounter: 5,
-      opCount: 2,
-      updateId: "u-1",
-      writerUserId: "alice",
-      writerKeyFingerprint: "fp-alice",
-      authorityKind: "direct",
-    },
-  ]);
-});
-
-test("listDocumentAttributionSegments drops empty ranges and keeps authorityKind", () => {
-  const segments = listDocumentAttributionSegments([
-    segment({
-      peerId: "1",
-      startCounter: 4,
-      endCounter: 4,
-      writerUserId: "alice",
-    }),
-    segment({
-      peerId: "9",
-      startCounter: 0,
-      endCounter: 6,
-      writerUserId: "alice",
-      authorityKind: "baseline",
-    }),
-  ]);
-  expect(segments).toEqual([
-    {
-      peerId: "9",
-      startCounter: 0,
-      endCounter: 6,
-      opCount: 6,
-      updateId: "u-1",
-      writerUserId: "alice",
-      writerKeyFingerprint: "fp-alice",
-      authorityKind: "baseline",
-    },
-  ]);
 });
 
 test("writerByPeerId resolves a single-writer peer", () => {

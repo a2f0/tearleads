@@ -34,6 +34,7 @@ import {
 import { dropNextMswServerEventWhere } from "../../../../test/helpers/mswEventRouter";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -118,7 +119,7 @@ async function waitForItemAbsent(
         within(table).queryByRole("button", { name: itemName }) === null
       );
     },
-    `${message}\npane=${pane.textContent ?? "unknown"}`,
+    () => `${message}\npane=${pane.textContent ?? "unknown"}`,
     30_000,
   );
 }
@@ -215,9 +216,10 @@ async function moveNoteToTrashAcrossSessions(
             request.status === 200 &&
             /^\/documents\/[^/]+\/unlink$/u.test(requestPath(request.url)),
         ),
-    `Move to Trash did not commit its source unlink.\nrequests=\n${summarizeProxiedApiRequests(
-      listProxiedApiRequests().slice(moveRequestStart),
-    )}\npane=${secondaryPane.textContent ?? "unknown"}`,
+    () =>
+      `Move to Trash did not commit its source unlink.\nrequests=\n${summarizeProxiedApiRequests(
+        listProxiedApiRequests().slice(moveRequestStart),
+      )}\npane=${secondaryPane.textContent ?? "unknown"}`,
     30_000,
   );
   // The context-menu action deliberately fires and forgets the device-first
@@ -280,7 +282,7 @@ afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test(
   "same-identity sessions converge detach, move-to-Trash, and purge without post-commit Refresh",

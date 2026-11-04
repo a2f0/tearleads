@@ -2,7 +2,10 @@ import { afterEach, expect, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { AppTestRuntimeScopeProbe } from "../../test/helpers/appRuntimeIdle";
 import { openIdentityManagerFromPane } from "../../test/helpers/identityPaneTestUtils";
-import { useTestApiAppHandlers } from "../../test/helpers/mswServer";
+import {
+  MOCK_SERVER_RESET_TIMEOUT_MS,
+  useTestApiAppHandlers,
+} from "../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   createSharedMemoryLocalKeyringFactory,
@@ -30,7 +33,7 @@ import { DualPaneProvider, PaneSideProvider } from "../shell/pane/dual-pane";
 import { PaneProvider } from "../shell/pane/runtime/PaneProvider";
 import { Pane } from "../shell/pane/shell/Pane";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
 const USER_ID_STATUS_PATTERN =

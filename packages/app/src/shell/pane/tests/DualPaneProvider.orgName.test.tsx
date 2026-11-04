@@ -23,6 +23,7 @@ import {
   waitForNoPostShareSyncFailures,
 } from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
 import {
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -33,7 +34,7 @@ afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 // The Explorer renders each foreign org's roots under a level-2 section heading
 // showing the org's decrypted name once it resolves, or a generic "Shared with

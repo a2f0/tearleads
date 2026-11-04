@@ -32,6 +32,7 @@ import { createPeerIdentityLink } from "../../../../test/helpers/identityLinkFix
 import { dropNextMswServerEventWhere } from "../../../../test/helpers/mswEventRouter";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -216,7 +217,7 @@ afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test(
   "an active peer Org Manager reconciles an ungranted group mutation without container fanout",

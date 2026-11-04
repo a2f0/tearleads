@@ -15,6 +15,7 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
 import {
@@ -24,7 +25,7 @@ import {
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 async function setNetworkMode(pane: HTMLElement, label: string) {
   const status = within(pane).getByRole("region", { name: "System status" });

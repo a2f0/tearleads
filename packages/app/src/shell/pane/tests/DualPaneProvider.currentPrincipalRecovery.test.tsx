@@ -48,6 +48,7 @@ import {
 import { createPeerIdentityLink } from "../../../../test/helpers/identityLinkFixtures";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -67,7 +68,7 @@ afterEach(async () => {
   await organizationReads.drain();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 function hasGroupMember(pane: HTMLElement, userId: string): boolean {
   return Array.from(pane.querySelectorAll("strong")).some(
@@ -131,9 +132,10 @@ async function removeGroupMember(
   });
   await waitForCondition(
     () => !hasGroupMember(pane, userId),
-    `Peer was not removed from the custom group.\nrequests=\n${summarizeProxiedApiRequests(
-      listProxiedApiRequests().slice(requestStart),
-    )}\npane=${truncateText(pane.textContent ?? "")}`,
+    () =>
+      `Peer was not removed from the custom group.\nrequests=\n${summarizeProxiedApiRequests(
+        listProxiedApiRequests().slice(requestStart),
+      )}\npane=${truncateText(pane.textContent ?? "")}`,
     90_000,
   );
   await waitForPrincipalRematerialization();

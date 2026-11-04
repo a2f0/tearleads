@@ -226,7 +226,8 @@ export async function createNoteInContainer(
             request.status === 200 &&
             requestPath(request.url) === "/documents",
         ),
-    `Created note did not sync before moving its container.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}`,
+    () =>
+      `Created note did not sync before moving its container.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}`,
   );
 }
 
@@ -291,21 +292,25 @@ export async function clickExplorerRefresh(pane: HTMLElement) {
 export async function waitForSharedNoteVisible(pane: HTMLElement) {
   await waitForCondition(
     () => getExplorerSidebarItemsByName(pane, SHARED_NOTE_TITLE).length > 0,
-    `Peer did not discover shared note "${SHARED_NOTE_TITLE}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+    () =>
+      `Peer did not discover shared note "${SHARED_NOTE_TITLE}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
 }
 
 export async function waitForExplorerNoteVisible(
   pane: HTMLElement,
   title: string,
-  timeoutMs = 10_000,
+  // Peer discovery of a group-granted note took 7-9 s on four slow cores and
+  // passed 10 s with the parallel suite running, while still progressing.
+  timeoutMs = DUAL_PANE_TEST_TIMEOUT_MS,
 ) {
   await waitForCondition(
     () =>
       getExplorerSidebarItemsByName(pane, title).some((button) =>
         button.classList.contains("explorer-sidebar-item--note"),
       ),
-    `Explorer did not discover note "${title}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+    () =>
+      `Explorer did not discover note "${title}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
     timeoutMs,
   );
 }

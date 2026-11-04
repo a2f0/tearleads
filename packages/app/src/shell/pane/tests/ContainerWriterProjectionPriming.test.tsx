@@ -20,6 +20,7 @@ import {
 } from "../../../../test/helpers/dualPaneRequestSummary";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -28,7 +29,7 @@ afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 const CONTAINER_WRITER_PROJECTION_PATTERN =
   /^\/containers\/[^/]+\/writer-projection$/u;

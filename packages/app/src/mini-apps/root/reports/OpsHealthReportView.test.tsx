@@ -2,12 +2,13 @@ import "../../../../test/helpers/mswServer";
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { fireEvent, within } from "@testing-library/react";
 import { cleanupIdentityManagerTestEnvironment } from "../../../../test/helpers/identityManagerTestRuntime";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 import { renderRootWithSession } from "../../../../test/helpers/renderRootConsole";
 import { ROOT_TEST_ORGANIZATION } from "../../../../test/helpers/rootConsoleFixtures";
 
 afterEach(async () => {
   await cleanupIdentityManagerTestEnvironment();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("ops health lists maintenance trouble and opens an organization's billing", async () => {
   const { restore, view } = await renderRootWithSession(true);

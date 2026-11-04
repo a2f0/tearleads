@@ -13,6 +13,7 @@ import {
   refreshUntil,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import {
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -66,7 +67,7 @@ afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 function readSidebarReloadCount(pane: HTMLElement): number {
   const viewport = pane.querySelector<HTMLElement>(

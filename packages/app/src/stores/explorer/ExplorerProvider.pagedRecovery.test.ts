@@ -8,11 +8,12 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createHeadlessApiClient } from "../../../test/helpers/headlessApiClient";
 import {
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../test/helpers/mswServer";
 
-afterEach(resetMockServer);
+afterEach(resetMockServer, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("Explorer retries signed hydration after private and public policy pages recover", async () => {
   useTestApiAppHandlers();

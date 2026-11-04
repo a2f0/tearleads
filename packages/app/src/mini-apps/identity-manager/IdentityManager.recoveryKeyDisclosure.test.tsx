@@ -10,9 +10,10 @@ import {
   renderRecoveryKeyView,
 } from "../../../test/helpers/recoveryKeyTestKit";
 import "../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
 import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "./actions/recoveryKeyDisclosure";
 
-afterEach(cleanupRecoveryKeyTestEnvironment);
+afterEach(cleanupRecoveryKeyTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("copying the recovery key requires the acknowledgement phrase", async () => {
   const originalWebSocket = globalThis.WebSocket;

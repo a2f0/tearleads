@@ -4,6 +4,7 @@ import type { WorkerRequest } from "@tearleads/sqlite-worker/types";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { openIdentityManagerFromPane } from "../../../../test/helpers/identityPaneTestUtils";
 import { MockWorker } from "../../../../test/helpers/mockWorker";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   createSharedMemoryLocalKeyringFactory,
@@ -87,7 +88,7 @@ afterEach(async () => {
   initializedBlobNamespaces.length = 0;
   workerConstructionCount = 0;
   await cleanupPaneTestEnvironment();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test(
   "identity manager switches A to B and back with isolated storage and sessions",

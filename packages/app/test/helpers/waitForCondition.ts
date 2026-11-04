@@ -1,8 +1,20 @@
 import { waitFor } from "@testing-library/react";
 
+/**
+ * A failure message, or a function that builds one when the wait times out.
+ * Pass a function when the message reports live state (requests, pane text):
+ * a template literal is evaluated before the wait starts, so it would describe
+ * the moment the wait began rather than the moment it gave up.
+ */
+type ConditionMessage = string | (() => string);
+
+function describe(message: ConditionMessage): string {
+  return typeof message === "function" ? message() : message;
+}
+
 async function waitForConditionWithoutDom(
   predicate: () => boolean | Promise<boolean>,
-  message: string,
+  message: ConditionMessage,
   timeoutMs: number,
   intervalMs: number,
 ): Promise<void> {
@@ -16,12 +28,12 @@ async function waitForConditionWithoutDom(
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 
-  throw new Error(message);
+  throw new Error(describe(message));
 }
 
 export async function waitForCondition(
   predicate: () => boolean | Promise<boolean>,
-  message: string,
+  message: ConditionMessage,
   timeoutMs = 10_000,
   intervalMs = 50,
 ): Promise<void> {
@@ -35,7 +47,7 @@ export async function waitForCondition(
       async () => {
         const matched = await predicate();
         if (!matched) {
-          throw new Error(message);
+          throw new Error("Condition not met yet.");
         }
       },
       {
@@ -44,7 +56,7 @@ export async function waitForCondition(
       },
     );
   } catch (error) {
-    throw new Error(message, {
+    throw new Error(describe(message), {
       cause: error,
     });
   }

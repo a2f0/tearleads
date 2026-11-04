@@ -23,6 +23,7 @@ import {
 import { openOrgManager } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import { createAdditionalOrganization } from "../../../../test/helpers/dual-pane/organizationCreation";
 import {
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -123,7 +124,7 @@ afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test.each([0, 40])(
   "a recovered peer shares a newly created local organization name and preserves the You label (%dms responses)",

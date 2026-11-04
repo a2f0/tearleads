@@ -16,6 +16,7 @@ import {
   TestWebSocket,
 } from "../../../test/helpers/identityManagerTestRuntime";
 import "../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { IdentityManager } from "./IdentityManager";
 
@@ -43,7 +44,7 @@ const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
 
 afterEach(async () => {
   await cleanupIdentityManagerTestEnvironment();
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 function IdentityManagerWithToolbar() {
   return (

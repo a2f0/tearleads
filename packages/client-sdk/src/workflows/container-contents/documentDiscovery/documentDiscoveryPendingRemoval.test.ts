@@ -2,15 +2,12 @@ import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import {
+  discoverContainerDocuments,
   laneLister,
   nullContainerDocumentWatermarks,
 } from "./documentDiscovery.testUtils";
 import { createDiscoveredDocumentVerifier } from "./documentDiscoveryEvidence";
 import type { DiscoverContainerDocumentsOptions } from "./documentDiscoveryTypes";
-import {
-  discoverAllContainerDocuments,
-  discoverContainerDocuments,
-} from "./index";
 
 const at = "2026-09-23T00:00:00.000Z";
 const candidate = {
@@ -23,62 +20,52 @@ const candidate = {
   createdAt: at,
 };
 
-for (const scope of ["single", "all"] as const) {
-  test(`${scope} discovery drops only pending hints for a tombstoned listing lane`, async () => {
-    const { execSql, close } = await createTestExecSql(
-      `pending-removal-${scope}`,
+test("discovery drops only pending hints for a tombstoned listing lane", async () => {
+  const { execSql, close } = await createTestExecSql("pending-removal-single");
+  try {
+    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const verify = createDiscoveredDocumentVerifier(
+      "org",
+      async () => null,
+      async () => 0,
+      store,
     );
-    try {
-      const store = createDocumentDiscoveryEvidenceStore(execSql);
-      const verify = createDiscoveredDocumentVerifier(
-        "org",
-        async () => null,
-        async () => 0,
-        store,
-      );
-      const first = await verify(
-        [candidate],
-        candidate.listedContainerIds,
-        await store.begin(),
-      );
-      expect(await first.commit()).toBe(false);
-      const applyTombstones = mock(async () => []);
-      const options: DiscoverContainerDocumentsOptions = {
-        ...nullContainerDocumentWatermarks,
-        containerId: "destination",
-        beginDocumentDiscovery: () => store.begin(),
-        verifyDiscoveredDocuments: verify,
-        listContainerDocumentLanes: laneLister(async () => ({
-          hasMore: false,
-          nextWatermark: { id: "doc", updatedAt: at },
-          items: [],
-          tombstones: candidate.listedContainerIds.map((containerId) => ({
-            containerId,
-            documentId: "doc",
-            updatedAt: at,
-          })),
+    const first = await verify(
+      [candidate],
+      candidate.listedContainerIds,
+      await store.begin(),
+    );
+    expect(await first.commit()).toBe(false);
+    const applyTombstones = mock(async () => []);
+    const options: DiscoverContainerDocumentsOptions = {
+      ...nullContainerDocumentWatermarks,
+      containerId: "destination",
+      beginDocumentDiscovery: () => store.begin(),
+      verifyDiscoveredDocuments: verify,
+      listContainerDocumentLanes: laneLister(async () => ({
+        hasMore: false,
+        nextWatermark: { id: "doc", updatedAt: at },
+        items: [],
+        tombstones: candidate.listedContainerIds.map((containerId) => ({
+          containerId,
+          documentId: "doc",
+          updatedAt: at,
         })),
-        listKnownContainerDocumentPlacements: async () => [],
-        applyContainerDocumentTombstones: applyTombstones,
-        upsertDiscoveredDocuments: async () => [],
-        replaceDocumentLinksBatch: async () => {},
-      };
-      const result =
-        scope === "single"
-          ? await discoverContainerDocuments(options)
-          : await discoverAllContainerDocuments({
-              ...options,
-              containerIds: ["destination"],
-            });
-      expect(result).toEqual([]);
-      expect(await store.hasPending(["destination"])).toBe(false);
-      expect(await store.hasPending(["other"])).toBe(true);
-      expect(applyTombstones).not.toHaveBeenCalled();
-    } finally {
-      close();
-    }
-  });
-}
+      })),
+      listKnownContainerDocumentPlacements: async () => [],
+      applyContainerDocumentTombstones: applyTombstones,
+      upsertDiscoveredDocuments: async () => [],
+      replaceDocumentLinksBatch: async () => {},
+    };
+    const result = await discoverContainerDocuments(options);
+    expect(result).toEqual([]);
+    expect(await store.hasPending(["destination"])).toBe(false);
+    expect(await store.hasPending(["other"])).toBe(true);
+    expect(applyTombstones).not.toHaveBeenCalled();
+  } finally {
+    close();
+  }
+});
 
 test("an older listing tombstone cannot erase a newer pending discovery", async () => {
   const { execSql, close } = await createTestExecSql("pending-removal-order");

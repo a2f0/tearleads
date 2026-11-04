@@ -10,6 +10,7 @@ import {
 } from "../../../../test/helpers/recoveryKeyTestKit";
 import { installRecoveryQrCamera } from "../../../../test/helpers/recoveryQrCameraTestKit";
 import "../../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
 
 const originalWebSocket = globalThis.WebSocket;
 let camera: ReturnType<typeof installRecoveryQrCamera> | undefined;
@@ -19,7 +20,7 @@ afterEach(async () => {
   camera?.restore();
   camera = undefined;
   Reflect.set(globalThis, "WebSocket", originalWebSocket);
-});
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("QR disclosure is acknowledged, contains only the key, and can be hidden", async () => {
   const { seedPhrase, view } = await renderRecoveryKeyView(0x12);

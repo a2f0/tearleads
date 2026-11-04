@@ -8,21 +8,12 @@ import type {
   DocumentSummary,
 } from "../../../data/documents/documentSummary";
 import {
-  createDiscoveryParentLaneBatchMock,
-  laneApi,
+  discoverContainerDocuments,
   laneLister,
   nullContainerDocumentWatermarks,
   trustedContainerDocumentTombstones,
 } from "./documentDiscovery.testUtils";
 import type { DocumentLinkInput } from "./documentDiscoveryTypes";
-import {
-  discoverAllContainerDocuments,
-  discoverContainerDocuments,
-  discoverContainerDocumentsFromApi,
-  listAllRemoteContainerIds,
-  listAllRemoteContainerIdsFromApi,
-  refreshAllContainerDocumentsFromApi,
-} from "./index";
 
 type CapturedInput = Omit<DiscoveredDocumentInput, "accessStateHash"> & {
   accessStateHash: string;
@@ -267,43 +258,6 @@ test("container document discovery resumes from stored watermark and advances af
   ]);
 });
 
-test("container document discovery API facade lists documents through the api client", async () => {
-  const listContainerDocumentsCalls: Array<{
-    containerId: string;
-    watermark: SyncWatermark | null | undefined;
-  }> = [];
-
-  await discoverContainerDocumentsFromApi({
-    ...nullContainerDocumentWatermarks,
-    apiClient: {
-      ...laneApi(async (containerId, options) => {
-        listContainerDocumentsCalls.push({
-          containerId,
-          watermark: options?.watermark,
-        });
-        return listContainerDocumentsResponse([]);
-      }),
-    },
-    containerId: "shared-container",
-    loadContainerDocumentWatermark: async () => ({
-      id: "old-document",
-      updatedAt: "2026-04-06T11:00:00.000Z",
-    }),
-    replaceDocumentLinksBatch: async () => {},
-    upsertDiscoveredDocuments: async () => [],
-  });
-
-  expect(listContainerDocumentsCalls).toEqual([
-    {
-      containerId: "shared-container",
-      watermark: {
-        id: "old-document",
-        updatedAt: "2026-04-06T11:00:00.000Z",
-      },
-    },
-  ]);
-});
-
 test("container document discovery does not advance watermark when local apply fails", async () => {
   const saveContainerDocumentWatermarkCalls: SyncWatermark[] = [];
 
@@ -462,163 +416,7 @@ test("container document discovery does not advance watermark when tombstone app
   expect(saveContainerDocumentWatermarkCalls).toEqual([]);
 });
 
-test("manual refresh can discover documents across all visible containers", async () => {
-  const cachedPrincipalReferences: Array<
-    ReadonlyArray<ReferencedPrincipalStateResponse>
-  > = [];
-  const listContainerDocumentsCalls: string[] = [];
-  const applyOrder: string[] = [];
-  const replaceDocumentLinksBatchCalls: Array<
-    ReadonlyArray<DocumentLinkInput>
-  > = [];
-  const upsertDiscoveredDocumentsCalls: Array<ReadonlyArray<CapturedInput>> =
-    [];
-  const discovered = await discoverAllContainerDocuments({
-    ...nullContainerDocumentWatermarks,
-    cacheReferencedPrincipalPolicies: async (references) => {
-      cachedPrincipalReferences.push(references);
-    },
-    containerIds: ["container-a", "container-b", "container-a"],
-    listContainerDocumentLanes: laneLister(async (containerId) => {
-      listContainerDocumentsCalls.push(containerId);
-      if (containerId === "container-a") {
-        return listContainerDocumentsResponse([
-          {
-            createdAt: "2026-04-06T12:00:00.000Z",
-            currentAccessEpoch: 1,
-            currentAccessStateHash: "access-state-hash-a",
-            id: "document-a",
-            linkedContainerIds: ["container-a"],
-            referencedPrincipals: [
-              {
-                keyEpoch: 1,
-                keyFingerprint: "key-fingerprint-a",
-                principalId: "group-a",
-                principalType: "group",
-                stateHash: "state-hash-a",
-                version: 1,
-              },
-            ],
-            updatedAt: "2026-04-06T12:00:00.000Z",
-          },
-        ]);
-      }
-
-      return listContainerDocumentsResponse([
-        {
-          createdAt: "2026-04-06T12:05:00.000Z",
-          currentAccessEpoch: 2,
-          currentAccessStateHash: "access-state-hash-b",
-          id: "document-b",
-          linkedContainerIds: ["container-b"],
-          referencedPrincipals: [
-            {
-              keyEpoch: 2,
-              keyFingerprint: "key-fingerprint-b",
-              principalId: "organization-b",
-              principalType: "organization",
-              stateHash: "state-hash-b",
-              version: 3,
-            },
-          ],
-          updatedAt: "2026-04-06T12:05:00.000Z",
-        },
-      ]);
-    }),
-    replaceDocumentLinksBatch: async (inputs) => {
-      applyOrder.push("replace-links");
-      replaceDocumentLinksBatchCalls.push(inputs);
-    },
-    upsertDiscoveredDocuments: async (inputs) => {
-      applyOrder.push("upsert-documents");
-      const capturedInputs = captureInputs(inputs);
-      upsertDiscoveredDocumentsCalls.push(capturedInputs);
-      return capturedInputs.map<DocumentSummary>((input) => ({
-        id: `document-${input.documentId}`,
-        containerId: input.containerId,
-        documentId: input.documentId,
-        title: input.documentId,
-        updatedAt: input.createdAt,
-      }));
-    },
-  });
-  expect(listContainerDocumentsCalls).toEqual(["container-a", "container-b"]);
-  expect(applyOrder).toEqual(["upsert-documents", "replace-links"]);
-  expect(replaceDocumentLinksBatchCalls).toEqual([
-    [
-      {
-        accessEpoch: 1,
-        containerIds: ["container-a"],
-        documentId: "document-a",
-      },
-      {
-        accessEpoch: 2,
-        containerIds: ["container-b"],
-        documentId: "document-b",
-      },
-    ],
-  ]);
-  expect(upsertDiscoveredDocumentsCalls).toEqual([
-    [
-      {
-        accessEpoch: 1,
-        accessStateHash: "access-state-hash-a",
-        containerId: "container-a",
-        createdAt: "2026-04-06T12:00:00.000Z",
-        documentId: "document-a",
-        effectiveAccessLevel: "read",
-        linkedContainerIds: ["container-a"],
-      },
-      {
-        accessEpoch: 2,
-        accessStateHash: "access-state-hash-b",
-        containerId: "container-b",
-        createdAt: "2026-04-06T12:05:00.000Z",
-        documentId: "document-b",
-        effectiveAccessLevel: "read",
-        linkedContainerIds: ["container-b"],
-      },
-    ],
-  ]);
-  expect(cachedPrincipalReferences).toEqual([
-    [
-      {
-        keyEpoch: 1,
-        keyFingerprint: "key-fingerprint-a",
-        principalId: "group-a",
-        principalType: "group",
-        stateHash: "state-hash-a",
-        version: 1,
-      },
-      {
-        keyEpoch: 2,
-        keyFingerprint: "key-fingerprint-b",
-        principalId: "organization-b",
-        principalType: "organization",
-        stateHash: "state-hash-b",
-        version: 3,
-      },
-    ],
-  ]);
-  expect(discovered).toEqual([
-    {
-      id: "document-document-a",
-      containerId: "container-a",
-      documentId: "document-a",
-      title: "document-a",
-      updatedAt: "2026-04-06T12:00:00.000Z",
-    },
-    {
-      id: "document-document-b",
-      containerId: "container-b",
-      documentId: "document-b",
-      title: "document-b",
-      updatedAt: "2026-04-06T12:05:00.000Z",
-    },
-  ]);
-});
-
-test("manual refresh deduplicates principal references and document inputs", async () => {
+test("discovery caches each referenced principal state once per listing", async () => {
   const referencedPrincipal: ReferencedPrincipalStateResponse = {
     keyEpoch: 1,
     keyFingerprint: "shared-key-fingerprint",
@@ -630,317 +428,29 @@ test("manual refresh deduplicates principal references and document inputs", asy
   const cachedPrincipalReferences: Array<
     ReadonlyArray<ReferencedPrincipalStateResponse>
   > = [];
-  const replaceDocumentLinksBatchCalls: Array<
-    ReadonlyArray<DocumentLinkInput>
-  > = [];
-  const upsertDiscoveredDocumentsCalls: Array<ReadonlyArray<CapturedInput>> =
-    [];
 
-  await discoverAllContainerDocuments({
+  await discoverContainerDocuments({
     ...nullContainerDocumentWatermarks,
     cacheReferencedPrincipalPolicies: async (references) => {
       cachedPrincipalReferences.push(references);
     },
-    containerIds: ["container-a", "container-b"],
-    listContainerDocumentLanes: laneLister(async (containerId) =>
-      listContainerDocumentsResponse([
-        {
+    containerId: "shared-container",
+    listContainerDocumentLanes: laneLister(async () =>
+      listContainerDocumentsResponse(
+        ["document-a", "document-b"].map((id) => ({
           createdAt: "2026-04-06T12:00:00.000Z",
           currentAccessEpoch: 1,
-          currentAccessStateHash: "shared-access-state-hash",
-          id: "shared-document",
-          linkedContainerIds: [containerId],
+          currentAccessStateHash: `access-state-hash-${id}`,
+          id,
+          linkedContainerIds: ["shared-container"],
           referencedPrincipals: [referencedPrincipal],
           updatedAt: "2026-04-06T12:00:00.000Z",
-        },
-      ]),
+        })),
+      ),
     ),
-    replaceDocumentLinksBatch: async (inputs) => {
-      replaceDocumentLinksBatchCalls.push(inputs);
-    },
-    upsertDiscoveredDocuments: async (inputs) => {
-      const capturedInputs = captureInputs(inputs);
-      upsertDiscoveredDocumentsCalls.push(capturedInputs);
-      return [];
-    },
+    replaceDocumentLinksBatch: async () => {},
+    upsertDiscoveredDocuments: async () => [],
   });
+
   expect(cachedPrincipalReferences).toEqual([[referencedPrincipal]]);
-  expect(replaceDocumentLinksBatchCalls).toEqual([
-    [
-      {
-        accessEpoch: 1,
-        containerIds: ["container-a", "container-b"],
-        documentId: "shared-document",
-      },
-    ],
-  ]);
-  expect(upsertDiscoveredDocumentsCalls).toEqual([
-    [
-      {
-        accessEpoch: 1,
-        accessStateHash: "shared-access-state-hash",
-        containerId: "container-a",
-        createdAt: "2026-04-06T12:00:00.000Z",
-        documentId: "shared-document",
-        effectiveAccessLevel: "read",
-        linkedContainerIds: ["container-a", "container-b"],
-      },
-    ],
-  ]);
-});
-
-test("manual refresh ignores empty container ids", async () => {
-  const listContainerDocumentsCalls: string[] = [];
-  const replaceDocumentLinksBatchCalls: Array<
-    ReadonlyArray<DocumentLinkInput>
-  > = [];
-
-  await discoverAllContainerDocuments({
-    ...nullContainerDocumentWatermarks,
-    containerIds: ["", "container-a", "container-a"],
-    listContainerDocumentLanes: laneLister(async (containerId) => {
-      listContainerDocumentsCalls.push(containerId);
-      return listContainerDocumentsResponse([]);
-    }),
-    replaceDocumentLinksBatch: async (inputs) => {
-      replaceDocumentLinksBatchCalls.push(inputs);
-    },
-    upsertDiscoveredDocuments: async () => [],
-  });
-
-  expect(listContainerDocumentsCalls).toEqual(["container-a"]);
-  expect(replaceDocumentLinksBatchCalls).toEqual([]);
-});
-
-test("manual refresh lists remote container ids across paged parent lanes", async () => {
-  const firstRootWatermark = {
-    id: "root-page-1",
-    updatedAt: "2026-04-06T12:00:00.000Z",
-  };
-  const parentLaneCalls: Array<{
-    parentId: string | null;
-    watermark?: SyncWatermark | null;
-  }> = [];
-
-  const containerIds = await listAllRemoteContainerIds(
-    createDiscoveryParentLaneBatchMock(async (options) => {
-      parentLaneCalls.push(options);
-
-      if (options.parentId === null && !options.watermark) {
-        return {
-          hasMore: true,
-          items: [{ id: "root" }, { id: "container-a" }],
-          nextWatermark: firstRootWatermark,
-        };
-      }
-
-      if (
-        options.parentId === null &&
-        options.watermark?.id === firstRootWatermark.id
-      ) {
-        return {
-          hasMore: false,
-          items: [{ id: "container-b" }],
-          nextWatermark: null,
-        };
-      }
-
-      if (options.parentId === "root") {
-        return {
-          hasMore: false,
-          items: [{ id: "root-child" }],
-          nextWatermark: null,
-        };
-      }
-
-      if (options.parentId === "container-a") {
-        return {
-          hasMore: false,
-          items: [{ id: "container-a-child" }],
-          nextWatermark: null,
-        };
-      }
-
-      return {
-        hasMore: false,
-        items: [],
-        nextWatermark: null,
-      };
-    }),
-  );
-
-  expect(containerIds).toEqual([
-    "root",
-    "container-a",
-    "container-b",
-    "root-child",
-    "container-a-child",
-  ]);
-  expect(parentLaneCalls).toEqual([
-    { parentId: null, watermark: null },
-    { parentId: null, watermark: firstRootWatermark },
-    { parentId: "root", watermark: null },
-    { parentId: "container-a", watermark: null },
-    { parentId: "container-b", watermark: null },
-    { parentId: "root-child", watermark: null },
-    { parentId: "container-a-child", watermark: null },
-  ]);
-});
-
-test("manual refresh API facade lists remote container ids through the api client", async () => {
-  const parentLaneCalls: Array<{
-    parentId: string | null;
-    watermark?: SyncWatermark | null;
-  }> = [];
-
-  const containerIds = await listAllRemoteContainerIdsFromApi({
-    listContainerParentLanes: createDiscoveryParentLaneBatchMock(
-      async (options) => {
-        parentLaneCalls.push(options);
-        return {
-          hasMore: false,
-          items: options.parentId === null ? [{ id: "container-a" }] : [],
-          nextWatermark: null,
-        };
-      },
-    ),
-  });
-
-  expect(containerIds).toEqual(["container-a"]);
-  expect(parentLaneCalls).toEqual([
-    { parentId: null, watermark: null },
-    { parentId: "container-a", watermark: null },
-  ]);
-});
-
-test("manual refresh API facade discovers documents for every remote container", async () => {
-  const parentLaneCalls: Array<{
-    parentId: string | null;
-    watermark?: SyncWatermark | null;
-  }> = [];
-  const listContainerDocumentsCalls: string[] = [];
-  const replaceDocumentLinksBatchCalls: Array<
-    ReadonlyArray<DocumentLinkInput>
-  > = [];
-
-  const discovered = await refreshAllContainerDocumentsFromApi({
-    ...nullContainerDocumentWatermarks,
-    apiClient: {
-      ...laneApi(async (containerId) => {
-        listContainerDocumentsCalls.push(containerId);
-        return listContainerDocumentsResponse([
-          {
-            createdAt: "2026-05-01T12:00:00.000Z",
-            currentAccessEpoch: 1,
-            currentAccessStateHash: `access-${containerId}`,
-            id: `document-${containerId}`,
-            linkedContainerIds: [containerId],
-            updatedAt: "2026-05-01T12:30:00.000Z",
-          },
-        ]);
-      }),
-      listContainerParentLanes: createDiscoveryParentLaneBatchMock(
-        async (options) => {
-          parentLaneCalls.push(options);
-          return {
-            hasMore: false,
-            items: options.parentId === null ? [{ id: "container-a" }] : [],
-            nextWatermark: null,
-          };
-        },
-      ),
-    },
-    replaceDocumentLinksBatch: async (inputs) => {
-      replaceDocumentLinksBatchCalls.push(inputs);
-    },
-    upsertDiscoveredDocuments: async (inputs) =>
-      inputs.map(
-        (input): DocumentSummary => ({
-          id: `local-${input.documentId}`,
-          containerId: input.containerId,
-          documentId: input.documentId,
-          title: input.documentId,
-          updatedAt: "2026-05-01T12:30:00.000Z",
-        }),
-      ),
-  });
-
-  expect(discovered).toEqual([
-    {
-      id: "local-document-container-a",
-      containerId: "container-a",
-      documentId: "document-container-a",
-      title: "document-container-a",
-      updatedAt: "2026-05-01T12:30:00.000Z",
-    },
-  ]);
-  expect(parentLaneCalls).toEqual([
-    { parentId: null, watermark: null },
-    { parentId: "container-a", watermark: null },
-  ]);
-  expect(listContainerDocumentsCalls).toEqual(["container-a"]);
-  expect(replaceDocumentLinksBatchCalls).toEqual([
-    [
-      {
-        accessEpoch: 1,
-        containerIds: ["container-a"],
-        documentId: "document-container-a",
-      },
-    ],
-  ]);
-});
-
-test("manual refresh API facade stops when remote container listing is unavailable", async () => {
-  let listContainerDocumentsCallCount = 0;
-
-  const discovered = await refreshAllContainerDocumentsFromApi({
-    ...nullContainerDocumentWatermarks,
-    apiClient: {
-      ...laneApi(async () => {
-        listContainerDocumentsCallCount += 1;
-        return listContainerDocumentsResponse([]);
-      }),
-      listContainerParentLanes: async () => null,
-    },
-    replaceDocumentLinksBatch: async () => {},
-    upsertDiscoveredDocuments: async () => [],
-  });
-
-  expect(discovered).toBeNull();
-  expect(listContainerDocumentsCallCount).toBe(0);
-});
-
-test("manual refresh container listing stops on unavailable pages", async () => {
-  await expect(listAllRemoteContainerIds(async () => null)).resolves.toBeNull();
-
-  await expect(
-    listAllRemoteContainerIds(
-      createDiscoveryParentLaneBatchMock(async () => ({
-        hasMore: true,
-        items: [{ id: "container-a" }],
-        nextWatermark: null,
-      })),
-    ),
-  ).resolves.toBeNull();
-});
-
-test("manual refresh lists every container document lane in one request", async () => {
-  const containerIds = Array.from(
-    { length: 9 },
-    (_, index) => `container-${index}`,
-  );
-  const requests: Array<ReadonlyArray<string>> = [];
-
-  await discoverAllContainerDocuments({
-    ...nullContainerDocumentWatermarks,
-    containerIds,
-    listContainerDocumentLanes: async (lanes) => {
-      requests.push(lanes.map((lane) => lane.containerId));
-      return lanes.map(() => listContainerDocumentsResponse([]));
-    },
-    replaceDocumentLinksBatch: async () => {},
-    upsertDiscoveredDocuments: async () => [],
-  });
-
-  expect(requests).toEqual([containerIds]);
 });

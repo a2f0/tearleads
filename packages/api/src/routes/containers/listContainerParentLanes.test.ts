@@ -6,19 +6,6 @@ import { routeApp } from "../../routeApp";
 
 const PARENT_LANES_PATH = "/containers/parent-lanes/query";
 
-test("the removed singular GET /containers route returns 404", async () => {
-  const owner = createTestUser();
-  await registerUser(owner);
-  await authenticate(owner);
-
-  const response = await routeApp.request("/containers", {
-    method: "GET",
-    headers: { Authorization: `Bearer ${owner.token}` },
-  });
-
-  expect(response.status).toBe(404);
-});
-
 test("parent-lanes/query rejects malformed whole requests", async () => {
   const owner = createTestUser();
   await registerUser(owner);

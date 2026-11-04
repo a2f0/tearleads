@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import {
+  discoverContainerDocuments,
   laneLister,
   nullContainerDocumentWatermarks,
 } from "./documentDiscovery.testUtils";
 import type { ListContainerDocumentsResponse } from "./documentDiscoveryTypes";
-import { discoverContainerDocuments } from "./index";
 
 const watermark = { id: "doc-a", updatedAt: "2026-01-01T00:00:00.000Z" };
 function page(id: string, hasMore = false): ListContainerDocumentsResponse {

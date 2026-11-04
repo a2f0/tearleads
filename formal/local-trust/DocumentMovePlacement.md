@@ -15,9 +15,8 @@ trashed item reappear in its source folder.
 | `ApplyTombstone`, `ProtectPendingTombstones` | `applyContainerDocumentTombstonesWithExec` uses `filterWritableDocumentPlacements` inside the deletion transaction |
 | `ApplyListingTombstone`, `TombstonesRequireSignedEvidence`, `CheckTombstoneEvidenceEpoch` | `settleContainerDocumentTombstones` applies a listing tombstone only with a `verified` verdict from `createContainerDocumentTombstoneVerifier`, whose head link set omits the container and whose epoch is not below the local document epoch. The model states only that evidence condition; the visible `refuted` retry and the hidden `unverified` retry by `holdContainerDocumentTombstones` are production behaviour outside the model. `createDiscoveredDocumentVerifier` also verifies listing-item placements before `replaceDocumentLinksBatch` |
 | `PeerPurge` | A different authorized client purges the document; `createDocumentHeadLinkSetLoader` accepts its terminal signed proof through `loadDocumentPurgeCheckpoint`, permitting the later listing tombstone |
-| `MergeCurrentPage`, `KeepNewestPageLinks` | `mergeDiscoveredDocumentInputs` selects links from the newest access epoch across discovery lanes |
 | `CapturePage`, `CheckPageSignature` | `createDiscoveredDocumentVerifier` verifies each discovered head's signed link set before discovery uses its placement |
-| `ApplyPage`, `CheckEpoch` | `applyListedContainerDocuments` (single and batched-lane discovery, which captures every lane's page in one request and applies each later) and `discoverAllContainerDocuments` carry the access epoch into `filterWritableDocumentPlacements`; `discoveredDocumentPlacement` preserves newer placement and access state |
+| `ApplyPage`, `CheckEpoch` | `applyListedContainerDocuments` (single and batched-lane discovery, which captures every lane's page in one request and applies each later) carries the access epoch into `filterWritableDocumentPlacements`; `discoveredDocumentPlacement` preserves newer placement and access state |
 | `StartRead`, `FinishRead`, `CheckReadPlacement` | `saveDocumentRecord` publishes `placementChanged`; `refreshPersistedDocument` discards pending reads for structural writes before publication |
 | `RefreshReadSummary`, `CheckReadMembership` | `listContainerContentsDocumentsForContainers` filters stale link IDs against the returned summaries and final link map |
 | `StablePlacement`, `StableView` | `listContainerContentsDocumentsForContainers` and `loadContainerSummaries` expose the chosen local placement throughout replay |
@@ -30,14 +29,14 @@ evidence instead of reading the server's live state: the gate requires a signed
 head that no longer links the container and is no older than the device's own
 head.
 
-The bounded model checks safety, with eleven negative controls disabling
-ownership, epoch, revision, read, discovery-merge, response-recovery,
-page-signature, and tombstone-evidence guards independently.
+The bounded model checks safety, with ten negative controls disabling
+ownership, epoch, revision, read, response-recovery, page-signature, and
+tombstone-evidence guards independently.
 `CheckPageSignature = FALSE` applies a made-up page, and
 `CheckTombstoneEvidenceEpoch = FALSE` lets an older signed head remove a link a
 later move restored; both violate `StablePlacement`. Regression tests cover a refresh
 between real signed link/unlink operations, sequential trash moves during
-single and all-container discovery, superseded replay rollback,
+discovery, superseded replay rollback,
 first-hydration reads, and a listing tombstone that the verified head still
 links being refused while an unverifiable one is held and hidden rather than
 applied. A listing tombstone is an environment input, so

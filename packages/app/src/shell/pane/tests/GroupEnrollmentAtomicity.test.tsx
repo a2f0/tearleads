@@ -9,12 +9,13 @@ import {
 import { addPeerToAdminsGroup } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
   listProxiedApiRequests,
+  MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
 import { cleanupPaneTestEnvironment } from "../../../../test/helpers/paneTestUtils";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 test("adding an outsider to Admins shows progress and commits both memberships once", async () => {
   useTestApiAppHandlers();
