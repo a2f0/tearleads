@@ -10,6 +10,8 @@ let apiBaseUrl = "";
 let failing: RegExp | null = null;
 // Every `method pathname` the API received, in order.
 const requests: string[] = [];
+// Called for each request, as a dependency printing mid-command would.
+let onRequest: ((request: string) => void) | null = null;
 
 beforeAll(async () => {
   await initializeApiDatabase();
@@ -19,6 +21,7 @@ beforeAll(async () => {
     fetch: (request) => {
       const { pathname } = new URL(request.url);
       requests.push(`${request.method} ${pathname}`);
+      onRequest?.(`${request.method} ${pathname}`);
       return failing?.test(`${request.method} ${pathname}`)
         ? new Response("unavailable", { status: 503 })
         : routeApp.fetch(request);
@@ -29,6 +32,7 @@ beforeAll(async () => {
 
 afterEach(() => {
   failing = null;
+  onRequest = null;
 });
 
 /** Registers a fresh account the way an app install does and returns its key. */
@@ -293,4 +297,99 @@ test("ls --org refuses an organization the user does not belong to", async () =>
   expect(output.stderr).toEqual([
     `You are not a member of organization ${stranger}.`,
   ]);
+}, 60_000);
+
+const TRACE_LINE =
+  /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z \+ *\d+\.\d{3}s {2}/u;
+
+test("--trace writes timestamped progress to stderr and leaves stdout alone", async () => {
+  const { context, output } = await signedInContext();
+  expect(await runCli(["ls"], context)).toBe(0);
+  const plain = [...output.stdout];
+  expect(output.stderr).toEqual([]);
+  output.stdout.length = 0;
+
+  expect(await runCli(["ls", "--trace"], context)).toBe(0);
+  expect(output.stdout).toEqual(plain);
+  expect(output.stderr.length).toBeGreaterThan(0);
+  for (const line of output.stderr) expect(line).toMatch(TRACE_LINE);
+  const messages = output.stderr.map((line) => line.replace(TRACE_LINE, ""));
+  for (const step of [
+    "open local database ...",
+    "sign in ...",
+    "read memberships ...",
+    "list folders ...",
+    "pull folder metadata (sync idle) ...",
+    "revoke session ...",
+  ]) {
+    expect(messages).toContain(step);
+  }
+  expect(messages).toContainEqual(
+    expect.stringMatching(
+      /^api #\d+ <- POST \/containers\/parent-lanes\/query succeeded in [\d.]+m?s/u,
+    ),
+  );
+  expect(messages).toContainEqual(
+    expect.stringMatching(/^sync Container contents: completed in /u),
+  );
+  expect(messages).toContainEqual(expect.stringMatching(/^summary: total /u));
+  expect(messages).toContainEqual(
+    expect.stringMatching(
+      /^ {2}\d+ API request\(s\) across \d+ endpoint\(s\)$/u,
+    ),
+  );
+  // Path templates only: no IDs from the account reach the trace.
+  expect(output.stderr.join("\n")).not.toContain(
+    context.apiBaseUrl("production"),
+  );
+}, 60_000);
+
+test("login's trace summary includes saving the key", async () => {
+  const account = await registerAccount();
+  const { context, output } = testContext({
+    apiBaseUrl,
+    recoveryKey: account.seedPhrase,
+  });
+
+  expect(await runCli(["login", "--trace"], context)).toBe(0);
+  const messages = output.stderr.map((line) => line.replace(TRACE_LINE, ""));
+  const summary = messages.findIndex((line) => line.startsWith("summary: "));
+  expect(summary).toBeGreaterThan(-1);
+  expect(messages.slice(summary)).toContainEqual(
+    expect.stringMatching(/^ {2}phase save recovery key in the Keychain: /u),
+  );
+}, 60_000);
+
+test("TEARLEADS_TRACE turns tracing on without the flag", async () => {
+  const { context, output } = await signedInContext();
+
+  expect(await runCli(["whoami"], { ...context, traceByDefault: true })).toBe(
+    0,
+  );
+  expect(output.stderr.length).toBeGreaterThan(0);
+  for (const line of output.stderr) expect(line).toMatch(TRACE_LINE);
+}, 60_000);
+
+test("while tracing, stray console output is labeled with its source", async () => {
+  const { context, output } = await signedInContext();
+  const log = console.log;
+  onRequest = (request) => {
+    if (request !== "GET /organization-memberships") return;
+    console.log("");
+    console.warn("from a dependency", { code: 7 }, new Error("deep cause"));
+    console.warn("Ignoring inability to install 'opfs' sqlite3_vfs:", "x");
+  };
+
+  expect(await runCli(["ls", "--trace"], context)).toBe(0);
+  expect(console.log).toBe(log);
+  const messages = output.stderr.map((line) => line.replace(TRACE_LINE, ""));
+  const start = messages.findIndex((line) => line.startsWith("console.warn: "));
+  // Formatted as console prints it: object fields and the error's stack,
+  // one trace line per line.
+  expect(messages[start]).toBe(
+    "console.warn: from a dependency { code: 7 } Error: deep cause",
+  );
+  expect(messages[start + 1]).toContain("cli.e2e.test.ts");
+  expect(messages.some((line) => line.includes("sqlite3_vfs"))).toBe(false);
+  expect(messages).toContain("console.log: ");
 }, 60_000);

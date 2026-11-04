@@ -22,21 +22,29 @@ export async function withSavedSession<T>(
   work: (session: CliSession) => Promise<T>,
 ): Promise<T> {
   const recoveryKey = await requireRecoveryKey(input);
-  return withSession(input.context.apiBaseUrl(input.target), recoveryKey, work);
+  return withSession(
+    {
+      apiBaseUrl: input.context.apiBaseUrl(input.target),
+      recoveryKey,
+      tracer: input.tracer,
+    },
+    work,
+  );
 }
 
 export async function login(input: CommandInput): Promise<void> {
-  const { context, target } = input;
+  const { context, target, tracer } = input;
   const recoveryKey = normalizeRecoveryKey(
     await context.readRecoveryKey("Recovery key: "),
   );
   // Prove the key signs in before keeping it.
   const userId = await withSession(
-    context.apiBaseUrl(target),
-    recoveryKey,
+    { apiBaseUrl: context.apiBaseUrl(target), recoveryKey, tracer },
     async (session) => session.userId,
   );
-  await context.keyStore.save(target, recoveryKey);
+  await tracer.span("save recovery key in the Keychain", () =>
+    context.keyStore.save(target, recoveryKey),
+  );
   context.stdout(printable(`Signed in to ${target} as ${userId}.`));
   context.stdout("The recovery key is saved in the Keychain.");
 }

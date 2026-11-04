@@ -4,8 +4,9 @@ import { login, logout, whoami } from "./commands/account";
 import { listFolders, listOrganizations } from "./commands/browse";
 import { printable } from "./printable";
 import { isTargetName } from "./targets";
+import { createTracer } from "./trace";
 
-export const usage = `Usage: tearleads <command> [--env production|staging] [--org <id>]
+export const usage = `Usage: tearleads <command> [--env production|staging] [--org <id>] [--trace]
 
 Commands:
   login    Save a recovery key (seed phrase) for the target in the Keychain.
@@ -16,7 +17,11 @@ Commands:
   ls       List the folders of your organization, or of --org <id>.
 
 --env defaults to production. Every command signs in, works on an in-memory
-database, and revokes its session before exiting.`;
+database, and revokes its session before exiting.
+
+--trace (or TEARLEADS_TRACE=1) prints timestamped progress to stderr: each
+step, API request, and sync lane run with its duration, then a summary of
+where the time went.`;
 
 const commands = {
   login,
@@ -38,6 +43,7 @@ function parse(argv: readonly string[]) {
       env: { type: "string", default: "production" },
       help: { type: "boolean", short: "h", default: false },
       org: { type: "string" },
+      trace: { type: "boolean", default: false },
     },
     strict: true,
   });
@@ -74,11 +80,16 @@ export async function runCli(
     return 2;
   }
 
+  const tracer = createTracer({
+    enabled: values.trace || context.traceByDefault === true,
+    write: (line) => context.stderr(line),
+  });
   try {
     await commands[commandName]({
       context,
       organizationId: values.org,
       target: values.env,
+      tracer,
     });
     return 0;
   } catch (error) {
@@ -86,5 +97,7 @@ export async function runCli(
       printable(error instanceof Error ? error.message : String(error)),
     );
     return 1;
+  } finally {
+    tracer.summary();
   }
 }
