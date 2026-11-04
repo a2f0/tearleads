@@ -1,6 +1,6 @@
 import { format } from "node:util";
 import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
-import { openLocalDatabase } from "./localDatabase";
+import { isOpfsInstallWarning, openLocalDatabase } from "./localDatabase";
 import { TracingApiRequestMetrics } from "./sdkTracing";
 import { disabledTracer, type Tracer } from "./trace";
 
@@ -34,6 +34,7 @@ function labelConsoleOutput(tracer: Tracer): () => void {
   );
   for (const method of CONSOLE_METHODS) {
     console[method] = (...args: unknown[]) => {
+      if (method === "warn" && isOpfsInstallWarning(args)) return;
       tracer.event(`console.${method}: ${format(...args)}`);
     };
   }

@@ -377,6 +377,7 @@ test("while tracing, stray console output is labeled with its source", async () 
     if (request !== "GET /organization-memberships") return;
     console.log("");
     console.warn("from a dependency", { code: 7 }, new Error("deep cause"));
+    console.warn("Ignoring inability to install 'opfs' sqlite3_vfs:", "x");
   };
 
   expect(await runCli(["ls", "--trace"], context)).toBe(0);
@@ -389,5 +390,6 @@ test("while tracing, stray console output is labeled with its source", async () 
     "console.warn: from a dependency { code: 7 } Error: deep cause",
   );
   expect(messages[start + 1]).toContain("cli.e2e.test.ts");
+  expect(messages.some((line) => line.includes("sqlite3_vfs"))).toBe(false);
   expect(messages).toContain("console.log: ");
 }, 60_000);

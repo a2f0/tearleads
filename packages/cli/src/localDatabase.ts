@@ -27,6 +27,10 @@ function installOpfsInstallWarningFilter(): void {
   };
 }
 
+// Installed on load, before a traced session wraps `console`, so restoring
+// that wrapper keeps the filter.
+installOpfsInstallWarningFilter();
+
 // Memory-only for now: every command starts from an empty local database and
 // pulls what it needs. The random key only encrypts this process's memory.
 export async function openLocalDatabase() {
