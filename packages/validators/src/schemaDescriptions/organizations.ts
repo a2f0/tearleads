@@ -118,7 +118,7 @@ describeSchema(
 
 describeSchema(
   CurrentPrincipalMemberEnvelopesResponseSchema,
-  "The member envelopes of a principal's current key epoch that the caller may read.",
+  "Every member envelope of a principal's current key epoch.",
 );
 
 describeSchema(
@@ -297,7 +297,7 @@ describeSchema(
 
 describeSchema(
   ProvisionedDocumentRequestSchema,
-  "A document created during provisioning, optionally with its first update.",
+  "A document created during provisioning, with its first update.",
   {
     initialSync:
       "The document's first update, committed with the provisioning.",

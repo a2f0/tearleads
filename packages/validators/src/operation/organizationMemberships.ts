@@ -92,7 +92,7 @@ export const requestOrganizationLeaveOperation = defineJsonOperation({
   id: "organizationMemberships.leaveRequest.put",
   summary: "Request to leave an organization",
   description:
-    "Files the caller's signed request to leave an organization, which administrators see in the organization read model and act on; members cannot remove themselves. The request must be signed by the caller within the last ten minutes and cite the current `Members` group head. A personal organization, or a caller who is its only administrator, is refused.",
+    "Files the caller's signed request to leave an organization, which administrators see in the organization read model and act on; members cannot remove themselves. The request must be signed by the caller within the last ten minutes and cite a stored `Members` group head the caller has belonged to ever since. A personal organization, or a caller who is its only administrator, is refused.",
   method: "PUT",
   params: OrganizationMembershipPathParamsSchema,
   path: "/organization-memberships/{organizationId}/leave-request",

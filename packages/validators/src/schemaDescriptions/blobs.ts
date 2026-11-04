@@ -62,7 +62,7 @@ describeSchema(
     containerId:
       "Advisory; the API keys the lookup off the stored bundle's own container and rejects a mismatch.",
     manifestHash:
-      "Hash of the cited manifest; it must be the container's current head.",
+      "Hash of the cited manifest. Path and previous-manifest citations must name current heads; history citations name earlier manifests.",
   },
 );
 

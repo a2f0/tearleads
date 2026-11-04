@@ -63,7 +63,7 @@ export const getPrincipalPolicyOperation = defineJsonOperation({
   id: "principals.policy.get",
   summary: "Get a principal policy bundle",
   description:
-    "Returns a page of a group or organization's signed principal policy chain, with the caller's member envelope, so the client can verify the chain and unwrap the principal's key; a conditional read that names the still-current head gets a short unchanged reply instead. It is served only to callers who depend on it: active roster members, members of the principal, or holders of a grant whose path cites it. A 202 asks the client to retry the identical request after policy history is prepared.",
+    "Returns a page of a group or organization's signed principal policy chain with its current member envelopes, so the client can verify the chain and a member can unwrap the principal's key; a conditional read that names the still-current head gets a short unchanged reply instead. It is served only to callers who depend on it: active roster members, members of the principal, or holders of a grant whose path cites it. A 202 asks the client to retry the identical request after policy history is prepared.",
   method: "GET",
   params: PrincipalPolicyPathParamsSchema,
   path: "/principals/{principalType}/{principalId}/policy",

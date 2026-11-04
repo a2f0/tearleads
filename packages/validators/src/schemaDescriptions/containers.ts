@@ -168,7 +168,7 @@ describeSchema(
 
 describeSchema(
   ListContainerParentLanesResponseSchema,
-  "One result per requested parent lane: a page, or that lane's own failure.",
+  "One page per requested parent lane, in request order.",
 );
 
 describeSchema(

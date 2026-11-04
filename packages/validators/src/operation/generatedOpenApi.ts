@@ -875,7 +875,7 @@ export type paths = {
         get?: never;
         /**
          * Request to leave an organization
-         * @description Files the caller's signed request to leave an organization, which administrators see in the organization read model and act on; members cannot remove themselves. The request must be signed by the caller within the last ten minutes and cite the current `Members` group head. A personal organization, or a caller who is its only administrator, is refused.
+         * @description Files the caller's signed request to leave an organization, which administrators see in the organization read model and act on; members cannot remove themselves. The request must be signed by the caller within the last ten minutes and cite a stored `Members` group head the caller has belonged to ever since. A personal organization, or a caller who is its only administrator, is refused.
          */
         put: operations["organizationMemberships.leaveRequest.put"];
         post?: never;
@@ -1318,7 +1318,7 @@ export type paths = {
         };
         /**
          * Get a principal policy bundle
-         * @description Returns a page of a group or organization's signed principal policy chain, with the caller's member envelope, so the client can verify the chain and unwrap the principal's key; a conditional read that names the still-current head gets a short unchanged reply instead. It is served only to callers who depend on it: active roster members, members of the principal, or holders of a grant whose path cites it. A 202 asks the client to retry the identical request after policy history is prepared.
+         * @description Returns a page of a group or organization's signed principal policy chain with its current member envelopes, so the client can verify the chain and a member can unwrap the principal's key; a conditional read that names the still-current head gets a short unchanged reply instead. It is served only to callers who depend on it: active roster members, members of the principal, or holders of a grant whose path cites it. A 202 asks the client to retry the identical request after policy history is prepared.
          */
         get: operations["principals.policy.get"];
         /**
@@ -2024,7 +2024,7 @@ export type components = {
         ContainerManifestRef: {
             /** @description Advisory; the API keys the lookup off the stored bundle's own container and rejects a mismatch. */
             containerId: string;
-            /** @description Hash of the cited manifest; it must be the container's current head. */
+            /** @description Hash of the cited manifest. Path and previous-manifest citations must name current heads; history citations name earlier manifests. */
             manifestHash: string;
         } & {
             [key: string]: unknown;
@@ -2407,7 +2407,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description The member envelopes of a principal's current key epoch that the caller may read. */
+        /** @description Every member envelope of a principal's current key epoch. */
         CurrentPrincipalMemberEnvelopesResponse: {
             envelopes: components["schemas"]["PrincipalMemberEnvelopeResponse"][];
             epoch: number;
@@ -3047,7 +3047,7 @@ export type components = {
                 } | null;
             }[];
         };
-        /** @description One result per requested parent lane: a page, or that lane's own failure. */
+        /** @description One page per requested parent lane, in request order. */
         ListContainerParentLanesResponse: {
             results: {
                 laneId: string;
@@ -3947,7 +3947,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A document created during provisioning, optionally with its first update. */
+        /** @description A document created during provisioning, with its first update. */
         ProvisionedDocumentRequest: {
             authorizingContainerPathRefs?: components["schemas"]["ContainerManifestRefArrayArray"];
             body: unknown;
