@@ -1,6 +1,15 @@
 import type { z } from "zod";
 import { toJsonSchemaProjection } from "../jsonSchema";
 import type { HttpOperation, HttpOperationMediaType } from "./definition";
+import {
+  collectOpenApiComponentNames,
+  referenceOpenApiComponents,
+} from "./openApiComponents";
+import {
+  httpStatusDescription,
+  OPEN_API_DESCRIPTION,
+  openApiOperationTag,
+} from "./openApiPresentation";
 import { assertResponseMetadata } from "./openApiResponseMetadata";
 import { protocolOperations } from "./registry";
 
@@ -24,6 +33,8 @@ interface OpenApiResponse {
 
 interface OpenApiOperation {
   readonly operationId: string;
+  readonly summary: string;
+  readonly tags: readonly string[];
   readonly parameters: readonly object[];
   readonly requestBody?: {
     readonly content: OpenApiContent;
@@ -47,6 +58,7 @@ interface OpenApiDocument {
     readonly securitySchemes: Readonly<Record<string, object>>;
   };
   readonly info: {
+    readonly description: string;
     readonly title: string;
     readonly version: string;
   };
@@ -62,22 +74,27 @@ function pathParameterNames(path: string): string[] {
   ).filter((name) => name !== undefined);
 }
 
+interface OperationProjection {
+  readonly componentNames: ReadonlyMap<z.core.$ZodType, string>;
+  readonly runtimeRefinementIds: Set<string>;
+}
+
 function openApiSchema(
   schema: z.core.$ZodType,
-  runtimeRefinementIds: Set<string>,
+  projection: OperationProjection,
 ): z.core.JSONSchema.BaseSchema {
-  const projection = toJsonSchemaProjection(schema);
-  for (const id of projection.runtimeRefinementIds) {
-    runtimeRefinementIds.add(id);
+  const result = toJsonSchemaProjection(schema, projection.componentNames);
+  for (const id of result.runtimeRefinementIds) {
+    projection.runtimeRefinementIds.add(id);
   }
-  return projection.jsonSchema;
+  return result.jsonSchema;
 }
 
 function openApiPathParameters(
   operation: HttpOperation,
-  runtimeRefinementIds: Set<string>,
+  projection: OperationProjection,
 ): object[] {
-  const parameterSchema = openApiSchema(operation.params, runtimeRefinementIds);
+  const parameterSchema = openApiSchema(operation.params, projection);
   if (
     parameterSchema.type !== "object" ||
     parameterSchema.properties === undefined
@@ -122,13 +139,13 @@ function openApiPathParameters(
 
 function openApiQueryParameters(
   operation: HttpOperation,
-  runtimeRefinementIds: Set<string>,
+  projection: OperationProjection,
 ): object[] {
   if (operation.query === undefined) {
     return [];
   }
 
-  const parameterSchema = openApiSchema(operation.query, runtimeRefinementIds);
+  const parameterSchema = openApiSchema(operation.query, projection);
   if (
     parameterSchema.type !== "object" ||
     parameterSchema.properties === undefined
@@ -151,16 +168,13 @@ function openApiQueryParameters(
 
 function openApiHeaderParameters(
   operation: HttpOperation,
-  runtimeRefinementIds: Set<string>,
+  projection: OperationProjection,
 ): object[] {
   if (operation.headers === undefined) {
     return [];
   }
 
-  const parameterSchema = openApiSchema(
-    operation.headers,
-    runtimeRefinementIds,
-  );
+  const parameterSchema = openApiSchema(operation.headers, projection);
   if (
     parameterSchema.type !== "object" ||
     parameterSchema.properties === undefined
@@ -182,14 +196,14 @@ function openApiHeaderParameters(
 function openApiResponseHeaders(
   operation: HttpOperation,
   status: number,
-  runtimeRefinementIds: Set<string>,
+  projection: OperationProjection,
 ): Readonly<Record<string, object>> | undefined {
   const headerSchema = operation.responseHeaders?.[status];
   if (headerSchema === undefined) {
     return undefined;
   }
 
-  const projected = openApiSchema(headerSchema, runtimeRefinementIds);
+  const projected = openApiSchema(headerSchema, projection);
   if (projected.type !== "object" || projected.properties === undefined) {
     throw new Error(
       `${operation.id} response ${status} headers must be an object schema`,
@@ -205,16 +219,6 @@ function openApiResponseHeaders(
   );
 }
 
-function responseDescription(
-  successful: boolean,
-  mediaType: HttpOperationMediaType,
-): string {
-  if (mediaType === "application/json") {
-    return successful ? "Successful JSON response" : "Failure JSON response";
-  }
-  return successful ? "Successful binary response" : "Failure binary response";
-}
-
 function openApiContent(
   mediaType: HttpOperationMediaType,
   schema: z.core.JSONSchema.BaseSchema,
@@ -225,10 +229,9 @@ function openApiContent(
 function openApiResponse(
   operation: HttpOperation,
   status: number,
-  successful: boolean,
   successSchema: z.ZodType | undefined,
   failureSchema: z.ZodType | undefined,
-  runtimeRefinementIds: Set<string>,
+  projection: OperationProjection,
   description?: string,
 ): OpenApiResponse {
   const schema = successSchema ?? failureSchema;
@@ -236,31 +239,24 @@ function openApiResponse(
     successSchema === undefined
       ? "application/json"
       : (operation.responseMediaTypes?.[status] ?? "application/json");
-  const headers = openApiResponseHeaders(
-    operation,
-    status,
-    runtimeRefinementIds,
-  );
+  const headers = openApiResponseHeaders(operation, status, projection);
   if (schema === undefined) {
     return {
-      description: description ?? "Response without a declared body",
+      description: description ?? httpStatusDescription(status),
       ...(headers === undefined ? {} : { headers }),
     };
   }
 
   return {
-    content: openApiContent(
-      mediaType,
-      openApiSchema(schema, runtimeRefinementIds),
-    ),
-    description: description ?? responseDescription(successful, mediaType),
+    content: openApiContent(mediaType, openApiSchema(schema, projection)),
+    description: description ?? httpStatusDescription(status),
     ...(headers === undefined ? {} : { headers }),
   };
 }
 
 function openApiResponses(
   operation: HttpOperation,
-  runtimeRefinementIds: Set<string>,
+  projection: OperationProjection,
 ): Record<string, OpenApiResponse> {
   const successResponses = new Map(
     Object.entries(operation.responses).map(([status, schema]) => [
@@ -297,10 +293,9 @@ function openApiResponses(
     responses[String(status)] = openApiResponse(
       operation,
       status,
-      successResponses.has(status) || emptySuccessStatuses.has(status),
       successResponses.get(status),
       failureResponses.get(status),
-      runtimeRefinementIds,
+      projection,
       operation.responseDescriptions?.[status],
     );
   }
@@ -328,23 +323,31 @@ function assertRuntimeRefinements(
   }
 }
 
-function openApiOperation(operation: HttpOperation): OpenApiOperation {
-  const runtimeRefinementIds = new Set<string>();
+function openApiOperation(
+  operation: HttpOperation,
+  componentNames: ReadonlyMap<z.core.$ZodType, string>,
+): OpenApiOperation {
+  const projection: OperationProjection = {
+    componentNames,
+    runtimeRefinementIds: new Set(),
+  };
   const parameters = [
-    ...openApiPathParameters(operation, runtimeRefinementIds),
-    ...openApiQueryParameters(operation, runtimeRefinementIds),
-    ...openApiHeaderParameters(operation, runtimeRefinementIds),
+    ...openApiPathParameters(operation, projection),
+    ...openApiQueryParameters(operation, projection),
+    ...openApiHeaderParameters(operation, projection),
   ];
   const requestSchema =
     operation.body === undefined
       ? undefined
-      : openApiSchema(operation.body, runtimeRefinementIds);
-  const responses = openApiResponses(operation, runtimeRefinementIds);
+      : openApiSchema(operation.body, projection);
+  const responses = openApiResponses(operation, projection);
   const requestMediaType = operation.requestMediaType ?? "application/json";
-  assertRuntimeRefinements(operation, runtimeRefinementIds);
+  assertRuntimeRefinements(operation, projection.runtimeRefinementIds);
 
   return {
     operationId: operation.id,
+    summary: operation.summary,
+    tags: [openApiOperationTag(operation)],
     parameters,
     ...(requestSchema === undefined
       ? {}
@@ -376,8 +379,13 @@ function compareOperations(left: HttpOperation, right: HttpOperation): number {
   return 0;
 }
 
+/**
+ * Builds the document with every schema inline. With `componentNames`, named
+ * schemas carry a marker that referenceOpenApiComponents turns into `$ref`s.
+ */
 export function createOpenApiDocument(
   operations: readonly HttpOperation[],
+  componentNames: ReadonlyMap<z.core.$ZodType, string> = new Map(),
 ): OpenApiDocument {
   const paths: Record<string, Record<string, OpenApiOperation>> = {};
   const operationIds = new Set<string>();
@@ -395,7 +403,7 @@ export function createOpenApiDocument(
       throw new Error(`${operation.method} ${operation.path} is duplicated`);
     }
 
-    pathItem[method] = openApiOperation(operation);
+    pathItem[method] = openApiOperation(operation, componentNames);
     paths[operation.path] = pathItem;
   }
 
@@ -410,6 +418,7 @@ export function createOpenApiDocument(
       },
     },
     info: {
+      description: OPEN_API_DESCRIPTION,
       title: "Tearleads Protocol API",
       version: "0.1.0",
     },
@@ -419,8 +428,14 @@ export function createOpenApiDocument(
   };
 }
 
+/** Every schema inline; tests validate against these schemas directly. */
 export const openApiDocument = createOpenApiDocument(protocolOperations);
 
+/** The checked-in document: named schemas defined once under components. */
+export const publishedOpenApiDocument = referenceOpenApiComponents(
+  createOpenApiDocument(protocolOperations, collectOpenApiComponentNames()),
+);
+
 export function renderOpenApi(): string {
-  return `${JSON.stringify(openApiDocument, null, 2)}\n`;
+  return `${JSON.stringify(publishedOpenApiDocument, null, 2)}\n`;
 }

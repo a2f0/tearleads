@@ -318,6 +318,8 @@ const productionConfig = {
       project: [
         ...productionProject,
         "!src/operation/openApi.ts",
+        "!src/operation/openApiComponents.ts",
+        "!src/operation/openApiPresentation.ts",
         "!src/operation/openApiResponseMetadata.ts",
         "!src/operation/generatedOpenApi.ts",
       ],

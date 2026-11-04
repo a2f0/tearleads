@@ -33,6 +33,8 @@ export interface HttpOperation {
   readonly responseDescriptions?: Readonly<Record<number, string>>;
   readonly responses: Readonly<Record<number, z.ZodType>>;
   readonly runtimeRefinements?: readonly RuntimeRefinement[];
+  /** One-line, human-readable purpose; the OpenAPI operation summary. */
+  readonly summary: string;
 }
 
 export interface JsonOperation extends HttpOperation {

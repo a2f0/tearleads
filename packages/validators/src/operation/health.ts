@@ -16,6 +16,7 @@ export const getHealthOperation = defineJsonOperation({
   },
   failureStatuses: [413, 500],
   id: "health.get",
+  summary: "Health check",
   method: "GET",
   params: HealthPathParamsSchema,
   path: "/",

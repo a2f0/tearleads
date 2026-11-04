@@ -28,6 +28,7 @@ export const getProjectionPolicyHistoryOperation = defineJsonOperation({
   },
   failureStatuses: [400, 401, 403, 404, 409, 500, 503],
   id: "principals.history.get",
+  summary: "Page projection policy history",
   method: "GET",
   params: z.strictObject({}),
   path: "/principals/history",

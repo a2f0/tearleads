@@ -35,9 +35,9 @@ the runtime wire grammar, while `challengeOperation` and `verifyOperation` own
 their HTTP metadata. API client and SDK predicates validate against these
 schemas.
 
-[`openapi.json`](./openapi.json) and checked generated TypeScript are structural
-views of the operations in the registry. Zod is the runtime authority; each
-`x-tearleads-runtime-refinements` gap needs an executable
+[`openapi.json`](./openapi.json) (exported schemas as components) and
+generated TypeScript are structural registry views. Zod is the runtime
+authority; each `x-tearleads-runtime-refinements` gap needs an executable
 OpenAPI-accepts/Zod-rejects witness. Crypto, transactions, convergence, and
 formal guarantees lie outside these views.
 

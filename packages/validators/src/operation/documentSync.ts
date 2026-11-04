@@ -45,6 +45,7 @@ export const documentSyncOperation = defineJsonOperation({
   },
   failureStatuses: [400, 401, 402, 403, 404, 409, 413, 500, 503],
   id: "documents.sync",
+  summary: "Sync encrypted Loro updates",
   method: "POST",
   params: DocumentSyncPathParamsSchema,
   path: "/documents/{documentId}/sync",

@@ -29,6 +29,7 @@ export const getOrganizationPolicyHistoryOperation = defineJsonOperation({
   },
   failureStatuses: [400, 401, 403, 404, 409, 500, 503],
   id: "organizations.policyHistory.get",
+  summary: "Page organization policy history",
   method: "GET",
   params: OrganizationPathParamsSchema,
   path: "/organizations/{organizationId}/policy-history",
