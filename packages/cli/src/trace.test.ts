@@ -51,6 +51,12 @@ test("spans report their duration, including failures", async () => {
     "list folders ...",
     "list folders failed after 1.50s",
   ]);
+  lines.length = 0;
+  tracer.summary();
+  expect(lines.map(message).slice(1, 3)).toEqual([
+    "  phase sign in: 42ms",
+    "  phase list folders (failed): 1.50s",
+  ]);
 });
 
 test("the summary lists phases and the slowest endpoints first", async () => {

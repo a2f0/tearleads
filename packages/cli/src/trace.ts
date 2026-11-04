@@ -59,7 +59,9 @@ export function createTracer(options: TracerOptions): Tracer {
         event(`${name} done in ${formatDuration(ms)}`);
         return result;
       } catch (error) {
-        event(`${name} failed after ${formatDuration(now() - spanStart)}`);
+        const ms = now() - spanStart;
+        phases.push({ name: `${name} (failed)`, ms });
+        event(`${name} failed after ${formatDuration(ms)}`);
         throw error;
       }
     },

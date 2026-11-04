@@ -344,6 +344,22 @@ test("--trace writes timestamped progress to stderr and leaves stdout alone", as
   );
 }, 60_000);
 
+test("login's trace summary includes saving the key", async () => {
+  const account = await registerAccount();
+  const { context, output } = testContext({
+    apiBaseUrl,
+    recoveryKey: account.seedPhrase,
+  });
+
+  expect(await runCli(["login", "--trace"], context)).toBe(0);
+  const messages = output.stderr.map((line) => line.replace(TRACE_LINE, ""));
+  const summary = messages.findIndex((line) => line.startsWith("summary: "));
+  expect(summary).toBeGreaterThan(-1);
+  expect(messages.slice(summary)).toContainEqual(
+    expect.stringMatching(/^ {2}phase save recovery key in the Keychain: /u),
+  );
+}, 60_000);
+
 test("TEARLEADS_TRACE turns tracing on without the flag", async () => {
   const { context, output } = await signedInContext();
 

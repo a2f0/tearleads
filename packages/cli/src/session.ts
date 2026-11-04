@@ -145,6 +145,5 @@ async function runSession<T>(
     if (signedIn) await revoke(sdk);
     sdk.dispose();
     database.close();
-    tracer.summary();
   }
 }

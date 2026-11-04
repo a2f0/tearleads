@@ -97,5 +97,7 @@ export async function runCli(
       printable(error instanceof Error ? error.message : String(error)),
     );
     return 1;
+  } finally {
+    tracer.summary();
   }
 }
