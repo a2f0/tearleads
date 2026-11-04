@@ -163,7 +163,7 @@ testApiClient(
     useMemoryPartUpload();
     const client = new ApiClient(apiBaseUrl);
     let capturedBody: Blob | BufferSource | undefined;
-    const transport = Reflect.get(client, "transport");
+    const transport = Reflect.get(Reflect.get(client, "context"), "transport");
 
     expect(
       Reflect.set(

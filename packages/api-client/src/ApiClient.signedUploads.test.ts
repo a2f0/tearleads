@@ -118,7 +118,7 @@ testApiClient(
     );
     let storageCalls = 0;
     const uploaded = await uploadMultipartBlobPartBytes(
-      Reflect.get(client, "transport"),
+      Reflect.get(Reflect.get(client, "context"), "transport"),
       stageId,
       1,
       request,
@@ -395,7 +395,7 @@ testApiClient(
     const client = new ApiClient(apiBaseUrl);
     const urls: string[] = [];
     const uploaded = await uploadMultipartBlobPartBytes(
-      Reflect.get(client, "transport"),
+      Reflect.get(Reflect.get(client, "context"), "transport"),
       stageId,
       1,
       { ...request, source: issuedSource() },
@@ -427,7 +427,7 @@ testApiClient(
     const client = new ApiClient(apiBaseUrl);
     const urls: string[] = [];
     const uploaded = await uploadMultipartBlobPartBytes(
-      Reflect.get(client, "transport"),
+      Reflect.get(Reflect.get(client, "context"), "transport"),
       stageId,
       1,
       { ...request, source: issuedSource() },
@@ -457,7 +457,7 @@ testApiClient(
     const client = new ApiClient(apiBaseUrl);
     const urls: string[] = [];
     const uploaded = await uploadMultipartBlobPartBytes(
-      Reflect.get(client, "transport"),
+      Reflect.get(Reflect.get(client, "context"), "transport"),
       stageId,
       1,
       {

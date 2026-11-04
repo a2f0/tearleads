@@ -27,12 +27,14 @@ function seedDocumentWriterProjectionCache(
 ) {
   (
     client as unknown as {
-      documentWriterProjectionRequestsByDocumentId: Map<
-        string,
-        Promise<DocumentWriterProjection | null>
-      >;
+      context: {
+        documentWriterProjectionRequestsByDocumentId: Map<
+          string,
+          Promise<DocumentWriterProjection | null>
+        >;
+      };
     }
-  ).documentWriterProjectionRequestsByDocumentId.set(
+  ).context.documentWriterProjectionRequestsByDocumentId.set(
     documentId,
     Promise.resolve(projection),
   );
