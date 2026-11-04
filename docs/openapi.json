@@ -4476,7 +4476,7 @@
                 "type": "null"
               }
             ],
-            "description": "Position to resume from, or null when the lane is exhausted."
+            "description": "Position after this page's last row, or the request's watermark when the page is empty; keep it for the next incremental poll. `hasMore` says whether rows remain now."
           },
           "tombstones": {
             "type": "array",
@@ -4621,7 +4621,7 @@
                 "type": "null"
               }
             ],
-            "description": "Position to resume from, or null when the lane is exhausted."
+            "description": "Position after this page's last row, or the request's watermark when the page is empty; keep it for the next incremental poll. `hasMore` says whether rows remain now."
           },
           "tombstones": {
             "type": "array",
@@ -15741,7 +15741,7 @@
       "get": {
         "operationId": "documents.attribution.get",
         "summary": "Get document edit attribution",
-        "description": "Returns which writer authored each stretch of a document's history, derived from the signed write headers of its stored updates. Requires read access. Responses carry an `ETag`, so a client that sends `If-None-Match` gets 304 when nothing changed; long histories are truncated here and paged through the attribution ranges route.",
+        "description": "Returns which writer first uploaded each stretch of a document's history, derived from the signed write headers of its stored updates; it is not proof of authorship. Requires read access. Responses carry an `ETag`, so a client that sends `If-None-Match` gets 304 when nothing changed; long histories are truncated here and paged through the attribution ranges route.",
         "tags": [
           "Documents"
         ],

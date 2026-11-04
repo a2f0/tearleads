@@ -155,7 +155,7 @@ describeSchema(
   "One page of a parent lane's containers.",
   {
     nextWatermark:
-      "Position to resume from, or null when the lane is exhausted.",
+      "Position after this page's last row, or the request's watermark when the page is empty; keep it for the next incremental poll. `hasMore` says whether rows remain now.",
     tombstones:
       "Containers removed from the caller's view in this page's range.",
   },
@@ -201,7 +201,7 @@ describeSchema(
   "One page of a container lane's documents.",
   {
     nextWatermark:
-      "Position to resume from, or null when the lane is exhausted.",
+      "Position after this page's last row, or the request's watermark when the page is empty; keep it for the next incremental poll. `hasMore` says whether rows remain now.",
     tombstones: "Documents removed from the container in this page's range.",
   },
 );

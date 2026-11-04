@@ -690,7 +690,7 @@ export type paths = {
         };
         /**
          * Get document edit attribution
-         * @description Returns which writer authored each stretch of a document's history, derived from the signed write headers of its stored updates. Requires read access. Responses carry an `ETag`, so a client that sends `If-None-Match` gets 304 when nothing changed; long histories are truncated here and paged through the attribution ranges route.
+         * @description Returns which writer first uploaded each stretch of a document's history, derived from the signed write headers of its stored updates; it is not proof of authorship. Requires read access. Responses carry an `ETag`, so a client that sends `If-None-Match` gets 304 when nothing changed; long histories are truncated here and paged through the attribution ranges route.
          */
         get: operations["documents.attribution.get"];
         put?: never;
@@ -3028,7 +3028,7 @@ export type components = {
         ListContainerDocumentsResponse: {
             hasMore: boolean;
             items: components["schemas"]["ContainerDocumentSummaryResponse"][];
-            /** @description Position to resume from, or null when the lane is exhausted. */
+            /** @description Position after this page's last row, or the request's watermark when the page is empty; keep it for the next incremental poll. `hasMore` says whether rows remain now. */
             nextWatermark: components["schemas"]["SyncWatermark"] | null;
             /** @description Documents removed from the container in this page's range. */
             tombstones: components["schemas"]["ContainerDocumentSyncTombstoneResponse"][];
@@ -3058,7 +3058,7 @@ export type components = {
         ListContainersResponse: {
             hasMore: boolean;
             items: components["schemas"]["ContainerSummaryResponse"][];
-            /** @description Position to resume from, or null when the lane is exhausted. */
+            /** @description Position after this page's last row, or the request's watermark when the page is empty; keep it for the next incremental poll. `hasMore` says whether rows remain now. */
             nextWatermark: components["schemas"]["SyncWatermark"] | null;
             /** @description Containers removed from the caller's view in this page's range. */
             tombstones: components["schemas"]["ContainerSyncTombstoneResponse"][];

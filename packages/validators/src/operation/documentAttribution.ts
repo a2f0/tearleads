@@ -162,7 +162,7 @@ export const getDocumentAttributionOperation = defineJsonOperation({
   id: "documents.attribution.get",
   summary: "Get document edit attribution",
   description:
-    "Returns which writer authored each stretch of a document's history, derived from the signed write headers of its stored updates. Requires read access. Responses carry an `ETag`, so a client that sends `If-None-Match` gets 304 when nothing changed; long histories are truncated here and paged through the attribution ranges route.",
+    "Returns which writer first uploaded each stretch of a document's history, derived from the signed write headers of its stored updates; it is not proof of authorship. Requires read access. Responses carry an `ETag`, so a client that sends `If-None-Match` gets 304 when nothing changed; long histories are truncated here and paged through the attribution ranges route.",
   method: "GET",
   params: DocumentAttributionPathParamsSchema,
   path: "/documents/{documentId}/attribution",
