@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { z } from "zod";
 import { JSON_SCHEMA_COMPONENT_KEY } from "../jsonSchema";
 import { ErrorResponseSchema } from "../response/error";
+import { plainObjectSchema } from "../schema";
 import { openApiDocument, publishedOpenApiDocument } from "./openApi";
 import {
   collectOpenApiComponentNames,
@@ -51,6 +52,11 @@ test("an aliased schema takes its shortest export name", () => {
   );
   expect(Object.hasOwn(schemas, "ErrorResponse")).toBe(true);
   expect(Object.hasOwn(schemas, "ChallengeErrorResponse")).toBe(false);
+});
+
+test("generic building blocks stay unnamed behind specific aliases", () => {
+  expect(collectOpenApiComponentNames().get(plainObjectSchema)).toBeUndefined();
+  expect(Object.hasOwn(schemas, "StripeWebhookRequest")).toBe(false);
 });
 
 test("named scalars stay inline and conflicting projections fail", () => {

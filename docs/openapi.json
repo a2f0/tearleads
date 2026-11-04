@@ -13,7 +13,9 @@
         "properties": {
           "body": {},
           "event": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "eventHash": {
             "type": "string",
@@ -34,14 +36,18 @@
             "$ref": "#/components/schemas/AccessEventBundleWireResponse"
           },
           "manifest": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "manifestHash": {
             "type": "string",
             "minLength": 1
           },
           "state": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -92,7 +98,9 @@
             "$ref": "#/components/schemas/DocumentSyncRequest"
           },
           "event": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "stagedBlob": {
             "$ref": "#/components/schemas/BlobStagedBlobRequest"
@@ -220,7 +228,9 @@
             "maxItems": 16
           },
           "event": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -292,7 +302,9 @@
             "$ref": "#/components/schemas/BlobKekTargetsResponse"
           },
           "writeHeader": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -458,7 +470,9 @@
             "type": "string"
           },
           "wrappingMetadata": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -515,7 +529,9 @@
           "targets": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StripeWebhookRequest"
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {}
             }
           }
         },
@@ -557,7 +573,9 @@
             "minLength": 1
           },
           "writeHeader": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -733,14 +751,18 @@
                 "$ref": "#/components/schemas/DocumentContentKeyBundleRequest"
               },
               "event": {
-                "$ref": "#/components/schemas/StripeWebhookRequest"
+                "type": "object",
+                "properties": {},
+                "additionalProperties": {}
               },
               "expectedManifestHash": {
                 "type": "string",
                 "minLength": 1
               },
               "manifest": {
-                "$ref": "#/components/schemas/StripeWebhookRequest"
+                "type": "object",
+                "properties": {},
+                "additionalProperties": {}
               },
               "targetContainerPathRefs": {
                 "type": "array",
@@ -932,7 +954,9 @@
           "bridge": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/StripeWebhookRequest"
+                "type": "object",
+                "properties": {},
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -971,7 +995,9 @@
           "wraps": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StripeWebhookRequest"
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {}
             },
             "maxItems": 16
           }
@@ -1110,14 +1136,18 @@
             "maxItems": 100
           },
           "event": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "expectedManifestHash": {
             "type": "string",
             "minLength": 1
           },
           "keyEpoch": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "keyring": {
             "anyOf": [
@@ -1130,7 +1160,9 @@
             ]
           },
           "manifest": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "parentContainerPathRefs": {
             "type": "array",
@@ -1174,7 +1206,9 @@
           "predecessorBridge": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/StripeWebhookRequest"
+                "type": "object",
+                "properties": {},
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -1204,13 +1238,17 @@
           "userRecipientKeys": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StripeWebhookRequest"
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {}
             }
           },
           "wraps": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StripeWebhookRequest"
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {}
             }
           }
         },
@@ -1373,14 +1411,18 @@
         "properties": {
           "body": {},
           "event": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "expectedManifestHash": {
             "type": "string",
             "minLength": 1
           },
           "manifest": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "previousContainerPathRefs": {
             "type": "array",
@@ -1497,14 +1539,18 @@
             "maxItems": 100
           },
           "event": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "expectedManifestHash": {
             "type": "string",
             "minLength": 1
           },
           "keyEpoch": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "keyring": {
             "anyOf": [
@@ -1517,7 +1563,9 @@
             ]
           },
           "manifest": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "parentContainerPathRefs": {
             "type": "array",
@@ -1561,7 +1609,9 @@
           "predecessorBridge": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/StripeWebhookRequest"
+                "type": "object",
+                "properties": {},
+                "additionalProperties": {}
               },
               {
                 "type": "null"
@@ -1591,13 +1641,17 @@
           "userRecipientKeys": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StripeWebhookRequest"
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {}
             }
           },
           "wraps": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StripeWebhookRequest"
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {}
             }
           },
           "containerRekeys": {
@@ -1947,7 +2001,9 @@
                       }
                     },
                     "keyEpoch": {
-                      "$ref": "#/components/schemas/StripeWebhookRequest"
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": {}
                     },
                     "keyEpochHash": {
                       "type": "string",
@@ -1981,14 +2037,18 @@
                       "minItems": 1,
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/StripeWebhookRequest"
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": {}
                       }
                     },
                     "wraps": {
                       "minItems": 1,
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/StripeWebhookRequest"
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": {}
                       }
                     }
                   },
@@ -2503,7 +2563,9 @@
             "minLength": 1
           },
           "wrappingMetadata": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -2534,14 +2596,18 @@
             "$ref": "#/components/schemas/DocumentContentKeyBundleRequest"
           },
           "event": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "expectedManifestHash": {
             "type": "string",
             "minLength": 1
           },
           "manifest": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "targetContainerPathRefs": {
             "type": "array",
@@ -2796,7 +2862,9 @@
             "minItems": 1,
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StripeWebhookRequest"
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {}
             }
           }
         },
@@ -2828,14 +2896,18 @@
             "$ref": "#/components/schemas/DocumentContentKeyBundleRequest"
           },
           "event": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "expectedManifestHash": {
             "type": "string",
             "minLength": 1
           },
           "manifest": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "rotationBaseline": {
             "$ref": "#/components/schemas/DocumentOutgoingUpdate"
@@ -2989,7 +3061,9 @@
             "minLength": 1
           },
           "writeHeader": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -3077,7 +3151,9 @@
           },
           "body": {},
           "event": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -3239,19 +3315,25 @@
                   "maxItems": 100
                 },
                 "event": {
-                  "$ref": "#/components/schemas/StripeWebhookRequest"
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {}
                 },
                 "expectedManifestHash": {
                   "type": "string",
                   "minLength": 1
                 },
                 "keyEpoch": {
-                  "$ref": "#/components/schemas/StripeWebhookRequest"
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {}
                 },
                 "keyring": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/StripeWebhookRequest"
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -3259,7 +3341,9 @@
                   ]
                 },
                 "manifest": {
-                  "$ref": "#/components/schemas/StripeWebhookRequest"
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {}
                 },
                 "parentContainerPathRefs": {
                   "type": "array",
@@ -3303,7 +3387,9 @@
                 "predecessorBridge": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/StripeWebhookRequest"
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": {}
                     },
                     {
                       "type": "null"
@@ -3333,13 +3419,17 @@
                 "userRecipientKeys": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/StripeWebhookRequest"
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": {}
                   }
                 },
                 "wraps": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/StripeWebhookRequest"
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": {}
                   }
                 }
               },
@@ -3442,7 +3532,9 @@
                   "type": "string"
                 },
                 "writeHeader": {
-                  "$ref": "#/components/schemas/StripeWebhookRequest"
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {}
                 }
               },
               "required": [
@@ -3627,7 +3719,9 @@
             "minLength": 1
           },
           "writeHeader": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -3747,7 +3841,9 @@
                             }
                           },
                           "keyEpoch": {
-                            "$ref": "#/components/schemas/StripeWebhookRequest"
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
                           },
                           "keyEpochHash": {
                             "type": "string",
@@ -3781,14 +3877,18 @@
                             "minItems": 1,
                             "type": "array",
                             "items": {
-                              "$ref": "#/components/schemas/StripeWebhookRequest"
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
                             }
                           },
                           "wraps": {
                             "minItems": 1,
                             "type": "array",
                             "items": {
-                              "$ref": "#/components/schemas/StripeWebhookRequest"
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
                             }
                           }
                         },
@@ -7707,14 +7807,18 @@
             "$ref": "#/components/schemas/DocumentContentKeyBundleRequest"
           },
           "event": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "expectedManifestHash": {
             "type": "string",
             "minLength": 1
           },
           "manifest": {
-            "$ref": "#/components/schemas/StripeWebhookRequest"
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
           },
           "targetContainerPathRefs": {
             "type": "array",
@@ -7762,14 +7866,18 @@
                 "$ref": "#/components/schemas/DocumentContentKeyBundleRequest"
               },
               "event": {
-                "$ref": "#/components/schemas/StripeWebhookRequest"
+                "type": "object",
+                "properties": {},
+                "additionalProperties": {}
               },
               "expectedManifestHash": {
                 "type": "string",
                 "minLength": 1
               },
               "manifest": {
-                "$ref": "#/components/schemas/StripeWebhookRequest"
+                "type": "object",
+                "properties": {},
+                "additionalProperties": {}
               },
               "targetContainerPathRefs": {
                 "type": "array",
@@ -10591,11 +10699,6 @@
         ],
         "additionalProperties": {}
       },
-      "StripeWebhookRequest": {
-        "type": "object",
-        "properties": {},
-        "additionalProperties": {}
-      },
       "StripeWebhookResponse": {
         "type": "object",
         "properties": {
@@ -11743,7 +11846,9 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/StripeWebhookRequest"
+                "type": "object",
+                "properties": {},
+                "additionalProperties": {}
               }
             }
           },

@@ -5,6 +5,7 @@ import * as requestSchemas from "../request";
 import * as responseSchemas from "../response";
 import * as errorResponseSchemas from "../response/error";
 import * as preparationResponseSchemas from "../response/principalHistoryPreparation";
+import * as genericSchemas from "../schema";
 import * as utilSchemas from "../util";
 
 const SCHEMA_EXPORT_SUFFIX = "Schema";
@@ -30,7 +31,9 @@ function isZodSchema(value: unknown): value is z.core.$ZodType {
  * `Container`) so the published OpenAPI document can define it once under
  * components and reference it by name. A schema exported under several names
  * (an alias such as ChallengeErrorResponseSchema) takes the shortest, then the
- * first in code-unit order.
+ * first in code-unit order. Generic building blocks from `../schema` stay
+ * unnamed even when re-exported under a specific name: StripeWebhookRequest
+ * is plainObjectSchema, which would otherwise label every opaque object.
  */
 export function collectOpenApiComponentNames(): ReadonlyMap<
   z.core.$ZodType,
@@ -45,12 +48,14 @@ export function collectOpenApiComponentNames(): ReadonlyMap<
     responseSchemas,
     utilSchemas,
   ].flatMap((module) => Object.entries(module));
+  const generic = new Set<unknown>(Object.values(genericSchemas));
   const byName = new Map<string, z.core.$ZodType>();
   for (const [exportName, value] of exports) {
     if (
       !exportName.endsWith(SCHEMA_EXPORT_SUFFIX) ||
       exportName === SCHEMA_EXPORT_SUFFIX ||
-      !isZodSchema(value)
+      !isZodSchema(value) ||
+      generic.has(value)
     ) {
       continue;
     }

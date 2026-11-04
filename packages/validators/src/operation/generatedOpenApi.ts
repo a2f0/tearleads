@@ -1371,16 +1371,22 @@ export type components = {
     schemas: {
         AccessEventBundleWireResponse: {
             body: unknown;
-            event: components["schemas"]["StripeWebhookRequest"];
+            event: {
+                [key: string]: unknown;
+            };
             eventHash: string;
         } & {
             [key: string]: unknown;
         };
         AccessManifestBundleWireResponse: {
             event: components["schemas"]["AccessEventBundleWireResponse"];
-            manifest: components["schemas"]["StripeWebhookRequest"];
+            manifest: {
+                [key: string]: unknown;
+            };
             manifestHash: string;
-            state: components["schemas"]["StripeWebhookRequest"];
+            state: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -1397,7 +1403,9 @@ export type components = {
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
             contentKeyBundle: components["schemas"]["BlobContentKeyBundleRequest"];
             documentSync?: components["schemas"]["DocumentSyncRequest"];
-            event: components["schemas"]["StripeWebhookRequest"];
+            event: {
+                [key: string]: unknown;
+            };
             stagedBlob?: components["schemas"]["BlobStagedBlobRequest"];
         } & {
             [key: string]: unknown;
@@ -1427,7 +1435,9 @@ export type components = {
             authorizingContainerPathRefs: components["schemas"]["ContainerManifestRefArrayArray"];
             body: unknown;
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
-            event: components["schemas"]["StripeWebhookRequest"];
+            event: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -1449,7 +1459,9 @@ export type components = {
             previousBindingId: string | null;
             slotId: string;
             writeAuthorization: components["schemas"]["BlobKekTargetsResponse"];
-            writeHeader: components["schemas"]["StripeWebhookRequest"];
+            writeHeader: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -1492,7 +1504,9 @@ export type components = {
             containerManifestHash: string;
             documentId: string;
             wrappedKey: string;
-            wrappingMetadata: components["schemas"]["StripeWebhookRequest"];
+            wrappingMetadata: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -1505,7 +1519,9 @@ export type components = {
             linkedContainerKeyEpochIds: string[];
             linkedContainerManifestHashes: string[];
             organizationId: string;
-            targets: components["schemas"]["StripeWebhookRequest"][];
+            targets: {
+                [key: string]: unknown;
+            }[];
         } & {
             [key: string]: unknown;
         };
@@ -1518,7 +1534,9 @@ export type components = {
         };
         BlobStagedBlobRequest: {
             stageId: string;
-            writeHeader: components["schemas"]["StripeWebhookRequest"];
+            writeHeader: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -1572,9 +1590,13 @@ export type components = {
                 body: unknown;
                 containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
                 contentKeyBundle: components["schemas"]["DocumentContentKeyBundleRequest"];
-                event: components["schemas"]["StripeWebhookRequest"];
+                event: {
+                    [key: string]: unknown;
+                };
                 expectedManifestHash: string;
-                manifest: components["schemas"]["StripeWebhookRequest"];
+                manifest: {
+                    [key: string]: unknown;
+                };
                 targetContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             } & {
                 [key: string]: unknown;
@@ -1628,12 +1650,16 @@ export type components = {
         };
         ContainerKekLogEpochResponse: {
             accessManifestHash: string;
-            bridge: components["schemas"]["StripeWebhookRequest"] | null;
+            bridge: {
+                [key: string]: unknown;
+            } | null;
             containerKeyEpoch: number;
             containerKeyEpochId: string;
             keyring: components["schemas"]["ContainerKekKeyringWireRecord"] | null;
             parentContainerKeyEpochId: string | null;
-            wraps: components["schemas"]["StripeWebhookRequest"][];
+            wraps: {
+                [key: string]: unknown;
+            }[];
         } & {
             [key: string]: unknown;
         };
@@ -1663,11 +1689,17 @@ export type components = {
             body: unknown;
             containerManifestHistoryRefs?: components["schemas"]["ContainerManifestRef"][];
             destinationParentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
-            event: components["schemas"]["StripeWebhookRequest"];
+            event: {
+                [key: string]: unknown;
+            };
             expectedManifestHash: string;
-            keyEpoch: components["schemas"]["StripeWebhookRequest"];
+            keyEpoch: {
+                [key: string]: unknown;
+            };
             keyring: components["schemas"]["ContainerKekKeyringWireRecord"] | null;
-            manifest: components["schemas"]["StripeWebhookRequest"];
+            manifest: {
+                [key: string]: unknown;
+            };
             parentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             parentKekRef?: ({
                 containerId: string;
@@ -1676,12 +1708,18 @@ export type components = {
             } & {
                 [key: string]: unknown;
             }) | null;
-            predecessorBridge: components["schemas"]["StripeWebhookRequest"] | null;
+            predecessorBridge: {
+                [key: string]: unknown;
+            } | null;
             previousContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             previousManifestRef?: components["schemas"]["ContainerManifestRef"] | null;
             principalPolicyRefs: components["schemas"]["PrincipalPolicyRefList"];
-            userRecipientKeys?: components["schemas"]["StripeWebhookRequest"][];
-            wraps: components["schemas"]["StripeWebhookRequest"][];
+            userRecipientKeys?: {
+                [key: string]: unknown;
+            }[];
+            wraps: {
+                [key: string]: unknown;
+            }[];
         } & {
             [key: string]: unknown;
         };
@@ -1721,9 +1759,13 @@ export type components = {
         };
         ContainerReciteRequest: {
             body: unknown;
-            event: components["schemas"]["StripeWebhookRequest"];
+            event: {
+                [key: string]: unknown;
+            };
             expectedManifestHash: string;
-            manifest: components["schemas"]["StripeWebhookRequest"];
+            manifest: {
+                [key: string]: unknown;
+            };
             previousContainerPathRefs: components["schemas"]["ContainerManifestRef"][];
             previousManifestRef: components["schemas"]["ContainerManifestRef"];
             principalPolicyRefs: components["schemas"]["PrincipalPolicyRefList"];
@@ -1752,11 +1794,17 @@ export type components = {
             containerManifestHistoryRefs?: components["schemas"]["ContainerManifestRef"][];
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
             destinationParentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
-            event: components["schemas"]["StripeWebhookRequest"];
+            event: {
+                [key: string]: unknown;
+            };
             expectedManifestHash: string;
-            keyEpoch: components["schemas"]["StripeWebhookRequest"];
+            keyEpoch: {
+                [key: string]: unknown;
+            };
             keyring: components["schemas"]["ContainerKekKeyringWireRecord"] | null;
-            manifest: components["schemas"]["StripeWebhookRequest"];
+            manifest: {
+                [key: string]: unknown;
+            };
             parentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             parentKekRef?: ({
                 containerId: string;
@@ -1765,12 +1813,18 @@ export type components = {
             } & {
                 [key: string]: unknown;
             }) | null;
-            predecessorBridge: components["schemas"]["StripeWebhookRequest"] | null;
+            predecessorBridge: {
+                [key: string]: unknown;
+            } | null;
             previousContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             previousManifestRef?: components["schemas"]["ContainerManifestRef"] | null;
             principalPolicyRefs: components["schemas"]["PrincipalPolicyRefList"];
-            userRecipientKeys?: components["schemas"]["StripeWebhookRequest"][];
-            wraps: components["schemas"]["StripeWebhookRequest"][];
+            userRecipientKeys?: {
+                [key: string]: unknown;
+            }[];
+            wraps: {
+                [key: string]: unknown;
+            }[];
         } & {
             [key: string]: unknown;
         };
@@ -1847,13 +1901,19 @@ export type components = {
                 containerKeyEpoch: number;
                 containerKeyEpochId: string;
                 containerManifestHistory: string[];
-                keyEpoch: components["schemas"]["StripeWebhookRequest"];
+                keyEpoch: {
+                    [key: string]: unknown;
+                };
                 keyEpochHash: string;
                 keyring: components["schemas"]["ContainerKekKeyringWireRecord"] | null;
                 keyTargetHash: string;
                 parentContainerKeyEpochId: string | null;
-                recipientTargets: components["schemas"]["StripeWebhookRequest"][];
-                wraps: components["schemas"]["StripeWebhookRequest"][];
+                recipientTargets: {
+                    [key: string]: unknown;
+                }[];
+                wraps: {
+                    [key: string]: unknown;
+                }[];
             } & {
                 [key: string]: unknown;
             }))[];
@@ -1991,7 +2051,9 @@ export type components = {
             containerKeyEpochId: string;
             containerManifestHash: string;
             wrappedKey: string;
-            wrappingMetadata: components["schemas"]["StripeWebhookRequest"];
+            wrappingMetadata: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -2000,10 +2062,14 @@ export type components = {
             body: unknown;
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
             contentKeyBundle: components["schemas"]["DocumentContentKeyBundleRequest"];
-            event: components["schemas"]["StripeWebhookRequest"];
+            event: {
+                [key: string]: unknown;
+            };
             expectedManifestHash: string;
             initialSync?: components["schemas"]["DocumentSyncRequest"];
-            manifest: components["schemas"]["StripeWebhookRequest"];
+            manifest: {
+                [key: string]: unknown;
+            };
             targetContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
         } & {
             [key: string]: unknown;
@@ -2062,7 +2128,9 @@ export type components = {
             linkedContainerKeyEpochIds: string[];
             linkedContainerManifestHashes: string[];
             linkSetManifestHash: string;
-            targets: components["schemas"]["StripeWebhookRequest"][];
+            targets: {
+                [key: string]: unknown;
+            }[];
         } & {
             [key: string]: unknown;
         };
@@ -2071,9 +2139,13 @@ export type components = {
             body: unknown;
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
             contentKeyBundle: components["schemas"]["DocumentContentKeyBundleRequest"];
-            event: components["schemas"]["StripeWebhookRequest"];
+            event: {
+                [key: string]: unknown;
+            };
             expectedManifestHash: string;
-            manifest: components["schemas"]["StripeWebhookRequest"];
+            manifest: {
+                [key: string]: unknown;
+            };
             rotationBaseline?: components["schemas"]["DocumentOutgoingUpdate"];
             targetContainerPathRefs: components["schemas"]["ContainerManifestRef"][];
         } & {
@@ -2113,7 +2185,9 @@ export type components = {
             partialStartVersionVector: string;
             plaintextHash: string;
             sourceVersionVector?: string;
-            writeHeader: components["schemas"]["StripeWebhookRequest"];
+            writeHeader: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -2133,7 +2207,9 @@ export type components = {
         DocumentPurgeRequest: {
             authorizingContainerPathRefs: components["schemas"]["ContainerManifestRef"][];
             body: unknown;
-            event: components["schemas"]["StripeWebhookRequest"];
+            event: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -2171,11 +2247,19 @@ export type components = {
                 body: unknown;
                 containerManifestHistoryRefs?: components["schemas"]["ContainerManifestRef"][];
                 destinationParentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
-                event: components["schemas"]["StripeWebhookRequest"];
+                event: {
+                    [key: string]: unknown;
+                };
                 expectedManifestHash: string;
-                keyEpoch: components["schemas"]["StripeWebhookRequest"];
-                keyring: components["schemas"]["StripeWebhookRequest"] | null;
-                manifest: components["schemas"]["StripeWebhookRequest"];
+                keyEpoch: {
+                    [key: string]: unknown;
+                };
+                keyring: {
+                    [key: string]: unknown;
+                } | null;
+                manifest: {
+                    [key: string]: unknown;
+                };
                 parentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
                 parentKekRef?: ({
                     containerId: string;
@@ -2184,12 +2268,18 @@ export type components = {
                 } & {
                     [key: string]: unknown;
                 }) | null;
-                predecessorBridge: components["schemas"]["StripeWebhookRequest"] | null;
+                predecessorBridge: {
+                    [key: string]: unknown;
+                } | null;
                 previousContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
                 previousManifestRef?: components["schemas"]["ContainerManifestRef"] | null;
                 principalPolicyRefs: components["schemas"]["PrincipalPolicyRefList"];
-                userRecipientKeys?: components["schemas"]["StripeWebhookRequest"][];
-                wraps: components["schemas"]["StripeWebhookRequest"][];
+                userRecipientKeys?: {
+                    [key: string]: unknown;
+                }[];
+                wraps: {
+                    [key: string]: unknown;
+                }[];
             } & {
                 [key: string]: unknown;
             })[];
@@ -2216,7 +2306,9 @@ export type components = {
                 partialStartVersionVector: string;
                 plaintextHash: string;
                 sourceVersionVector?: string;
-                writeHeader: components["schemas"]["StripeWebhookRequest"];
+                writeHeader: {
+                    [key: string]: unknown;
+                };
             } & {
                 [key: string]: unknown;
             })[];
@@ -2262,7 +2354,9 @@ export type components = {
             partialStartVersionVector: string;
             plaintextHash: string;
             sourceVersionVector?: string;
-            writeHeader: components["schemas"]["StripeWebhookRequest"];
+            writeHeader: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -2281,13 +2375,19 @@ export type components = {
                     containerKeyEpoch: number;
                     containerKeyEpochId: string;
                     containerManifestHistory: string[];
-                    keyEpoch: components["schemas"]["StripeWebhookRequest"];
+                    keyEpoch: {
+                        [key: string]: unknown;
+                    };
                     keyEpochHash: string;
                     keyring: components["schemas"]["ContainerKekKeyringWireRecord"] | null;
                     keyTargetHash: string;
                     parentContainerKeyEpochId: string | null;
-                    recipientTargets: components["schemas"]["StripeWebhookRequest"][];
-                    wraps: components["schemas"]["StripeWebhookRequest"][];
+                    recipientTargets: {
+                        [key: string]: unknown;
+                    }[];
+                    wraps: {
+                        [key: string]: unknown;
+                    }[];
                 } & {
                     [key: string]: unknown;
                 }))[];
@@ -3147,10 +3247,14 @@ export type components = {
             body: unknown;
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
             contentKeyBundle: components["schemas"]["DocumentContentKeyBundleRequest"];
-            event: components["schemas"]["StripeWebhookRequest"];
+            event: {
+                [key: string]: unknown;
+            };
             expectedManifestHash: string;
             initialSync: components["schemas"]["DocumentSyncRequest"];
-            manifest: components["schemas"]["StripeWebhookRequest"];
+            manifest: {
+                [key: string]: unknown;
+            };
             targetContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
         } & {
             [key: string]: unknown;
@@ -3163,9 +3267,13 @@ export type components = {
                 body: unknown;
                 containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
                 contentKeyBundle: components["schemas"]["DocumentContentKeyBundleRequest"];
-                event: components["schemas"]["StripeWebhookRequest"];
+                event: {
+                    [key: string]: unknown;
+                };
                 expectedManifestHash: string;
-                manifest: components["schemas"]["StripeWebhookRequest"];
+                manifest: {
+                    [key: string]: unknown;
+                };
                 targetContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             } & {
                 [key: string]: unknown;
@@ -3728,9 +3836,6 @@ export type components = {
             tierId: "solo" | "team_5" | "team_10";
             unitAmount: number | null;
         } & {
-            [key: string]: unknown;
-        };
-        StripeWebhookRequest: {
             [key: string]: unknown;
         };
         StripeWebhookResponse: {
@@ -4438,7 +4543,9 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["StripeWebhookRequest"];
+                "application/json": {
+                    [key: string]: unknown;
+                };
             };
         };
         responses: {
