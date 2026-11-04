@@ -17,6 +17,7 @@ import {
 import { createRuntimeCurrentGroupMutation } from "../principalMutations/runtimeCurrentGroupMutation";
 import { commitCurrentShareGrant } from "./currentShareGrantMutation";
 import { createRuntimeCurrentSharePrincipalPolicy } from "./currentSharePrincipalPolicy";
+import { shareWithGroupReplanningOnce } from "./groupShareReplan";
 import type { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 /** Current evidence covers planning, any compound grant mint, and acknowledgement. */
@@ -42,7 +43,9 @@ export function createRuntimeCurrentGroupShare(
     }),
   );
   if (!mutate) throw new Error("Current group mutation custody is unavailable");
-  return async (input) => {
+  const shareOnce = async (
+    input: Parameters<typeof shareRemoteContainerWithGroup>[0],
+  ) => {
     if (input.stillCurrent?.() === false) return null;
     const recitationStillCurrent = input.stillCurrent ?? (() => true);
     return nullOnProjectionVerificationCancellation(() =>
@@ -108,4 +111,5 @@ export function createRuntimeCurrentGroupShare(
       ),
     );
   };
+  return (input) => shareWithGroupReplanningOnce(input, shareOnce);
 }

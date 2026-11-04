@@ -36,6 +36,7 @@ import { createGroupMetadataAccess } from "../groupMetadata/groupMetadataAccess"
 import { createGroupMetadataContainerVerifier } from "../groupMetadata/groupMetadataContainerAuthority";
 import { setOrganizationGroupContainerGrant } from "../principalPolicy";
 import type { GroupPolicyNameReader } from "../principalPolicy/principalPolicyRequest";
+import { shareWithGroupReplanningOnce } from "./groupShareReplan";
 import {
   advanceVerifiedSharePolicies,
   type ContainerManagedPrincipalShareApi,
@@ -261,7 +262,13 @@ function loadShareGroupPolicy(input: RemoteContainerGroupShareInput) {
   });
 }
 
-export async function shareRemoteContainerWithGroup(
+export function shareRemoteContainerWithGroup(
+  input: RemoteContainerGroupShareInput,
+): Promise<RemoteContainerGroupShareResult | null> {
+  return shareWithGroupReplanningOnce(input, shareRemoteContainerWithGroupOnce);
+}
+
+async function shareRemoteContainerWithGroupOnce(
   input: RemoteContainerGroupShareInput,
 ): Promise<RemoteContainerGroupShareResult | null> {
   if (input.stillCurrent?.() === false) return null;
