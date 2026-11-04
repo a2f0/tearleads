@@ -9,7 +9,7 @@
     "@types/invariant": "2.2.37",
     "ajv": "8.20.0",
     "invariant": "2.2.4",
-    "loro-crdt": "1.17.1",
+    "loro-crdt": "1.16.4",
     "openapi-typescript": "7.13.0",
     "zod": "4.6.7"
   },

@@ -47,6 +47,13 @@ remove them when the stated checks pass without the pin.
 - MSW stays on 2.15.0: 3.0.3 bypasses request handlers under pinned Bun 1.4.3.
   Revisit when MSW/Bun changes, proving interception and strict unhandled-request
   rejection under the pinned Bun runtime, not only Node.
+- Loro stays on 1.16.4. On 1.17.1, snapshot reimport and segmented update replay
+  can export different operation grouping despite equal text and version vectors;
+  the unchanged rotation provenance guard correctly rejects unequal identities.
+  Revisit only when the [history identity regression](../packages/loro/src/historyIdentity.test.ts)
+  and complete SDK rotation, recovery, provenance, and settlement suites pass.
+  Preserve operation-history verification; text or vector equality cannot
+  replace it.
 - Electrobun consumes its generated Hutch SDK and TypeScript configuration.
   `prepare:devkit` prepares ignored SDK output before standalone checks.
   Keep the paired toolchain and Windows host-transport fix; validate macOS,
