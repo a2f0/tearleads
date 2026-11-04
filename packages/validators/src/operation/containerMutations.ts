@@ -63,6 +63,7 @@ export const createContainerOperation = defineJsonOperation({
   failureResponses: containerMutationFailureResponses,
   failureStatuses: containerMutationFailureStatuses,
   id: "containers.create",
+  summary: "Create a container",
   method: "POST",
   params: EmptyContainerMutationPathParamsSchema,
   path: "/containers",
@@ -80,6 +81,7 @@ export const createContainerWithMetadataDocumentOperation = defineJsonOperation(
     },
     failureStatuses: [...containerMutationFailureStatuses, 503],
     id: "containers.withMetadataDocument.create",
+    summary: "Create a container with its metadata document",
     method: "POST",
     params: EmptyContainerMutationPathParamsSchema,
     path: "/containers/with-metadata-document",
@@ -95,13 +97,14 @@ export const createContainerWithMetadataDocumentOperation = defineJsonOperation(
 function defineContainerMutationOperation<
   const Id extends string,
   const Path extends `/${string}`,
->(input: { readonly id: Id; readonly path: Path }) {
+>(input: { readonly id: Id; readonly path: Path; readonly summary: string }) {
   return defineJsonOperation({
     auth: "session",
     body: ContainerMutationRequestSchema,
     failureResponses: containerMutationFailureResponses,
     failureStatuses: containerMutationFailureStatuses,
     id: input.id,
+    summary: input.summary,
     method: "POST",
     params: ContainerMutationPathParamsSchema,
     path: input.path,
@@ -117,13 +120,14 @@ function defineContainerMutationOperation<
 function defineContainerRotationOperation<
   const Id extends string,
   const Path extends `/${string}`,
->(input: { readonly id: Id; readonly path: Path }) {
+>(input: { readonly id: Id; readonly path: Path; readonly summary: string }) {
   return defineJsonOperation({
     auth: "session",
     body: ContainerRotationRequestSchema,
     failureResponses: containerMutationFailureResponses,
     failureStatuses: containerMutationFailureStatuses,
     id: input.id,
+    summary: input.summary,
     method: "POST",
     params: ContainerMutationPathParamsSchema,
     path: input.path,
@@ -134,6 +138,7 @@ function defineContainerRotationOperation<
 
 export const shareContainerOperation = defineContainerMutationOperation({
   id: "containers.share",
+  summary: "Share a container",
   path: "/containers/{containerId}/share",
 });
 
@@ -143,6 +148,7 @@ export const reciteContainerOperation = defineJsonOperation({
   failureResponses: containerMutationFailureResponses,
   failureStatuses: containerMutationFailureStatuses,
   id: "containers.recite",
+  summary: "Re-cite a held container's current ancestor path",
   method: "POST",
   params: ContainerMutationPathParamsSchema,
   path: "/containers/{containerId}/recite",
@@ -151,16 +157,19 @@ export const reciteContainerOperation = defineJsonOperation({
 
 export const revokeContainerOperation = defineContainerRotationOperation({
   id: "containers.revoke",
+  summary: "Revoke a container grant",
   path: "/containers/{containerId}/revoke",
 });
 
 export const rekeyContainerOperation = defineContainerRotationOperation({
   id: "containers.rekey",
+  summary: "Rekey a container",
   path: "/containers/{containerId}/rekey",
 });
 
 export const moveContainerOperation = defineContainerRotationOperation({
   id: "containers.move",
+  summary: "Move a container",
   path: "/containers/{containerId}/move",
 });
 
@@ -172,6 +181,7 @@ export const deleteContainerOperation = defineJsonOperation({
   },
   failureStatuses: containerMutationFailureStatuses,
   id: "containers.delete",
+  summary: "Delete a container",
   method: "DELETE",
   params: ContainerMutationPathParamsSchema,
   path: "/containers/{containerId}",
