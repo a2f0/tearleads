@@ -32,6 +32,7 @@ test("linked container details preserve order, names, and fallback labels", () =
     ),
   ).toEqual([
     {
+      available: true,
       canWrite: true,
       icon: "playlist",
       id: "archive-container",
@@ -39,6 +40,7 @@ test("linked container details preserve order, names, and fallback labels", () =
       label: "Archive",
     },
     {
+      available: false,
       canWrite: false,
       icon: null,
       id: "missing-container",
@@ -46,6 +48,7 @@ test("linked container details preserve order, names, and fallback labels", () =
       label: "missing-container",
     },
     {
+      available: true,
       canWrite: true,
       icon: null,
       id: "root-container",
@@ -74,6 +77,7 @@ test("linked container details preserve first matching node names", () => {
     ),
   ).toEqual([
     {
+      available: true,
       canWrite: true,
       icon: null,
       id: "root-container",

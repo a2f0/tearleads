@@ -123,6 +123,7 @@ export interface DocumentInfoPanelTestInput {
   requestAttributionProfileHydration?:
     | ExplorerAttributionProfileHydrationRequester
     | undefined;
+  setSelectedId?: ((id: string | null) => void) | undefined;
   showDocumentEditRanges?: boolean | undefined;
   showLinkedDocumentActivationControls?: boolean | undefined;
   unlinkDocument?: (
@@ -163,7 +164,7 @@ export function panelProps(input: DocumentInfoPanelTestInput) {
     openBlobBrowserRoute: () => undefined,
     requestAttributionProfileHydration:
       input.requestAttributionProfileHydration ?? (() => undefined),
-    setSelectedId: () => undefined,
+    setSelectedId: input.setSelectedId ?? (() => undefined),
     showDocumentEditRanges: input.showDocumentEditRanges ?? false,
     showLinkedDocumentActivationControls:
       input.showLinkedDocumentActivationControls ?? false,

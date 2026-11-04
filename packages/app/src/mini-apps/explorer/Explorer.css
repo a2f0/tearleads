@@ -121,21 +121,8 @@
   justify-content: space-between;
 }
 
-.explorer-linked-container-button {
-  padding: 0;
-  border: none;
-  font-size: var(--font-size-sm);
-  text-align: left;
-}
-
-.explorer-linked-container-button:hover {
-  text-decoration: underline;
-}
-
-.explorer-linked-container-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
+.explorer-linked-container-row > .explorer-item-name {
+  flex: 1 1 auto;
 }
 
 .explorer-linked-container-badge {

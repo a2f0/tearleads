@@ -287,6 +287,7 @@ function ExplorerDocumentInfoTabPanel(params: {
             <ExplorerDocumentInfoAuthorizingContainersSection
               containersById={params.containersById}
               documentInfo={params.documentInfo}
+              setSelectedId={params.setSelectedId}
             />
           ) : null}
         </>

@@ -1,24 +1,29 @@
+import { CheckCircleIcon } from "@phosphor-icons/react/dist/csr/CheckCircle";
+import { LinkBreakIcon } from "@phosphor-icons/react/dist/csr/LinkBreak";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { useState } from "react";
 import {
-  MiniAppButton,
   MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { MiniAppRow } from "../../../../components/mini-app/rows/MiniAppRow";
 import { isIgnorableDatabaseWorkerError } from "../../../../stores/explorer/documentRuntime";
 import {
   EXPLORER_LABELS,
   getExplorerActivateLinkedContainerError,
   getExplorerDetachLinkedContainerError,
-  getExplorerDetachLinkedContainerLabel,
-  getExplorerMakeLinkedContainerActiveLabel,
-  getExplorerOpenLinkedContainerLabel,
 } from "../../labels";
 import { canWriteContainerNode } from "../../model/containerRules";
-import { ExplorerContainerIcon } from "../../shared/ExplorerContainerIcon";
+import { compactId } from "../compactId";
+import { ExplorerDetachLinkedContainerDialog } from "./ExplorerDetachLinkedContainerDialog";
+import {
+  type ExplorerInfoContainerAction,
+  ExplorerInfoContainerList,
+  ExplorerInfoContainerRow,
+  getGoToContainerAction,
+} from "./ExplorerInfoContainerRow";
 
 interface LinkedContainerDetail {
+  available: boolean;
   canWrite: boolean;
   icon: string | null;
   id: string;
@@ -42,11 +47,12 @@ export function getLinkedContainerDetails(
     const linkedContainer = nodesById.get(linkedContainerId);
 
     return {
+      available: linkedContainer !== undefined,
       id: linkedContainerId,
       canWrite: canWriteContainerNode(linkedContainer),
       icon: linkedContainer?.icon ?? null,
       isActive: linkedContainerId === activeContainerId,
-      label: linkedContainer?.name ?? linkedContainerId,
+      label: linkedContainer?.name ?? compactId(linkedContainerId),
     };
   });
 }
@@ -139,141 +145,113 @@ async function handleDetachLinkedContainer(params: {
   }
 }
 
-interface ExplorerLinkedContainerRowParams {
-  activateLinkedContainer: (
-    documentId: string,
-    targetContainerId: string,
-  ) => Promise<DocumentSummary | null>;
+type DocumentLinkMutation = (
+  documentId: string,
+  containerId: string,
+) => Promise<DocumentSummary | null>;
+
+interface LinkedContainerRowParams {
+  activateLinkedContainer: DocumentLinkMutation;
+  actionBusy: boolean;
   activatingContainerId: string | null;
   canActivateSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   linkedContainer: LinkedContainerDetail;
   logError: (message: string | Error, cause?: unknown) => void;
+  requestDetach: (linkedContainer: LinkedContainerDetail) => void;
   selectedDocumentId: string;
-  setActivatingContainerId: (containerId: string | null) => void;
   setActionError: (error: string | null) => void;
+  setActivatingContainerId: (containerId: string | null) => void;
   setSelectedId: (id: string | null) => void;
-  setUnlinkingContainerId: (containerId: string | null) => void;
   showActivationControls: boolean;
-  unlinkingContainerId: string | null;
-  unlinkDocument: (
-    documentId: string,
-    removedContainerId: string,
-  ) => Promise<DocumentSummary | null>;
 }
 
-function ExplorerLinkedContainerRow(params: ExplorerLinkedContainerRowParams) {
-  const {
-    activateLinkedContainer,
-    activatingContainerId,
-    canActivateSelectedDocument,
-    canUnlinkSelectedDocument,
-    linkedContainer,
-    logError,
-    selectedDocumentId,
-    setActivatingContainerId,
-    setActionError,
-    setSelectedId,
-    setUnlinkingContainerId,
-    showActivationControls,
-    unlinkingContainerId,
-    unlinkDocument,
-  } = params;
-  const actionBusy =
-    activatingContainerId !== null || unlinkingContainerId !== null;
-  const canUnlinkLinkedContainer =
-    canUnlinkSelectedDocument && linkedContainer.canWrite;
+function getMakeActiveAction(
+  params: LinkedContainerRowParams,
+): ExplorerInfoContainerAction | null {
+  const { actionBusy, linkedContainer } = params;
+  if (!params.showActivationControls || linkedContainer.isActive) {
+    return null;
+  }
+
+  return {
+    disabled: !params.canActivateSelectedDocument || actionBusy,
+    icon: CheckCircleIcon,
+    id: "make-active",
+    label:
+      params.activatingContainerId === linkedContainer.id
+        ? EXPLORER_LABELS.linkedContainerActivatingAction
+        : EXPLORER_LABELS.linkedContainerMakeActiveAction,
+    onSelect: () => {
+      if (actionBusy) {
+        return;
+      }
+
+      void handleActivateLinkedContainer({
+        activateLinkedContainer: params.activateLinkedContainer,
+        linkedContainer,
+        logError: params.logError,
+        selectedDocumentId: params.selectedDocumentId,
+        setActionError: params.setActionError,
+        setActivatingContainerId: params.setActivatingContainerId,
+      });
+    },
+  };
+}
+
+function getLinkedContainerActions(
+  params: LinkedContainerRowParams,
+): ReadonlyArray<ExplorerInfoContainerAction> {
+  const { actionBusy, linkedContainer } = params;
+  const makeActive = getMakeActiveAction(params);
+
+  return [
+    getGoToContainerAction({
+      available: linkedContainer.available,
+      containerId: linkedContainer.id,
+      setSelectedId: params.setSelectedId,
+    }),
+    ...(makeActive ? [makeActive] : []),
+    {
+      disabled:
+        !params.canUnlinkSelectedDocument ||
+        !linkedContainer.canWrite ||
+        actionBusy,
+      icon: LinkBreakIcon,
+      id: "detach",
+      label: EXPLORER_LABELS.linkedContainerDetachMenuAction,
+      onSelect: () => {
+        if (!actionBusy) {
+          params.requestDetach(linkedContainer);
+        }
+      },
+    },
+  ];
+}
+
+function LinkedContainerRow(params: LinkedContainerRowParams) {
+  const { linkedContainer } = params;
 
   return (
-    <MiniAppRow
-      as="li"
-      className="explorer-linked-container-row"
-      variant="framed"
-    >
-      <MiniAppButton
-        className="explorer-linked-container-button"
-        variant="ghost"
-        aria-label={getExplorerOpenLinkedContainerLabel(linkedContainer.label)}
-        onClick={() => {
-          setSelectedId(linkedContainer.id);
-        }}
-      >
-        <span className="explorer-item-name">
-          <ExplorerContainerIcon
-            className="explorer-folder-icon"
-            icon={linkedContainer.icon}
-          />
-          {linkedContainer.label}
-        </span>
-      </MiniAppButton>
-      <div className="explorer-linked-container-actions">
-        {showActivationControls ? (
-          linkedContainer.isActive ? (
-            <span className="explorer-linked-container-badge">
-              {EXPLORER_LABELS.linkedContainerActiveBadge}
-            </span>
-          ) : (
-            <MiniAppButton
-              aria-label={getExplorerMakeLinkedContainerActiveLabel(
-                linkedContainer.label,
-              )}
-              disabled={!canActivateSelectedDocument || actionBusy}
-              onClick={() => {
-                if (actionBusy) {
-                  return;
-                }
-
-                void handleActivateLinkedContainer({
-                  activateLinkedContainer,
-                  logError,
-                  linkedContainer,
-                  selectedDocumentId,
-                  setActionError,
-                  setActivatingContainerId,
-                });
-              }}
-            >
-              {activatingContainerId === linkedContainer.id
-                ? EXPLORER_LABELS.linkedContainerActivatingAction
-                : EXPLORER_LABELS.linkedContainerMakeActiveAction}
-            </MiniAppButton>
-          )
-        ) : null}
-        <MiniAppButton
-          aria-label={getExplorerDetachLinkedContainerLabel(
-            linkedContainer.label,
-          )}
-          disabled={!canUnlinkLinkedContainer || actionBusy}
-          onClick={() => {
-            if (actionBusy) {
-              return;
-            }
-
-            void handleDetachLinkedContainer({
-              linkedContainer,
-              logError,
-              selectedDocumentId,
-              setActionError,
-              setUnlinkingContainerId,
-              unlinkDocument,
-            });
-          }}
-        >
-          {unlinkingContainerId === linkedContainer.id
-            ? EXPLORER_LABELS.linkedContainerDetachingAction
-            : EXPLORER_LABELS.linkedContainerDetachAction}
-        </MiniAppButton>
-      </div>
-    </MiniAppRow>
+    <ExplorerInfoContainerRow
+      actions={getLinkedContainerActions(params)}
+      containerId={linkedContainer.id}
+      icon={linkedContainer.icon}
+      label={linkedContainer.label}
+      trailing={
+        params.showActivationControls && linkedContainer.isActive ? (
+          <span className="explorer-linked-container-badge">
+            {EXPLORER_LABELS.linkedContainerActiveBadge}
+          </span>
+        ) : null
+      }
+    />
   );
 }
 
 export function ExplorerLinkedContainerSection(params: {
   activeContainerId: string | null;
-  activateLinkedContainer: (
-    documentId: string,
-    targetContainerId: string,
-  ) => Promise<DocumentSummary | null>;
+  activateLinkedContainer: DocumentLinkMutation;
   canActivateSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   linkedContainerIds: ReadonlyArray<string>;
@@ -282,24 +260,9 @@ export function ExplorerLinkedContainerSection(params: {
   selectedDocumentId: string;
   setSelectedId: (id: string | null) => void;
   showActivationControls: boolean;
-  unlinkDocument: (
-    documentId: string,
-    removedContainerId: string,
-  ) => Promise<DocumentSummary | null>;
+  unlinkDocument: DocumentLinkMutation;
 }) {
-  const {
-    activeContainerId,
-    activateLinkedContainer,
-    canActivateSelectedDocument,
-    canUnlinkSelectedDocument,
-    linkedContainerIds,
-    logError,
-    nodes,
-    selectedDocumentId,
-    setSelectedId,
-    showActivationControls,
-    unlinkDocument,
-  } = params;
+  const { logError, selectedDocumentId, unlinkDocument } = params;
   const [actionError, setActionError] = useState<string | null>(null);
   const [activatingContainerId, setActivatingContainerId] = useState<
     string | null
@@ -307,46 +270,69 @@ export function ExplorerLinkedContainerSection(params: {
   const [unlinkingContainerId, setUnlinkingContainerId] = useState<
     string | null
   >(null);
+  const [detachCandidate, setDetachCandidate] =
+    useState<LinkedContainerDetail | null>(null);
   const linkedContainers = getLinkedContainerDetails(
-    nodes,
-    linkedContainerIds,
-    activeContainerId,
+    params.nodes,
+    params.linkedContainerIds,
+    params.activeContainerId,
   );
+  const actionBusy =
+    activatingContainerId !== null || unlinkingContainerId !== null;
 
   return (
     <MiniAppInfoSection
       className="explorer-linked-container-section"
       heading={EXPLORER_LABELS.linkedContainersHeading}
     >
+      <MiniAppStatus>{EXPLORER_LABELS.linkedContainersHint}</MiniAppStatus>
       {linkedContainers.length === 0 ? (
         <MiniAppStatus>{EXPLORER_LABELS.linkedContainersEmpty}</MiniAppStatus>
       ) : (
-        <ul className="explorer-linked-container-list">
+        <ExplorerInfoContainerList
+          aria-label={EXPLORER_LABELS.linkedContainersHeading}
+        >
           {linkedContainers.map((linkedContainer) => (
-            <ExplorerLinkedContainerRow
-              activateLinkedContainer={activateLinkedContainer}
+            <LinkedContainerRow
+              actionBusy={actionBusy}
+              activateLinkedContainer={params.activateLinkedContainer}
               activatingContainerId={activatingContainerId}
-              canActivateSelectedDocument={canActivateSelectedDocument}
-              canUnlinkSelectedDocument={canUnlinkSelectedDocument}
+              canActivateSelectedDocument={params.canActivateSelectedDocument}
+              canUnlinkSelectedDocument={params.canUnlinkSelectedDocument}
               key={linkedContainer.id}
               linkedContainer={linkedContainer}
               logError={logError}
+              requestDetach={setDetachCandidate}
               selectedDocumentId={selectedDocumentId}
-              setActivatingContainerId={setActivatingContainerId}
               setActionError={setActionError}
-              setSelectedId={setSelectedId}
-              setUnlinkingContainerId={setUnlinkingContainerId}
-              showActivationControls={showActivationControls}
-              unlinkingContainerId={unlinkingContainerId}
-              unlinkDocument={unlinkDocument}
+              setActivatingContainerId={setActivatingContainerId}
+              setSelectedId={params.setSelectedId}
+              showActivationControls={params.showActivationControls}
             />
           ))}
-        </ul>
+        </ExplorerInfoContainerList>
       )}
       {actionError ? (
         <MiniAppStatus as="span" tone="error">
           {actionError}
         </MiniAppStatus>
+      ) : null}
+      {detachCandidate ? (
+        <ExplorerDetachLinkedContainerDialog
+          busy={unlinkingContainerId !== null}
+          containerLabel={detachCandidate.label}
+          onCancel={() => setDetachCandidate(null)}
+          onConfirm={() => {
+            void handleDetachLinkedContainer({
+              linkedContainer: detachCandidate,
+              logError,
+              selectedDocumentId,
+              setActionError,
+              setUnlinkingContainerId,
+              unlinkDocument,
+            }).finally(() => setDetachCandidate(null));
+          }}
+        />
       ) : null}
     </MiniAppInfoSection>
   );
