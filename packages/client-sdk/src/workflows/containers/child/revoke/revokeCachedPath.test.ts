@@ -14,6 +14,7 @@ import {
 import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancestorRotationRecovery";
 import { createRecipientIdentityResolver } from "../../../../../test/helpers/containerFixtures";
 import { createContainerServer } from "../../../../../test/helpers/containerMutationServer";
+import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { rekeyRemoteContainer } from "../rekey/rekeyRemote";
 import { revokeRemoteContainer } from "../revoke";
@@ -94,6 +95,54 @@ test.each([false, true])(
       });
       if (repeatRollback) {
         await expect(revoke).rejects.toThrow("older than the local checkpoint");
+        expect(server.submissions).toEqual([]);
+      } else {
+        expect(await revoke).not.toBeNull();
+        expect(server.submissions).toEqual([[input.containerId]]);
+      }
+      expect(counts).toEqual({ projections: 2, evicted: 1 });
+    } finally {
+      database.close();
+    }
+  },
+);
+
+// A checkpoint another workflow pinned meanwhile can leave the cached path's
+// history short of it; verification refuses that as a retryable missing
+// dependency, and the revoke replans once from a fresh projection.
+test.each([1, 2])(
+  "a revoke whose history misses a newer checkpoint replans once (%i unavailable)",
+  async (unavailablePlans) => {
+    const { database, server, input, successor } = await fixture();
+    const counts = { projections: 0, evicted: 0 };
+    try {
+      const revoke = revokeRemoteContainer({
+        ...input,
+        revokedSubject: { subjectType: "user", subjectId: "recipient" },
+        resolveProjectionUserKey: async (userId: string) => {
+          if (counts.projections <= unavailablePlans)
+            throw new ProjectionDependencyUnavailableError(
+              "Public history cannot connect to the newer durable checkpoint",
+            );
+          return input.resolveProjectionUserKey(userId);
+        },
+        apiClient: {
+          ...server.apiClient,
+          getContainerWriterProjection: async () => {
+            counts.projections += 1;
+            return successor;
+          },
+          evictContainerWriterProjection: () => {
+            counts.evicted += 1;
+          },
+          revokeContainer: server.apiClient.rekeyContainer,
+          revokeContainerResult: server.apiClient.rekeyContainerResult,
+        },
+      });
+      if (unavailablePlans > 1) {
+        await expect(revoke).rejects.toMatchObject({
+          name: "ProjectionDependencyUnavailableError",
+        });
         expect(server.submissions).toEqual([]);
       } else {
         expect(await revoke).not.toBeNull();

@@ -49,6 +49,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
+import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -452,13 +453,16 @@ async function revokeRemoteContainerAttempt(
       accepted = true;
     });
   } catch (error) {
-    // Our own or a carried descendant's cached projection may trail a pin.
-    // Refresh only a refused/unsubmitted attempt, never an accepted rotation.
+    // Our own or a carried descendant's cached projection may trail a pin,
+    // or its history a checkpoint pinned meanwhile (a retryable missing
+    // dependency). Refresh only a refused/unsubmitted attempt, never an
+    // accepted rotation.
     if (
       retriesStalePath &&
       !accepted &&
-      error instanceof KeyingVerificationError &&
-      error.code === "rollback"
+      ((error instanceof KeyingVerificationError &&
+        error.code === "rollback") ||
+        error instanceof ProjectionDependencyUnavailableError)
     )
       return STALE_PATH;
     throw error;

@@ -20,6 +20,7 @@ interface ExplorerContainerInfoShareParams {
   canShareContainer: boolean;
   containerId: string;
   isSubmitting: boolean;
+  logError: (message: string | Error, cause?: unknown) => void;
   reloadContainerInfo: ReloadExplorerContainerInfo;
   setIsSubmitting: (value: boolean) => void;
   setPanelError: (error: string | null) => void;
@@ -177,6 +178,7 @@ async function runContainerInfoShare(params: {
   // when it returns one.
   errorLabelFor?: ((error: unknown) => string | null) | undefined;
   failureLabel: string;
+  logError: (message: string | Error, cause?: unknown) => void;
   optimisticGrant: NonNullable<
     ReloadExplorerContainerInfoOptions["optimisticGrant"]
   >;
@@ -189,6 +191,7 @@ async function runContainerInfoShare(params: {
     errorLabel,
     errorLabelFor,
     failureLabel,
+    logError,
     optimisticGrant,
     reloadContainerInfo,
     setIsSubmitting,
@@ -206,6 +209,8 @@ async function runContainerInfoShare(params: {
 
     await reloadContainerInfo({ optimisticGrant });
   } catch (error) {
+    // The panel shows a fixed label; keep the cause for diagnosis.
+    logError(errorLabel, error);
     setPanelError(errorLabelFor?.(error) ?? errorLabel);
   } finally {
     setIsSubmitting(false);
@@ -222,6 +227,7 @@ export function useExplorerContainerInfoGroupShare(
     draftShareGroupId,
     draftShareGroupName,
     isSubmitting,
+    logError,
     reloadContainerInfo,
     setIsSubmitting,
     setPanelError,
@@ -256,6 +262,7 @@ export function useExplorerContainerInfoGroupShare(
             ? EXPLORER_LABELS.containerInfoShareToGroupNameMismatch
             : null,
         failureLabel: EXPLORER_LABELS.containerInfoShareToGroupFailure,
+        logError,
         optimisticGrant: {
           accessLevel: draftShareAccessLevel,
           subjectId: draftShareGroupId,
@@ -282,6 +289,7 @@ export function useExplorerContainerInfoGroupShare(
       draftShareGroupName,
       draftShareGroupId,
       isSubmitting,
+      logError,
       reloadContainerInfo,
       setIsSubmitting,
       setPanelError,
@@ -297,6 +305,7 @@ export function useExplorerContainerInfoPeerShare(
     canShareContainer,
     containerId,
     isSubmitting,
+    logError,
     peerUserId,
     reloadContainerInfo,
     setIsSubmitting,
@@ -312,6 +321,7 @@ export function useExplorerContainerInfoPeerShare(
     await runContainerInfoShare({
       errorLabel: EXPLORER_LABELS.containerInfoShareToPeerFailure,
       failureLabel: EXPLORER_LABELS.containerInfoShareToPeerFailure,
+      logError,
       optimisticGrant: {
         accessLevel: DEFAULT_SHARE_ACCESS_LEVEL,
         subjectId: peerUserId,
@@ -326,6 +336,7 @@ export function useExplorerContainerInfoPeerShare(
     canShareContainer,
     containerId,
     isSubmitting,
+    logError,
     peerUserId,
     reloadContainerInfo,
     setIsSubmitting,
