@@ -299,11 +299,15 @@ export function getExplorerDocumentInfoTargetCountsLabel(input: {
   ].join(", ");
 }
 
-export function getExplorerDocumentInfoPathLengthLabel(value: number): string {
+export function getExplorerDocumentInfoPathLevelsLabel(value: number): string {
   return formatExplorerCountLabel(value, {
-    one: EXPLORER_LABELS.documentInfoPathEntryCountOne,
-    other: EXPLORER_LABELS.documentInfoPathEntryCountOther,
+    one: EXPLORER_LABELS.documentInfoPathLevelCountOne,
+    other: EXPLORER_LABELS.documentInfoPathLevelCountOther,
   });
+}
+
+export function getExplorerDocumentInfoManifestLabel(hash: string): string {
+  return `${EXPLORER_LABELS.documentInfoManifestPrefix} ${hash}`;
 }
 
 export function getExplorerDocumentInfoEpochLabel(value: number): string {
@@ -337,16 +341,10 @@ export function getExplorerActivateLinkedContainerError(
   return `Failed to make ${containerName} active.`;
 }
 
-export function getExplorerDetachLinkedContainerLabel(
+export function getExplorerDetachLinkedContainerConfirmTitle(
   containerName: string,
 ): string {
-  return `Detach linked container ${containerName}`;
-}
-
-export function getExplorerMakeLinkedContainerActiveLabel(
-  containerName: string,
-): string {
-  return `Make linked container ${containerName} active`;
+  return `Detach from ${containerName}?`;
 }
 
 /**
@@ -376,12 +374,6 @@ export function getExplorerContainerInfoInheritedGrantSource(
   containerName: string,
 ): string {
   return `Inherited from ${containerName}`;
-}
-
-export function getExplorerOpenLinkedContainerLabel(
-  containerName: string,
-): string {
-  return `Open linked container ${containerName}`;
 }
 
 export function getExplorerFileImportingStatus(input: {

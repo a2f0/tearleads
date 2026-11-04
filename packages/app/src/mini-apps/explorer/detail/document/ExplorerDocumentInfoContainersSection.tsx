@@ -3,73 +3,96 @@ import {
   MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
 import {
   EXPLORER_LABELS,
   getExplorerDocumentInfoEpochLabel,
-  getExplorerDocumentInfoPathLengthLabel,
+  getExplorerDocumentInfoManifestLabel,
+  getExplorerDocumentInfoPathLevelsLabel,
 } from "../../labels";
-import { ExplorerContainerIcon } from "../../shared/ExplorerContainerIcon";
 import { compactId } from "../compactId";
+import {
+  ExplorerInfoContainerList,
+  ExplorerInfoContainerRow,
+  getGoToContainerAction,
+} from "./ExplorerInfoContainerRow";
+
+type AuthorizingContainerPath = NonNullable<
+  DocumentInfo["remoteInfo"]
+>["authorizingContainerPaths"][number];
+
+// `2 levels · manifest abc… · epoch 4`; each part's title carries its full
+// name and value, since the line itself is abbreviated.
+function AuthorizingPathMetadata(props: { path: AuthorizingContainerPath }) {
+  const { path } = props;
+  const levels = getExplorerDocumentInfoPathLevelsLabel(path.pathLength);
+
+  return (
+    <>
+      <span title={`${EXPLORER_LABELS.documentInfoPathLabel}: ${levels}`}>
+        {levels}
+      </span>
+      {" · "}
+      <span
+        title={`${EXPLORER_LABELS.documentInfoManifestLabel}: ${path.leafManifestHash ?? "-"}`}
+      >
+        {getExplorerDocumentInfoManifestLabel(compactId(path.leafManifestHash))}
+      </span>
+      {path.containerKeyEpoch != null ? (
+        <>
+          {" · "}
+          <span
+            title={`${EXPLORER_LABELS.documentInfoKeyEpochLabel}: ${path.containerKeyEpochId ?? path.containerKeyEpoch}`}
+          >
+            {getExplorerDocumentInfoEpochLabel(path.containerKeyEpoch)}
+          </span>
+        </>
+      ) : null}
+    </>
+  );
+}
 
 export function ExplorerDocumentInfoAuthorizingContainersSection(params: {
   containersById: ReadonlyMap<string, ContainerNode>;
   documentInfo: DocumentInfo;
+  setSelectedId: (id: string | null) => void;
 }) {
-  const remoteInfo = params.documentInfo.remoteInfo;
-  const rows = remoteInfo?.authorizingContainerPaths ?? [];
+  const rows = params.documentInfo.remoteInfo?.authorizingContainerPaths ?? [];
 
   return (
     <MiniAppInfoSection
       heading={EXPLORER_LABELS.documentInfoAuthorizingContainersHeading}
     >
+      <MiniAppStatus>
+        {EXPLORER_LABELS.documentInfoAuthorizingContainersHint}
+      </MiniAppStatus>
       {rows.length === 0 ? (
         <MiniAppStatus>
           {EXPLORER_LABELS.documentInfoNoAuthorizingContainers}
         </MiniAppStatus>
       ) : (
-        <MiniAppInfoTable>
-          <thead>
-            <tr>
-              <th>{EXPLORER_LABELS.documentInfoContainerColumn}</th>
-              <th>{EXPLORER_LABELS.containerInfoLaneColumn}</th>
-              <th>{EXPLORER_LABELS.containerInfoCursorColumn}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const container = params.containersById.get(row.containerId);
-              return (
-                <tr key={`${row.containerId}:${row.leafManifestHash ?? ""}`}>
-                  <td title={row.containerId}>
-                    <span className="explorer-item-name">
-                      <ExplorerContainerIcon
-                        className="explorer-folder-icon"
-                        icon={container?.icon}
-                      />
-                      {container?.name ?? compactId(row.containerId)}
-                    </span>
-                  </td>
-                  <td>
-                    {getExplorerDocumentInfoPathLengthLabel(row.pathLength)}
-                  </td>
-                  <td>
-                    <div title={row.leafManifestHash ?? undefined}>
-                      {compactId(row.leafManifestHash)}
-                    </div>
-                    <code title={row.containerKeyEpochId ?? undefined}>
-                      {row.containerKeyEpoch != null
-                        ? getExplorerDocumentInfoEpochLabel(
-                            row.containerKeyEpoch,
-                          )
-                        : "-"}
-                    </code>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </MiniAppInfoTable>
+        <ExplorerInfoContainerList
+          aria-label={EXPLORER_LABELS.documentInfoAuthorizingContainersHeading}
+        >
+          {rows.map((row) => {
+            const container = params.containersById.get(row.containerId);
+            return (
+              <ExplorerInfoContainerRow
+                actions={[
+                  getGoToContainerAction({
+                    available: container !== undefined,
+                    containerId: row.containerId,
+                    setSelectedId: params.setSelectedId,
+                  }),
+                ]}
+                containerId={row.containerId}
+                icon={container?.icon}
+                key={`${row.containerId}:${row.leafManifestHash ?? ""}`}
+                label={container?.name ?? compactId(row.containerId)}
+                metadata={<AuthorizingPathMetadata path={row} />}
+              />
+            );
+          })}
+        </ExplorerInfoContainerList>
       )}
     </MiniAppInfoSection>
   );

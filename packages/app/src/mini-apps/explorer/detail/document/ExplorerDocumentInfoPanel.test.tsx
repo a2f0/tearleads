@@ -1,6 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import type { DocumentInfo } from "@tearleads/client-sdk";
-import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { createElement } from "react";
 import type { ExplorerAttributionProfileHydrationRequester } from "../../hooks/explorerAttributionReadModel";
 import { ExplorerDocumentInfoPanel } from "./ExplorerDocumentInfoPanel";
@@ -111,15 +117,12 @@ test("document info links tab renders linked containers", async () => {
 
   await waitFor(() => {
     expect(
-      view.getByRole("button", {
-        name: "Open linked container Archive",
-      }),
+      view.getByRole("button", { name: "Actions for Archive" }),
     ).toBeTruthy();
   });
   expect(view.queryByText("Active")).toBeNull();
-  expect(
-    view.queryByRole("button", { name: /make linked container/i }),
-  ).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Actions for Archive" }));
+  expect(view.queryByRole("button", { name: /make active/i })).toBeNull();
   expect(view.getByText("Authorizing Containers")).toBeTruthy();
 });
 
@@ -139,11 +142,8 @@ test("document info links tab restores activation controls when enabled", async 
   await waitFor(() => {
     expect(view.getByText("Active")).toBeTruthy();
   });
-  fireEvent.click(
-    view.getByRole("button", {
-      name: "Make linked container Archive active",
-    }),
-  );
+  fireEvent.click(view.getByRole("button", { name: "Actions for Archive" }));
+  fireEvent.click(view.getByRole("button", { name: "Make Active" }));
 
   await waitFor(() => {
     expect(activatedContainers).toEqual([
@@ -347,13 +347,12 @@ test("document info reports a thrown detach and keeps the row's error label", as
   });
 
   fireEvent.click(view.getByRole("tab", { name: "Links" }));
-  await waitFor(() => {
-    expect(
-      view.getByRole("button", { name: "Detach linked container Archive" }),
-    ).toBeTruthy();
-  });
   fireEvent.click(
-    view.getByRole("button", { name: "Detach linked container Archive" }),
+    await view.findByRole("button", { name: "Actions for Archive" }),
+  );
+  fireEvent.click(view.getByRole("button", { name: "Detach…" }));
+  fireEvent.click(
+    within(view.getByRole("dialog")).getByRole("button", { name: "Detach" }),
   );
 
   await waitFor(() => {
@@ -362,4 +361,5 @@ test("document info reports a thrown detach and keeps the row's error label", as
     ]);
   });
   expect(view.getByText(/Failed to detach/)).toBeTruthy();
+  expect(view.queryByRole("dialog")).toBeNull();
 });
