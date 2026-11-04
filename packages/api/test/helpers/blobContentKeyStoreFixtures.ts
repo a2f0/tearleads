@@ -7,17 +7,11 @@ import {
   attachmentBindings,
   containerKeyEpochs,
 } from "@tearleads/api-shared/schema";
-import { computeKeyingDomainHash } from "@tearleads/crypto";
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import type { BlobContentKeyTargetEnvelope } from "../../src/access/read/blobContentKeyStore";
 import type { resolveCurrentBlobKekTargets } from "../../src/access/read/blobKekTargets";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
-
-export async function hashOf(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
-    label,
-  });
-}
+import { hashOf } from "./keyingLabelHash";
 
 export async function ensureContainerHead(input: {
   readonly containerId: string;
