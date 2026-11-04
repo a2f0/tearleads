@@ -138,7 +138,11 @@ test("POST /documents/:documentId/link rejects stale previous manifests", async 
   });
 });
 
-test("POST /documents/:documentId/unlink advances a signed link-set manifest", async () => {
+/**
+ * An owner's document with one committed update, linked to its root and to
+ * one child container: an unlink must now rotate past that update.
+ */
+async function linkDocumentWithCommittedUpdate() {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -177,17 +181,13 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
     await linkResponse.json(),
   );
   expect(isDocumentLinkSetMutationResponse(linkedDocument)).toBe(true);
-  const preUnlinkUpdatedAt = new Date("2026-05-05T00:00:00.000Z");
-  await db
-    .update(documents)
-    .set({ updatedAt: preUnlinkUpdatedAt })
-    .where(eq(documents.id, createdDocument.id));
-  await db
-    .update(containers)
-    .set({ updatedAt: preUnlinkUpdatedAt })
-    .where(
-      inArray(containers.id, [root.kekState.containerId, child.containerId]),
-    );
+
+  return { child, createdDocument, linkedDocument, owner, root };
+}
+
+test("POST /documents/:documentId/unlink requires a rotation baseline covering committed updates", async () => {
+  const { child, createdDocument, linkedDocument, owner, root } =
+    await linkDocumentWithCommittedUpdate();
 
   const missingBaselineRequest = await buildDocumentUnlinkRequest({
     child,
@@ -212,6 +212,11 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
     error:
       "Document unlink requires a rotation baseline covering committed updates",
   });
+});
+
+test("POST /documents/:documentId/unlink rolls back a stale atomic rotation baseline", async () => {
+  const { child, createdDocument, linkedDocument, owner, root } =
+    await linkDocumentWithCommittedUpdate();
 
   await expectStaleAtomicUnlinkRollsBack({
     buildRequest: () =>
@@ -225,6 +230,23 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
     documentId: createdDocument.id,
     token: owner.token,
   });
+});
+
+test("POST /documents/:documentId/unlink advances a signed link-set manifest", async () => {
+  const { child, createdDocument, linkedDocument, owner, root } =
+    await linkDocumentWithCommittedUpdate();
+
+  const preUnlinkUpdatedAt = new Date("2026-05-05T00:00:00.000Z");
+  await db
+    .update(documents)
+    .set({ updatedAt: preUnlinkUpdatedAt })
+    .where(eq(documents.id, createdDocument.id));
+  await db
+    .update(containers)
+    .set({ updatedAt: preUnlinkUpdatedAt })
+    .where(
+      inArray(containers.id, [root.kekState.containerId, child.containerId]),
+    );
 
   const unlinkRequest = await buildDocumentUnlinkRequest({
     child,

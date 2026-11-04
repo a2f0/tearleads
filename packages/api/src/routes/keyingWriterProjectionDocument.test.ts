@@ -184,7 +184,8 @@ test("GET /documents/:documentId/writer-projection rejects malformed stored docu
   expect(projectionResponse.status).toBe(409);
 });
 
-test("GET /documents/:documentId/writer-projection returns multi-linked container paths", async () => {
+/** An owner's document linked to its root and to one child container. */
+async function linkDocumentToChild() {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -212,6 +213,12 @@ test("GET /documents/:documentId/writer-projection returns multi-linked containe
   expect(linkResponse.status).toBe(200);
   const linked = await linkResponse.json();
   expect(isDocumentLinkSetMutationResponse(linked)).toBe(true);
+
+  return { child, createdDocument, owner, root };
+}
+
+test("GET /documents/:documentId/writer-projection returns multi-linked container paths", async () => {
+  const { child, createdDocument, owner, root } = await linkDocumentToChild();
 
   const projectionResponse = await routeApp.request(
     `/documents/${createdDocument.id}/writer-projection`,
@@ -265,6 +272,10 @@ test("GET /documents/:documentId/writer-projection returns multi-linked containe
       ],
     ]),
   );
+});
+
+test("GET /documents/:documentId/writer-projection serves healthy linked paths and rejects when none remain", async () => {
+  const { child, createdDocument, owner, root } = await linkDocumentToChild();
 
   const destinationParent = await createChildContainer({
     parent: root,
