@@ -16,25 +16,17 @@ import {
 } from "@tearleads/api-shared/schema";
 import type {
   DocumentAccessEventBody,
-  DocumentLinkAccessEventBody,
-  DocumentLinkSetManifestState,
   KeyingCanonicalJson,
 } from "@tearleads/crypto";
-import {
-  computeAccessEventHash,
-  computeAccessManifestHash,
-  computeDocumentContentKeyTargetHash,
-  deriveDocumentLinkSetManifest,
-} from "@tearleads/crypto";
+import { computeAccessEventHash } from "@tearleads/crypto";
 import { emptyVersionVector } from "@tearleads/loro";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { createTestUser } from "@tearleads/test-utils";
 import type {
   ContainerManifestRef,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import {
-  type ContainerMutationResponse,
   DOCUMENT_PROJECTION_ERROR_CODES,
   type DocumentWriterProjectionResponse,
   isContainerMutationResponse,
@@ -51,14 +43,13 @@ import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
 } from "../../test/helpers/containerRekey";
-import { contentKeyEnvelopeFixture } from "../../test/helpers/contentKeyEnvelope";
 import { currentDocumentLinkRows } from "../../test/helpers/currentDocumentLinks";
+import { withDocumentMutationArtifacts } from "../../test/helpers/documentAcknowledgementFixture";
 import {
-  type LinkedDocumentFixture,
-  withDocumentMutationArtifacts,
-} from "../../test/helpers/documentAcknowledgementFixture";
+  buildDocumentLinkRequest,
+  buildDocumentUnlinkRequest,
+} from "../../test/helpers/documentLinkMutation";
 import {
-  createSignedAtomicRotationBaseline,
   createSignedDocumentSyncRequest,
   expectStaleAtomicUnlinkRollsBack,
 } from "../../test/helpers/documentUpdateRequests";
@@ -81,6 +72,7 @@ import {
   decodeServedContainerProjection,
   decodeServedDocumentProjection,
 } from "../../test/helpers/servedWriterProjection";
+import { postDocumentSync } from "../../test/helpers/staleBundleHealKit";
 import {
   type StoredContainerMutation,
   withStoredContainerMutation,
@@ -202,225 +194,6 @@ test("POST /documents applies optional container rekeys before target validation
     ),
   ).toEqual([root.bundle.manifestHash]);
 });
-
-async function buildDocumentLinkRequest(input: {
-  readonly child: ContainerMutationResponse;
-  readonly createdDocument: Awaited<ReturnType<typeof createDocument>>;
-  readonly owner: TestUser;
-  readonly root: StoredRootFixture;
-}): Promise<DocumentLinkSetMutationRequest> {
-  const childBundle = await accessManifestFromContainerResponse(input.child);
-  const childKek = await kekStateFromContainerResponse(input.child);
-  const previousState = input.createdDocument.accessManifest.state;
-  const documentId = input.createdDocument.id;
-  const body: DocumentLinkAccessEventBody = {
-    blobRewraps: [],
-    eventType: "document.link",
-    containerId: input.child.containerId,
-    containerManifestHash: childBundle.manifestHash,
-  };
-  const event = await createSignedAccessEvent({
-    body,
-    dependencyManifestHashes: [
-      input.root.bundle.manifestHash,
-      childBundle.manifestHash,
-    ],
-    objectId: documentId,
-    objectKind: "document",
-    organizationId: asVerifiedContainerManifest(input.root.bundle).state
-      .organizationId,
-    previousManifestHash: input.createdDocument.manifestHash,
-    signer: input.owner,
-  });
-  const state: DocumentLinkSetManifestState = {
-    version: 1,
-    documentId,
-    organizationId: asVerifiedContainerManifest(input.root.bundle).state
-      .organizationId,
-    epoch:
-      typeof Reflect.get(previousState, "epoch") === "number"
-        ? Number(Reflect.get(previousState, "epoch")) + 1
-        : 2,
-    previousManifestHash: input.createdDocument.manifestHash,
-    eventHash: event.eventHash,
-    linkedContainerIds: [
-      input.root.kekState.containerId,
-      input.child.containerId,
-    ],
-  };
-  const manifest = await deriveDocumentLinkSetManifest(state);
-  const manifestHash = await computeAccessManifestHash(manifest);
-  const targets = [
-    ...input.createdDocument.documentKekTargets.targets.map((target) => ({
-      containerId: String(Reflect.get(target, "containerId")),
-      containerManifestHash: String(
-        Reflect.get(target, "containerManifestHash"),
-      ),
-      containerKeyEpochId: String(Reflect.get(target, "containerKeyEpochId")),
-      containerKeyEpoch: Number(Reflect.get(target, "containerKeyEpoch")),
-    })),
-    {
-      containerId: input.child.containerId,
-      containerManifestHash: childBundle.manifestHash,
-      containerKeyEpochId: childKek.containerKeyEpochId,
-      containerKeyEpoch: childKek.containerKeyEpoch,
-    },
-  ];
-  const targetHash = await computeDocumentContentKeyTargetHash(targets);
-
-  return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown as Record<string, unknown>,
-    expectedManifestHash: manifestHash,
-    manifest: manifest as unknown as Record<string, unknown>,
-    targetContainerPathRefs: [
-      {
-        containerId: input.root.kekState.containerId,
-        manifestHash: input.root.bundle.manifestHash,
-      },
-      {
-        containerId: input.child.containerId,
-        manifestHash: childBundle.manifestHash,
-      },
-    ],
-    authorizingContainerPathRefs: [
-      [
-        {
-          containerId: input.root.kekState.containerId,
-          manifestHash: input.root.bundle.manifestHash,
-        },
-      ],
-    ],
-    contentKeyBundle: {
-      contentKeyEpoch: input.createdDocument.contentKeyEpoch,
-      linkSetManifestHash: manifestHash,
-      targetHash,
-      targets: [
-        ...input.createdDocument.contentKeyBundle.targets,
-        {
-          containerId: input.child.containerId,
-          containerManifestHash: childBundle.manifestHash,
-          containerKeyEpochId: childKek.containerKeyEpochId,
-          containerKeyEpoch: childKek.containerKeyEpoch,
-          ...contentKeyEnvelopeFixture(
-            "Document",
-            `document-key:${documentId}:child`,
-          ),
-        },
-      ],
-    },
-  };
-}
-
-async function buildDocumentUnlinkRequest(input: {
-  readonly child: ContainerMutationResponse;
-  readonly linkedDocument: LinkedDocumentFixture;
-  readonly owner: TestUser;
-  readonly rotationBaselineSourceVersionVector?: string;
-  readonly root: StoredRootFixture;
-}): Promise<DocumentLinkSetMutationRequest> {
-  const childBundle = await accessManifestFromContainerResponse(input.child);
-  const previousState = input.linkedDocument.accessManifest.state;
-  const documentId = input.linkedDocument.id;
-  const body: DocumentAccessEventBody = {
-    blobRewraps: [],
-    eventType: "document.unlink",
-    containerId: input.child.containerId,
-    containerManifestHash: childBundle.manifestHash,
-  };
-  const event = await createSignedAccessEvent({
-    body,
-    dependencyManifestHashes: [
-      input.root.bundle.manifestHash,
-      childBundle.manifestHash,
-    ],
-    objectId: documentId,
-    objectKind: "document",
-    organizationId: asVerifiedContainerManifest(input.root.bundle).state
-      .organizationId,
-    previousManifestHash: input.linkedDocument.manifestHash,
-    signer: input.owner,
-  });
-  const state: DocumentLinkSetManifestState = {
-    version: 1,
-    documentId,
-    organizationId: asVerifiedContainerManifest(input.root.bundle).state
-      .organizationId,
-    epoch:
-      typeof Reflect.get(previousState, "epoch") === "number"
-        ? Number(Reflect.get(previousState, "epoch")) + 1
-        : 3,
-    previousManifestHash: input.linkedDocument.manifestHash,
-    eventHash: event.eventHash,
-    linkedContainerIds: [input.root.kekState.containerId],
-  };
-  const manifest = await deriveDocumentLinkSetManifest(state);
-  const manifestHash = await computeAccessManifestHash(manifest);
-  const remainingTarget = {
-    containerId: input.root.kekState.containerId,
-    containerManifestHash: input.root.bundle.manifestHash,
-    containerKeyEpochId: input.root.kekState.containerKeyEpochId,
-    containerKeyEpoch: input.root.kekState.containerKeyEpoch,
-  };
-  const targetHash = await computeDocumentContentKeyTargetHash([
-    remainingTarget,
-  ]);
-  const contentKeyEpoch = input.linkedDocument.contentKeyEpoch + 1;
-  const rotationBaseline = await createSignedAtomicRotationBaseline({
-    dependencyManifestHashes: [input.root.bundle.manifestHash],
-    accessManifestHash: manifestHash,
-    contentKeyEpoch,
-    documentId,
-    organizationId: state.organizationId,
-    owner: input.owner,
-    ...(input.rotationBaselineSourceVersionVector === undefined
-      ? {}
-      : {
-          sourceVersionVector: input.rotationBaselineSourceVersionVector,
-        }),
-    targetHash,
-  });
-
-  return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown as Record<string, unknown>,
-    expectedManifestHash: manifestHash,
-    manifest: manifest as unknown as Record<string, unknown>,
-    targetContainerPathRefs: [
-      {
-        containerId: input.root.kekState.containerId,
-        manifestHash: input.root.bundle.manifestHash,
-      },
-      {
-        containerId: input.child.containerId,
-        manifestHash: childBundle.manifestHash,
-      },
-    ],
-    authorizingContainerPathRefs: [
-      [
-        {
-          containerId: input.root.kekState.containerId,
-          manifestHash: input.root.bundle.manifestHash,
-        },
-      ],
-    ],
-    contentKeyBundle: {
-      contentKeyEpoch,
-      linkSetManifestHash: manifestHash,
-      targetHash,
-      targets: [
-        {
-          ...remainingTarget,
-          ...contentKeyEnvelopeFixture(
-            "Document",
-            `document-key:${documentId}:rotated-root`,
-          ),
-        },
-      ],
-    },
-    rotationBaseline,
-  };
-}
 
 test("GET /containers/:containerId/writer-projection returns signed path and KEK projection", async () => {
   const owner = createTestUser();
@@ -1105,21 +878,6 @@ function rootAuthorizingPathRef(root: StoredRootFixture): ContainerManifestRef {
   };
 }
 
-async function postDocumentSync(
-  documentId: string,
-  owner: TestUser,
-  request: DocumentSyncRequest,
-): Promise<Response> {
-  return routeApp.request(`/documents/${documentId}/sync`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${owner.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-  });
-}
-
 test("POST /documents/:documentId/sync emits the coded document_not_found 404 only for a positively-absent document", async () => {
   const owner = createTestUser();
   await registerUser(owner);
@@ -1132,7 +890,7 @@ test("POST /documents/:documentId/sync emits the coded document_not_found 404 on
     root,
   });
 
-  const response = await postDocumentSync(crypto.randomUUID(), owner, request);
+  const response = await postDocumentSync(owner, crypto.randomUUID(), request);
 
   expect(response.status).toBe(404);
   expect(await response.json()).toEqual({
@@ -1174,7 +932,7 @@ test("POST /documents/:documentId/sync rejects an unknown authorizing path ref w
     root,
   });
 
-  const response = await postDocumentSync(created.id, owner, {
+  const response = await postDocumentSync(owner, created.id, {
     ...request,
     authorizingContainerPathRefs: [
       [
@@ -1203,7 +961,7 @@ test("POST /documents/:documentId/sync rejects an authorizing path ref whose con
   // A real, current manifestHash for the root, but a foreign containerId. The
   // server keys the head lookup off the resolved manifest's own containerId and
   // must reject the mismatch rather than authorize against the wrong container.
-  const response = await postDocumentSync(created.id, owner, {
+  const response = await postDocumentSync(owner, created.id, {
     ...request,
     authorizingContainerPathRefs: [
       [
@@ -1257,7 +1015,7 @@ test("POST /documents/:documentId/sync rejects a stale authorizing path ref afte
     root,
   });
   // The request's refs point at the now-stale pre-rekey root manifest hash.
-  const response = await postDocumentSync(created.id, owner, {
+  const response = await postDocumentSync(owner, created.id, {
     ...request,
     authorizingContainerPathRefs: [[rootAuthorizingPathRef(root)]],
   });
@@ -1282,7 +1040,7 @@ test("POST /documents/:documentId/sync rejects a stale expectedLinkSetManifestHa
   // The server resolves the document's link-set manifest from its own store and
   // pins it to the current head; a stale/forged expected hash (not the current
   // head) must be rejected rather than authorizing against a different link-set.
-  const response = await postDocumentSync(created.id, owner, {
+  const response = await postDocumentSync(owner, created.id, {
     ...request,
     expectedLinkSetManifestHash: "f".repeat(64),
   });
@@ -1979,7 +1737,7 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
     root,
   });
   expect(
-    (await postDocumentSync(createdDocument.id, owner, preRotationSync.request))
+    (await postDocumentSync(owner, createdDocument.id, preRotationSync.request))
       .status,
   ).toBe(200);
   const linkRequest = await buildDocumentLinkRequest({

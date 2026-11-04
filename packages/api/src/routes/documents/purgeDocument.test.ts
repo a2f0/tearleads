@@ -9,525 +9,39 @@ import {
   blobAuditObjects,
   blobs,
   containerDocumentSyncTombstones,
-  containers,
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
   documents,
   documentUpdates,
-  organizations,
-  users,
 } from "@tearleads/api-shared/schema";
-import type {
-  ContainerAccessEventBody,
-  ContainerAccessManifestState,
-  ContainerKeyEpoch,
-  ContainerKeyWrap,
-  DocumentAccessEventBody,
-  DocumentLinkAccessEventBody,
-  DocumentLinkSetManifestState,
-  KeyingCanonicalJson,
-  VerifiedAccessEvent,
-  VerifiedContainerAccessManifest,
-  VerifiedContainerKekState,
-  VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import {
-  computeAccessEventBodyHash,
-  computeAccessManifestHash,
-  computeDocumentContentKeyTargetHash,
-  deriveContainerAccessManifest,
-  deriveDocumentLinkSetManifest,
-  signAccessEvent,
-  verifyContainerKekState,
-  verifySignedAccessEvent,
-} from "@tearleads/crypto";
-import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
-import type {
-  AccessManifestBundleWire,
-  ContainerMutationRequest,
-  DocumentCreateRequest,
-} from "@tearleads/validators/request";
 import {
-  type DocumentCreateResponse,
-  isContainerMutationResponse,
-  isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeProofResponse,
   isDocumentPurgeResponse,
 } from "@tearleads/validators/response";
-import { and, eq, isNull } from "drizzle-orm";
-import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
+import { and, eq } from "drizzle-orm";
 import {
   readBlobObjectText,
   uploadBlobObject,
 } from "../../../test/helpers/blobObjectStore";
-import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
-import { parentKekRef } from "../../../test/helpers/containerKeying";
-import { containerManifestRef } from "../../../test/helpers/containerManifestRefs";
-import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLinks";
-import {
-  type CreatedDocumentFixture,
-  withDocumentMutationArtifacts,
-} from "../../../test/helpers/documentAcknowledgementFixture";
+import type { CreatedDocumentFixture } from "../../../test/helpers/documentAcknowledgementFixture";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
-import { buildDocumentPurgeRequest } from "../../../test/helpers/documentPurge";
-import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
-import { principalPolicyRefs } from "../../../test/helpers/principalPolicyRefs";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { postDocumentPurge } from "../../../test/helpers/documentPurge";
+import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
+import {
+  asVerifiedContainerManifest,
+  bootstrapRoot,
+  createDocument,
+  type StoredRootFixture,
+} from "../../../test/helpers/keyingWriterProjectionKit";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 import { createFailingRuntime } from "../../../test/helpers/serviceRuntime";
-import {
-  type StoredContainerMutation,
-  withStoredContainerMutation,
-} from "../../../test/helpers/storedContainerMutation";
-import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
-import {
-  getCurrentContainerKeyEpoch,
-  listContainerKeyWraps,
-} from "../../access/read/containerKekStore";
+import type { StoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { createRouteApp, routeApp } from "../../routeApp";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
-
-interface RootContainerFixture {
-  readonly adminGroupId: string;
-  readonly id: string;
-  readonly organizationId: string;
-}
-
-interface StoredRootFixture {
-  readonly bundle: AccessManifestBundleWire;
-  readonly kekState: VerifiedContainerKekState;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
-}
-
-async function getRootContainerForUser(
-  userId: string,
-): Promise<RootContainerFixture> {
-  const [user] = await db
-    .select({ defaultOrganizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  invariant(user, "expected user row");
-
-  const [rootContainer] = await db
-    .select({ id: containers.id, organizationId: containers.organizationId })
-    .from(containers)
-    .where(
-      and(
-        eq(containers.organizationId, user.defaultOrganizationId),
-        isNull(containers.parentId),
-        isNull(containers.systemSlot),
-      ),
-    )
-    .limit(1);
-  invariant(rootContainer, "expected root container row");
-
-  const [organization] = await db
-    .select({ adminGroupId: organizations.adminGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, rootContainer.organizationId))
-    .limit(1);
-  invariant(organization, "expected registered organization");
-
-  return { ...rootContainer, adminGroupId: organization.adminGroupId };
-}
-
-function asVerifiedContainerManifest(
-  bundle: AccessManifestBundleWire,
-): VerifiedContainerAccessManifest {
-  return bundle as unknown as VerifiedContainerAccessManifest;
-}
-
-async function createSignedAccessEvent(input: {
-  readonly body: ContainerAccessEventBody | DocumentAccessEventBody;
-  readonly dependencyManifestHashes?: readonly string[];
-  readonly objectId: string;
-  readonly objectKind: "container" | "document";
-  readonly organizationId: string;
-  readonly previousManifestHash: string | null;
-  readonly signer: TestUser;
-}): Promise<VerifiedAccessEvent> {
-  const event = await signAccessEvent(
-    {
-      version: 1,
-      eventId: crypto.randomUUID(),
-      eventType: input.body.eventType,
-      objectKind: input.objectKind,
-      objectId: input.objectId,
-      organizationId: input.organizationId,
-      previousManifestHash: input.previousManifestHash,
-      dependencyManifestHashes: [...(input.dependencyManifestHashes ?? [])],
-      bodyHash: await computeAccessEventBodyHash(
-        input.body as unknown as KeyingCanonicalJson,
-      ),
-      signerUserId: input.signer.userId,
-      signerDeviceId: "test-device",
-      signerKeyFingerprint: input.signer.fingerprint,
-      signedAt: "2026-04-27T12:00:00.000Z",
-    },
-    input.signer.signing.signingPrivateKey,
-  );
-  const verified = await verifySignedAccessEvent({
-    body: input.body as unknown as KeyingCanonicalJson,
-    event,
-    signerPublicKey: input.signer.signing.signingPublicKey,
-  });
-
-  expect(verified.ok).toBe(true);
-  if (!verified.ok) {
-    throw verified.error;
-  }
-
-  return verified.value;
-}
-
-async function verifyKekState(input: {
-  readonly bundle: AccessManifestBundleWire;
-  readonly keyEpoch: ContainerKeyEpoch;
-  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
-  readonly wraps: readonly ContainerKeyWrap[];
-}): Promise<VerifiedContainerKekState> {
-  const verified = await verifyContainerKekState({
-    containerManifest: asVerifiedContainerManifest(input.bundle),
-    keyEpoch: input.keyEpoch,
-    principalPolicies: input.principalPolicies ?? [],
-    userRecipientKeys: [],
-    wraps: input.wraps,
-  });
-
-  expect(verified.ok).toBe(true);
-  if (!verified.ok) {
-    throw verified.error;
-  }
-
-  return verified.value;
-}
-
-function toContainerKeyEpoch(
-  keyEpoch: Awaited<ReturnType<typeof getCurrentContainerKeyEpoch>>,
-): ContainerKeyEpoch {
-  invariant(keyEpoch, "expected container key epoch");
-
-  return {
-    id: keyEpoch.id,
-    containerId: keyEpoch.containerId,
-    keyEpoch: keyEpoch.keyEpoch,
-    accessManifestHash: keyEpoch.accessManifestHash,
-    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-    createdByEventHash: keyEpoch.createdByEventHash,
-    createdByManifestHash: keyEpoch.createdByManifestHash,
-  };
-}
-
-function toContainerKeyWrap(
-  wrap: Awaited<ReturnType<typeof listContainerKeyWraps>>[number],
-): ContainerKeyWrap {
-  return {
-    containerKeyEpochId: wrap.containerKeyEpochId,
-    recipientKind: wrap.recipientKind,
-    recipientId: wrap.recipientId,
-    recipientKeyEpochId: wrap.recipientKeyEpochId,
-    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-    kemCipherText: wrap.kemCipherText,
-    wrappedKey: wrap.wrappedKey,
-    wrapManifestHash: wrap.wrapManifestHash,
-  };
-}
-
-async function bootstrapRoot(owner: TestUser): Promise<StoredRootFixture> {
-  const rootContainer = await getRootContainerForUser(owner.userId);
-  const storedKeyEpoch = await getCurrentContainerKeyEpoch(
-    rootContainer.id,
-    db,
-  );
-  const keyEpoch = toContainerKeyEpoch(storedKeyEpoch);
-  const bundle = await getAccessManifestBundle(keyEpoch.accessManifestHash, db);
-  invariant(bundle, "expected registered root container manifest");
-  const wraps = (await listContainerKeyWraps(keyEpoch.id, db)).map(
-    toContainerKeyWrap,
-  );
-  const adminPolicy = await loadVerifiedPrincipalPolicy(
-    db,
-    "group",
-    rootContainer.adminGroupId,
-  );
-  const kekState = await verifyKekState({
-    bundle: bundle as unknown as AccessManifestBundleWire,
-    keyEpoch,
-    principalPolicies: [adminPolicy],
-    wraps,
-  });
-
-  return {
-    bundle: bundle as unknown as AccessManifestBundleWire,
-    kekState,
-    principalPolicies: [adminPolicy],
-  };
-}
-
-async function createContainerManifestBundle(
-  state: ContainerAccessManifestState,
-  event: VerifiedAccessEvent,
-): Promise<AccessManifestBundleWire> {
-  const manifest = await deriveContainerAccessManifest(state);
-
-  return {
-    event: event as unknown as Record<string, unknown>,
-    manifest: manifest as unknown as Record<string, unknown>,
-    manifestHash: await computeAccessManifestHash(manifest),
-    state: state as unknown as Record<string, unknown>,
-  };
-}
-
-function createContainerKeyEpoch(input: {
-  readonly containerKeyEpochId: string;
-  readonly keyEpoch: number;
-  readonly manifest: AccessManifestBundleWire;
-  readonly parentKekState: VerifiedContainerKekState;
-}): ContainerKeyEpoch {
-  const verifiedManifest = asVerifiedContainerManifest(input.manifest);
-
-  return {
-    id: input.containerKeyEpochId,
-    containerId: verifiedManifest.state.containerId,
-    keyEpoch: input.keyEpoch,
-    accessManifestHash: verifiedManifest.manifestHash,
-    parentContainerKeyEpochId: input.parentKekState.containerKeyEpochId,
-    createdByEventHash: verifiedManifest.event.eventHash,
-    createdByManifestHash: verifiedManifest.manifestHash,
-  };
-}
-
-function createContainerKeyWrap(input: {
-  readonly containerKeyEpochId: string;
-  readonly parentKekState: VerifiedContainerKekState;
-  readonly wrapManifestHash: string;
-}): ContainerKeyWrap {
-  return {
-    containerKeyEpochId: input.containerKeyEpochId,
-    recipientKind: "container",
-    recipientId: input.parentKekState.containerId,
-    recipientKeyEpochId: input.parentKekState.containerKeyEpochId,
-    recipientKeyFingerprint: input.parentKekState.keyEpochHash,
-    kemCipherText: `kem:${input.containerKeyEpochId}`,
-    wrappedKey: `wrapped:${input.containerKeyEpochId}`,
-    wrapManifestHash: input.wrapManifestHash,
-  };
-}
-
-async function loadPrincipalPoliciesForContainerPath(
-  path: readonly AccessManifestBundleWire[],
-): Promise<VerifiedPrincipalPolicy[]> {
-  const principalPolicies = await Promise.all(
-    path.flatMap((bundle) =>
-      asVerifiedContainerManifest(bundle).state.referencedPrincipalHeads.map(
-        (reference) =>
-          loadVerifiedPrincipalPolicy(
-            db,
-            reference.principalType,
-            reference.principalId,
-          ),
-      ),
-    ),
-  );
-  const byKey = new Map<string, VerifiedPrincipalPolicy>();
-  for (const policy of principalPolicies) {
-    byKey.set(
-      [
-        policy.principalType,
-        policy.principalId,
-        policy.version,
-        policy.stateHash,
-      ].join(":"),
-      policy,
-    );
-  }
-
-  return [...byKey.values()];
-}
-
-async function createChildContainer(input: {
-  readonly parent: StoredRootFixture;
-  readonly signer: TestUser;
-}): Promise<StoredContainerMutation> {
-  const containerId = crypto.randomUUID();
-  const containerKeyEpochId = await createTestContainerKekId(containerId, 1);
-  const parentManifest = asVerifiedContainerManifest(input.parent.bundle);
-  const body: ContainerAccessEventBody = {
-    containerKeyPublicKey:
-      containerWrappingPublicKeyForTest(containerKeyEpochId),
-    systemSlot: null,
-    eventType: "container.create",
-    parentContainerId: parentManifest.state.containerId,
-    parentManifestHash: input.parent.bundle.manifestHash,
-    metadataDocumentId: crypto.randomUUID(),
-    containerKeyEpochId,
-    directGrants: [],
-    referencedPrincipalHeads: [],
-  };
-  const event = await createSignedAccessEvent({
-    body,
-    dependencyManifestHashes: [input.parent.bundle.manifestHash],
-    objectId: containerId,
-    objectKind: "container",
-    organizationId: parentManifest.state.organizationId,
-    previousManifestHash: null,
-    signer: input.signer,
-  });
-  const bundle = await createContainerManifestBundle(
-    {
-      containerKeyPublicKey:
-        containerWrappingPublicKeyForTest(containerKeyEpochId),
-      systemSlot: null,
-      version: 1,
-      containerId,
-      organizationId: parentManifest.state.organizationId,
-      epoch: 1,
-      previousManifestHash: null,
-      eventHash: event.eventHash,
-      parentContainerId: parentManifest.state.containerId,
-      parentManifestHash: input.parent.bundle.manifestHash,
-      metadataDocumentId: body.metadataDocumentId,
-      containerKeyEpochId,
-      directGrants: [],
-      referencedPrincipalHeads: [],
-    },
-    event,
-  );
-  const keyEpoch = createContainerKeyEpoch({
-    containerKeyEpochId,
-    keyEpoch: 1,
-    manifest: bundle,
-    parentKekState: input.parent.kekState,
-  });
-  const wrap = createContainerKeyWrap({
-    containerKeyEpochId,
-    parentKekState: input.parent.kekState,
-    wrapManifestHash: bundle.manifestHash,
-  });
-  const principalPolicies = await loadPrincipalPoliciesForContainerPath([
-    input.parent.bundle,
-  ]);
-  const request: ContainerMutationRequest = {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown,
-    expectedManifestHash: bundle.manifestHash,
-    manifest: bundle.manifest,
-    parentContainerPathRefs: [containerManifestRef(input.parent.bundle)],
-    principalPolicyRefs: principalPolicyRefs(principalPolicies),
-    keyEpoch: keyEpoch as unknown as Record<string, unknown>,
-    keyring: null,
-    predecessorBridge: null,
-    wraps: [wrap as unknown as Record<string, unknown>],
-    parentKekRef: parentKekRef(input.parent.kekState),
-    userRecipientKeys: [],
-  };
-  const response = await routeApp.request("/containers", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.signer.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-  });
-
-  expect(response.status).toBe(200);
-  const created = await response.json();
-  expect(isContainerMutationResponse(created)).toBe(true);
-  return withStoredContainerMutation(created);
-}
-
-async function createDocumentRequest(input: {
-  readonly owner: TestUser;
-  readonly root: StoredRootFixture;
-}): Promise<DocumentCreateRequest> {
-  const documentId = crypto.randomUUID();
-  const body: DocumentLinkAccessEventBody = {
-    blobRewraps: [],
-    eventType: "document.link",
-    containerId: input.root.kekState.containerId,
-    containerManifestHash: input.root.bundle.manifestHash,
-  };
-  const event = await createSignedAccessEvent({
-    body,
-    dependencyManifestHashes: [input.root.bundle.manifestHash],
-    objectId: documentId,
-    objectKind: "document",
-    organizationId: asVerifiedContainerManifest(input.root.bundle).state
-      .organizationId,
-    previousManifestHash: null,
-    signer: input.owner,
-  });
-  const state: DocumentLinkSetManifestState = {
-    version: 1,
-    documentId,
-    organizationId: asVerifiedContainerManifest(input.root.bundle).state
-      .organizationId,
-    epoch: 1,
-    previousManifestHash: null,
-    eventHash: event.eventHash,
-    linkedContainerIds: [input.root.kekState.containerId],
-  };
-  const manifest = await deriveDocumentLinkSetManifest(state);
-  const manifestHash = await computeAccessManifestHash(manifest);
-  const targets = [
-    {
-      containerId: input.root.kekState.containerId,
-      containerManifestHash: input.root.bundle.manifestHash,
-      containerKeyEpochId: input.root.kekState.containerKeyEpochId,
-      containerKeyEpoch: input.root.kekState.containerKeyEpoch,
-    },
-  ];
-  const targetHash = await computeDocumentContentKeyTargetHash(targets);
-
-  return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown as Record<string, unknown>,
-    expectedManifestHash: manifestHash,
-    manifest: manifest as unknown as Record<string, unknown>,
-    targetContainerPathRefs: [
-      {
-        containerId: input.root.kekState.containerId,
-        manifestHash: input.root.bundle.manifestHash,
-      },
-    ],
-    contentKeyBundle: {
-      contentKeyEpoch: 1,
-      linkSetManifestHash: manifestHash,
-      targetHash,
-      targets: targets.map((target) => ({
-        ...target,
-        ...contentKeyEnvelopeFixture("Document", `document-key:${documentId}`),
-      })),
-    },
-  };
-}
-
-async function createDocument(input: {
-  readonly owner: TestUser;
-  readonly root: StoredRootFixture;
-}): Promise<CreatedDocumentFixture> {
-  const request = await createDocumentRequest(input);
-  const createResponse = await routeApp.request("/documents", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.owner.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-  });
-  expect(createResponse.status).toBe(200);
-  const created = await createResponse.json();
-  expect(isDocumentCreateResponse(created)).toBe(true);
-  return withDocumentMutationArtifacts(
-    request,
-    created as DocumentCreateResponse,
-  );
-}
 
 async function linkDocumentToSecondContainer(input: {
   readonly child: StoredContainerMutation;
@@ -549,27 +63,6 @@ async function linkDocumentToSecondContainer(input: {
   );
   expect(response.status).toBe(200);
   expect(isDocumentLinkSetMutationResponse(await response.json())).toBe(true);
-}
-
-async function purgeDocumentViaRoute(input: {
-  readonly app?: Pick<typeof routeApp, "request">;
-  readonly documentId: string;
-  readonly documentManifestHash: string;
-  readonly owner: TestUser;
-  readonly root: StoredRootFixture;
-  readonly token: string;
-}): Promise<Response> {
-  return (input.app ?? routeApp).request(
-    `/documents/${input.documentId}/purge`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${input.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(await buildDocumentPurgeRequest(input)),
-    },
-  );
 }
 
 // Writes `bytes` into the production runtime's object store at `storageKey`
@@ -626,11 +119,6 @@ async function seedExternalBlobAttachment(input: {
   });
 
   return { bindingId, blobId, storageKey };
-}
-
-async function registerAndAuthenticate(user: TestUser): Promise<void> {
-  await registerUser(user);
-  await authenticate(user);
 }
 
 interface DocumentRowPresence {
@@ -772,7 +260,7 @@ test("document purge succeeds when event publication fails", async () => {
   expect(before.documentContentKeyTargets).toBeGreaterThan(0);
   expect(before.accessManifestDocumentLinkProjection).toBeGreaterThan(0);
 
-  const response = await purgeDocumentViaRoute({
+  const response = await postDocumentPurge({
     app,
     documentId: created.id,
     documentManifestHash: created.manifestHash,
@@ -840,7 +328,7 @@ test("purge proof retrieval rejects a database-tampered terminal event", async (
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
   const created = await createDocument({ owner, root });
-  const purgeResponse = await purgeDocumentViaRoute({
+  const purgeResponse = await postDocumentPurge({
     documentId: created.id,
     documentManifestHash: created.manifestHash,
     owner,
@@ -893,7 +381,7 @@ test("POST document purge rejects a document linked to more than one container",
   expect(before.documents).toBe(1);
   expect(before.currentDocumentLinks).toBe(2);
 
-  const response = await purgeDocumentViaRoute({
+  const response = await postDocumentPurge({
     documentId: created.id,
     documentManifestHash: created.manifestHash,
     owner,
@@ -926,7 +414,7 @@ test("POST document purge rejects callers without container write access", async
   const root = await bootstrapRoot(owner);
   const created = await createDocument({ owner, root });
 
-  const response = await purgeDocumentViaRoute({
+  const response = await postDocumentPurge({
     documentId: created.id,
     documentManifestHash: created.manifestHash,
     owner,
@@ -954,7 +442,7 @@ test("POST document purge returns 404 for an unknown document id", async () => {
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
 
-  const response = await purgeDocumentViaRoute({
+  const response = await postDocumentPurge({
     documentId: crypto.randomUUID(),
     documentManifestHash: "0".repeat(64),
     owner,
@@ -984,7 +472,7 @@ test("POST document purge soft-deletes an orphaned blob and retains its bytes", 
     ),
   ).not.toBeNull();
 
-  const response = await purgeDocumentViaRoute({
+  const response = await postDocumentPurge({
     documentId: created.id,
     documentManifestHash: created.manifestHash,
     owner,
@@ -1045,7 +533,7 @@ test("POST document purge preserves a blob shared with another document", async 
     storageKey: shared.storageKey,
   });
 
-  const response = await purgeDocumentViaRoute({
+  const response = await postDocumentPurge({
     documentId: documentToPurge.id,
     documentManifestHash: documentToPurge.manifestHash,
     owner,
@@ -1147,7 +635,7 @@ test("POST document purge dereferences a blob retained only in another document'
     storageKey: shared.storageKey,
   });
 
-  const response = await purgeDocumentViaRoute({
+  const response = await postDocumentPurge({
     documentId: documentToPurge.id,
     documentManifestHash: documentToPurge.manifestHash,
     owner,
@@ -1206,7 +694,7 @@ test("POST document purge soft-deletes detached document-only blobs", async () =
     slotId: "slot_replaced_image",
   });
 
-  const response = await purgeDocumentViaRoute({
+  const response = await postDocumentPurge({
     documentId: created.id,
     documentManifestHash: created.manifestHash,
     owner,
