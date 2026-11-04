@@ -94,8 +94,12 @@ function declaredVersion(
   return version;
 }
 
-// Every package the output imports outside itself, as a caret range consumers
-// can dedupe against.
+// Compatibility holds must survive installation outside the workspace. Keep
+// versions in the declaring catalog; see docs/dependency-upgrades.md before
+// removing a hold. Other dependencies retain deduplicatable caret ranges.
+const exactDependencyHolds = new Set(["loro-crdt"]);
+
+// Every package the output imports outside itself.
 function externalDependencies(
   workspaces: Map<string, Workspace>,
   files: readonly { source: string }[],
@@ -109,9 +113,10 @@ function externalDependencies(
     ),
   );
   return Object.fromEntries(
-    [...names]
-      .sort()
-      .map((name) => [name, `^${declaredVersion(name, workspaces, root)}`]),
+    [...names].sort().map((name) => {
+      const version = declaredVersion(name, workspaces, root);
+      return [name, exactDependencyHolds.has(name) ? version : `^${version}`];
+    }),
   );
 }
 

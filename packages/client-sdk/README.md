@@ -100,15 +100,21 @@ their types reach are kept. The SQLite worker files come from the same
 `scripts/buildSqliteWorker.ts` the workspace build runs, which every Tearleads
 host copies, so npm consumers serve the worker the apps run. The npm
 dependencies are the packages that output imports, at the versions the
-workspace pins, as caret ranges. Source maps carry their sources inline and
-name them by file name alone.
+workspace pins, as caret ranges except for explicit compatibility holds. The
+Loro hold keeps its exact declared version in the published manifest; see
+[dependency maintenance](https://github.com/a2f0/tearleads/blob/main/docs/dependency-upgrades.md#current-constraints).
+Source maps carry their sources inline and name them by file name alone.
 
 `scripts/publishedPackage.test.ts` builds the package and checks its manifest,
 that every module imports only its own files or a declared dependency, and that
-no build path or test module ships. The smoke script imports every entry point
-under Bun and Node, resolves and parses the SQLite worker files, and bundles
-the entry points for the browser. It typechecks a consumer under `bundler` and
-`nodenext` resolution with `skipLibCheck: true`, then again without it, failing
+no build path or test module ships. The smoke script installs fresh consumers
+with Bun and npm, imports every entry point under Bun and Node, resolves and
+parses the SQLite worker files, and bundles the entry points for the browser.
+It also runs the source-owned history identity regressions through the installed
+compiled wrapper and checks split-commit replay under Node. These internal
+paths are test diagnostics, not public SDK exports. It typechecks a consumer
+under `bundler` and `nodenext` resolution with `skipLibCheck: true`, then again
+without it, failing
 on errors in the SDK's declarations and ignoring those in drizzle-orm's and
 loro-crdt's own. It needs the network to install the consumer's dependencies.
 
