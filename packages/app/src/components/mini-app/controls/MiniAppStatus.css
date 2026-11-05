@@ -7,3 +7,32 @@
   color: var(--color-danger);
   opacity: 1;
 }
+
+.mini-app-status--busy {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.mini-app-status-spinner {
+  width: 0.9em;
+  height: 0.9em;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: mini-app-status-spin 0.8s linear infinite;
+}
+
+@keyframes mini-app-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-app-status-spinner {
+    animation-duration: 2.4s;
+  }
+}

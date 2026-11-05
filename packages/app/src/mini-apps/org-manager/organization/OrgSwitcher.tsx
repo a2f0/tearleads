@@ -43,7 +43,8 @@ export function OrgSwitcher({ switcher }: { switcher: OrgSwitcherState }) {
         value={switcher.activeOrganizationId ?? ""}
         disabled={switcher.interactionDisabled}
       />
-      {switcher.organizationsLoading ? (
+      {/* With no organization yet, the main region shows the loading panel. */}
+      {switcher.organizationsLoading && switcher.activeOrganizationId ? (
         <MiniAppStatus>{ORG_MANAGER_LABELS.loadingOrganizations}</MiniAppStatus>
       ) : switcher.organizationsError ? (
         <MiniAppStatus tone="error">

@@ -11,6 +11,7 @@ import {
 import {
   MiniAppRoot,
   MiniAppSidebar,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../components/mini-app/MiniAppLayout";
 import { useSystemBootstrap } from "../providers/system-bootstrap/SystemBootstrapProvider";
@@ -55,6 +56,9 @@ export function useSystemBootstrapBlocking(isBootstrapping: boolean): boolean {
   return blocking;
 }
 
+const SYSTEM_BOOTSTRAP_DESCRIPTION =
+  "Creating your system folders and contact card. This takes a moment the first time.";
+
 export function SystemBootstrapGate({
   children,
   message,
@@ -64,7 +68,7 @@ export function SystemBootstrapGate({
   const sidebar = useMemo(
     () => (
       <MiniAppSidebar>
-        <MiniAppStatus>{message}</MiniAppStatus>
+        <MiniAppStatus busy>{message}...</MiniAppStatus>
       </MiniAppSidebar>
     ),
     [message],
@@ -79,8 +83,12 @@ export function SystemBootstrapGate({
 
   if (blocking) {
     return (
-      <MiniAppRoot centered>
-        <MiniAppStatus>{message}</MiniAppStatus>
+      <MiniAppRoot>
+        <MiniAppStatePanel
+          busy
+          description={SYSTEM_BOOTSTRAP_DESCRIPTION}
+          title={message}
+        />
       </MiniAppRoot>
     );
   }

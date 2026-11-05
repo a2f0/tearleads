@@ -6,7 +6,7 @@ import { ORG_MANAGER_LABELS } from "../labels";
 export function OrgManagerFeedback({ model }: { model: OrgManagerModel }) {
   return (
     <>
-      {!model.organizationId && (
+      {!model.organizationId && !model.orgSwitcher.organizationsLoading && (
         <MiniAppStatus className="org-manager-hint">
           {ORG_MANAGER_LABELS.selectOrganization}
         </MiniAppStatus>

@@ -3,15 +3,13 @@ import {
   useCompactRoutedMode,
 } from "@tearleads/windowing";
 import { useCallback } from "react";
+import { AccountBootstrapPanel } from "../../components/identity/AccountBootstrapPanel";
 import {
-  MiniAppButton,
   MiniAppRoot,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-  MiniAppToolbar,
 } from "../../components/mini-app/MiniAppLayout";
-import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import "./Root.css";
 import { AuditView } from "./audit/AuditView";
@@ -34,32 +32,24 @@ import { useRootNavigation } from "./useRootNavigation";
 import { useRootRoute } from "./useRootRoute";
 
 function RootAccessGate({ isAuthenticated }: { isAuthenticated: boolean }) {
-  const { authenticate, authenticating, error } = useAuthenticateAction();
+  if (!isAuthenticated) {
+    return (
+      <AccountBootstrapPanel
+        signedOutDescription="Platform operators manage identities, organizations, and reports here."
+        signedOutTitle="Log in to use the root console"
+      />
+    );
+  }
 
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
         <h2>Root</h2>
       </MiniAppSectionHeading>
-      {isAuthenticated ? (
-        <MiniAppStatus>
-          This identity is not a platform operator. Root access is granted on
-          the server with the API CLI.
-        </MiniAppStatus>
-      ) : (
-        <>
-          <MiniAppStatus>Log in to use the root console.</MiniAppStatus>
-          {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
-          <MiniAppToolbar>
-            <MiniAppButton
-              disabled={authenticating}
-              onClick={() => void authenticate()}
-            >
-              {authenticating ? "Logging in..." : "Login"}
-            </MiniAppButton>
-          </MiniAppToolbar>
-        </>
-      )}
+      <MiniAppStatus>
+        This identity is not a platform operator. Root access is granted on the
+        server with the API CLI.
+      </MiniAppStatus>
     </MiniAppSection>
   );
 }
