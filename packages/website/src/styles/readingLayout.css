@@ -1,0 +1,136 @@
+/*
+ * Reading layout (ReadingLayout.astro): the "On this page" contents beside a
+ * long document's copy, on the legal and technical documents.
+ */
+
+.site-reading-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--site-space-7);
+  margin-top: var(--site-space-7);
+}
+
+.site-reading-copy {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* The layout supplies the space above the copy. */
+.site-reading-copy > :first-child {
+  margin-top: 0;
+}
+
+/* Contents: a muted box before the copy on narrow screens, a sticky column
+   beside it from 1024px. */
+.site-reading-contents {
+  padding: var(--site-space-4) var(--site-space-4) var(--site-space-2);
+  background: var(--site-surface-muted);
+}
+
+.site-reading-contents > p {
+  color: var(--site-ink);
+  font: 600 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+}
+
+.site-reading-contents ol {
+  margin-top: var(--site-space-2);
+  /* Room for two-digit markers ("10. "). */
+  padding-left: 4ch;
+  list-style: decimal;
+  font: 400 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+}
+
+.site-reading-contents li + li {
+  margin-top: 0;
+}
+
+.site-reading-contents li::marker {
+  color: var(--site-ink-3);
+}
+
+.site-reading-contents a {
+  display: flex;
+  align-items: center;
+  min-height: var(--site-target);
+  color: var(--site-ink-2);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+.site-reading-contents a:focus-visible {
+  color: var(--site-ink);
+  text-decoration: underline 1px;
+}
+
+@media (hover: hover) {
+  .site-reading-contents a:hover {
+    color: var(--site-ink);
+    text-decoration: underline 1px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .site-reading-contents a {
+    transition: color 120ms;
+  }
+}
+
+/* Two columns keep the contents box short on tablets. */
+@media (min-width: 700px) and (max-width: 1023px) {
+  .site-reading-contents ol {
+    column-gap: var(--site-space-7);
+    columns: 2;
+  }
+
+  .site-reading-contents li {
+    break-inside: avoid;
+  }
+}
+
+@media (min-width: 1024px) {
+  .site-reading-layout {
+    /* 15rem fits the longest legal label ("Availability & warranties") on
+       one line; with the gap and measure it still fits the 960px column at
+       1024. Longer document headings wrap. */
+    grid-template-columns: 15rem minmax(0, var(--site-measure));
+    align-items: start;
+  }
+
+  /* Technical documents keep their wider column for tables and figures. */
+  .site-reading-layout--wide {
+    grid-template-columns: 15rem minmax(0, var(--site-wide));
+  }
+
+  .site-reading-contents {
+    position: sticky;
+    top: var(--site-space-5);
+    max-height: calc(100dvh - 2 * var(--site-space-5));
+    overflow-y: auto;
+    padding: var(--site-space-5) 0 var(--site-space-1);
+    border-top: 1px solid var(--site-line);
+    background: none;
+  }
+
+  /* Keep link focus rings inside the scroll box. */
+  .site-reading-contents ol {
+    padding-right: var(--site-space-1);
+  }
+
+  /* Wrapped labels stay readable as separate entries. */
+  .site-reading-contents a {
+    padding-block: var(--site-space-1);
+  }
+}
+
+/* --- Print (chrome is hidden by global.css) --- */
+
+@media print {
+  .site-reading-contents {
+    display: none;
+  }
+
+  .site-reading-layout {
+    display: block;
+    margin-top: var(--site-space-5);
+  }
+}

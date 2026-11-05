@@ -1,6 +1,7 @@
 ---
 import { getCollection, render } from "astro:content";
 import PageHeader from "../../components/PageHeader.astro";
+import ReadingLayout from "../../components/ReadingLayout.astro";
 import Layout from "../../layouts/Layout.astro";
 import { docForSlug, sourceUrl, type TechnicalDoc } from "../../technicalDocs";
 import "../../styles/docs.css";
@@ -18,7 +19,9 @@ const doc: TechnicalDoc = docForSlug(entry.id);
 // docLinksPlugin replaces the document's own h1; the header renders doc.title.
 const { Content, headings } = await render(entry);
 const title = doc.title;
-const contents = headings.filter((heading) => heading.depth === 2);
+const contents = headings
+  .filter((heading) => heading.depth === 2)
+  .map((heading) => ({ href: `#${heading.slug}`, label: heading.text }));
 ---
 
 <Layout title={`${title} | Tearleads`} description={doc.summary}>
@@ -38,18 +41,14 @@ const contents = headings.filter((heading) => heading.depth === 2);
         </a>
       </p>
     </PageHeader>
-    {contents.length > 2 && (
-      <nav class="docs-contents" aria-label="On this page">
-        <h2 class="docs-contents-title">On this page</h2>
-        <ol role="list">
-          {contents.map((heading) => (
-            <li><a href={`#${heading.slug}`}>{heading.text}</a></li>
-          ))}
-        </ol>
-      </nav>
+    {contents.length > 2 ? (
+      <ReadingLayout class="site-prose docs-prose" contents={contents} wide>
+        <Content />
+      </ReadingLayout>
+    ) : (
+      <div class="site-prose docs-prose">
+        <Content />
+      </div>
     )}
-    <div class="site-prose docs-prose">
-      <Content />
-    </div>
   </article>
 </Layout>

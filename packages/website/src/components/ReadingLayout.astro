@@ -1,0 +1,33 @@
+---
+/**
+ * A long reading page's body: an "On this page" contents list beside the
+ * copy, sticky in its own column from 1024px and a muted box above the copy
+ * on narrower screens. Used by the legal documents and the technical
+ * documents. `wide` widens the copy column for tables and figures.
+ */
+import "../styles/readingLayout.css";
+
+interface Props {
+  readonly contents: readonly {
+    readonly href: string;
+    readonly label: string;
+  }[];
+  /** Classes for the copy column, e.g. "site-prose docs-prose". */
+  readonly class?: string | undefined;
+  readonly wide?: boolean | undefined;
+}
+
+const { contents, class: copyClass, wide = false } = Astro.props;
+---
+
+<div class:list={["site-reading-layout", { "site-reading-layout--wide": wide }]}>
+  <nav class="site-reading-contents" aria-labelledby="contents-title">
+    <p id="contents-title">On this page</p>
+    <ol>
+      {contents.map(({ href, label }) => <li><a href={href}>{label}</a></li>)}
+    </ol>
+  </nav>
+  <div class:list={["site-reading-copy", copyClass]}>
+    <slot />
+  </div>
+</div>
