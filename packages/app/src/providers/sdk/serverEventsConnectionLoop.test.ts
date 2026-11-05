@@ -374,3 +374,120 @@ test("reports each attempt's start and a failure before any socket binds", async
   expect(calls).toEqual(["start", "failed", "start", "open", "disconnect"]);
   stop();
 });
+
+test("a ticket from a timed-out attempt never opens a socket", async () => {
+  const sockets: FakeSocket[] = [];
+  const reconnectTimers: Array<() => void> = [];
+  const watchdogs: Array<() => void> = [];
+  const pendingTickets: Array<(ticket: string) => void> = [];
+  const stop = startServerEventsConnectionLoop(
+    {
+      onDisconnect: () => undefined,
+      onMessage: () => undefined,
+      onOpen: () => undefined,
+      requestTicket: () =>
+        new Promise<string>((resolve) => {
+          pendingTickets.push(resolve);
+        }),
+      openSocket: socketOpener(sockets),
+    },
+    {
+      random: () => 0.5,
+      scheduleTimer: (callback) => {
+        reconnectTimers.push(callback);
+        return reconnectTimers.length as unknown as ReturnType<
+          typeof setTimeout
+        >;
+      },
+      scheduleWatchdog: (callback) => {
+        watchdogs.push(callback);
+        return watchdogs.length as unknown as ReturnType<typeof setTimeout>;
+      },
+    },
+  );
+
+  // Attempt 1 times out and attempt 2 replaces it.
+  watchdogs[0]?.();
+  await flushAsyncWork();
+  reconnectTimers[0]?.();
+  await flushAsyncWork();
+  expect(pendingTickets).toHaveLength(2);
+
+  // Attempt 1's ticket arrives late; only attempt 2's opens a socket.
+  pendingTickets[0]?.("stale-ticket");
+  await flushAsyncWork();
+  expect(sockets).toHaveLength(0);
+  pendingTickets[1]?.("fresh-ticket");
+  await flushAsyncWork();
+  expect(sockets.map((socket) => socket.url)).toEqual([
+    "ws://events.example.test/events?ticket=fresh-ticket",
+  ]);
+
+  stop();
+});
+
+test("a replaced socket's late events reach nothing", async () => {
+  const sockets: FakeSocket[] = [];
+  const timers: Array<() => void> = [];
+  const calls: string[] = [];
+  const stop = startServerEventsConnectionLoop(
+    {
+      onDisconnect: () => calls.push("disconnect"),
+      onMessage: (ws) =>
+        calls.push(`message ${sockets.indexOf(ws as unknown as FakeSocket)}`),
+      onOpen: (ws) =>
+        calls.push(`open ${sockets.indexOf(ws as unknown as FakeSocket)}`),
+      requestTicket: async () => "ticket",
+      openSocket: socketOpener(sockets),
+    },
+    {
+      random: () => 0.5,
+      scheduleTimer: (callback) => {
+        timers.push(callback);
+        return timers.length as unknown as ReturnType<typeof setTimeout>;
+      },
+    },
+  );
+
+  await flushAsyncWork();
+  sockets[0]?.open();
+  sockets[0]?.close();
+  timers[0]?.();
+  await flushAsyncWork();
+  sockets[1]?.open();
+
+  sockets[0]?.open();
+  sockets[0]?.dispatchEvent(new MessageEvent("message", { data: "late" }));
+  sockets[0]?.dispatchEvent(new Event("close"));
+  sockets[1]?.dispatchEvent(new MessageEvent("message", { data: "live" }));
+  expect(calls).toEqual(["open 0", "disconnect", "open 1", "message 1"]);
+  expect(timers).toHaveLength(1);
+
+  stop();
+});
+
+test("stopping from inside onDisconnect schedules no reconnect", async () => {
+  const sockets: FakeSocket[] = [];
+  const timers: Array<() => void> = [];
+  let stop: () => void = () => undefined;
+  stop = startServerEventsConnectionLoop(
+    {
+      onDisconnect: () => stop(),
+      onMessage: () => undefined,
+      onOpen: () => undefined,
+      requestTicket: async () => "ticket",
+      openSocket: socketOpener(sockets),
+    },
+    {
+      scheduleTimer: (callback) => {
+        timers.push(callback);
+        return timers.length as unknown as ReturnType<typeof setTimeout>;
+      },
+    },
+  );
+
+  await flushAsyncWork();
+  sockets[0]?.open();
+  sockets[0]?.close();
+  expect(timers).toHaveLength(0);
+});
