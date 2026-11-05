@@ -8,8 +8,32 @@ interface TestResult {
   readonly exitCode: number;
 }
 
-const databases: readonly ApiTestDatabase[] = ["memory", "sqlite"];
-const testArgs = process.argv.slice(2);
+const allDatabases: readonly ApiTestDatabase[] = ["memory", "sqlite"];
+const databaseFlag = "--database=";
+const parallelFlag = "--parallel=";
+
+function isApiTestDatabase(name: string): name is ApiTestDatabase {
+  return allDatabases.some((database) => database === name);
+}
+
+// `--database=<name>` (repeatable) narrows the run to those backends, so CI can
+// give each backend its own runner; every other argument goes to `bun test`.
+const args = process.argv.slice(2);
+const selected = args
+  .filter((arg) => arg.startsWith(databaseFlag))
+  .map((arg) => arg.slice(databaseFlag.length));
+const unknown = selected.filter((name) => !isApiTestDatabase(name));
+if (unknown.length > 0) {
+  throw new Error(`Unknown API test database: ${unknown.join(", ")}`);
+}
+const databases = selected.length
+  ? allDatabases.filter((database) => selected.includes(database))
+  : allDatabases;
+const testArgs = args.filter((arg) => !arg.startsWith(databaseFlag));
+// A runner given one backend can afford more workers than the shared default.
+const parallelArgs = testArgs.some((arg) => arg.startsWith(parallelFlag))
+  ? []
+  : [`${parallelFlag}2`];
 
 function formatDuration(durationMs: number): string {
   return `${(durationMs / 1000).toFixed(2)}s`;
@@ -45,14 +69,14 @@ async function forwardLines(
 async function runDatabaseTests(
   database: ApiTestDatabase,
 ): Promise<TestResult> {
-  // Two workers per backend, each keeping one global across its files as the
-  // serial run did (see docs/developer/test-optimization.md).
+  // Two workers per backend unless overridden, each keeping one global across
+  // its files as the serial run did (see docs/developer/test-optimization.md).
   const command = [
     "bun",
     "test",
     "src",
     "--max-concurrency=4",
-    "--parallel=2",
+    ...parallelArgs,
     "--no-isolate",
     ...testArgs,
   ];
@@ -82,7 +106,7 @@ async function runDatabaseTests(
   return { database, durationMs, exitCode };
 }
 
-// Each backend is its own process with its own in-memory database, so the two
+// Each backend is its own process with its own in-memory database, so the
 // suites share no state and run concurrently.
 const results = await Promise.all(databases.map(runDatabaseTests));
 

@@ -104,6 +104,13 @@ Some of that cost is deliberate:
   way). Plain `--parallel` implies `--isolate` and cost about 2.4 times the CPU
   for the SDK, 1.5 times for the app, and 2 times for the API (880 s wall). CI's
   4-vCPU runner fits the API's two backends times two workers.
+- **Split the long suites across CI runners.** On CI, the API runs one
+  backend per runner with `--parallel=4` (`--database=` in
+  `testAllDatabases.ts`), and the API and app suites each split into two Bun
+  shards, so the longest job no longer carries a whole suite. Local runs keep
+  both backends and two workers. The bob-and-alice scenarios run in four
+  isolated workers (each boots its own in-process API): 35 tests took 167 s
+  locally, where the serial CI run of 34 took 850 s.
 - **Keep worker-safe preload hooks.** In a `--parallel` run Bun calls a
   preload's `afterAll` after every file, not once per run, while
   `--no-isolate` keeps module state for the worker's next file. The app and

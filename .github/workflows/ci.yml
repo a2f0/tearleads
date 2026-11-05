@@ -201,13 +201,17 @@ jobs:
         run: >-
           bun scripts/testing/runVerifiedTurbo.ts test
           --filter='!@tearleads/api' --filter='!app' --filter='!@tearleads/client-sdk'
+          --filter='!@tearleads/bob-and-alice'
 
       - name: Build web application
         run: bun run --cwd packages/app-web build
 
   # One runner per long suite: sharing two Turbo slots serialized them into a
-  # 40-55 minute job. A suite whose inputs match an earlier run on this branch
-  # or main replays from the cache instead of running.
+  # 40-55 minute job. The API and app suites split further into Bun shards (and
+  # the API into one backend per runner) so no shard holds the critical path.
+  # Turbo hashes the passed arguments, so each shard whose inputs match an
+  # earlier run on this branch or main replays from the cache instead of
+  # running.
   test:
     name: Test (${{ matrix.suite }})
     runs-on: ubuntu-latest
@@ -216,12 +220,30 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - suite: api
+          - suite: api memory 1/2
             filter: "@tearleads/api"
-          - suite: app
+            args: --database=memory --parallel=4 --shard=1/2
+          - suite: api memory 2/2
+            filter: "@tearleads/api"
+            args: --database=memory --parallel=4 --shard=2/2
+          - suite: api sqlite 1/2
+            filter: "@tearleads/api"
+            args: --database=sqlite --parallel=4 --shard=1/2
+          - suite: api sqlite 2/2
+            filter: "@tearleads/api"
+            args: --database=sqlite --parallel=4 --shard=2/2
+          - suite: app 1/2
             filter: app
+            args: --shard=1/2
+          - suite: app 2/2
+            filter: app
+            args: --shard=2/2
           - suite: client-sdk
             filter: "@tearleads/client-sdk"
+            args: ""
+          - suite: bob-and-alice
+            filter: "@tearleads/bob-and-alice"
+            args: ""
 
     steps:
       - name: Checkout
@@ -243,10 +265,19 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # SUITE_ARGS is a fixed matrix value: split on spaces, it reaches the
+      # package's test script after Turbo's `--`.
       - name: Run tests
         env:
           SUITE_FILTER: ${{ matrix.filter }}
-        run: bun scripts/testing/runVerifiedTurbo.ts test "--filter=$SUITE_FILTER"
+          SUITE_ARGS: ${{ matrix.args }}
+        run: |
+          if [ -n "$SUITE_ARGS" ]; then
+            # shellcheck disable=SC2086
+            bun scripts/testing/runVerifiedTurbo.ts test "--filter=$SUITE_FILTER" -- $SUITE_ARGS
+          else
+            bun scripts/testing/runVerifiedTurbo.ts test "--filter=$SUITE_FILTER"
+          fi
 
   postgres-concurrency:
     name: Postgres concurrency
