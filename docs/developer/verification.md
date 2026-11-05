@@ -83,8 +83,12 @@ pass without running the task. A hash covers the package's files, its
 `dependsOn` tasks, the lockfile, `globalDependencies`, and `CI_TOOLCHAIN`. A
 task reading anything else must say so in its package `turbo.json`: a
 `$TURBO_ROOT$` input for a repository file, or `<package>#sources` in
-`dependsOn` for another workspace's source. The nightly `Uncached tests`
-workflow catches a missed input.
+`dependsOn` for another workspace's source. Depend on
+`<package>#runtime-sources` instead when the task runs that package's code but
+never its test files: it hashes everything except `*.test.ts(x)`, so a
+test-only change keeps the dependent's cache. `build` leaves tests out of its
+hash for the same reason. The nightly `Uncached tests` workflow catches a
+missed input.
 
 ## Multi-party scenarios
 
@@ -101,7 +105,8 @@ Add a scenario when a change can alter who reads or writes a document:
 sharing, group membership, revocation, moves, links,
 [key rotation](../glossary.md#rotate), or reading from a fresh install. Run them
 with `bun run check:package @tearleads/bob-and-alice`. The package's Turbo test
-task depends on `@tearleads/api#sources`, so an API change misses its cache.
+task depends on `@tearleads/api#runtime-sources`, so an API source change
+misses its cache and an API test-only change does not.
 Pin a reproducible open bug in `knownIssues.test.ts` as `test.failing`. See
 the [package README](../../packages/bob-and-alice/README.md).
 

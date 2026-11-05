@@ -4,7 +4,7 @@
   "tasks": {
     "test": {
       "description": "Scenarios boot the API in-process from its source through @tearleads/api/test-runtime, so an API change must miss this cache.",
-      "dependsOn": ["$TURBO_EXTENDS$", "@tearleads/api#sources"]
+      "dependsOn": ["$TURBO_EXTENDS$", "@tearleads/api#runtime-sources"]
     }
   }
 }

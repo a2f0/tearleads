@@ -47,6 +47,23 @@ test.each([
     ["@tearleads/client-sdk#test", postgres, windows, ...native],
     [models],
   ],
+  // Tests are no build or runtime input: dependents keep their passes, while
+  // lanes that run the package's own test files still miss.
+  [
+    "packages/api/src/route.test.ts",
+    ["@tearleads/api#test", postgres],
+    ["app#test", "@tearleads/bob-and-alice#test", "@tearleads/cli#test"],
+  ],
+  [
+    "packages/client-sdk/src/client.test.ts",
+    ["@tearleads/client-sdk#test"],
+    ["@tearleads/api#test", "app#test", "@tearleads/bob-and-alice#test"],
+  ],
+  [
+    "packages/app-electrobun/scripts/monitor.test.ts",
+    ["app-electrobun#test", windows],
+    ["app#test", "app-web#test"],
+  ],
   [
     "formal/model/Model.tla",
     [models, negative],
