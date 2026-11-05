@@ -33,15 +33,27 @@ export function MiniAppModalForm({
 }
 
 /**
- * Covers the whole modal panel while its action runs, so the busy state reads
- * as the dialog's rather than one button's, and the form underneath cannot be
- * edited mid-flight. Render it as the panel's last child.
+ * Replaces the whole modal panel while its action runs: an in-flight action
+ * cannot be cancelled, so the form gives way to one centered spinner, title,
+ * and optional description rather than a spinner inside the submit button.
+ * Render it as the panel's last child, and set the busy flag through
+ * `runAfterBusyPaint()` before starting main-thread work so the ring has
+ * painted and keeps turning on the compositor.
  */
-export function MiniAppModalBusyOverlay({ label }: { label: string }) {
+export function MiniAppModalBusyOverlay({
+  description,
+  label,
+}: {
+  description?: string | undefined;
+  label: string;
+}) {
   return (
     <div className="mini-app-modal-busy" role="status" aria-live="polite">
       <span className="mini-app-modal-busy-spinner" aria-hidden="true" />
-      <span>{label}</span>
+      <span className="mini-app-modal-busy-title">{label}</span>
+      {description ? (
+        <span className="mini-app-modal-busy-description">{description}</span>
+      ) : null}
     </div>
   );
 }

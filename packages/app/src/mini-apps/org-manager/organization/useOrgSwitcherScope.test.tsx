@@ -62,6 +62,9 @@ test("ignores organization creation after its session scope is invalidated", asy
     creation = view.result.current.createOrganization("Beta");
   });
   await waitFor(() => expect(view.result.current.creating).toBe(true));
+  // Invalidate only once provisioning is in flight, so the stale completion
+  // below is really exercised (it starts after the busy state paints).
+  await waitFor(() => expect(provisionOrganization).toHaveBeenCalledTimes(1));
 
   view.rerender({ databaseReady: false, operationScopeKey: "session-b" });
   await waitFor(() => expect(view.result.current.creating).toBe(false));
@@ -76,4 +79,57 @@ test("ignores organization creation after its session scope is invalidated", asy
     organizationId: ORGANIZATION_B.organizationId,
     rootContainerId: ORGANIZATION_B.containerId,
   });
+});
+
+test("does not provision when the scope is invalidated before the busy state paints", async () => {
+  const frames: FrameRequestCallback[] = [];
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    frames.push(callback);
+    return frames.length;
+  };
+  try {
+    const provisionOrganization = mock(async () => ORGANIZATION_B);
+    const listLocalOrganizations = mock(async () => [ORGANIZATION_A]);
+    const setSessionContext = mock((_context: SessionContext) => {});
+    const scopeKey = createDomainScope();
+    const view = renderHook(
+      (props: { databaseReady: boolean; operationScopeKey: string }) =>
+        useOrgSwitcherController({
+          activeContainerId: ORGANIZATION_A.rootContainerId,
+          activeOrganizationId: ORGANIZATION_A.organizationId,
+          databaseReady: props.databaseReady,
+          enabled: true,
+          listLocalOrganizations,
+          logError: () => undefined,
+          organizationIndexRefreshKey: "organization-index-a",
+          operationScopeKey: props.operationScopeKey,
+          provisionOrganization,
+          scopeKey,
+          setSessionContext,
+        }),
+      {
+        initialProps: { databaseReady: true, operationScopeKey: "session-a" },
+      },
+    );
+    await waitFor(() =>
+      expect(view.result.current.organizationsLoading).toBe(false),
+    );
+
+    let creation: Promise<void> | undefined;
+    act(() => {
+      creation = view.result.current.createOrganization("Beta");
+    });
+    await waitFor(() => expect(view.result.current.creating).toBe(true));
+    view.rerender({ databaseReady: false, operationScopeKey: "session-b" });
+
+    await act(async () => {
+      for (const frame of frames.splice(0)) frame(performance.now());
+      await creation;
+    });
+    expect(provisionOrganization).toHaveBeenCalledTimes(0);
+    expect(setSessionContext).toHaveBeenCalledTimes(0);
+  } finally {
+    globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+  }
 });

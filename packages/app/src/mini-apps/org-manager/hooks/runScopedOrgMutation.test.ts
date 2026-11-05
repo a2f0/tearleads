@@ -118,3 +118,39 @@ for (const error of [
     expect(setMutating).toHaveBeenLastCalledWith(false);
   });
 }
+
+test("scoped org mutation lets the busy state paint before running", async () => {
+  const events: string[] = [];
+  const frames: FrameRequestCallback[] = [];
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    events.push("frame-requested");
+    frames.push(callback);
+    return frames.length;
+  };
+  try {
+    const pending = runScopedOrgMutation({
+      isOperationActive: () => true,
+      logError: () => {},
+      operationOrganizationId: "org-1",
+      run: async () => {
+        events.push("run");
+      },
+      setError: () => {},
+      setMutating: (mutating) => events.push(`mutating:${mutating}`),
+    });
+    await Promise.resolve();
+    expect(events).toEqual(["mutating:true", "frame-requested"]);
+
+    frames.shift()?.(performance.now());
+    await pending;
+    expect(events).toEqual([
+      "mutating:true",
+      "frame-requested",
+      "run",
+      "mutating:false",
+    ]);
+  } finally {
+    globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+  }
+});

@@ -6,10 +6,12 @@ import {
   MiniAppField,
   MiniAppInput,
   MiniAppModalBackdrop,
+  MiniAppModalBusyOverlay,
   MiniAppModalForm,
   MiniAppModalPanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
+import { ORG_MANAGER_BUSY_LABELS } from "../grants/busyLabels";
 import { ORG_MANAGER_LABELS } from "../labels";
 import "./CreateOrganizationDialog.css";
 
@@ -94,17 +96,19 @@ export function CreateOrganizationDialog({
             >
               {ORG_MANAGER_LABELS.cancel}
             </MiniAppButton>
-            <MiniAppButton
-              disabled={!canCreate}
-              loading={creating}
-              type="submit"
-            >
-              {creating
-                ? ORG_MANAGER_LABELS.creatingOrganization
-                : ORG_MANAGER_LABELS.create}
+            <MiniAppButton disabled={!canCreate} type="submit">
+              {ORG_MANAGER_LABELS.create}
             </MiniAppButton>
           </MiniAppActions>
         </MiniAppModalForm>
+        {creating && (
+          <MiniAppModalBusyOverlay
+            description={
+              ORG_MANAGER_BUSY_LABELS.creatingOrganizationDescription
+            }
+            label={ORG_MANAGER_LABELS.creatingOrganization}
+          />
+        )}
       </MiniAppModalPanel>
     </MiniAppModalBackdrop>
   );
