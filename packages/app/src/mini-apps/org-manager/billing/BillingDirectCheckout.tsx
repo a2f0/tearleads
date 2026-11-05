@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -12,12 +12,11 @@ import {
   MiniAppRowText,
 } from "../../../components/mini-app/rows/MiniAppRow";
 import { useAppFeatureFlags } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
-import { useLog } from "../../../providers/logging/LogProvider";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { formatPrice } from "../../shared/billingFormatters";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPurchaseOption } from "./BillingPlanSwitcher";
 import type { DirectCheckoutState } from "./useDirectCheckout";
+import { useHostedCheckout } from "./useHostedCheckout";
 import "./BillingCheckout.css";
 
 /**
@@ -26,73 +25,6 @@ import "./BillingCheckout.css";
  * affordance are app components, and the payment fields mount into the host
  * div styled from the app's own theme tokens.
  */
-
-/**
- * The off-site alternative to the inline form: mints a hosted Stripe Checkout
- * session and opens it in a NEW tab, so the buyer keeps this billing panel open
- * behind it. The session's success/cancel URLs return to this page.
- *
- * The tab is opened SYNCHRONOUSLY on the click — before the `await` — because a
- * `window.open` issued after an await is treated as programmatic and blocked by
- * pop-up blockers. The blank tab holds the user gesture and is pointed at the
- * minted URL once it resolves; if the pop-up was blocked (no handle), the
- * current tab navigates instead so the buyer is never stranded.
- */
-function useHostedCheckout(organizationId: string): {
-  readonly open: () => void;
-  readonly busy: boolean;
-  readonly unavailable: boolean;
-} {
-  const tearleads = useTearleads();
-  const { logError } = useLog();
-  const [busy, setBusy] = useState(false);
-  // A null/failed result would otherwise reset the link silently, leaving a
-  // dead-feeling click — e.g. a co-admin whose org is already checking out, or
-  // an unconfigured integration. Surface a brief notice instead.
-  const [unavailable, setUnavailable] = useState(false);
-  const open = useCallback(() => {
-    if (busy) {
-      return;
-    }
-    setBusy(true);
-    setUnavailable(false);
-    const tab = globalThis.open?.("about:blank", "_blank");
-    void (async () => {
-      try {
-        const result =
-          await tearleads.organizations.createStripeCheckoutSession(
-            globalThis.location?.href ?? "",
-            organizationId,
-          );
-        if (result?.url) {
-          if (tab) {
-            // Sever the child's back-reference before it navigates
-            // cross-origin, so the Stripe page cannot reach into this window
-            // (reverse tabnabbing); the blank tab is still same-origin here.
-            tab.opener = null;
-            tab.location.href = result.url;
-          } else {
-            // The pop-up was blocked: fall back to same-tab navigation rather
-            // than leaving the click dead.
-            globalThis.location?.assign(result.url);
-          }
-          setBusy(false);
-          return;
-        }
-        // Unconfigured, not eligible, or a checkout already in progress.
-        tab?.close();
-        setUnavailable(true);
-        setBusy(false);
-      } catch (error) {
-        logError("Failed to open the hosted Stripe checkout", error);
-        tab?.close();
-        setUnavailable(true);
-        setBusy(false);
-      }
-    })();
-  }, [busy, logError, organizationId, tearleads]);
-  return { open, busy, unavailable };
-}
 
 function HostedCheckoutLink({
   disabled,
