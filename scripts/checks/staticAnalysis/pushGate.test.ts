@@ -82,7 +82,9 @@ function configurePushFixture(
   const { PATH = "" } = process.env;
   const env = {
     ...repo.env,
+    // Lint exports these for its own check:fast; fixtures choose their own.
     CI_TURBO_PROTOCOL_CACHE: "",
+    CI_DEFER_PROTOCOL_MODELS: "",
     PATH: `${join(repo.cwd, "bin")}:${PATH}`,
     COMMAND_LOG: log,
     REAL_BUN: process.execPath,
@@ -94,6 +96,14 @@ function configurePushFixture(
     HOLD_PID_FILE: "",
     ...extraEnv,
   };
+  const runWith = (extra: Record<string, string>, ...cmd: string[]) =>
+    Bun.spawnSync(cmd, {
+      cwd: repo.cwd,
+      env: { ...env, ...extra },
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
   const runAt = (cwd: string, ...cmd: string[]) =>
     Bun.spawnSync(cmd, {
       cwd,
@@ -112,7 +122,7 @@ function configurePushFixture(
   expect(run("git", "init", "--bare", "remote.git").exitCode).toBe(0);
   repo.git("remote", "add", "origin", join(repo.cwd, "remote.git"));
   const push = () => run("git", "push", "origin", "HEAD:refs/heads/probe");
-  return { ...repo, head, log, timings, run, runAt, install, push };
+  return { ...repo, head, log, timings, run, runAt, runWith, install, push };
 }
 
 test("CI and the installed hook run the same fast checks in order", () => {
@@ -441,6 +451,25 @@ test("a foreground failure keeps the lane's finished steps", () => {
     expect(timings).toContain("\tunfinished=markdown\tstatus=failed\t");
     expect(timings).toContain("step\tprotocol-models\t");
     expect(timings).not.toContain("step\tprotocol-negative-controls\t");
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+test("CI's Lint check:fast leaves the model passes to their own job", () => {
+  const repo = pushFixture("");
+  try {
+    const deferred = repo.runWith(
+      { CI_DEFER_PROTOCOL_MODELS: "1" },
+      "sh",
+      "scripts/checks/checkFast.sh",
+    );
+    expect(deferred.exitCode, deferred.stderr.toString()).toBe(0);
+    const commands = readFileSync(repo.log, "utf8");
+    for (const command of modelCommands) {
+      expect(commands).not.toContain(`${command}\n`);
+    }
+    expect(commands).toContain("run check:protocol-traces\n");
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
   }
