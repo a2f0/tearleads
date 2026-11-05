@@ -100,6 +100,8 @@ export const listRootIdentitiesOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 500],
   id: "root.identities.list",
   summary: "List identities",
+  description:
+    "Pages every registered identity, newest first, optionally filtered by signing key fingerprint prefix, exact user id, or root operators only. Only root operators may call it, and each request is recorded in the root audit trail.",
   method: "GET",
   params: RootPathParamsSchema,
   path: "/root/identities",
@@ -115,6 +117,8 @@ export const getRootIdentityOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 500],
   id: "root.identities.get",
   summary: "Get an identity",
+  description:
+    "Returns one identity with its last activity and live sessions. Only root operators may call it, and each request is recorded in the root audit trail.",
   method: "GET",
   params: RootIdentityPathParamsSchema,
   path: "/root/identities/{userId}",
@@ -129,6 +133,8 @@ export const listRootIdentityOrganizationsOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 500],
   id: "root.identities.organizations.list",
   summary: "List an identity's organizations",
+  description:
+    "Lists an identity's organizations with roster status, sync pause, seat holding, and billing standing. Only root operators may call it, and each request is recorded in the root audit trail.",
   method: "GET",
   params: RootIdentityPathParamsSchema,
   path: "/root/identities/{userId}/organizations",

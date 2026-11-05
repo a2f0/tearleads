@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import "../schemaDescriptions";
 import { toJsonSchemaProjection } from "../jsonSchema";
 import type { HttpOperation, HttpOperationMediaType } from "./definition";
 import {
@@ -34,6 +35,7 @@ interface OpenApiResponse {
 interface OpenApiOperation {
   readonly operationId: string;
   readonly summary: string;
+  readonly description: string;
   readonly tags: readonly string[];
   readonly parameters: readonly object[];
   readonly requestBody?: {
@@ -347,6 +349,7 @@ function openApiOperation(
   return {
     operationId: operation.id,
     summary: operation.summary,
+    description: operation.description,
     tags: [openApiOperationTag(operation)],
     parameters,
     ...(requestSchema === undefined

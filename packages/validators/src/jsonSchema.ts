@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { createJsonSchemaAnnotationPass } from "./jsonSchemaAnnotations";
 import {
   constrainNativeNumber,
   preserveDiscriminatedUnionEncoding,
@@ -344,9 +345,6 @@ function assertJsonWireSchemaRoot(schema: z.core.$ZodType): void {
   assertJsonWireSchema(schema, "root", new Set(), new WeakSet());
 }
 
-/** Names a projected schema; the OpenAPI renderer moves it to components. */
-export const JSON_SCHEMA_COMPONENT_KEY = "x-tearleads-component";
-
 interface ProjectionState {
   readonly componentNames: ReadonlyMap<z.core.$ZodType, string>;
   readonly resolving: Set<z.core.$ZodType>;
@@ -440,18 +438,17 @@ function projectJsonSchema(
   }
 
   state.resolving.add(schema);
+  const annotations = createJsonSchemaAnnotationPass(state.componentNames);
   try {
     const result = z.toJSONSchema(schema, {
       io: "input",
       unrepresentable: "any",
       override(context) {
         overrideJsonSchema(context, state);
-        const name = state.componentNames.get(context.zodSchema);
-        if (name !== undefined) {
-          Reflect.set(context.jsonSchema, JSON_SCHEMA_COMPONENT_KEY, name);
-        }
+        annotations.record(context);
       },
     });
+    annotations.apply(result);
 
     Reflect.deleteProperty(result, "$schema");
     preserveTypeUnionEncoding(result);

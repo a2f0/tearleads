@@ -88,6 +88,8 @@ export const createOrganizationOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500, 503],
   id: "organizations.create",
   summary: "Create an organization",
+  description:
+    "Provisions an additional organization for the signed-in user, who becomes its founding administrator: reserved `Admins` and `Members` groups, root container, signed policies, and metadata documents in one transaction. It also creates the replacement for the caller's purged personal organization, which must use a fresh organization id.",
   method: "POST",
   params: CreateOrganizationPathParamsSchema,
   path: "/organizations",
@@ -113,6 +115,8 @@ export const getOrganizationDataUsageOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 500],
   id: "organizations.dataUsage.get",
   summary: "Get organization data usage",
+  description:
+    "Returns how many bytes of documents and blobs an organization stores, broken down by document category. Any organization member may call it.",
   method: "GET",
   params: OrganizationPathParamsSchema,
   path: "/organizations/{organizationId}/data-usage",
@@ -134,6 +138,8 @@ export const getOrganizationReadModelOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 500],
   id: "organizations.readModel.get",
   summary: "Reconcile the organization read model",
+  description:
+    "Returns the organization read model: display and navigation data for the directory, groups, group memberships, grants, and organization policy. Without a cursor it returns an atomic snapshot; with one, only lanes changed since. Any organization member may call it; the read model is not authority, so clients still verify signed policies and manifests.",
   method: "GET",
   params: OrganizationPathParamsSchema,
   path: "/organizations/{organizationId}/read-model",
@@ -160,6 +166,8 @@ export const createOrganizationGroupOperation = defineJsonOperation({
   failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
   id: "organizations.groups.create",
   summary: "Create an organization group and advance its signed directory",
+  description:
+    "Creates a group with its initial signed principal policy and, in the same transaction, the organization policy successor that adds it to the signed group directory. Only organization administrators may call it. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.",
   method: "POST",
   params: OrganizationPathParamsSchema,
   path: "/organizations/{organizationId}/groups",
@@ -192,6 +200,8 @@ export const deleteOrganizationGroupOperation = defineJsonOperation({
   failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
   id: "organizations.groups.delete",
   summary: "Delete an organization group",
+  description:
+    "Deletes a group through a signed organization policy successor that drops it from the directory, leaving a tombstone so its id can never be reused. Only organization administrators may call it. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.",
   method: "DELETE",
   params: OrganizationGroupPathParamsSchema,
   path: "/organizations/{organizationId}/groups/{groupId}",
@@ -220,6 +230,8 @@ export const listOrganizationGroupMembersOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 500],
   id: "organizations.groups.members.list",
   summary: "List organization group members",
+  description:
+    "Lists the members of an organization group from its current signed policy. Any organization member may call it.",
   method: "GET",
   params: OrganizationGroupPathParamsSchema,
   path: "/organizations/{organizationId}/groups/{groupId}/members",
@@ -242,6 +254,8 @@ export const updateOrganizationProfileOperation = defineJsonOperation({
   failureStatuses: [400, 401, 402, 403, 404, 500],
   id: "organizations.profile.update",
   summary: "Update the organization profile",
+  description:
+    "Binds, or clears, the organization's encrypted profile document, which holds profile fields such as its name that the server cannot read. Only organization administrators may call it.",
   method: "PUT",
   params: OrganizationPathParamsSchema,
   path: "/organizations/{organizationId}/profile",
@@ -264,6 +278,8 @@ export const updateOrganizationRosterEntryOperation = defineJsonOperation({
   failureStatuses: [400, 401, 402, 403, 404, 500],
   id: "organizations.roster.update",
   summary: "Bind an encrypted roster profile document",
+  description:
+    "Binds a member's encrypted roster profile document to their organization roster entry. Members may bind their own profile; binding another member's requires organization administrator access.",
   method: "PUT",
   params: OrganizationRosterPathParamsSchema,
   path: "/organizations/{organizationId}/roster/{userId}",

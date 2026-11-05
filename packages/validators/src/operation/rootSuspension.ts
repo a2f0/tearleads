@@ -29,6 +29,8 @@ export const suspendRootIdentityOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "root.identities.suspension.put",
   summary: "Suspend an identity",
+  description:
+    "Suspends an identity: its sign-in is refused and every live session is revoked. Only root operators may call it; suspending another root operator returns 409, and every attempt is recorded in the root audit trail. A failed session sweep returns 500 and can be repeated.",
   method: "PUT",
   params: RootIdentityPathParamsSchema,
   path: "/root/identities/{userId}/suspension",
@@ -44,6 +46,8 @@ export const liftRootIdentitySuspensionOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 500],
   id: "root.identities.suspension.delete",
   summary: "Lift an identity suspension",
+  description:
+    "Lifts an identity's suspension so its devices can sign in again. Only root operators may call it, and each request is recorded in the root audit trail.",
   method: "DELETE",
   params: RootIdentityPathParamsSchema,
   path: "/root/identities/{userId}/suspension",

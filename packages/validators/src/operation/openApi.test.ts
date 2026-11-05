@@ -387,6 +387,7 @@ test("emitted integer schemas preserve the runtime numeric range", () => {
     requestSchema.properties ?? {},
   ).find(([name]) => name === "contentKeyEpoch")?.[1];
   expect(contentKeyEpochSchema).toEqual({
+    description: expect.any(String),
     exclusiveMinimum: 0,
     maximum: Number.MAX_VALUE,
     type: "integer",

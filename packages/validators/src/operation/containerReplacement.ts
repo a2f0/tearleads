@@ -24,6 +24,8 @@ export const getContainerReplacementAuthorizationsOperation =
     failureStatuses: [400, 401, 403, 404, 409, 500],
     id: "containers.replacementAuthorizations.get",
     summary: "Get a re-shared container's replacement lineage",
+    description:
+      "Returns the signed chain that lets a container in a replacement organization stand in for a held container from a purged organization, so a client can rebind its local copy and queued edits. Only a current reader of the destination container is served it, so former members cannot discover replacement ids through the old roster.",
     method: "GET",
     params: z.strictObject({
       containerId: uuidV4StringSchema,

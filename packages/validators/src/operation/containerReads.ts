@@ -80,6 +80,8 @@ export const getContainerKekLogOperation = defineJsonOperation({
   failureStatuses: containerReadFailureStatuses,
   id: "containers.kekLog.get",
   summary: "Page a container's KEK rotation log",
+  description:
+    "Pages a container's append-only KEK rotation log: every epoch with its write-once predecessor bridge and retained wraps, plus the sealed keyring of one epoch the request names. Clients use it to rebuild or repair a damaged container KEK keyring. Any current reader of the container may page the whole log, because current read access includes retained history.",
   method: "GET",
   params: ContainerReadPathParamsSchema,
   path: "/containers/{containerId}/kek-log",
@@ -99,6 +101,8 @@ export const listContainerDocumentLanesOperation = defineJsonOperation({
   failureStatuses: [400, 401, 500],
   id: "containers.documentLanes.query",
   summary: "List container documents by lane",
+  description:
+    "Lists the documents linked into up to 32 containers, each lane with its own watermark and page size (500 rows in total). Each lane needs read access to its container; a lane that fails reports its own failure while the others still list, and only the container's absence is reported as `container_not_found`.",
   method: "POST",
   params: z.strictObject({}),
   path: "/containers/documents/query",
@@ -117,6 +121,8 @@ export const listContainerParentLanesOperation = defineJsonOperation({
   failureStatuses: [400, 401, 500],
   id: "containers.parentLanes.query",
   summary: "List containers by parent lane",
+  description:
+    "Lists the containers the caller can reach through direct grants or managed-principal membership, one bounded page for each of up to four requested parent lanes, each with its own watermark. Clients use it to discover and incrementally refresh the folder tree. Any signed-in user may call it; access is checked per container.",
   method: "POST",
   params: z.strictObject({}),
   path: "/containers/parent-lanes/query",

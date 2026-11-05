@@ -41,6 +41,8 @@ export const getBlobDownloadOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "blobs.download.get",
   summary: "Get a blob download source",
+  description:
+    "Returns a committed blob's byte length, SHA-256 digest, and where to fetch its encrypted bytes: a five-minute signed object-store URL, or this API's `/bytes` route when the store cannot sign. Requires read access through at least one active attachment binding's document. Key material comes from the attachment listing, never from this response.",
   method: "GET",
   params: BlobBytesPathParamsSchema,
   path: "/blobs/{blobId}/download",

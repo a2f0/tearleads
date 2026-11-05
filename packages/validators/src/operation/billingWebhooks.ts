@@ -69,6 +69,8 @@ export const receiveRevenueCatWebhookOperation = defineJsonOperation({
   headers: RevenueCatWebhookHeadersSchema,
   id: "billing.revenuecat.webhook.receive",
   summary: "Receive a RevenueCat webhook",
+  description:
+    "Receives subscription lifecycle events from RevenueCat and applies them to organization billing. The caller is RevenueCat, authenticated by the shared secret in the `Authorization` header rather than by a session. An event the server cannot apply yet is answered with 503 and left unclaimed, so RevenueCat redelivers it.",
   method: "POST",
   params: BillingWebhookPathParamsSchema,
   path: "/billing/revenuecat/webhook",
@@ -90,6 +92,8 @@ export const receiveStripeWebhookOperation = defineJsonOperation({
   headers: StripeWebhookHeadersSchema,
   id: "billing.stripe.webhook.receive",
   summary: "Receive a Stripe webhook",
+  description:
+    "Receives Stripe events and, for paid invoices, records the subscription binding for the organization and links it to RevenueCat. The caller is Stripe, authenticated by the `Stripe-Signature` header over the exact raw body rather than by a session. The server re-fetches the subscription from Stripe instead of trusting the event body.",
   method: "POST",
   params: BillingWebhookPathParamsSchema,
   path: "/billing/stripe/webhook",
