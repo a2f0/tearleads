@@ -1,8 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { isSentryCommit } from "@tearleads/diagnostics/config";
-import { parseApiVersion } from "@tearleads/validators/operation";
+import {
+  parseApiVersion,
+  protocolOperations,
+} from "@tearleads/validators/operation";
 
 export function apiDiagnosticsBuildOptions(root: string) {
   return {
@@ -33,15 +35,18 @@ export function workerDiagnosticsBuild(root: string) {
     commit,
     sourceRoot,
     sourcePaths: ["/index.js"],
-    routeTemplates: routeTemplates(root),
+    routeTemplates: routeTemplates(),
   };
 }
 
-function routeTemplates(root: string): string[] {
-  const document: { paths: Record<string, unknown> } = JSON.parse(
-    readFileSync(resolve(root, "docs/openapi.json"), "utf8"),
-  );
-  return ["/", "unmatched", ...Object.keys(document.paths)];
+/**
+ * The Sentry `api_route` allowlist: every registered operation's path template
+ * in OpenAPI `{param}` form (the form `docs/openapi.json` keys its paths by),
+ * plus the root and the `unmatched` fallback.
+ */
+export function routeTemplates(): string[] {
+  const paths = new Set(protocolOperations.map((operation) => operation.path));
+  return ["/", "unmatched", ...[...paths].sort()];
 }
 
 /**
@@ -101,6 +106,6 @@ function readGitBuild(sourceRoot: string) {
     commit,
     sourceRoot,
     sourcePaths,
-    routeTemplates: routeTemplates(sourceRoot),
+    routeTemplates: routeTemplates(),
   };
 }
