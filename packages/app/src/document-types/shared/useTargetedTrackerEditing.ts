@@ -7,7 +7,7 @@ export function useTargetedTrackerEditing(
   initialEditing = false,
 ) {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [isEditing, setIsEditing, toggleDocumentEditing] =
+  const [isEditing, enterEditing, toggleDocumentEditing] =
     useStructuredDocumentEditing(canWrite, initialEditing);
 
   useEffect(() => {
@@ -22,9 +22,9 @@ export function useTargetedTrackerEditing(
         return;
       }
       setEditingRowId(id);
-      setIsEditing(true);
+      enterEditing();
     },
-    [canWrite, setIsEditing],
+    [canWrite, enterEditing],
   );
   const toggleEditing = useCallback(() => {
     setEditingRowId(null);
