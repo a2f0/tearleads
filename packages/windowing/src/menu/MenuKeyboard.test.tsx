@@ -108,6 +108,9 @@ test("dismissal preserves focus that moved outside the menu", () => {
   fireEvent.mouseDown(outside);
   expect(view.queryByRole("button", { name: "First" })).toBeNull();
   expect(document.activeElement).toBe(outside);
+  // Release it: React drops later onSelect events while the mouse is down,
+  // and that flag outlives this file in a shared worker.
+  fireEvent.mouseUp(outside);
 });
 
 test("checkbox-only menus focus and navigate their controls without swallowing Space", () => {
