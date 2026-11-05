@@ -1,3 +1,4 @@
+import { BuildingOfficeIcon } from "@phosphor-icons/react/dist/csr/BuildingOffice";
 import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
 import { useCallback, useId } from "react";
 import {
@@ -6,12 +7,14 @@ import {
   MiniAppRoot,
   MiniAppSection,
   MiniAppSectionHeading,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/mini-app/rows/MiniAppRow";
+import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapProgress";
 import { useMiniAppBusActions } from "../bus";
 import { useOrganizationDashboard } from "./hooks/useOrganizationDashboard";
 import type { OrganizationSyncChoices } from "./hooks/useOrganizationSyncChoices";
@@ -21,6 +24,8 @@ import type {
   OrganizationDashboardFolder,
 } from "./model/organizationDashboard";
 import "./Organizations.css";
+
+const EMPTY_ICON = <BuildingOfficeIcon size={40} weight="light" />;
 
 function cardBadge(card: OrganizationDashboardCard): string {
   if (card.active) return ORGANIZATIONS_LABELS.activeBadge;
@@ -199,6 +204,33 @@ function OrganizationCard({
 }
 
 /**
+ * Whole-surface stand-ins for the list: account setup still running, the
+ * dashboard still loading, or genuinely no organizations yet.
+ */
+function OrganizationsStatePanel({ ready }: { ready: boolean }) {
+  const progress = useAccountBootstrapProgress();
+  if (progress) {
+    return (
+      <MiniAppStatePanel
+        busy
+        description={progress.description}
+        title={progress.title}
+      />
+    );
+  }
+  if (!ready) {
+    return <MiniAppStatePanel busy title={ORGANIZATIONS_LABELS.loading} />;
+  }
+  return (
+    <MiniAppStatePanel
+      description={ORGANIZATIONS_LABELS.emptyDescription}
+      icon={EMPTY_ICON}
+      title={ORGANIZATIONS_LABELS.empty}
+    />
+  );
+}
+
+/**
  * Every organization this user belongs to and the folders they can reach in
  * each, independent of which organization is the active workspace.
  */
@@ -211,6 +243,14 @@ export function Organizations() {
     [openMiniApp],
   );
 
+  if (!ready || cards.length === 0) {
+    return (
+      <MiniAppRoot className="organizations">
+        <OrganizationsStatePanel ready={ready} />
+      </MiniAppRoot>
+    );
+  }
+
   return (
     <MiniAppRoot className="organizations">
       <MiniAppSection>
@@ -220,25 +260,19 @@ export function Organizations() {
         {syncChoices.error ? (
           <MiniAppStatus tone="error">{syncChoices.error}</MiniAppStatus>
         ) : null}
-        {!ready ? (
-          <MiniAppStatus>{ORGANIZATIONS_LABELS.loading}</MiniAppStatus>
-        ) : cards.length === 0 ? (
-          <MiniAppStatus>{ORGANIZATIONS_LABELS.empty}</MiniAppStatus>
-        ) : (
-          <ul
-            aria-label={ORGANIZATIONS_LABELS.title}
-            className="organizations-list"
-          >
-            {cards.map((card) => (
-              <OrganizationCard
-                card={card}
-                key={card.organizationId}
-                onOpenFolder={openFolder}
-                syncChoices={syncChoices}
-              />
-            ))}
-          </ul>
-        )}
+        <ul
+          aria-label={ORGANIZATIONS_LABELS.title}
+          className="organizations-list"
+        >
+          {cards.map((card) => (
+            <OrganizationCard
+              card={card}
+              key={card.organizationId}
+              onOpenFolder={openFolder}
+              syncChoices={syncChoices}
+            />
+          ))}
+        </ul>
       </MiniAppSection>
     </MiniAppRoot>
   );

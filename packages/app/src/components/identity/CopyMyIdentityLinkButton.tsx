@@ -21,20 +21,27 @@ export function CopyMyIdentityLinkButton() {
   const userId = runtime.auth.isAuthenticated ? runtime.auth.userId : null;
   const { error, link } = useUserIdentityLink(userId);
   const { copied, copy } = useClipboardCopy();
-  const progress = useAccountBootstrapProgress();
+  // While the account is still being set up, the button carries its own
+  // spinner instead of a separate status line pushed between controls.
+  const bootstrap = useAccountBootstrapProgress();
+  const progress = userId || !bootstrap ? null : `${bootstrap.title}...`;
 
   return (
     <div>
       <MiniAppToolbar>
         <MiniAppButton
           disabled={!link}
+          loading={progress !== null}
           onClick={() => {
             if (link) copy(link);
           }}
-          title="Send it through a trusted channel so others can verify you before adding you."
+          title={
+            progress ??
+            "Send it through a trusted channel so others can verify you before adding you."
+          }
           withIcon
         >
-          {copied ? (
+          {progress ? null : copied ? (
             <CheckIcon aria-hidden size={16} />
           ) : (
             <ClipboardIcon aria-hidden size={16} />
@@ -42,12 +49,9 @@ export function CopyMyIdentityLinkButton() {
           Copy my identity link
         </MiniAppButton>
       </MiniAppToolbar>
-      {!userId &&
-        (progress ? (
-          <MiniAppStatus busy>{progress.title}...</MiniAppStatus>
-        ) : (
-          <MiniAppStatus>Sign in to share your identity link.</MiniAppStatus>
-        ))}
+      {!userId && !progress && (
+        <MiniAppStatus>Sign in to share your identity link.</MiniAppStatus>
+      )}
       {error && (
         <MiniAppStatus tone="error" role="alert">
           {error}
