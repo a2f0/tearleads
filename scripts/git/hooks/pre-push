@@ -95,6 +95,12 @@ run_background_lane() {
   (
     trap save_lane_timings EXIT
     step_timings_reset
+    # Replay a model pass whose inputs (models, checker scripts, tool pins, and
+    # Java runtime identity) match an earlier pass in this checkout's Turbo
+    # cache. The wrapper still validates Java and the jar on a hit; CI and the
+    # nightly uncached run execute TLC on their own misses.
+    CI_TURBO_PROTOCOL_CACHE=1
+    export CI_TURBO_PROTOCOL_CACHE
     # Saved after each step too: a stopped lane gets no EXIT trap, and its
     # finished steps still belong in the failed run's record.
     step_timings_run protocol-models run_protocol_check check:protocol-models

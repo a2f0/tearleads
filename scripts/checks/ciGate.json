@@ -2,6 +2,7 @@
   "required": [
     "changes",
     "lint",
+    "models",
     "build",
     "test",
     "postgres-concurrency",

@@ -10,8 +10,12 @@ interface Workflow {
       steps?: {
         uses?: string;
         run?: string;
-        env?: { CI_TURBO_PROTOCOL_CACHE?: string };
+        env?: {
+          CI_TURBO_PROTOCOL_CACHE?: string;
+          CI_DEFER_PROTOCOL_MODELS?: string;
+        };
       }[];
+      strategy?: { matrix?: { check?: string[] } };
     }
   >;
 }
@@ -54,12 +58,21 @@ test("nightly CI forces every cacheable lane, including reusable platform workfl
 
 test("CI opts into cached model checks and native release tests use the shared task", async () => {
   const ci = await workflow("ci");
-  const { lint } = ci.jobs;
+  const { lint, models } = ci.jobs;
   const steps = lint?.steps ?? [];
+  // Lint leaves the TLC passes to the models job, which caches them.
   expect(
     steps.find(({ run }) => run === "bun run check:fast")?.env
-      ?.CI_TURBO_PROTOCOL_CACHE,
+      ?.CI_DEFER_PROTOCOL_MODELS,
   ).toBe("1");
+  const check = models?.steps?.find(({ run }) =>
+    run?.includes("runCachedProtocolCheck.ts"),
+  );
+  expect(check?.env?.CI_TURBO_PROTOCOL_CACHE).toBe("1");
+  expect(models?.strategy?.matrix?.check?.toSorted()).toEqual([
+    "check:protocol-models",
+    "check:protocol-negative-controls",
+  ]);
   expect(
     steps.some(
       ({ run }) =>
