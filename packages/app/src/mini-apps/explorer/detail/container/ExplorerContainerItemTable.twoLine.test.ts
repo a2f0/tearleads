@@ -396,6 +396,8 @@ test("phone sort menu dismisses on outside and trigger mouse downs", () => {
 
   fireEvent.click(trigger);
   fireEvent.mouseDown(trigger);
+  // Release it: React drops later onSelect events while the mouse is down.
+  fireEvent.mouseUp(trigger);
   fireEvent.click(trigger);
   expect(view.queryByRole("listbox")).toBeNull();
 

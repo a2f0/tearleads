@@ -170,7 +170,7 @@ test("selects native, proof, and infrastructure checks without skipping their de
   }
 });
 
-test("each long suite runs in exactly one CI job", async () => {
+test("each long suite runs in exactly one CI job and every shard runs", async () => {
   const root = `${import.meta.dir}/../../..`;
   const ci = Bun.YAML.parse(
     await Bun.file(`${root}/.github/workflows/ci.yml`).text(),
@@ -179,20 +179,54 @@ test("each long suite runs in exactly one CI job", async () => {
       string,
       {
         steps?: { name?: string; run?: string }[];
-        strategy?: { matrix?: { include?: { filter?: string }[] } };
+        strategy?: {
+          matrix?: { include?: { filter?: string; args?: string }[] };
+        };
       }
     >;
   };
   const { build, test: matrix } = ci.jobs;
-  const suites = (matrix?.strategy?.matrix?.include ?? []).map(
-    ({ filter }) => filter,
-  );
+  const entries = matrix?.strategy?.matrix?.include ?? [];
+  const suites = [...new Set(entries.map(({ filter }) => filter))];
   const run = build?.steps?.find(({ name }) => name === "Run tests")?.run;
   const excluded = [...(run ?? "").matchAll(/--filter='!([^']+)'/g)].map(
     ([, name]) => name,
   );
   expect(suites.length).toBeGreaterThan(0);
   expect(excluded.toSorted()).toEqual(suites.toSorted());
+
+  // A split suite must still run every file on every backend exactly once:
+  // each backend's shards are 1/N through N/N, and a backend-narrowed API
+  // suite covers both backends.
+  const lanes = new Map<string, string[]>();
+  for (const { filter, args = "" } of entries) {
+    const words = args.split(" ").filter(Boolean);
+    const shard = words.find((word) => word.startsWith("--shard="));
+    const lane = `${filter} ${words.filter((word) => word.startsWith("--database=")).join(" ")}`;
+    lanes.set(lane, [...(lanes.get(lane) ?? []), shard ?? "whole"]);
+  }
+  for (const [lane, shards] of lanes) {
+    if (shards.includes("whole")) {
+      expect(shards, lane).toEqual(["whole"]);
+      continue;
+    }
+    const total = shards.length;
+    expect(shards.toSorted(), lane).toEqual(
+      Array.from(
+        { length: total },
+        (_, index) => `--shard=${index + 1}/${total}`,
+      ).toSorted(),
+    );
+  }
+  const apiLanes = [...lanes.keys()].filter((lane) =>
+    lane.startsWith("@tearleads/api "),
+  );
+  if (apiLanes.some((lane) => lane.includes("--database="))) {
+    expect(apiLanes.toSorted()).toEqual([
+      "@tearleads/api --database=memory",
+      "@tearleads/api --database=sqlite",
+    ]);
+  }
 });
 
 test("the required gate always evaluates all jobs and platform workflows are callable", async () => {

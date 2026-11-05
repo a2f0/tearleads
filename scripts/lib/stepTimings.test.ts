@@ -91,6 +91,20 @@ test("the summary aligns every value on the longest label", () => {
   );
 });
 
+test("a resumed step is timed from its original start", () => {
+  const output = runSh(
+    "step_timings_reset\n" +
+      'step_timings_resume tests "$(($(step_timings_now) - 125))"\n' +
+      "step_timings_end\n" +
+      "step_timings_summary",
+  );
+  // A second can tick between the start and the end.
+  expect(output).toMatch(/\[tests\] done in 2m0[56]s\./);
+  expect(
+    summaryRows(output).find(({ label }) => label === "tests")?.value,
+  ).toMatch(/^2m0[56]s$/);
+});
+
 test("durations render as minutes and zero-padded seconds", () => {
   const output = runSh(`
     step_timings_record quick 7

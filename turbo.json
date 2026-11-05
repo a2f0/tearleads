@@ -103,7 +103,9 @@
       "outputs": []
     },
     "build": {
+      "description": "No build reads a package's own tests, so they stay out of the hash: a test-only change must not invalidate dependents' ^build.",
       "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.test.ts", "!**/*.test.tsx"],
       "outputs": ["dist/**", "pkg/**"]
     },
     "check": {
@@ -112,6 +114,12 @@
     "sources": {
       "description": "Hash-only: no package defines this script. Depend on <package>#sources to key a task on that package's files and its workspace dependencies without building them.",
       "dependsOn": ["^sources"],
+      "outputs": []
+    },
+    "runtime-sources": {
+      "description": "Hash-only, like sources without test files. Depend on <package>#runtime-sources when a task runs that package's code but never its tests, so a test-only change keeps the cache.",
+      "dependsOn": ["^runtime-sources"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.test.ts", "!**/*.test.tsx"],
       "outputs": []
     },
     "test": {

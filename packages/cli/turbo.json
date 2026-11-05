@@ -6,8 +6,8 @@
       "description": "End-to-end tests boot the API in-process from its source through @tearleads/api/test-runtime, so an API change must miss this cache.",
       "dependsOn": [
         "$TURBO_EXTENDS$",
-        "@tearleads/api#sources",
-        "@tearleads/sqlite-worker#sources"
+        "@tearleads/api#runtime-sources",
+        "@tearleads/sqlite-worker#runtime-sources"
       ]
     },
     "start": {
