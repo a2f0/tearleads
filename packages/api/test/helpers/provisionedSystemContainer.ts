@@ -19,7 +19,7 @@ import type {
   ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { toWireRecord } from "./registrationWire";
+import { toWireRecord } from "./registration/wire";
 
 function toBase64Url(bytes: Uint8Array): string {
   return bytesToBase64(bytes)

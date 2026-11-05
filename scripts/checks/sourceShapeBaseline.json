@@ -134,10 +134,6 @@
       "lines": 536,
       "bytes": 16368
     },
-    "packages/api/test/helpers/registration.ts": {
-      "lines": 1140,
-      "bytes": 39540
-    },
     "packages/app/src/mini-apps/explorer/detail/container/ExplorerContainerDetail.test.ts": {
       "lines": 533,
       "bytes": 15919
