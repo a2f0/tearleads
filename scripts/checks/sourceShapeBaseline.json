@@ -118,14 +118,6 @@
       "lines": 3794,
       "bytes": 126253
     },
-    "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1241,
-      "bytes": 40987
-    },
-    "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2272,
-      "bytes": 73849
-    },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 626,
       "bytes": 20090
