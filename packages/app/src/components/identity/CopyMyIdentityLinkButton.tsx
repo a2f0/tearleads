@@ -49,6 +49,11 @@ export function CopyMyIdentityLinkButton() {
           Copy my identity link
         </MiniAppButton>
       </MiniAppToolbar>
+      {progress && (
+        <MiniAppStatus className="mini-app-status-announcement" role="status">
+          {progress}
+        </MiniAppStatus>
+      )}
       {!userId && !progress && (
         <MiniAppStatus>Sign in to share your identity link.</MiniAppStatus>
       )}

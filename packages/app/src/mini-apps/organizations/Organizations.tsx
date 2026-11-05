@@ -23,6 +23,7 @@ import type {
   OrganizationDashboardCard,
   OrganizationDashboardFolder,
 } from "./model/organizationDashboard";
+import { resolveOrganizationsSurfaceState } from "./model/organizationsSurfaceState";
 import "./Organizations.css";
 
 const EMPTY_ICON = <BuildingOfficeIcon size={40} weight="light" />;
@@ -204,33 +205,6 @@ function OrganizationCard({
 }
 
 /**
- * Whole-surface stand-ins for the list: account setup still running, the
- * dashboard still loading, or genuinely no organizations yet.
- */
-function OrganizationsStatePanel({ ready }: { ready: boolean }) {
-  const progress = useAccountBootstrapProgress();
-  if (progress) {
-    return (
-      <MiniAppStatePanel
-        busy
-        description={progress.description}
-        title={progress.title}
-      />
-    );
-  }
-  if (!ready) {
-    return <MiniAppStatePanel busy title={ORGANIZATIONS_LABELS.loading} />;
-  }
-  return (
-    <MiniAppStatePanel
-      description={ORGANIZATIONS_LABELS.emptyDescription}
-      icon={EMPTY_ICON}
-      title={ORGANIZATIONS_LABELS.empty}
-    />
-  );
-}
-
-/**
  * Every organization this user belongs to and the folders they can reach in
  * each, independent of which organization is the active workspace.
  */
@@ -243,10 +217,22 @@ export function Organizations() {
     [openMiniApp],
   );
 
-  if (!ready || cards.length === 0) {
+  const progress = useAccountBootstrapProgress();
+  const surfaceState = resolveOrganizationsSurfaceState({
+    cardCount: cards.length,
+    progress,
+    ready,
+  });
+
+  if (surfaceState) {
     return (
       <MiniAppRoot className="organizations">
-        <OrganizationsStatePanel ready={ready} />
+        <MiniAppStatePanel
+          busy={surfaceState.busy}
+          description={surfaceState.description}
+          icon={EMPTY_ICON}
+          title={surfaceState.title}
+        />
       </MiniAppRoot>
     );
   }

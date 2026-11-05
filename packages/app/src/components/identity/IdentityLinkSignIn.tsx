@@ -9,9 +9,14 @@ export function IdentityLinkSignIn() {
   // so the surrounding form does not shift or gain a stray status line.
   if (progress) {
     return (
-      <MiniAppButton loading title={progress.description} type="button">
-        {progress.title}...
-      </MiniAppButton>
+      <>
+        <MiniAppButton loading title={progress.description} type="button">
+          {progress.title}...
+        </MiniAppButton>
+        <MiniAppStatus className="mini-app-status-announcement" role="status">
+          {progress.title}...
+        </MiniAppStatus>
+      </>
     );
   }
   return (
