@@ -62,6 +62,20 @@ test(
       },
       { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
     );
+    // A windowed Identity Manager opens on its section menu; select General
+    // explicitly so the assertion does not depend on which shell renders it.
+    await waitFor(
+      () => {
+        const [general] = view.getAllByRole("button", { name: "General" });
+        if (general) fireEvent.click(general);
+        expect(
+          view.container.querySelector(
+            ".identity-manager .mini-app-state-panel, .identity-manager-details",
+          ),
+        ).not.toBeNull();
+      },
+      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+    );
     record();
 
     await waitFor(
