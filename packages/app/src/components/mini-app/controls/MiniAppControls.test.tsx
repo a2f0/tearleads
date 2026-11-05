@@ -79,6 +79,10 @@ test("mini app clipboard button copies non-empty values after caller click handl
 
   const button = view.getByRole("button", { name: "Copy user id" });
   const mouseDownAllowed = fireEvent.mouseDown(button);
+  // Release it as a real click would: React suppresses every later onSelect
+  // while it believes the mouse is down, and that flag outlives this file in
+  // a shared (--no-isolate) worker.
+  fireEvent.mouseUp(button);
   fireEvent.click(button);
 
   expect(mouseDownAllowed).toBe(false);
