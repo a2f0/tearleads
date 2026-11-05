@@ -4,6 +4,7 @@ import {
   MiniAppClipboardButton,
   MiniAppSection,
   MiniAppSectionHeading,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useAccountBootstrapProgress } from "../../../identity/useAccountBootstrapProgress";
@@ -103,6 +104,19 @@ export function IdentityManagerGeneralSection({
   const { isDeveloperMode } = useDeveloperMode();
   const progress = useAccountBootstrapProgress();
 
+  // While the account is still being restored, created, or signed in, every
+  // control here is either disabled or about to change; one centered panel
+  // says so instead of spinner lines threaded between them.
+  if (progress) {
+    return (
+      <MiniAppStatePanel
+        busy
+        description={progress.description}
+        title={progress.title}
+      />
+    );
+  }
+
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
@@ -118,17 +132,7 @@ export function IdentityManagerGeneralSection({
       <dl className="identity-manager-details">
         {isDeveloperMode && <IdentityDeveloperDetails model={model} />}
         <dt>Authentication</dt>
-        <dd>
-          {session.isAuthenticated ? (
-            "Authenticated"
-          ) : progress ? (
-            <MiniAppStatus as="span" busy>
-              {progress.title}...
-            </MiniAppStatus>
-          ) : (
-            "Signed out"
-          )}
-        </dd>
+        <dd>{session.isAuthenticated ? "Authenticated" : "Signed out"}</dd>
       </dl>
       <IdentityActionToolbar {...actions} />
       {actions.hasSigningKeyPair && (

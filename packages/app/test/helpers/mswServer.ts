@@ -61,6 +61,8 @@ interface ResetMockServerOptions {
 }
 
 interface TestApiAppHandlerOptions {
+  /** Holds a request (e.g. registration) until the returned promise settles. */
+  holdRequest?: (request: Request) => Promise<void> | undefined;
   responseDelayMs?: number;
 }
 
@@ -791,6 +793,7 @@ async function proxyRequestToApiApp(
   };
   activeProxiedApiRequests.add(activeRequest);
   try {
+    await options.holdRequest?.(request);
     const apiApp = await ensureTestApiApp();
     const requestBody =
       request.method === "GET" || request.method === "HEAD"
