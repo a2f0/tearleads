@@ -70,6 +70,7 @@ import {
 import { resolveRotationContext } from "./rotation/rotationContext";
 import { collectContainerRevokePrincipalPolicies } from "./rotation/rotationPrincipalPolicies";
 import { buildContainerRotationWraps } from "./rotation/rotationWraps";
+import { refreshedPrincipalPolicies } from "./share/sharePlanCore";
 
 function buildContainerRevokeRequest(input: {
   body: ContainerRevokeAccessEventBody;
@@ -266,13 +267,15 @@ export async function buildMaterializedContainerRevokePlan(input: {
   ) {
     throw new Error("Container revoke replacement principal does not match");
   }
-  const currentPrincipalPolicies = replacementPrincipalPolicy
-    ? principalPolicies.filter(
-        (policy) =>
-          policy.principalType !== replacementPrincipalPolicy.principalType ||
-          policy.principalId !== replacementPrincipalPolicy.principalId,
-      )
-    : principalPolicies;
+  // The revoked group's successor replaces its retiring head rather than
+  // dropping it: an ancestor rekeyed in the same batch cites that successor,
+  // and when the group's ancestor grant is the signer's only admin path, the
+  // server can authorize this revoke only through it. The new state grants
+  // the group nothing here, so it still receives no wrap.
+  const currentPrincipalPolicies = refreshedPrincipalPolicies({
+    previousPolicies: principalPolicies,
+    replacementPrincipalPolicy,
+  });
   const { userRecipientKeys, wraps } = await buildContainerRotationWraps({
     containerKey,
     containerKeyEpochId,
