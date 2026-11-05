@@ -12,7 +12,11 @@ also run in `check:fast` and pre-push.
 [`scripts/checks/fastChecks.sh`](../../scripts/checks/fastChecks.sh); add checks
 there. [Pre-push](verification.md#before-a-push) also checks the names of the
 branches a push creates or updates, Terraform, TypeScript, affected tests, and
-the pushed commit ranges. Each check retains its own push timing row. The branch
+the pushed commit ranges. The two TLC model passes and Terraform read no build
+output, so pre-push runs them in a background lane beside the other checks and
+the tests, and replays a model pass from the checkout's Turbo cache when its
+inputs match an earlier pass. CI runs those passes in their own job and `Lint`
+skips them. Each check retains its own push timing row. The branch
 check reads the pushed refs, not the checked-out branch, so
 `git push origin HEAD:<name>` and detached pushes are covered while deletions
 and tags are skipped. Hooks act only in a clone where `install-hooks.sh` ran, so

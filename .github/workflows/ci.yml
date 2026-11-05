@@ -63,7 +63,7 @@ jobs:
   gate:
     name: CI gate
     if: always()
-    needs: [changes, lint, build, test, postgres-concurrency, windows, native, proofs, terraform]
+    needs: [changes, lint, models, build, test, postgres-concurrency, windows, native, proofs, terraform]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -128,27 +128,64 @@ jobs:
           printf 'HEAD %s refs/heads/%s %040d\n' "$GITHUB_SHA" "$BRANCH_NAME" 0 |
             bun run agent-tool branch check --pre-push
 
+      # The two pure TLC passes run in the `models` job instead.
       - name: Run lint checks
         env:
-          CI_TURBO_PROTOCOL_CACHE: "1"
+          CI_DEFER_PROTOCOL_MODELS: "1"
           OPENAPI_BASE_REF: ${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
-          PROTOCOL_TLC_FAILURE_LOG_DIR: ${{ runner.temp }}/tlc-failures
         run: bun run check:fast
-
-      # A failing model's full TLC log, which the job's stdout can cut short.
-      - name: Upload failing TLC logs
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: tlc-failure-logs
-          path: ${{ runner.temp }}/tlc-failures
-          if-no-files-found: ignore
 
       - name: Run native release checks
         env:
           FASTLANE_OPT_OUT_USAGE: "1"
           FASTLANE_SKIP_UPDATE_CHECK: "1"
         run: bun scripts/testing/runVerifiedTurbo.ts test --filter=app-capacitor
+
+  # The pure TLC passes, one runner each, so a model change (a Turbo miss) costs
+  # the longer pass rather than lengthening Lint by both.
+  models:
+    name: Protocol models (${{ matrix.check }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [check:protocol-models, check:protocol-negative-controls]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up model tooling
+        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          version: 2026.11.0
+          install_args: bun java github:tlaplus/tlaplus
+          cache: true
+
+      - name: Key the Turbo cache to this runtime
+        run: echo "CI_TOOLCHAIN=bun-$(bun --version)-${RUNNER_OS}-${RUNNER_ARCH}" >> "$GITHUB_ENV"
+
+      - name: Serve the Turbo remote cache from the Actions cache
+        uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run model check
+        env:
+          CI_TURBO_PROTOCOL_CACHE: "1"
+          MODEL_CHECK: ${{ matrix.check }}
+          PROTOCOL_TLC_FAILURE_LOG_DIR: ${{ runner.temp }}/tlc-failures
+        run: bun scripts/checks/runCachedProtocolCheck.ts "$MODEL_CHECK"
+
+      # A failing model's full TLC log, which the job's stdout can cut short.
+      - name: Upload failing TLC logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tlc-failure-logs-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/tlc-failures
+          if-no-files-found: ignore
 
   # The suites too long to share a runner run in `test`; this job keeps the
   # remaining package tests alongside the TypeScript and web builds.
@@ -246,12 +283,18 @@ jobs:
           - suite: app 2/2
             filter: app
             args: --shard=2/2
-          - suite: client-sdk
+          - suite: client-sdk 1/2
             filter: "@tearleads/client-sdk"
-            args: ""
-          - suite: bob-and-alice
+            args: --shard=1/2
+          - suite: client-sdk 2/2
+            filter: "@tearleads/client-sdk"
+            args: --shard=2/2
+          - suite: bob-and-alice 1/2
             filter: "@tearleads/bob-and-alice"
-            args: ""
+            args: --shard=1/2
+          - suite: bob-and-alice 2/2
+            filter: "@tearleads/bob-and-alice"
+            args: --shard=2/2
 
     steps:
       - name: Checkout

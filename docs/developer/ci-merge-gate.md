@@ -18,7 +18,7 @@ applies to pull requests from clones without hooks.
 
 The API, app, client SDK, and bob-and-alice suites run in `Test (...)` jobs of
 their own, and `Build and test` runs the remaining package tests. The API suite
-runs one backend per job, and the API and app suites split into Bun shards
+runs one backend per job, and every one of these suites splits into Bun shards
 (`--shard=1/3` and so on); `ciPolicy.test.ts` checks that every backend's
 shards are all present. The gate requires both jobs, so the suites need no
 ruleset entries. Turbo hashes each shard's arguments, so shards cache
@@ -37,14 +37,17 @@ and external scripts. Windows and native tasks also hash the hosted
 runner image version; Postgres hashes the service image. The native release tests
 in `Lint` reuse the same `app-capacitor#test` task as `Build and test`.
 
-`Lint` opts into caching the two pure TLC model passes with
-`CI_TURBO_PROTOCOL_CACHE=1`. Their inputs include the formal models, registry,
-checker scripts, tool pins, and Java runtime identity. The wrapper validates the
-installed Java version and jar digest before every lookup, including cache hits.
-Implementation projections, conformance tests, and other static checks still run.
-Local [`check:fast`](./verification.md#before-a-push),
-[pre-push](./static-analysis.md#ci-and-the-push-gate), and the direct model
-commands still execute TLC.
+The two pure TLC model passes run in the `Protocol models (...)` jobs, one per
+pass, with `CI_TURBO_PROTOCOL_CACHE=1`; `Lint` skips them
+(`CI_DEFER_PROTOCOL_MODELS=1`). Their inputs include the formal models,
+registry, checker scripts, tool pins, and Java runtime identity. The wrapper
+validates the installed Java version and jar digest before every lookup,
+including cache hits. Implementation projections, conformance tests, and other
+static checks still run in `Lint`.
+The [pre-push](./static-analysis.md#ci-and-the-push-gate) gate also replays
+cached passes, from its own checkout's Turbo cache. Local
+[`check:fast`](./verification.md#before-a-push) and the direct model commands
+still execute TLC.
 
 Website-only source changes and website version bumps leave application test and
 platform verification hashes unchanged, so ordinary website edits stay
