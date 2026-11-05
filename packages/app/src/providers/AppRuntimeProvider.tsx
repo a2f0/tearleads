@@ -57,18 +57,19 @@ export function AppRuntimeProvider({
                                 >
                                   <IdentityAutopilot
                                     enabled={autoProvisionEnabled}
-                                  />
-                                  {hostConfig.profile.features
-                                    .seedPeerIdentities && (
-                                    <DemoPeerBootstrap
-                                      enabled={autoProvisionEnabled}
-                                    />
-                                  )}
-                                  <BillingProvider>
-                                    <IdentityLinkResolverProvider>
-                                      {children}
-                                    </IdentityLinkResolverProvider>
-                                  </BillingProvider>
+                                  >
+                                    {hostConfig.profile.features
+                                      .seedPeerIdentities && (
+                                      <DemoPeerBootstrap
+                                        enabled={autoProvisionEnabled}
+                                      />
+                                    )}
+                                    <BillingProvider>
+                                      <IdentityLinkResolverProvider>
+                                        {children}
+                                      </IdentityLinkResolverProvider>
+                                    </BillingProvider>
+                                  </IdentityAutopilot>
                                 </SystemBootstrapProvider>
                               </DeviceFirstProvider>
                             </UserSystemContainersProvider>

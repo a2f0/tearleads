@@ -3,7 +3,9 @@ import type { OrganizationBillingStatus } from "@tearleads/validators/response";
 export const ORG_MANAGER_LABELS = {
   add: "Add",
   addUser: "Add user",
-  authenticate: "Authenticate to manage an organization.",
+  signInDescription:
+    "Log in with this device's identity to manage your organizations, groups, and billing.",
+  signInTitle: "Log in to manage organizations",
   access: "Access",
   accessAdmin: "Admin",
   accessRead: "Read",
@@ -200,6 +202,8 @@ export const ORG_MANAGER_LABELS = {
   loadingGrants: "Loading grants...",
   loadingOrganizationProfile: "Loading organization profile...",
   loadingOrganizations: "Loading organizations...",
+  loadingOrganizationsDescription: "Fetching the organizations you belong to.",
+  loadingOrganizationsTitle: "Loading your organizations",
   loadingPolicyHistory: "Loading policy history...",
   loadingOlderPolicyHistory: "Loading older changes…",
   loadOlderPolicyHistory: "Load older changes",

@@ -1,5 +1,6 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { ClipboardIcon } from "@phosphor-icons/react/dist/csr/Clipboard";
+import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapPhase";
 import { useUserIdentityLink } from "../../providers/identity-links/useUserIdentityLink";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useClipboardCopy } from "../mini-app/controls/MiniAppButton";
@@ -20,6 +21,7 @@ export function CopyMyIdentityLinkButton() {
   const userId = runtime.auth.isAuthenticated ? runtime.auth.userId : null;
   const { error, link } = useUserIdentityLink(userId);
   const { copied, copy } = useClipboardCopy();
+  const progress = useAccountBootstrapProgress();
 
   return (
     <div>
@@ -40,9 +42,12 @@ export function CopyMyIdentityLinkButton() {
           Copy my identity link
         </MiniAppButton>
       </MiniAppToolbar>
-      {!userId && (
-        <MiniAppStatus>Sign in to share your identity link.</MiniAppStatus>
-      )}
+      {!userId &&
+        (progress ? (
+          <MiniAppStatus busy>{progress.title}...</MiniAppStatus>
+        ) : (
+          <MiniAppStatus>Sign in to share your identity link.</MiniAppStatus>
+        ))}
       {error && (
         <MiniAppStatus tone="error" role="alert">
           {error}

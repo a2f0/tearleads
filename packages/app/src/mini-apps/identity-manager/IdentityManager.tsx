@@ -5,11 +5,13 @@ import {
   MiniAppRoot,
   MiniAppSection,
   MiniAppSectionHeading,
+  MiniAppStatePanel,
   MiniAppStatus,
   MiniAppToolbar,
 } from "../../components/mini-app/MiniAppLayout";
 import { DestroyKeyPackageConfirmationDialog } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirmationDialog";
+import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapPhase";
 import "./IdentityManager.css";
 import { useIdentityManager } from "./IdentityManagerController";
 import { useIdentityManagerSidebarPanel } from "./IdentityManagerSidebar";
@@ -41,6 +43,17 @@ function ActiveSessionsSection({
     sessionList,
     sessionMutations,
   } = model;
+  const progress = useAccountBootstrapProgress();
+
+  if (!canManageSessions && progress) {
+    return (
+      <MiniAppStatePanel
+        busy
+        description={progress.description}
+        title={progress.title}
+      />
+    );
+  }
 
   if (!canManageSessions) {
     const identityBusy =

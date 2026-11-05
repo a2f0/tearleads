@@ -6,6 +6,7 @@ import {
   MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
+import { useAccountBootstrapProgress } from "../../../identity/useAccountBootstrapPhase";
 import { useDeveloperMode } from "../../../providers/developer-mode/DeveloperModeProvider";
 import type { useIdentityManager } from "../IdentityManagerController";
 import { compactIdentifier } from "../sessions/IdentityManagerSessionDisplay";
@@ -100,6 +101,7 @@ export function IdentityManagerGeneralSection({
   const { identityMutations, identityState, session } = model;
   const actions = getIdentitySectionActions(model);
   const { isDeveloperMode } = useDeveloperMode();
+  const progress = useAccountBootstrapProgress();
 
   return (
     <MiniAppSection>
@@ -116,7 +118,17 @@ export function IdentityManagerGeneralSection({
       <dl className="identity-manager-details">
         {isDeveloperMode && <IdentityDeveloperDetails model={model} />}
         <dt>Authentication</dt>
-        <dd>{session.isAuthenticated ? "Authenticated" : "Signed out"}</dd>
+        <dd>
+          {session.isAuthenticated ? (
+            "Authenticated"
+          ) : progress ? (
+            <MiniAppStatus as="span" busy>
+              {progress.title}...
+            </MiniAppStatus>
+          ) : (
+            "Signed out"
+          )}
+        </dd>
       </dl>
       <IdentityActionToolbar {...actions} />
       {actions.hasSigningKeyPair && (

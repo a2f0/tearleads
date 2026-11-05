@@ -1,10 +1,21 @@
-import { useEffect, useRef } from "react";
+import {
+  type PropsWithChildren,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../providers/logging/LogProvider";
 import { useSystemBootstrap } from "../providers/system-bootstrap/SystemBootstrapProvider";
+import {
+  AUTO_REGISTRATION_IDLE,
+  AutoProvisioningStatusContext,
+  type AutoRegistrationState,
+} from "./autoProvisioningStatus";
 import { autoRegisterFailureMessage } from "./registrationRecoveryError";
 import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
 
@@ -26,7 +37,12 @@ import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
  * initial persisted-identity restore to settle, so a returning user's stored
  * identity is restored rather than clobbered by a freshly generated one.
  */
-function useAutoProvisionIdentity(enabled: boolean): void {
+function useAutoProvisionIdentity(enabled: boolean): AutoRegistrationState {
+  useAutoGenerateIdentity(enabled);
+  return useAutoRegisterIdentity(enabled);
+}
+
+function useAutoGenerateIdentity(enabled: boolean): void {
   const { features } = useAppHostConfig().profile;
   const { isLocked } = useLocalKeyringLock();
   const {
@@ -35,21 +51,6 @@ function useAutoProvisionIdentity(enabled: boolean): void {
     localIdentityRestoreSettled,
     signingKeyPair,
   } = useIdentity();
-  const { sessionRestoreSettled } = useCryptoSession();
-  const { canRegisterCurrentIdentity, registerCurrentIdentity } =
-    useRegisterCurrentIdentity();
-  const { ensureBootstrapped, status: systemBootstrapStatus } =
-    useSystemBootstrap();
-  const { logError } = useLog();
-  const registrationInFlight = useRef(false);
-  const currentRegistrationRef = useRef({
-    canRegisterCurrentIdentity,
-    registerCurrentIdentity,
-  });
-  currentRegistrationRef.current = {
-    canRegisterCurrentIdentity,
-    registerCurrentIdentity,
-  };
 
   useEffect(() => {
     if (
@@ -77,6 +78,28 @@ function useAutoProvisionIdentity(enabled: boolean): void {
     localIdentityRestoreSettled,
     signingKeyPair,
   ]);
+}
+
+function useAutoRegisterIdentity(enabled: boolean): AutoRegistrationState {
+  const { features } = useAppHostConfig().profile;
+  const { sessionRestoreSettled } = useCryptoSession();
+  const { canRegisterCurrentIdentity, registerCurrentIdentity } =
+    useRegisterCurrentIdentity();
+  const { ensureBootstrapped, status: systemBootstrapStatus } =
+    useSystemBootstrap();
+  const { logError } = useLog();
+  const registrationInFlight = useRef(false);
+  const [registration, setRegistration] = useState<AutoRegistrationState>(
+    AUTO_REGISTRATION_IDLE,
+  );
+  const currentRegistrationRef = useRef({
+    canRegisterCurrentIdentity,
+    registerCurrentIdentity,
+  });
+  currentRegistrationRef.current = {
+    canRegisterCurrentIdentity,
+    registerCurrentIdentity,
+  };
 
   useEffect(() => {
     if (
@@ -107,6 +130,7 @@ function useAutoProvisionIdentity(enabled: boolean): void {
     // re-render while the request is outstanding) from firing a second
     // registration; on success canRegisterCurrentIdentity flips false.
     registrationInFlight.current = true;
+    setRegistration({ status: "running" });
     void ensureBootstrapped()
       .then((result) => {
         // System bootstrap is a hard precondition: only register once the
@@ -118,16 +142,27 @@ function useAutoProvisionIdentity(enabled: boolean): void {
           !result.completed ||
           !currentRegistrationRef.current.canRegisterCurrentIdentity
         ) {
-          return false;
+          return null;
         }
 
         return currentRegistrationRef.current.registerCurrentIdentity();
       })
+      .then((registered) => {
+        // null: bootstrap did not complete and a later change re-arms this
+        // effect, so the run is not a failure. false: the login refused or the
+        // identity changed underneath; signed-out surfaces offer manual login.
+        setRegistration(
+          registered === false
+            ? { message: AUTO_SIGN_IN_INCOMPLETE_MESSAGE, status: "failed" }
+            : AUTO_REGISTRATION_IDLE,
+        );
+      })
       .catch((error: unknown) => {
-        // No UI surface here (unlike the manual Identity Manager flow), so log
-        // and swallow to avoid an unhandled rejection; the manual Register
-        // action remains available as a fallback.
-        logError(autoRegisterFailureMessage(error), error);
+        // Log and swallow to avoid an unhandled rejection; signed-out surfaces
+        // show the reason beside the manual Login fallback.
+        const message = autoRegisterFailureMessage(error);
+        logError(message, error);
+        setRegistration({ message, status: "failed" });
       })
       .finally(() => {
         registrationInFlight.current = false;
@@ -141,19 +176,37 @@ function useAutoProvisionIdentity(enabled: boolean): void {
     sessionRestoreSettled,
     systemBootstrapStatus,
   ]);
+
+  return registration;
 }
 
+const AUTO_SIGN_IN_INCOMPLETE_MESSAGE =
+  "Automatic sign-in did not finish. Log in to continue.";
+
 /**
- * Headless component that runs {@link useAutoProvisionIdentity}. Mounted inside
- * the runtime provider tree so it can reach the identity, crypto-session, and
- * keychain contexts. `enabled` defaults to true; the workspace layer passes the
- * workspace's active state so only the visible workspace provisions.
+ * Runs {@link useAutoProvisionIdentity} and publishes its progress through
+ * {@link AutoProvisioningStatusContext}, so mini-apps can tell an account that
+ * is still being created or signed in from one that needs the user to act.
+ * Mounted inside the runtime provider tree so it can reach the identity,
+ * crypto-session, and keychain contexts. `enabled` defaults to true; the
+ * workspace layer passes the workspace's active state so only the visible
+ * workspace provisions.
  */
 export function IdentityAutopilot({
+  children,
   enabled = true,
-}: {
+}: PropsWithChildren<{
   readonly enabled?: boolean | undefined;
-}): null {
-  useAutoProvisionIdentity(enabled);
-  return null;
+}>) {
+  const registration = useAutoProvisionIdentity(enabled);
+  const status = useMemo(
+    () => ({ enabled, registration }),
+    [enabled, registration],
+  );
+
+  return (
+    <AutoProvisioningStatusContext.Provider value={status}>
+      {children}
+    </AutoProvisioningStatusContext.Provider>
+  );
 }

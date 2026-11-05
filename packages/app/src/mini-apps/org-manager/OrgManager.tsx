@@ -5,14 +5,11 @@ import {
   useWindowRefreshMenuItem,
 } from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useState } from "react";
+import { AccountBootstrapPanel } from "../../components/identity/AccountBootstrapPanel";
 import {
-  MiniAppButton,
   MiniAppRoot,
-  MiniAppStatus,
-  MiniAppToolbar,
+  MiniAppStatePanel,
 } from "../../components/mini-app/MiniAppLayout";
-import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
-import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { DataUsageView } from "../shared/DataUsageView";
 import { BillingPanel } from "./billing/BillingPanel";
 import { OrgManagerContextMenuLayer } from "./context-menu/OrgManagerContextMenu";
@@ -372,26 +369,23 @@ function useOrgManagerChrome(model: OrgManagerModel) {
 }
 
 function OrgManagerAuthenticationRequired() {
-  const { signingKeyPair } = useIdentity();
-  const { authenticate, authenticating, error } = useAuthenticateAction();
-
   return (
-    <MiniAppRoot centered>
-      <MiniAppStatus className="org-manager-hint">
-        {ORG_MANAGER_LABELS.authenticate}
-      </MiniAppStatus>
-      {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
-      {signingKeyPair !== null && (
-        <MiniAppToolbar>
-          <MiniAppButton
-            disabled={authenticating}
-            onClick={() => void authenticate()}
-          >
-            {authenticating ? "Logging in..." : "Login"}
-          </MiniAppButton>
-        </MiniAppToolbar>
-      )}
+    <MiniAppRoot>
+      <AccountBootstrapPanel
+        signedOutDescription={ORG_MANAGER_LABELS.signInDescription}
+        signedOutTitle={ORG_MANAGER_LABELS.signInTitle}
+      />
     </MiniAppRoot>
+  );
+}
+
+function OrgManagerLoadingOrganizations() {
+  return (
+    <MiniAppStatePanel
+      busy
+      description={ORG_MANAGER_LABELS.loadingOrganizationsDescription}
+      title={ORG_MANAGER_LABELS.loadingOrganizationsTitle}
+    />
   );
 }
 
@@ -434,6 +428,8 @@ export function OrgManager() {
             organizationId={organizationId}
             revokeGrant={revokeGrantDialog.requestRevokeGrant}
           />
+        ) : model.orgSwitcher.organizationsLoading ? (
+          <OrgManagerLoadingOrganizations />
         ) : null}
       </main>
       <OrgManagerContextMenuLayer
