@@ -10,21 +10,26 @@ run_protocol_check() {
   fi
 }
 
-run_fast_checks() {
-  run_fast_checks_prepare
-  run_fast_checks_rest
+# The two pure TLC passes read only formal models and repository scripts, never
+# build output, and are the slowest fast checks. The pre-push gate runs them in
+# a background lane and calls defer_model_checks to skip them here.
+defer_model_checks() {
+  fast_checks_defer_models=1
 }
 
-# The checks that write workspace outputs: Electrobun's generated SDK
-# configuration and, through lint:biome:promises, the client SDK's dist. Tests
-# read both, so the pre-push gate starts its tests only after these finish.
-run_fast_checks_prepare() {
+run_model_checks() {
+  step_timings_run protocol-models run_protocol_check check:protocol-models
+  step_timings_run protocol-negative-controls run_protocol_check check:protocol-negative-controls
+}
+
+run_model_check_inline() {
+  [ -z "${fast_checks_defer_models:-}" ] || return 0
+  step_timings_run "$1" run_protocol_check "check:$1"
+}
+
+run_fast_checks() {
   step_timings_run devkit bun run --cwd packages/app-electrobun prepare:devkit
   step_timings_run biome bun run lint:biome
-}
-
-# Read-only checks, safe to run while tests run.
-run_fast_checks_rest() {
   step_timings_run package-assertions bun run lint:package-assertions
   step_timings_run canonical-ordering bun run lint:canonical-ordering
   step_timings_run knip bun run lint:knip:all
@@ -40,10 +45,10 @@ run_fast_checks_rest() {
   step_timings_run openapi-compatibility bun run lint:openapi:compatibility
   step_timings_run openapi-tests bun run test:openapi:compatibility
   step_timings_run protocol-model-tests bun run test:protocol-models
-  step_timings_run protocol-models run_protocol_check check:protocol-models
+  run_model_check_inline protocol-models
   step_timings_run protocol-traces bun run check:protocol-traces
   step_timings_run protocol-projection bun run check:protocol-projection
-  step_timings_run protocol-negative-controls run_protocol_check check:protocol-negative-controls
+  run_model_check_inline protocol-negative-controls
   step_timings_run no-brick-projection bun run check:no-brick-projection
   step_timings_run formal-maps bun run lint:formal-maps
   step_timings_run protocol-conformance bun run test:protocol-conformance

@@ -52,10 +52,14 @@ record_timings() {
     "remote=${push_remote:-unknown}"
 }
 
-# The tests run in the background while the read-only checks run, so the gate
-# costs about as long as its longest lane instead of their sum.
-tests_pid=""
-tests_log="$refs_file.tests.log"
+# The TLC model passes and Terraform read no build output, so they run in a
+# background lane while the remaining checks and tests run in the foreground.
+# Tests stay in the foreground: their Turbo run rebuilds and deletes the SDK's
+# dist, which several foreground checks read.
+lane_pid=""
+lane_log="$refs_file.lane.log"
+lane_rows="$refs_file.lane.rows"
+lane_open="$refs_file.lane.open"
 
 # Lists a process and all its descendants before any is signalled: a killed
 # parent's children are re-parented and could no longer be found.
@@ -66,43 +70,69 @@ process_tree() {
   done
 }
 
-stop_background_tests() {
-  [ -n "$tests_pid" ] || return 0
-  echo "Stopping the background tests." >&2
+stop_background_checks() {
+  [ -n "$lane_pid" ] || return 0
+  echo "Stopping the background checks." >&2
   # shellcheck disable=SC2046
-  kill $(process_tree "$tests_pid") 2>/dev/null || true
-  wait "$tests_pid" 2>/dev/null || true
-  tests_pid=""
+  kill $(process_tree "$lane_pid") 2>/dev/null || true
+  wait "$lane_pid" 2>/dev/null || true
+  lane_pid=""
 }
 
-start_background_tests() {
-  tests_started=$(step_timings_now)
-  echo "--- [tests] bun run test:turbo:affected (background; log: $tests_log) ---"
+# The lane times its own steps and hands the rows back through a file, so each
+# row is the step's real duration.
+save_lane_timings() {
+  step_timings_save "$lane_rows" "$lane_open"
+}
+
+# Starts with no rows of its own. The explicit subshell matters: an async
+# function job (bash) skips an EXIT trap, so the rows would be lost.
+run_background_lane() {
+  (
+    trap save_lane_timings EXIT
+    step_timings_reset
+    run_model_checks
+    step_timings_run terraform "$REPO_ROOT/scripts/checks/checkTerraform.sh"
+  )
+}
+
+start_background_checks() {
+  echo "--- [background] protocol models, negative controls, terraform (log: $lane_log) ---"
   echo ""
-  bun run test:turbo:affected </dev/null >"$tests_log" 2>&1 &
-  tests_pid=$!
+  run_background_lane </dev/null >"$lane_log" 2>&1 &
+  lane_pid=$!
 }
 
-finish_background_tests() {
-  step_timings_begin tests-wait "Waiting for the background tests"
-  tests_status=0
-  wait "$tests_pid" || tests_status=$?
-  tests_pid=""
+finish_background_checks() {
+  [ -n "$lane_pid" ] || return 0
+  step_timings_begin background-wait "Waiting for the background checks"
+  lane_status=0
+  wait "$lane_pid" || lane_status=$?
+  lane_pid=""
   step_timings_end
-  echo "--- [tests] output ---"
-  cat "$tests_log"
-  # Timed from launch, so the row matches a serial run's tests step.
-  step_timings_resume tests "$tests_started"
-  [ "$tests_status" -eq 0 ] || exit "$tests_status"
-  step_timings_end
+  echo "--- [background] output ---"
+  cat "$lane_log"
+  echo ""
+  step_timings_merge "$lane_rows"
+  [ "$lane_status" -eq 0 ] && return 0
+  # Recorded as the step the lane failed in.
+  step_timings_resume "$(cat "$lane_open" 2>/dev/null)" "$(step_timings_now)"
+  exit "$lane_status"
+}
+
+# Collects the lane early once it has stopped, so a failure there refuses the
+# push before the tests start.
+finish_background_checks_if_done() {
+  [ -n "$lane_pid" ] || return 0
+  kill -0 "$lane_pid" 2>/dev/null || finish_background_checks
 }
 
 on_exit() {
   push_status=$?
-  stop_background_tests
+  stop_background_checks
   # Records first: the run's metadata is read out of the refs file.
   record_timings "$push_status" || true
-  rm -f "$refs_file" "$tests_log"
+  rm -f "$refs_file" "$lane_log" "$lane_rows" "$lane_open"
 }
 
 trap on_exit EXIT
@@ -128,11 +158,9 @@ else
   step_timings_skip branch-name "no branch created or updated"
 fi
 
-run_fast_checks_prepare
-start_background_tests
-run_fast_checks_rest
-
-step_timings_run terraform "$REPO_ROOT/scripts/checks/checkTerraform.sh"
+start_background_checks
+defer_model_checks
+run_fast_checks
 
 step_timings_run typescript bun tsc --build --pretty false
 
@@ -189,7 +217,11 @@ while read -r _ local_sha _ remote_sha; do
 done <"$refs_file"
 step_timings_end
 
-finish_background_tests
+finish_background_checks_if_done
+
+step_timings_run tests bun run test:turbo:affected
+
+finish_background_checks
 
 step_timings_summary
 

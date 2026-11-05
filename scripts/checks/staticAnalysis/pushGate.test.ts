@@ -6,7 +6,10 @@ import { fixture } from "./fixture.testUtils";
 const repoRoot = resolve(import.meta.dir, "../../..");
 const hookPath = "scripts/git/hooks/pre-push";
 const lintCommand = "run agent-tool branch check --pre-push";
-const testsCommand = "run test:turbo:affected";
+const modelCommands = [
+  "run check:protocol-models",
+  "run check:protocol-negative-controls",
+];
 
 function pushFixture(failingCommand: string, extraEnv = {}) {
   const repo = fixture();
@@ -59,10 +62,10 @@ function configurePushFixture(
       'if [ "$*" = "run agent-tool branch check --pre-push" ]; then\n' +
       '  cat > "$PUSH_REFS_LOG"\n' +
       "fi\n" +
-      // A held test run leaves a grandchild behind for the gate to stop.
-      'if [ "$*" = "$TESTS_COMMAND" ] && [ -n "$TESTS_HOLD" ]; then\n' +
+      // A held background check leaves a grandchild for the gate to stop.
+      'if [ "$*" = "$HOLD_COMMAND" ] && [ -n "$HOLD_PID_FILE" ]; then\n' +
       "  sleep 60 &\n" +
-      '  echo "$!" > "$TESTS_HOLD"\n' +
+      '  echo "$!" > "$HOLD_PID_FILE"\n' +
       "  wait\n" +
       "fi\n" +
       '[ "$*" != "$FAILING_COMMAND" ] || exit 23\n',
@@ -82,8 +85,8 @@ function configurePushFixture(
     PUSH_REFS_LOG: join(repo.cwd, "push-refs.log"),
     FAILING_COMMAND: failingCommand,
     PUSH_GATE_TIMINGS_LOG: timings,
-    TESTS_COMMAND: testsCommand,
-    TESTS_HOLD: "",
+    HOLD_COMMAND: "run check:protocol-models",
+    HOLD_PID_FILE: "",
     ...extraEnv,
   };
   const runAt = (cwd: string, ...cmd: string[]) =>
@@ -120,15 +123,18 @@ test("CI and the installed hook run the same fast checks in order", () => {
 
     expect(repo.push().exitCode).not.toBe(0);
     const pushCommands = readFileSync(repo.log, "utf8").trim().split("\n");
-    // The tests start in the background once the output-writing checks finish;
-    // when they log relative to the later checks is up to the scheduler.
-    expect(pushCommands.filter((command) => command !== testsCommand)).toEqual([
+    // The model passes run in the background lane, so only their presence,
+    // not their position, is fixed.
+    const foreground = (commands: string[]) =>
+      commands.filter((command) => !modelCommands.includes(command));
+    expect(foreground(pushCommands)).toEqual([
       lintCommand,
-      ...ciCommands,
+      ...foreground(ciCommands),
     ]);
-    expect(pushCommands.indexOf(testsCommand)).toBeGreaterThan(
-      pushCommands.indexOf("run lint:biome"),
-    );
+    for (const command of modelCommands) {
+      expect(ciCommands).toContain(command);
+      expect(pushCommands).toContain(command);
+    }
     expect(readFileSync(repo.timings, "utf8")).toContain(
       "\tunfinished=markdown\tstatus=failed\t",
     );
@@ -356,34 +362,54 @@ test("URL pushes fail before expensive checks with named-remote guidance", () =>
   }
 });
 
-test("failing background tests refuse the push and print their output", () => {
-  const repo = pushFixture(testsCommand);
+test("a failing background check refuses the push and records its step", () => {
+  const repo = pushFixture("run check:protocol-negative-controls");
   try {
     const result = repo.push();
     expect(result.exitCode).not.toBe(0);
     const output = result.stdout.toString();
     expect(output).not.toContain("All checks passed.");
-    expect(output).toContain("--- [tests] output ---");
-    // Every other check still ran while the tests did.
-    expect(readFileSync(repo.log, "utf8")).toContain("run lint:doc-links\n");
-    expect(readFileSync(repo.timings, "utf8")).toContain(
-      "\tunfinished=tests\tstatus=failed\t",
+    expect(output).toContain("--- [background] output ---");
+    const timings = readFileSync(repo.timings, "utf8");
+    expect(timings).toContain(
+      "\tunfinished=protocol-negative-controls\tstatus=failed\t",
     );
+    // The lane's own rows come back with it.
+    expect(timings).toContain("step\tprotocol-models\t");
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
   }
 });
 
-test("a failing check stops the background tests and their children", () => {
+test("a successful gate records the background lane's steps", () => {
+  const repo = pushFixture("");
+  try {
+    expect(repo.push().exitCode).toBe(0);
+    const timings = readFileSync(repo.timings, "utf8");
+    for (const step of [
+      "protocol-models",
+      "protocol-negative-controls",
+      "terraform",
+      "background-wait",
+      "tests",
+    ]) {
+      expect(timings).toContain(`step\t${step}\t`);
+    }
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+test("a failing check stops the background lane and its children", () => {
   const repo = pushFixture("run lint:markdown", {
-    TESTS_HOLD: "tests-child.pid",
+    HOLD_PID_FILE: "lane-child.pid",
   });
   try {
     const started = Date.now();
     expect(repo.push().exitCode).not.toBe(0);
     expect(Date.now() - started).toBeLessThan(30_000);
     const child = Number(
-      readFileSync(join(repo.cwd, "tests-child.pid"), "utf8").trim(),
+      readFileSync(join(repo.cwd, "lane-child.pid"), "utf8").trim(),
     );
     expect(child).toBeGreaterThan(0);
     expect(() => process.kill(child, 0)).toThrow();
