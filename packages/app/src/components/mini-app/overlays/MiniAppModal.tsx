@@ -37,7 +37,7 @@ export function MiniAppModalForm({
  * cannot be cancelled, so the form gives way to one centered spinner, title,
  * and optional description rather than a spinner inside the submit button.
  * Render it as the panel's last child, and set the busy flag through
- * `waitForBusyPaint()` before starting main-thread work so the ring has
+ * `runAfterBusyPaint()` before starting main-thread work so the ring has
  * painted and keeps turning on the compositor.
  */
 export function MiniAppModalBusyOverlay({

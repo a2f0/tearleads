@@ -4,7 +4,7 @@ import type {
   OrganizationDirectoryAndGroups,
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 
 export const DEFAULT_SHARE_ACCESS_LEVEL: ContainerShareAccessLevel = "write";
@@ -306,4 +306,35 @@ export async function reloadExplorerContainerInfo(
       runtime.setIsLoadingContainerInfo(false);
     }
   }
+}
+
+/**
+ * Captures what a share was started against and reports whether that is
+ * still current. A share waits one frame for its busy panel to paint before
+ * it runs; the share callbacks are bound to the active scope's container
+ * store, so a scope switch, a different container, or an unmounted panel in
+ * that frame must stop the captured share rather than run it against the
+ * replacement runtime.
+ */
+export function useShareScopeGuard(
+  share: unknown,
+  containerId: string,
+): () => () => boolean {
+  const latest = useRef({ containerId, mounted: false, share });
+  latest.current.containerId = containerId;
+  latest.current.share = share;
+  useEffect(() => {
+    latest.current.mounted = true;
+    return () => {
+      latest.current.mounted = false;
+    };
+  }, []);
+
+  return useCallback(() => {
+    const captured = { ...latest.current };
+    return () =>
+      latest.current.mounted &&
+      latest.current.share === captured.share &&
+      latest.current.containerId === captured.containerId;
+  }, []);
 }

@@ -236,3 +236,61 @@ test("useExplorerContainerInfoGroupShare paints the busy state before sharing", 
     globalThis.requestAnimationFrame = originalRequestAnimationFrame;
   }
 });
+
+// The share callback is bound to the active scope's container store. A scope
+// switch while the busy panel paints must stop the captured share instead of
+// running it against the replacement runtime.
+test("useExplorerContainerInfoGroupShare drops a share whose scope changed during the paint wait", async () => {
+  const frames: FrameRequestCallback[] = [];
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    frames.push(callback);
+    return frames.length;
+  };
+  try {
+    const shareCalls: string[] = [];
+    const submittingStates: boolean[] = [];
+    const shareFor =
+      (scope: string) =>
+      async (_containerId: string, _groupId: string): Promise<boolean> => {
+        shareCalls.push(scope);
+        return true;
+      };
+    const shareInScopeA = shareFor("scope-a");
+    const shareInScopeB = shareFor("scope-b");
+    const view = renderHook(
+      (props: { shareWithGroup: typeof shareInScopeA }) =>
+        useExplorerContainerInfoGroupShare({
+          canShareContainer: true,
+          containerId: "container-1",
+          draftShareAccessLevel: "read",
+          draftShareGroupId: "group-1",
+          draftShareGroupName: "Group One",
+          isSubmitting: false,
+          logError: () => undefined,
+          reloadContainerInfo: async () => undefined,
+          setIsSubmitting: (value) => {
+            submittingStates.push(value);
+          },
+          setPanelError: () => undefined,
+          shareWithGroup: props.shareWithGroup,
+        }),
+      { initialProps: { shareWithGroup: shareInScopeA } },
+    );
+
+    let pending: Promise<void> | undefined;
+    act(() => {
+      pending = view.result.current(createSubmitEvent());
+    });
+    view.rerender({ shareWithGroup: shareInScopeB });
+
+    await act(async () => {
+      frames.shift()?.(performance.now());
+      await pending;
+    });
+    expect(shareCalls).toEqual([]);
+    expect(submittingStates).toEqual([true, false]);
+  } finally {
+    globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+  }
+});

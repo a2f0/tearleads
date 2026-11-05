@@ -5,7 +5,7 @@ import {
   type OrganizationDirectoryAndGroups,
 } from "@tearleads/client-sdk";
 import { type FormEvent, useCallback, useRef, useState } from "react";
-import { waitForBusyPaint } from "../../../../components/mini-app/MiniAppLayout";
+import { runAfterBusyPaint } from "../../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "../../labels";
 import {
   DEFAULT_SHARE_ACCESS_LEVEL,
@@ -15,6 +15,7 @@ import {
   useContainerInfoAutoReload,
   useContainerInfoOrganizationGroups,
   useMountedRef,
+  useShareScopeGuard,
 } from "./explorerContainerInfoStateHelpers";
 
 interface ExplorerContainerInfoShareParams {
@@ -179,6 +180,8 @@ async function runContainerInfoShare(params: {
   // when it returns one.
   errorLabelFor?: ((error: unknown) => string | null) | undefined;
   failureLabel: string;
+  // Whether the scope the share was started in is still current.
+  isCurrent: () => boolean;
   logError: (message: string | Error, cause?: unknown) => void;
   optimisticGrant: NonNullable<
     ReloadExplorerContainerInfoOptions["optimisticGrant"]
@@ -192,6 +195,7 @@ async function runContainerInfoShare(params: {
     errorLabel,
     errorLabelFor,
     failureLabel,
+    isCurrent,
     logError,
     optimisticGrant,
     reloadContainerInfo,
@@ -204,8 +208,10 @@ async function runContainerInfoShare(params: {
   try {
     // Sharing seals keys on the main thread; paint the busy panel first so
     // its spinner keeps turning while that runs.
-    await waitForBusyPaint();
-    const shared = await share();
+    const shared = await runAfterBusyPaint(isCurrent, share);
+    if (shared === undefined) {
+      return;
+    }
     if (!shared) {
       setPanelError(failureLabel);
       return;
@@ -237,6 +243,7 @@ export function useExplorerContainerInfoGroupShare(
     setPanelError,
     shareWithGroup,
   } = params;
+  const captureShareScope = useShareScopeGuard(shareWithGroup, containerId);
 
   return useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -266,6 +273,7 @@ export function useExplorerContainerInfoGroupShare(
             ? EXPLORER_LABELS.containerInfoShareToGroupNameMismatch
             : null,
         failureLabel: EXPLORER_LABELS.containerInfoShareToGroupFailure,
+        isCurrent: captureShareScope(),
         logError,
         optimisticGrant: {
           accessLevel: draftShareAccessLevel,
@@ -288,6 +296,7 @@ export function useExplorerContainerInfoGroupShare(
     },
     [
       canShareContainer,
+      captureShareScope,
       containerId,
       draftShareAccessLevel,
       draftShareGroupName,
@@ -316,6 +325,7 @@ export function useExplorerContainerInfoPeerShare(
     setPanelError,
     shareWithUser,
   } = params;
+  const captureShareScope = useShareScopeGuard(shareWithUser, containerId);
 
   return useCallback(async () => {
     if (isSubmitting || !peerUserId || !canShareContainer) {
@@ -325,6 +335,7 @@ export function useExplorerContainerInfoPeerShare(
     await runContainerInfoShare({
       errorLabel: EXPLORER_LABELS.containerInfoShareToPeerFailure,
       failureLabel: EXPLORER_LABELS.containerInfoShareToPeerFailure,
+      isCurrent: captureShareScope(),
       logError,
       optimisticGrant: {
         accessLevel: DEFAULT_SHARE_ACCESS_LEVEL,
@@ -338,6 +349,7 @@ export function useExplorerContainerInfoPeerShare(
     });
   }, [
     canShareContainer,
+    captureShareScope,
     containerId,
     isSubmitting,
     logError,
