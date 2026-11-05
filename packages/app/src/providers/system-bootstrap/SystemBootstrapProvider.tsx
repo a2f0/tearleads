@@ -6,12 +6,8 @@ import type {
 import {
   createContext,
   type PropsWithChildren,
-  useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
-  useState,
 } from "react";
 import { useDeviceFirstContainerContents } from "../../stores/device-first/DeviceFirstProvider";
 import {
@@ -30,25 +26,18 @@ import {
 import { useTearleadsExternalStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import {
   createSystemBootstrapTargetKey,
-  mergeSystemBootstrapState,
   runSystemBootstrap,
-  type SystemBootstrapResult,
   type SystemBootstrapRunInput,
-  type SystemBootstrapState,
-  type SystemBootstrapStatus,
 } from "./systemBootstrapRun";
 import {
   usePromoteLocalSystemContainers,
   useProvisionedSystemContainerPull,
 } from "./systemContainerSyncEffects";
 import { useUserSystemContainers } from "./UserSystemContainersProvider";
-
-interface SystemBootstrapContextValue {
-  readonly ensureBootstrapped: () => Promise<SystemBootstrapResult>;
-  readonly error: unknown;
-  readonly isBootstrapping: boolean;
-  readonly status: SystemBootstrapStatus;
-}
+import {
+  type SystemBootstrapContextValue,
+  useSystemBootstrapController,
+} from "./useSystemBootstrapController";
 
 const SystemBootstrapContext =
   createContext<SystemBootstrapContextValue | null>(null);
@@ -128,117 +117,6 @@ function useSystemBootstrapInput(input: {
   ]);
 }
 
-function useSystemBootstrapController(input: {
-  readonly bootstrapInput: SystemBootstrapRunInput | null;
-  readonly enabled: boolean;
-  readonly logError: (message: string | Error, cause?: unknown) => void;
-}): SystemBootstrapContextValue {
-  const [state, setState] = useState<SystemBootstrapState>({
-    error: null,
-    hasCompleted: false,
-    status: input.enabled ? "waiting" : "idle",
-  });
-  const completedTargetKeyRef = useRef<string | null>(null);
-  const inFlightRef = useRef<Promise<SystemBootstrapResult> | null>(null);
-  const latestInputRef = useRef<SystemBootstrapRunInput | null>(null);
-  const applyState = useCallback(
-    (next: Partial<SystemBootstrapState> & { status: SystemBootstrapStatus }) =>
-      setState((previous) => mergeSystemBootstrapState(previous, next)),
-    [],
-  );
-
-  useEffect(() => {
-    latestInputRef.current = input.bootstrapInput;
-  }, [input.bootstrapInput]);
-
-  const ensureBootstrapped =
-    useCallback(async (): Promise<SystemBootstrapResult> => {
-      while (true) {
-        const nextInput = latestInputRef.current;
-        if (!nextInput) {
-          return { completed: false, skipped: true };
-        }
-        if (completedTargetKeyRef.current === nextInput.targetKey) {
-          return { completed: true };
-        }
-        if (inFlightRef.current) {
-          await inFlightRef.current;
-          continue;
-        }
-
-        applyState({ status: "running" });
-        const bootstrapPromise = runSystemBootstrap(nextInput)
-          .then((completed): SystemBootstrapResult => {
-            // A newer input superseded this run while it was in flight (a
-            // convergence re-key, or the controller was disabled). Let the
-            // effect that changed it drive the next transition rather than
-            // clobbering state — including the disabled "idle" reset — here.
-            if (latestInputRef.current !== nextInput) {
-              return { completed: false, skipped: true };
-            }
-            if (completed) {
-              completedTargetKeyRef.current = nextInput.targetKey;
-              applyState({ hasCompleted: true, status: "ready" });
-              return { completed: true };
-            }
-
-            applyState({ status: "waiting" });
-            return { completed: false };
-          })
-          .catch((error: unknown): SystemBootstrapResult => {
-            if (latestInputRef.current !== nextInput) {
-              return { completed: false, error };
-            }
-            input.logError("Failed to bootstrap system containers", error);
-            applyState({ error, status: "error" });
-            return { completed: false, error };
-          })
-          .finally(() => {
-            if (inFlightRef.current === bootstrapPromise) {
-              inFlightRef.current = null;
-            }
-          });
-
-        inFlightRef.current = bootstrapPromise;
-        return bootstrapPromise;
-      }
-    }, [applyState, input.logError]);
-
-  useEffect(() => {
-    if (!input.enabled) {
-      completedTargetKeyRef.current = null;
-      latestInputRef.current = null;
-      applyState({ hasCompleted: false, status: "idle" });
-      return;
-    }
-    if (!input.bootstrapInput) {
-      if (!inFlightRef.current) {
-        applyState({ status: "waiting" });
-      }
-      return;
-    }
-    if (completedTargetKeyRef.current === input.bootstrapInput.targetKey) {
-      applyState({ hasCompleted: true, status: "ready" });
-      return;
-    }
-
-    void ensureBootstrapped();
-  }, [applyState, ensureBootstrapped, input.bootstrapInput, input.enabled]);
-
-  return useMemo(
-    () => ({
-      ensureBootstrapped,
-      error: state.error,
-      // Only the first provisioning run gates the UI. Re-runs after a completed
-      // bootstrap (e.g. a container converging local-only -> synced re-keys the
-      // target) reconcile in the background without blanking an open mini-app.
-      isBootstrapping: state.status === "running" && !state.hasCompleted,
-      status: state.status,
-    }),
-    [ensureBootstrapped, state],
-  );
-}
-
 export function SystemBootstrapProvider({
   children,
   enabled = true,
@@ -273,6 +151,7 @@ export function SystemBootstrapProvider({
     bootstrapInput,
     enabled,
     logError: tearleads.logError,
+    runBootstrap: runSystemBootstrap,
   });
 
   usePromoteLocalSystemContainers({
