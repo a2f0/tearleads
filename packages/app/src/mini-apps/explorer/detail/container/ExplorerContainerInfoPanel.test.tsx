@@ -123,6 +123,13 @@ type ContainerInfoPanelInput = {
   >["shareWithGroup"];
 };
 
+const TEST_SHARE_SCOPE = {
+  domainScope: {},
+  organizationId: "org-1",
+  signingFingerprint: "fingerprint-1",
+  userId: "user-1",
+};
+
 function containerInfoPanelElement(input: ContainerInfoPanelInput = {}) {
   return createElement(ExplorerContainerInfoPanel, {
     canManageIcon: input.canManageIcon ?? false,
@@ -140,6 +147,7 @@ function containerInfoPanelElement(input: ContainerInfoPanelInput = {}) {
     peerUserId: "peer-user-1",
     setContainerIcon: input.setContainerIcon ?? (async () => null),
     shareWithGroup: input.shareWithGroup ?? (async () => true),
+    shareScope: TEST_SHARE_SCOPE,
     shareWithUser: async () => true,
   });
 }

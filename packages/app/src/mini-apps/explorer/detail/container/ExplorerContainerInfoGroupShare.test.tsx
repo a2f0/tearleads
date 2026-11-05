@@ -5,6 +5,13 @@ import type { FormEvent } from "react";
 import { useExplorerContainerInfoGroupShare } from "./ExplorerContainerInfoState";
 import type { ReloadExplorerContainerInfo } from "./explorerContainerInfoStateHelpers";
 
+const TEST_SHARE_SCOPE = {
+  domainScope: {},
+  organizationId: "org-1",
+  signingFingerprint: "fingerprint-1",
+  userId: "user-1",
+};
+
 function createSubmitEvent(): FormEvent<HTMLFormElement> {
   return { preventDefault: () => undefined } as FormEvent<HTMLFormElement>;
 }
@@ -19,6 +26,7 @@ test("useExplorerContainerInfoGroupShare requires a draft group", async () => {
   const view = renderHook(() =>
     useExplorerContainerInfoGroupShare({
       canShareContainer: true,
+      shareScope: TEST_SHARE_SCOPE,
       containerId: "container-1",
       draftShareAccessLevel: "write",
       draftShareGroupId: "",
@@ -52,6 +60,7 @@ test("useExplorerContainerInfoGroupShare requires the chosen group's name", asyn
   const view = renderHook(() =>
     useExplorerContainerInfoGroupShare({
       canShareContainer: true,
+      shareScope: TEST_SHARE_SCOPE,
       containerId: "container-1",
       draftShareAccessLevel: "write",
       draftShareGroupId: "group-1",
@@ -90,6 +99,7 @@ test("useExplorerContainerInfoGroupShare names a signed-name mismatch", async ()
   const view = renderHook(() =>
     useExplorerContainerInfoGroupShare({
       canShareContainer: true,
+      shareScope: TEST_SHARE_SCOPE,
       containerId: "container-1",
       draftShareAccessLevel: "write",
       draftShareGroupId: "group-1",
@@ -138,6 +148,7 @@ test("useExplorerContainerInfoGroupShare reloads with an optimistic grant", asyn
   const view = renderHook(() =>
     useExplorerContainerInfoGroupShare({
       canShareContainer: true,
+      shareScope: TEST_SHARE_SCOPE,
       containerId: "container-1",
       draftShareAccessLevel: "admin",
       draftShareGroupId: "group-1",
@@ -197,6 +208,7 @@ test("useExplorerContainerInfoGroupShare paints the busy state before sharing", 
     const view = renderHook(() =>
       useExplorerContainerInfoGroupShare({
         canShareContainer: true,
+        shareScope: TEST_SHARE_SCOPE,
         containerId: "container-1",
         draftShareAccessLevel: "read",
         draftShareGroupId: "group-1",
@@ -237,9 +249,9 @@ test("useExplorerContainerInfoGroupShare paints the busy state before sharing", 
   }
 });
 
-// The share callback is bound to the active scope's container store. A scope
-// switch while the busy panel paints must stop the captured share instead of
-// running it against the replacement runtime.
+// The share callback can outlive an organization switch, so the captured
+// session, not the callback, decides: a switch while the busy panel paints
+// must stop the share rather than run it against the replacement runtime.
 test("useExplorerContainerInfoGroupShare drops a share whose scope changed during the paint wait", async () => {
   const frames: FrameRequestCallback[] = [];
   const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
@@ -250,18 +262,18 @@ test("useExplorerContainerInfoGroupShare drops a share whose scope changed durin
   try {
     const shareCalls: string[] = [];
     const submittingStates: boolean[] = [];
-    const shareFor =
-      (scope: string) =>
-      async (_containerId: string, _groupId: string): Promise<boolean> => {
-        shareCalls.push(scope);
-        return true;
-      };
-    const shareInScopeA = shareFor("scope-a");
-    const shareInScopeB = shareFor("scope-b");
+    const shareWithGroup = async (containerId: string): Promise<boolean> => {
+      shareCalls.push(containerId);
+      return true;
+    };
     const view = renderHook(
-      (props: { shareWithGroup: typeof shareInScopeA }) =>
+      (props: { organizationId: string }) =>
         useExplorerContainerInfoGroupShare({
           canShareContainer: true,
+          shareScope: {
+            ...TEST_SHARE_SCOPE,
+            organizationId: props.organizationId,
+          },
           containerId: "container-1",
           draftShareAccessLevel: "read",
           draftShareGroupId: "group-1",
@@ -273,16 +285,16 @@ test("useExplorerContainerInfoGroupShare drops a share whose scope changed durin
             submittingStates.push(value);
           },
           setPanelError: () => undefined,
-          shareWithGroup: props.shareWithGroup,
+          shareWithGroup,
         }),
-      { initialProps: { shareWithGroup: shareInScopeA } },
+      { initialProps: { organizationId: "org-1" } },
     );
 
     let pending: Promise<void> | undefined;
     act(() => {
       pending = view.result.current(createSubmitEvent());
     });
-    view.rerender({ shareWithGroup: shareInScopeB });
+    view.rerender({ organizationId: "org-2" });
 
     await act(async () => {
       frames.shift()?.(performance.now());

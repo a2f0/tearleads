@@ -309,20 +309,40 @@ export async function reloadExplorerContainerInfo(
 }
 
 /**
- * Captures what a share was started against and reports whether that is
- * still current. A share waits one frame for its busy panel to paint before
- * it runs; the share callbacks are bound to the active scope's container
- * store, so a scope switch, a different container, or an unmounted panel in
- * that frame must stop the captured share rather than run it against the
- * replacement runtime.
+ * The session a share runs in. The share callbacks can outlive an
+ * organization or identity switch, so this, not their identity, says whether
+ * a pending share still belongs to the current runtime.
+ */
+export interface ExplorerShareScope {
+  readonly domainScope: object;
+  readonly organizationId: string | null | undefined;
+  readonly signingFingerprint: string | null | undefined;
+  readonly userId: string | null | undefined;
+}
+
+function sameShareScope(a: ExplorerShareScope, b: ExplorerShareScope) {
+  return (
+    a.domainScope === b.domainScope &&
+    a.organizationId === b.organizationId &&
+    a.signingFingerprint === b.signingFingerprint &&
+    a.userId === b.userId
+  );
+}
+
+/**
+ * Captures the scope and container a share was started in and reports
+ * whether they are still current. A share waits one frame for its busy panel
+ * to paint before it runs, so a scope switch, a different container, or an
+ * unmounted panel in that frame must stop the captured share rather than run
+ * it against the replacement runtime.
  */
 export function useShareScopeGuard(
-  share: unknown,
+  shareScope: ExplorerShareScope,
   containerId: string,
 ): () => () => boolean {
-  const latest = useRef({ containerId, mounted: false, share });
+  const latest = useRef({ containerId, mounted: false, shareScope });
   latest.current.containerId = containerId;
-  latest.current.share = share;
+  latest.current.shareScope = shareScope;
   useEffect(() => {
     latest.current.mounted = true;
     return () => {
@@ -334,7 +354,7 @@ export function useShareScopeGuard(
     const captured = { ...latest.current };
     return () =>
       latest.current.mounted &&
-      latest.current.share === captured.share &&
-      latest.current.containerId === captured.containerId;
+      latest.current.containerId === captured.containerId &&
+      sameShareScope(latest.current.shareScope, captured.shareScope);
   }, []);
 }

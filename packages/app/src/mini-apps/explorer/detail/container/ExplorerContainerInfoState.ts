@@ -9,6 +9,7 @@ import { runAfterBusyPaint } from "../../../../components/mini-app/MiniAppLayout
 import { EXPLORER_LABELS } from "../../labels";
 import {
   DEFAULT_SHARE_ACCESS_LEVEL,
+  type ExplorerShareScope,
   type ReloadExplorerContainerInfo,
   type ReloadExplorerContainerInfoOptions,
   reloadExplorerContainerInfo,
@@ -26,6 +27,7 @@ interface ExplorerContainerInfoShareParams {
   reloadContainerInfo: ReloadExplorerContainerInfo;
   setIsSubmitting: (value: boolean) => void;
   setPanelError: (error: string | null) => void;
+  shareScope: ExplorerShareScope;
 }
 
 interface ExplorerContainerInfoGroupShareParams
@@ -243,7 +245,7 @@ export function useExplorerContainerInfoGroupShare(
     setPanelError,
     shareWithGroup,
   } = params;
-  const captureShareScope = useShareScopeGuard(shareWithGroup, containerId);
+  const captureShareScope = useShareScopeGuard(params.shareScope, containerId);
 
   return useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -325,7 +327,7 @@ export function useExplorerContainerInfoPeerShare(
     setPanelError,
     shareWithUser,
   } = params;
-  const captureShareScope = useShareScopeGuard(shareWithUser, containerId);
+  const captureShareScope = useShareScopeGuard(params.shareScope, containerId);
 
   return useCallback(async () => {
     if (isSubmitting || !peerUserId || !canShareContainer) {

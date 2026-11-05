@@ -32,7 +32,10 @@ import {
   useExplorerContainerInfoPeerShare,
 } from "./ExplorerContainerInfoState";
 import { ExplorerContainerInfoSyncCursorsSection } from "./ExplorerContainerInfoSyncCursorsSection";
-import { getContainerInfoShareableGroups } from "./explorerContainerInfoStateHelpers";
+import {
+  type ExplorerShareScope,
+  getContainerInfoShareableGroups,
+} from "./explorerContainerInfoStateHelpers";
 
 interface Props {
   canManageIcon: boolean;
@@ -68,6 +71,8 @@ interface Props {
     options: { expectedGroupName: string },
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+  // The session the panel shares in; a share pending across a switch stops.
+  shareScope: ExplorerShareScope;
 }
 
 type ContainerInfoTabId = "general" | "sharing" | "security" | "sync";
@@ -114,6 +119,7 @@ function useExplorerContainerInfoPanelState(params: Props) {
     reloadContainerInfo: containerInfoState.reloadContainerInfo,
     setIsSubmitting,
     setPanelError: containerInfoState.setPanelError,
+    shareScope: params.shareScope,
     shareWithGroup: params.shareWithGroup,
   });
   const handleShareWithPeer = useExplorerContainerInfoPeerShare({
@@ -125,6 +131,7 @@ function useExplorerContainerInfoPanelState(params: Props) {
     reloadContainerInfo: containerInfoState.reloadContainerInfo,
     setIsSubmitting,
     setPanelError: containerInfoState.setPanelError,
+    shareScope: params.shareScope,
     shareWithUser: params.shareWithUser,
   });
 

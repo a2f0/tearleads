@@ -299,6 +299,12 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         readModelScope={params.readModelScope}
         peerUserId={params.peerUserId}
         setContainerIcon={params.setContainerIcon}
+        shareScope={{
+          domainScope: params.domainScope,
+          organizationId: params.currentOrganizationId,
+          signingFingerprint: params.currentSigningFingerprint,
+          userId: params.currentUserId,
+        }}
         shareWithGroup={params.shareWithGroup}
         shareWithUser={params.shareWithUser}
       />
