@@ -16,28 +16,28 @@ import {
 
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
-const PROGRESS_TITLES = [
-  "Restoring your session",
-  "Creating your identity",
-  "Creating your account",
-  "Signing you in",
-];
+const CREATING_ACCOUNT = "Creating your account";
 
 test(
   "identity manager shows account setup as one panel, not inline status lines",
   async () => {
-    useTestApiAppHandlers();
+    // Hold registration so the account stays mid-creation until the test has
+    // seen the panel, whatever the timing of opening the window.
+    let releaseRegistration = () => {};
+    const registrationHeld = new Promise<void>((resolve) => {
+      releaseRegistration = resolve;
+    });
+    useTestApiAppHandlers({
+      holdRequest: (request) =>
+        new URL(request.url).pathname.endsWith("/auth/register")
+          ? registrationHeld
+          : undefined,
+    });
     const view = renderPane({
       hostConfig: createTestHostConfig({ autoProvisionIdentity: true }),
     });
-    const panelTitles = new Set<string>();
     const inlineStatuses = new Set<string>();
     const record = () => {
-      for (const heading of view.container.querySelectorAll(
-        ".identity-manager .mini-app-state-panel-title",
-      )) {
-        panelTitles.add(heading.textContent ?? "");
-      }
       for (const status of view.container.querySelectorAll(
         ".identity-manager .mini-app-status--busy",
       )) {
@@ -51,32 +51,38 @@ test(
       subtree: true,
     });
 
-    // The pane menu lists Identity Manager once a key pair exists.
-    await waitFor(
-      () => {
-        fireEvent.contextMenu(view.getByRole("application"), {
-          clientX: 120,
-          clientY: 120,
-        });
-        clickPaneAppMenuItem(view, "Identity Manager");
-      },
-      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
-    );
-    // A windowed Identity Manager opens on its section menu; select General
-    // explicitly so the assertion does not depend on which shell renders it.
-    await waitFor(
-      () => {
-        const [general] = view.getAllByRole("button", { name: "General" });
-        if (general) fireEvent.click(general);
-        expect(
-          view.container.querySelector(
-            ".identity-manager .mini-app-state-panel, .identity-manager-details",
-          ),
-        ).not.toBeNull();
-      },
-      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
-    );
-    record();
+    try {
+      // The pane menu lists Identity Manager once a key pair exists.
+      await waitFor(
+        () => {
+          fireEvent.contextMenu(view.getByRole("application"), {
+            clientX: 120,
+            clientY: 120,
+          });
+          clickPaneAppMenuItem(view, "Identity Manager");
+        },
+        { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+      );
+      // A windowed Identity Manager opens on its section menu.
+      const [general] = view.getAllByRole("button", { name: "General" });
+      if (general) fireEvent.click(general);
+
+      await waitFor(
+        () => {
+          const titles = [
+            ...view.container.querySelectorAll(
+              ".identity-manager .mini-app-state-panel-title",
+            ),
+          ].map((heading) => heading.textContent);
+          expect(titles).toContain(CREATING_ACCOUNT);
+        },
+        { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+      );
+      record();
+      expect(view.queryByRole("button", { name: "Register" })).toBeNull();
+    } finally {
+      releaseRegistration();
+    }
 
     await waitFor(
       () => {
@@ -85,9 +91,7 @@ test(
       { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
     );
     observer.disconnect();
-
     expect([...inlineStatuses]).toEqual([]);
-    expect(PROGRESS_TITLES.some((title) => panelTitles.has(title))).toBe(true);
 
     await waitForPaneRuntimeToSettle(PANE_ASYNC_TEST_TIMEOUT_MS);
     view.unmount();
