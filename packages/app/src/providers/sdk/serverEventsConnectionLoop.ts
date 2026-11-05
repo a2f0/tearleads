@@ -1,3 +1,11 @@
+import {
+  connectionSocket,
+  SERVER_EVENTS_IDLE,
+  type ServerEventsConnectionEvent,
+  type ServerEventsConnectionState,
+  transitionServerEventsConnection,
+} from "./serverEventsConnectionState";
+
 interface ServerEventsConnectionLoopInput {
   /** A connect attempt starts (before its ticket request). */
   readonly onAttemptStart?: (() => void) | undefined;
@@ -32,14 +40,13 @@ const STABLE_CONNECTION_MS = 10_000;
 const CONNECTION_WATCHDOG_MS = 15_000;
 
 class ServerEventsConnectionLoop {
-  private cancelled = false;
-  private connecting = false;
+  private state: ServerEventsConnectionState = SERVER_EVENTS_IDLE;
+  /** Backoff exponent; reset once a connection stays up long enough. */
   private reconnectAttempt = 0;
-  private reconnectTimer: TimerHandle | null = null;
-  private socketWatchdog: TimerHandle | null = null;
-  private settleTicketRequest: (() => void) | null = null;
-  private settleSocket: (() => void) | null = null;
-  private socket: WebSocket | null = null;
+  // Resources owned by one state each, released when the loop leaves it.
+  private cancelTicketRequest: (() => void) | null = null; // requesting-ticket
+  private socketWatchdog: TimerHandle | null = null; // opening
+  private reconnectTimer: TimerHandle | null = null; // backoff
 
   constructor(
     private readonly input: ServerEventsConnectionLoopInput,
@@ -58,52 +65,133 @@ class ServerEventsConnectionLoop {
   ) {}
 
   start(): void {
-    void this.connect();
+    this.send({ type: "start" });
   }
 
   stop(): void {
-    this.cancelled = true;
-    if (this.reconnectTimer) {
-      this.clearTimer(this.reconnectTimer);
-      this.reconnectTimer = null;
+    this.send({ type: "stop" });
+  }
+
+  private send(event: ServerEventsConnectionEvent): void {
+    const previous = this.state;
+    const next = transitionServerEventsConnection(previous, event);
+    if (next === previous) {
+      return;
     }
-    this.clearSocketWatchdog();
-    this.settleTicketRequest?.();
-    const socket = this.socket;
-    const settle = this.settleSocket;
-    this.socket = null;
-    try {
-      socket?.close();
-    } catch {
-      // Cleanup must still settle the logical connection.
-    } finally {
-      settle?.();
+    this.state = next;
+    this.leave(previous, next);
+    // A callback run while leaving (onDisconnect, onAttemptFailed) may have
+    // moved the loop on already, e.g. by stopping it; enter only the current
+    // state.
+    if (this.state === next) {
+      this.enter(next);
     }
   }
 
-  private async connect(): Promise<void> {
-    if (this.cancelled || this.connecting || this.socket) {
-      return;
+  private leave(
+    previous: ServerEventsConnectionState,
+    next: ServerEventsConnectionState,
+  ): void {
+    switch (previous.status) {
+      case "requesting-ticket": {
+        const cancel = this.cancelTicketRequest;
+        this.cancelTicketRequest = null;
+        cancel?.();
+        if (next.status === "backoff") {
+          this.input.onAttemptFailed?.();
+        }
+        return;
+      }
+      case "opening":
+        this.clearSocketWatchdog();
+        if (next.status !== "open") {
+          this.releaseSocket(previous, next);
+        }
+        return;
+      case "open":
+        this.releaseSocket(previous, next);
+        return;
+      case "backoff":
+        if (this.reconnectTimer !== null) {
+          this.clearTimer(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
+        return;
+      case "idle":
+      case "stopped":
+        return;
+      default:
+        assertNever(previous);
     }
-    this.connecting = true;
-    this.input.onAttemptStart?.();
+  }
+
+  private enter(state: ServerEventsConnectionState): void {
+    switch (state.status) {
+      case "requesting-ticket":
+        this.input.onAttemptStart?.();
+        void this.requestAttemptTicket(state.attempt);
+        return;
+      case "opening":
+        this.bindSocket(state.attempt, state.socket);
+        return;
+      case "open":
+        this.input.onOpen(state.socket);
+        return;
+      case "backoff":
+        this.scheduleReconnect(state.attempt);
+        return;
+      case "idle":
+      case "stopped":
+        return;
+      default:
+        assertNever(state);
+    }
+  }
+
+  private releaseSocket(
+    previous: Extract<
+      ServerEventsConnectionState,
+      { status: "opening" | "open" }
+    >,
+    next: ServerEventsConnectionState,
+  ): void {
+    if (next.status === "stopped") {
+      try {
+        previous.socket.close();
+      } catch {
+        // Cleanup must still settle the logical connection.
+      }
+    }
+    if (
+      previous.status === "open" &&
+      this.now() - previous.openedAtMs >= STABLE_CONNECTION_MS
+    ) {
+      this.reconnectAttempt = 0;
+    }
+    this.input.onDisconnect();
+  }
+
+  private async requestAttemptTicket(attempt: number): Promise<void> {
     const ticket = await this.requestTicket();
-    this.connecting = false;
-    if (this.cancelled) {
+    if (
+      this.state.status !== "requesting-ticket" ||
+      this.state.attempt !== attempt
+    ) {
       return;
     }
     if (ticket === null) {
-      this.input.onAttemptFailed?.();
-      this.scheduleReconnect();
+      this.send({ attempt, type: "attempt-failed" });
       return;
     }
 
+    let socket: WebSocket;
     try {
-      this.bindSocket(this.input.openSocket(ticket));
+      socket = this.input.openSocket(ticket);
     } catch {
-      this.input.onAttemptFailed?.();
-      this.scheduleReconnect();
+      this.send({ attempt, type: "attempt-failed" });
+      return;
     }
+    this.send({ attempt, socket, type: "socket-bound" });
   }
 
   private async requestTicket(): Promise<string | null> {
@@ -118,72 +206,42 @@ class ServerEventsConnectionLoop {
         if (watchdog) {
           this.clearWatchdog(watchdog);
         }
-        if (this.settleTicketRequest === cancel) {
-          this.settleTicketRequest = null;
+        if (this.cancelTicketRequest === cancel) {
+          this.cancelTicketRequest = null;
         }
         resolve(ticket);
       };
       const cancel = () => finish(null);
-      this.settleTicketRequest = cancel;
+      this.cancelTicketRequest = cancel;
       watchdog = this.scheduleWatchdog(cancel, CONNECTION_WATCHDOG_MS);
       void this.input.requestTicket().then(finish, cancel);
     });
   }
 
-  private bindSocket(ws: WebSocket): void {
-    this.socket = ws;
-    let openedAtMs: number | null = null;
-    let settled = false;
-    const disconnect = (): void => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      this.clearSocketWatchdog();
-      if (this.socket === ws) {
-        this.socket = null;
-      }
-      if (this.settleSocket === disconnect) {
-        this.settleSocket = null;
-      }
-      if (
-        openedAtMs !== null &&
-        this.now() - openedAtMs >= STABLE_CONNECTION_MS
-      ) {
-        this.reconnectAttempt = 0;
-      }
-      this.input.onDisconnect();
-      this.scheduleReconnect();
-    };
-    this.settleSocket = disconnect;
-    this.socketWatchdog = this.scheduleWatchdog(() => {
+  private bindSocket(attempt: number, ws: WebSocket): void {
+    const closed = (): void => this.send({ attempt, type: "socket-closed" });
+    const closeAndSettle = (): void => {
       try {
         ws.close();
       } finally {
-        disconnect();
+        closed();
       }
-    }, CONNECTION_WATCHDOG_MS);
+    };
+    this.socketWatchdog = this.scheduleWatchdog(
+      closeAndSettle,
+      CONNECTION_WATCHDOG_MS,
+    );
 
     ws.addEventListener("open", () => {
-      if (!this.cancelled && this.socket === ws) {
-        this.clearSocketWatchdog();
-        openedAtMs = this.now();
-        this.input.onOpen(ws);
-      }
+      this.send({ atMs: this.now(), attempt, type: "socket-opened" });
     });
     ws.addEventListener("message", (event) => {
-      if (!this.cancelled && this.socket === ws) {
+      if (connectionSocket(this.state) === ws) {
         this.input.onMessage(ws, event);
       }
     });
-    ws.addEventListener("close", disconnect);
-    ws.addEventListener("error", () => {
-      try {
-        ws.close();
-      } finally {
-        disconnect();
-      }
-    });
+    ws.addEventListener("close", closed);
+    ws.addEventListener("error", closeAndSettle);
   }
 
   private clearSocketWatchdog(): void {
@@ -193,15 +251,7 @@ class ServerEventsConnectionLoop {
     }
   }
 
-  private scheduleReconnect(): void {
-    if (
-      this.cancelled ||
-      this.connecting ||
-      this.socket ||
-      this.reconnectTimer
-    ) {
-      return;
-    }
+  private scheduleReconnect(attempt: number): void {
     const baseDelay = Math.min(
       INITIAL_RECONNECT_DELAY_MS * 2 ** this.reconnectAttempt,
       MAX_RECONNECT_DELAY_MS,
@@ -210,9 +260,13 @@ class ServerEventsConnectionLoop {
     const delay = Math.round(baseDelay * (0.75 + this.random() * 0.5));
     this.reconnectTimer = this.scheduleTimer(() => {
       this.reconnectTimer = null;
-      void this.connect();
+      this.send({ attempt, type: "retry" });
     }, delay);
   }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled connection state: ${JSON.stringify(value)}`);
 }
 
 /**
