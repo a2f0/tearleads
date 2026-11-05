@@ -35,3 +35,4 @@ export {
   MiniAppModalForm,
   MiniAppModalPanel,
 } from "./overlays/MiniAppModal";
+export { runAfterBusyPaint } from "./overlays/waitForBusyPaint";

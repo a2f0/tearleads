@@ -4,6 +4,7 @@ import {
   MiniAppActions,
   MiniAppButton,
   MiniAppModalBackdrop,
+  MiniAppModalBusyOverlay,
   MiniAppModalForm,
   MiniAppModalPanel,
 } from "../../../components/mini-app/MiniAppLayout";
@@ -15,6 +16,7 @@ import {
   getGrantPrincipalLabel,
 } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { ORG_MANAGER_BUSY_LABELS } from "./busyLabels";
 import "./RevokeGrantConfirmationDialog.css";
 
 export function RevokeGrantConfirmationDialog({
@@ -85,12 +87,16 @@ export function RevokeGrantConfirmationDialog({
               {ORG_MANAGER_LABELS.cancel}
             </MiniAppButton>
             <MiniAppButton disabled={busy} type="submit">
-              {busy
-                ? ORG_MANAGER_LABELS.revokingGrant
-                : ORG_MANAGER_LABELS.revoke}
+              {ORG_MANAGER_LABELS.revoke}
             </MiniAppButton>
           </MiniAppActions>
         </MiniAppModalForm>
+        {busy && (
+          <MiniAppModalBusyOverlay
+            description={ORG_MANAGER_BUSY_LABELS.revokingGrantDescription}
+            label={ORG_MANAGER_BUSY_LABELS.revokingGrant}
+          />
+        )}
       </MiniAppModalPanel>
     </MiniAppModalBackdrop>
   );
