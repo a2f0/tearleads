@@ -9,7 +9,12 @@ import SecurityCryptography from "../components/SecurityCryptography.astro";
 import SecurityLimits from "../components/SecurityLimits.astro";
 import SecuritySharingDiagram from "../components/SecuritySharingDiagram.astro";
 import Layout from "../layouts/Layout.astro";
-import { docPath, sourceUrl, technicalDocs } from "../technicalDocs";
+import {
+  apiReferenceListing,
+  docPath,
+  sourceUrl,
+  technicalDocs,
+} from "../technicalDocs";
 import "../styles/security.css";
 import "../styles/securityDiagrams.css";
 
@@ -230,6 +235,15 @@ const zanzibarPaperUrl =
             </dd>
           </div>
         ))}
+        <div>
+          <dt>
+            <a class="site-link" href={apiReferenceListing.path}>{apiReferenceListing.title}</a>
+          </dt>
+          <dd>
+            {apiReferenceListing.summary}
+            <span class="security-documents-path">{apiReferenceListing.source}</span>
+          </dd>
+        </div>
       </dl>
     </section>
   </div>

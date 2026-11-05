@@ -20,8 +20,11 @@ addresses, request URLs, entity IDs, or raw error text. The vocabulary lives in
 additions need review.
 
 HTTP failures also carry `api_method`, `api_response_status`, and `api_route`.
-Routes must match the OpenAPI templates compiled into the release, such as
-`/documents/{documentId}`; request URLs and parameter values never qualify.
+Routes must match the path templates compiled into the release from the
+[operation registry](../../packages/validators/src/operation/registry.ts) (the
+same `{param}` templates [`docs/openapi.json`](../openapi.json) keys its paths
+by), such as `/auth/sessions/{sessionId}`; request URLs and parameter values
+never qualify.
 The response status records the actual error-handler or domain-error response,
 independently of a nested driver's HTTP status.
 

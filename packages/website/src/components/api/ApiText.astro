@@ -1,0 +1,20 @@
+---
+/** Description paragraphs: text, code spans, and glossary links. */
+import type { RichText } from "../../apiReference/richText";
+
+interface Props {
+  readonly text: RichText;
+}
+
+const { text } = Astro.props;
+---
+
+{text.map((paragraph) => (
+  <p>
+    {paragraph.map((part) => {
+      if (part.kind === "text") return part.text;
+      if (part.kind === "code") return <code>{part.text}</code>;
+      return <a class="api-term" href={part.href}>{part.text}</a>;
+    })}
+  </p>
+))}

@@ -63,6 +63,18 @@ export const technicalDocs: readonly TechnicalDoc[] = [
   },
 ];
 
+/**
+ * The API reference is rendered from docs/openapi.json rather than Markdown
+ * (src/apiReference/), so it is listed beside the documents, not among them.
+ */
+export const apiReferenceListing = {
+  path: "/docs/api/",
+  source: "docs/openapi.json",
+  title: "API reference",
+  summary:
+    "Every HTTP operation, the fields it accepts and returns, and the rules the server enforces.",
+} as const;
+
 const repositoryUrl = "https://github.com/a2f0/tearleads";
 /** Links from published documents point at the branch the site deploys from. */
 const repositoryRef = "main";
