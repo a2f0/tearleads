@@ -120,15 +120,14 @@ test("CI and the installed hook run the same fast checks in order", () => {
 
     expect(repo.push().exitCode).not.toBe(0);
     const pushCommands = readFileSync(repo.log, "utf8").trim().split("\n");
-    // The tests start in the background once the output-writing checks finish.
+    // The tests start in the background once the output-writing checks finish;
+    // when they log relative to the later checks is up to the scheduler.
     expect(pushCommands.filter((command) => command !== testsCommand)).toEqual([
       lintCommand,
       ...ciCommands,
     ]);
-    const tests = pushCommands.indexOf(testsCommand);
-    expect(tests).toBeGreaterThan(pushCommands.indexOf("run lint:biome"));
-    expect(tests).toBeLessThan(
-      pushCommands.indexOf("run lint:package-assertions"),
+    expect(pushCommands.indexOf(testsCommand)).toBeGreaterThan(
+      pushCommands.indexOf("run lint:biome"),
     );
     expect(readFileSync(repo.timings, "utf8")).toContain(
       "\tunfinished=markdown\tstatus=failed\t",
