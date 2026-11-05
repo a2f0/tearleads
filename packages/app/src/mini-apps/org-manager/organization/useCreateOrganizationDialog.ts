@@ -1,5 +1,6 @@
 import type { SessionCreateOrganizationResult } from "@tearleads/client-sdk";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { runAfterBusyPaint } from "../../../components/mini-app/MiniAppLayout";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type {
   CreateOrganizationDialogState,
@@ -50,8 +51,10 @@ function useCreateOrganizationAction(options: CreateOrganizationActionOptions) {
       options.setCreating(true);
       options.setCreateOrganizationError(null);
       try {
-        const result = await options.provisionOrganization(
-          organizationProfileName,
+        // Provisioning generates keys on the main thread; paint the busy
+        // panel first so its spinner keeps turning.
+        const result = await runAfterBusyPaint(isCreateActive, () =>
+          options.provisionOrganization(organizationProfileName),
         );
         if (!isCreateActive()) {
           return;

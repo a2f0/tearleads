@@ -2,6 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { ORG_MANAGER_BUSY_LABELS } from "./busyLabels";
 import { RevokeGrantConfirmationDialog } from "./RevokeGrantConfirmationDialog";
 
 afterEach(() => cleanup());
@@ -73,7 +74,7 @@ test("revoke grant confirmation dialog can be cancelled", () => {
   expect(onConfirm).toHaveBeenCalledTimes(0);
 });
 
-test("revoke grant confirmation dialog does not submit while busy", () => {
+test("revoke grant confirmation dialog covers itself and does not submit while busy", () => {
   const onConfirm = mock(() => {});
   const view = render(
     <RevokeGrantConfirmationDialog
@@ -84,8 +85,14 @@ test("revoke grant confirmation dialog does not submit while busy", () => {
     />,
   );
 
+  // The in-flight revoke cannot be cancelled, so the whole panel shows one
+  // busy overlay rather than a spinner in the button.
+  const status = view.getByRole("status");
+  expect(status.className).toBe("mini-app-modal-busy");
+  expect(status.textContent).toContain(ORG_MANAGER_BUSY_LABELS.revokingGrant);
+
   fireEvent.click(
-    view.getByRole("button", { name: ORG_MANAGER_LABELS.revokingGrant }),
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.revoke }),
   );
 
   expect(onConfirm).toHaveBeenCalledTimes(0);

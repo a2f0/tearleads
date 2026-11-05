@@ -5,6 +5,13 @@ import type { FormEvent } from "react";
 import { useExplorerContainerInfoGroupShare } from "./ExplorerContainerInfoState";
 import type { ReloadExplorerContainerInfo } from "./explorerContainerInfoStateHelpers";
 
+const TEST_SHARE_SCOPE = {
+  domainScope: {},
+  organizationId: "org-1",
+  signingFingerprint: "fingerprint-1",
+  userId: "user-1",
+};
+
 function createSubmitEvent(): FormEvent<HTMLFormElement> {
   return { preventDefault: () => undefined } as FormEvent<HTMLFormElement>;
 }
@@ -19,6 +26,7 @@ test("useExplorerContainerInfoGroupShare requires a draft group", async () => {
   const view = renderHook(() =>
     useExplorerContainerInfoGroupShare({
       canShareContainer: true,
+      shareScope: TEST_SHARE_SCOPE,
       containerId: "container-1",
       draftShareAccessLevel: "write",
       draftShareGroupId: "",
@@ -52,6 +60,7 @@ test("useExplorerContainerInfoGroupShare requires the chosen group's name", asyn
   const view = renderHook(() =>
     useExplorerContainerInfoGroupShare({
       canShareContainer: true,
+      shareScope: TEST_SHARE_SCOPE,
       containerId: "container-1",
       draftShareAccessLevel: "write",
       draftShareGroupId: "group-1",
@@ -90,6 +99,7 @@ test("useExplorerContainerInfoGroupShare names a signed-name mismatch", async ()
   const view = renderHook(() =>
     useExplorerContainerInfoGroupShare({
       canShareContainer: true,
+      shareScope: TEST_SHARE_SCOPE,
       containerId: "container-1",
       draftShareAccessLevel: "write",
       draftShareGroupId: "group-1",
@@ -138,6 +148,7 @@ test("useExplorerContainerInfoGroupShare reloads with an optimistic grant", asyn
   const view = renderHook(() =>
     useExplorerContainerInfoGroupShare({
       canShareContainer: true,
+      shareScope: TEST_SHARE_SCOPE,
       containerId: "container-1",
       draftShareAccessLevel: "admin",
       draftShareGroupId: "group-1",
@@ -180,4 +191,118 @@ test("useExplorerContainerInfoGroupShare reloads with an optimistic grant", asyn
   });
   expect(panelErrors).toEqual([null]);
   expect(submittingStates).toEqual([true, false]);
+});
+
+// Sharing seals keys on the main thread, so the busy panel must paint before
+// the share starts or its spinner never turns.
+test("useExplorerContainerInfoGroupShare paints the busy state before sharing", async () => {
+  const events: string[] = [];
+  const frames: FrameRequestCallback[] = [];
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    events.push("frame-requested");
+    frames.push(callback);
+    return frames.length;
+  };
+  try {
+    const view = renderHook(() =>
+      useExplorerContainerInfoGroupShare({
+        canShareContainer: true,
+        shareScope: TEST_SHARE_SCOPE,
+        containerId: "container-1",
+        draftShareAccessLevel: "read",
+        draftShareGroupId: "group-1",
+        draftShareGroupName: "Group One",
+        isSubmitting: false,
+        logError: () => undefined,
+        reloadContainerInfo: async () => undefined,
+        setIsSubmitting: (value) => {
+          events.push(`submitting:${value}`);
+        },
+        setPanelError: () => undefined,
+        shareWithGroup: async () => {
+          events.push("share");
+          return true;
+        },
+      }),
+    );
+
+    let pending: Promise<void> | undefined;
+    act(() => {
+      pending = view.result.current(createSubmitEvent());
+    });
+    await Promise.resolve();
+    expect(events).toEqual(["submitting:true", "frame-requested"]);
+
+    await act(async () => {
+      frames.shift()?.(performance.now());
+      await pending;
+    });
+    expect(events).toEqual([
+      "submitting:true",
+      "frame-requested",
+      "share",
+      "submitting:false",
+    ]);
+  } finally {
+    globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+  }
+});
+
+// The share callback can outlive an organization switch, so the captured
+// session, not the callback, decides: a switch while the busy panel paints
+// must stop the share rather than run it against the replacement runtime.
+test("useExplorerContainerInfoGroupShare drops a share whose scope changed during the paint wait", async () => {
+  const frames: FrameRequestCallback[] = [];
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    frames.push(callback);
+    return frames.length;
+  };
+  try {
+    const shareCalls: string[] = [];
+    const submittingStates: boolean[] = [];
+    const shareWithGroup = async (containerId: string): Promise<boolean> => {
+      shareCalls.push(containerId);
+      return true;
+    };
+    const view = renderHook(
+      (props: { organizationId: string }) =>
+        useExplorerContainerInfoGroupShare({
+          canShareContainer: true,
+          shareScope: {
+            ...TEST_SHARE_SCOPE,
+            organizationId: props.organizationId,
+          },
+          containerId: "container-1",
+          draftShareAccessLevel: "read",
+          draftShareGroupId: "group-1",
+          draftShareGroupName: "Group One",
+          isSubmitting: false,
+          logError: () => undefined,
+          reloadContainerInfo: async () => undefined,
+          setIsSubmitting: (value) => {
+            submittingStates.push(value);
+          },
+          setPanelError: () => undefined,
+          shareWithGroup,
+        }),
+      { initialProps: { organizationId: "org-1" } },
+    );
+
+    let pending: Promise<void> | undefined;
+    act(() => {
+      pending = view.result.current(createSubmitEvent());
+    });
+    view.rerender({ organizationId: "org-2" });
+
+    await act(async () => {
+      frames.shift()?.(performance.now());
+      await pending;
+    });
+    expect(shareCalls).toEqual([]);
+    expect(submittingStates).toEqual([true, false]);
+  } finally {
+    globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+  }
 });

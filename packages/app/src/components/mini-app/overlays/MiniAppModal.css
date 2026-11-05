@@ -42,9 +42,21 @@
   gap: var(--space-sm);
   padding: var(--space-md);
   border-radius: inherit;
-  background: color-mix(in srgb, var(--color-light) 88%, transparent);
+  /* Opaque: the form underneath is frozen mid-action, so hide it entirely. */
+  background: var(--color-light);
   text-align: center;
   cursor: progress;
+}
+
+.mini-app-modal-busy-title {
+  font-weight: 600;
+}
+
+.mini-app-modal-busy-description {
+  max-width: 22rem;
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  opacity: var(--opacity-muted);
 }
 
 /* A plain CSS keyframe rotation of a transform: browsers run it on the

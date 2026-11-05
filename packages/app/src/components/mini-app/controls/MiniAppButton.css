@@ -44,9 +44,10 @@
   }
 }
 
+/* Slow the turn rather than stop it: a frozen ring reads as a hang. */
 @media (prefers-reduced-motion: reduce) {
   .mini-app-button-spinner {
-    animation: none;
+    animation-duration: 2.4s;
   }
 }
 

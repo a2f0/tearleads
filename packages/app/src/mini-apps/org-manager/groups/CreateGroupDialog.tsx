@@ -5,10 +5,12 @@ import {
   MiniAppField,
   MiniAppInput,
   MiniAppModalBackdrop,
+  MiniAppModalBusyOverlay,
   MiniAppModalForm,
   MiniAppModalPanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
+import { ORG_MANAGER_BUSY_LABELS } from "../grants/busyLabels";
 import { ORG_MANAGER_LABELS } from "../labels";
 
 export function CreateGroupDialog({
@@ -83,12 +85,17 @@ export function CreateGroupDialog({
                 groupNameDraft.trim().length === 0
               }
               type="submit"
-              loading={mutating}
             >
               {ORG_MANAGER_LABELS.create}
             </MiniAppButton>
           </MiniAppActions>
         </MiniAppModalForm>
+        {mutating && (
+          <MiniAppModalBusyOverlay
+            description={ORG_MANAGER_BUSY_LABELS.creatingGroupDescription}
+            label={ORG_MANAGER_BUSY_LABELS.creatingGroup}
+          />
+        )}
       </MiniAppModalPanel>
     </MiniAppModalBackdrop>
   );

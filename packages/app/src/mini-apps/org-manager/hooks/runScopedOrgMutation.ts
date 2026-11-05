@@ -1,3 +1,4 @@
+import { runAfterBusyPaint } from "../../../components/mini-app/MiniAppLayout";
 import { setUnknownError } from "../refresh";
 
 interface ScopedOrgMutationInput {
@@ -20,7 +21,12 @@ export async function runScopedOrgMutation(
   input.setMutating(true);
   input.setError(null);
   try {
-    await input.run();
+    // Mutations derive and seal keys on the main thread; let the busy panel
+    // paint first so its spinner keeps turning while they run.
+    await runAfterBusyPaint(
+      () => isOperationActive(operationOrganizationId),
+      input.run,
+    );
   } catch (error) {
     if (isOperationActive(operationOrganizationId)) {
       input.logError("Organization mutation failed", error);

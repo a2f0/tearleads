@@ -17,6 +17,7 @@ import type { MiniAppWindowPosition } from "../../types";
 import {
   ExplorerContainerInfoActions,
   ExplorerContainerInfoHeader,
+  ExplorerContainerInfoSharingProgress,
 } from "./ExplorerContainerInfoChrome";
 import { ExplorerContainerInfoLocalSection } from "./ExplorerContainerInfoLocalSection";
 import { ExplorerContainerInfoSecuritySection } from "./ExplorerContainerInfoSecuritySection";
@@ -31,7 +32,10 @@ import {
   useExplorerContainerInfoPeerShare,
 } from "./ExplorerContainerInfoState";
 import { ExplorerContainerInfoSyncCursorsSection } from "./ExplorerContainerInfoSyncCursorsSection";
-import { getContainerInfoShareableGroups } from "./explorerContainerInfoStateHelpers";
+import {
+  type ExplorerShareScope,
+  getContainerInfoShareableGroups,
+} from "./explorerContainerInfoStateHelpers";
 
 interface Props {
   canManageIcon: boolean;
@@ -67,6 +71,8 @@ interface Props {
     options: { expectedGroupName: string },
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+  // The session the panel shares in; a share pending across a switch stops.
+  shareScope: ExplorerShareScope;
 }
 
 type ContainerInfoTabId = "general" | "sharing" | "security" | "sync";
@@ -113,6 +119,7 @@ function useExplorerContainerInfoPanelState(params: Props) {
     reloadContainerInfo: containerInfoState.reloadContainerInfo,
     setIsSubmitting,
     setPanelError: containerInfoState.setPanelError,
+    shareScope: params.shareScope,
     shareWithGroup: params.shareWithGroup,
   });
   const handleShareWithPeer = useExplorerContainerInfoPeerShare({
@@ -124,6 +131,7 @@ function useExplorerContainerInfoPanelState(params: Props) {
     reloadContainerInfo: containerInfoState.reloadContainerInfo,
     setIsSubmitting,
     setPanelError: containerInfoState.setPanelError,
+    shareScope: params.shareScope,
     shareWithUser: params.shareWithUser,
   });
 
@@ -349,41 +357,45 @@ export function ExplorerContainerInfoPanel(params: Props) {
         containerId={params.containerId}
         containerName={params.containerName}
       />
-      <div className="explorer-info">
-        <ExplorerContainerInfoTabs
-          activeTab={activeTab}
-          idPrefix={tabIdPrefix}
-          setActiveTab={setActiveTab}
-        />
-        <ContainerInfoRemoteStatus
-          containerInfo={containerInfo}
-          containerInfoError={containerInfoError}
-          isLoadingContainerInfo={isLoadingContainerInfo}
-        />
-        <ExplorerContainerInfoTabPanel
-          activeTab={activeTab}
-          canManageIcon={params.canManageIcon}
-          containerIcon={params.containerIcon}
-          containerId={params.containerId}
-          containerInfo={containerInfo}
-          containerInfoError={containerInfoError}
-          containerNamesById={params.containerNamesById}
-          canShareContainer={params.canShareContainer}
-          canShareWithPeer={params.canShareWithPeer}
-          draftShareAccessLevel={draftShareAccessLevel}
-          draftShareGroupId={draftShareGroupId}
-          idPrefix={tabIdPrefix}
-          isLoadingContainerInfo={isLoadingContainerInfo}
-          isSubmitting={isSubmitting}
-          onOpenGrant={params.onOpenGrant}
-          onShareWithPeer={handleShareWithPeer}
-          peerUserId={params.peerUserId}
-          setContainerIcon={params.setContainerIcon}
-          setDraftShareAccessLevel={setDraftShareAccessLevel}
-          setDraftShareGroupId={setDraftShareGroupId}
-          setPanelError={setPanelError}
-        />
-      </div>
+      {isSubmitting ? (
+        <ExplorerContainerInfoSharingProgress />
+      ) : (
+        <div className="explorer-info">
+          <ExplorerContainerInfoTabs
+            activeTab={activeTab}
+            idPrefix={tabIdPrefix}
+            setActiveTab={setActiveTab}
+          />
+          <ContainerInfoRemoteStatus
+            containerInfo={containerInfo}
+            containerInfoError={containerInfoError}
+            isLoadingContainerInfo={isLoadingContainerInfo}
+          />
+          <ExplorerContainerInfoTabPanel
+            activeTab={activeTab}
+            canManageIcon={params.canManageIcon}
+            containerIcon={params.containerIcon}
+            containerId={params.containerId}
+            containerInfo={containerInfo}
+            containerInfoError={containerInfoError}
+            containerNamesById={params.containerNamesById}
+            canShareContainer={params.canShareContainer}
+            canShareWithPeer={params.canShareWithPeer}
+            draftShareAccessLevel={draftShareAccessLevel}
+            draftShareGroupId={draftShareGroupId}
+            idPrefix={tabIdPrefix}
+            isLoadingContainerInfo={isLoadingContainerInfo}
+            isSubmitting={isSubmitting}
+            onOpenGrant={params.onOpenGrant}
+            onShareWithPeer={handleShareWithPeer}
+            peerUserId={params.peerUserId}
+            setContainerIcon={params.setContainerIcon}
+            setDraftShareAccessLevel={setDraftShareAccessLevel}
+            setDraftShareGroupId={setDraftShareGroupId}
+            setPanelError={setPanelError}
+          />
+        </div>
+      )}
       {panelError ? (
         <MiniAppStatus tone="error">{panelError}</MiniAppStatus>
       ) : null}
@@ -392,6 +404,7 @@ export function ExplorerContainerInfoPanel(params: Props) {
         isLoadingContainerInfo={isLoadingContainerInfo}
         isSubmitting={isSubmitting}
         showShareButton={
+          !isSubmitting &&
           params.canShareContainer &&
           activeTab === "sharing" &&
           Boolean(containerInfo?.remoteInfo)
