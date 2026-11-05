@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { resetContainerManifestRegistry } from "@tearleads/test-utils";
+import { installCompactDomInspect } from "./test/helpers/compactDomInspect";
 import { takeUnhandledRequests } from "./test/helpers/unhandledRequests";
 
 // Workspace deps the app suite imports through their *built* `dist` (their
@@ -94,6 +95,7 @@ function assertBuiltWorkspaceDepsFresh(): void {
 assertBuiltWorkspaceDepsFresh();
 
 GlobalRegistrator.register();
+installCompactDomInspect();
 
 // happy-dom registers no ResizeObserver, while every production browser has
 // one — so app code constructs it unguarded. A no-op observer keeps mount
