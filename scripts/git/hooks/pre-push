@@ -77,6 +77,7 @@ stop_background_checks() {
   kill $(process_tree "$lane_pid") 2>/dev/null || true
   wait "$lane_pid" 2>/dev/null || true
   lane_pid=""
+  step_timings_merge "$lane_rows"
   # Its log is deleted on exit, so show what the lane got through.
   echo "--- [background] output (stopped) ---"
   cat "$lane_log" 2>/dev/null || true
@@ -94,7 +95,12 @@ run_background_lane() {
   (
     trap save_lane_timings EXIT
     step_timings_reset
-    run_model_checks
+    # Saved after each step too: a stopped lane gets no EXIT trap, and its
+    # finished steps still belong in the failed run's record.
+    step_timings_run protocol-models run_protocol_check check:protocol-models
+    save_lane_timings
+    step_timings_run protocol-negative-controls run_protocol_check check:protocol-negative-controls
+    save_lane_timings
     step_timings_run terraform "$REPO_ROOT/scripts/checks/checkTerraform.sh"
   )
 }

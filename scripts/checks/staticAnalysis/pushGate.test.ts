@@ -422,3 +422,20 @@ test("a failing check stops the background lane and its children", () => {
     rmSync(repo.cwd, { recursive: true, force: true });
   }
 });
+
+test("a foreground failure keeps the lane's finished steps", () => {
+  // The lane holds in its second step, after the first has finished.
+  const repo = pushFixture("run lint:markdown", {
+    HOLD_COMMAND: "run check:protocol-negative-controls",
+    HOLD_PID_FILE: "lane-child.pid",
+  });
+  try {
+    expect(repo.push().exitCode).not.toBe(0);
+    const timings = readFileSync(repo.timings, "utf8");
+    expect(timings).toContain("\tunfinished=markdown\tstatus=failed\t");
+    expect(timings).toContain("step\tprotocol-models\t");
+    expect(timings).not.toContain("step\tprotocol-negative-controls\t");
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});

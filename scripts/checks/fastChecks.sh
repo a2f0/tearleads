@@ -17,11 +17,6 @@ defer_model_checks() {
   fast_checks_defer_models=1
 }
 
-run_model_checks() {
-  step_timings_run protocol-models run_protocol_check check:protocol-models
-  step_timings_run protocol-negative-controls run_protocol_check check:protocol-negative-controls
-}
-
 run_model_check_inline() {
   [ -z "${fast_checks_defer_models:-}" ] || return 0
   step_timings_run "$1" run_protocol_check "check:$1"
