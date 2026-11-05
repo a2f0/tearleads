@@ -22,12 +22,12 @@ import {
   expectMutationSuccess,
   postJson,
   postMutation,
-  registerAndAuthenticate,
   TEST_CONTACTS_SYSTEM_SLOT,
   test,
 } from "../../../test/helpers/containerMutationRoutes";
 import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLinks";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 
 test("POST /containers materializes the signed metadata document binding", async () => {
   const owner = createTestUser();

@@ -24,7 +24,6 @@ import {
   listRootContainers,
   postJson,
   postMutation,
-  registerAndAuthenticate,
   TEST_CONTACTS_SYSTEM_SLOT,
   test,
 } from "../../../test/helpers/containerMutationRoutes";
@@ -49,6 +48,7 @@ import {
   addOrganizationMember,
   getDefaultOrganizationId,
 } from "../../../test/helpers/organizationMembership";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 
 test("DELETE /containers/:id reserves the retired metadata ID", async () => {
   const owner = createTestUser();

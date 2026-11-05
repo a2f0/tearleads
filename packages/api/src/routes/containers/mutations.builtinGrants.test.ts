@@ -11,13 +11,13 @@ import {
 } from "../../../test/helpers/containerMutationRotations";
 import {
   postMutation,
-  registerAndAuthenticate,
   test,
 } from "../../../test/helpers/containerMutationRoutes";
 import { buildGroupGrantRequest } from "../../../test/helpers/containerShareRequests";
 import { putGroupPrincipalPolicy } from "../../../test/helpers/groupPolicyContainerCommits";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { buildGroupMembershipContainerMutations } from "../../../test/helpers/organizationMembershipGrants";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 
 test("Admins rotation rekeys its built-in grant without changing access", async () => {
   const owner = createTestUser();

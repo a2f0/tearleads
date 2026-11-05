@@ -21,7 +21,6 @@ import {
   expectMutationSuccess,
   kekStateFromResponse,
   postMutation,
-  registerAndAuthenticate,
   test,
 } from "../../../test/helpers/containerMutationRoutes";
 import {
@@ -37,6 +36,7 @@ import {
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import * as grants from "../../../test/helpers/organizationGrantChanges";
 import { joinOrg } from "../../../test/helpers/organizationMembership";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 
 interface DownstreamContentKeyRowCounts {
   readonly blobContentKeyEpochs: number;

@@ -7,10 +7,8 @@ import type {
 } from "@tearleads/validators/request";
 import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
-import { authenticate } from "./authenticate";
 import { buildCreateRequest } from "./containerCreateRequests";
 import { requestSingleContainerParentLane as listContainersForUser } from "./containerParentLaneQuery";
-import { registerUser } from "./registerUser";
 import {
   type StoredContainerMutation,
   withStoredContainerMutation,
@@ -23,11 +21,6 @@ type TestCallback = () => Promise<void> | void;
 
 export function test(name: string, run: TestCallback): void {
   bunTest(name, run, 10_000);
-}
-
-export async function registerAndAuthenticate(user: TestUser): Promise<void> {
-  await registerUser(user);
-  await authenticate(user);
 }
 
 export function accessManifestFromResponse(

@@ -10,7 +10,6 @@ import {
   expectMutationSuccess,
   kekStateFromResponse,
   postMutation,
-  registerAndAuthenticate,
   test,
 } from "../../../test/helpers/containerMutationRoutes";
 import {
@@ -20,6 +19,7 @@ import {
 } from "../../../test/helpers/containerParentLaneQuery";
 import { buildGrantRequest } from "../../../test/helpers/containerShareRequests";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 
 test("POST /containers/:containerId/move validates destination manifest heads", async () => {
   const owner = createTestUser();

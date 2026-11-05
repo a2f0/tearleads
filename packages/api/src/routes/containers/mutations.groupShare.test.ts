@@ -18,7 +18,6 @@ import {
   expectMutationSuccess,
   kekStateFromResponse,
   postMutation,
-  registerAndAuthenticate,
   test,
 } from "../../../test/helpers/containerMutationRoutes";
 import {
@@ -32,6 +31,7 @@ import {
 } from "../../../test/helpers/groupPolicyContainerCommits";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { joinOrg } from "../../../test/helpers/organizationMembership";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 
 test("POST /containers/:containerId/share rejects a group grant absent from its signed index", async () => {
   const owner = createTestUser();

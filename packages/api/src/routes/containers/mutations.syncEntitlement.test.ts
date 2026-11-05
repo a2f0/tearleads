@@ -12,7 +12,6 @@ import { buildCreateRequest } from "../../../test/helpers/containerCreateRequest
 import {
   createChild,
   postMutation,
-  registerAndAuthenticate,
   test,
 } from "../../../test/helpers/containerMutationRoutes";
 import {
@@ -24,6 +23,7 @@ import {
   setTestOrganizationBillingExpiredTrial,
   setTestOrganizationBillingLocal,
 } from "../../../test/helpers/organizationBilling";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 
 test("POST /containers is rejected with 402 when the organization cannot sync", async () => {
   const owner = createTestUser();

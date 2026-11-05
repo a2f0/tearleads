@@ -22,10 +22,10 @@ import {
   expectMutationSuccess,
   kekStateFromResponse,
   postMutation,
-  registerAndAuthenticate,
   test,
 } from "../../../test/helpers/containerMutationRoutes";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 import type { StoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 
 test("POST /containers/:containerId/rekey materializes a writer KEK rotation", async () => {

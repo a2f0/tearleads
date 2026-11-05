@@ -8,7 +8,6 @@ import {
   kekStateFromResponse,
   listRootContainers,
   postMutation,
-  registerAndAuthenticate,
   test,
 } from "../../../test/helpers/containerMutationRoutes";
 import {
@@ -27,6 +26,7 @@ import {
 } from "../../../test/helpers/groupPolicyContainerCommits";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { joinOrg } from "../../../test/helpers/organizationMembership";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 
 test("POST /containers/:containerId/revoke advances the KEK epoch", async () => {
   const owner = createTestUser();
