@@ -1,0 +1,68 @@
+---
+/**
+ * The detail of one schema shape: constraints, description, alternatives,
+ * and inline fields, each field rendering its own shape recursively. Fields
+ * sit in a native <details>: open for the first two levels and for small
+ * flat objects, collapsed deeper, so nested types stay readable without
+ * JavaScript. Alternatives of a union do not add a level.
+ */
+import type { Shape } from "../../apiReference/schemaShape";
+import ApiInline from "./ApiInline.astro";
+import ApiText from "./ApiText.astro";
+
+interface Props {
+  readonly shape: Shape;
+  readonly depth: number;
+}
+
+const { shape, depth } = Astro.props;
+const fieldCount = shape.fields.length;
+const fieldSummary = `${fieldCount} ${fieldCount === 1 ? "field" : "fields"}`;
+const small =
+  fieldCount <= 3 &&
+  shape.fields.every(
+    (field) =>
+      field.shape.fields.length === 0 && field.shape.variants.length === 0,
+  );
+---
+
+{shape.constraints.length > 0 && (
+  <ul class="api-constraints" role="list">
+    {shape.constraints.map((phrase) => <li><ApiInline parts={phrase} /></li>)}
+  </ul>
+)}
+{shape.description.length > 0 && (
+  <div class="api-description"><ApiText text={shape.description} /></div>
+)}
+{shape.variants.length > 0 && (
+  <ol class="api-variants">
+    {shape.variants.map((variant) => (
+      <li class="api-variant">
+        <div class="api-field-head">
+          <span class="api-type"><ApiInline parts={variant.type} /></span>
+          {variant.nullable && <span class="api-flag">nullable</span>}
+        </div>
+        <Astro.self shape={variant} depth={depth} />
+      </li>
+    ))}
+  </ol>
+)}
+{fieldCount > 0 && (
+  <details class="api-fields-group" open={depth < 2 || small} data-depth={depth}>
+    <summary>{fieldSummary}</summary>
+    <ul class="api-fields" role="list">
+      {shape.fields.map((field) => (
+        <li class="api-field">
+          <div class="api-field-head">
+            <code class="api-field-name">{field.name}</code>
+            <span class="api-type"><ApiInline parts={field.shape.type} /></span>
+            <span class="api-flag">{field.required ? "required" : "optional"}</span>
+            {field.shape.nullable && <span class="api-flag">nullable</span>}
+          </div>
+          <Astro.self shape={field.shape} depth={depth + 1} />
+        </li>
+      ))}
+    </ul>
+  </details>
+)}
+{shape.otherFields && <p class="api-note">Other fields are allowed.</p>}

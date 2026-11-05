@@ -109,7 +109,7 @@ Allowed:
   error HTTP statuses (400–599). API titles are constructed from this finite
   vocabulary; raw exception text is never sent. See API coverage below.
 - API-only sanitized cause stacks, bounded pool counters, HTTP methods and
-  response statuses, and route templates from the release's OpenAPI allowlist.
+  response statuses, and route templates from the release's operation registry.
 - API-only aggregate counts of locally discarded errors, emitted as bounded
   client reports without event content or identifiers.
 - Git release, deployment environment, and target/build variant.

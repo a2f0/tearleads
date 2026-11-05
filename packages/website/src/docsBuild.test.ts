@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { docPath, technicalDocs } from "./technicalDocs";
+import { parseApiDocument } from "./apiReference/openApiDocument";
+import { apiReferenceListing, docPath, technicalDocs } from "./technicalDocs";
 
 /**
  * Builds the site once and checks the published technical documents as
@@ -10,11 +11,17 @@ import { docPath, technicalDocs } from "./technicalDocs";
  * tables in their scroll regions. Whether a GitHub target exists is checked
  * on the source Markdown by `bun run lint:doc-links`, which reads the whole
  * repository and so stays out of this package's cached test task.
+ *
+ * It also checks the API reference rendered from docs/openapi.json: a page
+ * per operation and schema, every link on those pages reaching a built page
+ * and anchor, and /openapi.json serving the document's exact bytes.
  */
 
 const website = resolve(import.meta.dir, "..");
 let output = "";
 const pages = new Map<string, string>();
+const apiPages = new Map<string, string>();
+const openApiSource = resolve(website, "../../docs/openapi.json");
 
 beforeAll(async () => {
   // Direct Astro builds skip prebuild; stage what it would (seoBuild.test.ts).
@@ -58,6 +65,12 @@ beforeAll(async () => {
       path,
       await Bun.file(resolve(output, `.${path}index.html`)).text(),
     );
+  }
+  const apiRoot = resolve(output, "docs/api");
+  for (const file of await readdir(apiRoot, { recursive: true })) {
+    if (!file.endsWith("index.html")) continue;
+    const path = `/docs/api/${file.slice(0, -"index.html".length)}`;
+    apiPages.set(path, await Bun.file(resolve(apiRoot, file)).text());
   }
 }, 120_000);
 
@@ -123,5 +136,61 @@ test("the security page and index link every published document", () => {
     for (const doc of technicalDocs) {
       expect(links.has(docPath(doc)), `${path} -> ${doc.slug}`).toBe(true);
     }
+  }
+});
+
+test("the API reference has a page per operation and per schema", async () => {
+  const document = parseApiDocument(await readFile(openApiSource, "utf8"));
+  expect(apiPages.size).toBe(
+    1 + document.operations.length + document.schemas.size,
+  );
+  for (const name of document.schemas.keys()) {
+    expect(apiPages.has(`/docs/api/schemas/${name}/`), name).toBe(true);
+  }
+});
+
+test("/openapi.json serves docs/openapi.json byte for byte", async () => {
+  const served = await readFile(resolve(output, "openapi.json"));
+  expect(served.equals(await readFile(openApiSource))).toBe(true);
+});
+
+test("every link on the API reference reaches a built page and anchor", async () => {
+  const misses: string[] = [];
+  const built = async (target: string) =>
+    pages.get(target) ??
+    apiPages.get(target) ??
+    (await Bun.file(resolve(output, `.${target}index.html`))
+      .text()
+      .catch(() => undefined));
+  for (const [path, html] of apiPages) {
+    for (const href of hrefs(html)) {
+      if (/^(?:https?:|mailto:)/.test(href)) continue;
+      const [target = "", fragment] = href.split("#");
+      if (/\.[a-z0-9]+$/i.test(target)) {
+        const exists = await Bun.file(resolve(output, `.${target}`)).exists();
+        if (!exists) misses.push(`${path} -> ${href}`);
+        continue;
+      }
+      const targetHtml = target === "" ? html : await built(target);
+      if (
+        targetHtml === undefined ||
+        (!target.endsWith("/") && target !== "") ||
+        (fragment !== undefined && !ids(targetHtml).has(fragment))
+      ) {
+        misses.push(`${path} -> ${href}`);
+      }
+    }
+  }
+  expect(misses).toEqual([]);
+  // Glossary terms link to the published glossary's anchors.
+  const index = apiPages.get("/docs/api/") ?? "";
+  expect(index).toMatch(/class="api-term" href="\/docs\/glossary\/#[a-z-]+"/);
+  expect(hrefs(index)).toContain("/openapi.json");
+  expect(hrefs(index)).toContain("/docs/protocol-specification/");
+});
+
+test("the docs index and security page list the API reference", () => {
+  for (const path of ["/security/", "/docs/"]) {
+    expect(hrefs(pages.get(path) ?? "")).toContain(apiReferenceListing.path);
   }
 });

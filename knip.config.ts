@@ -190,7 +190,7 @@ const baseConfig = {
       project: ["scripts/**/*.ts", "src/**/*.ts"],
     },
     "packages/website": {
-      entry: ["src/pages/**/*.astro"],
+      entry: ["src/pages/**/*.{astro,ts}"],
       project: ["src/**/*.{astro,ts,tsx}"],
     },
     "packages/windowing": {
@@ -332,7 +332,7 @@ const productionConfig = {
       // loads explicitly.
       entry: [
         "astro.config.ts!",
-        "src/pages/**/*.astro!",
+        "src/pages/**/*.{astro,ts}!",
         "src/docLinksPlugin.ts!",
         "src/seoIntegration.ts!",
       ],

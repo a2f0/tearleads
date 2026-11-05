@@ -23,12 +23,17 @@ function seedContainerWriterProjectionPromise(
 ) {
   (
     client as unknown as {
-      containerWriterProjectionRequestsByContainerId: Map<
-        string,
-        Promise<ContainerWriterProjection | null>
-      >;
+      context: {
+        containerWriterProjectionRequestsByContainerId: Map<
+          string,
+          Promise<ContainerWriterProjection | null>
+        >;
+      };
     }
-  ).containerWriterProjectionRequestsByContainerId.set(containerId, entry);
+  ).context.containerWriterProjectionRequestsByContainerId.set(
+    containerId,
+    entry,
+  );
 }
 
 function seedContainerWriterProjectionCache(

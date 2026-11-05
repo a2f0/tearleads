@@ -1,0 +1,94 @@
+---
+import {
+  operationPath,
+  referencePath,
+  schemaPath,
+} from "../../../../apiReference/referenceIndex";
+import { apiReference } from "../../../../apiReference/sources";
+import ApiInline from "../../../../components/api/ApiInline.astro";
+import ApiMethod from "../../../../components/api/ApiMethod.astro";
+import ApiShapeTree from "../../../../components/api/ApiShapeTree.astro";
+import ApiText from "../../../../components/api/ApiText.astro";
+import PageHeader from "../../../../components/PageHeader.astro";
+import Layout from "../../../../layouts/Layout.astro";
+import "../../../../styles/docs.css";
+import "../../../../styles/apiReference.css";
+import "../../../../styles/apiReferenceFields.css";
+
+export function getStaticPaths() {
+  return [...apiReference.document.schemas.keys()].map((name) => ({
+    params: { name },
+    props: { name },
+  }));
+}
+
+interface Props {
+  readonly name: string;
+}
+
+const { name } = Astro.props;
+const page = apiReference.schemaPage(name);
+const { shape, usage } = page;
+const tree = { ...shape, description: [] };
+// Long schema names break between words of the name.
+const nameWords = name.split(/(?=[A-Z][a-z])/);
+const unused = usage.operations.length === 0 && usage.schemas.length === 0;
+---
+
+<Layout
+  title={`${name} | API reference | Tearleads`}
+  description={`The fields of the ${name} schema in the Tearleads API reference, and the operations that use it.`}
+>
+  <article class="site-page docs-page api-page" aria-labelledby="page-title">
+    <PageHeader title={name}>
+      <Fragment slot="title">{nameWords.map((word) => <>{word}<wbr /></>)}</Fragment>
+      <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
+        <ol role="list">
+          <li><a href="/docs/">Technical documents</a></li>
+          <li><a href={referencePath}>API reference</a></li>
+          <li><a href={`${referencePath}#schemas`}>Schemas</a></li>
+        </ol>
+      </nav>
+      {shape.description.length > 0 && (
+        <div class="site-lede api-lead"><ApiText text={shape.description} /></div>
+      )}
+    </PageHeader>
+
+    <section class="api-section" aria-labelledby="shape">
+      <h2 id="shape" class="api-h2">Shape</h2>
+      <p class="api-body-type">
+        <span class="api-type"><ApiInline parts={shape.type} /></span>
+        {shape.nullable && <span class="api-flag">nullable</span>}
+      </p>
+      <ApiShapeTree shape={tree} depth={0} />
+    </section>
+
+    <section class="api-section" aria-labelledby="used-by">
+      <h2 id="used-by" class="api-h2">Used by</h2>
+      {unused && <p class="api-prose">No operation or schema refers to it directly.</p>}
+      {usage.operations.length > 0 && (
+        <ul class="api-index" role="list" aria-label="Operations">
+          {usage.operations.map((operation) => (
+            <li>
+              <a class="api-index-row" href={operationPath(operation)}>
+                <ApiMethod method={operation.method} />
+                <code class="api-path">{operation.path}</code>
+                <span class="api-index-summary">{operation.summary}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      {usage.schemas.length > 0 && (
+        <>
+          <h3 class="api-h3">Schemas</h3>
+          <ul class="api-schema-index" role="list">
+            {usage.schemas.map((user) => (
+              <li><a class="api-schema-link" href={schemaPath(user)}>{user}</a></li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  </article>
+</Layout>

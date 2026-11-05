@@ -1,0 +1,10 @@
+---
+/** An HTTP method badge; methods differ by label and outline, not hue. */
+interface Props {
+  readonly method: string;
+}
+
+const { method } = Astro.props;
+---
+
+<span class="api-method" data-method={method}>{method.toUpperCase()}</span>
