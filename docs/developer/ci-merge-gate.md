@@ -19,7 +19,7 @@ applies to pull requests from clones without hooks.
 The API, app, client SDK, and bob-and-alice suites run in `Test (...)` jobs of
 their own, and `Build and test` runs the remaining package tests. The API suite
 runs one backend per job, and the API and app suites split into Bun shards
-(`--shard=1/2`, `--shard=2/2`); `ciPolicy.test.ts` checks that every backend's
+(`--shard=1/3` and so on); `ciPolicy.test.ts` checks that every backend's
 shards are all present. The gate requires both jobs, so the suites need no
 ruleset entries. Turbo hashes each shard's arguments, so shards cache
 independently. Turbo serves cached

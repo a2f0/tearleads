@@ -10,7 +10,6 @@ interface TestResult {
 
 const allDatabases: readonly ApiTestDatabase[] = ["memory", "sqlite"];
 const databaseFlag = "--database=";
-const parallelFlag = "--parallel=";
 
 function isApiTestDatabase(name: string): name is ApiTestDatabase {
   return allDatabases.some((database) => database === name);
@@ -30,10 +29,6 @@ const databases = selected.length
   ? allDatabases.filter((database) => selected.includes(database))
   : allDatabases;
 const testArgs = args.filter((arg) => !arg.startsWith(databaseFlag));
-// A runner given one backend can afford more workers than the shared default.
-const parallelArgs = testArgs.some((arg) => arg.startsWith(parallelFlag))
-  ? []
-  : [`${parallelFlag}2`];
 
 function formatDuration(durationMs: number): string {
   return `${(durationMs / 1000).toFixed(2)}s`;
@@ -69,14 +64,14 @@ async function forwardLines(
 async function runDatabaseTests(
   database: ApiTestDatabase,
 ): Promise<TestResult> {
-  // Two workers per backend unless overridden, each keeping one global across
-  // its files as the serial run did (see docs/developer/test-optimization.md).
+  // Two workers per backend, each keeping one global across its files as the
+  // serial run did (see docs/developer/test-optimization.md).
   const command = [
     "bun",
     "test",
     "src",
     "--max-concurrency=4",
-    ...parallelArgs,
+    "--parallel=2",
     "--no-isolate",
     ...testArgs,
   ];
