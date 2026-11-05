@@ -10,6 +10,11 @@ const modelCommands = [
   "run check:protocol-models",
   "run check:protocol-negative-controls",
 ];
+// The push gate's lane goes through the cached wrapper instead.
+const cachedModelCommands = modelCommands.map(
+  (command) =>
+    `scripts/checks/runCachedProtocolCheck.ts ${command.slice("run ".length)}`,
+);
 
 function pushFixture(failingCommand: string, extraEnv = {}) {
   const repo = fixture();
@@ -77,7 +82,9 @@ function configurePushFixture(
   const { PATH = "" } = process.env;
   const env = {
     ...repo.env,
+    // Lint exports these for its own check:fast; fixtures choose their own.
     CI_TURBO_PROTOCOL_CACHE: "",
+    CI_DEFER_PROTOCOL_MODELS: "",
     PATH: `${join(repo.cwd, "bin")}:${PATH}`,
     COMMAND_LOG: log,
     REAL_BUN: process.execPath,
@@ -85,10 +92,18 @@ function configurePushFixture(
     PUSH_REFS_LOG: join(repo.cwd, "push-refs.log"),
     FAILING_COMMAND: failingCommand,
     PUSH_GATE_TIMINGS_LOG: timings,
-    HOLD_COMMAND: "run check:protocol-models",
+    HOLD_COMMAND: cachedModelCommands[0] ?? "",
     HOLD_PID_FILE: "",
     ...extraEnv,
   };
+  const runWith = (extra: Record<string, string>, ...cmd: string[]) =>
+    Bun.spawnSync(cmd, {
+      cwd: repo.cwd,
+      env: { ...env, ...extra },
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
   const runAt = (cwd: string, ...cmd: string[]) =>
     Bun.spawnSync(cmd, {
       cwd,
@@ -107,7 +122,7 @@ function configurePushFixture(
   expect(run("git", "init", "--bare", "remote.git").exitCode).toBe(0);
   repo.git("remote", "add", "origin", join(repo.cwd, "remote.git"));
   const push = () => run("git", "push", "origin", "HEAD:refs/heads/probe");
-  return { ...repo, head, log, timings, run, runAt, install, push };
+  return { ...repo, head, log, timings, run, runAt, runWith, install, push };
 }
 
 test("CI and the installed hook run the same fast checks in order", () => {
@@ -125,14 +140,15 @@ test("CI and the installed hook run the same fast checks in order", () => {
     const pushCommands = readFileSync(repo.log, "utf8").trim().split("\n");
     // The model passes run in the background lane, so only their presence,
     // not their position, is fixed.
+    const models = [...modelCommands, ...cachedModelCommands];
     const foreground = (commands: string[]) =>
-      commands.filter((command) => !modelCommands.includes(command));
+      commands.filter((command) => !models.includes(command));
     expect(foreground(pushCommands)).toEqual([
       lintCommand,
       ...foreground(ciCommands),
     ]);
-    for (const command of modelCommands) {
-      expect(ciCommands).toContain(command);
+    for (const command of modelCommands) expect(ciCommands).toContain(command);
+    for (const command of cachedModelCommands) {
       expect(pushCommands).toContain(command);
     }
     expect(readFileSync(repo.timings, "utf8")).toContain(
@@ -363,7 +379,7 @@ test("URL pushes fail before expensive checks with named-remote guidance", () =>
 });
 
 test("a failing background check refuses the push and records its step", () => {
-  const repo = pushFixture("run check:protocol-negative-controls");
+  const repo = pushFixture(cachedModelCommands[1] ?? "");
   try {
     const result = repo.push();
     expect(result.exitCode).not.toBe(0);
@@ -426,7 +442,7 @@ test("a failing check stops the background lane and its children", () => {
 test("a foreground failure keeps the lane's finished steps", () => {
   // The lane holds in its second step, after the first has finished.
   const repo = pushFixture("run lint:markdown", {
-    HOLD_COMMAND: "run check:protocol-negative-controls",
+    HOLD_COMMAND: cachedModelCommands[1] ?? "",
     HOLD_PID_FILE: "lane-child.pid",
   });
   try {
@@ -435,6 +451,25 @@ test("a foreground failure keeps the lane's finished steps", () => {
     expect(timings).toContain("\tunfinished=markdown\tstatus=failed\t");
     expect(timings).toContain("step\tprotocol-models\t");
     expect(timings).not.toContain("step\tprotocol-negative-controls\t");
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+test("CI's Lint check:fast leaves the model passes to their own job", () => {
+  const repo = pushFixture("");
+  try {
+    const deferred = repo.runWith(
+      { CI_DEFER_PROTOCOL_MODELS: "1" },
+      "sh",
+      "scripts/checks/checkFast.sh",
+    );
+    expect(deferred.exitCode, deferred.stderr.toString()).toBe(0);
+    const commands = readFileSync(repo.log, "utf8");
+    for (const command of modelCommands) {
+      expect(commands).not.toContain(`${command}\n`);
+    }
+    expect(commands).toContain("run check:protocol-traces\n");
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
   }

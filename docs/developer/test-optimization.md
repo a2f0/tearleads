@@ -106,13 +106,15 @@ Some of that cost is deliberate:
   4-vCPU runner fits the API's two backends times two workers.
 - **Split the long suites across CI runners.** On CI, the API runs one
   backend per runner (`--database=` in `testAllDatabases.ts`) in three Bun
-  shards and the app in two, so the longest job no longer carries a whole
-  suite. API shards keep two workers: with `--parallel=4`, four PGlite
-  workers on one 4-vCPU runner pushed a test that takes 3.3 s of its 5 s
-  budget on main past the limit. Local runs keep
-  both backends and two workers. The bob-and-alice scenarios run in four
-  isolated workers (each boots its own in-process API): 35 tests took 167 s
-  locally, where the serial CI run of 34 took 850 s.
+  shards, and the app, client SDK, and bob-and-alice suites in two each, so no
+  job carries a whole suite. API shards keep two workers: with `--parallel=4`,
+  four PGlite workers on one 4-vCPU runner pushed a test that takes 3.3 s of
+  its 5 s budget on main past the limit. Local runs keep both backends and two
+  workers. The bob-and-alice scenarios run in four isolated workers (each
+  boots its own in-process API): 35 tests took 167 s locally, where the serial
+  CI run of 34 took 850 s. A new shard layout regroups files inside
+  `--no-isolate` workers, so it can expose a test that leaks module state
+  (see the mouse-release fix in `MiniAppControls.test.tsx`).
 - **Keep worker-safe preload hooks.** In a `--parallel` run Bun calls a
   preload's `afterAll` after every file, not once per run, while
   `--no-isolate` keeps module state for the worker's next file. The app and

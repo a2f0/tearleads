@@ -11,5 +11,9 @@ cd "$REPO_ROOT"
 . "$REPO_ROOT/scripts/checks/fastChecks.sh"
 
 step_timings_reset
+# CI runs the two pure TLC passes in a job of their own.
+if [ "${CI_DEFER_PROTOCOL_MODELS:-}" = "1" ]; then
+  defer_model_checks
+fi
 run_fast_checks
 step_timings_summary
