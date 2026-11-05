@@ -1,3 +1,6 @@
+/** Longer than a frame at any refresh rate, short enough to go unnoticed. */
+const BUSY_PAINT_FALLBACK_MS = 100;
+
 /**
  * Resolves once the browser has painted the frame that follows a busy-state
  * update. Await it after setting a busy flag and before starting work that
@@ -23,9 +26,6 @@ export function waitForBusyPaint(): Promise<void> {
     });
   });
 }
-
-/** Longer than a frame at any refresh rate, short enough to go unnoticed. */
-export const BUSY_PAINT_FALLBACK_MS = 100;
 
 /**
  * Waits for the busy state to paint, then runs `run` only if the operation is
