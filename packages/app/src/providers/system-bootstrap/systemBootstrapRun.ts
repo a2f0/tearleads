@@ -16,32 +16,16 @@ import type { UserSystemContainer } from "../../stores/systemContainers";
 import type { RuntimeSnapshot } from "../sdk/TearleadsProvider";
 import { ensureSystemBootstrapContainer } from "./systemContainerBootstrap";
 
-// The non-React core of system bootstrap: the provisioning run, its target-key
-// derivation, and its status-state merge. Kept apart from the React provider so
-// the hook/effect wiring in SystemBootstrapProvider stays legible and each file
-// stays within budget; nothing here touches React.
-
-export type SystemBootstrapStatus =
-  | "idle"
-  | "waiting"
-  | "running"
-  | "ready"
-  | "error";
+// The non-React core of system bootstrap: the provisioning run and its
+// target-key derivation (the status machine is systemBootstrapMachine). Kept
+// apart from the React provider so the hook/effect wiring in
+// SystemBootstrapProvider stays legible and each file stays within budget;
+// nothing here touches React.
 
 export interface SystemBootstrapResult {
   readonly completed: boolean;
   readonly error?: unknown;
   readonly skipped?: boolean;
-}
-
-export interface SystemBootstrapState {
-  readonly error: unknown;
-  // Latches once the first provisioning run for this scope completes. The gate
-  // (isBootstrapping) only blanks the mini-app for that initial run; later
-  // re-runs triggered by a converging container's syncState change must not
-  // unmount an already-hydrated Explorer back to a loading screen.
-  readonly hasCompleted: boolean;
-  readonly status: SystemBootstrapStatus;
 }
 
 export interface SystemBootstrapRunInput {
@@ -197,30 +181,4 @@ export function createSystemBootstrapTargetKey(input: {
       )
       .join(","),
   ].join(":");
-}
-
-// Merge a status transition over the prior state so latched fields (hasCompleted)
-// survive re-runs unless a transition explicitly resets them; clears the error by
-// default since every non-error transition leaves the error state.
-//
-// Idempotent: returns the previous state (same reference) when the merge changes
-// nothing so React bails out of the re-render. The driving effect re-asserts
-// applyState({status:"ready"}) on EVERY bootstrapInput identity change even when the
-// target key is already completed, and bootstrapInput is rebuilt on each store
-// snapshot. The authenticated promotion pass makes system containers converge to
-// remote, churning the snapshot, so this guard keeps those no-op re-assertions from
-// re-rendering the whole provider subtree needlessly.
-export function mergeSystemBootstrapState(
-  previous: SystemBootstrapState,
-  next: Partial<SystemBootstrapState> & { status: SystemBootstrapStatus },
-): SystemBootstrapState {
-  const merged = { ...previous, error: null, ...next };
-  if (
-    merged.status === previous.status &&
-    merged.hasCompleted === previous.hasCompleted &&
-    merged.error === previous.error
-  ) {
-    return previous;
-  }
-  return merged;
 }

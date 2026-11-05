@@ -1,4 +1,4 @@
-import type { SystemBootstrapStatus } from "../providers/system-bootstrap/systemBootstrapRun";
+import type { SystemBootstrapStatus } from "../providers/system-bootstrap/systemBootstrapMachine";
 import type { AutoProvisioningStep } from "./autoProvisioningStatus";
 
 /**
