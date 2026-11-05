@@ -13,7 +13,7 @@ import { CONTACTS_LABELS } from "./labels";
 
 export function Contacts() {
   return (
-    <SystemBootstrapGate message="Bootstrapping contacts...">
+    <SystemBootstrapGate message="Setting up your contacts">
       <ContactsContent />
     </SystemBootstrapGate>
   );

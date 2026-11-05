@@ -21,6 +21,7 @@ export {
   MiniAppSectionHeading,
 } from "./layout/MiniAppSection";
 export { MiniAppSidebar } from "./layout/MiniAppSidebar";
+export { MiniAppStatePanel } from "./layout/MiniAppStatePanel";
 export {
   type MiniAppTabDescriptor,
   MiniAppTabList,

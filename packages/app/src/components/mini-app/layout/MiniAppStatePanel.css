@@ -1,0 +1,97 @@
+/* Fills whatever surface hosts it: flex-grows inside a flex column (the
+   mini-app root) and takes the full height of a block scroll region. */
+.mini-app-state-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  align-self: stretch;
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: var(--space-md);
+  text-align: center;
+  animation: mini-app-state-panel-enter 240ms ease-out both;
+}
+
+/* Hold a progress state back briefly, so a phase that resolves at once never
+   flashes a spinner. */
+.mini-app-state-panel--busy {
+  animation-delay: 150ms;
+  cursor: progress;
+}
+
+.mini-app-state-panel-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  max-width: 26rem;
+}
+
+.mini-app-state-panel-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.mini-app-state-panel-description {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  opacity: var(--opacity-muted);
+}
+
+.mini-app-state-panel-icon {
+  display: inline-flex;
+  opacity: var(--opacity-icon);
+}
+
+.mini-app-state-panel-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  max-width: 26rem;
+}
+
+/* Same compositor-driven ring as the modal busy overlay, so it keeps turning
+   while the main thread is busy deriving keys. */
+.mini-app-state-panel-spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  box-sizing: border-box;
+  border: 4px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: mini-app-state-panel-spin 0.8s linear infinite;
+}
+
+@keyframes mini-app-state-panel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes mini-app-state-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Slow the ring rather than stop it (a frozen ring reads as a hang) and drop
+   the entrance movement. */
+@media (prefers-reduced-motion: reduce) {
+  .mini-app-state-panel {
+    animation-name: none;
+  }
+
+  .mini-app-state-panel-spinner {
+    animation-duration: 2.4s;
+  }
+}

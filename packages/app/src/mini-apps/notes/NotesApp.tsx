@@ -54,7 +54,7 @@ export function createNotesWindowComponent({
 
 function NotesApp(props: NotesAppProps) {
   return (
-    <SystemBootstrapGate message="Bootstrapping workspace...">
+    <SystemBootstrapGate message="Setting up your workspace">
       <NotesAppContent {...props} />
     </SystemBootstrapGate>
   );

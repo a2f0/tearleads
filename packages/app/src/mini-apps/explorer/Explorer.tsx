@@ -231,7 +231,7 @@ function ExplorerDetailPanelWithBlobPick(params: BlobPickPanelProps) {
 
 export function Explorer() {
   return (
-    <SystemBootstrapGate message="Bootstrapping workspace...">
+    <SystemBootstrapGate message="Setting up your workspace">
       <ExplorerContent />
     </SystemBootstrapGate>
   );
