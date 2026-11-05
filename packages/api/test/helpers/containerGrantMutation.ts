@@ -24,7 +24,7 @@ import {
 import { joinOrg } from "./organizationMembership";
 import { principalPolicyRefs } from "./principalPolicyRefs";
 
-async function userRecipientKey(
+export async function userRecipientKey(
   user: TestUser,
 ): Promise<ContainerUserRecipientKey> {
   const recipientKeyFingerprint = await toFingerprint(user.kem.publicKey);

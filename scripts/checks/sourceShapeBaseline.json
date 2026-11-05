@@ -110,10 +110,6 @@
       "lines": 586,
       "bytes": 19215
     },
-    "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3794,
-      "bytes": 126253
-    },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 626,
       "bytes": 20090

@@ -23,7 +23,8 @@ identify leads, not elapsed time. The known expensive files are:
 - **API**: `src/workflows/documents/storedDocumentHistory.test.ts` and
   `src/workflows/containers/writerProjection/storedManifestHistory.test.ts`
   (4,098-entry signed histories), `src/routes/documents/automaticAncestorRepair.test.ts`,
-  `src/routes/containers/mutations.test.ts`,
+  the container mutation route tests
+  (`src/routes/containers/mutations.*.test.ts`),
   [writer projections](../glossary.md#writer-projection), and rotation-carried
   [rekeys](../glossary.md#rekey).
 - **Client SDK**: `syncRepairLimits.test.ts`,
