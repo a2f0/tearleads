@@ -406,8 +406,13 @@ test("a failing check stops the background lane and its children", () => {
   });
   try {
     const started = Date.now();
-    expect(repo.push().exitCode).not.toBe(0);
+    const result = repo.push();
+    expect(result.exitCode).not.toBe(0);
     expect(Date.now() - started).toBeLessThan(30_000);
+    // The stopped lane's partial log is shown before it is deleted.
+    expect(result.stdout.toString()).toContain(
+      "--- [background] output (stopped) ---\n--- [protocol-models]",
+    );
     const child = Number(
       readFileSync(join(repo.cwd, "lane-child.pid"), "utf8").trim(),
     );

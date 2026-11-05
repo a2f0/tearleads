@@ -77,6 +77,9 @@ stop_background_checks() {
   kill $(process_tree "$lane_pid") 2>/dev/null || true
   wait "$lane_pid" 2>/dev/null || true
   lane_pid=""
+  # Its log is deleted on exit, so show what the lane got through.
+  echo "--- [background] output (stopped) ---"
+  cat "$lane_log" 2>/dev/null || true
 }
 
 # The lane times its own steps and hands the rows back through a file, so each
