@@ -4,27 +4,14 @@ import {
   organizations,
   principalMembershipProjection,
   principalStates,
-  users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
-
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
 
 function authHeader(user: TestUser): { Authorization: string } {
   return { Authorization: `Bearer ${user.token}` };
@@ -32,9 +19,9 @@ function authHeader(user: TestUser): { Authorization: string } {
 
 test("organization access rejects database-injected membership", async () => {
   const owner = createTestUser();
-  const organizationId = await registerAndAuthenticate(owner);
+  const organizationId = await registerAndAuthenticateWithOrganization(owner);
   const outsider = createTestUser();
-  await registerAndAuthenticate(outsider);
+  await registerAndAuthenticateWithOrganization(outsider);
   const [organization] = await db
     .select({ memberGroupId: organizations.memberGroupId })
     .from(organizations)
@@ -69,9 +56,10 @@ test("organization access rejects database-injected membership", async () => {
 
 test("organization access rejects a repointed reserved Admins group", async () => {
   const owner = createTestUser();
-  const organizationId = await registerAndAuthenticate(owner);
+  const organizationId = await registerAndAuthenticateWithOrganization(owner);
   const outsider = createTestUser();
-  const outsiderOrganizationId = await registerAndAuthenticate(outsider);
+  const outsiderOrganizationId =
+    await registerAndAuthenticateWithOrganization(outsider);
   const [outsiderOrganization] = await db
     .select({ adminGroupId: organizations.adminGroupId })
     .from(organizations)
@@ -97,9 +85,9 @@ test("organization access rejects a repointed reserved Admins group", async () =
 // Signed setup and multiple policy commits need the protocol integration budget.
 test("organization access rejects a replayed reserved group policy", async () => {
   const owner = createTestUser();
-  const organizationId = await registerAndAuthenticate(owner);
+  const organizationId = await registerAndAuthenticateWithOrganization(owner);
   const member = createTestUser();
-  await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(member);
   const adminGroupId = await addUserToAdminGroup({
     actor: owner,
     member,

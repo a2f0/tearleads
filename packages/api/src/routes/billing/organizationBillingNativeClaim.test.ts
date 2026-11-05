@@ -3,34 +3,20 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   revenuecatWebhookEvents,
-  users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { and, eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
-import invariant from "invariant";
 import * as api from "../../../test/helpers/api";
-import { authenticate } from "../../../test/helpers/authenticate";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import type { SessionEnv } from "../../middleware/session";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
 import { createOrganizationBillingRoute } from "./organizationBilling";
 
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
-
 async function registerNativeRestoreOrganization(
   user: TestUser,
 ): Promise<string> {
-  await registerAndAuthenticate(user);
+  await registerAndAuthenticateWithOrganization(user);
   const request = {
     ...(await api.createOrganizationRequestBody(user)),
     nativeSubscriptionRestore: true as const,
@@ -89,7 +75,8 @@ function activeNativeSubscriptionFetch() {
 
 test("native claim moves verified billing and records both sides of the transfer", async () => {
   const previous = createTestUser();
-  const previousOrganizationId = await registerAndAuthenticate(previous);
+  const previousOrganizationId =
+    await registerAndAuthenticateWithOrganization(previous);
   const destination = createTestUser();
   const destinationOrganizationId =
     await registerNativeRestoreOrganization(destination);
@@ -147,7 +134,7 @@ test("native claim moves verified billing and records both sides of the transfer
 
 test("native claim rejects an ordinary organization administered by the buyer", async () => {
   const buyer = createTestUser();
-  const organizationId = await registerAndAuthenticate(buyer);
+  const organizationId = await registerAndAuthenticateWithOrganization(buyer);
   const app = nativeClaimRoute(buyer.userId, {
     env: {
       REVENUECAT_PROJECT_ID: "proj_1",

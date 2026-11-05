@@ -7,7 +7,7 @@ import {
 import { createTestUser } from "@tearleads/test-utils";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
-import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { runGetOrganizationBillingWorkflow } from "./organizationBilling";
 import { PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON } from "./revenuecatGrantCapacity";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
@@ -19,7 +19,7 @@ async function createScheduledDowngrade(input?: {
   readonly purchasedAtMs: null;
 }) {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const now = Date.now();
   const initial: RevenueCatWebhookEvent = {
     app_user_id: admin.userId,
@@ -51,9 +51,9 @@ async function createScheduledDowngrade(input?: {
 
 test("a product change from a different buyer creates no pending state", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const otherBuyer = createTestUser();
-  await registerAndAuthenticate(otherBuyer);
+  await registerAndAuthenticateWithOrganization(otherBuyer);
   const now = Date.now();
   const initial: RevenueCatWebhookEvent = {
     app_user_id: admin.userId,
@@ -93,7 +93,7 @@ test("a product change from a different buyer creates no pending state", async (
 
 test("a delayed store grant cannot reactivate a purged organization", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await db
     .update(organizationBilling)
     .set({ purgedAt: new Date(), status: "purged" })

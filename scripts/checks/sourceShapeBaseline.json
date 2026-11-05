@@ -71,8 +71,8 @@
       "bytes": 21345
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
-      "lines": 672,
-      "bytes": 21870
+      "lines": 666,
+      "bytes": 21758
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
       "lines": 548,
@@ -111,8 +111,8 @@
       "bytes": 19215
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
-      "lines": 626,
-      "bytes": 20090
+      "lines": 611,
+      "bytes": 19941
     },
     "packages/api/src/routes/principals/policy.test.ts": {
       "lines": 763,
@@ -123,8 +123,8 @@
       "bytes": 16513
     },
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
-      "lines": 552,
-      "bytes": 17879
+      "lines": 539,
+      "bytes": 17604
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 568,

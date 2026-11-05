@@ -1,12 +1,11 @@
 import { expect, test } from "bun:test";
 import type { VerifiedContainerKekState } from "@tearleads/crypto";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { createTestUser } from "@tearleads/test-utils";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
   isContainerMutationResponse,
   isDocumentPurgeProofResponse,
 } from "@tearleads/validators/response";
-import { authenticate } from "../../../test/helpers/authenticate";
 import { buildContainerGrantRequest } from "../../../test/helpers/containerGrantMutation";
 import { postDocumentPurge } from "../../../test/helpers/documentPurge";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
@@ -18,13 +17,8 @@ import {
   kekStateFromContainerResponse,
   type StoredRootFixture,
 } from "../../../test/helpers/keyingWriterProjectionKit";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-
-async function registerAndAuthenticate(user: TestUser): Promise<void> {
-  await registerUser(user);
-  await authenticate(user);
-}
 
 function storedChildFixture(input: {
   readonly child: {

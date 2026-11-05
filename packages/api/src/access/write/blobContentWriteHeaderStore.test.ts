@@ -4,20 +4,14 @@ import type { BlobWriteAuthorization } from "@tearleads/api-shared/schema";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
-  computeKeyingDomainHash,
   type WriteHeader,
 } from "@tearleads/crypto";
+import { hashOf } from "../../../test/helpers/keyingLabelHash";
 import {
   BlobContentKeyBundleError,
   listBlobContentWriteHeaders,
 } from "../read/blobContentKeyStore";
 import { storeBlobContentWriteHeader } from "./blobContentKeyStore";
-
-async function hashOf(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
-    label,
-  });
-}
 
 async function createBlobWriteHeader(input: {
   readonly blobId: string;

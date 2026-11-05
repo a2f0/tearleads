@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizationBilling, users } from "@tearleads/api-shared/schema";
+import { organizationBilling } from "@tearleads/api-shared/schema";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
@@ -22,7 +22,6 @@ import {
   isOrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
   asVerifiedContainerManifest,
@@ -31,21 +30,11 @@ import {
   type StoredRootFixture,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
-import { registerUser } from "../../../test/helpers/registerUser";
+import {
+  registerAndAuthenticateWithOrganization,
+  registerUser,
+} from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
 
 async function createSignedDocumentSyncRequest(input: {
   readonly created: DocumentCreateResponse;
@@ -130,7 +119,7 @@ async function createSignedDocumentSyncRequest(input: {
 
 test("lapsed organizations can read organization data but cannot change org profile", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   await setTestOrganizationBillingLocal(organizationId);
 
   const readResponse = await routeApp.request(

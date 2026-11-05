@@ -5,8 +5,8 @@ import { createTestUser } from "@tearleads/test-utils";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { playReplacementApiDeps } from "../../../test/helpers/revenuecatPlayReplacement";
-import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
 import {
   APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
   NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
@@ -41,7 +41,7 @@ async function readTier(organizationId: string) {
 
 test("an old-product renewal preserves a scheduled native downgrade", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const now = Date.now();
   const initial: RevenueCatWebhookEvent = {
     app_user_id: admin.userId,
@@ -128,7 +128,7 @@ test("an old-product renewal preserves a scheduled native downgrade", async () =
 
 test("a paused subscription clears its scheduled native change", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const now = Date.now();
   const initial: RevenueCatWebhookEvent = {
     app_user_id: admin.userId,
@@ -206,7 +206,7 @@ test("a Stripe product change is acknowledged as provider-managed", async () => 
 
 test("an unknown product change is acknowledged with an operator alert", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const now = Date.now();
   const initial: RevenueCatWebhookEvent = {
     ...PRODUCT_CHANGE,
@@ -251,7 +251,7 @@ test("an unknown product change is acknowledged with an operator alert", async (
 
 test("a Play upgrade settles from its effective purchase event", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const now = Date.now();
   const initial: RevenueCatWebhookEvent = {
     app_user_id: admin.userId,
@@ -334,7 +334,7 @@ test("a Play upgrade settles from its effective purchase event", async () => {
 
 test("an Apple upgrade is not blocked by its newer schedule marker", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const now = Date.now();
   const initial: RevenueCatWebhookEvent = {
     app_user_id: admin.userId,
@@ -396,7 +396,7 @@ test("an Apple upgrade is not blocked by its newer schedule marker", async () =>
 
 test("expiration and a new purchase clear an old scheduled change", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const now = Date.now();
   const initial: RevenueCatWebhookEvent = {
     app_user_id: admin.userId,
@@ -451,7 +451,7 @@ test("expiration and a new purchase clear an old scheduled change", async () => 
 
 test("a promotional product-less renewal reuses its bound product", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const now = Date.now();
   const initial: RevenueCatWebhookEvent = {
     app_user_id: admin.userId,

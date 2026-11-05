@@ -8,7 +8,6 @@ import {
   isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import invariant from "invariant";
-import { authenticate } from "../../test/helpers/authenticate";
 import {
   COLD_DOCUMENT_TEXT,
   coldRematerializeEncryptedDocument,
@@ -28,17 +27,12 @@ import {
   type DecryptableStoredRootFixture,
   recoverRegisteredRootKek,
 } from "../../test/helpers/registeredRootKek";
-import { registerUser } from "../../test/helpers/registerUser";
+import { registerAndAuthenticate } from "../../test/helpers/registerUser";
 import { grantRootThroughRotatedReadGroup } from "../../test/helpers/rotatedReadGroupGrant";
 import { decodeServedDocumentProjection } from "../../test/helpers/servedWriterProjection";
 import { routeApp } from "../routeApp";
 
 type GrantKind = "direct user" | "rotated group";
-
-async function registerAndAuthenticate(user: TestUser): Promise<void> {
-  await registerUser(user);
-  await authenticate(user);
-}
 
 async function postJson(path: string, token: string, body: unknown) {
   return routeApp.request(path, {

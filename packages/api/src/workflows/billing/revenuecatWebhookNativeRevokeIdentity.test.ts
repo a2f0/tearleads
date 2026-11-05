@@ -7,7 +7,7 @@ import {
 import { createTestUser } from "@tearleads/test-utils";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
-import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
 
 const NATIVE_BINDING_CONFLICT_REASON =
@@ -19,7 +19,7 @@ test.each(["INITIAL_PURCHASE", "NON_RENEWING_PURCHASE"] as const)(
   "a tokenless native %s cannot create an incomplete binding",
   async (type) => {
     const admin = createTestUser();
-    const organizationId = await registerAndAuthenticate(admin);
+    const organizationId = await registerAndAuthenticateWithOrganization(admin);
     const event: RevenueCatWebhookEvent = {
       app_user_id: admin.userId,
       entitlement_ids: ["sync"],
@@ -71,7 +71,7 @@ test.each([
   "a %s native %s cannot revoke the live subscription",
   async (identity, type) => {
     const admin = createTestUser();
-    const organizationId = await registerAndAuthenticate(admin);
+    const organizationId = await registerAndAuthenticateWithOrganization(admin);
     const now = Date.now();
     const subscriptionId = `live_${crypto.randomUUID()}`;
     const initial: RevenueCatWebhookEvent = {
@@ -134,7 +134,7 @@ test.each(["RENEWAL", "EXPIRATION"] as const)(
   "an exact-token %s cannot bypass missing audit store lineage",
   async (type) => {
     const admin = createTestUser();
-    const organizationId = await registerAndAuthenticate(admin);
+    const organizationId = await registerAndAuthenticateWithOrganization(admin);
     const now = Date.now();
     const subscriptionId = `legacy_${crypto.randomUUID()}`;
     await db

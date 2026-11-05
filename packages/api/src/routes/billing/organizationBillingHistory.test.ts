@@ -8,16 +8,17 @@ import {
   insertInvoiceEvent,
   insertSeatEvent,
   insertWebhookEvent,
-  registerAndAuthenticate,
 } from "../../../test/helpers/organizationBillingHistory";
 import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
 test("an org admin reads meaningful mixed billing history newest-first", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const other = createTestUser();
-  const otherOrganizationId = await registerAndAuthenticate(other);
+  const otherOrganizationId =
+    await registerAndAuthenticateWithOrganization(other);
   await clearBillingHistory(organizationId);
   await clearBillingHistory(otherOrganizationId);
   const base = Date.parse("2026-07-01T00:00:00.000Z");
@@ -197,7 +198,7 @@ test("an org admin reads meaningful mixed billing history newest-first", async (
 
 test("an unmatched provider seat event remains visible as seat activity", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await clearBillingHistory(organizationId);
   const id = "00000000-0000-4000-8000-000000000040";
 
@@ -234,7 +235,7 @@ test("an unmatched provider seat event remains visible as seat activity", async 
 
 test("a lifecycle event is enriched beyond the recent seat window", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await clearBillingHistory(organizationId);
   const base = Date.parse("2026-07-03T00:00:00.000Z");
   const lifecycleId = "00000000-0000-4000-8000-000000000050";
@@ -299,7 +300,7 @@ test("a lifecycle event is enriched beyond the recent seat window", async () => 
 
 test("an organization with no billing events returns an empty history", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await clearBillingHistory(organizationId);
 
   const response = await routeApp.request(
@@ -318,9 +319,9 @@ test("an organization with no billing events returns an empty history", async ()
 
 test("a non-member cannot read another org's billing history", async () => {
   const owner = createTestUser();
-  const organizationId = await registerAndAuthenticate(owner);
+  const organizationId = await registerAndAuthenticateWithOrganization(owner);
   const intruder = createTestUser();
-  await registerAndAuthenticate(intruder);
+  await registerAndAuthenticateWithOrganization(intruder);
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/history`,
@@ -331,9 +332,9 @@ test("a non-member cannot read another org's billing history", async () => {
 
 test("a direct organization member cannot read admin-only billing history", async () => {
   const owner = createTestUser();
-  const organizationId = await registerAndAuthenticate(owner);
+  const organizationId = await registerAndAuthenticateWithOrganization(owner);
   const member = createTestUser();
-  await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(member);
   await addMemberGroupUser({
     actor: owner,
     memberUserId: member.userId,
@@ -349,7 +350,7 @@ test("a direct organization member cannot read admin-only billing history", asyn
 
 test("an invalid organization id is rejected", async () => {
   const admin = createTestUser();
-  await registerAndAuthenticate(admin);
+  await registerAndAuthenticateWithOrganization(admin);
 
   const response = await routeApp.request(
     "/organizations/not-a-uuid/billing/history",

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { documentManifestObservations } from "@tearleads/api-shared/schema";
 import type { VerifiedContainerKekState } from "@tearleads/crypto";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { createTestUser } from "@tearleads/test-utils";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
   isContainerMutationResponse,
@@ -10,7 +10,6 @@ import {
   isDocumentPurgeProofResponse,
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
-import { authenticate } from "../../../test/helpers/authenticate";
 import { buildContainerGrantRequest } from "../../../test/helpers/containerGrantMutation";
 import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
@@ -26,13 +25,8 @@ import {
   kekStateFromContainerResponse,
   type StoredRootFixture,
 } from "../../../test/helpers/keyingWriterProjectionKit";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-
-async function registerAndAuthenticate(user: TestUser): Promise<void> {
-  await registerUser(user);
-  await authenticate(user);
-}
 
 function storedContainerFixture(input: {
   readonly response: {

@@ -1,9 +1,8 @@
 import { expect, test } from "bun:test";
 import { MAX_CONTAINER_KEY_EPOCH } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { createTestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import { authenticate } from "../../../../test/helpers/authenticate";
 import {
   createTestContainerKekKeyring,
   createTestContainerKekMaterial,
@@ -15,13 +14,11 @@ import {
   bootstrapRoot,
   buildRootGrantRequest,
 } from "../../../../test/helpers/keyingWriterProjectionKit";
-import { registerUser } from "../../../../test/helpers/registerUser";
+import {
+  registerAndAuthenticate,
+  registerUser,
+} from "../../../../test/helpers/registerUser";
 import { routeApp } from "../../../routeApp";
-
-async function registerAndAuthenticate(user: TestUser): Promise<void> {
-  await registerUser(user);
-  await authenticate(user);
-}
 
 async function postMutation(input: {
   readonly path: string;

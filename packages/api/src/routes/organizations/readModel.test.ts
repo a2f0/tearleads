@@ -1,15 +1,12 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   isCreateOrganizationGroupResponse,
   isOrganizationReadModelResponse,
   ORGANIZATION_READ_MODEL_ERROR_CODES,
 } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
 import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import {
   createGroupRequest,
@@ -20,22 +17,10 @@ import {
   removeMemberGroupUser,
 } from "../../../test/helpers/organizationMember";
 import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 import { encodeOrganizationReadModelCursor } from "../../workflows/organizations/readModelCursor";
-
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
 
 function readModelPath(organizationId: string, cursor?: string): string {
   const path = `/organizations/${organizationId}/read-model`;
@@ -46,7 +31,7 @@ function readModelPath(organizationId: string, cursor?: string): string {
 
 test("organization read-model route snapshots and coalesces group changes", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
 
   const snapshotResponse = await routeApp.request(
     readModelPath(organizationId),
@@ -231,9 +216,9 @@ test("organization read-model route snapshots and coalesces group changes", asyn
 // Signed setup and multiple policy commits need the protocol integration budget.
 test("Members and Admins policy changes invalidate exact membership rows", async () => {
   const owner = createTestUser();
-  const organizationId = await registerAndAuthenticate(owner);
+  const organizationId = await registerAndAuthenticateWithOrganization(owner);
   const member = createTestUser();
-  await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(member);
   const beforeMembersResponse = await routeApp.request(
     readModelPath(organizationId),
     { headers: { Authorization: `Bearer ${owner.token}` } },
@@ -323,9 +308,9 @@ test("Members and Admins policy changes invalidate exact membership rows", async
 // Signed setup and multiple policy commits need the protocol integration budget.
 test("membership deltas coalesce transitions to final entity state", async () => {
   const owner = createTestUser();
-  const organizationId = await registerAndAuthenticate(owner);
+  const organizationId = await registerAndAuthenticateWithOrganization(owner);
   const member = createTestUser();
-  await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(member);
   const initialResponse = await routeApp.request(
     readModelPath(organizationId),
     {
@@ -401,9 +386,10 @@ test("membership deltas coalesce transitions to final entity state", async () =>
 
 test("organization read-model route validates cursor scope after access", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const other = createTestUser();
-  const otherOrganizationId = await registerAndAuthenticate(other);
+  const otherOrganizationId =
+    await registerAndAuthenticateWithOrganization(other);
 
   const invalidCursorResponse = await routeApp.request(
     readModelPath(organizationId, ""),
@@ -443,7 +429,7 @@ test("organization read-model route validates cursor scope after access", async 
 
 test("no-op organization profile writes do not advance the read model", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const initialResponse = await routeApp.request(
     readModelPath(organizationId),
     {

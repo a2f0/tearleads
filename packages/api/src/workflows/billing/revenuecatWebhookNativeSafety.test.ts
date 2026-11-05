@@ -8,7 +8,7 @@ import {
 import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
-import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { UNCONFIGURED_SYNC_BILLING_TIER_REASON } from "../../billing/revenuecatWebhook";
 import { runNativePurchaseEligibilityWorkflow } from "./nativePurchaseEligibility";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
@@ -38,7 +38,7 @@ function nativeGrant(input: {
 
 test("an unconfigured paid native product remains unclaimed for retry", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await setTestOrganizationBillingLocal(organizationId);
   const eventId = crypto.randomUUID();
   const event = nativeGrant({
@@ -66,7 +66,7 @@ test("an unconfigured paid native product remains unclaimed for retry", async ()
 
 test("an unknown-store purchase retries behind a retained Stripe binding", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await setTestOrganizationBillingLocal(organizationId);
   await db
     .delete(organizationBillingStripeSeats)
@@ -102,7 +102,7 @@ test("an unknown-store purchase retries behind a retained Stripe binding", async
 
 test("a webhook revalidates a web checkout started after native preflight", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await setTestOrganizationBillingLocal(organizationId);
   expect(
     await runNativePurchaseEligibilityWorkflow(

@@ -1,9 +1,8 @@
 import { expect, test } from "bun:test";
 import type { VerifiedContainerKekState } from "@tearleads/crypto";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { createTestUser } from "@tearleads/test-utils";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import { isContainerMutationResponse } from "@tearleads/validators/response";
-import { authenticate } from "../../../test/helpers/authenticate";
 import { buildContainerGrantRequest } from "../../../test/helpers/containerGrantMutation";
 import { buildRevokeRequest } from "../../../test/helpers/containerMutationRotations";
 import { postDocumentPurge } from "../../../test/helpers/documentPurge";
@@ -20,18 +19,13 @@ import {
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { deleteGroupRequest } from "../../../test/helpers/organizationGroup";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 import {
   grantRootThroughRotatedReadGroup,
   revokeRootRotatedReadGroup,
 } from "../../../test/helpers/rotatedReadGroupGrant";
 import { clearAccessManifestVerificationMarkers } from "../../../test/helpers/verificationMarkers";
 import { routeApp } from "../../routeApp";
-
-async function registerAndAuthenticate(user: TestUser): Promise<void> {
-  await registerUser(user);
-  await authenticate(user);
-}
 
 function storedChildFixture(input: {
   readonly child: {

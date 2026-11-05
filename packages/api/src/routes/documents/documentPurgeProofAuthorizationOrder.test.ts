@@ -1,21 +1,15 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { accessManifests } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { createTestUser } from "@tearleads/test-utils";
 import { and, eq } from "drizzle-orm";
-import { authenticate } from "../../../test/helpers/authenticate";
 import { postDocumentPurge } from "../../../test/helpers/documentPurge";
 import {
   bootstrapRoot,
   createDocument,
 } from "../../../test/helpers/keyingWriterProjectionKit";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-
-async function registerAndAuthenticate(user: TestUser): Promise<void> {
-  await registerUser(user);
-  await authenticate(user);
-}
 
 test("purge proof rejects unauthorized callers before loading document history", async () => {
   const owner = createTestUser();

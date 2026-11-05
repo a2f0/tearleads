@@ -7,8 +7,8 @@ import {
 import { createTestUser } from "@tearleads/test-utils";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { playReplacementApiDeps } from "../../../test/helpers/revenuecatPlayReplacement";
-import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
 
 const PERIOD_MS = 30 * 24 * 60 * 60 * 1_000;
@@ -42,7 +42,7 @@ test.each(["RENEWAL", "EXPIRATION"] as const)(
   "a stale Play replacement-token %s cannot mutate a newer binding",
   async (type) => {
     const admin = createTestUser();
-    const organizationId = await registerAndAuthenticate(admin);
+    const organizationId = await registerAndAuthenticateWithOrganization(admin);
     const now = Date.now();
     const initialToken = `initial_${crypto.randomUUID()}`;
     const oldReplacementToken = `old_replacement_${crypto.randomUUID()}`;

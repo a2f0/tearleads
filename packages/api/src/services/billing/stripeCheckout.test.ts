@@ -1,12 +1,10 @@
 import { expect, test } from "bun:test";
 
 import { db } from "@tearleads/api-shared/postgres";
-import { organizationBilling, users } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { organizationBilling } from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { addSyntheticMember } from "../../../test/helpers/revenuecatWebhook";
 import { activeStripePrice } from "../../../test/helpers/stripeCatalog";
 import { getDefaultApiServiceRuntime } from "../runtime";
@@ -19,17 +17,6 @@ import {
   processAuthenticatedStripeWebhook,
 } from "./stripeCheckout";
 import { getStripeCheckoutOptions } from "./stripeCheckoutOptions";
-
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
 
 const WEBHOOK_SECRET = "whsec_test";
 const STRIPE_ENV = {
@@ -121,7 +108,7 @@ test("a paid invoice with no Stripe API config asks for redelivery", async () =>
 
 test("options stay empty until the WHOLE flow is configured", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const urls: string[] = [];
   const result = await getStripeCheckoutOptions(
     getDefaultApiServiceRuntime(),
@@ -138,7 +125,7 @@ test("options stay empty until the WHOLE flow is configured", async () => {
 
 test("options select Team 5 for a two-member effective roster", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await addSyntheticMember(admin, organizationId);
   const urls: string[] = [];
 
@@ -174,7 +161,7 @@ test("a missing webhook secret fails closed", async () => {
 
 test("the portal ignores a subscription whose metadata names another org", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
     STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
@@ -214,7 +201,7 @@ test("the portal ignores a subscription whose metadata names another org", async
 
 test("the portal returns a session for the org's live subscription", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
     STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
@@ -263,7 +250,7 @@ test("the portal returns a session for the org's live subscription", async () =>
 
 test("cancel schedules the period end for the org's live subscription", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
     STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
@@ -308,7 +295,7 @@ test("cancel schedules the period end for the org's live subscription", async ()
 
 test("cancel resolves the Stripe sub_ even when the billing row holds an si_ id", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   // Reproduce the staging state: the RevenueCat webhook wrote the Stripe
   // subscription ITEM id (si_…) to the billing row, not the sub_… . The old
   // resolver read that column and 404'd; the search-based resolver recovers.
@@ -355,7 +342,7 @@ test("cancel resolves the Stripe sub_ even when the billing row holds an si_ id"
 
 test("cancel does nothing when the org has only an incomplete subscription", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
     STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
@@ -395,7 +382,7 @@ test("cancel does nothing when the org has only an incomplete subscription", asy
 
 test("the hosted checkout session returns the Stripe page URL", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const urls: string[] = [];
 
   const url = await createStripeCheckoutSession(
@@ -427,7 +414,7 @@ test("the hosted checkout session returns the Stripe page URL", async () => {
 
 test("the hosted checkout 409s when Stripe already holds a live subscription", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   // The local status can lag Stripe (webhook outage); the Stripe-side search
   // must still catch the live subscription and refuse a second one. The session
   // create must never fire.
@@ -469,7 +456,7 @@ test("the hosted checkout 409s when Stripe already holds a live subscription", a
 
 test("the hosted checkout refuses an already-active organization", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   // Same eligibility guard as the inline checkout — a second subscription
   // would double-bill — and it runs before any Stripe call.
   await db
@@ -493,7 +480,7 @@ test("the hosted checkout refuses an already-active organization", async () => {
 
 test("a Stripe-side live subscription makes checkout a 409", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
 
   const fullEnv = {
     STRIPE_SECRET_KEY: "sk_test",

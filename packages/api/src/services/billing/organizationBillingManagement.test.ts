@@ -3,13 +3,13 @@ import { db } from "@tearleads/api-shared/postgres";
 import { organizationBilling } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import { getOrganizationBillingManagementUrl } from "./organizationBilling";
 
 test("a promotional grant retains its RevenueCat management path", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await db
     .update(organizationBilling)
     .set({

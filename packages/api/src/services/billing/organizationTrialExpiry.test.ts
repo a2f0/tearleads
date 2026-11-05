@@ -4,12 +4,14 @@ import { organizationBilling } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
-import { registerAndAuthenticate } from "../../../test/helpers/organizationBillingHistory";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { expireOrganizationTrials } from "./organizationTrialExpiry";
 
 test("trial expiry service treats a non-positive batch limit as a no-op", async () => {
-  const organizationId = await registerAndAuthenticate(createTestUser());
+  const organizationId = await registerAndAuthenticateWithOrganization(
+    createTestUser(),
+  );
   const [trial] = await db
     .select({ trialEndsAt: organizationBilling.trialEndsAt })
     .from(organizationBilling)
@@ -31,7 +33,9 @@ test("trial expiry service treats a non-positive batch limit as a no-op", async 
 });
 
 test("trial expiry service persists an expired trial", async () => {
-  const organizationId = await registerAndAuthenticate(createTestUser());
+  const organizationId = await registerAndAuthenticateWithOrganization(
+    createTestUser(),
+  );
   const [trial] = await db
     .select({ trialEndsAt: organizationBilling.trialEndsAt })
     .from(organizationBilling)

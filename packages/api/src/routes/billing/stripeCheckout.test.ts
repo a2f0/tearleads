@@ -1,11 +1,9 @@
 import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizationBilling, users } from "@tearleads/api-shared/schema";
+import { organizationBilling } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import {
   addEffectiveOrganizationMember,
   addSyntheticEffectiveOrganizationMembers,
@@ -58,19 +56,6 @@ afterAll(() => {
   }
 });
 
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
-
 function authHeader(user: TestUser): { Authorization: string } {
   return { Authorization: `Bearer ${user.token}` };
 }
@@ -85,9 +70,9 @@ test("checkout requires authentication", async () => {
 
 test("checkout rejects a non-admin of the organization", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const outsider = createTestUser();
-  await registerAndAuthenticate(outsider);
+  await registerAndAuthenticateWithOrganization(outsider);
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/checkout`,
@@ -98,7 +83,7 @@ test("checkout rejects a non-admin of the organization", async () => {
 
 test("an unconfigured checkout answers 503 for an admin, not an empty body", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/checkout`,
@@ -109,7 +94,7 @@ test("an unconfigured checkout answers 503 for an admin, not an empty body", asy
 
 test("an already-active organization cannot start another checkout", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   // A second confirmed checkout would create a second Stripe subscription for
   // the same org — double billing — so eligibility is refused up front, before
   // any Stripe configuration is even consulted.
@@ -127,7 +112,7 @@ test("an already-active organization cannot start another checkout", async () =>
 
 test("a trialing organization may start a checkout (pay before the trial ends)", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   // A trial is a local status with no subscription yet, so committing early is
   // not a duplicate purchase. Eligibility must pass — the request reaches the
   // Stripe layer and fails only on this test env's missing config (503), NOT
@@ -154,9 +139,9 @@ test("cancel requires authentication", async () => {
 
 test("cancel rejects a non-admin of the organization", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const outsider = createTestUser();
-  await registerAndAuthenticate(outsider);
+  await registerAndAuthenticateWithOrganization(outsider);
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/cancel`,
@@ -167,7 +152,7 @@ test("cancel rejects a non-admin of the organization", async () => {
 
 test("cancel answers 404 for an admin with no cancellable subscription", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/cancel`,
@@ -192,7 +177,7 @@ test("checkout-session requires authentication", async () => {
 
 test("checkout-session wraps the service result in a 200 { url } body", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/checkout-session`,
@@ -210,7 +195,7 @@ test("checkout-session wraps the service result in a 200 { url } body", async ()
 
 test("checkout-session 409s for an already-active organization", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   // The eligibility guard runs before any Stripe call and propagates its 409
   // through withReturnUrl/respondForOrganization — a second subscription would
   // double-bill.
@@ -232,7 +217,7 @@ test("checkout-session 409s for an already-active organization", async () => {
 
 test("checkout-session rejects a non-http returnUrl", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
 
   // The success/cancel URLs are redirect targets, so only http(s) is accepted
   // — this guard holds even under the dev wildcard origin allowlist.
@@ -249,7 +234,7 @@ test("checkout-session rejects a non-http returnUrl", async () => {
 
 test("options answer an empty list when unconfigured", async () => {
   const user = createTestUser();
-  const organizationId = await registerAndAuthenticate(user);
+  const organizationId = await registerAndAuthenticateWithOrganization(user);
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/options`,
@@ -261,7 +246,7 @@ test("options answer an empty list when unconfigured", async () => {
 
 test("options map a Stripe API failure to 502", async () => {
   const user = createTestUser();
-  const organizationId = await registerAndAuthenticate(user);
+  const organizationId = await registerAndAuthenticateWithOrganization(user);
   Object.assign(process.env, {
     REVENUECAT_PROJECT_ID: "proj_test",
     REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_test",
@@ -300,7 +285,7 @@ test("options map a Stripe API failure to 502", async () => {
 
 test("unconfigured options skip active-state eligibility", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await db
     .update(organizationBilling)
     .set({ status: "active" })
@@ -317,7 +302,7 @@ test("unconfigured options skip active-state eligibility", async () => {
 
 test("options reject an organization above the largest tier", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await addSyntheticEffectiveOrganizationMembers({
     actor: admin,
     count: 10,
@@ -354,9 +339,9 @@ test("options reject an organization above the largest tier", async () => {
 
 test("options reject a caller outside the organization", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const outsider = createTestUser();
-  await registerAndAuthenticate(outsider);
+  await registerAndAuthenticateWithOrganization(outsider);
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/options`,
@@ -368,9 +353,9 @@ test("options reject a caller outside the organization", async () => {
 
 test("options reject a non-admin organization member", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const member = createTestUser();
-  await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(member);
   await addEffectiveOrganizationMember({
     actor: admin,
     organizationId,
@@ -387,7 +372,7 @@ test("options reject a non-admin organization member", async () => {
 
 test("the portal validates its return url", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/portal`,
@@ -403,7 +388,7 @@ test("the portal validates its return url", async () => {
 
 test("wildcard CORS does not widen Stripe return origins", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   // The route resolves its allowlist from the composition root, so build an
   // app with explicit origins — exactly how production wires it.
   const app = createRouteApp(

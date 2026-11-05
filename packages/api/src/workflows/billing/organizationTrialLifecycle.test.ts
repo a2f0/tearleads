@@ -10,10 +10,8 @@ import { createTestUser } from "@tearleads/test-utils";
 import { isOrganizationBillingHistoryResponse } from "@tearleads/validators/response";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
-import {
-  billingAuthHeader,
-  registerAndAuthenticate,
-} from "../../../test/helpers/organizationBillingHistory";
+import { billingAuthHeader } from "../../../test/helpers/organizationBillingHistory";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import {
   LAPSED_BILLING_PURGE_GRACE_MS,
   organizationCanSync,
@@ -27,7 +25,7 @@ import {
 
 test("trial inception and expiration remain durable user-facing lifecycle events", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const [trial] = await db
     .select({ trialEndsAt: organizationBilling.trialEndsAt })
     .from(organizationBilling)
@@ -160,7 +158,9 @@ test("trial inception and expiration remain durable user-facing lifecycle events
 });
 
 test("expiration stays paired with inception when the deadline is corrected", async () => {
-  const organizationId = await registerAndAuthenticate(createTestUser());
+  const organizationId = await registerAndAuthenticateWithOrganization(
+    createTestUser(),
+  );
   const [trial] = await db
     .select({ trialEndsAt: organizationBilling.trialEndsAt })
     .from(organizationBilling)
@@ -203,7 +203,7 @@ test("expiration stays paired with inception when the deadline is corrected", as
 
 test("trial expiration fails closed when its durable inception is missing", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const [trial] = await db
     .select({ trialEndsAt: organizationBilling.trialEndsAt })
     .from(organizationBilling)
@@ -249,7 +249,9 @@ test("trial expiration fails closed when its durable inception is missing", asyn
 test("trial sweep backs off failures without starving later expirations", async () => {
   const organizationIds: string[] = [];
   for (let index = 0; index < 3; index += 1) {
-    organizationIds.push(await registerAndAuthenticate(createTestUser()));
+    organizationIds.push(
+      await registerAndAuthenticateWithOrganization(createTestUser()),
+    );
   }
   const trials = await db
     .select({
@@ -343,7 +345,9 @@ test("trial sweep backs off failures without starving later expirations", async 
 });
 
 test("trial sweep keeps retrying a repeatedly invalid lifecycle at the hourly cap", async () => {
-  const organizationId = await registerAndAuthenticate(createTestUser());
+  const organizationId = await registerAndAuthenticateWithOrganization(
+    createTestUser(),
+  );
   const [trial] = await db
     .select({ trialEndsAt: organizationBilling.trialEndsAt })
     .from(organizationBilling)

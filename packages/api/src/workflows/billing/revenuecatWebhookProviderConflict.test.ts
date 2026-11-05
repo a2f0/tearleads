@@ -8,7 +8,7 @@ import {
 import { createTestUser } from "@tearleads/test-utils";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
-import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { runNativePurchaseEligibilityWorkflow } from "./nativePurchaseEligibility";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
 
@@ -21,7 +21,7 @@ for (const conflict of [
 ] as const) {
   test(`a legacy native purchase retries behind a ${conflict.name} Stripe binding`, async () => {
     const admin = createTestUser();
-    const organizationId = await registerAndAuthenticate(admin);
+    const organizationId = await registerAndAuthenticateWithOrganization(admin);
     const subscriptionItemId = `si_${conflict.name.replace("-", "_")}`;
     await db
       .update(organizationBilling)
@@ -102,7 +102,7 @@ for (const conflict of [
 
 test("an applied Stripe expiration releases native purchase and webhook guards", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const subscriptionId = `sub_expired_${crypto.randomUUID()}`;
   const subscriptionItemId = `si_expired_${crypto.randomUUID()}`;
   const now = Date.now();
@@ -179,7 +179,7 @@ test("an applied Stripe expiration releases native purchase and webhook guards",
 for (const eventType of ["INITIAL_PURCHASE", "RENEWAL"] as const) {
   test(`a native ${eventType.toLowerCase()} retries behind a locked Stripe identity without its seat row`, async () => {
     const admin = createTestUser();
-    const organizationId = await registerAndAuthenticate(admin);
+    const organizationId = await registerAndAuthenticateWithOrganization(admin);
     const providerSubscriptionId = `sub_missing_binding_${eventType.toLowerCase()}`;
     await db
       .update(organizationBilling)
@@ -239,7 +239,7 @@ for (const eventType of ["INITIAL_PURCHASE", "RENEWAL"] as const) {
 
 test("an existing native renewal is not mistaken for a new purchase", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const now = Date.now();
   const initial: RevenueCatWebhookEvent = {
     app_user_id: admin.userId,
@@ -297,7 +297,7 @@ test("an existing native renewal is not mistaken for a new purchase", async () =
 
 test("a product-less lifecycle grant cannot invent an unbound tier", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const eventId = crypto.randomUUID();
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
 
@@ -327,7 +327,7 @@ test("a product-less lifecycle grant cannot invent an unbound tier", async () =>
 
 test("a rejected RevenueCat Web Billing grant alerts the operator", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const eventId = crypto.randomUUID();
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
 

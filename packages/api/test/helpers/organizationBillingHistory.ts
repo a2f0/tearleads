@@ -4,26 +4,9 @@ import {
   organizationBillingLifecycleEvents,
   organizationBillingSeatEvents,
   revenuecatWebhookEvents,
-  users,
 } from "@tearleads/api-shared/schema";
 import type { TestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import invariant from "invariant";
-import { authenticate } from "./authenticate";
-import { registerUser } from "./registerUser";
-
-export async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
 
 export function billingAuthHeader(user: TestUser): { Authorization: string } {
   return { Authorization: `Bearer ${user.token}` };

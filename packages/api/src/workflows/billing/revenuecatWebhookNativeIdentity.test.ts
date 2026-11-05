@@ -8,8 +8,8 @@ import {
 import { createTestUser } from "@tearleads/test-utils";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { playReplacementApiDeps } from "../../../test/helpers/revenuecatPlayReplacement";
-import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
 import { runNativePurchaseEligibilityWorkflow } from "./nativePurchaseEligibility";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
 
@@ -42,7 +42,7 @@ function nativeEvent(input: {
 
 test("native preflight rejects a second subscription on another store", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const event = {
     ...nativeEvent({
       appUserId: admin.userId,
@@ -80,7 +80,7 @@ test("native preflight rejects a second subscription on another store", async ()
 
 test("a second native purchase cannot replace a live binding", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const now = Date.now();
   expect(
     await runRevenueCatWebhookWorkflow(
@@ -131,7 +131,7 @@ test.each(["RENEWAL", "UNCANCELLATION"] as const)(
   "an unrelated %s cannot replace a disabled native binding",
   async (type) => {
     const admin = createTestUser();
-    const organizationId = await registerAndAuthenticate(admin);
+    const organizationId = await registerAndAuthenticateWithOrganization(admin);
     const now = Date.now();
     const retainedSubscriptionId = `disabled_${crypto.randomUUID()}`;
     expect(
@@ -191,7 +191,7 @@ test.each(["INITIAL_PURCHASE", "NON_RENEWING_PURCHASE"] as const)(
   "an explicit %s can rebind a disabled native subscription",
   async (type) => {
     const admin = createTestUser();
-    const organizationId = await registerAndAuthenticate(admin);
+    const organizationId = await registerAndAuthenticateWithOrganization(admin);
     const now = Date.now();
     expect(
       await runRevenueCatWebhookWorkflow(
@@ -246,7 +246,7 @@ test.each([
   "a tokenless %s native purchase cannot erase a live binding",
   async (identity, type) => {
     const admin = createTestUser();
-    const organizationId = await registerAndAuthenticate(admin);
+    const organizationId = await registerAndAuthenticateWithOrganization(admin);
     const now = Date.now();
     const durableSubscriptionId = `durable_${crypto.randomUUID()}`;
     expect(
@@ -303,7 +303,7 @@ test.each([
 
 test("a Play replacement-token renewal follows an accepted product change", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const now = Date.now();
   const initialToken = `initial_${crypto.randomUUID()}`;
   const replacementToken = `replacement_${crypto.randomUUID()}`;

@@ -1,19 +1,13 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { createTestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import { authenticate } from "../../../../test/helpers/authenticate";
 import { buildChildCreateRequest } from "../../../../test/helpers/containerMutationArtifactKit";
 import {
   bootstrapRoot,
   buildRootGrantRequest,
 } from "../../../../test/helpers/keyingWriterProjectionKit";
-import { registerUser } from "../../../../test/helpers/registerUser";
+import { registerAndAuthenticate } from "../../../../test/helpers/registerUser";
 import { routeApp } from "../../../routeApp";
-
-async function registerAndAuthenticate(user: TestUser): Promise<void> {
-  await registerUser(user);
-  await authenticate(user);
-}
 
 async function expectRejection(input: {
   readonly error: string;
