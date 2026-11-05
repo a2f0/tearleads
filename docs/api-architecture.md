@@ -38,7 +38,8 @@ in [`packages/validators/src/operation`](../packages/validators/src/operation/)
 and their registrations under
 [`packages/api/src/routes`](../packages/api/src/routes/);
 [`docs/openapi.json`](openapi.json) is generated from them and lists every
-route. Those sources are the source of truth.
+route; each operation and named schema carries a plain-language description.
+Those sources are the source of truth.
 
 Write surfaces:
 

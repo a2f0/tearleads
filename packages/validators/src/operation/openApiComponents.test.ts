@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { z } from "zod";
-import { JSON_SCHEMA_COMPONENT_KEY } from "../jsonSchema";
+import { JSON_SCHEMA_COMPONENT_KEY } from "../jsonSchemaAnnotations";
 import { ErrorResponseSchema } from "../response/error";
 import { plainObjectSchema } from "../schema";
 import { openApiDocument, publishedOpenApiDocument } from "./openApi";

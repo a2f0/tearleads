@@ -54,6 +54,8 @@ export const challengeOperation = defineJsonOperation({
   failureStatuses: [400, 404, 500],
   id: "auth.challenge",
   summary: "Request an auth challenge",
+  description:
+    "Starts sign-in for a registered identity: the server stores a short-lived random challenge for the signing key fingerprint, and the client signs it and sends the signature to `POST /auth/verify`. No session is needed; an unknown fingerprint returns 404.",
   method: "POST",
   params: AuthPathParamsSchema,
   path: "/auth/challenge",
@@ -75,6 +77,8 @@ export const verifyOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 500],
   id: "auth.verify",
   summary: "Verify an auth challenge",
+  description:
+    "Completes sign-in by checking the challenge signature, bound to the API origin, against the identity's registered signing key, then opens a session and returns its bearer token plus the first WebSocket ticket. Each challenge can be used once. A suspended identity's valid signature is refused with 403 and code `account_suspended`, which clients treat as terminal.",
   method: "POST",
   params: AuthPathParamsSchema,
   path: "/auth/verify",
@@ -97,6 +101,8 @@ export const registerOperation = defineJsonOperation({
   failureStatuses: [400, 403, 404, 409, 500, 503],
   id: "auth.register",
   summary: "Register an identity and bootstrap its root state",
+  description:
+    "Creates a new identity from its signing and encapsulation public keys and, in one transaction, provisions its personal organization: the reserved `Admins` and `Members` groups, the root container, and their signed policies and metadata documents. The response carries a fresh login challenge, so the client signs in next with `POST /auth/verify`. A signing key that is already registered returns 409.",
   method: "POST",
   params: AuthPathParamsSchema,
   path: "/auth/register",
@@ -119,6 +125,8 @@ export const logoutOperation = defineJsonOperation({
   failureStatuses: [401, 500],
   id: "auth.logout",
   summary: "Destroy the current session",
+  description:
+    "Ends the session that made the request, so its bearer token stops working. Any signed-in user may call it.",
   method: "POST",
   params: AuthPathParamsSchema,
   path: "/auth/logout",
@@ -136,6 +144,8 @@ export const webSocketTicketOperation = defineJsonOperation({
   failureStatuses: [401, 500],
   id: "auth.webSocketTicket",
   summary: "Mint a one-time WebSocket ticket",
+  description:
+    "Issues a single-use, short-lived ticket that authenticates one WebSocket upgrade to the realtime hint gateway, because browsers cannot attach an `Authorization` header to a WebSocket handshake. Clients call it before each reconnect; sign-in already returns the first ticket.",
   method: "POST",
   params: AuthPathParamsSchema,
   path: "/auth/ws-ticket",
@@ -153,6 +163,8 @@ export const listSessionsOperation = defineJsonOperation({
   failureStatuses: [401, 500],
   id: "auth.sessions.list",
   summary: "List auth sessions",
+  description:
+    "Lists the signed-in user's live sessions with their creation time, last activity, IP addresses, and signing key fingerprint, flagging the one that made the request. It only ever returns the caller's own sessions.",
   method: "GET",
   params: AuthPathParamsSchema,
   path: "/auth/sessions",
@@ -172,6 +184,8 @@ export const destroySessionOperation = defineJsonOperation({
   failureStatuses: [400, 401, 404, 500],
   id: "auth.sessions.destroy",
   summary: "Destroy a user session",
+  description:
+    "Signs out one of the caller's own sessions, for example a lost device. A session id that is unknown or belongs to another user returns 404.",
   method: "DELETE",
   params: SessionPathParamsSchema,
   path: "/auth/sessions/{sessionId}",
@@ -190,6 +204,8 @@ export const userIdentityOperation = defineJsonOperation({
   failureStatuses: [401, 404, 500],
   id: "auth.userIdentity",
   summary: "Get a complete user identity",
+  description:
+    "Returns a user's registered signing and encapsulation public keys and fingerprints. Clients never trust the answer alone: they compare it with an identity link or an existing identity pin before using the keys. Any signed-in user may call it; an unknown user returns 404.",
   method: "GET",
   params: UserIdentityPathParamsSchema,
   path: "/auth/user-identity/{userId}",

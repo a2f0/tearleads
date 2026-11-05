@@ -49,6 +49,8 @@ export const listRootOrganizationsOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 500],
   id: "root.organizations.list",
   summary: "List organizations",
+  description:
+    "Pages every organization, newest first, optionally narrowed to one exact organization id; names are encrypted, so there is no name search. Only root operators may call it, and each request is recorded in the root audit trail.",
   method: "GET",
   params: z.strictObject({}),
   path: "/root/organizations",
@@ -61,6 +63,8 @@ export const getRootOrganizationOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 500],
   id: "root.organizations.get",
   summary: "Get an organization",
+  description:
+    "Returns an organization's group bindings, roster and open-seat counts, stored billing and purge progress, Stripe binding, and its latest 50 billing events. Only root operators may call it, and each request is recorded in the root audit trail.",
   method: "GET",
   params: RootOrganizationParamsSchema,
   path: "/root/organizations/{organizationId}",
@@ -72,6 +76,8 @@ export const listRootOrganizationIdentitiesOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 500],
   id: "root.organizations.identities.list",
   summary: "List an organization's identities",
+  description:
+    "Pages an organization's roster identities, disabled entries included, with each member's sync pause and seat holding. Only root operators may call it, and each request is recorded in the root audit trail.",
   method: "GET",
   params: RootOrganizationParamsSchema,
   path: "/root/organizations/{organizationId}/identities",
@@ -85,6 +91,8 @@ export const getRootOrganizationDataUsageOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 500],
   id: "root.organizations.dataUsage.get",
   summary: "Get an organization's data usage",
+  description:
+    "Returns an organization's stored document and blob bytes by category. Only root operators may call it, and each request is recorded in the root audit trail.",
   method: "GET",
   params: RootOrganizationParamsSchema,
   path: "/root/organizations/{organizationId}/data-usage",
@@ -102,6 +110,8 @@ export const listRootDataUsageReportOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 500],
   id: "root.reports.dataUsage.list",
   summary: "Page data usage by organization",
+  description:
+    "Pages stored data usage by organization, newest organizations first, with the same exact-id filter as the organization list. Only root operators may call it, and each request is recorded in the root audit trail.",
   method: "GET",
   params: z.strictObject({}),
   path: "/root/reports/data-usage",

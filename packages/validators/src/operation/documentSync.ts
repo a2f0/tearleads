@@ -46,6 +46,8 @@ export const documentSyncOperation = defineJsonOperation({
   failureStatuses: [400, 401, 402, 403, 404, 409, 413, 500, 503],
   id: "documents.sync",
   summary: "Sync encrypted Loro updates",
+  description:
+    "Uploads encrypted Loro updates with their signed write headers and returns the updates the client is missing from its version vector, one bounded page at a time with a continuation cursor. Writing requires write access through an authorizing container path; reading requires read access. A retried update id is accepted only when its ciphertext and header are identical; 409 responses carry a code that tells the client whether to replan, regenerate, recover, or stop, and 413 means the request is too large.",
   method: "POST",
   params: DocumentSyncPathParamsSchema,
   path: "/documents/{documentId}/sync",

@@ -8,7 +8,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Health check */
+        /**
+         * Health check
+         * @description Returns `ok` when the API process is serving requests; load balancers and clients use it as a liveness probe. It needs no session, and a request that carries a body is refused with 413.
+         */
         get: operations["health.get"];
         put?: never;
         post?: never;
@@ -27,7 +30,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Request an auth challenge */
+        /**
+         * Request an auth challenge
+         * @description Starts sign-in for a registered identity: the server stores a short-lived random challenge for the signing key fingerprint, and the client signs it and sends the signature to `POST /auth/verify`. No session is needed; an unknown fingerprint returns 404.
+         */
         post: operations["auth.challenge"];
         delete?: never;
         options?: never;
@@ -44,7 +50,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Destroy the current session */
+        /**
+         * Destroy the current session
+         * @description Ends the session that made the request, so its bearer token stops working. Any signed-in user may call it.
+         */
         post: operations["auth.logout"];
         delete?: never;
         options?: never;
@@ -61,7 +70,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Register an identity and bootstrap its root state */
+        /**
+         * Register an identity and bootstrap its root state
+         * @description Creates a new identity from its signing and encapsulation public keys and, in one transaction, provisions its personal organization: the reserved `Admins` and `Members` groups, the root container, and their signed policies and metadata documents. The response carries a fresh login challenge, so the client signs in next with `POST /auth/verify`. A signing key that is already registered returns 409.
+         */
         post: operations["auth.register"];
         delete?: never;
         options?: never;
@@ -76,7 +88,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** List auth sessions */
+        /**
+         * List auth sessions
+         * @description Lists the signed-in user's live sessions with their creation time, last activity, IP addresses, and signing key fingerprint, flagging the one that made the request. It only ever returns the caller's own sessions.
+         */
         get: operations["auth.sessions.list"];
         put?: never;
         post?: never;
@@ -96,7 +111,10 @@ export type paths = {
         get?: never;
         put?: never;
         post?: never;
-        /** Destroy a user session */
+        /**
+         * Destroy a user session
+         * @description Signs out one of the caller's own sessions, for example a lost device. A session id that is unknown or belongs to another user returns 404.
+         */
         delete: operations["auth.sessions.destroy"];
         options?: never;
         head?: never;
@@ -110,7 +128,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get a complete user identity */
+        /**
+         * Get a complete user identity
+         * @description Returns a user's registered signing and encapsulation public keys and fingerprints. Clients never trust the answer alone: they compare it with an identity link or an existing identity pin before using the keys. Any signed-in user may call it; an unknown user returns 404.
+         */
         get: operations["auth.userIdentity"];
         put?: never;
         post?: never;
@@ -129,7 +150,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Verify an auth challenge */
+        /**
+         * Verify an auth challenge
+         * @description Completes sign-in by checking the challenge signature, bound to the API origin, against the identity's registered signing key, then opens a session and returns its bearer token plus the first WebSocket ticket. Each challenge can be used once. A suspended identity's valid signature is refused with 403 and code `account_suspended`, which clients treat as terminal.
+         */
         post: operations["auth.verify"];
         delete?: never;
         options?: never;
@@ -146,7 +170,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Mint a one-time WebSocket ticket */
+        /**
+         * Mint a one-time WebSocket ticket
+         * @description Issues a single-use, short-lived ticket that authenticates one WebSocket upgrade to the realtime hint gateway, because browsers cannot attach an `Authorization` header to a WebSocket handshake. Clients call it before each reconnect; sign-in already returns the first ticket.
+         */
         post: operations["auth.webSocketTicket"];
         delete?: never;
         options?: never;
@@ -163,7 +190,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Receive a RevenueCat webhook */
+        /**
+         * Receive a RevenueCat webhook
+         * @description Receives subscription lifecycle events from RevenueCat and applies them to organization billing. The caller is RevenueCat, authenticated by the shared secret in the `Authorization` header rather than by a session. An event the server cannot apply yet is answered with 503 and left unclaimed, so RevenueCat redelivers it.
+         */
         post: operations["billing.revenuecat.webhook.receive"];
         delete?: never;
         options?: never;
@@ -180,7 +210,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Receive a Stripe webhook */
+        /**
+         * Receive a Stripe webhook
+         * @description Receives Stripe events and, for paid invoices, records the subscription binding for the organization and links it to RevenueCat. The caller is Stripe, authenticated by the `Stripe-Signature` header over the exact raw body rather than by a session. The server re-fetches the subscription from Stripe instead of trusting the event body.
+         */
         post: operations["billing.stripe.webhook.receive"];
         delete?: never;
         options?: never;
@@ -197,7 +230,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Bind or replace a blob attachment */
+        /**
+         * Bind or replace a blob attachment
+         * @description Attaches an encrypted blob to an attachment slot in a document, or replaces the slot's current binding, through a signed `attachment.bind` event. When it names a blob stage, the server assembles and verifies the staged upload and promotes it to committed blob storage; this is the only way to complete an upload. Requires write access through an authorizing container path; a stale binding or path head returns 409, and an organization without active billing returns 402.
+         */
         post: operations["blobs.attachmentBindings.bind"];
         delete?: never;
         options?: never;
@@ -214,7 +250,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Detach a blob attachment */
+        /**
+         * Detach a blob attachment
+         * @description Removes an active attachment binding from its document slot through a signed `attachment.detach` event. Requires write access through an authorizing container path. A blob left with no active binding is kept for the attachment-retention grace period before garbage collection.
+         */
         post: operations["blobs.attachmentBindings.detach"];
         delete?: never;
         options?: never;
@@ -229,7 +268,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get committed blob bytes */
+        /**
+         * Get committed blob bytes
+         * @description Streams a committed blob's encrypted bytes, with its byte length and SHA-256 digest in response headers so the client can verify them. Requires read access through at least one active attachment binding's document.
+         */
         get: operations["blobs.bytes.get"];
         put?: never;
         post?: never;
@@ -246,7 +288,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get a blob download source */
+        /**
+         * Get a blob download source
+         * @description Returns a committed blob's byte length, SHA-256 digest, and where to fetch its encrypted bytes: a five-minute signed object-store URL, or this API's `/bytes` route when the store cannot sign. Requires read access through at least one active attachment binding's document. Key material comes from the attachment listing, never from this response.
+         */
         get: operations["blobs.download.get"];
         put?: never;
         post?: never;
@@ -265,7 +310,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Initiate a multipart blob stage */
+        /**
+         * Initiate a multipart blob stage
+         * @description Opens a blob stage for an encrypted upload, declaring the final byte length, SHA-256 digest, and organization, and returns upload sources for the first parts so they can start at once. The caller must belong to the organization. The stage expires after one hour; nothing becomes readable until an attachment bind promotes it.
+         */
         post: operations["blobs.multipartStages.initiate"];
         delete?: never;
         options?: never;
@@ -280,7 +328,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get multipart blob stage status */
+        /**
+         * Get multipart blob stage status
+         * @description Returns a blob stage's status so a client can resume an interrupted upload. Only the exact 404 `multipart_blob_stage_not_found` or 409 `multipart_blob_stage_expired` responses prove the stage is gone and permit starting a fresh one; any other failure means the client should keep its resumable state.
+         */
         get: operations["blobs.multipartStages.get"];
         put?: never;
         post?: never;
@@ -298,7 +349,10 @@ export type paths = {
             cookie?: never;
         };
         get?: never;
-        /** Upload multipart blob part bytes through the API */
+        /**
+         * Upload multipart blob part bytes through the API
+         * @description Uploads one part's encrypted bytes through the API, for object stores that cannot sign direct upload URLs. Only the stage's owner may call it, and stores that do sign URLs reject this route. The part's declared byte length and SHA-256 headers must match the bytes sent.
+         */
         put: operations["blobs.multipartStages.parts.upload"];
         post?: never;
         delete?: never;
@@ -316,7 +370,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Authorize a direct multipart blob part upload */
+        /**
+         * Authorize a direct multipart blob part upload
+         * @description Returns a short-lived signed URL for uploading one part of a blob stage directly to object storage, for parts after the first batch or to renew an expired URL. Only the stage's owner may call it. The URL is scoped to the exact part number, byte length, and Content-MD5, and expiry never invalidates parts already uploaded.
+         */
         post: operations["blobs.multipartStages.parts.authorize"];
         delete?: never;
         options?: never;
@@ -333,7 +390,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Create a container */
+        /**
+         * Create a container
+         * @description Creates a container from a signed `container.create` event, its derived access manifest, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`.
+         */
         post: operations["containers.create"];
         delete?: never;
         options?: never;
@@ -351,7 +411,10 @@ export type paths = {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete a container */
+        /**
+         * Delete a container
+         * @description Deletes an empty folder: a container with no child containers and no linked user documents, along with its own metadata document. Requires admin access; root and system containers cannot be deleted. Peers learn of the deletion from a sync tombstone, and an unknown container returns 404 `container_not_found`.
+         */
         delete: operations["containers.delete"];
         options?: never;
         head?: never;
@@ -365,7 +428,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Page a container's KEK rotation log */
+        /**
+         * Page a container's KEK rotation log
+         * @description Pages a container's append-only KEK rotation log: every epoch with its write-once predecessor bridge and retained wraps, plus the sealed keyring of one epoch the request names. Clients use it to rebuild or repair a damaged container KEK keyring. Any current reader of the container may page the whole log, because current read access includes retained history.
+         */
         get: operations["containers.kekLog.get"];
         put?: never;
         post?: never;
@@ -384,7 +450,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Move a container */
+        /**
+         * Move a container
+         * @description Moves a container under a new parent through a signed `container.move` event and rotates its container KEK. Requires admin access at the source and write access at the destination; root and system containers cannot move. Moving into Trash is an ordinary move and can be undone.
+         */
         post: operations["containers.move"];
         delete?: never;
         options?: never;
@@ -401,7 +470,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Re-cite a held container's current ancestor path */
+        /**
+         * Re-cite a held container's current ancestor path
+         * @description Advances a container's access manifest so it cites its ancestors' current heads, without changing grants, keys, or parent. Clients call it after changing an ancestor so descendants they already hold stop citing superseded heads. Requires admin access; after 512 epochs the container no longer accepts re-citations.
+         */
         post: operations["containers.recite"];
         delete?: never;
         options?: never;
@@ -418,7 +490,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Rekey a container */
+        /**
+         * Rekey a container
+         * @description Rotates a container's KEK to a new epoch without changing grants, carrying the predecessor bridge and the re-sealed container KEK keyring. Requires write access. Stale cited heads return 409, and epochs above 65536 are refused.
+         */
         post: operations["containers.rekey"];
         delete?: never;
         options?: never;
@@ -433,7 +508,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get a re-shared container's replacement lineage */
+        /**
+         * Get a re-shared container's replacement lineage
+         * @description Returns the signed chain that lets a container in a replacement organization stand in for a held container from a purged organization, so a client can rebind its local copy and queued edits. Only a current reader of the destination container is served it, so former members cannot discover replacement ids through the old roster.
+         */
         get: operations["containers.replacementAuthorizations.get"];
         put?: never;
         post?: never;
@@ -452,7 +530,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Revoke a container grant */
+        /**
+         * Revoke a container grant
+         * @description Removes a grant from a container through a signed `container.revoke` event and rotates the container KEK so the removed principal cannot read later content. The request carries the new KEK epoch, its predecessor bridge, and the re-sealed container KEK keyring. Requires admin access; stale cited heads return 409.
+         */
         post: operations["containers.revoke"];
         delete?: never;
         options?: never;
@@ -469,7 +550,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Share a container */
+        /**
+         * Share a container
+         * @description Adds or changes a user or group grant on a container through a signed `container.grant` event, wrapping the current container KEK to the new recipients. Requires admin access through the container's path. Cited heads must be current: a stale container head returns 409 `container_mutation_state_stale`, and a stale principal policy returns 409 `principal_policy_stale` with the current heads.
+         */
         post: operations["containers.share"];
         delete?: never;
         options?: never;
@@ -484,7 +568,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get a container writer projection */
+        /**
+         * Get a container writer projection
+         * @description Returns everything a client needs to read and write under a container: the signed manifests on its authorizing container path, each path level's container KEK wraps and keyring, and the key targets. Requires current read access; write authority is checked again when a write commits. A 202 asks the client to retry the identical request after the server prepares policy history, and the `x-known-manifests` header lets a client skip manifests it already holds.
+         */
         get: operations["containers.writerProjection.get"];
         put?: never;
         post?: never;
@@ -503,7 +590,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** List container documents by lane */
+        /**
+         * List container documents by lane
+         * @description Lists the documents linked into up to 32 containers, each lane with its own watermark and page size (500 rows in total). Each lane needs read access to its container; a lane that fails reports its own failure while the others still list, and only the container's absence is reported as `container_not_found`.
+         */
         post: operations["containers.documentLanes.query"];
         delete?: never;
         options?: never;
@@ -520,7 +610,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** List containers by parent lane */
+        /**
+         * List containers by parent lane
+         * @description Lists the containers the caller can reach through direct grants or managed-principal membership, one bounded page for each of up to four requested parent lanes, each with its own watermark. Clients use it to discover and incrementally refresh the folder tree. Any signed-in user may call it; access is checked per container.
+         */
         post: operations["containers.parentLanes.query"];
         delete?: never;
         options?: never;
@@ -537,7 +630,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Create a container with its metadata document */
+        /**
+         * Create a container with its metadata document
+         * @description Creates a container and its encrypted metadata document in one transaction, optionally seeding the document's first update. Authorization and conflicts are those of `POST /containers` and `POST /documents`; a 409 `document_manifest_already_exists` may have rolled the new container back, so clients treat it as terminal unless they verify both artifacts.
+         */
         post: operations["containers.withMetadataDocument.create"];
         delete?: never;
         options?: never;
@@ -554,7 +650,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Create a document */
+        /**
+         * Create a document
+         * @description Creates a document from a signed document access event, its document link-set manifest, and its content-key bundle, optionally committing the document's first encrypted update in the same transaction. Requires write access to the target container through an authorizing container path. A retry of a create that already committed returns 409 `document_manifest_already_exists`, which lets the client adopt it.
+         */
         post: operations["documents.create"];
         delete?: never;
         options?: never;
@@ -569,7 +668,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** List active document attachments */
+        /**
+         * List active document attachments
+         * @description Lists a document's active attachment bindings with each blob's signed binding event, signed write header, and blob content-key bundle, which clients need to decrypt the blob. Requires read access through a linked container path.
+         */
         get: operations["documents.attachments.list"];
         put?: never;
         post?: never;
@@ -586,7 +688,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get document edit attribution */
+        /**
+         * Get document edit attribution
+         * @description Returns which writer first uploaded each stretch of a document's history, derived from the signed write headers of its stored updates; it is not proof of authorship. Requires read access. Responses carry an `ETag`, so a client that sends `If-None-Match` gets 304 when nothing changed; long histories are truncated here and paged through the attribution ranges route.
+         */
         get: operations["documents.attribution.get"];
         put?: never;
         post?: never;
@@ -603,7 +708,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** List document attribution ranges */
+        /**
+         * List document attribution ranges
+         * @description Pages a document's complete edit attribution when the compact attribution response is truncated. Requires read access. A cursor or expected revision from before a later write returns 409, and the client restarts from the first page.
+         */
         get: operations["documents.attribution.ranges.list"];
         put?: never;
         post?: never;
@@ -622,7 +730,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Link a document to a container */
+        /**
+         * Link a document to a container
+         * @description Links a document into another container through a signed `document.link` event, advancing its document link-set manifest and rewrapping the content keys of its attached blobs for the new container. Requires write access through the target and authorizing container paths. Stale heads or incomplete rewraps return 409 without changing the document.
+         */
         post: operations["documents.link"];
         delete?: never;
         options?: never;
@@ -637,10 +748,16 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get a document purge proof */
+        /**
+         * Get a document purge proof
+         * @description Returns the retained signed proof that a document was purged, so a device can verify the deletion before removing its local copy. Only callers who were authorized through the purge-time container path are served it; a 202 asks the client to retry the identical request after policy history is prepared.
+         */
         get: operations["documents.purgeProof"];
         put?: never;
-        /** Purge a document */
+        /**
+         * Purge a document
+         * @description Permanently removes a document through a signed `document.purge` event that cites its exact current authorizing container path. Requires write access, a document linked to exactly one container, and a document that is not a container's metadata document. The server keeps the signed proof, and blobs only this document referenced enter the attachment-retention grace period; a 202 asks the client to retry the identical request after policy history is prepared.
+         */
         post: operations["documents.purge"];
         delete?: never;
         options?: never;
@@ -657,7 +774,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Sync encrypted Loro updates */
+        /**
+         * Sync encrypted Loro updates
+         * @description Uploads encrypted Loro updates with their signed write headers and returns the updates the client is missing from its version vector, one bounded page at a time with a continuation cursor. Writing requires write access through an authorizing container path; reading requires read access. A retried update id is accepted only when its ciphertext and header are identical; 409 responses carry a code that tells the client whether to replan, regenerate, recover, or stop, and 413 means the request is too large.
+         */
         post: operations["documents.sync"];
         delete?: never;
         options?: never;
@@ -674,7 +794,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Unlink a document from a container */
+        /**
+         * Unlink a document from a container
+         * @description Removes a container from a document's link set through a signed `document.unlink` event and rotates the document content key. The request must carry a rotation baseline covering every committed update, unless the document has none. Requires write access; stale heads, a missing baseline, or incomplete rewraps return 409.
+         */
         post: operations["documents.unlink"];
         delete?: never;
         options?: never;
@@ -689,7 +812,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get a document writer projection */
+        /**
+         * Get a document writer projection
+         * @description Returns everything a client needs to read and write a document: its document link-set manifest history, the authorizing container paths with their KEK wraps and keyrings, and the key targets. Requires current read access; write authority is checked again when a write commits. A vanished container is reported as 409, never 404, because 404 here means the document itself was deleted.
+         */
         get: operations["documents.writerProjection.get"];
         put?: never;
         post?: never;
@@ -706,7 +832,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** List your organization memberships */
+        /**
+         * List your organization memberships
+         * @description Lists the organizations where the caller has an active roster entry, with whether each is their personal organization and whether they paused its sync. It reads only the caller's own rows.
+         */
         get: operations["organizationMemberships.list"];
         put?: never;
         post?: never;
@@ -724,7 +853,10 @@ export type paths = {
             cookie?: never;
         };
         get?: never;
-        /** Update an organization membership */
+        /**
+         * Update an organization membership
+         * @description Changes the caller's own membership settings in an organization, such as pausing its sync to their devices. Pausing changes no grant, key, or policy. Returns 404 unless the caller's roster entry is active.
+         */
         put: operations["organizationMemberships.update"];
         post?: never;
         delete?: never;
@@ -741,10 +873,16 @@ export type paths = {
             cookie?: never;
         };
         get?: never;
-        /** Request to leave an organization */
+        /**
+         * Request to leave an organization
+         * @description Files the caller's signed request to leave an organization, which administrators see in the organization read model and act on; members cannot remove themselves. The request must be signed by the caller within the last ten minutes and cite a stored `Members` group head the caller has belonged to ever since. A personal organization, or a caller who is its only administrator, is refused.
+         */
         put: operations["organizationMemberships.leaveRequest.put"];
         post?: never;
-        /** Withdraw a request to leave an organization */
+        /**
+         * Withdraw a request to leave an organization
+         * @description Withdraws the caller's pending request to leave an organization. Returns 404 unless the caller has an active roster entry there.
+         */
         delete: operations["organizationMemberships.leaveRequest.delete"];
         options?: never;
         head?: never;
@@ -760,7 +898,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Create an organization */
+        /**
+         * Create an organization
+         * @description Provisions an additional organization for the signed-in user, who becomes its founding administrator: reserved `Admins` and `Members` groups, root container, signed policies, and metadata documents in one transaction. It also creates the replacement for the caller's purged personal organization, which must use a fresh organization id.
+         */
         post: operations["organizations.create"];
         delete?: never;
         options?: never;
@@ -775,7 +916,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get organization billing */
+        /**
+         * Get organization billing
+         * @description Returns the organization's billing state: plan status, billing period, seat counts, which members hold sync seats, and whether the subscription can be cancelled directly. Any organization member may call it.
+         */
         get: operations["organizations.billing.get"];
         put?: never;
         post?: never;
@@ -792,7 +936,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get organization billing history */
+        /**
+         * Get organization billing history
+         * @description Lists the organization's recorded billing events. Only organization administrators may call it.
+         */
         get: operations["organizations.billing.history.get"];
         put?: never;
         post?: never;
@@ -809,7 +956,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get the organization billing management URL */
+        /**
+         * Get the organization billing management URL
+         * @description Returns the app store page where an administrator manages the organization's native App Store or Google Play subscription, or null when it has none or the store is unreachable. Only organization administrators may call it.
+         */
         get: operations["organizations.billing.managementUrl.get"];
         put?: never;
         post?: never;
@@ -828,7 +978,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Claim a native store subscription */
+        /**
+         * Claim a native store subscription
+         * @description Assigns the caller's active App Store or Google Play subscription, verified with RevenueCat, to a freshly provisioned restore organization; the client never supplies the product or seat count. Only that organization's administrator may call it. Retrying after a timeout is safe; no matching subscription returns 404 and more than one returns 409.
+         */
         post: operations["organizations.billing.native.claim"];
         delete?: never;
         options?: never;
@@ -843,7 +996,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get native store purchase eligibility */
+        /**
+         * Get native store purchase eligibility
+         * @description Tells the client whether the caller may buy a native App Store or Google Play subscription for the organization and, when not, gives the reason. Any organization member may call it. The answer is a point-in-time decision; the claim and the store webhooks check eligibility again.
+         */
         get: operations["organizations.billing.native.eligibility.get"];
         put?: never;
         post?: never;
@@ -862,7 +1018,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Cancel the Stripe subscription */
+        /**
+         * Cancel the Stripe subscription
+         * @description Cancels the organization's Stripe subscription at the end of the paid period and returns when sync ends, or null when it was already cancelling. Only organization administrators may call it; 502 means Stripe could not be reached.
+         */
         post: operations["organizations.billing.stripe.cancel"];
         delete?: never;
         options?: never;
@@ -879,7 +1038,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Create a Stripe checkout */
+        /**
+         * Create a Stripe checkout
+         * @description Starts or resumes an inline Stripe checkout and returns the client secret for Stripe's Payment Element. Only organization administrators may call it, and the seat count comes from the roster, not the client. Identical retries reuse the same attempt; a different buyer, mode, or seat count while one is open returns 409.
+         */
         post: operations["organizations.billing.stripe.checkout.create"];
         delete?: never;
         options?: never;
@@ -896,7 +1058,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Create an embedded Stripe checkout session */
+        /**
+         * Create an embedded Stripe checkout session
+         * @description Creates a Stripe-hosted checkout session as a fallback to the inline form and returns its URL, or null when Stripe checkout is not configured; an ineligible organization gets an error instead. Only organization administrators may call it, and `returnUrl` must be on an approved app origin. It shares the inline checkout's attempt, so identical retries are safe and conflicting ones return 409.
+         */
         post: operations["organizations.billing.stripe.checkoutSession.create"];
         delete?: never;
         options?: never;
@@ -911,7 +1076,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get Stripe checkout options */
+        /**
+         * Get Stripe checkout options
+         * @description Returns the Stripe plans the organization can subscribe to, selected for its current `Members` roster size. Only organization administrators may call it; 502 means Stripe could not be reached.
+         */
         get: operations["organizations.billing.stripe.options.get"];
         put?: never;
         post?: never;
@@ -930,7 +1098,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Create a Stripe customer portal session */
+        /**
+         * Create a Stripe customer portal session
+         * @description Creates a Stripe customer portal session where an administrator updates payment details or downloads invoices, and returns its URL, or null when Stripe is not configured or the organization has no live Stripe subscription. Only organization administrators may call it, and `returnUrl` must be on an approved app origin.
+         */
         post: operations["organizations.billing.stripe.portal.create"];
         delete?: never;
         options?: never;
@@ -947,7 +1118,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Start an organization trial */
+        /**
+         * Start an organization trial
+         * @description Starts the organization's free trial, or returns the current billing state unchanged when a trial or subscription already exists, so retries are safe. Only organization administrators may call it.
+         */
         post: operations["organizations.billing.trial.start"];
         delete?: never;
         options?: never;
@@ -962,7 +1136,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get organization data usage */
+        /**
+         * Get organization data usage
+         * @description Returns how many bytes of documents and blobs an organization stores, broken down by document category. Any organization member may call it.
+         */
         get: operations["organizations.dataUsage.get"];
         put?: never;
         post?: never;
@@ -981,7 +1158,10 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Create an organization group and advance its signed directory */
+        /**
+         * Create an organization group and advance its signed directory
+         * @description Creates a group with its initial signed principal policy and, in the same transaction, the organization policy successor that adds it to the signed group directory. Only organization administrators may call it. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.
+         */
         post: operations["organizations.groups.create"];
         delete?: never;
         options?: never;
@@ -999,7 +1179,10 @@ export type paths = {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete an organization group */
+        /**
+         * Delete an organization group
+         * @description Deletes a group through a signed organization policy successor that drops it from the directory, leaving a tombstone so its id can never be reused. Only organization administrators may call it. A 202 asks for the identical request to be retried after preparation; a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.
+         */
         delete: operations["organizations.groups.delete"];
         options?: never;
         head?: never;
@@ -1013,7 +1196,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** List organization group members */
+        /**
+         * List organization group members
+         * @description Lists the members of an organization group from its current signed policy. Any organization member may call it.
+         */
         get: operations["organizations.groups.members.list"];
         put?: never;
         post?: never;
@@ -1031,7 +1217,10 @@ export type paths = {
             cookie?: never;
         };
         get?: never;
-        /** Advance a group policy and its signed directory head */
+        /**
+         * Advance a group policy and its signed directory head
+         * @description Commits a group's next signed principal policy, its member envelopes, the matching organization policy successor, and the container grant updates the change requires, all in one transaction. Only organization administrators may call it; a stale head returns 409. A 202 asks for the identical request to be retried after preparation, and only a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.
+         */
         put: operations["organizations.groups.policy.commit"];
         post?: never;
         delete?: never;
@@ -1047,7 +1236,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Page organization policy history */
+        /**
+         * Page organization policy history
+         * @description Pages the organization's signed policy history up to an exact head, with public group policy snapshots, so clients can verify and display what changed and who signed it. Any organization member may call it. A 202 asks the client to retry the identical request after the server prepares that history.
+         */
         get: operations["organizations.policyHistory.get"];
         put?: never;
         post?: never;
@@ -1065,7 +1257,10 @@ export type paths = {
             cookie?: never;
         };
         get?: never;
-        /** Update the organization profile */
+        /**
+         * Update the organization profile
+         * @description Binds, or clears, the organization's encrypted profile document, which holds profile fields such as its name that the server cannot read. Only organization administrators may call it.
+         */
         put: operations["organizations.profile.update"];
         post?: never;
         delete?: never;
@@ -1081,7 +1276,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Reconcile the organization read model */
+        /**
+         * Reconcile the organization read model
+         * @description Returns the organization read model: display and navigation data for the directory, groups, group memberships, grants, and organization policy. Without a cursor it returns an atomic snapshot; with one, only lanes changed since. Any organization member may call it; the read model is not authority, so clients still verify signed policies and manifests.
+         */
         get: operations["organizations.readModel.get"];
         put?: never;
         post?: never;
@@ -1099,7 +1297,10 @@ export type paths = {
             cookie?: never;
         };
         get?: never;
-        /** Bind an encrypted roster profile document */
+        /**
+         * Bind an encrypted roster profile document
+         * @description Binds a member's encrypted roster profile document to their organization roster entry. Members may bind their own profile; binding another member's requires organization administrator access.
+         */
         put: operations["organizations.roster.update"];
         post?: never;
         delete?: never;
@@ -1115,9 +1316,15 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get a principal policy bundle */
+        /**
+         * Get a principal policy bundle
+         * @description Returns a page of a group or organization's signed principal policy chain with its current member envelopes, so the client can verify the chain and a member can unwrap the principal's key; a conditional read that names the still-current head gets a short unchanged reply instead. It is served only to callers who depend on it: active roster members, members of the principal, or holders of a grant whose path cites it. A 202 asks the client to retry the identical request after policy history is prepared.
+         */
         get: operations["principals.policy.get"];
-        /** Update a principal policy */
+        /**
+         * Update a principal policy
+         * @description Commits the organization's next signed principal policy and its member envelopes atomically; group policies change through the group policy commit route instead. It requires organization administrator authority, and a stale head returns 409. A 202 asks for the identical request to be retried after preparation, and only a 503 with `committed: false` and code `principal_history_preparation_unavailable` proves nothing was written.
+         */
         put: operations["principals.policy.update"];
         post?: never;
         delete?: never;
@@ -1133,7 +1340,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Page projection policy history */
+        /**
+         * Page projection policy history
+         * @description Pages public signed policy snapshots, up to 32 predecessor states at a time, for a principal head cited by an object the caller can read. The opaque `grant` query value names that object and head, and every page rechecks current access to it. A 202 asks the client to retry the identical request after policy history is prepared.
+         */
         get: operations["principals.history.get"];
         put?: never;
         post?: never;
@@ -1150,7 +1360,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Page recorded operator actions */
+        /**
+         * Page recorded operator actions
+         * @description Pages recorded root operator actions newest first, optionally only those involving one identity or organization. Only root operators may call it, and reading the trail is itself recorded.
+         */
         get: operations["root.auditEvents.list"];
         put?: never;
         post?: never;
@@ -1167,7 +1380,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** List identities */
+        /**
+         * List identities
+         * @description Pages every registered identity, newest first, optionally filtered by signing key fingerprint prefix, exact user id, or root operators only. Only root operators may call it, and each request is recorded in the root audit trail.
+         */
         get: operations["root.identities.list"];
         put?: never;
         post?: never;
@@ -1184,7 +1400,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get an identity */
+        /**
+         * Get an identity
+         * @description Returns one identity with its last activity and live sessions. Only root operators may call it, and each request is recorded in the root audit trail.
+         */
         get: operations["root.identities.get"];
         put?: never;
         post?: never;
@@ -1201,7 +1420,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** List an identity's organizations */
+        /**
+         * List an identity's organizations
+         * @description Lists an identity's organizations with roster status, sync pause, seat holding, and billing standing. Only root operators may call it, and each request is recorded in the root audit trail.
+         */
         get: operations["root.identities.organizations.list"];
         put?: never;
         post?: never;
@@ -1219,10 +1441,16 @@ export type paths = {
             cookie?: never;
         };
         get?: never;
-        /** Suspend an identity */
+        /**
+         * Suspend an identity
+         * @description Suspends an identity: its sign-in is refused and every live session is revoked. Only root operators may call it; suspending another root operator returns 409, and every attempt is recorded in the root audit trail. A failed session sweep returns 500 and can be repeated.
+         */
         put: operations["root.identities.suspension.put"];
         post?: never;
-        /** Lift an identity suspension */
+        /**
+         * Lift an identity suspension
+         * @description Lifts an identity's suspension so its devices can sign in again. Only root operators may call it, and each request is recorded in the root audit trail.
+         */
         delete: operations["root.identities.suspension.delete"];
         options?: never;
         head?: never;
@@ -1236,7 +1464,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** List organizations */
+        /**
+         * List organizations
+         * @description Pages every organization, newest first, optionally narrowed to one exact organization id; names are encrypted, so there is no name search. Only root operators may call it, and each request is recorded in the root audit trail.
+         */
         get: operations["root.organizations.list"];
         put?: never;
         post?: never;
@@ -1253,7 +1484,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get an organization */
+        /**
+         * Get an organization
+         * @description Returns an organization's group bindings, roster and open-seat counts, stored billing and purge progress, Stripe binding, and its latest 50 billing events. Only root operators may call it, and each request is recorded in the root audit trail.
+         */
         get: operations["root.organizations.get"];
         put?: never;
         post?: never;
@@ -1270,7 +1504,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Get an organization's data usage */
+        /**
+         * Get an organization's data usage
+         * @description Returns an organization's stored document and blob bytes by category. Only root operators may call it, and each request is recorded in the root audit trail.
+         */
         get: operations["root.organizations.dataUsage.get"];
         put?: never;
         post?: never;
@@ -1287,7 +1524,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** List an organization's identities */
+        /**
+         * List an organization's identities
+         * @description Pages an organization's roster identities, disabled entries included, with each member's sync pause and seat holding. Only root operators may call it, and each request is recorded in the root audit trail.
+         */
         get: operations["root.organizations.identities.list"];
         put?: never;
         post?: never;
@@ -1304,7 +1544,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Page an organization's RevenueCat deliveries */
+        /**
+         * Page an organization's RevenueCat deliveries
+         * @description Pages an organization's stored RevenueCat webhook deliveries, newest first by event time, whatever their outcome, including transfers that moved a purchase away from it. Only root operators may call it, and each request is recorded in the root audit trail.
+         */
         get: operations["root.organizations.revenuecatEvents.list"];
         put?: never;
         post?: never;
@@ -1321,7 +1564,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Page data usage by organization */
+        /**
+         * Page data usage by organization
+         * @description Pages stored data usage by organization, newest organizations first, with the same exact-id filter as the organization list. Only root operators may call it, and each request is recorded in the root audit trail.
+         */
         get: operations["root.reports.dataUsage.list"];
         put?: never;
         post?: never;
@@ -1338,7 +1584,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Report billing maintenance trouble */
+        /**
+         * Report billing maintenance trouble
+         * @description Reports billing maintenance trouble across organizations: failing or overdue Stripe seat syncs, failed or overdue trial expiries, overdue purges, and trials and purges coming due. Only root operators may call it, and each request is recorded in the root audit trail.
+         */
         get: operations["root.reports.opsHealth.get"];
         put?: never;
         post?: never;
@@ -1355,7 +1604,10 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Page unmatched or ignored RevenueCat deliveries */
+        /**
+         * Page unmatched or ignored RevenueCat deliveries
+         * @description Pages RevenueCat deliveries across all organizations that matched no organization or that the handler ignored. Only root operators may call it, and each request is recorded in the root audit trail.
+         */
         get: operations["root.reports.revenuecatEvents.list"];
         put?: never;
         post?: never;
@@ -1369,54 +1621,74 @@ export type paths = {
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
+        /** @description A signed access event as stored: the event, its typed body, and its hash, which clients verify before trusting. */
         AccessEventBundleWireResponse: {
+            /** @description Event-type-specific body the signature commits to. */
             body: unknown;
             event: {
                 [key: string]: unknown;
             };
+            /** @description Hash of the canonical signed event. */
             eventHash: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A signed access manifest with the event that produced it, exactly as the API stores it. */
         AccessManifestBundleWireResponse: {
             event: components["schemas"]["AccessEventBundleWireResponse"];
             manifest: {
                 [key: string]: unknown;
             };
+            /** @description Hash of the canonical manifest; other responses cite the manifest by this value. */
             manifestHash: string;
+            /** @description Derived structural state the manifest commits to. */
             state: {
                 [key: string]: unknown;
             };
         } & {
             [key: string]: unknown;
         };
+        /** @description A refused billing request. */
         BillingErrorResponse: {
-            /** @enum {string} */
+            /**
+             * @description Machine-readable reason, such as an empty roster or a roster larger than any plan.
+             * @enum {string}
+             */
             code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
             error: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A signed `attachment.bind`: puts a blob in a document slot, optionally completing a blob stage and committing the document's first update. */
         BlobAttachmentBindRequest: {
+            /** @description Container paths that authorize the write; the API resolves the document link-set manifest itself. */
             authorizingContainerPathRefs: components["schemas"]["ContainerManifestRefArrayArray"];
+            /** @description Signed bind body naming the binding, blob, document, slot, replaced binding, and document manifest hash. */
             body: unknown;
+            /** @description Container rekeys to commit first in the same transaction. */
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
             contentKeyBundle: components["schemas"]["BlobContentKeyBundleRequest"];
+            /** @description The document's first queued update, committed with the bind under every check a standalone sync makes. */
             documentSync?: components["schemas"]["DocumentSyncRequest"];
             event: {
                 [key: string]: unknown;
             };
+            /** @description The blob stage to promote; absent when binding a blob that is already committed. */
             stagedBlob?: components["schemas"]["BlobStagedBlobRequest"];
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a bind by hash, so the client can compare it with what it signed. */
         BlobAttachmentBindResponse: {
             bindingId: string;
             blobId: string;
             blobKekTargets: components["schemas"]["BlobKekTargetsResponse"];
+            /** @description Content-key epoch the API stored for the blob. */
             contentKeyEpoch: number;
             documentId: string;
+            /** @description Document link-set manifest head the bind was checked against. */
             documentManifestHash: string;
+            /** @description Present exactly when the request carried `documentSync`; names the accepted update. */
             documentSync?: {
                 acceptedOutgoingUpdateIds: string[];
                 commitLsn: string | null;
@@ -1424,16 +1696,22 @@ export type components = {
             } & {
                 [key: string]: unknown;
             };
+            /** @description Hash of the signed bind event. */
             eventHash: string;
+            /** @description Binding this one replaced in the slot, or null. */
             previousBindingId: string | null;
             slotId: string;
+            /** @description Hash of the stored blob write header. */
             writeHeaderHash: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A signed `attachment.detach` that removes an active binding from its slot. */
         BlobAttachmentDetachRequest: {
+            /** @description Container paths that authorize the write. */
             authorizingContainerPathRefs: components["schemas"]["ContainerManifestRefArrayArray"];
             body: unknown;
+            /** @description Container rekeys to commit first in the same transaction. */
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
             event: {
                 [key: string]: unknown;
@@ -1441,6 +1719,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Confirms which binding was detached. */
         BlobAttachmentDetachResponse: {
             bindingId: string;
             blobId: string;
@@ -1449,45 +1728,61 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description One active attachment binding with everything a reader needs to verify and decrypt its blob. */
         BlobAttachmentSummary: {
+            /** @description The signed `attachment.bind` event. */
             bindingEvent: components["schemas"]["AccessEventBundleWireResponse"];
             bindingId: string;
             blobId: string;
             blobKekTargets: components["schemas"]["BlobKekTargetsResponse"];
             contentKeyBundle: components["schemas"]["BlobContentKeyBundleResponse"];
+            /** @description Document link-set manifest head the binding was made under. */
             documentManifestHash: string;
+            /** @description Binding this one replaced, or null. */
             previousBindingId: string | null;
             slotId: string;
+            /** @description Key targets the blob's write was authorized against. */
             writeAuthorization: components["schemas"]["BlobKekTargetsResponse"];
+            /** @description The blob's signed write header. */
             writeHeader: {
                 [key: string]: unknown;
             };
         } & {
             [key: string]: unknown;
         };
+        /** @description A blob content-key bundle: the blob content key wrapped to every container KEK target of the new binding. */
         BlobContentKeyBundleRequest: {
             contentKeyEpoch: number;
+            /** @description Target hash the wraps must match; the API derives it from verified access state. */
             targetHash: string;
             targets: components["schemas"]["BlobContentKeyTargetEnvelopeRequest"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description A blob content-key bundle: the blob content key wrapped to the container KEKs of its active attachment bindings. */
         BlobContentKeyBundleResponse: {
             blobId: string;
             contentKeyEpoch: number;
+            /** @description Hash of the key target set the wraps cover. */
             targetHash: string;
             targets: components["schemas"]["BlobContentKeyTargetEnvelopeResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description The blob content key wrapped to one container KEK for one attachment binding. */
         BlobContentKeyTargetEnvelopeRequest: {
             bindingId: string;
             containerId: string;
+            /** @description Epoch of the container KEK that wraps the key. */
             containerKeyEpoch: number;
+            /** @description Id of that container KEK epoch. */
             containerKeyEpochId: string;
+            /** @description Container manifest head the wrap was made under. */
             containerManifestHash: string;
             documentId: string;
+            /** @description The content key encrypted under the container KEK. */
             wrappedKey: string;
+            /** @description Wrapping suite and IV needed to unwrap `wrappedKey`. */
             wrappingMetadata: {
                 iv: string;
                 /** @constant */
@@ -1496,26 +1791,36 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A stored wrap of a blob content key to one container KEK for one attachment binding. */
         BlobContentKeyTargetEnvelopeResponse: {
             bindingId: string;
             containerId: string;
             containerKeyEpoch: number;
+            /** @description Id of the container KEK epoch that wraps the key. */
             containerKeyEpochId: string;
+            /** @description Container manifest head the wrap was made under. */
             containerManifestHash: string;
             documentId: string;
+            /** @description The content key encrypted under the container KEK. */
             wrappedKey: string;
+            /** @description Wrapping suite and IV needed to unwrap `wrappedKey`. */
             wrappingMetadata: {
                 [key: string]: unknown;
             };
         } & {
             [key: string]: unknown;
         };
+        /** @description The key targets the API derived for a blob from its active attachment bindings and their documents' linked containers. */
         BlobKekTargetsResponse: {
+            /** @description Attachment bindings currently referencing the blob. */
             activeBindingIds: string[];
+            /** @description Access manifest hash the blob's writes are bound to. */
             blobAccessManifestHash: string;
             blobId: string;
+            /** @description Hash of the derived target set. */
             blobKeyTargetHash: string;
             documentManifestHashes: string[];
+            /** @description Current container KEK epochs of the linked containers. */
             linkedContainerKeyEpochIds: string[];
             linkedContainerManifestHashes: string[];
             organizationId: string;
@@ -1525,35 +1830,49 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A refused attachment bind or detach. */
         BlobMutationFailureResponse: {
-            /** @constant */
+            /**
+             * @description `container_unavailable` when a container the write depends on no longer exists.
+             * @constant
+             */
             code?: "container_unavailable";
             error: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description Names the blob stage an attachment bind completes, with the blob's signed write header. */
         BlobStagedBlobRequest: {
             stageId: string;
+            /** @description Signed write header committing to the blob id, access manifest, content-key epoch, target hash, and ciphertext hash. */
             writeHeader: {
                 [key: string]: unknown;
             };
         } & {
             [key: string]: unknown;
         };
+        /** @description Asks for a sign-in challenge for a registered identity. */
         ChallengeRequest: {
+            /** @description Lowercase hex SHA-256 fingerprint of the identity's ML-DSA-87 signing public key. */
             fingerprint: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A one-time sign-in challenge that the client signs and returns to `POST /auth/verify`. */
         ChallengeResponse: {
+            /** @description Random hex challenge; it expires after a short time and can be verified once. */
             challenge: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A KEK level the client said it already holds, replaced by a digest of its bytes; the client fills it back in from its own copy. */
         CitedContainerKekLevel: {
+            /** @description Manifest citations of the level, kept so the response's bundle bookkeeping stays exact. */
             containerManifestHistory: string[];
+            /** @description Domain-separated SHA-256 of the level's canonical wire bytes. */
             levelDigest: string;
         };
+        /** @description A group policy commit refused because the container mutations it carries are stale. */
         CommitOrganizationGroupPolicyConflictResponse: components["schemas"]["BillingErrorResponse"] | ({
             /** @constant */
             code: "container_descendant_rekeys_required";
@@ -1568,13 +1887,18 @@ export type components = {
         } & {
             [key: string]: unknown;
         });
+        /** @description A group's next policy state committed together with the organization policy successor that records its new head. */
         CommitOrganizationGroupPolicyRequest: {
+            /** @description The group's next signed state. */
             groupPolicy: components["schemas"]["PutPrincipalPolicyRequest"];
+            /** @description Successor of the reserved `Members` group, when the change also enrolls users in the organization. */
             memberPolicy?: components["schemas"]["PutPrincipalPolicyRequest"];
+            /** @description The organization's next signed state, whose directory names the group's new head. */
             organizationPolicy: components["schemas"]["OrganizationPrincipalPolicyRequest"];
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a group policy commit with every policy it advanced. */
         CommitOrganizationGroupPolicyResponse: {
             groupPolicy: components["schemas"]["PrincipalPolicyMutationResponse"];
             memberPolicy?: components["schemas"]["PrincipalPolicyMutationResponse"];
@@ -1582,8 +1906,10 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Creates a container together with its encrypted metadata document. */
         ContainerCreateWithMetadataDocumentRequest: {
             container: components["schemas"]["ContainerMutationRequest"];
+            /** @description The metadata document's first queued update, committed in the same transaction. */
             initialMetadataSync?: components["schemas"]["DocumentSyncRequest"];
             metadataDocument: {
                 authorizingContainerPathRefs?: components["schemas"]["ContainerManifestRefArrayArray"];
@@ -1605,31 +1931,42 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a container and its metadata document. */
         ContainerCreateWithMetadataDocumentResponse: {
             container: components["schemas"]["ContainerMutationResponse"];
             metadataDocument: components["schemas"]["DocumentCreateResponse"];
         } & {
             [key: string]: unknown;
         };
+        /** @description Confirms a container deletion. */
         ContainerDeleteResponse: {
             containerId: string;
             deletedAt: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description One document in a container listing, with the caller's effective access to it. */
         ContainerDocumentSummaryResponse: {
             createdAt: string;
+            /** @description Epoch of the document's current link-set manifest. */
             currentAccessEpoch: number;
+            /** @description Hash of the document's current link-set manifest. */
             currentAccessStateHash: string;
-            /** @enum {string} */
+            /**
+             * @description The caller's access, derived from signed grants along the linked container paths.
+             * @enum {string}
+             */
             effectiveAccessLevel: "admin" | "read" | "write";
             id: string;
+            /** @description Containers the document is linked into. */
             linkedContainerIds: string[];
+            /** @description Principal policy heads the document's access depends on. */
             referencedPrincipals: components["schemas"]["ReferencedPrincipalStateResponse"][];
             updatedAt: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A document that left a container's listing since the last page. */
         ContainerDocumentSyncTombstoneResponse: {
             containerId: string;
             documentId: string;
@@ -1637,47 +1974,66 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A container KEK keyring: every predecessor KEK of a container, sealed under the KEK of one epoch. */
         ContainerKekKeyringWireRecord: {
             containerId: string;
+            /** @description Container KEK epoch whose key seals the keyring. */
             containerKeyEpochId: string;
+            /** @description Base64 AES-GCM initialization vector. */
             iv: string;
+            /** @description Base64 ciphertext; its length is an exact function of the epoch number. */
             sealed: string;
+            /** @description Cipher suite used to seal the keyring. */
             sealingSuite: string;
             /** @constant */
             version: 1;
         } & {
             [key: string]: unknown;
         };
+        /** @description One epoch of a container's KEK rotation log. */
         ContainerKekLogEpochResponse: {
+            /** @description Container manifest head that introduced the epoch. */
             accessManifestHash: string;
+            /** @description The predecessor bridge: the previous epoch's KEK encrypted under this one, or null for the first epoch. */
             bridge: {
                 [key: string]: unknown;
             } | null;
             containerKeyEpoch: number;
             containerKeyEpochId: string;
+            /** @description Keyring sealed under this epoch's KEK, served only for the epoch the request names in `keyringForEpoch` (a page carries at most one); null otherwise and for the first epoch. */
             keyring: components["schemas"]["ContainerKekKeyringWireRecord"] | null;
+            /** @description The parent container's KEK epoch at this epoch, or null for a container with no parent. */
             parentContainerKeyEpochId: string | null;
+            /** @description Recipient wraps issued at this epoch, retained so a member present then can recover the KEK if a bridge is damaged. */
             wraps: {
                 [key: string]: unknown;
             }[];
         } & {
             [key: string]: unknown;
         };
+        /** @description One page of a container's KEK rotation log, oldest epoch first. */
         ContainerKekLogResponse: {
             containerId: string;
             epochs: components["schemas"]["ContainerKekLogEpochResponse"][];
+            /** @description True when later epochs remain. */
             hasMore: boolean;
         } & {
             [key: string]: unknown;
         };
+        /** @description Cites a container access manifest the API already stores, instead of resending the signed bundle. */
         ContainerManifestRef: {
+            /** @description Advisory; the API keys the lookup off the stored bundle's own container and rejects a mismatch. */
             containerId: string;
+            /** @description Hash of the cited manifest. Path and previous-manifest citations must name current heads; history citations name earlier manifests. */
             manifestHash: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A list of authorizing container paths, each a root-to-leaf chain of container manifest citations. */
         ContainerManifestRefArrayArray: components["schemas"]["ContainerManifestRef"][][];
+        /** @description A machine-readable reason a container mutation was refused, which tells the client whether to replan, adopt, or stop. */
         ContainerMutationErrorCode: ("container_ancestor_rekeys_required" | "container_descendant_rekeys_required" | "container_descendant_rekeys_inaccessible" | "container_manifest_already_exists" | "container_path_too_deep" | "container_mutation_state_stale") | components["schemas"]["DocumentMutationErrorCode"];
+        /** @description A refused container mutation: a coded conflict, or a stale principal policy with the current heads. */
         ContainerMutationFailureResponse: ({
             code?: components["schemas"]["ContainerMutationErrorCode"];
             error: string;
@@ -1685,22 +2041,31 @@ export type components = {
         } & {
             [key: string]: unknown;
         }) | components["schemas"]["PrincipalPolicyStaleErrorResponse"];
+        /** @description A signed container mutation (create, share, or the container part of a larger write): the event, the manifest it derives, and the KEK material, citing stored heads instead of resending them. */
         ContainerMutationRequest: {
+            /** @description Event-type-specific body the signature commits to. */
             body: unknown;
+            /** @description Earlier manifests of this container the verifier needs, cited by hash. */
             containerManifestHistoryRefs?: components["schemas"]["ContainerManifestRef"][];
+            /** @description Current path to the new parent, for a move. */
             destinationParentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             event: {
                 [key: string]: unknown;
             };
+            /** @description Hash of the manifest this mutation derives; the API derives it independently and must agree. */
             expectedManifestHash: string;
+            /** @description The container KEK epoch this mutation leaves current. */
             keyEpoch: {
                 [key: string]: unknown;
             };
+            /** @description For a KEK rotation, every predecessor KEK sealed under the new KEK; null otherwise. */
             keyring: components["schemas"]["ContainerKekKeyringWireRecord"] | null;
             manifest: {
                 [key: string]: unknown;
             };
+            /** @description Current path to the parent container. */
             parentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
+            /** @description The parent's current KEK epoch, for a child container; any other epoch is refused as stale. */
             parentKekRef?: ({
                 containerId: string;
                 containerKeyEpochId: string;
@@ -1708,23 +2073,31 @@ export type components = {
             } & {
                 [key: string]: unknown;
             }) | null;
+            /** @description For a KEK rotation, the retiring KEK encrypted under the new one; null otherwise. */
             predecessorBridge: {
                 [key: string]: unknown;
             } | null;
+            /** @description Current path to the mutated container, from its root. */
             previousContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
+            /** @description The container's current manifest head; absent for a create. */
             previousManifestRef?: components["schemas"]["ContainerManifestRef"] | null;
+            /** @description Heads of the principal policies the mutation was planned against. */
             principalPolicyRefs: components["schemas"]["PrincipalPolicyRefList"];
+            /** @description Public keys of users the container KEK is wrapped to directly. */
             userRecipientKeys?: {
                 [key: string]: unknown;
             }[];
+            /** @description The container KEK wrapped to each derived recipient target. */
             wraps: {
                 [key: string]: unknown;
             }[];
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a container mutation by hash; the client compares each value with the plan it signed and refuses any mismatch. */
         ContainerMutationResponse: {
             containerId: string;
+            /** @description Identity and hashes of the container's current KEK epoch. */
             containerKek: {
                 containerKeyEpoch: number;
                 containerKeyEpochId: string;
@@ -1736,7 +2109,9 @@ export type components = {
                 [key: string]: unknown;
             };
             createdAt: string;
+            /** @description Hash of the signed event the API stored. */
             eventHash: string;
+            /** @description Epoch and hash of the container's new manifest head. */
             manifestHead: {
                 epoch: number;
                 manifestHash: string;
@@ -1745,11 +2120,13 @@ export type components = {
             };
             organizationId: string;
             parentId: string | null;
+            /** @description Opaque id of a system container's role, or null for an ordinary container. */
             systemSlot?: string | null;
             updatedAt: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description The container does not exist. Clients may treat only this exact coded 404 as permanent absence. */
         ContainerNotFoundErrorResponse: {
             /** @constant */
             code: "container_not_found";
@@ -1757,21 +2134,27 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A signed `container.recite` that advances a container's manifest to cite its ancestors' current heads, changing nothing else. */
         ContainerReciteRequest: {
             body: unknown;
             event: {
                 [key: string]: unknown;
             };
+            /** @description Hash of the manifest this re-citation derives. */
             expectedManifestHash: string;
             manifest: {
                 [key: string]: unknown;
             };
+            /** @description The container's current path, from its root. */
             previousContainerPathRefs: components["schemas"]["ContainerManifestRef"][];
+            /** @description The container's current manifest head. */
             previousManifestRef: components["schemas"]["ContainerManifestRef"];
+            /** @description Heads of the principal policies the re-citation was planned against. */
             principalPolicyRefs: components["schemas"]["PrincipalPolicyRefList"];
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a re-citation by its event hash and new manifest head; keys are unchanged. */
         ContainerReciteResponse: {
             containerId: string;
             createdAt: string;
@@ -1789,9 +2172,11 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A rekey, revoke, or move, which rotates the container KEK, plus the descendant rekeys that must commit with it. */
         ContainerRotationRequest: {
             body: unknown;
             containerManifestHistoryRefs?: components["schemas"]["ContainerManifestRef"][];
+            /** @description Descendant rekeys, parent first; they commit with the rotation or not at all. */
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
             destinationParentContainerPathRefs?: components["schemas"]["ContainerManifestRef"][];
             event: {
@@ -1828,6 +2213,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a rotation, plus one acknowledgement per carried descendant rekey in request order. */
         ContainerRotationResponse: {
             containerId: string;
             containerKek: {
@@ -1856,33 +2242,48 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description One container in a listing, with the caller's effective access to it. */
         ContainerSummaryResponse: {
             createdAt: string;
+            /** @description Position in the container tree, counted from the organization's root container. */
             depth: number;
-            /** @enum {string} */
+            /**
+             * @description The caller's access, derived from signed grants along the container path.
+             * @enum {string}
+             */
             effectiveAccessLevel: "admin" | "read" | "write";
             id: string;
+            /** @description Access epoch of the container's metadata document. */
             metadataAccessEpoch: number;
+            /** @description Access state hash of the metadata document. */
             metadataAccessStateHash: string;
+            /** @description Encrypted document that holds the container's name and other metadata. */
             metadataDocumentId: string;
+            /** @description Principal policy heads the metadata document's access depends on. */
             metadataReferencedPrincipals: components["schemas"]["ReferencedPrincipalStateResponse"][];
             organizationId: string;
             parentId: string | null;
+            /** @description Opaque id of a system container's role, such as Trash, or null for an ordinary container. */
             systemSlot?: string | null;
             updatedAt: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A container that left the caller's view since the last listing page. */
         ContainerSyncTombstoneResponse: {
             containerId: string;
             depth: number;
             parentId: string | null;
-            /** @enum {string} */
+            /**
+             * @description `deleted` when the container was deleted; `access_revoked` when the caller lost access.
+             * @enum {string}
+             */
             reason: "access_revoked" | "deleted";
             updatedAt: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description The API's stored state for the projection failed its own consistency checks. */
         ContainerWriterProjectionErrorResponse: {
             /** @constant */
             code: "container_projection_state_invalid";
@@ -1890,11 +2291,14 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A container writer projection: the signed manifests on its path and the KEK levels a client needs to read and write under it. Every manifest is carried once in `bundles` and cited by hash. */
         ContainerWriterProjectionWireResponse: {
+            /** @description Signed manifest bundles keyed by manifest hash. */
             bundles: {
                 [key: string]: components["schemas"]["AccessManifestBundleWireResponse"];
             };
             containerId: string;
+            /** @description One KEK level for each manifest in `path`. */
             containerKeks: (components["schemas"]["CitedContainerKekLevel"] | ({
                 accessManifestHash: string;
                 containerId: string;
@@ -1917,29 +2321,37 @@ export type components = {
             } & {
                 [key: string]: unknown;
             }))[];
+            /** @description Cited hashes left out because the request said the client holds them. */
             omittedBundles: string[];
             organizationId: string;
+            /** @description Manifest hashes from the organization's root to this container. */
             path: string[];
+            /** @description Public principal policy history the cited manifests depend on. */
             policyEvidence: components["schemas"]["ProjectionPolicyEvidenceResponse"];
         } & {
             [key: string]: unknown;
         };
+        /** @description A new group's id and first signed policy. */
         CreateOrganizationGroupRequest: {
             groupId: string;
             initialGroupPolicy: components["schemas"]["PutPrincipalPolicyRequest"];
         };
+        /** @description Acknowledges a new group and the organization policy that lists it. */
         CreateOrganizationGroupResponse: {
             group: components["schemas"]["OrganizationGroupSummaryResponse"];
             organizationPolicy: components["schemas"]["PrincipalPolicyMutationResponse"];
         } & {
             [key: string]: unknown;
         };
+        /** @description A new group with its first signed policy and the organization policy successor that adds it to the directory. */
         CreateOrganizationGroupWithPolicyRequest: {
             groupId: string;
             initialGroupPolicy: components["schemas"]["PutPrincipalPolicyRequest"];
             organizationPolicy: components["schemas"]["OrganizationPrincipalPolicyRequest"];
         };
+        /** @description Every signed artifact of a new organization, signed with the caller's existing identity: the same set registration provisions. */
         CreateOrganizationRequest: {
+            /** @description Completes an earlier replacement after the client reset its local copy, moving the user's default organization to it. */
             finalizeReplacement?: boolean;
             initialAdminGroup: components["schemas"]["CreateOrganizationGroupRequest"];
             initialMemberGroup: components["schemas"]["CreateOrganizationGroupRequest"];
@@ -1951,27 +2363,38 @@ export type components = {
             initialRosterProfileContainer?: components["schemas"]["ProvisionedSystemContainerRequest"];
             initialRosterProfileDocument?: components["schemas"]["ProvisionedDocumentRequest"];
             initialSystemContainers?: components["schemas"]["ProvisionedSystemContainerRequest"][];
-            /** @constant */
+            /**
+             * @description Marks the new organization as the destination of a native store subscription restore.
+             * @constant
+             */
             nativeSubscriptionRestore?: true;
             organizationId: string;
+            /** @description Identity-signed authorization for the new organization to replace a purged personal organization. */
             replacementAuthorization?: components["schemas"]["OrganizationReplacementAuthorization"];
+            /** @description Purged personal organization this one replaces; accepted only after that purge completed. */
             replacesOrganizationId?: string;
             rootContainerId: string;
             userId: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a new organization by the ids and hashes of what it created. */
         CreateOrganizationResponse: {
+            /** @description Ids of the seeded metadata updates the server committed. */
             committedCoreMetadataUpdateIds: string[];
+            /** @description Ids of the seeded profile updates the server committed. */
             committedProfileUpdateIds: string[];
             organizationId: string;
             organizationMetadataContainer: components["schemas"]["ContainerCreateWithMetadataDocumentResponse"];
             organizationMetadataContainerId: string;
             organizationProfileDocument?: components["schemas"]["DocumentCreateResponse"];
             organizationProfileDocumentId?: string;
+            /** @description For a replacement, the identity-signed authorization clients verify before following it. */
             replacementAuthorization: components["schemas"]["OrganizationReplacementAuthorization"] | null;
             rootContainerId: string;
+            /** @description Access epoch of the root container's metadata document. */
             rootMetadataAccessEpoch: number;
+            /** @description Access state hash of the root container's metadata document. */
             rootMetadataAccessStateHash: string;
             rootMetadataDocument: components["schemas"]["DocumentCreateResponse"];
             rootMetadataDocumentId: string;
@@ -1984,6 +2407,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Every member envelope of a principal's current key epoch. */
         CurrentPrincipalMemberEnvelopesResponse: {
             envelopes: components["schemas"]["PrincipalMemberEnvelopeResponse"][];
             epoch: number;
@@ -1994,11 +2418,13 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description The organization policy successor that drops a group from the directory. */
         DeleteOrganizationGroupRequest: {
             organizationPolicy: components["schemas"]["OrganizationPrincipalPolicyRequest"];
         } & {
             [key: string]: unknown;
         };
+        /** @description Confirms a group deletion and the organization policy that recorded it. */
         DeleteOrganizationGroupResponse: {
             /** @constant */
             deleted: true;
@@ -2008,35 +2434,47 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Confirms that a session was signed out. */
         DestroySessionResponse: {
             /** @constant */
             message: "ok";
         } & {
             [key: string]: unknown;
         };
+        /** @description A content-key bundle: one document content-key epoch wrapped to every linked container's KEK. */
         DocumentContentKeyBundleRequest: {
             contentKeyEpoch: number;
+            /** @description Document link-set manifest the targets were derived from. */
             linkSetManifestHash: string;
+            /** @description Target hash the wraps must match; the API derives it from verified access state. */
             targetHash: string;
             targets: components["schemas"]["DocumentContentKeyTargetEnvelope"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description A stored content-key bundle for one document content-key epoch. */
         DocumentContentKeyBundleResponse: {
             contentKeyEpoch: number;
             documentId: string;
+            /** @description Document link-set manifest the targets were derived from. */
             linkSetManifestHash: string;
+            /** @description Hash of the key target set the wraps cover. */
             targetHash: string;
             targets: components["schemas"]["DocumentContentKeyTargetEnvelopeResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description A document content key wrapped to one container KEK. */
         DocumentContentKeyTargetEnvelope: {
             containerId: string;
             containerKeyEpoch: number;
+            /** @description Id of the container KEK epoch that wraps the key. */
             containerKeyEpochId: string;
+            /** @description Container manifest head the wrap was made under. */
             containerManifestHash: string;
+            /** @description The content key encrypted under the container KEK. */
             wrappedKey: string;
+            /** @description Wrapping suite and IV needed to unwrap `wrappedKey`. */
             wrappingMetadata: {
                 iv: string;
                 /** @constant */
@@ -2045,18 +2483,24 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A stored wrap of a document content key to one container KEK. */
         DocumentContentKeyTargetEnvelopeResponse: {
             containerId: string;
             containerKeyEpoch: number;
+            /** @description Id of the container KEK epoch that wraps the key. */
             containerKeyEpochId: string;
+            /** @description Container manifest head the wrap was made under. */
             containerManifestHash: string;
+            /** @description The content key encrypted under the container KEK. */
             wrappedKey: string;
+            /** @description Wrapping suite and IV needed to unwrap `wrappedKey`. */
             wrappingMetadata: {
                 [key: string]: unknown;
             };
         } & {
             [key: string]: unknown;
         };
+        /** @description A signed document create: the document's first link-set manifest, its content-key bundle, and optionally its first encrypted update. */
         DocumentCreateRequest: {
             authorizingContainerPathRefs?: components["schemas"]["ContainerManifestRefArrayArray"];
             body: unknown;
@@ -2066,6 +2510,7 @@ export type components = {
                 [key: string]: unknown;
             };
             expectedManifestHash: string;
+            /** @description The document's first queued update, committed in the create transaction under every check a sync makes. */
             initialSync?: components["schemas"]["DocumentSyncRequest"];
             manifest: {
                 [key: string]: unknown;
@@ -2074,11 +2519,15 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a document create by hash. */
         DocumentCreateResponse: {
+            /** @description Content-key epoch the API stored. */
             contentKeyEpoch: number;
             createdAt: string;
+            /** @description Hash of the signed event. */
             eventHash: string;
             id: string;
+            /** @description Present exactly when the request carried a seed; names the accepted update and its commit position. */
             initialSync?: {
                 acceptedOutgoingUpdateIds: string[];
                 commitLsn: string | null;
@@ -2086,7 +2535,9 @@ export type components = {
             } & {
                 [key: string]: unknown;
             };
+            /** @description Hash of the committed document link-set manifest. */
             manifestHash: string;
+            /** @description Key target hash the API derived. */
             targetHash: string;
         } & {
             [key: string]: unknown;
@@ -2103,29 +2554,44 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Who first uploaded each part of a document, as compact runs derived from the signed write headers of its updates. */
         DocumentEditAttributionResponse: {
+            /** @description Changes whenever new updates change the attribution. */
             attributionRevision: number;
             documentId: string;
             segments: components["schemas"]["DocumentEditAttributionSegmentResponse"][];
+            /** @description True when the run list hit the response limit; page the rest through the ranges route. */
             truncated?: boolean;
         } & {
             [key: string]: unknown;
         };
+        /** @description A run of Loro operations attributed to the writer of the earliest signed update that delivered them. */
         DocumentEditAttributionSegmentResponse: {
-            /** @enum {string} */
+            /**
+             * @description `direct` when the earliest update that delivered the run is an ordinary update, whose writer is the first uploader rather than proven author; `baseline` when it is a rotation baseline, which only re-asserts existing operations.
+             * @enum {string}
+             */
             authorityKind: "direct" | "baseline";
+            /** @description End of the run in the peer's operation counter. */
             endCounter: number;
+            /** @description Loro peer id of the writing device. */
             peerId: string;
+            /** @description Start of the run in the peer's operation counter. */
             startCounter: number;
+            /** @description Signing key fingerprint from the update's write header. */
             writerKeyFingerprint: string;
             writerUserId: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description The key targets the API derived for a document from its link set: one per linked container KEK. */
         DocumentKekTargetsResponse: {
             documentId: string;
+            /** @description Hash of the derived target set; write headers and bundles must match it. */
             documentKeyTargetHash: string;
+            /** @description Current KEK epochs of the linked containers. */
             linkedContainerKeyEpochIds: string[];
+            /** @description Current manifest heads of the linked containers. */
             linkedContainerManifestHashes: string[];
             linkSetManifestHash: string;
             targets: {
@@ -2134,39 +2600,52 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A signed `document.link` or `document.unlink` that changes the containers a document is linked into. */
         DocumentLinkSetMutationRequest: {
+            /** @description Paths through which the caller may write the document now. */
             authorizingContainerPathRefs: components["schemas"]["ContainerManifestRefArrayArray"];
             body: unknown;
+            /** @description Container rekeys to commit first in the same transaction. */
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
+            /** @description Content-key bundle for the new link set's targets. */
             contentKeyBundle: components["schemas"]["DocumentContentKeyBundleRequest"];
             event: {
                 [key: string]: unknown;
             };
+            /** @description Hash of the link-set manifest this mutation derives. */
             expectedManifestHash: string;
             manifest: {
                 [key: string]: unknown;
             };
+            /** @description For an unlink, a rotation baseline covering every committed update; omitted only when the document has none, and never sent with a link. */
             rotationBaseline?: components["schemas"]["DocumentOutgoingUpdate"];
+            /** @description Path to the container being linked or unlinked. */
             targetContainerPathRefs: components["schemas"]["ContainerManifestRef"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a link or unlink by hash. */
         DocumentLinkSetMutationResponse: {
             contentKeyEpoch: number;
             eventHash: string;
             id: string;
+            /** @description Hash of the new document link-set manifest head. */
             manifestHash: string;
+            /** @description Key target hash the API derived for the new link set. */
             targetHash: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A machine-readable reason a document mutation was refused. */
         DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
+        /** @description A refused document create, link, unlink, or purge. */
         DocumentMutationFailureResponse: {
             code?: components["schemas"]["DocumentMutationErrorCode"];
             error: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description The document does not exist; clients treat only this coded 404 as deletion. */
         DocumentNotFoundErrorResponse: {
             /** @constant */
             code: "document_not_found";
@@ -2174,37 +2653,58 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description One encrypted Loro update a client uploads, with its signed write header. */
         DocumentOutgoingUpdate: {
-            /** @constant */
+            /**
+             * @description `rotate_baseline` when the update is a rotation baseline; absent for an ordinary update.
+             * @constant
+             */
             checkpointKind?: "rotate_baseline";
-            /** @constant */
+            /**
+             * @description `full_history_snapshot` for a rotation baseline; absent otherwise.
+             * @constant
+             */
             checkpointPayloadKind?: "full_history_snapshot";
+            /** @description Base64 ciphertext of the update under the document content key. */
             encryptedData: string;
+            /** @description Client-chosen update id; a retry with the same id is accepted only if the ciphertext and header are identical. */
             id: string;
+            /** @description Version vector the update brings the document to. */
             partialEndVersionVector: string;
+            /** @description Version vector the update starts from. */
             partialStartVersionVector: string;
+            /** @description Hash of the plaintext update, committed by the write header. */
             plaintextHash: string;
+            /** @description For a rotation baseline, the frontier its snapshot covers. */
             sourceVersionVector?: string;
+            /** @description Signed write header binding the ciphertext to the document, access manifest, content-key epoch, target hash, and writer. */
             writeHeader: {
                 [key: string]: unknown;
             };
         } & {
             [key: string]: unknown;
         };
+        /** @description The signed proof that a document was purged, with the manifests and policy history a client needs to verify it. */
         DocumentPurgeProofResponse: {
+            /** @description Container path that authorized the purge. */
             authorizingContainerPath: components["schemas"]["AccessManifestBundleWireResponse"][];
             documentContainerManifestHistory: components["schemas"]["AccessManifestBundleWireResponse"][];
             documentId: string;
+            /** @description The document's last link-set manifest. */
             documentManifest: components["schemas"]["AccessManifestBundleWireResponse"];
             documentManifestContainerPaths: components["schemas"]["AccessManifestBundleWireResponse"][][];
+            /** @description Earlier link-set manifests of the document. */
             documentManifestPredecessors: components["schemas"]["AccessManifestBundleWireResponse"][];
             policyEvidence: components["schemas"]["ProjectionPolicyEvidenceResponse"];
             purgedAt: string;
+            /** @description The signed `document.purge` event. */
             purgeEvent: components["schemas"]["AccessEventBundleWireResponse"];
         } & {
             [key: string]: unknown;
         };
+        /** @description A signed `document.purge` citing the exact current path that authorizes it. */
         DocumentPurgeRequest: {
+            /** @description Root-to-container path of the document's only linked container. */
             authorizingContainerPathRefs: components["schemas"]["ContainerManifestRef"][];
             body: unknown;
             event: {
@@ -2213,6 +2713,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description The purge proof. Blobs only this document referenced are soft-deleted and reclaimed later by garbage collection. */
         DocumentPurgeResponse: {
             authorizingContainerPath: components["schemas"]["AccessManifestBundleWireResponse"][];
             documentContainerManifestHistory: components["schemas"]["AccessManifestBundleWireResponse"][];
@@ -2223,26 +2724,35 @@ export type components = {
             policyEvidence: components["schemas"]["ProjectionPolicyEvidenceResponse"];
             purgedAt: string;
             purgeEvent: components["schemas"]["AccessEventBundleWireResponse"];
+            /** @description Object-store keys reclaimed during the request; currently always empty, because reclamation is deferred. */
             reclaimedBlobStorageKeys: string[];
         } & {
             [key: string]: unknown;
         };
+        /** @description A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, or stop. */
         DocumentSyncErrorResponse: {
             /** @enum {string} */
             code: "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict";
             error: string;
+            /** @description With `document_sync_state_stale` from a carried rekey, up to 16 current principal heads to recover before replanning; advisory only. */
             principalHeads?: components["schemas"]["ReferencedPrincipalStateResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description Whether more updates remain in this pull. */
         DocumentSyncPullPageResponse: {
+            /** @description True exactly when `nextCursor` is set. */
             hasMore: boolean;
+            /** @description Opaque cursor for the next page, or null on the last page; it grants nothing, and each page is reauthorized. */
             nextCursor: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description A document sync: uploads encrypted updates and asks for the ones the client is missing, one page at a time. */
         DocumentSyncRequest: {
+            /** @description Container paths that authorize a write; reads may omit them. */
             authorizingContainerPathRefs?: components["schemas"]["ContainerManifestRefArrayArray"];
+            /** @description Container rekeys to commit first in the same transaction. */
             containerRekeys?: ({
                 body: unknown;
                 containerManifestHistoryRefs?: components["schemas"]["ContainerManifestRef"][];
@@ -2283,18 +2793,26 @@ export type components = {
             } & {
                 [key: string]: unknown;
             })[];
+            /** @description A new content-key bundle, when the write advances the content-key epoch. */
             contentKeyBundle?: components["schemas"]["DocumentContentKeyBundleRequest"];
+            /** @description Content-key epoch the client is writing and reading at. */
             contentKeyEpoch: number;
+            /** @description The document link-set manifest head the client planned against; a different current head is refused as stale. */
             expectedLinkSetManifestHash: string;
+            /** @description The key target hash the client planned against. */
             expectedTargetHash: string;
             /**
-             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+             * @description `raw` asks for every retained update missing from the frontier, bypassing rotation baselines; read-only.
              * @constant
              */
             historyMode?: "raw";
+            /** @description Marker that makes carried rekeys and the write replay-safe as one transaction; present exactly when `containerRekeys` is non-empty. */
             inlineRekeyCommitId?: string;
+            /** @description The client's current version vector; the response returns updates it does not cover. */
             localVersionVector: string | null;
+            /** @description Commit LSN the server must have reached before answering, for read-after-write consistency. */
             minLsn?: string;
+            /** @description Encrypted updates to upload. */
             outgoingUpdates: ({
                 /** @constant */
                 checkpointKind?: "rotate_baseline";
@@ -2312,28 +2830,44 @@ export type components = {
             } & {
                 [key: string]: unknown;
             })[];
+            /** @description Continuation cursor from the previous page; a continuation is read-only. */
             pullCursor?: string;
-            /** @constant */
+            /**
+             * @description Always true; every response is paged.
+             * @constant
+             */
             supportsPullPagination: true;
         } & {
             [key: string]: unknown;
         };
+        /** @description The result of a sync: which uploads were accepted, one page of missing updates, and the key material to decrypt them. */
         DocumentSyncResponse: {
+            /** @description Ids of uploaded updates that are now committed. */
             acceptedOutgoingUpdateIds: string[];
+            /** @description Commit LSN after the request; pass it as `minLsn` to read your own writes from a replica. */
             commitLsn: string | null;
+            /** @description `tracked` for a durable backend position; `untracked` with the `0/0` sentinel when the backend cannot report one. */
             commitLsnMode: "tracked" | "untracked";
+            /** @description Content-key bundle of the current epoch. */
             contentKeyBundle: components["schemas"]["DocumentContentKeyBundleResponse"];
+            /** @description Bundles of older epochs that this page's updates were written at; never the current epoch. */
             contentKeyBundles: components["schemas"]["DocumentContentKeyBundleResponse"][];
             documentId: string;
+            /** @description The document's current key targets. */
             documentKekTargets: components["schemas"]["DocumentKekTargetsResponse"];
             pullPage: components["schemas"]["DocumentSyncPullPageResponse"];
+            /** @description Encrypted updates the client's version vector does not cover. */
             updates: components["schemas"]["DocumentSyncUpdateResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description One stored encrypted update returned by a sync. */
         DocumentSyncUpdateResponse: {
+            /** @description Content-key epoch the update was written at. */
             accessEpoch: number;
+            /** @description Signing key fingerprint of the writer. */
             authorFingerprint: string;
+            /** @description Container KEK targets the write was authorized against. */
             authorizationTargets: ({
                 containerId: string;
                 containerKeyEpoch: number;
@@ -2342,31 +2876,46 @@ export type components = {
             } & {
                 [key: string]: unknown;
             })[];
-            /** @constant */
+            /**
+             * @description `rotate_baseline` when the update is a rotation baseline.
+             * @constant
+             */
             checkpointKind?: "rotate_baseline";
-            /** @constant */
+            /**
+             * @description `full_history_snapshot` for a rotation baseline.
+             * @constant
+             */
             checkpointPayloadKind?: "full_history_snapshot";
             createdAt: string;
             documentId: string;
+            /** @description Base64 ciphertext of the update. */
             encryptedData: string;
             id: string;
+            /** @description Version vector the update brings the document to. */
             partialEndVersionVector: string;
+            /** @description Version vector the update starts from. */
             partialStartVersionVector: string;
+            /** @description Hash of the plaintext update, committed by the write header. */
             plaintextHash: string;
+            /** @description For a rotation baseline, the frontier its snapshot covers. */
             sourceVersionVector?: string;
+            /** @description The update's signed write header. */
             writeHeader: {
                 [key: string]: unknown;
             };
         } & {
             [key: string]: unknown;
         };
+        /** @description A refused document writer projection; a missing container is reported as a conflict, never as the document's absence. */
         DocumentWriterProjectionErrorResponse: {
             code: ("document_projection_container_conflict" | "document_projection_container_unavailable" | "document_projection_content_key_bundle_missing" | "document_projection_head_missing" | "document_projection_kek_targets_unavailable" | "document_projection_state_invalid") | ("document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict");
             error: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A document writer projection: its link-set history, authorizing container paths with KEK levels, and key targets. Every manifest is carried once in `bundles` and cited by hash. */
         DocumentWriterProjectionWireResponse: {
+            /** @description Each linked container's path from the root, with one KEK level per manifest. */
             authorizingContainerPaths: ({
                 containerId: string;
                 containerKeks: (components["schemas"]["CitedContainerKekLevel"] | ({
@@ -2396,53 +2945,74 @@ export type components = {
             } & {
                 [key: string]: unknown;
             })[];
+            /** @description Signed manifest bundles keyed by manifest hash. */
             bundles: {
                 [key: string]: components["schemas"]["AccessManifestBundleWireResponse"];
             };
             contentKeyBundle: components["schemas"]["DocumentContentKeyBundleResponse"];
-            /** @constant */
+            /**
+             * @description Present only when the stored content-key bundle targets superseded KEKs and must be rewrapped.
+             * @constant
+             */
             contentKeyBundleStale?: true;
             documentContainerManifestHistory: string[];
             documentId: string;
             documentKekTargets: components["schemas"]["DocumentKekTargetsResponse"];
+            /** @description Hash of the current document link-set manifest. */
             documentManifest: string;
             documentManifestContainerPaths: string[][];
+            /** @description Hashes of earlier document link-set manifests. */
             documentManifestHistory: string[];
+            /** @description Cited hashes left out because the request said the client holds them. */
             omittedBundles: string[];
+            /** @description Public principal policy history the cited manifests depend on. */
             policyEvidence: components["schemas"]["ProjectionPolicyEvidenceResponse"];
         } & {
             [key: string]: unknown;
         };
+        /** @description The plain error envelope: a human-readable message for diagnostics, never for program decisions. */
         ErrorResponse: {
             error: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description The health check answer. */
         HealthResponse: {
             message: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description Opens a blob stage for one encrypted object. */
         InitiateMultipartBlobStageRequest: {
+            /** @description Exact size of the complete encrypted object. */
             byteLength: number;
+            /** @description The one to four parts the client sends first, so the response can carry their upload sources. */
             firstParts: components["schemas"]["MultipartBlobPartDescriptor"][];
+            /** @description Organization the blob will belong to; it must match the destination document's organization at bind time. */
             organizationId: string;
+            /** @description SHA-256 of the complete encrypted object, checked when the bind assembles it. */
             sha256: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A new blob stage and the upload sources for its first parts. */
         InitiateMultipartBlobStageResponse: {
             byteLength: number;
+            /** @description When the stage expires; an attachment bind must complete it before then. */
             expiresAt: string;
             organizationId: string;
+            /** @description One upload source per requested first part, in request order. */
             partUploads: components["schemas"]["MultipartBlobPartUpload"][];
             sha256: string;
             stageId: string;
+            /** @description Parts already uploaded. */
             uploadedParts: components["schemas"]["MultipartBlobStagePart"][];
+            /** @description Object-store multipart upload id; later part authorizations name it. */
             uploadId: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description Up to 32 container lanes to list documents for, each with its own watermark and page size (500 rows in total). */
         ListContainerDocumentLanesRequest: {
             lanes: {
                 containerId: string;
@@ -2454,14 +3024,18 @@ export type components = {
                 } | null;
             }[];
         };
+        /** @description One page of a container lane's documents. */
         ListContainerDocumentsResponse: {
             hasMore: boolean;
             items: components["schemas"]["ContainerDocumentSummaryResponse"][];
+            /** @description Position after this page's last row, or the request's watermark when the page is empty; keep it for the next incremental poll. `hasMore` says whether rows remain now. */
             nextWatermark: components["schemas"]["SyncWatermark"] | null;
+            /** @description Documents removed from the container in this page's range. */
             tombstones: components["schemas"]["ContainerDocumentSyncTombstoneResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description Up to four parent lanes to list, each with its own watermark and page size. */
         ListContainerParentLanesRequest: {
             lanes: {
                 laneId: string;
@@ -2473,21 +3047,27 @@ export type components = {
                 } | null;
             }[];
         };
+        /** @description One page per requested parent lane, in request order. */
         ListContainerParentLanesResponse: {
             results: {
                 laneId: string;
                 page: components["schemas"]["ListContainersResponse"];
             }[];
         };
+        /** @description One page of a parent lane's containers. */
         ListContainersResponse: {
             hasMore: boolean;
             items: components["schemas"]["ContainerSummaryResponse"][];
+            /** @description Position after this page's last row, or the request's watermark when the page is empty; keep it for the next incremental poll. `hasMore` says whether rows remain now. */
             nextWatermark: components["schemas"]["SyncWatermark"] | null;
+            /** @description Containers removed from the caller's view in this page's range. */
             tombstones: components["schemas"]["ContainerSyncTombstoneResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description A document's active attachment bindings. */
         ListDocumentAttachmentsResponse: components["schemas"]["BlobAttachmentSummary"][];
+        /** @description One page of a document's complete edit attribution. */
         ListDocumentEditAttributionRangesResponse: ({
             attributionRevision: number;
             documentId: string;
@@ -2507,22 +3087,27 @@ export type components = {
         } & {
             [key: string]: unknown;
         });
+        /** @description The signed-in user's live sessions. */
         ListSessionsResponse: {
             sessions: components["schemas"]["UserSessionResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description One encrypted part as the client will send it. */
         MultipartBlobPartDescriptor: {
             byteLength: number;
+            /** @description Base64 MD5 of the part's bytes; a signed upload URL is bound to it. */
             contentMd5: string;
             partNumber: number;
         };
+        /** @description One part's descriptor and where to send its bytes. */
         MultipartBlobPartUpload: {
             byteLength: number;
             contentMd5: string;
             partNumber: number;
             source: components["schemas"]["MultipartBlobPartUploadSource"];
         };
+        /** @description Where a part's bytes go: the API byte route (`kind: api`) for stores that cannot sign, or a short-lived URL that accepts exactly this part. */
         MultipartBlobPartUploadSource: {
             /** @constant */
             kind: "api";
@@ -2533,13 +3118,18 @@ export type components = {
             kind: "signed-url";
             url: string;
         };
+        /** @description A 409 for a blob stage. */
         MultipartBlobStageConflictErrorResponse: {
-            /** @constant */
+            /**
+             * @description `multipart_blob_stage_expired` when the stage expired, which permits starting a fresh one; uncoded conflicts are terminal.
+             * @constant
+             */
             code?: "multipart_blob_stage_expired";
             error: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description The blob stage, its upload, or its staged object no longer exists; only this coded 404 permits starting a fresh stage. */
         MultipartBlobStageNotFoundErrorResponse: {
             /** @constant */
             code: "multipart_blob_stage_not_found";
@@ -2547,25 +3137,31 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description One uploaded part of a blob stage. */
         MultipartBlobStagePart: {
             byteLength: number;
+            /** @description Object-store ETag confirming the part's bytes. */
             etag: string;
             partNumber: number;
         } & {
             [key: string]: unknown;
         };
+        /** @description A blob stage's progress, used to resume an interrupted upload. */
         MultipartBlobStageStatusResponse: {
             byteLength: number;
+            /** @description True once an attachment bind assembled and verified the object. */
             completed: boolean;
             expiresAt: string;
             organizationId: string;
             sha256: string;
             stageId: string;
+            /** @description Parts uploaded so far, with their ETags. */
             uploadedParts: components["schemas"]["MultipartBlobStagePart"][];
             uploadId: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description One recorded billing event of an organization. Amounts are in the currency's minor unit as the provider reported them. */
         OrganizationBillingHistoryEntry: {
             activeSeatCount: number | null;
             billingReason: string | null;
@@ -2588,47 +3184,68 @@ export type components = {
             /** @enum {string} */
             provider: "revenuecat" | "stripe" | "internal";
             seatCount: number | null;
+            /** @description Change in seats this event caused; negative for a reduction. */
             seatDelta: number | null;
             subscriptionId: string | null;
+            /** @description Amount actually charged, in `totalCurrency`. */
             totalAmount: number | null;
             totalCurrency: string | null;
             transactionId: string | null;
+            /** @description Price per billing period; for a recognized native grant, its canonical monthly USD list price. */
             unitAmount: number | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description An organization's billing events, newest first. */
         OrganizationBillingHistoryResponse: {
             entries: components["schemas"]["OrganizationBillingHistoryEntry"][];
             organizationId: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description Where an administrator manages a native store subscription. */
         OrganizationBillingManagementUrlResponse: {
+            /** @description App Store or Google Play management page, or null when there is no native subscription or the lookup failed. */
             managementUrl: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description An organization's sync billing snapshot: whether it may sync, its plan period, and its seats. */
         OrganizationBillingResponse: {
+            /** @description Members reachable through the signed `Members` group, as the server counts them. */
             activeMemberCount: number;
+            /** @description Members who hold a sync seat; always the length of `assignedUserIds`. */
             assignedSeatCount: number;
+            /** @description Members who may sync within the licensed seat count. */
             assignedUserIds: string[];
+            /** @description True when a Stripe subscription can be cancelled from the app, even while a native store owns billing. */
             canCancelDirectly: boolean;
             currentPeriodEndsAt: string | null;
             currentPeriodStartsAt: string | null;
+            /** @description True when the caller holds one of the sync seats. */
             currentUserHasSyncSeat: boolean;
+            /** @description When sync stopped because billing lapsed. */
             disabledAt: string | null;
             organizationId: string;
+            /** @description Seat count of a native plan change the store scheduled but has not applied yet. */
             pendingSeatCount: number | null;
             provider: "revenuecat" | null;
+            /** @description When a disabled organization's synced data becomes eligible for purge. */
             purgeAfter: string | null;
+            /** @description Licensed seats in the current paid period. */
             seatCount: number;
-            /** @enum {string} */
+            /**
+             * @description Billing state; it decides whether the organization may sync at all. A `local` organization is free and syncs nothing.
+             * @enum {string}
+             */
             status: "local" | "trialing" | "active" | "disabled" | "deleting" | "purged";
+            /** @description Store of record for the current or lapsed subscription, or null when nothing would conflict with a new purchase. */
             subscriptionSource: ("native" | "stripe") | null;
             trialEndsAt: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description How much an organization stores, by documents and blobs. */
         OrganizationDataUsageResponse: {
             blobs: {
                 blobCount: number;
@@ -2647,28 +3264,39 @@ export type components = {
                 updateCount: number;
             };
             organizationId: string;
+            /** @description Document plus blob bytes. */
             totalByteLength: number;
         };
+        /** @description One organization roster entry with the user's registered keys. Display names live in the encrypted profile document. */
         OrganizationDirectoryUserResponse: {
             createdAt: string;
             disabledAt: string | null;
+            /** @description Administrator who disabled the entry, or null. */
             disabledByUserId: string | null;
             encapsulationKeyFingerprint: string;
             encapsulationPublicKey: string;
+            /** @description True for the user whose personal organization this is; they cannot be removed from it. */
             isPersonalOrganizationOwner: boolean;
+            /** @description True for the caller's own entry. */
             isSelf: boolean;
             joinedAt: string;
+            /** @description The member's pending signed request to leave, shown only to administrators and the member. */
             leaveRequest: components["schemas"]["OrganizationLeaveRequest"] | null;
+            /** @description Encrypted roster profile document, or null. */
             profileDocumentId: string | null;
             signingKeyFingerprint: string;
             signingPublicKey: string;
-            /** @enum {string} */
+            /**
+             * @description `active` members have access; `disabled` entries stay visible without access.
+             * @enum {string}
+             */
             status: "active" | "disabled";
             updatedAt: string;
             userId: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A group's current policy head. */
         OrganizationGroupCurrentStateResponse: {
             keyEpoch: number;
             keyFingerprint: string;
@@ -2678,6 +3306,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description One member of a group, with their registered keys when known. */
         OrganizationGroupMemberResponse: {
             encapsulationKeyFingerprint: string | null;
             encapsulationPublicKey: string | null;
@@ -2689,6 +3318,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description The members of a group from its current signed policy. */
         OrganizationGroupMembersResponse: {
             groupId: string;
             members: components["schemas"]["OrganizationGroupMemberResponse"][];
@@ -2696,10 +3326,12 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A group of an organization and its current head. */
         OrganizationGroupSummaryResponse: {
             createdAt: string;
             currentState: components["schemas"]["OrganizationGroupCurrentStateResponse"] | null;
             groupId: string;
+            /** @description True for the reserved `Admins` and `Members` groups. */
             isBuiltin: boolean;
             organizationId: string;
         } & {
@@ -2718,19 +3350,25 @@ export type components = {
             signature: string;
             userId: string;
         };
+        /** @description One organization the caller belongs to, as the caller's own settings for it; it grants nothing. */
         OrganizationMembershipResponse: {
+            /** @description True for the caller's personal organization, which can be neither paused nor left. */
             isPersonalOrganizationOwner: boolean;
+            /** @description When the caller asked to leave, or null. */
             leaveRequestedAt: string | null;
             organizationId: string;
+            /** @description True when the caller paused this organization's sync to their devices. */
             syncPaused: boolean;
         } & {
             [key: string]: unknown;
         };
+        /** @description Every organization where the caller has an active roster entry. */
         OrganizationMembershipsResponse: {
             memberships: components["schemas"]["OrganizationMembershipResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description Whether the caller may start a native store purchase for the organization, and why not when refused. */
         OrganizationNativePurchaseEligibilityResponse: ({
             /** @constant */
             eligible: true;
@@ -2745,15 +3383,19 @@ export type components = {
         } & {
             [key: string]: unknown;
         });
+        /** @description A page of an organization's signed policy history up to an exact head. Signed evidence only; clients resolve display names themselves. */
         OrganizationPolicyHistoryResponse: {
             beforeVersion: number;
             evidence: components["schemas"]["ProjectionPolicyEvidenceResponse"];
+            /** @description Cursor for the next page, or null on the last page. */
             nextBeforeVersion: number | null;
             organizationId: string;
+            /** @description The organization head the history ends at. */
             stateHash: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description The caller may not see this organization's data. */
         OrganizationPresentationFailureResponse: {
             /** @constant */
             code: "organization_presentation_access_denied";
@@ -2761,7 +3403,9 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description The organization's next signed principal policy state, including its signed directory of group heads. */
         OrganizationPrincipalPolicyRequest: {
+            /** @description Container mutations committed atomically with the state. */
             containerMutations?: components["schemas"]["ContainerMutationRequest"][];
             encryptedPayload: {
                 /** @constant */
@@ -2772,6 +3416,7 @@ export type components = {
                 [key: string]: unknown;
             };
             grants: components["schemas"]["PrincipalContainerGrantRequest"][];
+            /** @description The new key epoch's key, encapsulated to each member. */
             memberEnvelopes: ({
                 kemCipherText: string;
                 memberKeyFingerprint: string;
@@ -2780,6 +3425,7 @@ export type components = {
             } & {
                 [key: string]: unknown;
             })[];
+            /** @description The complete membership with roles after this state. */
             projection: ({
                 /** @enum {string} */
                 role: "member" | "admin";
@@ -2826,19 +3472,25 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description The organization's encrypted profile document binding. */
         OrganizationProfileResponse: {
             organizationId: string;
             profileDocumentId: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description A refused read-model request. */
         OrganizationReadModelFailureResponse: {
-            /** @constant */
+            /**
+             * @description Present only when the API identified the cursor as invalid, which lets the client discard it and request a snapshot.
+             * @constant
+             */
             code?: "organization_read_model_cursor_invalid";
             error: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A page of the organization read model: an atomic snapshot when the request had no cursor, otherwise only the lanes changed since it. Display data only, never authority. */
         OrganizationReadModelResponse: {
             currentUser: {
                 isOrgAdmin: boolean;
@@ -3035,6 +3687,7 @@ export type components = {
             /** @constant */
             version: 6;
         };
+        /** @description An identity's signed statement that one fresh personal organization replaces a purged one, binding the new organization's root and reserved group heads. */
         OrganizationReplacementAuthorization: {
             adminGroupId: string;
             adminGroupStateHash: string;
@@ -3046,17 +3699,24 @@ export type components = {
             rootContainerId: string;
             rootManifestHash: string;
             rootMetadataDocumentId: string;
+            /** @description The identity's ML-DSA-87 signature over the other fields. */
             signature: string;
             userId: string;
         };
+        /** @description The 402 a sync write gets when its organization cannot sync. */
         PaymentRequiredErrorResponse: {
             error: string;
+            /** @description Organization whose billing refused the write. */
             organizationId: string;
-            /** @enum {string} */
+            /**
+             * @description `billing_inactive` when the organization has no active plan; `sync_seat_unassigned` when the caller holds no sync seat.
+             * @enum {string}
+             */
             reason: "billing_inactive" | "sync_seat_unassigned";
         } & {
             [key: string]: unknown;
         };
+        /** @description One container grant in a principal's grant list. */
         PrincipalContainerGrantRequest: {
             /** @enum {string} */
             accessLevel: "admin" | "read" | "write";
@@ -3064,6 +3724,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description One container grant a principal holds. */
         PrincipalContainerGrantResponse: {
             /** @enum {string} */
             accessLevel: "admin" | "read" | "write";
@@ -3071,6 +3732,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A 503. Only with code `principal_history_preparation_unavailable` and `committed: false` does it prove nothing was written; any other 503 has an unknown outcome. */
         PrincipalHistoryPreparationFailureResponse: {
             /** @enum {string} */
             code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity" | "principal_history_preparation_unavailable";
@@ -3079,27 +3741,36 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A 202: the operation rolled back while the server prepares principal history. Retry the identical request. */
         PrincipalHistoryPreparationResponse: {
             /** @constant */
             code: "principal_history_preparation_pending";
             /** @constant */
             committed: false;
+            /** @description Changes when preparation advances; clients stop after three identical tokens in a row. */
             progressToken: string;
         };
+        /** @description A member envelope: the principal's key for one key epoch, encapsulated to one member's key. */
         PrincipalMemberEnvelopeResponse: {
+            /** @description ML-KEM-1024 encapsulation to the member's public key. */
             kemCipherText: string;
+            /** @description Fingerprint of the member key the envelope targets. */
             memberKeyFingerprint: string;
             userId: string;
+            /** @description The principal's key for this epoch, encrypted under the encapsulated secret. */
             wrappedKey: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description Where a client may read one principal's public history: a head and the opaque grant that authorizes the read. */
         PrincipalPolicyHistorySourceResponse: {
+            /** @description Opaque read grant bound to the caller, an object they can read, and this head; it is not verification evidence. */
             grant: string;
             head: components["schemas"]["ReferencedPrincipalStateResponse"];
         } & {
             [key: string]: unknown;
         };
+        /** @description A principal's current policy after a write, with acknowledgements of the container mutations committed with it. */
         PrincipalPolicyMutationResponse: {
             containerMutations: components["schemas"]["ContainerMutationResponse"][];
             currentGrants: components["schemas"]["PrincipalContainerGrantResponse"][];
@@ -3110,12 +3781,14 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A page of one principal policy chain: the current state with its payload, membership, grants, and member envelopes, plus predecessor states. */
         PrincipalPolicyPageResponse: {
             currentGrants: components["schemas"]["PrincipalContainerGrantResponse"][];
             currentMemberEnvelopes: components["schemas"]["CurrentPrincipalMemberEnvelopesResponse"];
             currentPayload: components["schemas"]["PrincipalStatePayloadResponse"];
             currentProjection: components["schemas"]["PrincipalProjectionMemberResponse"][];
             currentState: components["schemas"]["PrincipalStateResponse"];
+            /** @description Which predecessor versions this page covers and where the next page starts. */
             historyPage: {
                 afterVersion: number;
                 nextAfterVersion: number | null;
@@ -3126,21 +3799,27 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A principal policy page, or the short unchanged reply to a conditional read. */
         PrincipalPolicyReadResponse: components["schemas"]["PrincipalPolicyPageResponse"] | components["schemas"]["PrincipalPolicyUnchangedResponse"];
+        /** @description Cites the principal policy head a mutation was planned against, instead of resending the signed policy; the API refuses it as stale unless it is the current head. */
         PrincipalPolicyRef: {
             principalId: string;
             /** @enum {string} */
             principalType: "group" | "organization";
+            /** @description Hash of the signed state, which commits to its membership projection and grants. */
             stateHash: string;
             version: number;
         } & {
             [key: string]: unknown;
         };
+        /** @description The principal policy heads a container mutation was planned against. */
         PrincipalPolicyRefList: components["schemas"]["PrincipalPolicyRef"][];
+        /** @description A page of public signed policy history, without encrypted payloads or member envelopes. */
         PrincipalPolicySnapshotPageResponse: {
             currentGrants: components["schemas"]["PrincipalContainerGrantResponse"][];
             currentProjection: components["schemas"]["PrincipalProjectionMemberResponse"][];
             currentState: components["schemas"]["PrincipalStateResponse"];
+            /** @description Which predecessor versions this page covers and where the next page starts. */
             historyPage: {
                 afterVersion: number;
                 nextAfterVersion: number | null;
@@ -3151,14 +3830,17 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A 409 because a cited principal policy is no longer current. */
         PrincipalPolicyStaleErrorResponse: {
             /** @constant */
             code: "principal_policy_stale";
             error: string;
+            /** @description Current heads of the cited principals that the caller may read. */
             principalHeads: components["schemas"]["ReferencedPrincipalStateResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description A predecessor state with its membership and grants, so clients can verify the chain step by step. */
         PrincipalPolicyStateChainEntryResponse: {
             grants: components["schemas"]["PrincipalContainerGrantResponse"][];
             projection: components["schemas"]["PrincipalProjectionMemberResponse"][];
@@ -3166,11 +3848,13 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description The answer to a conditional read whose named head is still current. It is not evidence; the client verifies the head it already holds. */
         PrincipalPolicyUnchangedResponse: {
             head: components["schemas"]["ReferencedPrincipalStateResponse"];
             /** @constant */
             unchanged: true;
         };
+        /** @description One member of a principal and their role. */
         PrincipalProjectionMemberResponse: {
             /** @enum {string} */
             role: "member" | "admin";
@@ -3178,6 +3862,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Cites the exact `Admins` group head that authorized a state of an organization-administered group. */
         PrincipalStateExternalAuthorityResponse: {
             keyEpoch: number;
             keyFingerprint: string;
@@ -3189,10 +3874,12 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A principal state's encrypted payload, which only members can read; the signed state commits to its hash. */
         PrincipalStatePayloadResponse: {
             /** @constant */
             cipherSuite: "aes-256-gcm";
             ciphertext: string;
+            /** @description Hash of `ciphertext`; the signed state commits to it. */
             ciphertextHash: string;
             createdAt: string;
             principalId: string;
@@ -3202,34 +3889,52 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description One signed state in a principal policy chain: it commits to the principal's membership, grants, key epoch, encrypted payload, signer, and predecessor. */
         PrincipalStateResponse: {
             createdAt: string;
+            /** @description The principal's public key at this key epoch; key material for the principal is wrapped to it. */
             encapsulationPublicKey: string;
+            /** @description For a group administered by the organization, the exact `Admins` head that authorized this state; null when the state's own policy authorized it. */
             externalAuthority: components["schemas"]["PrincipalStateExternalAuthorityResponse"] | null;
+            /** @description Number of container grants the principal holds. */
             grantCount: number;
+            /** @description Digest of the sorted container grants; with `grantCount` it authenticates the complete grant list. */
             grantRoot: string;
+            /** @description The principal's key epoch; envelopes and wraps name the epoch they were made for. */
             keyEpoch: number;
+            /** @description Fingerprint of `encapsulationPublicKey`. */
             keyFingerprint: string;
             memberCount: number;
+            /** @description Digest committing to every member envelope of this key epoch. */
             memberEnvelopesRoot: string;
-            /** @constant */
+            /**
+             * @description Always `projection`: membership is the signed projection list.
+             * @constant
+             */
             membershipMode: "projection";
             membershipRoot: string;
+            /** @description Hash of the state's encrypted payload. */
             payloadCiphertextHash: string;
+            /** @description Hash of the previous state, or null for the first. */
             prevStateHash: string | null;
             principalId: string;
             /** @enum {string} */
             principalType: "group" | "organization";
             projectionRoot: string;
+            /** @description ML-DSA-87 signature over the canonical state. */
             signature: string;
             signedAt: string;
             signerUserId: string;
+            /** @description Signing key fingerprint of the signer. */
             signerUserKeyFingerprint: string;
+            /** @description Hash of this signed state; other objects cite the head by it. */
             stateHash: string;
+            /** @description Position in the chain, starting at 1. */
             version: number;
         } & {
             [key: string]: unknown;
         };
+        /** @description Public principal policy history that a projection's manifests depend on, as read sources plus the signed directory payloads they need. */
         ProjectionPolicyEvidenceResponse: {
             groups: components["schemas"]["PrincipalPolicyHistorySourceResponse"][];
             organization: components["schemas"]["PrincipalPolicyHistorySourceResponse"] | null;
@@ -3242,6 +3947,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A document created during provisioning, with its first update. */
         ProvisionedDocumentRequest: {
             authorizingContainerPathRefs?: components["schemas"]["ContainerManifestRefArrayArray"];
             body: unknown;
@@ -3251,6 +3957,7 @@ export type components = {
                 [key: string]: unknown;
             };
             expectedManifestHash: string;
+            /** @description The document's first update, committed with the provisioning. */
             initialSync: components["schemas"]["DocumentSyncRequest"];
             manifest: {
                 [key: string]: unknown;
@@ -3259,8 +3966,10 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A system container created during provisioning, with its metadata document. */
         ProvisionedSystemContainerRequest: {
             container: components["schemas"]["ContainerMutationRequest"];
+            /** @description The metadata document's first update, committed with the provisioning. */
             initialMetadataSync: components["schemas"]["DocumentSyncRequest"];
             metadataDocument: {
                 authorizingContainerPathRefs?: components["schemas"]["ContainerManifestRefArrayArray"];
@@ -3278,12 +3987,16 @@ export type components = {
             } & {
                 [key: string]: unknown;
             };
+            /** @description Opaque id of the container's system role. */
             systemSlot?: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description The next signed state of a principal policy with everything it commits to. */
         PutPrincipalPolicyRequest: {
+            /** @description Container mutations that move the principal's grants to the new key epoch, committed atomically with it. */
             containerMutations?: components["schemas"]["ContainerMutationRequest"][];
+            /** @description Encrypted payload, such as the group's name. */
             encryptedPayload: {
                 /** @constant */
                 cipherSuite: "aes-256-gcm";
@@ -3292,7 +4005,9 @@ export type components = {
             } & {
                 [key: string]: unknown;
             };
+            /** @description The principal's complete container grant list after this state. */
             grants: components["schemas"]["PrincipalContainerGrantRequest"][];
+            /** @description The new key epoch's key, encapsulated to each member. */
             memberEnvelopes: ({
                 kemCipherText: string;
                 memberKeyFingerprint: string;
@@ -3301,6 +4016,7 @@ export type components = {
             } & {
                 [key: string]: unknown;
             })[];
+            /** @description The complete membership with roles after this state. */
             projection: ({
                 /** @enum {string} */
                 role: "member" | "admin";
@@ -3308,6 +4024,7 @@ export type components = {
             } & {
                 [key: string]: unknown;
             })[];
+            /** @description The signed state. */
             state: {
                 encapsulationPublicKey: string;
                 externalAuthority: ({
@@ -3347,6 +4064,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Identifies one principal policy head by version, state hash, and key epoch. */
         ReferencedPrincipalStateResponse: {
             keyEpoch: number;
             keyFingerprint: string;
@@ -3358,7 +4076,9 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A new identity's public keys plus every signed artifact that bootstraps its personal organization, all created atomically. */
         RegistrationRequest: {
+            /** @description Base64 ML-KEM-1024 public key that key material is wrapped to. */
             encapsulationPublicKey: string;
             initialAdminGroup: components["schemas"]["CreateOrganizationGroupRequest"];
             initialMemberGroup: components["schemas"]["CreateOrganizationGroupRequest"];
@@ -3369,17 +4089,23 @@ export type components = {
             initialRootMetadataDocument: components["schemas"]["ProvisionedDocumentRequest"];
             initialRosterProfileContainer?: components["schemas"]["ProvisionedSystemContainerRequest"];
             initialRosterProfileDocument?: components["schemas"]["ProvisionedDocumentRequest"];
+            /** @description The organization's other system containers, such as Trash, each with its metadata document. */
             initialSystemContainers?: components["schemas"]["ProvisionedSystemContainerRequest"][];
             organizationId: string;
             rootContainerId: string;
+            /** @description Base64 ML-DSA-87 public key that signs the identity's events and sign-in challenges. */
             signingPublicKey: string;
             userId: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a registration by the ids and hashes of what it created, plus a sign-in challenge. */
         RegistrationResponse: {
+            /** @description Sign-in challenge to sign and send to `POST /auth/verify`, so the new identity can sign in without another request. */
             challenge: string;
+            /** @description Ids of the seeded metadata updates the server committed with the provisioning. */
             committedCoreMetadataUpdateIds: string[];
+            /** @description Ids of the seeded profile updates the server committed with the provisioning. */
             committedProfileUpdateIds: string[];
             organizationId: string;
             organizationMetadataContainer: components["schemas"]["ContainerCreateWithMetadataDocumentResponse"];
@@ -3387,7 +4113,9 @@ export type components = {
             organizationProfileDocument?: components["schemas"]["DocumentCreateResponse"];
             organizationProfileDocumentId?: string;
             rootContainerId: string;
+            /** @description Access epoch of the root container's metadata document. */
             rootMetadataAccessEpoch: number;
+            /** @description Access state hash of the root container's metadata document. */
             rootMetadataAccessStateHash: string;
             rootMetadataDocument: components["schemas"]["DocumentCreateResponse"];
             rootMetadataDocumentId: string;
@@ -3400,31 +4128,39 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A RevenueCat event: either a subscription lifecycle event or a receipt transfer. */
         RevenueCatIncomingWebhookEvent: components["schemas"]["RevenueCatTransferWebhookEvent"] | components["schemas"]["RevenueCatWebhookEvent"];
+        /** @description One RevenueCat subscriber attribute; a cleared value is null. */
         RevenueCatSubscriberAttribute: {
             value: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description A RevenueCat receipt transfer, which moves a store purchase between App User IDs. */
         RevenueCatTransferWebhookEvent: {
             environment?: string | null;
             event_timestamp_ms: number;
             id: string;
             store?: string | null;
+            /** @description App User IDs that held the purchase before. */
             transferred_from: string[];
+            /** @description App User IDs that hold the purchase now. */
             transferred_to: string[];
             /** @constant */
             type: "TRANSFER";
         } & {
             [key: string]: unknown;
         };
+        /** @description A RevenueCat subscription lifecycle event, as far as organization billing reads it. */
         RevenueCatWebhookEvent: {
+            /** @description RevenueCat App User ID, which is the Tearleads user id that made the purchase. */
             app_user_id: string;
             currency?: string | null;
             entitlement_ids?: string[];
             environment?: string | null;
             event_timestamp_ms: number;
             expiration_at_ms?: number | null;
+            /** @description RevenueCat event id; a repeated delivery of the same id is a duplicate. */
             id: string;
             metadata?: {
                 [key: string]: string | number | boolean | null;
@@ -3436,6 +4172,7 @@ export type components = {
             product_id?: string | null;
             purchased_at_ms?: number | null;
             store?: string | null;
+            /** @description RevenueCat subscriber attributes; the server does not trust them to choose an organization. */
             subscriber_attributes?: {
                 [key: string]: components["schemas"]["RevenueCatSubscriberAttribute"];
             };
@@ -3444,40 +4181,56 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description The envelope RevenueCat posts to the billing webhook. */
         RevenueCatWebhookRequest: {
             api_version?: string;
             event: components["schemas"]["RevenueCatIncomingWebhookEvent"];
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a RevenueCat delivery. */
         RevenueCatWebhookResponse: {
-            /** @enum {string} */
+            /**
+             * @description `applied` when billing changed, `duplicate` for an event id already handled, `ignored` when it needed no change.
+             * @enum {string}
+             */
             outcome: "applied" | "duplicate" | "ignored";
             /** @constant */
             received: true;
         } & {
             [key: string]: unknown;
         };
+        /** @description One recorded operator action. */
         RootAuditEventResponse: {
+            /** @description Operation id of the request, or the CLI action that changed an operator flag. */
             action: string;
+            /** @description Signing key of the acting operator; null when the API CLI acted. */
             actorSigningKeyFingerprint: string | null;
+            /** @description The acting operator; null when the API CLI acted. */
             actorUserId: string | null;
+            /** @description Listing filters as a sorted query string; null when none applied. */
             filter: string | null;
             id: string;
             occurredAt: string;
             sourceIpAddress: string | null;
+            /** @description Organization the action looked up or changed, when it named one. */
             targetOrganizationId: string | null;
+            /** @description Identity the action looked up or changed, when it named one. */
             targetUserId: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description A page of recorded operator actions, newest first. */
         RootAuditEventsResponse: {
             events: components["schemas"]["RootAuditEventResponse"][];
+            /** @description Opaque cursor for the next page, or null at the end. */
             nextCursor: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description A page of stored data usage by organization. */
         RootDataUsageReportResponse: {
+            /** @description Opaque cursor for the next page, or null at the end. */
             nextCursor: string | null;
             organizations: ({
                 dataUsage: components["schemas"]["OrganizationDataUsageResponse"];
@@ -3488,18 +4241,22 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A page of registered identities, newest first. */
         RootIdentitiesResponse: {
             identities: components["schemas"]["RootIdentitySummaryResponse"][];
+            /** @description Opaque cursor for the next page, or null at the end. */
             nextCursor: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description One identity with its live sessions. */
         RootIdentityDetailResponse: {
             identity: components["schemas"]["RootIdentitySummaryResponse"];
             sessions: components["schemas"]["RootIdentitySessionResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description The billing standing of one organization in an identity's list. */
         RootIdentityOrganizationBillingResponse: {
             currentPeriodEndsAt: string | null;
             disabledAt: string | null;
@@ -3513,9 +4270,12 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description One organization of an inspected identity, with the identity's roster entry there. */
         RootIdentityOrganizationResponse: {
+            /** @description The organization's billing standing; null only when it has no billing row. */
             billing: components["schemas"]["RootIdentityOrganizationBillingResponse"] | null;
             createdAt: string;
+            /** @description True for the identity's personal organization. */
             isDefaultOrganization: boolean;
             organizationId: string;
             roster: {
@@ -3531,11 +4291,13 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description The organizations an identity belongs to. */
         RootIdentityOrganizationsResponse: {
             organizations: components["schemas"]["RootIdentityOrganizationResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description A live session of the inspected identity. */
         RootIdentitySessionResponse: {
             createdAt: string;
             id: string;
@@ -3546,25 +4308,33 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description An operator's view of one registered identity. */
         RootIdentitySummaryResponse: {
             createdAt: string;
+            /** @description The identity's personal organization. */
             defaultOrganizationId: string;
+            /** @description True for a platform operator. */
             isRoot: boolean;
             lastActiveAt: string | null;
+            /** @description IP address the identity registered from, when recorded. */
             registrationSourceIpAddress: string | null;
             signingKeyFingerprint: string;
+            /** @description When an operator suspended the identity, or null. */
             suspendedAt: string | null;
             userId: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description The identity after a suspension was placed or lifted. */
         RootIdentitySuspensionResponse: {
             identity: components["schemas"]["RootIdentitySummaryResponse"];
         } & {
             [key: string]: unknown;
         };
+        /** @description Billing maintenance trouble across organizations. Each section lists at most a bounded number of rows and says when it was truncated. */
         RootOpsHealthReportResponse: {
             generatedAt: string;
+            /** @description Purges past due to start, or started with a lapsed lease. */
             purges: {
                 rows: ({
                     organizationId: string;
@@ -3579,6 +4349,7 @@ export type components = {
             } & {
                 [key: string]: unknown;
             };
+            /** @description Disabled organizations whose purge falls due soon. */
             purgesDue: {
                 rows: ({
                     disabledAt: string | null;
@@ -3591,6 +4362,7 @@ export type components = {
             } & {
                 [key: string]: unknown;
             };
+            /** @description Stripe seat syncs that are failing, overdue, or hold a lapsed lease, in retry order. */
             seatSync: {
                 rows: ({
                     appliedRevision: number;
@@ -3609,6 +4381,7 @@ export type components = {
             } & {
                 [key: string]: unknown;
             };
+            /** @description Ended trials the expiry sweep failed on or has not reached in time. */
             trialExpiry: {
                 rows: ({
                     attemptCount: number;
@@ -3624,6 +4397,7 @@ export type components = {
             } & {
                 [key: string]: unknown;
             };
+            /** @description Trials ending soon, soonest first. */
             trialsEnding: {
                 rows: ({
                     organizationId: string;
@@ -3638,6 +4412,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description One organization's group bindings, roster counts, stored billing, Stripe binding, and recent billing events. */
         RootOrganizationDetailResponse: {
             billing: ({
                 createdAt: string;
@@ -3661,6 +4436,7 @@ export type components = {
             } & {
                 [key: string]: unknown;
             }) | null;
+            /** @description The 50 most recent billing events. */
             history: components["schemas"]["OrganizationBillingHistoryEntry"][];
             organization: components["schemas"]["RootOrganizationSummaryResponse"];
             overview: {
@@ -3693,12 +4469,15 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A page of an organization's roster identities, disabled entries included. */
         RootOrganizationIdentitiesResponse: {
             identities: components["schemas"]["RootOrganizationIdentityResponse"][];
+            /** @description Opaque cursor for the next page, or null at the end. */
             nextCursor: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description One roster identity of an inspected organization. */
         RootOrganizationIdentityResponse: {
             identity: components["schemas"]["RootIdentitySummaryResponse"];
             roster: {
@@ -3714,6 +4493,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description One RevenueCat delivery as an organization saw it. */
         RootOrganizationRevenuecatEventResponse: {
             appUserId: string;
             createdAt: string;
@@ -3731,7 +4511,10 @@ export type components = {
             priceInPurchasedCurrencyMinor: number | null;
             productId: string | null;
             purchasedAt: string | null;
-            /** @enum {string} */
+            /**
+             * @description `target` when the delivery resolved to this organization; `source` when a transfer moved the purchase away from it.
+             * @enum {string}
+             */
             role: "target" | "source";
             sourceOrganizationId: string | null;
             store: string | null;
@@ -3739,18 +4522,23 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A page of an organization's RevenueCat deliveries, newest first by event time. */
         RootOrganizationRevenuecatEventsResponse: {
             events: components["schemas"]["RootOrganizationRevenuecatEventResponse"][];
+            /** @description Opaque cursor for the next page, or null at the end. */
             nextCursor: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description A page of organizations, newest first. */
         RootOrganizationsResponse: {
+            /** @description Opaque cursor for the next page, or null at the end. */
             nextCursor: string | null;
             organizations: components["schemas"]["RootOrganizationSummaryResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description An operator's view of one organization; names are encrypted, so none is shown. */
         RootOrganizationSummaryResponse: {
             billingStatus: ("local" | "trialing" | "active" | "disabled" | "deleting" | "purged") | null;
             createdAt: string;
@@ -3758,6 +4546,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description One stored RevenueCat webhook delivery. */
         RootRevenuecatEventResponse: {
             appUserId: string;
             createdAt: string;
@@ -3768,103 +4557,138 @@ export type components = {
             eventType: string;
             expirationAt: string | null;
             id: string;
+            /** @description Organization the delivery resolved to, or null when it matched none. */
             organizationId: string | null;
             originalTransactionId: string | null;
+            /** @description What the handler did with it. */
             outcome: string;
             periodType: string | null;
+            /** @description Price in the purchase currency's minor unit. */
             priceInPurchasedCurrencyMinor: number | null;
             productId: string | null;
             purchasedAt: string | null;
+            /** @description For a transfer, the organization the purchase moved away from. */
             sourceOrganizationId: string | null;
             store: string | null;
             transactionId: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description A page of RevenueCat deliveries that matched no organization or that the handler ignored. */
         RootRevenuecatEventsReportResponse: {
             events: components["schemas"]["RootRevenuecatEventResponse"][];
+            /** @description Opaque cursor for the next page, or null at the end. */
             nextCursor: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description A 401 from a route that needs a session. */
         SessionFailureResponse: {
-            /** @constant */
+            /**
+             * @description `session_refresh_required` only when the server positively identified a stale or invalid session; other 401s carry no code.
+             * @constant
+             */
             code?: "session_refresh_required";
             error: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description The result of cancelling a Stripe subscription at period end. */
         StripeCancelResponse: {
+            /** @description Unix time in seconds when sync ends, or null when the subscription was already cancelling. */
             cancelAt: number | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description What Stripe's Payment Element needs to confirm one subscription purchase. */
         StripeCheckoutIntentResponse: {
+            /** @description Stripe PaymentIntent client secret; pass it only to Stripe.js. */
             clientSecret: string;
             subscriptionId: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description The Stripe plans offered for the organization's current roster size. */
         StripeCheckoutOptionsResponse: {
             options: components["schemas"]["StripeSyncOptionResponse"][];
         } & {
             [key: string]: unknown;
         };
+        /** @description A hosted Stripe Checkout page. */
         StripeCheckoutSessionResponse: {
+            /** @description Checkout URL, or null when Stripe checkout is not configured. */
             url: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description A Stripe customer portal page. */
         StripePortalResponse: {
+            /** @description Portal URL, or null when Stripe is not configured or the organization has no live Stripe subscription. */
             portalUrl: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description Where Stripe sends the browser back after a hosted flow. */
         StripeReturnUrlRequest: {
+            /** @description Absolute HTTP(S) URL on one of the app origins the server allows. */
             returnUrl: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description One Stripe plan the organization can buy, shaped for the billing panel. */
         StripeSyncOptionResponse: {
             currency: string;
             interval: string | null;
+            /** @description Number of intervals in one billing period, or null when Stripe omits it. */
             intervalCount: number | null;
             priceId: string;
             productName: string;
+            /** @description Most members the plan covers. */
             seatLimit: number;
             /** @enum {string} */
             tierId: "solo" | "team_5" | "team_10";
+            /** @description Price in the currency's minor unit, or null when Stripe has no price. */
             unitAmount: number | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges a Stripe delivery. */
         StripeWebhookResponse: {
-            /** @enum {string} */
+            /**
+             * @description `associated` when a first paid invoice bound the subscription, `reconciled` when a renewal refreshed it, `ignored` otherwise.
+             * @enum {string}
+             */
             outcome: "associated" | "ignored" | "reconciled";
             /** @constant */
             received: true;
         } & {
             [key: string]: unknown;
         };
+        /** @description The last row a listing page returned, by update time and id; the next page starts after it. */
         SyncWatermark: {
             id: string;
             updatedAt: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description The caller's own setting for one organization they belong to. */
         UpdateOrganizationMembershipRequest: {
+            /** @description True to stop this organization's content syncing to the caller's devices; access and keys are unchanged. */
             syncPaused: boolean;
         };
+        /** @description Binds or clears the organization's encrypted profile document. */
         UpdateOrganizationProfileRequest: {
             profileDocumentId: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description Binds or clears a roster entry's encrypted profile document. */
         UpdateOrganizationRosterEntryRequest: {
             profileDocumentId: string | null;
         } & {
             [key: string]: unknown;
         };
+        /** @description Confirms a part uploaded through the API byte route. */
         UploadMultipartBlobPartResponse: {
             part: components["schemas"]["MultipartBlobStagePart"];
             stageId: string;
@@ -3872,30 +4696,44 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A user's registered public keys. Clients trust them only after matching an identity link or an existing identity pin. */
         UserIdentityResponse: {
+            /** @description SHA-256 fingerprint of `encapsulationPublicKey`. */
             encapsulationKeyFingerprint: string;
+            /** @description Base64 ML-KEM-1024 public key. */
             encapsulationPublicKey: string;
+            /** @description SHA-256 fingerprint of `signingPublicKey`. */
             signingKeyFingerprint: string;
+            /** @description Base64 ML-DSA-87 public key. */
             signingPublicKey: string;
             userId: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description One of the signed-in user's live sessions. */
         UserSessionResponse: {
             createdAt: string;
+            /** @description Session id, used to sign the session out. */
             id: string;
+            /** @description IP addresses the session has been used from. */
             ipAddresses: string[];
+            /** @description True for the session that made this request. */
             isCurrent: boolean;
             lastActiveAt: string;
             lastActiveIp: string | null;
+            /** @description Fingerprint of the signing key that opened the session. */
             signingKeyFingerprint: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A refused sign-in. */
         VerifyFailureResponse: {
             /** @constant */
             authenticated: false;
-            /** @constant */
+            /**
+             * @description `account_suspended` when the signature was valid but an operator suspended the account; treat it as terminal.
+             * @constant
+             */
             code?: "account_suspended";
             error?: string;
             isRoot?: unknown;
@@ -3907,27 +4745,38 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Proves possession of an identity's signing key by signing the sign-in challenge. */
         VerifyRequest: {
+            /** @description Fingerprint the challenge was issued for. */
             fingerprint: string;
+            /** @description Base64 ML-DSA-87 signature over the challenge, bound to the API origin and fingerprint. */
             signature: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A successful sign-in: the new session's bearer token and where the user's data starts. */
         VerifySuccessResponse: {
             /** @constant */
             authenticated: true;
             code?: unknown;
             error?: unknown;
+            /** @description True for a platform operator; it only reveals the root console, and the API enforces root access itself. */
             isRoot: boolean;
+            /** @description The user's default organization. */
             organizationId: string;
+            /** @description Root container of the default organization, or null after that organization was purged; clients verify its role from signed state. */
             rootContainerId: string | null;
+            /** @description Bearer token for the `Authorization` header of later requests. */
             token: string;
             userId: string;
+            /** @description Single-use ticket for this session's first WebSocket connection. */
             wsTicket: string;
         } & {
             [key: string]: unknown;
         };
+        /** @description A single-use ticket for one WebSocket connection to the realtime hint gateway. */
         WebSocketTicketResponse: {
+            /** @description Opaque ticket, passed in the WebSocket upgrade URL and deleted on first use. */
             ticket: string;
         } & {
             [key: string]: unknown;
