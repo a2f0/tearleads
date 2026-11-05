@@ -7,7 +7,6 @@ import {
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
-  computeKeyingDomainHash,
   KeyingVerificationError,
   type WriteHeader,
 } from "@tearleads/crypto";
@@ -15,6 +14,7 @@ import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../../test/helpers/authenticate";
 import { createSignedDocumentSyncRequest } from "../../../../test/helpers/documentUpdateRequests";
+import { hashOf } from "../../../../test/helpers/keyingLabelHash";
 import {
   bootstrapRoot,
   createDocument,
@@ -34,12 +34,6 @@ const notVerbatim = new KeyingVerificationError(
   "invalid_shape",
   "Stored write header does not preserve the signed header verbatim",
 );
-
-async function hashOf(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
-    label,
-  });
-}
 
 /** What a store that keeps only whole seconds would hand back. */
 function dropMilliseconds(header: WriteHeader): WriteHeader {

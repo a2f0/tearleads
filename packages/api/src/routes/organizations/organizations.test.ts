@@ -4,7 +4,6 @@ import {
   groups as groupsTable,
   organizationRosterEntries,
   organizations,
-  users,
 } from "@tearleads/api-shared/schema";
 import { toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -20,7 +19,6 @@ import {
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { seedOrganizationDataUsage } from "../../../test/helpers/organizationDataUsage";
@@ -31,23 +29,10 @@ import {
 import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
 import { loadOrganizationMetadataContainerId } from "../../../test/helpers/organizationMetadataContainer";
 import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 import { upsertActiveOrganizationRosterEntries } from "../../workflows/organizations/roster";
-
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
 
 async function loadOrganizationReadModelSnapshot(
   actor: TestUser,
@@ -68,7 +53,7 @@ async function loadOrganizationReadModelSnapshot(
 
 test("organization read model includes the current org directory", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const snapshot = await loadOrganizationReadModelSnapshot(
     actor,
     organizationId,
@@ -87,7 +72,7 @@ test("organization read model includes the current org directory", async () => {
 
 test("roster reconcile does not churn updatedAt for unchanged active members", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
 
   const rosterEntryWhere = and(
     eq(organizationRosterEntries.organizationId, organizationId),
@@ -169,9 +154,9 @@ test("roster reconcile does not churn updatedAt for unchanged active members", a
 
 test("org manager routes keep disabled roster entries visible outside access groups", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const disabledUser = createTestUser();
-  await registerAndAuthenticate(disabledUser);
+  await registerAndAuthenticateWithOrganization(disabledUser);
   const disabledAt = new Date("2026-05-13T12:00:00.000Z");
 
   await db.insert(organizationRosterEntries).values({
@@ -205,7 +190,7 @@ test("org manager routes keep disabled roster entries visible outside access gro
 
 test("org manager routes let admins bind an encrypted roster profile document", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/roster/${actor.userId}`,
@@ -232,7 +217,7 @@ test("org manager routes let admins bind an encrypted roster profile document", 
 
 test("org manager routes let admins bind an encrypted organization profile document", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const { id: profileDocumentId } = await createCurrentDocumentProjection({
     containerIds: [await loadOrganizationMetadataContainerId(organizationId)],
     createdByFingerprint: actor.fingerprint,
@@ -271,9 +256,9 @@ test("org manager routes let admins bind an encrypted organization profile docum
 
 test("org manager routes reject users outside the organization", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const intruder = createTestUser();
-  await registerAndAuthenticate(intruder);
+  await registerAndAuthenticateWithOrganization(intruder);
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/read-model`,
@@ -288,7 +273,7 @@ test("org manager routes reject users outside the organization", async () => {
 
 test("organization read model includes the bootstrap Admins group", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const [organization] = await db
     .select({
       adminGroupId: organizations.adminGroupId,
@@ -316,7 +301,7 @@ test("organization read model includes the bootstrap Admins group", async () => 
 
 test("org manager routes report organization data usage", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const expectedUsage = await seedOrganizationDataUsage({
     actor,
     organizationId,
@@ -344,9 +329,9 @@ test("org manager routes report organization data usage", async () => {
 
 test("org manager routes allow organization members to read but reserve mutations for Admins members", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const member = createTestUser();
-  await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(member);
   await addMemberGroupUser({
     actor,
     memberUserId: member.userId,
@@ -425,7 +410,7 @@ test("org manager routes allow organization members to read but reserve mutation
 
 test("org manager routes let admins create empty externally-administered groups", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const groupId = crypto.randomUUID();
 
   const createResponse = await requestAfterPrincipalPreparation(
@@ -476,9 +461,9 @@ test("org manager routes let admins create empty externally-administered groups"
 
 test("org manager group creation rejects a stale signed Admins authority head", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const futureAdmin = createTestUser();
-  await registerAndAuthenticate(futureAdmin);
+  await registerAndAuthenticateWithOrganization(futureAdmin);
   const groupId = crypto.randomUUID();
   const request = await createGroupRequest({
     actor,
@@ -519,7 +504,7 @@ test("org manager group creation rejects a stale signed Admins authority head", 
 
 test("org manager routes create and list groups with members", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const [organization] = await db
     .select({ adminGroupId: organizations.adminGroupId })
     .from(organizations)

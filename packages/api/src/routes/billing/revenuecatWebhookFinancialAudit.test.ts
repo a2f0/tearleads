@@ -4,10 +4,10 @@ import { revenuecatWebhookEvents } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import {
   postRevenueCatWebhook,
   REVENUECAT_WEBHOOK_SECRET,
-  registerAndAuthenticate,
   revenuecatWebhookBody,
 } from "../../../test/helpers/revenuecatWebhook";
 
@@ -19,7 +19,7 @@ beforeAll(() => {
 
 test("a native purchase persists RevenueCat financial audit facts", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await setTestOrganizationBillingLocal(organizationId);
   const eventId = crypto.randomUUID();
 

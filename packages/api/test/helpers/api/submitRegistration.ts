@@ -9,11 +9,11 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import { routeApp } from "../../../src/routeApp";
+import { createRegistrationBootstrap } from "../registration/bootstrap";
 import {
   createInitialAdminGroupRequest,
   createInitialMemberGroupRequest,
-  createRegistrationBootstrap,
-} from "../registration";
+} from "../registration/initialGroups";
 
 async function createInitialOrganizationPolicy(input: {
   adminGroupId: string;

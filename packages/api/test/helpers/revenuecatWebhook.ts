@@ -6,9 +6,7 @@ import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { routeApp } from "../../src/routeApp";
-import { authenticate } from "./authenticate";
 import { addMemberGroupUser, addMemberGroupUsers } from "./organizationMember";
-import { registerUser } from "./registerUser";
 
 export const REVENUECAT_WEBHOOK_SECRET = "Bearer test-revenuecat-secret";
 export const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -30,17 +28,6 @@ interface WebhookEventInput {
   store?: string;
   transactionId?: string | null;
   type: string;
-}
-
-export async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-  invariant(row, "expected registered user row");
-  return row.organizationId;
 }
 
 export async function addEffectiveOrganizationMember(input: {

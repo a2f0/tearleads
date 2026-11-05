@@ -4,29 +4,14 @@ import {
   containerMetadataDocuments,
   containers,
   organizationRosterEntries,
-  users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { deriveOrganizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { and, eq } from "drizzle-orm";
-import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
 
 async function createRosterContainerMetadataDocument(input: {
   readonly actor: TestUser;
@@ -72,7 +57,7 @@ async function expectProfileUnbound(input: {
 
 test("members cannot bind roster container metadata as their profile", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const metadataDocumentId = await createRosterContainerMetadataDocument({
     actor,
     organizationId,
@@ -96,9 +81,9 @@ test("members cannot bind roster container metadata as their profile", async () 
 
 test("admins cannot bind roster container metadata to a member", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const member = createTestUser();
-  await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(member);
   await addMemberGroupUser({
     actor,
     memberUserId: member.userId,

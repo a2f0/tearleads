@@ -4,7 +4,6 @@ import {
   containers,
   documents,
   organizationRosterEntries,
-  users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { deriveOrganizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
@@ -14,7 +13,6 @@ import {
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
@@ -28,19 +26,8 @@ import {
   createDocument,
   createDocumentRequest,
 } from "../../../test/helpers/keyingWriterProjectionKit";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
 
 async function postCreateDocument(
   owner: TestUser,
@@ -65,7 +52,7 @@ function readModelPath(organizationId: string, cursor?: string): string {
 
 test("directory snapshots filter a legacy out-of-roster profile pointer", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const unrelatedDocument = await createCurrentDocumentProjection({
     containerIds: [actor.rootContainerId],
     createdByFingerprint: actor.fingerprint,
@@ -97,7 +84,7 @@ test("directory snapshots filter a legacy out-of-roster profile pointer", async 
 
 test("directory snapshots filter a legacy multiply-linked profile pointer", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const rosterContainerId = crypto.randomUUID();
   await db.insert(containers).values({
     depth: 1,
@@ -139,7 +126,7 @@ test("directory snapshots filter a legacy multiply-linked profile pointer", asyn
 
 test("repairing a legacy profile link set emits a directory upsert", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const root = await bootstrapRoot(actor);
   await db
     .update(containers)
@@ -229,7 +216,7 @@ test("repairing a legacy profile link set emits a directory upsert", async () =>
 
 test("a purged document ID with a legacy roster pointer cannot be recreated", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const root = await bootstrapRoot(actor);
   const documentId = crypto.randomUUID();
   const firstCreateRequest = await createDocumentRequest({
@@ -257,7 +244,7 @@ test("a purged document ID with a legacy roster pointer cannot be recreated", as
     );
 
   const otherOwner = createTestUser();
-  await registerAndAuthenticate(otherOwner);
+  await registerAndAuthenticateWithOrganization(otherOwner);
   const otherRoot = await bootstrapRoot(otherOwner);
   const recreate = await postCreateDocument(
     otherOwner,

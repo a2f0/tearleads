@@ -7,10 +7,8 @@ import {
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import {
-  addSyntheticEffectiveOrganizationMembers,
-  registerAndAuthenticate,
-} from "../../../test/helpers/revenuecatWebhook";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
+import { addSyntheticEffectiveOrganizationMembers } from "../../../test/helpers/revenuecatWebhook";
 import { loadOrganizationBillingSeatUsage } from "./organizationSeatUsage";
 import {
   type RevenueCatWebhookOutcome,
@@ -205,7 +203,7 @@ test("an exact durable binding is authoritative over stale metadata", async () =
 
 test("a promotional grant preserves a live Stripe seat binding", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const eventNow = new Date("2099-01-01T00:00:00.000Z");
   await db
     .delete(organizationBillingStripeSeats)
@@ -289,7 +287,7 @@ test("an si_-only event with metadata no longer binds an organization", async ()
 
 test("a Stripe renewal applies while its asynchronous tier update lags the roster", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await addSyntheticEffectiveOrganizationMembers({
     actor: admin,
     count: 5,
@@ -393,7 +391,7 @@ test("a new unknown Stripe price retries with an operator alert", async () => {
 
 test("an oversized Stripe grant renews while bounding assignments", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await addSyntheticEffectiveOrganizationMembers({
     actor: admin,
     count: 10,

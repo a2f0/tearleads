@@ -21,8 +21,8 @@ import {
   clearBillingHistory,
   insertInvoiceEvent,
   insertSeatEvent,
-  registerAndAuthenticate,
 } from "../../../test/helpers/organizationBillingHistory";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
 const root = createTestUser();
@@ -35,8 +35,8 @@ const request = (path: string) =>
   routeApp.request(path, { headers: headers() });
 
 beforeAll(async () => {
-  rootOrganizationId = await registerAndAuthenticate(root);
-  organizationId = await registerAndAuthenticate(member);
+  rootOrganizationId = await registerAndAuthenticateWithOrganization(root);
+  organizationId = await registerAndAuthenticateWithOrganization(member);
   await db.update(users).set({ isRoot: true }).where(eq(users.id, root.userId));
   await db
     .update(organizationBilling)

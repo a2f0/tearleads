@@ -32,7 +32,6 @@ import {
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
 import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
 import { parentKekRef } from "../../../test/helpers/containerKeying";
 import { containerManifestRef } from "../../../test/helpers/containerManifestRefs";
@@ -40,7 +39,7 @@ import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { principalPolicyRefs } from "../../../test/helpers/principalPolicyRefs";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
   getCurrentContainerKeyEpoch,
@@ -52,11 +51,6 @@ interface RootFixture {
   readonly adminPolicy: VerifiedPrincipalPolicy;
   readonly bundle: AccessManifestBundleWire;
   readonly kekState: VerifiedContainerKekState;
-}
-
-async function registerAndAuthenticate(user: TestUser): Promise<void> {
-  await registerUser(user);
-  await authenticate(user);
 }
 
 function asVerifiedContainerManifest(

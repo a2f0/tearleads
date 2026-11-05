@@ -5,23 +5,17 @@ import {
   type AttachmentBindAccessEventBody,
   type AttachmentDetachAccessEventBody,
   computeAccessEventBodyHash,
-  computeKeyingDomainHash,
   type KeyingCanonicalJson,
   type VerifiedAccessEvent,
   type VerifiedAttachmentBinding,
   type VerifiedAttachmentDetach,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
+import { hashOf } from "../../../test/helpers/keyingLabelHash";
 import {
   storeVerifiedAttachmentBinding,
   storeVerifiedAttachmentDetach,
 } from "./attachmentBindingStore";
-
-async function hashOf(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
-    label,
-  });
-}
 
 async function verifiedAttachmentEvent(
   body: AttachmentBindAccessEventBody | AttachmentDetachAccessEventBody,

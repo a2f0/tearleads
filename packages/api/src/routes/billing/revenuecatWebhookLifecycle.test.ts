@@ -1,10 +1,10 @@
 import { beforeAll, expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/test-utils";
 import invariant from "invariant";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import {
   postRevenueCatWebhook as postWebhook,
   readOrganizationBilling as readBilling,
-  registerAndAuthenticate,
   THIRTY_DAYS_MS,
   REVENUECAT_WEBHOOK_SECRET as WEBHOOK_SECRET,
   revenuecatWebhookBody as webhookBody,
@@ -19,7 +19,7 @@ beforeAll(() => {
 
 async function purchaseForPersonalOrganization() {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await postWebhook(
     webhookBody({
       appUserId: admin.userId,

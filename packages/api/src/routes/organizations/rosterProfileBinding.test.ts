@@ -3,13 +3,10 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   containers,
   organizationRosterEntries,
-  users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { createTestUser } from "@tearleads/test-utils";
 import { deriveOrganizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { and, eq } from "drizzle-orm";
-import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
 import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLinks";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
@@ -20,26 +17,14 @@ import {
   createDocument,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
 
 test("self bindings reject an owned document outside the roster container", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const member = createTestUser();
-  await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(member);
   await addMemberGroupUser({
     actor,
     memberUserId: member.userId,
@@ -84,9 +69,9 @@ test("self bindings reject an owned document outside the roster container", asyn
 
 test("members can bind their own roster profile document", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const member = createTestUser();
-  await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(member);
   await addMemberGroupUser({
     actor,
     memberUserId: member.userId,
@@ -135,7 +120,7 @@ test("members can bind their own roster profile document", async () => {
 
 test("a bound roster profile document cannot be purged", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const root = await bootstrapRoot(actor);
   await db
     .update(containers)
@@ -184,7 +169,7 @@ test("a bound roster profile document cannot be purged", async () => {
 
 test("a multiply linked document cannot become a roster profile", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const root = await bootstrapRoot(actor);
   const rosterContainer = await createChildContainer({
     parent: root,
@@ -244,7 +229,7 @@ test("a multiply linked document cannot become a roster profile", async () => {
 
 test("a bound roster profile cannot gain another container link", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const root = await bootstrapRoot(actor);
   await db
     .update(containers)
@@ -303,9 +288,9 @@ test("a bound roster profile cannot gain another container link", async () => {
 
 test("admin bindings reject a document outside the roster container", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const member = createTestUser();
-  await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(member);
   await addMemberGroupUser({
     actor,
     memberUserId: member.userId,
@@ -346,9 +331,9 @@ test("admin bindings reject a document outside the roster container", async () =
 
 test("admins can bind their roster document to another member", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const member = createTestUser();
-  await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(member);
   await addMemberGroupUser({
     actor,
     memberUserId: member.userId,
@@ -397,9 +382,9 @@ test("admins can bind their roster document to another member", async () => {
 
 test("members cannot bind another user's roster profile document", async () => {
   const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
+  const organizationId = await registerAndAuthenticateWithOrganization(actor);
   const member = createTestUser();
-  await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(member);
   await addMemberGroupUser({
     actor,
     memberUserId: member.userId,

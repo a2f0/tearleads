@@ -8,7 +8,7 @@ import type {
   ContainerKeyWrap,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { toWireRecord, toWireRecords } from "./registrationWire";
+import { toWireRecord, toWireRecords } from "./wire";
 
 interface RootContainerProjectionArtifacts {
   body: ContainerCreateAccessEventBody;

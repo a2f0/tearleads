@@ -3,18 +3,16 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingStripeSeats,
-  users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { isOrganizationBillingResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
 import {
   setTestOrganizationBillingExpiredTrial,
   setTestOrganizationBillingLocal,
 } from "../../../test/helpers/organizationBilling";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { addSyntheticEffectiveOrganizationMembers } from "../../../test/helpers/revenuecatWebhook";
 import { routeApp } from "../../routeApp";
 import {
@@ -23,26 +21,13 @@ import {
 } from "../../services/billing/organizationBilling";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
 
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
-
 function authHeader(user: TestUser): { Authorization: string } {
   return { Authorization: `Bearer ${user.token}` };
 }
 
 test("an org admin reads local billing and starts a trial", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   // Test registration enables sync by default; this test exercises the
   // local -> trial transition, so start from the provisioned `local` state.
   await setTestOrganizationBillingLocal(organizationId);
@@ -91,7 +76,7 @@ test("an org admin reads local billing and starts a trial", async () => {
 
 test("a free trial bounds an oversized roster to ten sync seats", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await addSyntheticEffectiveOrganizationMembers({
     actor: admin,
     count: 10,
@@ -121,7 +106,7 @@ test("a free trial bounds an oversized roster to ten sync seats", async () => {
 
 test("reading an expired trial reports disabled without writing on the read path", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   // A `trialing` row whose trial has already lapsed, not yet flipped in the db.
   await setTestOrganizationBillingExpiredTrial(organizationId);
 
@@ -152,7 +137,7 @@ test("reading an expired trial reports disabled without writing on the read path
 
 test("management identifies Stripe and native subscription ownership", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await db
     .update(organizationBilling)
     .set({
@@ -306,7 +291,7 @@ test("management identifies Stripe and native subscription ownership", async () 
 
 test("a Stripe subscription awaiting renewal keeps its owner past period end", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const stripeDeps = {
     stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } },
   };
@@ -363,7 +348,7 @@ test("a Stripe subscription awaiting renewal keeps its owner past period end", a
 
 test("starting a trial on an active native organization reports its owner", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await db
     .update(organizationBilling)
     .set({
@@ -396,9 +381,9 @@ test("starting a trial on an active native organization reports its owner", asyn
 
 test("a non-member cannot read or change another org's billing", async () => {
   const owner = createTestUser();
-  const organizationId = await registerAndAuthenticate(owner);
+  const organizationId = await registerAndAuthenticateWithOrganization(owner);
   const intruder = createTestUser();
-  await registerAndAuthenticate(intruder);
+  await registerAndAuthenticateWithOrganization(intruder);
 
   const readResponse = await routeApp.request(
     `/organizations/${organizationId}/billing`,

@@ -1,6 +1,9 @@
+import { db } from "@tearleads/api-shared/postgres";
+import { users } from "@tearleads/api-shared/schema";
 import { toFingerprint } from "@tearleads/crypto";
 import type { TestUser } from "@tearleads/test-utils";
 import { isRegistrationResponse } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { submitRegistration } from "./api";
 import { authenticate } from "./authenticate";
@@ -29,4 +32,17 @@ export async function registerUser(user: TestUser): Promise<string> {
 export async function registerAndAuthenticate(user: TestUser): Promise<void> {
   await registerUser(user);
   await authenticate(user);
+}
+
+/** Registers and signs in `user`, returning its default organization's id. */
+export async function registerAndAuthenticateWithOrganization(
+  user: TestUser,
+): Promise<string> {
+  await registerAndAuthenticate(user);
+  const [row] = await db
+    .select({ organizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, user.userId));
+  invariant(row, "expected registered user row");
+  return row.organizationId;
 }

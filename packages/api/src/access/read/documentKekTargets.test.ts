@@ -13,7 +13,6 @@ import {
   computeAccessEventBodyHash,
   computeAccessManifestHash,
   computeDocumentContentKeyTargetHash,
-  computeKeyingDomainHash,
   deriveDocumentLinkSetManifest,
   generateSigningSeedAndKeyPair,
   type KeyingCanonicalJson,
@@ -28,6 +27,7 @@ import {
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { hashOf } from "../../../test/helpers/keyingLabelHash";
 import { storeVerifiedAccessManifest } from "../write/accessManifestStore";
 import {
   assertDocumentKekTargetsCurrent,
@@ -41,12 +41,6 @@ const staleLink = (link: string, id: string) =>
     409,
     DOCUMENT_SYNC_ERROR_CODES.stateStale,
   );
-
-async function hashOf(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
-    label,
-  });
-}
 
 async function createVerifiedEvent(input: {
   readonly body: Record<string, unknown>;

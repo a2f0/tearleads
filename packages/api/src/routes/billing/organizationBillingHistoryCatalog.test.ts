@@ -7,13 +7,13 @@ import {
   clearBillingHistory,
   insertSeatEvent,
   insertWebhookEvent,
-  registerAndAuthenticate,
 } from "../../../test/helpers/organizationBillingHistory";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
 test("catalog facts require an applied recognized grant", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await clearBillingHistory(organizationId);
   const base = Date.parse("2026-07-04T00:00:00.000Z");
   const expirationEventId = "revoked-tier";
@@ -134,7 +134,7 @@ test("catalog facts require an applied recognized grant", async () => {
 
 test("sandbox and trial lifecycle events never imply a paid total", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await clearBillingHistory(organizationId);
   const base = Date.parse("2026-07-05T00:00:00.000Z");
 

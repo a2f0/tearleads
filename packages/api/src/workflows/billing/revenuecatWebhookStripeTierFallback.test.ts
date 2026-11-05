@@ -6,12 +6,12 @@ import {
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
 
 test("a rotated Stripe price renews at its locked fixed-tier capacity", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const subscriptionId = `sub_rotated_${organizationId}`;
   const subscriptionItemId = `si_rotated_${organizationId}`;
   await db

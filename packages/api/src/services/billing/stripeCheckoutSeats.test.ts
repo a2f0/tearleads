@@ -5,13 +5,14 @@ import {
   organizations,
   principalMembershipProjection,
   principalStates,
-  users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { createTestUser } from "@tearleads/test-utils";
 import { and, desc, eq } from "drizzle-orm";
 import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
-import { registerUser } from "../../../test/helpers/registerUser";
+import {
+  registerAndAuthenticateWithOrganization,
+  registerUser,
+} from "../../../test/helpers/registerUser";
 import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import {
@@ -31,17 +32,6 @@ const REVENUECAT_ENV = {
   REVENUECAT_PROJECT_ID: "proj_1",
   REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_pub",
 };
-
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
 
 async function loadCurrentMemberGroupState(organizationId: string): Promise<{
   readonly memberGroupId: string;
@@ -89,7 +79,7 @@ async function removeAllEffectiveMembers(
 
 test("inline checkout selects the current membership tier at quantity one", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const member = createTestUser();
   await registerUser(member);
   await addEffectiveOrganizationMember({
@@ -164,7 +154,7 @@ test("inline checkout selects the current membership tier at quantity one", asyn
 
 test("hosted checkout selects the current membership tier at quantity one", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const member = createTestUser();
   await registerUser(member);
   await addEffectiveOrganizationMember({
@@ -225,7 +215,7 @@ test("hosted checkout selects the current membership tier at quantity one", asyn
 
 test("checkout rejects a tampered Members policy before contacting Stripe", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await removeAllEffectiveMembers(organizationId);
   let requestCount = 0;
   const fetchImpl = (async (_input: RequestInfo | URL, _init?: RequestInit) => {

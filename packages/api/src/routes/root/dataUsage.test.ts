@@ -13,11 +13,11 @@ import {
   RootDataUsageReportResponseSchema,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import { registerAndAuthenticate } from "../../../test/helpers/organizationBillingHistory";
 import {
   seedOrganizationDataUsage,
   seedUsageDocument,
 } from "../../../test/helpers/organizationDataUsage";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
 const root = createTestUser();
@@ -32,8 +32,8 @@ const reportPath = (suffix = "") =>
   `/root/reports/data-usage?limit=200${suffix}`;
 
 beforeAll(async () => {
-  await registerAndAuthenticate(root);
-  organizationId = await registerAndAuthenticate(member);
+  await registerAndAuthenticateWithOrganization(root);
+  organizationId = await registerAndAuthenticateWithOrganization(member);
   await db.update(users).set({ isRoot: true }).where(eq(users.id, root.userId));
   await db.insert(organizations).values({
     id: emptyId,
@@ -114,7 +114,7 @@ test("reports page through used and empty organizations, with scoped cursors and
 
 test("batched usage scopes metadata and deduplicates shared blobs per organization", async () => {
   const actor = createTestUser();
-  const usedId = await registerAndAuthenticate(actor);
+  const usedId = await registerAndAuthenticateWithOrganization(actor);
   const sharedId = randomUUID();
   await db.insert(organizations).values({
     id: sharedId,

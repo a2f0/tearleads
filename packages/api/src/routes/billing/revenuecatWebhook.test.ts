@@ -11,11 +11,11 @@ import {
   submitCreateOrganization,
 } from "../../../test/helpers/api";
 import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
 import {
   addSyntheticMember,
   postRevenueCatWebhook as postWebhook,
   readOrganizationBilling as readBilling,
-  registerAndAuthenticate,
   THIRTY_DAYS_MS,
   REVENUECAT_WEBHOOK_SECRET as WEBHOOK_SECRET,
   revenuecatWebhookBody as webhookBody,
@@ -30,7 +30,7 @@ beforeAll(() => {
 
 test("rejects a webhook with a missing or wrong authorization header", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
 
   const missing = await postWebhook(
     webhookBody({ appUserId: admin.userId, organizationId, type: "RENEWAL" }),
@@ -67,7 +67,7 @@ test("rejects a malformed webhook payload", async () => {
 
 test("an admin purchase activates org sync and records the provider", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await setTestOrganizationBillingLocal(organizationId);
   const purchasedAtMs = Date.now();
   const expirationAtMs = Date.now() + THIRTY_DAYS_MS;
@@ -105,7 +105,7 @@ test("an admin purchase activates org sync and records the provider", async () =
 
 test("a native team purchase grants the fixed tier capacity", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await setTestOrganizationBillingLocal(organizationId);
 
   const response = await postWebhook(
@@ -128,7 +128,7 @@ test("a native team purchase grants the fixed tier capacity", async () => {
 
 test("a paid native tier activates but freezes an oversized roster", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await addSyntheticMember(admin, organizationId);
   await setTestOrganizationBillingLocal(organizationId);
   await db
@@ -161,7 +161,8 @@ test("a paid native tier activates but freezes an oversized roster", async () =>
 
 test("a native purchase cannot fund a custom organization", async () => {
   const admin = createTestUser();
-  const personalOrganizationId = await registerAndAuthenticate(admin);
+  const personalOrganizationId =
+    await registerAndAuthenticateWithOrganization(admin);
   const request = await createOrganizationRequestBody(admin);
   const created = await submitCreateOrganization(admin, request);
   expect(created.status).toBe(200);
@@ -187,7 +188,7 @@ test("a native purchase cannot fund a custom organization", async () => {
 
 test("a promotional grant can fund an admin's custom organization", async () => {
   const admin = createTestUser();
-  await registerAndAuthenticate(admin);
+  await registerAndAuthenticateWithOrganization(admin);
   const request = await createOrganizationRequestBody(admin);
   const created = await submitCreateOrganization(admin, request);
   expect(created.status).toBe(200);
@@ -214,7 +215,7 @@ test("a promotional grant can fund an admin's custom organization", async () => 
 
 test("a duplicate event id is processed only once", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await setTestOrganizationBillingLocal(organizationId);
   const eventId = crypto.randomUUID();
   const body = webhookBody({
@@ -242,11 +243,11 @@ test("a duplicate event id is processed only once", async () => {
 
 test("a non-admin buyer is ignored and does not activate sync", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await setTestOrganizationBillingLocal(organizationId);
 
   const intruder = createTestUser();
-  await registerAndAuthenticate(intruder);
+  await registerAndAuthenticateWithOrganization(intruder);
 
   const response = await postWebhook(
     webhookBody({
@@ -265,7 +266,7 @@ test("a non-admin buyer is ignored and does not activate sync", async () => {
 
 test("a cancellation leaves an active subscription untouched", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await setTestOrganizationBillingLocal(organizationId);
 
   await postWebhook(
@@ -291,7 +292,7 @@ test("a cancellation leaves an active subscription untouched", async () => {
 
 test("a stale out-of-order event does not overwrite newer applied billing", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await setTestOrganizationBillingLocal(organizationId);
   const newer = Date.now();
 
@@ -324,7 +325,7 @@ test("a stale out-of-order event does not overwrite newer applied billing", asyn
 
 test("an expired grant event records ignored and does not activate sync", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await setTestOrganizationBillingLocal(organizationId);
 
   const response = await postWebhook(
@@ -343,7 +344,7 @@ test("an expired grant event records ignored and does not activate sync", async 
 
 test("a newer event still applies after an older one", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await setTestOrganizationBillingLocal(organizationId);
   const base = Date.now();
 
@@ -392,7 +393,7 @@ test("the webhook fails closed when the shared secret is not configured", async 
 
 test("a Stripe-store grant defers end-to-end when the lookup fails", async () => {
   const user = createTestUser();
-  const organizationId = await registerAndAuthenticate(user);
+  const organizationId = await registerAndAuthenticateWithOrganization(user);
   const eventId = crypto.randomUUID();
 
   const failingFetch = (async (
