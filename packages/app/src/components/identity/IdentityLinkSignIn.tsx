@@ -1,4 +1,4 @@
-import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapPhase";
+import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapProgress";
 import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
 import { MiniAppButton, MiniAppStatus } from "../mini-app/MiniAppLayout";
 

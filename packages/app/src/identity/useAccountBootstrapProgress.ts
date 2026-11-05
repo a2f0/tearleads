@@ -16,7 +16,7 @@ import { useAutoProvisioningStatus } from "./autoProvisioningStatus";
  * sign-in can show progress while the account is still being restored,
  * created, or signed in, instead of asking the user to log in.
  */
-export function useAccountBootstrapPhase(): AccountBootstrapPhase {
+function useAccountBootstrapPhase(): AccountBootstrapPhase {
   const { features } = useAppHostConfig().profile;
   const { isLocked } = useLocalKeyringLock();
   const identity = useIdentity();
@@ -28,6 +28,7 @@ export function useAccountBootstrapPhase(): AccountBootstrapPhase {
     autoGenerateIdentity: features.autoGenerateIdentity,
     autoProvisioningEnabled: autoProvisioning.enabled,
     autoRegisterIdentity: features.autoRegisterIdentity,
+    generation: autoProvisioning.generation.status,
     hasSigningKey: identity.signingKeyPair !== null,
     identityDestroyed: identity.identityDestroyed,
     identityRestored:

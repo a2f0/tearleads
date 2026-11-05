@@ -1,6 +1,6 @@
 import { SignInIcon } from "@phosphor-icons/react/dist/csr/SignIn";
 import { useAutoProvisioningStatus } from "../../identity/autoProvisioningStatus";
-import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapPhase";
+import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapProgress";
 import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import {
@@ -19,10 +19,11 @@ function AccountSignInPanel({
   title: string;
 }) {
   const { signingKeyPair } = useIdentity();
-  const { registration } = useAutoProvisioningStatus();
+  const { generation, registration } = useAutoProvisioningStatus();
   const { authenticate, authenticating, error } = useAuthenticateAction();
+  const failedStep = signingKeyPair === null ? generation : registration;
   const reason =
-    error ?? (registration.status === "failed" ? registration.message : null);
+    error ?? (failedStep.status === "failed" ? failedStep.message : null);
 
   return (
     <MiniAppStatePanel

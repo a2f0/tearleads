@@ -6,7 +6,7 @@ import {
   MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
-import { useAccountBootstrapProgress } from "../../../identity/useAccountBootstrapPhase";
+import { useAccountBootstrapProgress } from "../../../identity/useAccountBootstrapProgress";
 import { useDeveloperMode } from "../../../providers/developer-mode/DeveloperModeProvider";
 import type { useIdentityManager } from "../IdentityManagerController";
 import { compactIdentifier } from "../sessions/IdentityManagerSessionDisplay";

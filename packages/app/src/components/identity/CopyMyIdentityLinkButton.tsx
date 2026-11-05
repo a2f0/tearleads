@@ -1,6 +1,6 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { ClipboardIcon } from "@phosphor-icons/react/dist/csr/Clipboard";
-import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapPhase";
+import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapProgress";
 import { useUserIdentityLink } from "../../providers/identity-links/useUserIdentityLink";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useClipboardCopy } from "../mini-app/controls/MiniAppButton";

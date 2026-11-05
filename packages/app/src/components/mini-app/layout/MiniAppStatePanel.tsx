@@ -6,6 +6,8 @@ import "./MiniAppStatePanel.css";
  * A whole-surface state (loading, signed out, empty) centered in the space
  * the content would fill, rather than one line pinned to the top. `busy`
  * swaps the icon for a spinner and announces the title as a polite status.
+ * It deliberately omits aria-busy: a busy live region defers its own
+ * announcements until it stops being busy.
  */
 export function MiniAppStatePanel({
   busy = false,
@@ -25,7 +27,6 @@ export function MiniAppStatePanel({
 }) {
   return (
     <div
-      aria-busy={busy || undefined}
       aria-live={busy ? "polite" : undefined}
       className={classNames(
         "mini-app-state-panel",

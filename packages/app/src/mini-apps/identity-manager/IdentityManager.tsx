@@ -11,7 +11,7 @@ import {
 } from "../../components/mini-app/MiniAppLayout";
 import { DestroyKeyPackageConfirmationDialog } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirmationDialog";
-import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapPhase";
+import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapProgress";
 import "./IdentityManager.css";
 import { useIdentityManager } from "./IdentityManagerController";
 import { useIdentityManagerSidebarPanel } from "./IdentityManagerSidebar";

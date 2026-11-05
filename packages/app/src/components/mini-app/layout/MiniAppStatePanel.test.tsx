@@ -10,7 +10,8 @@ test("a busy panel announces its title and shows a spinner", () => {
   );
 
   const status = view.getByRole("status");
-  expect(status.getAttribute("aria-busy")).toBe("true");
+  // A busy live region would defer its announcements, so none is set.
+  expect(status.getAttribute("aria-busy")).toBeNull();
   expect(status.textContent).toContain("Creating");
   expect(status.textContent).toContain("Hold on.");
   expect(status.querySelector(".mini-app-state-panel-spinner")).not.toBeNull();

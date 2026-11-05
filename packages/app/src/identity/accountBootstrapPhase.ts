@@ -1,5 +1,5 @@
 import type { SystemBootstrapStatus } from "../providers/system-bootstrap/systemBootstrapRun";
-import type { AutoRegistrationState } from "./autoProvisioningStatus";
+import type { AutoProvisioningStep } from "./autoProvisioningStatus";
 
 /**
  * Where the current account stands on its way to a signed-in session.
@@ -23,6 +23,7 @@ export interface AccountBootstrapInput {
   readonly autoGenerateIdentity: boolean;
   readonly autoProvisioningEnabled: boolean;
   readonly autoRegisterIdentity: boolean;
+  readonly generation: AutoProvisioningStep["status"];
   readonly hasSigningKey: boolean;
   readonly identityDestroyed: boolean;
   readonly identityRestored: boolean;
@@ -30,7 +31,7 @@ export interface AccountBootstrapInput {
   readonly isAuthenticated: boolean;
   readonly isLocked: boolean;
   readonly localIdentityRestoreSettled: boolean;
-  readonly registration: AutoRegistrationState["status"];
+  readonly registration: AutoProvisioningStep["status"];
   readonly sessionRestoreSettled: boolean;
   readonly systemBootstrapStatus: SystemBootstrapStatus;
   /** Set once this identity has signed in on this device, even if now signed out. */
@@ -60,6 +61,7 @@ export function resolveAccountBootstrapPhase(
   if (!input.hasSigningKey) {
     return input.autoProvisioningEnabled &&
       input.autoGenerateIdentity &&
+      input.generation !== "failed" &&
       !input.identityDestroyed
       ? "creating-identity"
       : "signed-out";

@@ -12,9 +12,9 @@ import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLock
 import { useLog } from "../providers/logging/LogProvider";
 import { useSystemBootstrap } from "../providers/system-bootstrap/SystemBootstrapProvider";
 import {
-  AUTO_REGISTRATION_IDLE,
+  AUTO_PROVISIONING_IDLE,
   AutoProvisioningStatusContext,
-  type AutoRegistrationState,
+  type AutoProvisioningStep,
 } from "./autoProvisioningStatus";
 import { autoRegisterFailureMessage } from "./registrationRecoveryError";
 import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
@@ -37,12 +37,20 @@ import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
  * initial persisted-identity restore to settle, so a returning user's stored
  * identity is restored rather than clobbered by a freshly generated one.
  */
-function useAutoProvisionIdentity(enabled: boolean): AutoRegistrationState {
-  useAutoGenerateIdentity(enabled);
-  return useAutoRegisterIdentity(enabled);
+function useAutoProvisionIdentity(enabled: boolean): {
+  generation: AutoProvisioningStep;
+  registration: AutoProvisioningStep;
+} {
+  return {
+    generation: useAutoGenerateIdentity(enabled),
+    registration: useAutoRegisterIdentity(enabled),
+  };
 }
 
-function useAutoGenerateIdentity(enabled: boolean): void {
+const AUTO_GENERATE_FAILED_MESSAGE =
+  "Could not create an identity automatically. Create one in Identity Manager.";
+
+function useAutoGenerateIdentity(enabled: boolean): AutoProvisioningStep {
   const { features } = useAppHostConfig().profile;
   const { isLocked } = useLocalKeyringLock();
   const {
@@ -51,9 +59,14 @@ function useAutoGenerateIdentity(enabled: boolean): void {
     localIdentityRestoreSettled,
     signingKeyPair,
   } = useIdentity();
+  const generationInFlight = useRef(false);
+  const [generation, setGeneration] = useState<AutoProvisioningStep>(
+    AUTO_PROVISIONING_IDLE,
+  );
 
   useEffect(() => {
     if (
+      generationInFlight.current ||
       !enabled ||
       !features.autoGenerateIdentity ||
       isLocked ||
@@ -65,10 +78,28 @@ function useAutoGenerateIdentity(enabled: boolean): void {
       return;
     }
 
-    // generateKey() guards itself against re-entrancy, so a transient re-run
-    // (e.g. StrictMode's double-invoke) is a no-op while generation is in
-    // flight; once a key exists the gate above stops it firing again.
-    void generateKey();
+    // The in-flight latch keeps a transient re-run (e.g. StrictMode's
+    // double-invoke) from starting a second generation, whose re-entrancy
+    // refusal would otherwise read as a failure; once a key exists the gate
+    // above stops it firing again. A failed run is not retried until reload,
+    // so it is reported rather than left as a permanent "creating" state.
+    generationInFlight.current = true;
+    setGeneration({ status: "running" });
+    void generateKey()
+      .then(
+        (created) => created,
+        () => false,
+      )
+      .then((created) => {
+        setGeneration(
+          created
+            ? AUTO_PROVISIONING_IDLE
+            : { message: AUTO_GENERATE_FAILED_MESSAGE, status: "failed" },
+        );
+      })
+      .finally(() => {
+        generationInFlight.current = false;
+      });
   }, [
     enabled,
     features.autoGenerateIdentity,
@@ -78,9 +109,11 @@ function useAutoGenerateIdentity(enabled: boolean): void {
     localIdentityRestoreSettled,
     signingKeyPair,
   ]);
+
+  return generation;
 }
 
-function useAutoRegisterIdentity(enabled: boolean): AutoRegistrationState {
+function useAutoRegisterIdentity(enabled: boolean): AutoProvisioningStep {
   const { features } = useAppHostConfig().profile;
   const { sessionRestoreSettled } = useCryptoSession();
   const { canRegisterCurrentIdentity, registerCurrentIdentity } =
@@ -89,8 +122,8 @@ function useAutoRegisterIdentity(enabled: boolean): AutoRegistrationState {
     useSystemBootstrap();
   const { logError } = useLog();
   const registrationInFlight = useRef(false);
-  const [registration, setRegistration] = useState<AutoRegistrationState>(
-    AUTO_REGISTRATION_IDLE,
+  const [registration, setRegistration] = useState<AutoProvisioningStep>(
+    AUTO_PROVISIONING_IDLE,
   );
   const currentRegistrationRef = useRef({
     canRegisterCurrentIdentity,
@@ -154,7 +187,7 @@ function useAutoRegisterIdentity(enabled: boolean): AutoRegistrationState {
         setRegistration(
           registered === false
             ? { message: AUTO_SIGN_IN_INCOMPLETE_MESSAGE, status: "failed" }
-            : AUTO_REGISTRATION_IDLE,
+            : AUTO_PROVISIONING_IDLE,
         );
       })
       .catch((error: unknown) => {
@@ -198,10 +231,10 @@ export function IdentityAutopilot({
 }: PropsWithChildren<{
   readonly enabled?: boolean | undefined;
 }>) {
-  const registration = useAutoProvisionIdentity(enabled);
+  const { generation, registration } = useAutoProvisionIdentity(enabled);
   const status = useMemo(
-    () => ({ enabled, registration }),
-    [enabled, registration],
+    () => ({ enabled, generation, registration }),
+    [enabled, generation, registration],
   );
 
   return (

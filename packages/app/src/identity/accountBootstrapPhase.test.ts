@@ -11,6 +11,7 @@ const REGISTERING: AccountBootstrapInput = {
   autoGenerateIdentity: true,
   autoProvisioningEnabled: true,
   autoRegisterIdentity: true,
+  generation: "idle",
   hasSigningKey: true,
   identityDestroyed: false,
   identityRestored: false,
@@ -63,6 +64,9 @@ describe("resolveAccountBootstrapPhase", () => {
 
   test("a missing key pair is being created only while the autopilot will", () => {
     expect(phaseOf({ hasSigningKey: false })).toBe("creating-identity");
+    expect(phaseOf({ generation: "failed", hasSigningKey: false })).toBe(
+      "signed-out",
+    );
     expect(phaseOf({ hasSigningKey: false, identityDestroyed: true })).toBe(
       "signed-out",
     );
