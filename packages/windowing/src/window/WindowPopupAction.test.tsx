@@ -72,6 +72,8 @@ for (const mode of ["windowed", "tablet"] as const) {
       fireEvent.mouseDown(button);
       expect(mouseDowns).toBe(1);
       expect(outsideMouseDowns).toBe(0);
+      // Release it: React drops later onSelect events while the mouse is down.
+      fireEvent.mouseUp(button);
       view.rerender(<Harness expanded />);
       expect(anchor.current).toBe(button);
       expect(button.getAttribute("aria-expanded")).toBe("true");
