@@ -6,11 +6,12 @@ import { fixture } from "./fixture.testUtils";
 const repoRoot = resolve(import.meta.dir, "../../..");
 const hookPath = "scripts/git/hooks/pre-push";
 const lintCommand = "run agent-tool branch check --pre-push";
+const testsCommand = "run test:turbo:affected";
 
-function pushFixture(failingCommand: string) {
+function pushFixture(failingCommand: string, extraEnv = {}) {
   const repo = fixture();
   try {
-    return configurePushFixture(repo, failingCommand);
+    return configurePushFixture(repo, failingCommand, extraEnv);
   } catch (error) {
     rmSync(repo.cwd, { recursive: true, force: true });
     throw error;
@@ -20,6 +21,7 @@ function pushFixture(failingCommand: string) {
 function configurePushFixture(
   repo: ReturnType<typeof fixture>,
   failingCommand: string,
+  extraEnv: Record<string, string>,
 ) {
   for (const path of [
     hookPath,
@@ -57,6 +59,12 @@ function configurePushFixture(
       'if [ "$*" = "run agent-tool branch check --pre-push" ]; then\n' +
       '  cat > "$PUSH_REFS_LOG"\n' +
       "fi\n" +
+      // A held test run leaves a grandchild behind for the gate to stop.
+      'if [ "$*" = "$TESTS_COMMAND" ] && [ -n "$TESTS_HOLD" ]; then\n' +
+      "  sleep 60 &\n" +
+      '  echo "$!" > "$TESTS_HOLD"\n' +
+      "  wait\n" +
+      "fi\n" +
       '[ "$*" != "$FAILING_COMMAND" ] || exit 23\n',
   );
   chmodSync(join(repo.cwd, "bin/bun"), 0o755);
@@ -74,6 +82,9 @@ function configurePushFixture(
     PUSH_REFS_LOG: join(repo.cwd, "push-refs.log"),
     FAILING_COMMAND: failingCommand,
     PUSH_GATE_TIMINGS_LOG: timings,
+    TESTS_COMMAND: testsCommand,
+    TESTS_HOLD: "",
+    ...extraEnv,
   };
   const runAt = (cwd: string, ...cmd: string[]) =>
     Bun.spawnSync(cmd, {
@@ -109,7 +120,16 @@ test("CI and the installed hook run the same fast checks in order", () => {
 
     expect(repo.push().exitCode).not.toBe(0);
     const pushCommands = readFileSync(repo.log, "utf8").trim().split("\n");
-    expect(pushCommands).toEqual([lintCommand, ...ciCommands]);
+    // The tests start in the background once the output-writing checks finish.
+    expect(pushCommands.filter((command) => command !== testsCommand)).toEqual([
+      lintCommand,
+      ...ciCommands,
+    ]);
+    const tests = pushCommands.indexOf(testsCommand);
+    expect(tests).toBeGreaterThan(pushCommands.indexOf("run lint:biome"));
+    expect(tests).toBeLessThan(
+      pushCommands.indexOf("run lint:package-assertions"),
+    );
     expect(readFileSync(repo.timings, "utf8")).toContain(
       "\tunfinished=markdown\tstatus=failed\t",
     );
@@ -332,6 +352,42 @@ test("URL pushes fail before expensive checks with named-remote guidance", () =>
     );
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr.toString()).toContain("configured named remote");
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+test("failing background tests refuse the push and print their output", () => {
+  const repo = pushFixture(testsCommand);
+  try {
+    const result = repo.push();
+    expect(result.exitCode).not.toBe(0);
+    const output = result.stdout.toString();
+    expect(output).not.toContain("All checks passed.");
+    expect(output).toContain("--- [tests] output ---");
+    // Every other check still ran while the tests did.
+    expect(readFileSync(repo.log, "utf8")).toContain("run lint:doc-links\n");
+    expect(readFileSync(repo.timings, "utf8")).toContain(
+      "\tunfinished=tests\tstatus=failed\t",
+    );
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+test("a failing check stops the background tests and their children", () => {
+  const repo = pushFixture("run lint:markdown", {
+    TESTS_HOLD: "tests-child.pid",
+  });
+  try {
+    const started = Date.now();
+    expect(repo.push().exitCode).not.toBe(0);
+    expect(Date.now() - started).toBeLessThan(30_000);
+    const child = Number(
+      readFileSync(join(repo.cwd, "tests-child.pid"), "utf8").trim(),
+    );
+    expect(child).toBeGreaterThan(0);
+    expect(() => process.kill(child, 0)).toThrow();
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
   }

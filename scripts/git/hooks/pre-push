@@ -52,11 +52,57 @@ record_timings() {
     "remote=${push_remote:-unknown}"
 }
 
+# The tests run in the background while the read-only checks run, so the gate
+# costs about as long as its longest lane instead of their sum.
+tests_pid=""
+tests_log="$refs_file.tests.log"
+
+# Lists a process and all its descendants before any is signalled: a killed
+# parent's children are re-parented and could no longer be found.
+process_tree() {
+  printf '%s\n' "$1"
+  for process_tree_child in $(pgrep -P "$1" 2>/dev/null); do
+    process_tree "$process_tree_child"
+  done
+}
+
+stop_background_tests() {
+  [ -n "$tests_pid" ] || return 0
+  echo "Stopping the background tests." >&2
+  # shellcheck disable=SC2046
+  kill $(process_tree "$tests_pid") 2>/dev/null || true
+  wait "$tests_pid" 2>/dev/null || true
+  tests_pid=""
+}
+
+start_background_tests() {
+  tests_started=$(step_timings_now)
+  echo "--- [tests] bun run test:turbo:affected (background; log: $tests_log) ---"
+  echo ""
+  bun run test:turbo:affected </dev/null >"$tests_log" 2>&1 &
+  tests_pid=$!
+}
+
+finish_background_tests() {
+  step_timings_begin tests-wait "Waiting for the background tests"
+  tests_status=0
+  wait "$tests_pid" || tests_status=$?
+  tests_pid=""
+  step_timings_end
+  echo "--- [tests] output ---"
+  cat "$tests_log"
+  # Timed from launch, so the row matches a serial run's tests step.
+  step_timings_resume tests "$tests_started"
+  [ "$tests_status" -eq 0 ] || exit "$tests_status"
+  step_timings_end
+}
+
 on_exit() {
   push_status=$?
+  stop_background_tests
   # Records first: the run's metadata is read out of the refs file.
   record_timings "$push_status" || true
-  rm -f "$refs_file"
+  rm -f "$refs_file" "$tests_log"
 }
 
 trap on_exit EXIT
@@ -82,7 +128,9 @@ else
   step_timings_skip branch-name "no branch created or updated"
 fi
 
-run_fast_checks
+run_fast_checks_prepare
+start_background_tests
+run_fast_checks_rest
 
 step_timings_run terraform "$REPO_ROOT/scripts/checks/checkTerraform.sh"
 
@@ -141,7 +189,7 @@ while read -r _ local_sha _ remote_sha; do
 done <"$refs_file"
 step_timings_end
 
-step_timings_run tests bun run test:turbo:affected
+finish_background_tests
 
 step_timings_summary
 

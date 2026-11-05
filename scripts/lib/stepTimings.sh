@@ -57,6 +57,13 @@ step_timings_end() {
   step_timings_open_label=""
 }
 
+# Reopens a step that began earlier at epoch second $2, for a step that ran in
+# the background: the next step_timings_end records it from that start.
+step_timings_resume() {
+  step_timings_open_label=$1
+  step_timings_step_started=$2
+}
+
 step_timings_run() {
   step_timings_label=$1
   shift

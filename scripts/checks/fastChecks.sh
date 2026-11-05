@@ -11,8 +11,20 @@ run_protocol_check() {
 }
 
 run_fast_checks() {
+  run_fast_checks_prepare
+  run_fast_checks_rest
+}
+
+# The checks that write workspace outputs: Electrobun's generated SDK
+# configuration and, through lint:biome:promises, the client SDK's dist. Tests
+# read both, so the pre-push gate starts its tests only after these finish.
+run_fast_checks_prepare() {
   step_timings_run devkit bun run --cwd packages/app-electrobun prepare:devkit
   step_timings_run biome bun run lint:biome
+}
+
+# Read-only checks, safe to run while tests run.
+run_fast_checks_rest() {
   step_timings_run package-assertions bun run lint:package-assertions
   step_timings_run canonical-ordering bun run lint:canonical-ordering
   step_timings_run knip bun run lint:knip:all
