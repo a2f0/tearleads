@@ -10,7 +10,7 @@
     },
     "build": {
       "inputs": [
-        "$TURBO_DEFAULT$",
+        "$TURBO_EXTENDS$",
         "$TURBO_ROOT$/assets/brand/**",
         "$TURBO_ROOT$/agent-tool.json"
       ]

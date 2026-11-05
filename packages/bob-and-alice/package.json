@@ -1,11 +1,11 @@
 {
   "name": "@tearleads/bob-and-alice",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "test": "bun test src"
+    "test": "bun test src --parallel=4"
   },
   "devDependencies": {
     "@tearleads/api": "workspace:*",

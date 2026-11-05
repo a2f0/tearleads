@@ -57,6 +57,26 @@ step_timings_end() {
   step_timings_open_label=""
 }
 
+# Reopens a step that began earlier at epoch second $2, for a step that ran in
+# the background: the next step_timings_end records it from that start.
+step_timings_resume() {
+  step_timings_open_label=$1
+  step_timings_step_started=$2
+}
+
+# Hands a subshell's rows and in-flight step to its parent through two files,
+# for steps run as a background job (a subshell's variables die with it).
+step_timings_save() {
+  printf '%s' "$step_timings_rows" >"$1"
+  printf '%s' "$step_timings_open_label" >"$2"
+}
+
+# Appends rows saved by step_timings_save.
+step_timings_merge() {
+  [ -s "$1" ] || return 0
+  step_timings_rows="${step_timings_rows}$(cat "$1")${step_timings_newline}"
+}
+
 step_timings_run() {
   step_timings_label=$1
   shift

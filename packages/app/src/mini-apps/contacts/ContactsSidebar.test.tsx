@@ -147,6 +147,8 @@ test("contacts sidebar selects on primary mouse down after blurring active field
     name: "Grace Hopper",
   });
   fireEvent.mouseDown(contactButton, { button: 0 });
+  // Release it: React drops later onSelect events while the mouse is down.
+  fireEvent.mouseUp(contactButton, { button: 0 });
 
   await waitFor(() => {
     expect(view.getByLabelText("Focused field blurred").textContent).toBe(
