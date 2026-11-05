@@ -6,7 +6,7 @@ import type {
   BlobInfoSortKey,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import {
   getMiniAppCompactTableRowHeight,
   shouldFoldCompactRows,
@@ -15,6 +15,11 @@ import {
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import { useTouchRowHeight } from "../../../../navigation/useTouchRowHeight";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
+import {
+  type BlobSelectionState,
+  FOLLOWING_ROUTE,
+  transitionBlobSelection,
+} from "./blobSelectionMachine";
 
 // The subset of a host route the blob list reads: the deep-link target (blob id
 // or storage key) that seeds the initial search/selection. Standalone so the
@@ -170,23 +175,28 @@ function matchesRouteTarget(blob: BlobInfo, route: BlobBrowserRoute): boolean {
 }
 
 function getSelectedBlob(params: {
-  activeBlob: BlobInfo | null;
   route: BlobBrowserRoute;
   rows: ReadonlyArray<BlobInfo>;
+  selection: BlobSelectionState;
 }): BlobInfo | null {
-  if (params.activeBlob) {
-    return (
-      params.rows.find((blob) => blob.key === params.activeBlob?.key) ??
-      params.activeBlob
-    );
+  const { selection } = params;
+  switch (selection.status) {
+    case "dismissed":
+      return null;
+    case "selected":
+      return (
+        params.rows.find((blob) => blob.key === selection.blob.key) ??
+        selection.blob
+      );
+    case "following-route":
+      // The list is the default screen; only open the detail screen when the
+      // route deep-links to a specific blob. Do not fall back to the first row,
+      // which would skip the list entirely.
+      return (
+        params.rows.find((blob) => matchesRouteTarget(blob, params.route)) ??
+        null
+      );
   }
-
-  // The list is the default screen; only open the detail screen when the route
-  // deep-links to a specific blob. Do not fall back to the first row, which
-  // would skip the list entirely.
-  return (
-    params.rows.find((blob) => matchesRouteTarget(blob, params.route)) ?? null
-  );
 }
 
 export function useBlobBrowserData(params: {
@@ -195,11 +205,10 @@ export function useBlobBrowserData(params: {
 }) {
   const [query, setQuery] = useState(() => getBlobRouteQuery(params.route));
   const [debouncedQuery, setDebouncedQuery] = useState(query);
-  const [activeBlob, setActiveBlob] = useState<BlobInfo | null>(null);
-  // Tracks whether the user dismissed the detail screen. Needed because a
-  // route deep-link makes getSelectedBlob return a blob even when activeBlob is
-  // null, so clearing activeBlob alone could not return to the list.
-  const [isDetailDismissed, setIsDetailDismissed] = useState(false);
+  const [selection, dispatchSelection] = useReducer(
+    transitionBlobSelection,
+    FOLLOWING_ROUTE,
+  );
   const [sort, setSort] = useState<BlobInfoSort>({
     direction: "desc",
     key: "updated",
@@ -229,25 +238,26 @@ export function useBlobBrowserData(params: {
   const isResettingWindow = isWindowPending && offset === 0;
   const rows = isResettingWindow ? [] : blobInfo.rows;
   const rowOffset = isResettingWindow ? 0 : blobInfo.offset;
-  const selectedBlob = isDetailDismissed
-    ? null
-    : getSelectedBlob({ activeBlob, route: params.route, rows });
-  const isListDetail = activeBlob !== null && selectedBlob !== null;
+  const selectedBlob = getSelectedBlob({
+    route: params.route,
+    rows,
+    selection,
+  });
+  // A blob opened from the list (not a route deep link) owns a local back
+  // action that returns to the list.
+  const isListDetail = selection.status === "selected";
   const handleSort = useCallback((key: BlobInfoSortKey) => {
-    setActiveBlob(null);
+    dispatchSelection({ type: "sorted" });
     setSort((currentSort) => getNextBlobInfoSort(currentSort, key));
   }, []);
   const handleSelectBlob = useCallback((blob: BlobInfo) => {
-    setActiveBlob(blob);
-    setIsDetailDismissed(false);
+    dispatchSelection({ blob, type: "blob-selected" });
   }, []);
   const handleBackToList = useCallback(() => {
-    setActiveBlob(null);
-    setIsDetailDismissed(true);
+    dispatchSelection({ type: "back-to-list" });
   }, []);
   const handleQueryChange = useCallback((value: string) => {
-    setActiveBlob(null);
-    setIsDetailDismissed(true);
+    dispatchSelection({ type: "query-changed" });
     setQuery(value);
   }, []);
 
@@ -264,8 +274,7 @@ export function useBlobBrowserData(params: {
   }, [query]);
 
   useEffect(() => {
-    setActiveBlob(null);
-    setIsDetailDismissed(false);
+    dispatchSelection({ type: "route-changed" });
     setQuery(routeQuery);
     setDebouncedQuery(routeQuery);
   }, [routeQuery]);
