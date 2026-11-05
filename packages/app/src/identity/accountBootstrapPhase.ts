@@ -23,6 +23,8 @@ export interface AccountBootstrapInput {
   readonly autoGenerateIdentity: boolean;
   readonly autoProvisioningEnabled: boolean;
   readonly autoRegisterIdentity: boolean;
+  /** "error" once the local database gave up booting (retries exhausted). */
+  readonly databaseFailed: boolean;
   readonly generation: AutoProvisioningStep["status"];
   readonly hasSigningKey: boolean;
   readonly identityDestroyed: boolean;
@@ -52,7 +54,9 @@ export function resolveAccountBootstrapPhase(
     return "signed-in";
   }
   // The keyring lock screen owns this state; signed-out surfaces stay passive.
-  if (input.isLocked) {
+  // A database that gave up booting stalls every later step (bootstrap waits
+  // on it, so registration never starts), so nothing is in flight either.
+  if (input.isLocked || input.databaseFailed) {
     return "signed-out";
   }
   if (input.identityTransitionInFlight || !input.localIdentityRestoreSettled) {

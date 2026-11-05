@@ -2,6 +2,7 @@ import { SignInIcon } from "@phosphor-icons/react/dist/csr/SignIn";
 import { useAutoProvisioningStatus } from "../../identity/autoProvisioningStatus";
 import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapProgress";
 import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
+import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import {
   MiniAppButton,
@@ -11,6 +12,23 @@ import {
 
 const SIGN_IN_ICON = <SignInIcon size={40} weight="light" />;
 
+const DATABASE_FAILED_MESSAGE =
+  "This device's local database could not start. Reload to try again.";
+
+/** A fresh boot restarts the database with a new retry budget. */
+function DatabaseFailedRecovery() {
+  return (
+    <>
+      <MiniAppButton onClick={() => window.location.reload()}>
+        Reload
+      </MiniAppButton>
+      <MiniAppStatus role="alert" tone="error">
+        {DATABASE_FAILED_MESSAGE}
+      </MiniAppStatus>
+    </>
+  );
+}
+
 function AccountSignInPanel({
   description,
   title,
@@ -19,6 +37,7 @@ function AccountSignInPanel({
   title: string;
 }) {
   const { signingKeyPair } = useIdentity();
+  const { status: databaseStatus } = useDatabase();
   const { generation, registration } = useAutoProvisioningStatus();
   const { authenticate, authenticating, error } = useAuthenticateAction();
   const failedStep = signingKeyPair === null ? generation : registration;
@@ -31,7 +50,34 @@ function AccountSignInPanel({
       icon={SIGN_IN_ICON}
       title={title}
     >
-      {signingKeyPair !== null && (
+      {databaseStatus === "error" ? (
+        <DatabaseFailedRecovery />
+      ) : (
+        <AccountSignInAction
+          authenticate={authenticate}
+          authenticating={authenticating}
+          canAuthenticate={signingKeyPair !== null}
+          reason={reason}
+        />
+      )}
+    </MiniAppStatePanel>
+  );
+}
+
+function AccountSignInAction({
+  authenticate,
+  authenticating,
+  canAuthenticate,
+  reason,
+}: {
+  authenticate: () => Promise<boolean>;
+  authenticating: boolean;
+  canAuthenticate: boolean;
+  reason: string | null;
+}) {
+  return (
+    <>
+      {canAuthenticate && (
         <MiniAppButton
           loading={authenticating}
           onClick={() => void authenticate()}
@@ -44,7 +90,7 @@ function AccountSignInPanel({
           {reason}
         </MiniAppStatus>
       )}
-    </MiniAppStatePanel>
+    </>
   );
 }
 

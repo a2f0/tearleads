@@ -1,4 +1,5 @@
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
+import { useDatabase } from "../providers/db/DatabaseProvider";
 import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
@@ -21,6 +22,7 @@ function useAccountBootstrapPhase(): AccountBootstrapPhase {
   const { isLocked } = useLocalKeyringLock();
   const identity = useIdentity();
   const session = useCryptoSession();
+  const { status: databaseStatus } = useDatabase();
   const { status: systemBootstrapStatus } = useSystemBootstrap();
   const autoProvisioning = useAutoProvisioningStatus();
 
@@ -28,6 +30,7 @@ function useAccountBootstrapPhase(): AccountBootstrapPhase {
     autoGenerateIdentity: features.autoGenerateIdentity,
     autoProvisioningEnabled: autoProvisioning.enabled,
     autoRegisterIdentity: features.autoRegisterIdentity,
+    databaseFailed: databaseStatus === "error",
     generation: autoProvisioning.generation.status,
     hasSigningKey: identity.signingKeyPair !== null,
     identityDestroyed: identity.identityDestroyed,

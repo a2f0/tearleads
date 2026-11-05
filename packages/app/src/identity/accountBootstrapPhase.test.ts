@@ -11,6 +11,7 @@ const REGISTERING: AccountBootstrapInput = {
   autoGenerateIdentity: true,
   autoProvisioningEnabled: true,
   autoRegisterIdentity: true,
+  databaseFailed: false,
   generation: "idle",
   hasSigningKey: true,
   identityDestroyed: false,
@@ -90,6 +91,22 @@ describe("resolveAccountBootstrapPhase", () => {
     expect(phaseOf({ autoRegisterIdentity: false })).toBe("signed-out");
     expect(phaseOf({ autoProvisioningEnabled: false })).toBe("signed-out");
     expect(phaseOf({ isLocked: true })).toBe("signed-out");
+  });
+
+  test("a database that gave up booting stops every provisioning phase", () => {
+    // A restored identity waiting on bootstrap would otherwise sign in forever.
+    expect(
+      phaseOf({
+        databaseFailed: true,
+        identityRestored: true,
+        registration: "idle",
+        systemBootstrapStatus: "waiting",
+      }),
+    ).toBe("signed-out");
+    expect(phaseOf({ databaseFailed: true })).toBe("signed-out");
+    expect(phaseOf({ databaseFailed: true, hasSigningKey: false })).toBe(
+      "signed-out",
+    );
   });
 });
 
