@@ -3,6 +3,7 @@ import type { TestUser } from "@tearleads/test-utils";
 import { isRegistrationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { submitRegistration } from "./api";
+import { authenticate } from "./authenticate";
 
 export async function registerUser(user: TestUser): Promise<string> {
   user.fingerprint = await toFingerprint(user.signing.signingPublicKey);
@@ -23,4 +24,9 @@ export async function registerUser(user: TestUser): Promise<string> {
   user.userId = body.userId;
   user.rootContainerId = body.rootContainerId;
   return body.challenge;
+}
+
+export async function registerAndAuthenticate(user: TestUser): Promise<void> {
+  await registerUser(user);
+  await authenticate(user);
 }

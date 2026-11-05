@@ -59,7 +59,12 @@ export async function buildDocumentPurgeRequest(input: {
   };
 }
 
+/**
+ * Posts a purge the owner signed. `app` swaps in another route app (a failing
+ * runtime) and `token` authenticates as someone else (an outsider).
+ */
 export async function postDocumentPurge(input: {
+  readonly app?: Pick<typeof routeApp, "request">;
   readonly authorizingContainerPath?:
     | readonly AccessManifestBundleWire[]
     | undefined;
@@ -67,14 +72,18 @@ export async function postDocumentPurge(input: {
   readonly documentManifestHash: string;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
+  readonly token?: string;
 }): Promise<Response> {
   const request = await buildDocumentPurgeRequest(input);
-  return routeApp.request(`/documents/${input.documentId}/purge`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.owner.token}`,
-      "Content-Type": "application/json",
+  return (input.app ?? routeApp).request(
+    `/documents/${input.documentId}/purge`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.token ?? input.owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
     },
-    body: JSON.stringify(request),
-  });
+  );
 }
