@@ -5,6 +5,7 @@ import {
   type OrganizationDirectoryAndGroups,
 } from "@tearleads/client-sdk";
 import { type FormEvent, useCallback, useRef, useState } from "react";
+import { waitForBusyPaint } from "../../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "../../labels";
 import {
   DEFAULT_SHARE_ACCESS_LEVEL,
@@ -201,6 +202,9 @@ async function runContainerInfoShare(params: {
   setIsSubmitting(true);
   setPanelError(null);
   try {
+    // Sharing seals keys on the main thread; paint the busy panel first so
+    // its spinner keeps turning while that runs.
+    await waitForBusyPaint();
     const shared = await share();
     if (!shared) {
       setPanelError(failureLabel);

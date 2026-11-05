@@ -17,6 +17,7 @@ import type { MiniAppWindowPosition } from "../../types";
 import {
   ExplorerContainerInfoActions,
   ExplorerContainerInfoHeader,
+  ExplorerContainerInfoSharingProgress,
 } from "./ExplorerContainerInfoChrome";
 import { ExplorerContainerInfoLocalSection } from "./ExplorerContainerInfoLocalSection";
 import { ExplorerContainerInfoSecuritySection } from "./ExplorerContainerInfoSecuritySection";
@@ -349,7 +350,8 @@ export function ExplorerContainerInfoPanel(params: Props) {
         containerId={params.containerId}
         containerName={params.containerName}
       />
-      <div className="explorer-info">
+      {isSubmitting ? <ExplorerContainerInfoSharingProgress /> : null}
+      <div className="explorer-info" hidden={isSubmitting}>
         <ExplorerContainerInfoTabs
           activeTab={activeTab}
           idPrefix={tabIdPrefix}
@@ -392,6 +394,7 @@ export function ExplorerContainerInfoPanel(params: Props) {
         isLoadingContainerInfo={isLoadingContainerInfo}
         isSubmitting={isSubmitting}
         showShareButton={
+          !isSubmitting &&
           params.canShareContainer &&
           activeTab === "sharing" &&
           Boolean(containerInfo?.remoteInfo)

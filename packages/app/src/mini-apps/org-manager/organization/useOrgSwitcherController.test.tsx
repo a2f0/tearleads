@@ -390,7 +390,8 @@ test("guards duplicate create submissions", async () => {
     duplicateCreate = view.result.current.createOrganization("Beta");
   });
   await duplicateCreate;
-  expect(provisionOrganization).toHaveBeenCalledTimes(1);
+  // Provisioning starts once the busy state has painted.
+  await waitFor(() => expect(provisionOrganization).toHaveBeenCalledTimes(1));
 
   await act(async () => {
     provisioned.resolve(CREATED_ORGANIZATION);

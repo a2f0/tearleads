@@ -181,3 +181,58 @@ test("useExplorerContainerInfoGroupShare reloads with an optimistic grant", asyn
   expect(panelErrors).toEqual([null]);
   expect(submittingStates).toEqual([true, false]);
 });
+
+// Sharing seals keys on the main thread, so the busy panel must paint before
+// the share starts or its spinner never turns.
+test("useExplorerContainerInfoGroupShare paints the busy state before sharing", async () => {
+  const events: string[] = [];
+  const frames: FrameRequestCallback[] = [];
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    events.push("frame-requested");
+    frames.push(callback);
+    return frames.length;
+  };
+  try {
+    const view = renderHook(() =>
+      useExplorerContainerInfoGroupShare({
+        canShareContainer: true,
+        containerId: "container-1",
+        draftShareAccessLevel: "read",
+        draftShareGroupId: "group-1",
+        draftShareGroupName: "Group One",
+        isSubmitting: false,
+        logError: () => undefined,
+        reloadContainerInfo: async () => undefined,
+        setIsSubmitting: (value) => {
+          events.push(`submitting:${value}`);
+        },
+        setPanelError: () => undefined,
+        shareWithGroup: async () => {
+          events.push("share");
+          return true;
+        },
+      }),
+    );
+
+    let pending: Promise<void> | undefined;
+    act(() => {
+      pending = view.result.current(createSubmitEvent());
+    });
+    await Promise.resolve();
+    expect(events).toEqual(["submitting:true", "frame-requested"]);
+
+    await act(async () => {
+      frames.shift()?.(performance.now());
+      await pending;
+    });
+    expect(events).toEqual([
+      "submitting:true",
+      "frame-requested",
+      "share",
+      "submitting:false",
+    ]);
+  } finally {
+    globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+  }
+});
