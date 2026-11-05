@@ -1,0 +1,292 @@
+/*
+ * API reference (/docs/api/): operation index, operation pages, and schema
+ * pages rendered from docs/openapi.json. Grayscale like the rest of the site:
+ * methods differ by label and outline, never by hue. Paths and code wrap
+ * anywhere, and tables stack on phones, so nothing widens the page.
+ */
+
+.api-page {
+  overflow-wrap: anywhere;
+}
+
+.api-intro.site-prose {
+  margin-top: var(--site-space-6);
+}
+
+.api-intro > * + *,
+.api-description > * + *,
+.site-prose.api-section > p + p {
+  margin-top: var(--site-space-3);
+}
+
+.api-section {
+  max-width: var(--site-wide);
+  margin-top: var(--site-space-7);
+}
+
+.api-h2 {
+  max-width: none;
+  padding-top: var(--site-space-5);
+  border-top: 1px solid var(--site-line);
+  font-size: var(--site-text-h2);
+  font-weight: 650;
+  line-height: 1.2;
+  scroll-margin-top: var(--site-space-6);
+}
+
+.api-h3 {
+  margin-top: var(--site-space-6);
+  font-size: var(--site-text-h3);
+  font-weight: 650;
+  line-height: 1.35;
+  scroll-margin-top: var(--site-space-6);
+}
+
+.api-h2 + *,
+.api-h3 + * {
+  margin-top: var(--site-space-4);
+}
+
+.api-section-lede,
+.api-prose {
+  max-width: var(--site-measure);
+  color: var(--site-ink-2);
+}
+
+.api-section-lede + * {
+  margin-top: var(--site-space-4);
+}
+
+/* --- Method badge and path --- */
+
+.api-method {
+  display: inline-block;
+  min-width: 4.25rem;
+  padding: 0.1em 0.45em;
+  border: 1px solid var(--site-line-strong);
+  border-radius: 0.375rem;
+  color: var(--site-ink);
+  font: 600 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+  text-align: center;
+  vertical-align: 0.15em;
+}
+
+.api-method[data-method="get"] {
+  border-style: dashed;
+}
+
+.api-method:is(
+  [data-method="post"],
+  [data-method="put"],
+  [data-method="patch"]
+) {
+  background: var(--site-surface-muted);
+}
+
+.api-method[data-method="delete"] {
+  border-color: var(--site-ink);
+  border-width: 2px;
+}
+
+.api-path {
+  font-family: var(--site-font-mono);
+  overflow-wrap: anywhere;
+}
+
+/* The page's own path is the h1, so it drops the inline code chip. */
+.website-main .api-path.api-path--title {
+  padding: 0;
+  background: none;
+  font: inherit;
+  font-family: var(--site-font-mono);
+  font-size: 0.85em;
+  word-break: break-word;
+}
+
+.site-h1 .api-method {
+  margin-right: var(--site-space-2);
+  font-size: var(--site-text-mono);
+  vertical-align: 0.35em;
+}
+
+.api-lead > p {
+  max-width: none;
+}
+
+/* --- Operation lists --- */
+
+.api-index {
+  margin: var(--site-space-4) 0 0;
+  padding: 0;
+  border-top: 1px solid var(--site-line-strong);
+  list-style: none;
+}
+
+.api-index li {
+  border-bottom: 1px solid var(--site-line);
+}
+
+.api-index-row {
+  display: grid;
+  grid-template-columns: 4.75rem minmax(0, 22rem) minmax(0, 1fr);
+  gap: var(--site-space-3);
+  align-items: baseline;
+  min-height: var(--site-target);
+  padding: var(--site-space-3) 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.website-main .api-index-row .api-path {
+  padding: 0;
+  background: none;
+  font-size: var(--site-text-mono);
+}
+
+.api-index-summary {
+  color: var(--site-ink-2);
+}
+
+@media (hover: hover) {
+  .api-index-row:hover .api-path,
+  .api-pager-link:hover .api-path {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.api-index-row:focus-visible,
+.api-pager-link:focus-visible {
+  outline: 2px solid var(--site-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 699px) {
+  .api-index-row {
+    grid-template-columns: 4.75rem minmax(0, 1fr);
+    row-gap: var(--site-space-1);
+  }
+
+  .api-index-summary {
+    grid-column: 2;
+  }
+}
+
+.api-schema-index {
+  margin: var(--site-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+  font: 500 var(--site-text-mono-sm) / 1.9 var(--site-font-mono);
+}
+
+@media (min-width: 700px) {
+  .api-schema-index {
+    columns: 2;
+    column-gap: var(--site-space-7);
+  }
+}
+
+@media (min-width: 1100px) {
+  .api-schema-index {
+    columns: 3;
+  }
+}
+
+/* --- Links inside rendered text and types --- */
+
+.api-schema-link,
+.api-term {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.api-schema-link {
+  font-family: var(--site-font-mono);
+  font-weight: 600;
+}
+
+.api-term {
+  text-decoration-style: dotted;
+}
+
+@media (hover: hover) {
+  .api-schema-link:hover,
+  .api-term:hover {
+    color: var(--site-ink-hover);
+    text-decoration-style: solid;
+  }
+}
+
+/* --- Additional rules --- */
+
+.api-rules {
+  max-width: var(--site-measure);
+  padding-left: 1.5rem;
+}
+
+.api-rules li + li {
+  margin-top: var(--site-space-2);
+}
+
+/* --- Previous / next --- */
+
+.api-pager {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--site-space-5);
+  max-width: var(--site-wide);
+  margin-top: var(--site-space-8);
+  padding-top: var(--site-space-5);
+  border-top: 1px solid var(--site-line-strong);
+}
+
+.api-pager-link {
+  display: grid;
+  gap: var(--site-space-1);
+  color: inherit;
+  text-decoration: none;
+}
+
+.api-pager-link--next {
+  grid-column: 2;
+  text-align: right;
+}
+
+.api-pager-label {
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+}
+
+.api-pager-summary {
+  font-weight: 600;
+}
+
+.website-main .api-pager-link .api-path {
+  padding: 0;
+  margin-left: var(--site-space-2);
+  background: none;
+  font-size: var(--site-text-mono-sm);
+}
+
+@media (max-width: 699px) {
+  .api-pager {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .api-pager-link--next {
+    grid-column: 1;
+    text-align: left;
+  }
+
+  .api-pager-gap {
+    display: none;
+  }
+}
+
+@media print {
+  .api-pager {
+    display: none;
+  }
+}

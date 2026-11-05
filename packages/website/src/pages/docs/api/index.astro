@@ -1,0 +1,101 @@
+---
+import {
+  downloadPath,
+  operationPath,
+  schemaPath,
+} from "../../../apiReference/referenceIndex";
+import { apiReference } from "../../../apiReference/sources";
+import ApiMethod from "../../../components/api/ApiMethod.astro";
+import ApiText from "../../../components/api/ApiText.astro";
+import PageHeader from "../../../components/PageHeader.astro";
+import Layout from "../../../layouts/Layout.astro";
+import "../../../styles/docs.css";
+import "../../../styles/apiReference.css";
+import "../../../styles/apiReferenceFields.css";
+
+const page = apiReference.index();
+const { document } = apiReference;
+---
+
+<Layout
+  title="API reference | Tearleads"
+  description="Every HTTP operation the Tearleads server exposes: paths, sessions, request and response fields, and the rules the server enforces."
+>
+  <div class="site-page docs-page api-page">
+    <PageHeader
+      title="API reference"
+      lede="Every HTTP operation the Tearleads server exposes, with the fields it accepts and returns and the rules it enforces."
+    >
+      <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
+        <ol role="list">
+          <li><a href="/security/">Security</a></li>
+          <li><a href="/docs/">Technical documents</a></li>
+          <li aria-current="page">API reference</li>
+        </ol>
+      </nav>
+      <p class="docs-source">
+        {document.title}, version {document.version}.{" "}
+        <a class="site-link" href={downloadPath} download="openapi.json">Download openapi.json</a>
+      </p>
+    </PageHeader>
+
+    <div class="site-prose api-intro">
+      <ApiText text={page.intro} />
+      <p>
+        Because documents and keys are end-to-end encrypted, the client SDK is
+        the only practical client: this reference is for reviewing what the
+        server accepts, returns, and enforces, not for writing a client.
+      </p>
+      <p>
+        These pages are rendered from that OpenAPI document, which is
+        generated from the Zod operation registry; the Zod schemas stay the
+        runtime authority. Message semantics and proofs are in the{" "}
+        <a href="/docs/protocol-specification/">protocol specification</a>, and
+        protocol terms link to the <a href="/docs/glossary/">glossary</a>.
+      </p>
+    </div>
+
+    <nav class="docs-contents" aria-label="On this page">
+      <h2 class="docs-contents-title">On this page</h2>
+      <ol role="list">
+        {page.groups.map((group) => (
+          <li><a href={`#${group.anchor}`}>{group.tag.name}</a></li>
+        ))}
+        <li><a href="#schemas">Schemas</a></li>
+      </ol>
+    </nav>
+
+    {page.groups.map((group) => (
+      <section class="api-section" aria-labelledby={group.anchor}>
+        <h2 id={group.anchor} class="api-h2">{group.tag.name}</h2>
+        {group.description.length > 0 && (
+          <div class="api-description"><ApiText text={group.description} /></div>
+        )}
+        <ul class="api-index" role="list">
+          {group.operations.map((operation) => (
+            <li>
+              <a class="api-index-row" href={operationPath(operation)}>
+                <ApiMethod method={operation.method} />
+                <code class="api-path">{operation.path}</code>
+                <span class="api-index-summary">{operation.summary}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+
+    <section class="api-section" aria-labelledby="schemas">
+      <h2 id="schemas" class="api-h2">Schemas</h2>
+      <p class="api-section-lede">
+        Named request and response shapes, each with its fields and the
+        operations that use it.
+      </p>
+      <ul class="api-schema-index" role="list">
+        {page.schemaNames.map((name) => (
+          <li><a class="api-schema-link" href={schemaPath(name)}>{name}</a></li>
+        ))}
+      </ul>
+    </section>
+  </div>
+</Layout>

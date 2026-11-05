@@ -1,13 +1,17 @@
 ---
 import PageHeader from "../../components/PageHeader.astro";
 import Layout from "../../layouts/Layout.astro";
-import { docPath, technicalDocs } from "../../technicalDocs";
+import {
+  apiReferenceListing,
+  docPath,
+  technicalDocs,
+} from "../../technicalDocs";
 import "../../styles/docs.css";
 ---
 
 <Layout
   title="Technical documents | Tearleads"
-  description="The Tearleads security guarantees, keying design, protocol specification, cipher suites, protocol models, limits, and glossary."
+  description="The Tearleads security guarantees, keying design, protocol specification, cipher suites, protocol models, limits, glossary, and API reference."
 >
   <div class="site-page docs-page">
     <PageHeader
@@ -36,6 +40,13 @@ import "../../styles/docs.css";
           </dd>
         </div>
       ))}
+      <div>
+        <dt><a class="site-link" href={apiReferenceListing.path}>{apiReferenceListing.title}</a></dt>
+        <dd>
+          {apiReferenceListing.summary}
+          <span class="docs-index-path">{apiReferenceListing.source}</span>
+        </dd>
+      </div>
     </dl>
   </div>
 </Layout>

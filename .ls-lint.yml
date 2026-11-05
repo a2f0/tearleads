@@ -90,6 +90,13 @@ ls:
   packages/app/src/mini-apps/system-monitor/*/*:
     .dir: exists:0
 
+  # Astro names a dynamic route file for its parameter: [operation].astro.
+  packages/website/src/pages/docs/api:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:\[[a-z]+\]
+
+  packages/website/src/pages/docs/api/schemas:
+    .*: regex:\[[a-z]+\]
+
   # Client SDK data modules live in a folder named for their subsystem or role
   # (docs/developer/client-sdk-seams.md), so the layer root holds no files.
   packages/client-sdk/src/data:

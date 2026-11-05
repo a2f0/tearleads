@@ -1,0 +1,145 @@
+---
+import type { ApiOperation } from "../../../apiReference/openApiDocument";
+import { referencePath } from "../../../apiReference/referenceIndex";
+import { apiReference } from "../../../apiReference/sources";
+import ApiBody from "../../../components/api/ApiBody.astro";
+import ApiMethod from "../../../components/api/ApiMethod.astro";
+import ApiOperationPager from "../../../components/api/ApiOperationPager.astro";
+import ApiShapeTable from "../../../components/api/ApiShapeTable.astro";
+import ApiText from "../../../components/api/ApiText.astro";
+import PageHeader from "../../../components/PageHeader.astro";
+import Layout from "../../../layouts/Layout.astro";
+import "../../../styles/docs.css";
+import "../../../styles/apiReference.css";
+import "../../../styles/apiReferenceFields.css";
+
+export function getStaticPaths() {
+  return apiReference.document.operations.map((operation) => ({
+    params: { operation: apiReference.slugs.get(operation.operationId) },
+    props: { operation },
+  }));
+}
+
+interface Props {
+  readonly operation: ApiOperation;
+}
+
+const { operation } = Astro.props;
+const page = apiReference.operationPage(operation);
+const method = operation.method.toUpperCase();
+const detailed = page.responses.filter(
+  (response) => response.expanded || response.headers.length > 0,
+);
+// Break long paths after each slash rather than mid-segment.
+const pathSegments = operation.path.split(/(?<=\/)/);
+const brief = page.responses.filter((response) => !detailed.includes(response));
+---
+
+<Layout
+  title={`${operation.summary} | API reference | Tearleads`}
+  description={`${method} ${operation.path}: ${operation.summary}.`}
+>
+  <article class="site-page docs-page api-page" aria-labelledby="page-title">
+    <PageHeader title={`${method} ${operation.path}`}>
+      <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
+        <ol role="list">
+          <li><a href="/docs/">Technical documents</a></li>
+          <li><a href={referencePath}>API reference</a></li>
+          <li><a href={`${referencePath}#${apiReference.tagAnchors.get(operation.tag)}`}>{operation.tag}</a></li>
+        </ol>
+      </nav>
+      <Fragment slot="title">
+        <ApiMethod method={operation.method} />
+        <span class="api-path api-path--title">{pathSegments.map((segment) => <>{segment}<wbr /></>)}</span>
+      </Fragment>
+      <div class="site-lede api-lead"><ApiText text={page.lead} /></div>
+      <p class="docs-source">Operation <code>{operation.operationId}</code></p>
+    </PageHeader>
+
+    {page.description.length > 0 && (
+      <section class="api-section site-prose" aria-labelledby="description">
+        <h2 id="description" class="api-h2">Description</h2>
+        <ApiText text={page.description} />
+      </section>
+    )}
+
+    <section class="api-section" aria-labelledby="authentication">
+      <h2 id="authentication" class="api-h2">Authentication</h2>
+      {operation.requiresSession ? (
+        <p class="api-prose">
+          Requires a signed-in session: the client sends its session token as a
+          bearer token in the <code>Authorization</code> header.
+        </p>
+      ) : (
+        <p class="api-prose">No session is required.</p>
+      )}
+    </section>
+
+    {page.parameters.length > 0 && (
+      <section class="api-section" aria-labelledby="parameters">
+        <h2 id="parameters" class="api-h2">Parameters</h2>
+        <ApiShapeTable rows={page.parameters} label="Parameters" showLocation />
+      </section>
+    )}
+
+    {page.requestBody !== undefined && (
+      <section class="api-section" aria-labelledby="request-body">
+        <h2 id="request-body" class="api-h2">Request body</h2>
+        <ApiBody body={page.requestBody} />
+      </section>
+    )}
+
+    <section class="api-section" aria-labelledby="responses">
+      <h2 id="responses" class="api-h2">Responses</h2>
+      {detailed.map((response) => (
+        <div class="api-response">
+          <h3 class="api-h3" id={`response-${response.status}`}>
+            <span class="api-status">{response.status}</span> {response.reason}
+          </h3>
+          {response.body === undefined ? (
+            <p class="api-prose">No body.</p>
+          ) : (
+            <ApiBody body={response.body} />
+          )}
+          {response.headers.length > 0 && <p class="api-subhead">Response headers</p>}
+          {response.headers.length > 0 && (
+            <ApiShapeTable rows={response.headers} label={`${response.status} response headers`} />
+          )}
+        </div>
+      ))}
+      {brief.length > 0 && <p class="api-subhead">Other responses</p>}
+      {brief.length > 0 && (
+        <table class="api-table api-status-table" aria-label="Other responses">
+          <thead>
+            <tr><th scope="col">Status</th><th scope="col">Meaning</th><th scope="col">Body</th></tr>
+          </thead>
+          <tbody>
+            {brief.map((response) => (
+              <tr>
+                <th scope="row" data-label="Status"><span class="api-status">{response.status}</span></th>
+                <td data-label="Meaning">{response.reason}</td>
+                <td data-label="Body">
+                  {response.body === undefined ? "None" : <ApiBody body={response.body} />}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+
+    {page.refinements.length > 0 && (
+      <section class="api-section" aria-labelledby="additional-rules">
+        <h2 id="additional-rules" class="api-h2">Additional rules</h2>
+        <p class="api-section-lede">
+          The server also enforces these rules, which the schema above cannot express.
+        </p>
+        <ul class="api-rules">
+          {page.refinements.map((rule) => <li><ApiText text={rule} /></li>)}
+        </ul>
+      </section>
+    )}
+
+    <ApiOperationPager tag={operation.tag} neighbours={page.neighbours} />
+  </article>
+</Layout>

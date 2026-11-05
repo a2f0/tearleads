@@ -1,0 +1,44 @@
+---
+/**
+ * Parameters or headers as a table: name, location, type, and the details
+ * (required, constraints, description). On phones each row stacks.
+ */
+import type { NamedShape } from "../../apiReference/referencePages";
+import ApiInline from "./ApiInline.astro";
+import ApiShapeTree from "./ApiShapeTree.astro";
+
+interface Props {
+  readonly rows: readonly NamedShape[];
+  readonly label: string;
+  readonly showLocation?: boolean | undefined;
+}
+
+const { rows, label, showLocation = false } = Astro.props;
+---
+
+<table class="api-table" aria-label={label}>
+  <thead>
+    <tr>
+      <th scope="col">Name</th>
+      {showLocation && <th scope="col">In</th>}
+      <th scope="col">Type</th>
+      <th scope="col">Details</th>
+    </tr>
+  </thead>
+  <tbody>
+    {rows.map((row) => (
+      <tr>
+        <th scope="row" data-label="Name"><code>{row.name}</code></th>
+        {showLocation && <td data-label="In">{row.location}</td>}
+        <td data-label="Type">
+          <ApiInline parts={row.shape.type} />
+          {row.shape.nullable && <span class="api-flag">nullable</span>}
+        </td>
+        <td data-label="Details">
+          <span class="api-flag">{row.required ? "required" : "optional"}</span>
+          <ApiShapeTree shape={row.shape} depth={1} />
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>

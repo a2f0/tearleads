@@ -1,0 +1,36 @@
+---
+/** Previous and next operations within the same tag. */
+import type { Neighbours } from "../../apiReference/referenceIndex";
+import { operationPath } from "../../apiReference/referenceIndex";
+import ApiMethod from "./ApiMethod.astro";
+
+interface Props {
+  readonly tag: string;
+  readonly neighbours: Neighbours;
+}
+
+const { tag, neighbours } = Astro.props;
+const links = [
+  { rel: "prev", label: "Previous", operation: neighbours.previous },
+  { rel: "next", label: "Next", operation: neighbours.next },
+];
+---
+
+{(neighbours.previous !== undefined || neighbours.next !== undefined) && (
+  <nav class="api-pager" aria-label={`More in ${tag}`}>
+    {links.map(({ rel, label, operation }) =>
+      operation === undefined ? (
+        <span class="api-pager-gap" />
+      ) : (
+        <a class={`api-pager-link api-pager-link--${rel}`} rel={rel} href={operationPath(operation)}>
+          <span class="api-pager-label">{label} in {tag}</span>
+          <span class="api-pager-summary">{operation.summary}</span>
+          <span class="api-pager-target">
+            <ApiMethod method={operation.method} />
+            <code class="api-path">{operation.path}</code>
+          </span>
+        </a>
+      ),
+    )}
+  </nav>
+)}
