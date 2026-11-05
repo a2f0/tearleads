@@ -1,3 +1,4 @@
+import { BuildingOfficeIcon } from "@phosphor-icons/react/dist/csr/BuildingOffice";
 import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
 import { useCallback, useId } from "react";
 import {
@@ -6,12 +7,14 @@ import {
   MiniAppRoot,
   MiniAppSection,
   MiniAppSectionHeading,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/mini-app/rows/MiniAppRow";
+import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapProgress";
 import { useMiniAppBusActions } from "../bus";
 import { useOrganizationDashboard } from "./hooks/useOrganizationDashboard";
 import type { OrganizationSyncChoices } from "./hooks/useOrganizationSyncChoices";
@@ -20,7 +23,10 @@ import type {
   OrganizationDashboardCard,
   OrganizationDashboardFolder,
 } from "./model/organizationDashboard";
+import { resolveOrganizationsSurfaceState } from "./model/organizationsSurfaceState";
 import "./Organizations.css";
+
+const EMPTY_ICON = <BuildingOfficeIcon size={40} weight="light" />;
 
 function cardBadge(card: OrganizationDashboardCard): string {
   if (card.active) return ORGANIZATIONS_LABELS.activeBadge;
@@ -211,6 +217,26 @@ export function Organizations() {
     [openMiniApp],
   );
 
+  const progress = useAccountBootstrapProgress();
+  const surfaceState = resolveOrganizationsSurfaceState({
+    cardCount: cards.length,
+    progress,
+    ready,
+  });
+
+  if (surfaceState) {
+    return (
+      <MiniAppRoot className="organizations">
+        <MiniAppStatePanel
+          busy={surfaceState.busy}
+          description={surfaceState.description}
+          icon={EMPTY_ICON}
+          title={surfaceState.title}
+        />
+      </MiniAppRoot>
+    );
+  }
+
   return (
     <MiniAppRoot className="organizations">
       <MiniAppSection>
@@ -220,25 +246,19 @@ export function Organizations() {
         {syncChoices.error ? (
           <MiniAppStatus tone="error">{syncChoices.error}</MiniAppStatus>
         ) : null}
-        {!ready ? (
-          <MiniAppStatus>{ORGANIZATIONS_LABELS.loading}</MiniAppStatus>
-        ) : cards.length === 0 ? (
-          <MiniAppStatus>{ORGANIZATIONS_LABELS.empty}</MiniAppStatus>
-        ) : (
-          <ul
-            aria-label={ORGANIZATIONS_LABELS.title}
-            className="organizations-list"
-          >
-            {cards.map((card) => (
-              <OrganizationCard
-                card={card}
-                key={card.organizationId}
-                onOpenFolder={openFolder}
-                syncChoices={syncChoices}
-              />
-            ))}
-          </ul>
-        )}
+        <ul
+          aria-label={ORGANIZATIONS_LABELS.title}
+          className="organizations-list"
+        >
+          {cards.map((card) => (
+            <OrganizationCard
+              card={card}
+              key={card.organizationId}
+              onOpenFolder={openFolder}
+              syncChoices={syncChoices}
+            />
+          ))}
+        </ul>
       </MiniAppSection>
     </MiniAppRoot>
   );

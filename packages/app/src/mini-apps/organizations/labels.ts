@@ -2,12 +2,14 @@ export const ORGANIZATIONS_LABELS = {
   activeBadge: "Active",
   askToLeave: "Ask to leave",
   askingToLeave: "Asking...",
-  empty: "You don't belong to any organizations on this device yet.",
+  empty: "No organizations yet",
+  emptyDescription:
+    "Organizations you belong to appear here once this device has synced them, with the folders shared with you.",
   foldersIn: (organizationName: string) => `Folders in ${organizationName}`,
   leaveRequestFailed: "Your request to leave could not be changed.",
   leaveRequestedStatus:
     "You asked to leave. An administrator of this organization can approve it.",
-  loading: "Loading organizations...",
+  loading: "Loading your organizations",
   memberBadge: "Member",
   noFolders: "Nothing in this organization is shared with you yet.",
   pauseBlockedByUnsyncedWrites:
