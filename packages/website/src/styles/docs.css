@@ -25,39 +25,6 @@
   overflow-wrap: anywhere;
 }
 
-/* --- On this page --- */
-
-.docs-contents {
-  max-width: var(--site-wide);
-  margin-top: var(--site-space-6);
-  padding-block: var(--site-space-4);
-  border-block: 1px solid var(--site-line);
-}
-
-.docs-contents-title {
-  color: var(--site-ink-3);
-  font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
-}
-
-.docs-contents ol {
-  margin: var(--site-space-2) 0 0;
-  padding-left: 1.5rem;
-  font-size: var(--site-text-small);
-  line-height: 1.6;
-}
-
-.docs-contents li {
-  margin-bottom: var(--site-space-1);
-  break-inside: avoid;
-}
-
-@media (min-width: 900px) {
-  .docs-contents ol {
-    columns: 2;
-    column-gap: var(--site-space-7);
-  }
-}
-
 /* --- Rendered Markdown --- */
 
 /* Text keeps the reading measure; tables may use the wider column. */
@@ -65,6 +32,11 @@
   max-width: var(--site-wide);
   margin-top: var(--site-space-6);
   overflow-wrap: break-word;
+}
+
+/* Beside the contents, the reading layout supplies the spacing above. */
+.site-reading-copy.docs-prose {
+  margin-top: 0;
 }
 
 .docs-prose > :is(p, ul, ol, blockquote, dl) {
@@ -171,10 +143,4 @@
 .docs-prose thead th {
   color: var(--site-ink-3);
   font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
-}
-
-@media print {
-  .docs-contents {
-    display: none;
-  }
 }
