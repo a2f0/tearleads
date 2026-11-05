@@ -34,6 +34,7 @@ const successful = () => ({
     outputs: { native: "false", proofs: "false", terraform: "false" },
   },
   lint: { result: "success" },
+  models: { result: "success" },
   build: { result: "success" },
   test: { result: "success" },
   "postgres-concurrency": { result: "success" },
@@ -95,6 +96,7 @@ test("requires every applicable check and permits only explicitly irrelevant ski
   for (const job of [
     "changes",
     "lint",
+    "models",
     "build",
     "test",
     "postgres-concurrency",

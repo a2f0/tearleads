@@ -10,6 +10,11 @@ const modelCommands = [
   "run check:protocol-models",
   "run check:protocol-negative-controls",
 ];
+// The push gate's lane goes through the cached wrapper instead.
+const cachedModelCommands = modelCommands.map(
+  (command) =>
+    `scripts/checks/runCachedProtocolCheck.ts ${command.slice("run ".length)}`,
+);
 
 function pushFixture(failingCommand: string, extraEnv = {}) {
   const repo = fixture();
@@ -85,7 +90,7 @@ function configurePushFixture(
     PUSH_REFS_LOG: join(repo.cwd, "push-refs.log"),
     FAILING_COMMAND: failingCommand,
     PUSH_GATE_TIMINGS_LOG: timings,
-    HOLD_COMMAND: "run check:protocol-models",
+    HOLD_COMMAND: cachedModelCommands[0] ?? "",
     HOLD_PID_FILE: "",
     ...extraEnv,
   };
@@ -125,14 +130,15 @@ test("CI and the installed hook run the same fast checks in order", () => {
     const pushCommands = readFileSync(repo.log, "utf8").trim().split("\n");
     // The model passes run in the background lane, so only their presence,
     // not their position, is fixed.
+    const models = [...modelCommands, ...cachedModelCommands];
     const foreground = (commands: string[]) =>
-      commands.filter((command) => !modelCommands.includes(command));
+      commands.filter((command) => !models.includes(command));
     expect(foreground(pushCommands)).toEqual([
       lintCommand,
       ...foreground(ciCommands),
     ]);
-    for (const command of modelCommands) {
-      expect(ciCommands).toContain(command);
+    for (const command of modelCommands) expect(ciCommands).toContain(command);
+    for (const command of cachedModelCommands) {
       expect(pushCommands).toContain(command);
     }
     expect(readFileSync(repo.timings, "utf8")).toContain(
@@ -363,7 +369,7 @@ test("URL pushes fail before expensive checks with named-remote guidance", () =>
 });
 
 test("a failing background check refuses the push and records its step", () => {
-  const repo = pushFixture("run check:protocol-negative-controls");
+  const repo = pushFixture(cachedModelCommands[1] ?? "");
   try {
     const result = repo.push();
     expect(result.exitCode).not.toBe(0);
@@ -426,7 +432,7 @@ test("a failing check stops the background lane and its children", () => {
 test("a foreground failure keeps the lane's finished steps", () => {
   // The lane holds in its second step, after the first has finished.
   const repo = pushFixture("run lint:markdown", {
-    HOLD_COMMAND: "run check:protocol-negative-controls",
+    HOLD_COMMAND: cachedModelCommands[1] ?? "",
     HOLD_PID_FILE: "lane-child.pid",
   });
   try {
