@@ -7,7 +7,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useState,
+  useReducer,
 } from "react";
 import {
   MiniAppRow,
@@ -16,6 +16,10 @@ import {
 } from "../../components/mini-app/rows/MiniAppRow";
 import { useDocumentReadOnly } from "../../stores/documents/DocumentsProvider";
 import "./StructuredDocument.css";
+import {
+  initialStructuredDocumentEditingState,
+  transitionStructuredDocumentEditing,
+} from "./structuredDocumentEditingMachine";
 
 interface StructuredDocumentReadFieldDescriptor {
   readonly action?: ReactNode;
@@ -37,50 +41,44 @@ interface StructuredDocumentProps {
 
 const STRUCTURED_DOCUMENT_EMPTY_VALUE = "None";
 
+/**
+ * A structured document's edit mode. `initialEditing` is a request (a new
+ * document opens in edit mode): it applies when the hook mounts with it or it
+ * turns true, waiting for write access if needed, and is not re-applied when
+ * write access later changes. Returns `[isEditing, enterEditing,
+ * toggleEditing]`; both actions are reference-stable so the toolbar action
+ * they feed does not re-register on every render, and both are ignored while
+ * the document is not writable.
+ */
 export function useStructuredDocumentEditing(
   canWrite: boolean,
   initialEditing = false,
 ) {
-  const [isEditing, setIsEditing] = useState(() => initialEditing && canWrite);
-  const [pendingInitialEditing, setPendingInitialEditing] = useState(
-    () => initialEditing && !canWrite,
+  const [state, dispatch] = useReducer(
+    transitionStructuredDocumentEditing,
+    { canWrite, initialEditing },
+    initialStructuredDocumentEditingState,
   );
 
+  // Write access first, so a render that grants access and requests editing
+  // together resolves to editing.
   useEffect(() => {
-    if (!initialEditing) {
-      return;
-    }
-
-    if (canWrite) {
-      setIsEditing(true);
-      setPendingInitialEditing(false);
-      return;
-    }
-
-    setIsEditing(false);
-    setPendingInitialEditing(true);
-  }, [canWrite, initialEditing]);
+    dispatch({ canWrite, type: "write-access-changed" });
+  }, [canWrite]);
 
   useEffect(() => {
-    if (!canWrite) {
-      setIsEditing(false);
-      return;
+    if (initialEditing) {
+      dispatch({ type: "initial-edit-requested" });
     }
+  }, [initialEditing]);
 
-    if (pendingInitialEditing) {
-      setIsEditing(true);
-      setPendingInitialEditing(false);
-    }
-  }, [canWrite, pendingInitialEditing]);
-
-  // Kept reference-stable so the toolbar action it feeds does not re-register
-  // on every render.
-  const toggleEditing = useCallback(
-    () => setIsEditing((editing) => !editing),
+  const enterEditing = useCallback(
+    () => dispatch({ type: "edit-entered" }),
     [],
   );
+  const toggleEditing = useCallback(() => dispatch({ type: "toggled" }), []);
 
-  return [isEditing, setIsEditing, toggleEditing] as const;
+  return [state.status === "editing", enterEditing, toggleEditing] as const;
 }
 
 // The type label and load/sync status this once rendered duplicated the host
