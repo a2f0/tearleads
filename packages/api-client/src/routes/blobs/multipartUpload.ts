@@ -171,6 +171,13 @@ function uploadThroughApi(context: PartUploadContext, file: File) {
   );
 }
 
+function firstAttemptSource(
+  attempt: number,
+  source: MultipartBlobPartUploadSource | undefined,
+): MultipartBlobPartUploadSource | null {
+  return attempt === 0 && isUsableIssuedSource(source) ? source : null;
+}
+
 export async function uploadMultipartBlobPartBytes(
   transport: OperationTransport,
   stageId: string,
@@ -206,9 +213,8 @@ export async function uploadMultipartBlobPartBytes(
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (options.signal?.aborted) return null;
     const source =
-      attempt === 0 && isUsableIssuedSource(input.source)
-        ? input.source
-        : await authorizePart(context);
+      firstAttemptSource(attempt, input.source) ??
+      (await authorizePart(context));
     if (!source) return null;
     if (source.kind === "api") return uploadThroughApi(context, file);
     const outcome = await putStoragePart(

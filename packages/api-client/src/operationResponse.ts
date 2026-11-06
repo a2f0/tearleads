@@ -125,6 +125,29 @@ export function decodeOperationResponseHeaders(
   return parsed.success ? { data: parsed.data, ok: true } : { ok: false };
 }
 
+function reportBodyReadFailure(
+  request: OperationResponseRequestFn,
+  operation: JsonResponseOperation,
+  response: Response,
+  path: string,
+  options: RequestResultOptions,
+  error: unknown,
+) {
+  const failure = options.signal?.aborted
+    ? { kind: "cancelled" as const, message: "Request was cancelled" }
+    : responseBodyFailure(error, errorMessage(error));
+  return request.reportFailure({
+    ...(failure.kind === "cancelled" ? { code: "request_aborted" } : {}),
+    kind: failure.kind,
+    message: `${operation.method} ${path}: ${failure.message}`,
+    method: operation.method,
+    options,
+    path,
+    status: response.status,
+    statusText: response.statusText,
+  });
+}
+
 export async function decodeJsonOperationResponse(
   request: OperationResponseRequestFn,
   operation: JsonResponseOperation,
@@ -164,19 +187,14 @@ export async function decodeJsonOperationResponse(
     try {
       value = await response.json();
     } catch (error) {
-      const failure = options.signal?.aborted
-        ? { kind: "cancelled" as const, message: "Request was cancelled" }
-        : responseBodyFailure(error, errorMessage(error));
-      return request.reportFailure({
-        ...(failure.kind === "cancelled" ? { code: "request_aborted" } : {}),
-        kind: failure.kind,
-        message: `${operation.method} ${path}: ${failure.message}`,
-        method: operation.method,
-        options,
+      return reportBodyReadFailure(
+        request,
+        operation,
+        response,
         path,
-        status: response.status,
-        statusText: response.statusText,
-      });
+        options,
+        error,
+      );
     }
 
     const parsed = schema.safeParse(value);
