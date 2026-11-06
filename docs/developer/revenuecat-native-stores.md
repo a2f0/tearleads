@@ -5,8 +5,9 @@ How the App Store and Play Store lane differs from the web lane described in
 [direct Stripe checkout](./stripe-checkout-client.md) and keeps RevenueCat only
 for entitlement mirroring; the native shells have no direct-checkout capability,
 so they keep RevenueCat's provider-hosted store sheet. Native purchases can fund
-only the buyer's [personal organization](../glossary.md#organization); the
-mobile billing panel directs custom-organization admins to web checkout.
+only the buyer's
+[personal organization](../glossary/principals.md#organization); the mobile
+billing panel directs custom-organization admins to web checkout.
 
 ## The client adapter
 
@@ -96,7 +97,7 @@ VITE_REVENUECAT_IOS_API_KEY=test_... \
 ```
 
 Then sign in, open Organization Manager → Billing as an
-[organization admin](../glossary.md#organization-admins-group), and verify:
+[organization admin](../glossary/principals.md#organization-admins-group), and verify:
 
 1. Solo ($5), Team up to 5 ($10), and Team up to 10 ($20) load from the current
    offering.
@@ -176,7 +177,7 @@ and key-rotation workflows may instead export the independent
 `NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY` or
 `NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_ANDROID_API_KEY` baseline. Without
 either default or an explicit baseline, staging
-[fails closed](../glossary.md#fail-closed). Staging may override the shared
+[fails closed](../glossary/access.md#fail-closed). Staging may override the shared
 `VITE_REVENUECAT_SYNC_ENTITLEMENT` when its project uses a different entitlement
 identifier. Production releases likewise reject the resolved platform key unless
 it exactly matches its independent production baseline. The allowlist controls
@@ -351,7 +352,7 @@ deploy step.
 - Adding members beyond a native product's capacity returns a conflict until
   the admin upgrades through the store. Stripe-backed custom organizations
   change Price automatically when their
-  [roster](../glossary.md#organization-roster-entry) crosses 1/5/10 boundaries.
+  [roster](../glossary/principals.md#organization-roster-entry) crosses 1/5/10 boundaries.
 - Native option filtering uses the active-member count returned with the server
   billing snapshot, not a local directory projection. If the roster still races
   a completed store purchase, the paid tier is activated and alerted rather

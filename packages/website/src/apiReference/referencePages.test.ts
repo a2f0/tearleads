@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { docPath, technicalDocPages } from "../technicalDocs";
 import { parseApiDocument } from "./openApiDocument";
 import { createApiReference, refinementSentence } from "./referencePages";
 import type { RichText } from "./richText";
@@ -11,7 +12,12 @@ const openApiText = readFileSync(
   resolve(repository, "docs/openapi.json"),
   "utf8",
 );
-const glossary = readFileSync(resolve(repository, "docs/glossary.md"), "utf8");
+const glossary = technicalDocPages
+  .filter((doc) => doc.parent === "glossary")
+  .map((doc) => ({
+    path: docPath(doc),
+    markdown: readFileSync(resolve(repository, doc.source), "utf8"),
+  }));
 const reference = createApiReference(openApiText, glossary);
 
 /** Every key of every object in the document's schemas, recursively. */

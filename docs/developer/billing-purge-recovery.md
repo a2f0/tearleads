@@ -1,52 +1,53 @@
 # Billing-Purge Recovery
 
 A [billing lapse](./billing-lapse-recovery.md) disables remote sync for the
-affected [organization](../glossary.md#organization). Once its retention window
-expires, the server moves billing to `deleting`, rejects sync, and purges
-organization-owned remote data. Sync remains blocked after the state reaches
-`purged`; a replacement organization is required before it can resume.
+affected [organization](../glossary/principals.md#organization). Once its
+retention window expires, the server moves billing to `deleting`, rejects sync,
+and purges organization-owned remote data. Sync remains blocked after the state
+reaches `purged`; a replacement organization is required before it can resume.
 
 `clearRemoteSyncState(execSql, { organizationId })` works while sync is blocked.
 It clears only that organization's server-derived rows, cursors, remote
 identifiers, and queued remote work; durable local Loro history and attachment
 sources stay available for republishing. A replacement reset also accepts a
-fresh organization id and [root container](../glossary.md#root-container) id and
-rebinds the retained local records to them.
+fresh organization id and [root container](../glossary/access.md#root-container)
+id and rebinds the retained local records to them.
 
-Reset scope comes from local [container](../glossary.md#container) ownership and
-[document](../glossary.md#document) projections, including document-to-container
-links. Organization and roster profile pointers in the server read model cannot
-add documents to that scope. A profile document with a local projection for the
-affected organization still resets even when it has no current container
-projection.
+Reset scope comes from local [container](../glossary/access.md#container)
+ownership and [document](../glossary/content.md#document) projections, including
+document-to-container links. Organization and roster profile pointers in the
+server read model cannot add documents to that scope. A profile document with a
+local projection for the affected organization still resets even when it has no
+current container projection.
 
-Reset preserves [principal-policy](../glossary.md#principal-policy-state)
-[checkpoints](../glossary.md#checkpoint) and their organization ownership, and
-[access-manifest](../glossary.md#access-manifest) checkpoints for containers and
-documents. Cached policy bundles may be cleared, but later verification still
-rejects rollback and forks against those durable observations. Repeated resets
-preserve the same anchors. Access checkpoints include the organization id in
-their identity, so a fresh replacement organization can reuse local container
-ids without erasing the old organization's trust history. Reset within the same
-organization cannot make a conflicting genesis acceptable. These anchors remain
-until the local database is fully reset; purged-organization cleanup must not
-remove them. The discovery cache compares each signed
-[head](../glossary.md#head) against its own organization's checkpoint, so
-retaining an old organization's pin does not disable caching after recovery. The
-cache is keyed by document and organization, so their
-[epoch](../glossary.md#epoch) counters remain independent; the schema guard
-rejects a cache without its organization column with the local-database-reset
+Reset preserves [principal-policy](../glossary/principals.md#principal-policy-state)
+[checkpoints](../glossary/sync.md#checkpoint) and their organization ownership,
+and [access-manifest](../glossary/access.md#access-manifest) checkpoints for
+containers and documents. Cached policy bundles may be cleared, but later
+verification still rejects rollback and forks against those durable
+observations. Repeated resets preserve the same anchors. Access checkpoints
+include the organization id in their identity, so a fresh replacement
+organization can reuse local container ids without erasing the old
+organization's trust history. Reset within the same organization cannot make a
+conflicting genesis acceptable. These anchors remain until the local database is
+fully reset; purged-organization cleanup must not remove them. The discovery
+cache compares each signed [head](../glossary/sync.md#head) against its own
+organization's checkpoint, so retaining an old organization's pin does not
+disable caching after recovery. The cache is keyed by document and organization,
+so their [epoch](../glossary/keys.md#epoch) counters remain independent; the
+schema guard rejects a cache without its organization column with the local-database-reset
 error.
 
 Replacement provisioning carries an explicit identity signature under the
 `tearleads.organization-replacement.v1` domain. It binds the old organization,
 new organization, user, root container, root metadata document, organization
-policy genesis hash, [Admins](../glossary.md#organization-admins-group) and
-[Members](../glossary.md#organization-members-group) group IDs and genesis
-hashes, and root manifest genesis hash. The SDK signs this intent only for a
-fresh personal organization whose sole founding authority is the current user
-and whose root is private, parentless, and not a system container. An ordinary
-signed root is insufficient authority to re-home the corpus.
+policy genesis hash,
+[Admins](../glossary/principals.md#organization-admins-group) and
+[Members](../glossary/principals.md#organization-members-group) group IDs and
+genesis hashes, and root manifest genesis hash. The SDK signs this intent only
+for a fresh personal organization whose sole founding authority is the current
+user and whose root is private, parentless, and not a system container. An
+ordinary signed root is insufficient authority to re-home the corpus.
 
 The API requires `replacementAuthorization` for every replacement request and
 checks it against the submitted signed provisioning artifacts before creation,
@@ -85,11 +86,12 @@ rebind keeps queued edits and resets the remote metadata stream.
 `GET /containers/:id/replacement-authorizations/:replacesOrganizationId` serves
 the chain only to a current reader of the destination container, so former
 members cannot discover replacement IDs merely through the old
-[roster](../glossary.md#organization-roster-entry). A disabled member can follow
-when deliberately invited and granted access in the new organization; no old
-[grant](../glossary.md#grant) or roster status automatically grants new access.
-Missing authority or proof leaves the old binding and queued edits untouched.
-Multiple replacements use a continuous signed chain, without a lifetime cap.
+[roster](../glossary/principals.md#organization-roster-entry). A disabled member
+can follow when deliberately invited and granted access in the new organization;
+no old [grant](../glossary/access.md#grant) or roster status automatically
+grants new access. Missing authority or proof leaves the old binding and queued
+edits untouched. Multiple replacements use a continuous signed chain, without a
+lifetime cap.
 
 Normal clients should call `session.recoverPurgedOrganization(...)` only after
 the server reports `purged`. The session provisions a replacement personal

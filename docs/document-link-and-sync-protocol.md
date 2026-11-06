@@ -1,10 +1,10 @@
 # Document Link and Sync Protocol
 
-[Documents](./glossary.md#document) do not own direct ACLs. A
-[document link-set manifest](./glossary.md#document-link-set-manifest) names the
-[containers](./glossary.md#container) that link to the document. Document create
-and link-set mutation routes use signed document
-[access events](./glossary.md#access-event):
+[Documents](./glossary/content.md#document) do not own direct ACLs. A
+[document link-set manifest](./glossary/access.md#document-link-set-manifest)
+names the [containers](./glossary/access.md#container) that link to the
+document. Document create and link-set mutation routes use signed document
+[access events](./glossary/access.md#access-event):
 
 - `POST /documents`
 - `POST /documents/:documentId/link`
@@ -19,30 +19,30 @@ and link-set mutation routes use signed document
   manifestHash}` citations of stored manifests; the API resolves the previous
   link-set manifest from its own store, and a create has none)
 - optional `containerRekeys[]`
-- a document [content-key bundle](./glossary.md#content-key-bundle)
+- a document [content-key bundle](./glossary/keys.md#content-key-bundle)
 
 The API verifies the event, verifies
-[container path](./glossary.md#authorizing-container-path)
-[heads](./glossary.md#head), loads referenced
-[principal policies](./glossary.md#principal-policy-state), derives the document
-link-set manifest, stores the manifest head, and validates the submitted
+[container path](./glossary/access.md#authorizing-container-path)
+[heads](./glossary/sync.md#head), loads referenced
+[principal policies](./glossary/principals.md#principal-policy-state), derives
+the document link-set manifest, stores the manifest head, and validates the submitted
 content-key bundle against derived document
-[KEK targets](./glossary.md#key-target).
+[KEK targets](./glossary/keys.md#key-target).
 
 A create may also carry an `initialSync` seed: a `DocumentSyncRequest` holding
-exactly one outgoing [update](./glossary.md#loro-update) and no container
+exactly one outgoing [update](./glossary/content.md#loro-update) and no container
 rekeys, whose start is empty and whose `localVersionVector` is the update's end.
 It is the client's one queued update that holds the new document's whole
 content. Content known at creation (a contact's names, an imported file's fields
 and rows) is opened into that birth update rather than written after it, so such
 a document qualifies. The API commits the seed in the create transaction under
-the same [write-header](./glossary.md#signed-write-header), target, and billing
-checks as a standalone sync, so a seed a sync would refuse fails the create, and
-nothing commits. The response's `initialSync` names the accepted update id and
-the commit position, which the client records as its first sync's. The route
-publishes the seed's [update hint](./developer/realtime-hints.md); the client
-settles its queued row only when that acknowledgement names it. Settling the
-seed answers only the update signal the client held before submitting the
+the same [write-header](./glossary/content.md#signed-write-header), target, and
+billing checks as a standalone sync, so a seed a sync would refuse fails the
+create, and nothing commits. The response's `initialSync` names the accepted
+update id and the commit position, which the client records as its first sync's.
+The route publishes the seed's [update hint](./developer/realtime-hints.md); the
+client settles its queued row only when that acknowledgement names it. Settling
+the seed answers only the update signal the client held before submitting the
 create, so the pass
 [skips its pull](./client-sync-ordering.md#remote-pull-eligibility). A peer can
 edit the document before the response arrives, so the client matches update
@@ -62,12 +62,12 @@ again under a fresh id; the duplicate is harmless because CRDT import is
 idempotent. A lost response therefore costs the recovery round trips, not data.
 
 Both link and unlink bodies require `blobRewraps`: one entry per
-[blob](./glossary.md#blob) actively bound to the changed document, with
+[blob](./glossary/content.md#blob) actively bound to the changed document, with
 `blobId`, the immutable `contentKeyEpoch`, and complete wrapped `targets` for
-every [active binding](./glossary.md#attachment-binding) and resulting linked
+every [active binding](./glossary/content.md#attachment-binding) and resulting linked
 container. Document creation signs an empty array. The event signature covers
 the envelopes inline. Clients authenticate the existing blob ciphertext before
-[rewrapping](./glossary.md#rewrap) its [content key](./glossary.md#content-key)
+[rewrapping](./glossary/keys.md#rewrap) its [content key](./glossary/keys.md#content-key)
 for new destination KEKs; this streams bounded chunks, checks the complete
 signed ciphertext hash, and does not retain whole attachments in memory between
 bindings. Retaining or removing existing envelopes verifies signed binding scope
@@ -82,17 +82,17 @@ this retention rule rather than copying the proposal directly. Readers consume
 the resulting verified bundle projection. Stale or incomplete rewraps conflict
 without advancing the document head.
 
-An unlink [rotates](./glossary.md#rotate) the document content key and must
+An unlink [rotates](./glossary/keys.md#rotate) the document content key and must
 carry a `rotationBaseline` — a signed `rotate_baseline` full-history snapshot
-whose source [version vector](./glossary.md#version-vector) covers the complete
+whose source [version vector](./glossary/content.md#version-vector) covers the complete
 committed update frontier — with one exception: a document with **no committed
 updates** may be unlinked without a baseline. The server proves that emptiness
 inside the mutation transaction under the document manifest-head write lock.
 Sync writers hold the corresponding exclusive lock, so no update can commit
 between the emptiness proof and the unlink. A baseline-less unlink against a
 non-empty committed frontier is rejected as a conflict. A link must not carry a
-[rotation baseline](./glossary.md#rotation-baseline), so it may advance the
-[content-key epoch](./glossary.md#access-epoch) only under the same emptiness
+[rotation baseline](./glossary/keys.md#rotation-baseline), so it may advance the
+[content-key epoch](./glossary/access.md#access-epoch) only under the same emptiness
 proof; otherwise the link is rejected as a conflict. A stored rotation baseline
 counts as a committed update. Honest clients link at the current epoch.
 
@@ -115,7 +115,7 @@ Encrypted [Loro sync](./loro-e2ee-sync-protocol.md) uses
 - `inlineRekeyCommitId`, present exactly when `containerRekeys[]` is non-empty
 - `outgoingUpdates[]`
 
-The durable `inlineRekeyCommitId` marker makes the [rekey](./glossary.md#rekey)
+The durable `inlineRekeyCommitId` marker makes the [rekey](./glossary/keys.md#rekey)
 and its outgoing write replay-safe as one transaction; unmarked batches and
 markers without a batch are rejected.
 
@@ -214,7 +214,7 @@ JSON `409` responses retain `error` for diagnostics and carry a normative code:
 | `document_sync_conflict`                     | Report the terminal conflict without retrying. |
 
 Retry and recovery decisions use status plus `code`, never `error` text. A
-missing or unknown code [fails closed](./glossary.md#fail-closed) as a terminal
+missing or unknown code [fails closed](./glossary/access.md#fail-closed) as a terminal
 conflict.
 
 A stable-id document-create retry adopts the committed remote document only on
@@ -227,7 +227,7 @@ projection, `document_sync_state_stale` may carry at most 16 advisory
 hash, key epoch and key fingerprint. The client recovers signed evidence through
 the [paged history resolver](./principal-history-pages.md), restricted to
 principals named by its submitted rekeys, before it refetches the
-[writer projection](./glossary.md#writer-projection) and replans. Error hints
+[writer projection](./glossary/sync.md#writer-projection) and replans. Error hints
 alone never admit checkpoints. Exact scoped references and the original runtime
 lifetime must remain valid throughout recovery, and the retry stays bounded by
 the normal stale-state budget. Other conflict codes ignore repair heads.

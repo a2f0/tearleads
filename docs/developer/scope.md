@@ -136,7 +136,7 @@ is separate from the repository benchmark and does not create dashboard runs.
    through actual API, SDK, and app code, respecting public boundaries.
 3. **Public SDK onboarding:** write a minimal documented example that configures
    an assumed [SQLite runtime](sqlite-setup.md) before creating an identity and
-   [root container](../glossary.md#root-container).
+   [root container](../glossary/access.md#root-container).
 
 Each task writes `agent-readiness.md` with citations and a friction section.
 The two criteria per task score observable report contents. They do not claim

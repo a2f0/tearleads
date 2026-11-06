@@ -15,18 +15,32 @@ export type RichText = readonly Paragraph[];
 
 export interface GlossaryTerm {
   readonly term: string;
-  readonly slug: string;
+  /** The published anchor: /docs/glossary/<topic>/#<slug>. */
+  readonly href: string;
+}
+
+/** One published glossary topic page: its site path and Markdown source. */
+export interface GlossaryPage {
+  readonly path: string;
+  readonly markdown: string;
 }
 
 /** Turns plain text into the parts of one page, in reading order. */
 export type TextRenderer = (text: string | undefined) => RichText;
 
 /**
- * The glossary's terms: its `##` headings, with the anchors the published
- * page gives them (GitHub's slug rule, numbered in heading order like
- * docLinksPlugin). Headings inside fenced code are not headings.
+ * The glossary's terms: the `##` headings of its topic pages, with the
+ * anchors the published pages give them (GitHub's slug rule, numbered in
+ * heading order like docLinksPlugin). Headings inside fenced code are not
+ * headings.
  */
-export function glossaryTerms(markdown: string): readonly GlossaryTerm[] {
+export function glossaryTerms(
+  pages: readonly GlossaryPage[],
+): readonly GlossaryTerm[] {
+  return pages.flatMap((page) => pageTerms(page));
+}
+
+function pageTerms({ path, markdown }: GlossaryPage): GlossaryTerm[] {
   const slugger = new GithubSlugger();
   const terms: GlossaryTerm[] = [];
   let fenced = false;
@@ -36,7 +50,7 @@ export function glossaryTerms(markdown: string): readonly GlossaryTerm[] {
     if (heading === null) continue;
     const [, marks = "", text = ""] = heading;
     const slug = slugger.slug(text);
-    if (marks.length === 2) terms.push({ term: text, slug });
+    if (marks.length === 2) terms.push({ term: text, href: `${path}#${slug}` });
   }
   return terms;
 }
@@ -84,16 +98,16 @@ function termPattern(terms: readonly GlossaryTerm[]): RegExp | null {
 
 /**
  * A renderer for one page. It links the first mention of each glossary term
- * on the page (case-insensitive, whole words, longest term first) to
- * /docs/glossary/#<slug>, and never inside code spans. Call it in the order
+ * on the page (case-insensitive, whole words, longest term first) to its
+ * glossary anchor, and never inside code spans. Call it in the order
  * the page shows the text, so "first" means first on screen.
  */
 export function createTextRenderer(
   terms: readonly GlossaryTerm[],
 ): TextRenderer {
   const pattern = termPattern(terms);
-  const slugs = new Map(
-    terms.map((entry) => [entry.term.toLowerCase(), entry.slug]),
+  const hrefs = new Map(
+    terms.map((entry) => [entry.term.toLowerCase(), entry.href]),
   );
   const linked = new Set<string>();
 
@@ -103,8 +117,8 @@ export function createTextRenderer(
     let last = 0;
     for (const match of text.matchAll(pattern)) {
       const key = (match[1] ?? "").toLowerCase();
-      const slug = slugs.get(key);
-      if (slug === undefined || linked.has(key)) continue;
+      const href = hrefs.get(key);
+      if (href === undefined || linked.has(key)) continue;
       linked.add(key);
       if (match.index > last) {
         parts.push({ kind: "text", text: text.slice(last, match.index) });
@@ -112,7 +126,7 @@ export function createTextRenderer(
       parts.push({
         kind: "term",
         text: match[0],
-        href: `/docs/glossary/#${slug}`,
+        href,
       });
       last = match.index + match[0].length;
     }

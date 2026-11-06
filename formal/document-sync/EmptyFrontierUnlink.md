@@ -2,7 +2,7 @@
 
 [`EmptyFrontierUnlink.tla`](./EmptyFrontierUnlink.tla) models the acceptance
 gates for the two content-key epoch advances that carry no
-[rotation baseline](../../docs/glossary.md#rotation-baseline): a document unlink
+[rotation baseline](../../docs/glossary/keys.md#rotation-baseline): a document unlink
 submitted without one, and a link that advances the epoch. A rotation strands
 every committed update that no baseline sealed to the new epoch covers. A
 document with an empty committed frontier cannot produce a baseline at all — a
