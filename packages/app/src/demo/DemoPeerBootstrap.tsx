@@ -181,6 +181,16 @@ function DemoPeerRosterSeeder({
     const startAttempt = (): void => {
       void attempt().catch(stopAfterIdentityIntegrityFailure);
     };
+    const retryOrGiveUp = (): void => {
+      attempts += 1;
+      if (attempts < ROSTER_SEED_MAX_ATTEMPTS) {
+        retryTimer = setTimeout(startAttempt, ROSTER_SEED_RETRY_MS);
+      } else {
+        logError(
+          `Demo peer bootstrap: gave up seeding the peer roster entry after ${ROSTER_SEED_MAX_ATTEMPTS} attempts.`,
+        );
+      }
+    };
     async function attempt(): Promise<void> {
       if (!active || settledPeerRef.current === targetPeerUserId) {
         return;
@@ -199,15 +209,7 @@ function DemoPeerRosterSeeder({
         settledPeerRef.current = targetPeerUserId;
         return;
       }
-
-      attempts += 1;
-      if (attempts < ROSTER_SEED_MAX_ATTEMPTS) {
-        retryTimer = setTimeout(startAttempt, ROSTER_SEED_RETRY_MS);
-      } else {
-        logError(
-          `Demo peer bootstrap: gave up seeding the peer roster entry after ${ROSTER_SEED_MAX_ATTEMPTS} attempts.`,
-        );
-      }
+      retryOrGiveUp();
     }
 
     startAttempt();

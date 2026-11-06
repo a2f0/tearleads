@@ -112,6 +112,33 @@ function readRequestIsCurrent(
   );
 }
 
+function trialRequestIsCurrent(
+  guard: BillingRequestGuard,
+  organizationId: string,
+  scopeGeneration: number,
+  trialRequestId: number,
+): boolean {
+  return (
+    organizationScopeIsCurrent(guard, organizationId, scopeGeneration) &&
+    guard.trialRequestIdRef.current === trialRequestId
+  );
+}
+
+// Keeps the organization's billing (dropping another organization's) while
+// setting the loading flag and error.
+function retainBillingState(
+  organizationId: string,
+  loading: boolean,
+  error: string | null,
+): (current: ScopedBillingState) => ScopedBillingState {
+  return (current) => ({
+    organizationId,
+    billing: current.organizationId === organizationId ? current.billing : null,
+    loading,
+    error,
+  });
+}
+
 type LoadedBilling = Awaited<
   ReturnType<BillingClient["organizations"]["loadBilling"]>
 >;
@@ -170,13 +197,7 @@ function useBillingRefresh(
       requestId: ++guard.readRequestIdRef.current,
       scopeGeneration: guard.scopeGenerationRef.current,
     };
-    setState((current) => ({
-      organizationId,
-      billing:
-        current.organizationId === organizationId ? current.billing : null,
-      loading: true,
-      error: null,
-    }));
+    setState(retainBillingState(organizationId, true, null));
     try {
       const next = await client.organizations.loadBilling();
       if (readRequestIsCurrent(guard, request)) {
@@ -213,18 +234,16 @@ function useStartBillingTrial(
     const scopeGeneration = guard.scopeGenerationRef.current;
     const trialRequestId = ++guard.trialRequestIdRef.current;
     guard.billingMutationVersionRef.current++;
-    setState((current) => ({
-      organizationId,
-      billing:
-        current.organizationId === organizationId ? current.billing : null,
-      loading: false,
-      error: null,
-    }));
+    setState(retainBillingState(organizationId, false, null));
     try {
       const next = await client.organizations.startTrial();
       if (
-        !organizationScopeIsCurrent(guard, organizationId, scopeGeneration) ||
-        guard.trialRequestIdRef.current !== trialRequestId
+        !trialRequestIsCurrent(
+          guard,
+          organizationId,
+          scopeGeneration,
+          trialRequestId,
+        )
       ) {
         return false;
       }
@@ -238,29 +257,33 @@ function useStartBillingTrial(
         });
         return true;
       }
-      setState((current) => ({
-        organizationId,
-        billing:
-          current.organizationId === organizationId ? current.billing : null,
-        loading: false,
-        error: BILLING_LABELS.failedStartTrial,
-      }));
+      setState(
+        retainBillingState(
+          organizationId,
+          false,
+          BILLING_LABELS.failedStartTrial,
+        ),
+      );
     } catch (trialError) {
       if (
-        !organizationScopeIsCurrent(guard, organizationId, scopeGeneration) ||
-        guard.trialRequestIdRef.current !== trialRequestId
+        !trialRequestIsCurrent(
+          guard,
+          organizationId,
+          scopeGeneration,
+          trialRequestId,
+        )
       ) {
         return false;
       }
       guard.billingMutationVersionRef.current++;
       logError("Failed to start the free trial", trialError);
-      setState((current) => ({
-        organizationId,
-        billing:
-          current.organizationId === organizationId ? current.billing : null,
-        loading: false,
-        error: BILLING_LABELS.failedStartTrial,
-      }));
+      setState(
+        retainBillingState(
+          organizationId,
+          false,
+          BILLING_LABELS.failedStartTrial,
+        ),
+      );
     }
     return false;
   }, [client, guard, logError, organizationId, setState]);

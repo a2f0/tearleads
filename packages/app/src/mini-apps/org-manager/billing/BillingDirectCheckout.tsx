@@ -85,6 +85,33 @@ function CheckoutScreenHeader({
   );
 }
 
+/** The checkout screen's Cancel and Pay buttons. */
+function CheckoutScreenActions({
+  checkout,
+  disabled,
+}: {
+  readonly checkout: DirectCheckoutState;
+  readonly disabled: boolean;
+}) {
+  const collecting = checkout.phase.kind === "collecting";
+  const confirming = checkout.phase.kind === "confirming";
+  return (
+    <MiniAppActions>
+      <MiniAppButton disabled={confirming} onClick={checkout.cancel}>
+        {ORG_MANAGER_LABELS.billingCancelCheckout}
+      </MiniAppButton>
+      <MiniAppButton
+        disabled={!collecting || disabled || !checkout.billingEmailComplete}
+        onClick={checkout.confirm}
+      >
+        {confirming
+          ? ORG_MANAGER_LABELS.billingCheckoutPaying
+          : ORG_MANAGER_LABELS.billingCheckoutPay}
+      </MiniAppButton>
+    </MiniAppActions>
+  );
+}
+
 /** Whether the checkout has left the billing panel for its own screen. */
 export function isCheckoutScreenOpen(checkout: DirectCheckoutState): boolean {
   return checkout.phase.kind !== "idle";
@@ -110,8 +137,6 @@ export function BillingDirectCheckout({
       </MiniAppSection>
     ) : null;
   }
-  const collecting = phase.kind === "collecting";
-  const confirming = phase.kind === "confirming";
   const starting = phase.kind === "starting";
   const idle = phase.kind === "idle";
   const priceLabel = formatPrice(
@@ -181,19 +206,7 @@ export function BillingDirectCheckout({
           `starting` on: the screen must never trap the buyer while the form
           loads. Teardown discards a mount that lands after it. */}
       {idle ? null : (
-        <MiniAppActions>
-          <MiniAppButton disabled={confirming} onClick={checkout.cancel}>
-            {ORG_MANAGER_LABELS.billingCancelCheckout}
-          </MiniAppButton>
-          <MiniAppButton
-            disabled={!collecting || disabled || !checkout.billingEmailComplete}
-            onClick={checkout.confirm}
-          >
-            {confirming
-              ? ORG_MANAGER_LABELS.billingCheckoutPaying
-              : ORG_MANAGER_LABELS.billingCheckoutPay}
-          </MiniAppButton>
-        </MiniAppActions>
+        <CheckoutScreenActions checkout={checkout} disabled={disabled} />
       )}
 
       {checkout.error ? (

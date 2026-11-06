@@ -10,6 +10,60 @@ import {
   usePendingPolicyMutationAction,
 } from "./usePendingPolicyMutation";
 
+function ConfirmStopRetrying(props: {
+  busy: boolean;
+  mutating: boolean;
+  onKeep: () => void;
+  onStop: () => void;
+}) {
+  return (
+    <>
+      <p>
+        Stopping retries will not undo a change that was already applied. Review
+        current access before making another change.
+      </p>
+      <MiniAppActions>
+        <MiniAppButton disabled={props.busy} onClick={props.onKeep}>
+          Keep saved request
+        </MiniAppButton>
+        <MiniAppButton
+          disabled={props.busy || props.mutating}
+          onClick={props.onStop}
+        >
+          Stop retrying this change
+        </MiniAppButton>
+      </MiniAppActions>
+    </>
+  );
+}
+
+function PendingPolicyMutationActions(props: {
+  busy: boolean;
+  mutating: boolean;
+  onRetry: () => void;
+  onStopRetrying: () => void;
+  unreadable: boolean;
+}) {
+  return (
+    <MiniAppActions>
+      {!props.unreadable && (
+        <MiniAppButton
+          disabled={props.busy || props.mutating}
+          onClick={props.onRetry}
+        >
+          {props.busy ? "Resolving…" : "Retry saved change"}
+        </MiniAppButton>
+      )}
+      <MiniAppButton
+        disabled={props.busy || props.mutating}
+        onClick={props.onStopRetrying}
+      >
+        Stop retrying…
+      </MiniAppButton>
+    </MiniAppActions>
+  );
+}
+
 export function PendingPolicyMutation(props: {
   organizationId: string;
   groups: readonly OrganizationGroupSummary[];
@@ -50,47 +104,24 @@ export function PendingPolicyMutation(props: {
         <MiniAppStatus tone="error">{snapshot.error}</MiniAppStatus>
       )}
       {confirming ? (
-        <>
-          <p>
-            Stopping retries will not undo a change that was already applied.
-            Review current access before making another change.
-          </p>
-          <MiniAppActions>
-            <MiniAppButton
-              disabled={action.busy}
-              onClick={() => setConfirmedRequest(null)}
-            >
-              Keep saved request
-            </MiniAppButton>
-            <MiniAppButton
-              disabled={action.busy || props.mutating}
-              onClick={() => {
-                void action.run(true);
-              }}
-            >
-              Stop retrying this change
-            </MiniAppButton>
-          </MiniAppActions>
-        </>
+        <ConfirmStopRetrying
+          busy={action.busy}
+          mutating={props.mutating}
+          onKeep={() => setConfirmedRequest(null)}
+          onStop={() => {
+            void action.run(true);
+          }}
+        />
       ) : (
-        <MiniAppActions>
-          {!snapshot.unreadable && (
-            <MiniAppButton
-              disabled={action.busy || props.mutating}
-              onClick={() => {
-                void action.run(false);
-              }}
-            >
-              {action.busy ? "Resolving…" : "Retry saved change"}
-            </MiniAppButton>
-          )}
-          <MiniAppButton
-            disabled={action.busy || props.mutating}
-            onClick={() => setConfirmedRequest(selected)}
-          >
-            Stop retrying…
-          </MiniAppButton>
-        </MiniAppActions>
+        <PendingPolicyMutationActions
+          busy={action.busy}
+          mutating={props.mutating}
+          onRetry={() => {
+            void action.run(false);
+          }}
+          onStopRetrying={() => setConfirmedRequest(selected)}
+          unreadable={Boolean(snapshot.unreadable)}
+        />
       )}
     </section>
   );
