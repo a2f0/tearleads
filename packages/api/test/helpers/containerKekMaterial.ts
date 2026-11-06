@@ -9,7 +9,7 @@ import {
   sealContainerKekKeyring,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 
 export function createRootContainerKeyEpoch(input: {

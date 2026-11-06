@@ -1,7 +1,20 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedDocumentAccessEvent } from "./accessEvent.testFixtures";
+import { createVerifiedAttachmentBinding } from "./attachmentAccessEvent.testFixtures";
+import { fixtureHash } from "./canonical.testFixtures";
+import {
+  createContainerManifestFixture,
+  createPrincipalPolicyFixture,
+} from "./containerAccess.testFixtures";
+import {
+  createContainerKeyEpochFixture,
+  createContainerKeyWrap,
+  createVerifiedContainerKekStateFixture,
+} from "./containerKek.testFixtures";
 import { fixtureContainerKekMaterialId as kekId } from "./containerKekMaterial.testFixtures";
 import { createContainerUserRecipientKey } from "./containerUserRecipientKey.testFixtures";
+import { createDocumentLinkSetManifestFixture } from "./documentLinkSetManifest.testFixtures";
 import type {
   DocumentAccessEventBody,
   VerifiedContainerKekState,
@@ -14,18 +27,7 @@ import {
   derivePrincipalRecipientKeyEpochId,
   verifyContainerKekState,
 } from "./index";
-import {
-  createContainerKeyEpochFixture,
-  createContainerKeyWrap,
-  createContainerManifestFixture,
-  createDocumentLinkSetManifestFixture,
-  createPrincipalPolicyFixture,
-  createVerifiedAttachmentBinding,
-  createVerifiedContainerKekStateFixture,
-  createVerifiedDocumentAccessEvent,
-  expectVerificationError,
-  fixtureHash,
-} from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 test("deriveDocumentKekTargets resolves every linked container KEK target", async () => {
   const writerUserId = "writer-user";

@@ -1,21 +1,21 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import { computeAccessManifestHash } from "./accessEvent";
+import { createVerifiedContainerAccessEvent } from "./accessEvent.testFixtures";
+import { fixtureHash } from "./canonical.testFixtures";
 import {
   deriveContainerAccessManifest,
   verifyContainerAccessManifest,
 } from "./containerAccess";
+import {
+  createContainerManifestFixture,
+  createPrincipalPolicyFixture,
+} from "./containerAccess.testFixtures";
 import type {
   ContainerAccessEventBody,
   ContainerGrantPrincipalHead,
 } from "./containerAccessTypes";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
-import {
-  createContainerManifestFixture,
-  createPrincipalPolicyFixture,
-  createVerifiedContainerAccessEvent,
-  fixtureHash,
-} from "./testFixtures";
 
 for (const eventType of ["container.grant", "container.rekey"] as const) {
   for (const change of [

@@ -21,7 +21,7 @@ import type {
   ReferencedPrincipalHead,
   WriteHeader,
 } from "@tearleads/crypto";
-import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import { eq } from "drizzle-orm";
 
 const contentRecordEncryptionSuite = "aes-256-gcm-hkdf-sha256-record-key";

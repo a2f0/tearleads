@@ -10,10 +10,8 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import {
-  createContainerManifestFixture,
-  createVerifiedContainerAccessEvent,
-} from "@tearleads/crypto/test-fixtures";
+import { createVerifiedContainerAccessEvent } from "@tearleads/crypto/access-event-test-fixtures";
+import { createContainerManifestFixture } from "@tearleads/crypto/container-access-test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createContainerWriterProjectionContext } from "../../src/workflows/containers/writerProjection/context";
 import { toManifestBundleResponse } from "../../src/workflows/containers/writerProjection/records";

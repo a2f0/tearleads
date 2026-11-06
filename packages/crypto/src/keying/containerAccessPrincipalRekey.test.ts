@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedContainerAccessEvent } from "./accessEvent.testFixtures";
+import { fixtureHash } from "./canonical.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import { normalizeContainerRekeyAccessEventBody } from "./containerAccessRekeyBody";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import type { ContainerAccessEventBody } from "./index";
@@ -8,11 +11,6 @@ import {
   deriveContainerAccessManifest,
   verifyContainerAccessManifest,
 } from "./index";
-import {
-  createContainerManifestFixture,
-  createVerifiedContainerAccessEvent,
-  fixtureHash,
-} from "./testFixtures";
 
 test("a rekey advances a managed-principal pin without changing grants", async () => {
   const writerUserId = "writer-user";

@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedContainerAccessEvent } from "./accessEvent.testFixtures";
+import { fixtureHash } from "./canonical.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import type {
   ContainerAccessEventBody,
@@ -13,12 +16,7 @@ import {
   verifyContainerAccessManifest,
   verifyContainerParentEdge,
 } from "./index";
-import {
-  createContainerManifestFixture,
-  createVerifiedContainerAccessEvent,
-  expectVerificationError,
-  fixtureHash,
-} from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 const PREDECESSOR_BRIDGE_HASH = "0".repeat(64);
 const KEYRING_HASH = "1".repeat(64);

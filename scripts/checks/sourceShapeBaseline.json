@@ -83,7 +83,7 @@
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 666,
-      "bytes": 21758
+      "bytes": 21777
     },
     "packages/api/src/access/write/containerKekStore.test.ts": {
       "lines": 576,
@@ -115,7 +115,7 @@
     },
     "packages/api/src/schema.test.ts": {
       "lines": 526,
-      "bytes": 16513
+      "bytes": 16532
     },
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
       "lines": 539,
@@ -206,16 +206,12 @@
       "bytes": 15792
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
-      "lines": 926,
-      "bytes": 30274
+      "lines": 924,
+      "bytes": 30420
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
-      "lines": 552,
-      "bytes": 18898
-    },
-    "packages/crypto/src/keying/testFixtures.ts": {
-      "lines": 678,
-      "bytes": 22957
+      "lines": 554,
+      "bytes": 19202
     },
     "packages/validators/src/operation/openApi.test.ts": {
       "lines": 509,

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
+import { createContainerManifestFixture } from "@tearleads/crypto/container-access-test-fixtures";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { manifestBundle } from "../../../../test/helpers/ancestorCitationScenario";
 import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";

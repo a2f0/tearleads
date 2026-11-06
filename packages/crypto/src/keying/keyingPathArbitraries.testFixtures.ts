@@ -1,4 +1,5 @@
 import fc from "fast-check";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import {
   type ContainerDirectGrant,
   type VerifiedContainerAccessManifest,
@@ -11,7 +12,6 @@ import {
   signerPool,
   sortedGrants,
 } from "./keyingArbitraries.testFixtures";
-import { createContainerManifestFixture } from "./testFixtures";
 
 interface ContainerPathPlan {
   readonly root: Parameters<typeof buildContainerChain>[0];

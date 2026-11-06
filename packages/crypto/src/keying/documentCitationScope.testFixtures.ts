@@ -1,12 +1,10 @@
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedDocumentAccessEvent } from "./accessEvent.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
 import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
 import type { VerifiedDocumentLinkSetManifest } from "./documentAccessTypes";
-import {
-  createContainerManifestFixture,
-  createDocumentLinkSetManifestFixture,
-  createVerifiedDocumentAccessEvent,
-} from "./testFixtures";
+import { createDocumentLinkSetManifestFixture } from "./documentLinkSetManifest.testFixtures";
 
 export async function citationScopeFixture() {
   const signer = generateSigningSeedAndKeyPair();

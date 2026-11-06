@@ -1,6 +1,13 @@
 import { expect, test } from "bun:test";
 import { toFingerprint } from "../fingerprint";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import {
+  createManifest,
+  createSignedContainerEvent,
+  createVerifiedAccessManifestCheckpointFixture,
+  createVerifiedEvent,
+} from "./accessEvent.testFixtures";
+import { fixtureHash } from "./canonical.testFixtures";
 import type { AccessEvent, AccessManifestCheckpoint } from "./index";
 import {
   computeAccessManifestHash,
@@ -8,14 +15,7 @@ import {
   verifyAccessManifest,
   verifySignedAccessEvent,
 } from "./index";
-import {
-  createManifest,
-  createSignedContainerEvent,
-  createVerifiedAccessManifestCheckpointFixture,
-  createVerifiedEvent,
-  expectVerificationError,
-  fixtureHash,
-} from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 test("verifySignedAccessEvent accepts a valid signed event and normalizes dependency order", async () => {
   const fixture = await createSignedContainerEvent({});

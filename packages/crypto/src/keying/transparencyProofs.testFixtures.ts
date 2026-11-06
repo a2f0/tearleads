@@ -1,3 +1,4 @@
+import { fixtureHash } from "./canonical.testFixtures";
 import {
   computeKeyingDomainHash,
   computeTransparencyMerkleRoot,
@@ -11,7 +12,6 @@ import {
   type VerifyTransparencyConsistencyProofInput,
   type VerifyTransparencyInclusionProofInput,
 } from "./index";
-import { fixtureHash } from "./testFixtures";
 
 /**
  * Shared fixtures for the transparency proof matrices (#2192 Gate F2, #2186

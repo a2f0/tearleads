@@ -6,7 +6,14 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./test-fixtures": "./src/keying/testFixtures.ts",
+    "./access-event-test-fixtures": "./src/keying/accessEvent.testFixtures.ts",
+    "./attachment-access-event-test-fixtures": "./src/keying/attachmentAccessEvent.testFixtures.ts",
+    "./canonical-test-fixtures": "./src/keying/canonical.testFixtures.ts",
+    "./container-access-test-fixtures": "./src/keying/containerAccess.testFixtures.ts",
+    "./container-kek-test-fixtures": "./src/keying/containerKek.testFixtures.ts",
+    "./container-wrapping-test-fixtures": "./src/keying/containerWrapping.testFixtures.ts",
+    "./document-link-set-manifest-test-fixtures": "./src/keying/documentLinkSetManifest.testFixtures.ts",
+    "./write-header-test-fixtures": "./src/keying/writeHeader.testFixtures.ts",
     "./principal-policy-test-fixtures": "./src/keying/principalPolicyTestFixtures.ts"
   },
   "scripts": {

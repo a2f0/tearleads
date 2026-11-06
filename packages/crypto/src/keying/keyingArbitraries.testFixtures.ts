@@ -1,7 +1,17 @@
 import fc from "fast-check";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import {
+  createVerifiedContainerAccessEvent,
+  createVerifiedDocumentAccessEvent,
+} from "./accessEvent.testFixtures";
+import { fixtureHash } from "./canonical.testFixtures";
+import {
+  createContainerKeyEpochFixture,
+  createContainerKeyWrap,
+} from "./containerKek.testFixtures";
 import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
+import { createDocumentLinkSetManifestFixture } from "./documentLinkSetManifest.testFixtures";
 import {
   type ContainerAccessEventBody,
   type ContainerAccessManifestState,
@@ -17,14 +27,6 @@ import {
   verifyContainerKekState,
   verifyDocumentLinkSetManifest,
 } from "./index";
-import {
-  createContainerKeyEpochFixture,
-  createContainerKeyWrap,
-  createDocumentLinkSetManifestFixture,
-  createVerifiedContainerAccessEvent,
-  createVerifiedDocumentAccessEvent,
-  fixtureHash,
-} from "./testFixtures";
 
 /**
  * Generators for the keying property suite (#2192 Gate F2). fast-check draws
@@ -269,7 +271,9 @@ export async function buildContainerChain(
   const creator = pool[0];
   if (!creator) throw new Error("signer pool is never empty");
   const containerId = `container-${label}`;
-  const { createContainerManifestFixture } = await import("./testFixtures");
+  const { createContainerManifestFixture } = await import(
+    "./containerAccess.testFixtures"
+  );
   const initialGrants = sortedGrants([
     { subjectType: "user", subjectId: creator.userId, accessLevel: "admin" },
     ...plan.initial.map((grant) => ({

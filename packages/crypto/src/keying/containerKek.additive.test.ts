@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
-import { createContainerUserRecipientKey } from "./containerUserRecipientKey.testFixtures";
-import { verifyContainerKekState } from "./index";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import {
   createContainerKeyEpochFixture,
   createContainerKeyWrap,
-  createContainerManifestFixture,
-  expectVerificationError,
-} from "./testFixtures";
+} from "./containerKek.testFixtures";
+import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
+import { createContainerUserRecipientKey } from "./containerUserRecipientKey.testFixtures";
+import { verifyContainerKekState } from "./index";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 test("verifyContainerKekState accepts additive wraps on the existing KEK epoch", async () => {
   const originalManifest = await createContainerManifestFixture({

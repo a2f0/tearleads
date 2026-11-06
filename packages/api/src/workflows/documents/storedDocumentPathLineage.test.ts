@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
-import { createContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
+import { createContainerManifestFixture } from "@tearleads/crypto/container-access-test-fixtures";
 import { loadCitedDocumentContainerPaths } from "./storedDocumentContainerPaths";
 import { assertStoredDocumentPathLineage } from "./storedDocumentPathLineage";
 
