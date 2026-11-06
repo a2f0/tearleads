@@ -74,22 +74,6 @@
       "lines": 666,
       "bytes": 21758
     },
-    "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 548,
-      "bytes": 17599
-    },
-    "packages/api/src/access/shared/internal/containerKekTargets.ts": {
-      "lines": 615,
-      "bytes": 19167
-    },
-    "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
-      "lines": 758,
-      "bytes": 24105
-    },
-    "packages/api/src/access/shared/internal/principalStateStore.ts": {
-      "lines": 641,
-      "bytes": 19730
-    },
     "packages/api/src/access/write/containerKekStore.test.ts": {
       "lines": 576,
       "bytes": 17511

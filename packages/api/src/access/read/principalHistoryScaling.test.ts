@@ -8,13 +8,15 @@ import { createTestUser } from "@tearleads/test-utils";
 import { and, eq } from "drizzle-orm";
 import { observeQueries } from "../../../test/helpers/observeDatabaseQueries";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
-import { readPrincipalHistoryPage } from "../shared/internal/principalHistoryPage";
 import {
   getCurrentPrincipalStates,
   getCurrentPrincipalStatesFor,
-  listPrincipalStateHistory,
   principalCurrentStateKey,
-} from "../shared/internal/principalStateStore";
+} from "../shared/internal/principalCurrentStates";
+import {
+  listPrincipalStateHistory,
+  readPrincipalHistoryPage,
+} from "../shared/internal/principalHistoryPage";
 
 async function seed(principalType: "group" | "organization") {
   const user = createTestUser();

@@ -12,7 +12,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
-} from "./principalStateStore";
+} from "./principalStateReads";
 
 interface PrincipalMemberRecipient {
   userId: string;

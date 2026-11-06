@@ -1,9 +1,9 @@
 export type {
   PrincipalStateBundleInput,
   StoredPrincipalState,
-  StoreVerifiedPrincipalStateOptions,
-} from "../shared/internal/principalStateStore";
+} from "../shared/internal/principalStateRecords";
 export { storeVerifiedPrincipalStateInTransaction } from "../shared/internal/principalStateStore";
+export type { StoreVerifiedPrincipalStateOptions } from "../shared/internal/principalStateSuccession";
 export {
   forgetPrincipalTransactionMemo,
   notePrincipalMutationLocked,
