@@ -1,66 +1,17 @@
 import { expect, test } from "bun:test";
-import { activeStripePrice } from "../../test/helpers/stripeCatalog";
 import {
-  cancelSubscriptionAtPeriodEnd,
-  createCheckoutSession,
-  createPortalSession,
+  STRIPE_PAYLOAD_ENV as ENV,
+  recordingStripeFetch as fakeFetch,
+  STRIPE_PAYLOAD_CHECKOUT as SYNC_SUBSCRIPTION_INPUT,
+  STRIPE_PAYLOAD_PRICE as VALID_TEAM_5_PRICE,
+} from "../../test/helpers/stripePayloadFetch";
+import {
   createSyncSubscription,
-  findLiveOrgSubscription,
-  findOrCreateCustomer,
   getStripeSyncOption,
   isStripeCheckoutConfigured,
   StripeApiError,
 } from "./stripeApi";
-
-const ENV = {
-  STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_SOLO_PRICE_ID: "price_solo",
-  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_sync",
-  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
-};
-
-const SYNC_SUBSCRIPTION_INPUT = {
-  checkoutAttemptId: "attempt-1",
-  customerId: "cus_1",
-  userId: "user-1",
-  organizationId: "org-1",
-  seatQuantity: 2,
-};
-
-const VALID_TEAM_5_PRICE = activeStripePrice("price_sync", 1_000);
-
-interface RecordedRequest {
-  url: string;
-  method: string;
-  body: string | null;
-  headers: Headers;
-}
-
-function fakeFetch(responses: Array<{ status?: number; body: unknown }>): {
-  fetchImpl: typeof fetch;
-  requests: RecordedRequest[];
-} {
-  const requests: RecordedRequest[] = [];
-  const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    requests.push({
-      url: String(input),
-      method: init?.method ?? "GET",
-      body: typeof init?.body === "string" ? init.body : null,
-      headers: new Headers(init?.headers),
-    });
-    const next = responses.shift() ?? { body: {} };
-    const body =
-      String(input).includes("/subscriptions/search") &&
-      typeof next.body === "object" &&
-      next.body !== null
-        ? { has_more: false, ...next.body }
-        : next.body;
-    return new Response(JSON.stringify(body), {
-      status: next.status ?? 200,
-    });
-  }) as typeof fetch;
-  return { fetchImpl, requests };
-}
+import { findOrCreateCustomer } from "./stripeCustomer";
 
 test("configuration requires both the secret key and the price id", () => {
   expect(isStripeCheckoutConfigured({ env: ENV })).toBe(true);
@@ -99,43 +50,6 @@ test("sync option maps the price with its product, pinned API version", async ()
   ).toEqual(["product"]);
   expect(requests[0]?.headers.get("Stripe-Version")).not.toBeNull();
   expect(requests[0]?.headers.get("Authorization")).toBe("Bearer sk_test_123");
-});
-
-test("customer lookup reuses an existing metadata match", async () => {
-  const { fetchImpl, requests } = fakeFetch([
-    { body: { data: [{ id: "cus_existing" }] } },
-  ]);
-  const id = await findOrCreateCustomer(
-    { userId: "user-1", organizationId: "org-1" },
-    { env: ENV, fetchImpl },
-  );
-
-  expect(id).toBe("cus_existing");
-  expect(requests).toHaveLength(1);
-  // Customers are scoped per (user, org): one pooled customer would let one
-  // org's Billing Portal expose another org's subscription.
-  expect(requests[0]?.url).toContain("/v1/customers/search");
-  expect(decodeURIComponent(requests[0]?.url ?? "")).toContain("org-1");
-});
-
-test("customer lookup creates one with userId metadata when none exists", async () => {
-  const { fetchImpl, requests } = fakeFetch([
-    { body: { data: [] } },
-    { body: { id: "cus_new" } },
-  ]);
-  const id = await findOrCreateCustomer(
-    { userId: "user-1", organizationId: "org-1" },
-    { env: ENV, fetchImpl },
-  );
-
-  expect(id).toBe("cus_new");
-  expect(requests[1]?.method).toBe("POST");
-  expect(requests[1]?.body).toContain(
-    `${encodeURIComponent("metadata[userId]")}=user-1`,
-  );
-  expect(requests[1]?.body).toContain(
-    `${encodeURIComponent("metadata[orgId]")}=org-1`,
-  );
 });
 
 test("subscription create binds org metadata and returns the client secret", async () => {
@@ -247,20 +161,6 @@ test("a live subscription for the org refuses a second checkout", async () => {
   expect(requests).toHaveLength(2);
 });
 
-test("customer creation is idempotency-keyed per user", async () => {
-  const { fetchImpl, requests } = fakeFetch([
-    { body: { data: [] } },
-    { body: { id: "cus_new" } },
-  ]);
-  await findOrCreateCustomer(
-    { userId: "user-1", organizationId: "org-1" },
-    { env: ENV, fetchImpl },
-  );
-  expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
-    "sync-customer:user-1:org-1",
-  );
-});
-
 test("a candidate that expired since the search is recreated, not resumed", async () => {
   // The search index still reported `incomplete`, but the authoritative GET
   // shows the attempt expired — its old client secret is unusable, so a
@@ -345,47 +245,6 @@ test("a durable checkout attempt supplies the rotated idempotency key", async ()
   );
 });
 
-test("portal session returns the hosted url", async () => {
-  const { fetchImpl, requests } = fakeFetch([
-    { body: { url: "https://billing.stripe.com/p/session" } },
-  ]);
-  const url = await createPortalSession(
-    { customerId: "cus_1", returnUrl: "https://app.example/billing" },
-    { env: ENV, fetchImpl },
-  );
-
-  expect(url).toBe("https://billing.stripe.com/p/session");
-  expect(requests[0]?.body).toContain("customer=cus_1");
-});
-
-test("cancelling schedules the end of the paid period, not an instant stop", async () => {
-  // `cancel_at_period_end` keeps the sync the buyer already paid for, and lets
-  // RevenueCat flip the entitlement through the same path a lapsed renewal
-  // takes — an immediate delete would revoke access mid-period.
-  const { fetchImpl, requests } = fakeFetch([
-    { body: { id: "sub_1", cancel_at: 1893456000 } },
-  ]);
-  const result = await cancelSubscriptionAtPeriodEnd("sub_1", {
-    env: ENV,
-    fetchImpl,
-  });
-
-  expect(result).toEqual({ cancelAt: 1893456000 });
-  expect(requests[0]?.url).toContain("/v1/subscriptions/sub_1");
-  expect(requests[0]?.body).toContain("cancel_at_period_end=true");
-  expect(requests[0]?.body ?? "").not.toContain("cancel_at_period_end=false");
-});
-
-test("a cancellation without a resolved date still reports success", async () => {
-  // Stripe omits `cancel_at` on an already-cancelling subscription; the panel
-  // must treat that as cancelled rather than as a failure.
-  const { fetchImpl } = fakeFetch([{ body: { id: "sub_1" } }]);
-
-  expect(
-    await cancelSubscriptionAtPeriodEnd("sub_1", { env: ENV, fetchImpl }),
-  ).toEqual({ cancelAt: null });
-});
-
 test("a failed Stripe request surfaces as StripeApiError with its status", async () => {
   const { fetchImpl } = fakeFetch([{ status: 500, body: {} }]);
   await expect(
@@ -403,173 +262,4 @@ test("unconfigured environments read as null, never a network call", async () =>
     ),
   ).toBeNull();
   expect(requests).toHaveLength(0);
-});
-
-test("findLiveOrgSubscription returns the live sub_ and its customer", async () => {
-  const { fetchImpl, requests } = fakeFetch([
-    {
-      body: {
-        data: [
-          {
-            id: "sub_live",
-            status: "active",
-            customer: "cus_1",
-            metadata: { orgId: "org-1", userId: "user-1" },
-          },
-        ],
-      },
-    },
-  ]);
-
-  const found = await findLiveOrgSubscription("org-1", { env: ENV, fetchImpl });
-
-  expect(found).toEqual({ subscriptionId: "sub_live", customerId: "cus_1" });
-  // Resolved by searching on our own orgId metadata, not a stored id.
-  expect(requests[0]?.url).toContain("/v1/subscriptions/search");
-  expect(requests[0]?.url).toContain(encodeURIComponent("metadata['orgId']"));
-});
-
-test("findLiveOrgSubscription ignores an incomplete-only result", async () => {
-  // An abandoned checkout: nothing is billing, so there is nothing to manage.
-  const { fetchImpl } = fakeFetch([
-    {
-      body: {
-        data: [
-          {
-            id: "sub_incomplete",
-            status: "incomplete",
-            customer: "cus_1",
-            metadata: { orgId: "org-1" },
-          },
-        ],
-      },
-    },
-  ]);
-
-  expect(
-    await findLiveOrgSubscription("org-1", { env: ENV, fetchImpl }),
-  ).toBeNull();
-});
-
-test("findLiveOrgSubscription rejects a result whose metadata names another org", async () => {
-  // Defense-in-depth over the metadata search: never hand back a customer
-  // whose Billing Portal would expose an unrelated org's subscriptions.
-  const { fetchImpl } = fakeFetch([
-    {
-      body: {
-        data: [
-          {
-            id: "sub_other",
-            status: "active",
-            customer: "cus_other",
-            metadata: { orgId: "org-2" },
-          },
-        ],
-      },
-    },
-  ]);
-
-  expect(
-    await findLiveOrgSubscription("org-1", { env: ENV, fetchImpl }),
-  ).toBeNull();
-});
-
-test("findLiveOrgSubscription is null without a secret key", async () => {
-  const { fetchImpl, requests } = fakeFetch([]);
-
-  expect(
-    await findLiveOrgSubscription("org-1", { env: {}, fetchImpl }),
-  ).toBeNull();
-  // Never reached Stripe.
-  expect(requests).toHaveLength(0);
-});
-
-test("createCheckoutSession stamps org metadata onto the subscription", async () => {
-  const { fetchImpl, requests } = fakeFetch([
-    { body: VALID_TEAM_5_PRICE },
-    { body: { url: "https://checkout.stripe.com/pay/cs_1" } },
-  ]);
-
-  const url = await createCheckoutSession(
-    {
-      checkoutAttemptId: "attempt-hosted-1",
-      customerId: "cus_1",
-      expiresAt: new Date("2030-01-01T00:45:00.000Z"),
-      userId: "user-1",
-      organizationId: "org-1",
-      returnUrl: "https://app.example/billing?tab=events",
-      seatQuantity: 2,
-    },
-    { env: ENV, fetchImpl },
-  );
-
-  expect(url).toBe("https://checkout.stripe.com/pay/cs_1");
-  const body = requests[1]?.body ?? "";
-  expect(requests[1]?.url).toContain("/v1/checkout/sessions");
-  // Purely org-scoped: an org's attempts collapse onto one session.
-  expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
-    "checkout-session:org-1:attempt-hosted-1",
-  );
-  // The return URL is canonicalized (query dropped) so the stable success_url
-  // params match the reused org key.
-  expect(body).toContain(
-    `success_url=${encodeURIComponent("https://app.example/billing")}`,
-  );
-  expect(body).not.toContain("tab%3Devents");
-  expect(body).toContain("mode=subscription");
-  expect(body).toContain("customer=cus_1");
-  // The subscription MUST carry orgId/userId so the webhook can associate it
-  // and findLiveOrgSubscription can later resolve it for cancel/portal.
-  expect(body).toContain(
-    `${encodeURIComponent("subscription_data[metadata][orgId]")}=org-1`,
-  );
-  expect(body).toContain(
-    `${encodeURIComponent("subscription_data[metadata][userId]")}=user-1`,
-  );
-});
-
-test("createCheckoutSession is null without price/secret config", async () => {
-  const { fetchImpl, requests } = fakeFetch([]);
-
-  expect(
-    await createCheckoutSession(
-      {
-        checkoutAttemptId: "attempt-hosted-1",
-        customerId: "cus_1",
-        expiresAt: new Date("2030-01-01T00:45:00.000Z"),
-        userId: "user-1",
-        organizationId: "org-1",
-        returnUrl: "https://app.example/billing",
-        seatQuantity: 1,
-      },
-      { env: {}, fetchImpl },
-    ),
-  ).toBeNull();
-  expect(requests).toHaveLength(0);
-});
-
-test("createCheckoutSession passes an unparseable return url through unchanged", async () => {
-  const { fetchImpl, requests } = fakeFetch([
-    { body: activeStripePrice("price_solo", 500) },
-    { body: { url: "https://checkout.stripe.com/pay/cs_2" } },
-  ]);
-
-  await createCheckoutSession(
-    {
-      checkoutAttemptId: "attempt-hosted-2",
-      customerId: "cus_1",
-      expiresAt: new Date("2030-01-01T00:45:00.000Z"),
-      userId: "user-1",
-      organizationId: "org-1",
-      returnUrl: "not a url",
-      seatQuantity: 1,
-    },
-    { env: ENV, fetchImpl },
-  );
-
-  // Canonicalization cannot parse it, so it falls back to the raw value rather
-  // than throwing (the value is origin-validated upstream anyway).
-  // URLSearchParams encodes the space as "+"; the point is the raw value
-  // passed through rather than the canonicalizer throwing.
-  expect(requests[1]?.body ?? "").toContain("success_url=not+a+url");
 });

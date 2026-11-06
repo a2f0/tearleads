@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { findLiveOrgSubscription, hasOpenOrgSubscription } from "./stripeApi";
+import { hasOpenOrgSubscription } from "./stripeApi";
+import { findLiveOrgSubscription } from "./stripeSubscriptionManagement";
 
 const ENV = { STRIPE_SECRET_KEY: "sk_test_123" };
 
