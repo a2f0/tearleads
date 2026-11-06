@@ -23,7 +23,7 @@ import {
   asVerifiedContainerManifest,
   bootstrapRoot,
 } from "../../../test/helpers/keyingWriterProjectionKit";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { withStoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
@@ -40,7 +40,7 @@ const SLOT_ID = "stored-bytes";
  */
 test("a cold device verifies every hash-acknowledged write from its stored bytes", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const root = await recoverRegisteredRootKek({
     owner,
     root: await bootstrapRoot(owner),

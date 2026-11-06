@@ -15,13 +15,13 @@ import { createPagedColdPolicyWarmer } from "../../../test/helpers/pagedColdPoli
 import { startPrincipalHistoryHttpProbe } from "../../../test/helpers/principalHistoryHttpProbe";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { parseOrganizationAuthorityDescriptor } from "../../workflows/organizations/organizationAuthorityDescriptor";
 
 test("a real stale create recovers signed pages and commits a rebuilt request with the new head", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const root = await bootstrapRoot(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const groupId = root.principalPolicies[0]?.principalId;

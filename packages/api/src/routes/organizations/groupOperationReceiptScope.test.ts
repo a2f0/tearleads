@@ -10,12 +10,12 @@ import {
   buildOrganizationGroupDeletionRequest,
   getDefaultOrganizationId,
 } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 
 test("a creation receipt belongs to its author and is removed with its group", async () => {
   const actor = createTestUser();
   const secondAdmin = createTestUser();
-  await registerAndAuthenticate(actor, secondAdmin);
+  await registerAndAuthenticateUsers(actor, secondAdmin);
   const organizationId = await getDefaultOrganizationId(actor.userId);
   await addUserToAdminGroup({ actor, member: secondAdmin, organizationId });
   const groupId = crypto.randomUUID();

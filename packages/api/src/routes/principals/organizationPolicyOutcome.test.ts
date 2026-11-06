@@ -13,14 +13,14 @@ import {
 import { and, eq, isNull } from "drizzle-orm";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { prepareOrganizationPolicyAdvance } from "../../../test/helpers/organizationPolicyOutcome";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
 import { createRouteApp } from "../../routeApp";
 
 test("a lost standalone directory acknowledgement survives a later directory head", async () => {
   const actor = createTestUser();
-  await registerAndAuthenticate(actor);
+  await registerAndAuthenticateUsers(actor);
   const organizationId = await getDefaultOrganizationId(actor.userId);
   const prepared = await prepareOrganizationPolicyAdvance(
     actor,

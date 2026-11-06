@@ -23,7 +23,7 @@ import { getDefaultOrganizationId } from "../../../test/helpers/organizationMemb
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { expectPublicProjectionPolicyEvidence } from "../../../test/helpers/projectionPolicyEvidenceAssertions";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
@@ -40,7 +40,7 @@ import { clearProjectionDirectoryBindingsCache } from "../../workflows/principal
 test("a fresh SDK verifies container history after its group is deleted", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
-  await registerAndAuthenticate(owner, reader);
+  await registerAndAuthenticateUsers(owner, reader);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const root = await recoverRegisteredRootKek({
     owner,

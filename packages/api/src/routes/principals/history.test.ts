@@ -10,7 +10,7 @@ import { principalHistoryPreparationFixture } from "../../../test/helpers/princi
 import { requestPreparedPrincipalPolicy } from "../../../test/helpers/principalHistoryRequest";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import * as containerKeys from "../../access/read/containerKekStore";
 import { routeApp } from "../../routeApp";
@@ -21,7 +21,7 @@ import {
 
 test("document history access does not load container keys", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const root = await bootstrapRoot(owner);
   const document = await createDocument({ owner, root });
   const history = await principalHistoryPreparationFixture({ versions: 1 });
@@ -57,7 +57,7 @@ test.each(["container", "document"] as const)(
   async (objectKind) => {
     const owner = createTestUser();
     const outsider = createTestUser();
-    await registerAndAuthenticate(owner, outsider);
+    await registerAndAuthenticateUsers(owner, outsider);
     const root = await bootstrapRoot(owner);
     const objectId =
       objectKind === "container"

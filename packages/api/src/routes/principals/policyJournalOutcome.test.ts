@@ -17,14 +17,14 @@ import {
   createSignedPrincipalState,
   getDefaultOrganizationId,
 } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
 import { routeApp } from "../../routeApp";
 
 test("SDK journal recovers a lost HTTP acknowledgement after a later policy commit", async () => {
   const actor = createTestUser();
-  await registerAndAuthenticate(actor);
+  await registerAndAuthenticateUsers(actor);
   const organizationId = await getDefaultOrganizationId(actor.userId);
   const groupId = crypto.randomUUID();
   await createPolicyTestGroup(actor.userId, groupId);

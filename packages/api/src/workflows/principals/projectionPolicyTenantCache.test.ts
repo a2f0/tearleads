@@ -5,7 +5,7 @@ import { createTestUser } from "@tearleads/test-utils";
 import { isAccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { loadProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 
 test("projection proofs reuse verified history across 24 organizations", async () => {
@@ -13,7 +13,7 @@ test("projection proofs reuse verified history across 24 organizations", async (
     [];
   for (let index = 0; index < 24; index += 1) {
     const owner = createTestUser();
-    await registerAndAuthenticate(owner);
+    await registerAndAuthenticateUsers(owner);
     const root = await bootstrapRoot(owner);
     if (!isAccessManifestBundleWireResponse(root.bundle))
       throw new Error("Invalid fixture root bundle");

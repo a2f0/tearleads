@@ -50,7 +50,7 @@ export async function stripOrganizationMembership(
     );
 }
 
-export async function registerAndAuthenticate(
+export async function registerAndAuthenticateUsers(
   ...users: TestUser[]
 ): Promise<void> {
   for (const user of users) {

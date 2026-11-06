@@ -3,7 +3,7 @@ import { db } from "@tearleads/api-shared/postgres";
 import { principalStates } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import {
   getCurrentPrincipalState,
   listContainerGrantsForState,
@@ -11,7 +11,7 @@ import {
 
 async function storedState() {
   const user = createTestUser();
-  await registerAndAuthenticate(user);
+  await registerAndAuthenticateUsers(user);
   const [row] = await db
     .select({
       principalId: principalStates.principalId,

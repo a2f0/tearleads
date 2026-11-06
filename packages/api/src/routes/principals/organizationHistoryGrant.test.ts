@@ -6,7 +6,7 @@ import {
   removeMemberGroupUser,
 } from "../../../test/helpers/organizationMember";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 import { principalHistoryHead } from "../../workflows/principals/principalHistoryRecords";
@@ -23,7 +23,7 @@ test("organization history grants recheck live roster access and exact organizat
   const owner = createTestUser();
   const member = createTestUser();
   const outsider = createTestUser();
-  await registerAndAuthenticate(owner, member, outsider);
+  await registerAndAuthenticateUsers(owner, member, outsider);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   await addMemberGroupUser({
     actor: owner,

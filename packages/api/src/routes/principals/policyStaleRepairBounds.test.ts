@@ -8,13 +8,13 @@ import { seedLongPrincipalHistory } from "../../../test/helpers/longPrincipalHis
 import { startPrincipalHistoryHttpProbe } from "../../../test/helpers/principalHistoryHttpProbe";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import * as principalStateStore from "../../access/read/principalStateStore";
 
 test("stale create replies keep response bytes and per-request database work bounded across history depths", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const root = await bootstrapRoot(owner);
   const request = JSON.stringify(
     await buildChildCreateRequest({ root, signer: owner }),
