@@ -1,31 +1,31 @@
 # Current principal-policy consumers
 
 Org Manager label hydration and runtime metadata-root verification use paged
-current [policies](../glossary.md#principal-policy-state) and require
+current [policies](../glossary/principals.md#principal-policy-state) and require
 [private history custody](principal-history-recovery.md#key-custody). Labels
-bind to the exact signed directory and group [heads](../glossary.md#head). Their
-current artifacts stay paired with verified policies; they are never stored as
-fabricated full bundles. Directory/Admins admission still checks durable pins.
-Name reads alone leave other group [checkpoints](../glossary.md#checkpoint)
+bind to the exact signed directory and group [heads](../glossary/sync.md#head).
+Their current artifacts stay paired with verified policies; they are never
+stored as fabricated full bundles. Directory/Admins admission still checks
+durable pins. Name reads alone leave other group [checkpoints](../glossary/sync.md#checkpoint)
 unchanged. Metadata roots select their exact older
-[Admins](../glossary.md#organization-admins-group) and
-[Members](../glossary.md#organization-members-group) citations, so an honest
-stale root remains distinguishable from a forged reference. These paths retain
+[Admins](../glossary/principals.md#organization-admins-group) and
+[Members](../glossary/principals.md#organization-members-group) citations, so an
+honest stale root remains distinguishable from a forged reference. These paths retain
 offline recovery and operation-lifetime checks. A caller that selected an exact
 current head can first recover matching authenticated local artifacts,
 rechecking their history proofs, dependencies, lease and durable pins. Missing
 evidence or a different cached current head uses the bounded online reader;
 other verification failures remain failures. This does not discover newer server
 state or replace live object authorization. Metadata verification uses the
-[organization](../glossary.md#organization) head supplied by its live
-[writer projection](../glossary.md#writer-projection).
+[organization](../glossary/principals.md#organization) head supplied by its live
+[writer projection](../glossary/sync.md#writer-projection).
 
 ## Operation recovery batch
 
 Directory discovery and cited recovery share one caller's batch. Batches belong
 to the database's principal-policy coordinator, keyed by an operation token. A
-reconciliation pass (remote [container](../glossary.md#container) hydration,
-[document](../glossary.md#document) discovery) or a user workflow (a document
+reconciliation pass (remote [container](../glossary/access.md#container) hydration,
+[document](../glossary/content.md#document) discovery) or a user workflow (a document
 move's link and unlink legs) mints one token at its root, and every warmer it
 creates with `createRuntimePrincipalPolicyWarmer( runtime, { operation })`
 shares one batch, so the pass discovers the directory once. A warmer created
@@ -69,7 +69,7 @@ preserving checkpoint, dependency and caller-lifetime checks.
 
 ## Group mutations and history views
 
-Built-in member addition/removal and [group-grant](../glossary.md#grant)
+Built-in member addition/removal and [group-grant](../glossary/access.md#grant)
 revocation also use current evidence and exact receipts; see [current
 mutations](principal-current-mutations.md). Built-in group shares use current
 evidence for planning and grant minting; see
@@ -107,7 +107,7 @@ groups; the HTTP fixture exercises both one and eight ordinary groups.
 Stale container and inline
 [document-rekey](../document-rekey-and-audit-history.md) errors return at most
 16 compact principal heads. The API verifies current state with bounded history
-preparation and discloses heads only for [principals](../glossary.md#principal)
+preparation and discloses heads only for [principals](../glossary/principals.md#principal)
 the requester may read. Built-in create and sync workflows recover the signed
 evidence with the private paged resolver, then refresh the parent projection
 before rebuilding a container create under its original lifetime. This keeps
@@ -120,7 +120,7 @@ Terminal [document purge](../document-purge-verification.md) responses also use
 `policyEvidence`. Each source ends at the cited group head or the first signed
 directory binding needed to authenticate it. Recovery never selects the latest
 directory merely because it exists. Every page reauthorizes the signed
-[purge path](../glossary.md#authorizing-container-path) and binds the original
+[purge path](../glossary/access.md#authorizing-container-path) and binds the original
 reader, document and organization; a reader who had access at purge time may
 recover the proof after later revocation or group/container deletion. No later
 membership is disclosed through that grant.
@@ -202,16 +202,17 @@ attachment-sharing fixture in `DualPaneProvider.sharing.test.tsx` measures 59
 requests and permits 66, with body ceilings of 130,000 request bytes and 560,000
 response bytes (0.51 MB measured). Container mutation acknowledgements carry
 hashes rather than echoes, which keeps the policy commit at about 73 KB.
-Container mutations cite stored [manifests](../glossary.md#access-manifest) by
+Container mutations cite stored
+[manifests](../glossary/access.md#access-manifest) by
 `{containerId, manifestHash}` and principal policies by head rather than echoing
 path bundles or policies.
 
 `ExplorerUploadRequestVolume.test.tsx` measures 6 calls and 29 KB received for a
 small Explorer upload and permits 7 calls and 32,500 response bytes; its
-[blob stage](../glossary.md#blob-stage) costs three calls (initiate with the
-first part's upload source, the part bytes, and the
-[attachment bind](../glossary.md#attachment-binding) that completes the stage
-and carries the document's first content update).
+[blob stage](../glossary/content.md#blob-stage) costs three calls (initiate with
+the first part's upload source, the part bytes, and the
+[attachment bind](../glossary/content.md#attachment-binding) that completes the
+stage and carries the document's first content update).
 
 `FolderMutationRequestVolume.test.tsx` sets these ceilings, which include
 private current-policy reads:

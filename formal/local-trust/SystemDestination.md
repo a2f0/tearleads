@@ -30,7 +30,7 @@ matching are abstracted by the verified manifest boundary. Hydration rejects
 invalid topology, and `SystemWritesUseValidTopology` covers its use boundary.
 A metadata root remains a system destination and never becomes the session root
 for pre-login content. Classification does not advance write-authority
-[checkpoints](../../docs/glossary.md#checkpoint) or require KEK decryption;
+[checkpoints](../../docs/glossary/sync.md#checkpoint) or require KEK decryption;
 actual writes verify current authority separately. Root and system parent edges
 cannot move, and signed slots are immutable. It models one classification
 snapshot, not network availability, listing completeness, cache lifetime, or
@@ -79,7 +79,7 @@ the acknowledged root only becomes the pre-login merge target when its verified
 epoch-1 `container.create` was signed by the session user: every acknowledged
 organization was created by that user, whose device signed the root, so a root
 created by anyone else is a substitution however it is granted. The lineage is
-already verified when the [head](../../docs/glossary.md#head) is, and the
+already verified when the [head](../../docs/glossary/sync.md#head) is, and the
 creator check also runs on cached role reuse. The model keeps
 `rootCreatorIsUser` as an unconstrained boolean and `Login` as a free action;
 the negative controls flip each rule alone.

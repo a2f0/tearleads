@@ -21,8 +21,8 @@ receipt or a later descendant.
 Bounds are two principals, a predecessor, its acknowledged successor and one
 later descendant. One reader can recover either the receipt branch or a fork,
 before or after preparation, with or without
-[checkpoint](../../docs/glossary.md#checkpoint) admission, or pin a
-[head](../../docs/glossary.md#head) without a scoped prefix. A receipt older
+[checkpoint](../../docs/glossary/sync.md#checkpoint) admission, or pin a
+[head](../../docs/glossary/sync.md#head) without a scoped prefix. A receipt older
 than such a pin is deferred as an ordinary retryable error even when the pin
 lies on a fork: its branch is unknown until scoped history covers it.
 `DeferralNeedsUncoveredPin` keeps that outcome from replacing ordinary

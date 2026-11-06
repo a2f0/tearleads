@@ -55,7 +55,7 @@ workspaces build public consumer manifests. To publish by hand, run
 `bun run publish:npm:dry-run <package>` to build and preview it, then
 `bun run publish:npm <package>` to publish it; both also accept `--tag <tag>`
 and `--otp <code>`. See the
-[windowing](../packages/windowing/README.md#publishing) and
+[windowing](../packages/windowing/docs/publishing.md#publishing) and
 [client SDK](../packages/client-sdk/README.md#publishing) publishing guides for
 authentication, versioning, and consumer smoke checks.
 

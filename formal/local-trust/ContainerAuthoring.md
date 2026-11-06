@@ -26,10 +26,10 @@ not replace that target scope; cross-organization readers still cannot author
 writes.
 
 Acknowledgements are checked by hash, not echoed (#2716): the server returns
-only the [head](../../docs/glossary.md#head) it committed (manifest hash, event
+only the [head](../../docs/glossary/sync.md#head) it committed (manifest hash, event
 hash, epochs, and KEK commitments), and the client compares each with its signed
 plan before it pins anything. The pinned
-[checkpoint](../../docs/glossary.md#checkpoint) always comes from the plan
+[checkpoint](../../docs/glossary/sync.md#checkpoint) always comes from the plan
 (`checkpoint`); the model tracks the head the accepted response names separately
 (`ackHead`). `ForgedAcknowledgement` lets the dishonest server name a head the
 client never signed; the client refuses it and the mutation stays

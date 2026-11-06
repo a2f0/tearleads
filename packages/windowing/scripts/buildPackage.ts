@@ -6,10 +6,11 @@ const packageRoot = join(import.meta.dir, "..");
 const repoRoot = join(packageRoot, "..", "..");
 
 // Builds the package npm receives: compiled JavaScript with type declarations,
-// the stylesheets beside the modules that import them, the README, and a
-// package.json written for consumers. The workspace keeps importing src/
-// (see this package's own package.json), so nothing in the repo reads the
-// output and it can never go stale under another package's tests.
+// the stylesheets beside the modules that import them, the README and the
+// guides it links (docs/), and a package.json written for consumers. The
+// workspace keeps importing src/ (see this package's own package.json), so
+// nothing in the repo reads the output and it can never go stale under another
+// package's tests.
 export async function buildPackage(outDir: string): Promise<void> {
   await rm(outDir, { force: true, recursive: true });
   run([
@@ -29,6 +30,9 @@ export async function buildPackage(outDir: string): Promise<void> {
   await stripDeclarationStylesheets(outDir);
   await copyStylesheets(join(packageRoot, "src"), outDir);
   await cp(join(packageRoot, "README.md"), join(outDir, "README.md"));
+  await cp(join(packageRoot, "docs"), join(outDir, "docs"), {
+    recursive: true,
+  });
   await writeFile(
     join(outDir, "package.json"),
     `${JSON.stringify(await publishManifest(), null, 2)}\n`,

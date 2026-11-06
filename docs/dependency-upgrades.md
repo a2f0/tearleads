@@ -110,8 +110,8 @@ upgrading these dependencies:
 
 - Zod/OpenAPI changes preserve registered wire contracts and tested runtime
   refinements. Crypto changes preserve
-  [recovery-key](security-guarantees.md#recovery-key-disclosure) BIP39 phrases
-  and complete identity key hashes in the deterministic test vectors.
+  [recovery-key](security-guarantees/overview.md#recovery-key-disclosure) BIP39
+  phrases and complete identity key hashes in the deterministic test vectors.
 - Sentry uses explicit `dataCollection` exclusions and server-only exports;
   preserve diagnostics allowlists and the
   [privacy regressions](../packages/diagnostics/src/collectionPolicy.test.ts).

@@ -163,8 +163,8 @@ compared without exporting raw logs. Mini-app render failures also enter the
 local log when Sentry is disabled. Activity entries share the local log's
 1,000-entry retention limit.
 
-Incoming [document](../glossary.md#document) and
-[container](../glossary.md#container)-metadata quarantines pass the original
+Incoming [document](../glossary/content.md#document) and
+[container](../glossary/access.md#container)-metadata quarantines pass the original
 `Error` to this logger after recording the durable failure. This covers ordinary
 sync and [raw history recovery](../raw-document-history-recovery.md) on web,
 Android, and iOS. Reports have `diagnostic_source=log` and
@@ -181,9 +181,9 @@ Failed local document writes and failed
 same way. The document write chain deliberately swallows its errors so an
 un-awaited edit cannot reject; a failed content, row, or attachment write still
 reaches the logger with the original `Error`.
-[Sync lanes](../glossary.md#sync-lane) report through an observability-only lane
-callback that is separate from the lane's own error handling. Both suppress an
-identical repeat — the write chain per document store, a lane per registered
+[Sync lanes](../glossary/sync.md#sync-lane) report through an observability-only
+lane callback that is separate from the lane's own error handling. Both suppress
+an identical repeat — the write chain per document store, a lane per registered
 lane, and a lane's signature is deliberately never cleared by a later success,
 because a lane alternating between failure and recovery would otherwise refill
 the local log. A vanished local database is teardown rather than lost durability
@@ -215,8 +215,8 @@ fixed literal message. A database that went away mid-flight and a projection
 verification cancelled by a newer generation are teardown, not failures, and
 stay local. Container shares are reported inside the SDK, where the thrown
 failure is still in hand, rather than at the panel. The
-[local keyring](../glossary.md#local-keyring) lock provider mounts outside the
-logger and reports through the host diagnostics directly; clearing a PIN
+[local keyring](../glossary/keys.md#local-keyring) lock provider mounts outside
+the logger and reports through the host diagnostics directly; clearing a PIN
 verifies it first, so a mistyped PIN is a refusal rather than a report.
 
 All mini-apps record opening and route changes. Explorer additionally records

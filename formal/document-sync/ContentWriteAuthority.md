@@ -6,7 +6,7 @@ before the write reaches another device. Advancing the
 leaf must not replace the signed write-time path with that original pin.
 A current group snapshot must not replace the membership cited by the write.
 
-The bounded configuration has three parent [heads](../../docs/glossary.md#head),
+The bounded configuration has three parent [heads](../../docs/glossary/sync.md#head),
 two leaf heads, one writer, and writes carrying their cited parent, leaf, and
 server head at commit. The parent manifests separate grant presence from the
 referenced group version; group version 0 contains the writer and version 1

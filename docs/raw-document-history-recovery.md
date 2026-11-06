@@ -4,14 +4,14 @@ Raw history is a deliberate recovery mode for clients that must reconstruct a
 document without trusting a writer-supplied
 [rotation-baseline coverage claim](./document-rekey-and-audit-history.md#declared-coverage-is-trusted-not-verified).
 The server still authenticates the request and freezes pagination at one
-[commit LSN](./glossary.md#commit-lsn), but it bypasses baseline redirection and
-returns every retained missing update plus the
-[content-key bundle](./glossary.md#content-key-bundle) for every served epoch.
+[commit LSN](./glossary/sync.md#commit-lsn), but it bypasses baseline
+redirection and returns every retained missing update plus the
+[content-key bundle](./glossary/keys.md#content-key-bundle) for every served epoch.
 
 ## Client Contract
 
 Call `syncRemoteDocument` with `historyMode: "raw"`, a null local
-[version vector](./glossary.md#version-vector), and no outgoing updates.
+[version vector](./glossary/content.md#version-vector), and no outgoing updates.
 Ordinary sync omits `historyMode`.
 
 A raw consumer must:
@@ -33,7 +33,7 @@ declared version-vector coverage is the value raw recovery is designed not to
 trust. The server retains original ciphertext, so the ordinary stream remains
 the recovery source of truth.
 
-The built-in document content-key [rotation](./glossary.md#rotate) preflight
+The built-in document content-key [rotation](./glossary/keys.md#rotate) preflight
 implements this contract. An interrupted page, a poison update, a changing
 document generation, or a superseding pane leaves the previous durable document
 intact. Durable pending ordinary rows are settled remotely before the baseline
@@ -107,7 +107,7 @@ dispatch.
 
 If a retained update references a present, verified content-key bundle whose
 key is no longer reachable — including a predecessor epoch whose retained
-[keyring](./glossary.md#container-kek-keyring) is absent — the public
+[keyring](./glossary/keys.md#container-kek-keyring) is absent — the public
 `DocumentRawHistoryUnavailableError` reports the stable code
 `document_raw_history_epoch_unavailable` and numeric `contentKeyEpoch`. Callers
 do not need to parse an integrity-error message, and the failed recovery does
@@ -121,7 +121,7 @@ precedence. Within a multi-target bundle it likewise aggregates
 unreachable-target causes, so integrity failures outrank an absent predecessor
 keyring regardless of target order. Failures for a shared predecessor epoch are
 merged with the same priority across
-[authorizing paths](./glossary.md#authorizing-container-path), so an earlier
+[authorizing paths](./glossary/access.md#authorizing-container-path), so an earlier
 unavailable path cannot hide a later integrity failure. Before reporting an
 unavailable epoch, the client decrypts and import-validates every sibling whose
 content key is available. Any poison retains precedence, including an unresolved
@@ -130,12 +130,13 @@ dependency set, so the client cannot prove that an unavailable sibling carries
 that parent. Every encrypted record is structurally parsed and checked against
 its authenticated header before any missing epoch can be classified as benign
 unavailability. Every historical bundle's target list is also recomputed and
-compared with its committed [target hash](./glossary.md#target-hash), and that
-hash plus the [link-set manifest](./glossary.md#document-link-set-manifest) must
-match every authenticated update header for the epoch.
+compared with its committed [target hash](./glossary/keys.md#target-hash), and that
+hash plus the
+[link-set manifest](./glossary/access.md#document-link-set-manifest) must match
+every authenticated update header for the epoch.
 
 When this error is derived using a cached
-[writer projection](./glossary.md#writer-projection), whether supplied by the
+[writer projection](./glossary/sync.md#writer-projection), whether supplied by the
 caller or returned by the API client, the client evicts and resolves that
 projection once before exposing the error; a fresh projection may restore access
 to retained predecessor keys. A raw pagination conflict never restarts or
