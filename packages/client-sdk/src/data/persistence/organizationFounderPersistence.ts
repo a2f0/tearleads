@@ -4,7 +4,7 @@ import {
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { principalPolicyEvidenceEntries } from "../principals/principalPolicyEvidence";
-import { keyingCheckpointTables } from "../sqlite/schema";
+import { keyingCheckpointTables } from "../sqlite/schema/keyingCheckpointSchema";
 import { organizationFounders } from "../sqlite/schema/organizationFounderSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";

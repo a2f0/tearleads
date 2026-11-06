@@ -2,8 +2,8 @@ import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../../data/documents/documentS
 import {
   documentContainerProjectionTables,
   documentProjectionTables,
-  documentTables,
-} from "../../../data/sqlite/schema";
+} from "../../../data/sqlite/schema/documentProjectionSchema";
+import { documentTables } from "../../../data/sqlite/schema/documentRecordSchema";
 import { ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import { listContainerContentsSqlIdBatches } from "../documentQueries/sql";
 import type {

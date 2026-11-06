@@ -10,12 +10,14 @@ import { addDocumentAttachments } from "../../data/documents/documentContent";
 import {
   clientSqlTables,
   documentAttachmentBlobProjection,
-  documentHistoryCheckpoints,
   documentPendingAttachments,
-  documentProjection,
-  documents,
 } from "../../data/sqlite/schema";
 import { documentOrphanBlobReclaims } from "../../data/sqlite/schema/documentOrphanBlobReclaimSchema";
+import { documentProjection } from "../../data/sqlite/schema/documentProjectionSchema";
+import {
+  documentHistoryCheckpoints,
+  documents,
+} from "../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { clearRemoteSyncState } from "./remoteReset";

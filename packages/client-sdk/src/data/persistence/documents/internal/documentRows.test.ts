@@ -4,8 +4,8 @@ import { eq } from "drizzle-orm";
 import {
   documentProjection,
   documentProjectionText,
-  documents,
-} from "../../../sqlite/schema";
+} from "../../../sqlite/schema/documentProjectionSchema";
+import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import { createExecSql, type ExecSql } from "../../../sqlite/sqlSchema";
 import { sqlDocumentsPersistence } from "../documentsPersistence";

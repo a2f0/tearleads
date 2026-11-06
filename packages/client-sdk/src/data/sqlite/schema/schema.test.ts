@@ -3,11 +3,9 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { readTableColumns } from "../../../../test/helpers/sqlitePragma";
 import type { ExecSql, SqlRow } from "../sqlSchema";
 import { ensureSqlTables } from "../sqlTableSchema";
-import {
-  clientSqlTables,
-  documentTables,
-  principalPolicyTables,
-} from "./index";
+import { documentTables } from "./documentRecordSchema";
+import { clientSqlTables } from "./index";
+import { principalPolicyTables } from "./principalPolicySchema";
 
 function readString(row: SqlRow, key: string): string {
   return String(row[key] ?? "");

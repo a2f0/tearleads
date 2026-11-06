@@ -8,11 +8,13 @@ import { createPendingUpdateFields } from "../../../data/documents/documentSync"
 import { DOCUMENTS_APP_KIND } from "../../../data/persistence/documents/documentsPersistence";
 import {
   documentAttachmentBlobProjection,
+  documentPendingAttachments,
+} from "../../../data/sqlite/schema";
+import {
   documentHistoryCheckpoints,
   documentHistoryUpdates,
-  documentPendingAttachments,
   documents,
-} from "../../../data/sqlite/schema";
+} from "../../../data/sqlite/schema/documentRecordSchema";
 import { remoteResetBatches } from "../../../data/sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { importDocumentHistoryTailUpdates } from "../historyContent";

@@ -10,8 +10,8 @@ import {
   type DocumentRecord,
   defaultDocumentsPersistence,
 } from "../../documents";
-import { moveRemoteContainerDocument } from "../documentLinks";
 import { availableDocumentLinkIntent } from "../documentLinks/availableDocumentLinkIntent";
+import { moveRemoteContainerDocument } from "../documentLinks/documentLinksMove";
 import type {
   DocumentStructuralMutationLocalStore,
   DocumentStructuralMutationRelinkInput,

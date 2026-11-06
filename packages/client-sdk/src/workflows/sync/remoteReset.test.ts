@@ -10,21 +10,24 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { addDocumentAttachments } from "../../data/documents/documentContent";
 import {
   clientSqlTables,
-  containerSyncWatermarks,
   containers,
   documentAttachmentBlobProjection,
-  documentContainerProjection,
-  documentHistoryCheckpoints,
-  documentHistoryUpdates,
   documentPendingAttachments,
-  documentProjection,
-  documentProjectionText,
-  documents,
   localIntents,
   principalPolicies,
   securityIncidents,
-  trustedUserIdentityPins,
 } from "../../data/sqlite/schema";
+import { containerSyncWatermarks } from "../../data/sqlite/schema/containerSyncWatermarkSchema";
+import {
+  documentContainerProjection,
+  documentProjection,
+  documentProjectionText,
+} from "../../data/sqlite/schema/documentProjectionSchema";
+import {
+  documentHistoryCheckpoints,
+  documentHistoryUpdates,
+  documents,
+} from "../../data/sqlite/schema/documentRecordSchema";
 import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
@@ -33,6 +36,7 @@ import {
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../data/sqlite/schema/organizationReadModelSchema";
+import { trustedUserIdentityPins } from "../../data/sqlite/schema/trustedUserIdentityPinSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { clearRemoteSyncState } from "./remoteReset";

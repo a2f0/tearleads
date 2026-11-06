@@ -8,6 +8,9 @@ import {
 } from "drizzle-orm/sqlite-core";
 
 import { principalStateFingerprintJson } from "../principalKeyFingerprintJson";
+import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
+import { principalHistoryEvidenceTables } from "./principalHistoryEvidenceSchema";
+import { principalHistoryStageTables } from "./principalHistoryStageSchema";
 
 function principalPolicyBundleColumns() {
   return {
@@ -100,3 +103,23 @@ export const principalPolicyCheckpoints = sqliteTable(
     primaryKey({ columns: [table.principalType, table.principalId] }),
   ],
 );
+
+export const principalPolicyCheckpointTable = {
+  ...defineSqlTableSchema(principalPolicyCheckpoints),
+  requiredColumns: ["organization_id"],
+};
+
+export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
+  {
+    ...defineSqlTableSchema(principalPolicies),
+    requiredColumns: ["current_grants_json"],
+  },
+  {
+    ...defineSqlTableSchema(principalPolicyBundleHistory),
+    requiredColumns: ["current_grants_json"],
+  },
+  defineSqlTableSchema(principalPolicyBundleReferences),
+  principalPolicyCheckpointTable,
+  ...principalHistoryStageTables,
+  ...principalHistoryEvidenceTables,
+];

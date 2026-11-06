@@ -113,29 +113,9 @@
       "lines": 844,
       "bytes": 25801
     },
-    "packages/client-sdk/src/Tearleads.test.ts": {
-      "lines": 948,
-      "bytes": 30663
-    },
-    "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
-      "lines": 700,
-      "bytes": 26226
-    },
-    "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 567,
-      "bytes": 19075
-    },
-    "packages/client-sdk/src/data/sqlite/schema/index.ts": {
-      "lines": 689,
-      "bytes": 27274
-    },
     "packages/client-sdk/src/index.ts": {
       "lines": 623,
       "bytes": 18407
-    },
-    "packages/client-sdk/src/workflows/container-contents/documentLinks/index.ts": {
-      "lines": 510,
-      "bytes": 17883
     },
     "packages/validators/src/operation/openApi.test.ts": {
       "lines": 509,

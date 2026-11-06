@@ -1,10 +1,9 @@
 import { and, eq, isNotNull } from "drizzle-orm";
+import { localIntents, localIntentTables } from "../../../sqlite/schema";
 import {
   documents,
   documentTables,
-  localIntents,
-  localIntentTables,
-} from "../../../sqlite/schema";
+} from "../../../sqlite/schema/documentRecordSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

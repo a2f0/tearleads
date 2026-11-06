@@ -3,7 +3,7 @@ import { and, eq, inArray, isNotNull, or, type SQL } from "drizzle-orm";
 import {
   containerSyncWatermarks,
   containerSyncWatermarkTables,
-} from "../../sqlite/schema";
+} from "../../sqlite/schema/containerSyncWatermarkSchema";
 import {
   type ClientSQLiteDatabase,
   type ClientSQLiteTransactionScope,

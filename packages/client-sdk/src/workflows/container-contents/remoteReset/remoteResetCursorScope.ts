@@ -1,5 +1,5 @@
 import { and, eq, inArray, or } from "drizzle-orm";
-import { containerSyncWatermarks } from "../../../data/sqlite/schema";
+import { containerSyncWatermarks } from "../../../data/sqlite/schema/containerSyncWatermarkSchema";
 import { remoteResetBatches } from "../../../data/sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../data/sqlite/sqlitePersistenceRuntime";
 

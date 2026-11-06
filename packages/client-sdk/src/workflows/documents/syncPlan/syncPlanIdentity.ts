@@ -20,10 +20,10 @@ import {
 } from "../../../data/documents/shared/readers";
 import type {
   BuildDocumentSyncPlanInput,
-  DocumentCreateAuthor,
   DocumentSyncPlan,
   DocumentSyncPreparedUpdate,
-} from "../../../data/documents/shared/types";
+} from "../../../data/documents/shared/sync/documentSyncTypes";
+import type { DocumentCreateAuthor } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 
 function contentKeyBundleForSyncRequest(

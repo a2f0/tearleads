@@ -1,15 +1,17 @@
 import { eq } from "drizzle-orm";
 import {
   containerHydrationTombstones,
-  containerSyncWatermarkTables,
   containers,
   containerTables,
-  documentContainerProjectionTables,
-  documentProjectionTables,
-  documentTables,
-  keyingCheckpointTables,
   localIntentTables,
 } from "../../sqlite/schema";
+import { containerSyncWatermarkTables } from "../../sqlite/schema/containerSyncWatermarkSchema";
+import {
+  documentContainerProjectionTables,
+  documentProjectionTables,
+} from "../../sqlite/schema/documentProjectionSchema";
+import { documentTables } from "../../sqlite/schema/documentRecordSchema";
+import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

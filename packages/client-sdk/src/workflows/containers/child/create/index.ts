@@ -46,7 +46,7 @@ import { unwrapContainerKekPath } from "../../../../data/documents/shared/projec
 import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
-} from "../../../../data/documents/shared/types";
+} from "../../../../data/documents/shared/projection/projectionVerificationOptions";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,

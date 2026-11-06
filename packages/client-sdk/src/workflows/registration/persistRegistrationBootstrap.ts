@@ -24,7 +24,7 @@ import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   type LocallyAcknowledgedAccessManifestHead,
 } from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
-import { documentContainerProjectionTables } from "../../data/sqlite/schema";
+import { documentContainerProjectionTables } from "../../data/sqlite/schema/documentProjectionSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import {
   createExecSql,

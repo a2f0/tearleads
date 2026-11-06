@@ -21,10 +21,8 @@ import {
   assertDocumentManifestBundleConsistent,
   readManifestContainerId,
 } from "../../../data/documents/shared/readers";
-import type {
-  DocumentCreateAuthor,
-  DocumentSyncApi,
-} from "../../../data/documents/shared/types";
+import type { DocumentSyncApi } from "../../../data/documents/shared/sync/documentSyncTypes";
+import type { DocumentCreateAuthor } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import type {
   ProjectionUserKeyResolver,

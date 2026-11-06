@@ -5,8 +5,8 @@ import {
   type PrincipalPolicyCache,
 } from "../../../keyingProjectionVerification";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
-import type { ProjectionVerificationOptions } from "../types";
-import { resolveProjectionVerifier } from "../types";
+import type { ProjectionVerificationOptions } from "../projection/projectionVerificationOptions";
+import { resolveProjectionVerifier } from "../projection/projectionVerificationOptions";
 
 export type UnwrapContainerKekPathInput = {
   execSql?: ExecSql | undefined;

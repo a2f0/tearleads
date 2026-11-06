@@ -9,7 +9,10 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm";
-import { documentHistoryUpdates, documents } from "../../../sqlite/schema";
+import {
+  documentHistoryUpdates,
+  documents,
+} from "../../../sqlite/schema/documentRecordSchema";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
