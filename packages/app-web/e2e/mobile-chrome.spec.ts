@@ -354,22 +354,23 @@ test("mobile sync lane detail keeps its labels on one line", async ({
     while (scrollport && getComputedStyle(scrollport).overflowX === "visible") {
       scrollport = scrollport.parentElement;
     }
+    // The scrollport's content box: its border box less border and padding.
+    const contentEdges = (port: HTMLElement) => {
+      const box = port.getBoundingClientRect();
+      const style = getComputedStyle(port);
+      const left =
+        box.left +
+        Number.parseFloat(style.borderLeftWidth) +
+        Number.parseFloat(style.paddingLeft);
+      const right =
+        left +
+        port.clientWidth -
+        Number.parseFloat(style.paddingLeft) -
+        Number.parseFloat(style.paddingRight);
+      return { left, right };
+    };
     const tableBox = table?.getBoundingClientRect();
-    const portBox = scrollport?.getBoundingClientRect();
-    const portStyle = scrollport ? getComputedStyle(scrollport) : null;
-    const contentLeft =
-      portBox && portStyle
-        ? portBox.left +
-          Number.parseFloat(portStyle.borderLeftWidth) +
-          Number.parseFloat(portStyle.paddingLeft)
-        : null;
-    const contentRight =
-      contentLeft !== null && scrollport && portStyle
-        ? contentLeft +
-          scrollport.clientWidth -
-          Number.parseFloat(portStyle.paddingLeft) -
-          Number.parseFloat(portStyle.paddingRight)
-        : null;
+    const content = scrollport ? contentEdges(scrollport) : null;
 
     return {
       labels: Array.from(detail?.querySelectorAll("th") ?? []).map((cell) => {
@@ -378,12 +379,12 @@ test("mobile sync lane detail keeps its labels on one line", async ({
         return { lines: range.getClientRects().length, text: cell.textContent };
       }),
       overhang:
-        tableBox && contentLeft !== null && contentRight !== null
+        tableBox && content
           ? Math.round(
               Math.max(
                 0,
-                tableBox.right - contentRight,
-                contentLeft - tableBox.left,
+                tableBox.right - content.right,
+                content.left - tableBox.left,
               ),
             )
           : null,

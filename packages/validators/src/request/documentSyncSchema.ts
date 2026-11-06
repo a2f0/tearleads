@@ -232,36 +232,27 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     }
 
     const hasOutgoingUpdates = request.outgoingUpdates.length > 0;
-    if (
-      (request.containerRekeys?.length ?? 0) > 0 !==
-      (request.inlineRekeyCommitId !== undefined)
-    ) {
+    const hasContainerRekeys = (request.containerRekeys?.length ?? 0) > 0;
+    const carriesWrite =
+      hasOutgoingUpdates ||
+      hasContainerRekeys ||
+      request.contentKeyBundle !== undefined ||
+      request.authorizingContainerPathRefs !== undefined;
+    if (hasContainerRekeys !== (request.inlineRekeyCommitId !== undefined)) {
       context.addIssue({
         code: "custom",
         message: "inline rekey commit id must accompany container rekeys",
         path: ["inlineRekeyCommitId"],
       });
     }
-    if (
-      request.pullCursor !== undefined &&
-      (hasOutgoingUpdates ||
-        (request.containerRekeys?.length ?? 0) > 0 ||
-        request.contentKeyBundle !== undefined ||
-        request.authorizingContainerPathRefs !== undefined)
-    ) {
+    if (request.pullCursor !== undefined && carriesWrite) {
       context.addIssue({
         code: "custom",
         message: "continued pulls must be read-only",
         path: ["pullCursor"],
       });
     }
-    if (
-      request.historyMode === "raw" &&
-      (hasOutgoingUpdates ||
-        (request.containerRekeys?.length ?? 0) > 0 ||
-        request.contentKeyBundle !== undefined ||
-        request.authorizingContainerPathRefs !== undefined)
-    ) {
+    if (request.historyMode === "raw" && carriesWrite) {
       context.addIssue({
         code: "custom",
         message: "raw-history pulls must be read-only",
@@ -278,7 +269,7 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     const requestMode = classifyDocumentSyncRequestMode({
       authorizingContainerPathRefsPresent:
         request.authorizingContainerPathRefs !== undefined,
-      hasContainerRekeys: (request.containerRekeys?.length ?? 0) > 0,
+      hasContainerRekeys,
       hasOutgoingUpdates,
     });
 

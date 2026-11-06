@@ -38,31 +38,24 @@ export function usePendingPolicyMutation(input: {
     const request = ++generation.current;
     const scope = actions.captureOperationScope();
     if (!scope || scope.organizationId !== input.organizationId) return;
+    const current = () =>
+      request === generation.current && actions.isOperationScopeActive(scope);
     try {
       const saved = await actions.readPendingPolicyMutation(
         input.organizationId,
       );
-      if (
-        request === generation.current &&
-        actions.isOperationScopeActive(scope)
-      ) {
+      if (current()) {
         setSaved({ mutation: saved, unreadable: null, scope });
         setError(null);
       }
     } catch (error) {
-      if (
-        request === generation.current &&
-        actions.isOperationScopeActive(scope)
-      ) {
-        if (error instanceof UnreadablePrincipalMutationError)
-          setSaved({ mutation: null, unreadable: error, scope });
-        else setSaved(null);
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Saved change could not be read",
-        );
-      }
+      if (!current()) return;
+      setSaved(
+        error instanceof UnreadablePrincipalMutationError
+          ? { mutation: null, unreadable: error, scope }
+          : null,
+      );
+      setError(pendingReadError(error));
     }
   }, [actions, input.organizationId]);
   useEffect(() => {
@@ -71,15 +64,17 @@ export function usePendingPolicyMutation(input: {
       generation.current += 1;
     };
   }, [refresh, input.refreshSignal, input.mutating]);
-  const pending =
-    saved && actions.isOperationScopeActive(saved.scope)
-      ? saved.mutation
-      : null;
-  const unreadable =
-    saved && actions.isOperationScopeActive(saved.scope)
-      ? saved.unreadable
-      : null;
+  const active =
+    saved && actions.isOperationScopeActive(saved.scope) ? saved : null;
+  const pending = active ? active.mutation : null;
+  const unreadable = active ? active.unreadable : null;
   return { actions, error, pending, unreadable, refresh, setError };
+}
+
+function pendingReadError(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : "Saved change could not be read";
 }
 
 async function performPendingAction(
@@ -112,6 +107,31 @@ function pendingActionError(error: unknown): string {
     : "Saved change could not be resolved";
 }
 
+/** Runs the action, then refreshes while the operation is still current. */
+async function resolvePendingAction(input: {
+  abandon: boolean;
+  current: () => boolean;
+  onResolved: () => void | Promise<void>;
+  organizationId: string;
+  refresh: () => Promise<void>;
+  setError: Dispatch<SetStateAction<string | null>>;
+  snapshot: PendingPolicyMutationSnapshot;
+}) {
+  const { current } = input;
+  try {
+    await performPendingAction(
+      input.snapshot,
+      input.organizationId,
+      input.abandon,
+    );
+    if (!current()) return;
+    await input.onResolved();
+    if (current()) await input.refresh();
+  } catch (error) {
+    if (current()) input.setError(pendingActionError(error));
+  }
+}
+
 export function usePendingPolicyMutationAction(input: {
   organizationId: string;
   snapshot: ReturnType<typeof usePendingPolicyMutation>;
@@ -138,16 +158,15 @@ export function usePendingPolicyMutationAction(input: {
       setBusy(true);
       setError(null);
       try {
-        await performPendingAction(
-          input.snapshot,
-          input.organizationId,
+        await resolvePendingAction({
           abandon,
-        );
-        if (!current()) return;
-        await input.onResolved();
-        if (current()) await refresh();
-      } catch (error) {
-        if (current()) setError(pendingActionError(error));
+          current,
+          onResolved: input.onResolved,
+          organizationId: input.organizationId,
+          refresh,
+          setError,
+          snapshot: input.snapshot,
+        });
       } finally {
         if (operation === generation.current) setBusy(false);
       }

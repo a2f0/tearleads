@@ -42,26 +42,23 @@ export function waitForReadySQLiteRuntime(
       const { client, status } = tearleads.database.snapshot;
       toleratingInitialTermination =
         toleratingInitialTermination && status === "terminated";
-      if (readinessGenerationRef.current !== readinessGeneration) {
-        settled = true;
-        unsubscribe?.();
-        reject(new Error("SQLite database initialization was superseded."));
-      } else if (status === "terminated" && !toleratingInitialTermination) {
-        settled = true;
-        unsubscribe?.();
-        reject(new Error("SQLite database worker was terminated."));
-      } else if (
-        status === "ready" &&
-        client &&
-        currentDbNameRef.current === dbName
-      ) {
-        settled = true;
-        unsubscribe?.();
+      const outcome = readinessOutcome({
+        client,
+        currentDbName: currentDbNameRef.current,
+        dbName,
+        status,
+        superseded: readinessGenerationRef.current !== readinessGeneration,
+        toleratingInitialTermination,
+      });
+      if (outcome === "pending") {
+        return;
+      }
+      settled = true;
+      unsubscribe?.();
+      if (outcome === "ready") {
         resolve();
-      } else if (status === "error" && currentDbNameRef.current === dbName) {
-        settled = true;
-        unsubscribe?.();
-        reject(new Error("SQLite database failed to initialize."));
+      } else {
+        reject(outcome);
       }
     };
 
@@ -72,4 +69,28 @@ export function waitForReadySQLiteRuntime(
       finish();
     }
   });
+}
+
+function readinessOutcome(input: {
+  readonly client: unknown;
+  readonly currentDbName: string | null;
+  readonly dbName: string;
+  readonly status: Tearleads["database"]["snapshot"]["status"];
+  readonly superseded: boolean;
+  readonly toleratingInitialTermination: boolean;
+}): "pending" | "ready" | Error {
+  if (input.superseded) {
+    return new Error("SQLite database initialization was superseded.");
+  }
+  if (input.status === "terminated" && !input.toleratingInitialTermination) {
+    return new Error("SQLite database worker was terminated.");
+  }
+  const sameTarget = input.currentDbName === input.dbName;
+  if (input.status === "ready" && input.client && sameTarget) {
+    return "ready";
+  }
+  if (input.status === "error" && sameTarget) {
+    return new Error("SQLite database failed to initialize.");
+  }
+  return "pending";
 }

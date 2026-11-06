@@ -15,9 +15,31 @@ import {
   discardPreRegisteredUpdateIds,
   preRegisterMaterializedDocumentSyncUpdateIds,
 } from "./syncAcceptedUpdateIds";
-import type { DocumentStoreSyncGeneration } from "./syncGeneration";
+import {
+  type DocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
+} from "./syncGeneration";
 import { clearConsumedRemoteUpdateSignal } from "./syncRemoteSignals";
-import { ensureRemoteDocument } from "./syncShared";
+import {
+  ensureRemoteDocument,
+  isContainerAwaitingRemoteCreate,
+} from "./syncShared";
+
+/**
+ * Whether a document without a remote id may be created now: `"defer"` while
+ * its container still awaits its own remote create, `"stale"` when the sync
+ * generation moved during the check.
+ */
+export async function remoteCreateGate(
+  state: DocumentStoreState,
+  nextRecord: DocumentRecord,
+  generation: DocumentStoreSyncGeneration,
+): Promise<"proceed" | "defer" | "stale"> {
+  if (nextRecord.documentId) return "proceed";
+  const containerAwaitsCreate = await isContainerAwaitingRemoteCreate(state);
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return "stale";
+  return containerAwaitsCreate ? "defer" : "proceed";
+}
 
 /**
  * Creates a document that does not exist remotely yet. When its whole content

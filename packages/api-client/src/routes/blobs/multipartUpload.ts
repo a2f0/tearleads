@@ -211,35 +211,70 @@ export async function uploadMultipartBlobPartBytes(
         : await authorizePart(context);
     if (!source) return null;
     if (source.kind === "api") return uploadThroughApi(context, file);
-    try {
-      const response = await uploadFetch(source.url, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": "application/octet-stream",
-          "Content-MD5": contentMd5,
-        },
-        ...storageFetchOptions(options),
-      });
-      status = response.status;
-      const etag = response.headers.get("ETag")?.trim();
-      await response.body?.cancel().catch(() => {});
-      if (status === 200 && etag) {
-        return {
-          stageId,
-          uploadId: input.uploadId,
-          part: { byteLength: input.byteLength, partNumber, etag },
-        };
-      }
-      if (!(await retryStorageStatus(status, attempt))) break;
-    } catch {
-      // Never expose a provider exception or body: it may contain the bearer URL.
-      status = null;
-    }
+    const outcome = await putStoragePart(
+      context,
+      file,
+      source.url,
+      uploadFetch,
+      attempt,
+    );
+    if (outcome.kind === "uploaded") return outcome.response;
+    status = outcome.status;
+    if (!outcome.retry) break;
   }
   if (options.signal?.aborted) return null;
   reportStorageFailure(transport, path, partNumber, status);
   return null;
+}
+
+type StoragePartAttempt =
+  | {
+      readonly kind: "uploaded";
+      readonly response: UploadMultipartBlobPartResponse;
+    }
+  | {
+      readonly kind: "failed";
+      readonly retry: boolean;
+      readonly status: number | null;
+    };
+
+async function putStoragePart(
+  context: PartUploadContext,
+  file: File,
+  url: string,
+  uploadFetch: UploadFetch,
+  attempt: number,
+): Promise<StoragePartAttempt> {
+  const { input, partNumber } = context;
+  try {
+    const response = await uploadFetch(url, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "Content-MD5": context.contentMd5,
+      },
+      ...storageFetchOptions(context.options),
+    });
+    const status = response.status;
+    const etag = response.headers.get("ETag")?.trim();
+    await response.body?.cancel().catch(() => {});
+    if (status === 200 && etag) {
+      return {
+        kind: "uploaded",
+        response: {
+          stageId: context.stageId,
+          uploadId: input.uploadId,
+          part: { byteLength: input.byteLength, partNumber, etag },
+        },
+      };
+    }
+    const retry = await retryStorageStatus(status, attempt);
+    return { kind: "failed", retry, status };
+  } catch {
+    // Never expose a provider exception or body: it may contain the bearer URL.
+    return { kind: "failed", retry: true, status: null };
+  }
 }
 
 function reportStorageFailure(

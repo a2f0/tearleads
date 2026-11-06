@@ -186,6 +186,22 @@ export async function loadSqlite3(): Promise<Sqlite3Static> {
   return sqlite3Promise;
 }
 
+function resolveSahPoolInstallOptions(
+  overrides: Parameters<typeof installSahPoolVfsWithRetry>[1],
+) {
+  return {
+    directory: overrides?.directory ?? SAHPOOL_DIRECTORY_ROOT,
+    initialDelayMs:
+      overrides?.initialDelayMs ?? SAHPOOL_INSTALL_INITIAL_DELAY_MS,
+    maxDelayMs: overrides?.maxDelayMs ?? SAHPOOL_INSTALL_MAX_DELAY_MS,
+    now: overrides?.now ?? (() => Date.now()),
+    stepHangTimeoutMs:
+      overrides?.stepHangTimeoutMs ?? SAHPOOL_STEP_HANG_TIMEOUT_MS,
+    totalBudgetMs: overrides?.totalBudgetMs ?? SAHPOOL_INSTALL_TOTAL_BUDGET_MS,
+    vfsName: overrides?.vfsName ?? SAHPOOL_VFS_NAME_PREFIX,
+  };
+}
+
 /**
  * Installs the SAHPool VFS, retrying while a previous worker still holds its OPFS
  * access handles (see the retry-constant comment), bounded by a wall-clock budget
@@ -210,18 +226,18 @@ export async function installSahPoolVfsWithRetry(
     vfsName?: string;
   },
 ): Promise<SAHPoolUtil> {
-  const directory = overrides?.directory ?? SAHPOOL_DIRECTORY_ROOT;
-  const vfsName = overrides?.vfsName ?? SAHPOOL_VFS_NAME_PREFIX;
-  const totalBudgetMs =
-    overrides?.totalBudgetMs ?? SAHPOOL_INSTALL_TOTAL_BUDGET_MS;
-  const maxDelayMs = overrides?.maxDelayMs ?? SAHPOOL_INSTALL_MAX_DELAY_MS;
-  const stepHangTimeoutMs =
-    overrides?.stepHangTimeoutMs ?? SAHPOOL_STEP_HANG_TIMEOUT_MS;
-  const now = overrides?.now ?? (() => Date.now());
+  const {
+    directory,
+    initialDelayMs,
+    maxDelayMs,
+    now,
+    stepHangTimeoutMs,
+    totalBudgetMs,
+    vfsName,
+  } = resolveSahPoolInstallOptions(overrides);
 
   const startedAt = now();
-  let nextDelayMs =
-    overrides?.initialDelayMs ?? SAHPOOL_INSTALL_INITIAL_DELAY_MS;
+  let nextDelayMs = initialDelayMs;
 
   for (;;) {
     try {

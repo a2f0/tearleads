@@ -98,6 +98,66 @@ async function publishPurgedContainerAccessChanges(
   }
 }
 
+async function purgeClaimRemoteData(
+  runtime: ApiServiceRuntime,
+  input: {
+    readonly claim: OrganizationPurgeClaim;
+    readonly clock: () => Date;
+    readonly now: Date;
+  },
+  options: OrganizationPurgeOptions,
+): Promise<void> {
+  const { claim, clock, now } = input;
+  const purged = await purgeClaimedOrganizationRemoteData({
+    claim,
+    db: runtime.db,
+    leaseNow: clock(),
+    now,
+  });
+  if (!purged) return;
+  const { blobIds } = purged;
+  await publishPurgedContainerAccessChanges(
+    runtime.eventPublisher.publish,
+    purged.containerIds,
+    options.notificationTimeoutMs,
+  );
+  const assertObjectDeletionLease = createLeaseGuard({
+    claim,
+    clock,
+    runtime,
+  });
+  while (true) {
+    const stages = await cleanupExpiredBlobStages(
+      runtime,
+      {
+        organizationId: claim.organizationId,
+        now,
+      },
+      { assertObjectDeletionLease },
+    );
+    if (stages.failedStages > 0) {
+      throw new AggregateError(
+        stages.failures,
+        "Organization staged blob cleanup failed",
+      );
+    }
+    if (stages.scannedStages === 0) break;
+  }
+  for (const batch of organizationPurgeBatches(blobIds)) {
+    await assertObjectDeletionLease();
+    await reclaimDereferencedBlobs(
+      runtime,
+      {
+        blobIds: batch,
+        gracePeriodMs: 0,
+        limit: batch.length,
+        now,
+      },
+      { assertObjectDeletionLease },
+    );
+  }
+}
+
 export async function runOrganizationPurgeMaintenance(
   runtime: ApiServiceRuntime,
   input: OrganizationPurgeInput = {},
@@ -110,54 +170,7 @@ export async function runOrganizationPurgeMaintenance(
   let failed = 0;
   for (const claim of claims) {
     try {
-      const purged = await purgeClaimedOrganizationRemoteData({
-        claim,
-        db: runtime.db,
-        leaseNow: clock(),
-        now,
-      });
-      if (!purged) continue;
-      const { blobIds } = purged;
-      await publishPurgedContainerAccessChanges(
-        runtime.eventPublisher.publish,
-        purged.containerIds,
-        options.notificationTimeoutMs,
-      );
-      const assertObjectDeletionLease = createLeaseGuard({
-        claim,
-        clock,
-        runtime,
-      });
-      while (true) {
-        const stages = await cleanupExpiredBlobStages(
-          runtime,
-          {
-            organizationId: claim.organizationId,
-            now,
-          },
-          { assertObjectDeletionLease },
-        );
-        if (stages.failedStages > 0) {
-          throw new AggregateError(
-            stages.failures,
-            "Organization staged blob cleanup failed",
-          );
-        }
-        if (stages.scannedStages === 0) break;
-      }
-      for (const batch of organizationPurgeBatches(blobIds)) {
-        await assertObjectDeletionLease();
-        await reclaimDereferencedBlobs(
-          runtime,
-          {
-            blobIds: batch,
-            gracePeriodMs: 0,
-            limit: batch.length,
-            now,
-          },
-          { assertObjectDeletionLease },
-        );
-      }
+      await purgeClaimRemoteData(runtime, { claim, clock, now }, options);
     } catch (error) {
       failed += 1;
       console.error(

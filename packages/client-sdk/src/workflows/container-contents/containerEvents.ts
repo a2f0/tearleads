@@ -61,22 +61,28 @@ export function listContainerProjectionInvalidationIds(
   for (const event of events) {
     if (!isRecord(event) || !isContainerProjectionInvalidationHint(event))
       continue;
-    if (event.type === "container_mutation_created") {
-      const containerId = readNonEmptyString(event.containerId);
-      if (containerId) containerIds.add(containerId);
-    } else if (
-      (event.type === "container_path_changed" ||
-        event.type === "container_children_changed" ||
-        event.type === "resync_required") &&
-      Array.isArray(event.containerIds)
-    ) {
-      for (const containerId of event.containerIds) {
-        const id = readNonEmptyString(containerId);
-        if (id) containerIds.add(id);
-      }
+    for (const containerId of invalidationHintContainerIds(event)) {
+      const id = readNonEmptyString(containerId);
+      if (id) containerIds.add(id);
     }
   }
   return [...containerIds];
+}
+
+/** The unvalidated container ids a projection invalidation hint names. */
+function invalidationHintContainerIds(
+  event: ContainerMutationEventCandidate,
+): readonly unknown[] {
+  if (event.type === "container_mutation_created") {
+    return [event.containerId];
+  }
+  const namesContainerIds =
+    event.type === "container_path_changed" ||
+    event.type === "container_children_changed" ||
+    event.type === "resync_required";
+  return namesContainerIds && Array.isArray(event.containerIds)
+    ? event.containerIds
+    : [];
 }
 
 function addMutationHydrationLanes(
@@ -117,6 +123,24 @@ function addMutationHydrationLanes(
   }
 }
 
+/**
+ * A known child may not yet have confirmed interest, so it receives no
+ * eviction resync on a move. Refresh root as well to discover a root move.
+ */
+function addChildrenChangedLanes(
+  event: ContainerMutationEventCandidate,
+  parentIds: Map<string, string | null>,
+): void {
+  if (!Array.isArray(event.containerIds)) return;
+  for (const value of event.containerIds) {
+    const parentId = readNonEmptyString(value);
+    if (parentId) {
+      addHydrationParentId(parentIds, null);
+      addHydrationParentId(parentIds, parentId);
+    }
+  }
+}
+
 export function listContainerParentIdsForEventHydration(
   events: ReadonlyArray<unknown>,
 ): Array<string | null> {
@@ -125,17 +149,7 @@ export function listContainerParentIdsForEventHydration(
   for (const event of events) {
     if (!isRecord(event)) continue;
     if (event.type === "container_children_changed") {
-      // A known child may not yet have confirmed interest, so it receives no
-      // eviction resync on a move. Refresh root as well to discover a root move.
-      if (Array.isArray(event.containerIds)) {
-        for (const value of event.containerIds) {
-          const parentId = readNonEmptyString(value);
-          if (parentId) {
-            addHydrationParentId(parentIds, null);
-            addHydrationParentId(parentIds, parentId);
-          }
-        }
-      }
+      addChildrenChangedLanes(event, parentIds);
       continue;
     }
     if (event.type !== "container_mutation_created") continue;

@@ -43,17 +43,7 @@ const schemaChildren = [
 ] as const;
 
 export function preserveTypeUnionEncoding(schema: JsonSchema): void {
-  // Zod 4.5 compacts these after its override hook. Keep the established
-  // OpenAPI encoding so consumers and compatibility checks see a stable API.
-  if (Array.isArray(schema.type)) {
-    const union = schema.type.map((type) => ({ type }));
-    delete schema.type;
-    if (schema.anyOf) {
-      schema.allOf = [...(schema.allOf ?? []), { anyOf: union }];
-    } else {
-      schema.anyOf = union;
-    }
-  }
+  expandTypeUnion(schema);
   for (const key of schemaMaps) {
     const children = schema[key];
     if (children && typeof children === "object") {
@@ -69,6 +59,21 @@ export function preserveTypeUnionEncoding(schema: JsonSchema): void {
     } else {
       visitSchema(child);
     }
+  }
+}
+
+// Zod 4.5 compacts these after its override hook. Keep the established
+// OpenAPI encoding so consumers and compatibility checks see a stable API.
+function expandTypeUnion(schema: JsonSchema): void {
+  if (!Array.isArray(schema.type)) {
+    return;
+  }
+  const union = schema.type.map((type) => ({ type }));
+  delete schema.type;
+  if (schema.anyOf) {
+    schema.allOf = [...(schema.allOf ?? []), { anyOf: union }];
+  } else {
+    schema.anyOf = union;
   }
 }
 

@@ -46,11 +46,11 @@ import {
 } from "./syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
 import { requestRemoteDocumentSync } from "./syncRequest";
-import { ensureSeededRemoteDocument } from "./syncSeededCreate";
 import {
-  isContainerAwaitingRemoteCreate,
-  shouldSkipCleanScheduledDocumentSync,
-} from "./syncShared";
+  ensureSeededRemoteDocument,
+  remoteCreateGate,
+} from "./syncSeededCreate";
+import { shouldSkipCleanScheduledDocumentSync } from "./syncShared";
 
 function canRunScheduledSync(state: DocumentStoreState): boolean {
   return (
@@ -162,14 +162,12 @@ async function syncDocumentState(
   // without queued edits, since the create cannot succeed before its parent
   // exists and attempting it just records a spurious failure. The structural
   // lane primes this store again as soon as the container create lands.
-  if (!nextRecord.documentId) {
-    const containerAwaitsCreate = await isContainerAwaitingRemoteCreate(state);
-    if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
-      requestDocumentStoreSync(state);
-      return state.record ?? nextRecord;
-    }
-    if (containerAwaitsCreate) return nextRecord;
+  const createGate = await remoteCreateGate(state, nextRecord, generation);
+  if (createGate === "stale") {
+    requestDocumentStoreSync(state);
+    return state.record ?? nextRecord;
   }
+  if (createGate === "defer") return nextRecord;
   const created = await ensureSeededRemoteDocument({
     consumedRemoteUpdateSignalSeq,
     currentDoc,
