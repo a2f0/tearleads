@@ -25,14 +25,18 @@ invariants.
 
 Each dialect has one generated `0000_greenfield_baseline` migration: `drizzle/`
 for Postgres and `drizzle-sqlite/` for SQLite and Turso. There are no
-incremental upgrades. After editing `src/schema`, regenerate both baselines
-and update the table-count pins in `src/schemaBootstrap.test.ts` and
+incremental upgrades. After editing `src/schema`, replace both baselines
+rather than generating a second migration beside them: remove each migration
+directory, metadata included, and generate it again under the baseline name.
+Update the table-count pins in `src/schemaBootstrap.test.ts` and
 `packages/api-cli/src/compiledMigrations.test.ts` when tables are added or
-removed:
+removed.
 
 ```sh
-bun run --cwd packages/api-shared db:generate
-bun run --cwd packages/api-shared db:generate:sqlite
+cd packages/api-shared
+rm -rf drizzle drizzle-sqlite
+bun run db:generate --name greenfield_baseline
+bun run db:generate:sqlite --name greenfield_baseline
 ```
 
 A schema change requires fresh server and client databases. The
