@@ -8,17 +8,17 @@ import {
   type VerifiedPrincipalPolicyHistory,
 } from "./principalPolicyHistoryTypes";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
+import type {
+  PrincipalPolicyStateChainEntry,
+  ReferencedPrincipalHead,
+} from "./principalPolicyTypes";
 import { runVerifier, throwVerification } from "./shared";
 import {
   assertTransparencyInclusion,
   normalizeTransparencyInclusionProof,
 } from "./transparencyProofs";
-import type {
-  KeyingVerificationResult,
-  PrincipalPolicyStateChainEntry,
-  ReferencedPrincipalHead,
-  TransparencyInclusionProof,
-} from "./types";
+import type { TransparencyInclusionProof } from "./transparencyTypes";
+import type { KeyingVerificationResult } from "./verificationError";
 
 /** Untrusted material to select an entry from a locally verified prefix. */
 export interface PrincipalPolicyHistoryReferenceProof {

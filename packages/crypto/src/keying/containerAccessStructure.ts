@@ -1,4 +1,8 @@
 import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type {
+  ContainerAccessMetadata,
+  ContainerAccessStructural,
+} from "./containerAccessTypes";
 import {
   assertExactKeys,
   readNullableHashString,
@@ -6,10 +10,6 @@ import {
   readString,
   throwVerification,
 } from "./shared";
-import type {
-  ContainerAccessMetadata,
-  ContainerAccessStructural,
-} from "./types";
 
 export function normalizeContainerAccessStructural(
   value: unknown,

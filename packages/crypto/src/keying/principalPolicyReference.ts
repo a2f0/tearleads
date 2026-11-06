@@ -2,7 +2,7 @@ import type {
   NormalizedPrincipalPolicyStateChainEntry,
   PrincipalPolicyAuthorization,
   ReferencedPrincipalHead,
-} from "./types";
+} from "./principalPolicyTypes";
 
 export function principalPolicyEntryForReference(input: {
   readonly policy: PrincipalPolicyAuthorization;

@@ -1,5 +1,9 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { normalizeCanonicalJsonValue } from "./canonical";
+import type {
+  DocumentBlobRewrap,
+  DocumentLinkSetManifestState,
+} from "./documentAccessTypes";
 import {
   assertExactKeys,
   readHashString,
@@ -7,7 +11,6 @@ import {
   readString,
   throwVerification,
 } from "./shared";
-import type { DocumentBlobRewrap, DocumentLinkSetManifestState } from "./types";
 
 function normalizeTarget(
   value: unknown,

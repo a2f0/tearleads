@@ -20,16 +20,27 @@
     "packages/crypto/src/keying.ts": ["./keying/index"],
     "packages/crypto/src/keying/index.ts": [
       "./accessEvent",
+      "./accessEventTypes",
       "./accessManifestSnapshot",
+      "./accessManifestTypes",
+      "./accessManifestVerificationTypes",
+      "./attachmentAccessTypes",
       "./canonical",
+      "./canonicalJsonTypes",
       "./checkpoints",
+      "./checkpointTypes",
       "./containerAccess",
+      "./containerAccessTypes",
       "./containerKek",
+      "./containerKekTypes",
+      "./contentKeyTargetTypes",
       "./documentAccess",
+      "./documentAccessTypes",
       "./principalPolicy",
       "./transparency",
-      "./types",
-      "./writeHeader"
+      "./transparencyTypes",
+      "./writeHeader",
+      "./writeHeaderTypes"
     ],
     "packages/loro/src/index.ts": ["./shared"]
   },
@@ -174,29 +185,9 @@
       "lines": 552,
       "bytes": 18898
     },
-    "packages/crypto/src/keying/containerKek.ts": {
-      "lines": 665,
-      "bytes": 19384
-    },
-    "packages/crypto/src/keying/containerKek/contentKeyTargets.ts": {
-      "lines": 650,
-      "bytes": 18726
-    },
-    "packages/crypto/src/keying/documentAccess.ts": {
-      "lines": 856,
-      "bytes": 24492
-    },
     "packages/crypto/src/keying/testFixtures.ts": {
       "lines": 678,
-      "bytes": 22981
-    },
-    "packages/crypto/src/keying/transparency.ts": {
-      "lines": 511,
-      "bytes": 13564
-    },
-    "packages/crypto/src/keying/types.ts": {
-      "lines": 1048,
-      "bytes": 32525
+      "bytes": 22957
     },
     "packages/validators/src/operation/openApi.test.ts": {
       "lines": 509,

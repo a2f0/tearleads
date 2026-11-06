@@ -1,5 +1,6 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { referencedPrincipalKey } from "./accessEvent";
+import type { KeyingCanonicalJson } from "./canonicalJsonTypes";
 import { normalizeContainerReciteAccessEventBody } from "./containerAccessReciteBody";
 import { normalizeContainerRekeyAccessEventBody } from "./containerAccessRekeyBody";
 import {
@@ -13,6 +14,13 @@ import {
   normalizeContainerAccessMetadata,
   normalizeContainerAccessStructural,
 } from "./containerAccessStructure";
+import type {
+  ContainerAccessEventBody,
+  ContainerCreateAccessEventBody,
+  ContainerGrantAccessEventBody,
+  ContainerMoveAccessEventBody,
+  ContainerRevokeAccessEventBody,
+} from "./containerAccessTypes";
 import {
   normalizeContainerGrantPrincipalHead,
   normalizeContainerGrantPrincipalHeads,
@@ -25,14 +33,6 @@ import {
   readString,
   throwVerification,
 } from "./shared";
-import type {
-  ContainerAccessEventBody,
-  ContainerCreateAccessEventBody,
-  ContainerGrantAccessEventBody,
-  ContainerMoveAccessEventBody,
-  ContainerRevokeAccessEventBody,
-  KeyingCanonicalJson,
-} from "./types";
 
 function normalizeContainerCreateAccessEventBody(
   value: KeyingCanonicalJson,

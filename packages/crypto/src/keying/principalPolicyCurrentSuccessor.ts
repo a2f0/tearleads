@@ -9,13 +9,11 @@ import { verifyPrincipalPolicyMemberEnvelopes } from "./principalPolicyMemberEnv
 import { verifyPrincipalPolicyPayload } from "./principalPolicyPayload";
 import type {
   PrincipalPolicyCurrent,
+  PrincipalPolicySignerPublicKey,
   VerifiedPrincipalPolicyCurrent,
 } from "./principalPolicyTypes";
 import { runVerifier } from "./shared";
-import type {
-  KeyingVerificationResult,
-  PrincipalPolicySignerPublicKey,
-} from "./types";
+import type { KeyingVerificationResult } from "./verificationError";
 
 /** Verify one successor of locally verified current evidence, retaining only that pair. */
 export function verifyPrincipalPolicyCurrentSuccessor(input: {

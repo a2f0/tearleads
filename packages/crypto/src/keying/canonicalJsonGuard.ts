@@ -1,6 +1,6 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { computeKeyingDomainHash } from "./canonical";
-import type { KeyingCanonicalJson } from "./types";
+import type { KeyingCanonicalJson } from "./canonicalJsonTypes";
 
 /*
  * Shape guard shared by the API and the client SDK for untrusted values that

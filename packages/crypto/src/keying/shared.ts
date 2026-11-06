@@ -4,20 +4,23 @@ import {
   SIGNED_AT_CONTRACT,
 } from "@tearleads/validators/util";
 import { compareCanonicalStrings } from "../canonicalOrdering";
+import type { AccessEventType, AccessObjectKind } from "./accessEventTypes";
+import type {
+  ContainerAccessLevel,
+  ContainerGrantSubjectType,
+} from "./containerAccessTypes";
+import type { KekRecipientKind } from "./containerKekTypes";
+import type { ManagedPrincipalKind } from "./principalPolicyTypes";
 import {
-  type AccessEventType,
-  type AccessObjectKind,
-  CONTENT_RECORD_ENCRYPTION_SUITE,
-  type ContainerAccessLevel,
-  type ContainerGrantSubjectType,
-  type ContentObjectKind,
-  type ContentRecordEncryptionSuite,
-  type KekRecipientKind,
   type KeyingVerificationCode,
   KeyingVerificationError,
   type KeyingVerificationResult,
-  type ManagedPrincipalKind,
-} from "./types";
+} from "./verificationError";
+import {
+  CONTENT_RECORD_ENCRYPTION_SUITE,
+  type ContentObjectKind,
+  type ContentRecordEncryptionSuite,
+} from "./writeHeaderTypes";
 
 // Keying modules take the comparator from here; the single definition lives in
 // canonicalOrdering.ts so principal-state modules share it without a cycle.
