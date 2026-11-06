@@ -18,7 +18,7 @@ changes only those, with no table, route, or response change, belongs there.
 Three rules frame every proposal:
 
 - **Capabilities are preserved.** The guarantees in
-  `docs/security-guarantees.md`, the contract in `docs/protocol-specification.md`,
+  `docs/security-guarantees/`, the contract in `docs/protocol-specification/`,
   and the bounds in `docs/limits.md` are the floor. A proposal that gives one up
   is a **capability trade**: report it in its own section with the decision it
   needs, never ranked among preserving proposals.
@@ -89,7 +89,7 @@ invocation may only establish the baseline; `resume` continues the queue.
   the survivor and what each caller must change.
 - **Default out of scope:** billing routes and tables; root administration
   routes; the website; cryptographic primitive choice; UI rendering cost;
-  anything `docs/security-guarantees.md` lists as an accepted residual.
+  anything `docs/security-guarantees/` lists as an accepted residual.
 
 ## 1. Establish the baseline
 
@@ -114,7 +114,7 @@ inspect bounded excerpts with `bun run agent:logs <path>`.
    [`references/measurement.md`](references/measurement.md). Save the
    per-endpoint tables as the measured baseline. Reuse completed logs only
    after resume validation.
-4. On the first batch, read `docs/protocol-specification.md`,
+4. On the first batch, read `docs/protocol-specification/`,
    `docs/client-sync-ordering.md`, `docs/request-budgets.md`, and the
    "Request costs" section of `docs/developer/current-principal-consumers.md`.
    Save a compact baseline with source references for later batches.
@@ -206,7 +206,7 @@ carry an explicit no-brick check.
 For each verified proposal:
 
 1. List the security findings whose fixes it touches and how each stays fixed.
-2. List the docs it would change (`docs/protocol-specification.md`,
+2. List the docs it would change (`docs/protocol-specification/`,
    `docs/limits.md`, `docs/client-sync-ordering.md`, subsystem docs) and the
    canary ceilings that must be lowered with it, so a shipped proposal cannot
    silently regress.

@@ -74,7 +74,7 @@ for the exact signatures.
 Identity setup is asynchronous because the signing fingerprint is derived from
 the public key and local root setup requires SQLite. `generate()` requires a
 ready SQLite database, creates or reuses the local
-[root container](../glossary.md#root-container), and stores it on
+[root container](../glossary/access.md#root-container), and stores it on
 `tearleads.session.containerId` before resolving with `rootContainerId`,
 `rootContainerCreated`, `seedPhrase`, and `userId`.
 
@@ -160,7 +160,7 @@ new Tearleads({
 The example uses a `LocalKeyringSession`-derived key; hosts can pass any
 supported key type directly, or use
 `createLazyEncryptedBlobStore(namespace, keyProvider)` to defer async
-[keyring](../glossary.md#local-keyring) loading and retry transient load
+[keyring](../glossary/keys.md#local-keyring) loading and retry transient load
 failures.
 
 `createEncryptedBlobStore(namespace, options)` requires OPFS and stores

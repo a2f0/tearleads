@@ -82,8 +82,8 @@ passes during cold bootstrap, not HTTP requests.
 
 Most policy reads in these budgets come from private metadata-root authority:
 each workflow operation reads the server-current
-[organization policy](./glossary.md#principal-policy-state) once, and a
-[head](./glossary.md#head) new to the device needs its first read. See
+[organization policy](./glossary/principals.md#principal-policy-state) once, and
+a [head](./glossary/sync.md#head) new to the device needs its first read. See
 [current-policy request costs](developer/current-principal-consumers.md#request-costs)
 and [principal-history acceptance](principal-history-acceptance.md) for that
 security tradeoff.
@@ -112,7 +112,7 @@ local application.
   older completions, and temporary failures keep the force with bounded
   automatic retries.
 - A reconnect drops cached
-  [writer projections](./glossary.md#writer-projection), installs and
+  [writer projections](./glossary/sync.md#writer-projection), installs and
   acknowledges the current interest set, and then runs reconciliation
   ([`packages/app/src/providers/sdk/serverEventsBinding.ts`](../packages/app/src/providers/sdk/serverEventsBinding.ts)).
   Distinct login sessions of the same identity receive each other's events, so
@@ -133,13 +133,13 @@ authorization, structural ordering, and per-document `409` and retry behavior.
 Batching sync probes would cut HTTP calls without showing less database or
 cryptographic work. Listing is batched instead:
 `POST /containers/documents/query` lists up to 32
-[container](./glossary.md#container) lanes (`MAX_CONTAINER_DOCUMENT_LANES`) per
-request, each through the singular listing with its own readable-container gate,
-access resolver, watermark and page bound. The lanes share one request-scoped
-cache of verified principal policies by reference, and a lane's linked
-containers reuse the policies its gate loaded, so batching also saves
-statements; every [container path](./glossary.md#authorizing-container-path) is
-still verified.
+[container](./glossary/access.md#container) lanes
+(`MAX_CONTAINER_DOCUMENT_LANES`) per request, each through the singular listing
+with its own readable-container gate, access resolver, watermark and page bound.
+The lanes share one request-scoped cache of verified principal policies by
+reference, and a lane's linked containers reuse the policies its gate loaded, so
+batching also saves statements; every
+[container path](./glossary/access.md#authorizing-container-path) is still verified.
 
 ### Separate projection reads
 
@@ -148,18 +148,18 @@ verified reads rather than being inlined into listings. Listing rows and access
 resolution do not share a transaction snapshot, and inlining would need new
 snapshot, response-size, verification and cache-race rules and would duplicate
 signed paths. Projection reads instead cite
-[manifest](./glossary.md#access-manifest) bundles the device already holds; see
-[the incremental evidence contract](projection-policy-evidence.md#cost-and-retained-history-tradeoff).
+[manifest](./glossary/access.md#access-manifest) bundles the device already
+holds; see [the incremental evidence contract](projection-policy-evidence.md#cost-and-retained-history-tradeoff).
 
 ### Current policy before signed mutations
 
 Group creation and membership changes spend most of their requests reading
 policy heads and refreshing the
-[organization read model](./glossary.md#organization-read-model). Those reads
-feed signed compare-and-swap mutations, so reusing stale authorization state to
-save them is not an option. Unlinking a document reads a current writer
-projection and runs a rotation-preflight sync; dropping either would need
-another proof that the client holds current authorization and complete history.
-Moving a document to Trash is a
+[organization read model](./glossary/principals.md#organization-read-model).
+Those reads feed signed compare-and-swap mutations, so reusing stale
+authorization state to save them is not an option. Unlinking a document reads a
+current writer projection and runs a rotation-preflight sync; dropping either
+would need another proof that the client holds current authorization and
+complete history. Moving a document to Trash is a
 [durable link-then-unlink workflow](./developer/document-links.md): an outage
 can briefly leave both links present, and a retry completes the remaining leg.

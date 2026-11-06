@@ -9,7 +9,7 @@ the container history the group lost.
 
 Every group policy change commits in one transaction with a container mutation
 for each container the group is granted. The model's admin device plans that
-batch from the container [heads](../../docs/glossary.md#head) it read, while
+batch from the container [heads](../../docs/glossary/sync.md#head) it read, while
 other devices may share the same containers directly before it submits.
 
 | Model action or predicate | Production seam |

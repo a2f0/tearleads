@@ -1,38 +1,55 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { docPath, technicalDocPages } from "../technicalDocs";
 import { createTextRenderer, glossaryTerms } from "./richText";
 
-const glossary = readFileSync(
-  resolve(import.meta.dir, "../../../../docs/glossary.md"),
-  "utf8",
-);
+const glossary = technicalDocPages
+  .filter((doc) => doc.parent === "glossary")
+  .map((doc) => ({
+    path: docPath(doc),
+    markdown: readFileSync(
+      resolve(import.meta.dir, "../../../..", doc.source),
+      "utf8",
+    ),
+  }));
 
 const terms = [
-  { term: "Blob", slug: "blob" },
-  { term: "Blob Content-Key Bundle", slug: "blob-content-key-bundle" },
-  { term: "Content-Key Bundle", slug: "content-key-bundle" },
-  { term: "Head", slug: "head" },
+  { term: "Blob", href: "/docs/glossary/content/#blob" },
+  {
+    term: "Blob Content-Key Bundle",
+    href: "/docs/glossary/keys/#blob-content-key-bundle",
+  },
+  {
+    term: "Content-Key Bundle",
+    href: "/docs/glossary/keys/#content-key-bundle",
+  },
+  { term: "Head", href: "/docs/glossary/sync/#head" },
 ];
 
-test("glossary terms are its h2 headings with GitHub anchors", () => {
+test("glossary terms are its topic pages' h2 headings with GitHub anchors", () => {
   const parsed = glossaryTerms(glossary);
   expect(parsed.length).toBeGreaterThan(20);
   expect(parsed).toContainEqual({
     term: "Content-Key Bundle",
-    slug: "content-key-bundle",
+    href: "/docs/glossary/keys/#content-key-bundle",
   });
   expect(parsed).toContainEqual({
     term: "Container KEK",
-    slug: "container-kek",
+    href: "/docs/glossary/keys/#container-kek",
   });
-  expect(parsed.some((entry) => entry.term === "Glossary")).toBe(false);
+  expect(parsed.some((entry) => entry.term.startsWith("Glossary"))).toBe(false);
   // Repeated headings number like GitHub; fenced headings are ignored.
   expect(
-    glossaryTerms("# T\n\n## Head\n\n```\n## Fake\n```\n\n## Head\n"),
+    glossaryTerms([
+      {
+        path: "/g/",
+        markdown: "# T\n\n## Head\n\n```\n## Fake\n```\n\n## Head\n",
+      },
+    ]),
   ).toEqual([
-    { term: "Head", slug: "head" },
-    { term: "Head", slug: "head-1" },
+    { term: "Head", href: "/g/#head" },
+    { term: "Head", href: "/g/#head-1" },
   ]);
 });
 
@@ -57,10 +74,10 @@ test("the first mention of each term per page links, longest term first", () => 
       {
         kind: "term",
         text: "blob content-key bundle",
-        href: "/docs/glossary/#blob-content-key-bundle",
+        href: "/docs/glossary/keys/#blob-content-key-bundle",
       },
       { kind: "text", text: " wraps the " },
-      { kind: "term", text: "blob", href: "/docs/glossary/#blob" },
+      { kind: "term", text: "blob", href: "/docs/glossary/content/#blob" },
       { kind: "text", text: " key." },
     ],
   ]);
@@ -71,7 +88,7 @@ test("the first mention of each term per page links, longest term first", () => 
       {
         kind: "term",
         text: "content-key bundles",
-        href: "/docs/glossary/#content-key-bundle",
+        href: "/docs/glossary/keys/#content-key-bundle",
       },
       { kind: "text", text: "." },
     ],
@@ -95,7 +112,7 @@ test("terms match whole words only and never inside code", () => {
   expect(render("x-head and head-1 are not mentions; head is.")).toEqual([
     [
       { kind: "text", text: "x-head and head-1 are not mentions; " },
-      { kind: "term", text: "head", href: "/docs/glossary/#head" },
+      { kind: "term", text: "head", href: "/docs/glossary/sync/#head" },
       { kind: "text", text: " is." },
     ],
   ]);

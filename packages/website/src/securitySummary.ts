@@ -14,8 +14,8 @@ interface SecuritySummaryRow {
 
 export const securitySummary: readonly SecuritySummaryRow[] = [
   {
-    // docs/keying-design.md "Design Properties" (the server stores ciphertext
-    // and wrapped keys, not plaintext content keys); docs/security-guarantees.md
+    // docs/keying-design/ "Design Properties" (the server stores ciphertext
+    // and wrapped keys, not plaintext content keys); docs/security-guarantees/
     // "Short Answer".
     id: "content",
     title: "Encrypted on your device",
@@ -24,7 +24,7 @@ export const securitySummary: readonly SecuritySummaryRow[] = [
     href: "/security/#device-boundary",
   },
   {
-    // docs/security-guarantees.md "Signed Access Manifests", "Forged Group Or
+    // docs/security-guarantees/ "Signed Access Manifests", "Forged Group Or
     // Organization Membership", and "Projection Rows Are Not A Security
     // Boundary".
     id: "sharing",
@@ -34,7 +34,7 @@ export const securitySummary: readonly SecuritySummaryRow[] = [
     href: "/security/#verified-sharing",
   },
   {
-    // docs/security-guarantees.md "Principal Changes And Their Containers
+    // docs/security-guarantees/ "Principal Changes And Their Containers
     // Commit Atomically".
     id: "removing-access",
     title: "Atomic key rotation",
@@ -43,7 +43,7 @@ export const securitySummary: readonly SecuritySummaryRow[] = [
     href: "/security/#verified-sharing",
   },
   {
-    // docs/security-guarantees.md "Local At-Rest Key Wrapping" (the host
+    // docs/security-guarantees/ "Local At-Rest Key Wrapping" (the host
     // wrapping key, as named in Fig. 2 on /security; a PIN is optional).
     id: "your-device",
     title: "Encrypted at rest",

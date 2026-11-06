@@ -4,7 +4,7 @@
 verifier's publication of a checked prefix across page boundaries. A page stages
 its entries and external-authority citations privately. Failed checks cannot
 advance the published prefix. An uncited page cannot erase a previously observed
-external-authority [head](../../docs/glossary.md#head) and thereby permit a
+external-authority [head](../../docs/glossary/sync.md#head) and thereby permit a
 later rollback.
 
 | Model action or predicate | Production seam |
@@ -25,7 +25,7 @@ production seam, `RequireUnchangedAuthority`, refuses a page citing a newer
 authority and violates it.
 
 Cryptographic validity, commitment checks, per-page byte budgets,
-[checkpoint](../../docs/glossary.md#checkpoint) connection, exact-head matching,
+[checkpoint](../../docs/glossary/sync.md#checkpoint) connection, exact-head matching,
 concurrent calls, and server/client storage are outside this model. Real signed
 crypto tests exercise the corresponding verifier checks and prove their
 regressions with disabled checks. This model makes no HTTP latency,

@@ -6,10 +6,10 @@ when a domain has several kinds of queued sync work. It complements the
 routes or server transactions.
 
 For one `DomainScope`, the SDK uses one in-process sync coordinator.
-[Sync lanes](./glossary.md#sync-lane) drain through a phase barrier:
+[Sync lanes](./glossary/sync.md#sync-lane) drain through a phase barrier:
 
 1. Structural lanes.
-2. Up to four [document](./glossary.md#document) lanes concurrently.
+2. Up to four [document](./glossary/content.md#document) lanes concurrently.
 
 The structural lane is `container-contents`; each document store has a
 `documents:${localId}` lane. Queued structural work drains before queued
@@ -43,23 +43,23 @@ A queued structural retry retains the phase barrier during its backoff.
 
 ## Structural Phase
 
-The `container-contents` lane owns local [container](./glossary.md#container)
+The `container-contents` lane owns local [container](./glossary/access.md#container)
 topology and container metadata state. A pass runs in this order:
 
 1. Sync pending local container create intents.
 2. Sync pending local container move intents.
 3. Sync container metadata document state.
-4. Recover a stale [root](./glossary.md#root-container), replay pending document
+4. Recover a stale [root](./glossary/access.md#root-container), replay pending document
    placement intents, and prime document stores when needed.
 
 Container creates run before moves so an offline-created destination can exist
 remotely before a later move targets it. Document placements replay in this
 phase because they may target containers created locally in the same session,
 such as Trash. Moves run before document lanes so document creates, document
-[Loro updates](./glossary.md#loro-update), and [blob](./glossary.md#blob)
-[attachment binds](./glossary.md#attachment-binding) derive their
-[writer projections](./glossary.md#writer-projection) from the latest synced
-[container path](./glossary.md#authorizing-container-path).
+[Loro updates](./glossary/content.md#loro-update), and [blob](./glossary/content.md#blob)
+[attachment binds](./glossary/content.md#attachment-binding) derive their
+[writer projections](./glossary/sync.md#writer-projection) from the latest synced
+[container path](./glossary/access.md#authorizing-container-path).
 
 These intents wait in one durable local outbox, the `local_intents` table. Each
 row belongs to a lane: `container.create`, `container.move`, or
@@ -83,8 +83,8 @@ Remote container hydration is read/discovery work, not a sync lane. It can prime
 local state and schedule the structural lane, but must not write document
 content or blob attachment state. One hydration pass, one document discovery
 pass, and one document move (its link and unlink legs) each discover the
-[organization](./glossary.md#organization) directory once and share that view;
-see
+[organization](./glossary/principals.md#organization) directory once and share
+that view; see
 [operation recovery batch](developer/current-principal-consumers.md#operation-recovery-batch).
 Document syncs scheduled through document stores remain separate operations.
 
@@ -97,7 +97,7 @@ and a diagnostics blob row only views the upload that the document lane owns.
 ### Remote pull eligibility
 
 Scheduling a document lane and probing the remote document
-[head](./glossary.md#head) are separate decisions. A clean ordinary document
+[head](./glossary/sync.md#head) are separate decisions. A clean ordinary document
 skips HTTP unless it has outgoing work or a remote-revalidation signal. The
 following signals require a probe:
 
@@ -156,7 +156,7 @@ installing the declaration's readable subset in its process-local event router.
 The acknowledgment includes the accepted IDs, so a refused ID is not retained as
 subscribed. It confirms processing despite denials; a stale local ID must not
 block HTTP reconciliation. A refused re-add also removes any older subscription.
-The client retries only refused interests after a [grant](./glossary.md#grant)
+The client retries only refused interests after a [grant](./glossary/access.md#grant)
 notification or tree change, including a change that arrived while authorization
 was pending. A socket opens with no interest and the server keeps none for a
 later reconnect, so every connect's declaration is authorized through the same
@@ -172,8 +172,8 @@ On every acknowledged reconnect, the client also clears cached writer
 projections and runs one full reconciliation after the live interest set is in
 place. That sweep refreshes container/access structure and force-revalidates
 registered document stores, closing the lossy interval for access changes and
-key-epoch [rotations](./glossary.md#rotate) even when the affected container or
-document was not open when the socket dropped. Native app resume and
+key-epoch [rotations](./glossary/keys.md#rotate) even when the affected
+container or document was not open when the socket dropped. Native app resume and
 network-path changes deliberately replace the socket first, because WKWebView
 can retain an `OPEN` WebSocket whose underlying connection is no longer usable.
 
@@ -186,8 +186,8 @@ A document pass runs in this order:
 
 1. If the document already exists remotely and has pending attachment mutations,
    issue a no-outgoing document sync probe first. This refreshes incoming
-   document updates, [commit LSN](./glossary.md#commit-lsn), and
-   [content-key](./glossary.md#content-key) material before the later writer
+   document updates, [commit LSN](./glossary/sync.md#commit-lsn), and
+   [content-key](./glossary/keys.md#content-key) material before the later writer
    projection fetch and attachment bind. Attachment work proceeds only after a
    successful probe; a coded remote-deletion response takes the normal
    destructive cleanup path before any blob staging begins. Uncoded and
@@ -196,9 +196,9 @@ A document pass runs in this order:
 2. Sync pending attachment uploads. If the document does not exist remotely yet,
    create the remote document first. Then read the local pending bytes, fetch
    the current document writer projection, derive blob
-   [key targets](./glossary.md#key-target) from that projection,
-   [stage](./glossary.md#blob-stage) encrypted blob bytes, and bind the blob
-   with a signed attachment [event](./glossary.md#access-event).
+   [key targets](./glossary/keys.md#key-target) from that projection,
+   [stage](./glossary/content.md#blob-stage) encrypted blob bytes, and bind the
+   blob with a signed attachment [event](./glossary/access.md#access-event).
 3. Sync encrypted Loro document state. If the document still does not exist
    remotely and has pending Loro updates, create it first. Then send pending
    encrypted updates and import returned updates.
@@ -213,8 +213,8 @@ So a local document can be created remotely before either attachment binds or
 Loro diffs are sent, and attachment binds may be sent before pending Loro diffs
 from the same local edit pass. This is intentional: server-visible attachment
 binding state is authoritative for blob reachability, while the encrypted Loro
-payload may reference [attachment slots](./glossary.md#attachment-slot) only for
-editor semantics.
+payload may reference [attachment slots](./glossary/content.md#attachment-slot)
+only for editor semantics.
 
 If an attachment upload completes, the document lane requests a follow-up pass
 and returns before regular Loro sync. This keeps each pass small and ensures
@@ -279,13 +279,13 @@ flush time, while the lane keeps the work it has not yet done.
 
 The ordering is a client scheduling rule, not an atomic multi-object commit.
 Every protocol write still carries the signed
-[manifests](./glossary.md#access-manifest), key targets, expected hashes, and
-[write headers](./glossary.md#signed-write-header) that let the server reject
-stale or unauthorized work.
+[manifests](./glossary/access.md#access-manifest), key targets, expected hashes,
+and [write headers](./glossary/content.md#signed-write-header) that let the
+server reject stale or unauthorized work.
 
 If a structural pass cannot make progress, it records the owning workflow's
 error state and returns. The coordinator can then run document lanes; those
-document/blob writes still [fail closed](./glossary.md#fail-closed) if their
+document/blob writes still [fail closed](./glossary/access.md#fail-closed) if their
 projections are stale or unauthorized. The client can later request structural
 sync again after remote state, credentials, network, or local input changes.
 

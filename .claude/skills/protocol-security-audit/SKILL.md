@@ -76,8 +76,8 @@ an expected setup-only batch, and `resume` continues with the queued audit work.
   referenced users; key transparency,
   witnesses, and semantic currentness (#2186 or its successor); pure
   availability or withholding; DoS and rate limits; residuals that
-  `docs/security-guarantees.md` already accepts.
-- **Documentation is a claim.** Anything `docs/security-guarantees.md` promises
+  `docs/security-guarantees/` already accepts.
+- **Documentation is a claim.** Anything `docs/security-guarantees/` promises
   that the code does not implement is a finding.
 
 ## 1. Establish the baseline
@@ -104,7 +104,7 @@ instead of loading successful logs.
    `packages/api`
    resolves the SDK from `dist`, so API probes otherwise test stale code. The
    brief tells auditors not to rebuild it themselves.
-4. On the first batch, read `docs/security-guarantees.md`, `formal/README.md`,
+4. On the first batch, read `docs/security-guarantees/`, `formal/README.md`,
    and the model index `formal/models.md` in full. Save a compact baseline
    with source references for later batches.
 5. Build a compact known-issues index, starting with project memory and the

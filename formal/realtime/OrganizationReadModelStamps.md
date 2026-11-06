@@ -1,7 +1,7 @@
 # Organization Read-Model Stamps
 
 [`OrganizationReadModelStamps.tla`](./OrganizationReadModelStamps.tla) models
-the [organization read-model](../../docs/glossary.md#organization-read-model)
+the [organization read-model](../../docs/glossary/principals.md#organization-read-model)
 cursor: each source mutation advances the per-organization head and stamps every
 lane or group it changed with the new cursor, and a delta from cursor `c`
 reloads exactly the entities whose stamp exceeds `c`. See the

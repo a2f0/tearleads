@@ -2,7 +2,7 @@
 
 The mutation primitives accept current artifacts with their verified policy,
 without manufactured predecessors. Built-in member addition/removal and group
-[grant](../glossary.md#grant) revocation require
+[grant](../glossary/access.md#grant) revocation require
 [paged current-policy recovery](./current-principal-consumers.md) and
 [private history custody](./principal-history-recovery.md#key-custody). They
 retain the exact [compound receipt](./principal-policy-outcomes.md) before
@@ -13,23 +13,23 @@ dispatch.
 a `VerifiedPrincipalPolicyCurrent` issued by the local crypto verifier. It checks
 scope, consecutive version and predecessor hash, signing identity, authorization,
 key rotation, projection/grant commitments, payload and
-[member envelopes](../glossary.md#member-envelope). The caller supplies trusted
+[member envelopes](../glossary/keys.md#member-envelope). The caller supplies trusted
 signing keys and already verified external authority. A server-provided
-[head](../glossary.md#head) or a serialized copy of a policy is insufficient:
+[head](../glossary/sync.md#head) or a serialized copy of a policy is insufficient:
 recover and verify history locally before using this operation.
 
 The verifier privately retains the last accepted external-authority citation,
 even when later entries omit that citation and it is absent from the selected
 history. A successor cannot cite an older
-[Admins](../glossary.md#organization-admins-group) head by following an uncited
-state. History reference selection preserves this private value. Public result
-fields and inputs can be inspected, but modifying them cannot replace the
-privately owned predecessor or its remembered authority. Inputs are owned before
-asynchronous verification.
+[Admins](../glossary/principals.md#organization-admins-group) head by following
+an uncited state. History reference selection preserves this private value.
+Public result fields and inputs can be inspected, but modifying them cannot
+replace the privately owned predecessor or its remembered authority. Inputs are
+owned before asynchronous verification.
 
 A successful result retains only its direct predecessor and successor. Repeated
 calls do not accumulate complete history. This result does not advance durable
-[checkpoints](../glossary.md#checkpoint), publish a resumable prefix, or prove
+[checkpoints](../glossary/sync.md#checkpoint), publish a resumable prefix, or prove
 arbitrary older citations. Callers must retain or recover the evidence those
 operations need and apply the atomic checkpoint and acknowledgement rules; in
 particular, admit the acknowledged successor before another mutation. A
@@ -48,11 +48,11 @@ must independently verify it and commit against its current policy heads.
 
 The internal preparation and state-acknowledgement helpers also accept verified
 current evidence. They verify a single group or
-[organization](../glossary.md#organization) successor with trusted signer keys
-and the selected external authority, retaining the direct predecessor and
-successor. An acknowledgement must match the exact authored signed state,
-including its signature; a claimed matching hash is insufficient. Mutable
-request and response inputs are copied before verification yields, and an
+[organization](../glossary/principals.md#organization) successor with trusted
+signer keys and the selected external authority, retaining the direct
+predecessor and successor. An acknowledgement must match the exact authored
+signed state, including its signature; a claimed matching hash is insufficient.
+Mutable request and response inputs are copied before verification yields, and an
 expired operation cannot return accepted evidence. A supplied durable pin must
 be covered by this pair; an older pin requires additional verified history.
 
@@ -62,7 +62,7 @@ Admins and group heads, and admits their checkpoints together. A private lease
 and generation guard enclose planning, dispatch and acknowledgement; escaped
 reference-selection or retention callbacks expire when the operation returns.
 Best-effort
-[descendant recitations](../security-guarantees.md#held-descendant-re-citation)
+[descendant recitations](../security-guarantees/properties.md#held-descendant-re-citation)
 run only after exact durable acknowledgement and follow the session lifetime, so
 releasing private-key custody does not cancel that post-commit work. A session
 change still stops it.
@@ -119,7 +119,7 @@ consecutive version and predecessor hash must match. It retains at most 128
 requested citations plus the predecessor/successor pair, preserving successor
 membership and its private authority cursor. Copies and mutated public artifacts
 cannot supply evidence. Container rematerialization selects only each path's
-citations, including carried descendant [rekeys](../glossary.md#rekey). Planning
+citations, including carried descendant [rekeys](../glossary/keys.md#rekey). Planning
 never admits a speculative successor; served historical references still resolve
 to acknowledged policies.
 
@@ -166,9 +166,9 @@ host explicitly stops retrying.
 Membership and directory mutations share the private lease lifetime and the
 pending-work, directory and Admins authorization checks. Verified observed heads
 can advance local
-[rollback checkpoints](../security-guarantees.md#rollback-and-split-view) even
-when a requested deletion is refused. Deleting a group preserves its rollback
+[rollback checkpoints](../security-guarantees/boundaries.md#rollback-and-split-view)
+even when a requested deletion is refused. Deleting a group preserves its rollback
 checkpoints and historical encrypted artifacts; it does not erase local grants.
 Later access still requires a live directory citation and verified
-[container](../glossary.md#container) authorization. A deleted group's retained
+[container](../glossary/access.md#container) authorization. A deleted group's retained
 artifacts are not reclaimed.

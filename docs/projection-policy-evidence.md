@@ -1,9 +1,9 @@
 # Historical policy evidence in writer projections
 
-Container and document [writer projections](./glossary.md#writer-projection)
+Container and document [writer projections](./glossary/sync.md#writer-projection)
 require `policyEvidence`: public verification material for every
-[principal](./glossary.md#principal) citation in the served manifest and
-[KEK](./glossary.md#container-kek) histories, including groups that were
+[principal](./glossary/principals.md#principal) citation in the served manifest
+and [KEK](./glossary/keys.md#container-kek) histories, including groups that were
 revoked, deleted, or are reachable only through a document's other linked
 container. A fresh device can therefore verify historical signatures without
 access to the cited group's current policy endpoint. Projections without
@@ -14,23 +14,23 @@ document response, and the SDK reuses its verified result across those paths.
 
 The API authorizes the container or document before loading this evidence. The
 response carries one organization history source, one source per required group,
-and the directory payloads that bind those [heads](./glossary.md#head). Each
+and the directory payloads that bind those [heads](./glossary/sync.md#head). Each
 source contains an exact signed head reference and an object/user-scoped read
 grant. Each directory payload includes the signed state reference that
 authenticates it. Public history pages supply the complete signed predecessor
 chains without group payload ciphertexts or
-[member key envelopes](./glossary.md#member-envelope), which group deletion
+[member key envelopes](./glossary/keys.md#member-envelope), which group deletion
 erases. Every page checks current access to the original object.
 
 The SDK verifies signatures and predecessor chains, hashes each directory
 payload against its signed
-[organization state](./glossary.md#principal-policy-state), and binds each
-supplied group head to a signed
+[organization state](./glossary/principals.md#principal-policy-state), and binds
+each supplied group head to a signed
 [directory entry](./developer/principal-directory-bindings.md). The group's
 authenticated chain supplies older cited states. External group authority must
 belong to that organization's
-[Admins group](./glossary.md#organization-admins-group). Existing durable
-[checkpoints](./glossary.md#checkpoint) reject conflicting chains. Missing
+[Admins group](./glossary/principals.md#organization-admins-group). Existing durable
+[checkpoints](./glossary/sync.md#checkpoint) reject conflicting chains. Missing
 required bindings, duplicate payloads, foreign groups, and unsigned evidence are
 refused before manifest authorization. Unrelated directory payload bodies are
 omitted.
@@ -53,7 +53,7 @@ document while direct access to its other container remains forbidden.
 
 ## Read authorization
 
-A current container/document [grant](./glossary.md#grant) deliberately includes
+A current container/document [grant](./glossary/access.md#grant) deliberately includes
 access to the public verification closure of its signed history. That closure
 discloses membership user ids, grant container ids, group public keys,
 signatures, and organization directory ids across retained versions.
@@ -63,11 +63,11 @@ endpoints retain their own authorization checks. Group names, group payload
 ciphertexts, and member key envelopes are not part of this proof.
 
 The protocol keeps this metadata contract and requires active organization
-[roster membership](./glossary.md#organization-roster-entry) for every member of
-every live group. Group creation and policy updates enforce that requirement
-transactionally. Removing a user from
-[Members](./glossary.md#organization-members-group) is refused until signed
-removals from all other live groups and direct container grants have committed.
+[roster membership](./glossary/principals.md#organization-roster-entry) for
+every member of every live group. Group creation and policy updates enforce that
+requirement transactionally. Removing a user from
+[Members](./glossary/principals.md#organization-members-group) is refused until
+signed removals from all other live groups and direct container grants have committed.
 The app enrolls users in Members before adding them to another group and removes
 ordinary-group memberships before disabling the roster. No group mutation
 implicitly enrolls a user on the server. Direct user grants independently
@@ -108,9 +108,9 @@ pins without advancing principal checkpoints. See
 [principal-history recovery](developer/principal-history-recovery.md) for the
 private lease, checkpoint and availability contracts.
 
-Writer projections carry each [access-manifest](./glossary.md#access-manifest)
+Writer projections carry each [access-manifest](./glossary/access.md#access-manifest)
 bundle once, cited by hash (see the
-[protocol specification](protocol-specification.md#container-access-and-kek-protocol)).
+[protocol specification](protocol-specification/container-access.md#container-access-and-kek-protocol)).
 After a projection verifies, the SDK stores its verified bundles in the local
 `verified_access_manifest_bundles` table, keyed by manifest hash, and each
 verified container KEK level as a typed row keyed by the domain-separated hash
@@ -171,8 +171,8 @@ model](../formal/container-keying/ManifestHistory.md) checks that citing only
 held bytes and omitting only cited hashes keep every honest read available under
 any eviction.
 
-Principal-state and [access-event](./glossary.md#access-event) signature results
-are separately memoized by the exact signature, message bytes, and resolved
+Principal-state and [access-event](./glossary/access.md#access-event) signature
+results are separately memoized by the exact signature, message bytes, and resolved
 public key. Only successful signature mathematics is reused; no authorization
 result is inferred from that cache. Its 8,192-entry budget evicts work, never
 refuses a chain. A larger chain or working set can still require signature

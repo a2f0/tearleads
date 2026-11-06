@@ -8,8 +8,8 @@ server write, or a refresh.
 The SDK commits the document summary, link projection, and structural intent in
 one transaction. It then publishes a placement change and schedules background
 sync. A failed local commit publishes nothing. The preferred
-[container](../glossary.md#container) and
-[content key](../glossary.md#content-key) epoch stay unchanged.
+[container](../glossary/access.md#container) and
+[content key](../glossary/keys.md#content-key) epoch stay unchanged.
 
 Additional link targets live in `document_intent_link_targets`, keyed by the
 revision of the document's placement intent in `local_intents`. Sharing that
@@ -23,10 +23,10 @@ successful replay cannot resurrect the removed link. Replay reads the parent and
 its targets in one serialized transaction.
 
 Replay uses current, verified
-[writer projections](../glossary.md#writer-projection) to submit signed link
+[writer projections](../glossary/sync.md#writer-projection) to submit signed link
 mutations. It adds only explicitly queued targets, preserves unrelated remote
 links, and does not restore a preferred link removed by a peer. Additions do not
-[rotate](../glossary.md#rotate) the content key; queued removals require a
+[rotate](../glossary/keys.md#rotate) the content key; queued removals require a
 [full-history rotation proof](../document-rekey-and-audit-history.md). Network
 failures leave the durable intent available for retry. Permission denials and
 vanished containers use the
@@ -38,7 +38,7 @@ Document deletion and scoped remote reset remove the associated targets.
 Container reassignment retargets pending additions. Container deletion or
 revoked access prunes obsolete additions and rehomes the preferred container to
 a surviving link. Queued removals remain until the
-[signed document manifest](../glossary.md#document-link-set-manifest) proves
+[signed document manifest](../glossary/access.md#document-link-set-manifest) proves
 them absent. Both paths change the revision so an in-flight response cannot
 overwrite recovery. Intents without surviving work are removed; those without a
 surviving destination remain unavailable until a new local action retargets
@@ -47,7 +47,7 @@ them.
 Container listings discover document ids; their placement and link arrays do
 not establish authority. Before inserting a discovered document or replacing
 its link rows, the SDK loads and verifies its signed
-[head](../glossary.md#head), uses that head's links and manifest hash, and
+[head](../glossary/sync.md#head), uses that head's links and manifest hash, and
 requires an epoch at least as recent as both the listing and local state.
 Unavailable evidence is retained per document for a later retry, allowing the
 listing watermark and verified siblings to advance. A signed head that no longer
@@ -68,11 +68,11 @@ evidence is unavailable. If every placement is hidden, the document remains
 available through orphan recovery. The local tombstone-hold row records
 whether a pending tombstone hides its placement.
 
-[Principal policy](../glossary.md#principal-policy-state) reads needed for
-verification return the same 403 body for an unknown principal and an unreadable
-one. Candidate container references are only search hints: an anchored candidate
-never suppresses the bounded descendant scan, and a verified
-[readable path](../glossary.md#authorizing-container-path) must justify the
+[Principal policy](../glossary/principals.md#principal-policy-state) reads
+needed for verification return the same 403 body for an unknown principal and an
+unreadable one. Candidate container references are only search hints: an
+anchored candidate never suppresses the bounded descendant scan, and a verified
+[readable path](../glossary/access.md#authorizing-container-path) must justify the
 policy read. Stale-policy mutation replies carry at most 16 readable bundles.
 Container creation accepts successive repair pages, with a maximum of 16 rounds
 and no retry for an identical page.
@@ -87,8 +87,8 @@ the listing and delta reconciliation. Explicit discovery calls run one bounded
 pass; later calls or background reconciliation resume the durable remainder.
 Signed heads are cached by document id and exact manifest hash. Reuse also
 requires an exact match with the durable document verification
-[checkpoint](../glossary.md#checkpoint); a head verified by another path cannot
-be rolled back through this cache. [Organization](../glossary.md#organization)
+[checkpoint](../glossary/sync.md#checkpoint); a head verified by another path cannot
+be rolled back through this cache. [Organization](../glossary/principals.md#organization)
 provisioning (registration and additional organizations) seeds this cache with
 the epoch-1 heads of the roster and organization profile documents. The client
 signed those heads; the provisioning response must acknowledge each exactly, and
