@@ -37,7 +37,7 @@ export function useOrgManagerDialogs(params: {
     selectGroup(null);
     setView("groups");
     setIsCreateGroupDialogOpen(true);
-  }, [canCreateGroup, selectGroup, setView]);
+  }, [canCreateGroup, selectGroup, setError, setView]);
   const closeCreateGroupDialog = useCallback(() => {
     if (mutating) {
       return;
@@ -46,7 +46,7 @@ export function useOrgManagerDialogs(params: {
     setError(null);
     setGroupNameDraft("");
     setIsCreateGroupDialogOpen(false);
-  }, [mutating]);
+  }, [mutating, setError]);
   const openImportUserDialog = useCallback(() => {
     if (!canImportRosterUser) {
       return;
@@ -56,7 +56,7 @@ export function useOrgManagerDialogs(params: {
     setImportUserIdDraft("");
     setOrgManagerView("directory");
     setIsImportUserDialogOpen(true);
-  }, [canImportRosterUser, setOrgManagerView]);
+  }, [canImportRosterUser, setError, setOrgManagerView]);
   const closeImportUserDialog = useCallback(() => {
     if (mutating) {
       return;
@@ -65,7 +65,7 @@ export function useOrgManagerDialogs(params: {
     setError(null);
     setImportUserIdDraft("");
     setIsImportUserDialogOpen(false);
-  }, [mutating]);
+  }, [mutating, setError]);
   return {
     closeCreateGroupDialog,
     closeImportUserDialog,
