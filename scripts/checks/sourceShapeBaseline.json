@@ -161,29 +161,9 @@
       "lines": 623,
       "bytes": 18407
     },
-    "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
-      "lines": 559,
-      "bytes": 19610
-    },
-    "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
-      "lines": 562,
-      "bytes": 20527
-    },
     "packages/client-sdk/src/workflows/container-contents/documentLinks/index.ts": {
       "lines": 510,
       "bytes": 17883
-    },
-    "packages/client-sdk/src/workflows/container-contents/documentQueries/documentQueries.test.ts": {
-      "lines": 521,
-      "bytes": 15665
-    },
-    "packages/client-sdk/src/workflows/container-contents/documentQueries/documentQueriesSidebar.test.ts": {
-      "lines": 613,
-      "bytes": 18360
-    },
-    "packages/client-sdk/src/workflows/container-contents/info/documentInfo.test.ts": {
-      "lines": 512,
-      "bytes": 15792
     },
     "packages/validators/src/operation/openApi.test.ts": {
       "lines": 509,
