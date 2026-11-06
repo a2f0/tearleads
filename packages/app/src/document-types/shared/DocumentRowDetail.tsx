@@ -24,6 +24,34 @@ export interface RowDetailField {
   writerUserId: string | null;
 }
 
+function DocumentRowDetailFieldRow(params: {
+  currentAuthorId: string | null;
+  field: RowDetailField;
+  showFieldValues: boolean;
+}) {
+  const { currentAuthorId, field, showFieldValues } = params;
+  const writer = formatWriterLabel(field.writerUserId, currentAuthorId);
+  const attribution = writer ? `set by ${writer}` : null;
+  return (
+    <MiniAppInfoRow label={field.label}>
+      {showFieldValues ? (
+        <span className="document-row-detail-value">
+          {field.value.trim().length > 0 ? field.value : ROW_DETAIL_EMPTY_VALUE}
+        </span>
+      ) : null}
+      {showFieldValues ? (
+        attribution ? (
+          <span className="document-row-detail-writer">{attribution}</span>
+        ) : null
+      ) : (
+        <span className="document-row-detail-writer document-row-detail-writer-solo">
+          {attribution ?? "Unknown"}
+        </span>
+      )}
+    </MiniAppInfoRow>
+  );
+}
+
 // A read-only, per-row drill-down modal — the document Get Info panel scoped to
 // one row. Lists each field's value with its verified last editor when known,
 // plus the row's created/updated history. Presentational: the caller resolves
@@ -91,35 +119,14 @@ export function DocumentRowDetailOverlay(params: {
         <MiniAppInfoSection heading="Fields">
           <MiniAppKeyValueTable>
             <tbody>
-              {fields.map((field) => {
-                const writer = formatWriterLabel(
-                  field.writerUserId,
-                  currentAuthorId,
-                );
-                const attribution = writer ? `set by ${writer}` : null;
-                return (
-                  <MiniAppInfoRow key={field.label} label={field.label}>
-                    {showFieldValues ? (
-                      <span className="document-row-detail-value">
-                        {field.value.trim().length > 0
-                          ? field.value
-                          : ROW_DETAIL_EMPTY_VALUE}
-                      </span>
-                    ) : null}
-                    {showFieldValues ? (
-                      attribution ? (
-                        <span className="document-row-detail-writer">
-                          {attribution}
-                        </span>
-                      ) : null
-                    ) : (
-                      <span className="document-row-detail-writer document-row-detail-writer-solo">
-                        {attribution ?? "Unknown"}
-                      </span>
-                    )}
-                  </MiniAppInfoRow>
-                );
-              })}
+              {fields.map((field) => (
+                <DocumentRowDetailFieldRow
+                  currentAuthorId={currentAuthorId}
+                  field={field}
+                  key={field.label}
+                  showFieldValues={showFieldValues}
+                />
+              ))}
             </tbody>
           </MiniAppKeyValueTable>
         </MiniAppInfoSection>

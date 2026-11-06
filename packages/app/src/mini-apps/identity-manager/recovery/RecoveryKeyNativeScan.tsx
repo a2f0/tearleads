@@ -39,6 +39,17 @@ export function RecoveryKeyNativeScan({
     if (generation.current === request) update();
   };
 
+  const deliverPhrase = (request: number, phrase: string | null) => {
+    if (generation.current !== request) return;
+    if (!phrase) {
+      setError(
+        "This photo does not contain a valid recovery key. Capture the QR code shown in Identity Manager.",
+      );
+      return;
+    }
+    onScan(phrase);
+  };
+
   const capture = async () => {
     if (disabled || busyRef.current) return;
     busyRef.current = true;
@@ -51,14 +62,7 @@ export function RecoveryKeyNativeScan({
       if (!photo || generation.current !== request) return;
       captured = true;
       const phrase = recoveryKeyScanPhrase(await decodeRecoveryKeyPhoto(photo));
-      if (generation.current !== request) return;
-      if (!phrase) {
-        setError(
-          "This photo does not contain a valid recovery key. Capture the QR code shown in Identity Manager.",
-        );
-        return;
-      }
-      onScan(phrase);
+      deliverPhrase(request, phrase);
     } catch (error) {
       ifCurrent(request, () => {
         setError(

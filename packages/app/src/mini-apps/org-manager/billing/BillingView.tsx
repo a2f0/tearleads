@@ -257,6 +257,34 @@ function BillingPurchaseSection({
   );
 }
 
+function BillingStartTrialActions({
+  busy,
+  onStartTrial,
+}: Pick<BillingViewProps, "busy" | "onStartTrial">) {
+  return (
+    <MiniAppActions>
+      <MiniAppButton disabled={busy !== null} onClick={onStartTrial}>
+        {busy === "trial"
+          ? ORG_MANAGER_LABELS.billingStartingTrial
+          : ORG_MANAGER_LABELS.billingStartTrial}
+      </MiniAppButton>
+    </MiniAppActions>
+  );
+}
+
+function BillingRestoreButton({
+  busy,
+  onRestore,
+}: Pick<BillingViewProps, "busy" | "onRestore">) {
+  return (
+    <MiniAppButton disabled={busy !== null} onClick={onRestore}>
+      {busy === "restore"
+        ? ORG_MANAGER_LABELS.billingRestoring
+        : ORG_MANAGER_LABELS.billingRestore}
+    </MiniAppButton>
+  );
+}
+
 function BillingAdminActions({
   managementUrl,
   view,
@@ -268,16 +296,10 @@ function BillingAdminActions({
   return (
     <MiniAppSection>
       {view.status === "local" ? (
-        <MiniAppActions>
-          <MiniAppButton
-            disabled={props.busy !== null}
-            onClick={props.onStartTrial}
-          >
-            {props.busy === "trial"
-              ? ORG_MANAGER_LABELS.billingStartingTrial
-              : ORG_MANAGER_LABELS.billingStartTrial}
-          </MiniAppButton>
-        </MiniAppActions>
+        <BillingStartTrialActions
+          busy={props.busy}
+          onStartTrial={props.onStartTrial}
+        />
       ) : null}
 
       <BillingPurchaseSection
@@ -298,14 +320,7 @@ function BillingAdminActions({
           </MiniAppButton>
         ) : null}
         {props.restoreAvailable ? (
-          <MiniAppButton
-            disabled={props.busy !== null}
-            onClick={props.onRestore}
-          >
-            {props.busy === "restore"
-              ? ORG_MANAGER_LABELS.billingRestoring
-              : ORG_MANAGER_LABELS.billingRestore}
-          </MiniAppButton>
+          <BillingRestoreButton busy={props.busy} onRestore={props.onRestore} />
         ) : null}
         {managementUrl ? (
           <BillingManageButton
