@@ -134,6 +134,15 @@ export function canSyncDetachedAttachmentBindings(
   );
 }
 
+/** Another pass picks up whatever this stale one could not finish. */
+function requestSyncAgain(
+  state: DocumentStoreState,
+  fallback: DocumentRecord,
+): DocumentRecord {
+  requestDocumentStoreSync(state);
+  return state.record ?? fallback;
+}
+
 async function syncDocumentState(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -148,10 +157,8 @@ async function syncDocumentState(
   const consumedRemoteUpdateSignalSeq = state.remoteUpdateSignalSeq;
   const wasRemoteProbe = state.remoteUpdatePending;
   let pendingUpdates = await listPendingUpdates(state);
-  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
-    requestDocumentStoreSync(state);
-    return state.record ?? nextRecord;
-  }
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation))
+    return requestSyncAgain(state, nextRecord);
   if (pendingUpdates.length === 0 && isDocumentStoreRemoteSyncBlocked(state)) {
     return nextRecord;
   }
@@ -163,10 +170,7 @@ async function syncDocumentState(
   // exists and attempting it just records a spurious failure. The structural
   // lane primes this store again as soon as the container create lands.
   const createGate = await remoteCreateGate(state, nextRecord, generation);
-  if (createGate === "stale") {
-    requestDocumentStoreSync(state);
-    return state.record ?? nextRecord;
-  }
+  if (createGate === "stale") return requestSyncAgain(state, nextRecord);
   if (createGate === "defer") return nextRecord;
   const created = await ensureSeededRemoteDocument({
     consumedRemoteUpdateSignalSeq,
@@ -179,10 +183,8 @@ async function syncDocumentState(
   });
   let nextRemoteRecord = created.record;
   pendingUpdates = created.pendingUpdates;
-  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
-    requestDocumentStoreSync(state);
-    return state.record ?? nextRecord;
-  }
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation))
+    return requestSyncAgain(state, nextRecord);
   if (!nextRemoteRecord?.documentId) return nextRecord;
 
   const preparedCoverage = await prepareDocumentOutgoingCoverage({
@@ -191,10 +193,7 @@ async function syncDocumentState(
     pendingUpdates,
     state,
   });
-  if (!preparedCoverage) {
-    requestDocumentStoreSync(state);
-    return state.record ?? nextRemoteRecord;
-  }
+  if (!preparedCoverage) return requestSyncAgain(state, nextRemoteRecord);
   nextRemoteRecord = preparedCoverage.record;
   pendingUpdates = preparedCoverage.pendingUpdates;
 

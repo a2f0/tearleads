@@ -270,6 +270,16 @@ function eventIdentity(event: Event): {
   };
 }
 
+// The API keeps its last five chained exceptions; clients report only the first.
+function reportedExceptions(
+  event: Event,
+  runtime: SentryPrivacyConfig["runtime"],
+) {
+  return (
+    event.exception?.values?.length ? event.exception.values : [{}]
+  ).slice(runtime === "api" ? -5 : 0, runtime === "api" ? undefined : 1);
+}
+
 // Reconstruct from an allowlist, rather than trying to redact known secrets.
 // Error messages are untrusted: clients can contain decrypted content and API
 // drivers can include credentials, SQL values, and request data.
@@ -287,12 +297,7 @@ export function sanitizeSentryEvent(
   const sanitizeFrames = frameSanitizer(config, network !== undefined);
   // Includes anonymous Chrome DevTools and extension-only failures. An explicit
   // boundary still reports a generic failure if no usable stack is available.
-  const exceptions = (
-    event.exception?.values?.length ? event.exception.values : [{}]
-  ).slice(
-    config.runtime === "api" ? -5 : 0,
-    config.runtime === "api" ? undefined : 1,
-  );
+  const exceptions = reportedExceptions(event, config.runtime);
   if (
     !hasReportableStack(exceptions, sanitizeFrames) &&
     !REPORTS_WITHOUT_STACK.has(source) &&

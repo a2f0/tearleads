@@ -177,6 +177,17 @@ interface ScopedRefresherInput<Result> {
   readonly setLoading?: (loading: boolean) => void;
 }
 
+function reportRefreshError<Result>(
+  input: ScopedRefresherInput<Result>,
+  error: unknown,
+): void {
+  if (input.onError) {
+    input.onError(error);
+  } else {
+    setUnknownError(input.setError, error);
+  }
+}
+
 export async function runScopedRefresher<Result>(
   input: ScopedRefresherInput<Result>,
 ): Promise<void> {
@@ -206,11 +217,7 @@ export async function runScopedRefresher<Result>(
     }
   } catch (error) {
     if (isCurrentRequest()) {
-      if (input.onError) {
-        input.onError(error);
-      } else {
-        setUnknownError(input.setError, error);
-      }
+      reportRefreshError(input, error);
     }
   } finally {
     if (isCurrentRequest()) {

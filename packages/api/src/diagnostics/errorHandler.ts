@@ -7,6 +7,11 @@ import { OrganizationSyncDisabledError } from "../workflows/billing/organization
 import { apiRequestContext } from "./requestContext";
 import { captureApiError } from "./sentry";
 
+function unhandledErrorStatus(error: unknown): number {
+  if (error instanceof HTTPException) return error.status;
+  return isTransientDatabaseFailure(error) ? 503 : 500;
+}
+
 export function createApiErrorHandler(
   capture: typeof captureApiError = captureApiError,
 ): ErrorHandler<SessionEnv> {
@@ -29,12 +34,7 @@ export function createApiErrorHandler(
     if (error instanceof RequestBodyTooLargeError) {
       return c.json({ error: "Request body too large" }, 413);
     }
-    const status =
-      error instanceof HTTPException
-        ? error.status
-        : isTransientDatabaseFailure(error)
-          ? 503
-          : 500;
+    const status = unhandledErrorStatus(error);
     capture(error, "request-error", undefined, apiRequestContext(c, status));
     if (error instanceof HTTPException) return error.getResponse();
     console.error(error);

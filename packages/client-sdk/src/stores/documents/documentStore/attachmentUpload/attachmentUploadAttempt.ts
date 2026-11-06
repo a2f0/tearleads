@@ -2,6 +2,24 @@ import { reportAndRethrowKeyingVerificationError } from "../../../../data/keying
 import { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../../workflows/blobs/upload";
 import type { DocumentStoreState } from "../state";
 
+type AttachmentUploadInput = Parameters<typeof uploadDocumentAttachment>[0];
+
+function withResumedMultipartStage(
+  uploadInput: AttachmentUploadInput,
+  stage: { readonly partSize: number; readonly stageId: string } | undefined,
+): AttachmentUploadInput {
+  return stage
+    ? {
+        ...uploadInput,
+        multipart: {
+          ...(uploadInput.multipart ?? {}),
+          partSize: stage.partSize,
+          resumeStageId: stage.stageId,
+        },
+      }
+    : uploadInput;
+}
+
 export async function uploadAttachmentWithWriterProjectionRetry(input: {
   baseUploadInput: Parameters<typeof uploadDocumentAttachment>[0];
   state: DocumentStoreState;
@@ -68,16 +86,10 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
     input.state.writerProjection = null;
     // Binding can return null after multipart staging succeeded. Carry that
     // resolved stage into the retry so it is resumed instead of orphaned.
-    const retryUploadInput = resolvedMultipartStage
-      ? {
-          ...baseUploadInput,
-          multipart: {
-            ...(baseUploadInput.multipart ?? {}),
-            partSize: resolvedMultipartStage.partSize,
-            resumeStageId: resolvedMultipartStage.stageId,
-          },
-        }
-      : baseUploadInput;
+    const retryUploadInput = withResumedMultipartStage(
+      baseUploadInput,
+      resolvedMultipartStage,
+    );
     uploaded = await tryUploadDocumentAttachment({
       documentId: input.state.record?.documentId ?? input.state.localId,
       input: retryUploadInput,

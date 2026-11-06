@@ -180,6 +180,17 @@ const WalLsnSchema = registerJsonSchemaFragment(
   { pattern: WAL_LSN_PATTERN.source, type: "string" },
 );
 
+function exceedsCrossFieldScanBounds(
+  outgoingUpdateCount: number,
+  authorizingContainerPathRefs: unknown,
+): boolean {
+  if (outgoingUpdateCount > MAX_DOCUMENT_SYNC_OUTGOING_UPDATES) return true;
+  return (
+    Array.isArray(authorizingContainerPathRefs) &&
+    authorizingContainerPathRefs.length > MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS
+  );
+}
+
 export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
   loosePlainObject({
     authorizingContainerPathRefs:
@@ -220,13 +231,11 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     // The field schemas have already recorded their cardinality errors. Do
     // not let the cross-field checks below rescan attacker-sized arrays after
     // those bounded schemas deliberately stopped before item validation.
-    if (request.outgoingUpdates.length > MAX_DOCUMENT_SYNC_OUTGOING_UPDATES) {
-      return;
-    }
     if (
-      Array.isArray(request.authorizingContainerPathRefs) &&
-      request.authorizingContainerPathRefs.length >
-        MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS
+      exceedsCrossFieldScanBounds(
+        request.outgoingUpdates.length,
+        request.authorizingContainerPathRefs,
+      )
     ) {
       return;
     }

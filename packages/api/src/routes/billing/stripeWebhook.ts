@@ -14,6 +14,17 @@ import {
 import { headersValidator } from "../../validators/headers";
 import type { OrganizationsRouterDeps } from "../organizations/shared";
 
+/** Malformed JSON and unrecognized event shapes are both acknowledged and ignored. */
+function parseStripeWebhookBody(payload: string) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payload);
+  } catch {
+    return { success: false as const };
+  }
+  return receiveStripeWebhookOperation.body.safeParse(parsed);
+}
+
 /**
  * Stripe webhook endpoint: authenticated by the `Stripe-Signature` header over
  * the raw body. Non-2xx responses ask Stripe to redeliver transient failures.
@@ -44,13 +55,7 @@ export function createStripeWebhookRoute(
         return c.json({ error: "Invalid signature" }, 401);
       }
 
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(payload);
-      } catch {
-        return c.json({ received: true, outcome: "ignored" });
-      }
-      const request = receiveStripeWebhookOperation.body.safeParse(parsed);
+      const request = parseStripeWebhookBody(payload);
       if (!request.success) {
         return c.json({ received: true, outcome: "ignored" });
       }

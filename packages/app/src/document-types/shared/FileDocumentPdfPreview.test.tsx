@@ -199,3 +199,42 @@ test("a PDF read that lost its database shows the error without reporting", asyn
   );
   expect(logged).toEqual([]);
 });
+
+test("a stale external-open failure keeps the next PDF's load failure", async () => {
+  let rejectOpen: ((reason: unknown) => void) | undefined;
+  const fileViewer: FileViewer = {
+    viewFile: () =>
+      new Promise((_resolve, reject) => {
+        rejectOpen = reject;
+      }),
+  };
+  const blobStore = createBlobStore(bytes);
+  blobStore.openByteSource = async (key) => {
+    if (key === "second") throw new Error("read failed");
+    return { byteLength: bytes.byteLength, read: async () => bytes };
+  };
+  const hook = renderHook(
+    ({ storageKey }) =>
+      useFileDocumentPdfPreview({
+        attachments: [attachment],
+        attachmentStorageKeyBySlotId: { "pdf-slot": storageKey },
+        blobStore,
+        fileViewer,
+        logError: noopLogError,
+      }),
+    { initialProps: { storageKey: "first" } },
+  );
+  await waitFor(() => expect(hook.result.current?.bytes).toEqual(bytes));
+  act(() => hook.result.current?.onOpenExternal?.());
+  hook.rerender({ storageKey: "second" });
+  const loadFailure = "Couldn't load this PDF. You can still download it.";
+  await waitFor(() => expect(hook.result.current?.error).toBe(loadFailure));
+
+  await act(async () => {
+    rejectOpen?.(new Error("no viewer"));
+    await Promise.resolve();
+  });
+
+  expect(hook.result.current?.error).toBe(loadFailure);
+  expect(hook.result.current?.loading).toBe(false);
+});
