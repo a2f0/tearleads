@@ -24,6 +24,7 @@ export function GroupMembers({
   mutating,
   openRosterUser,
   protectedUserId,
+  protectSelf,
   removeMember,
   userId,
 }: {
@@ -32,6 +33,8 @@ export function GroupMembers({
   mutating: boolean;
   openRosterUser: (userId: string) => void;
   protectedUserId: string | null;
+  /** Built-in groups keep the signed-in user from removing themselves. */
+  protectSelf: boolean;
   removeMember: (userId: string) => void;
   userId: string | null;
 }) {
@@ -64,7 +67,7 @@ export function GroupMembers({
           const isLastAdmin = member.role === "admin" && adminCount <= 1;
           const canRemove =
             canMutateGroup &&
-            member.userId !== userId &&
+            !(protectSelf && member.userId === userId) &&
             member.userId !== protectedUserId &&
             !isLastAdmin;
 

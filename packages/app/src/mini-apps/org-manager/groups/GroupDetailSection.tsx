@@ -197,6 +197,7 @@ export function GroupDetailSection({
                       )?.userId ?? null)
                     : null
                 }
+                protectSelf={selectedGroup.isBuiltin}
                 removeMember={removeMember}
                 userId={userId}
               />
