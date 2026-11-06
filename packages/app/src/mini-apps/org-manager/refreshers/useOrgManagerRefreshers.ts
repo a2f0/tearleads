@@ -16,6 +16,7 @@ import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvid
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import type { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
 import { ORG_MANAGER_LABELS } from "../labels";
+import type { OrgManagerDialogsEvent } from "../model/orgManagerDialogsMachine";
 import {
   clearErrorIfRequested,
   type DirectoryRefreshOptions,
@@ -131,8 +132,7 @@ interface OrgManagerRefreshersParams {
     SetStateAction<OrganizationPolicyHistory | null>
   >;
   setReadModelCursor: Dispatch<SetStateAction<string | null>>;
-  setIsCreateGroupDialogOpen: Dispatch<SetStateAction<boolean>>;
-  setIsImportUserDialogOpen: Dispatch<SetStateAction<boolean>>;
+  sendDialogEvent: Dispatch<OrgManagerDialogsEvent>;
   setUserDetail: Dispatch<SetStateAction<OrganizationUserDetail | null>>;
   view: OrgManagerView;
 }
@@ -169,8 +169,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setMembers,
     setOrganizationPolicyHistory,
     setReadModelCursor,
-    setIsCreateGroupDialogOpen,
-    setIsImportUserDialogOpen,
+    sendDialogEvent,
     setUserDetail,
     view,
   } = params;
@@ -214,19 +213,17 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setGroupContainers(null);
     setGroupPolicyHistory(null);
     setReadModelCursor(null);
-    setIsCreateGroupDialogOpen(false);
-    setIsImportUserDialogOpen(false);
+    sendDialogEvent({ type: "reset" });
     resetSelectedRosterUser();
     selectGroup(null);
   }, [
     resetSelectedRosterUser,
     selectGroup,
+    sendDialogEvent,
     setDirectory,
     setGroupContainers,
     setGroupPolicyHistory,
     setGroups,
-    setIsCreateGroupDialogOpen,
-    setIsImportUserDialogOpen,
     setMemberGroupId,
     setMembers,
     setReadModelCursor,

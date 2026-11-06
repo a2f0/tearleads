@@ -18,10 +18,9 @@ type RosterIdentityLinkImport = Pick<
   | "refreshDirectoryAndGroups"
   | "refreshSelectedUserDetail"
   | "selectUser"
+  | "sendDialogEvent"
   | "setOrgManagerView"
   | "setError"
-  | "setImportUserIdDraft"
-  | "setIsImportUserDialogOpen"
   | "setMutating"
 > & {
   isOperationActive: (organizationId: string) => boolean;
@@ -43,10 +42,9 @@ async function importRosterIdentityLink(
     refreshDirectoryAndGroups,
     refreshSelectedUserDetail,
     selectUser,
+    sendDialogEvent,
     setOrgManagerView,
     setError,
-    setImportUserIdDraft,
-    setIsImportUserDialogOpen,
     setMutating,
     isOperationActive,
     logError,
@@ -105,8 +103,7 @@ async function importRosterIdentityLink(
       if (!profileSeeded) {
         return;
       }
-      setImportUserIdDraft("");
-      setIsImportUserDialogOpen(false);
+      sendDialogEvent({ dialog: "importUser", type: "close" });
       setOrgManagerView("directory");
       selectUser(targetUser.userId);
       await refreshSelectedUserDetail(targetUser.userId);
@@ -132,10 +129,9 @@ export function useImportRosterIdentityLink(input: RosterIdentityLinkImport) {
       input.refreshDirectoryAndGroups,
       input.refreshSelectedUserDetail,
       input.selectUser,
+      input.sendDialogEvent,
       input.setOrgManagerView,
       input.setError,
-      input.setImportUserIdDraft,
-      input.setIsImportUserDialogOpen,
       input.setMutating,
       input.isOperationActive,
       input.logError,
