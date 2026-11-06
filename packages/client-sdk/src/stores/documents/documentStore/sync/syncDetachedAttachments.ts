@@ -72,17 +72,17 @@ export async function syncDetachedAttachmentBindings(
       return;
     }
     const activeBinding = activeBindingBySlotId.get(marker.slotId);
-    if (activeBinding) {
-      const detached = await syncDetachedAttachmentBinding({
+    if (
+      activeBinding &&
+      !(await syncDetachedAttachmentBinding({
         binding: activeBinding,
         generation,
         remoteDocumentId,
         requestRecord: nextRecord,
         state,
-      });
-      if (!detached) {
-        return;
-      }
+      }))
+    ) {
+      return;
     }
 
     const cleaned = await cleanupDetachedAttachmentMarker(

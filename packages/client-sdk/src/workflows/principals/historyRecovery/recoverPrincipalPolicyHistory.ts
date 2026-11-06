@@ -256,6 +256,18 @@ function completedStageMatchesHead(
   }
 }
 
+/** Resume saved progress from its checked current; otherwise start fresh. */
+function recoveryPagePosition(stage: PrincipalHistoryRecoveryStage) {
+  return stage.saved && stage.current
+    ? {
+        resume: {
+          current: stage.current,
+          afterVersion: stage.saved.afterVersion,
+        },
+      }
+    : { afterVersion: stage.initialAfterVersion };
+}
+
 /**
  * Returns whether the stage's current artifacts came from local storage. A
  * completed stage already authenticates every signed entry through the exact
@@ -283,14 +295,7 @@ async function readRecoveryPages(
     {
       signal: input.signal,
       stateHash: input.expectedHead.stateHash,
-      ...(stage.saved && stage.current
-        ? {
-            resume: {
-              current: stage.current,
-              afterVersion: stage.saved.afterVersion,
-            },
-          }
-        : { afterVersion: stage.initialAfterVersion }),
+      ...recoveryPagePosition(stage),
     },
   )) {
     if (!result.ok) {
@@ -311,6 +316,18 @@ async function readRecoveryPages(
       "Principal history transport did not complete",
     );
   return false;
+}
+
+/** Disposable stored artifacts never refuse an online reader: replay them. */
+function isDisposableStoredArtifactError(
+  error: unknown,
+): error is
+  | PrincipalHistoryPrefixDisconnectedError
+  | StoredPrincipalCurrentRejectedError {
+  return (
+    error instanceof PrincipalHistoryPrefixDisconnectedError ||
+    error instanceof StoredPrincipalCurrentRejectedError
+  );
 }
 
 /** An online reader rebuilds lost or cached evidence once. */
@@ -369,11 +386,7 @@ async function recover(
   } catch (error) {
     const lostEvidence =
       error instanceof PrincipalHistoryEvidenceUnavailableError;
-    // Disposable stored artifacts never refuse an online reader: replay them.
-    const disposable =
-      error instanceof PrincipalHistoryPrefixDisconnectedError ||
-      error instanceof StoredPrincipalCurrentRejectedError;
-    if (!lostEvidence && !disposable) throw error;
+    if (!lostEvidence && !isDisposableStoredArtifactError(error)) throw error;
     if (stage.saved)
       await discardPrincipalHistoryStage(input.execSql, stage.saved, () =>
         recoveryIsCurrent(input),

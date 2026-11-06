@@ -38,6 +38,14 @@ import type {
   PublicPrincipalHistoryProgress,
 } from "./publicPrincipalHistoryTypes";
 
+function parsedJsonOrNull(json: string): unknown {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 async function restorePublicPrefix(
   input: PublicPrincipalHistoryOptions,
   scopeId: string,
@@ -55,12 +63,7 @@ async function restorePublicPrefix(
       input,
       prefix.currentJson,
     );
-    let prefixHead: unknown;
-    try {
-      prefixHead = JSON.parse(prefix.headJson);
-    } catch {
-      prefixHead = null;
-    }
+    const prefixHead = parsedJsonOrNull(prefix.headJson);
     if (
       prefix.organizationId === input.organizationId &&
       authorityReference !== undefined &&
@@ -164,15 +167,15 @@ export async function restorePublicPrincipalHistoryProgress(
     if (!input.offline)
       await discardPrincipalHistoryStage(input.execSql, saved, current);
   }
-  if (allowReuse) {
-    const prefix = await restorePublicPrefix(
-      input,
-      scopeId,
-      id,
-      await loadPrincipalHistoryPrefix(input.execSql, scopeId),
-    );
-    if (prefix) return prefix;
-  }
+  const prefix = allowReuse
+    ? await restorePublicPrefix(
+        input,
+        scopeId,
+        id,
+        await loadPrincipalHistoryPrefix(input.execSql, scopeId),
+      )
+    : null;
+  if (prefix) return prefix;
   return {
     id,
     scopeId,
