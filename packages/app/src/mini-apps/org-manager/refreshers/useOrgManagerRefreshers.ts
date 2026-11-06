@@ -137,11 +137,11 @@ interface OrgManagerRefreshersParams {
   view: OrgManagerView;
 }
 
-function hasOrganizationSession(auth: {
-  readonly isAuthenticated: boolean;
-  readonly organizationId: string | null;
-}): boolean {
-  return Boolean(auth.organizationId) && auth.isAuthenticated;
+function hasOrganizationSession(
+  organizationId: string | null,
+  isAuthenticated: boolean,
+): boolean {
+  return Boolean(organizationId) && isAuthenticated;
 }
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Colocates the org-manager data load/refresh callbacks that share setters and ordering.
@@ -247,7 +247,12 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
         | "skipNextGroupDetailsEffect"
       > = {},
     ): Promise<DirectoryRefreshResult> => {
-      if (!hasOrganizationSession(appData.auth)) {
+      if (
+        !hasOrganizationSession(
+          appData.auth.organizationId,
+          appData.auth.isAuthenticated,
+        )
+      ) {
         if (isCurrentRequest()) {
           resetDirectoryState();
         }
