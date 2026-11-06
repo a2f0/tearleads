@@ -1,4 +1,4 @@
-# Diagnostics
+# @tearleads/diagnostics
 
 Shared privacy policy, finite app activity vocabulary, and private Sentry clients.
 Web, Capacitor, Electrobun, and API hosts configure their own DSNs and code-path

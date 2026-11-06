@@ -1,4 +1,7 @@
-# Loro support
+# @tearleads/loro
+
+Build support for [Loro](https://loro.dev), the CRDT library behind document
+sync.
 
 `@tearleads/loro/bun-plugin` exports `loroWasmPlugin` for Bun build scripts.
 It resolves Loro to its supported base64 entrypoint, embedding WASM and its
