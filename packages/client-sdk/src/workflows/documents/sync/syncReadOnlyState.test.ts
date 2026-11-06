@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import {
-  DOCUMENT_SYNC_ERROR_CODES,
-  type DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
@@ -12,7 +9,10 @@ import {
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
-import { decryptedUpdateText } from "../../../../test/helpers/documentSyncFixtures";
+import {
+  decryptedUpdateText,
+  persistedStateFromProjection,
+} from "../../../../test/helpers/documentSyncFixtures";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
@@ -27,17 +27,6 @@ beforeEach(async () => {
 });
 
 afterEach(() => closeExecSql());
-
-function persistedStateFromWriterProjection(
-  writerProjection: DocumentWriterProjectionResponse,
-) {
-  return {
-    documentId: writerProjection.documentId,
-    contentKeyBundle: JSON.stringify(writerProjection.contentKeyBundle),
-    documentKekTargets: JSON.stringify(writerProjection.documentKekTargets),
-    documentManifestBundle: JSON.stringify(writerProjection.documentManifest),
-  };
-}
 
 test("syncRemoteDocument uses persisted state for clean read-only sync probes", async () => {
   const {
@@ -80,7 +69,7 @@ test("syncRemoteDocument uses persisted state for clean read-only sync probes", 
     execSql,
     localVersionVector: null,
     pendingUpdates: [],
-    persistedState: persistedStateFromWriterProjection(writerProjection),
+    persistedState: persistedStateFromProjection(writerProjection),
     resolveProjectionUserKey,
     resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
     targetSecretKey: secretKey,
@@ -159,7 +148,7 @@ test("syncRemoteDocument reuses a writer projection to process persisted read-on
     execSql,
     localVersionVector: null,
     pendingUpdates: [],
-    persistedState: persistedStateFromWriterProjection(writerProjection),
+    persistedState: persistedStateFromProjection(writerProjection),
     resolveProjectionUserKey,
     targetSecretKey: secretKey,
     writerProjection,
@@ -242,7 +231,7 @@ test("syncRemoteDocument falls back to writer projection when persisted read-onl
     execSql,
     localVersionVector: null,
     pendingUpdates: [],
-    persistedState: persistedStateFromWriterProjection(writerProjection),
+    persistedState: persistedStateFromProjection(writerProjection),
     resolveProjectionUserKey,
     resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
     targetSecretKey: secretKey,
