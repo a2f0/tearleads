@@ -222,9 +222,21 @@ export async function uploadMultipartBlobPartBytes(
     status = outcome.status;
     if (!outcome.retry) break;
   }
-  if (options.signal?.aborted) return null;
-  reportStorageFailure(transport, path, partNumber, status);
+  reportStorageFailureUnlessAborted(context, status);
   return null;
+}
+
+function reportStorageFailureUnlessAborted(
+  context: PartUploadContext,
+  status: number | null,
+): void {
+  if (context.options.signal?.aborted) return;
+  reportStorageFailure(
+    context.transport,
+    context.path,
+    context.partNumber,
+    status,
+  );
 }
 
 type StoragePartAttempt =

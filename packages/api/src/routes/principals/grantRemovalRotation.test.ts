@@ -18,7 +18,6 @@ import { grantRootThroughRotatedReadGroup } from "../../../test/helpers/rotatedR
 import { listCurrentPrincipalMemberEnvelopes } from "../../access/read/principalMemberEnvelopes";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 
-// Real signed setup and protocol steps approach five seconds in PGlite CI.
 test("a group cannot drop a container grant without rotating its key", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
@@ -93,4 +92,4 @@ test("a group cannot drop a container grant without rotating its key", async () 
   expect(
     (await getCurrentPrincipalState("group", groupId, db))?.stateHash,
   ).toBe(current.stateHash);
-}, 15_000);
+});

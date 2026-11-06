@@ -98,7 +98,7 @@ test("a root writer can create folders but cannot mint a system destination", as
     });
     expect(response.status).toBe(systemSlot === null ? 200 : 403);
   }
-}, 15_000);
+});
 
 test("a read-only root recipient can verify destination roles", async () => {
   const owner = createTestUser();

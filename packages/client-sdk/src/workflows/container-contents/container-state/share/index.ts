@@ -68,6 +68,28 @@ function groupGrantIsStale(input: {
   return pinnedHead.keyEpoch !== input.currentKeyEpoch;
 }
 
+function newGrantShareContext(
+  input: {
+    containerState: ContainerState;
+    requireExistingGrant?: boolean | undefined;
+    runtime: ContainerWorkflowRuntime;
+    subjectId: string;
+    subjectType: ContainerShareSubjectType;
+  },
+  projection: RemoteContainerShareContext["projection"],
+): RemoteContainerShareContext | null {
+  if (input.requireExistingGrant) {
+    // Re-wrap-only callers must never mint a brand-new grant: the container's
+    // system slot is server-supplied and could point at a container that does
+    // not already grant this subject, so minting here would leak its contents.
+    input.runtime.util.log(
+      `Container contents: refused to create a new ${input.subjectType} grant for ${input.subjectId} on container ${input.containerState.container.id} because the re-share requires an existing grant`,
+    );
+    return null;
+  }
+  return { matchingGrant: null, projection };
+}
+
 async function loadRemoteContainerShareContext(input: {
   accessLevel: ContainerShareAccessLevel;
   containerState: ContainerState;
@@ -97,16 +119,7 @@ async function loadRemoteContainerShareContext(input: {
       grant.accessLevel === input.accessLevel,
   );
   if (!hasMatchingGrant) {
-    if (input.requireExistingGrant) {
-      // Re-wrap-only callers must never mint a brand-new grant: the container's
-      // system slot is server-supplied and could point at a container that does
-      // not already grant this subject, so minting here would leak its contents.
-      input.runtime.util.log(
-        `Container contents: refused to create a new ${input.subjectType} grant for ${input.subjectId} on container ${input.containerState.container.id} because the re-share requires an existing grant`,
-      );
-      return null;
-    }
-    return { matchingGrant: null, projection };
+    return newGrantShareContext(input, projection);
   }
 
   if (

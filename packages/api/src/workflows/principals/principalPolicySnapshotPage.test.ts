@@ -59,4 +59,4 @@ test("public history pages require no live group, payload or envelopes and verif
       .set({ signature: entry.state.signature })
       .where(target);
   }
-}, 15_000);
+});

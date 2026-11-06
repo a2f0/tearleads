@@ -50,7 +50,7 @@ test("an initial root container cannot attach a predecessor bridge", async () =>
   await expect(response.json()).resolves.toEqual({
     error: "Initial root container KEK cannot have a predecessor bridge",
   });
-}, 15_000);
+});
 
 test("an initial root container cannot attach a keyring", async () => {
   const body = await createRegistrationBody();
@@ -72,7 +72,7 @@ test("an initial root container cannot attach a keyring", async () => {
   await expect(response.json()).resolves.toEqual({
     error: "Initial root container KEK cannot have a keyring",
   });
-}, 15_000);
+});
 
 test("an initial root container KEK must start at epoch 1", async () => {
   const body = await createRegistrationBody();
@@ -86,4 +86,4 @@ test("an initial root container KEK must start at epoch 1", async () => {
   await expect(response.json()).resolves.toEqual({
     error: "Initial root container KEK must start at epoch 1",
   });
-}, 15_000);
+});

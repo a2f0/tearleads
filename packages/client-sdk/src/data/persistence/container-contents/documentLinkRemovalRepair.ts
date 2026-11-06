@@ -76,6 +76,15 @@ async function survivingIntentTarget(input: {
   );
 }
 
+function repairedIntentStatus(unavailable: boolean) {
+  return unavailable
+    ? {
+        lastError: "Document placement has no surviving destination container",
+        syncStatus: "unavailable",
+      }
+    : { lastError: null, syncStatus: "pending" };
+}
+
 /** Runs after removed containers have been dropped from local link projections. */
 async function repairRemovedLinks(input: {
   containerIds: ReadonlyArray<string>;
@@ -135,7 +144,6 @@ async function repairRemovedLinks(input: {
         .insert(documentIntentLinkTargets)
         .values(targets.map((target) => ({ ...target, intentId: id })))
         .run();
-    const unavailable = removed.has(targetContainerId);
     await tx
       .update(localIntents)
       .set({
@@ -149,10 +157,7 @@ async function repairRemovedLinks(input: {
         // replay fall back to the active link and remove that link instead.
         sourceContainerId: intent.sourceContainerId,
         lastAttemptedAt: null,
-        lastError: unavailable
-          ? "Document placement has no surviving destination container"
-          : null,
-        syncStatus: unavailable ? "unavailable" : "pending",
+        ...repairedIntentStatus(removed.has(targetContainerId)),
         updatedAt: new Date().toISOString(),
       })
       .where(and(placementLane, eq(localIntents.subjectId, intent.subjectId)))

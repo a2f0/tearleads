@@ -48,6 +48,26 @@ export function directoryBindsGroupReference(
   );
 }
 
+type StoredPolicyBundle = Awaited<ReturnType<typeof loadPrincipalPolicyBundle>>;
+
+function bundleMeetingCheckpoint(
+  bundle: StoredPolicyBundle,
+  checkpoint: Awaited<ReturnType<typeof loadPrincipalPolicyCheckpoint>>,
+): StoredPolicyBundle {
+  return bundle &&
+    principalPolicyHeadMeetsCheckpoint(bundle.currentState, checkpoint)
+    ? bundle
+    : null;
+}
+
+function assertSignerFingerprintMatches(error: string): void {
+  if (error === "fingerprint-mismatch")
+    throw new KeyingVerificationError(
+      "signer_mismatch",
+      "organization directory signer fingerprint does not match",
+    );
+}
+
 export function createPolicyDirectoryLoader(input: {
   readonly execSql: ExecSql;
   readonly organizationId: string;
@@ -70,11 +90,7 @@ export function createPolicyDirectoryLoader(input: {
           "organization",
           input.organizationId,
         );
-    if (
-      bundle &&
-      !principalPolicyHeadMeetsCheckpoint(bundle.currentState, checkpoint)
-    )
-      bundle = null;
+    bundle = bundleMeetingCheckpoint(bundle, checkpoint);
     bundle ??= await input.currentPolicyReader.getCurrentPrincipalPolicy(
       "organization",
       input.organizationId,
@@ -85,11 +101,7 @@ export function createPolicyDirectoryLoader(input: {
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     });
     if ("error" in signers) {
-      if (signers.error === "fingerprint-mismatch")
-        throw new KeyingVerificationError(
-          "signer_mismatch",
-          "organization directory signer fingerprint does not match",
-        );
+      assertSignerFingerprintMatches(signers.error);
       return null;
     }
     const verified = await verifyOrganizationAdminPolicy({

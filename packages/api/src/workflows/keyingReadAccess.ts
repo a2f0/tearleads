@@ -332,6 +332,13 @@ async function listActiveBlobBindings(input: {
  * Resolves read access through the blob's active bindings and returns the blob
  * row loaded with them, or null when no blob row exists.
  */
+/** A forbidden or missing binding document lets the next one decide. */
+function skippedDocumentStatus(error: unknown): 403 | 404 | null {
+  if (!(error instanceof KeyingReadAccessError)) return null;
+  if (error.status === 403 || error.status === 404) return error.status;
+  return null;
+}
+
 export async function resolveReadableBlobAccess(input: {
   readonly blobId: string;
   readonly executor: DatabaseSession;
@@ -355,16 +362,9 @@ export async function resolveReadableBlobAccess(input: {
       });
       return blob;
     } catch (error) {
-      if (error instanceof KeyingReadAccessError) {
-        if (error.status === 403) {
-          hasForbiddenDocument = true;
-          continue;
-        }
-        if (error.status === 404) {
-          continue;
-        }
-      }
-      throw error;
+      const skipped = skippedDocumentStatus(error);
+      if (skipped === null) throw error;
+      if (skipped === 403) hasForbiddenDocument = true;
     }
   }
 

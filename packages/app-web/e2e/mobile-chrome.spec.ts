@@ -155,20 +155,20 @@ for (const surface of TAB_STRIP_SURFACES) {
         // unbreakable content (a hash in the System Monitor log) overflows them for
         // reasons that have nothing to do with the strip. Comparing the boxes asks
         // the precise question — did the bleed escape its scrollport?
+        const escapesScrollport = (node: Element): boolean => {
+          const style = getComputedStyle(node);
+          if (style.overflowX === "visible") return false;
+          const nodeBox = node.getBoundingClientRect();
+          const padLeft =
+            nodeBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
+          const padRight =
+            nodeBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
+          return box.left < padLeft || box.right > padRight;
+        };
         const escaped: string[] = [];
         let node: Element | null = element.parentElement;
         while (node) {
-          const style = getComputedStyle(node);
-          if (style.overflowX !== "visible") {
-            const nodeBox = node.getBoundingClientRect();
-            const padLeft =
-              nodeBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
-            const padRight =
-              nodeBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
-            if (box.left < padLeft || box.right > padRight) {
-              escaped.push(node.className);
-            }
-          }
+          if (escapesScrollport(node)) escaped.push(node.className);
           node = node.parentElement;
         }
         return {
@@ -234,21 +234,20 @@ for (const surface of EXPLORER_DIAGNOSTICS_LISTS) {
           }
 
           const box = element.getBoundingClientRect();
+          const escapesScrollport = (node: Element): boolean => {
+            const style = getComputedStyle(node);
+            if (style.overflowX === "visible") return false;
+            const nodeBox = node.getBoundingClientRect();
+            const padLeft =
+              nodeBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
+            const padRight =
+              nodeBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
+            return box.left < padLeft || box.right > padRight;
+          };
           const escaped: string[] = [];
           let node: Element | null = element.parentElement;
           while (node) {
-            const style = getComputedStyle(node);
-            if (style.overflowX !== "visible") {
-              const nodeBox = node.getBoundingClientRect();
-              const padLeft =
-                nodeBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
-              const padRight =
-                nodeBox.right -
-                (Number.parseFloat(style.borderRightWidth) || 0);
-              if (box.left < padLeft || box.right > padRight) {
-                escaped.push(node.className);
-              }
-            }
+            if (escapesScrollport(node)) escaped.push(node.className);
             node = node.parentElement;
           }
           return { escaped, left: box.left, width: box.width };

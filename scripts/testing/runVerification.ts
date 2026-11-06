@@ -66,6 +66,23 @@ async function runStep(
   return step.exitCode;
 }
 
+function snapshotChanged(
+  before: VerificationReport["before"],
+  after: VerificationReport["before"],
+): boolean {
+  return before.head !== after.head || before.fingerprint !== after.fingerprint;
+}
+
+/** Skips the steps that never ran and records the final status. */
+function finishReport(report: VerificationReport, exitCode: number): void {
+  for (const step of report.steps) {
+    if (step.status === "pending") step.status = "skipped";
+  }
+  report.status = exitCode === 0 ? "passed" : "failed";
+  report.exitCode = exitCode;
+  report.finishedAt = new Date().toISOString();
+}
+
 async function verify(
   root: string,
   plan: ReturnType<typeof verificationPlan>,
@@ -99,10 +116,7 @@ async function verify(
       if (exitCode !== 0) break;
     }
     report.after = verificationSnapshot(root);
-    if (
-      report.before.head !== report.after.head ||
-      report.before.fingerprint !== report.after.fingerprint
-    ) {
+    if (snapshotChanged(report.before, report.after)) {
       report.error =
         "Git revision or working-tree contents changed during verification; run it again.";
       if (exitCode === 0) exitCode = 1;
@@ -113,12 +127,7 @@ async function verify(
   } finally {
     process.off("SIGINT", onInterrupt);
     process.off("SIGTERM", onTerminate);
-    for (const step of report.steps) {
-      if (step.status === "pending") step.status = "skipped";
-    }
-    report.status = exitCode === 0 ? "passed" : "failed";
-    report.exitCode = exitCode;
-    report.finishedAt = new Date().toISOString();
+    finishReport(report, exitCode);
     saveVerificationReport(path, report);
   }
   if (report.error) console.error(`[verify] ${report.error}`);

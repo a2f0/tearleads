@@ -258,6 +258,35 @@ async function adoptMetadataCommitConflict(input: {
       : {}),
   };
 }
+/**
+ * Ends a commit attempt before it persists: null once the caller went stale,
+ * the superseded settlement when the preparation lost to the server, and
+ * otherwise the mutation to persist.
+ */
+function settleOrApply(
+  input: PersistContainerMetadataStateInput,
+  execSql: ExecSql,
+  prepared: PreparedContainerMetadataMutation,
+):
+  | { readonly settled: Promise<PersistedContainerMetadataState | null> | null }
+  | { readonly prepared: ApplicableContainerMetadataMutation } {
+  if (input.stillCurrent?.() === false) return { settled: null };
+  if ("authoritativeState" in prepared || prepared.pullContinuationSuperseded) {
+    return {
+      settled: settleSupersededMetadataMutation({
+        acceptedPendingUpdateIds: input.acceptedPendingUpdateIds,
+        execSql,
+        expectedRecord: input.expectedSyncState?.record,
+        metadataState: input.metadataState,
+        persistence: input.persistence,
+        prepared,
+        stillCurrent: input.stillCurrent,
+      }),
+    };
+  }
+  return { prepared };
+}
+
 async function persistContainerMetadataState(
   input: PersistContainerMetadataStateInput,
 ): Promise<PersistedContainerMetadataState | null> {
@@ -269,22 +298,13 @@ async function persistContainerMetadataState(
       attempt < MAX_METADATA_MUTATION_COMMIT_ATTEMPTS;
       attempt += 1
     ) {
-      const prepared = await prepareMutation(input, lockedExecSql, patch);
-      if (input.stillCurrent?.() === false) return null;
-      if (
-        "authoritativeState" in prepared ||
-        prepared.pullContinuationSuperseded
-      ) {
-        return settleSupersededMetadataMutation({
-          acceptedPendingUpdateIds: input.acceptedPendingUpdateIds,
-          execSql: lockedExecSql,
-          expectedRecord: input.expectedSyncState?.record,
-          metadataState: input.metadataState,
-          persistence: input.persistence,
-          prepared,
-          stillCurrent: input.stillCurrent,
-        });
-      }
+      const early = settleOrApply(
+        input,
+        lockedExecSql,
+        await prepareMutation(input, lockedExecSql, patch),
+      );
+      if ("settled" in early) return early.settled;
+      const { prepared } = early;
       const persisted = await persistPreparedMetadataMutation({
         acceptedPendingUpdateIds: input.acceptedPendingUpdateIds,
         clearSyncFailure: input.clearSyncFailure,

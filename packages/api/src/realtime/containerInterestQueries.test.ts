@@ -53,6 +53,47 @@ test("a reconnect marks running queries stale so later runs re-query", async () 
   expect(installed).toEqual(["first", "second"]);
 });
 
+test("a declaration after an overflow awaits the query and re-queries", async () => {
+  const held = Promise.withResolvers<void>();
+  let calls = 0;
+  const queries = new ContainerInterestQueries(async (_user, ids) => {
+    if (++calls === 1) await held.promise;
+    return proofsFor(ids);
+  }, 1_000);
+  const installed: string[] = [];
+  const first = queries.run(
+    ws,
+    [CONTAINER],
+    () => true,
+    () => {
+      installed.push("first");
+    },
+  );
+  await flush();
+  // One past the 10,000-change observation cap overflows the running query.
+  for (let index = 0; index <= 10_000; index++)
+    queries.invalidate(`unrelated-${index}`);
+  const second = queries.run(
+    ws,
+    [CONTAINER],
+    () => true,
+    () => {
+      installed.push("second");
+    },
+  );
+  await flush();
+  // The second run awaits the overflowed query instead of sharing it.
+  expect(calls).toBe(1);
+  held.resolve();
+  // The reader that saw the flood is still refused.
+  await expect(first).rejects.toThrow(
+    "Too many pending container access changes",
+  );
+  await second;
+  expect(calls).toBe(2);
+  expect(installed).toEqual(["second"]);
+});
+
 test("a timed-out query is awaited but never reused by a later run", async () => {
   const held = Promise.withResolvers<void>();
   let calls = 0;

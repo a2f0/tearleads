@@ -44,6 +44,15 @@ export function useImportContactIdentityLink(input: ContactIdentityLinkImport) {
       live.current?.identityScope === input.identityScope &&
       live.current.importVerifiedUser === input.importVerifiedUser &&
       live.current.isImportReady;
+    const reportFailure = (caught: unknown) => {
+      if (!active()) return;
+      input.logError("Contacts: failed to import identity link.", caught);
+      setFailure({
+        draft: input.draft,
+        identityScope: input.identityScope,
+        message: importFailure(caught),
+      });
+    };
     input.isSubmittingRef.current = true;
     input.setIsSubmitting(true);
     setFailure(null);
@@ -59,14 +68,7 @@ export function useImportContactIdentityLink(input: ContactIdentityLinkImport) {
       input.onImported(contactId);
       input.setDraft("");
     } catch (caught) {
-      if (active()) {
-        input.logError("Contacts: failed to import identity link.", caught);
-        setFailure({
-          draft: input.draft,
-          identityScope: input.identityScope,
-          message: importFailure(caught),
-        });
-      }
+      reportFailure(caught);
     } finally {
       input.isSubmittingRef.current = false;
       if (live.current) input.setIsSubmitting(false);

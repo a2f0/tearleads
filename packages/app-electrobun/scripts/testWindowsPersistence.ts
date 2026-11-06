@@ -66,6 +66,25 @@ async function buildApp(): Promise<string> {
   return join(dirname(dirname(metadataPath)), "bin", "launcher.exe");
 }
 
+async function waitForDevtools(app: {
+  readonly exitCode: number | null;
+}): Promise<void> {
+  const deadline = Date.now() + 60_000;
+  let ready = false;
+  while (Date.now() < deadline) {
+    if (app.exitCode !== null) throw new Error("Electrobun exited at startup.");
+    ready = await fetch(devtoolsUrl, {
+      signal: AbortSignal.timeout(1_000),
+    }).then(
+      (response) => response.ok,
+      () => false,
+    );
+    if (ready) break;
+    await Bun.sleep(200);
+  }
+  if (!ready) throw new Error("Timed out waiting for CEF DevTools.");
+}
+
 async function runRound(
   mode: "first" | "reopen",
   launcherPath: string,
@@ -91,21 +110,7 @@ async function runRound(
 
   let roundError: unknown = null;
   try {
-    const deadline = Date.now() + 60_000;
-    let ready = false;
-    while (Date.now() < deadline) {
-      if (app.exitCode !== null)
-        throw new Error("Electrobun exited at startup.");
-      ready = await fetch(devtoolsUrl, {
-        signal: AbortSignal.timeout(1_000),
-      }).then(
-        (response) => response.ok,
-        () => false,
-      );
-      if (ready) break;
-      await Bun.sleep(200);
-    }
-    if (!ready) throw new Error("Timed out waiting for CEF DevTools.");
+    await waitForDevtools(app);
     const log = await Bun.file(logPath).text();
     if (!log.includes("[CEF] Remote debugging enabled on 127.0.0.1:9222")) {
       throw new Error("The Windows app did not launch the CEF renderer.");

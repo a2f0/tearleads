@@ -98,7 +98,7 @@ test("principal reads return contiguous bounded pages of a verified pinned histo
   await expect(
     readPrepared({ ...input, stateHash: head.stateHash, afterVersion: 32 }),
   ).rejects.toThrow("proof root does not match");
-}, 15_000);
+});
 
 test("later pages recheck live access rather than borrowing the pinned policy's membership", async () => {
   const { head, signer } = await principalHistoryPreparationFixture({
@@ -139,4 +139,4 @@ test("later pages recheck live access rather than borrowing the pinned policy's 
       afterVersion: 32,
     }),
   ).rejects.toThrow();
-}, 15_000);
+});

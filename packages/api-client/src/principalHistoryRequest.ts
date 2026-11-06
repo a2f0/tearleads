@@ -10,6 +10,26 @@ import type {
   RequestResultOptions,
 } from "./types";
 
+function requestContext(
+  runtime: ApiRequestRuntime,
+  input: {
+    readonly path: string;
+    readonly method: HttpMethod;
+    readonly options?: RequestResultOptions;
+    readonly context?: PrincipalHistoryRequestContext;
+  },
+): PrincipalHistoryRequestContext {
+  return (
+    input.context ??
+    new PrincipalHistoryRequestContext(
+      runtime,
+      input.method,
+      input.path,
+      input.options,
+    )
+  );
+}
+
 /** Retry only an explicit, validated response proving the operation rolled back. */
 export async function principalHistoryRequest<T>(
   runtime: ApiRequestRuntime,
@@ -27,9 +47,7 @@ export async function principalHistoryRequest<T>(
   },
 ): Promise<RequestResult<T>> {
   const { path, method } = input;
-  const context =
-    input.context ??
-    new PrincipalHistoryRequestContext(runtime, method, path, input.options);
+  const context = requestContext(runtime, input);
   const options = context.options;
   const progress: PreparationProgress = { previous: undefined, unchanged: 0 };
   while (true) {
