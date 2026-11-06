@@ -29,7 +29,7 @@ const group: OrganizationGroupSummary = {
   organizationId: "organization-1",
 };
 
-test("member controls protect the owner and keep removal progress off Add", () => {
+test("member controls protect the owner and self only in built-in groups", () => {
   const owner: OrganizationDirectoryUser = {
     userId: "owner",
     isPersonalOrganizationOwner: true,
@@ -83,23 +83,26 @@ test("member controls protect the owner and keep removal progress off Add", () =
     setAddUserId: () => undefined,
     userId: "peer",
   };
+  const enabledRemoveButtons = () =>
+    view
+      .getAllByRole("button", { name: ORG_MANAGER_LABELS.remove })
+      .filter((button) => !button.hasAttribute("disabled"));
   const view = render(<GroupDetailSection {...props} />);
   expect(
     view
       .getByTitle(ORG_MANAGER_LABELS.personalOrganizationOwnerProtection)
       .hasAttribute("disabled"),
   ).toBe(true);
+  // Built-in: neither the owner nor the signed-in user can be removed here.
+  expect(enabledRemoveButtons()).toHaveLength(0);
   view.rerender(
     <GroupDetailSection
       {...props}
       selectedGroup={{ ...group, isBuiltin: false, name: "Operators" }}
     />,
   );
-  expect(
-    view
-      .getAllByRole("button", { name: ORG_MANAGER_LABELS.remove })
-      .filter((button) => !button.hasAttribute("disabled")),
-  ).toHaveLength(1);
+  // Regular group: both rows, including the signed-in user, are removable.
+  expect(enabledRemoveButtons()).toHaveLength(2);
   view.rerender(<GroupDetailSection {...props} mutating />);
   const add = view.getByRole("button", { name: ORG_MANAGER_LABELS.add });
   expect(add.hasAttribute("disabled")).toBe(true);
