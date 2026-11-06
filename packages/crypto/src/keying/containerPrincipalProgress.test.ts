@@ -5,6 +5,10 @@ import {
   deriveContainerAccessManifest,
   verifyContainerAccessManifest,
 } from "./containerAccess";
+import type {
+  ContainerAccessEventBody,
+  ContainerGrantPrincipalHead,
+} from "./containerAccessTypes";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
   createContainerManifestFixture,
@@ -12,10 +16,6 @@ import {
   createVerifiedContainerAccessEvent,
   fixtureHash,
 } from "./testFixtures";
-import type {
-  ContainerAccessEventBody,
-  ContainerGrantPrincipalHead,
-} from "./types";
 
 for (const eventType of ["container.grant", "container.rekey"] as const) {
   for (const change of [

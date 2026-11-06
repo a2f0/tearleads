@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
+import type { DocumentLinkSetManifestState } from "./documentAccessTypes";
 import {
   assertDocumentBlobRewrapScope,
   normalizeDocumentBlobRewraps,
 } from "./documentBlobRewraps";
-import type { DocumentLinkSetManifestState } from "./types";
 
 const state: DocumentLinkSetManifestState = {
   version: 1,

@@ -2,15 +2,33 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { toFingerprint } from "../fingerprint";
 import { sign } from "../signing/sign";
 import { verifyHistorySignature as verify } from "../signing/verifiedHistorySignature";
+import type {
+  AccessEvent,
+  UnsignedAccessEvent,
+  VerifiedAccessEvent,
+  VerifyAccessEventInput,
+} from "./accessEventTypes";
+import { makeVerifiedAccessEvent } from "./accessEventTypes";
+import type {
+  AccessManifest,
+  VerifiedAccessManifest,
+} from "./accessManifestTypes";
+import { makeVerifiedAccessManifest } from "./accessManifestTypes";
+import type { VerifyAccessManifestInput } from "./accessManifestVerificationTypes";
 import {
   computeKeyingDomainHash,
   encodeDomainPayload,
   normalizeCanonicalJsonValue,
 } from "./canonical";
+import type {
+  KeyingCanonicalJson,
+  KeyingCanonicalPayload,
+} from "./canonicalJsonTypes";
 import {
   accessManifestCheckpointFromManifest,
   verifyAccessManifestLocalCheckpoint,
 } from "./checkpoints";
+import type { ReferencedPrincipalHead } from "./principalPolicyTypes";
 import {
   assertExactKeys,
   compareCanonicalStrings,
@@ -29,20 +47,7 @@ import {
   runVerifier,
   throwVerification,
 } from "./shared";
-import type {
-  AccessEvent,
-  AccessManifest,
-  KeyingCanonicalJson,
-  KeyingCanonicalPayload,
-  KeyingVerificationResult,
-  ReferencedPrincipalHead,
-  UnsignedAccessEvent,
-  VerifiedAccessEvent,
-  VerifiedAccessManifest,
-  VerifyAccessEventInput,
-  VerifyAccessManifestInput,
-} from "./types";
-import { makeVerifiedAccessEvent, makeVerifiedAccessManifest } from "./types";
+import type { KeyingVerificationResult } from "./verificationError";
 
 function normalizeUnsignedAccessEvent(value: unknown): UnsignedAccessEvent {
   const record = assertExactKeys(

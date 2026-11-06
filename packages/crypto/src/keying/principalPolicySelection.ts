@@ -7,7 +7,7 @@ import {
   type VerifiedPrincipalPolicySelection,
 } from "./principalPolicyTypes";
 import { runVerifier } from "./shared";
-import type { KeyingVerificationResult } from "./types";
+import type { KeyingVerificationResult } from "./verificationError";
 
 export type { VerifiedPrincipalPolicySelection } from "./principalPolicyTypes";
 

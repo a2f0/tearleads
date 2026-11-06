@@ -10,10 +10,8 @@ import {
   createPolicySigner,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
-import type {
-  AnyVerifiedPrincipalPolicy,
-  KeyingVerificationResult,
-} from "./types";
+import type { AnyVerifiedPrincipalPolicy } from "./principalPolicyTypes";
+import type { KeyingVerificationResult } from "./verificationError";
 
 // A compile-time regression without suppressing the expected type error.
 const assignableToFullPolicy: VerifiedPrincipalPolicyCurrent extends AnyVerifiedPrincipalPolicy

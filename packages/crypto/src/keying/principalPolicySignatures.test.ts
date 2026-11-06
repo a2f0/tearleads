@@ -14,7 +14,7 @@ import {
 import type {
   PrincipalPolicyBundle,
   PrincipalPolicySignerPublicKey,
-} from "./types";
+} from "./principalPolicyTypes";
 
 const verifiers = [
   {

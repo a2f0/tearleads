@@ -1,10 +1,10 @@
 import { referencedPrincipalKey } from "./accessEvent";
-import { normalizeContainerGrantPrincipalHeads } from "./containerGrantPrincipalHead";
-import { throwVerification } from "./shared";
 import type {
   ContainerDirectGrant,
   ContainerGrantPrincipalHead,
-} from "./types";
+} from "./containerAccessTypes";
+import { normalizeContainerGrantPrincipalHeads } from "./containerGrantPrincipalHead";
+import { throwVerification } from "./shared";
 
 export function upsertReferencedPrincipalHead(
   principalHeads: readonly ContainerGrantPrincipalHead[],

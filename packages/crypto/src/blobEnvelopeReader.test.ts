@@ -11,7 +11,7 @@ import {
   type BlobEnvelopeV2Header,
   encodeBlobEnvelopeV2Header,
 } from "./blobEnvelopeV2";
-import { CONTENT_RECORD_ENCRYPTION_SUITE } from "./keying/types";
+import { CONTENT_RECORD_ENCRYPTION_SUITE } from "./keying/writeHeaderTypes";
 import { AES_GCM_IV_BYTES } from "./symmetric";
 
 const IV = new Uint8Array(AES_GCM_IV_BYTES).fill(7);

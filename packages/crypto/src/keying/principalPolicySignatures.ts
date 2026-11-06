@@ -6,8 +6,8 @@ import {
 } from "../principalState";
 import { verifyHistorySignature } from "../signing/verifiedHistorySignature";
 import { createSignatureHistoryVerifier } from "../signing/verifiedSignatureHistory";
+import type { NormalizedPrincipalPolicyStateChainEntry } from "./principalPolicyTypes";
 import { throwVerification } from "./shared";
-import type { NormalizedPrincipalPolicyStateChainEntry } from "./types";
 
 const verifyHistory = createSignatureHistoryVerifier();
 

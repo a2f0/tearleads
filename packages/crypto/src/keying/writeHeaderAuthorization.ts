@@ -1,10 +1,10 @@
 import {
   requireWriteAccessThroughCommittedBlobTarget,
   requireWriteAccessThroughCommittedDocumentTarget,
-} from "./documentAccess";
+} from "./documentContentWriteAuthority";
 import { throwVerification } from "./shared";
-import type { VerifyWriteHeaderInput, WriteHeader } from "./types";
 import { assertWriteHeaderPathCitations } from "./writeHeaderCitations";
+import type { VerifyWriteHeaderInput, WriteHeader } from "./writeHeaderTypes";
 
 function assertDocumentWriteHeaderAuthorization(input: {
   readonly authorizationMembership: "current" | "referenced";

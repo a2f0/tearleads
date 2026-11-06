@@ -1,13 +1,11 @@
 import { computeKeyingDomainHash } from "./canonical";
+import type { PrincipalPolicySignedState } from "./principalPolicyTypes";
 import { readHashString, throwVerification } from "./shared";
 import {
   computeTransparencyNodeHash,
   largestPowerOfTwoLessThan,
 } from "./transparencyTree";
-import type {
-  PrincipalPolicySignedState,
-  TransparencyInclusionProof,
-} from "./types";
+import type { TransparencyInclusionProof } from "./transparencyTypes";
 
 /** Content-addressed, untrusted proof material; the verified root is authority. */
 export interface PrincipalHistoryIndexNode {

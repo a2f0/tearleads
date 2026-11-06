@@ -7,7 +7,7 @@ import {
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentSyncErrorCode,
 } from "@tearleads/validators/response";
-import { getCurrentDocumentHeadWithLinks } from "./accessManifestStore";
+import { getCurrentDocumentHeadWithLinks } from "./accessManifestHeadReads";
 import { resolveCurrentContainerKekTargetsMapped } from "./containerKekTargets";
 import { assertExpectedTargetHashCurrent } from "./contentKeyTargetPolicy";
 

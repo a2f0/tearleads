@@ -1,4 +1,6 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import type { KeyingCanonicalJson } from "./canonicalJsonTypes";
+import type { ContainerRekeyAccessEventBody } from "./containerAccessTypes";
 import { normalizeContainerGrantPrincipalHeads } from "./containerGrantPrincipalHead";
 import { normalizeContainerKekWrappingPublicKey } from "./containerKekWrapping";
 import {
@@ -8,10 +10,6 @@ import {
   readString,
   throwVerification,
 } from "./shared";
-import type {
-  ContainerRekeyAccessEventBody,
-  KeyingCanonicalJson,
-} from "./types";
 
 export function normalizeContainerRekeyAccessEventBody(
   value: KeyingCanonicalJson,

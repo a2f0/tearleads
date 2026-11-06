@@ -17,7 +17,7 @@ import type {
   VerifiedPrincipalPolicyCurrent,
 } from "./principalPolicyTypes";
 import { runVerifier, throwVerification } from "./shared";
-import type { KeyingVerificationResult } from "./types";
+import type { KeyingVerificationResult } from "./verificationError";
 
 /** Bind a group's current artifacts and next signer to privately issued evidence. */
 export function verifyPrincipalPolicyCurrentMutation(input: {

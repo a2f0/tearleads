@@ -44,6 +44,7 @@ import {
   deriveContainerAccessManifest,
   deriveDocumentKekTargets,
   deriveDocumentLinkSetManifest,
+  makeVerifiedAccessEvent,
   signAccessEvent,
   signTransparencyTreeHead,
   signWriteHeader,
@@ -52,7 +53,6 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "./index";
-import { makeVerifiedAccessEvent } from "./types";
 
 export function expectVerificationError<T>(
   result: KeyingVerificationResult<T>,

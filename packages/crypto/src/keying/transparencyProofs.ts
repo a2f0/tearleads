@@ -15,11 +15,11 @@ import {
   largestPowerOfTwoLessThan,
 } from "./transparencyTree";
 import type {
-  KeyingVerificationResult,
   TransparencyConsistencyProof,
   TransparencyInclusionProof,
   TransparencyTreeCheckpoint,
-} from "./types";
+} from "./transparencyTypes";
+import type { KeyingVerificationResult } from "./verificationError";
 
 /**
  * Inclusion and consistency verification for the keying transparency log.

@@ -13,8 +13,8 @@ import {
   createPolicySigner,
   expectVerificationError,
 } from "./principalPolicyTestFixtures";
-import type { KeyingVerificationCode } from "./types";
-import { KeyingVerificationError } from "./types";
+import type { KeyingVerificationCode } from "./verificationError";
+import { KeyingVerificationError } from "./verificationError";
 
 const rawHistoryIsVerified: Omit<
   VerifiedPrincipalPolicyHistory,

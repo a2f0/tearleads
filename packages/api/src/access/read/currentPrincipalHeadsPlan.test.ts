@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { sql } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
-import { selectCurrentPrincipalHeads } from "../shared/internal/principalStateStore";
+import { selectCurrentPrincipalHeads } from "../shared/internal/principalCurrentStates";
 
 const principals = [
   { principalType: "group", principalId: crypto.randomUUID() },
