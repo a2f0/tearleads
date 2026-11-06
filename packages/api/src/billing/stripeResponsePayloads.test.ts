@@ -5,14 +5,13 @@ import {
   STRIPE_PAYLOAD_PRICE as PRICE,
   queuedStripeFetch as queuedFetch,
 } from "../../test/helpers/stripePayloadFetch";
+import { getStripeSyncOption, StripeApiError } from "./stripeApi";
+import { createCheckoutSession } from "./stripeCheckoutSession";
 import {
   cancelSubscriptionAtPeriodEnd,
-  createCheckoutSession,
   createPortalSession,
   findLiveOrgSubscription,
-  getStripeSyncOption,
-  StripeApiError,
-} from "./stripeApi";
+} from "./stripeSubscriptionManagement";
 
 /**
  * Malformed Stripe pagination, single-field, and Price responses: outcomes and

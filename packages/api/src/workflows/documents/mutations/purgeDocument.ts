@@ -25,7 +25,7 @@ import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../organ
 import { assertRosterProfileDocumentUnbound } from "../../organizations/rosterProfileBindingInvariant";
 import { runPrincipalHistoryTransaction } from "../../principals/principalHistoryTransaction";
 import { loadPurgePolicyEvidence } from "../../principals/purgePolicyEvidence";
-import { loadDocumentContainerDependencyMaterial } from "../writerProjection";
+import { loadDocumentContainerDependencyMaterial } from "../writerProjectionManifestDependencies";
 import { loadDocumentPurgeProofMaterial } from "../writerProjectionPurgeProof";
 import { lockDocumentLifecycleInTransaction } from "./documentLifecycleLock";
 import { DocumentMutationError, toMutationError } from "./errors";

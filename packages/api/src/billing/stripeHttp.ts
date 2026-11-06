@@ -2,7 +2,9 @@
  * Shared HTTP plumbing for the outbound Stripe REST client (issue #1654):
  * configuration reading, the request helper (auth, pinned API version,
  * timeouts, idempotency keys). Responses are parsed with the schemas in
- * providerPayloadSchema.ts; the domain calls live in stripeApi.ts.
+ * providerPayloadSchema.ts; the domain calls live in stripeApi.ts,
+ * stripeCustomer.ts, stripeSubscriptionManagement.ts, and
+ * stripeCheckoutSession.ts.
  */
 
 import {
