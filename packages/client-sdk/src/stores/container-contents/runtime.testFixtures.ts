@@ -1,4 +1,5 @@
 import type { ListContainersResponse } from "@tearleads/validators/response";
+import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { UnverifiedUserIdentityError } from "../../data/trustedUserIdentity";
 import type { BlobStore } from "../../workflows/blobs";
@@ -150,4 +151,21 @@ export function emptyListContainersResponse(): ListContainersResponse {
     nextWatermark: null,
     tombstones: [],
   };
+}
+
+export function rootRefreshDirectory() {
+  return createSignedContainerDirectory([
+    { id: "active-root", parentId: null },
+    {
+      id: "active-root-trash",
+      parentId: "active-root",
+      systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+    { id: "server-root", parentId: null },
+    {
+      id: "server-trash",
+      parentId: "server-root",
+      systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+  ]);
 }
