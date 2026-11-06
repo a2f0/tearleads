@@ -23,7 +23,13 @@
     ".agents/skills/update-dependencies/SKILL.md",
     ".claude/skills/update-dependencies/SKILL.md",
     ".agents/skills/open-issue/SKILL.md",
-    ".claude/skills/open-issue/SKILL.md"
+    ".claude/skills/open-issue/SKILL.md",
+    ".agents/skills/explicit-state-machines/SKILL.md",
+    ".agents/skills/explicit-state-machines/references/lessons.md",
+    ".agents/skills/explicit-state-machines/references/patterns.md",
+    ".claude/skills/explicit-state-machines/SKILL.md",
+    ".claude/skills/explicit-state-machines/references/lessons.md",
+    ".claude/skills/explicit-state-machines/references/patterns.md"
   ],
   "config": {
     "default": true,

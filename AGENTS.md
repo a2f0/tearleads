@@ -255,17 +255,30 @@ Root README covers setup and normal usage. Detailed validation lives in the
 policy in the [infrastructure guide](docs/developer/infrastructure.md). Capture
 and check shared screenshots with the `take-screenshots` skill.
 
+## State machines
+
+Make implicit state machines explicit when you write or change code: one closed
+state type (a discriminated union, enum, or sealed type) carrying each state's
+data, typed events, and one pure transition function, with effects run on
+entering a state and async work tagged so only the current request can finish.
+Follow the `explicit-state-machines` skill for what to convert, what to leave
+alone, and how to prove behavior did not change; `agent-tool state-machines`
+lists leads. Reviews flag new implicit machines. Here states are tagged
+`status`, with the transition in a sibling `<name>Machine.ts` or
+`<name>State.ts`; machines cluster in app providers, stores, and mini-app hooks
+and in client SDK sync.
+
 ## Agent Tooling And Shipping
 
 Shared branch, hook, validation, release, review, PR, and version helpers come
 from the exact npm-pinned [`@a2f0/agent-tool`](https://github.com/a2f0/agent-tool)
 dev dependency; run it with `bun run agent-tool`. Branch, commit trust, binary,
 hook, title, required-check, base-freshness, and version policy is in
-`agent-tool.json`. The shared `cross-agent-review`, `open-issue`, `open-pr`,
-`squash-merge`, `ship-pr`, `reset`, and `update-dependencies` skills are
-managed copies in `.agents/skills` and `.claude/skills`, tracked by
-`.agent-tool-skills.json`. Do not edit them; change the shared skill upstream
-instead. After changing the pin
+`agent-tool.json`. The shared `cross-agent-review`, `explicit-state-machines`,
+`open-issue`, `open-pr`, `squash-merge`, `ship-pr`, `reset`, and
+`update-dependencies` skills are managed copies in `.agents/skills` and
+`.claude/skills`, tracked by `.agent-tool-skills.json`. Do not edit them;
+change the shared skill upstream instead. After changing the pin
 or `agent-tool.json`, run `bun run agents:sync`, which also writes the [harness
 permissions](docs/developer/static-analysis.md#harness-permissions), and commit
 the lockfile, skills, rules, and manifests together. The Markdown linter skips
