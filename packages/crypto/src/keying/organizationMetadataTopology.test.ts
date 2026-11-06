@@ -1,16 +1,14 @@
 import { expect, test } from "bun:test";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedContainerAccessEvent } from "./accessEvent.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
   verifyContainerAccessManifest,
 } from "./index";
-import {
-  createContainerManifestFixture,
-  createVerifiedContainerAccessEvent,
-} from "./testFixtures";
 
 test.each(["independent", "child", "foreign-slot"] as const)(
   "organization metadata topology: %s",

@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
 import { principalPolicyMatchesReference } from "@tearleads/crypto";
-import {
-  containerWrappingPublicKeyForTest,
-  createContainerManifestFixture,
-  fixtureHash,
-} from "@tearleads/crypto/test-fixtures";
+import { fixtureHash } from "@tearleads/crypto/canonical-test-fixtures";
+import { createContainerManifestFixture } from "@tearleads/crypto/container-access-test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import {
   createNativeTestExecSql,
   createNoBrickTraceRecorder,

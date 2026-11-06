@@ -148,7 +148,7 @@ report without a second look.
   modules by absolute path, and run
   `<repo-root>/node_modules/.bin/agent-tool run -- bun test <absolute path>`
   from the owning package directory so workspace imports resolve. Reuse
-  `packages/crypto/src/keying/testFixtures.ts` and
+  the `packages/crypto/src/keying/*.testFixtures.ts` modules and
   `packages/client-sdk/test/helpers/`. Never add probe files to the checkout.
   Read what a probe asserts: one that calls a helper directly proves less than
   one that drives the production handler.

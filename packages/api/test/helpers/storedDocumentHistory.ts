@@ -1,10 +1,8 @@
 import { db } from "@tearleads/api-shared/postgres";
 import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
-import {
-  createContainerManifestFixture,
-  createDocumentLinkSetManifestFixture,
-  createVerifiedDocumentAccessEvent,
-} from "@tearleads/crypto/test-fixtures";
+import { createVerifiedDocumentAccessEvent } from "@tearleads/crypto/access-event-test-fixtures";
+import { createContainerManifestFixture } from "@tearleads/crypto/container-access-test-fixtures";
+import { createDocumentLinkSetManifestFixture } from "@tearleads/crypto/document-link-set-manifest-test-fixtures";
 import { createTestUser } from "@tearleads/test-utils";
 import { storeVerifiedAccessManifest } from "../../src/access/write/accessManifestStore";
 import { registerUser } from "./registerUser";

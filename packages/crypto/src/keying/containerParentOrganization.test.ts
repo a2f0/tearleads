@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedContainerAccessEvent } from "./accessEvent.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import type { ContainerAccessEventBody } from "./containerAccessTypes";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
@@ -7,10 +9,6 @@ import {
   deriveContainerAccessManifest,
   verifyContainerAccessManifest,
 } from "./index";
-import {
-  createContainerManifestFixture,
-  createVerifiedContainerAccessEvent,
-} from "./testFixtures";
 
 for (const eventType of ["container.create", "container.move"] as const) {
   for (const foreign of [false, true]) {

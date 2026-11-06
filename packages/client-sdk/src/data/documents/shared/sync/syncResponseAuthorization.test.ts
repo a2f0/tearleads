@@ -3,11 +3,9 @@ import {
   computeDocumentContentKeyTargetHash,
   verifyWriteHeader,
 } from "@tearleads/crypto";
-import {
-  createDocumentLinkSetManifestFixture,
-  createVerifiedDocumentAccessEvent,
-  createWriteHeaderFixture,
-} from "@tearleads/crypto/test-fixtures";
+import { createVerifiedDocumentAccessEvent } from "@tearleads/crypto/access-event-test-fixtures";
+import { createDocumentLinkSetManifestFixture } from "@tearleads/crypto/document-link-set-manifest-test-fixtures";
+import { createWriteHeaderFixture } from "@tearleads/crypto/write-header-test-fixtures";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {

@@ -6,7 +6,7 @@ import type {
   DocumentLinkSetManifestState,
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import {
   accessManifestCheckpoint,
   containerAccessManifestStateRecord,

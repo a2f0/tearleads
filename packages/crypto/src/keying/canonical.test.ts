@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { fixtureHash } from "./canonical.testFixtures";
 import type { ContainerKekTarget } from "./index";
 import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
@@ -13,7 +14,6 @@ import {
   isContainerKekMaterialId,
   serializeKeyingCanonicalJson,
 } from "./index";
-import { fixtureHash } from "./testFixtures";
 
 test("suite identifiers distinguish content records from key wrapping", () => {
   expect(CONTENT_RECORD_ENCRYPTION_SUITE).toBe(
