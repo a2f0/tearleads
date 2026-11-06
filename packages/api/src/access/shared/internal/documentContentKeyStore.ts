@@ -23,6 +23,10 @@ import {
   staleBundle,
 } from "./documentContentKeyBundleWrites";
 import {
+  type DocumentContentKeyEpochPlan,
+  planDocumentContentKeyEpoch,
+} from "./documentContentKeyEpochPlan";
+import {
   assertStoredTargetsMatchCurrent,
   assertSubmittedTargetsMatchCurrent,
   assertTargetHashMatches,
@@ -199,40 +203,13 @@ async function validateCurrentTargetsForBundle(
   return currentTargets;
 }
 
-function assertContentKeyEpochCanBeStored(input: {
-  readonly contentKeyEpoch: number;
-  readonly latestBundle: StoredDocumentContentKeyBundle | null;
-  readonly latestTargetsStillCurrent: boolean;
-}): void {
-  if (
-    input.latestBundle &&
-    input.contentKeyEpoch < input.latestBundle.contentKeyEpoch
-  ) {
-    throw new DocumentContentKeyBundleError(
-      "Document content key epoch is stale",
-      409,
-    );
-  }
-
-  if (
-    input.latestBundle &&
-    input.contentKeyEpoch === input.latestBundle.contentKeyEpoch &&
-    !input.latestTargetsStillCurrent
-  ) {
-    throw new DocumentContentKeyBundleError(
-      "Document content key epoch must rotate after target key material changes",
-      409,
-    );
-  }
-}
-
 const documentContentKeyStore = createContentKeyStore<
   DocumentContentKeyTargetEnvelope,
   StoreDocumentContentKeyBundleInput,
   typeof documentContentKeyEpochs.$inferSelect,
   StoredDocumentContentKeyBundle,
   CurrentDocumentKekTargets,
-  boolean
+  DocumentContentKeyEpochPlan
 >({
   // A concurrent writer can commit an epoch first. The loser must refetch and
   // rebuild through the client's coded stateStale retry path.
@@ -270,32 +247,24 @@ const documentContentKeyStore = createContentKeyStore<
     }),
   loadEpochRow: loadDocumentContentKeyEpochRow,
   loadLatestEpochRow: loadLatestDocumentContentKeyEpochRow,
-  prepareStore: ({ currentTargets, input, latestBundle }) => {
-    const latestTargetsStillCurrent =
-      !latestBundle ||
-      currentTargetsCanCarryPreviousBundle({
-        bundle: latestBundle,
-        currentTargets,
-      });
-    assertContentKeyEpochCanBeStored({
+  prepareStore: ({ currentTargets, input, latestBundle }) =>
+    planDocumentContentKeyEpoch({
       contentKeyEpoch: input.contentKeyEpoch,
-      latestBundle,
-      latestTargetsStillCurrent,
-    });
-    return latestTargetsStillCurrent;
-  },
+      latestContentKeyEpoch: latestBundle?.contentKeyEpoch ?? null,
+      latestTargetsStillCurrent: () =>
+        latestBundle === null ||
+        currentTargetsCanCarryPreviousBundle({
+          bundle: latestBundle,
+          currentTargets,
+        }),
+    }),
   reconcileExistingBundle: ({
     existingBundle,
     executor,
     input,
-    latestBundle,
-    preparation: latestTargetsStillCurrent,
+    preparation,
   }) => {
-    if (
-      latestBundle &&
-      input.contentKeyEpoch === latestBundle.contentKeyEpoch &&
-      latestTargetsStillCurrent
-    ) {
+    if (preparation.kind === "carry") {
       return addDocumentContentKeyTargetsToExistingBundle({
         existingBundle,
         nextBundle: input,
