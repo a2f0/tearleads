@@ -6,10 +6,8 @@ import {
   type VerifiedContainerAccessManifest,
   verifyWriteHeader,
 } from "@tearleads/crypto";
-import {
-  createWriteHeaderFixture,
-  fixtureHash,
-} from "@tearleads/crypto/test-fixtures";
+import { fixtureHash } from "@tearleads/crypto/canonical-test-fixtures";
+import { createWriteHeaderFixture } from "@tearleads/crypto/write-header-test-fixtures";
 import {
   createScenario,
   grantBy,

@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedContainerAccessEvent } from "./accessEvent.testFixtures";
+import { fixtureHash } from "./canonical.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import { MAX_CONTAINER_RECITATION_EPOCH } from "./containerAccessReciteBody";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
@@ -8,11 +11,6 @@ import {
   normalizeContainerAccessEventBody,
   verifyContainerAccessManifest,
 } from "./index";
-import {
-  createContainerManifestFixture,
-  createVerifiedContainerAccessEvent,
-  fixtureHash,
-} from "./testFixtures";
 
 async function recite(
   input: {

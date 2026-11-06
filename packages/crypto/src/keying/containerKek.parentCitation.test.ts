@@ -1,19 +1,19 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedContainerAccessEvent } from "./accessEvent.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
+import {
+  createContainerKeyEpochFixture,
+  createContainerKeyWrap,
+  createVerifiedContainerKekStateFixture,
+} from "./containerKek.testFixtures";
 import { fixtureContainerKekMaterialId as kekId } from "./containerKekMaterial.testFixtures";
 import { creationParentEpochId } from "./containerKekParent";
 import {
   normalizeContainerAccessEventBody,
   verifyContainerKekState,
 } from "./index";
-import {
-  createContainerKeyEpochFixture,
-  createContainerKeyWrap,
-  createContainerManifestFixture,
-  createVerifiedContainerAccessEvent,
-  createVerifiedContainerKekStateFixture,
-  expectVerificationError,
-} from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 test("a child parent epoch must match its signed creation citation", async () => {
   const parent = await createContainerManifestFixture({

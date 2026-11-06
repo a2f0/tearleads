@@ -22,7 +22,7 @@ import {
   type UnsignedAccessEvent,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestUser } from "@tearleads/test-utils";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";

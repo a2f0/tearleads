@@ -1,11 +1,9 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { fixtureHash } from "./canonical.testFixtures";
 import { computeWriteHeaderHash, verifyWriteHeader } from "./index";
-import {
-  createWriteHeaderFixture,
-  expectVerificationError,
-  fixtureHash,
-} from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
+import { createWriteHeaderFixture } from "./writeHeader.testFixtures";
 import type { WriteHeader } from "./writeHeaderTypes";
 
 test("write header signatures and hashes bind canonical complete path citations", async () => {

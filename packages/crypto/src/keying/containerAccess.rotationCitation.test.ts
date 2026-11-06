@@ -1,19 +1,17 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import { computeAccessManifestHash } from "./accessEvent";
+import { createVerifiedContainerAccessEvent } from "./accessEvent.testFixtures";
 import {
   deriveContainerAccessManifest,
   verifyContainerAccessManifest,
 } from "./containerAccess";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import type {
   ContainerRekeyAccessEventBody,
   ContainerRevokeAccessEventBody,
 } from "./containerAccessTypes";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
-import {
-  createContainerManifestFixture,
-  createVerifiedContainerAccessEvent,
-} from "./testFixtures";
 
 for (const eventType of ["container.rekey", "container.revoke"] as const) {
   for (const scenario of ["root", "current", "stale", "unsigned"] as const) {

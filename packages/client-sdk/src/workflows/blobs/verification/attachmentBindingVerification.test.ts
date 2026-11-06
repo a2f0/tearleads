@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
 import { computeAccessEventHash } from "@tearleads/crypto";
-import {
-  createDocumentLinkSetManifestFixture,
-  createSignedAttachmentEvent,
-  createVerifiedDocumentAccessEvent,
-} from "@tearleads/crypto/test-fixtures";
+import { createVerifiedDocumentAccessEvent } from "@tearleads/crypto/access-event-test-fixtures";
+import { createSignedAttachmentEvent } from "@tearleads/crypto/attachment-access-event-test-fixtures";
+import { createDocumentLinkSetManifestFixture } from "@tearleads/crypto/document-link-set-manifest-test-fixtures";
 import { createScenario } from "../../../../test/helpers/ancestorCitationScenario";
 import { assertAttachmentBindingVerified } from "./attachmentBindingVerification";
 

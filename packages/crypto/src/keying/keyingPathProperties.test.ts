@@ -14,7 +14,7 @@ import {
   buildContainerPath,
   containerPathPlanArb,
 } from "./keyingPathArbitraries.testFixtures";
-import { expectVerificationError } from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 test("property: inherited creation requires its authorizing root and cited parent", async () => {
   await fc.assert(

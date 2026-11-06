@@ -1,6 +1,16 @@
 import { expect, test } from "bun:test";
+import {
+  createSignedAttachmentEvent,
+  createVerifiedAttachmentBinding,
+} from "./attachmentAccessEvent.testFixtures";
 import type { AttachmentAccessEventBody } from "./attachmentAccessTypes";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
+import {
+  createVerifiedContainerKekStateFixture,
+  deriveRequiredBlobKekTargets,
+  deriveRequiredDocumentKekTargets,
+} from "./containerKek.testFixtures";
 import type { VerifiedDocumentLinkSetManifest } from "./documentAccessTypes";
 import { citationScopeFixture } from "./documentCitationScope.testFixtures";
 import {
@@ -9,16 +19,8 @@ import {
   verifyDocumentLinkSetManifest,
   verifyWriteHeader,
 } from "./index";
-import {
-  createContainerManifestFixture,
-  createSignedAttachmentEvent,
-  createVerifiedAttachmentBinding,
-  createVerifiedContainerKekStateFixture,
-  createWriteHeaderFixture,
-  deriveRequiredBlobKekTargets,
-  deriveRequiredDocumentKekTargets,
-  expectVerificationError,
-} from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
+import { createWriteHeaderFixture } from "./writeHeader.testFixtures";
 
 test.each(["unrelated", "foreign"] as const)(
   "link-set transitions reject %s citations in either order",

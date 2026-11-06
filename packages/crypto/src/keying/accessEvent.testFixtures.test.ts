@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
-import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
-import { verifySignedAccessEvent } from "./index";
 import {
   createVerifiedContainerAccessEvent,
   createVerifiedDocumentAccessEvent,
-  fixtureHash,
-} from "./testFixtures";
+} from "./accessEvent.testFixtures";
+import { fixtureHash } from "./canonical.testFixtures";
+import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
+import { verifySignedAccessEvent } from "./index";
 
 // The fixture brands its own event as verified without running the verifier;
 // this pins that shortcut to what the verifier returns for the same event.
