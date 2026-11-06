@@ -8,10 +8,8 @@ import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import { execSqlClientFromExecSql } from "../../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import {
-  accessManifestCheckpoints,
-  principalPolicyCheckpoints,
-} from "../../../data/sqlite/schema";
+import { principalPolicyCheckpoints } from "../../../data/sqlite/schema";
+import { accessManifestCheckpoints } from "../../../data/sqlite/schema/keyingCheckpointSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { createOrganization } from "./createOrganization";
 

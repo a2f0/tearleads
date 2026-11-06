@@ -149,14 +149,6 @@
       "lines": 700,
       "bytes": 26226
     },
-    "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 567,
-      "bytes": 19075
-    },
-    "packages/client-sdk/src/data/sqlite/schema/index.ts": {
-      "lines": 689,
-      "bytes": 27274
-    },
     "packages/client-sdk/src/index.ts": {
       "lines": 623,
       "bytes": 18407
@@ -168,10 +160,6 @@
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
       "lines": 562,
       "bytes": 20527
-    },
-    "packages/client-sdk/src/workflows/container-contents/documentLinks/index.ts": {
-      "lines": 510,
-      "bytes": 17883
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries/documentQueries.test.ts": {
       "lines": 521,

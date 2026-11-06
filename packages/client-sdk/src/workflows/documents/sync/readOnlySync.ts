@@ -1,20 +1,24 @@
-import type {
-  AccessManifestBundleWireResponse,
-  DocumentContentKeyBundleResponse,
-  DocumentSyncResponse,
-  DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
 import {
+  type AccessManifestBundleWireResponse,
+  type DocumentContentKeyBundleResponse,
+  type DocumentSyncResponse,
+  type DocumentWriterProjectionResponse,
   isAccessManifestBundleWireResponse,
   isDocumentContentKeyBundleResponse,
   isDocumentKekTargetsResponse,
 } from "@tearleads/validators/response";
+import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import {
   isRetryableDocumentSyncConflict,
   persistedDocumentSyncStateFromResponse,
   submitDocumentSync,
 } from "../../../data/documents/shared/responses";
 import { limitDocumentSyncRequestBytes } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
+import type {
+  DocumentSyncApi,
+  DocumentSyncPlan,
+  SyncRemoteDocumentResult,
+} from "../../../data/documents/shared/sync/documentSyncTypes";
 import type {
   DocumentSyncUpdateIsolationError,
   IncomingDocumentSyncUpdateValidator,
@@ -25,13 +29,9 @@ import {
 } from "../../../data/documents/shared/sync/syncPagination";
 import type {
   DocumentCreateAuthor,
-  DocumentSyncApi,
-  DocumentSyncPlan,
   DocumentWriterPublicKeyResolver,
   PersistedDocumentSyncState,
-  SyncRemoteDocumentResult,
 } from "../../../data/documents/shared/types";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import type {
   ProjectionUserKeyResolver,

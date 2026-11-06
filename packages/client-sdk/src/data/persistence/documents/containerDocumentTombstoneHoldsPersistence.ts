@@ -1,11 +1,11 @@
 import { and, eq, max } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
+import { containerDocumentTombstoneHolds } from "../../sqlite/schema";
+import { documentContainerProjectionTables } from "../../sqlite/schema/documentProjectionSchema";
 import {
-  containerDocumentTombstoneHolds,
-  documentContainerProjectionTables,
   documents,
   documentTables,
-} from "../../sqlite/schema";
+} from "../../sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,

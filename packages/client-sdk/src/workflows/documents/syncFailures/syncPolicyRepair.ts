@@ -1,10 +1,8 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { isRetryableDocumentSyncConflict } from "../../../data/documents/shared/responses";
-import type {
-  DocumentSyncPlan,
-  DocumentSyncSubmitFailure,
-} from "../../../data/documents/shared/types";
+import type { DocumentSyncPlan } from "../../../data/documents/shared/sync/documentSyncTypes";
+import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import type { ReferencedPrincipalPolicyWarmer } from "../../../data/keyingProjectionVerification";
 
 import { recoverPrincipalPolicyRepair } from "../../principals/policyRepair";

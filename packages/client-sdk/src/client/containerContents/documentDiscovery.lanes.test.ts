@@ -10,12 +10,9 @@ import {
   sqlContainerSyncWatermarkPersistence,
 } from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
-import {
-  clientSqlTables,
-  containers,
-  documentContainerProjection,
-  documents,
-} from "../../data/sqlite/schema";
+import { clientSqlTables, containers } from "../../data/sqlite/schema";
+import { documentContainerProjection } from "../../data/sqlite/schema/documentProjectionSchema";
+import { documents } from "../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { laneApi } from "../../workflows/container-contents/documentDiscovery/documentDiscovery.testUtils";

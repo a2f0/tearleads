@@ -2,7 +2,8 @@ import { and, eq, isNull } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import type { DocumentSummary } from "../../../documents/documentSummary";
 import { deriveStableDocumentId } from "../../../documents/shared/stableDocumentId";
-import { documentProjection, documents } from "../../../sqlite/schema";
+import { documentProjection } from "../../../sqlite/schema/documentProjectionSchema";
+import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import {

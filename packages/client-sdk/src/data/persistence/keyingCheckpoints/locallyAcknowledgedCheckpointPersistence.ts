@@ -6,7 +6,7 @@ import {
   type PrincipalPolicyCheckpoint,
   verifyAccessManifestLocalCheckpoint,
 } from "@tearleads/crypto";
-import { keyingCheckpointTables } from "../../sqlite/schema";
+import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

@@ -3,9 +3,9 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   clientSqlTables,
   containers,
-  documents,
   localIntents,
 } from "../../data/sqlite/schema";
+import { documents } from "../../data/sqlite/schema/documentRecordSchema";
 import {
   REMOTE_RESET_SQL_BATCH_SIZE,
   remoteResetBatches,

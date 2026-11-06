@@ -10,7 +10,7 @@ import {
   documentHistoryCheckpoints,
   documentHistoryUpdates,
   documentTables,
-} from "../../../sqlite/schema";
+} from "../../../sqlite/schema/documentRecordSchema";
 import { sqliteInsertBatchSize } from "../../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../../sqlite/sqlSchema";

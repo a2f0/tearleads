@@ -36,21 +36,23 @@ import {
   verifiedDocumentWrapTargets,
 } from "../../../data/documents/shared/projection";
 import {
+  type ProjectionVerificationOptions,
+  projectionVerificationOptions,
+} from "../../../data/documents/shared/projection/projectionVerificationOptions";
+import {
   assertDocumentManifestBundleConsistent,
   describeDocumentTargetKek,
   sortDocumentTargets,
   targetKey,
   uniqueSortedStrings,
 } from "../../../data/documents/shared/readers";
-import {
-  type BuildDocumentLinkSetMutationPlanInput,
-  type DocumentCreateAuthor,
-  type DocumentLinkSetMutationOperation,
-  type DocumentLinkSetMutationPlan,
-  type DocumentLinkSetTargetState,
-  type MaterializedDocumentLinkSetMutationPlan,
-  type ProjectionVerificationOptions,
-  projectionVerificationOptions,
+import type {
+  BuildDocumentLinkSetMutationPlanInput,
+  DocumentCreateAuthor,
+  DocumentLinkSetMutationOperation,
+  DocumentLinkSetMutationPlan,
+  DocumentLinkSetTargetState,
+  MaterializedDocumentLinkSetMutationPlan,
 } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import type { PrincipalPolicyCache } from "../../../data/keyingProjectionVerification";

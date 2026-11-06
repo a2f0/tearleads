@@ -1,14 +1,16 @@
 import { and, asc, eq, inArray, notInArray, or, type SQL } from "drizzle-orm";
 import {
-  documentContainerProjection,
-  documentContainerProjectionTables,
   documentPlacementIntentTables,
-  documentTables,
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../sqlite/schema";
 import { documentIntentLinkTargets } from "../../sqlite/schema/documentPlacementIntentSchema";
+import {
+  documentContainerProjection,
+  documentContainerProjectionTables,
+} from "../../sqlite/schema/documentProjectionSchema";
+import { documentTables } from "../../sqlite/schema/documentRecordSchema";
 import {
   REMOTE_RESET_SQL_BATCH_SIZE,
   remoteResetBatches,

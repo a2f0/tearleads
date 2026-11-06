@@ -7,7 +7,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import { documentSyncPullContinuationsEqual } from "../../../documents/shared/sync/pullContinuation";
-import { documentHistoryUpdates } from "../../../sqlite/schema";
+import { documentHistoryUpdates } from "../../../sqlite/schema/documentRecordSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

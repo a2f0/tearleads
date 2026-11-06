@@ -5,8 +5,8 @@ import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../../documents/documentSummar
 import {
   documentProjection,
   documentProjectionText,
-  documents,
-} from "../../../sqlite/schema";
+} from "../../../sqlite/schema/documentProjectionSchema";
+import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import {

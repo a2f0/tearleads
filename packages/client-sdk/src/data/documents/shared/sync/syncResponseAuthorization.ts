@@ -6,7 +6,7 @@ import {
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { resolveEventContainerPaths } from "../../../keyingProjectionVerification";
 import { sortDocumentTargets } from "../readers";
-import type { DocumentSyncPlan } from "../types";
+import type { DocumentSyncPlan } from "./documentSyncTypes";
 
 export async function documentWriteAuthorizationForHeader(input: {
   readonly allowMissingAuthorization: boolean;

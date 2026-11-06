@@ -11,18 +11,16 @@ import {
   DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
 } from "../../../data/documents/shared/projection";
+import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
+import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
+import type { DocumentSyncPreparedUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { assertDocumentSyncUpdateEncryptedRecord } from "../../../data/documents/shared/sync/documentSyncUpdateDecryption";
 import {
   isDocumentSyncUpdateIsolationError,
   isolateDocumentSyncBatchError,
   isolateDocumentSyncUpdateError,
 } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
-import type {
-  DocumentSyncPreparedUpdate,
-  ProjectionVerificationOptions,
-} from "../../../data/documents/shared/types";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import { isKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

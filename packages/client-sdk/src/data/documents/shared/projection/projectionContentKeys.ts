@@ -35,14 +35,14 @@ import {
   sortDocumentTargets,
   targetEnvelopeReference,
 } from "../readers";
-import type { ProjectionVerificationOptions } from "../types";
-import { projectionVerificationOptions } from "../types";
 import {
   deriveDocumentCreateTargets,
   describeProjectionTargetKek,
   readLinkedContainerIdsFromDocumentManifest,
   verifiedDocumentWrapTargets,
 } from "./projectionTargets";
+import type { ProjectionVerificationOptions } from "./projectionVerificationOptions";
+import { projectionVerificationOptions } from "./projectionVerificationOptions";
 
 function getOnlyDocumentCreateTarget(
   projection: ContainerWriterProjectionResponse,

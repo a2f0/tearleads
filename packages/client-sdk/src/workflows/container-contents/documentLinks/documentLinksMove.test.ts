@@ -17,7 +17,7 @@ import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedU
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../../documents/create";
-import { moveRemoteContainerDocument } from "./index";
+import { moveRemoteContainerDocument } from "./documentLinksMove";
 
 async function createRotationSnapshot(seed: string) {
   const document = await createDocument(seed);

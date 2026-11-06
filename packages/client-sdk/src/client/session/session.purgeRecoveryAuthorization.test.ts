@@ -6,10 +6,8 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createOrganizationReplacementRecoveryHarness } from "../../../test/helpers/organizationReplacementRecoveryHarness";
-import {
-  accessManifestCheckpoints,
-  principalPolicyCheckpoints,
-} from "../../data/sqlite/schema";
+import { principalPolicyCheckpoints } from "../../data/sqlite/schema";
+import { accessManifestCheckpoints } from "../../data/sqlite/schema/keyingCheckpointSchema";
 import { organizationProvisioningAttempts } from "../../data/sqlite/schema/organizationProvisioningAttemptSchema";
 
 for (const attack of [

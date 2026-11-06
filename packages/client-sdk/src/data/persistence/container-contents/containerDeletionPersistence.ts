@@ -1,11 +1,11 @@
 import { and, inArray } from "drizzle-orm";
 import {
   containers,
-  documentContainerProjectionTables,
   documentPlacementIntentTables,
   inContainerIntentLanes,
   localIntents,
 } from "../../sqlite/schema";
+import { documentContainerProjectionTables } from "../../sqlite/schema/documentProjectionSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

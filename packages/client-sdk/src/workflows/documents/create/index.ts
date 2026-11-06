@@ -7,14 +7,14 @@ import {
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
 import { buildDocumentCreatePlan } from "../../../data/documents/shared/events";
 import { wrapDocumentContentKeyForCreate } from "../../../data/documents/shared/projection";
+import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
+import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import type {
   CreateRemoteDocumentResult,
   DocumentCreateApi,
   DocumentCreateAuthor,
   MaterializedDocumentCreatePlan,
-  ProjectionVerificationOptions,
 } from "../../../data/documents/shared/types";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
