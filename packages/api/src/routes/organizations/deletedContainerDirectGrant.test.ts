@@ -9,13 +9,13 @@ import {
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { removeMemberGroupUser } from "../../../test/helpers/organizationMember";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { routeApp } from "../../routeApp";
 
 test("a deleted folder direct grant does not block roster removal", async () => {
   const owner = createTestUser();
   const member = createTestUser();
-  await registerAndAuthenticate(owner, member);
+  await registerAndAuthenticateUsers(owner, member);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const root = await bootstrapRoot(owner);
   const child = await createChildContainerFixture({

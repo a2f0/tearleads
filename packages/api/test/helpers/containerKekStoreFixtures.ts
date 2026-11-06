@@ -1,6 +1,8 @@
 import type {
   AccessManifest,
   ContainerDirectGrant,
+  ContainerKeyEpoch,
+  ContainerKeyWrap,
   ContainerUserRecipientKey,
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
@@ -90,5 +92,52 @@ export async function createContainerKekStoreUserKey(
     userId,
     recipientKeyFingerprint,
     recipientKeyEpochId: `user:${userId}:encapsulation:${recipientKeyFingerprint}`,
+  };
+}
+
+export async function createContainerKekStoreKeyEpoch(input: {
+  readonly createdByManifest?: VerifiedContainerAccessManifest;
+  readonly keyEpoch: number;
+  readonly manifest: VerifiedContainerAccessManifest;
+}): Promise<ContainerKeyEpoch> {
+  const createdByManifest = input.createdByManifest ?? input.manifest;
+  const containerKeyEpochId = input.manifest.state.containerKeyEpochId;
+
+  if (!containerKeyEpochId) {
+    throw new Error("Container manifest fixture is missing a key epoch id");
+  }
+
+  return {
+    id: containerKeyEpochId,
+    containerId: input.manifest.state.containerId,
+    keyEpoch: input.keyEpoch,
+    accessManifestHash: createdByManifest.manifestHash,
+    parentContainerKeyEpochId: null,
+    createdByEventHash: createdByManifest.event.eventHash,
+    createdByManifestHash: createdByManifest.manifestHash,
+  };
+}
+
+export async function createContainerKekStoreKeyWrap(input: {
+  readonly containerKeyEpochId: string;
+  readonly recipientId: string;
+  readonly recipientKeyEpochId: string;
+  readonly recipientKeyFingerprint: string;
+  readonly recipientKind?: ContainerKeyWrap["recipientKind"];
+  readonly wrapManifestHash: string;
+}): Promise<ContainerKeyWrap> {
+  return {
+    containerKeyEpochId: input.containerKeyEpochId,
+    recipientKind: input.recipientKind ?? "user",
+    recipientId: input.recipientId,
+    recipientKeyEpochId: input.recipientKeyEpochId,
+    recipientKeyFingerprint: input.recipientKeyFingerprint,
+    kemCipherText: `kem:${await containerKekStoreFixtureHash(
+      `${input.recipientId}:${input.recipientKeyEpochId}:kem`,
+    )}`,
+    wrappedKey: `wrapped:${await containerKekStoreFixtureHash(
+      `${input.recipientId}:${input.recipientKeyEpochId}:wrapped`,
+    )}`,
+    wrapManifestHash: input.wrapManifestHash,
   };
 }

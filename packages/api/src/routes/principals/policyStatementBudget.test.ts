@@ -6,7 +6,7 @@ import { seedLongPrincipalHistory } from "../../../test/helpers/longPrincipalHis
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import {
   loadOrganizationGroups,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { routeApp } from "../../routeApp";
 
@@ -37,7 +37,7 @@ async function counted(actor: TestUser, path: string) {
 
 test("warm policy, group member, and billing reads stay within their statement budgets", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const { adminGroupId } = await loadOrganizationGroups(organizationId);
 
@@ -72,7 +72,7 @@ test("warm policy, group member, and billing reads stay within their statement b
 
 test("a conditional organization read of the live head stays within its statement budget", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const path = `/principals/organization/${organizationId}/policy`;
   const { currentState } = PrincipalPolicyPageResponseSchema.parse(
@@ -91,7 +91,7 @@ test("a conditional organization read of the live head stays within its statemen
 
 test("a warm organization policy page at 65 versions stays within its statement budget", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const path = `/principals/organization/${organizationId}/policy`;
   const initial = PrincipalPolicyPageResponseSchema.parse(

@@ -10,7 +10,7 @@ import {
   bootstrapRoot,
   createDocument,
 } from "../../../test/helpers/keyingWriterProjectionKit";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { clearStoredPolicySnapshotCache } from "../../../test/helpers/principalSnapshotVerificationCache";
 import { clearAccessManifestVerificationMarkers } from "../../../test/helpers/verificationMarkers";
 import { createApiErrorHandler } from "../../diagnostics/errorHandler";
@@ -22,7 +22,7 @@ test.each(["container", "document"] as const)(
   "%s projection preserves preparation saturation as 503 without an error capture",
   async (kind) => {
     const owner = createTestUser();
-    await registerAndAuthenticate(owner);
+    await registerAndAuthenticateUsers(owner);
     const root = await bootstrapRoot(owner);
     const objectId =
       kind === "container"

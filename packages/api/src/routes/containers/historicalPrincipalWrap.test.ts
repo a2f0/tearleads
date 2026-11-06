@@ -22,7 +22,7 @@ import {
   runGetCurrentPrincipalPolicyWorkflow,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { principalPolicyRefs } from "../../../test/helpers/principalPolicyRefs";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
@@ -35,7 +35,7 @@ import { routeApp } from "../../routeApp";
 test("writer projections retain the old principal citation of an unchanged key wrap", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
-  await registerAndAuthenticate(owner, reader);
+  await registerAndAuthenticateUsers(owner, reader);
   const initialRoot = await recoverRegisteredRootKek({
     owner,
     root: await bootstrapRoot(owner),

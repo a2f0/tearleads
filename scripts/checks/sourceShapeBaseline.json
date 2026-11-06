@@ -81,34 +81,6 @@
       "lines": 522,
       "bytes": 21345
     },
-    "packages/api/src/access/read/documentKekTargets.test.ts": {
-      "lines": 666,
-      "bytes": 21777
-    },
-    "packages/api/src/access/write/containerKekStore.test.ts": {
-      "lines": 576,
-      "bytes": 17511
-    },
-    "packages/api/src/realtime/wsRouting.test.ts": {
-      "lines": 506,
-      "bytes": 14829
-    },
-    "packages/api/src/routes/auth/register.test.ts": {
-      "lines": 586,
-      "bytes": 19215
-    },
-    "packages/api/src/routes/organizations/organizations.test.ts": {
-      "lines": 611,
-      "bytes": 19941
-    },
-    "packages/api/src/routes/principals/policy.test.ts": {
-      "lines": 763,
-      "bytes": 25309
-    },
-    "packages/api/src/schema.test.ts": {
-      "lines": 526,
-      "bytes": 16532
-    },
     "packages/app/src/mini-apps/explorer/detail/container/ExplorerContainerDetail.test.ts": {
       "lines": 533,
       "bytes": 15919

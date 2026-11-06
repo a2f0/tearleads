@@ -32,7 +32,7 @@ import {
 } from "./principalHistoryProbeProcess";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "./principalPolicyReadFixtures";
 import { clearStoredPolicySnapshotCache } from "./principalSnapshotVerificationCache";
 import { recoverRegisteredRootKek } from "./registeredRootKek";
@@ -51,7 +51,7 @@ export async function assertPrincipalHistoryAvailability(
   requirePrincipalHistoryProbeDatabase();
   const owner = createTestUser();
   const removed = createTestUser();
-  await registerAndAuthenticate(owner, removed);
+  await registerAndAuthenticateUsers(owner, removed);
   const root = await recoverRegisteredRootKek({
     owner,
     root: await bootstrapRoot(owner),

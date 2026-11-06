@@ -11,7 +11,7 @@ import {
   loadVerifiedPrincipalPolicy,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { grantRootThroughRotatedReadGroup } from "../../../test/helpers/rotatedReadGroupGrant";
@@ -22,7 +22,7 @@ import { getCurrentPrincipalState } from "../../access/read/principalStateStore"
 test("a group cannot drop a container grant without rotating its key", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
-  await registerAndAuthenticate(owner, reader);
+  await registerAndAuthenticateUsers(owner, reader);
   const root = await recoverRegisteredRootKek({
     owner,
     root: await bootstrapRoot(owner),

@@ -27,7 +27,7 @@ import { storeVerifiedAccessManifest } from "../../src/access/write/accessManife
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import { hashOf } from "./keyingLabelHash";
 
-async function createVerifiedEvent(input: {
+export async function createVerifiedEvent(input: {
   readonly body: Record<string, unknown>;
   readonly dependencyManifestHashes?: readonly string[];
   readonly eventType: AccessEventType;

@@ -25,14 +25,14 @@ import {
   asVerifiedContainerManifest,
   bootstrapRoot,
 } from "../../../test/helpers/keyingWriterProjectionKit";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { withStoredContainerMutation } from "../../../test/helpers/storedContainerMutation";
 import { routeApp } from "../../routeApp";
 
 test("real document projections cite held manifests through links, rotations and cold recovery", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const root = await recoverRegisteredRootKek({
     owner,
     root: await bootstrapRoot(owner),
