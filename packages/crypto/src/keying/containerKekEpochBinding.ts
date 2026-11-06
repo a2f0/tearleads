@@ -1,14 +1,14 @@
+import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
 import {
   computeContainerKekPublicCommitment,
   isContainerKekMaterialId,
 } from "./containerKekMaterial";
 import { creationParentEpochId } from "./containerKekParent";
-import { throwVerification } from "./shared";
 import type {
   ContainerKekParentBinding,
   ContainerKeyEpoch,
-  VerifiedContainerAccessManifest,
-} from "./types";
+} from "./containerKekTypes";
+import { throwVerification } from "./shared";
 
 export function assertContainerKeyEpochManifestBinding(input: {
   readonly keyEpoch: ContainerKeyEpoch;

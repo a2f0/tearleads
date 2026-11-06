@@ -1,4 +1,7 @@
 import { expect, test } from "bun:test";
+import type { AttachmentAccessEventBody } from "./attachmentAccessTypes";
+import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
+import type { VerifiedDocumentLinkSetManifest } from "./documentAccessTypes";
 import { citationScopeFixture } from "./documentCitationScope.testFixtures";
 import {
   verifyAttachmentBindingEvent,
@@ -16,11 +19,6 @@ import {
   deriveRequiredDocumentKekTargets,
   expectVerificationError,
 } from "./testFixtures";
-import type {
-  AttachmentAccessEventBody,
-  VerifiedContainerAccessManifest,
-  VerifiedDocumentLinkSetManifest,
-} from "./types";
 
 test.each(["unrelated", "foreign"] as const)(
   "link-set transitions reject %s citations in either order",

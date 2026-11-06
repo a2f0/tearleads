@@ -6,7 +6,7 @@ import {
   isReferencedPrincipalHead,
   readJsonArray,
 } from "./accessManifestJson";
-import { loadCurrentContainerManifestTargetClosure } from "./containerKekTargets";
+import { loadCurrentContainerManifestTargetClosure } from "./containerKekTargetClosure";
 import { listDocumentContentWriteDependencyHashes } from "./contentWriteDependencies";
 import { readStoredPrincipalContainerGrants } from "./principalStateRecords";
 

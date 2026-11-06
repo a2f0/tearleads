@@ -1,14 +1,14 @@
 import type { PrincipalStateExternalAuthority } from "../principalState";
 import type { PrincipalPolicyExternalAuthority } from "./principalPolicyExternalAuthorityTypes";
 import type { PrincipalHistoryIndexNode } from "./principalPolicyHistoryIndex";
-import { throwVerification } from "./shared";
 import type {
-  KeyingVerificationResult,
   PrincipalPolicyCheckpoint,
   PrincipalPolicySignerPublicKey,
   PrincipalPolicyStateChainEntry,
   ReferencedPrincipalHead,
-} from "./types";
+} from "./principalPolicyTypes";
+import { throwVerification } from "./shared";
+import type { KeyingVerificationResult } from "./verificationError";
 
 export const PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT = 128;
 

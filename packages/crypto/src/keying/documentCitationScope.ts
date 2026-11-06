@@ -1,11 +1,11 @@
+import type { VerifiedAccessEvent } from "./accessEventTypes";
+import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
 import { assertContainerPathIntegrity } from "./containerParentAuthority";
-import { throwVerification } from "./shared";
 import type {
   DocumentAccessEventBody,
-  VerifiedAccessEvent,
-  VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetStateEvidence,
-} from "./types";
+} from "./documentAccessTypes";
+import { throwVerification } from "./shared";
 
 type Path = readonly VerifiedContainerAccessManifest[];
 

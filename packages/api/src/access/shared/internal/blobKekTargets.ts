@@ -7,10 +7,8 @@ import {
 } from "@tearleads/crypto";
 import { and, asc, inArray, isNull } from "drizzle-orm";
 import { compareStrings, uniqueSortedStrings } from "../../../utils/array";
-import {
-  getCurrentAccessManifestHeads,
-  listAccessManifestDocumentLinkProjections,
-} from "./accessManifestStore";
+import { getCurrentAccessManifestHeads } from "./accessManifestHeadReads";
+import { listAccessManifestDocumentLinkProjections } from "./accessManifestProjectionReads";
 import {
   type resolveCurrentContainerKekTargets,
   resolveCurrentContainerKekTargetsMapped,

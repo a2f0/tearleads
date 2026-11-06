@@ -12,7 +12,7 @@ import {
   createPolicySigner,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
-import type { PrincipalPolicyStateChainEntry } from "./types";
+import type { PrincipalPolicyStateChainEntry } from "./principalPolicyTypes";
 
 const { PRINCIPAL_HISTORY_BOUNDARY_TEST } = process.env;
 const boundaryRun = PRINCIPAL_HISTORY_BOUNDARY_TEST === "1";

@@ -6,7 +6,7 @@ import {
   expectVerificationError,
   fixtureHash,
 } from "./testFixtures";
-import type { WriteHeader } from "./types";
+import type { WriteHeader } from "./writeHeaderTypes";
 
 test("write header signatures and hashes bind canonical complete path citations", async () => {
   const signing = generateSigningSeedAndKeyPair();

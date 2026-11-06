@@ -1,6 +1,6 @@
 import { computePrincipalStatePayloadCiphertextHash } from "../principalState";
+import type { PrincipalPolicyBundle } from "./principalPolicyTypes";
 import { throwVerification } from "./shared";
-import type { PrincipalPolicyBundle } from "./types";
 
 export async function verifyPrincipalPolicyPayload(input: {
   readonly bundle: Pick<

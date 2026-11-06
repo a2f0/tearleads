@@ -2,7 +2,7 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { accessManifests } from "@tearleads/api-shared/schema";
 import type { AccessObjectKind } from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
-import { loadAccessManifestBundles } from "./accessManifestStore";
+import { loadAccessManifestBundles } from "./accessManifestBundleReads";
 
 /**
  * Every retained manifest of one object, with its event, in one query instead

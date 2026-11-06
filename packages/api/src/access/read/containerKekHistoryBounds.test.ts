@@ -14,10 +14,8 @@ import {
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { containerAccessManifestStateRecord } from "../../keyingProjectionRecords";
-import {
-  MAX_SAME_EPOCH_MANIFEST_HISTORY,
-  resolveCurrentContainerKekTargets,
-} from "../shared/internal/containerKekTargets";
+import { resolveCurrentContainerKekTargets } from "../shared/internal/containerKekTargets";
+import { MAX_SAME_EPOCH_MANIFEST_HISTORY } from "../shared/internal/containerManifestBindingHistory";
 
 test("re-citation reserves at least its own budget for ordinary same-key mutations", () => {
   expect(2 * MAX_CONTAINER_RECITATION_EPOCH).toBeLessThanOrEqual(
