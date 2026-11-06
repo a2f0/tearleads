@@ -1,5 +1,5 @@
 import type { SyncLaneRequest, SyncLaneRun } from "./syncLaneMachine";
-import { hasPendingRequest } from "./syncLaneMachine";
+import { hasPendingRequest, isRunActive } from "./syncLaneMachine";
 
 export type SyncLanePhase = "structural" | "document" | "blob";
 export type SyncLaneStatus =
@@ -149,7 +149,7 @@ export function compareSyncLaneOrder(
 }
 
 function getSyncLaneStatus(state: SyncLaneTelemetryState): SyncLaneStatus {
-  if (state.run.status === "running") {
+  if (isRunActive(state.run)) {
     return "running";
   }
 
@@ -191,7 +191,7 @@ function createSyncLaneSnapshot(
     runAbandoned: state.run.status === "abandoned",
     runCount: state.runCount,
     runDurations: state.runDurations,
-    running: state.run.status === "running",
+    running: isRunActive(state.run),
     status: getSyncLaneStatus(state),
   };
 }

@@ -3,6 +3,7 @@ import { createDomainScope } from "../shared/domainScope";
 import {
   beginDomainSyncUploadLane,
   getDomainSyncCoordinatorSnapshot,
+  getOrCreateDomainSyncCoordinator,
   hasDomainSyncCoordinatorPendingWork,
   waitForDomainSyncCoordinatorToSettle,
 } from "./syncCoordinator";
@@ -132,4 +133,22 @@ test("completed upload lanes are capped to the retention limit", () => {
   expect(uploadLanes.some((lane) => lane.key === "blob-upload:slot-13")).toBe(
     true,
   );
+});
+
+test("an upload session does not hold back a pump lane registered on its key", async () => {
+  const domainScope = createDomainScope();
+  const upload = beginDomainSyncUploadLane(domainScope, "shared-key");
+  let runs = 0;
+  getOrCreateDomainSyncCoordinator(domainScope)
+    .registerLane("shared-key", {
+      run: async () => {
+        runs += 1;
+      },
+    })
+    .requestSync();
+
+  expect(await waitForDomainSyncCoordinatorToSettle(domainScope)).toBe(true);
+  expect(runs).toBe(1);
+  upload.complete();
+  expect(findLane(domainScope, "shared-key")?.status).toBe("complete");
 });

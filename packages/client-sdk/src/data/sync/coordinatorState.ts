@@ -3,6 +3,7 @@ import type { SyncLaneRequest, SyncLaneRun } from "./syncLaneMachine";
 import {
   hasPendingRequest,
   IDLE_SYNC_LANE_RUN,
+  isRunActive,
   NO_SYNC_LANE_REQUEST,
 } from "./syncLaneMachine";
 import type {
@@ -116,7 +117,7 @@ export function noopLaneRun(): Promise<void> {
 // settle still publishes a snapshot and re-pumps any queued re-request.
 export function hasPendingLaneWork(lanes: Iterable<SyncLaneState>): boolean {
   for (const lane of lanes) {
-    if (hasPendingRequest(lane.request) || lane.run.status === "running") {
+    if (hasPendingRequest(lane.request) || isRunActive(lane.run)) {
       return true;
     }
   }

@@ -10,6 +10,7 @@ import {
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
 import {
+  isRunActive,
   transitionSyncLaneRequest,
   transitionSyncLaneRun,
 } from "./syncLaneMachine";
@@ -43,7 +44,7 @@ function evictRetainedUploadLanes(
 ) {
   const settledUploadLanes: SyncLaneState[] = [];
   for (const lane of coordinatorState.lanes.values()) {
-    if (lane.config.phase === "blob" && lane.run.status !== "running") {
+    if (lane.config.phase === "blob" && !isRunActive(lane.run)) {
       settledUploadLanes.push(lane);
     }
   }
@@ -132,7 +133,7 @@ export function beginUploadLane(
     type: "clear",
   });
   uploadLane.run = transitionSyncLaneRun(uploadLane.run, {
-    type: "start",
+    type: "upload-start",
     token: runToken,
   });
   uploadLane.runCount += 1;
