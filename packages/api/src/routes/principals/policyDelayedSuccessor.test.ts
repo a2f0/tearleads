@@ -22,7 +22,6 @@ import { requestAfterPrincipalPreparation } from "../../../test/helpers/principa
 import { toPrincipalStateExternalAuthority } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 
-// Real signed setup and protocol steps approach five seconds in PGlite CI.
 test("an honest group history remains readable across an intervening Admins advance", async () => {
   const actor = createTestUser();
   const replacement = createTestUser();
@@ -135,4 +134,4 @@ test("an honest group history remains readable across an intervening Admins adva
   const final = await verifyAtInitialCheckpoint();
   invariant(final.ok, "expected delayed history to verify");
   expect(final.value.version).toBe(initial.currentState.version + 2);
-}, 15_000);
+});

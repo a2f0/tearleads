@@ -74,7 +74,7 @@ test("policy rotation and dependent container rekey commit atomically", async ()
     stateHash: prepared.nextPolicy.stateHash,
     keyFingerprint: prepared.nextPolicy.state.keyFingerprint,
   });
-}, 15_000);
+});
 
 test("an exact compound policy replay survives a later container mutation", async () => {
   const prepared = await prepareRotation();
@@ -126,7 +126,7 @@ test("an exact compound policy replay survives a later container mutation", asyn
     (await getCurrentContainerKeyEpoch(prepared.root.kekState.containerId, db))
       ?.id,
   ).toBe(laterRekey.kekState.containerKeyEpochId);
-}, 15_000);
+});
 
 test("same-key-epoch policy successors refresh grants without rekeying", async () => {
   const prepared = await prepareRotation({ rotateKey: false });
@@ -149,7 +149,7 @@ test("same-key-epoch policy successors refresh grants without rekeying", async (
     (await getCurrentContainerKeyEpoch(prepared.root.kekState.containerId, db))
       ?.id,
   ).toBe(previousKek?.id);
-}, 15_000);
+});
 
 test("omitting the metadata mutation rolls back the principal rotation", async () => {
   const prepared = await prepareRotation();
@@ -177,7 +177,7 @@ test("omitting the metadata mutation rolls back the principal rotation", async (
     (await getCurrentContainerKeyEpoch(prepared.root.kekState.containerId, db))
       ?.id,
   ).toBe(previousKek?.id);
-}, 15_000);
+});
 
 test("a failed dependent mutation rolls back every policy artifact", async () => {
   const prepared = await prepareRotation();
@@ -213,7 +213,7 @@ test("a failed dependent mutation rolls back every policy artifact", async () =>
     (await getCurrentContainerKeyEpoch(prepared.root.kekState.containerId, db))
       ?.id,
   ).toBe(previousKek?.id);
-}, 15_000);
+});
 
 // #2278 #5 negative control for the "must be current" coupling. Every
 // container mutation (including revoke/move/recite, which carry referenced
@@ -260,4 +260,4 @@ test("a refused policy change leaves every container grant reference current", a
     message: "Container group reference is not current",
     status: 409,
   });
-}, 15_000);
+});

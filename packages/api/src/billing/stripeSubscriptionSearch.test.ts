@@ -1,20 +1,9 @@
 import { expect, test } from "bun:test";
+import { queuedStripeFetch as fakeFetch } from "../../test/helpers/stripePayloadFetch";
 import { hasOpenOrgSubscription } from "./stripeApi";
 import { findLiveOrgSubscription } from "./stripeSubscriptionManagement";
 
 const ENV = { STRIPE_SECRET_KEY: "sk_test_123" };
-
-function fakeFetch(responses: unknown[]): {
-  fetchImpl: typeof fetch;
-  requests: string[];
-} {
-  const requests: string[] = [];
-  const fetchImpl = (async (input: RequestInfo | URL) => {
-    requests.push(String(input));
-    return Response.json(responses.shift() ?? {});
-  }) as typeof fetch;
-  return { fetchImpl, requests };
-}
 
 function terminalSubscriptions(count: number): unknown[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -37,8 +26,8 @@ test("duplicate detection finds a live subscription after the first 100 results"
     true,
   );
   expect(requests).toHaveLength(2);
-  expect(new URL(requests[0] ?? "").searchParams.has("page")).toBe(false);
-  expect(new URL(requests[1] ?? "").searchParams.get("page")).toBe(
+  expect(new URL(requests[0]?.url ?? "").searchParams.has("page")).toBe(false);
+  expect(new URL(requests[1]?.url ?? "").searchParams.get("page")).toBe(
     "next/page?2",
   );
 });

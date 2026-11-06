@@ -97,7 +97,7 @@ for (const signer of ["owner", "peer"] as const) {
       // Includes directory, group/org heads and the change-feed cursor: the
       // rejected signed commit must not produce a partial policy or roster event.
       expect(await readModel(organization.id, peer.token)).toEqual(before);
-    }, 15_000);
+    });
   }
 }
 
@@ -119,7 +119,7 @@ test("directory identifies the personal owner for another admin", async () => {
       }),
     ]),
   );
-}, 15_000);
+});
 
 test("a personal org still allows disabling another roster member", async () => {
   const { owner, organization } = await setup();
@@ -139,4 +139,4 @@ test("a personal org still allows disabling another roster member", async () => 
   expect(snapshot.lanes.directory?.users).toContainEqual(
     expect.objectContaining({ userId: member.userId, status: "disabled" }),
   );
-}, 15_000);
+});

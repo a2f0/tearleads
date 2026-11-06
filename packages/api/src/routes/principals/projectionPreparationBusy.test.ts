@@ -69,5 +69,4 @@ test.each(["container", "document"] as const)(
     expect([200, 202]).toContain((await request()).status);
     expect(captured).toEqual([]);
   },
-  15_000,
 );

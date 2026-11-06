@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { MAX_WS_CLIENT_MESSAGE_BYTES } from "@tearleads/validators/realtime";
 import type { ServerWebSocket } from "bun";
+import { type FakeSocket, fakeSocket } from "../../test/helpers/wsRouting";
 import type { SessionData } from "../validators/session";
 import { createRealtimeGateway } from "./realtimeGateway";
 import { createSessionRevocationNotifier } from "./sessionRevocation";
@@ -10,33 +11,6 @@ const ORGANIZATION_ID = "00000000-0000-4000-8000-00000000000a";
 const USER_ID = "10000000-0000-4000-8000-00000000000a";
 const DECLARATION_ID = "organization-interest-a";
 const CLEAR_DECLARATION_ID = "organization-interest-clear";
-
-interface FakeSocket {
-  readonly closed: Array<{
-    code: number | undefined;
-    reason: string | undefined;
-  }>;
-  readonly data: WebSocketTicketIdentity;
-  readonly sent: string[];
-  close(code?: number, reason?: string): void;
-  send(message: string): void;
-}
-
-function fakeSocket(userId: string, sessionId: string): FakeSocket {
-  const closed: FakeSocket["closed"] = [];
-  const sent: string[] = [];
-  return {
-    closed,
-    data: { sessionId, userId },
-    sent,
-    close(code?: number, reason?: string) {
-      closed.push({ code, reason });
-    },
-    send(message: string) {
-      sent.push(message);
-    },
-  };
-}
 
 function serverSocket(
   ws: FakeSocket,

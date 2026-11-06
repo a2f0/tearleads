@@ -82,7 +82,6 @@ test("organization access rejects a repointed reserved Admins group", async () =
   });
 });
 
-// Signed setup and multiple policy commits need the protocol integration budget.
 test("organization access rejects a replayed reserved group policy", async () => {
   const owner = createTestUser();
   const organizationId = await registerAndAuthenticateWithOrganization(owner);
@@ -120,4 +119,4 @@ test("organization access rejects a replayed reserved group policy", async () =>
   expect(await response.json()).toEqual({
     error: "Organization access policy failed integrity verification",
   });
-}, 15_000);
+});

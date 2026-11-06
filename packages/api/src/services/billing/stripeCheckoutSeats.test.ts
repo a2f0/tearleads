@@ -14,24 +14,15 @@ import {
   registerUser,
 } from "../../../test/helpers/registerUser";
 import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
+import {
+  REVENUECAT_WEBHOOK_ENV as REVENUECAT_ENV,
+  STRIPE_WEBHOOK_ENV as STRIPE_ENV,
+} from "../../../test/helpers/stripeWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import {
   createStripeCheckout,
   createStripeCheckoutSession,
 } from "./stripeCheckout";
-
-const STRIPE_ENV = {
-  STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
-  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
-  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
-  STRIPE_WEBHOOK_SECRET: "whsec_test",
-};
-const REVENUECAT_ENV = {
-  REVENUECAT_V2_SECRET_KEY: "sk_rc",
-  REVENUECAT_PROJECT_ID: "proj_1",
-  REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_pub",
-};
 
 async function loadCurrentMemberGroupState(organizationId: string): Promise<{
   readonly memberGroupId: string;

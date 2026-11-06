@@ -1,4 +1,4 @@
-import { afterAll, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   containers,
@@ -15,24 +15,18 @@ import { base64ToBytes } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { submitRegistration } from "../../../test/helpers/api";
-import { del, get } from "../../adapters/keyValueStore";
+import { get } from "../../adapters/keyValueStore";
 import { listOrganizationContainerGrantRows } from "../../workflows/organizations/containerGrants";
-
-let fingerprint: string;
 
 function decodeKey(value: string): number[] {
   return Array.from(base64ToBytes(value));
 }
 
-afterAll(async () => {
-  await del(fingerprint);
-});
-
 test("POST /auth/register keeps the signing key out of the key/value store", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  fingerprint = await toFingerprint(signingPublicKey);
+  const fingerprint = await toFingerprint(signingPublicKey);
 
   const res = await submitRegistration(
     signingPublicKey,
@@ -57,7 +51,7 @@ test("POST /auth/register creates a user with the source IP", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  fingerprint = await toFingerprint(signingPublicKey);
+  const fingerprint = await toFingerprint(signingPublicKey);
 
   const res = await submitRegistration(
     signingPublicKey,
@@ -80,7 +74,6 @@ test("POST /auth/register creates reserved admin and member groups in postgres",
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  fingerprint = await toFingerprint(signingPublicKey);
 
   const res = await submitRegistration(
     signingPublicKey,
@@ -130,7 +123,6 @@ test("POST /auth/register marks the bootstrap admin grant as built-in", async ()
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  fingerprint = await toFingerprint(signingPublicKey);
 
   const res = await submitRegistration(
     signingPublicKey,
@@ -176,7 +168,6 @@ test("POST /auth/register returns 409 when key already exists", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  fingerprint = await toFingerprint(signingPublicKey);
 
   const first = await submitRegistration(
     signingPublicKey,

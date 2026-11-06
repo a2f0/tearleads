@@ -16,6 +16,7 @@ import {
   createGroupRequest,
   deleteGroupRequest,
 } from "../../../test/helpers/organizationGroup";
+import { loadOrganizationReadModelSnapshot } from "../../../test/helpers/organizationReadModel";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
@@ -33,19 +34,6 @@ async function registerActor(user: TestUser) {
     .where(eq(users.id, user.userId));
   invariant(row, "expected registered organization");
   return row;
-}
-
-async function readSnapshot(actor: TestUser, organizationId: string) {
-  const response = await routeApp.request(
-    `/organizations/${organizationId}/read-model`,
-    { headers: { Authorization: `Bearer ${actor.token}` } },
-  );
-  const body = await response.json();
-  invariant(
-    isOrganizationReadModelResponse(body) && body.mode === "snapshot",
-    "expected organization read-model snapshot",
-  );
-  return body;
 }
 
 async function expectNoChange(
@@ -141,7 +129,10 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
   expect(await retainedPolicyResponse.json()).toEqual({
     error: "Principal policy access denied",
   });
-  const before = await readSnapshot(owner, organization.organizationId);
+  const before = await loadOrganizationReadModelSnapshot(
+    owner,
+    organization.organizationId,
+  );
 
   const replayResponse = await routeApp.request(
     `/principals/group/${groupId}/policy`,

@@ -78,4 +78,4 @@ test("sqlite commitLsn seeds from the latest persisted write's created_at", asyn
     new Response(child.stderr).text(),
   ]);
   expect({ exitCode, stderr, stdout }).toMatchObject({ exitCode: 0 });
-}, 15_000);
+});

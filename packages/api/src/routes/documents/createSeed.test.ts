@@ -105,7 +105,7 @@ test("a seeded create commits its seed in the create transaction", async () => {
   expect(created.initialSync?.acceptedOutgoingUpdateIds).toEqual([updateId]);
   expect(created.initialSync?.commitLsnMode).toBeDefined();
   expect(await storedUpdateIds(created.id)).toEqual([updateId]);
-}, 15_000);
+});
 
 test("a seed skips its billing check only for the organization the create admitted", async () => {
   const { owner, root } = await registeredRoot();
@@ -140,7 +140,7 @@ test("a seed skips its billing check only for the organization the create admitt
   await expect(seedAfterCreate(organizationId)).resolves.toMatchObject({
     insertedUpdateIds: [expect.any(String)],
   });
-}, 15_000);
+});
 
 test("a plain create reports no seed", async () => {
   const { owner, root } = await registeredRoot();
@@ -152,7 +152,7 @@ test("a plain create reports no seed", async () => {
   const created = (await response.json()) as DocumentCreateResponse;
   expect(created.initialSync).toBeUndefined();
   expect(await storedUpdateIds(created.id)).toEqual([]);
-}, 15_000);
+});
 
 test("a seed the sync would refuse fails the whole create", async () => {
   const { owner, root } = await registeredRoot();
@@ -174,7 +174,7 @@ test("a seed the sync would refuse fails the whole create", async () => {
     .from(documents)
     .where(eq(documents.id, documentId));
   expect(rows).toEqual([]);
-}, 15_000);
+});
 
 test("a create seed must hold exactly one update", async () => {
   const { owner, root } = await registeredRoot();
@@ -191,7 +191,7 @@ test("a create seed must hold exactly one update", async () => {
     },
   });
   expect(response.status).toBe(400);
-}, 15_000);
+});
 
 test("replaying a seeded create reports the committed manifest", async () => {
   const { owner, root } = await registeredRoot();
@@ -208,7 +208,7 @@ test("replaying a seeded create reports the committed manifest", async () => {
     "document_manifest_already_exists",
   );
   expect(await storedUpdateIds(created.id)).toEqual([updateId]);
-}, 15_000);
+});
 
 /** The seed as a client re-sends its row: the same id, freshly encrypted. */
 async function reencryptedSeed(
@@ -265,7 +265,7 @@ test("a committed seed re-sent by a sync takes the update-id conflict", async ()
     "document_sync_update_id_conflict",
   );
   expect(await storedUpdateIds(created.id)).toEqual([updateId]);
-}, 15_000);
+});
 
 /** Every field within its own bound; only the serialized seed is too large. */
 function oversizedSeed(

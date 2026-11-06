@@ -222,4 +222,4 @@ test("writer projections retain the old principal citation of an unchanged key w
     },
   );
   expect(response.status, await response.clone().text()).toBe(200);
-}, 15_000);
+});

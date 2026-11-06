@@ -70,7 +70,7 @@ test("projection sources issue scoped exact-head grants without full snapshots",
   } finally {
     full.mockRestore();
   }
-}, 15_000);
+});
 
 test.each(["fingerprint", "version", "principal", "organization"] as const)(
   "projection source issuance rejects a substituted %s before issuing any grant",
