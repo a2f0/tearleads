@@ -4,7 +4,7 @@
 # Equal decisions group under the applied effect, not the read-only preview.
 
 # read: Reads local or GitHub state without changing it.
-prefix_rule(pattern=["bun", "run", "agent-tool", ["--help", "--version", "logs", "doctor", "checkVersions"]], decision="allow", match=["bun run agent-tool --help"])
+prefix_rule(pattern=["bun", "run", "agent-tool", ["--help", "--version", "logs", "doctor", "state-machines", "checkVersions"]], decision="allow", match=["bun run agent-tool --help"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "runs", "list"], decision="allow", match=["bun run agent-tool runs list"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "config", "show"], decision="allow", match=["bun run agent-tool config show"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "branch", ["check", "status"]], decision="allow", match=["bun run agent-tool branch check"])
@@ -25,7 +25,7 @@ prefix_rule(pattern=["bun", "run", "agent-tool", "images", "list"], decision="al
 prefix_rule(pattern=["bun", "run", "agent-tool", "graph", "check"], decision="allow", match=["bun run agent-tool graph check"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "permissions", ["show", "check"]], decision="allow", match=["bun run agent-tool permissions show"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "proc", "list"], decision="allow", match=["bun run agent-tool proc list"])
-prefix_rule(pattern=["node_modules/.bin/agent-tool", ["--help", "--version", "logs", "doctor", "checkVersions"]], decision="allow", match=["node_modules/.bin/agent-tool --help"])
+prefix_rule(pattern=["node_modules/.bin/agent-tool", ["--help", "--version", "logs", "doctor", "state-machines", "checkVersions"]], decision="allow", match=["node_modules/.bin/agent-tool --help"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "runs", "list"], decision="allow", match=["node_modules/.bin/agent-tool runs list"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "config", "show"], decision="allow", match=["node_modules/.bin/agent-tool config show"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "branch", ["check", "status"]], decision="allow", match=["node_modules/.bin/agent-tool branch check"])
@@ -46,7 +46,7 @@ prefix_rule(pattern=["node_modules/.bin/agent-tool", "images", "list"], decision
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "graph", "check"], decision="allow", match=["node_modules/.bin/agent-tool graph check"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "permissions", ["show", "check"]], decision="allow", match=["node_modules/.bin/agent-tool permissions show"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "proc", "list"], decision="allow", match=["node_modules/.bin/agent-tool proc list"])
-prefix_rule(pattern=["agent-tool", ["--help", "--version", "logs", "doctor", "checkVersions"]], decision="allow", match=["agent-tool --help"])
+prefix_rule(pattern=["agent-tool", ["--help", "--version", "logs", "doctor", "state-machines", "checkVersions"]], decision="allow", match=["agent-tool --help"])
 prefix_rule(pattern=["agent-tool", "runs", "list"], decision="allow", match=["agent-tool runs list"])
 prefix_rule(pattern=["agent-tool", "config", "show"], decision="allow", match=["agent-tool config show"])
 prefix_rule(pattern=["agent-tool", "branch", ["check", "status"]], decision="allow", match=["agent-tool branch check"])
@@ -119,13 +119,10 @@ prefix_rule(pattern=["agent-tool", "openPr"], decision="allow", match=["agent-to
 
 # release: Merges into a shared branch, publishes a package, or deletes remote state.
 prefix_rule(pattern=["bun", "run", "agent-tool", "pr", "merge"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["bun run agent-tool pr merge"])
-prefix_rule(pattern=["bun", "run", "agent-tool", "squashMerge"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["bun run agent-tool squashMerge"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "bun", "x", "wrangler"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["bun run agent-tool bun x wrangler"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "pr", "merge"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["node_modules/.bin/agent-tool pr merge"])
-prefix_rule(pattern=["node_modules/.bin/agent-tool", "squashMerge"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["node_modules/.bin/agent-tool squashMerge"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "bun", "x", "wrangler"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["node_modules/.bin/agent-tool bun x wrangler"])
 prefix_rule(pattern=["agent-tool", "pr", "merge"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["agent-tool pr merge"])
-prefix_rule(pattern=["agent-tool", "squashMerge"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["agent-tool squashMerge"])
 prefix_rule(pattern=["agent-tool", "bun", "x", "wrangler"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["agent-tool bun x wrangler"])
 prefix_rule(pattern=["gh", "pr", "merge"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["gh pr merge"])
 prefix_rule(pattern=["npm", "publish"], decision="prompt", justification="Merges into a shared branch, publishes a package, or deletes remote state.", match=["npm publish"])
