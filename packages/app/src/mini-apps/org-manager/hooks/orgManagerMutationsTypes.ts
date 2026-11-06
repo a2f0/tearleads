@@ -10,6 +10,7 @@ import type {
 import type { Dispatch, SetStateAction } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import type { OrgManagerDialogsEvent } from "../model/orgManagerDialogsMachine";
 import type { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 import type { OrgManagerView } from "../routes";
 
@@ -40,6 +41,7 @@ export interface OrgManagerMutationsParams {
   selectedGroupIsAdminsGroup: boolean;
   selectedGroupIsMembersGroup: boolean;
   selectedUserIdRef: { current: string | null };
+  sendDialogEvent: Dispatch<OrgManagerDialogsEvent>;
   setAddUserId: Dispatch<SetStateAction<string>>;
   setError: Dispatch<SetStateAction<string | null>>;
   setGrants: Dispatch<SetStateAction<OrganizationContainerGrants | null>>;
@@ -49,10 +51,6 @@ export interface OrgManagerMutationsParams {
   setGroupPolicyHistory: Dispatch<
     SetStateAction<OrganizationGroupPolicyHistory | null>
   >;
-  setGroupNameDraft: Dispatch<SetStateAction<string>>;
-  setImportUserIdDraft: Dispatch<SetStateAction<string>>;
-  setIsCreateGroupDialogOpen: Dispatch<SetStateAction<boolean>>;
-  setIsImportUserDialogOpen: Dispatch<SetStateAction<boolean>>;
   setMembers: Dispatch<SetStateAction<OrganizationGroupMembers | null>>;
   setMutating: Dispatch<SetStateAction<boolean>>;
   setOrgManagerView: (nextView: OrgManagerView) => void;
