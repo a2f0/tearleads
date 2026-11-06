@@ -143,9 +143,14 @@ export class ContainerInterestQueries {
       if (Date.now() >= deadline)
         throw new Error("Container authorization timed out");
       const active = this.active.get(key);
-      if (active && (active.idsKey !== idsKey || active.stale)) {
+      if (
+        active &&
+        (active.idsKey !== idsKey || active.stale || active.overflow)
+      ) {
         // Different tabs may declare different trees. Wait within the same
         // deadline instead of rejecting an otherwise healthy shared session.
+        // A stale or overflowed query cannot answer a later declaration, so
+        // that run waits for it and then queries afresh.
         await beforeDeadline(active.finished, deadline);
         continue;
       }
