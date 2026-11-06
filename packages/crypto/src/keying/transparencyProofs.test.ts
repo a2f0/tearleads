@@ -5,7 +5,6 @@ import {
   verifyTransparencyConsistencyProof,
   verifyTransparencyInclusionProof,
 } from "./index";
-import { expectVerificationError } from "./testFixtures";
 import {
   checkpoint,
   foreignNodeHash,
@@ -22,6 +21,7 @@ import {
   withAuditPath,
   withNodes,
 } from "./transparencyProofs.testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 /**
  * Exhaustive prefix matrices for the transparency proofs (#2192 Gate F2,

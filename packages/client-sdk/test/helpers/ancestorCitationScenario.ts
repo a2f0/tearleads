@@ -10,12 +10,10 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import {
-  containerWrappingPublicKeyForTest,
-  createContainerManifestFixture,
-  createVerifiedContainerAccessEvent,
-  fixtureHash,
-} from "@tearleads/crypto/test-fixtures";
+import { createVerifiedContainerAccessEvent } from "@tearleads/crypto/access-event-test-fixtures";
+import { fixtureHash } from "@tearleads/crypto/canonical-test-fixtures";
+import { createContainerManifestFixture } from "@tearleads/crypto/container-access-test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import type { createTestExecSql } from "@tearleads/test-utils";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { createProjectionCheckpointContext } from "../../src/data/keyingProjectionVerification/checkpoints/checkpointContext";

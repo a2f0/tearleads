@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { fixtureHash } from "./canonical.testFixtures";
 import type {
   AccessManifest,
   AccessManifestCheckpoint,
@@ -6,7 +7,7 @@ import type {
   VerifiedAccessManifestCheckpointEvidence,
 } from "./index";
 import { verifyIdentityStateCheckpoint } from "./index";
-import { expectVerificationError, fixtureHash } from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 type RawAccessManifestCheckpointEvidence = {
   readonly checkpoint: AccessManifestCheckpoint;

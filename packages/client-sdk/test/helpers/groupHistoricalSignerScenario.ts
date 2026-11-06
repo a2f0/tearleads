@@ -11,15 +11,17 @@ import {
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import {
-  containerWrappingPublicKeyForTest,
-  createContainerKeyEpochFixture,
-  createContainerKeyWrap,
-  createContainerManifestFixture,
-  createDocumentLinkSetManifestFixture,
   createVerifiedContainerAccessEvent,
   createVerifiedDocumentAccessEvent,
-  fixtureHash,
-} from "@tearleads/crypto/test-fixtures";
+} from "@tearleads/crypto/access-event-test-fixtures";
+import { fixtureHash } from "@tearleads/crypto/canonical-test-fixtures";
+import { createContainerManifestFixture } from "@tearleads/crypto/container-access-test-fixtures";
+import {
+  createContainerKeyEpochFixture,
+  createContainerKeyWrap,
+} from "@tearleads/crypto/container-kek-test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
+import { createDocumentLinkSetManifestFixture } from "@tearleads/crypto/document-link-set-manifest-test-fixtures";
 import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,

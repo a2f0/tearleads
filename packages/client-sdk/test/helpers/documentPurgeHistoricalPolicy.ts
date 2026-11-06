@@ -6,11 +6,9 @@ import {
   type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
-import {
-  createContainerManifestFixture,
-  createDocumentLinkSetManifestFixture,
-  createVerifiedDocumentAccessEvent,
-} from "@tearleads/crypto/test-fixtures";
+import { createVerifiedDocumentAccessEvent } from "@tearleads/crypto/access-event-test-fixtures";
+import { createContainerManifestFixture } from "@tearleads/crypto/container-access-test-fixtures";
+import { createDocumentLinkSetManifestFixture } from "@tearleads/crypto/document-link-set-manifest-test-fixtures";
 import type {
   AccessManifestBundleWireResponse,
   DocumentPurgeProofResponse,

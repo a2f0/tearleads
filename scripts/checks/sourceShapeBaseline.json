@@ -76,18 +76,6 @@
       "lines": 623,
       "bytes": 18407
     },
-    "packages/crypto/src/keying/containerAccess.test.ts": {
-      "lines": 926,
-      "bytes": 30274
-    },
-    "packages/crypto/src/keying/containerKek.test.ts": {
-      "lines": 552,
-      "bytes": 18898
-    },
-    "packages/crypto/src/keying/testFixtures.ts": {
-      "lines": 678,
-      "bytes": 22957
-    },
     "scripts/architecture/subsystems.ts": {
       "lines": 584,
       "bytes": 22200

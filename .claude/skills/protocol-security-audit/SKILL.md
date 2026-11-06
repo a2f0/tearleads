@@ -167,7 +167,7 @@ root causes per default batch; preserve the rest as pending for resume.
   import repository modules by absolute path, and run
   `<repo-root>/node_modules/.bin/agent-tool run -- bun test <absolute path>`
   from the owning package directory so workspace imports resolve. Reuse
-  `packages/crypto/src/keying/testFixtures.ts` and
+  the `packages/crypto/src/keying/*.testFixtures.ts` modules and
   `packages/client-sdk/test/helpers/`. Never add probe files to the checkout.
   Re-run an auditor's probe yourself and read what it asserts: a probe that
   calls a helper directly proves less than one that drives the production

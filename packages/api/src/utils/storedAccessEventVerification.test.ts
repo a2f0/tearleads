@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
-import { createContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
+import { createContainerManifestFixture } from "@tearleads/crypto/container-access-test-fixtures";
 import { verifyStoredAccessEvent } from "./storedAccessEventVerification";
 
 test("a stored event binds its signature bytes and signer key", async () => {

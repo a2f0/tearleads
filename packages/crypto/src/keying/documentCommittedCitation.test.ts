@@ -1,15 +1,15 @@
 import { test } from "bun:test";
-import { citationScopeFixture } from "./documentCitationScope.testFixtures";
-import { verifyWriteHeader } from "./index";
+import { createVerifiedAttachmentBinding } from "./attachmentAccessEvent.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import {
-  createContainerManifestFixture,
-  createVerifiedAttachmentBinding,
   createVerifiedContainerKekStateFixture,
-  createWriteHeaderFixture,
   deriveRequiredBlobKekTargets,
   deriveRequiredDocumentKekTargets,
-  expectVerificationError,
-} from "./testFixtures";
+} from "./containerKek.testFixtures";
+import { citationScopeFixture } from "./documentCitationScope.testFixtures";
+import { verifyWriteHeader } from "./index";
+import { expectVerificationError } from "./verificationError.testFixtures";
+import { createWriteHeaderFixture } from "./writeHeader.testFixtures";
 
 test.each(["document", "blob"] as const)(
   "%s writes refuse a linked container at a non-target head even after valid authority",

@@ -3,19 +3,17 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { wrapDekForRecipients } from "../encapsulation/wrapDek";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import { computeAccessManifestHash } from "./accessEvent";
+import { createVerifiedContainerAccessEvent } from "./accessEvent.testFixtures";
 import {
   deriveContainerAccessManifest,
   verifyContainerAccessManifest,
 } from "./containerAccess";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import {
   deriveContainerKekWrappingPublicKey,
   normalizeContainerKekWrappingPublicKey,
   unwrapContainerKekParentWrap,
 } from "./containerKekWrapping";
-import {
-  createContainerManifestFixture,
-  createVerifiedContainerAccessEvent,
-} from "./testFixtures";
 
 const parent = {
   containerId: "parent",

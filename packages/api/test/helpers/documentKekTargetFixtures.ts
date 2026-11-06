@@ -4,7 +4,7 @@ import {
   type VerifiedContainerAccessManifest,
   verifyAccessManifest,
 } from "@tearleads/crypto";
-import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { DocumentKekTargetError } from "../../src/access/read/documentKekTargets";
 import { createVerifiedEvent } from "./documentContentKeyStoreFixtures";

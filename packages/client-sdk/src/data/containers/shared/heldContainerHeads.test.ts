@@ -3,7 +3,7 @@ import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import {
   createContainerManifestFixture,
   createPrincipalPolicyFixture,
-} from "@tearleads/crypto/test-fixtures";
+} from "@tearleads/crypto/container-access-test-fixtures";
 import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,

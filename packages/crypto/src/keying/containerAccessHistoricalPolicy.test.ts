@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedContainerAccessEvent } from "./accessEvent.testFixtures";
+import { fixtureHash } from "./canonical.testFixtures";
+import {
+  createContainerManifestFixture,
+  createPrincipalPolicyFixture,
+} from "./containerAccess.testFixtures";
 import type {
   ContainerAccessEventBody,
   ContainerAccessManifestState,
@@ -14,12 +20,6 @@ import {
   resolveHistoricalContainerPathUserAccessLevel,
   verifyContainerAccessManifest,
 } from "./index";
-import {
-  createContainerManifestFixture,
-  createPrincipalPolicyFixture,
-  createVerifiedContainerAccessEvent,
-  fixtureHash,
-} from "./testFixtures";
 
 function policyState(
   reference: ContainerGrantPrincipalHead,

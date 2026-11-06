@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedAccessManifestCheckpointFixture } from "./accessEvent.testFixtures";
+import { fixtureHash } from "./canonical.testFixtures";
 import type { IdentityStateHead, TransparencyLeaf } from "./index";
 import {
   accessManifestTransparencyLeaf,
@@ -9,12 +11,8 @@ import {
   identityStateTransparencyLeaf,
   verifyTransparencyProof,
 } from "./index";
-import {
-  createVerifiedAccessManifestCheckpointFixture,
-  expectVerificationError,
-  fixtureHash,
-  signTransparencyTreeHeadFixture,
-} from "./testFixtures";
+import { signTransparencyTreeHeadFixture } from "./transparency.testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 test("verifyTransparencyProof verifies inclusion against a signed tree head", async () => {
   const accessManifest = await createVerifiedAccessManifestCheckpointFixture({
