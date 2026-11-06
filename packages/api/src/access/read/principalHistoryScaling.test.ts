@@ -7,7 +7,7 @@ import {
 import { createTestUser } from "@tearleads/test-utils";
 import { and, eq } from "drizzle-orm";
 import { observeQueries } from "../../../test/helpers/observeDatabaseQueries";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import {
   getCurrentPrincipalStates,
   getCurrentPrincipalStatesFor,
@@ -20,7 +20,7 @@ import {
 
 async function seed(principalType: "group" | "organization") {
   const user = createTestUser();
-  await registerAndAuthenticate(user);
+  await registerAndAuthenticateUsers(user);
   const [template] = await db
     .select()
     .from(principalStates)

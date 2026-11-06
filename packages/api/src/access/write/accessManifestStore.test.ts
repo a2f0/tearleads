@@ -25,7 +25,7 @@ import {
   storeVerifiedAccessManifest,
 } from "./accessManifestStore";
 
-function hashOf(char: string): string {
+function hashOfChar(char: string): string {
   return char.repeat(64);
 }
 
@@ -85,10 +85,10 @@ async function createVerifiedAccessManifest(input: {
     epoch,
     previousManifestHash: input.previousManifestHash ?? null,
     eventHash: verifiedEvent.value.eventHash,
-    structuralHash: hashOf("a"),
-    grantRoot: hashOf("b"),
+    structuralHash: hashOfChar("a"),
+    grantRoot: hashOfChar("b"),
     referencedPrincipalHeads: input.referencedPrincipalHeads ?? [],
-    keyTargetHash: hashOf("c"),
+    keyTargetHash: hashOfChar("c"),
   };
   const expectedManifestHash = await computeAccessManifestHash(manifest);
   const verifiedManifest = await verifyAccessManifest({
@@ -112,11 +112,11 @@ test("storeVerifiedAccessManifest persists event, manifest, head, and derived pr
     principalId: crypto.randomUUID(),
     version: 1,
     keyEpoch: 1,
-    stateHash: hashOf("d"),
-    keyFingerprint: hashOf("e"),
+    stateHash: hashOfChar("d"),
+    keyFingerprint: hashOfChar("e"),
   };
   const verifiedManifest = await createVerifiedAccessManifest({
-    dependencyManifestHashes: [hashOf("0"), hashOf("1")],
+    dependencyManifestHashes: [hashOfChar("0"), hashOfChar("1")],
     referencedPrincipalHeads: [referencedPrincipalHead],
   });
 
@@ -146,7 +146,7 @@ test("storeVerifiedAccessManifest persists event, manifest, head, and derived pr
       })
       .from(accessEvents)
       .where(eq(accessEvents.eventHash, verifiedManifest.event.eventHash)),
-  ).toEqual([{ dependencyManifestHashes: [hashOf("0"), hashOf("1")] }]);
+  ).toEqual([{ dependencyManifestHashes: [hashOfChar("0"), hashOfChar("1")] }]);
   await expect(
     listAccessManifestPrincipalHeadProjection(
       verifiedManifest.manifestHash,
@@ -164,15 +164,15 @@ test("storeVerifiedAccessManifest persists event, manifest, head, and derived pr
 
 test("access manifest projections can be regenerated from stored manifest rows", async () => {
   const verifiedManifest = await createVerifiedAccessManifest({
-    dependencyManifestHashes: [hashOf("2")],
+    dependencyManifestHashes: [hashOfChar("2")],
     referencedPrincipalHeads: [
       {
         principalType: "organization",
         principalId: crypto.randomUUID(),
         version: 1,
         keyEpoch: 3,
-        stateHash: hashOf("3"),
-        keyFingerprint: hashOf("4"),
+        stateHash: hashOfChar("3"),
+        keyFingerprint: hashOfChar("4"),
       },
     ],
   });

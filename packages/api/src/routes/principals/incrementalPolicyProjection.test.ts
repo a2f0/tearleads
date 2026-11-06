@@ -12,7 +12,7 @@ import { createHeldManifestCitations } from "../../../test/helpers/heldManifestC
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import {
   signPrincipalStateBundle,
@@ -24,7 +24,7 @@ import { routeApp } from "../../routeApp";
 
 test("real SDK verifies policy successors over cited manifests and recovers cold without them", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const root = await recoverRegisteredRootKek({
     owner,
     root: await bootstrapRoot(owner),

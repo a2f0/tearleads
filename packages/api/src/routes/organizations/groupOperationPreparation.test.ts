@@ -19,7 +19,7 @@ import {
 } from "../../../test/helpers/principalPolicy";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { clearStoredPolicySnapshotCache } from "../../../test/helpers/principalSnapshotVerificationCache";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
@@ -31,7 +31,7 @@ test.each(["creation", "deletion"] as const)(
   "group %s rolls back while preparing a cold long directory",
   async (operation) => {
     const actor = createTestUser();
-    await registerAndAuthenticate(actor);
+    await registerAndAuthenticateUsers(actor);
     const organizationId = await getDefaultOrganizationId(actor.userId);
     const groupId = crypto.randomUUID();
     const path = `/organizations/${organizationId}/groups`;

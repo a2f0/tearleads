@@ -4,14 +4,14 @@ import { createTestUser } from "@tearleads/test-utils";
 import { isAccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import * as directories from "./projectionDirectoryBindings";
 import { loadProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 
 test("projection evidence rejects foreign manifests and missing group bindings", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const root = await recoverRegisteredRootKek({
     owner,

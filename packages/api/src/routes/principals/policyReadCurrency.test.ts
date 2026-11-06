@@ -12,7 +12,7 @@ import { getDefaultOrganizationId } from "../../../test/helpers/organizationMemb
 import {
   getPolicy,
   loadOrganizationGroups,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
   stripOrganizationMembership,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
@@ -46,7 +46,7 @@ async function postAsOwner(
 test("a disabled roster entry does not authorize a principal policy read", async () => {
   const owner = createTestUser();
   const member = createTestUser();
-  await registerAndAuthenticate(owner, member);
+  await registerAndAuthenticateUsers(owner, member);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const { adminGroupId } = await loadOrganizationGroups(organizationId);
   // A bare roster row, with no projection membership and no grant, so the
@@ -81,7 +81,7 @@ test("a disabled roster entry does not authorize a principal policy read", async
 test("a user dropped from the group's current projection loses the read", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
-  await registerAndAuthenticate(owner, reader);
+  await registerAndAuthenticateUsers(owner, reader);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const { adminGroupId } = await loadOrganizationGroups(organizationId);
   const root = await recoverRegisteredRootKek({
@@ -112,7 +112,7 @@ test("a user dropped from the group's current projection loses the read", async 
 test("a grant revoked from the container's current head no longer authorizes", async () => {
   const owner = createTestUser();
   const peer = createTestUser();
-  await registerAndAuthenticate(owner, peer);
+  await registerAndAuthenticateUsers(owner, peer);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const { adminGroupId } = await loadOrganizationGroups(organizationId);
   const root = await bootstrapRoot(owner);

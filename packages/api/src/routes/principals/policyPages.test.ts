@@ -6,7 +6,7 @@ import { PrincipalPolicyPageResponseSchema } from "@tearleads/validators/respons
 import { and, eq } from "drizzle-orm";
 import { seedLongPrincipalHistory } from "../../../test/helpers/longPrincipalHistory";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { routeApp } from "../../routeApp";
 
 async function getPage(actor: TestUser, principalId: string, query = "") {
@@ -25,7 +25,7 @@ async function getPage(actor: TestUser, principalId: string, query = "") {
 
 test("policy pages remain pinned after a concurrent update and verify live authorization", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const initial = PrincipalPolicyPageResponseSchema.parse(
     await (await getPage(owner, organizationId)).json(),

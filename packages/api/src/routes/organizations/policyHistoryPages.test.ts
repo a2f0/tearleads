@@ -18,7 +18,7 @@ import { seedLongPrincipalHistory } from "../../../test/helpers/longPrincipalHis
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { clearStoredPolicySnapshotCache } from "../../../test/helpers/principalSnapshotVerificationCache";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
@@ -58,7 +58,7 @@ async function page(
 
 test("cold organization display pages pin a head and carry only 32 directories plus a boundary", async () => {
   const actor = createTestUser();
-  await registerAndAuthenticate(actor);
+  await registerAndAuthenticateUsers(actor);
   const organizationId = await getDefaultOrganizationId(actor.userId);
   const policy = PrincipalPolicyBundleResponseSchema.parse(
     await (await getPolicy(actor, "organization", organizationId)).json(),
@@ -137,7 +137,7 @@ test("cold organization display pages pin a head and carry only 32 directories p
 test("organization history rejects a cursor beyond its pinned head and a foreign head", async () => {
   const actor = createTestUser();
   const other = createTestUser();
-  await registerAndAuthenticate(actor, other);
+  await registerAndAuthenticateUsers(actor, other);
   const organizationId = await getDefaultOrganizationId(actor.userId);
   const otherOrganizationId = await getDefaultOrganizationId(other.userId);
   const head = await getCurrentPrincipalState(

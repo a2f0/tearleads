@@ -18,7 +18,7 @@ import {
   getDefaultOrganizationId,
   loadVerifiedPrincipalPolicy,
 } from "./principalPolicy";
-import { registerAndAuthenticate } from "./principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "./principalPolicyReadFixtures";
 import { requestAfterPrincipalPreparation } from "./principalPreparationRequest";
 import { signPrincipalStateBundle } from "./principalState";
 import { signGroupSuccessor } from "./rotatedReadGroupGrant";
@@ -26,7 +26,7 @@ import { signGroupSuccessor } from "./rotatedReadGroupGrant";
 export async function createAtomicEnrollmentFixture(groupAfterMembers = false) {
   const actor = createTestUser();
   const member = createTestUser();
-  await registerAndAuthenticate(actor, member);
+  await registerAndAuthenticateUsers(actor, member);
   const organizationId = await getDefaultOrganizationId(actor.userId);
   const [organization] = await db
     .select()
