@@ -21,7 +21,9 @@
     ".claude/skills/ship-pr/SKILL.md",
     ".claude/skills/squash-merge/SKILL.md",
     ".agents/skills/update-dependencies/SKILL.md",
-    ".claude/skills/update-dependencies/SKILL.md"
+    ".claude/skills/update-dependencies/SKILL.md",
+    ".agents/skills/open-issue/SKILL.md",
+    ".claude/skills/open-issue/SKILL.md"
   ],
   "config": {
     "default": true,
