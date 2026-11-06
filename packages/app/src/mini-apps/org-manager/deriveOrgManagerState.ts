@@ -174,11 +174,7 @@ export function deriveOrgManagerState(input: DeriveOrgManagerStateInput) {
   });
   const canMutateSelectedGroup =
     input.databaseReady &&
-    canCurrentUserMutateSelectedGroup({
-      directory: input.activeDirectory,
-      members: scoped.activeMembers,
-      userId: input.userId,
-    });
+    canCurrentUserMutateSelectedGroup(input.activeDirectory);
   const selectedRosterUser =
     scoped.activeUserDetail?.user ??
     input.activeDirectory?.users.find(

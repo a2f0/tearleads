@@ -29,7 +29,7 @@ const group: OrganizationGroupSummary = {
   organizationId: "organization-1",
 };
 
-test("member controls protect the owner and self only in built-in groups", () => {
+test("member controls hide for non-admins and protect owner and self in built-in groups", () => {
   const owner: OrganizationDirectoryUser = {
     userId: "owner",
     isPersonalOrganizationOwner: true,
@@ -107,6 +107,26 @@ test("member controls protect the owner and self only in built-in groups", () =>
   const add = view.getByRole("button", { name: ORG_MANAGER_LABELS.add });
   expect(add.hasAttribute("disabled")).toBe(true);
   expect(add.querySelector(".mini-app-button-spinner")).toBeNull();
+  // Without organization admin authority the membership controls are hidden,
+  // not disabled, while the member list stays readable.
+  for (const selectedGroup of [group, { ...group, isBuiltin: false }]) {
+    view.rerender(
+      <GroupDetailSection
+        {...props}
+        canMutateSelectedGroup={false}
+        selectedGroup={selectedGroup}
+      />,
+    );
+    expect(
+      view.queryAllByRole("button", { name: ORG_MANAGER_LABELS.remove }),
+    ).toHaveLength(0);
+    expect(
+      view.queryByRole("button", { name: ORG_MANAGER_LABELS.add }),
+    ).toBeNull();
+    expect(view.queryByLabelText(ORG_MANAGER_LABELS.rosterIdentity)).toBeNull();
+    expect(view.getByTitle("owner")).toBeTruthy();
+    expect(view.getByTitle("peer")).toBeTruthy();
+  }
 });
 
 test("a group whose signed name does not open shows a placeholder", () => {

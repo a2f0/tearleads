@@ -144,43 +144,44 @@ export function GroupDetailSection({
       >
         {activeTab === "members" ? (
           <>
-            <MiniAppToolbar className="org-manager-form-toolbar">
-              <MiniAppInput
-                aria-label={ORG_MANAGER_LABELS.rosterIdentity}
-                disabled={!canMutateSelectedGroup || mutating}
-                list={addUserListId}
-                onChange={(event) => setAddUserId(event.target.value)}
-                placeholder="Select a roster user or paste an identity link"
-                value={addUserId}
-              />
-              <datalist id={addUserListId}>
-                {addableUsers.map((user) => (
-                  <option key={user.userId} value={user.userId}>
-                    {getRosterUserLabel(user)}
-                  </option>
-                ))}
-              </datalist>
-              <MiniAppButton
-                disabled={
-                  !canMutateSelectedGroup ||
-                  mutating ||
-                  !members ||
-                  addUserId.trim().length === 0 ||
-                  memberUserIds.has(addUserId.trim())
-                }
-                onClick={async () => {
-                  setAddingToGroupId(selectedGroup.groupId);
-                  try {
-                    await addUser();
-                  } finally {
-                    setAddingToGroupId(null);
+            {canMutateSelectedGroup ? (
+              <MiniAppToolbar className="org-manager-form-toolbar">
+                <MiniAppInput
+                  aria-label={ORG_MANAGER_LABELS.rosterIdentity}
+                  disabled={mutating}
+                  list={addUserListId}
+                  onChange={(event) => setAddUserId(event.target.value)}
+                  placeholder="Select a roster user or paste an identity link"
+                  value={addUserId}
+                />
+                <datalist id={addUserListId}>
+                  {addableUsers.map((user) => (
+                    <option key={user.userId} value={user.userId}>
+                      {getRosterUserLabel(user)}
+                    </option>
+                  ))}
+                </datalist>
+                <MiniAppButton
+                  disabled={
+                    mutating ||
+                    !members ||
+                    addUserId.trim().length === 0 ||
+                    memberUserIds.has(addUserId.trim())
                   }
-                }}
-                loading={addingToGroupId === selectedGroup.groupId}
-              >
-                {ORG_MANAGER_LABELS.add}
-              </MiniAppButton>
-            </MiniAppToolbar>
+                  onClick={async () => {
+                    setAddingToGroupId(selectedGroup.groupId);
+                    try {
+                      await addUser();
+                    } finally {
+                      setAddingToGroupId(null);
+                    }
+                  }}
+                  loading={addingToGroupId === selectedGroup.groupId}
+                >
+                  {ORG_MANAGER_LABELS.add}
+                </MiniAppButton>
+              </MiniAppToolbar>
+            ) : null}
             <MiniAppSection>
               <MiniAppSectionHeading>
                 {ORG_MANAGER_LABELS.members}

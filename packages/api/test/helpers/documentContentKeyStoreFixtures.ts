@@ -6,8 +6,12 @@ import {
 import {
   type AccessEventType,
   type AccessManifest,
+  type ContainerGrantAccessEventBody,
+  type ContainerMoveAccessEventBody,
+  type ContainerRekeyAccessEventBody,
   computeAccessEventBodyHash,
   computeAccessManifestHash,
+  type DocumentLinkAccessEventBody,
   deriveDocumentLinkSetManifest,
   generateSigningSeedAndKeyPair,
   type KeyingCanonicalJson,
@@ -19,6 +23,10 @@ import {
   verifyAccessManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import {
+  KEYRING_HASH,
+  PREDECESSOR_BRIDGE_HASH,
+} from "@tearleads/crypto/container-access-test-fixtures";
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import { eq } from "drizzle-orm";
 import type { DocumentContentKeyTargetEnvelope } from "../../src/access/read/documentContentKeyStore";
@@ -27,8 +35,13 @@ import { storeVerifiedAccessManifest } from "../../src/access/write/accessManife
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import { hashOf } from "./keyingLabelHash";
 
+type ContainerManifestEventBody =
+  | ContainerGrantAccessEventBody
+  | ContainerMoveAccessEventBody
+  | ContainerRekeyAccessEventBody;
+
 async function createVerifiedEvent(input: {
-  readonly body: Record<string, unknown>;
+  readonly body: ContainerManifestEventBody | DocumentLinkAccessEventBody;
   readonly dependencyManifestHashes?: readonly string[];
   readonly eventType: AccessEventType;
   readonly objectId: string;
@@ -48,7 +61,7 @@ async function createVerifiedEvent(input: {
       previousManifestHash: input.previousManifestHash ?? null,
       dependencyManifestHashes: [...(input.dependencyManifestHashes ?? [])],
       bodyHash: await computeAccessEventBodyHash(
-        input.body as KeyingCanonicalJson,
+        input.body as unknown as KeyingCanonicalJson,
       ),
       signerUserId: crypto.randomUUID(),
       signerDeviceId: "device-1",
@@ -58,7 +71,7 @@ async function createVerifiedEvent(input: {
     signing.signingPrivateKey,
   );
   const verifiedEvent = await verifySignedAccessEvent({
-    body: input.body as KeyingCanonicalJson,
+    body: input.body as unknown as KeyingCanonicalJson,
     event,
     signerPublicKey: signing.signingPublicKey,
   });
@@ -70,13 +83,65 @@ async function createVerifiedEvent(input: {
   return verifiedEvent.value;
 }
 
+// Production container.grant, .move, and .rekey bodies (crypto's
+// containerAccessBodies.ts) all carry the epoch's KEK public key next to its
+// id. Move and rekey also carry the rotation's keyring and predecessor bridge
+// hashes; the store tests never open those, so crypto's fixed fixture hashes
+// stand in for them.
+function containerManifestEventBody(input: {
+  readonly containerKeyEpochId: string;
+  readonly eventType: ContainerManifestEventBody["eventType"];
+  readonly parentContainerId: string | null;
+  readonly parentManifestHash: string | null;
+}): ContainerManifestEventBody {
+  const keyState = {
+    containerKeyEpochId: input.containerKeyEpochId,
+    containerKeyPublicKey: containerWrappingPublicKeyForTest(
+      input.containerKeyEpochId,
+    ),
+  };
+  const rotation = {
+    keyringHash: KEYRING_HASH,
+    predecessorBridgeHash: PREDECESSOR_BRIDGE_HASH,
+  };
+
+  if (input.eventType === "container.move") {
+    return {
+      ...keyState,
+      ...rotation,
+      eventType: input.eventType,
+      parentContainerId: input.parentContainerId,
+      parentManifestHash: input.parentManifestHash,
+    };
+  }
+
+  if (input.eventType === "container.rekey") {
+    // The fixture's state has no direct grants, so it references no heads.
+    return {
+      ...keyState,
+      ...rotation,
+      eventType: input.eventType,
+      parentManifestHash: input.parentManifestHash,
+      referencedPrincipalHeads: [],
+    };
+  }
+
+  return {
+    ...keyState,
+    eventType: input.eventType,
+    grant: {
+      accessLevel: "read",
+      subjectId: crypto.randomUUID(),
+      subjectType: "user",
+    },
+    referencedPrincipalHead: null,
+  };
+}
+
 export async function createVerifiedContainerManifest(input: {
   readonly containerKeyEpochId?: string;
   readonly containerId: string;
-  readonly eventType?: Extract<
-    AccessEventType,
-    "container.grant" | "container.move" | "container.rekey"
-  >;
+  readonly eventType?: ContainerManifestEventBody["eventType"];
   readonly epoch?: number;
   readonly organizationId: string;
   readonly parentContainerId?: string | null;
@@ -86,37 +151,13 @@ export async function createVerifiedContainerManifest(input: {
 }): Promise<VerifiedContainerAccessManifest> {
   const containerKeyEpochId =
     input.containerKeyEpochId ?? `${input.containerId}:key-epoch-1`;
-  // Production container.grant, .move, and .rekey bodies all carry the epoch's
-  // KEK public key next to its id; the grant body has exactly their keys.
-  const containerKeyPublicKey =
-    containerWrappingPublicKeyForTest(containerKeyEpochId);
   const eventType = input.eventType ?? "container.grant";
-  const body =
-    eventType === "container.move"
-      ? {
-          containerKeyEpochId,
-          containerKeyPublicKey,
-          eventType,
-          parentContainerId: input.parentContainerId,
-          parentManifestHash: input.parentManifestHash,
-        }
-      : eventType === "container.rekey"
-        ? {
-            containerKeyEpochId,
-            containerKeyPublicKey,
-            eventType,
-          }
-        : {
-            containerKeyEpochId,
-            containerKeyPublicKey,
-            eventType,
-            grant: {
-              accessLevel: "read",
-              subjectId: crypto.randomUUID(),
-              subjectType: "user",
-            },
-            referencedPrincipalHead: null,
-          };
+  const body = containerManifestEventBody({
+    containerKeyEpochId,
+    eventType,
+    parentContainerId: input.parentContainerId ?? null,
+    parentManifestHash: input.parentManifestHash ?? null,
+  });
   const event = await createVerifiedEvent({
     body,
     eventType,
@@ -153,7 +194,7 @@ export async function createVerifiedContainerManifest(input: {
   return {
     ...verifiedManifest.value,
     state: {
-      containerKeyPublicKey,
+      containerKeyPublicKey: body.containerKeyPublicKey,
       systemSlot: null,
       version: 1,
       containerId: input.containerId,
@@ -179,12 +220,19 @@ export async function createVerifiedDocumentLinkSetManifest(input: {
   readonly organizationId: string;
   readonly previousManifestHash?: string | null;
 }): Promise<VerifiedDocumentLinkSetManifest> {
+  const [containerId] = input.linkedContainerIds;
+  const [containerManifestHash] = input.containerManifestHashes;
+
+  if (containerId === undefined || containerManifestHash === undefined) {
+    throw new Error("Expected a linked container for the document link");
+  }
+
   const event = await createVerifiedEvent({
     body: {
       blobRewraps: [],
       eventType: "document.link",
-      containerId: input.linkedContainerIds[0],
-      containerManifestHash: input.containerManifestHashes[0],
+      containerId,
+      containerManifestHash,
     },
     dependencyManifestHashes: input.containerManifestHashes,
     eventType: "document.link",
