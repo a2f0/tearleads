@@ -27,13 +27,13 @@ import {
   kekStateFromContainerResponse,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { createPagedColdPolicyWarmer } from "../../../test/helpers/pagedColdPolicyWarmer";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { routeApp } from "../../routeApp";
 
 test("a fresh and then pinned SDK accepts API purge history with an old group-only citation", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const root = await recoverRegisteredRootKek({
     owner,
     root: await bootstrapRoot(owner),

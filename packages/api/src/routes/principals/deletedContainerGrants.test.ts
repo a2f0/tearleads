@@ -14,14 +14,14 @@ import {
   loadVerifiedPrincipalPolicy,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { signGroupSuccessor } from "../../../test/helpers/rotatedReadGroupGrant";
 import { getCurrentAccessManifestHeads } from "../../access/read/accessManifestStore";
 import { routeApp } from "../../routeApp";
 
 async function grantedChild() {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const root = await bootstrapRoot(owner);
   const child = await createChildContainerFixture({

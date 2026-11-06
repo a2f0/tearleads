@@ -14,7 +14,7 @@ import {
 } from "../../../test/helpers/organizationGroup";
 import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
@@ -53,7 +53,7 @@ async function membersFromSources(
 
 test("history returns exact existing evidence without plaintext names, including deleted groups", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const groupId = crypto.randomUUID();
   const creation = await requestAfterPrincipalPreparation(
@@ -153,7 +153,7 @@ test("organization members may read history while outsiders and unauthenticated 
   const owner = createTestUser();
   const member = createTestUser();
   const outsider = createTestUser();
-  await registerAndAuthenticate(owner, member, outsider);
+  await registerAndAuthenticateUsers(owner, member, outsider);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   await addMemberGroupUser({
     actor: owner,
@@ -193,7 +193,7 @@ test("organization members may read history while outsiders and unauthenticated 
 test("a requested organization head excludes later group membership versions", async () => {
   const owner = createTestUser();
   const laterMember = createTestUser();
-  await registerAndAuthenticate(owner, laterMember);
+  await registerAndAuthenticateUsers(owner, laterMember);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const before = await getCurrentPrincipalState(
     "organization",

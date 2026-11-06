@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import {
   loadOrganizationGroups,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
@@ -14,7 +14,7 @@ import { routeApp } from "../../routeApp";
 
 test("history verification opts in through shared workflows, including indirect organization reads", async () => {
   const actor = createTestUser();
-  await registerAndAuthenticate(actor);
+  await registerAndAuthenticateUsers(actor);
   const [user] = await db
     .select()
     .from(users)

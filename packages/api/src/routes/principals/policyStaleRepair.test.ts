@@ -13,7 +13,7 @@ import { getDefaultOrganizationId } from "../../../test/helpers/organizationMemb
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import {
   loadOrganizationGroups,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { routeApp } from "../../routeApp";
 
@@ -70,7 +70,7 @@ test("a stale-policy reject returns only heads the requester may read", async ()
   const victim = createTestUser();
   const attacker = createTestUser();
   const bystander = createTestUser();
-  await registerAndAuthenticate(victim, attacker, bystander);
+  await registerAndAuthenticateUsers(victim, attacker, bystander);
   const { adminGroupId: victimAdminGroupId } = await loadOrganizationGroups(
     await getDefaultOrganizationId(victim.userId),
   );
@@ -90,7 +90,7 @@ test("a stale-policy reject returns only heads the requester may read", async ()
 test("a stale-policy reject still repairs a head the requester may read", async () => {
   const owner = createTestUser();
   const peer = createTestUser();
-  await registerAndAuthenticate(owner, peer);
+  await registerAndAuthenticateUsers(owner, peer);
   const { adminGroupId } = await loadOrganizationGroups(
     await getDefaultOrganizationId(owner.userId),
   );
@@ -108,7 +108,7 @@ test("a stale-policy reject still repairs a head the requester may read", async 
 test("stale-policy replies cap distinct readable heads at sixteen", async () => {
   const owner = createTestUser();
   const peer = createTestUser();
-  await registerAndAuthenticate(owner, peer);
+  await registerAndAuthenticateUsers(owner, peer);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const groupIds: string[] = [];
   for (let index = 0; index < 17; index++) {

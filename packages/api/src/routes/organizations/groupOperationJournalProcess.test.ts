@@ -20,7 +20,7 @@ import {
   buildOrganizationGroupDeletionRequest,
   getDefaultOrganizationId,
 } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
 import { routeApp } from "../../routeApp";
@@ -29,7 +29,7 @@ test.each(["group-create", "group-delete", "organization"] as const)(
   "a restarted SDK process recovers a committed %s from its disk journal",
   async (kind) => {
     const actor = createTestUser();
-    await registerAndAuthenticate(actor);
+    await registerAndAuthenticateUsers(actor);
     const organizationId = await getDefaultOrganizationId(actor.userId);
     const groupId = crypto.randomUUID();
     const path = `/organizations/${organizationId}/groups`;

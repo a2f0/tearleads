@@ -11,14 +11,14 @@ import {
   loadVerifiedPrincipalPolicy,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { signGroupSuccessor } from "../../../test/helpers/rotatedReadGroupGrant";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 
 test("compound HTTP rejects signed epoch jumps atomically and still permits rotation and revocation", async () => {
   const actor = createTestUser();
   const removed = createTestUser();
-  await registerAndAuthenticate(actor, removed);
+  await registerAndAuthenticateUsers(actor, removed);
   const organizationId = await getDefaultOrganizationId(actor.userId);
   await joinOrg(organizationId, actor, removed);
   const groupId = crypto.randomUUID();

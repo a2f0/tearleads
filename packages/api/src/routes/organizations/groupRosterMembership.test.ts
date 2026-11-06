@@ -19,7 +19,7 @@ import {
   loadVerifiedPrincipalPolicy,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
 import { signGroupSuccessor } from "../../../test/helpers/rotatedReadGroupGrant";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
@@ -95,7 +95,7 @@ async function rosterStatus(organizationId: string, userId: string) {
 test("group creation refuses another organization's user and rolls back", async () => {
   const owner = createTestUser();
   const outsider = createTestUser();
-  await registerAndAuthenticate(owner, outsider);
+  await registerAndAuthenticateUsers(owner, outsider);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   expect(await rosterStatus(organizationId, outsider.userId)).toBeUndefined();
   expect(
@@ -127,7 +127,7 @@ test("group creation refuses another organization's user and rolls back", async 
 test("group successors require active roster membership in the same organization", async () => {
   const owner = createTestUser();
   const outsider = createTestUser();
-  await registerAndAuthenticate(owner, outsider);
+  await registerAndAuthenticateUsers(owner, outsider);
   const { groupId, organizationId, response } = await createGroup(owner, []);
   expect(response.status, await response.clone().text()).toBe(200);
   const before = await getCurrentPrincipalState("group", groupId, db);
@@ -166,7 +166,7 @@ test.each(["remove", "delete"] as const)(
   async (operation) => {
     const owner = createTestUser();
     const member = createTestUser();
-    await registerAndAuthenticate(owner, member);
+    await registerAndAuthenticateUsers(owner, member);
     const organizationId = await getDefaultOrganizationId(owner.userId);
     await joinOrg(organizationId, owner, member);
     const { groupId, response } = await createGroup(owner, [member]);

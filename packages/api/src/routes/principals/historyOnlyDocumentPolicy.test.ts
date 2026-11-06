@@ -34,7 +34,7 @@ import {
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { expectPublicProjectionPolicyEvidence } from "../../../test/helpers/projectionPolicyEvidenceAssertions";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
@@ -43,7 +43,7 @@ import { routeApp } from "../../routeApp";
 test("an organization member verifies a document's inaccessible sibling-container citation", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
-  await registerAndAuthenticate(owner, reader);
+  await registerAndAuthenticateUsers(owner, reader);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const root = await recoverRegisteredRootKek({
     owner,

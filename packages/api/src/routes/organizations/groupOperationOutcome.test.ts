@@ -19,7 +19,7 @@ import {
   buildOrganizationGroupDeletionRequest,
   getDefaultOrganizationId,
 } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
 import { routeApp } from "../../routeApp";
@@ -60,7 +60,7 @@ test.each(["creation", "deletion"] as const)(
   "a lost group %s acknowledgement replays exactly after a later directory write",
   async (operation) => {
     const actor = createTestUser();
-    await registerAndAuthenticate(actor);
+    await registerAndAuthenticateUsers(actor);
     const organizationId = await getDefaultOrganizationId(actor.userId);
     const groupId = crypto.randomUUID();
     const path = `/organizations/${organizationId}/groups`;
@@ -188,7 +188,7 @@ test.each(["creation", "deletion"] as const)(
       expect(altered.status).toBe(operation === "creation" ? 409 : 404);
       await altered.arrayBuffer();
       const outsider = createTestUser();
-      await registerAndAuthenticate(outsider);
+      await registerAndAuthenticateUsers(outsider);
       const foreign = await fetch(new URL(target, server.url), {
         method,
         headers: { ...headers, Authorization: `Bearer ${outsider.token}` },

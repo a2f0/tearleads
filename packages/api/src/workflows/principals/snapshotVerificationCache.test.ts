@@ -3,7 +3,7 @@ import { db } from "@tearleads/api-shared/postgres";
 import * as crypto from "@tearleads/crypto";
 import { createTestUser } from "@tearleads/test-utils";
 import { createSignedPrincipalState } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import {
   clearStoredPolicySnapshotCache,
   verifyStoredPolicySnapshot,
@@ -12,7 +12,7 @@ import { loadProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 
 test("stored snapshot memo binds the actual bytes, reference, and signer keys", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const bundle = await createSignedPrincipalState({
     principalType: "group",
     principalId: globalThis.crypto.randomUUID(),

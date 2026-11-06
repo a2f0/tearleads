@@ -12,7 +12,7 @@ import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { createSignedPrincipalState } from "../../../test/helpers/principalPolicy";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import {
   signPrincipalStateBundle,
@@ -27,7 +27,7 @@ import { parseOrganizationAuthorityDescriptor } from "../../workflows/organizati
 // two-group fixture. Byte/count bounds are stable; timings are diagnostic only.
 test("historical proofs scale across 64 groups and 128 directory successors", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const root = await recoverRegisteredRootKek({
     owner,
     root: await bootstrapRoot(owner),
