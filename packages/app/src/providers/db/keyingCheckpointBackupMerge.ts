@@ -49,6 +49,20 @@ function validateRow(
   requireBackupTimestamp(row, "updated_at", definition.label);
 }
 
+function checkpointRowsByScope(
+  table: BackupTable | null,
+  definition: MonotonicCheckpointDefinition,
+): Map<string, BackupSqlRow> {
+  return table
+    ? mapBackupRowsByScope({
+        label: definition.label,
+        scopeColumns: definition.scopeColumns,
+        table,
+        validateRow: (row: BackupSqlRow) => validateRow(row, definition),
+      })
+    : new Map<string, BackupSqlRow>();
+}
+
 function mergeCheckpointTables(
   input: {
     readonly current: BackupTable | null;
@@ -69,24 +83,8 @@ function mergeCheckpointTables(
   if (!template) {
     return null;
   }
-  const validateCheckpointRow = (row: BackupSqlRow) =>
-    validateRow(row, definition);
-  const mergedRows = input.current
-    ? mapBackupRowsByScope({
-        label: definition.label,
-        scopeColumns: definition.scopeColumns,
-        table: input.current,
-        validateRow: validateCheckpointRow,
-      })
-    : new Map<string, BackupSqlRow>();
-  const restoredRows = input.restored
-    ? mapBackupRowsByScope({
-        label: definition.label,
-        scopeColumns: definition.scopeColumns,
-        table: input.restored,
-        validateRow: validateCheckpointRow,
-      })
-    : new Map<string, BackupSqlRow>();
+  const mergedRows = checkpointRowsByScope(input.current, definition);
+  const restoredRows = checkpointRowsByScope(input.restored, definition);
 
   const project = (row: BackupSqlRow, fallback?: BackupSqlRow) =>
     projectBackupRow({ columns: template.columns, fallback, row });

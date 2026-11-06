@@ -136,6 +136,27 @@ function getFileExtension(name: string): string | null {
   return name.slice(dot + 1).toLowerCase();
 }
 
+// MIME family prefixes and the exact map, or null when the type is too generic.
+function getMimeFileType(mimeType: string): AttachmentFileType | null {
+  if (mimeType.startsWith("image/")) {
+    return { Icon: ImageIcon, kind: "Image", isImage: true };
+  }
+  if (mimeType.startsWith("audio/")) {
+    return { Icon: FileAudioIcon, kind: "Audio", isImage: false };
+  }
+  if (mimeType.startsWith("video/")) {
+    return { Icon: FileVideoIcon, kind: "Video", isImage: false };
+  }
+  const exact = MIME_EXACT.get(mimeType);
+  if (exact) {
+    return exact;
+  }
+  if (mimeType.startsWith("text/")) {
+    return { Icon: FileTextIcon, kind: "Text", isImage: false };
+  }
+  return null;
+}
+
 // Resolve an attachment to its presentation type. MIME wins when it is specific
 // enough (family prefixes and the exact map); otherwise the filename extension
 // decides, and finally a generic file icon is the floor. `name` is optional so
@@ -145,24 +166,9 @@ export function getAttachmentFileType(params: {
   name?: string | null | undefined;
 }): AttachmentFileType {
   const mimeType = params.mimeType?.toLowerCase() ?? null;
-
-  if (mimeType) {
-    if (mimeType.startsWith("image/")) {
-      return { Icon: ImageIcon, kind: "Image", isImage: true };
-    }
-    if (mimeType.startsWith("audio/")) {
-      return { Icon: FileAudioIcon, kind: "Audio", isImage: false };
-    }
-    if (mimeType.startsWith("video/")) {
-      return { Icon: FileVideoIcon, kind: "Video", isImage: false };
-    }
-    const exact = MIME_EXACT.get(mimeType);
-    if (exact) {
-      return exact;
-    }
-    if (mimeType.startsWith("text/")) {
-      return { Icon: FileTextIcon, kind: "Text", isImage: false };
-    }
+  const byMimeType = mimeType ? getMimeFileType(mimeType) : null;
+  if (byMimeType) {
+    return byMimeType;
   }
 
   const extension = params.name ? getFileExtension(params.name) : null;

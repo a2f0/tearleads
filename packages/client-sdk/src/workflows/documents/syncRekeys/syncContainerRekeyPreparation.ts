@@ -125,6 +125,18 @@ async function abandonRefusedRepair(
   throw new DocumentAncestorRepairAbandonedError("refused");
 }
 
+/** A repair and everything it carried committed together. */
+function markRepaired(
+  repairedIds: Set<string>,
+  plan: { readonly containerId: string },
+  carriedPlans: readonly { readonly plan: { readonly containerId: string } }[],
+): void {
+  repairedIds.add(plan.containerId);
+  for (const carried of carriedPlans) {
+    repairedIds.add(carried.plan.containerId);
+  }
+}
+
 async function commitRepairPrefix(input: {
   plans: readonly MaterializedContainerRekeyPlan[];
   repairedIds: Set<string>;
@@ -166,10 +178,7 @@ async function commitRepairPrefix(input: {
       assertProjectionVerificationCurrent(input.sync.stillCurrent);
       throw new Error("Document ancestor repair was superseded");
     }
-    input.repairedIds.add(plan.containerId);
-    for (const carried of carriedPlans) {
-      input.repairedIds.add(carried.plan.containerId);
-    }
+    markRepaired(input.repairedIds, plan, carriedPlans);
     committed += 1 + carriedPlans.length;
     // The rest of this prefix was signed before the carry. A plan for a carried
     // container extends a superseded head, and one below it pins an epoch that

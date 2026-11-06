@@ -38,12 +38,11 @@ function assertRegisteredResponseStatusMetadata(
   }
 }
 
-export function assertResponseMetadata(
+function assertStatusesDeclaredOnce(
   operation: HttpOperation,
   successResponses: ReadonlyMap<number, z.ZodType>,
   emptySuccessStatuses: ReadonlySet<number>,
   failureStatuses: ReadonlySet<number>,
-  failureResponses: ReadonlyMap<number, z.ZodType>,
 ): void {
   for (const status of successResponses.keys()) {
     if (emptySuccessStatuses.has(status) || failureStatuses.has(status)) {
@@ -55,6 +54,21 @@ export function assertResponseMetadata(
       throw new Error(`${operation.id} declares status ${status} twice`);
     }
   }
+}
+
+export function assertResponseMetadata(
+  operation: HttpOperation,
+  successResponses: ReadonlyMap<number, z.ZodType>,
+  emptySuccessStatuses: ReadonlySet<number>,
+  failureStatuses: ReadonlySet<number>,
+  failureResponses: ReadonlyMap<number, z.ZodType>,
+): void {
+  assertStatusesDeclaredOnce(
+    operation,
+    successResponses,
+    emptySuccessStatuses,
+    failureStatuses,
+  );
   if (
     emptySuccessStatuses.size !== (operation.emptyResponseStatuses?.length ?? 0)
   ) {

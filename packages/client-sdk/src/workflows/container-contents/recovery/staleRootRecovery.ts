@@ -82,6 +82,13 @@ function listAuthoritativeRootCandidates(
   );
 }
 
+function adoptionStatus(
+  adoptionResult: ReturnType<ContainerContentsRootAdopter>,
+): StaleRootRecoveryStatus {
+  if (adoptionResult === "already-adopted") return "already-adopted";
+  return adoptionResult ? "reassigned" : "context-changed";
+}
+
 /**
  * Repairs the root identity left by a cold-cache login.
  *
@@ -185,11 +192,6 @@ export async function recoverStaleSessionRoot(
   return {
     candidateCount: 1,
     reassigned: true,
-    status:
-      adoptionResult === "already-adopted"
-        ? "already-adopted"
-        : adoptionResult
-          ? "reassigned"
-          : "context-changed",
+    status: adoptionStatus(adoptionResult),
   };
 }

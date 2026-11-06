@@ -347,6 +347,17 @@ async function prepareDeniedProjectionForApply(
   return null;
 }
 
+/** The last page settles only if presentation access is still restorable. */
+function finalPageStep(
+  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  state: ReconciliationState,
+  accessInput: OrganizationPresentationAccessInput,
+): ReconciliationStep {
+  return restoreOrganizationPresentationAccess(accessInput, state.accessAttempt)
+    ? localResult(input, state, { failed: false })
+    : { kind: "done", value: null };
+}
+
 async function applyReadModelPage(
   input: ReconcileOrganizationDirectoryAndGroupsInput,
   state: ReconciliationState,
@@ -381,12 +392,7 @@ async function applyReadModelPage(
 
     state.expectedLocalCursor = state.projection?.cursor ?? response.nextCursor;
     if (!response.hasMore) {
-      return restoreOrganizationPresentationAccess(
-        accessInput,
-        state.accessAttempt,
-      )
-        ? localResult(input, state, { failed: false })
-        : { kind: "done", value: null };
+      return finalPageStep(input, state, accessInput);
     }
     state.requestCursor = response.nextCursor;
     return { kind: "continue" };

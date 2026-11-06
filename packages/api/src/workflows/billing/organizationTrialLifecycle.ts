@@ -393,6 +393,12 @@ async function deferFailedTrialExpiry(input: {
   });
 }
 
+function trialExpiryNeedsAttention(attemptCount: number | null): boolean {
+  return (
+    attemptCount !== null && attemptCount >= TRIAL_EXPIRY_ATTENTION_ATTEMPTS
+  );
+}
+
 /**
  * Persists due trial expirations. Conditional updates make overlapping sweeps
  * safe on every database; PostgreSQL additionally locks each selected row.
@@ -453,10 +459,7 @@ export async function runExpireOrganizationTrialsWorkflow(
         );
         reportBackgroundFailure(deferError, "billing.trial-backoff");
       }
-      if (
-        attemptCount !== null &&
-        attemptCount >= TRIAL_EXPIRY_ATTENTION_ATTEMPTS
-      ) {
+      if (trialExpiryNeedsAttention(attemptCount)) {
         attentionRequired += 1;
         console.error(
           `Free-trial expiry requires operator attention for organization ${candidate.organizationId} after ${attemptCount} attempts`,

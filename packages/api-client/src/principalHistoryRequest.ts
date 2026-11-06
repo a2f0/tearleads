@@ -70,11 +70,10 @@ export async function principalHistoryRequest<T>(
         });
       continue;
     }
-    const data = decodeSuccess(decoded.data, input.decode);
-    if (decoded.data.status !== 200 || !input.validator(data)) {
-      return invalidResponseFailure(runtime, context, input, decoded.data);
-    }
-    return { ok: true, data };
+    const valid = validatedSuccess(decoded.data, input);
+    return valid
+      ? { ok: true, data: valid.data }
+      : invalidResponseFailure(runtime, context, input, decoded.data);
   }
 }
 
@@ -107,6 +106,17 @@ function decodeSuccess(
     : response.data;
 }
 
+function validatedSuccess<T>(
+  response: { readonly data: unknown; readonly status: number },
+  input: {
+    readonly validator: (value: unknown) => value is T;
+    readonly decode?: (value: unknown) => unknown;
+  },
+): { readonly data: T } | null {
+  const data = decodeSuccess(response, input.decode);
+  return response.status === 200 && input.validator(data) ? { data } : null;
+}
+
 function preserveCommitUncertainty(
   method: HttpMethod,
   context: PrincipalHistoryRequestContext,
@@ -136,6 +146,15 @@ function preserveCommitUncertainty(
   )
     result.report();
   return result;
+}
+
+/** A cancelled request is not a timeout, even if its deadline also passed. */
+function interruptedFailure(
+  context: PrincipalHistoryRequestContext,
+  deadline: { readonly expired: () => boolean },
+  response: Response | undefined,
+): RequestFailure {
+  return context.failure(response, deadline.expired() && !context.cancelled());
 }
 
 async function readResponse(
@@ -174,9 +193,10 @@ async function readResponse(
       return response;
     // An expired write remains uncertain even if a failure status arrived.
     if (context.cancelled() || deadline.expired())
-      return context.failure(
+      return interruptedFailure(
+        context,
+        deadline,
         response.ok ? response.data : undefined,
-        deadline.expired() && !context.cancelled(),
       );
     if (!response.ok) return response;
     const decoded = await decodeJsonOperationResponse(
@@ -187,10 +207,7 @@ async function readResponse(
       options,
     );
     if (context.cancelled() || deadline.expired())
-      return context.failure(
-        response.data,
-        deadline.expired() && !context.cancelled(),
-      );
+      return interruptedFailure(context, deadline, response.data);
     if (!decoded.ok) return decoded;
     return {
       ok: true as const,

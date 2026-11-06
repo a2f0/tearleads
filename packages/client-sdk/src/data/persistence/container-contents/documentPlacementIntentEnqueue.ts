@@ -108,24 +108,31 @@ function placementIntentType(
     : "document.link";
 }
 
+function resolveUnlinkPlacement(
+  input: PlacementIntentInput,
+  previous: typeof localIntents.$inferSelect | undefined,
+) {
+  return {
+    sourceContainerId:
+      previous?.intentType === "document.move"
+        ? previous.sourceContainerId
+        : input.targetContainerId,
+    targetContainerId:
+      previous?.intentType === "document.move" &&
+      previous.targetContainerId !== input.removedContainerId
+        ? previous.targetContainerId
+        : input.targetContainerId,
+    replaceLinkedContainers: previous?.replaceLinkedContainers ?? false,
+  };
+}
+
 function resolvePlacement(
   input: PlacementIntentInput,
   previous: typeof localIntents.$inferSelect | undefined,
   operation: "move" | "link" | "unlink",
 ) {
   if (operation === "unlink") {
-    return {
-      sourceContainerId:
-        previous?.intentType === "document.move"
-          ? previous.sourceContainerId
-          : input.targetContainerId,
-      targetContainerId:
-        previous?.intentType === "document.move" &&
-        previous.targetContainerId !== input.removedContainerId
-          ? previous.targetContainerId
-          : input.targetContainerId,
-      replaceLinkedContainers: previous?.replaceLinkedContainers ?? false,
-    };
+    return resolveUnlinkPlacement(input, previous);
   }
   const linkOnly = operation === "link";
   const sourceContainerId =

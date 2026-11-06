@@ -247,13 +247,14 @@ async function ensureChildSystemContainer(
     runtime: state.runtime,
     stillCurrent: isCurrent,
   });
-  if (!created || !isCurrent()) {
-    if (createRemote && !isCurrent()) {
+  if (!isCurrent()) {
+    if (createRemote) {
       state.containerParentIdsNeedingHydration.add(rootState.container.id);
       syncAgent.scheduleRemoteHydration();
     }
     return null;
   }
+  if (!created) return null;
 
   const finalized = await finalizeCreatedSystemContainer({
     created,

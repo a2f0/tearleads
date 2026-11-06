@@ -62,7 +62,6 @@ async function reclaimQueuedBlobs(
 ): Promise<boolean> {
   const execSql = runtime.infra.execSql;
   await persistence.ensureSchema(execSql);
-  let shouldContinue = false;
 
   const startedAt = Date.now();
   const { deferredStorageKeys } = state;
@@ -70,7 +69,7 @@ async function reclaimQueuedBlobs(
   let warmedBlobStore = false;
   let sweptAgedOrphans = false;
 
-  reclaimQueue: while (true) {
+  while (true) {
     clearExpiredDeferredStorageKeys(deferredStorageKeys, Date.now());
     const queuedStorageKeys = await persistence.orphanBlobs.list(
       execSql,
@@ -137,14 +136,15 @@ async function reclaimQueuedBlobs(
         }
       });
       if (Date.now() - startedAt >= ORPHAN_BLOB_RECLAIM_TIME_BUDGET_MS) {
-        shouldContinue = true;
-        break reclaimQueue;
+        // Out of time: report what failed and let the caller run another pass.
+        logDeferredReclaims(runtime, failedStorageKeys);
+        return true;
       }
     }
   }
 
   logDeferredReclaims(runtime, failedStorageKeys);
-  return shouldContinue;
+  return false;
 }
 
 function logDeferredReclaims(
