@@ -361,6 +361,26 @@ function paymentRequiredDescription(
       };
 }
 
+/** An unreadable or empty body: invalid for a typed operation. */
+function unreadableErrorResponseDescription(
+  operation: HttpOperation | undefined,
+): ErrorResponseDescription {
+  return operation
+    ? invalidErrorResponseDescription
+    : emptyErrorResponseDescription;
+}
+
+/** A body without a recognized error: untyped requests echo its text. */
+function unparsedErrorResponseDescription(
+  operation: HttpOperation | undefined,
+  typed: ErrorResponseDescription,
+  responseText: string,
+): ErrorResponseDescription {
+  return operation
+    ? typed
+    : { ...emptyErrorResponseDescription, detail: `: ${responseText}` };
+}
+
 export async function describeErrorResponse(
   response: Response,
   operation?: HttpOperation,
@@ -378,24 +398,22 @@ export async function describeErrorResponse(
   try {
     responseText = (await response.text()).trim();
   } catch {
-    return operation
-      ? invalidErrorResponseDescription
-      : emptyErrorResponseDescription;
+    return unreadableErrorResponseDescription(operation);
   }
 
   if (responseText.length === 0) {
-    return operation
-      ? invalidErrorResponseDescription
-      : emptyErrorResponseDescription;
+    return unreadableErrorResponseDescription(operation);
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(responseText);
   } catch {
-    return operation
-      ? invalidErrorResponseDescription
-      : { ...emptyErrorResponseDescription, detail: `: ${responseText}` };
+    return unparsedErrorResponseDescription(
+      operation,
+      invalidErrorResponseDescription,
+      responseText,
+    );
   }
 
   if (schema) {
@@ -422,9 +440,11 @@ export async function describeErrorResponse(
     return description;
   }
 
-  return operation
-    ? emptyErrorResponseDescription
-    : { ...emptyErrorResponseDescription, detail: `: ${responseText}` };
+  return unparsedErrorResponseDescription(
+    operation,
+    emptyErrorResponseDescription,
+    responseText,
+  );
 }
 
 export function isRefreshableSessionError(
