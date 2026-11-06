@@ -55,17 +55,9 @@ export function subscribeToDocumentSummaryDirectory(input: {
   let reloadRequested = false;
   let revision = 0;
   const isCurrent = () => active && input.isCurrent();
-  const loadOnce = async () => {
-    reloadRequested = false;
-    const requestedRevision = revision;
-    const answersRequest = () => isCurrent() && revision === requestedRevision;
-    try {
-      const rows = await input.load();
-      if (answersRequest()) input.onLoaded(rows);
-    } catch (error) {
-      if (answersRequest()) input.onError(error);
-    }
-  };
+  // A load answers only while no live write has landed since it started.
+  const answersRevision = (requestedRevision: number) =>
+    isCurrent() && revision === requestedRevision;
   const load = async () => {
     if (!isCurrent()) return;
     if (loading) {
@@ -75,7 +67,14 @@ export function subscribeToDocumentSummaryDirectory(input: {
     loading = true;
     try {
       do {
-        await loadOnce();
+        reloadRequested = false;
+        const requestedRevision = revision;
+        try {
+          const rows = await input.load();
+          if (answersRevision(requestedRevision)) input.onLoaded(rows);
+        } catch (error) {
+          if (answersRevision(requestedRevision)) input.onError(error);
+        }
       } while (isCurrent() && reloadRequested);
     } finally {
       loading = false;
