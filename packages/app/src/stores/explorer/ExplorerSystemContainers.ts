@@ -104,6 +104,17 @@ function hasUnhydratedAncestor(
   return false;
 }
 
+function replacePreferredSystemNode(
+  visibleNodes: ContainerNode[],
+  existingIndex: number,
+  node: ContainerNode,
+): void {
+  const existingNode = visibleNodes[existingIndex];
+  if (existingNode && shouldPreferExplorerSystemNode(existingNode, node)) {
+    visibleNodes[existingIndex] = node;
+  }
+}
+
 export function getVisibleExplorerNodes(
   nodes: ContainerContentsContextValue["nodes"] | null | undefined,
   visibleSystemSlots?: ReadonlySet<ContainerSystemSlot>,
@@ -141,10 +152,7 @@ export function getVisibleExplorerNodes(
       continue;
     }
 
-    const existingNode = visibleNodes[existingIndex];
-    if (existingNode && shouldPreferExplorerSystemNode(existingNode, node)) {
-      visibleNodes[existingIndex] = node;
-    }
+    replacePreferredSystemNode(visibleNodes, existingIndex, node);
   }
 
   return visibleNodes;

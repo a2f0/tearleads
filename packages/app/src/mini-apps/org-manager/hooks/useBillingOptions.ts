@@ -106,6 +106,14 @@ function scheduleOptionsRetry(
     : undefined;
 }
 
+/** A catalog loaded before the buyer identity settled retries for it. */
+function retryPendingIdentity(
+  pendingIdentityError: unknown,
+  retry: (error: unknown) => void,
+): void {
+  if (pendingIdentityError) retry(pendingIdentityError);
+}
+
 export function useBillingOptions(input: UseBillingOptionsInput): () => void {
   // A hook instance uses one schedule; production uses the fixed module value.
   const retryDelaysRef = useRef(input.retryDelaysMs ?? OPTIONS_RETRY_DELAYS_MS);
@@ -163,7 +171,7 @@ export function useBillingOptions(input: UseBillingOptionsInput): () => void {
           errorKind: optionsErrorKind(pendingIdentityError),
           options: next,
         });
-        if (pendingIdentityError) retry(pendingIdentityError);
+        retryPendingIdentity(pendingIdentityError, retry);
       } catch (error) {
         if (!isCurrent()) return;
         input.setOptionsState((current) => {

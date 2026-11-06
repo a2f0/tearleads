@@ -61,6 +61,23 @@ function tableOwnershipViolations(
   return [...unknown, ...owners];
 }
 
+function staleBaselineViolations(
+  baseline: SubsystemTableBaseline,
+  crossUses: ReadonlySet<string>,
+): string[] {
+  const violations: string[] = [];
+  for (const [table, importers] of Object.entries(baseline)) {
+    for (const from of importers) {
+      if (!crossUses.has(`${from} -> ${table}`)) {
+        violations.push(
+          `${from} -> ${table} no longer occurs; delete it from ${subsystemTableBaselinePath}`,
+        );
+      }
+    }
+  }
+  return violations;
+}
+
 /**
  * Writes to another subsystem's table and reads of one it does not expose
  * that are not in the baseline, baseline entries that no longer occur, and
@@ -96,15 +113,7 @@ export function findTableViolations(params: {
       );
     }
   }
-  for (const [table, importers] of Object.entries(params.baseline)) {
-    for (const from of importers) {
-      if (!crossUses.has(`${from} -> ${table}`)) {
-        violations.push(
-          `${from} -> ${table} no longer occurs; delete it from ${subsystemTableBaselinePath}`,
-        );
-      }
-    }
-  }
+  violations.push(...staleBaselineViolations(params.baseline, crossUses));
   return [
     ...violations.sort(),
     ...tableOwnershipViolations(params.registry, params.declaredTables),

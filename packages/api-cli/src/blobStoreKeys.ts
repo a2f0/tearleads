@@ -152,6 +152,21 @@ export function parseListBlobStoreKeysArgs(
   return { prefix, withSize };
 }
 
+function listObjectsInput(
+  bucket: string,
+  prefix: string | undefined,
+  continuationToken: string | undefined,
+): ListObjectsV2CommandInput {
+  const input: ListObjectsV2CommandInput = { Bucket: bucket };
+  if (prefix) {
+    input.Prefix = prefix;
+  }
+  if (continuationToken) {
+    input.ContinuationToken = continuationToken;
+  }
+  return input;
+}
+
 export async function listS3BlobStoreKeys({
   env = process.env,
   prefix,
@@ -165,14 +180,7 @@ export async function listS3BlobStoreKeys({
   let continuationToken: string | undefined;
 
   do {
-    const input: ListObjectsV2CommandInput = { Bucket: bucket };
-    if (prefix) {
-      input.Prefix = prefix;
-    }
-    if (continuationToken) {
-      input.ContinuationToken = continuationToken;
-    }
-
+    const input = listObjectsInput(bucket, prefix, continuationToken);
     const response = await client.send(new ListObjectsV2Command(input));
     for (const object of response.Contents ?? []) {
       if (object.Key) {

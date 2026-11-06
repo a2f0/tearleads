@@ -80,6 +80,22 @@ async function completeRestorationSweeps(
   }
 }
 
+type RestorationSweepStep = "resume" | "retire" | "wait" | "claim";
+
+function restorationSweepStep(
+  sweep: DormantMetadataSweep,
+  now: number,
+  forcedRetrySweepIds: ReadonlySet<string> | undefined,
+): RestorationSweepStep {
+  // The interrupted generation already claimed and durably counted this
+  // attempt. Resume that exact attempt after reset instead of consuming a
+  // new one or retiring it at the limit before its completion ran.
+  if (forcedRetrySweepIds?.has(restorationSweepIdentity(sweep)))
+    return "resume";
+  if (sweep.attemptCount >= SWEEP_ATTEMPT_LIMIT) return "retire";
+  return isSweepAttemptDue(sweep, now) ? "claim" : "wait";
+}
+
 async function claimDueRestorationSweeps(
   session: RestorationSweepSession,
   sweeps: readonly DormantMetadataSweep[],
@@ -92,29 +108,27 @@ async function claimDueRestorationSweeps(
     if (!session.isCurrent()) {
       return claimed;
     }
-    if (forcedRetrySweepIds?.has(restorationSweepIdentity(sweep))) {
-      // The interrupted generation already claimed and durably counted this
-      // attempt. Resume that exact attempt after reset instead of consuming a
-      // new one or retiring it at the limit before its completion ran.
-      claimed.push(sweep);
-      continue;
-    }
-    if (sweep.attemptCount >= SWEEP_ATTEMPT_LIMIT) {
-      await session.persistence.completeDormantMetadataSweepRequest(
-        session.runtime.infra.execSql,
-        sweep,
-        session.isCurrent,
-      );
-      if (!session.isCurrent()) {
-        return claimed;
-      }
-      session.runtime.util.log(
-        `${getContainerContentsStoreLogLabel(session.state)}: retired exhausted dormant metadata sweep; metadata remains dormant`,
-      );
-      continue;
-    }
-    if (!isSweepAttemptDue(sweep, now)) {
-      continue;
+    switch (restorationSweepStep(sweep, now, forcedRetrySweepIds)) {
+      case "resume":
+        claimed.push(sweep);
+        continue;
+      case "retire":
+        await session.persistence.completeDormantMetadataSweepRequest(
+          session.runtime.infra.execSql,
+          sweep,
+          session.isCurrent,
+        );
+        if (!session.isCurrent()) {
+          return claimed;
+        }
+        session.runtime.util.log(
+          `${getContainerContentsStoreLogLabel(session.state)}: retired exhausted dormant metadata sweep; metadata remains dormant`,
+        );
+        continue;
+      case "wait":
+        continue;
+      case "claim":
+        break;
     }
     const didClaim = await session.persistence.claimDormantMetadataSweepAttempt(
       session.runtime.infra.execSql,

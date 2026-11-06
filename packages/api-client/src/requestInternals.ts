@@ -126,6 +126,22 @@ function validatedFailureCode(
     : value.code;
 }
 
+// Container mutations and document sync with inline container rekeys can
+// carry advisory heads whose signed evidence can be recovered in pages.
+function stalePrincipalHeadsField(
+  value: object,
+  schema?: NonNullable<HttpOperation["failureResponses"]>[number],
+) {
+  return schema === ContainerMutationFailureResponseSchema &&
+    isPrincipalPolicyStaleErrorResponse(value)
+    ? { stalePrincipalHeads: value.principalHeads }
+    : schema === DocumentSyncErrorResponseSchema &&
+        isDocumentSyncStateStaleErrorResponse(value) &&
+        value.principalHeads !== undefined
+      ? { stalePrincipalHeads: value.principalHeads }
+      : {};
+}
+
 function parsedErrorResponseDescription(
   value: unknown,
   schema?: NonNullable<HttpOperation["failureResponses"]>[number],
@@ -148,16 +164,7 @@ function parsedErrorResponseDescription(
     code,
     detail: error.length === 0 ? "" : `: ${error}`,
     error: error.length === 0 ? null : error,
-    // Container mutations and document sync with inline container rekeys can
-    // carry advisory heads whose signed evidence can be recovered in pages.
-    ...(schema === ContainerMutationFailureResponseSchema &&
-    isPrincipalPolicyStaleErrorResponse(value)
-      ? { stalePrincipalHeads: value.principalHeads }
-      : schema === DocumentSyncErrorResponseSchema &&
-          isDocumentSyncStateStaleErrorResponse(value) &&
-          value.principalHeads !== undefined
-        ? { stalePrincipalHeads: value.principalHeads }
-        : {}),
+    ...stalePrincipalHeadsField(value, schema),
     ...((code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
       code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysInaccessible) &&
     "requiredContainerIds" in value &&

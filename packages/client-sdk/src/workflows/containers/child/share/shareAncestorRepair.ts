@@ -73,6 +73,18 @@ function boundRekeyResult(
     : {};
 }
 
+// This sharer may be unable to re-key a level above a container that already
+// carries a grant, stale past the carried-rekey cap. The server asks a current
+// chain only of a first grant, so it decides rather than this blocking a grant
+// it would accept.
+function serverDecidesStaleLevel(
+  staleLevelId: string,
+  containerId: string,
+  projection: ContainerWriterProjectionResponse,
+): boolean {
+  return staleLevelId !== containerId && carriesDirectGrant(projection);
+}
+
 export async function projectionWithCurrentAncestors(input: {
   apiClient: ContainerShareApi &
     Partial<Pick<ContainerRekeyApi, "rekeyContainer" | "rekeyContainerResult">>;
@@ -98,12 +110,11 @@ export async function projectionWithCurrentAncestors(input: {
         "Container share must re-key a stale path, which needs rekeyContainer",
       );
     }
-    // This sharer may be unable to re-key a level above a container that
-    // already carries a grant, stale past the carried-rekey cap. The server
-    // asks a current chain only of a first grant, so it decides rather than
-    // this blocking a grant it would accept.
-    const serverDecides =
-      staleLevelId !== input.containerId && carriesDirectGrant(projection);
+    const serverDecides = serverDecidesStaleLevel(
+      staleLevelId,
+      input.containerId,
+      projection,
+    );
     const repaired = await rekeyRemoteContainer({
       apiClient: {
         getContainerWriterProjection: (containerId) =>

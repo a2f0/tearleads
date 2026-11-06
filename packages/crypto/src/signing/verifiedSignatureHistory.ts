@@ -23,6 +23,28 @@ function remember(accepted: Set<string>, key: string, capacity: number): void {
   }
 }
 
+// A provider changing its input between passes must never make a cached
+// prefix cover different bytes, nor add/remove an unchecked signature.
+function entryStillVerifies(
+  entry: SignatureInput,
+  digest: string | undefined,
+  unchecked: boolean,
+  verifySignature: (
+    ...args: Parameters<typeof verifyHistorySignature>
+  ) => boolean,
+): boolean {
+  const current = signatureVerificationDigest(
+    entry.signature,
+    entry.message,
+    entry.publicKey,
+  );
+  if (digest !== bytesToHex(current)) return false;
+  return (
+    !unchecked ||
+    verifySignature(entry.signature, entry.message, entry.publicKey)
+  );
+}
+
 /**
  * Retain only digests of locally verified signature transcripts. Re-hash every
  * supplied byte before reusing a prefix; no authorization or server head is
@@ -61,22 +83,9 @@ export function createSignatureHistoryVerifier(
     }
     let index = 0;
     for await (const entry of entries()) {
-      // A provider changing its input between passes must never make a cached
-      // prefix cover different bytes, nor add/remove an unchecked signature.
+      const unchecked = index >= verifiedThrough;
       if (
-        digests[index] !==
-        bytesToHex(
-          signatureVerificationDigest(
-            entry.signature,
-            entry.message,
-            entry.publicKey,
-          ),
-        )
-      )
-        return false;
-      if (
-        index >= verifiedThrough &&
-        !verifySignature(entry.signature, entry.message, entry.publicKey)
+        !entryStillVerifies(entry, digests[index], unchecked, verifySignature)
       )
         return false;
       index += 1;

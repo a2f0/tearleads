@@ -128,6 +128,15 @@ async function verifyLastPageCurrent(
   if (!checked.ok) throw checked.error;
 }
 
+// A signed cached candidate need not belong to this requested chain. Only
+// reused progress permits one replay; a fresh disconnected chain fails.
+function replaysReusedProgress(
+  mayReplay: boolean,
+  initial: { readonly afterVersion: number },
+): boolean {
+  return mayReplay && initial.afterVersion > 0;
+}
+
 async function recoverAttempt(
   input: PublicPrincipalHistoryOptions,
   allowReuse = true,
@@ -146,9 +155,7 @@ async function recoverAttempt(
   } catch (error) {
     if (!(error instanceof PublicPrincipalHistoryPrefixDisconnectedError))
       throw error;
-    // A signed cached candidate need not belong to this requested chain. Only
-    // reused progress permits one replay; a fresh disconnected chain fails.
-    if (mayReplay && initial.afterVersion > 0)
+    if (replaysReusedProgress(mayReplay, initial))
       return recover(input, false, initial.cachedPrefix);
     throw error.verificationError;
   }

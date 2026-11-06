@@ -247,6 +247,27 @@ function trackedTypeScriptFiles(): string[] {
     .sort();
 }
 
+function staleUnownedFileExceptions(
+  trackedFiles: ReadonlySet<string>,
+  ownedFiles: ReadonlySet<string>,
+): WorkspaceRegistryViolation[] {
+  const violations: WorkspaceRegistryViolation[] = [];
+  for (const [filePath, reason] of intentionallyUnownedTypeScriptFiles) {
+    if (!trackedFiles.has(filePath)) {
+      violations.push({
+        detail: "exception is stale because the file is no longer tracked",
+        surface: filePath,
+      });
+    } else if (ownedFiles.has(filePath)) {
+      violations.push({
+        detail: `exception is no longer needed (${reason})`,
+        surface: filePath,
+      });
+    }
+  }
+  return violations;
+}
+
 function typeScriptProjectCoverageViolations(): WorkspaceRegistryViolation[] {
   const ownedFiles = new Set<string>();
   const violations: WorkspaceRegistryViolation[] = [];
@@ -296,20 +317,7 @@ function typeScriptProjectCoverageViolations(): WorkspaceRegistryViolation[] {
     }
   }
 
-  for (const [filePath, reason] of intentionallyUnownedTypeScriptFiles) {
-    if (!trackedFiles.has(filePath)) {
-      violations.push({
-        detail: "exception is stale because the file is no longer tracked",
-        surface: filePath,
-      });
-    } else if (ownedFiles.has(filePath)) {
-      violations.push({
-        detail: `exception is no longer needed (${reason})`,
-        surface: filePath,
-      });
-    }
-  }
-
+  violations.push(...staleUnownedFileExceptions(trackedFiles, ownedFiles));
   return violations;
 }
 

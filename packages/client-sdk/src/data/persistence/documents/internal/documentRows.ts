@@ -214,6 +214,20 @@ function chunks<T>(values: ReadonlyArray<T>, size: number): T[][] {
   return result;
 }
 
+// A row that omits an optional column leaves it untouched on update, so
+// rows are grouped by their column shape and each shape gets its own set.
+function documentRowsByColumnShape(
+  entries: ReadonlyArray<{ document: StoredDocumentRecord; updatedAt: string }>,
+): Map<string, ReturnType<typeof toDocumentRecordRow>[]> {
+  const shapes = new Map<string, ReturnType<typeof toDocumentRecordRow>[]>();
+  for (const entry of entries) {
+    const row = toDocumentRecordRow(entry);
+    const shape = Object.keys(row).join(",");
+    shapes.set(shape, [...(shapes.get(shape) ?? []), row]);
+  }
+  return shapes;
+}
+
 /**
  * `saveDocumentRows` for documents with DISTINCT local ids, as multi-row
  * statements: one fenced documents upsert per chunk and row shape, then the
@@ -228,14 +242,7 @@ export async function saveDocumentRowsBatch(input: {
   const { entries, tx } = input;
   const documentColumns: Record<string, SQLiteColumn> =
     getTableColumns(documents);
-  // A row that omits an optional column leaves it untouched on update, so
-  // rows are grouped by their column shape and each shape gets its own set.
-  const shapes = new Map<string, ReturnType<typeof toDocumentRecordRow>[]>();
-  for (const entry of entries) {
-    const row = toDocumentRecordRow(entry);
-    const shape = Object.keys(row).join(",");
-    shapes.set(shape, [...(shapes.get(shape) ?? []), row]);
-  }
+  const shapes = documentRowsByColumnShape(entries);
   const saved = new Set<string>();
   for (const rows of shapes.values()) {
     const [first] = rows;

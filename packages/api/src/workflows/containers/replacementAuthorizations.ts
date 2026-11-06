@@ -10,6 +10,32 @@ import {
 } from "./writerProjection";
 import { flushVerificationMarkersAfterRead } from "./writerProjection/verificationMarkers";
 
+/** The signed proof that a purged organization's replacement is its next link. */
+function purgedReplacementProof(
+  organizationId: string,
+  billing:
+    | {
+        readonly status: string | null;
+        readonly replacementOrganizationId: string | null;
+        readonly response: unknown;
+      }
+    | undefined,
+) {
+  const response = billing?.response;
+  if (billing?.status !== "purged" || !isCreateOrganizationResponse(response))
+    return null;
+  const proof = response.replacementAuthorization;
+  if (
+    !proof ||
+    proof.replacesOrganizationId !== organizationId ||
+    proof.organizationId !== billing.replacementOrganizationId ||
+    proof.organizationId !== response.organizationId ||
+    proof.userId !== response.userId
+  )
+    return null;
+  return proof;
+}
+
 /** Only a current reader of the re-shared destination may discover its lineage. */
 export async function runContainerReplacementAuthorizationsWorkflow(
   db: ApiDatabase,
@@ -46,21 +72,8 @@ export async function runContainerReplacementAuthorizationsWorkflow(
         .from(organizationBilling)
         .where(eq(organizationBilling.organizationId, organizationId))
         .limit(1);
-      const response = billing?.response;
-      if (
-        billing?.status !== "purged" ||
-        !isCreateOrganizationResponse(response)
-      )
-        break;
-      const proof = response.replacementAuthorization;
-      if (
-        !proof ||
-        proof.replacesOrganizationId !== organizationId ||
-        proof.organizationId !== billing.replacementOrganizationId ||
-        proof.organizationId !== response.organizationId ||
-        proof.userId !== response.userId
-      )
-        break;
+      const proof = purgedReplacementProof(organizationId, billing);
+      if (!proof) break;
       authorizations.push(proof);
       organizationId = proof.organizationId;
     }

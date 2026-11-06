@@ -104,6 +104,16 @@ async function rootPlacementIsCurrent(
   return verifiedRemoteScope(input, root, verifiedAncestorsById);
 }
 
+/** A cycle or a pending move anywhere on the walk leaves the scope unproven. */
+function isUnvisitedSettledAncestor(
+  currentId: string | null,
+  seen: ReadonlySet<string>,
+  pendingMoves: { has(containerId: string): boolean },
+): currentId is string {
+  if (!currentId) return false;
+  return !seen.has(currentId) && !pendingMoves.has(currentId);
+}
+
 async function allowsContainer(
   input: SubtreePurgeScopeInput,
   containerId: string,
@@ -119,7 +129,7 @@ async function allowsContainer(
   let currentId: string | null = containerId;
   let verifiedRemoteAncestry = false;
   while (currentId !== rootContainerId) {
-    if (!currentId || seen.has(currentId) || pendingMoves.has(currentId))
+    if (!isUnvisitedSettledAncestor(currentId, seen, pendingMoves))
       return false;
     seen.add(currentId);
     const expected = input.containersById.get(currentId);

@@ -232,6 +232,17 @@ async function prefetchContainerPathRows(
   return loadedIds;
 }
 
+function bindPrefetchedCurrentBundles(
+  context: ContainerWriterProjectionContext,
+  headHashByContainerId: ReadonlyMap<string, string>,
+): void {
+  for (const [containerId, manifestHash] of headHashByContainerId) {
+    const bundle = context.manifestBundleByHash.get(manifestHash);
+    if (bundle && !context.currentManifestBundleByContainerId.has(containerId))
+      context.currentManifestBundleByContainerId.set(containerId, bundle);
+  }
+}
+
 async function prefetchCurrentContainerManifestBundles(
   context: ContainerWriterProjectionContext,
   containerIds: readonly string[],
@@ -274,11 +285,7 @@ async function prefetchCurrentContainerManifestBundles(
       context.verificationMarkers.seed(bundle);
     }
   }
-  for (const [containerId, manifestHash] of headHashByContainerId) {
-    const bundle = context.manifestBundleByHash.get(manifestHash);
-    if (bundle && !context.currentManifestBundleByContainerId.has(containerId))
-      context.currentManifestBundleByContainerId.set(containerId, bundle);
-  }
+  bindPrefetchedCurrentBundles(context, headHashByContainerId);
 }
 
 /**

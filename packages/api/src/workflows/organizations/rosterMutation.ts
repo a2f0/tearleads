@@ -15,6 +15,16 @@ import {
 } from "./roster";
 import { loadUsersById } from "./users";
 
+/** Matches the roster row only when the requested profile document is new. */
+function profileDocumentDiffers(profileDocumentId: string | null) {
+  return profileDocumentId === null
+    ? isNotNull(organizationRosterEntries.profileDocumentId)
+    : or(
+        isNull(organizationRosterEntries.profileDocumentId),
+        ne(organizationRosterEntries.profileDocumentId, profileDocumentId),
+      );
+}
+
 export async function runUpdateOrganizationRosterEntryWorkflow(
   db: ApiDatabase,
   organizationId: string,
@@ -61,16 +71,9 @@ export async function runUpdateOrganizationRosterEntryWorkflow(
       );
     }
 
-    const profileDocumentChanged =
-      input.profileDocumentId === null
-        ? isNotNull(organizationRosterEntries.profileDocumentId)
-        : or(
-            isNull(organizationRosterEntries.profileDocumentId),
-            ne(
-              organizationRosterEntries.profileDocumentId,
-              input.profileDocumentId,
-            ),
-          );
+    const profileDocumentChanged = profileDocumentDiffers(
+      input.profileDocumentId,
+    );
     const [updatedRosterEntry] = await tx
       .update(organizationRosterEntries)
       .set({
