@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { waitFor } from "../../../test/helpers/waitFor";
 import { createDomainScope } from "../shared/domainScope";
 import {
   beginDomainSyncUploadLane,
@@ -151,4 +152,26 @@ test("an upload session does not hold back a pump lane registered on its key", a
   expect(runs).toBe(1);
   upload.complete();
   expect(findLane(domainScope, "shared-key")?.status).toBe("complete");
+});
+
+test("an upload on a key whose pump run was abandoned still reports running", async () => {
+  const domainScope = createDomainScope();
+  let release: () => void = () => {};
+  const hung = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  getOrCreateDomainSyncCoordinator(domainScope)
+    .registerLane("shared-key", { run: () => hung, watchdogMs: 5 })
+    .requestSync();
+  await waitFor(
+    () => findLane(domainScope, "shared-key")?.runAbandoned === true,
+    "watchdog did not abandon the run",
+  );
+
+  const upload = beginDomainSyncUploadLane(domainScope, "shared-key");
+  expect(findLane(domainScope, "shared-key")?.running).toBe(true);
+  expect(hasDomainSyncCoordinatorPendingWork(domainScope)).toBe(true);
+  upload.complete();
+  expect(findLane(domainScope, "shared-key")?.running).toBe(false);
+  release();
 });

@@ -1,5 +1,5 @@
 /**
- * A sync lane's lifecycle as two orthogonal machines. The run says who owns
+ * A pump lane's lifecycle as two orthogonal machines. The run says who owns
  * the lane's callback; the request says whether another pass is owed. A
  * request may be pending in every run phase: one arriving during a run is
  * coalesced and survives that run's settlement (docs/client-sync-ordering.md).
@@ -9,9 +9,6 @@
 
 export type SyncLaneRun =
   | { readonly status: "idle" }
-  // An observational upload session. It shows the lane as running but owns
-  // no callback, so the pump may still start a lane registered on its key.
-  | { readonly status: "uploading"; readonly token: object }
   | { readonly status: "running"; readonly token: object }
   // The watchdog stopped waiting, but the callback still owns the lane until
   // it settles, so the lane can never run concurrently with itself.
@@ -21,8 +18,6 @@ export type SyncLaneRun =
 
 export type SyncLaneRunEvent =
   | { readonly type: "start"; readonly token: object }
-  // A re-begun upload replaces the previous session; pump phases keep the lane.
-  | { readonly type: "upload-start"; readonly token: object }
   | { readonly type: "settle"; readonly token: object }
   | { readonly type: "time-out"; readonly token: object }
   | { readonly type: "back-off"; readonly token: object }
@@ -58,15 +53,12 @@ export function transitionSyncLaneRun(
 ): SyncLaneRun {
   switch (event.type) {
     case "start":
-      return run.status === "idle" || run.status === "uploading"
+      return run.status === "idle"
         ? { status: "running", token: event.token }
         : run;
-    case "upload-start":
-      return run.status === "idle" || run.status === "uploading"
-        ? { status: "uploading", token: event.token }
-        : run;
     case "settle":
-      return run.status !== "backingOff" && ownsToken(run, event.token)
+      return (run.status === "running" || run.status === "abandoned") &&
+        ownsToken(run, event.token)
         ? IDLE_SYNC_LANE_RUN
         : run;
     case "time-out":
@@ -119,14 +111,12 @@ export function ownsLiveRun(run: SyncLaneRun): boolean {
   return run.status === "running" || run.status === "abandoned";
 }
 
-/** Only an idle or upload-only lane may start a pump run. */
-export function canStartRun(run: SyncLaneRun): boolean {
-  return run.status === "idle" || run.status === "uploading";
-}
-
 /** What snapshots report as `running`: a pump run or an upload session. */
-export function isRunActive(run: SyncLaneRun): boolean {
-  return run.status === "running" || run.status === "uploading";
+export function isLaneRunning(lane: {
+  readonly run: SyncLaneRun;
+  readonly uploadSession: object | null;
+}): boolean {
+  return lane.run.status === "running" || lane.uploadSession !== null;
 }
 
 export function hasPendingRequest(request: SyncLaneRequest): boolean {

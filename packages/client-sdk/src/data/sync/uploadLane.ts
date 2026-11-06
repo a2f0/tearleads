@@ -9,11 +9,7 @@ import {
   noopLaneRun,
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
-import {
-  isRunActive,
-  transitionSyncLaneRequest,
-  transitionSyncLaneRun,
-} from "./syncLaneMachine";
+import { isLaneRunning, transitionSyncLaneRequest } from "./syncLaneMachine";
 import type { SyncLaneProgress } from "./syncTelemetry";
 import { addSyncLaneRunDuration, createSyncTimestamp } from "./syncTelemetry";
 
@@ -44,7 +40,7 @@ function evictRetainedUploadLanes(
 ) {
   const settledUploadLanes: SyncLaneState[] = [];
   for (const lane of coordinatorState.lanes.values()) {
-    if (lane.config.phase === "blob" && !isRunActive(lane.run)) {
+    if (lane.config.phase === "blob" && !isLaneRunning(lane)) {
       settledUploadLanes.push(lane);
     }
   }
@@ -69,7 +65,9 @@ function startUploadLaneRun(lane: SyncLaneState, token: object): () => void {
   const startedAtMs = readUserTimingClock();
   let timed = false;
   return () => {
-    lane.run = transitionSyncLaneRun(lane.run, { type: "settle", token });
+    if (lane.uploadSession === token) {
+      lane.uploadSession = null;
+    }
     if (timed) {
       return;
     }
@@ -132,10 +130,7 @@ export function beginUploadLane(
   uploadLane.request = transitionSyncLaneRequest(uploadLane.request, {
     type: "clear",
   });
-  uploadLane.run = transitionSyncLaneRun(uploadLane.run, {
-    type: "upload-start",
-    token: runToken,
-  });
+  uploadLane.uploadSession = runToken;
   uploadLane.runCount += 1;
   uploadLane.lastAction = "started";
   uploadLane.lastActionAt = startedAt;

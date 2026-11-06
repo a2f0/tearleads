@@ -1,10 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
-  canStartRun,
   hasPendingRequest,
   IDLE_SYNC_LANE_RUN,
+  isLaneRunning,
   isRequestDue,
-  isRunActive,
   NO_SYNC_LANE_REQUEST,
   ownsLiveRun,
   type SyncLaneRequest,
@@ -23,7 +22,6 @@ const runStates: Record<SyncLaneRun["status"], SyncLaneRun> = {
   backingOff: { status: "backingOff", token: current },
   idle: IDLE_SYNC_LANE_RUN,
   running: { status: "running", token: current },
-  uploading: { status: "uploading", token: current },
 };
 
 type RunEventType = SyncLaneRunEvent["type"];
@@ -40,7 +38,6 @@ const runTable: Record<
     settle: IDLE_SYNC_LANE_RUN,
     start: "same",
     "time-out": "same",
-    "upload-start": "same",
   },
   backingOff: {
     "back-off": "same",
@@ -48,7 +45,6 @@ const runTable: Record<
     settle: "same",
     start: "same",
     "time-out": "same",
-    "upload-start": "same",
   },
   idle: {
     "back-off": { status: "backingOff", token: current },
@@ -56,7 +52,6 @@ const runTable: Record<
     settle: "same",
     start: { status: "running", token: current },
     "time-out": "same",
-    "upload-start": { status: "uploading", token: current },
   },
   running: {
     "back-off": "same",
@@ -64,15 +59,6 @@ const runTable: Record<
     settle: IDLE_SYNC_LANE_RUN,
     start: "same",
     "time-out": { status: "abandoned", token: current },
-    "upload-start": "same",
-  },
-  uploading: {
-    "back-off": "same",
-    "backoff-expire": "same",
-    settle: IDLE_SYNC_LANE_RUN,
-    start: { status: "running", token: current },
-    "time-out": "same",
-    "upload-start": { status: "uploading", token: current },
   },
 };
 
@@ -118,27 +104,25 @@ describe("transitionSyncLaneRun", () => {
     });
   });
 
-  test("only a pump callback owns the lane; uploads only show as running", () => {
-    const statuses = (predicate: (run: SyncLaneRun) => boolean) =>
-      Object.values(runStates)
-        .filter(predicate)
-        .map(({ status }) => status)
-        .sort();
-    expect(statuses(ownsLiveRun)).toEqual(["abandoned", "running"]);
-    expect(statuses(canStartRun)).toEqual(["idle", "uploading"]);
-    expect(statuses(isRunActive)).toEqual(["running", "uploading"]);
+  test("a lane runs while its pump run or an upload session is active", () => {
+    expect(
+      isLaneRunning({ run: IDLE_SYNC_LANE_RUN, uploadSession: null }),
+    ).toBe(false);
+    expect(isLaneRunning({ run: runStates.running, uploadSession: null })).toBe(
+      true,
+    );
+    expect(
+      isLaneRunning({ run: runStates.abandoned, uploadSession: current }),
+    ).toBe(true);
   });
 
-  test("a pump run replacing an upload ignores the upload's settle", () => {
-    const events: SyncLaneRunEvent[] = [
-      { type: "upload-start", token: current },
-      { type: "start", token: other },
-      { type: "settle", token: current },
-    ];
-    expect(events.reduce(transitionSyncLaneRun, IDLE_SYNC_LANE_RUN)).toEqual({
-      status: "running",
-      token: other,
-    });
+  test("a live run is running or abandoned", () => {
+    expect(
+      Object.values(runStates)
+        .filter(ownsLiveRun)
+        .map(({ status }) => status)
+        .sort(),
+    ).toEqual(["abandoned", "running"]);
   });
 });
 

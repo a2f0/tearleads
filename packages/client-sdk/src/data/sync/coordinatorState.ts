@@ -3,7 +3,7 @@ import type { SyncLaneRequest, SyncLaneRun } from "./syncLaneMachine";
 import {
   hasPendingRequest,
   IDLE_SYNC_LANE_RUN,
-  isRunActive,
+  isLaneRunning,
   NO_SYNC_LANE_REQUEST,
 } from "./syncLaneMachine";
 import type {
@@ -41,6 +41,9 @@ export interface SyncLaneState {
   run: SyncLaneRun;
   runCount: number;
   runDurations: SyncLaneRunDurations | null;
+  // The observational upload session reporting on this row, if any. Written
+  // only by uploadLane.ts; it shows the lane as running but owns no callback.
+  uploadSession: object | null;
 }
 
 export interface DomainSyncCoordinatorState {
@@ -62,6 +65,7 @@ export const INITIAL_SYNC_LANE_RUN_STATE = {
   run: IDLE_SYNC_LANE_RUN,
   runCount: 0,
   runDurations: null,
+  uploadSession: null,
 } as const;
 
 function describeSingleSyncLaneError(error: unknown): string {
@@ -117,7 +121,7 @@ export function noopLaneRun(): Promise<void> {
 // settle still publishes a snapshot and re-pumps any queued re-request.
 export function hasPendingLaneWork(lanes: Iterable<SyncLaneState>): boolean {
   for (const lane of lanes) {
-    if (hasPendingRequest(lane.request) || isRunActive(lane.run)) {
+    if (hasPendingRequest(lane.request) || isLaneRunning(lane)) {
       return true;
     }
   }

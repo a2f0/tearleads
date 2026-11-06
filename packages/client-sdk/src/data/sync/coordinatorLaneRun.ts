@@ -165,6 +165,8 @@ function startSyncLaneRun(
     type: "start",
     token: runToken,
   });
+  // A pump run supersedes an upload session on its key, as runCount does.
+  lane.uploadSession = null;
   lane.runCount += 1;
   lane.lastAction = "started";
   lane.lastActionAt = createSyncTimestamp();

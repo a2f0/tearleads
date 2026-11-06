@@ -8,10 +8,9 @@ import {
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
 import {
-  canStartRun,
   hasPendingRequest,
+  isLaneRunning,
   isRequestDue,
-  isRunActive,
   ownsLiveRun,
   transitionSyncLaneRequest,
 } from "./syncLaneMachine";
@@ -71,7 +70,7 @@ function isRequestedLaneAvailable(lane: SyncLaneState): boolean {
 function canStartRequestedLane(lane: SyncLaneState, nowMs: number): boolean {
   return (
     lane.pumpDriven &&
-    canStartRun(lane.run) &&
+    lane.run.status === "idle" &&
     isRequestDue(lane.request, nowMs)
   );
 }
@@ -130,7 +129,7 @@ async function runRequestedSyncLanes(
     const structuralPending = Array.from(state.lanes.values()).some(
       (candidate) =>
         candidate.config.phase === "structural" &&
-        ((candidate.pumpDriven && isRunActive(candidate.run)) ||
+        ((candidate.pumpDriven && isLaneRunning(candidate)) ||
           isRequestedLaneAvailable(candidate)),
     );
     const structuralRunning = Array.from(running.keys()).some(
