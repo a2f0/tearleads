@@ -37,6 +37,21 @@ type RevenueCatWebhookPreflight =
       >;
     };
 
+function warnIgnoredSandboxEvent(
+  event: RevenueCatWebhookEvent,
+  transition: RevenueCatBillingTransition,
+): void {
+  if (transition.kind !== "ignore") return;
+  if (transition.reason !== SANDBOX_IGNORED_REASON) return;
+  console.warn(
+    `RevenueCat event ${event.id} (${event.type}, store=${event.store ?? "unknown"}, environment=${event.environment}) ignored: ${transition.reason}`,
+  );
+}
+
+function revenueCatReplacementDeps(deps: RevenueCatWebhookWorkflowDeps) {
+  return deps.revenuecat ?? (deps.env ? { env: deps.env } : {});
+}
+
 export async function resolveRevenueCatWebhookPreflight(input: {
   readonly db: ApiDatabase;
   readonly deps: RevenueCatWebhookWorkflowDeps;
@@ -57,14 +72,7 @@ export async function resolveRevenueCatWebhookPreflight(input: {
     input.now,
     classificationOptions,
   );
-  if (
-    initialTransition.kind === "ignore" &&
-    initialTransition.reason === SANDBOX_IGNORED_REASON
-  ) {
-    console.warn(
-      `RevenueCat event ${input.event.id} (${input.event.type}, store=${input.event.store ?? "unknown"}, environment=${input.event.environment}) ignored: ${initialTransition.reason}`,
-    );
-  }
+  warnIgnoredSandboxEvent(input.event, initialTransition);
   const stripeResolution =
     initialTransition.kind === "ignore"
       ? ({ kind: "none" } satisfies ImmutableStripeStoreOrgResolution)
@@ -97,9 +105,7 @@ export async function resolveRevenueCatWebhookPreflight(input: {
     transition.kind === "grant"
       ? await resolveVerifiedWebhookPlayReplacement({
           db: input.db,
-          deps:
-            input.deps.revenuecat ??
-            (input.deps.env ? { env: input.deps.env } : {}),
+          deps: revenueCatReplacementDeps(input.deps),
           event: input.event,
         })
       : null;
