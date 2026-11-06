@@ -254,6 +254,22 @@ function hasReportableStack(
   return sanitizeFrames(exceptions[0]?.stacktrace?.frames ?? []).length > 0;
 }
 
+function eventIdentity(event: Event): {
+  readonly event_id?: string;
+  readonly timestamp: number;
+} {
+  return {
+    ...(typeof event.event_id === "string" &&
+    /^[a-f0-9]{32}$/u.test(event.event_id)
+      ? { event_id: event.event_id }
+      : {}),
+    timestamp:
+      typeof event.timestamp === "number" && Number.isFinite(event.timestamp)
+        ? event.timestamp
+        : Date.now() / 1000,
+  };
+}
+
 // Reconstruct from an allowlist, rather than trying to redact known secrets.
 // Error messages are untrusted: clients can contain decrypted content and API
 // drivers can include credentials, SQL values, and request data.
@@ -291,14 +307,7 @@ export function sanitizeSentryEvent(
   );
   return {
     type: undefined,
-    ...(typeof event.event_id === "string" &&
-    /^[a-f0-9]{32}$/u.test(event.event_id)
-      ? { event_id: event.event_id }
-      : {}),
-    timestamp:
-      typeof event.timestamp === "number" && Number.isFinite(event.timestamp)
-        ? event.timestamp
-        : Date.now() / 1000,
+    ...eventIdentity(event),
     platform: "javascript",
     level: network ? "warning" : "error",
     environment: config.environment,
