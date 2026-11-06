@@ -7,7 +7,7 @@ kinds:
 - **immutable** pins, here terminal purge decisions: once set, a pin never
   changes, and a backup carrying a different value is refused;
 - **append-only** evidence, here security incidents: a restore only adds;
-- **monotone** [checkpoints](../../docs/glossary.md#checkpoint), here a
+- **monotone** [checkpoints](../../docs/glossary/sync.md#checkpoint), here a
   verification checkpoint: a restore never moves one below its position or swaps
   the hash signed at a position.
 
@@ -49,8 +49,8 @@ deliberately not anchors, because losing them costs only a refetch:
 bundles; `principal_history_prefixes`, `principal_history_entries`, and
 `principal_history_nodes` hold proof material checked against a private root;
 and the
-[organization read model](../../docs/glossary.md#organization-read-model) is
-presentation state.
+[organization read model](../../docs/glossary/principals.md#organization-read-model)
+is presentation state.
 
 The bounded configuration uses one document, two conflicting purge decisions,
 two incidents, and a checkpoint with two positions and two hashes. TLC checks

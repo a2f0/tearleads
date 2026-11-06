@@ -44,8 +44,8 @@ A coded container-not-found response is only a planning hint. The SDK keeps the
 signed grant and records skipped container IDs atomically with the exact verified
 policy acknowledgement. Failed or unacknowledged commits do not retire anything.
 Current projection and local acknowledgement
-[checkpoint](../../docs/glossary.md#checkpoint) transactions reject a head for
-one of those IDs, even the previously pinned head, as equivocation; historical
+[checkpoint](../../docs/glossary/sync.md#checkpoint) transactions reject a head
+for one of those IDs, even the previously pinned head, as equivocation; historical
 evidence remains usable. Backup restore unions these expectations and keeps the
 live observation when another group retired the same container.
 `deletedContainerGrantReappearance.test.ts` exercises a dishonest 404, a

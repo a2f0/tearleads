@@ -12,36 +12,36 @@ prefix of the exact pinned head serves
 its stored current artifacts fail verification, the stage is discarded and
 signed history is replayed online once. Evicting such a stage costs only
 requests while online. The per-operation directory and
-[Admins](../glossary.md#organization-admins-group) memo above these rows lives
-in memory only and persists nothing; see
+[Admins](../glossary/principals.md#organization-admins-group) memo above these
+rows lives in memory only and persists nothing; see
 [current-policy consumers](current-principal-consumers.md) for its eviction
 rules.
 
-[Organization](../glossary.md#organization) provisioning
+[Organization](../glossary/principals.md#organization) provisioning
 ([registration](../container-dek-onboarding.md#registration-flow) and each
 additional organization) writes the first completed stages for the founding
-organization, Admins and [Members](../glossary.md#organization-members-group)
+organization, Admins and [Members](../glossary/principals.md#organization-members-group)
 heads. Once the provisioning response acknowledges the commit and the bootstrap
 pins those heads, the SDK runs scoped recovery over the states the device itself
 signed, served from memory rather than the network. Priming is bound to the
 provisioning scope, captured before its first await: the database the bootstrap
 committed to, the identity whose key signed the states, and a protection lease
 for them. It reads the founder's existing
-[trust pin](../glossary.md#identity-pin) and never writes one. Every step and
-every progress transaction rechecks that scope, so an identity or database
+[trust pin](../glossary/principals.md#identity-pin) and never writes one. Every
+step and every progress transaction rechecks that scope, so an identity or database
 switch aborts priming with no durable write. The ordinary verifier checks
 signatures, the [directory binding](principal-directory-bindings.md) and the
 strict Admins rules before any progress is saved, so the first runtime recovery
 of a founding head reads only directory discovery. Priming never performs HTTP;
 a failure is logged and leaves the ordinary online recovery in place.
 
-Encrypted [member envelopes](../glossary.md#member-envelope) are retained
-separately for each [principal](../glossary.md#principal) key fingerprint before
-progress is removed. Candidate retention checks the envelope commitment and
-never grants authorization. Newer envelopes for the same key replace older
-candidates; key rotation retains the old key's candidates. Current prefixes and
-the most recent completed predecessor remain available offline. An older evicted
-exact private head can require an online replay, while signed historical
+Encrypted [member envelopes](../glossary/keys.md#member-envelope) are retained
+separately for each [principal](../glossary/principals.md#principal) key
+fingerprint before progress is removed. Candidate retention checks the envelope
+commitment and never grants authorization. Newer envelopes for the same key
+replace older candidates; key rotation retains the old key's candidates. Current
+prefixes and the most recent completed predecessor remain available offline. An
+older evicted exact private head can require an online replay, while signed historical
 reference proofs and old key envelopes remain available. Organization reset
 removes the envelope archive and eviction hints along with its other cache
 material, preserving durable trust pins.
@@ -132,7 +132,7 @@ published prefix and predecessor offline, and decrypting an old object key after
 its unpublished stage is evicted.
 
 This bounds staged recovery attempts and cleanup batches, not total cache bytes.
-Retained [key epochs](../glossary.md#epoch), signed entries, leaf-reference
+Retained [key epochs](../glossary/keys.md#epoch), signed entries, leaf-reference
 hints and the shared nodes needed to prove them still grow with history. In
 `principalHistoryNodeRetention.test.ts`, 128 successive private heads retain 133
 proof nodes for the current head and predecessor, and public recovery retains

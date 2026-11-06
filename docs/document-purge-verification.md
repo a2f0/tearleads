@@ -1,14 +1,14 @@
 # Document purge verification
 
 Document purge is a signed terminal event committing the document
-[head](./glossary.md#head) and sole
-[authorizing container](./glossary.md#authorizing-container-path) head. Its
+[head](./glossary/sync.md#head) and sole
+[authorizing container](./glossary/access.md#authorizing-container-path) head. Its
 signer must have write access through that path. The API retains evidence after
 deletion. Full history requires a prior signed-head observation by that caller.
 A coded not-found response only prompts proof fetching; deletion requires an
 exact local document pin or every signed transition from a pin or signed
 genesis. A hash-only snapshot cannot advance a
-[checkpoint](./glossary.md#checkpoint). A later pinned head anywhere on the
+[checkpoint](./glossary/sync.md#checkpoint). A later pinned head anywhere on the
 authorizing path, including an ancestor, leaves purge ordering unavailable:
 ancestry cannot order the separate purge signature relative to that later head.
 The client authenticates the proof and checks document, policy, and visible
@@ -20,15 +20,15 @@ rolls back teardown. Actual invalid signatures and conflicting checkpoints
 remain integrity errors. The retained purge-time proof alone cannot resolve this
 ordering ambiguity, so deletion after a later path checkpoint is not guaranteed.
 
-[Principal](./glossary.md#principal) dependencies use compact
+[Principal](./glossary/principals.md#principal) dependencies use compact
 [`policyEvidence` sources](./projection-policy-evidence.md) and signed directory
 payloads. A source is capped at the exact historical citation and its first
 [signed directory binding](./developer/principal-directory-bindings.md),
-including the required [Admins](./glossary.md#organization-admins-group) head.
-Every page checks the original purge path, organization, document and reader. A
-reader authorized at purge time can recover after later revocation or deletion
-of the group or container; later directory heads do not enlarge that terminal
-grant.
+including the required
+[Admins](./glossary/principals.md#organization-admins-group) head. Every page
+checks the original purge path, organization, document and reader. A reader
+authorized at purge time can recover after later revocation or deletion of the
+group or container; later directory heads do not enlarge that terminal grant.
 
 The SDK authenticates each [history page](./principal-history-pages.md) using
 private local recovery custody. `historicalProof` recovery retains evidence for

@@ -27,20 +27,21 @@ the tables, are the source of truth.
 | Cited manifest history per container mutation | 4,096 references (`MAX_CONTAINER_MANIFEST_HISTORY_REFS`, `validators/src/util/containerLimits.ts`) | Validators: `request/containerManifestRef.ts` bounds `containerManifestHistoryRefs`. API: `workflows/containers/mutations/shared/storedManifestArtifacts.ts` refuses a repeated citation or one naming another container before any read, then loads the container's lineage in one bulk query. | Refusal (400). Inline bundles of 8-14 KiB fit about this many under the 32 MiB request ceiling, so the reference form keeps that capacity rather than letting a small body cite ~50x more. |
 | Cited principal policy heads per container mutation | 4,096 references (`MAX_CONTAINER_PRINCIPAL_POLICY_REFS`, `validators/src/util/containerLimits.ts`) | Validators: `request/principalPolicyRef.ts` bounds `principalPolicyRefs`. API: `workflows/containers/mutations/shared/principalPolicies.ts` collapses exact repeats, then loads every cited principal's current head in one query per principal type. | Refusal (400). Each head makes the API verify that principal's stored policy. Inline signed policies (about 9.8 KiB each) fit about this many under the 32 MiB request ceiling, so a ~170-byte reference keeps that capacity rather than multiplying it. |
 
-Each cited reference is a stored [manifest](./glossary.md#access-manifest) the
-API re-verifies, so the history bound is also a CPU bound. A verification marker
-(`access_manifests.verification_mac`) reduces a marked manifest to one HMAC
-over its stored bytes. On PGlite a reference costs about 90 µs with a marker
-and 2 ms without: at the bound, roughly 0.4 s, or 8 s after a rotated secret or
-rule revision drops the markers. That pass records markers for later requests.
+Each cited reference is a stored
+[manifest](./glossary/access.md#access-manifest) the API re-verifies, so the
+history bound is also a CPU bound. A verification marker
+(`access_manifests.verification_mac`) reduces a marked manifest to one HMAC over
+its stored bytes. On PGlite a reference costs about 90 µs with a marker and 2 ms
+without: at the bound, roughly 0.4 s, or 8 s after a rotated secret or rule
+revision drops the markers. That pass records markers for later requests.
 
 Create and move preserve the reader's structural bound. Policy
-[rotations](./glossary.md#rotate) and revocations do not change structure and
+[rotations](./glossary/keys.md#rotate) and revocations do not change structure and
 do not run these depth guards. The
 bounded [container depth model](../formal/container-keying/ContainerDepth.md)
 checks the create and move guards. Readers also refuse
 malformed paths; the ancestor CTE accepts at most 100
-[containers](./glossary.md#container) and rejects an unclosed parent at the
+[containers](./glossary/access.md#container) and rejects an unclosed parent at the
 boundary rather than silently truncating it.
 A queued create whose local path is already too deep waits without a request
 until a local move re-arms it; one a stale local view lets through keeps
@@ -80,11 +81,11 @@ changed signer key or a forged marker makes that manifest verify in full
 wherever the server verifies it; a rotated secret or new rule revision
 re-verifies each object's history once, on its next projection read or
 mutation. Serving a
-[writer projection](./glossary.md#writer-projection) still loads every retained
+[writer projection](./glossary/sync.md#writer-projection) still loads every retained
 manifest its key history cites, in a few batched queries, and carries each
 distinct manifest bundle once however many paths and histories cite it. A
 request may cite at most 48 manifest bundles and
-[container KEK](./glossary.md#container-kek) levels the device holds verified
+[container KEK](./glossary/keys.md#container-kek) levels the device holds verified
 (`x-known-manifests`); their bytes are then omitted, and the device keeps at
 most 1,024 such rows, one level per container. Neither bound limits
 the history a reader receives; see
@@ -94,12 +95,12 @@ manifests, the request-local lineage index uses O(N log N) work and space, with
 O(log N) per lineage query; see
 [the availability model](../formal/container-keying/ManifestHistory.md).
 
-The sealed [keyring](./glossary.md#container-kek-keyring) is 64 bytes per
+The sealed [keyring](./glossary/keys.md#container-kek-keyring) is 64 bytes per
 retained epoch and is never truncated, so at the epoch cap it is about 4 MB;
 that is why the KEK log serves at most one historical keyring per request. See
-[keying-design.md](./keying-design.md#additive-versus-subtractive-changes)
+[keying-design.md](./keying-design/container-keks.md#additive-versus-subtractive-changes)
 for the cost model and
-[protocol-specification.md](./protocol-specification.md#container-access-and-kek-protocol)
+[protocol-specification.md](./protocol-specification/container-access.md#container-access-and-kek-protocol)
 for the exact-length rule.
 
 ## Document sync
@@ -161,12 +162,13 @@ the Worker. The Worker carries an `aws:us-east-1` placement hint.
 
 Cold verification still grows with total signed history, across resumable
 requests. Preparation runs outside the final mutation transaction; each final
-commit rechecks current authorization and exact [heads](./glossary.md#head). The
+commit rechecks current authorization and exact
+[heads](./glossary/sync.md#head). The
 [HTTP acceptance evidence](principal-history-acceptance.md) exercises revocation
 and cold historical decryption through version 16,385 with a 15-second deadline
 per response, on SQLite and networked PostgreSQL. Those fixed-cardinality tests
-do not bound arbitrary [policy](./glossary.md#principal-policy-state) size or
-aggregate load across API replicas.
+do not bound arbitrary [policy](./glossary/principals.md#principal-policy-state)
+size or aggregate load across API replicas.
 
 ## Limits that trade write liveness
 
@@ -177,18 +179,18 @@ following exceptions can leave a writer waiting on another authorized member:
 
 - **Carried descendant rekeys past 64.** Levels beyond the parent-first prefix
   stay stale after the rotation commits. A writer granted only below such a
-  level cannot [re-key](./glossary.md#rekey) it and must not be handed its key,
-  so it parks under `document_ancestor_repair_inaccessible` until a member with
-  access at that level writes there.
+  level cannot [re-key](./glossary/keys.md#rekey) it and must not be handed its
+  key, so it parks under `document_ancestor_repair_inaccessible` until a member
+  with access at that level writes there.
 - **Documents linked across access boundaries.** A writer through one link
   cannot always repair a stale
-  [content-key bundle](./glossary.md#content-key-bundle) after another link
+  [content-key bundle](./glossary/keys.md#content-key-bundle) after another link
   rotates. Repair needs every target's current wrapping key and may require
   write access at a stale level. The writer waits under
   `document_ancestor_repair_inaccessible` for an authorized member to repair
   it; if no remaining member spans the required targets, writes stay blocked.
   The trade avoids exposing inaccessible folders'
-  [grant](./glossary.md#grant) lists.
+  [grant](./glossary/access.md#grant) lists.
   Ordinary writes need only one writable link while the bundle is current.
 
 For the single-path case within the carried-rekey bound, the model in
@@ -199,5 +201,5 @@ control is the exact behaviour, and it violates the liveness property by
 design. Nothing schedules the lazy repair; whichever capable member writes
 beneath the stale level first performs it. See
 [NoBrickedDevice.md](../formal/container-keying/NoBrickedDevice.md) for the
-invariant and [client-sdk.md](./developer/client-sdk.md#public-api-entry-points)
+invariant and [client-sdk.md](./developer/client-sdk/public-api.md#public-api-entry-points)
 for how the SDK reports the parked state.

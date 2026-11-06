@@ -26,7 +26,7 @@ const tearleads = new Tearleads();
 The minimal instance uses same-origin API routes, memory blob storage, default
 logging, and an idle database. Initialize SQLite, then configure the SDK before
 using persistence, sync, or identity generation. Here `localKeys` comes from the
-host's [local keyring](https://github.com/a2f0/tearleads/blob/main/docs/developer/client-sdk.md#local-keyring):
+host's [local keyring](https://github.com/a2f0/tearleads/blob/main/docs/developer/client-sdk/local-keyring.md#local-keyring):
 
 ```ts
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";

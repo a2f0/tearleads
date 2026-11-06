@@ -99,6 +99,16 @@ test("every module imports only React, Phosphor, or its own files", () => {
   }
 });
 
+test("the README's relative links resolve inside the package", () => {
+  const targets = [
+    ...readOutput("README.md").matchAll(/\]\((\.[^)#\s]+)/g),
+  ].map((match) => match[1] ?? "");
+  expect(targets).toContain("./docs/publishing.md");
+  for (const target of targets) {
+    expect(existsSync(join(outDir, target)), target).toBe(true);
+  }
+});
+
 test("declarations import no stylesheets", () => {
   const declarations = files.filter((file) => file.endsWith(".d.ts"));
   expect(declarations).toContain("index.d.ts");

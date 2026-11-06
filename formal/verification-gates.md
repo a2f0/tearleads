@@ -11,9 +11,9 @@ spliced state while accepting its honest twin. Every check below runs in
 
 The [NoBrickedDevice model and mapping](./container-keying/NoBrickedDevice.md)
 carries this requirement. One dependent/authority relation represents either a
-descendant [container](../docs/glossary.md#container) citing an ancestor or a
-[group policy](../docs/glossary.md#principal-policy-state) citing
-[Admins](../docs/glossary.md#organization-admins-group). The implementation
+descendant [container](../docs/glossary/access.md#container) citing an ancestor
+or a [group policy](../docs/glossary/principals.md#principal-policy-state) citing
+[Admins](../docs/glossary/principals.md#organization-admins-group). The implementation
 traces exercise both interpretations and a container's historical group
 membership.
 
@@ -36,11 +36,12 @@ also explains the accepted, unobserved split-view residual.
 
 `fast-check` is pinned in the root `testing` catalog and consumed only as a
 crypto development dependency. The generators materialize signed
-[events](../docs/glossary.md#access-event) and
-[manifests](../docs/glossary.md#access-manifest), policy chains, key states, and
-[checkpoints](../docs/keying-design.md#transparency-and-checkpointing) for the
-production verifiers. `bun run test:protocol-conformance` runs every suite
-below.
+[events](../docs/glossary/access.md#access-event) and
+[manifests](../docs/glossary/access.md#access-manifest), policy chains, key
+states, and
+[checkpoints](../docs/keying-design/verification.md#transparency-and-checkpointing)
+for the production verifiers. `bun run test:protocol-conformance` runs every
+suite below.
 
 | Requirement | Test and generator evidence |
 | --- | --- |
@@ -61,11 +62,11 @@ generators build genuine ancestor paths, and the path properties distinguish
 requested-hash freshness from rollback against a local checkpoint.
 
 Shared crypto authorization requires a
-[path](../docs/glossary.md#authorizing-container-path) with a root, contiguous
+[path](../docs/glossary/access.md#authorizing-container-path) with a root, contiguous
 parent IDs, one organization, and no repeated container IDs. The current and
 historical access folds enforce this before combining
-[grants](../docs/glossary.md#grant) from individually verified
-[heads](../docs/glossary.md#head); the state-only fold is a calculation over
+[grants](../docs/glossary/access.md#grant) from individually verified
+[heads](../docs/glossary/sync.md#head); the state-only fold is a calculation over
 already-trusted states. The API and SDK check path structure independently.
 Creation-time parent hashes need not equal served heads: honest ancestor
 advancement and historical citations remain accepted, as the no-brick projection

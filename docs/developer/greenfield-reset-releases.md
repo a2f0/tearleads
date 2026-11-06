@@ -183,9 +183,9 @@ normal-resolver check after caches recover; do not alter unrelated DNS settings.
 
 With isolated fresh profiles and disposable identities in the reset's authorized
 test scope, verify registration/login, creation of a
-[container](../glossary.md#container) and [document](../glossary.md#document),
-encrypted [blob](../glossary.md#blob) upload/download, synchronization to a
-second fresh client, and persistence after reopening. Use the current public
+[container](../glossary/access.md#container) and [document](../glossary/content.md#document),
+encrypted [blob](../glossary/content.md#blob) upload/download, synchronization
+to a second fresh client, and persistence after reopening. Use the current public
 app/SDK flows; do not insert rows directly or weaken signed-artifact validation.
 Clean up only the test data created by this run through supported deletion, and
 report any residue. If live account creation is outside the selected scope,

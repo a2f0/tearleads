@@ -3,8 +3,8 @@
 ## Result
 
 On October 26, 2026, batching each verified
-[policy's](../glossary.md#principal-policy-state) current payload and
-[member envelopes](../glossary.md#member-envelope) reduced full SDK account
+[policy's](../glossary/principals.md#principal-policy-state) current payload and
+[member envelopes](../glossary/keys.md#member-envelope) reduced full SDK account
 [registration](../container-dek-onboarding.md#registration-flow) from **878 to
 834 SQL statements (44 fewer, 5.0%)**. The reduction reproduced on local
 PostgreSQL and in staging. All nine staging accounts registered, logged in, and

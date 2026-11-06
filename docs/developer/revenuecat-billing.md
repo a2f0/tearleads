@@ -1,6 +1,6 @@
 # RevenueCat Billing
 
-Tearleads sells the [organization](../glossary.md#organization) **sync**
+Tearleads sells the [organization](../glossary/principals.md#organization) **sync**
 subscription as the same three fixed capacity tiers on every platform. Web
 checkout uses Stripe; native checkout uses the App Store or Play through
 RevenueCat. RevenueCat mirrors every subscription into the cross-platform `sync`
@@ -152,11 +152,12 @@ succeed without the RevenueCat binding; retrying safely completes both steps.
 RevenueCat posts subscription events to `POST {api}/billing/revenuecat/webhook`
 ([`revenuecatWebhook.ts`](../../packages/api/src/routes/billing/revenuecatWebhook.ts)).
 The route authenticates a shared secret sent in the `Authorization` header against
-`REVENUECAT_WEBHOOK_AUTH_HEADER` and [fails closed](../glossary.md#fail-closed)
+`REVENUECAT_WEBHOOK_AUTH_HEADER` and [fails closed](../glossary/access.md#fail-closed)
 (503) when it is unset.
 
 Grant events update the organization's active billing period and reconcile its
-effective [Members roster](../glossary.md#organization-members-group); revoke
+effective
+[Members roster](../glossary/principals.md#organization-members-group); revoke
 events disable sync. For Stripe-store events, the webhook first resolves exact
 `sub_…`/`si_…` IDs through the durable seat binding, with exact Stripe
 subscription metadata as the `sub_…` fallback. Mutable attributes are never

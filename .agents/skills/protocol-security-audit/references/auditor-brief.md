@@ -42,7 +42,7 @@ Security changes since the last audit are the least-reviewed code at this
 revision; scrutinize them first (read their diffs with `git show <sha>`):
 <RECENT_SECURITY_PRS>
 
-Read docs/security-guarantees.md first. Claims there that the code does not
+Read docs/security-guarantees/ first. Claims there that the code does not
 implement are findings. Also read formal/README.md, the model index
 formal/models.md, and the model docs for your slice.
 
@@ -85,7 +85,7 @@ device with no checkpoint; first-sight (`observed`) pins of signers and other
 referenced users no identity link verified; key transparency,
 witnesses, and semantic currentness (#2186 or its successor); pure availability
 or withholding; DoS and rate limits; residuals documented as accepted in
-`docs/security-guarantees.md`; plus any exclusions the user added.
+`docs/security-guarantees/`; plus any exclusions the user added.
 
 Fill `<KNOWN_ISSUES>` from the audit issues, their closing comments, and the
 "Not in scope" or follow-up sections of each fix PR; carried-forward items

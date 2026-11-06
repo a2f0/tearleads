@@ -16,6 +16,7 @@ import {
 } from "./referenceIndex";
 import {
   createTextRenderer,
+  type GlossaryPage,
   type GlossaryTerm,
   glossaryTerms,
   type RichText,
@@ -199,10 +200,10 @@ function withDescription(description: RichText, shape: Shape): Shape {
 
 export function createApiReference(
   openApiText: string,
-  glossaryMarkdown: string,
+  glossary: readonly GlossaryPage[],
 ): ApiReference {
   const document = parseApiDocument(openApiText);
-  const terms: readonly GlossaryTerm[] = glossaryTerms(glossaryMarkdown);
+  const terms: readonly GlossaryTerm[] = glossaryTerms(glossary);
   const slugs = operationSlugs(document.operations);
   const usage = schemaUsage(document);
   const groups = tagGroups(document);

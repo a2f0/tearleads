@@ -8,24 +8,25 @@ For shared protocol terminology, see [glossary.md](./glossary.md).
 
 Core rules:
 
-- Raw Loro sync covers encrypted CRDT [document](./glossary.md#document) state.
-- [Blob](./glossary.md#blob) attach and detach do **not** exist only inside
+- Raw Loro sync covers encrypted CRDT [document](./glossary/content.md#document)
+  state.
+- [Blob](./glossary/content.md#blob) attach and detach do **not** exist only inside
   encrypted Loro diffs.
 - Attachment metadata stays server-indexable so the server can stage uploads,
   enforce permission changes, and collect orphaned blobs.
 
 Document sync therefore spans three adjacent planes:
 
-1. [document plane](./glossary.md#document-plane): encrypted
-   [Loro updates](./glossary.md#loro-update)
-2. [attachment plane](./glossary.md#attachment-plane):
-   [blob stage](./glossary.md#blob-stage) plus atomic
-   [attachment-binding](./glossary.md#attachment-binding) metadata
-3. [access plane](./glossary.md#access-plane): permissions,
-   [key-target](./glossary.md#key-target) envelopes, and key
-   [epochs](./glossary.md#epoch)
+1. [document plane](./glossary/content.md#document-plane): encrypted
+   [Loro updates](./glossary/content.md#loro-update)
+2. [attachment plane](./glossary/content.md#attachment-plane):
+   [blob stage](./glossary/content.md#blob-stage) plus atomic
+   [attachment-binding](./glossary/content.md#attachment-binding) metadata
+3. [access plane](./glossary/access.md#access-plane): permissions,
+   [key-target](./glossary/keys.md#key-target) envelopes, and key
+   [epochs](./glossary/keys.md#epoch)
 
-For the client-side order that drains [container](./glossary.md#container)
+For the client-side order that drains [container](./glossary/access.md#container)
 structure, document creation, blob attachment work, and Loro update sync, see
 [client-sync-ordering.md](./client-sync-ordering.md).
 
@@ -39,8 +40,8 @@ Document write routes:
 
 - `POST /documents`
   - creates a
-    [document link-set manifest](./glossary.md#document-link-set-manifest) and
-    initial [content-key bundle](./glossary.md#content-key-bundle)
+    [document link-set manifest](./glossary/access.md#document-link-set-manifest)
+    and initial [content-key bundle](./glossary/keys.md#content-key-bundle)
   - request shape: `DocumentCreateRequest`
   - key fields: signed `event`, event `body`, `expectedManifestHash`,
     `manifest`, optional `targetContainerPathRefs`, optional
@@ -67,7 +68,7 @@ Document write routes:
     required `supportsPullPagination: true`, optional read-only `pullCursor`
     and `historyMode`, and `outgoingUpdates[]`
   - path references name stored signed container manifests;
-    `expectedLinkSetManifestHash` pins the document [head](./glossary.md#head)
+    `expectedLinkSetManifestHash` pins the document [head](./glossary/sync.md#head)
   - each outgoing update includes `id`, encrypted `encryptedData`, visible
     `partialStartVersionVector`, visible `partialEndVersionVector`, required
     `plaintextHash`, optional checkpoint fields, and a signed `writeHeader`; its
@@ -115,10 +116,10 @@ Access write routes are the signed `/containers` mutation family:
 - `POST /containers/:containerId/move`
 - `POST /containers/:containerId/recite`
 
-Container mutations cite every [manifest](./glossary.md#access-manifest) the
-server already stores (previous head, current and destination paths, KEK
+Container mutations cite every [manifest](./glossary/access.md#access-manifest)
+the server already stores (previous head, current and destination paths, KEK
 manifest history) by `{containerId, manifestHash}` reference, and every
-[principal policy](./glossary.md#principal-policy-state) by its
+[principal policy](./glossary/principals.md#principal-policy-state) by its
 `{principalType, principalId, version, stateHash}` head; only the manifest being
 committed travels in full.
 
@@ -128,8 +129,8 @@ For the cross-package handshake, proof, blob stage, attach, and slot contract,
 see [protocol-specification.md](./protocol-specification.md).
 
 The server does not decrypt document content; it filters updates by the visible
-partial [version-vector](./glossary.md#version-vector) metadata supplied with
-each encrypted update. `document_update_spans` is the server-side causal
+partial [version-vector](./glossary/content.md#version-vector) metadata supplied
+with each encrypted update. `document_update_spans` is the server-side causal
 indexing primitive: it stores one row per document/update peer span with start
 and end counters, plus indexes for `(document_id, peer_id, end_counter)` and
 unique update/peer lookups. The composite index also covers document-only
@@ -145,29 +146,29 @@ without a portable WAL position returns `commitLsnMode: "untracked"` and the
 `0/0` reset sentinel. Tracked mode retains the normal `commitLsn >= minLsn`
 requirement.
 
-The sync response carries no [rewrap](./glossary.md#rewrap) or
-[rotate](./glossary.md#rotate) directive. Clients derive that decision from the
-signed link-set manifest, current KEK targets,
-[target hash](./glossary.md#target-hash), content-key epoch, and locally
-retained [DEK](./glossary.md#dek) material. Additive target changes can reuse
-the same [content key](./glossary.md#content-key) when the submitted bundle
+The sync response carries no [rewrap](./glossary/keys.md#rewrap) or
+[rotate](./glossary/keys.md#rotate) directive. Clients derive that decision from
+the signed link-set manifest, current KEK targets,
+[target hash](./glossary/keys.md#target-hash), content-key epoch, and locally
+retained [DEK](./glossary/keys.md#dek) material. Additive target changes can reuse
+the same [content key](./glossary/keys.md#content-key) when the submitted bundle
 matches the current derived target hash. Shrinks require a new content-key epoch
 and a baseline encrypted under fresh key material.
 
 Behavior:
 
 - the server stores each encrypted Loro update with:
-  - its `accessEpoch`, the [epoch](./glossary.md#access-epoch) of the signed
+  - its `accessEpoch`, the [epoch](./glossary/access.md#access-epoch) of the signed
     link-set manifest it was accepted under
   - AES-GCM ciphertext under a record key derived from the document content key
   - a fresh per-record AES-GCM IV committed by the encrypted bytes and signed
-    [write-header](./glossary.md#signed-write-header) ciphertext hash
+    [write-header](./glossary/content.md#signed-write-header) ciphertext hash
 - sync responses expose stored `accessEpoch` per update; clients reject values
   newer than the current signed manifest epoch, and no derived epoch summary is
   sent
 - clients read each required content-key epoch from the signed `writeHeader`,
   require one consistent response bundle for it, and decrypt with that key;
-  cold and multi-epoch sync [fail closed](./glossary.md#fail-closed) on missing
+  cold and multi-epoch sync [fail closed](./glossary/access.md#fail-closed) on missing
   or conflicting bundles
 - accepted current-epoch sync writes return a `commitLsn`, and the server
   materializes per-peer `document_update_spans` from each update's visible
@@ -177,7 +178,7 @@ Behavior:
   `document_content_key_targets` rows with required wrapped-key material
 - committed blob records carry only the encrypted payload and its metadata;
   blob content-key bundles are stored in `blob_content_key_epochs` and
-  `blob_content_key_targets`, and [container KEK](./glossary.md#container-kek)
+  `blob_content_key_targets`, and [container KEK](./glossary/keys.md#container-kek)
   sharing in `container_key_wraps`
 - `POST /auth/register`, `POST /organizations`, and
   `POST /containers/with-metadata-document` store each metadata document and its
@@ -211,9 +212,9 @@ Behavior:
 
 Limitation: document/blob bundle material consumes cached principal policy
 bundles and can target current group/org keys, but
-[managed grants](./glossary.md#managed-principal) require current signed policy
-state to remain usable; missing policy state fails closed instead of degrading
-to expanded user recipients.
+[managed grants](./glossary/principals.md#managed-principal) require current
+signed policy state to remain usable; missing policy state fails closed instead
+of degrading to expanded user recipients.
 
 For the access-plane model, see
 [access-plane.md](./access-plane.md).
@@ -307,7 +308,7 @@ For the access-plane model:
 - blobs are first-class encrypted objects
 - blobs may be attached to multiple documents
 - a blob's effective recipients are derived from the union of the
-  [principals](./glossary.md#principal) of the documents that currently
+  [principals](./glossary/principals.md#principal) of the documents that currently
   reference it
 
 Attach and detach are therefore also security-relevant graph mutations, not
@@ -359,9 +360,9 @@ The blob binding route validates:
 - signed `attachment.bind` event and body
 - expected blob id, document id, slot id, and previous binding id
 - current document manifest hash
-- [authorizing container paths](./glossary.md#authorizing-container-path) and
-  referenced principal policy state
-- optional signed [container rekeys](./glossary.md#rekey)
+- [authorizing container paths](./glossary/access.md#authorizing-container-path)
+  and referenced principal policy state
+- optional signed [container rekeys](./glossary/keys.md#rekey)
 - staged blob ownership/expiry when a staged blob is supplied
 - staged encrypted blob bytes carry a fresh per-record AES-GCM IV committed by
   the staged object hash and signed blob write header
@@ -402,7 +403,7 @@ If an attachment mutation succeeds:
 
 Because encrypted Loro updates do not expose `referencedSlotIds[]`, the server
 cannot prove that a document update references only active
-[attachment slots](./glossary.md#attachment-slot). The authoritative
+[attachment slots](./glossary/content.md#attachment-slot). The authoritative
 server-visible attachment state is the signed binding metadata.
 
 ### Why `slotId` Instead Of `bindingId`

@@ -42,7 +42,7 @@ interface ClientSdkDocumentationContractViolation {
 }
 
 export const clientSdkPackageJsonPath = "packages/client-sdk/package.json";
-const clientSdkPublicApiDocsPath = "docs/developer/client-sdk.md";
+const clientSdkPublicApiDocsPath = "docs/developer/client-sdk/public-api.md";
 const clientSdkWorkflowDocsPath = "packages/client-sdk/src/workflows/README.md";
 const clientSdkSupportedPackageExports = {
   ".": {
