@@ -1,11 +1,11 @@
 import { computeKeyingDomainHash } from "./canonical";
-import { throwVerification } from "./shared";
+import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
 import type {
   ContainerKekParentBinding,
   ContainerKeyEpoch,
-  VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-} from "./types";
+} from "./containerKekTypes";
+import { throwVerification } from "./shared";
 
 function parentLineage(
   parent: Pick<VerifiedContainerKekState, "accessManifestHash" | "containerId">,

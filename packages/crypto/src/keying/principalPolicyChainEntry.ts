@@ -15,12 +15,12 @@ import {
   getPrincipalPolicyTransitionMismatch,
   throwPrincipalPolicyTransitionError,
 } from "./principalPolicyTransition";
-import { throwVerification } from "./shared";
 import type {
   NormalizedPrincipalPolicyStateChainEntry,
   PrincipalPolicySignedState,
   PrincipalPolicyStateChainEntry,
-} from "./types";
+} from "./principalPolicyTypes";
+import { throwVerification } from "./shared";
 
 function projectionIncludesAdminUser(
   projection: readonly PrincipalProjectionMember[],

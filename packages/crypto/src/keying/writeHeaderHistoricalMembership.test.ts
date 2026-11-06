@@ -1,11 +1,13 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import type { ContainerGrantPrincipalHead } from "./containerAccessTypes";
 import {
   computeDocumentContentKeyTargetHash,
   makeVerifiedDocumentKekTargets,
   verifyAttachmentBindingEvent,
   verifyWriteHeader,
 } from "./index";
+import type { VerifiedPrincipalPolicy } from "./principalPolicyTypes";
 import {
   createContainerManifestFixture,
   createDocumentLinkSetManifestFixture,
@@ -15,10 +17,6 @@ import {
   createWriteHeaderFixture,
   fixtureHash,
 } from "./testFixtures";
-import type {
-  ContainerGrantPrincipalHead,
-  VerifiedPrincipalPolicy,
-} from "./types";
 
 test("historical content authority uses the cited group membership, while submissions use current membership", async () => {
   const oldHead: ContainerGrantPrincipalHead = {

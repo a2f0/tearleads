@@ -10,13 +10,6 @@ import {
   type PreviousContainerAccessTransition,
   preparePreviousContainerAccessTransition,
 } from "./containerAccessTransitionBase";
-import { requireContainerPathCurrentParent } from "./containerParentAuthority";
-import { requireContainerPathUserAccess } from "./containerPathAccess";
-import {
-  removeReferencedPrincipalHead,
-  upsertReferencedPrincipalHead,
-} from "./containerPrincipalReferences";
-import { throwVerification } from "./shared";
 import type {
   ContainerAccessManifestState,
   ContainerGrantAccessEventBody,
@@ -24,7 +17,14 @@ import type {
   ContainerReciteAccessEventBody,
   ContainerRekeyAccessEventBody,
   ContainerRevokeAccessEventBody,
-} from "./types";
+} from "./containerAccessTypes";
+import { requireContainerPathCurrentParent } from "./containerParentAuthority";
+import { requireContainerPathUserAccess } from "./containerPathAccess";
+import {
+  removeReferencedPrincipalHead,
+  upsertReferencedPrincipalHead,
+} from "./containerPrincipalReferences";
+import { throwVerification } from "./shared";
 
 function assertContainerAccessEventDomain(
   input: ContainerAccessManifestDerivationInput,

@@ -1,5 +1,6 @@
+import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
 import { readHashArray, throwVerification } from "./shared";
-import type { VerifiedContainerAccessManifest, WriteHeader } from "./types";
+import type { WriteHeader } from "./writeHeaderTypes";
 
 export function readWriteHeaderCitations(value: unknown): string[] {
   const hashes = readHashArray(value, "write header dependencyManifestHashes");

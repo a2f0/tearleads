@@ -11,7 +11,7 @@ import {
   createPolicySigner,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
-import type { KeyingVerificationResult } from "./types";
+import type { KeyingVerificationResult } from "./verificationError";
 
 function accepted<T>(result: KeyingVerificationResult<T>): T {
   if (!result.ok) throw result.error;

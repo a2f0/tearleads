@@ -1,6 +1,6 @@
 import { BlobEnvelopeError } from "./blobEnvelopeError";
 import { serializeKeyingCanonicalJson } from "./keying/canonical";
-import type { KeyingCanonicalJson } from "./keying/types";
+import type { KeyingCanonicalJson } from "./keying/canonicalJsonTypes";
 import { AES_GCM_IV_BYTES, AES_GCM_TAG_BYTES } from "./symmetric";
 
 export const BLOB_ENCRYPTED_BYTES_FORMAT = "tearleads.blob.bytes";

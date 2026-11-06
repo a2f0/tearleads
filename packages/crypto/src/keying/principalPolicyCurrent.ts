@@ -9,13 +9,11 @@ import { verifyPrincipalPolicyPayload } from "./principalPolicyPayload";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
 import type {
   PrincipalPolicyCurrent,
+  PrincipalPolicyStateChainEntry,
   VerifiedPrincipalPolicyCurrent,
 } from "./principalPolicyTypes";
 import { runVerifier, throwVerification } from "./shared";
-import type {
-  KeyingVerificationResult,
-  PrincipalPolicyStateChainEntry,
-} from "./types";
+import type { KeyingVerificationResult } from "./verificationError";
 
 export type {
   PrincipalPolicyCurrent,

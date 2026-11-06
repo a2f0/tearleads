@@ -9,14 +9,14 @@ import {
   PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT,
   type VerifiedPrincipalPolicyHistory,
 } from "./principalPolicyHistoryTypes";
-import { makeVerifiedPrincipalPolicy } from "./principalPolicyTypes";
-import { runVerifier, throwVerification } from "./shared";
 import type {
-  KeyingVerificationResult,
   PrincipalPolicyBundle,
   PrincipalPolicySignedState,
   VerifiedPrincipalPolicy,
-} from "./types";
+} from "./principalPolicyTypes";
+import { makeVerifiedPrincipalPolicy } from "./principalPolicyTypes";
+import { runVerifier, throwVerification } from "./shared";
+import type { KeyingVerificationResult } from "./verificationError";
 
 /** Check a complete bundle against locally verified history without replaying signatures. */
 export function verifyPrincipalPolicyBundleAgainstHistory(input: {

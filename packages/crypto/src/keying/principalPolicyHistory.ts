@@ -32,12 +32,12 @@ import {
   type VerifiedPrincipalPolicyHistory,
 } from "./principalPolicyHistoryTypes";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
-import { runVerifier, throwVerification, toVerificationResult } from "./shared";
 import type {
-  KeyingVerificationResult,
   NormalizedPrincipalPolicyStateChainEntry,
   ReferencedPrincipalHead,
-} from "./types";
+} from "./principalPolicyTypes";
+import { runVerifier, throwVerification, toVerificationResult } from "./shared";
+import type { KeyingVerificationResult } from "./verificationError";
 
 class PrincipalPolicyHistoryVerifierImpl
   implements PrincipalPolicyHistoryVerifier

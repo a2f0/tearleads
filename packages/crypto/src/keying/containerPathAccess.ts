@@ -1,14 +1,16 @@
-import { assertContainerPathIntegrity } from "./containerParentAuthority";
-import { principalPolicyEntryForReference } from "./principalPolicyReference";
-import { throwVerification } from "./shared";
 import type {
   ContainerAccessLevel,
   ContainerAccessManifestState,
   ContainerDirectGrant,
+  VerifiedContainerAccessManifest,
+} from "./containerAccessTypes";
+import { assertContainerPathIntegrity } from "./containerParentAuthority";
+import { principalPolicyEntryForReference } from "./principalPolicyReference";
+import type {
   PrincipalPolicyAuthorization,
   ReferencedPrincipalHead,
-  VerifiedContainerAccessManifest,
-} from "./types";
+} from "./principalPolicyTypes";
+import { throwVerification } from "./shared";
 
 export function containerAccessLevelRank(
   accessLevel: ContainerAccessLevel,

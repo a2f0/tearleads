@@ -7,22 +7,22 @@ import type {
   VerifiedAccessManifestSnapshot,
 } from "./accessManifestSnapshotTypes";
 import { makeVerifiedAccessManifestSnapshot } from "./accessManifestSnapshotTypes";
+import type {
+  AccessManifest,
+  AccessManifestCheckpoint,
+} from "./accessManifestTypes";
 import {
   accessManifestCheckpointFromManifest,
   verifyAccessManifestLocalCheckpoint,
 } from "./checkpoints";
+import type { VerifiedDocumentLinkSetSnapshot } from "./documentAccessTypes";
+import { makeVerifiedDocumentLinkSetSnapshot } from "./documentAccessTypes";
 import {
   deriveDocumentLinkSetManifest,
   normalizeDocumentLinkSetManifestState,
-} from "./documentAccess";
+} from "./documentLinkSetManifest";
 import { runVerifier, throwVerification } from "./shared";
-import type {
-  AccessManifest,
-  AccessManifestCheckpoint,
-  KeyingVerificationResult,
-  VerifiedDocumentLinkSetSnapshot,
-} from "./types";
-import { makeVerifiedDocumentLinkSetSnapshot } from "./types";
+import type { KeyingVerificationResult } from "./verificationError";
 
 export type {
   VerifiedAccessManifestCheckpointEvidence,

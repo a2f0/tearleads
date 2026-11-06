@@ -16,12 +16,12 @@ import {
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
 import { verifyPrincipalPolicyChainSignatures } from "./principalPolicySignatures";
 import { buildPrincipalPolicySignerKeyMap } from "./principalPolicySignerKeys";
-import { throwVerification } from "./shared";
 import type {
   NormalizedPrincipalPolicyStateChainEntry,
   PrincipalPolicyCheckpoint,
   ReferencedPrincipalHead,
-} from "./types";
+} from "./principalPolicyTypes";
+import { throwVerification } from "./shared";
 
 // Bump when page, chain, signer, or external-authority verification tightens.
 // Authenticated saved progress must then re-verify its omitted prefix.

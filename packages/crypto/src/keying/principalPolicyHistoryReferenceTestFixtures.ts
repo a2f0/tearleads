@@ -8,7 +8,7 @@ import {
   historyHead,
   roundTripHistoryVerifier,
 } from "./principalPolicyHistoryTestFixtures";
-import type { PrincipalPolicyStateChainEntry } from "./types";
+import type { PrincipalPolicyStateChainEntry } from "./principalPolicyTypes";
 
 export async function indexedHistoryFixture() {
   const fixture = await historyFixture();

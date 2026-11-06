@@ -3,16 +3,16 @@ import {
   PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT,
   type PrincipalPolicyHistoryInput,
 } from "./principalPolicyHistoryTypes";
+import type {
+  PrincipalPolicyCheckpoint,
+  PrincipalPolicySignedState,
+  ReferencedPrincipalHead,
+} from "./principalPolicyTypes";
 import {
   normalizeManagedPrincipalKind,
   readString,
   throwVerification,
 } from "./shared";
-import type {
-  PrincipalPolicyCheckpoint,
-  PrincipalPolicySignedState,
-  ReferencedPrincipalHead,
-} from "./types";
 
 function assertReferenceBudget(count: number): void {
   if (count > PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT)

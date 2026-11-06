@@ -13,9 +13,7 @@ import { verifyPrincipalPolicyPayload } from "./principalPolicyPayload";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
 import { verifyPrincipalPolicyChainSignatures } from "./principalPolicySignatures";
 import { buildPrincipalPolicySignerKeyMap } from "./principalPolicySignerKeys";
-import { runVerifier, throwVerification } from "./shared";
 import type {
-  KeyingVerificationResult,
   NormalizedPrincipalPolicyStateChainEntry,
   PrincipalPolicyCheckpoint,
   PrincipalPolicySignedState,
@@ -26,11 +24,13 @@ import type {
   VerifiedPrincipalPolicySnapshot,
   VerifyPrincipalPolicyBundleInput,
   VerifyPrincipalPolicySnapshotInput,
-} from "./types";
+} from "./principalPolicyTypes";
 import {
   makeVerifiedPrincipalPolicy,
   makeVerifiedPrincipalPolicySnapshot,
-} from "./types";
+} from "./principalPolicyTypes";
+import { runVerifier, throwVerification } from "./shared";
+import type { KeyingVerificationResult } from "./verificationError";
 
 function verifyPrincipalPolicyReference(input: {
   readonly chain: readonly NormalizedPrincipalPolicyStateChainEntry[];

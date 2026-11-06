@@ -9,11 +9,11 @@ import {
   toUnsignedPrincipalState,
 } from "../principalState";
 import { normalizePrincipalPolicyStateChainEntry } from "./principalPolicyChainEntry";
-import { assertExactKeys, throwVerification } from "./shared";
 import type {
   NormalizedPrincipalPolicyStateChainEntry,
   PrincipalPolicySignedState,
-} from "./types";
+} from "./principalPolicyTypes";
+import { assertExactKeys, throwVerification } from "./shared";
 
 export function capturePrincipalHistoryAuthority(
   authority: PrincipalStateExternalAuthority,
