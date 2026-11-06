@@ -7,7 +7,7 @@ import {
   createDocument,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { requestPreparedPrincipalPolicy } from "../../../test/helpers/principalHistoryRequest";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { routeApp } from "../../routeApp";
 import {
   issueProjectionPolicyHistoryGrant,
@@ -17,7 +17,7 @@ import {
 test("terminal history grants bind the purge, organization and original reader", async () => {
   const owner = createTestUser();
   const outsider = createTestUser();
-  await registerAndAuthenticate(owner, outsider);
+  await registerAndAuthenticateUsers(owner, outsider);
   const root = await bootstrapRoot(owner);
   const document = await createDocument({ owner, root });
   const purged = await postDocumentPurge({

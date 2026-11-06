@@ -9,7 +9,7 @@ import {
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { requestPreparedPrincipalPolicy } from "../../../test/helpers/principalHistoryRequest";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import * as snapshots from "../../access/read/principalStateStore";
 import { readProjectionAccessManifest } from "../../keyingProjectionRecords";
 import { loadProjectionPolicyEvidence } from "./projectionPolicyEvidence";
@@ -17,7 +17,7 @@ import * as grants from "./projectionPolicyHistoryGrant";
 
 async function fixture() {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const root = await bootstrapRoot(owner);
   if (!isAccessManifestBundleWireResponse(root.bundle))
     throw new Error("Invalid fixture root bundle");

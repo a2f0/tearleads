@@ -11,12 +11,12 @@ import {
   loadVerifiedPrincipalPolicy,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 
 test("compound outcome replay checks the requester's current organization authority", async () => {
   const actor = createTestUser();
   const successor = createTestUser();
-  await registerAndAuthenticate(actor, successor);
+  await registerAndAuthenticateUsers(actor, successor);
   const organizationId = await getDefaultOrganizationId(successor.userId);
   const adminGroupId = await addUserToAdminGroup({
     actor: successor,

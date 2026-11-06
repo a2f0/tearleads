@@ -6,62 +6,20 @@ import {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
-  blobContentKeyEpochs,
-  blobContentKeyTargets,
-  blobContentWriteHeaders,
   containerKeyEpochs,
   containerKeyWraps,
-  documentContentKeyEpochs,
-  documentContentKeyTargets,
-  documentContentWriteHeaders,
   documentUpdateSpans,
 } from "@tearleads/api-shared/schema";
 import type {
   KeyingCanonicalJson,
   ReferencedPrincipalHead,
-  WriteHeader,
 } from "@tearleads/crypto";
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { eq } from "drizzle-orm";
-
-const contentRecordEncryptionSuite = "aes-256-gcm-hkdf-sha256-record-key";
-
-function fixtureHash(label: string) {
-  return `schema-test:${label}:${crypto.randomUUID()}`;
-}
-
-function createWriteHeader(input: {
-  readonly accessManifestHash: string;
-  readonly contentKeyEpoch: number;
-  readonly contentRecordId: string;
-  readonly nonceDomainHash: string;
-  readonly objectId: string;
-  readonly objectKind: "blob" | "document";
-  readonly organizationId: string;
-  readonly targetHash: string;
-  readonly writerUserId: string;
-}): WriteHeader {
-  return {
-    dependencyManifestHashes: [],
-    version: 1,
-    organizationId: input.organizationId,
-    objectKind: input.objectKind,
-    objectId: input.objectId,
-    accessManifestHash: input.accessManifestHash,
-    contentKeyEpoch: input.contentKeyEpoch,
-    targetHash: input.targetHash,
-    encryptionSuite: contentRecordEncryptionSuite,
-    contentRecordId: input.contentRecordId,
-    nonceDomainHash: input.nonceDomainHash,
-    metadataHash: fixtureHash(`${input.objectKind}:metadata`),
-    ciphertextHash: fixtureHash(`${input.objectKind}:ciphertext`),
-    writerUserId: input.writerUserId,
-    writerDeviceId: "schema-test-device",
-    writerKeyFingerprint: fixtureHash(`${input.objectKind}:writer-key`),
-    signedAt: new Date().toISOString(),
-    signature: fixtureHash(`${input.objectKind}:signature`),
-  };
-}
+import {
+  createLinkedContainerIds,
+  fixtureHash,
+} from "../test/helpers/accessSchemaRows";
 
 test("document_update_spans stores visible causal index rows", async () => {
   const documentId = crypto.randomUUID();
@@ -108,22 +66,19 @@ test("document_update_spans stores visible causal index rows", async () => {
   ]);
 });
 
-test("access manifest schema stores critical rows through Drizzle", async () => {
-  const organizationId = crypto.randomUUID();
-  const containerId = crypto.randomUUID();
-  const documentId = crypto.randomUUID();
-  const blobId = crypto.randomUUID();
-  const bindingId = crypto.randomUUID();
-  const writerUserId = crypto.randomUUID();
+test("access manifest schema stores events, manifests, heads, and projections through Drizzle", async () => {
+  const {
+    containerId,
+    containerKeyEpochId,
+    containerManifestHash,
+    documentId,
+    organizationId,
+    writerUserId,
+  } = createLinkedContainerIds();
   const eventHash = fixtureHash("event");
   const eventId = crypto.randomUUID();
   const dependencyManifestHash = fixtureHash("dependency-manifest");
-  const containerManifestHash = fixtureHash("container-manifest");
   const documentManifestHash = fixtureHash("document-manifest");
-  const blobManifestHash = fixtureHash("blob-manifest");
-  const containerKeyEpochId = fixtureHash("container-key-epoch");
-  const documentTargetHash = fixtureHash("document-target");
-  const blobTargetHash = fixtureHash("blob-target");
   const principalHead = {
     principalType: "group",
     principalId: crypto.randomUUID(),
@@ -161,39 +116,7 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
     parentContainerId: null,
     parentManifestHash: null,
   } satisfies KeyingCanonicalJson;
-  const wrapMetadata = {
-    suite: "schema-test-wrap",
-    iv: fixtureHash("wrap-iv"),
-  } satisfies KeyingCanonicalJson;
-  const documentContentEpochId = crypto.randomUUID();
-  const blobContentEpochId = crypto.randomUUID();
-  const documentContentRecordId = fixtureHash("document-content-record");
-  const blobContentRecordId = fixtureHash("blob-content-record");
-  const documentNonceDomainHash = fixtureHash("document-nonce-domain");
-  const blobNonceDomainHash = fixtureHash("blob-nonce-domain");
   const eventSignedAt = new Date("2026-05-03T16:00:00.000Z");
-  const documentHeader = createWriteHeader({
-    accessManifestHash: documentManifestHash,
-    contentKeyEpoch: 1,
-    contentRecordId: documentContentRecordId,
-    nonceDomainHash: documentNonceDomainHash,
-    objectId: documentId,
-    objectKind: "document",
-    organizationId,
-    targetHash: documentTargetHash,
-    writerUserId,
-  });
-  const blobHeader = createWriteHeader({
-    accessManifestHash: blobManifestHash,
-    contentKeyEpoch: 1,
-    contentRecordId: blobContentRecordId,
-    nonceDomainHash: blobNonceDomainHash,
-    objectId: blobId,
-    objectKind: "blob",
-    organizationId,
-    targetHash: blobTargetHash,
-    writerUserId,
-  });
 
   await db.insert(accessEvents).values({
     version: 1,
@@ -250,113 +173,6 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
     manifestHash: documentManifestHash,
     documentId,
     containerId,
-  });
-  await db.insert(containerKeyEpochs).values({
-    id: containerKeyEpochId,
-    containerId,
-    keyEpoch: 1,
-    accessManifestHash: containerManifestHash,
-    parentContainerKeyEpochId: null,
-    createdByEventHash: eventHash,
-    createdByManifestHash: containerManifestHash,
-  });
-  await db.insert(containerKeyWraps).values({
-    containerKeyEpochId,
-    recipientKind: "user",
-    recipientId: writerUserId,
-    recipientKeyEpochId: fixtureHash("recipient-key-epoch"),
-    recipientKeyFingerprint: fixtureHash("recipient-key-fingerprint"),
-    kemCipherText: fixtureHash("kem-cipher-text"),
-    wrappedKey: fixtureHash("container-wrapped-key"),
-    wrapManifestHash: containerManifestHash,
-  });
-  await db.insert(documentContentKeyEpochs).values({
-    id: documentContentEpochId,
-    documentId,
-    contentKeyEpoch: 1,
-    linkSetManifestHash: documentManifestHash,
-    targetHash: documentTargetHash,
-  });
-  await db.insert(documentContentKeyTargets).values({
-    documentContentKeyEpochId: documentContentEpochId,
-    containerId,
-    containerManifestHash,
-    containerKeyEpochId,
-    containerKeyEpoch: 1,
-    wrappedKey: fixtureHash("document-wrapped-key"),
-    wrappingMetadata: wrapMetadata,
-  });
-  await db.insert(documentContentWriteHeaders).values({
-    authorizationTargets: [
-      {
-        containerId,
-        containerManifestHash,
-        containerKeyEpochId,
-        containerKeyEpoch: 1,
-      },
-    ],
-    updateId: crypto.randomUUID(),
-    documentId,
-    organizationId,
-    contentKeyEpoch: 1,
-    accessManifestHash: documentManifestHash,
-    targetHash: documentTargetHash,
-    encryptionSuite: contentRecordEncryptionSuite,
-    contentRecordId: documentContentRecordId,
-    nonceDomainHash: documentNonceDomainHash,
-    headerHash: fixtureHash("document-header"),
-    header: documentHeader,
-  });
-  await db.insert(blobContentKeyEpochs).values({
-    id: blobContentEpochId,
-    blobId,
-    contentKeyEpoch: 1,
-    targetHash: blobTargetHash,
-  });
-  await db.insert(blobContentKeyTargets).values({
-    blobContentKeyEpochId: blobContentEpochId,
-    bundleTargetHash: blobTargetHash,
-    bindingId,
-    documentId,
-    containerId,
-    containerManifestHash,
-    containerKeyEpochId,
-    containerKeyEpoch: 1,
-    wrappedKey: fixtureHash("blob-wrapped-key"),
-    wrappingMetadata: wrapMetadata,
-  });
-  await db.insert(blobContentWriteHeaders).values({
-    authorization: {
-      activeBindingIds: [bindingId],
-      blobId,
-      blobAccessManifestHash: blobManifestHash,
-      blobKeyTargetHash: blobTargetHash,
-      documentManifestHashes: [documentManifestHash],
-      linkedContainerKeyEpochIds: [containerKeyEpochId],
-      linkedContainerManifestHashes: [containerManifestHash],
-      organizationId,
-      targets: [
-        {
-          bindingId,
-          documentId,
-          containerId,
-          containerManifestHash,
-          containerKeyEpochId,
-          containerKeyEpoch: 1,
-        },
-      ],
-    },
-    recordId: crypto.randomUUID(),
-    blobId,
-    organizationId,
-    contentKeyEpoch: 1,
-    accessManifestHash: blobManifestHash,
-    targetHash: blobTargetHash,
-    encryptionSuite: contentRecordEncryptionSuite,
-    contentRecordId: blobContentRecordId,
-    nonceDomainHash: blobNonceDomainHash,
-    headerHash: fixtureHash("blob-header"),
-    header: blobHeader,
   });
 
   const storedEvents = await db
@@ -435,6 +251,37 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
         ),
       ),
   ).toEqual([{ containerId, documentId }]);
+});
+
+test("container key schema stores epochs and wraps through Drizzle", async () => {
+  const {
+    containerId,
+    containerKeyEpochId,
+    containerManifestHash,
+    writerUserId,
+  } = createLinkedContainerIds();
+  const eventHash = fixtureHash("event");
+
+  await db.insert(containerKeyEpochs).values({
+    id: containerKeyEpochId,
+    containerId,
+    keyEpoch: 1,
+    accessManifestHash: containerManifestHash,
+    parentContainerKeyEpochId: null,
+    createdByEventHash: eventHash,
+    createdByManifestHash: containerManifestHash,
+  });
+  await db.insert(containerKeyWraps).values({
+    containerKeyEpochId,
+    recipientKind: "user",
+    recipientId: writerUserId,
+    recipientKeyEpochId: fixtureHash("recipient-key-epoch"),
+    recipientKeyFingerprint: fixtureHash("recipient-key-fingerprint"),
+    kemCipherText: fixtureHash("kem-cipher-text"),
+    wrappedKey: fixtureHash("container-wrapped-key"),
+    wrapManifestHash: containerManifestHash,
+  });
+
   expect(
     await db
       .select({
@@ -455,72 +302,4 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
       .from(containerKeyWraps)
       .where(eq(containerKeyWraps.containerKeyEpochId, containerKeyEpochId)),
   ).toEqual([{ containerKeyEpochId, recipientId: writerUserId }]);
-  expect(
-    await db
-      .select({
-        documentId: documentContentKeyEpochs.documentId,
-        targetHash: documentContentKeyEpochs.targetHash,
-      })
-      .from(documentContentKeyEpochs)
-      .where(eq(documentContentKeyEpochs.id, documentContentEpochId)),
-  ).toEqual([{ documentId, targetHash: documentTargetHash }]);
-  expect(
-    await db
-      .select({
-        containerKeyEpochId: documentContentKeyTargets.containerKeyEpochId,
-        wrappingMetadata: documentContentKeyTargets.wrappingMetadata,
-      })
-      .from(documentContentKeyTargets)
-      .where(
-        eq(
-          documentContentKeyTargets.documentContentKeyEpochId,
-          documentContentEpochId,
-        ),
-      ),
-  ).toEqual([{ containerKeyEpochId, wrappingMetadata: wrapMetadata }]);
-  expect(
-    await db
-      .select({
-        contentRecordId: documentContentWriteHeaders.contentRecordId,
-        header: documentContentWriteHeaders.header,
-      })
-      .from(documentContentWriteHeaders)
-      .where(
-        eq(
-          documentContentWriteHeaders.contentRecordId,
-          documentContentRecordId,
-        ),
-      ),
-  ).toEqual([
-    { contentRecordId: documentContentRecordId, header: documentHeader },
-  ]);
-  expect(
-    await db
-      .select({
-        blobId: blobContentKeyEpochs.blobId,
-        targetHash: blobContentKeyEpochs.targetHash,
-      })
-      .from(blobContentKeyEpochs)
-      .where(eq(blobContentKeyEpochs.id, blobContentEpochId)),
-  ).toEqual([{ blobId, targetHash: blobTargetHash }]);
-  expect(
-    await db
-      .select({
-        bindingId: blobContentKeyTargets.bindingId,
-        wrappingMetadata: blobContentKeyTargets.wrappingMetadata,
-      })
-      .from(blobContentKeyTargets)
-      .where(
-        eq(blobContentKeyTargets.blobContentKeyEpochId, blobContentEpochId),
-      ),
-  ).toEqual([{ bindingId, wrappingMetadata: wrapMetadata }]);
-  expect(
-    await db
-      .select({
-        contentRecordId: blobContentWriteHeaders.contentRecordId,
-        header: blobContentWriteHeaders.header,
-      })
-      .from(blobContentWriteHeaders)
-      .where(eq(blobContentWriteHeaders.contentRecordId, blobContentRecordId)),
-  ).toEqual([{ contentRecordId: blobContentRecordId, header: blobHeader }]);
 });

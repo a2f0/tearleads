@@ -20,7 +20,7 @@ import {
 } from "../../../test/helpers/principalPolicy";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { clearStoredPolicySnapshotCache } from "../../../test/helpers/principalSnapshotVerificationCache";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
@@ -29,7 +29,7 @@ test.each([1, 8])(
   "a fresh SDK recovers deleted-group display sources over real HTTP with %i groups",
   async (groupCount) => {
     const actor = createTestUser();
-    await registerAndAuthenticate(actor);
+    await registerAndAuthenticateUsers(actor);
     const organizationId = await getDefaultOrganizationId(actor.userId);
     const probe = startPrincipalHistoryHttpProbe();
     const sqlite = await createTestExecSql("org-history-http");

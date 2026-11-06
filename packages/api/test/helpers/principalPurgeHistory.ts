@@ -20,14 +20,14 @@ import { getDefaultOrganizationId } from "./organizationMembership";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "./principalPolicyReadFixtures";
 import { projectionRouteRequest } from "./projectionRouteHistory";
 import { withStoredContainerMutation } from "./storedContainerMutation";
 
 export async function createLongPurgeHistoryFixture(versions: number) {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const initial = await bootstrapRoot(owner);
   const id = initial.principalPolicies[0]?.principalId;
   if (!id) throw new Error("Missing Admins fixture");

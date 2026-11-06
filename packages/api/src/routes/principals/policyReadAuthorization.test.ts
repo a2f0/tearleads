@@ -22,7 +22,7 @@ import { getDefaultOrganizationId } from "../../../test/helpers/organizationMemb
 import {
   getPolicy,
   loadOrganizationGroups,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
   stripOrganizationMembership,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
@@ -45,7 +45,7 @@ async function expectDenied(response: Response): Promise<void> {
 test("GET principal policy refuses an account outside the organization", async () => {
   const owner = createTestUser();
   const outsider = createTestUser();
-  await registerAndAuthenticate(owner, outsider);
+  await registerAndAuthenticateUsers(owner, outsider);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const { adminGroupId, memberGroupId } =
     await loadOrganizationGroups(organizationId);
@@ -66,7 +66,7 @@ test("GET principal policy refuses an account outside the organization", async (
 test("GET principal policy serves a peer the owner shared a root with", async () => {
   const owner = createTestUser();
   const peer = createTestUser();
-  await registerAndAuthenticate(owner, peer);
+  await registerAndAuthenticateUsers(owner, peer);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const { adminGroupId } = await loadOrganizationGroups(organizationId);
   await expectDenied(await getPolicy(peer, "group", adminGroupId));
@@ -105,7 +105,7 @@ test("GET principal policy serves a peer the owner shared a root with", async ()
 test("GET principal policy serves a group-granted reader with no roster entry", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
-  await registerAndAuthenticate(owner, reader);
+  await registerAndAuthenticateUsers(owner, reader);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const { adminGroupId } = await loadOrganizationGroups(organizationId);
   const root = await recoverRegisteredRootKek({
@@ -131,7 +131,7 @@ test("GET principal policy serves a group-granted reader with no roster entry", 
   await expectBundle(await getPolicy(reader, "organization", organizationId));
 
   const outsider = createTestUser();
-  await registerAndAuthenticate(outsider);
+  await registerAndAuthenticateUsers(outsider);
   await expectDenied(await getPolicy(outsider, "group", groupId));
 }, 15_000);
 
@@ -139,7 +139,7 @@ test("GET principal policy serves a group-granted reader with no roster entry", 
 test("GET principal policy serves a reader granted above a child's group grant", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
-  await registerAndAuthenticate(owner, reader);
+  await registerAndAuthenticateUsers(owner, reader);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const root = await recoverRegisteredRootKek({
     owner,
@@ -186,13 +186,13 @@ test("GET principal policy serves a reader granted above a child's group grant",
   await expectBundle(await getPolicy(reader, "group", childGroupId));
 
   const outsider = createTestUser();
-  await registerAndAuthenticate(outsider);
+  await registerAndAuthenticateUsers(outsider);
   await expectDenied(await getPolicy(outsider, "group", childGroupId));
 }, 15_000);
 
 test("an authorized policy with a missing stored payload is a server failure", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const { adminGroupId } = await loadOrganizationGroups(organizationId);
   await db
