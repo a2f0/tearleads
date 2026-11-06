@@ -11,6 +11,11 @@ import {
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
 import type { SyncLaneConfig } from "./syncLaneConfig";
+import {
+  hasPendingRequest,
+  transitionSyncLaneRequest,
+  transitionSyncLaneRun,
+} from "./syncLaneMachine";
 import { addSyncLaneRunDuration, createSyncTimestamp } from "./syncTelemetry";
 
 const SYNC_LANE_WATCHDOG_MS = 120_000;
@@ -76,8 +81,8 @@ async function runSyncLane(state: SyncLaneState): Promise<SyncLaneRunResult> {
 // Console-only on purpose. This runs only when the lane's OWN error handler
 // already threw, so it must never route through reportUnexpectedSyncLaneFailure
 // as well: re-entering a handler that just threw would reject runResultPromise
-// from inside its own onRejected callback, leaving `running` true and
-// `activeRunToken` set, which wedges the lane for the rest of the session.
+// from inside its own onRejected callback, leaving the run live forever,
+// which wedges the lane for the rest of the session.
 function reportUnexpectedSyncLaneError(state: SyncLaneState, error: unknown) {
   console.error(`Failed to run sync lane ${state.key}:`, error);
 }
@@ -135,15 +140,17 @@ function settleAbandonedSyncLaneRun(
   runResult: SyncLaneRunResult,
   wake: () => void,
 ): void {
-  if (lane.activeRunToken !== run.token) {
+  if (lane.run.status !== "abandoned" || lane.run.token !== run.token) {
     return;
   }
-  lane.activeRunToken = null;
-  lane.runAbandoned = false;
+  lane.run = transitionSyncLaneRun(lane.run, {
+    type: "settle",
+    token: run.token,
+  });
   recordSyncLaneRunTiming(lane, run.startedAtMs, runResult, true);
   recordSyncLaneRunResult(lane, runResult);
   publishSyncCoordinatorSnapshot(coordinatorState);
-  if (!coordinatorState.disposed && lane.requested) {
+  if (!coordinatorState.disposed && hasPendingRequest(lane.request)) {
     wake();
   }
 }
@@ -152,16 +159,18 @@ function startSyncLaneRun(
   coordinatorState: DomainSyncCoordinatorState,
   lane: SyncLaneState,
 ) {
-  lane.requested = false;
-  lane.notBeforeAtMs = null;
-  lane.running = true;
+  const runToken = {};
+  lane.request = transitionSyncLaneRequest(lane.request, { type: "clear" });
+  lane.run = transitionSyncLaneRun(lane.run, {
+    type: "start",
+    token: runToken,
+  });
+  // A pump run supersedes an upload session on its key, as runCount does.
+  lane.uploadSession = null;
   lane.runCount += 1;
   lane.lastAction = "started";
   lane.lastActionAt = createSyncTimestamp();
   lane.lastStartedAt = lane.lastActionAt;
-  lane.runAbandoned = false;
-  const runToken = {};
-  lane.activeRunToken = runToken;
   publishSyncCoordinatorSnapshot(coordinatorState);
   const startedAtMs = readUserTimingClock();
 
@@ -210,14 +219,19 @@ export async function runCoordinatorLane(
     clearTimeout(watchdogTimer);
   }
 
-  lane.running = false;
   let runResult: SyncLaneRunResult;
   if (raceOutcome.kind === "settled") {
-    lane.activeRunToken = null;
+    lane.run = transitionSyncLaneRun(lane.run, {
+      type: "settle",
+      token: runToken,
+    });
     runResult = raceOutcome.result;
     recordSyncLaneRunTiming(lane, startedAtMs, runResult, false);
   } else {
-    lane.runAbandoned = true;
+    lane.run = transitionSyncLaneRun(lane.run, {
+      type: "time-out",
+      token: runToken,
+    });
     runResult = {
       status: "failed",
       error: new Error(
@@ -239,14 +253,21 @@ export async function runCoordinatorLane(
 
   if (
     runResult.status === "failed" &&
-    lane.requested &&
+    hasPendingRequest(lane.request) &&
     raceOutcome.kind === "settled"
   ) {
     // A fresh hint cannot bypass a failed lane's cooldown. Other document
     // lanes remain runnable; structural retries still preserve the barrier.
-    lane.backingOff = true;
+    const backoffToken = {};
+    lane.run = transitionSyncLaneRun(lane.run, {
+      type: "back-off",
+      token: backoffToken,
+    });
     setTimeout(() => {
-      lane.backingOff = false;
+      lane.run = transitionSyncLaneRun(lane.run, {
+        type: "backoff-expire",
+        token: backoffToken,
+      });
       wake();
     }, FAILED_LANE_REARM_BACKOFF_MS);
   }
