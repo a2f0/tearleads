@@ -112,10 +112,6 @@
       "lines": 678,
       "bytes": 22957
     },
-    "packages/validators/src/operation/openApi.test.ts": {
-      "lines": 509,
-      "bytes": 17107
-    },
     "packages/windowing/README.md": {
       "lines": 558,
       "bytes": 24667
