@@ -315,22 +315,29 @@ function schemaValues(
   for (const [filePath, source] of sources) {
     visit(source);
     if (!isSchemaModule(filePath)) continue;
-    for (const statement of source.statements) {
-      if (!ts.isVariableStatement(statement) || !isExported(statement)) {
-        continue;
-      }
-      for (const declaration of statement.declarationList.declarations) {
-        const initializer = declaration.initializer;
-        if (
-          initializer !== undefined &&
-          ts.isObjectLiteralExpression(unwrap(initializer))
-        ) {
-          values.push(declaration.name);
-        }
+    values.push(...exportedObjectLiteralNames(source));
+  }
+  return values;
+}
+
+/** Names of exported variables initialized with an object literal. */
+function exportedObjectLiteralNames(source: ts.SourceFile): ts.Node[] {
+  const names: ts.Node[] = [];
+  for (const statement of source.statements) {
+    if (!ts.isVariableStatement(statement) || !isExported(statement)) {
+      continue;
+    }
+    for (const declaration of statement.declarationList.declarations) {
+      const initializer = declaration.initializer;
+      if (
+        initializer !== undefined &&
+        ts.isObjectLiteralExpression(unwrap(initializer))
+      ) {
+        names.push(declaration.name);
       }
     }
   }
-  return values;
+  return names;
 }
 
 /**

@@ -19,6 +19,21 @@ const primedSummaryListsByView = new WeakMap<
   WeakSet<ReadonlyArray<unknown>>
 >();
 
+function primeNewSummaryLists(
+  summaryLists: Iterable<ReadonlyArray<DocumentSummary>>,
+  primedSummaryLists: WeakSet<ReadonlyArray<unknown>>,
+  primeDiscoveredDocuments: (
+    discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>,
+  ) => void,
+): void {
+  for (const summaries of summaryLists) {
+    if (summaries.length > 0 && !primedSummaryLists.has(summaries)) {
+      primedSummaryLists.add(summaries);
+      primeDiscoveredDocuments(summaries);
+    }
+  }
+}
+
 function primedSummaryListsForView(
   view: LocalProjectionView,
 ): WeakSet<ReadonlyArray<unknown>> {
@@ -116,12 +131,11 @@ export function useExplorerViewProjectionSync(params: {
       // discovered documents sync their content (and titles) even when they
       // land outside the active container. Each summary-list instance is primed
       // once per view; the local projection only swaps the list when it changes.
-      for (const summaries of summariesMap.values()) {
-        if (summaries.length > 0 && !primedSummaryLists.has(summaries)) {
-          primedSummaryLists.add(summaries);
-          primeDiscoveredDocuments(summaries);
-        }
-      }
+      primeNewSummaryLists(
+        summariesMap.values(),
+        primedSummaryLists,
+        primeDiscoveredDocuments,
+      );
 
       const activeSummaries = activeContainerId
         ? (summariesMap.get(activeContainerId) ?? [])

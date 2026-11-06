@@ -39,6 +39,26 @@ function citesState(
   );
 }
 
+// One state in the walk back from `head`: same principal, the expected
+// version, and the head's own hash at the head version.
+function continuesHistory(
+  state: {
+    readonly principalId: string;
+    readonly principalType: string;
+    readonly stateHash: string;
+    readonly version: number;
+  },
+  head: ReferencedPrincipalHead,
+  expectedVersion: number,
+): boolean {
+  return (
+    state.principalType === head.principalType &&
+    state.principalId === head.principalId &&
+    state.version === expectedVersion &&
+    (state.version !== head.version || state.stateHash === head.stateHash)
+  );
+}
+
 // Walks verified Members history back from the head to the cited state,
 // requiring the member in every state on the way.
 async function memberStayedSinceCitedState(
@@ -54,13 +74,7 @@ async function memberStayedSinceCitedState(
     const page = await loadHistoryPage(head, beforeVersion);
     for (const entry of [...page.entries].reverse()) {
       const { state } = entry;
-      if (
-        state.principalType !== head.principalType ||
-        state.principalId !== head.principalId ||
-        state.version !== expectedVersion ||
-        (state.version === head.version && state.stateHash !== head.stateHash)
-      )
-        return false;
+      if (!continuesHistory(state, head, expectedVersion)) return false;
       if (!entry.projection.some((member) => member.userId === request.userId))
         return false;
       if (state.version === request.membersHead.version)

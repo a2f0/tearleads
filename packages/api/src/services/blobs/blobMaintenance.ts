@@ -136,6 +136,19 @@ interface BlobMaintenanceSummary {
 // committed blobs and clean up expired stage uploads. The deployed trigger is
 // the Worker's hourly Cron Trigger (worker/maintenance.ts); scripts/blobGc.ts
 // runs it on demand.
+function expiredStageFailures(
+  failedStageCount: number,
+  stageFailures: readonly unknown[],
+): AggregateError {
+  const [firstStageFailure] = stageFailures;
+  const detail =
+    firstStageFailure instanceof Error ? `: ${firstStageFailure.message}` : "";
+  return new AggregateError(
+    stageFailures,
+    `Expired blob stage cleanup encountered ${failedStageCount} failure(s)${detail}`,
+  );
+}
+
 export async function runBlobMaintenance(
   runtime: ApiServiceRuntime,
   input: BlobMaintenanceInput = {},
@@ -170,17 +183,10 @@ export async function runBlobMaintenance(
       failures.push(expiredStageAttempt.error);
     }
     if (failedStageCount > 0) {
-      const [firstStageFailure] = expiredStageAttempt.ok
-        ? expiredStageAttempt.result.failures
-        : [];
-      const detail =
-        firstStageFailure instanceof Error
-          ? `: ${firstStageFailure.message}`
-          : "";
       failures.push(
-        new AggregateError(
+        expiredStageFailures(
+          failedStageCount,
           expiredStageAttempt.ok ? expiredStageAttempt.result.failures : [],
-          `Expired blob stage cleanup encountered ${failedStageCount} failure(s)${detail}`,
         ),
       );
     }

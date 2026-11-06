@@ -24,6 +24,17 @@ interface ContainerWriterProjectionRouteDeps {
   readonly runtime: ApiServiceRuntime;
 }
 
+/** Coded projection errors keep their code in the response body. */
+function writerProjectionErrorBody(error: unknown) {
+  return error instanceof ContainerWriterProjectionError &&
+    error.code !== undefined
+    ? {
+        code: error.code,
+        status: error.status,
+      }
+    : undefined;
+}
+
 export function createContainerWriterProjectionRoute({
   requireAuth,
   runtime,
@@ -69,13 +80,7 @@ export function createContainerWriterProjectionRoute({
           c,
           error,
           ContainerWriterProjectionError,
-          error instanceof ContainerWriterProjectionError &&
-            error.code !== undefined
-            ? {
-                code: error.code,
-                status: error.status,
-              }
-            : undefined,
+          writerProjectionErrorBody(error),
         );
       }
     },

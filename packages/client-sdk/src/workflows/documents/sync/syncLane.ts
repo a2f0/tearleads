@@ -44,6 +44,30 @@ export function registerDocumentSyncLane(input: {
   );
 }
 
+/**
+ * How the run requested after `baselineRunCount` ended: abort when the lane
+ * or its coordinator is gone or the run was abandoned, pending until a later
+ * run settles.
+ */
+function requestedRunOutcome(
+  coordinator: ReturnType<typeof getOrCreateDomainSyncCoordinator>,
+  laneKey: string,
+  baselineRunCount: number,
+): "abort" | "pending" | "completed" | "failed" {
+  if (coordinator.isDisposed()) return "abort";
+  const lane = coordinator
+    .getSnapshot()
+    .lanes.find((candidate) => candidate.key === laneKey);
+  if (!lane || lane.runAbandoned) return "abort";
+  if (lane.runCount <= baselineRunCount || lane.running || lane.requested) {
+    return "pending";
+  }
+  if (lane.lastAction === "completed" || lane.lastAction === "failed") {
+    return lane.lastAction;
+  }
+  return "pending";
+}
+
 export function requestDocumentSyncLaneAndWait(input: {
   readonly didCompleteRequest: () => boolean;
   readonly domainScope: DomainScope;
@@ -88,26 +112,17 @@ export function requestDocumentSyncLaneAndWait(input: {
       finish(false);
     };
     const inspect = () => {
-      if (coordinator.isDisposed()) {
+      const outcome = requestedRunOutcome(
+        coordinator,
+        laneKey,
+        baselineRunCount,
+      );
+      if (outcome === "abort") {
         handleAbort();
         return;
       }
-      const lane = coordinator
-        .getSnapshot()
-        .lanes.find((candidate) => candidate.key === laneKey);
-      if (!lane) {
-        handleAbort();
-        return;
-      }
-      if (lane.runAbandoned) {
-        handleAbort();
-        return;
-      }
-      if (lane.runCount <= baselineRunCount || lane.running || lane.requested) {
-        return;
-      }
-      if (lane.lastAction === "completed" || lane.lastAction === "failed") {
-        finish(lane.lastAction === "completed" && input.didCompleteRequest());
+      if (outcome !== "pending") {
+        finish(outcome === "completed" && input.didCompleteRequest());
       }
     };
     unsubscribe = coordinator.subscribe(inspect);

@@ -264,16 +264,17 @@ async function ensureChildSystemContainer(
     isCurrent,
   });
   if (!finalized || !isCurrent()) return null;
-  if (finalized.adopted) {
-    const updated = await updateExistingSystemContainer(
+  if (
+    finalized.adopted &&
+    !(await updateExistingSystemContainer(
       state,
       syncAgent,
       finalized.containerState,
       options,
       isCurrent,
-    );
-    if (!updated) return null;
-  }
+    ))
+  )
+    return null;
   return toContainerNode(finalized.containerState);
 }
 

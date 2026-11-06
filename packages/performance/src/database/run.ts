@@ -62,6 +62,13 @@ export async function runDatabaseExperiment(
   console.info(`Report: ${writer.path}\nTemporary Worker: ${name}`);
   let worker: Awaited<ReturnType<typeof deployTemporaryWorker>> | undefined;
   const errors: string[] = [];
+  const deleteWorker = async () => {
+    if (report.cleanup !== "pending") return;
+    if (worker) await worker.close();
+    report.cleanup = (await api(`/workers/scripts/${name}/settings`))
+      ? "failed"
+      : "deleted";
+  };
   try {
     signal.throwIfAborted();
     report.cleanup = "pending";
@@ -106,12 +113,7 @@ export async function runDatabaseExperiment(
       errors.push("Tail cleanup failed.");
     }
     try {
-      if (report.cleanup === "pending") {
-        if (worker) await worker.close();
-        report.cleanup = (await api(`/workers/scripts/${name}/settings`))
-          ? "failed"
-          : "deleted";
-      }
+      await deleteWorker();
     } catch {
       report.cleanup = "failed";
     }

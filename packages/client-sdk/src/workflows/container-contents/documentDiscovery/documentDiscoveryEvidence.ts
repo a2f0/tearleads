@@ -108,10 +108,10 @@ export function createDiscoveredDocumentVerifier(
         );
         if (result === "unavailable") {
           await Promise.all(rows.map((row) => store.defer(row, generation)));
-        } else {
-          if (result) verified.set(result.documentId, result);
-          settled.push(...rows);
+          continue;
         }
+        if (result) verified.set(result.documentId, result);
+        settled.push(...rows);
       }
     };
     await Promise.all(

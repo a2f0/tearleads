@@ -130,6 +130,32 @@ function findFirstUnclaimed(parent: Int32Array, index: number): number {
   return root;
 }
 
+/** Assigns `owner` every still-unclaimed slot in [startIndex, endIndex). */
+function claimUnclaimedSlots(
+  slots: {
+    readonly firstUnclaimed: Int32Array;
+    readonly ownerBySlot: Int32Array;
+  },
+  owner: number,
+  startIndex: number | undefined,
+  endIndex: number | undefined,
+): void {
+  if (startIndex === undefined || endIndex === undefined) {
+    throw new Error("Attribution span boundary was not indexed.");
+  }
+  const { firstUnclaimed, ownerBySlot } = slots;
+  let slot = findFirstUnclaimed(firstUnclaimed, startIndex);
+  while (slot < endIndex) {
+    ownerBySlot[slot] = owner;
+    firstUnclaimed[slot] = findFirstUnclaimed(firstUnclaimed, slot + 1);
+    slot = readInt32(
+      firstUnclaimed,
+      slot,
+      "Attribution interval successor was out of bounds.",
+    );
+  }
+}
+
 function claimedIntervalsForPeer(
   peerSpans: readonly OrderedSpan[],
 ): ClaimedInterval[] {
@@ -161,22 +187,12 @@ function claimedIntervalsForPeer(
       left.inputOrder - right.inputOrder,
   );
   for (const [owner, { span }] of spansByPriority.entries()) {
-    const startIndex = counterIndexes.get(span.startCounter);
-    const endIndex = counterIndexes.get(span.endCounter);
-    if (startIndex === undefined || endIndex === undefined) {
-      throw new Error("Attribution span boundary was not indexed.");
-    }
-
-    let slot = findFirstUnclaimed(firstUnclaimed, startIndex);
-    while (slot < endIndex) {
-      ownerBySlot[slot] = owner;
-      firstUnclaimed[slot] = findFirstUnclaimed(firstUnclaimed, slot + 1);
-      slot = readInt32(
-        firstUnclaimed,
-        slot,
-        "Attribution interval successor was out of bounds.",
-      );
-    }
+    claimUnclaimedSlots(
+      { firstUnclaimed, ownerBySlot },
+      owner,
+      counterIndexes.get(span.startCounter),
+      counterIndexes.get(span.endCounter),
+    );
   }
 
   const claimed: ClaimedInterval[] = [];
