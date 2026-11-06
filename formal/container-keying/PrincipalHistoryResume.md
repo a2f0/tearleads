@@ -5,7 +5,7 @@ locally protected progress cannot invent a checked prefix, substitute its
 verification scope, or forget an observed external-authority citation. A saved
 prefix may be older than the live one; restoring it repeats work and must not be
 confused with a monotonic application
-[checkpoint](../../docs/glossary.md#checkpoint) or a completed operation.
+[checkpoint](../../docs/glossary/sync.md#checkpoint) or a completed operation.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -36,6 +36,6 @@ Concurrent calls, byte limits, storage transactions, replay ordering, key
 custody, current authorization, and HTTP deadlines remain outside this model.
 In particular, it does not prove that a saved prefix is current, that a database
 write persisted it, or that restoring old progress cannot repeat work. Clients
-must still pin an exact final [head](../../docs/glossary.md#head) and protect
+must still pin an exact final [head](../../docs/glossary/sync.md#head) and protect
 monotonic checkpoint publication; those obligations belong to the API and SDK
 integration.

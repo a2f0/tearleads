@@ -7,8 +7,8 @@ preparation continuations, mutation acknowledgements and durable client
 recovery.
 
 `createPrincipalPolicyHistoryVerifier` in `@tearleads/crypto` verifies a signed
-[principal history](./glossary.md#principal-policy-state) from genesis in
-successive pages. It shares the full-history verifier's commitment, identity,
+[principal history](./glossary/principals.md#principal-policy-state) from
+genesis in successive pages. It shares the full-history verifier's commitment, identity,
 signer-authorization, transition, and signature checks. The caller supplies the
 authenticated signer keys and any already verified external authority for each
 page.
@@ -16,22 +16,23 @@ page.
 An append contains one to 128 entries. The verifier owns its inputs before
 asynchronous work, stages all checks, and publishes progress only when the whole
 page succeeds. A rejected page can be corrected and retried. Concurrent appends
-and finishing during an append [fail closed](./glossary.md#fail-closed) with
+and finishing during an append [fail closed](./glossary/access.md#fail-closed) with
 `invalid_shape`; that code can also describe malformed page data. Pages must be
 contiguous; duplicate, skipped, wrong-principal, and forked successors are
 rejected.
 
 Between pages it retains an index frontier (at most 53 hashes), the latest
 checked entry, the most recent external admin citation, the observed
-[local-checkpoint](./glossary.md#checkpoint) hash and entry, and explicitly
+[local-checkpoint](./glossary/sync.md#checkpoint) hash and entry, and explicitly
 requested historical entries. A page conflicting with the local checkpoint is
 rejected after its signatures pass, before publishing its progress. Uncited
 states preserve the prior external-admin citation, so a later page cannot roll
 authority back. A successful `finish(expectedHead)` requires the exact current
-[head](./glossary.md#head), including its key [epoch](./glossary.md#epoch) and
-fingerprint, and connection to the optional local checkpoint. Returned entries
-are readonly copies; mutating them cannot change verifier progress. The verifier
-may continue after a successful finish to observe exact intermediate heads.
+[head](./glossary/sync.md#head), including its key
+[epoch](./glossary/keys.md#epoch) and fingerprint, and connection to the
+optional local checkpoint. Returned entries are readonly copies; mutating them
+cannot change verifier progress. The verifier may continue after a successful
+finish to observe exact intermediate heads.
 
 `VerifiedPrincipalPolicyHistory` is not a full snapshot. On `finish`, its
 `retainedEntries` contains reached requested entries, the reached local
@@ -49,8 +50,9 @@ An accepted append also returns content-addressed `indexNodes`. These are
 untrusted proof material for a Merkle index whose leaves bind each accepted
 entry's six head fields and exact signature bytes. Only accepted pages advance
 the private root. The node-hashing and inclusion-proof routines are shared with
-the [transparency tree](./keying-design.md#transparency-and-checkpointing); the
-principal-history leaf has a separate hash domain. This does not introduce a
+the
+[transparency tree](./keying-design/verification.md#transparency-and-checkpointing);
+the principal-history leaf has a separate hash domain. This does not introduce a
 transparency authority, witness or gossip dependency.
 
 `createPrincipalHistoryIndexProof` reads at most one node per tree level from a
@@ -59,10 +61,10 @@ proof. `resolvePrincipalHistoryIndexProof` also returns the signature-bound leaf
 hash for exact entry lookup. `verifyPrincipalPolicyHistoryReferences` checks up
 to 128 requested entries against the private root of an issued history
 capability. It checks their head fields, signed-state hash, projection and
-[grant](./glossary.md#grant) commitments, and proof position/size; it does not
-repeat signature verification. An independently signed fork is insufficient: the
-exact entry must belong to this accepted prefix. Proof paths have at most 53
-hashes.
+[grant](./glossary/access.md#grant) commitments, and proof position/size; it
+does not repeat signature verification. An independently signed fork is
+insufficient: the exact entry must belong to this accepted prefix. Proof paths
+have at most 53 hashes.
 
 Successful selection returns a new capability containing only those references
 and the current entry, replacing any retained checkpoint. The optional
@@ -83,9 +85,9 @@ The entry budget bounds history depth per append, not the size of one signed
 projection or grant set. Transport code must bound serialized bytes, dependency
 work, and concurrency. External authority must already be authenticated by the
 caller; supplying a projection from an untrusted page does not establish that
-its signer is an [admin](./glossary.md#organization-admins-group). This API does
-not verify encrypted payloads or
-[member key envelopes](./glossary.md#member-envelope), and its result cannot
+its signer is an [admin](./glossary/principals.md#organization-admins-group).
+This API does not verify encrypted payloads or
+[member key envelopes](./glossary/keys.md#member-envelope), and its result cannot
 stand in for a verified full keying bundle.
 
 ## Current artifacts
@@ -240,15 +242,15 @@ and applicable external Admins artifacts are checked from storage before use.
 Current membership still controls live access, even when a historical citation
 includes a removed member.
 
-[Container KEK](./glossary.md#container-kek) verification also retains citations
-from historical wrap [manifests](./glossary.md#access-manifest). A carried wrap
-can cite a manifest whose other grants name older principal heads, even when the
-current access path has already advanced those citations. Historical event and
-wrap authorization uses `VerifiedPrincipalPolicySelection`: public signed
-entries selected from a locally verified prefix, with proofs for every requested
-citation. It needs no payload, member envelopes, or live group record. Cold
-historical prefixes yield to the same preparation mechanism. This type cannot
-substitute for complete snapshots or current keying artifacts.
+[Container KEK](./glossary/keys.md#container-kek) verification also retains citations
+from historical wrap [manifests](./glossary/access.md#access-manifest). A
+carried wrap can cite a manifest whose other grants name older principal heads,
+even when the current access path has already advanced those citations.
+Historical event and wrap authorization uses `VerifiedPrincipalPolicySelection`:
+public signed entries selected from a locally verified prefix, with proofs for
+every requested citation. It needs no payload, member envelopes, or live group
+record. Cold historical prefixes yield to the same preparation mechanism. This
+type cannot substitute for complete snapshots or current keying artifacts.
 
 Full-history responses use `verifyPrincipalPolicyBundleAgainstHistory` before
 serving reread rows. It owns the bundle, checks current artifacts, normalizes

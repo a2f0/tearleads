@@ -1,7 +1,7 @@
 # Sync Interruption Safety
 
-Multi-request [document](./glossary.md#document),
-[container](./glossary.md#container), and attachment sync must survive request
+Multi-request [document](./glossary/content.md#document),
+[container](./glossary/access.md#container), and attachment sync must survive request
 failures, lost acknowledgements, local persistence failures, and retries. This
 document lines up those [client workflows](./client-sync-ordering.md) with the
 server's commit boundaries and names the regression tests that enforce each
@@ -12,16 +12,17 @@ application workflow interruption-safe.
 
 ### Stage cleanup never deletes promoted attachment bytes
 
-An [attachment bind](./glossary.md#attachment-binding) promotes a
-[multipart stage](./glossary.md#blob-stage) into a [blob](./glossary.md#blob) in
-a database transaction. Promotion locks the stage before checking its expiry and
-holds that lock through commit. Expiry cleanup first updates each candidate to a
-durable expired state, which serializes with that lock and returns no stage if
-promotion already consumed it; only then does cleanup touch object storage.
-Object-store I/O happens after the cleanup update commits, and a failed cleanup
-leaves an expired row for a later sweep. Without this ordering, a cleanup that
-read a stage mid-promotion could delete bytes the bind then committed as a live
-attachment, and no retry could reconstruct them from the committed metadata.
+An [attachment bind](./glossary/content.md#attachment-binding) promotes a
+[multipart stage](./glossary/content.md#blob-stage) into a
+[blob](./glossary/content.md#blob) in a database transaction. Promotion locks
+the stage before checking its expiry and holds that lock through commit. Expiry
+cleanup first updates each candidate to a durable expired state, which
+serializes with that lock and returns no stage if promotion already consumed it;
+only then does cleanup touch object storage. Object-store I/O happens after the
+cleanup update commits, and a failed cleanup leaves an expired row for a later
+sweep. Without this ordering, a cleanup that read a stage mid-promotion could
+delete bytes the bind then committed as a live attachment, and no retry could
+reconstruct them from the committed metadata.
 
 The PostgreSQL regressions pause a real promotion both after its active-stage
 read and after its database writes, and verify that cleanup cannot delete the
@@ -42,8 +43,8 @@ persist the required state.
 A bind consumes its stage and permanently reserves its blob id. Normal recovery
 adopts the matching active binding. If another device detaches or replaces that
 binding first, it no longer appears in the
-[active-slot](./glossary.md#attachment-slot) listing, and the server rejects the
-old blob id as already used, even after
+[active-slot](./glossary/content.md#attachment-slot) listing, and the server
+rejects the old blob id as already used, even after
 [garbage collection](./loro-e2ee-sync-protocol.md#orphan-blob-detection).
 
 After a definitive stage absence or expiry, the document owner therefore reads

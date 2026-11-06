@@ -45,9 +45,9 @@ Stripe base theme is `night` for dark surfaces and `stripe` for light surfaces.
 The "Pay on Stripe instead" fallback creates a hosted Checkout Session and opens
 it in a new tab, with same-tab navigation when a popup is blocked. It uses the
 same admin gate, authoritative
-[Members](../glossary.md#organization-members-group) count, customer, metadata,
-and `invoice.paid` association path. Return URLs share the portal route's origin
-validation.
+[Members](../glossary/principals.md#organization-members-group) count, customer,
+metadata, and `invoice.paid` association path. Return URLs share the portal
+route's origin validation.
 
 ## Subscription management
 
@@ -59,8 +59,8 @@ cancelled from a native shell. This flag is independent of `subscriptionSource`:
 a native takeover can retain a Stripe subscription that still needs
 cancellation. The management endpoint returns only a native store URL; a failed
 lookup does not hide Stripe cancel. Members can read the
-[organization-level](../glossary.md#organization) cancellation flag; the
-cancellation endpoint requires an administrator.
+[organization-level](../glossary/principals.md#organization) cancellation flag;
+the cancellation endpoint requires an administrator.
 
 Lost-key cancellation uses Stripe's shareable no-code portal login from the
 public website's **Manage subscription** footer link. Stripe emails a secure

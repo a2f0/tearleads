@@ -24,8 +24,8 @@ current database is idempotent. There are no incremental schema upgrades, data
 backfills, or content scans.
 
 Production and staging use PlanetScale PostgreSQL and independent Cloudflare R2
-buckets for encrypted [blobs](../glossary.md#blob). Runtime database roles and
-schema initialization credentials are separate.
+buckets for encrypted [blobs](../glossary/content.md#blob). Runtime database
+roles and schema initialization credentials are separate.
 
 Schema changes update the Drizzle definitions, regenerate both baselines, and
 require fresh server and client databases. Local database startup checks
@@ -41,33 +41,33 @@ outright (`assertExactKeys`), never migrated or dual-read, so deploying one
 onto an existing database requires resetting every server and client database.
 The stored shapes enforce:
 
-- Principal wrapping-key [epochs](../glossary.md#epoch) and
-  [principal-state](../glossary.md#principal-policy-state) versions are positive
-  safe integers in signed states, references, wire validation, SDK records, and
-  persistence. PostgreSQL stores them, including the manifest principal-head
+- Principal wrapping-key [epochs](../glossary/keys.md#epoch) and
+  [principal-state](../glossary/principals.md#principal-policy-state) versions
+  are positive safe integers in signed states, references, wire validation, SDK
+  records, and persistence. PostgreSQL stores them, including the manifest principal-head
   projections, as range-constrained `bigint`. Genesis starts at epoch 1 and each
   rotation advances exactly one epoch.
 - Durable `principal_policy_commits` receipts bind exact compound policy
   requests to their original results.
-- Signed artifacts ([events](../glossary.md#access-event),
-  [manifests](../glossary.md#access-manifest), principal states) carry a
+- Signed artifacts ([events](../glossary/access.md#access-event),
+  [manifests](../glossary/access.md#access-manifest), principal states) carry a
   canonical millisecond ISO-8601 `signedAt`; any other encoding fails
   verification.
-- [Content write headers](../glossary.md#signed-write-header) carry
+- [Content write headers](../glossary/content.md#signed-write-header) carry
   `dependencyManifestHashes`; a header without that citation is refused on read
   and never re-served.
 - Container manifests carry `systemSlot`.
-- [Container path](../glossary.md#authorizing-container-path) references resolve
-  against live `containers` rows; a path through a missing container fails with
-  409 `container_unavailable`.
-- Document and blob [content-key](../glossary.md#content-key) wraps authenticate
+- [Container path](../glossary/access.md#authorizing-container-path) references
+  resolve against live `containers` rows; a path through a missing container
+  fails with 409 `container_unavailable`.
+- Document and blob [content-key](../glossary/keys.md#content-key) wraps authenticate
   the suite, object id, content-key epoch, and target as AES-GCM associated
   data.
 - Signed write headers are the write-integrity mechanism (see
   [document write integrity](../document-rekey-and-audit-history.md#write-integrity));
   there is no server-side audit hash chain. A
-  [rotation baseline](../glossary.md#rotation-baseline)'s update row keeps only
-  the source [version vector](../glossary.md#version-vector) its readers
+  [rotation baseline](../glossary/keys.md#rotation-baseline)'s update row keeps
+  only the source [version vector](../glossary/content.md#version-vector) its readers
   consume, and `access_events.dependency_manifest_hashes` is the only copy of an
   event's dependency citations.
 - The client SDK's outbound write queue lives in `document_history_updates`
@@ -78,14 +78,14 @@ The stored shapes enforce:
   (`tearleads.auth.challenge.v2`), and production requires `API_PUBLIC_ORIGIN`,
   so clients and the API release together.
 
-[Organization](../glossary.md#organization) purge (`status = "purged"`) is
-terminal and not a reset: the organization row survives, but every container,
-document, and blob mutation in that organization is refused with
-`402 billing_inactive`, and a
+[Organization](../glossary/principals.md#organization) purge
+(`status = "purged"`) is terminal and not a reset: the organization row
+survives, but every container, document, and blob mutation in that organization
+is refused with `402 billing_inactive`, and a
 [replacement organization](./billing-purge-recovery.md) is provisioned under a
 fresh organization id. Purged ids are never recreated under the same
 `(kind, organization, id)` key, so client
-[checkpoints](../glossary.md#checkpoint) keyed that way cannot observe a false
+[checkpoints](../glossary/sync.md#checkpoint) keyed that way cannot observe a false
 rollback.
 
 ### Connection settings
@@ -166,7 +166,7 @@ opened explicitly in write mode. The adapter rejects TLS opt-out URLs and
 enables and verifies SQLite foreign-key enforcement on every remote statement
 session before application SQL runs. Because this configuration always reads the
 remote primary, the API bypasses replica-watermark waiting and emits the `0/0`
-[LSN](../glossary.md#commit-lsn) sentinel with `commitLsnMode: "untracked"`.
+[LSN](../glossary/sync.md#commit-lsn) sentinel with `commitLsnMode: "untracked"`.
 Clients use that explicit mode to replace a checkpoint from a previous backend
 without weakening tracked-LSN validation when they later return to Postgres or
 SQLite.
@@ -214,7 +214,7 @@ S3 env vars:
 - `BLOB_OBJECT_STORE_S3_KEY_PREFIX`
 
 Blob keys are `organizations/<organizationId>/blob-stages/<stageId>`. Promotion
-retains the [stage](../glossary.md#blob-stage) key; GC aborts uploads and
+retains the [stage](../glossary/content.md#blob-stage) key; GC aborts uploads and
 deletes objects using that stored key. Expiry cleanup deletes the key even after
 aborting a pending stage's upload, since a bind may have assembled the object
 before marking the stage complete. The optional S3 key prefix wraps it as
@@ -222,7 +222,7 @@ before marking the stage complete. The optional S3 key prefix wraps it as
 must use the same bucket and prefix configuration.
 
 Uploads use the multipart staging and
-[attachment plane](../glossary.md#attachment-plane). Stage initiation describes
+[attachment plane](../glossary/content.md#attachment-plane). Stage initiation describes
 the parts the client sends first (byte length and base64 Content-MD5 of up to
 four, its upload concurrency), and the response returns each one's upload
 source, so those parts need no authorization request. Immediately before sending
@@ -251,7 +251,7 @@ one-hour stage lifetime is separate: URLs do not extend it, and an expired
 stage cannot be completed. No client-side five-minute timer aborts an accepted
 request.
 
-[Attachment binding](../glossary.md#attachment-binding) completes the stage:
+[Attachment binding](../glossary/content.md#attachment-binding) completes the stage:
 before its transaction it assembles parts 1..k of the stage's upload (the run
 covering exactly the declared length, so a stray higher part is left out) and
 reads the assembled object once. That one read, the store's completion readback,

@@ -1,8 +1,8 @@
 # Billing History
 
 `GET /organizations/:id/billing/history` is
-[admin-only](../glossary.md#organization-admins-group) and combines four durable
-record categories: [RevenueCat](revenuecat-billing.md) lifecycle events,
+[admin-only](../glossary/principals.md#organization-admins-group) and combines
+four durable record categories: [RevenueCat](revenuecat-billing.md) lifecycle events,
 internal free-trial lifecycle events, the internal licensed-seat ledger, and
 append-only [Stripe](revenuecat-billing.md#direct-stripe-checkout-server-side)
 paid-invoice snapshots. Internal trial events preserve the initialized and
@@ -55,7 +55,7 @@ resolution attempt recovers them; a definitive 404 is acknowledged, while
 transient provider failures remain retryable.
 
 The first snapshot for an invoice id remains immutable. A redelivery whose
-[organization](../glossary.md#organization), subscription, billing reason,
+[organization](../glossary/principals.md#organization), subscription, billing reason,
 currency, or paid total changes is treated as a hard conflict. Differences
 limited to line attribution or event metadata preserve the first snapshot while
 allowing idempotent seat and RevenueCat fulfillment to finish after a downstream

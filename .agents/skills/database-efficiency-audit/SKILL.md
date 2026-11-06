@@ -93,7 +93,7 @@ an ordinary request's path stay in scope); the website; R2 blob object
 storage; the realtime hub's and key/value store's Durable Object storage;
 Loro document engine internals; cryptographic cost; connection-pool and
 Hyperdrive tuning beyond what a statement count implies; and anything
-`docs/security-guarantees.md` lists as an accepted residual.
+`docs/security-guarantees/` lists as an accepted residual.
 
 ## 1. Establish the baseline
 

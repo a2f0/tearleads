@@ -1,8 +1,8 @@
 # SQLite setup for SDK hosts
 
 Hosts that own API routing, encrypted blob storage, keyring-derived
-`localKeys` (see [Local Keyring](client-sdk.md#local-keyring)), and logging can
-pass those adapters explicitly:
+`localKeys` (see [Local Keyring](client-sdk/local-keyring.md#local-keyring)),
+and logging can pass those adapters explicitly:
 
 ```ts
 import {
@@ -43,7 +43,7 @@ page reload. This example explicitly uses
 [durable OPFS storage](../cipher-suites.md#opfs-local-storage), requiring a
 secure context. If OPFS is unavailable, initialization fails; it does not
 silently fall back to memory. The host must retain the
-[keyring](../glossary.md#local-keyring) to reopen the
+[keyring](../glossary/keys.md#local-keyring) to reopen the
 [encrypted database](../cipher-suites.md#at-rest-database).
 
 Serve the worker and WASM assets as described in the
@@ -51,5 +51,5 @@ Serve the worker and WASM assets as described in the
 SQLite after constructing the SDK, await `client.init(...)` first, then call
 `tearleads.database.configure(...)` with the initialized runtime's `client` and
 `id`.
-See [database lifecycle](client-sdk.md#constructor-options) for initialization
+See [database lifecycle](client-sdk/configuration.md#constructor-options) for initialization
 and failure states.

@@ -2,8 +2,8 @@
 
 [`PrincipalRecoveryReuse.tla`](./PrincipalRecoveryReuse.tla) checks how
 authenticated principal-history recovery is reused. An honest server
-advances the organization directory [head](../../docs/glossary.md#head); a group
-revocation is a rotation committed with a directory successor, so it is an
+advances the organization directory [head](../../docs/glossary/sync.md#head); a
+group revocation is a rotation committed with a directory successor, so it is an
 advance. Each workflow operation reads the server-current head once (the bare
 discovery read), then recovers that exact head. A completed local stage of the
 pinned head is accepted without a confirmation read, and stored current
