@@ -1,42 +1,21 @@
 import { expect, test } from "bun:test";
+import {
+  STRIPE_PAYLOAD_ENV as ENV,
+  recordingStripeFetch as fakeFetch,
+  STRIPE_PAYLOAD_PRICE as TEAM_5_PRICE,
+} from "../../test/helpers/stripePayloadFetch";
 import { createSyncSubscription } from "./stripeApi";
 import { createCheckoutSession } from "./stripeCheckoutSession";
 
-const ENV = {
-  STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_SOLO_PRICE_ID: "price_solo",
-  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_sync",
-  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
-};
-
-const TEAM_5_PRICE = {
-  active: true,
-  currency: "usd",
-  id: "price_sync",
-  product: { active: true, id: "prod_sync" },
-  recurring: { interval: "month", interval_count: 1 },
-  unit_amount: 1_000,
-};
-
-function fakeFetch(responses: unknown[]): {
-  fetchImpl: typeof fetch;
-  requests: Request[];
-} {
-  const requests: Request[] = [];
-  const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    requests.push(new Request(input, init));
-    return Response.json(responses.shift() ?? {});
-  }) as typeof fetch;
-  return { fetchImpl, requests };
-}
-
 test("direct subscription creation selects a fixed tier at quantity one", async () => {
   const { fetchImpl, requests } = fakeFetch([
-    TEAM_5_PRICE,
-    { data: [], has_more: false },
+    { body: TEAM_5_PRICE },
+    { body: { data: [], has_more: false } },
     {
-      id: "sub_1",
-      latest_invoice: { payment_intent: { client_secret: "pi_secret" } },
+      body: {
+        id: "sub_1",
+        latest_invoice: { payment_intent: { client_secret: "pi_secret" } },
+      },
     },
   ]);
 
@@ -51,15 +30,15 @@ test("direct subscription creation selects a fixed tier at quantity one", async 
     { env: ENV, fetchImpl },
   );
 
-  const body = await requests[2]?.text();
+  const body = requests[2]?.body;
   expect(body).toContain(`${encodeURIComponent("items[0][quantity]")}=1`);
   expect(body).toContain(`${encodeURIComponent("items[0][price]")}=price_sync`);
 });
 
 test("hosted Checkout selects a fixed tier at quantity one", async () => {
   const { fetchImpl, requests } = fakeFetch([
-    TEAM_5_PRICE,
-    { url: "https://checkout.stripe.com/pay/cs_1" },
+    { body: TEAM_5_PRICE },
+    { body: { url: "https://checkout.stripe.com/pay/cs_1" } },
   ]);
 
   await createCheckoutSession(
@@ -75,24 +54,28 @@ test("hosted Checkout selects a fixed tier at quantity one", async () => {
     { env: ENV, fetchImpl },
   );
 
-  expect(await requests[1]?.text()).toContain(
+  expect(requests[1]?.body).toContain(
     `${encodeURIComponent("line_items[0][quantity]")}=1`,
   );
 });
 
 test("does not resume an incomplete checkout with a stale quantity", async () => {
   const { fetchImpl, requests } = fakeFetch([
-    TEAM_5_PRICE,
+    { body: TEAM_5_PRICE },
     {
-      data: [{ id: "sub_pending", status: "incomplete" }],
-      has_more: false,
+      body: {
+        data: [{ id: "sub_pending", status: "incomplete" }],
+        has_more: false,
+      },
     },
     {
-      id: "sub_pending",
-      status: "incomplete",
-      metadata: { userId: "user-1" },
-      items: { data: [{ price: { id: "price_sync" }, quantity: 1 }] },
-      latest_invoice: { payment_intent: { client_secret: "pi_secret" } },
+      body: {
+        id: "sub_pending",
+        status: "incomplete",
+        metadata: { userId: "user-1" },
+        items: { data: [{ price: { id: "price_sync" }, quantity: 1 }] },
+        latest_invoice: { payment_intent: { client_secret: "pi_secret" } },
+      },
     },
   ]);
 

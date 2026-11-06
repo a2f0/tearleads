@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { fakeSocket } from "../../test/helpers/wsRouting";
 import { type WsConnection, WsEventRouter } from "./wsRouting";
 
 const ORG_A = "00000000-0000-4000-8000-00000000000a";
@@ -6,25 +7,6 @@ const ORG_B = "00000000-0000-4000-8000-00000000000b";
 const USER_A = "10000000-0000-4000-8000-00000000000a";
 const USER_B = "20000000-0000-4000-8000-00000000000b";
 const DECLARATION_ID = "organization-interest-a";
-
-interface FakeSocket extends WsConnection {
-  readonly sent: string[];
-}
-
-function fakeSocket(
-  userId: string,
-  sessionId = `${userId}-session`,
-): FakeSocket {
-  const sent: string[] = [];
-  return {
-    data: { sessionId, userId },
-    sent,
-    send(message: string) {
-      sent.push(message);
-      return undefined;
-    },
-  };
-}
 
 function declareAuthorizedOrganization(
   router: WsEventRouter,

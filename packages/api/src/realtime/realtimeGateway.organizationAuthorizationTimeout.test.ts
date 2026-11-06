@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { ServerWebSocket } from "bun";
+import { type FakeSocket, fakeSocket } from "../../test/helpers/wsRouting";
 import { createRealtimeGateway } from "./realtimeGateway";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 import { WsEventRouter } from "./wsRouting";
@@ -8,23 +9,6 @@ const ORGANIZATION_ID = "00000000-0000-4000-8000-00000000000a";
 const USER_ID = "10000000-0000-4000-8000-00000000000a";
 const SECOND_USER_ID = "20000000-0000-4000-8000-00000000000a";
 const DECLARATION_ID = "organization-interest-a";
-
-interface FakeSocket {
-  readonly data: WebSocketTicketIdentity;
-  readonly sent: string[];
-  send(message: string): void;
-}
-
-function fakeSocket(userId: string, sessionId: string): FakeSocket {
-  const sent: string[] = [];
-  return {
-    data: { sessionId, userId },
-    sent,
-    send(message: string) {
-      sent.push(message);
-    },
-  };
-}
 
 function serverSocket(
   ws: FakeSocket,
