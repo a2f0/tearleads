@@ -72,14 +72,21 @@ export async function verifyOrganizationPolicyHistory(input: {
       reject("directory belongs to another organization");
     descriptors.set(reference.stateHash, descriptor);
     references.push(reference, ...descriptor.groupHeads);
-    for (const group of descriptor.groupHeads) {
-      const previous = groups.get(group.principalId);
-      if (!previous || group.version > previous.version)
-        groups.set(group.principalId, group);
-    }
+    keepNewestGroupHeads(groups, descriptor.groupHeads);
   }
   verifyGroupSources(evidence, groups);
   return { descriptors, references };
+}
+
+function keepNewestGroupHeads(
+  groups: Map<string, ReferencedPrincipalHead>,
+  groupHeads: readonly ReferencedPrincipalHead[],
+) {
+  for (const group of groupHeads) {
+    const previous = groups.get(group.principalId);
+    if (!previous || group.version > previous.version)
+      groups.set(group.principalId, group);
+  }
 }
 
 function verifyGroupSources(

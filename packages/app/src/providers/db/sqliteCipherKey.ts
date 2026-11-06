@@ -71,6 +71,20 @@ export function createSqliteCipherKeyResolver(
     }
   };
 
+  const retireTimedOutKeyring = (activeKeyring: LocalKeyring): void => {
+    try {
+      activeKeyring.close?.();
+    } catch {
+      // Preserve the derivation timeout. Cache retirement below ensures a
+      // replacement does not reuse this partially closed keyring.
+    } finally {
+      if (keyring === activeKeyring) {
+        keyring = null;
+        createLocalKeyring.invalidateCachedKeyring?.();
+      }
+    }
+  };
+
   return () => {
     // Bound each derivation so a keyring/IndexedDB call that never settles cannot
     // leave the queued operation pending forever. That matters because the queue
@@ -101,19 +115,7 @@ export function createSqliteCipherKeyResolver(
           }),
         ]);
       } catch (error) {
-        if (timedOut) {
-          try {
-            activeKeyring.close?.();
-          } catch {
-            // Preserve the derivation timeout. Cache retirement below ensures a
-            // replacement does not reuse this partially closed keyring.
-          } finally {
-            if (keyring === activeKeyring) {
-              keyring = null;
-              createLocalKeyring.invalidateCachedKeyring?.();
-            }
-          }
-        }
+        if (timedOut) retireTimedOutKeyring(activeKeyring);
         throw error;
       } finally {
         clearTimeout(timeoutId);

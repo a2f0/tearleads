@@ -11,6 +11,23 @@ function isEventItem(item: SentryItem): item is [{ type: "event" }, Event] {
   return item[0].type === "event";
 }
 
+/** Nothing except rebuilt error envelopes can leave this boundary. */
+function rebuiltEventItems(
+  envelope: Parameters<SentryTransport["send"]>[0],
+  config: SentryPrivacyConfig,
+  admitEvent: ReturnType<typeof createSentryEventBudget>,
+  discards: ReturnType<typeof createDiscardReports> | undefined,
+): Array<[{ type: "event" }, Event]> {
+  const items: Array<[{ type: "event" }, Event]> = [];
+  for (const item of envelope[1]) {
+    if (!isEventItem(item)) continue;
+    const event = sanitizeSentryEvent(item[1], config);
+    if (event && admitEvent(event)) items.push([{ type: "event" }, event]);
+    else if (event) discards?.record();
+  }
+  return items;
+}
+
 export function createPrivateSentryTransport(
   config: SentryPrivacyConfig,
 ): ClientOptions["transport"] {
@@ -34,15 +51,7 @@ export function createPrivateSentryTransport(
         return transport.flush(timeout);
       },
       send(envelope) {
-        // Nothing except rebuilt error envelopes can leave this boundary.
-        const items: Array<[{ type: "event" }, Event]> = [];
-        for (const item of envelope[1]) {
-          if (!isEventItem(item)) continue;
-          const event = sanitizeSentryEvent(item[1], config);
-          if (event && admitEvent(event))
-            items.push([{ type: "event" }, event]);
-          else if (event) discards?.record();
-        }
+        const items = rebuiltEventItems(envelope, config, admitEvent, discards);
         return items.length
           ? transport.send([
               {

@@ -56,6 +56,18 @@ function recordContainerDeletionOutcome(input: {
   return true;
 }
 
+/** A container that survives blocks its parent and so every ancestor. */
+function blockContainerParent(
+  input: DeleteSubtreeContainersInput,
+  blockedParentIds: Set<string>,
+  parentId: string | null,
+): void {
+  if (parentId !== null) {
+    blockedParentIds.add(parentId);
+  }
+  input.reportStep(false);
+}
+
 // Delete leaf-first. A surviving document or child blocks its container and all
 // ancestors; cancellation stops at a container boundary.
 export async function deleteSubtreeContainers(
@@ -74,10 +86,7 @@ export async function deleteSubtreeContainers(
       blockedParentIds.has(containerId) ||
       !(await input.allowsContainer(containerId))
     ) {
-      if (parentId !== null) {
-        blockedParentIds.add(parentId);
-      }
-      input.reportStep(false);
+      blockContainerParent(input, blockedParentIds, parentId);
       continue;
     }
     const deleted = await deleteContainerState({
@@ -98,22 +107,19 @@ export async function deleteSubtreeContainers(
       })
     ) {
       input.reportStep(true);
-    } else {
-      if (
-        (deleted === "local-conflict" || deleted === "remote-deleted") &&
-        deletionWasCancelled(input)
-      ) {
-        return {
-          aborted: true,
-          purgedContainerIds,
-          remoteDeletedContainerIds,
-        };
-      }
-      if (parentId !== null) {
-        blockedParentIds.add(parentId);
-      }
-      input.reportStep(false);
+      continue;
     }
+    if (
+      (deleted === "local-conflict" || deleted === "remote-deleted") &&
+      deletionWasCancelled(input)
+    ) {
+      return {
+        aborted: true,
+        purgedContainerIds,
+        remoteDeletedContainerIds,
+      };
+    }
+    blockContainerParent(input, blockedParentIds, parentId);
   }
   return { aborted: false, purgedContainerIds, remoteDeletedContainerIds };
 }

@@ -183,6 +183,47 @@ export interface KeyringRebuildResult {
  * `missingEpochIds` instead of throwing, because a partial rebuild plus a
  * named gap is strictly more useful to a repair than an exception.
  */
+/**
+ * The predecessor's key, checked against its material-id commitment, or null
+ * when it is unreachable or a supplied anchor is wrong.
+ */
+async function recoverPredecessorKey(input: {
+  anchors: ReadonlyMap<string, Uint8Array>;
+  containerId: string;
+  epoch: ContainerKekLogEpochResponse;
+  epochKey: Uint8Array | null;
+  predecessor: ContainerKekLogEpochResponse;
+  recovered: ReadonlyMap<string, Uint8Array>;
+}): Promise<Uint8Array | null> {
+  const { epochKey, predecessor } = input;
+  // Severed, poisoned, or lying links all degrade to "no key from the
+  // bridge"; the walk then picks back up from a wrap-recovered anchor if
+  // the caller supplied one, so only truly unreachable epochs are lost.
+  let predecessorKey: Uint8Array | null =
+    epochKey === null
+      ? null
+      : await keyFromBridge({
+          containerId: input.containerId,
+          epoch: input.epoch,
+          predecessor,
+          successorKey: epochKey,
+        });
+  predecessorKey ??=
+    input.recovered.get(predecessor.containerKeyEpochId) ?? null;
+  predecessorKey ??= input.anchors.get(predecessor.containerKeyEpochId) ?? null;
+
+  if (predecessorKey === null) {
+    return null;
+  }
+  const expectedId = await computeContainerKekMaterialId({
+    containerId: input.containerId,
+    keyEpoch: predecessor.containerKeyEpoch,
+    keyMaterial: predecessorKey,
+  });
+  // A mismatch is only reachable when a supplied anchor is itself wrong.
+  return expectedId === predecessor.containerKeyEpochId ? predecessorKey : null;
+}
+
 export async function rebuildKeyringEntriesFromLog(input: {
   /** Wrap-recovered keys that re-anchor the walk below a severed bridge. */
   anchorKeysByEpochId?: ReadonlyMap<string, Uint8Array> | undefined;
@@ -232,33 +273,15 @@ export async function rebuildKeyringEntriesFromLog(input: {
       });
     }
 
-    // Severed, poisoned, or lying links all degrade to "no key from the
-    // bridge"; the walk then picks back up from a wrap-recovered anchor if
-    // the caller supplied one, so only truly unreachable epochs are lost.
-    let predecessorKey: Uint8Array | null =
-      epochKey === null
-        ? null
-        : await keyFromBridge({
-            containerId: input.containerId,
-            epoch,
-            predecessor,
-            successorKey: epochKey,
-          });
-    predecessorKey ??= recovered.get(predecessor.containerKeyEpochId) ?? null;
-    predecessorKey ??= anchors.get(predecessor.containerKeyEpochId) ?? null;
-
-    if (predecessorKey === null) {
-      missingEpochIds.push(predecessor.containerKeyEpochId);
-      successorKey = null;
-      continue;
-    }
-    const expectedId = await computeContainerKekMaterialId({
+    const predecessorKey = await recoverPredecessorKey({
+      anchors,
       containerId: input.containerId,
-      keyEpoch: predecessor.containerKeyEpoch,
-      keyMaterial: predecessorKey,
+      epoch,
+      epochKey,
+      predecessor,
+      recovered,
     });
-    if (expectedId !== predecessor.containerKeyEpochId) {
-      // Only reachable when a supplied anchor is itself wrong.
+    if (predecessorKey === null) {
       missingEpochIds.push(predecessor.containerKeyEpochId);
       successorKey = null;
       continue;

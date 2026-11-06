@@ -255,6 +255,18 @@ export function createContainerDocumentTombstoneVerifier(
           ? judgeTombstones(group, null)
           : group.map((tombstone) => ({ kind: "deferred", tombstone })),
     );
+    // A missing, foreign, or older-than-local head is no evidence.
+    const evidentialHead = async (documentId: string) => {
+      const head = await loadDocumentHeadLinkSet(documentId);
+      if (head === null || head === "not-found") return null;
+      if (!documentHeadMatchesOrganization(head, organizationId)) return null;
+      // A local-state read that fails is treated like an unavailable head:
+      // the tombstones stay held rather than failing the discovery pass.
+      const localEpoch = await loadLocalDocumentAccessEpoch(documentId).catch(
+        () => Number.MAX_SAFE_INTEGER,
+      );
+      return head.accessEpoch < localEpoch ? null : head;
+    };
     let next = 0;
     const worker = async () => {
       while (next < Math.min(groups.length, HEAD_LINK_SET_LOADS_PER_RUN)) {
@@ -262,16 +274,8 @@ export function createContainerDocumentTombstoneVerifier(
         const entry = groups[index];
         if (!entry) break;
         const [documentId, group] = entry;
-        const head = await loadDocumentHeadLinkSet(documentId);
-        if (head === null || head === "not-found") continue;
-        if (!documentHeadMatchesOrganization(head, organizationId)) continue;
-        // A local-state read that fails is treated like an unavailable head:
-        // the tombstones stay held rather than failing the discovery pass.
-        const localEpoch = await loadLocalDocumentAccessEpoch(documentId).catch(
-          () => Number.MAX_SAFE_INTEGER,
-        );
-        if (head.accessEpoch < localEpoch) continue;
-        verdicts[index] = judgeTombstones(group, head);
+        const head = await evidentialHead(documentId);
+        if (head !== null) verdicts[index] = judgeTombstones(group, head);
       }
     };
     await Promise.all(

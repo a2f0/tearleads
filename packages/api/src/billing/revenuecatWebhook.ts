@@ -332,6 +332,33 @@ function resolveGrantedProductId(
   return event.product_id ?? boundNativeProductId ?? null;
 }
 
+/** Stripe may carry the subscription id only in `transaction_id`. */
+function resolveGrantSubscriptionId(
+  event: RevenueCatWebhookEvent,
+  isStripeStore: boolean,
+  options: RevenueCatClassificationOptions,
+): string | null {
+  if (event.original_transaction_id != null)
+    return event.original_transaction_id;
+  return isStripeStore
+    ? (event.transaction_id ?? null)
+    : (options.boundProviderSubscriptionId ?? null);
+}
+
+/** Stripe grants keep the bound subscription's exact Price, not its Product. */
+function resolveGrantProviderProductId(
+  event: RevenueCatWebhookEvent,
+  grantedProductId: string | null,
+  options: RevenueCatClassificationOptions,
+): string | null {
+  const store = event.store?.toUpperCase();
+  if (store === STRIPE_STORE)
+    return options.stripePriceId ?? event.product_id ?? null;
+  return store === PROMOTIONAL_STORE && grantedProductId
+    ? `promotional:${grantedProductId}`
+    : grantedProductId;
+}
+
 interface RevenueCatClassificationOptions {
   allowSandboxEvents?: boolean;
   boundNativeProductId?: string;
@@ -353,7 +380,6 @@ function classifyRevenueCatGrant(
     };
   }
   const isStripeStore = event.store?.toUpperCase() === STRIPE_STORE;
-  const isPromotionalStore = event.store?.toUpperCase() === PROMOTIONAL_STORE;
   const grantedProductId = resolveGrantedProductId(
     event,
     options.boundNativeProductId,
@@ -392,19 +418,16 @@ function classifyRevenueCatGrant(
       status: "active",
       provider: REVENUECAT_PROVIDER,
       providerCustomerId: event.app_user_id,
-      // Stripe may carry the subscription id only in `transaction_id`.
-      providerSubscriptionId:
-        event.original_transaction_id ??
-        (isStripeStore
-          ? (event.transaction_id ?? null)
-          : (options.boundProviderSubscriptionId ?? null)),
-      // RevenueCat's Stripe catalog identifier is the Product, so retain the
-      // exact Price resolved from our immutable subscription binding.
-      providerProductId: isStripeStore
-        ? (options.stripePriceId ?? event.product_id ?? null)
-        : isPromotionalStore && grantedProductId
-          ? `promotional:${grantedProductId}`
-          : grantedProductId,
+      providerSubscriptionId: resolveGrantSubscriptionId(
+        event,
+        isStripeStore,
+        options,
+      ),
+      providerProductId: resolveGrantProviderProductId(
+        event,
+        grantedProductId,
+        options,
+      ),
       providerTransactionId: event.transaction_id ?? null,
       entitlementId: resolveEntitlementId(event),
       currentPeriodStartsAt: timestampMsToDate(event.purchased_at_ms),
