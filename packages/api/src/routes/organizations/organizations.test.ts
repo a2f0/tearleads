@@ -1,55 +1,24 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  groups as groupsTable,
   organizationRosterEntries,
   organizations,
 } from "@tearleads/api-shared/schema";
-import { toFingerprint } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { createTestUser } from "@tearleads/test-utils";
 import {
-  isCreateOrganizationGroupResponse,
-  isDeleteOrganizationGroupResponse,
   isOrganizationDataUsageResponse,
   isOrganizationDirectoryUserResponse,
-  isOrganizationGroupMembersResponse,
   isOrganizationProfileResponse,
-  isOrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
-import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { seedOrganizationDataUsage } from "../../../test/helpers/organizationDataUsage";
-import {
-  createGroupRequest,
-  deleteGroupRequest,
-} from "../../../test/helpers/organizationGroup";
-import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
 import { loadOrganizationMetadataContainerId } from "../../../test/helpers/organizationMetadataContainer";
-import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
+import { loadOrganizationReadModelSnapshot } from "../../../test/helpers/organizationReadModel";
 import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
-import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 import { upsertActiveOrganizationRosterEntries } from "../../workflows/organizations/roster";
-
-async function loadOrganizationReadModelSnapshot(
-  actor: TestUser,
-  organizationId: string,
-) {
-  const response = await routeApp.request(
-    `/organizations/${organizationId}/read-model`,
-    { headers: { Authorization: `Bearer ${actor.token}` } },
-  );
-  expect(response.status).toBe(200);
-  const body = await response.json();
-  invariant(
-    isOrganizationReadModelResponse(body) && body.mode === "snapshot",
-    "expected organization read-model snapshot",
-  );
-  return body;
-}
 
 test("organization read model includes the current org directory", async () => {
   const actor = createTestUser();
@@ -254,23 +223,6 @@ test("org manager routes let admins bind an encrypted organization profile docum
   expect(snapshot.lanes.directory.profileDocumentId).toBe(profileDocumentId);
 });
 
-test("org manager routes reject users outside the organization", async () => {
-  const actor = createTestUser();
-  const organizationId = await registerAndAuthenticateWithOrganization(actor);
-  const intruder = createTestUser();
-  await registerAndAuthenticateWithOrganization(intruder);
-
-  const response = await routeApp.request(
-    `/organizations/${organizationId}/read-model`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${intruder.token}` },
-    },
-  );
-
-  expect(response.status).toBe(403);
-});
-
 test("organization read model includes the bootstrap Admins group", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticateWithOrganization(actor);
@@ -325,287 +277,4 @@ test("org manager routes report organization data usage", async () => {
     organizationId,
     ...expectedUsage,
   });
-});
-
-test("org manager routes allow organization members to read but reserve mutations for Admins members", async () => {
-  const actor = createTestUser();
-  const organizationId = await registerAndAuthenticateWithOrganization(actor);
-  const member = createTestUser();
-  await registerAndAuthenticateWithOrganization(member);
-  await addMemberGroupUser({
-    actor,
-    memberUserId: member.userId,
-    organizationId,
-  });
-
-  const memberSnapshot = await loadOrganizationReadModelSnapshot(
-    member,
-    organizationId,
-  );
-  const directoryBody = memberSnapshot.lanes.directory;
-  expect(memberSnapshot.currentUser.isOrgAdmin).toBe(false);
-  expect(directoryBody.users.map((user) => user.userId)).toEqual(
-    [actor.userId, member.userId].sort(),
-  );
-
-  const createResponse = await requestAfterPrincipalPreparation(
-    `/organizations/${organizationId}/groups`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${member.token}`,
-      },
-      body: JSON.stringify(
-        await createGroupRequest({
-          actor: member,
-          groupId: crypto.randomUUID(),
-          name: "Operators",
-        }),
-      ),
-    },
-  );
-
-  expect(createResponse.status).toBe(403);
-
-  const selfRosterResponse = await routeApp.request(
-    `/organizations/${organizationId}/roster/${member.userId}`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${member.token}`,
-      },
-      body: JSON.stringify({ profileDocumentId: null }),
-    },
-  );
-  expect(selfRosterResponse.status).toBe(200);
-
-  const otherRosterResponse = await routeApp.request(
-    `/organizations/${organizationId}/roster/${actor.userId}`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${member.token}`,
-      },
-      body: JSON.stringify({ profileDocumentId: null }),
-    },
-  );
-  expect(otherRosterResponse.status).toBe(403);
-
-  const organizationProfileResponse = await routeApp.request(
-    `/organizations/${organizationId}/profile`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${member.token}`,
-      },
-      body: JSON.stringify({ profileDocumentId: null }),
-    },
-  );
-  expect(organizationProfileResponse.status).toBe(403);
-});
-
-test("org manager routes let admins create empty externally-administered groups", async () => {
-  const actor = createTestUser();
-  const organizationId = await registerAndAuthenticateWithOrganization(actor);
-  const groupId = crypto.randomUUID();
-
-  const createResponse = await requestAfterPrincipalPreparation(
-    `/organizations/${organizationId}/groups`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify(
-        await createGroupRequest({
-          actor,
-          groupId,
-          includeActorAsAdmin: false,
-          name: "Operators",
-        }),
-      ),
-    },
-  );
-
-  expect(createResponse.status).toBe(200);
-  const createBody = await createResponse.json();
-  invariant(
-    isCreateOrganizationGroupResponse(createBody),
-    "expected organization group summary response",
-  );
-  expect(createBody.group.groupId).toBe(groupId);
-  expect(createBody.group).not.toHaveProperty("name");
-  expect(createBody.group.isBuiltin).toBe(false);
-  expect(createBody.group.currentState?.memberCount).toBe(0);
-
-  const membersResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups/${groupId}/members`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
-  expect(membersResponse.status).toBe(200);
-  const membersBody = await membersResponse.json();
-  invariant(
-    isOrganizationGroupMembersResponse(membersBody),
-    "expected organization group members response",
-  );
-  expect(membersBody.members).toEqual([]);
-});
-
-test("org manager group creation rejects a stale signed Admins authority head", async () => {
-  const actor = createTestUser();
-  const organizationId = await registerAndAuthenticateWithOrganization(actor);
-  const futureAdmin = createTestUser();
-  await registerAndAuthenticateWithOrganization(futureAdmin);
-  const groupId = crypto.randomUUID();
-  const request = await createGroupRequest({
-    actor,
-    groupId,
-    includeActorAsAdmin: false,
-    name: "Stale authority",
-  });
-  await addUserToAdminGroup({
-    actor,
-    member: futureAdmin,
-    organizationId,
-  });
-
-  const response = await requestAfterPrincipalPreparation(
-    `/organizations/${organizationId}/groups`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify(request),
-    },
-  );
-
-  expect(response.status).toBe(403);
-  expect(await response.json()).toEqual({
-    error: "Principal state signer must be an admin",
-  });
-  expect(
-    await db
-      .select({ groupId: groupsTable.id })
-      .from(groupsTable)
-      .where(eq(groupsTable.id, groupId)),
-  ).toEqual([]);
-  expect(await getCurrentPrincipalState("group", groupId, db)).toBeNull();
-});
-
-test("org manager routes create and list groups with members", async () => {
-  const actor = createTestUser();
-  const organizationId = await registerAndAuthenticateWithOrganization(actor);
-  const [organization] = await db
-    .select({ adminGroupId: organizations.adminGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1);
-  invariant(organization, "expected organization row");
-  const groupId = crypto.randomUUID();
-
-  const createResponse = await requestAfterPrincipalPreparation(
-    `/organizations/${organizationId}/groups`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify(
-        await createGroupRequest({
-          actor,
-          groupId,
-          name: "Operators",
-        }),
-      ),
-    },
-  );
-
-  expect(createResponse.status).toBe(200);
-  const createBody = await createResponse.json();
-  invariant(
-    isCreateOrganizationGroupResponse(createBody),
-    "expected organization group summary response",
-  );
-  expect(createBody.group.groupId).toBe(groupId);
-  expect(createBody.group).not.toHaveProperty("name");
-  expect(createBody.group.isBuiltin).toBe(false);
-  expect(createBody.group.currentState?.memberCount).toBe(1);
-
-  const listBody = (
-    await loadOrganizationReadModelSnapshot(actor, organizationId)
-  ).lanes.groups;
-  expect(listBody.groups.map((group) => group.groupId)).toContain(groupId);
-  expect(listBody.groups.every((group) => !("name" in group))).toBe(true);
-
-  const membersResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups/${groupId}/members`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
-  expect(membersResponse.status).toBe(200);
-  const membersBody = await membersResponse.json();
-  invariant(
-    isOrganizationGroupMembersResponse(membersBody),
-    "expected organization group members response",
-  );
-  expect(membersBody.members).toEqual([
-    {
-      userId: actor.userId,
-      role: "admin",
-      signingKeyFingerprint: actor.fingerprint,
-      signingPublicKey: bytesToBase64(actor.signing.signingPublicKey),
-      encapsulationPublicKey: bytesToBase64(actor.kem.publicKey),
-      encapsulationKeyFingerprint: await toFingerprint(actor.kem.publicKey),
-    },
-  ]);
-
-  const builtinDeleteResponse = await deleteGroupRequest({
-    actor,
-    groupId: organization.adminGroupId,
-    organizationId,
-  });
-  expect(builtinDeleteResponse.status).toBe(409);
-
-  const deleteResponse = await deleteGroupRequest({
-    actor,
-    groupId,
-    organizationId,
-  });
-  expect(deleteResponse.status).toBe(200);
-  const deleteBody = await deleteResponse.json();
-  invariant(
-    isDeleteOrganizationGroupResponse(deleteBody),
-    "expected delete organization group response",
-  );
-  expect(deleteBody).toEqual({
-    deleted: true,
-    groupId,
-    organizationPolicy: expect.objectContaining({
-      currentState: expect.objectContaining({
-        principalId: organizationId,
-        principalType: "organization",
-      }),
-    }),
-    organizationId,
-  });
-
-  const postDeleteListBody = (
-    await loadOrganizationReadModelSnapshot(actor, organizationId)
-  ).lanes.groups;
-  expect(
-    postDeleteListBody.groups.map((deletedGroup) => deletedGroup.groupId),
-  ).not.toContain(groupId);
 });
