@@ -7,7 +7,7 @@ import {
 export const STRIPE_WEBHOOK_ORGANIZATION_ID =
   "11111111-1111-4111-8111-111111111111";
 
-const STRIPE_WEBHOOK_SECRET = "whsec_test";
+export const STRIPE_WEBHOOK_SECRET = "whsec_test";
 
 export const STRIPE_WEBHOOK_ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",

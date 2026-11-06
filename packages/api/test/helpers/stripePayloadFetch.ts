@@ -1,7 +1,7 @@
 import { activeStripePrice } from "./stripeCatalog";
 import { workersFetch } from "./workersFetch";
 
-/** Fixtures for the malformed Stripe response tables. */
+/** Fixtures for the Stripe REST client tests and malformed response tables. */
 
 export const STRIPE_PAYLOAD_ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
@@ -37,4 +37,43 @@ export function queuedStripeFetch(bodies: unknown[]) {
 
 export function stripeSearchPage(data: unknown): unknown {
   return { data, has_more: false };
+}
+
+interface RecordedStripeRequest {
+  url: string;
+  method: string;
+  body: string | null;
+  headers: Headers;
+}
+
+/**
+ * Answers each Stripe request with the next queued status and body, recording
+ * the URL, method, form body, and headers; search pages default `has_more`.
+ */
+export function recordingStripeFetch(
+  responses: Array<{ status?: number; body: unknown }>,
+): {
+  fetchImpl: typeof fetch;
+  requests: RecordedStripeRequest[];
+} {
+  const requests: RecordedStripeRequest[] = [];
+  const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    requests.push({
+      url: String(input),
+      method: init?.method ?? "GET",
+      body: typeof init?.body === "string" ? init.body : null,
+      headers: new Headers(init?.headers),
+    });
+    const next = responses.shift() ?? { body: {} };
+    const body =
+      String(input).includes("/subscriptions/search") &&
+      typeof next.body === "object" &&
+      next.body !== null
+        ? { has_more: false, ...next.body }
+        : next.body;
+    return new Response(JSON.stringify(body), {
+      status: next.status ?? 200,
+    });
+  }) as typeof fetch;
+  return { fetchImpl, requests };
 }

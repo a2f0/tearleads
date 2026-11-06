@@ -94,10 +94,6 @@
       "lines": 576,
       "bytes": 17511
     },
-    "packages/api/src/billing/stripeApi.test.ts": {
-      "lines": 577,
-      "bytes": 18590
-    },
     "packages/api/src/realtime/wsRouting.test.ts": {
       "lines": 506,
       "bytes": 14829
@@ -117,10 +113,6 @@
     "packages/api/src/schema.test.ts": {
       "lines": 526,
       "bytes": 16513
-    },
-    "packages/api/src/services/billing/stripeCheckout.test.ts": {
-      "lines": 539,
-      "bytes": 17604
     },
     "packages/app/src/mini-apps/explorer/detail/container/ExplorerContainerDetail.test.ts": {
       "lines": 533,
