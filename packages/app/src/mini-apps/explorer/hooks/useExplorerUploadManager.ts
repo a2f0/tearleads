@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type {
   ExplorerDroppedFileImportResult,
   ExplorerDroppedFileImportRunOptions,
@@ -198,6 +204,21 @@ function useUploadCancellation(input: {
   return { cancel, cancelForContainer };
 }
 
+// A selection drains from the previous run's settlement, long after the render
+// that queued it. Read the importer at drain time, not from that render's
+// closure: its upload guard checks the container against the Explorer's nodes,
+// so a stale importer refuses a folder created since the first selection
+// started (and still accepts one that has since become read-only).
+function useLatestImporter(importDroppedFiles: ImportExplorerDroppedFiles): {
+  readonly current: ImportExplorerDroppedFiles;
+} {
+  const ref = useRef(importDroppedFiles);
+  useLayoutEffect(() => {
+    ref.current = importDroppedFiles;
+  }, [importDroppedFiles]);
+  return ref;
+}
+
 // Owns the explorer upload queue: every upload entry point (toolbar Upload,
 // drag-and-drop, the folder context menu) enqueues its selection here, and the
 // manager drains one selection at a time through the importer with per-file
@@ -218,6 +239,7 @@ export function useExplorerUploadManager(params: {
   const abortRef = useRef<AbortController | null>(null);
   const activeContainerIdRef = useRef<string | null>(null);
   const itemSeqRef = useRef(0);
+  const importDroppedFilesRef = useLatestImporter(importDroppedFiles);
   // Abort any in-flight import on unmount so it can't keep creating documents
   // with no UI reporting on it; queued selections are dropped with it.
   useEffect(
@@ -241,7 +263,7 @@ export function useExplorerUploadManager(params: {
     setRun(initialSelectionRun(selection));
     void runUploadSelection({
       controller,
-      importDroppedFiles,
+      importDroppedFiles: importDroppedFilesRef.current,
       selection,
       setItems,
       setRun,
@@ -250,7 +272,7 @@ export function useExplorerUploadManager(params: {
       activeContainerIdRef.current = null;
       drainNextSelection();
     });
-  }, [importDroppedFiles, syncQueuedFileCount]);
+  }, [syncQueuedFileCount]);
 
   const startImport = useCallback(
     (containerId: string, files: ReadonlyArray<File>) => {
