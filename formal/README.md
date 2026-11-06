@@ -62,7 +62,7 @@ of the real container-path and principal-policy verifiers through
 ## Lean proofs
 
 [`lean/`](./lean/README.md) is a Lean 4 package for the
-[transparency log's](../docs/keying-design.md#transparency-and-checkpointing)
+[transparency log's](../docs/keying-design/verification.md#transparency-and-checkpointing)
 Merkle verifier (#2192 Gate F3). It models the TypeScript generator and
 verifiers, proves inclusion and consistency completeness and soundness for every
 tree size, and exports a vector fixture that `test:protocol-conformance` replays
@@ -97,11 +97,11 @@ properties are safety properties.
 
 Model-specific gaps:
 
-- `ContainerGrantScope` treats [grant](../docs/glossary.md#grant) preparation
+- `ContainerGrantScope` treats [grant](../docs/glossary/access.md#grant) preparation
   and roster removal as atomic transitions, with no concurrent transaction model
   or group membership.
 - `KeyringReachability` assumes every current member already holds the current
-  [KEK](../docs/glossary.md#container-kek), and its properties share `Closure`
+  [KEK](../docs/glossary/keys.md#container-kek), and its properties share `Closure`
   with the recovery they check. It does not model what a revoked member already
   knows, so excluding revoked members from recovery is not a proof that they
   cannot derive later keys.

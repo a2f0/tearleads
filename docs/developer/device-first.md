@@ -2,8 +2,8 @@
 
 The `tearleads.deviceFirst` facade (`client/deviceFirst/`) provides one
 device-first scope for reads, writes, and reconciliation. The
-[container](../glossary.md#container) tree and active container's
-[document](../glossary.md#document) list render synchronously from local
+[container](../glossary/access.md#container) tree and active container's
+[document](../glossary/content.md#document) list render synchronously from local
 SQLite/OPFS, ordinary container writes commit locally and queue durable sync,
 and remote reconciliation patches the same state in the background.
 
@@ -129,13 +129,13 @@ Scheduling policy (active-first, then idle backfill):
    siblings catch up without a thundering herd.
 4. A cold recovery can finish remote tree hydration after its first backfill was
    scheduled. Newly remote-backed container ids re-arm idle backfill so
-   recovered Contacts/Trash and [organization](../glossary.md#organization)
+   recovered Contacts/Trash and [organization](../glossary/principals.md#organization)
    metadata are not skipped.
 5. WS `document_update_created` and `document_mutation_created` hints enqueue
    their affected containers at active priority. Structural link/unlink hints
    always re-list both the previous and current container lanes, while purge
    hints re-list every lane that owns the committed tombstone.
-   [Attachment bind/detach](../glossary.md#attachment-binding) hints revalidate
+   [Attachment bind/detach](../glossary/content.md#attachment-binding) hints revalidate
    every currently linked lane. These publications are best-effort after commit:
    a broker failure never changes the successful HTTP mutation result, and later
    HTTP reconciliation remains authoritative.
@@ -187,23 +187,24 @@ is `ready=false`; its placeholder empty node list is never declared.
 acknowledges denied stale IDs so reconnect reconciliation can run.
 
 All three probes use normal document sync: verified
-[Loro updates](../glossary.md#loro-update) are projected before attachments and
-[blob](../glossary.md#blob) bytes hydrate. A coded `document_not_found` fetches
-a [signed purge proof](../document-purge-verification.md); the SDK verifies it
+[Loro updates](../glossary/content.md#loro-update) are projected before
+attachments and [blob](../glossary/content.md#blob) bytes hydrate. A coded
+`document_not_found` fetches a
+[signed purge proof](../document-purge-verification.md); the SDK verifies it
 before local destruction. Proofs include signed history for recorded document
 readers; others receive a terminal snapshot. The SDK authenticates before
 reading local pins and verifies this single response. Deletion needs an exact
 pin or signed transitions from a pin or genesis. Later container pins
-[fail closed](../glossary.md#fail-closed): their order relative to the purge is
-unsigned. Missing history without a local pin defers deletion without an
-incident; bare 404s remain non-destructive, and 403s keep normal parking
+[fail closed](../glossary/access.md#fail-closed): their order relative to the
+purge is unsigned. Missing history without a local pin defers deletion without
+an incident; bare 404s remain non-destructive, and 403s keep normal parking
 behavior. The same coded-404 path completes a purge whose successful POST
 response was lost. After the initial missing-listing convergence pass, ordinary
 documents that have never been opened remain lazy until a document window,
 explicit registered-store revalidation, or other owning workflow opens them.
 
 Remote document discovery requires a current metadata document for every
-container. Local-first [roots](../glossary.md#root-container), regular folders,
+container. Local-first [roots](../glossary/access.md#root-container), regular folders,
 and system slots are never sent to the document listing before their remote
 create commits; the document lane rechecks this after structural hydration
 because a queued pre-auth root can be replaced in the meantime. When the same
@@ -224,12 +225,12 @@ version after a failed pull.
 
 An additional organization starts with local-only billing. Provisioning commits
 its initial roster and organization-profile bodies atomically with their
-[manifests](../glossary.md#access-manifest), so another authorized session can
-recover the seed history and display the organization name immediately; later
-profile edits follow normal billing eligibility. The provisioning response
-acknowledges every committed seed update, which the client persists as settled,
-and acknowledged profile-document [heads](../glossary.md#head) seed discovery
-evidence ([document links](document-links.md)).
+[manifests](../glossary/access.md#access-manifest), so another authorized
+session can recover the seed history and display the organization name
+immediately; later profile edits follow normal billing eligibility. The
+provisioning response acknowledges every committed seed update, which the client
+persists as settled, and acknowledged profile-document
+[heads](../glossary/sync.md#head) seed discovery evidence ([document links](document-links.md)).
 
 All results flow into Layer A, never back to React directly. The service has no
 React imports; `bun run lint:architecture` enforces this.
@@ -300,7 +301,7 @@ Ordinary container write:
 1. The mini-app calls `open().containerStore.moveContainer(...)`.
 2. The store persists the change and its `local_intents` row, then notifies.
 3. The promise settles without waiting for HTTP; the
-   [sync lane](../glossary.md#sync-lane) converges later.
+   [sync lane](../glossary/sync.md#sync-lane) converges later.
 
 A device-first document or folder whose whole content is one queued update
 sends it with its create ([create seed](../document-link-and-sync-protocol.md)).
@@ -328,7 +329,7 @@ SDK's network-free read contract. Sharing,
 [peer-key lookup/import](trusted-user-identity.md), link/unlink of remotely
 synced documents, organization provisioning, and permanent remote deletion are
 explicit online operations; moving a document, including to Trash, queues its
-remote [link-set](../glossary.md#document-link-set-manifest) work durably.
+remote [link-set](../glossary/access.md#document-link-set-manifest) work durably.
 Background reconciliation can issue requests when online, but local first paint
 and ordinary persistence never wait for it. A failed SQLite or blob write is
 still an operation failure.

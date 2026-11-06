@@ -2,20 +2,21 @@
 
 The [Containers](../subsystems.md) workflows use
 [private paged evidence](./principal-history-recovery.md#runtime-use) for
-duplicate-share [epoch](../glossary.md#epoch) checks, group-share planning,
-[grant](../glossary.md#grant) minting, and current-grant confirmation. These
-reads discover the signed [organization](../glossary.md#organization) directory,
-verify its [Admins](../glossary.md#organization-admins-group) reference, and
-select the group's exact directory [head](../glossary.md#head). They do not
+duplicate-share [epoch](../glossary/keys.md#epoch) checks, group-share planning,
+[grant](../glossary/access.md#grant) minting, and current-grant confirmation. These
+reads discover the signed [organization](../glossary/principals.md#organization)
+directory, verify its
+[Admins](../glossary/principals.md#organization-admins-group) reference, and
+select the group's exact directory [head](../glossary/sync.md#head). They do not
 require the reader to be a group administrator; authoring a new group grant has
 a separate authority check.
 
 When a chosen name is supplied, the read binds it to the verified encrypted
 group metadata before admitting the share's group
-[checkpoint](../glossary.md#checkpoint). Metadata verification can advance its
-own verified container and reserved-group checkpoints. Grant confirmation also
+[checkpoint](../glossary/sync.md#checkpoint). Metadata verification can advance
+its own verified container and reserved-group checkpoints. Grant confirmation also
 binds the caller's expected head, including its hash, version, key epoch, and
-key fingerprint. A valid user-only [container](../glossary.md#container)
+key fingerprint. A valid user-only [container](../glossary/access.md#container)
 projection cannot confirm a group grant. The container projection is verified
 against the admitted policy selections before its grants are inspected.
 
@@ -44,7 +45,7 @@ through their durable mutation journal and exact receipt handling. Standalone
 hosts own transport and outcome recovery, including the optional
 pending-recovery callback. Policy and container acknowledgements remain inside
 the lease; background
-[descendant recitations](../security-guarantees.md#held-descendant-re-citation)
+[descendant recitations](../security-guarantees/properties.md#held-descendant-re-citation)
 use the caller's session lifetime. Hosts must support nested private custody
 leases during projection verification. Without a caller predicate, background
 scheduling stays active by default; hosts supply a predicate to cancel it when

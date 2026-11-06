@@ -3,7 +3,13 @@ import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { parseApiDocument } from "./apiReference/openApiDocument";
-import { apiReferenceListing, docPath, technicalDocs } from "./technicalDocs";
+import {
+  apiReferenceListing,
+  docPath,
+  publishedDocs,
+  technicalDocPages,
+  technicalDocs,
+} from "./technicalDocs";
 
 /**
  * Builds the site once and checks the published technical documents as
@@ -60,7 +66,7 @@ beforeAll(async () => {
     new Response(child.stderr).text(),
   ]);
   expect(code, `${stdout}\n${stderr}`).toBe(0);
-  for (const path of ["/docs/", "/security/", ...technicalDocs.map(docPath)]) {
+  for (const path of ["/docs/", "/security/", ...publishedDocs.map(docPath)]) {
     pages.set(
       path,
       await Bun.file(resolve(output, `.${path}index.html`)).text(),
@@ -89,7 +95,7 @@ function ids(html: string): Set<string> {
 }
 
 test("published documents keep no repository-relative links", () => {
-  for (const doc of technicalDocs) {
+  for (const doc of publishedDocs) {
     const html = pages.get(docPath(doc)) ?? "";
     const relative = hrefs(html).filter(
       (href) => !/^(?:https?:|mailto:|\/|#)/.test(href),
@@ -100,7 +106,7 @@ test("published documents keep no repository-relative links", () => {
 
 test("links between published documents reach a rendered anchor", () => {
   const misses: string[] = [];
-  for (const doc of technicalDocs) {
+  for (const doc of publishedDocs) {
     const path = docPath(doc);
     const html = pages.get(path) ?? "";
     for (const href of hrefs(html)) {
@@ -128,6 +134,17 @@ test("cipher suites renders code links, page links, and table regions", () => {
   // The source h1 becomes an anchor so #cipher-suites links still land.
   expect(ids(html).has("cipher-suites")).toBe(true);
   expect(html.match(/<h1[\s>]/g)).toHaveLength(1);
+});
+
+test("topic pages name their document in the breadcrumb", () => {
+  for (const page of technicalDocPages) {
+    const html = pages.get(docPath(page)) ?? "";
+    const breadcrumb =
+      /<nav class="site-breadcrumb"[^>]*>([\s\S]*?)<\/nav>/.exec(html)?.[1];
+    expect(hrefs(breadcrumb ?? ""), page.slug).toContain(
+      `/docs/${page.parent}/`,
+    );
+  }
 });
 
 test("the security page and index link every published document", () => {
@@ -184,7 +201,9 @@ test("every link on the API reference reaches a built page and anchor", async ()
   expect(misses).toEqual([]);
   // Glossary terms link to the published glossary's anchors.
   const index = apiPages.get("/docs/api/") ?? "";
-  expect(index).toMatch(/class="api-term" href="\/docs\/glossary\/#[a-z-]+"/);
+  expect(index).toMatch(
+    /class="api-term" href="\/docs\/glossary\/[a-z-]+\/#[a-z-]+"/,
+  );
   expect(hrefs(index)).toContain("/openapi.json");
   expect(hrefs(index)).toContain("/docs/protocol-specification/");
 });

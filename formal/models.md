@@ -26,13 +26,13 @@ its boundary. Three negative controls remove the structural mutation guards.
 
 [`container-keying/ContainerGrantScope.tla`](./container-keying/ContainerGrantScope.tla)
 models the accepted container-grant domain. TLC checks that every reachable
-[grant](../docs/glossary.md#grant) names either a group in the container's
+[grant](../docs/glossary/access.md#grant) names either a group in the container's
 organization or an active direct user in that organization; an
-[organization](../docs/glossary.md#organization) principal is never a container
-grant subject. It also models roster removal as a guarded transition: a user
-must first be unshared from every directly granted container, whose revoke is a
-[container KEK](../docs/glossary.md#container-kek) rotation in the runtime and
-in the keyring model below.
+[organization](../docs/glossary/principals.md#organization) principal is never a
+container grant subject. It also models roster removal as a guarded transition:
+a user must first be unshared from every directly granted container, whose
+revoke is a [container KEK](../docs/glossary/keys.md#container-kek) rotation in
+the runtime and in the keyring model below.
 
 A grant request may name any principal, and each API refusal is a parameter
 with a registered negative control. See the
@@ -42,9 +42,10 @@ with a registered negative control. See the
 
 [`container-keying/KeyringReachability.tla`](./container-keying/KeyringReachability.tla)
 models cold recovery from persisted user/group recipient wraps, immutable
-[predecessor bridges](../docs/glossary.md#container-kek-predecessor-bridge), and
-sealed historical [keyrings](../docs/glossary.md#container-kek-keyring). Its
-`Members` abstraction is the set of users authorized by active direct-user or
+[predecessor bridges](../docs/glossary/keys.md#container-kek-predecessor-bridge),
+and sealed historical
+[keyrings](../docs/glossary/keys.md#container-kek-keyring). Its `Members`
+abstraction is the set of users authorized by active direct-user or
 same-organization group grants; organization principals are not recovery
 recipients. `Descendants` extend it with child containers whose key epochs pin
 the parent epoch current when they were minted: a descendant verifies against
@@ -58,8 +59,7 @@ does. Each projection's server chooses whether the lineage arrives under the
 container's own KEK or its parent's; the control
 `kek-history-anchor-seals-relocated-forgery` confines the check to the KEK's own
 served history, and a forgery is sealed only once the server moves the lineage
-under the parent. See the
-[mapping and boundaries](./container-keying/KeyringReachability.md).
+under the parent. See the [mapping and boundaries](./container-keying/KeyringReachability.md).
 
 [`container-keying/GroupGrantRevocation.tla`](./container-keying/GroupGrantRevocation.tla)
 adds the group key as its own epoch dimension: container wraps sealed to a
@@ -84,8 +84,8 @@ why lifetime caps fail and citing needs held bytes and cited-only omission. Read
 and revocation predicates hold by definition; no verifier or resource bound is
 modeled. See the
 [mapping and runtime regressions](./container-keying/ManifestHistory.md).
-[Principal state](../docs/glossary.md#principal-policy-state) models cover
-[version availability](./container-keying/PrincipalHistory.md) and
+[Principal state](../docs/glossary/principals.md#principal-policy-state) models
+cover [version availability](./container-keying/PrincipalHistory.md) and
 [page verification](./container-keying/PrincipalHistoryPages.md), including
 [authenticated resumption](./container-keying/PrincipalHistoryResume.md) and
 [recovery reuse](./container-keying/PrincipalRecoveryReuse.md) with conditional
@@ -133,10 +133,10 @@ models the invariant that no device may ever be unable to read or write
 because another device holds a cache or must issue a write first. A dependent
 (descendant container, or group policy) cites an authority (ancestor, or
 Admins policy); every client refusal rule is a parameter, and negative controls
-show that requiring stale [heads](../docs/glossary.md#head) or chain entries to
-cite the current authority bricks a device's reads. Its own write, which the API
-accepts only at the current heads, must also eventually commit; a writer that
-waits for the dependent to be re-signed first violates that. See the
+show that requiring stale [heads](../docs/glossary/sync.md#head) or chain
+entries to cite the current authority bricks a device's reads. Its own write,
+which the API accepts only at the current heads, must also eventually commit; a
+writer that waits for the dependent to be re-signed first violates that. See the
 [mapping, configurations, and boundary](./container-keying/NoBrickedDevice.md).
 
 ### Principal Reference Progress
@@ -198,8 +198,8 @@ ownership, checkpoint retirement, waiting writers, and fair worker termination.
 [`document-sync/RestartProbeConvergence.tla`](./document-sync/RestartProbeConvergence.tla)
 models startup and acknowledged-reconnect probes, peer writes during the
 handshake or an in-flight pull, and signal-sequence coalescing for encrypted
-Loro body and [attachment-slot](../docs/glossary.md#attachment-slot) state. See
-the
+Loro body and [attachment-slot](../docs/glossary/content.md#attachment-slot)
+state. See the
 [production mapping and model boundary](./document-sync/RestartProbeConvergence.md)
 for the action seams, fairness assumptions, and excluded blob-hydration layer.
 
@@ -207,8 +207,8 @@ for the action seams, fairness assumptions, and excluded blob-hydration layer.
 
 [`document-sync/EmptyFrontierUnlink.tla`](./document-sync/EmptyFrontierUnlink.tla)
 models the acceptance gates for the two
-[content-key](../docs/glossary.md#content-key) epoch advances that carry no
-[rotation baseline](../docs/glossary.md#rotation-baseline): a document unlink
+[content-key](../docs/glossary/keys.md#content-key) epoch advances that carry no
+[rotation baseline](../docs/glossary/keys.md#rotation-baseline): a document unlink
 submitted without one, and a link that advances the epoch. Both require a
 committed frontier proved empty under the document manifest-head write lock, and
 a covering unlink's baseline is refused when it falls short of the committed
@@ -225,8 +225,8 @@ of a single-device move.
 ### Attachment Envelope Authority
 
 [BlobEnvelopeAuthority](./document-sync/BlobEnvelopeAuthority.md) checks that a
-[binding](../docs/glossary.md#attachment-binding) writer preserves other active
-bindings’ envelopes and that fresh wraps use verified current container heads.
+[binding](../docs/glossary/content.md#attachment-binding) writer preserves other
+active bindings’ envelopes and that fresh wraps use verified current container heads.
 
 ### Attachment Content Identity
 
@@ -266,8 +266,8 @@ that replay itself. See the [mapping](./local-trust/ContainerMoveReplay.md).
 checks that persistent
 [fingerprint-to-user bindings](../docs/developer/trusted-user-identity.md#pinning)
 survive session recreation and stay unique per
-[trust domain](../docs/glossary.md#identity-trust-domain), and that only
-[link or self pins](../docs/glossary.md#identity-pin) admit. See the
+[trust domain](../docs/glossary/principals.md#identity-trust-domain), and that only
+[link or self pins](../docs/glossary/principals.md#identity-pin) admit. See the
 [mapping and boundaries](./local-trust/DurableIdentityBinding.md).
 
 ### Queued Document Creation
@@ -296,7 +296,7 @@ group-chain, reference, and parent organization choices at the cache boundary.
 ### Verified Root and System Destinations
 
 [SystemDestination](./local-trust/SystemDestination.md) models
-[signed destination roles](../docs/security-guarantees.md#root-and-system-destinations),
+[signed destination roles](../docs/security-guarantees/overview.md#root-and-system-destinations),
 acknowledged roots, administrator-only slot creation, and immutable root/system
 parent edges.
 
@@ -382,7 +382,7 @@ current store's detach pass sees, before and after a restart. See the
 ### Stage Promotion and Server Reclamation
 
 [StagePromotion](./blob-attachments/StagePromotion.md) models
-[staging](../docs/glossary.md#blob-stage), promotion, the sweep and stage
+[staging](../docs/glossary/content.md#blob-stage), promotion, the sweep and stage
 cleanup across the database and object store.
 
 ## Backup and Restore
@@ -394,7 +394,7 @@ Models under [`backup-restore/`](./backup-restore).
 [`backup-restore/TerminalAnchors.tla`](./backup-restore/TerminalAnchors.tla)
 models preservation of the three kinds of local trust anchor across full
 database restores: immutable purge decisions, append-only incident evidence,
-and monotone verification [checkpoints](../docs/glossary.md#checkpoint),
+and monotone verification [checkpoints](../docs/glossary/sync.md#checkpoint),
 including observations made after restore preflight. Its mapping lists every
 production anchor table by kind and the tables deliberately left out. See the
 [mapping and boundaries](./backup-restore/TerminalAnchors.md).

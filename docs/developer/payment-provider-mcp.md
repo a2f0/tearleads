@@ -10,9 +10,9 @@ when real subscribers depend on it.
 
 ## Product invariant
 
-- A personal [organization](../glossary.md#organization) may subscribe in a
-  native app. Apple or Google is the store of record and RevenueCat mirrors the
-  `sync` [entitlement](./revenuecat-billing.md#entitlement).
+- A personal [organization](../glossary/principals.md#organization) may
+  subscribe in a native app. Apple or Google is the store of record and
+  RevenueCat mirrors the `sync` [entitlement](./revenuecat-billing.md#entitlement).
 - A custom organization [subscribes on the web](./stripe-checkout-client.md).
   Stripe is the store of record and RevenueCat mirrors the same entitlement.
 - [Native stores](./revenuecat-native-stores.md) use fixed products, never

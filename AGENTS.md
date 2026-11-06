@@ -233,7 +233,7 @@ Do not edit generated or build output directly:
 - When changing public SDK exports, update `packages/client-sdk/package.json`,
   `packages/client-sdk/src/index.ts`,
   `packages/client-sdk/src/workflows/README.md`, and
-  `docs/developer/client-sdk.md` together.
+  `docs/developer/client-sdk/public-api.md` together.
 - When changing dependency topology, run `bun run lint:architecture` and inspect
   `bun run report:dependencies:json` if the failure is not obvious.
 - When changing production dependencies, run both `bun run lint:knip:all` and

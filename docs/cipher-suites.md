@@ -39,13 +39,14 @@ SSH host keys (Ed25519, and RSA/ECDSA in the Terraform stacks).
 | Identity keypair generation | [`packages/crypto/src/encapsulation/generateKeyPair.ts`](../packages/crypto/src/encapsulation/generateKeyPair.ts) |
 
 Container-KEK-to-principal wrap suite: `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`.
-Document and blob [content keys](./glossary.md#content-key) are never
+Document and blob [content keys](./glossary/keys.md#content-key) are never
 ML-KEM-wrapped to recipients: they wrap to
-[container KEKs](./glossary.md#container-kek) with AES-GCM (see below), and only
-the KEK is ML-KEM-wrapped to users, [principals](./glossary.md#principal), and
-parent containers. Parent key pairs derive from their KEKs via a
-domain-separated HKDF-SHA-256 seed; signed container events and
-[manifests](./glossary.md#access-manifest) commit their public keys.
+[container KEKs](./glossary/keys.md#container-kek) with AES-GCM (see below), and
+only the KEK is ML-KEM-wrapped to users,
+[principals](./glossary/principals.md#principal), and parent containers. Parent
+key pairs derive from their KEKs via a domain-separated HKDF-SHA-256 seed;
+signed container events and [manifests](./glossary/access.md#access-manifest)
+commit their public keys.
 
 ### ML-DSA-87 (signatures)
 
@@ -75,14 +76,14 @@ Core helpers:
 [`packages/crypto/src/symmetric.ts`](../packages/crypto/src/symmetric.ts)
 (32-byte key, 12-byte IV, 16-byte tag).
 
-The [principal policy](./glossary.md#principal-policy-state) payload carries a
-`cipherSuite: "aes-256-gcm"` label (`PrincipalStatePayloadCipherSuite` in
-[`packages/crypto/src/principalStateTypes.ts`](../packages/crypto/src/principalStateTypes.ts)),
+The [principal policy](./glossary/principals.md#principal-policy-state) payload
+carries a `cipherSuite: "aes-256-gcm"` label (`PrincipalStatePayloadCipherSuite`
+in [`packages/crypto/src/principalStateTypes.ts`](../packages/crypto/src/principalStateTypes.ts)),
 but the payload itself is base64 JSON the server can read. The
-[organization](./glossary.md#organization) authority descriptor and the built-in
-`Admins`/`Members` role markers are plaintext; only a custom group's name is
-AES-256-GCM-encrypted inside it, under an HKDF-SHA-256 key derived from the
-organization metadata container KEK
+[organization](./glossary/principals.md#organization) authority descriptor and
+the built-in `Admins`/`Members` role markers are plaintext; only a custom
+group's name is AES-256-GCM-encrypted inside it, under an HKDF-SHA-256 key
+derived from the organization metadata container KEK
 ([`packages/crypto/src/groupMetadata.ts`](../packages/crypto/src/groupMetadata.ts)).
 
 ### Key derivation
@@ -117,7 +118,7 @@ PIN-code wrap suite: `pin-code-pbkdf2-sha256-aes-256-gcm`.
 | SQLCipher / AES-CBC / Ascon-128 (supported, unused) | Alternate codecs the lower-level worker API accepts but the app does not select | [`packages/sqlite-worker/src/types.ts`](../packages/sqlite-worker/src/types.ts), [`packages/sqlite-worker/src/loadSqlite3.ts`](../packages/sqlite-worker/src/loadSqlite3.ts) |
 
 The SQLite cipher key is HKDF-derived from the
-[local keyring](./glossary.md#local-keyring) (`sqliteKey`).
+[local keyring](./glossary/keys.md#local-keyring) (`sqliteKey`).
 
 ### OPFS local storage
 
@@ -143,7 +144,7 @@ SyncAccessHandle Pool VFS and blob files go under an identity-namespaced
 first persistent database write; a browser can still deny it. Without OPFS the
 automatic storage policy selects in-memory SQLite; an explicitly requested
 persistent SQLite backend hard-fails instead. Encrypted OPFS blob-store
-factories likewise [fail closed](./glossary.md#fail-closed) rather than silently
+factories likewise [fail closed](./glossary/access.md#fail-closed) rather than silently
 writing unencrypted files elsewhere.
 
 ## Libraries

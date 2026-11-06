@@ -25,8 +25,8 @@ identify leads, not elapsed time. The known expensive files are:
   (4,098-entry signed histories), `src/routes/documents/automaticAncestorRepair.test.ts`,
   the container mutation route tests
   (`src/routes/containers/mutations.*.test.ts`),
-  [writer projections](../glossary.md#writer-projection), and rotation-carried
-  [rekeys](../glossary.md#rekey).
+  [writer projections](../glossary/sync.md#writer-projection), and rotation-carried
+  [rekeys](../glossary/keys.md#rekey).
 - **Client SDK**: `syncRepairLimits.test.ts`,
   `projectionAuthorityPageBudget.test.ts`, and
   `syncContainerRekeyPrefix.test.ts`.
@@ -52,7 +52,7 @@ Some of that cost is deliberate:
 - **Build immutable signed fixtures once.** `syncContainerRekeyPrefix.test.ts`
   builds its 17-level signed ancestor graph in `beforeAll`. Each case clones
   the graph and key data, rebuilds its identity resolver, re-registers
-  [manifest](../glossary.md#access-manifest) citations after the preload's
+  [manifest](../glossary/access.md#access-manifest) citations after the preload's
   registry reset, and opens a fresh database. No checkpoint or mutation response
   is shared between cases.
 - **Thread acknowledged state through setup chains.**
@@ -80,9 +80,9 @@ Some of that cost is deliberate:
   diagnostic on purpose.
 - **Sign a single successor in-process.** `test/helpers/longPrincipalHistory.ts`
   in the API signs one new
-  [principal version](../glossary.md#principal-policy-state) in the test process
-  and starts signing workers only for longer histories, including the opt-in
-  [16,384-version regression](../principal-history-acceptance.md) in
+  [principal version](../glossary/principals.md#principal-policy-state) in the
+  test process and starts signing workers only for longer histories, including
+  the opt-in [16,384-version regression](../principal-history-acceptance.md) in
   `test/slow/principalHistoryAvailability.test.ts`. Both paths
   call `signPrincipalState`, and signing does not populate verification caches.
 - **Wrap timer-backed retries and async UI actions in `act`.** Explorer's

@@ -1,6 +1,6 @@
 # Durable User Identity Trust
 
-The client SDK [pins](../glossary.md#identity-pin) complete user identity
+The client SDK [pins](../glossary/principals.md#identity-pin) complete user identity
 bundles. One internal gateway fetches the `/auth/user-identity/:userId`
 resource, validates it, and returns canonical
 [ML-DSA-87](../cipher-suites.md#ml-dsa-87-signatures) and
@@ -9,11 +9,11 @@ plus both computed SHA-256 fingerprints. Every signature-verification and
 user-recipient encryption workflow uses it; organization directory responses are
 never accepted as cryptographic key input.
 
-[Identity links](../glossary.md#identity-link) are the only way to admit another
-user. Adding a contact, adding a
-[roster](../glossary.md#organization-roster-entry) (organization) user, adding a
-user to a group, sharing a folder with a user, and creating a roster profile
-document all require an identity that a verified
+[Identity links](../glossary/principals.md#identity-link) are the only way to
+admit another user. Adding a contact, adding a
+[roster](../glossary/principals.md#organization-roster-entry) (organization)
+user, adding a user to a group, sharing a folder with a user, and creating a
+roster profile document all require an identity that a verified
 [identity link](#identity-links), or this device's own keys, established. The
 SDK has no public lookup by user ID that trusts the server's first answer.
 
@@ -38,10 +38,12 @@ Each pin records how it was established:
   user's own identity).
 - `link`: a verified identity link.
 - `observed`: the server's first answer for a user that signed state already
-  references, such as a [policy](../glossary.md#principal-policy-state) signer,
-  a group member being verified, or a roster entry being displayed. Signature
+  references, such as a
+  [policy](../glossary/principals.md#principal-policy-state) signer, a group
+  member being verified, or a roster entry being displayed. Signature
   verification keeps pinning on first sight so that it never
-  [fails closed](../glossary.md#fail-closed) for users the device has not met.
+  [fails closed](../glossary/access.md#fail-closed) for users the device has not
+  met.
 
 Only `self` and `link` admit a user. Verifying a link whose keys match an
 `observed` pin raises that pin to `link`; provenance never falls back, and an
@@ -52,9 +54,9 @@ obsolete: the SDK refuses it with "reset the local database", and there is no
 migration.
 
 The binding also holds in reverse: within a
-[trust domain](../glossary.md#identity-trust-domain), a signing key is pinned to
-at most one user. The same immediate transaction refuses a pin that would bind a
-known signing key to a different user, and a unique index on
+[trust domain](../glossary/principals.md#identity-trust-domain), a signing key
+is pinned to at most one user. The same immediate transaction refuses a pin that
+would bind a known signing key to a different user, and a unique index on
 `(identityTrustDomain, signingKeyFingerprint)` backs it. This is what stops a
 server from answering a login on a device with no restored session by rebinding
 the device's own key to another account.
@@ -81,7 +83,7 @@ host-controlled trust domain can be established.
 ## Scope And Lifecycle
 
 Pinning detects
-[server substitution](../security-guarantees.md#first-contact-identity-key-substitution)
+[server substitution](../security-guarantees/boundaries.md#first-contact-identity-key-substitution)
 after the first accepted sight in this trust store. An `observed` pin does not
 authenticate a malicious first response, so it cannot admit anyone;
 independently exchanged identity links authenticate the supplied bundle before
@@ -89,10 +91,10 @@ it admits a user.
 
 Pins survive SDK recreation, ordinary logout, remote-state reset, and
 current-format local backup restore. Restore monotonically merges identity pins,
-principal policy [checkpoints](../glossary.md#checkpoint), and
-[access manifest](../glossary.md#access-manifest) checkpoints, and aborts on
-overlapping conflicts, including a backup that binds a pinned signing key to a
-different user. Pin keys never change on restore; an overlapping pin keeps the
+principal policy [checkpoints](../glossary/sync.md#checkpoint), and
+[access manifest](../glossary/access.md#access-manifest) checkpoints, and aborts
+on overlapping conflicts, including a backup that binds a pinned signing key to
+a different user. Pin keys never change on restore; an overlapping pin keeps the
 higher provenance of the two, so a backup can raise `observed` to `link` but
 never lower one. Older backup formats, including those without pin provenance,
 are rejected. Deliberately purging or recreating the local database resets this
@@ -147,7 +149,7 @@ it:
   (a roster user's ID sent to Contacts) imports only a link-verified user and
   otherwise opens the identity-link form.
 - Roster: Add by Identity Link verifies the link, then adds the user to the
-  [Members group](../glossary.md#organization-members-group).
+  [Members group](../glossary/principals.md#organization-members-group).
 - Groups: the add-member field takes an identity link, or a roster user that a
   link already verified; otherwise it asks for the person's identity link.
 - Explorer: Share with Peer verifies the other pane's published identity link
@@ -190,8 +192,8 @@ with another API. Opening a received link works without it.
 A link authenticates the exact identity bundle provided by its owner. Rotation
 requires a new authenticated exchange. This format does not prove currentness,
 revocation, or the freshness of signed policies;
-[transparency](../keying-design.md#transparency-and-checkpointing) and
-currentness remain open in
+[transparency](../keying-design/verification.md#transparency-and-checkpointing)
+and currentness remain open in
 [#2186](https://github.com/a2f0/tearleads/issues/2186). Link-verification errors
 are shown to the user; a mismatched supplied link alone is not attributed as a
 server security incident.

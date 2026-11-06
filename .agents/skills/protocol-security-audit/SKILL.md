@@ -58,8 +58,8 @@ Every published report includes it, even when counters are unavailable.
   referenced users; key transparency,
   witnesses, and semantic currentness (#2186 or its successor); pure
   availability or withholding; DoS and rate limits; residuals that
-  `docs/security-guarantees.md` already accepts.
-- **Documentation is a claim.** Anything `docs/security-guarantees.md` promises
+  `docs/security-guarantees/` already accepts.
+- **Documentation is a claim.** Anything `docs/security-guarantees/` promises
   that the code does not implement is a finding.
 
 ## 1. Establish the baseline
@@ -89,7 +89,7 @@ checkpointing or exiting, and inspect bounded excerpts with
    `packages/api`
    resolves the SDK from `dist`, so API probes otherwise test stale code. Do
    not rebuild it again mid-audit while other probes may be running.
-5. Read `docs/security-guarantees.md`, `formal/README.md`, and the model index
+5. Read `docs/security-guarantees/`, `formal/README.md`, and the model index
    `formal/models.md` in full.
 6. Build the known-issues list so slices do not re-report fixed work:
    - prior audit issues and their follow-ups, with each finding's fix PR

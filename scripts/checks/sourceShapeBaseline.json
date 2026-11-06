@@ -49,26 +49,6 @@
       "lines": 529,
       "bytes": 16108
     },
-    "docs/developer/client-sdk.md": {
-      "lines": 902,
-      "bytes": 51942
-    },
-    "docs/glossary.md": {
-      "lines": 747,
-      "bytes": 30768
-    },
-    "docs/keying-design.md": {
-      "lines": 1208,
-      "bytes": 59744
-    },
-    "docs/protocol-specification.md": {
-      "lines": 858,
-      "bytes": 46947
-    },
-    "docs/security-guarantees.md": {
-      "lines": 868,
-      "bytes": 51028
-    },
     "formal/blob-attachments/StagePromotion.tla": {
       "lines": 503,
       "bytes": 22931
@@ -156,10 +136,6 @@
     "packages/validators/src/response/index.ts": {
       "lines": 594,
       "bytes": 20791
-    },
-    "packages/windowing/README.md": {
-      "lines": 558,
-      "bytes": 24667
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 584,

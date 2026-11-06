@@ -13,9 +13,9 @@ For shared protocol terminology, see [glossary.md](./glossary.md).
 
 The protocol has three main planes:
 
-1. [document plane](./glossary.md#document-plane)
-2. [attachment plane](./glossary.md#attachment-plane)
-3. [access plane](./glossary.md#access-plane)
+1. [document plane](./glossary/content.md#document-plane)
+2. [attachment plane](./glossary/content.md#attachment-plane)
+3. [access plane](./glossary/access.md#access-plane)
 
 These are described in [loro-e2ee-sync-protocol.md](./loro-e2ee-sync-protocol.md).
 The cross-package handshake and proof contract is specified in
@@ -104,8 +104,8 @@ Read surfaces:
 | List organization group members | `GET /organizations/:organizationId/groups/:groupId/members` |
 | Reconcile the organization read model | `GET /organizations/:organizationId/read-model` |
 
-The [organization](./glossary.md#organization) directory and group list have no
-routes of their own; clients read them from the
+The [organization](./glossary/principals.md#organization) directory and group
+list have no routes of their own; clients read them from the
 [organization read-model feed](./organization-read-model-sync.md).
 
 The [document sync request](./document-link-and-sync-protocol.md) names protocol
@@ -116,13 +116,13 @@ exactly when that rekey array is non-empty, optional
 required `supportsPullPagination: true`, optional `pullCursor`, optional
 `historyMode: "raw"`, and `outgoingUpdates[]` with a per-update `writeHeader`.
 Cursor continuations and raw-history pulls are read-only. The path references
-identify signed [container manifests](./glossary.md#access-manifest) already
+identify signed [container manifests](./glossary/access.md#access-manifest) already
 held by the API; the expected link-set hash pins the server-resolved
-[document manifest](./glossary.md#document-link-set-manifest). Responses return
-`documentId`, `acceptedOutgoingUpdateIds`, `commitLsn`, `commitLsnMode`, the
-current-epoch `contentKeyBundle`, the `contentKeyBundles` array of older
-[epochs](./glossary.md#epoch) that served updates cite (empty for an empty probe
-or a page at the current epoch; never a repeat of `contentKeyBundle`),
+[document manifest](./glossary/access.md#document-link-set-manifest). Responses
+return `documentId`, `acceptedOutgoingUpdateIds`, `commitLsn`, `commitLsnMode`,
+the current-epoch `contentKeyBundle`, the `contentKeyBundles` array of older
+[epochs](./glossary/keys.md#epoch) that served updates cite (empty for an empty
+probe or a page at the current epoch; never a repeat of `contentKeyBundle`),
 `documentKekTargets`, `pullPage: {hasMore, nextCursor}`, and encrypted
 `updates[]`.
 
@@ -214,11 +214,11 @@ production layer that imports `access/read` and `access/write`. See
 Reusable logic more specific than generic infrastructure but below a use case:
 
 - `packages/api/src/access/**`: signed manifests,
-  [KEK state](./glossary.md#container-kek),
-  [content-key bundles](./glossary.md#content-key-bundle),
-  [attachment bindings](./glossary.md#attachment-binding), and
-  [principal state](./glossary.md#principal-policy-state) and
-  [member-envelope](./glossary.md#member-envelope) stores (see
+  [KEK state](./glossary/keys.md#container-kek),
+  [content-key bundles](./glossary/keys.md#content-key-bundle),
+  [attachment bindings](./glossary/content.md#attachment-binding), and
+  [principal state](./glossary/principals.md#principal-policy-state) and
+  [member-envelope](./glossary/keys.md#member-envelope) stores (see
   [the access layout](../packages/api/src/access/README.md))
 - `packages/api/src/documents/**`: document update storage, sync baselines,
   and edit attribution
@@ -270,13 +270,13 @@ service module, not only in a route body.
 The service layer covers these route-backed capabilities:
 
 - auth challenge, verify, register, and user-identity lookup
-- multipart [blob staging](./glossary.md#blob-stage), blob downloads, raw blob
-  byte reads, attachment binding, and detach mutations
+- multipart [blob staging](./glossary/content.md#blob-stage), blob downloads,
+  raw blob byte reads, attachment binding, and detach mutations
 - container creation, metadata-document creation, listing, sharing,
-  [rekey](./glossary.md#rekey), movement, re-citation, deletion, KEK-log reads,
+  [rekey](./glossary/keys.md#rekey), movement, re-citation, deletion, KEK-log reads,
   replacement lineage, and document listing
 - document creation, sync storage, purge,
-  [writer projection](./glossary.md#writer-projection), and edit attribution
+  [writer projection](./glossary/sync.md#writer-projection), and edit attribution
 - document attachment listing
 - document link and unlink mutations
 - principal policy reads and writes, and projection policy history
@@ -326,8 +326,8 @@ Document attachment listing lives in a document service. The
 `/documents/:documentId/attachments` route maps service errors to HTTP
 responses, while the service owns document-read authorization and active
 attachment binding lookup through the injected runtime database. It also loads
-the latest [blob content-key bundle](./glossary.md#blob-content-key-bundle) for
-each active blob from the blob content-key store, so callers do not rely on
+the latest [blob content-key bundle](./glossary/keys.md#blob-content-key-bundle)
+for each active blob from the blob content-key store, so callers do not rely on
 encrypted blob bytes to carry key material.
 
 Blob reads live in blob services. The `/blobs/:blobId/download`
@@ -344,8 +344,8 @@ route validates request shape and maps service errors to HTTP responses. The
 `services/documents/documentMutations` facade delegates to
 `workflows/documents/mutations`, which owns transaction boundaries
 and composes manifest verification,
-[content-key target](./glossary.md#key-target) validation,
-[write-header](./glossary.md#signed-write-header) verification, and update
+[content-key target](./glossary/keys.md#key-target) validation,
+[write-header](./glossary/content.md#signed-write-header) verification, and update
 storage through the access layer. The neutral `documentUpdateStore` owns
 causally-missing update reads for sync responses.
 

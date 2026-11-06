@@ -1,23 +1,23 @@
 # Principal policy commit outcomes
 
 A client may lose an HTTP response after a standalone
-[organization policy](../glossary.md#principal-policy-state), a compound
+[organization policy](../glossary/principals.md#principal-policy-state), a compound
 group-and-organization policy request, or group creation/deletion commits.
 Retrying the exact request returns its original acknowledgement even after later
 policy versions commit. A durable receipt, written in the same transaction as
 the policies, binds the entire canonical request, authenticated requester,
-[organization](../glossary.md#organization), and target group when applicable.
+[organization](../glossary/principals.md#organization), and target group when applicable.
 Separate hash domains distinguish standalone, compound, creation and deletion
 requests. Existing mutation locks serialize concurrent exact retries. A replay
-does not change current [heads](../glossary.md#head) or publish another access
+does not change current [heads](../glossary/sync.md#head) or publish another access
 or sharing notification. These receipts report historical outcomes; they do not
 establish current authority or authorize a newly constructed request. The
 authenticated requester must still be a current
-[organization administrator](../glossary.md#organization-admins-group) to read a
-receipt; a revoked requester receives 403, not a claim that the commit rolled
-back. Reading an existing acknowledgement neither requires current sync
+[organization administrator](../glossary/principals.md#organization-admins-group)
+to read a receipt; a revoked requester receives 403, not a claim that the commit
+rolled back. Reading an existing acknowledgement neither requires current sync
 entitlement nor reruns roster billing checks. Invalid stored receipts
-[fail closed](../glossary.md#fail-closed). Compound container results still
+[fail closed](../glossary/access.md#fail-closed). Compound container results still
 require their original acknowledgement rows, so purging an organization cannot
 leave a response in an embedded copy. Group deletion removes that group's
 compound and creation receipts. Deletion receipts keep a null database group ID
@@ -35,15 +35,15 @@ Receipts survive until their group or organization is deleted. Expiring them on
 a time limit would make an old unknown outcome indistinguishable from a failed
 commit. Each receipt stores only one or two exact public state references.
 Replay loads the immutable state and its public artifacts and reconstructs
-retired [member envelopes](../glossary.md#member-envelope) from the
+retired [member envelopes](../glossary/keys.md#member-envelope) from the
 authenticated, hash-matched original request. The receipt keeps no payload,
-envelope, projection, [grant](../glossary.md#grant) or container-result copy, so
-[rotation](../glossary.md#rotate) can remove superseded envelope rows without
-losing the original acknowledgement. Reference substitution or missing immutable
-state fails closed. Reconstructed signature bytes, ciphertext, projection and
-grants must match the receipt-authenticated original request; the state hash
-alone cannot authenticate signature bytes. Altered retired artifacts cannot
-return a successful receipt. Storage still grows by a fixed-size record per
+envelope, projection, [grant](../glossary/access.md#grant) or container-result
+copy, so [rotation](../glossary/keys.md#rotate) can remove superseded envelope
+rows without losing the original acknowledgement. Reference substitution or
+missing immutable state fails closed. Reconstructed signature bytes, ciphertext,
+projection and grants must match the receipt-authenticated original request; the
+state hash alone cannot authenticate signature bytes. Altered retired artifacts
+cannot return a successful receipt. Storage still grows by a fixed-size record per
 accepted commit.
 
 ## Group creation and deletion transport
@@ -88,7 +88,7 @@ group share. Read-only policy verification never triggers recovery or submits
 saved work. Recovery resends only the authenticated saved body and verifies the
 exact receipt artifacts. It neither reruns the original application callback
 nor invents a complete verified history from the receipt. Current
-[checkpoints](../glossary.md#checkpoint) are left to ordinary verified recovery,
+[checkpoints](../glossary/sync.md#checkpoint) are left to ordinary verified recovery,
 so an older receipt cannot roll them back.
 
 Calls sharing an executor and scope serialize submission, recovery and explicit
@@ -169,7 +169,7 @@ any caller cancellation signal. Set
 The value must be a positive integer at most 2,147,483,647 milliseconds. It
 covers the entire submission, including preparation continuations; it is not a
 claim that every healthy compound commit finishes within the default. Hosts with
-large [rewraps](../glossary.md#rewrap) or slow servers should configure their
+large [rewraps](../glossary/keys.md#rewrap) or slow servers should configure their
 own budget. A fresh client with a longer deadline can retry the exact saved
 request after timeout. Expiry preserves uncertain work and releases the local
 lane so inspection and actions can proceed. All four operation kinds share the

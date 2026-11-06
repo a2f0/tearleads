@@ -1,7 +1,7 @@
 # Durable principal-history recovery
 
-For a known signed [principal](../glossary.md#principal)
-[head](../glossary.md#head), `recoverPrincipalPolicyHistory` verifies
+For a known signed [principal](../glossary/principals.md#principal)
+[head](../glossary/sync.md#head), `recoverPrincipalPolicyHistory` verifies
 `ApiClient.getPrincipalPolicyPages` incrementally and stores accepted progress
 in local SQLite. Provide a `historyReader`, `expectedHead`, `organizationId`,
 `execSql`, a [trusted identity](trusted-user-identity.md) resolver, and a
@@ -9,7 +9,7 @@ in local SQLite. Provide a `historyReader`, `expectedHead`, `organizationId`,
 organization reset. Invalidate the guard before resetting so an in-flight
 recovery cannot recreate provisional rows afterward. `protection.localKey` must
 be a private 32-byte client-controlled key; `protection.context` must identify
-the local identity, [API trust domain](../glossary.md#identity-trust-domain),
+the local identity, [API trust domain](../glossary/principals.md#identity-trust-domain),
 and trust policy revision consistently across restarts. Never obtain either
 trust decision from server-issued continuation data. Rotate the key or context
 when retiring prior verification decisions.
@@ -56,11 +56,11 @@ scoped paged evidence, including when a complete bundle is held locally. Offline
 recovery requires authenticated private progress and its evidence; an
 unprotected full bundle cannot bypass that requirement. Runtime recovery queues
 are shared per database and organization, avoiding concurrent writes to
-directory or [Admins](../glossary.md#organization-admins-group) progress.
-[Container](../glossary.md#container) and [document](../glossary.md#document)
+directory or [Admins](../glossary/principals.md#organization-admins-group) progress.
+[Container](../glossary/access.md#container) and [document](../glossary/content.md#document)
 authorization and mutation planning accept the resulting current policy with
 selected historical citations. The projection
-[checkpoint](../glossary.md#checkpoint) batch also carries every verified
+[checkpoint](../glossary/sync.md#checkpoint) batch also carries every verified
 directory/Admins dependency. In-memory reuse preserves that organization binding
 and lifetime, rechecks all dependency pins, and refreshes missing evidence when
 a durable pin advances. Conflicting pins still fail. Runtime offline state
@@ -133,7 +133,7 @@ can publish over another accepted page. Normal browsing creates at most one
 stage per exact head and trust context. Completed-prefix publication and current
 acknowledgements retain two completed heads and reclaim older stages in bounded
 transactions, preserving historical
-[key envelopes](../glossary.md#member-envelope). See [cache
+[key envelopes](../glossary/keys.md#member-envelope). See [cache
 retention](principal-history-cache.md) for indexing, atomicity, offline behavior
 and bounded stage and proof cleanup. Saved roots retain their shared proof nodes
 and signed entries.
@@ -146,7 +146,7 @@ entry belonging to an accepted root. Each lookup reads at most one node per tree
 level and one entry row. Missing or corrupt proof material, or a disconnected
 cached prefix, permits one fresh genesis replay per recovery call. Persistent
 damage fails after that replay; durable checkpoint conflicts still
-[fail closed](../glossary.md#fail-closed).
+[fail closed](../glossary/access.md#fail-closed).
 Proof loss can trigger that single replay even when this call began at genesis,
 so persistent damage can require two full downloads before failure. Checkpoint
 conflicts are checked after the pinned history completes; rejected histories may
@@ -243,7 +243,7 @@ checkpoint advancement, and an offline prefix behind a local pin. A held
 citation to a group absent from the current signed directory is also
 unavailable, including after group deletion. An online server head behind that
 pin remains a
-[rollback incident](../security-guarantees.md#local-security-incident-detection).
+[rollback incident](../security-guarantees/properties.md#local-security-incident-detection).
 Invalid signed predecessors remain verification errors, distinct from local
 races.
 
@@ -254,7 +254,7 @@ The call remains unavailable or fails verification. This preserves bounded
 verification batches and scoped authority checks. Public projection-history
 grants separately cover deleted and nonmember group citations through current
 object access, without requiring current
-[policy](../glossary.md#principal-policy-state) membership.
+[policy](../glossary/principals.md#principal-policy-state) membership.
 
 Paged current envelopes also supply encrypted key candidates to container
 unwrapping; see [the key-candidate trust

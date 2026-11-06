@@ -9,24 +9,24 @@ SQLite.
 
 For shared protocol terminology, see [glossary.md](./glossary.md).
 
-The [key hierarchy](./keying-design.md#container-kek-hierarchy) is:
+The [key hierarchy](./keying-design/container-keks.md#container-kek-hierarchy) is:
 
-- [containers](./glossary.md#container) have signed
-  [access manifests](./glossary.md#access-manifest) and KEK
-  [epochs](./glossary.md#epoch)
-- document [content keys](./glossary.md#content-key) wrap to current linked
-  container [KEK targets](./glossary.md#key-target)
-- [blob](./glossary.md#blob) content keys wrap to KEK targets derived from
-  active [bindings](./glossary.md#attachment-binding)
+- [containers](./glossary/access.md#container) have signed
+  [access manifests](./glossary/access.md#access-manifest) and KEK
+  [epochs](./glossary/keys.md#epoch)
+- document [content keys](./glossary/keys.md#content-key) wrap to current linked
+  container [KEK targets](./glossary/keys.md#key-target)
+- [blob](./glossary/content.md#blob) content keys wrap to KEK targets derived from
+  active [bindings](./glossary/content.md#attachment-binding)
 
 After registration, every user has:
 
-- a default [organization](./glossary.md#organization)
+- a default [organization](./glossary/principals.md#organization)
 - reserved `Admins` and `Members` groups for that organization
-- a [root container](./glossary.md#root-container) for that organization, with a
-  signed manifest and a [container KEK](./glossary.md#container-kek) wrapped to
-  the `Admins` group
-- an initialized root metadata [document](./glossary.md#document) with
+- a [root container](./glossary/access.md#root-container) for that organization,
+  with a signed manifest and a [container KEK](./glossary/keys.md#container-kek)
+  wrapped to the `Admins` group
+- an initialized root metadata [document](./glossary/content.md#document) with
   content-key targets
 - an organization metadata container, plus roster-profile and
   organization-profile documents and any app-provisioned system containers
@@ -66,14 +66,14 @@ This avoids a circular foreign key between organizations and containers.
  pairs.
 2. Create the initial reserved `Admins` and `Members` group policies. Each
  projects the registering user as its sole admin member, with one
- [member envelope](./glossary.md#member-envelope) wrapping the group key to that
- user.
+ [member envelope](./glossary/keys.md#member-envelope) wrapping the group key to
+ that user.
 3. Create the initial organization policy and member envelope. Its authority
  descriptor binds both reserved group IDs and their initial
- [heads](./glossary.md#head). The organization policy is cryptographic
- [principal state](./glossary.md#principal-policy-state), not the org-manager
+ [heads](./glossary/sync.md#head). The organization policy is cryptographic
+ [principal state](./glossary/principals.md#principal-policy-state), not the org-manager
  product role source.
-4. Create the initial root metadata [Loro update](./glossary.md#loro-update)
+4. Create the initial root metadata [Loro update](./glossary/content.md#loro-update)
  locally.
 5. Build and sign the root container create request, including the initial
  container KEK epoch wrapped to the `Admins` group.
@@ -96,7 +96,7 @@ transaction:
 3. Insert the user (`default_organization_id = org.id`).
 4. Insert the reserved `Admins` and `Members` group rows.
 5. Store the initial `Admins`, `Members`, and organization policies and the
- initial [roster](./glossary.md#organization-roster-entry).
+ initial [roster](./glossary/principals.md#organization-roster-entry).
 6. Verify and store the root container manifest and KEK state, which grants
  `Admins` admin access to the root (built-in, derived from
  `root_container_id`).
@@ -112,11 +112,11 @@ endpoint returns 409.
 ### Client Side (after response)
 
 The response carries the created ids, the root metadata document's
-[access epoch](./glossary.md#access-epoch) and state hash, the organization
+[access epoch](./glossary/access.md#access-epoch) and state hash, the organization
 metadata, profile, and system container results, the committed update ids, and
 `challenge`.
 
-1. [Pin](./glossary.md#identity-pin) the registering
+1. [Pin](./glossary/principals.md#identity-pin) the registering
  [identity](./developer/trusted-user-identity.md#pinning) once the response
  confirms its `userId`.
 2. Persist the root, metadata, profile, and system containers, their
@@ -126,14 +126,14 @@ metadata, profile, and system container results, the committed update ids, and
 4. Authenticate using the challenge.
 
 The root metadata content key is recovered through the document
-[content-key target bundle](./glossary.md#content-key-bundle) and root container
+[content-key target bundle](./glossary/keys.md#content-key-bundle) and root container
 KEK state.
 
 ## Crypto Functions
 
 ### `wrapDekForRecipients`
 
-Wraps an existing [DEK](./glossary.md#dek) for one or more recipients without
+Wraps an existing [DEK](./glossary/keys.md#dek) for one or more recipients without
 encrypting a payload.
 
 ```ts
@@ -291,13 +291,13 @@ encrypted organization profile document.
 
 `admin_group_id` points to the reserved `Admins` group. Reachability through
 that group is
-[organization-admin authority](./glossary.md#organization-admins-group).
+[organization-admin authority](./glossary/principals.md#organization-admins-group).
 `member_group_id` points to the reserved opaque `Members` group. Reachability
 through that group is
-[organization membership](./glossary.md#organization-members-group). Org-manager
-stores directory lifecycle in `organization_roster_entries`; active roster rows
-are synchronized from `Members` reachability, while disabled rows can remain
-visible after access removal.
+[organization membership](./glossary/principals.md#organization-members-group).
+Org-manager stores directory lifecycle in `organization_roster_entries`; active
+roster rows are synchronized from `Members` reachability, while disabled rows
+can remain visible after access removal.
 
 ### Local SQLite: `containers`
 
@@ -359,9 +359,9 @@ lifecycle state only.
  derived projection.
 2. Principal member envelopes wrap the group key to the new member.
 3. The API synchronizes active roster rows from `Members` reachability.
-4. Container [grants](./glossary.md#grant) update signed container access
+4. Container [grants](./glossary/access.md#grant) update signed container access
  manifests when the user or group also needs object access.
-5. [Additive container access](./keying-design.md#additive-versus-subtractive-changes)
+5. [Additive container access](./keying-design/container-keks.md#additive-versus-subtractive-changes)
  can add container KEK wraps for the new principal without rewriting descendant
  document/blob content-key targets.
 6. Document/blob writes continue to target current container KEK epochs.
@@ -374,8 +374,8 @@ by `profile_document_id`, not in server-visible roster columns.
 Subtractive access changes create new container KEK epochs for future writes.
 They do not claim retroactive secrecy for ciphertext and keys already
 distributed before the shrink. Each new epoch includes a write-once
-authenticated [bridge](./glossary.md#container-kek-predecessor-bridge) to its
-immediate predecessor and a [keyring](./glossary.md#container-kek-keyring)
+authenticated [bridge](./glossary/keys.md#container-kek-predecessor-bridge) to its
+immediate predecessor and a [keyring](./glossary/keys.md#container-kek-keyring)
 holding every predecessor KEK sealed under the new key. A user with current
 access therefore decrypts the retained document history from the current
 recipient wrap in one keyring open; adding that user does not require old

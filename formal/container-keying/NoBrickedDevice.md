@@ -4,8 +4,8 @@
 device may ever be unable to read or write because another device holds a
 cache or must issue a write first. Every client refusal rule is a parameter
 checked against that invariant before it is implemented. Two currency rules
-that look protective, requiring a newer [head](../../docs/glossary.md#head) or
-every newer chain entry to cite the current authority, fail it, and the model
+that look protective, requiring a newer [head](../../docs/glossary/sync.md#head)
+or every newer chain entry to cite the current authority, fail it, and the model
 reports that failure in seconds.
 
 One dependent object cites one authority. In the container instance the
@@ -14,7 +14,7 @@ descendant's; in the principal-policy instance the authority is the Admins
 policy head and the dependent a group policy. The honest API commits a
 dependent head only for a signer with membership at the current authority
 head, citing exactly that head. Devices hold independent
-[checkpoints](../../docs/glossary.md#checkpoint) for both objects, sync at
+[checkpoints](../../docs/glossary/sync.md#checkpoint) for both objects, sync at
 arbitrary times, and verify each served projection with the refusal rules. One
 distinguished member, the late signer, may be revoked at an authority head; a
 dependent head that member signed before the revocation and delivered to a

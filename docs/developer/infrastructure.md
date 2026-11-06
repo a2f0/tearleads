@@ -184,8 +184,8 @@ and no billing return origins; configure the billing list to use hosted checkout
 The Worker connects through its `HYPERDRIVE` binding. The Postgres stack
 configures Hyperdrive with the runtime login, PlanetScale's pooled port 6432,
 TLS with WebPKI certificate validation, and query caching disabled. Fresh reads
-are required for sync cursors, [access epochs](../glossary.md#access-epoch), and
-session revocation. The
+are required for sync cursors,
+[access epochs](../glossary/access.md#access-epoch), and session revocation. The
 Cloudflare deployment token needs Hyperdrive Edit.
 
 The API deploy reads `hyperdrive_id` from Terraform and fills the selected

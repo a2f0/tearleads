@@ -1,8 +1,8 @@
 # Principal-policy history transport
 
-The [principal-policy](./glossary.md#principal-policy-state) GET route returns
-[at most 32 historical entries](./limits.md#principals) per page,
-plus the artifacts for one pinned signed [head](./glossary.md#head). The initial
+The [principal-policy](./glossary/principals.md#principal-policy-state) GET
+route returns [at most 32 historical entries](./limits.md#principals) per page,
+plus the artifacts for one pinned signed [head](./glossary/sync.md#head). The initial
 request chooses the current head; subsequent requests send its `stateHash` and
 the returned `historyPage.nextAfterVersion` as `afterVersion`. A null next
 cursor means the entire prefix before that head has been delivered. A later
@@ -42,10 +42,10 @@ artifacts, cursor, completion state, organization, trust context, and reference
 selection. The transaction compares prior progress before replacing it and gates
 commit on the caller's current operation. A shared authenticated completed
 prefix can serve new heads and selections; proof lookups select historical
-entries and the current local [checkpoint](./glossary.md#checkpoint) against its
-private verified root. Cache loss permits one bounded genesis rebuild. The
-returned sparse current-policy capability does not advance a trusted application
-checkpoint. See the [recovery contract](developer/principal-history-recovery.md)
+entries and the current local [checkpoint](./glossary/sync.md#checkpoint)
+against its private verified root. Cache loss permits one bounded genesis
+rebuild. The returned sparse current-policy capability does not advance a
+trusted application checkpoint. See the [recovery contract](developer/principal-history-recovery.md)
 for key custody, lifetime guards and cache recovery.
 
 ## Preparation continuations
@@ -73,13 +73,13 @@ oldest hint identity as well as the newest prefix, making that repair
 observable.
 
 Dependency continuations identify the required policy or strict
-[Admins](./glossary.md#organization-admins-group) history. When rollback removes
-a newly inserted successor, preparation uses its committed predecessor; future
-citations and the successor are checked again on the next attempt. Each final
-transaction repeats current authorization and head checks. Each newly inserted
-successor has a separate one-entry verification allowance, including later
-verification of that same head as a strict Admins authority. Uncommitted cache
-hints publish only after a successful outer commit.
+[Admins](./glossary/principals.md#organization-admins-group) history. When
+rollback removes a newly inserted successor, preparation uses its committed
+predecessor; future citations and the successor are checked again on the next
+attempt. Each final transaction repeats current authorization and head checks.
+Each newly inserted successor has a separate one-entry verification allowance,
+including later verification of that same head as a strict Admins authority.
+Uncommitted cache hints publish only after a successful outer commit.
 
 Cold server preparation runs after the application transaction rolls back. Each
 database has two preparation workers per API process, with at most one active
@@ -160,17 +160,17 @@ and head checks remain in that transaction. Response size therefore depends on
 the current policy and container batch, rather than the number of retained
 policy versions.
 
-The SDK compares the accepted state, payload, [grants](./glossary.md#grant),
-membership, [envelopes](./glossary.md#member-envelope), and container results
+The SDK compares the accepted state, payload, [grants](./glossary/access.md#grant),
+membership, [envelopes](./glossary/keys.md#member-envelope), and container results
 with the request it authored; container results carry only the hashes of what
 committed (see the
-[protocol specification's](./protocol-specification.md#container-access-and-kek-protocol)
+[protocol specification's](./protocol-specification/container-access.md#container-access-and-kek-protocol)
 container mutation acknowledgements), which the SDK recomputes from its request.
 After those checks, it appends one accepted state to its authenticated durable
 prefix and index, without rebuilding a complete bundle. A server-provided
 history array cannot replace that prefix. This contract covers standalone policy
 writes, compound group and organization commits, and group creation/deletion.
-Container and document [projections](./glossary.md#writer-projection) carry
+Container and document [projections](./glossary/sync.md#writer-projection) carry
 scoped paged public-history sources. See
 [compound commit outcomes](developer/principal-policy-outcomes.md) for recovery
 after a committed response is lost.
@@ -194,7 +194,7 @@ and `grant`, plus an optional caller-authenticated prefix offset. It shares the
 15-second per-request deadline and preparation handling, validates exact head,
 public artifacts and cursor continuity, and checks identity changes after each
 consumer yield. The compact source builder checks every
-[manifest](./glossary.md#access-manifest) citation against the signed directory
+[manifest](./glossary/access.md#access-manifest) citation against the signed directory
 head and verified chain before issuing any grant. It includes only the
 organization payloads needed for those bindings, with exact references for
 selective client verification.
@@ -224,8 +224,8 @@ artifacts are verified against the authenticated history and whose checkpoint is
 reloaded as for any completed stage; a reply naming any other head, or a held
 prefix that cannot be loaded, falls back to the unconditional read. The reply is
 about 300 bytes, against 17–34 KB for the first page. A group revocation
-[rotates](./glossary.md#rotate) the group and commits a directory successor with
-it, so the next operation recovers that successor. Within one operation, later
+[rotates](./glossary/keys.md#rotate) the group and commits a directory successor
+with it, so the next operation recovers that successor. Within one operation, later
 projection collections reuse its recovered directory until an organization hint,
 a durable pin past a memoized head, or the end of the producing lease evicts it;
 see [current-policy consumers](developer/current-principal-consumers.md) for the
@@ -234,14 +234,14 @@ batch rules.
 Skipping the confirmation read removes only refusals of evidence the device
 already verified: a 403 or 409 for a completed head, or served head bytes that
 differ from the stored ones. It cannot admit an unverified head, bypass the
-[rollback, fork](./security-guarantees.md#rollback-and-split-view) or checkpoint
-checks, or extend write authority, which the API still decides against live
-state. Stored current artifacts that fail their signed-history check discard the
-stage and replay signed history online once rather than refusing (no-brick). The
-remaining policy reads are one discovery read per pass or operation, usually
-answered with the bare head, and reads of heads that are new to the device.
-Provisioning primes the founding heads the device signed, so a new
-organization's Admins and [Members](./glossary.md#organization-members-group)
+[rollback, fork](./security-guarantees/boundaries.md#rollback-and-split-view) or
+checkpoint checks, or extend write authority, which the API still decides
+against live state. Stored current artifacts that fail their signed-history
+check discard the stage and replay signed history online once rather than
+refusing (no-brick). The remaining policy reads are one discovery read per pass
+or operation, usually answered with the bare head, and reads of heads that are
+new to the device. Provisioning primes the founding heads the device signed, so
+a new organization's Admins and [Members](./glossary/principals.md#organization-members-group)
 heads are not new to it. Per-workflow budgets are listed under
 [current-policy request costs](developer/current-principal-consumers.md#request-costs).
 

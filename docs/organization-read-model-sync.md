@@ -1,24 +1,24 @@
 # Organization Read-Model Sync
 
-[Organization](./glossary.md#organization) administration is
+[Organization](./glossary/principals.md#organization) administration is
 server-authoritative but local-first for presentation. The client keeps
-normalized SQLite [projections](./glossary.md#projection-row) and reconciles
+normalized SQLite [projections](./glossary/sync.md#projection-row) and reconciles
 them from one organization-scoped, cursor-ordered feed.
 
 ## Authority boundary
 
 The read model contains display and navigation data. It is not an authorization
 or cryptographic input. Signed
-[principal policies](./glossary.md#principal-policy-state), verified
-[access manifests](./glossary.md#access-manifest), wrapped key
-[envelopes](./glossary.md#member-envelope), and
-[anti-rollback checkpoints](./security-guarantees.md#rollback-and-split-view)
+[principal policies](./glossary/principals.md#principal-policy-state), verified
+[access manifests](./glossary/access.md#access-manifest), wrapped key
+[envelopes](./glossary/keys.md#member-envelope), and
+[anti-rollback checkpoints](./security-guarantees/boundaries.md#rollback-and-split-view)
 remain authoritative.
 
 The signed organization-policy payload carries a version-2 authority descriptor
 binding the organization to its immutable reserved `Admins` and `Members`
 group IDs and to an exact sorted directory of every current group policy
-[head](./glossary.md#head). Provisioning and later organization-policy writes
+[head](./glossary/sync.md#head). Provisioning and later organization-policy writes
 must match the reserved IDs and authoritative group set. The reserved `Admins`
 policy contains direct `admin` users only, so clients can verify its complete
 chain without consulting roster or group-catalog projections.
@@ -44,7 +44,7 @@ recreated, while the directory remains an exact set of active group heads.
 Supported group mutations submit the group successor and matching organization
 successor to one atomic API operation. Group creation likewise commits the row,
 initial group policy, and signed-directory successor in one transaction. Sharing
-and key-[rotation](./glossary.md#rotate) probes consume the signed directory,
+and key-[rotation](./glossary/keys.md#rotate) probes consume the signed directory,
 not the read-model group lane, and reject a current group response whose head
 differs from the committed entry.
 
@@ -58,7 +58,7 @@ advances, including on checkpointed devices.
 
 Explorer writes must obtain the exact verified policy and access state needed to
 unwrap keys and encrypt content. They must never infer authority from a cached
-roster, membership, [grant](./glossary.md#grant), or administrator row. Verified
+roster, membership, [grant](./glossary/access.md#grant), or administrator row. Verified
 policy data may enrich the UI projection; the UI projection never feeds keying
 decisions. Locally, each projected roster binds to a principal-state hash:
 member rows carry the hash of their group's membership head, which a visible
@@ -86,9 +86,9 @@ policy verification runs.
 ## Ordering and replay
 
 Every authoritative mutation that changes an
-[organization read model](./glossary.md#organization-read-model) increments its
-`organization_read_model_heads` cursor and, in the same update, stamps each lane
-it changed with the new cursor value (`directory_cursor`, `groups_cursor`,
+[organization read model](./glossary/principals.md#organization-read-model)
+increments its `organization_read_model_heads` cursor and, in the same update,
+stamps each lane it changed with the new cursor value (`directory_cursor`, `groups_cursor`,
 `group_memberships_cursor`, `grants_cursor`, `organization_policy_cursor`). A
 membership change also stamps the changed group's `groups.membership_cursor`,
 and a group deletion stamps its tombstone's `deleted_cursor`. All of it happens
@@ -110,7 +110,7 @@ reloads that lane or group's current state. Invalidation is at-least-once:
 duplicate invalidations are safe because projection application is idempotent,
 and a transition from A to B and back to A still reloads the final state.
 
-A [principal](./glossary.md#principal)'s members are users, never other
+A [principal](./glossary/principals.md#principal)'s members are users, never other
 principals, so a membership edit invalidates exactly the one principal it names.
 This bounds reverse invalidation fanout: no group-in-group edge can propagate an
 edit, and no standalone or cross-organization group can widen a change's blast
@@ -133,7 +133,7 @@ Protocol version 6 includes these lanes:
   groups, including the reserved `Members` group that is hidden from the group
   catalog. Each member names only its user ID and role; public keys travel once
   per user in the `directory` lane, and keying reads neither copy;
-- `grants`: a whole-lane replacement of [container](./glossary.md#container)
+- `grants`: a whole-lane replacement of [container](./glossary/access.md#container)
   access presentation rows;
 - `organizationPolicy`: the current organization policy head used only to
   determine whether separately verified local policy history is current.
@@ -147,7 +147,7 @@ remains a separately refreshed aggregate: one local row per requester, whose
 category breakdown is re-validated against the response schema on every read and
 purged when it fails. Organization and group policy history may be rendered from
 the separately persisted, verified policy bundle only when its principal ID,
-state hash, version, key [epoch](./glossary.md#epoch), key fingerprint, and
+state hash, version, key [epoch](./glossary/keys.md#epoch), key fingerprint, and
 member count exactly match the corresponding read-model head. Missing or
 mismatched policy state triggers one canonical verified-policy request;
 projected policy heads, membership, and group metadata never become
@@ -155,8 +155,8 @@ cryptographic inputs.
 
 Grant `updatedAt` is access-head time, not the container content timestamp.
 Container access-manifest advancement, structural moves, and deletion replace
-the grants lane; ordinary [document](./glossary.md#document) or
-[blob](./glossary.md#blob) content writes do not invalidate it. This avoids
+the grants lane; ordinary [document](./glossary/content.md#document) or
+[blob](./glossary/content.md#blob) content writes do not invalidate it. This avoids
 turning content sync into organization-wide grant fanout.
 
 `directory`, `groups`, `grants`, and `organizationPolicy` deltas replace the
@@ -249,7 +249,7 @@ the client starts HTTP catch-up only after the matching acknowledgement. This
 ordering prevents a committed feed event from falling between catch-up and live
 routing. A denied acknowledgement still drives HTTP reconciliation so its coded
 403 or 404 response purges stale local policy and keying material. Declaration
-authorization is deadline-bounded and [fails closed](./glossary.md#fail-closed)
+authorization is deadline-bounded and [fails closed](./glossary/access.md#fail-closed)
 with that same denied acknowledgement, so one stalled access check cannot strand
 catch-up or delay organization events for other connected recipients
 indefinitely. If realtime remains unavailable, a bounded HTTP fallback refreshes
@@ -277,7 +277,7 @@ changed principal holds a grant in a current container manifest, or an ancestor
 *container* of one does. Existing members and ungranted group changes publish no
 discovery hint. Container-ancestor traversal surfaces a real access gain without
 turning every membership edit into
-[root-container](./glossary.md#root-container) synchronization.
+[root-container](./glossary/access.md#root-container) synchronization.
 
 Every HTTP request that observes one or more read-model cursor advances
 retains the highest observed cursor per organization. After the handler
