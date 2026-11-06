@@ -1,25 +1,16 @@
-import { afterAll, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-  toFingerprint,
 } from "@tearleads/crypto";
 import invariant from "invariant";
 import { createRegistrationRequestBody } from "../../../test/helpers/api";
-import { del } from "../../adapters/keyValueStore";
 import { routeApp } from "../../routeApp";
-
-let fingerprint: string;
-
-afterAll(async () => {
-  await del(fingerprint);
-});
 
 test("POST /auth/register rejects initial org policies that do not bootstrap the registering user as sole admin", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  fingerprint = await toFingerprint(signingPublicKey);
   const body = await createRegistrationRequestBody(
     signingPublicKey,
     signingPrivateKey,
@@ -56,7 +47,6 @@ test("POST /auth/register rejects malformed initial root container event records
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  fingerprint = await toFingerprint(signingPublicKey);
   const body = await createRegistrationRequestBody(
     signingPublicKey,
     signingPrivateKey,
@@ -88,7 +78,6 @@ test("POST /auth/register rejects malformed initial root container KEK records",
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  fingerprint = await toFingerprint(signingPublicKey);
   const body = await createRegistrationRequestBody(
     signingPublicKey,
     signingPrivateKey,
@@ -120,7 +109,6 @@ test("POST /auth/register rejects missing initial root user recipient keys", asy
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  fingerprint = await toFingerprint(signingPublicKey);
   const body = await createRegistrationRequestBody(
     signingPublicKey,
     signingPrivateKey,
