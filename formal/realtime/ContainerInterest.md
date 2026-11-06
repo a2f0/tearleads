@@ -46,13 +46,14 @@ queued operations inert; runtime flood tests cover both limits. This uses the
 model's existing `CloseSocket` transition rather than modeling queue capacity.
 Tabs in one session share identical queries and wait for different queries. A timeout
 retains the raw query's slot until it settles. The separate 10,000-change
-observation cap may reject a query during a pub/sub flood; that availability
-limit is outside this bounded two-change model. Declarations acknowledge the
-accepted IDs even when some were refused. Every declaration, including the first
-full declaration after a reconnect, runs its own authorization; a socket opens
-with no interest and nothing is cached for it. The client records those results
-and retries after a tree change or grant notification, without a denial-driven
-loop.
+observation cap may reject a query's waiting readers during a pub/sub flood; a
+declaration arriving after the overflow waits for that query and queries
+afresh. That availability limit is outside this bounded two-change model.
+Declarations acknowledge the accepted IDs even when some were refused. Every
+declaration, including the first full declaration after a reconnect, runs its
+own authorization; a socket opens with no interest and nothing is cached for
+it. The client records those results and retries after a tree change or grant
+notification, without a denial-driven loop.
 
 The model assumes the signed HTTP access workflow answers correctly at the
 query snapshot. Notification delivery is the point at which this process

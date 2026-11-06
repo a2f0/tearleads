@@ -64,7 +64,7 @@ export function ExplorerDocumentInfoLocalSecuritySection(params: {
   );
 }
 
-export function ExplorerDocumentInfoRemoteSecuritySection(params: {
+function ExplorerDocumentInfoRemoteSecuritySection(params: {
   documentInfo: DocumentInfo;
 }) {
   const remoteInfo = params.documentInfo.remoteInfo;
@@ -149,5 +149,22 @@ export function ExplorerDocumentInfoRemoteSecuritySection(params: {
         </tbody>
       </MiniAppKeyValueTable>
     </MiniAppInfoSection>
+  );
+}
+
+export function ExplorerDocumentInfoSecurityTab(params: {
+  documentInfo: DocumentInfo | null;
+}) {
+  return (
+    <>
+      <ExplorerDocumentInfoLocalSecuritySection
+        documentInfo={params.documentInfo}
+      />
+      {params.documentInfo ? (
+        <ExplorerDocumentInfoRemoteSecuritySection
+          documentInfo={params.documentInfo}
+        />
+      ) : null}
+    </>
   );
 }

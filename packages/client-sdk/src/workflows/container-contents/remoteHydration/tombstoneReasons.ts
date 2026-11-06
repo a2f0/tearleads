@@ -51,13 +51,15 @@ function assignContainerRemoval(input: {
   return true;
 }
 
-function collectCascadedContainerIds(input: {
+interface CascadeInput {
   childIdsByParentId: ContainerChildIndex;
   ownReasonContainerIds: Set<string>;
   pendingContainerIds: string[];
   preservedContainerIds: ReadonlySet<string>;
   removalByContainerId: Map<string, ContainerRemoval>;
-}): Set<string> {
+}
+
+function collectCascadedContainerIds(input: CascadeInput): Set<string> {
   const removedContainerIds = new Set<string>();
   while (input.pendingContainerIds.length > 0) {
     const containerId = input.pendingContainerIds.pop();
@@ -66,26 +68,40 @@ function collectCascadedContainerIds(input: {
     removedContainerIds.add(containerId);
     const inheritedRemoval = input.removalByContainerId.get(containerId);
     if (!inheritedRemoval) continue;
-    for (const childId of input.childIdsByParentId.get(containerId) ?? []) {
-      if (input.preservedContainerIds.has(childId)) continue;
-      // A second root can upgrade an already-visited child to deleted; requeue
-      // it so its descendants inherit the stronger removal too.
-      const upgraded = assignContainerRemoval({
-        containerId: childId,
-        isOwn: false,
-        ownReasonContainerIds: input.ownReasonContainerIds,
-        removal: inheritedRemoval,
-        removalByContainerId: input.removalByContainerId,
-      });
-      if (!removedContainerIds.has(childId)) {
-        input.pendingContainerIds.push(childId);
-      } else if (upgraded) {
-        removedContainerIds.delete(childId);
-        input.pendingContainerIds.push(childId);
-      }
-    }
+    cascadeToChildren(
+      input,
+      containerId,
+      inheritedRemoval,
+      removedContainerIds,
+    );
   }
   return removedContainerIds;
+}
+
+function cascadeToChildren(
+  input: CascadeInput,
+  containerId: string,
+  inheritedRemoval: ContainerRemoval,
+  removedContainerIds: Set<string>,
+): void {
+  for (const childId of input.childIdsByParentId.get(containerId) ?? []) {
+    if (input.preservedContainerIds.has(childId)) continue;
+    // A second root can upgrade an already-visited child to deleted; requeue
+    // it so its descendants inherit the stronger removal too.
+    const upgraded = assignContainerRemoval({
+      containerId: childId,
+      isOwn: false,
+      ownReasonContainerIds: input.ownReasonContainerIds,
+      removal: inheritedRemoval,
+      removalByContainerId: input.removalByContainerId,
+    });
+    if (!removedContainerIds.has(childId)) {
+      input.pendingContainerIds.push(childId);
+    } else if (upgraded) {
+      removedContainerIds.delete(childId);
+      input.pendingContainerIds.push(childId);
+    }
+  }
 }
 
 /**

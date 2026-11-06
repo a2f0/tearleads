@@ -143,15 +143,21 @@ async function reclaimQueuedBlobs(
     }
   }
 
-  if (failedStorageKeys.length > 0) {
-    const sample = failedStorageKeys
-      .slice(0, ORPHAN_BLOB_RECLAIM_LOG_SAMPLE_SIZE)
-      .join(", ");
-    runtime.util.log(
-      `Documents: orphan maintenance deferred ${failedStorageKeys.length} blob(s): ${sample}`,
-    );
-  }
+  logDeferredReclaims(runtime, failedStorageKeys);
   return shouldContinue;
+}
+
+function logDeferredReclaims(
+  runtime: DocumentOrphanBlobReclaimRuntime,
+  failedStorageKeys: readonly string[],
+): void {
+  if (failedStorageKeys.length === 0) return;
+  const sample = failedStorageKeys
+    .slice(0, ORPHAN_BLOB_RECLAIM_LOG_SAMPLE_SIZE)
+    .join(", ");
+  runtime.util.log(
+    `Documents: orphan maintenance deferred ${failedStorageKeys.length} blob(s): ${sample}`,
+  );
 }
 
 function runDocumentOrphanReclaims(

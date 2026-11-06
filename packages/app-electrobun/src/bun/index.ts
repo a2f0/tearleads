@@ -82,6 +82,32 @@ function getSqliteAssetPath(name: string): string {
   );
 }
 
+function matchPdfAsset(pathname: string): RegExpExecArray | null {
+  return pathname.startsWith(pdfAssetPrefix)
+    ? /^(cmaps|wasm|standard_fonts)\/([A-Za-z0-9._-]+)$/.exec(
+        pathname.slice(pdfAssetPrefix.length),
+      )
+    : null;
+}
+
+async function servePdfAsset(
+  pdfPackageDir: string | undefined,
+  relativePath: string,
+): Promise<Response> {
+  const assetPath = resolvePdfAssetPath(
+    pdfPackageDir,
+    relativePath,
+    import.meta.url,
+  );
+  if (!(await isRegularFile(assetPath))) {
+    return new Response("Not found", { status: 404 });
+  }
+  const file = Bun.file(assetPath);
+  return new Response(file, {
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+  });
+}
+
 async function isRegularFile(path: string) {
   try {
     return (await stat(path)).isFile();
@@ -226,25 +252,10 @@ async function createDevServerConfig() {
         });
       }
 
-      const pdfAsset = pathname.startsWith(pdfAssetPrefix)
-        ? /^(cmaps|wasm|standard_fonts)\/([A-Za-z0-9._-]+)$/.exec(
-            pathname.slice(pdfAssetPrefix.length),
-          )
-        : null;
+      const pdfAsset = matchPdfAsset(pathname);
       if (pdfAsset) {
         const [, directory, name] = pdfAsset;
-        const assetPath = resolvePdfAssetPath(
-          pdfPackageDir,
-          `${directory}/${name}`,
-          import.meta.url,
-        );
-        if (!(await isRegularFile(assetPath))) {
-          return new Response("Not found", { status: 404 });
-        }
-        const file = Bun.file(assetPath);
-        return new Response(file, {
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-        });
+        return servePdfAsset(pdfPackageDir, `${directory}/${name}`);
       }
 
       if (pathname === "/sqlite3.wasm") {

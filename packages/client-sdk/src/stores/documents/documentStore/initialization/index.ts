@@ -61,6 +61,7 @@ import {
   healLocalAttachmentDetachState,
   recoverDroppedAttachmentSlots,
 } from "./initializationRecovery";
+import { relinkRecordPatch } from "./relinkRecordPatch";
 
 async function createInitialDocumentRecord(
   state: DocumentStoreState,
@@ -431,26 +432,7 @@ export async function relinkDocumentStore(
   const persisted = await chainIdentityWrite(state, async () => {
     if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
     const currentDocumentId = state.record?.documentId ?? null;
-    const currentAccessEpoch =
-      state.record?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
-    const patch: Partial<DocumentRecord> = {
-      accessEpoch: Math.max(currentAccessEpoch, input.accessEpoch),
-      accessStateHash:
-        input.accessStateHash === undefined
-          ? (state.record?.accessStateHash ?? null)
-          : input.accessStateHash,
-      containerId: input.containerId,
-      documentId: input.documentId,
-    };
-    if (input.contentKeyBundle !== undefined) {
-      patch.contentKeyBundle = input.contentKeyBundle;
-    }
-    if (input.documentKekTargets !== undefined) {
-      patch.documentKekTargets = input.documentKekTargets;
-    }
-    if (input.documentManifestBundle !== undefined) {
-      patch.documentManifestBundle = input.documentManifestBundle;
-    }
+    const patch = relinkRecordPatch(state.record, input);
 
     // Relink rewrites access/identity metadata, not content. If it lands while
     // the user is mid-edit, re-deriving text/structured fields from the

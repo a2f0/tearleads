@@ -66,6 +66,13 @@ function firstBundleInconsistency(
       return `manifest ${hash} is cited without a bundle`;
     }
   }
+  return firstServedBundleInconsistency(bundles, cited);
+}
+
+function firstServedBundleInconsistency(
+  bundles: Record<string, unknown>,
+  cited: ReadonlySet<string>,
+): string | null {
   for (const [hash, bundle] of Object.entries(bundles)) {
     if (
       !isPlainObject(bundle) ||

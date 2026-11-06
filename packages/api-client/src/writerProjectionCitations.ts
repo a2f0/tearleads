@@ -1,5 +1,17 @@
 import { BoundedCache } from "./ApiCache";
 
+function collectCitedArrayItems(
+  value: readonly unknown[],
+  key: string,
+  cited: Set<string>,
+): void {
+  const listsIds = /containerids$/iu.test(key);
+  for (const item of value) {
+    if (listsIds && typeof item === "string") cited.add(item);
+    else collectCitedContainerIds(item, key, cited);
+  }
+}
+
 function collectCitedContainerIds(
   value: unknown,
   key: string,
@@ -10,11 +22,7 @@ function collectCitedContainerIds(
     return;
   }
   if (Array.isArray(value)) {
-    const listsIds = /containerids$/iu.test(key);
-    for (const item of value) {
-      if (listsIds && typeof item === "string") cited.add(item);
-      else collectCitedContainerIds(item, key, cited);
-    }
+    collectCitedArrayItems(value, key, cited);
     return;
   }
   if (value === null || typeof value !== "object") return;

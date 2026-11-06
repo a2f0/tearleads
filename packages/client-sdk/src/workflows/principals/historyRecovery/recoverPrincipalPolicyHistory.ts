@@ -313,6 +313,18 @@ async function readRecoveryPages(
   return false;
 }
 
+/** An online reader rebuilds lost or cached evidence once. */
+function canRebuildEvidence(
+  input: PrincipalHistorySelectionOptions,
+  allowEvidenceRebuild: boolean,
+  lostEvidence: boolean,
+  stage: { readonly fromCache: boolean },
+): boolean {
+  return (
+    !input.offline && allowEvidenceRebuild && (lostEvidence || stage.fromCache)
+  );
+}
+
 async function recover(
   input: PrincipalHistorySelectionOptions,
   allowEvidenceRebuild = true,
@@ -366,11 +378,7 @@ async function recover(
       await discardPrincipalHistoryStage(input.execSql, stage.saved, () =>
         recoveryIsCurrent(input),
       );
-    if (
-      !input.offline &&
-      allowEvidenceRebuild &&
-      (lostEvidence || stage.fromCache)
-    )
+    if (canRebuildEvidence(input, allowEvidenceRebuild, lostEvidence, stage))
       return recover(input, false);
     throw error.verificationError;
   }

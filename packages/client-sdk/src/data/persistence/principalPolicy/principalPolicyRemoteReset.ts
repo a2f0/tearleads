@@ -26,6 +26,45 @@ interface PrincipalRow {
   readonly type: string;
 }
 
+function assertPolicyCacheRowOwned(
+  row: PrincipalRow,
+  owner: string | null | undefined,
+): void {
+  if (row.type === "group" && !owner) {
+    throw new Error(
+      "Unowned group policy cache requires a local database reset before organization purge",
+    );
+  }
+  if (row.type !== "group" && row.type !== "organization") {
+    throw new Error("Principal policy cache has an invalid principal type");
+  }
+  if (row.type === "organization" && owner !== undefined && owner !== row.id) {
+    throw new Error(
+      "Organization policy cache ownership does not match its identity",
+    );
+  }
+}
+
+function assertResetOwnershipRow<
+  Row extends {
+    readonly principalType: string;
+    readonly organizationId: string | null;
+  },
+>(
+  row: Row,
+): asserts row is Row & { readonly principalType: "group" | "organization" } {
+  if (row.principalType !== "group" && row.principalType !== "organization") {
+    throw new Error(
+      "Principal policy cache ownership has an invalid principal type",
+    );
+  }
+  if (!row.organizationId) {
+    throw new Error(
+      "Principal policy cache ownership requires a local database reset",
+    );
+  }
+}
+
 /** Current cache writes atomically pin ownership; reset never backfills it. */
 export async function loadRemoteResetPrincipalScope(
   tx: ClientSQLiteTransactionScope,
@@ -62,24 +101,7 @@ export async function loadRemoteResetPrincipalScope(
     ]),
   );
   for (const row of [...policyRows, ...retainedRows.flat()]) {
-    const owner = owners.get(`${row.type}\0${row.id}`);
-    if (row.type === "group" && !owner) {
-      throw new Error(
-        "Unowned group policy cache requires a local database reset before organization purge",
-      );
-    }
-    if (row.type !== "group" && row.type !== "organization") {
-      throw new Error("Principal policy cache has an invalid principal type");
-    }
-    if (
-      row.type === "organization" &&
-      owner !== undefined &&
-      owner !== row.id
-    ) {
-      throw new Error(
-        "Organization policy cache ownership does not match its identity",
-      );
-    }
+    assertPolicyCacheRowOwned(row, owners.get(`${row.type}\0${row.id}`));
   }
   const keys = new Map<string, RemoteResetPrincipalKey>();
   keys.set(`organization\0${organizationId}`, {
@@ -87,16 +109,7 @@ export async function loadRemoteResetPrincipalScope(
     principalType: "organization",
   });
   for (const row of ownershipRows) {
-    if (row.principalType !== "group" && row.principalType !== "organization") {
-      throw new Error(
-        "Principal policy cache ownership has an invalid principal type",
-      );
-    }
-    if (!row.organizationId) {
-      throw new Error(
-        "Principal policy cache ownership requires a local database reset",
-      );
-    }
+    assertResetOwnershipRow(row);
     if (row.organizationId !== organizationId) continue;
     keys.set(`${row.principalType}\0${row.principalId}`, {
       principalId: row.principalId,

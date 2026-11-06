@@ -28,45 +28,51 @@ function packageBuildStep(packageName: string): VerificationStep {
   };
 }
 
+function packagePlan(
+  root: string,
+  packageName: string | undefined,
+  testArgs: readonly string[],
+): VerificationPlan {
+  const manifest = JSON.parse(
+    readFileSync(join(root, "package.json"), "utf8"),
+  ) as { workspaces: string[] };
+  for (const path of manifest.workspaces) {
+    const workspace = JSON.parse(
+      readFileSync(join(root, path, "package.json"), "utf8"),
+    ) as { name: string; scripts?: { test?: string } };
+    if (workspace.name !== packageName) continue;
+    if (!workspace.scripts?.test) {
+      throw new Error(`Workspace ${packageName} has no test script`);
+    }
+    return {
+      mode: "package",
+      packageName,
+      steps: [
+        packageBuildStep(workspace.name),
+        {
+          name: "tests",
+          command: [
+            "bun",
+            "run",
+            "--cwd",
+            path,
+            "test",
+            ...(testArgs[0] === "--" ? testArgs.slice(1) : testArgs),
+          ],
+        },
+      ],
+    };
+  }
+  throw new Error(`Unknown workspace: ${packageName ?? "(missing)"}`);
+}
+
 export function verificationPlan(
   root: string,
   args: readonly string[],
 ): VerificationPlan {
   const [mode, packageName, ...testArgs] = args;
   const build = { name: "build", command: ["bun", "run", "build:packages"] };
-  if (mode === "package") {
-    const manifest = JSON.parse(
-      readFileSync(join(root, "package.json"), "utf8"),
-    ) as { workspaces: string[] };
-    for (const path of manifest.workspaces) {
-      const workspace = JSON.parse(
-        readFileSync(join(root, path, "package.json"), "utf8"),
-      ) as { name: string; scripts?: { test?: string } };
-      if (workspace.name !== packageName) continue;
-      if (!workspace.scripts?.test) {
-        throw new Error(`Workspace ${packageName} has no test script`);
-      }
-      return {
-        mode,
-        packageName,
-        steps: [
-          packageBuildStep(workspace.name),
-          {
-            name: "tests",
-            command: [
-              "bun",
-              "run",
-              "--cwd",
-              path,
-              "test",
-              ...(testArgs[0] === "--" ? testArgs.slice(1) : testArgs),
-            ],
-          },
-        ],
-      };
-    }
-    throw new Error(`Unknown workspace: ${packageName ?? "(missing)"}`);
-  }
+  if (mode === "package") return packagePlan(root, packageName, testArgs);
   if ((mode !== "full" && mode !== "affected") || args.length !== 1) {
     throw new Error(verificationUsage);
   }

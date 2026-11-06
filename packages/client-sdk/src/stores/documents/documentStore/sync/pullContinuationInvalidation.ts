@@ -12,6 +12,18 @@ import {
 } from "./syncGeneration";
 import { documentSyncContextMatches } from "./syncUpdateImport";
 
+/** The sync context the invalidation requires the stored record to keep. */
+function expectedSyncContext(record: DocumentRecord) {
+  return {
+    accessEpoch: record.accessEpoch,
+    accessStateHash: record.accessStateHash ?? null,
+    contentKeyBundle: record.contentKeyBundle ?? null,
+    documentKekTargets: record.documentKekTargets ?? null,
+    documentManifestBundle: record.documentManifestBundle ?? null,
+    lastCommitLsn: record.lastCommitLsn ?? null,
+  };
+}
+
 export async function invalidateDocumentStorePullContinuation(input: {
   continuation: DocumentSyncPullContinuation;
   currentRecord: DocumentRecord;
@@ -33,14 +45,9 @@ export async function invalidateDocumentStorePullContinuation(input: {
     const invalidated = await state.persistence.invalidatePullContinuation(
       lockedExecSql,
       {
-        accessEpoch: currentRecord.accessEpoch,
-        accessStateHash: currentRecord.accessStateHash ?? null,
+        ...expectedSyncContext(currentRecord),
         continuation,
-        contentKeyBundle: currentRecord.contentKeyBundle ?? null,
         documentId,
-        documentKekTargets: currentRecord.documentKekTargets ?? null,
-        documentManifestBundle: currentRecord.documentManifestBundle ?? null,
-        lastCommitLsn: currentRecord.lastCommitLsn ?? null,
         localId: currentRecord.id,
       },
     );

@@ -62,14 +62,17 @@ function resolveBindingState(
       billing.seatPeriodKey === bindingPeriodKey ? billing.seatCount : 0,
     ),
     desiredRenewalQuantity,
-    inFlightOperationId: preserveInFlight
-      ? (current?.inFlightOperationId ?? null)
-      : null,
-    inFlightTargetCapacity: preserveInFlight
-      ? (current?.inFlightTargetCapacity ?? null)
-      : null,
-    leaseExpiresAt: preserveInFlight ? (current?.leaseExpiresAt ?? null) : null,
-    leaseId: preserveInFlight ? (current?.leaseId ?? null) : null,
+    ...inFlightLease(preserveInFlight ? current : undefined),
+  };
+}
+
+/** The in-flight operation and lease a binding keeps, or none. */
+function inFlightLease(current: StripeSeatStateRow | undefined) {
+  return {
+    inFlightOperationId: current?.inFlightOperationId ?? null,
+    inFlightTargetCapacity: current?.inFlightTargetCapacity ?? null,
+    leaseExpiresAt: current?.leaseExpiresAt ?? null,
+    leaseId: current?.leaseId ?? null,
   };
 }
 
