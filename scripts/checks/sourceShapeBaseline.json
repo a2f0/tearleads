@@ -162,10 +162,6 @@
       "lines": 689,
       "bytes": 27274
     },
-    "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
-      "lines": 577,
-      "bytes": 16817
-    },
     "packages/client-sdk/src/index.ts": {
       "lines": 623,
       "bytes": 18407
@@ -193,14 +189,6 @@
     "packages/client-sdk/src/workflows/container-contents/info/documentInfo.test.ts": {
       "lines": 512,
       "bytes": 15792
-    },
-    "packages/client-sdk/src/workflows/documents/sync/sync.test.ts": {
-      "lines": 1712,
-      "bytes": 61275
-    },
-    "packages/client-sdk/src/workflows/documents/sync/syncPersistedProjectionIntegrity.test.ts": {
-      "lines": 508,
-      "bytes": 16861
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 926,
