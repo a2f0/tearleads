@@ -114,60 +114,25 @@ export async function syncPendingAttachments(
   };
 
   for (const pendingAttachment of [...state.pendingAttachments]) {
-    if (!isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
-      requestDocumentStoreSync(state);
-      return {
-        completed: progress.settledAttachment,
-        nextRecord: currentRecord,
-      };
-    }
-    const bindingsReady = await loadRemoteAttachmentBindings({
-      pendingAttachment,
+    const step = await syncNextPendingAttachment(
+      {
+        attachmentGeneration,
+        carriedFirstUpdate,
+        encapsulationKeyPair,
+        pendingAttachment,
+        remoteDocumentId,
+        state,
+      },
       progress,
-      remoteDocumentId,
-      state,
-    });
-    if (!bindingsReady) {
-      return {
-        completed: progress.settledAttachment,
-        nextRecord: currentRecord,
-      };
-    }
-
-    const outcome = await syncPendingAttachmentUpload({
-      activeBindingBySlotId: progress.activeBindingBySlotId,
-      attachmentGeneration,
-      carriedFirstUpdate,
-      encapsulationKeyPair,
-      pendingAttachment,
-      remoteDocumentId,
-      state,
-    });
+      currentDoc,
+    );
     // Only the first bind may carry it; a failed one leaves the row queued.
     carriedFirstUpdate = undefined;
-    if (outcome === "retry") {
-      rearmStaleAttachmentSync(state, attachmentGeneration);
+    if (step === "stop") {
       return {
         completed: progress.settledAttachment,
         nextRecord: currentRecord,
       };
-    }
-
-    // Re-check after the upload's awaits: settling writes local rows, which a
-    // teardown that happened mid-upload has just deleted on purpose.
-    if (!isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
-      requestDocumentStoreSync(state);
-      return {
-        completed: progress.settledAttachment,
-        nextRecord: currentRecord,
-      };
-    }
-    removeSettledPendingAttachment(state, currentDoc, pendingAttachment);
-    if (outcome === "uploaded" || outcome === "recovered") {
-      progress.settledAttachment = true;
-    }
-    if (outcome === "uploaded") {
-      progress.uploadedAttachment = true;
     }
   }
 
@@ -198,6 +163,42 @@ export async function syncPendingAttachments(
   // The snapshot was already republished progressively inside the loop as each
   // attachment settled, so there is nothing left to publish here.
   return { completed: true, nextRecord: currentRecord };
+}
+
+/** Settles one queued attachment; "stop" ends this pass early. */
+async function syncNextPendingAttachment(
+  upload: Omit<PendingAttachmentUploadInput, "activeBindingBySlotId">,
+  progress: AttachmentSyncProgress,
+  currentDoc: NonNullable<DocumentStoreState["doc"]>,
+): Promise<"continue" | "stop"> {
+  const { attachmentGeneration, pendingAttachment, state } = upload;
+  if (!isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
+    requestDocumentStoreSync(state);
+    return "stop";
+  }
+  if (!(await loadRemoteAttachmentBindings({ ...upload, progress }))) {
+    return "stop";
+  }
+  const outcome = await syncPendingAttachmentUpload({
+    ...upload,
+    activeBindingBySlotId: progress.activeBindingBySlotId,
+  });
+  if (outcome === "retry") {
+    rearmStaleAttachmentSync(state, attachmentGeneration);
+    return "stop";
+  }
+  // Re-check after the upload's awaits: settling writes local rows, which a
+  // teardown that happened mid-upload has just deleted on purpose.
+  if (!isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
+    requestDocumentStoreSync(state);
+    return "stop";
+  }
+  removeSettledPendingAttachment(state, currentDoc, pendingAttachment);
+  if (outcome === "uploaded" || outcome === "recovered") {
+    progress.settledAttachment = true;
+  }
+  if (outcome === "uploaded") progress.uploadedAttachment = true;
+  return "continue";
 }
 
 async function loadRemoteAttachmentBindings(input: {

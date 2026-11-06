@@ -39,6 +39,32 @@ export function createReconciledDocumentContentPuller(
   // updatedAt value over the reconciler's lifetime.
   const pulledSystemDocumentVersions = new Map<string, string>();
 
+  const pullSystemDocument = (
+    containerId: string,
+    documentId: string,
+    document: { readonly id: string; readonly updatedAt: string },
+    options: { readonly forceDocument: boolean },
+  ): void => {
+    // Container scope is significant: the same document can be linked into
+    // multiple system containers whose keys establish different decryption
+    // contexts for the transient store.
+    const documentKey = `${containerId}:${documentId}`;
+    if (pulledSystemDocumentVersions.get(documentKey) !== document.updatedAt) {
+      host.pullDocumentContent({
+        containerId,
+        documentId,
+        localId: document.id,
+      });
+      pulledSystemDocumentVersions.set(documentKey, document.updatedAt);
+    } else if (options.forceDocument) {
+      // The first eager pull registers a document store before scheduling
+      // its async sync. If that sync failed, a later explicit Refresh must
+      // be able to retry the same server version without defeating normal
+      // background dedupe.
+      host.requestRegisteredDocumentRemoteSync(document.id, documentId);
+    }
+  };
+
   return (containerId, documents, force, documentIds) => {
     const systemContainer = isSystemContainerNode(
       host.getContainer(containerId) ?? { systemSlot: null },
@@ -56,29 +82,9 @@ export function createReconciledDocumentContentPuller(
       );
 
       if (systemContainer) {
-        // Container scope is significant: the same document can be linked into
-        // multiple system containers whose keys establish different decryption
-        // contexts for the transient store.
-        const documentKey = `${containerId}:${document.documentId}`;
-        if (
-          pulledSystemDocumentVersions.get(documentKey) !== document.updatedAt
-        ) {
-          host.pullDocumentContent({
-            containerId,
-            documentId: document.documentId,
-            localId: document.id,
-          });
-          pulledSystemDocumentVersions.set(documentKey, document.updatedAt);
-        } else if (forceDocument) {
-          // The first eager pull registers a document store before scheduling
-          // its async sync. If that sync failed, a later explicit Refresh must
-          // be able to retry the same server version without defeating normal
-          // background dedupe.
-          host.requestRegisteredDocumentRemoteSync(
-            document.id,
-            document.documentId,
-          );
-        }
+        pullSystemDocument(containerId, document.documentId, document, {
+          forceDocument,
+        });
         continue;
       }
 

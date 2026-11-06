@@ -116,6 +116,29 @@ export async function primeStoreDocuments(
   }
 }
 
+/** Logs a recovery outcome on its first and each power-of-two repeat. */
+function logStaleRootRecoveryResult(
+  state: DocumentRecoveryStoreState,
+  runtime: DocumentRecoveryStoreState["runtime"],
+  result: Awaited<ReturnType<typeof recoverStaleSessionRoot>>,
+): void {
+  const message = `${getContainerContentsStoreLogLabel(state)}: stale root recovery status=${result.status} candidates=${result.candidateCount}`;
+  const previousLogState = staleRootRecoveryLogState.get(state);
+  const occurrenceCount =
+    previousLogState?.message === message
+      ? previousLogState.occurrenceCount + 1
+      : 1;
+  staleRootRecoveryLogState.set(state, { message, occurrenceCount });
+  if (result.status === "not-needed") {
+    return;
+  }
+  if (occurrenceCount === 1) {
+    runtime.util.log(message);
+  } else if ((occurrenceCount & (occurrenceCount - 1)) === 0) {
+    runtime.util.log(`${message} occurrences=${occurrenceCount}`);
+  }
+}
+
 export async function recoverStoreStaleRoot(
   state: DocumentRecoveryStoreState,
   isCurrent: () => boolean = () => true,
@@ -149,20 +172,7 @@ export async function recoverStoreStaleRoot(
   if (!isCurrent()) {
     return "context-changed";
   }
-  const message = `${getContainerContentsStoreLogLabel(state)}: stale root recovery status=${result.status} candidates=${result.candidateCount}`;
-  const previousLogState = staleRootRecoveryLogState.get(state);
-  const occurrenceCount =
-    previousLogState?.message === message
-      ? previousLogState.occurrenceCount + 1
-      : 1;
-  staleRootRecoveryLogState.set(state, { message, occurrenceCount });
-  if (result.status !== "not-needed") {
-    if (occurrenceCount === 1) {
-      runtime.util.log(message);
-    } else if ((occurrenceCount & (occurrenceCount - 1)) === 0) {
-      runtime.util.log(`${message} occurrences=${occurrenceCount}`);
-    }
-  }
+  logStaleRootRecoveryResult(state, runtime, result);
   if (result.status === "context-changed") {
     rejectedAdoptionRuntime.set(state, runtime);
   } else {

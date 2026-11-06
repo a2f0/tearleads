@@ -106,6 +106,28 @@ function finishPublicProgress(progress: PublicPrincipalHistoryProgress) {
   return finished.value;
 }
 
+/** The last page's current state must extend the same verified history. */
+async function verifyLastPageCurrent(
+  history: ReturnType<typeof finishPublicProgress>,
+  proof: PrincipalPolicyHistoryReferenceProof,
+  lastPage: Awaited<ReturnType<typeof readPublicPages>>["lastPage"],
+): Promise<void> {
+  if (!lastPage) return;
+  const currentProof = {
+    ...proof,
+    entry: {
+      state: lastPage.currentState,
+      projection: lastPage.currentProjection,
+      grants: lastPage.currentGrants,
+    },
+  };
+  const checked = await verifyPrincipalPolicyHistoryReferences({
+    history,
+    references: [currentProof],
+  });
+  if (!checked.ok) throw checked.error;
+}
+
 async function recoverAttempt(
   input: PublicPrincipalHistoryOptions,
   allowReuse = true,
@@ -161,21 +183,7 @@ async function recoverAttempt(
       "Public history source differs from the verified prefix",
     );
   }
-  if (lastPage) {
-    const currentProof = {
-      ...proof,
-      entry: {
-        state: lastPage.currentState,
-        projection: lastPage.currentProjection,
-        grants: lastPage.currentGrants,
-      },
-    };
-    const checked = await verifyPrincipalPolicyHistoryReferences({
-      history,
-      references: [currentProof],
-    });
-    if (!checked.ok) throw checked.error;
-  }
+  await verifyLastPageCurrent(history, proof, lastPage);
   assertProjectionVerificationCurrent(current);
   if (!input.offline)
     await publishPublicPrincipalHistoryPrefix(
