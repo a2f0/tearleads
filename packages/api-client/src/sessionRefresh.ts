@@ -20,6 +20,28 @@ interface SessionRefreshInput {
 }
 
 /**
+ * Checks for a renewal that another request already started or finished: a
+ * boolean is the final answer, otherwise `pending` (null when none) is awaited.
+ */
+function concurrentRenewal(
+  input: SessionRefreshInput,
+  authToken: string,
+): boolean | { readonly pending: Promise<boolean> | null } {
+  const currentAuthToken = input.getCurrentAuthToken();
+  if (currentAuthToken === authToken) return { pending: null };
+  const renewed =
+    currentAuthToken !== null &&
+    input.isKnownSessionRenewal(authToken, currentAuthToken);
+  if (renewed) {
+    input.options.onSessionRenewed?.();
+    return true;
+  }
+  const pending = input.pendingSessionRenewal(authToken);
+  if (!currentAuthToken || !pending) return false;
+  return { pending };
+}
+
+/**
  * Decides whether a failed request can be replayed after session renewal.
  * Identity-integrity failures are terminal and must retain their typed error.
  */
@@ -35,19 +57,9 @@ export async function shouldRetryAfterSessionExpired(
     return false;
   }
 
-  const currentAuthToken = input.getCurrentAuthToken();
-  let pending: Promise<boolean> | null = null;
-  if (currentAuthToken !== input.authToken) {
-    const renewed =
-      currentAuthToken !== null &&
-      input.isKnownSessionRenewal(input.authToken, currentAuthToken);
-    if (renewed) {
-      input.options.onSessionRenewed?.();
-      return true;
-    }
-    pending = input.pendingSessionRenewal(input.authToken);
-    if (!currentAuthToken || !pending) return false;
-  }
+  const concurrent = concurrentRenewal(input, input.authToken);
+  if (typeof concurrent === "boolean") return concurrent;
+  const pending = concurrent.pending;
 
   let refreshed = false;
   try {

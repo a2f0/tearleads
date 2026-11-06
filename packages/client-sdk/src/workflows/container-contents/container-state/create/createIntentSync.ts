@@ -415,6 +415,20 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
   );
 }
 
+/** A blocked create stays for a later round; only a created one settles. */
+function settleCreateIntentResult(
+  result: CreateIntentSyncResult,
+  containerId: string,
+  remaining: Set<string>,
+  unsettled: Set<string>,
+): boolean {
+  if (result === "blocked") return false;
+  remaining.delete(containerId);
+  if (result !== "created") return false;
+  unsettled.delete(containerId);
+  return true;
+}
+
 export async function syncPendingContainerCreateIntents(input: {
   host: ContainerCreateIntentSyncHost;
   isCurrent: () => boolean;
@@ -466,15 +480,16 @@ export async function syncPendingContainerCreateIntents(input: {
         return createdCount;
       }
 
-      if (result === "blocked") {
-        continue;
-      }
-
-      remainingContainerIds.delete(intent.containerId);
-      if (result === "created") {
+      if (
+        settleCreateIntentResult(
+          result,
+          intent.containerId,
+          remainingContainerIds,
+          unsettledContainerIds,
+        )
+      ) {
         progressed = true;
         createdCount += 1;
-        unsettledContainerIds.delete(intent.containerId);
       }
     }
   }

@@ -27,7 +27,7 @@ import { storeVerifiedAccessManifest } from "../../src/access/write/accessManife
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import { hashOf } from "./keyingLabelHash";
 
-export async function createVerifiedEvent(input: {
+async function createVerifiedEvent(input: {
   readonly body: Record<string, unknown>;
   readonly dependencyManifestHashes?: readonly string[];
   readonly eventType: AccessEventType;
@@ -86,11 +86,16 @@ export async function createVerifiedContainerManifest(input: {
 }): Promise<VerifiedContainerAccessManifest> {
   const containerKeyEpochId =
     input.containerKeyEpochId ?? `${input.containerId}:key-epoch-1`;
+  // Production container.grant, .move, and .rekey bodies all carry the epoch's
+  // KEK public key next to its id; the grant body has exactly their keys.
+  const containerKeyPublicKey =
+    containerWrappingPublicKeyForTest(containerKeyEpochId);
   const eventType = input.eventType ?? "container.grant";
   const body =
     eventType === "container.move"
       ? {
           containerKeyEpochId,
+          containerKeyPublicKey,
           eventType,
           parentContainerId: input.parentContainerId,
           parentManifestHash: input.parentManifestHash,
@@ -98,10 +103,12 @@ export async function createVerifiedContainerManifest(input: {
       : eventType === "container.rekey"
         ? {
             containerKeyEpochId,
+            containerKeyPublicKey,
             eventType,
           }
         : {
             containerKeyEpochId,
+            containerKeyPublicKey,
             eventType,
             grant: {
               accessLevel: "read",
@@ -109,7 +116,6 @@ export async function createVerifiedContainerManifest(input: {
               subjectType: "user",
             },
             referencedPrincipalHead: null,
-            salt: input.salt,
           };
   const event = await createVerifiedEvent({
     body,
@@ -147,8 +153,7 @@ export async function createVerifiedContainerManifest(input: {
   return {
     ...verifiedManifest.value,
     state: {
-      containerKeyPublicKey:
-        containerWrappingPublicKeyForTest(containerKeyEpochId),
+      containerKeyPublicKey,
       systemSlot: null,
       version: 1,
       containerId: input.containerId,

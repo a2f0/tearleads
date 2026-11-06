@@ -83,4 +83,4 @@ test("a creation receipt belongs to its author and is removed with its group", a
   expect(await purged.json()).toEqual({
     error: "Deleted organization group IDs cannot be reused",
   });
-}, 15_000);
+});

@@ -99,6 +99,15 @@ function resolveTargets(
   }));
 }
 
+function placementIntentType(
+  operation: "move" | "link" | "unlink",
+  previous: typeof localIntents.$inferSelect | undefined,
+): "document.move" | "document.link" {
+  return operation === "move" || previous?.intentType === "document.move"
+    ? "document.move"
+    : "document.link";
+}
+
 function resolvePlacement(
   input: PlacementIntentInput,
   previous: typeof localIntents.$inferSelect | undefined,
@@ -179,10 +188,7 @@ async function enqueuePlacementIntent(
         lane: LOCAL_INTENT_LANES.documentPlacement,
         subjectId: input.documentId,
         localId: input.localId,
-        intentType:
-          operation === "move" || previous?.intentType === "document.move"
-            ? "document.move"
-            : "document.link",
+        intentType: placementIntentType(operation, previous),
         lastAttemptedAt: null,
         lastError: null,
         syncStatus: "pending",

@@ -134,6 +134,18 @@ function responsePagePropertyBytes(pullPage: unknown): number {
 
 type WireContentKeyBundle = ReturnType<typeof toContentKeyBundleResponse>;
 
+/** The bundle array's bytes after appending `candidate`, with its comma. */
+function bundleArrayDeltaWith(
+  bundleArrayDelta: number,
+  bundleCount: number,
+  candidate: WireContentKeyBundle | null,
+): number {
+  if (candidate === null) return bundleArrayDelta;
+  return (
+    bundleArrayDelta + (bundleCount === 0 ? 0 : 1) + serializedBytes(candidate)
+  );
+}
+
 async function selectPullResponsePrefix(input: {
   readonly baseBytes: number;
   readonly cursorHmacKey: string | null;
@@ -170,12 +182,11 @@ async function selectPullResponsePrefix(input: {
       historicalBundlesByEpoch.has(entryEpoch)
         ? null
         : await loadHistoricalBundle(input.loadContentKeyBundle, entryEpoch);
-    const candidateBundleDelta =
-      candidateBundle === null
-        ? bundleArrayDelta
-        : bundleArrayDelta +
-          (historicalBundlesByEpoch.size === 0 ? 0 : 1) +
-          serializedBytes(candidateBundle);
+    const candidateBundleDelta = bundleArrayDeltaWith(
+      bundleArrayDelta,
+      historicalBundlesByEpoch.size,
+      candidateBundle,
+    );
     const candidateUpdateDelta =
       updateArrayDelta + (index === 0 ? 0 : 1) + serializedBytes(entry.update);
     const candidateCount = index + 1;

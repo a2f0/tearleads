@@ -49,6 +49,18 @@ function currentUnlessPaused(
   return () => input.isCurrent?.() !== false && !input.isPaused(container);
 }
 
+/** The local state still matches the fingerprint the listing was read at. */
+function matchesListedState(
+  state: RemoteContainerHydrationState,
+  expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>,
+  containerId: string,
+): boolean {
+  return containerStateMatchesFingerprint({
+    currentState: state.containersById.get(containerId),
+    expectedFingerprint: expectedContainerStates.get(containerId)?.fingerprint,
+  });
+}
+
 async function applyRemoteContainerPage(input: {
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
@@ -118,38 +130,34 @@ async function applyRemoteContainerPage(input: {
     if (input.isCurrent?.() === false) {
       return { changedCount: hydratedCount, completed: false };
     }
-    if (!seenContainerIds.has(container.id)) {
-      if (
-        !containerStateMatchesFingerprint({
-          currentState: state.containersById.get(container.id),
-          expectedFingerprint: expectedContainerStates.get(container.id)
-            ?.fingerprint,
-        })
-      ) {
-        pageCompleted = false;
-        continue;
-      }
-      const upserted = await upsertIsolatedRemoteContainerState({
-        childIdsByParentId,
-        containerIdsWithPendingMetadataUpdates,
-        containerIdsWithPendingStructuralIntents,
-        host,
-        isCurrent: currentUnlessPaused(input, container),
-        expectedHydrationTombstone:
-          expectedHydrationTombstones.get(container.id) ?? null,
-        prefetchedProjection: prefetchedProjections.get(container.id),
-        remoteContainer: container,
-        state,
-      });
-      if (!upserted) {
-        pageCompleted = false;
-        continue;
-      }
-      seenContainerIds.add(container.id);
-      hydratedCount += 1;
-      if (input.isCurrent?.() === false) {
-        return { changedCount: hydratedCount, completed: false };
-      }
+    if (seenContainerIds.has(container.id)) {
+      queueParentLane(container.id);
+      continue;
+    }
+    if (!matchesListedState(state, expectedContainerStates, container.id)) {
+      pageCompleted = false;
+      continue;
+    }
+    const upserted = await upsertIsolatedRemoteContainerState({
+      childIdsByParentId,
+      containerIdsWithPendingMetadataUpdates,
+      containerIdsWithPendingStructuralIntents,
+      host,
+      isCurrent: currentUnlessPaused(input, container),
+      expectedHydrationTombstone:
+        expectedHydrationTombstones.get(container.id) ?? null,
+      prefetchedProjection: prefetchedProjections.get(container.id),
+      remoteContainer: container,
+      state,
+    });
+    if (!upserted) {
+      pageCompleted = false;
+      continue;
+    }
+    seenContainerIds.add(container.id);
+    hydratedCount += 1;
+    if (input.isCurrent?.() === false) {
+      return { changedCount: hydratedCount, completed: false };
     }
     queueParentLane(container.id);
   }

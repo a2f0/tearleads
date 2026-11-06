@@ -8,6 +8,7 @@ import type { BinaryResponseOperationTransport } from "../../binaryResponseOpera
 import type { JsonOperationTransport } from "../../operationTransport";
 import type {
   OperationResponseRequestFn,
+  RequestFailure,
   RequestResultOptions,
 } from "../../types";
 import { storageFetchOptions } from "./storageFetchOptions";
@@ -38,6 +39,20 @@ type BlobDownloadTransport = Pick<JsonOperationTransport, "requestResult"> &
 
 type DownloadFetch = (url: string, init: RequestInit) => Promise<Response>;
 
+/** A server without download descriptors (404) still streams the blob. */
+function descriptorFailureFallback(
+  transport: BlobDownloadTransport,
+  blobId: string,
+  failure: RequestFailure,
+  options: RequestResultOptions,
+): Promise<BlobBytesResponse | null> | null {
+  if (failure.kind === "http" && failure.status === 404) {
+    return getBlobStream(transport, blobId, options);
+  }
+  failure.report();
+  return null;
+}
+
 export async function getBlobBytes(
   transport: BlobDownloadTransport,
   blobId: string,
@@ -54,11 +69,7 @@ export async function getBlobBytes(
       { ...options, reportErrors: false },
     );
     if (!result.ok) {
-      if (result.kind === "http" && result.status === 404) {
-        return getBlobStream(transport, blobId, options);
-      }
-      result.report();
-      return null;
+      return descriptorFailureFallback(transport, blobId, result, options);
     }
     const descriptor = result.data;
     if (descriptor.blobId !== blobId) {

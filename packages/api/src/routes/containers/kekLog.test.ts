@@ -169,7 +169,7 @@ test("GET /containers/:containerId/kek-log serves the full rotation log ascendin
   // At most one keyring per request, for the page's first epoch — a page of
   // multi-megabyte keyrings would be quadratic in rotation count.
   expect(log.epochs.filter((epoch) => epoch.keyring !== null).length).toBe(0);
-}, 15_000);
+});
 
 test("the kek-log bridges rebuild every predecessor key from the current KEK", async () => {
   const owner = createTestUser();
@@ -216,7 +216,7 @@ test("the kek-log bridges rebuild every predecessor key from the current KEK", a
   expect<string>(recomputedEpochId).toBe(
     firstRekey.kekState.containerKeyEpochId,
   );
-}, 15_000);
+});
 
 test("GET /containers/:containerId/kek-log requires authentication", async () => {
   const owner = createTestUser();
@@ -294,7 +294,7 @@ test("the kek-log pages from a cursor and reports more", async () => {
     );
     expect(invalid.status).toBe(400);
   }
-}, 15_000);
+});
 
 test("the kek-log discloses no other member's envelopes", async () => {
   const owner = createTestUser();
@@ -354,7 +354,7 @@ test("the kek-log discloses no other member's envelopes", async () => {
       }
     }
   }
-}, 15_000);
+});
 
 test("the kek-log omits a removed member's retained envelope", async () => {
   const owner = createTestUser();
@@ -452,4 +452,4 @@ test("the kek-log serves only parents this container inherited from", async () =
       ),
     ).toBe(false);
   }
-}, 15_000);
+});

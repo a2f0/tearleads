@@ -21,6 +21,24 @@ const activeByState = new WeakMap<
   Set<ActiveRemoteWrite>
 >();
 
+/** The container a write's scope settles: a system slot resolves to its root. */
+function resolveWriteRootId(
+  state: ContainerContentsStoreState,
+  scope: RemoteContainerWriteScope | undefined,
+): string | undefined {
+  if (typeof scope !== "object") return scope;
+  const root = state.containersById.get(scope.rootId);
+  if (!root) return undefined;
+  return (
+    findSystemContainerStateForRoot(state, scope.systemSlot, root) ??
+    findOrganizationSystemRootState(
+      state,
+      root.container.organizationId || state.runtime.auth.organizationId || "",
+      scope.systemSlot,
+    )
+  )?.container.id;
+}
+
 /** Invalidate remote settlement only when a local edit touches its subtree. */
 export function invalidateRemoteContainerWrites(
   state: ContainerContentsStoreState,
@@ -29,28 +47,7 @@ export function invalidateRemoteContainerWrites(
 ): void {
   if (changedIds?.length === 0 && movedId === undefined) return;
   for (const write of activeByState.get(state) ?? []) {
-    let rootId: string | undefined;
-    if (typeof write.scope === "object") {
-      const root = state.containersById.get(write.scope.rootId);
-      if (root) {
-        rootId = (
-          findSystemContainerStateForRoot(
-            state,
-            write.scope.systemSlot,
-            root,
-          ) ??
-          findOrganizationSystemRootState(
-            state,
-            root.container.organizationId ||
-              state.runtime.auth.organizationId ||
-              "",
-            write.scope.systemSlot,
-          )
-        )?.container.id;
-      }
-    } else {
-      rootId = write.scope;
-    }
+    const rootId = resolveWriteRootId(state, write.scope);
     if (
       write.scope === undefined ||
       changedIds === null ||

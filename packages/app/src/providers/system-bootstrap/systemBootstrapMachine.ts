@@ -105,6 +105,29 @@ function isCurrentRun(
   return state.status === "running" && state.run === run;
 }
 
+function startRun(
+  state: SystemBootstrapState,
+  run: SystemBootstrapRunTag,
+): SystemBootstrapState {
+  return isCurrentRun(state, run)
+    ? state
+    : {
+        hasCompleted: hasSystemBootstrapCompleted(state),
+        run,
+        status: "running",
+      };
+}
+
+function failRun(
+  state: SystemBootstrapState,
+  run: SystemBootstrapRunTag,
+  error: Extract<SystemBootstrapEvent, { type: "run-failed" }>["error"],
+): SystemBootstrapState {
+  return isCurrentRun(state, run)
+    ? { error, hasCompleted: state.hasCompleted, status: "error" }
+    : state;
+}
+
 /**
  * Pure transition. Returns the same reference when an event changes nothing,
  * so React bails out of the re-render: the provider re-asserts
@@ -124,25 +147,13 @@ export function transitionSystemBootstrap(
     case "target-complete":
       return state.status === "ready" ? state : { status: "ready" };
     case "run-started":
-      return isCurrentRun(state, event.run)
-        ? state
-        : {
-            hasCompleted: hasSystemBootstrapCompleted(state),
-            run: event.run,
-            status: "running",
-          };
+      return startRun(state, event.run);
     case "run-succeeded":
       return isCurrentRun(state, event.run) ? { status: "ready" } : state;
     case "run-incomplete":
       return isCurrentRun(state, event.run) ? waiting(state) : state;
     case "run-failed":
-      return isCurrentRun(state, event.run)
-        ? {
-            error: event.error,
-            hasCompleted: state.hasCompleted,
-            status: "error",
-          }
-        : state;
+      return failRun(state, event.run, event.error);
     case "run-superseded":
       return isCurrentRun(state, event.run) && event.inputMissing
         ? waiting(state)

@@ -76,7 +76,7 @@ test("the projection ships the sealed keyring in place of predecessor KEKs", asy
     sealingSuite: CONTAINER_KEK_KEYRING_SEAL_SUITE,
     version: 1,
   });
-}, 15_000);
+});
 
 test("opening the served keyring under the current KEK yields the full history", async () => {
   const owner = createTestUser();
@@ -128,4 +128,4 @@ test("opening the served keyring under the current KEK yields the full history",
       keyEpoch: 2,
     }),
   ).resolves.toBeUndefined();
-}, 15_000);
+});

@@ -8,7 +8,6 @@ import {
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { isOrganizationReadModelResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -22,6 +21,7 @@ import {
   createDocument,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { loadOrganizationMetadataContainerId } from "../../../test/helpers/organizationMetadataContainer";
+import { loadOrganizationReadModelSnapshot } from "../../../test/helpers/organizationReadModel";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
@@ -151,17 +151,11 @@ test("the profile pointer refuses the metadata container's own document", async 
 async function readDirectoryProfilePointer(
   admin: RegisteredAdmin,
 ): Promise<string | null> {
-  const response = await routeApp.request(
-    `/organizations/${admin.organizationId}/read-model`,
-    { headers: { Authorization: `Bearer ${admin.actor.token}` } },
+  const snapshot = await loadOrganizationReadModelSnapshot(
+    admin.actor,
+    admin.organizationId,
   );
-  expect(response.status).toBe(200);
-  const body = await response.json();
-  invariant(
-    isOrganizationReadModelResponse(body) && body.mode === "snapshot",
-    "expected organization read-model snapshot",
-  );
-  return body.lanes.directory.profileDocumentId;
+  return snapshot.lanes.directory.profileDocumentId;
 }
 
 test("the directory withholds a stored pointer that does not validate", async () => {

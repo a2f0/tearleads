@@ -275,6 +275,14 @@ function projectRevenueCatEventType(
     : "TRANSFER_IN";
 }
 
+function appliedNativeGrantTier(row: LifecycleHistoryRow) {
+  return row.outcome === "applied" &&
+    isRevenueCatGrantEventType(row.eventType) &&
+    isRecognizedNativeRevenueCatStore(row.store)
+    ? getSyncBillingTierForNativeProduct(row.productId)
+    : null;
+}
+
 function projectLifecycleHistory(
   rows: readonly LifecycleHistoryRow[],
   seatsByProviderEventId: ReadonlyMap<string, SeatHistoryRow>,
@@ -286,12 +294,7 @@ function projectLifecycleHistory(
     // Successful grants use the monthly catalog's capacity and USD list price.
     // A separate paid total is exposed only for a production charge event with
     // RevenueCat's purchased-currency transaction price.
-    const tier =
-      row.outcome === "applied" &&
-      isRevenueCatGrantEventType(row.eventType) &&
-      isRecognizedNativeRevenueCatStore(row.store)
-        ? getSyncBillingTierForNativeProduct(row.productId)
-        : null;
+    const tier = appliedNativeGrantTier(row);
     return {
       id: row.id,
       category: "lifecycle",

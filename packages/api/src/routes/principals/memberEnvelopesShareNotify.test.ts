@@ -204,4 +204,4 @@ test("combined policy commit still succeeds when shared_with_you publish throws"
   expect(
     sortByMemberId(storedPolicy.groupPolicy.currentMemberEnvelopes.envelopes),
   ).toEqual(sortByMemberId(request.memberEnvelopes));
-}, 15_000);
+});

@@ -107,6 +107,7 @@ function parseBehavior(tuple: string): ExportedBehavior {
     .replace(/\s*>>$/, "")
     .split(",")
     .map((token) => parseScalar(token.trim()));
+  const at = (index: number) => inner[index] ?? "";
   if (inner.length !== 16 || inner[0] !== "BDTRACE") {
     fail(`unexpected exported tuple shape: ${tuple}`);
   }
@@ -116,33 +117,33 @@ function parseBehavior(tuple: string): ExportedBehavior {
   }
   return {
     coverage: [
-      requireNumber(inner[4] ?? "", "coverage[a]"),
-      requireNumber(inner[5] ?? "", "coverage[b]"),
+      requireNumber(at(4), "coverage[a]"),
+      requireNumber(at(5), "coverage[b]"),
     ],
-    currentEpoch: requireNumber(inner[1] ?? "", "currentEpoch"),
+    currentEpoch: requireNumber(at(1), "currentEpoch"),
     dominated: [
-      requireBoolean(inner[14] ?? "", "dominated[1]"),
-      requireBoolean(inner[15] ?? "", "dominated[2]"),
+      requireBoolean(at(14), "dominated[1]"),
+      requireBoolean(at(15), "dominated[2]"),
     ],
-    hasBaseline: requireBoolean(inner[2] ?? "", "hasBaseline"),
+    hasBaseline: requireBoolean(at(2), "hasBaseline"),
     historyMode,
     served: [
-      requireBoolean(inner[12] ?? "", "served[1]"),
-      requireBoolean(inner[13] ?? "", "served[2]"),
+      requireBoolean(at(12), "served[1]"),
+      requireBoolean(at(13), "served[2]"),
     ],
     updates: [
       {
-        epoch: requireNumber(inner[6] ?? "", "updates[1].epoch"),
+        epoch: requireNumber(at(6), "updates[1].epoch"),
         frontier: [
-          requireNumber(inner[7] ?? "", "updates[1].frontier[a]"),
-          requireNumber(inner[8] ?? "", "updates[1].frontier[b]"),
+          requireNumber(at(7), "updates[1].frontier[a]"),
+          requireNumber(at(8), "updates[1].frontier[b]"),
         ],
       },
       {
-        epoch: requireNumber(inner[9] ?? "", "updates[2].epoch"),
+        epoch: requireNumber(at(9), "updates[2].epoch"),
         frontier: [
-          requireNumber(inner[10] ?? "", "updates[2].frontier[a]"),
-          requireNumber(inner[11] ?? "", "updates[2].frontier[b]"),
+          requireNumber(at(10), "updates[2].frontier[a]"),
+          requireNumber(at(11), "updates[2].frontier[b]"),
         ],
       },
     ],

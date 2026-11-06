@@ -1,26 +1,14 @@
 import { expect, test } from "bun:test";
-import { applyContainerInterest } from "../../test/helpers/wsRouting";
-import { type WsConnection, WsEventRouter } from "./wsRouting";
+import {
+  applyContainerInterest,
+  type FakeSocket,
+  fakeSocket,
+} from "../../test/helpers/wsRouting";
+import { WsEventRouter } from "./wsRouting";
 
 const AFFECTED_A = "00000000-0000-4000-8000-000000000101";
 const AFFECTED_B = "00000000-0000-4000-8000-000000000102";
 const UNRELATED = "00000000-0000-4000-8000-000000000103";
-
-interface FakeSocket extends WsConnection {
-  readonly sent: string[];
-}
-
-function fakeSocket(userId: string, sessionId: string): FakeSocket {
-  const sent: string[] = [];
-  return {
-    data: { sessionId, userId },
-    sent,
-    send(message: string) {
-      sent.push(message);
-      return undefined;
-    },
-  };
-}
 
 function declareInterest(
   router: WsEventRouter,

@@ -117,6 +117,26 @@ async function settleMutationConflict(input: {
   }
 }
 
+function assertRecoveryCoversLocalState(coveredLocalState: {
+  readonly hasOrdinaryPendingUpdates: boolean;
+  readonly hasUnprunablePendingUpdates: boolean;
+  readonly hasUnverifiedHistoryTail: boolean;
+}): void {
+  if (
+    coveredLocalState.hasOrdinaryPendingUpdates ||
+    coveredLocalState.hasUnprunablePendingUpdates
+  ) {
+    throw new Error(
+      "Document recovery found unproven pending updates before installation",
+    );
+  }
+  if (coveredLocalState.hasUnverifiedHistoryTail) {
+    throw new Error(
+      "Document recovery found unverified history tail before installation",
+    );
+  }
+}
+
 async function appendMutationHistory(
   execSql: Parameters<DocumentsPersistence["commitDocumentMutation"]>[0],
   input: Parameters<DocumentsPersistence["commitDocumentMutation"]>[1],
@@ -136,22 +156,8 @@ async function appendMutationHistory(
           hasUnverifiedHistoryTail: false,
           tailIds: [],
         };
-    if (
-      input.historyCheckpoint.pruneCoveredLocalState &&
-      (coveredLocalState.hasOrdinaryPendingUpdates ||
-        coveredLocalState.hasUnprunablePendingUpdates)
-    ) {
-      throw new Error(
-        "Document recovery found unproven pending updates before installation",
-      );
-    }
-    if (
-      input.historyCheckpoint.pruneCoveredLocalState &&
-      coveredLocalState.hasUnverifiedHistoryTail
-    ) {
-      throw new Error(
-        "Document recovery found unverified history tail before installation",
-      );
+    if (input.historyCheckpoint.pruneCoveredLocalState) {
+      assertRecoveryCoversLocalState(coveredLocalState);
     }
     // A queued rotation baseline the recovery snapshot covers is unqueued
     // first so the replacement below can delete it with the covered tail.

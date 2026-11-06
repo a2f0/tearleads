@@ -375,6 +375,27 @@ export async function initDatabase(
  * Best-effort and never throws: cleanup failure must not mask the close/delete
  * request, and worker termination remains the final handle-release backstop.
  */
+/**
+ * The VFS entries a teardown releases: the database's own, none for a database
+ * without one, or every entry when no database was opened. `forget` also drops
+ * them from the registry.
+ */
+function takeTeardownVfsEntries(
+  storageKey: string | undefined,
+  hasDb: boolean,
+  forget: boolean,
+): (PersistentVfsEntry | undefined)[] {
+  if (storageKey) {
+    const entry = persistentVfsEntriesByStorageKey.get(storageKey);
+    if (forget) persistentVfsEntriesByStorageKey.delete(storageKey);
+    return [entry];
+  }
+  if (hasDb) return [];
+  const entries = [...persistentVfsEntriesByStorageKey.values()];
+  if (forget) persistentVfsEntriesByStorageKey.clear();
+  return entries;
+}
+
 async function teardownDatabase(
   db: InstanceType<Sqlite3Static["oo1"]["DB"]> | null,
   releaseVfs: (vfs: PersistentVfs) => void | Promise<void>,
@@ -392,18 +413,7 @@ async function teardownDatabase(
     storageKeyByDb.delete(db);
   }
 
-  const vfsEntries = storageKey
-    ? [persistentVfsEntriesByStorageKey.get(storageKey)]
-    : db
-      ? []
-      : [...persistentVfsEntriesByStorageKey.values()];
-  if (forgetVfs) {
-    if (storageKey) {
-      persistentVfsEntriesByStorageKey.delete(storageKey);
-    } else if (!db) {
-      persistentVfsEntriesByStorageKey.clear();
-    }
-  }
+  const vfsEntries = takeTeardownVfsEntries(storageKey, db !== null, forgetVfs);
 
   for (const vfsEntry of vfsEntries) {
     if (!vfsEntry) {

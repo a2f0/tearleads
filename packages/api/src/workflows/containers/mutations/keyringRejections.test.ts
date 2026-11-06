@@ -96,7 +96,7 @@ test("a rotation rejects an over-length keyring sealed for a later epoch", async
     }),
     "Container KEK keyring length does not match its key epoch",
   );
-}, 15_000);
+});
 
 test("a rotation rejects an under-length keyring sealed for an earlier epoch", async () => {
   const owner = createTestUser();
@@ -132,7 +132,7 @@ test("a rotation rejects an under-length keyring sealed for an earlier epoch", a
     }),
     "Container KEK keyring length does not match its key epoch",
   );
-}, 15_000);
+});
 
 test("a rotation rejects keyring ciphertext not committed by its signed event", async () => {
   const owner = createTestUser();
@@ -159,7 +159,7 @@ test("a rotation rejects keyring ciphertext not committed by its signed event", 
     }),
     "Container KEK keyring does not match its signed event",
   );
-}, 15_000);
+});
 
 test("a rotation without its keyring fails closed", async () => {
   const owner = createTestUser();
@@ -179,7 +179,7 @@ test("a rotation without its keyring fails closed", async () => {
     }),
     "Container KEK rotation requires a keyring sealed to its new epoch",
   );
-}, 15_000);
+});
 
 test("a rotation rejects a keyring sealed to the wrong epoch id", async () => {
   const owner = createTestUser();
@@ -208,7 +208,7 @@ test("a rotation rejects a keyring sealed to the wrong epoch id", async () => {
     }),
     "Container KEK rotation requires a keyring sealed to its new epoch",
   );
-}, 15_000);
+});
 
 test("an initial container KEK epoch rejects rotation artifacts", async () => {
   const owner = createTestUser();
@@ -229,7 +229,7 @@ test("an initial container KEK epoch rejects rotation artifacts", async () => {
     }),
     "Initial container KEK epoch cannot have rotation artifacts",
   );
-}, 15_000);
+});
 
 test("a same-epoch grant cannot attach rotation artifacts", async () => {
   const owner = createTestUser();
@@ -257,7 +257,7 @@ test("a same-epoch grant cannot attach rotation artifacts", async () => {
     }),
     "An unchanged container KEK cannot replace its rotation artifacts",
   );
-}, 15_000);
+});
 
 test("a rotation without its immediate predecessor bridge fails closed", async () => {
   const owner = createTestUser();
@@ -277,7 +277,7 @@ test("a rotation without its immediate predecessor bridge fails closed", async (
     }),
     "Container KEK rotation requires its immediate predecessor bridge",
   );
-}, 15_000);
+});
 
 test("a rotation rejects bridge ciphertext not committed by its signed event", async () => {
   const owner = createTestUser();
@@ -303,7 +303,7 @@ test("a rotation rejects bridge ciphertext not committed by its signed event", a
     }),
     "Container KEK predecessor bridge does not match its signed event",
   );
-}, 15_000);
+});
 
 test("a rotation reports a non-consecutive epoch independently", async () => {
   const owner = createTestUser();
@@ -327,7 +327,7 @@ test("a rotation reports a non-consecutive epoch independently", async () => {
     }),
     "Container KEK rotation must advance by exactly one epoch",
   );
-}, 15_000);
+});
 
 test("a rotation past the lifetime epoch cap fails closed", async () => {
   const owner = createTestUser();
@@ -347,4 +347,4 @@ test("a rotation past the lifetime epoch cap fails closed", async () => {
     }),
     "Container KEK rotation limit reached",
   );
-}, 15_000);
+});

@@ -94,28 +94,34 @@ function replayNodeEdges(
         referenceCount: Math.max(reference.referenceCount - 1, 0),
       });
   };
+  const replaceEdges = (
+    node: PrincipalHistoryIndexNode,
+    previous: PrincipalHistoryNodeRow | null,
+  ) => {
+    const managed = !previous || previous.managed || !isStoredNode(previous);
+    increment(node.leftHash);
+    increment(node.rightHash);
+    const current = read(node.hash);
+    references.set(node.hash, {
+      ...(current ?? {
+        ...scope,
+        hash: node.hash,
+        referenceCount: previous?.referenceCount ?? 0,
+      }),
+      leftHash: node.leftHash,
+      rightHash: node.rightHash,
+      managed,
+    });
+    for (const hash of [previous?.leftHash, previous?.rightHash])
+      if (hash) decrement(hash);
+  };
   for (const node of nodes) {
     const previous = read(node.hash);
     if (
       previous?.leftHash !== node.leftHash ||
       previous.rightHash !== node.rightHash
     ) {
-      const managed = !previous || previous.managed || !isStoredNode(previous);
-      increment(node.leftHash);
-      increment(node.rightHash);
-      const current = read(node.hash);
-      references.set(node.hash, {
-        ...(current ?? {
-          ...scope,
-          hash: node.hash,
-          referenceCount: previous?.referenceCount ?? 0,
-        }),
-        leftHash: node.leftHash,
-        rightHash: node.rightHash,
-        managed,
-      });
-      for (const hash of [previous?.leftHash, previous?.rightHash])
-        if (hash) decrement(hash);
+      replaceEdges(node, previous);
     }
   }
   // Root ownership's edges follow the page's nodes, as its statements did.

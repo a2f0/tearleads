@@ -10,8 +10,8 @@
  * map fails this check instead of silently making the documentation
  * prose-only.
  */
-import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { readSourceFiles, walkFiles } from "./formalSourceFiles";
 
 const TABLE_HEADER_PATTERN =
   /^\|\s*Model action(?: or predicate)?\s*\|\s*Production (?:implementation|seam)\s*\|$/;
@@ -301,9 +301,8 @@ export function lexTsSource(source: string): LexedTsSource {
     const pair = source.slice(index, index + 2);
     const character = source[index] ?? "";
     if (pair === "//") {
-      while (index < source.length && source[index] !== "\n") {
-        index += 1;
-      }
+      const newline = source.indexOf("\n", index);
+      index = newline === -1 ? source.length : newline;
     } else if (pair === "/*") {
       const end = source.indexOf("*/", index + 2);
       index = end === -1 ? source.length : end + 2;
@@ -347,6 +346,26 @@ function productionSeamExists(
   );
 }
 
+function mappedTokenProblem(
+  entry: MappedToken,
+  modulesByPath: ReadonlyMap<string, string>,
+  lexedByPath: ReadonlyMap<string, LexedTsSource>,
+): string | null {
+  const at = `${entry.doc}:${entry.line}`;
+  if (entry.side !== "model") {
+    return productionSeamExists(lexedByPath, entry.token)
+      ? null
+      : `${at}: \`${entry.token}\` not found together in any production package source file`;
+  }
+  const module = modulesByPath.get(entry.module);
+  if (module === undefined) {
+    return `${at}: documented module ${entry.module} does not exist.`;
+  }
+  return moduleDeclaresToken(module, entry.token)
+    ? null
+    : `${at}: \`${entry.token}\` is not declared in ${entry.module}`;
+}
+
 export function verifyAbstractionMaps(input: {
   readonly docs: readonly FormalSourceFile[];
   readonly expectedTables: Readonly<Record<string, number>>;
@@ -377,22 +396,8 @@ export function verifyAbstractionMaps(input: {
   }
 
   for (const entry of tokens) {
-    if (entry.side === "model") {
-      const module = input.modulesByPath.get(entry.module);
-      if (module === undefined) {
-        problems.push(
-          `${entry.doc}:${entry.line}: documented module ${entry.module} does not exist.`,
-        );
-      } else if (!moduleDeclaresToken(module, entry.token)) {
-        problems.push(
-          `${entry.doc}:${entry.line}: \`${entry.token}\` is not declared in ${entry.module}`,
-        );
-      }
-    } else if (!productionSeamExists(lexedByPath, entry.token)) {
-      problems.push(
-        `${entry.doc}:${entry.line}: \`${entry.token}\` not found together in any production package source file`,
-      );
-    }
+    const problem = mappedTokenProblem(entry, input.modulesByPath, lexedByPath);
+    if (problem !== null) problems.push(problem);
   }
 
   return problems;
@@ -418,40 +423,6 @@ export function isProductionSourcePath(path: string): boolean {
     !path.includes(join("packages", "test-utils", "")) &&
     !path.includes(join("packages", "bob-and-alice", ""))
   );
-}
-
-function walkFiles(root: string, matches: (path: string) => boolean): string[] {
-  const found: string[] = [];
-  const pending = [root];
-  while (pending.length > 0) {
-    const directory = pending.pop();
-    if (!directory) {
-      break;
-    }
-    for (const name of readdirSync(directory)) {
-      if (name === "node_modules" || name === "dist" || name.startsWith(".")) {
-        continue;
-      }
-      const path = join(directory, name);
-      const entry = lstatSync(path);
-      if (entry.isSymbolicLink()) {
-        continue;
-      }
-      if (entry.isDirectory()) {
-        pending.push(path);
-      } else if (matches(path)) {
-        found.push(path);
-      }
-    }
-  }
-  return found.sort();
-}
-
-function readSourceFiles(paths: readonly string[]): FormalSourceFile[] {
-  return paths.map((path) => ({
-    content: readFileSync(path, "utf8"),
-    path,
-  }));
 }
 
 if (import.meta.main) {
