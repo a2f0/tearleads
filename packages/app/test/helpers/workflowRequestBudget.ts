@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 import { requestPath } from "./dualPaneRequestSummary";
-import { listProxiedApiRequests } from "./mswServer";
+import { listProxiedApiRequests } from "./msw/server";
 import { waitForPaneRuntimeToSettle } from "./paneTestUtils";
 import {
   completedWorkflowRequests,

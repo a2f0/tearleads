@@ -137,10 +137,6 @@
       "lines": 543,
       "bytes": 17566
     },
-    "packages/app/test/helpers/mswServer.ts": {
-      "lines": 844,
-      "bytes": 25801
-    },
     "packages/client-sdk/src/Tearleads.test.ts": {
       "lines": 948,
       "bytes": 30663

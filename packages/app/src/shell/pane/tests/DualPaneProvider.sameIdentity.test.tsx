@@ -26,7 +26,7 @@ import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
-} from "../../../../test/helpers/mswServer";
+} from "../../../../test/helpers/msw/server";
 import { organizationSwitcherOptions } from "../../../../test/helpers/organizationSwitcherOptions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";

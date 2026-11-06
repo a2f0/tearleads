@@ -11,7 +11,7 @@ import { createPeerIdentityLink } from "../identityLinkFixtures";
 import {
   getProxiedApiNetworkActivitySnapshot,
   listProxiedApiRequests,
-} from "../mswServer";
+} from "../msw/server";
 import { summarizeProxiedApiRequestVolume } from "../proxiedApiRequestBudget";
 import { waitForCondition } from "../waitForCondition";
 import {

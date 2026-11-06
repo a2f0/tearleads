@@ -30,7 +30,7 @@ import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
-} from "../../../../test/helpers/mswServer";
+} from "../../../../test/helpers/msw/server";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 
 const browser = window as typeof window & {
