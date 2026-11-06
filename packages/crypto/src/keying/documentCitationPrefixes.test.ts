@@ -1,4 +1,16 @@
 import { expect, test } from "bun:test";
+import {
+  createSignedAttachmentEvent,
+  createVerifiedAttachmentBinding,
+} from "./attachmentAccessEvent.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
+import {
+  createContainerKeyEpochFixture,
+  createContainerKeyWrap,
+  createVerifiedContainerKekStateFixture,
+  deriveRequiredBlobKekTargets,
+  deriveRequiredDocumentKekTargets,
+} from "./containerKek.testFixtures";
 import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
 import { citationScopeFixture } from "./documentCitationScope.testFixtures";
 import {
@@ -7,17 +19,7 @@ import {
   verifyContainerKekState,
   verifyWriteHeader,
 } from "./index";
-import {
-  createContainerKeyEpochFixture,
-  createContainerKeyWrap,
-  createContainerManifestFixture,
-  createSignedAttachmentEvent,
-  createVerifiedAttachmentBinding,
-  createVerifiedContainerKekStateFixture,
-  createWriteHeaderFixture,
-  deriveRequiredBlobKekTargets,
-  deriveRequiredDocumentKekTargets,
-} from "./testFixtures";
+import { createWriteHeaderFixture } from "./writeHeader.testFixtures";
 
 async function prefixFixture() {
   const fixture = await citationScopeFixture();

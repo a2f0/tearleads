@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
+import { createVerifiedContainerKekStateFixture } from "./containerKek.testFixtures";
 import { computeContainerKekMaterialId } from "./containerKekMaterial";
 import { deriveContainerKekWrappingPublicKey } from "./containerKekWrapping";
-import {
-  createContainerManifestFixture,
-  createVerifiedContainerKekStateFixture,
-} from "./testFixtures";
 
 test("public KEK verification binds the signed wrapping key without possessing the secret", async () => {
   const containerId = "public-commitment-root";

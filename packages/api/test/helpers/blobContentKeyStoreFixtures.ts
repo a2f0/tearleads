@@ -7,7 +7,7 @@ import {
   attachmentBindings,
   containerKeyEpochs,
 } from "@tearleads/api-shared/schema";
-import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import type { BlobContentKeyTargetEnvelope } from "../../src/access/read/blobContentKeyStore";
 import type { resolveCurrentBlobKekTargets } from "../../src/access/read/blobKekTargets";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";

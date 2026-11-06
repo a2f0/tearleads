@@ -14,7 +14,7 @@ import type {
   KeyingCanonicalJson,
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import { eq } from "drizzle-orm";
 import {
   createLinkedContainerIds,

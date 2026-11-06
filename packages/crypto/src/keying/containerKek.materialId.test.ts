@@ -1,10 +1,8 @@
 import { test } from "bun:test";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
+import { createContainerKeyEpochFixture } from "./containerKek.testFixtures";
 import { verifyContainerKekState } from "./index";
-import {
-  createContainerKeyEpochFixture,
-  createContainerManifestFixture,
-  expectVerificationError,
-} from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 test("verifyContainerKekState rejects legacy non-material epoch ids", async () => {
   const manifest = await createContainerManifestFixture({

@@ -19,7 +19,7 @@ import {
   verifyAccessManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import { eq } from "drizzle-orm";
 import type { DocumentContentKeyTargetEnvelope } from "../../src/access/read/documentContentKeyStore";
 import type { resolveCurrentDocumentKekTargets } from "../../src/access/read/documentKekTargets";

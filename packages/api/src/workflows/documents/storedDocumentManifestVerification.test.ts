@@ -5,13 +5,13 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
+import { createVerifiedDocumentAccessEvent } from "@tearleads/crypto/access-event-test-fixtures";
+import { fixtureHash } from "@tearleads/crypto/canonical-test-fixtures";
 import {
   createContainerManifestFixture,
-  createDocumentLinkSetManifestFixture,
   createPrincipalPolicyFixture,
-  createVerifiedDocumentAccessEvent,
-  fixtureHash,
-} from "@tearleads/crypto/test-fixtures";
+} from "@tearleads/crypto/container-access-test-fixtures";
+import { createDocumentLinkSetManifestFixture } from "@tearleads/crypto/document-link-set-manifest-test-fixtures";
 import { verifyStoredDocumentManifestTransition } from "./storedDocumentManifestVerification";
 
 function policyState(

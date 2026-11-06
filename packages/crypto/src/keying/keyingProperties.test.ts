@@ -30,7 +30,7 @@ import {
   policyCheckpointOf,
 } from "./keyingPolicyArbitraries.testFixtures";
 import { createBundle, signPolicyState } from "./principalPolicyTestFixtures";
-import { expectVerificationError } from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 /**
  * Property-based tests over the keying verifiers (#2192 Gate F2). Each

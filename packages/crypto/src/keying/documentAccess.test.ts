@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedDocumentAccessEvent } from "./accessEvent.testFixtures";
+import { createSignedAttachmentEvent } from "./attachmentAccessEvent.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
+import { createDocumentLinkSetManifestFixture } from "./documentLinkSetManifest.testFixtures";
 import type {
   AttachmentBindAccessEventBody,
   AttachmentDetachAccessEventBody,
@@ -11,13 +15,7 @@ import {
   verifyAttachmentDetachEvent,
   verifyDocumentLinkSetManifest,
 } from "./index";
-import {
-  createContainerManifestFixture,
-  createDocumentLinkSetManifestFixture,
-  createSignedAttachmentEvent,
-  createVerifiedDocumentAccessEvent,
-  expectVerificationError,
-} from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 test("verifyDocumentLinkSetManifest advances signed link and unlink heads", async () => {
   const writerUserId = "writer-user";

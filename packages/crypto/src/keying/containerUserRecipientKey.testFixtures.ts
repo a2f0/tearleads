@@ -1,5 +1,5 @@
+import { fixtureHash } from "./canonical.testFixtures";
 import type { ContainerUserRecipientKey } from "./containerKekTypes";
-import { fixtureHash } from "./testFixtures";
 
 export async function createContainerUserRecipientKey(
   userId: string,
