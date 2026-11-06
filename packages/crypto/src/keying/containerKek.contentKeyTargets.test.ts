@@ -130,7 +130,9 @@ test("deriveDocumentKekTargets resolves every linked container KEK target", asyn
   expectVerificationError(staleKekResult, "stale_predecessor");
 });
 
-test("deriveBlobKekTargets resolves the union of every active attachment binding", async () => {
+// Two containers, a document linked into both and one linked into the
+// second, and an active binding of one shared blob from each document.
+async function arrangeSharedBlobBindings() {
   const writerUserId = "writer-user";
   const writerSigning = generateSigningSeedAndKeyPair();
   const firstContainer = await createContainerManifestFixture({
@@ -235,6 +237,30 @@ test("deriveBlobKekTargets resolves the union of every active attachment binding
     writePath: [secondContainer],
   });
 
+  return {
+    firstContainer,
+    secondContainer,
+    firstDocumentManifest,
+    secondDocumentManifest,
+    firstKekState,
+    secondKekState,
+    firstBinding,
+    secondBinding,
+  };
+}
+
+test("deriveBlobKekTargets resolves the union of every active attachment binding", async () => {
+  const {
+    firstContainer,
+    secondContainer,
+    firstDocumentManifest,
+    secondDocumentManifest,
+    firstKekState,
+    secondKekState,
+    firstBinding,
+    secondBinding,
+  } = await arrangeSharedBlobBindings();
+
   const result = await deriveBlobKekTargets({
     blobId: "blob-shared",
     activeBindings: [secondBinding, firstBinding],
@@ -276,6 +302,18 @@ test("deriveBlobKekTargets resolves the union of every active attachment binding
   expect(result.value.blobKeyTargetHash).toBe(
     await computeBlobContentKeyTargetHash(result.value.targets),
   );
+});
+
+test("deriveBlobKekTargets rejects omitted binding documents and foreign blobs", async () => {
+  const {
+    firstContainer,
+    secondContainer,
+    firstDocumentManifest,
+    firstKekState,
+    secondKekState,
+    firstBinding,
+    secondBinding,
+  } = await arrangeSharedBlobBindings();
 
   const omittedBindingResult = await deriveBlobKekTargets({
     blobId: "blob-shared",
