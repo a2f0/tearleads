@@ -73,6 +73,13 @@ export function resolveAccountBootstrapPhase(
   if (!input.sessionRestoreSettled) {
     return "restoring-session";
   }
+  return registrationPhase(input);
+}
+
+/** The phase once the signing key and the session restore have settled. */
+function registrationPhase(
+  input: AccountBootstrapInput,
+): AccountBootstrapPhase {
   const autoRegistering =
     input.autoProvisioningEnabled && input.autoRegisterIdentity;
   // Registration stores the user id before its login lands, so an in-flight

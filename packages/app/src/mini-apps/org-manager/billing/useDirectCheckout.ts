@@ -188,6 +188,23 @@ interface CheckoutRefs {
 
 type LogError = (message: string | Error, cause?: unknown) => void;
 
+// Same token guard: calling the shared teardown here would bump the token and
+// cancel a newer attempt started after this one failed.
+function abandonFailedStart(refs: CheckoutRefs, token: number): void {
+  if (refs.startTokenRef.current !== token) return;
+  refs.startingRef.current = false;
+  refs.sessionRef.current = null;
+  refs.setPhase({ kind: "idle" });
+  refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
+}
+
+function restoreAfterFailedConfirm(refs: CheckoutRefs, token: number): void {
+  refs.confirmingRef.current = false;
+  if (refs.startTokenRef.current !== token) return;
+  refs.setPhase({ kind: "collecting" });
+  refs.setError(ORG_MANAGER_LABELS.failedSubscribe);
+}
+
 interface BeginCheckoutDeps {
   readonly available: boolean;
   readonly canSubscribe: boolean;
@@ -269,15 +286,7 @@ function useBeginCheckout(
         refs.setPhase({ kind: "collecting" });
       } catch (mountError) {
         deps.logError("Failed to start the direct checkout", mountError);
-        // Same guard: calling the shared teardown here would bump the token
-        // and cancel a newer attempt started after this one failed.
-        if (refs.startTokenRef.current !== token) {
-          return;
-        }
-        refs.startingRef.current = false;
-        refs.sessionRef.current = null;
-        refs.setPhase({ kind: "idle" });
-        refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
+        abandonFailedStart(refs, token);
       }
     })();
   }, [deps, refs]);
@@ -345,12 +354,7 @@ function useConfirmCheckout(
         onPaid();
       } catch (confirmError) {
         logError("Failed to confirm the direct checkout", confirmError);
-        refs.confirmingRef.current = false;
-        if (refs.startTokenRef.current !== token) {
-          return;
-        }
-        refs.setPhase({ kind: "collecting" });
-        refs.setError(ORG_MANAGER_LABELS.failedSubscribe);
+        restoreAfterFailedConfirm(refs, token);
       }
     })();
   }, [logError, onPaid, refs, teardown]);

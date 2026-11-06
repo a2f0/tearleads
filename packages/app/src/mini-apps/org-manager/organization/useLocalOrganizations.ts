@@ -110,6 +110,8 @@ function useOrganizationReload(input: OrganizationReloadOptions) {
 
     const requestId = latestRequestIdRef.current + 1;
     latestRequestIdRef.current = requestId;
+    const isLatest = () =>
+      mountedRef.current && latestRequestIdRef.current === requestId;
     // Only surface the loading status when there is nothing to show yet.
     // Refresh-key churn (e.g. organization-profile document emissions on the
     // organizations screen) re-runs this reload repeatedly; blinking the status
@@ -122,7 +124,7 @@ function useOrganizationReload(input: OrganizationReloadOptions) {
 
     try {
       const nextOrganizations = await listLocalOrganizations();
-      if (!mountedRef.current || latestRequestIdRef.current !== requestId) {
+      if (!isLatest()) {
         return false;
       }
       setOrganizations(
@@ -133,13 +135,13 @@ function useOrganizationReload(input: OrganizationReloadOptions) {
       );
       return true;
     } catch {
-      if (mountedRef.current && latestRequestIdRef.current === requestId) {
+      if (isLatest()) {
         // Preserve the last usable list, including an optimistic created entry.
         setOrganizationsError(ORG_MANAGER_LABELS.failedLoadOrganizations);
       }
       return false;
     } finally {
-      if (mountedRef.current && latestRequestIdRef.current === requestId) {
+      if (isLatest()) {
         setOrganizationsLoading(false);
       }
     }

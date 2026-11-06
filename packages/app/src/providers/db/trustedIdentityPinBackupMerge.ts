@@ -145,6 +145,17 @@ function assertOneUserPerSigningKey(rows: Iterable<BackupSqlRow>): void {
  * change; an overlapping pin keeps the higher provenance of the two, so a
  * backup can confirm a link but never demote one.
  */
+function pinRowsByScope(table: BackupTable | null): Map<string, BackupSqlRow> {
+  return table
+    ? mapBackupRowsByScope({
+        label: "Trusted identity pin",
+        scopeColumns,
+        table,
+        validateRow,
+      })
+    : new Map<string, BackupSqlRow>();
+}
+
 export function mergeTrustedIdentityPinBackupTables(input: {
   readonly current: BackupTable | null;
   readonly restored: BackupTable | null;
@@ -162,22 +173,8 @@ export function mergeTrustedIdentityPinBackupTables(input: {
   if (!template) {
     return null;
   }
-  const currentRows = input.current
-    ? mapBackupRowsByScope({
-        label: "Trusted identity pin",
-        scopeColumns,
-        table: input.current,
-        validateRow,
-      })
-    : new Map<string, BackupSqlRow>();
-  const restoredRows = input.restored
-    ? mapBackupRowsByScope({
-        label: "Trusted identity pin",
-        scopeColumns,
-        table: input.restored,
-        validateRow,
-      })
-    : new Map<string, BackupSqlRow>();
+  const currentRows = pinRowsByScope(input.current);
+  const restoredRows = pinRowsByScope(input.restored);
 
   for (const [key, restored] of restoredRows) {
     const current = currentRows.get(key);
