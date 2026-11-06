@@ -98,7 +98,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.126",
+      "version": "0.1.127",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -352,7 +352,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.48",
+      "version": "0.1.49",
       "dependencies": {
         "zod": "catalog:",
       },
