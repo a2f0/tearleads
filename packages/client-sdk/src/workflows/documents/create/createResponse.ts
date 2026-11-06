@@ -3,6 +3,7 @@ import type {
   DocumentCreateResponse,
 } from "@tearleads/validators/response";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
+import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import {
   acknowledgedDocumentCreate,
   persistedDocumentStateFromAcknowledgement,
@@ -13,7 +14,6 @@ import type {
   DocumentCreateApi,
   DocumentCreateAuthor,
   MaterializedDocumentCreatePlan,
-  ProjectionVerificationOptions,
 } from "../../../data/documents/shared/types";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";

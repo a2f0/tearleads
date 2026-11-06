@@ -2,10 +2,8 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/queuedUpdateRows";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import {
-  documentContainerProjectionTables,
-  localIntentTables,
-} from "../../../data/sqlite/schema";
+import { localIntentTables } from "../../../data/sqlite/schema";
+import { documentContainerProjectionTables } from "../../../data/sqlite/schema/documentProjectionSchema";
 import {
   type ExecSql,
   ensureSqlTables,

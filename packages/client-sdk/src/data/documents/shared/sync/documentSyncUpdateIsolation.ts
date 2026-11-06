@@ -10,7 +10,7 @@ import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type {
   DecryptedDocumentSyncUpdate,
   SyncRemoteDocumentResult,
-} from "../types";
+} from "./documentSyncTypes";
 
 type DocumentSyncUpdateIsolationStage =
   | "content_key"

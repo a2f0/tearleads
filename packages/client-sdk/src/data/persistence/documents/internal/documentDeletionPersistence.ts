@@ -4,10 +4,12 @@ import {
   documentAttachmentBlobProjection,
   documentPendingAttachments,
   documentPlacementIntentTables,
+} from "../../../sqlite/schema";
+import {
   documentProjection,
   documentProjectionText,
-  documents,
-} from "../../../sqlite/schema";
+} from "../../../sqlite/schema/documentProjectionSchema";
+import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

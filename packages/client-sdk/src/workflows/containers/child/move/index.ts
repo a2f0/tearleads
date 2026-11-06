@@ -23,7 +23,7 @@ import type {
   MaterializedContainerMovePlan,
 } from "../../../../data/containers/shared/types";
 import { unwrapContainerKekPath } from "../../../../data/documents/shared/projection";
-import { projectionVerificationOptions } from "../../../../data/documents/shared/types";
+import { projectionVerificationOptions } from "../../../../data/documents/shared/projection/projectionVerificationOptions";
 import {
   nullOnProjectionVerificationCancellation,
   type ProjectionUserKeyResolver,

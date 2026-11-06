@@ -9,7 +9,7 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/document
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { clearRemoteSyncState } from "../../../workflows/sync/remoteReset";
 import { advanceKeyingCheckpointsAtomically } from "../../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
-import { accessManifestCheckpoints } from "../../sqlite/schema";
+import { accessManifestCheckpoints } from "../../sqlite/schema/keyingCheckpointSchema";
 import { verifiedAccessManifestBundles } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";

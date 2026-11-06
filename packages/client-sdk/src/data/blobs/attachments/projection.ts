@@ -17,13 +17,13 @@ import {
   verifiedDocumentWrapTargets,
 } from "../../documents/shared/projection";
 import {
+  type ProjectionVerificationOptions,
+  projectionVerificationOptions,
+} from "../../documents/shared/projection/projectionVerificationOptions";
+import {
   assertEqualBytes,
   normalizeDocumentKekTargetResponse,
 } from "../../documents/shared/readers";
-import {
-  type ProjectionVerificationOptions,
-  projectionVerificationOptions,
-} from "../../documents/shared/types";
 import { documentContainerProjections } from "../../keyingProjectionVerification/document/documentContainerProjections";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { sortBlobTargets } from "./readers";

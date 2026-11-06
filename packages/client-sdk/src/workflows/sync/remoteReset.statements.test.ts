@@ -2,11 +2,8 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { asc } from "drizzle-orm";
 import { countingExecSql } from "../../../test/helpers/statementCounting";
-import {
-  clientSqlTables,
-  containers,
-  documents,
-} from "../../data/sqlite/schema";
+import { clientSqlTables, containers } from "../../data/sqlite/schema";
+import { documents } from "../../data/sqlite/schema/documentRecordSchema";
 import { remoteResetBatches } from "../../data/sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";

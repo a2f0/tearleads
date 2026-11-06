@@ -15,11 +15,13 @@ import { createDomainScope } from "../../../../data/shared/domainScope";
 import {
   clientSqlTables,
   documentAttachmentBlobProjection,
-  documentHistoryCheckpoints,
   documentPendingAttachments,
-  documentProjection,
-  documents,
 } from "../../../../data/sqlite/schema";
+import { documentProjection } from "../../../../data/sqlite/schema/documentProjectionSchema";
+import {
+  documentHistoryCheckpoints,
+  documents,
+} from "../../../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../../../data/sqlite/sqlTableSchema";

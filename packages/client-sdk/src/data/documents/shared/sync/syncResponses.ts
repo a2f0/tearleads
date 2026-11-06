@@ -25,12 +25,12 @@ import {
 export { submitDocumentSync } from "./syncPagination";
 
 import type {
-  DocumentSyncPlan,
-  DocumentSyncSubmitFailure,
   DocumentWriterPublicKeyResolver,
   PersistedDocumentSyncState,
 } from "../types";
+import type { DocumentSyncPlan } from "./documentSyncTypes";
 import { documentWriteAuthorizationForHeader } from "./syncResponseAuthorization";
+import type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
 
 // Remote-primary databases without a portable WAL position use the zero LSN
 // as an explicit "checkpoint not tracked" sentinel. It is accepted only when

@@ -1,13 +1,15 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   containers,
-  documentContainerProjection,
-  documentProjection,
   inContainerIntentLanes,
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../sqlite/schema";
+import {
+  documentContainerProjection,
+  documentProjection,
+} from "../../sqlite/schema/documentProjectionSchema";
 import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { deleteContainerDocumentTombstoneHoldsForContainers } from "../documents/containerDocumentTombstoneHoldsPersistence";

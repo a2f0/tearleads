@@ -13,8 +13,8 @@ import { normalizeEffectiveAccessLevel } from "../../../keying/accessLevel";
 import {
   documentProjection,
   documentProjectionText,
-  documents,
-} from "../../../sqlite/schema";
+} from "../../../sqlite/schema/documentProjectionSchema";
+import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import { sqliteInsertBatchSize } from "../../../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,

@@ -6,11 +6,11 @@ import type {
 } from "@tearleads/crypto";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
+import { principalPolicyCheckpoints } from "../../sqlite/schema";
 import {
   accessManifestCheckpoints,
   keyingCheckpointTables,
-  principalPolicyCheckpoints,
-} from "../../sqlite/schema";
+} from "../../sqlite/schema/keyingCheckpointSchema";
 import {
   sqliteInsertBatchSize,
   sqliteRowsPerStatement,

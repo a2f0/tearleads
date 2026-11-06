@@ -3,7 +3,7 @@ import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import { eq, sql } from "drizzle-orm";
 import { ensureDocumentTables } from "../persistence/documents/records";
-import { documents } from "./schema";
+import { documents } from "./schema/documentRecordSchema";
 import {
   type ClientSQLitePersistenceRuntime,
   createClientSQLitePersistenceRuntime,

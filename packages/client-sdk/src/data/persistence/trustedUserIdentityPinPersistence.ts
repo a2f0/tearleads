@@ -2,7 +2,7 @@ import { and, eq, or } from "drizzle-orm";
 import {
   trustedUserIdentityPins,
   trustedUserIdentityPinTables,
-} from "../sqlite/schema";
+} from "../sqlite/schema/trustedUserIdentityPinSchema";
 import {
   type ClientSQLiteDatabase,
   type ClientSQLiteTransactionScope,

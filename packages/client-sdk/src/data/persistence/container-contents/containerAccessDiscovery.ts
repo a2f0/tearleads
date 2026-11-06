@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { normalizeEffectiveAccessLevel } from "../../keying/accessLevel";
-import { containerSyncWatermarks } from "../../sqlite/schema";
+import { containerSyncWatermarks } from "../../sqlite/schema/containerSyncWatermarkSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../documents/documentDiscoveryEvidencePersistence";
 import type { ContainerRecord } from "./containerPersistence";

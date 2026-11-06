@@ -3,8 +3,8 @@ import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import {
   documentContainerProjection,
   documentProjection,
-  documents,
-} from "../../../sqlite/schema";
+} from "../../../sqlite/schema/documentProjectionSchema";
+import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,

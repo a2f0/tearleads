@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import {
-  containerDocumentTombstoneHolds,
-  documentContainerProjectionTables,
-} from "../../../sqlite/schema";
+import { containerDocumentTombstoneHolds } from "../../../sqlite/schema";
+import { documentContainerProjectionTables } from "../../../sqlite/schema/documentProjectionSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../../sqlite/sqlTableSchema";
 import { placementPairsMatch } from "./containerDocumentTombstoneHolds";

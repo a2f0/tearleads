@@ -16,8 +16,8 @@ import {
   containers,
   documentAttachmentBlobProjection,
   documentPendingAttachments,
-  documentProjection,
 } from "../../../data/sqlite/schema";
+import { documentProjection } from "../../../data/sqlite/schema/documentProjectionSchema";
 import {
   type ClientSQLiteDatabase,
   getClientSQLitePersistenceRuntime,

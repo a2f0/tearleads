@@ -51,8 +51,8 @@ export {
   verifiedDocumentWrapTargets,
 } from "./projectionTargets";
 
-import type { ProjectionVerificationOptions } from "../types";
-import { resolveProjectionVerifier } from "../types";
+import type { ProjectionVerificationOptions } from "./projectionVerificationOptions";
+import { resolveProjectionVerifier } from "./projectionVerificationOptions";
 
 function assertSortedStringsEqual(
   left: readonly string[],

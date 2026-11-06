@@ -2,10 +2,10 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createReplacementAuthorizationFixture } from "../../../../test/helpers/organizationReplacementAuthorization";
 import {
-  accessManifestCheckpoints,
   clientSqlTables,
   principalPolicyCheckpoints,
 } from "../../sqlite/schema";
+import { accessManifestCheckpoints } from "../../sqlite/schema/keyingCheckpointSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../sqlite/sqlTableSchema";
 import { persistOrganizationReplacementCheckpoints } from "./organizationReplacementCheckpointPersistence";

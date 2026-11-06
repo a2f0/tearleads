@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { containerTables, documentProjectionTables } from "../../sqlite/schema";
+import { containerTables } from "../../sqlite/schema";
+import { documentProjectionTables } from "../../sqlite/schema/documentProjectionSchema";
 import { ensureSqlTables } from "../../sqlite/sqlSchema";
 import { sqlDocumentMoveIntentPersistence as persistence } from "./documentMoveIntentPersistence";
 

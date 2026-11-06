@@ -38,6 +38,14 @@ export function createSqlClient(
   };
 }
 
+export function createNoopSqlClient(): ExecSqlClientLike {
+  return {
+    async exec() {
+      return { rows: [] };
+    },
+  };
+}
+
 /** Installs freshly generated encapsulation and signing key pairs. */
 export function setGeneratedIdentity(identity: Identity) {
   return identity.setKeyPairs({
