@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import type { ContainerCreateAccessEventBody } from "./containerAccessTypes";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
   computeAccessManifestHash,
@@ -10,7 +11,6 @@ import {
   createContainerManifestFixture,
   createVerifiedContainerAccessEvent,
 } from "./testFixtures";
-import type { ContainerCreateAccessEventBody } from "./types";
 
 const SLOT = `sys_v1_${"a".repeat(43)}`;
 

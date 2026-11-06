@@ -1,3 +1,5 @@
+import type { VerifiedAccessEvent } from "./accessEventTypes";
+import type { AttachmentAccessEventBody } from "./attachmentAccessTypes";
 import {
   containerAccessLevelRank,
   requireContainerPathLast,
@@ -5,15 +7,11 @@ import {
   resolveContainerPathUserAccessLevel,
   resolveHistoricalContainerPathUserAccessLevel,
 } from "./containerAccess";
+import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
+import type { VerifiedDocumentLinkSetManifest } from "./documentAccessTypes";
 import { assertDocumentCitationScope } from "./documentCitationScope";
+import type { PrincipalPolicyAuthorization as Policy } from "./principalPolicyTypes";
 import { throwVerification } from "./shared";
-import type {
-  AttachmentAccessEventBody,
-  PrincipalPolicyAuthorization as Policy,
-  VerifiedAccessEvent,
-  VerifiedContainerAccessManifest,
-  VerifiedDocumentLinkSetManifest,
-} from "./types";
 
 export function requireEventDependency(input: {
   readonly event: VerifiedAccessEvent;

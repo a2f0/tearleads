@@ -7,11 +7,11 @@ import {
   historyHead,
 } from "./principalPolicyHistoryTestFixtures";
 import { selectPrincipalPolicyAuthorization } from "./principalPolicySelection";
-import type { VerifiedPrincipalPolicySelection } from "./principalPolicyTypes";
 import type {
   AnyVerifiedPrincipalPolicy,
-  KeyingVerificationResult,
-} from "./types";
+  VerifiedPrincipalPolicySelection,
+} from "./principalPolicyTypes";
+import type { KeyingVerificationResult } from "./verificationError";
 
 const isFullPolicy: VerifiedPrincipalPolicySelection extends AnyVerifiedPrincipalPolicy
   ? true

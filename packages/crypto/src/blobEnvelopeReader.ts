@@ -17,7 +17,7 @@ import {
   computeBlobEncryptedByteLength,
   encodeBlobEnvelopeV2Header,
 } from "./blobEnvelopeV2";
-import { CONTENT_RECORD_ENCRYPTION_SUITE } from "./keying/types";
+import { CONTENT_RECORD_ENCRYPTION_SUITE } from "./keying/writeHeaderTypes";
 import { AES_GCM_TAG_BYTES, assertAesGcmIv } from "./symmetric";
 
 export interface BlobEnvelopeRecord {

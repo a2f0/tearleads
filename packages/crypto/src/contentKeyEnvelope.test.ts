@@ -10,7 +10,7 @@ import {
 import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
-} from "./keying/types";
+} from "./keying/contentKeyTargetTypes";
 import { AES_GCM_IV_BYTES, AES_GCM_TAG_BYTES } from "./symmetric";
 
 for (const kind of ["Blob", "Document"] as const) {

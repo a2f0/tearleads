@@ -1,11 +1,11 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { serializeKeyingCanonicalJson } from "./keying/canonical";
-import { assertExactKeys } from "./keying/shared";
 import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
-} from "./keying/types";
+} from "./keying/contentKeyTargetTypes";
+import { assertExactKeys } from "./keying/shared";
 import {
   AES_256_KEY_BYTES,
   AES_GCM_IV_BYTES,

@@ -4,13 +4,13 @@ import {
 } from "./principalPolicyCurrentEvidence";
 import { normalizePrincipalHistoryInput } from "./principalPolicyHistoryChecks";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
-import type { VerifiedPrincipalPolicyCurrent } from "./principalPolicyTypes";
-import { ok, throwVerification, toVerificationResult } from "./shared";
 import type {
-  KeyingVerificationResult,
   NormalizedPrincipalPolicyStateChainEntry,
   ReferencedPrincipalHead,
-} from "./types";
+  VerifiedPrincipalPolicyCurrent,
+} from "./principalPolicyTypes";
+import { ok, throwVerification, toVerificationResult } from "./shared";
+import type { KeyingVerificationResult } from "./verificationError";
 
 /** Carry selected authenticated citations across one privately verified successor. */
 export function selectPrincipalPolicyCurrentPredecessorReferences(input: {

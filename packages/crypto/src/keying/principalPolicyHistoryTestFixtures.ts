@@ -14,7 +14,7 @@ import {
 import type {
   PrincipalPolicySignedState,
   ReferencedPrincipalHead,
-} from "./types";
+} from "./principalPolicyTypes";
 
 export function historyHead(
   state: PrincipalPolicySignedState,

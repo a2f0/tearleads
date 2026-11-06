@@ -3,7 +3,7 @@ import { readHashArray, throwVerification } from "./shared";
 import type {
   TransparencyConsistencyProof,
   TransparencyInclusionProof,
-} from "./types";
+} from "./transparencyTypes";
 
 /**
  * Merkle tree shape and proof generation for the keying transparency log.

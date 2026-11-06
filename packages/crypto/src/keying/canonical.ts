@@ -1,12 +1,12 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { toFingerprint } from "../fingerprint";
-import { compareCanonicalStrings, throwVerification } from "./shared";
 import type {
-  DocumentContentRecordMetadataInput,
   KeyingCanonicalJson,
   KeyingCanonicalPayload,
-  KeyingHashDomain,
-} from "./types";
+} from "./canonicalJsonTypes";
+import type { KeyingHashDomain } from "./keyingHashDomains";
+import { compareCanonicalStrings, throwVerification } from "./shared";
+import type { DocumentContentRecordMetadataInput } from "./writeHeaderTypes";
 
 const TEXT_ENCODER = new TextEncoder();
 const DOCUMENT_PLAINTEXT_HASH_DOMAIN =

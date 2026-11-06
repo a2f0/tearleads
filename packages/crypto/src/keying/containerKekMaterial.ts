@@ -4,11 +4,11 @@ import {
 } from "@tearleads/validators/util";
 import { computeKeyingDomainHash } from "./canonical";
 import { containerKekCacheToken } from "./containerKekCacheToken";
+import { CONTAINER_KEK_MATERIAL_ID_PREFIX } from "./containerKekTypes";
 import {
   deriveContainerKekWrappingPublicKey,
   normalizeContainerKekWrappingPublicKey,
 } from "./containerKekWrapping";
-import { CONTAINER_KEK_MATERIAL_ID_PREFIX } from "./types";
 
 /** Publicly verifiable commitment; KEK holders independently derive the key. */
 export async function computeContainerKekPublicCommitment(input: {

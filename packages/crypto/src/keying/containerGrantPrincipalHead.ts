@@ -2,11 +2,9 @@ import {
   normalizeReferencedPrincipalHead,
   normalizeReferencedPrincipalHeads,
 } from "./accessEvent";
+import type { ContainerGrantPrincipalHead } from "./containerAccessTypes";
+import type { ReferencedPrincipalHead } from "./principalPolicyTypes";
 import { throwVerification } from "./shared";
-import type {
-  ContainerGrantPrincipalHead,
-  ReferencedPrincipalHead,
-} from "./types";
 
 function isContainerGrantPrincipalHead(
   principalHead: ReferencedPrincipalHead,

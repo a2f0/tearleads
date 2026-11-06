@@ -1,6 +1,6 @@
 import { computePrincipalMemberEnvelopesRoot } from "../principalMemberEnvelopes";
+import type { PrincipalPolicyBundle } from "./principalPolicyTypes";
 import { throwVerification } from "./shared";
-import type { PrincipalPolicyBundle } from "./types";
 
 function memberKey(input: { readonly userId: string }): string {
   return input.userId;

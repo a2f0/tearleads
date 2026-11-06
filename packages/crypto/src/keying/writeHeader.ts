@@ -3,6 +3,7 @@ import { toFingerprint } from "../fingerprint";
 import { sign } from "../signing/sign";
 import { verify } from "../signing/verify";
 import { computeKeyingDomainHash, encodeDomainPayload } from "./canonical";
+import type { KeyingCanonicalPayload } from "./canonicalJsonTypes";
 import {
   assertExactKeys,
   normalizeContentObjectKind,
@@ -16,18 +17,17 @@ import {
   runVerifier,
   throwVerification,
 } from "./shared";
+import type { KeyingVerificationResult } from "./verificationError";
+import { assertWriteHeaderAuthorizations } from "./writeHeaderAuthorization";
+import { readWriteHeaderCitations } from "./writeHeaderCitations";
 import type {
   ContentRecordNonceDomain,
-  KeyingCanonicalPayload,
-  KeyingVerificationResult,
   UnsignedWriteHeader,
   VerifiedWriteHeader,
   VerifyWriteHeaderInput,
   WriteHeader,
-} from "./types";
-import { makeVerifiedWriteHeader } from "./types";
-import { assertWriteHeaderAuthorizations } from "./writeHeaderAuthorization";
-import { readWriteHeaderCitations } from "./writeHeaderCitations";
+} from "./writeHeaderTypes";
+import { makeVerifiedWriteHeader } from "./writeHeaderTypes";
 
 function normalizeUnsignedWriteHeader(value: unknown): UnsignedWriteHeader {
   const record = assertExactKeys(

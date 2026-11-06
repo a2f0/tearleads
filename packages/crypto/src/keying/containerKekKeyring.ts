@@ -1,5 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
+  MAX_CONTAINER_KEY_EPOCH,
   SEALED_CONTAINER_KEK_KEYRING_AEAD_OVERHEAD_BYTES,
   SEALED_CONTAINER_KEK_KEYRING_ENTRY_BYTES,
   SEALED_CONTAINER_KEK_KEYRING_HEADER_BYTES,
@@ -21,18 +22,17 @@ import {
   isContainerKekMaterialId,
 } from "./containerKekMaterial";
 import {
+  CONTAINER_KEK_KEYRING_SEAL_SUITE,
+  CONTAINER_KEK_MATERIAL_ID_PREFIX,
+  type ContainerKekKeyring,
+  type ContainerKekKeyringEntry,
+} from "./containerKekTypes";
+import {
   assertExactKeys,
   readPositiveInteger,
   readString,
   throwVerification,
 } from "./shared";
-import {
-  CONTAINER_KEK_KEYRING_SEAL_SUITE,
-  CONTAINER_KEK_MATERIAL_ID_PREFIX,
-  type ContainerKekKeyring,
-  type ContainerKekKeyringEntry,
-  MAX_CONTAINER_KEY_EPOCH,
-} from "./types";
 
 const TEXT_ENCODER = new TextEncoder();
 

@@ -5,15 +5,15 @@ import {
   deriveContainerAccessManifest,
   verifyContainerAccessManifest,
 } from "./containerAccess";
+import type {
+  ContainerRekeyAccessEventBody,
+  ContainerRevokeAccessEventBody,
+} from "./containerAccessTypes";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
   createContainerManifestFixture,
   createVerifiedContainerAccessEvent,
 } from "./testFixtures";
-import type {
-  ContainerRekeyAccessEventBody,
-  ContainerRevokeAccessEventBody,
-} from "./types";
 
 for (const eventType of ["container.rekey", "container.revoke"] as const) {
   for (const scenario of ["root", "current", "stale", "unsigned"] as const) {

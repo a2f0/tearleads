@@ -2,17 +2,17 @@ import {
   containerAccessLevelRank,
   resolveContainerPathUserAccessLevel,
 } from "./containerAccess";
+import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
 import { resolveHistoricalContainerPathUserAccessLevel } from "./containerPathAccess";
-import { assertDocumentCitationScope } from "./documentCitationScope";
-import { throwVerification } from "./shared";
 import type {
-  PrincipalPolicyAuthorization as Policy,
   VerifiedBlobKekTargets,
-  VerifiedContainerAccessManifest,
   VerifiedDocumentKekTargets,
-  VerifiedDocumentLinkSetManifest,
-  WriteHeader,
-} from "./types";
+} from "./contentKeyTargetTypes";
+import type { VerifiedDocumentLinkSetManifest } from "./documentAccessTypes";
+import { assertDocumentCitationScope } from "./documentCitationScope";
+import type { PrincipalPolicyAuthorization as Policy } from "./principalPolicyTypes";
+import { throwVerification } from "./shared";
+import type { WriteHeader } from "./writeHeaderTypes";
 
 export function requireWriteAccessThroughCommittedDocumentTarget(input: {
   readonly authorizationMembership?: "current" | "referenced";
