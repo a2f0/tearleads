@@ -8,6 +8,7 @@ import {
   docPath,
   sourceUrl,
   type TechnicalDoc,
+  technicalDocPages,
 } from "../../technicalDocs";
 import "../../styles/docs.css";
 
@@ -29,6 +30,24 @@ const parent = doc.parent === undefined ? undefined : docForSlug(doc.parent);
 const contents = headings
   .filter((heading) => heading.depth === 2)
   .map((heading) => ({ href: `#${heading.slug}`, label: heading.text }));
+
+// A document's sections moved to its topic pages. Links to their old anchors
+// on the document's own page (bookmarks, other sites) are sent on to the
+// topic page that now holds the heading.
+const topicEntries = (await getCollection("docs")).filter((candidate) =>
+  technicalDocPages.some(
+    (page) => page.slug === candidate.id && page.parent === doc.slug,
+  ),
+);
+const forwards: Record<string, string> = {};
+for (const topic of topicEntries) {
+  const { headings: topicHeadings } = await render(topic);
+  for (const heading of topicHeadings.filter(({ depth }) => depth > 1)) {
+    forwards[heading.slug] ??=
+      `${docPath(docForSlug(topic.id))}#${heading.slug}`;
+  }
+}
+const forwardsAnchors = Object.keys(forwards).length > 0;
 ---
 
 <Layout title={`${title} | Tearleads`} description={doc.summary}>
@@ -59,4 +78,15 @@ const contents = headings
       </div>
     )}
   </article>
+  {forwardsAnchors && (
+    <script is:inline define:vars={{ forwards }}>
+      const id = location.hash.slice(1);
+      if (
+        Object.hasOwn(forwards, id) &&
+        document.getElementById(id) === null
+      ) {
+        location.replace(forwards[id]);
+      }
+    </script>
+  )}
 </Layout>

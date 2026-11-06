@@ -147,6 +147,21 @@ test("topic pages name their document in the breadcrumb", () => {
   }
 });
 
+test("old anchors on a split document forward to its topic pages", () => {
+  const glossary = pages.get("/docs/glossary/") ?? "";
+  expect(glossary).toContain(
+    '"content-key":"/docs/glossary/keys/#content-key"',
+  );
+  const keying = pages.get("/docs/keying-design/") ?? "";
+  expect(keying).toContain(
+    '"container-kek-hierarchy":"/docs/keying-design/container-keks/#container-kek-hierarchy"',
+  );
+  expect(keying).toContain("location.replace(forwards[id])");
+  // Topic pages have no topic pages of their own.
+  const topic = pages.get("/docs/keying-design/overview/") ?? "";
+  expect(topic).not.toContain("location.replace");
+});
+
 test("the security page and index link every published document", () => {
   for (const path of ["/security/", "/docs/"]) {
     const links = new Set(hrefs(pages.get(path) ?? ""));
