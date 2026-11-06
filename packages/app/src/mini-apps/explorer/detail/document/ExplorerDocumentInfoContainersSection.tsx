@@ -97,3 +97,22 @@ export function ExplorerDocumentInfoAuthorizingContainersSection(params: {
     </MiniAppInfoSection>
   );
 }
+
+// The Links tab's document-summary load state, shown above its sections.
+export function ExplorerDocumentInfoLinksStatus(params: {
+  documentSummaryError: string | null;
+  isLoadingDocumentSummary: boolean;
+}) {
+  return (
+    <>
+      {params.isLoadingDocumentSummary ? (
+        <MiniAppStatus>{EXPLORER_LABELS.documentInfoLoading}</MiniAppStatus>
+      ) : null}
+      {params.documentSummaryError ? (
+        <MiniAppStatus tone="error">
+          {params.documentSummaryError}
+        </MiniAppStatus>
+      ) : null}
+    </>
+  );
+}
