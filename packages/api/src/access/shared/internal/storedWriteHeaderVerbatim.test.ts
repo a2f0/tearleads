@@ -26,7 +26,7 @@ import {
   createContentWriteHeaderStore,
   writeHeaderColumns,
 } from "./contentKeyStore";
-import { storeDocumentContentWriteHeader } from "./documentContentKeyStore";
+import { storeDocumentContentWriteHeader } from "./documentContentWriteHeaderStore";
 
 // Other devices verify the stored header's signature; the writer keeps its
 // own signed copy. A store that normalizes the header must fail the write.
