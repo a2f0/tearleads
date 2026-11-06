@@ -2,15 +2,16 @@ import { afterEach, expect, test } from "bun:test";
 import {
   type ContainerItemRow,
   type ContainerItemSort,
-  type ContainerNode,
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
 import { ROUTED_TABLET_QUERY } from "@tearleads/windowing";
-import { cleanup, fireEvent, render } from "@testing-library/react";
-import { type ComponentProps, createElement } from "react";
+import { cleanup, fireEvent, type render } from "@testing-library/react";
+import {
+  type ExplorerContainerItemTableProps,
+  noteRow,
+  renderContainerItemTable,
+} from "../../../../../test/helpers/explorer/containerItemTableFixtures";
 import { EXPLORER_LABELS } from "../../labels";
-import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
-import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
 
 /**
  * The phone tier folds the explorer item row into a two-line summary column:
@@ -19,7 +20,6 @@ import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
  * frame's CSS variable all agree on is asserted here, because a mismatch shows
  * up as blank bands while scrolling rather than as a visibly broken row.
  */
-
 const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
   globalThis.window ?? {},
   "matchMedia",
@@ -71,15 +71,6 @@ function mockPhoneLayout() {
   mockLayout({ navigationMode: "routed", tier: "mobile" });
 }
 
-const selectedNode: ContainerNode = {
-  id: "root-container",
-  kind: "container",
-  name: "Root",
-  organizationId: "org-1",
-  parentId: null,
-  syncState: syncedContainerDocumentObjectSyncState,
-};
-
 const archiveRow: ContainerItemRow = {
   createdAt: "2026-05-20T12:00:00.000Z",
   id: "archive-container",
@@ -89,18 +80,6 @@ const archiveRow: ContainerItemRow = {
   updatedAt: "2026-05-21T12:00:00.000Z",
 };
 
-const noteRow: ContainerItemRow = {
-  containerId: "root-container",
-  createdAt: null,
-  documentId: "note-doc",
-  documentKind: "note",
-  itemKind: "document",
-  localId: "note-local",
-  name: "Note",
-  syncState: syncedContainerDocumentObjectSyncState,
-  updatedAt: null,
-};
-
 const contactRow: ContainerItemRow = {
   ...noteRow,
   documentId: "contact-doc",
@@ -108,51 +87,6 @@ const contactRow: ContainerItemRow = {
   localId: "contact-local",
   name: "Ada Lovelace",
 };
-
-type ExplorerContainerItemTableProps = ComponentProps<
-  typeof ExplorerContainerItemTable
->;
-
-function renderContainerItemTable(
-  overrides: Partial<ExplorerContainerItemTableProps>,
-) {
-  return render(
-    createElement(ExplorerContainerItemTable, {
-      compact: false,
-      contactAvatarUrlByLocalId: {},
-      contextTarget: null,
-      currentSigningFingerprint: null,
-      currentSelfContactLocalId: null,
-      currentUserId: null,
-      dragActive: false,
-      dragDisabled: false,
-      emptyLabel: EXPLORER_LABELS.itemTableEmpty,
-      error: null,
-      frameRef: () => undefined,
-      handleDragEnter: () => undefined,
-      handleDragLeave: () => undefined,
-      handleDragOver: () => undefined,
-      handleDrop: () => undefined,
-      hiddenColumns: new Set<ExplorerItemColumnId>(),
-      isImporting: false,
-      isLoading: false,
-      online: true,
-      onBlankContextMenu: () => undefined,
-      onItemContextMenu: () => undefined,
-      onSort: () => undefined,
-      rows: [],
-      rowHeight: 36,
-      rowOffset: 0,
-      selectedNode,
-      selectDocumentProjection: () => undefined,
-      setSelectedId: () => undefined,
-      sort: { direction: "asc", key: "name" },
-      toggleColumn: () => undefined,
-      totalCount: 0,
-      ...overrides,
-    }),
-  );
-}
 
 // The detail pane resolves compact/rowHeight and hands them down, so a folded
 // render is expressed by passing them rather than by faking a viewport. The
