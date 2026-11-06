@@ -1,4 +1,9 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
+import {
+  DIRECTORY_IDLE,
+  type DocumentSummaryDirectoryEvent,
+  transitionDocumentSummaryDirectory,
+} from "./documentSummaryDirectoryMachine";
 
 interface SummaryDiscoveryView {
   getSnapshot: () => {
@@ -50,24 +55,25 @@ export function subscribeToDocumentSummaryDirectory(input: {
   ) => () => void;
   view: SummaryDiscoveryView;
 }): () => void {
-  let active = true;
-  let loading = false;
-  let reloadRequested = false;
+  let state = DIRECTORY_IDLE;
+  // Bumped by every live write or discovery; a query answers only if none
+  // landed since it started.
   let revision = 0;
-  const isCurrent = () => active && input.isCurrent();
-  // A load answers only while no live write has landed since it started.
+  const send = (event: DocumentSummaryDirectoryEvent) => {
+    state = transitionDocumentSummaryDirectory(state, event);
+  };
+  const isCurrent = () => state.status !== "disposed" && input.isCurrent();
   const answersRevision = (requestedRevision: number) =>
     isCurrent() && revision === requestedRevision;
+  // Keep the loop inline: an awaited helper would add microtask hops.
   const load = async () => {
     if (!isCurrent()) return;
-    if (loading) {
-      reloadRequested = true;
-      return;
-    }
-    loading = true;
+    const startsLoop = state.status === "idle";
+    send({ type: "load-requested" });
+    if (!startsLoop) return;
     try {
       do {
-        reloadRequested = false;
+        send({ type: "pass-started" });
         const requestedRevision = revision;
         try {
           const rows = await input.load();
@@ -75,15 +81,15 @@ export function subscribeToDocumentSummaryDirectory(input: {
         } catch (error) {
           if (answersRevision(requestedRevision)) input.onError(error);
         }
-      } while (isCurrent() && reloadRequested);
+      } while (isCurrent() && state.status === "loading-with-reload");
     } finally {
-      loading = false;
+      send({ type: "loop-finished" });
     }
   };
   const unsubscribePersisted = input.subscribePersisted((summary) => {
     if (!isCurrent()) return;
     revision += 1;
-    if (loading) reloadRequested = true;
+    send({ type: "persisted" });
     input.onPersisted(summary);
   });
   const unsubscribeDiscovery = subscribeToDocumentSummaryDiscovery({
@@ -96,7 +102,7 @@ export function subscribeToDocumentSummaryDirectory(input: {
   });
   void load();
   return () => {
-    active = false;
+    send({ type: "disposed" });
     unsubscribeDiscovery();
     unsubscribePersisted();
   };

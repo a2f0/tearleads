@@ -7,6 +7,13 @@
  */
 
 import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
+import {
+  initialOrgSubscriptionScan,
+  type OrgSubscriptionScan,
+  type OrgSubscriptionScanEvent,
+  orgSubscriptionScanIsDecisive,
+  transitionOrgSubscriptionScan,
+} from "./orgSubscriptionScan";
 import { readProviderField } from "./providerPayloadSchema";
 import {
   checkoutIntentSchema,
@@ -138,48 +145,37 @@ async function findOrgSubscription(
   organizationId: string,
   request: { fetchImpl: typeof fetch; secretKey: string },
   checkoutAttemptId?: string,
-): Promise<{
-  candidate: { subscriptionId: string; status: string } | null;
-  terminalAttemptWasUsed: boolean;
-}> {
-  let terminalAttemptWasUsed = false;
-  let pendingCandidate: { subscriptionId: string; status: string } | null =
-    null;
-  const decisiveCandidate = await findInStripeSubscriptionSearch(
-    organizationId,
-    request,
-    (value) => {
-      const item = readProviderField(subscriptionSearchItemSchema, value);
-      if (!item) {
-        return null;
-      }
-      const { id: subscriptionId, status } = item;
-      if (LIVE_SUBSCRIPTION_STATUSES.has(status)) {
-        return { subscriptionId, status };
-      }
-      if (status === "incomplete") {
-        if (pendingCandidate !== null) {
-          // Multiple payable intents are already anomalous. Fail closed rather
-          // than choosing one and creating alongside the other.
-          return { ...pendingCandidate, status: "ambiguous" };
-        }
-        pendingCandidate = { subscriptionId, status };
-        return null;
-      }
-      const itemAttemptId = readCheckoutAttemptId(value);
-      if (
-        checkoutAttemptId !== undefined &&
-        itemAttemptId === checkoutAttemptId
-      ) {
-        terminalAttemptWasUsed = true;
-      }
-      return null;
-    },
-  );
-  return {
-    candidate: decisiveCandidate ?? pendingCandidate,
-    terminalAttemptWasUsed,
-  };
+): Promise<OrgSubscriptionScan> {
+  let scan = initialOrgSubscriptionScan;
+  await findInStripeSubscriptionSearch(organizationId, request, (value) => {
+    const event = orgSubscriptionScanEvent(value, checkoutAttemptId);
+    if (event) {
+      scan = transitionOrgSubscriptionScan(scan, event);
+    }
+    return orgSubscriptionScanIsDecisive(scan) ? scan : null;
+  });
+  return scan;
+}
+
+function orgSubscriptionScanEvent(
+  value: unknown,
+  checkoutAttemptId: string | undefined,
+): OrgSubscriptionScanEvent | null {
+  const item = readProviderField(subscriptionSearchItemSchema, value);
+  if (!item) {
+    return null;
+  }
+  const { id: subscriptionId, status } = item;
+  if (LIVE_SUBSCRIPTION_STATUSES.has(status)) {
+    return { type: "live", subscriptionId };
+  }
+  if (status === "incomplete") {
+    return { type: "incomplete", subscriptionId };
+  }
+  return checkoutAttemptId !== undefined &&
+    readCheckoutAttemptId(value) === checkoutAttemptId
+    ? { type: "attempt-used" }
+    : null;
 }
 
 /** True for a live or still-incomplete org subscription. */
@@ -189,18 +185,18 @@ export async function hasOpenOrgSubscription(
 ): Promise<boolean> {
   const { fetchImpl, secretKey } = resolveDeps(deps);
   if (!secretKey) return false;
-  const { candidate } = await findOrgSubscription(organizationId, {
+  const scan = await findOrgSubscription(organizationId, {
     fetchImpl,
     secretKey,
   });
-  if (candidate?.status !== "incomplete") {
-    return candidate !== null;
+  if (scan.status !== "pending") {
+    return scan.status !== "none";
   }
   const body = await stripeRequest({
     fetchImpl,
     secretKey,
     method: "GET",
-    path: `/v1/subscriptions/${encodeURIComponent(candidate.subscriptionId)}`,
+    path: `/v1/subscriptions/${encodeURIComponent(scan.subscriptionId)}`,
     operation: "subscription inspect",
   });
   const status = readProviderField(subscriptionStatusSchema, body)?.status;
@@ -235,21 +231,22 @@ export async function createSyncSubscription(
     return null;
   }
 
-  const { candidate, terminalAttemptWasUsed } = await findOrgSubscription(
+  const scan = await findOrgSubscription(
     input.organizationId,
     { fetchImpl, secretKey },
     input.checkoutAttemptId,
   );
-  if (terminalAttemptWasUsed) {
+  if (
+    scan.status === "live" ||
+    scan.status === "ambiguous" ||
+    scan.attemptUsed
+  ) {
     return { kind: "conflict" };
   }
-  if (candidate && candidate.status !== "incomplete") {
-    return { kind: "conflict" };
-  }
-  if (candidate) {
+  if (scan.status === "pending") {
     const resumed = await resumePendingSubscription({
       checkoutAttemptId: input.checkoutAttemptId,
-      subscriptionId: candidate.subscriptionId,
+      subscriptionId: scan.subscriptionId,
       userId: input.userId,
       syncPriceId,
       fetchImpl,
