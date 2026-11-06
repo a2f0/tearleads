@@ -83,4 +83,4 @@ test("compound outcome replay checks the requester's current organization author
   );
   expect(replay.status).toBe(403);
   expect(await replay.json()).toEqual({ error: "Organization admin required" });
-}, 15_000);
+});

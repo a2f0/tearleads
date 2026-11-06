@@ -178,4 +178,4 @@ test("a write-bearing sync heals the stale bundle at the next content-key epoch"
   expect(healedProjection.documentKekTargets.documentKeyTargetHash).toBe(
     healedBundle.targetHash,
   );
-}, 15_000);
+});

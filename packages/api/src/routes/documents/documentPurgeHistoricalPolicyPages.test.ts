@@ -172,8 +172,6 @@ test("purge proof remains available to a later-revoked replica", async () => {
   ).toBe(false);
 });
 
-// Real identity registration, group rotations, and cold proof verification
-// exceed Bun's five-second default under concurrent CI load.
 test("purge proof preserves historical signer membership after group deletion", async () => {
   const owner = createTestUser();
   const writer = createTestUser();
@@ -231,4 +229,4 @@ test("purge proof preserves historical signer membership after group deletion", 
   );
   expect(proofResponse.status).toBe(200);
   await assertPurgePolicyPages(proofResponse, writer);
-}, 15_000);
+});

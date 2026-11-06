@@ -147,7 +147,7 @@ test("historical citations continue beyond a single proof batch", async () => {
         principalPolicyMatchesReference({ policy, reference }),
       ),
     ).toBe(true);
-}, 15_000);
+});
 
 test("a cited older entry missing from storage fails at its citation", async () => {
   const { head, entries } = await principalHistoryPreparationFixture({

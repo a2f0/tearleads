@@ -41,7 +41,7 @@ async function childCreate(
 
 test("a child create citing the current parent KEK epoch commits", async () => {
   expect((await childCreate((ref) => ref)).status).toBe(200);
-}, 15_000);
+});
 
 test("a parent KEK citation of another epoch is refused as stale", async () => {
   for (const cite of [
