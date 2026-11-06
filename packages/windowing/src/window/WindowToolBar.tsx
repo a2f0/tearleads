@@ -12,6 +12,19 @@ import {
 import { WindowRefreshButton } from "./WindowRefreshButton";
 
 /**
+ * Latch: once an app has shown toolbar chrome the row stays reserved, rather
+ * than collapsing on a transient empty, until its reservation is released.
+ */
+function latchedToolbarChrome(
+  hasChrome: boolean,
+  reservationReleased: boolean,
+  hasShownChrome: boolean,
+): boolean {
+  if (hasChrome) return true;
+  return hasShownChrome && !reservationReleased;
+}
+
+/**
  * The window's toolbar row, sitting below the File/View menu bar and above the
  * body. It renders the same actions the routed app bar shows — the registered
  * {@link useWindowBackAction} on the left and {@link useWindowTitleBarAction}
@@ -71,13 +84,13 @@ export function WindowToolBar({
   // latch during render at all; the render-phase set below catches chrome that
   // first appears after mount, without an effect's extra committed render pass.
   const [hasShownChrome, setHasShownChrome] = useState(hasChrome);
-  let latchedChrome = hasShownChrome;
-  if (hasChrome && !latchedChrome) {
-    setHasShownChrome(true);
-    latchedChrome = true;
-  } else if (!hasChrome && reservationReleased && latchedChrome) {
-    setHasShownChrome(false);
-    latchedChrome = false;
+  const latchedChrome = latchedToolbarChrome(
+    hasChrome,
+    reservationReleased,
+    hasShownChrome,
+  );
+  if (latchedChrome !== hasShownChrome) {
+    setHasShownChrome(latchedChrome);
   }
 
   if (!hasChrome && !latchedChrome && !reserved) {
