@@ -2,202 +2,43 @@ import { expect, test } from "bun:test";
 import {
   type AccessEvent,
   BLOB_CONTENT_KEY_WRAP_SUITE,
-  type ContainerKeyEpoch,
   computeAccessEventHash,
   computeBlobAccessManifestHash,
-  computeContainerKekKeyringHash,
-  computeContainerKekMaterialId,
-  computeContainerKekPredecessorBridgeHash,
   computeWriteHeaderHash,
-  createContainerKekPredecessorBridge,
-  deriveContainerKekWrappingPublicKey,
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
-  sealContainerKekKeyring,
-  toFingerprint,
   unwrapContentKey,
-  type VerifiedContainerAccessManifest,
-  verifyContainerKekState,
   type WriteHeader,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type {
-  ContainerWriterProjectionResponse,
-  DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
 import { createMultipartBlobStageFixture } from "../../../../test/helpers/blobUploadFixtures";
+import { SIGNED_AT } from "../../../../test/helpers/containerFixtures";
 import {
-  createContainerRevokeManifestFixture,
-  createParentProjection,
-  createUserContainerWrap,
-  SIGNED_AT,
-} from "../../../../test/helpers/containerFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+  createDocumentAfterRevoke,
+  createRevokedRotationFixture,
+} from "../../../../test/helpers/revokedKekRotation";
 import { uploadDocumentAttachment } from "../../../workflows/blobs/upload";
-import { buildMaterializedDocumentCreatePlan } from "../../../workflows/documents/create";
 import type { BlobBytes } from "../../blobs/blobContracts";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 import { unwrapDocumentContentKeyTarget } from "../../documents/shared/projection/projectionContentKeys";
 
 test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", async () => {
-  const revokedUserId = "user-2";
-  const revokedKeyPair = generateKemSeedAndKeyPair();
-  const revokedSigning = generateSigningSeedAndKeyPair();
-  const revokedRecipientKeyFingerprint = await toFingerprint(
-    revokedKeyPair.publicKey,
-  );
-  const revokedRecipientKeyEpochId = `user:${revokedUserId}:encapsulation:${revokedRecipientKeyFingerprint}`;
-  const parent = await createParentProjection({
-    existingUserRecipient: {
-      accessLevel: "write",
-      publicKey: revokedKeyPair.publicKey,
-      recipientKeyEpochId: revokedRecipientKeyEpochId,
-      userId: revokedUserId,
-    },
-  });
-  const resolveProjectionUserKey = async (userId: string) => {
-    if (userId === parent.userId) {
-      return createTestTrustedUserIdentity({
-        encapsulationPublicKey: parent.encapsulationPublicKey,
-        signingKeyFingerprint: parent.author.signerKeyFingerprint,
-        signingPublicKey: parent.signingPublicKey,
-        userId,
-      });
-    }
-    if (userId === revokedUserId) {
-      return createTestTrustedUserIdentity({
-        encapsulationPublicKey: revokedKeyPair.publicKey,
-        signingKeyFingerprint: "revoked-user-signing-fingerprint",
-        signingPublicKey: revokedSigning.signingPublicKey,
-        userId,
-      });
-    }
-
-    return null;
-  };
   const { close: closeProjectionDb, execSql } = await createTestExecSql(
     "projection-revoked-user",
   );
 
   try {
-    const revokedUserPreviousKeks = await unwrapContainerKekPath({
-      execSql,
-      projection: parent.projection,
+    const {
+      parent,
       resolveProjectionUserKey,
-      secretKey: revokedKeyPair.secretKey,
-    });
-    const previousContainerKek = revokedUserPreviousKeks.get(
-      parent.parentKekState.containerKeyEpochId,
-    );
-    if (!previousContainerKek) {
-      throw new Error("Expected revoked user to unwrap the pre-revocation KEK");
-    }
-
-    const previousManifest = parent.projection
-      .path[0] as unknown as VerifiedContainerAccessManifest;
-    const rotatedContainerKek = crypto.getRandomValues(new Uint8Array(32));
-    const rotatedContainerKeyEpochId = await computeContainerKekMaterialId({
-      containerId: parent.parentKekState.containerId,
-      keyEpoch: parent.parentKekState.containerKeyEpoch + 1,
-      keyMaterial: rotatedContainerKek,
-    });
-    const predecessorBridge = await createContainerKekPredecessorBridge({
-      containerId: parent.parentKekState.containerId,
-      predecessorContainerKey: parent.parentContainerKek,
-      predecessorContainerKeyEpochId: parent.parentKekState.containerKeyEpochId,
-      successorContainerKey: rotatedContainerKek,
-      successorContainerKeyEpochId: rotatedContainerKeyEpochId,
-    });
-    const keyring = await sealContainerKekKeyring({
-      containerId: parent.parentKekState.containerId,
-      entries: [
-        {
-          containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
-          keyMaterial: parent.parentContainerKek,
-        },
-      ],
-      keyEpoch: parent.parentKekState.containerKeyEpoch + 1,
-      successorContainerKey: rotatedContainerKek,
-      successorContainerKeyEpochId: rotatedContainerKeyEpochId,
-    });
-    const revokedManifest = await createContainerRevokeManifestFixture({
-      containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
-        containerId: parent.parentKekState.containerId,
-        keyMaterial: rotatedContainerKek,
-      }),
-      author: parent.author,
-      containerId: parent.parentKekState.containerId,
-      containerKeyEpochId: rotatedContainerKeyEpochId,
-      eventId: "parent-container-revoke-event-2",
-      keyringHash: await computeContainerKekKeyringHash(keyring),
-      organizationId: parent.projection.organizationId,
-      predecessorBridgeHash:
-        await computeContainerKekPredecessorBridgeHash(predecessorBridge),
-      previousManifest,
-      subjectId: revokedUserId,
-      subjectType: "user",
-      signingPublicKey: parent.signingPublicKey,
-    });
-    const ownerRecipientKeyFingerprint = await toFingerprint(
-      parent.encapsulationPublicKey,
-    );
-    const ownerRecipientKeyEpochId = `user:${parent.userId}:encapsulation:${ownerRecipientKeyFingerprint}`;
-    const ownerWrap = await createUserContainerWrap({
-      containerKeyEpochId: rotatedContainerKeyEpochId,
-      containerKek: rotatedContainerKek,
-      publicKey: parent.encapsulationPublicKey,
-      recipientKeyEpochId: ownerRecipientKeyEpochId,
-      userId: parent.userId,
-      wrapManifestHash: revokedManifest.manifestHash,
-    });
-    const rotatedKeyEpoch: ContainerKeyEpoch = {
-      id: rotatedContainerKeyEpochId,
-      containerId: parent.parentKekState.containerId,
-      keyEpoch: parent.parentKekState.containerKeyEpoch + 1,
-      accessManifestHash: revokedManifest.manifestHash,
-      parentContainerKeyEpochId: null,
-      createdByEventHash: revokedManifest.event.eventHash,
-      createdByManifestHash: revokedManifest.manifestHash,
-    };
-    const verifiedRotatedKek = await verifyContainerKekState({
-      containerManifest: revokedManifest,
-      keyEpoch: rotatedKeyEpoch,
-      userRecipientKeys: [
-        {
-          recipientKeyEpochId: ownerWrap.recipientKeyEpochId,
-          recipientKeyFingerprint: ownerWrap.recipientKeyFingerprint,
-          userId: parent.userId,
-        },
-      ],
-      wraps: [ownerWrap],
-    });
+      revokedKeyPair,
+      revokedManifest,
+      revokedProjection,
+      rotatedContainerKek,
+      rotatedContainerKeyEpochId,
+      rotatedKekState,
+      verifiedRotatedKek,
+    } = await createRevokedRotationFixture(execSql);
     expect(verifiedRotatedKek.ok).toBe(true);
-    if (!verifiedRotatedKek.ok) {
-      throw verifiedRotatedKek.error;
-    }
-    const rotatedKekState = verifiedRotatedKek.value;
-    const revokedProjection: ContainerWriterProjectionResponse = {
-      policyEvidence: {
-        organization: null,
-        organizationPayloads: [],
-        groups: [],
-      },
-      containerId: parent.projection.containerId,
-      organizationId: parent.projection.organizationId,
-      path: [
-        revokedManifest as unknown as ContainerWriterProjectionResponse["path"][number],
-      ],
-      containerKeks: [
-        {
-          ...(rotatedKekState as unknown as ContainerWriterProjectionResponse["containerKeks"][number]),
-          containerManifestHistory: [
-            previousManifest as unknown as ContainerWriterProjectionResponse["path"][number],
-          ],
-          keyring,
-        },
-      ],
-    };
 
     expect(revokedManifest.state.directGrants).toEqual([
       {
@@ -265,20 +106,27 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
         secretKey: revokedKeyPair.secretKey,
       }),
     ).rejects.toThrow("could not be unwrapped");
+  } finally {
+    closeProjectionDb();
+  }
+});
 
-    const contentKey = crypto.getRandomValues(new Uint8Array(32));
-    const createdDocumentId = "550e8400-e29b-41d4-a716-446655440700";
-    const createdDocument = await buildMaterializedDocumentCreatePlan({
-      author: parent.author,
-      containerProjection: revokedProjection,
-      contentKey,
-      documentId: createdDocumentId,
-      eventId: "document-after-revoke-event",
-      execSql,
-      resolveProjectionUserKey,
-      signedAt: SIGNED_AT,
-      targetSecretKey: parent.secretKey,
-    });
+test("documents created after a revoking KEK rotation wrap only the rotated KEK", async () => {
+  const { close: closeProjectionDb, execSql } = await createTestExecSql(
+    "projection-revoked-user",
+  );
+
+  try {
+    const fixture = await createRevokedRotationFixture(execSql);
+    const {
+      parent,
+      previousContainerKek,
+      revokedManifest,
+      rotatedContainerKek,
+      rotatedContainerKeyEpochId,
+    } = fixture;
+    const { contentKey, createdDocument, createdDocumentId } =
+      await createDocumentAfterRevoke(execSql, fixture);
     const [targetEnvelope] =
       createdDocument.plan.request.contentKeyBundle.targets;
     if (!targetEnvelope) {
@@ -306,60 +154,28 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
         envelope: targetEnvelope,
       }),
     ).rejects.toThrow();
-    const documentWriterProjection: DocumentWriterProjectionResponse = {
-      policyEvidence: {
-        organization: null,
-        organizationPayloads: [],
-        groups: [],
-      },
-      authorizingContainerPaths: [revokedProjection],
-      contentKeyBundle: {
-        documentId: createdDocument.plan.documentId,
-        contentKeyEpoch:
-          createdDocument.plan.request.contentKeyBundle.contentKeyEpoch,
-        linkSetManifestHash:
-          createdDocument.plan.request.contentKeyBundle.linkSetManifestHash,
-        targetHash: createdDocument.plan.request.contentKeyBundle.targetHash,
-        targets: [...createdDocument.plan.request.contentKeyBundle.targets],
-      },
-      documentContainerManifestHistory: [
-        ...revokedProjection.path,
-        ...revokedProjection.containerKeks.flatMap(
-          (kek) => kek.containerManifestHistory,
-        ),
-      ],
-      documentId: createdDocument.plan.documentId,
-      documentKekTargets: {
-        documentId: createdDocument.plan.documentId,
-        linkSetManifestHash: createdDocument.plan.manifestHash,
-        linkedContainerManifestHashes: createdDocument.plan.targets.map(
-          (target) => target.containerManifestHash,
-        ),
-        linkedContainerKeyEpochIds: createdDocument.plan.targets.map(
-          (target) => target.containerKeyEpochId,
-        ),
-        targets: createdDocument.plan.targets.map((target) => ({ ...target })),
-        documentKeyTargetHash: createdDocument.plan.targetHash,
-      },
-      documentManifest: {
-        event: {
-          event: createdDocument.plan.event as unknown as Record<
-            string,
-            unknown
-          >,
-          body: createdDocument.plan.body as unknown as Record<string, unknown>,
-          eventHash: createdDocument.plan.eventHash,
-        },
-        manifest: createdDocument.plan.manifest as unknown as Record<
-          string,
-          unknown
-        >,
-        manifestHash: createdDocument.plan.manifestHash,
-        state: createdDocument.plan.state as unknown as Record<string, unknown>,
-      },
-      documentManifestContainerPaths: [[...revokedProjection.path]],
-      documentManifestHistory: [],
-    };
+  } finally {
+    closeProjectionDb();
+  }
+});
+
+test("blobs uploaded after a revoking KEK rotation wrap only the rotated KEK", async () => {
+  const { close: closeProjectionDb, execSql } = await createTestExecSql(
+    "projection-revoked-user",
+  );
+
+  try {
+    const fixture = await createRevokedRotationFixture(execSql);
+    const {
+      parent,
+      previousContainerKek,
+      resolveProjectionUserKey,
+      revokedManifest,
+      rotatedContainerKek,
+      rotatedContainerKeyEpochId,
+    } = fixture;
+    const { createdDocument, documentWriterProjection } =
+      await createDocumentAfterRevoke(execSql, fixture);
     const blobId = "550e8400-e29b-41d4-a716-446655440701";
     const bindingId = "550e8400-e29b-41d4-a716-446655440702";
     const slotId = "preview-after-revoke";
