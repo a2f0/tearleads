@@ -40,18 +40,18 @@ tl() { . /path/to/checkout/scripts/dev/session.sh /path/to/checkout; } && tl
 
 | Path | Contents |
 | --- | --- |
-| `packages/app` | React application shell, mini-apps, and product UI |
-| `packages/app-web` | Web app build and hosting |
+| [`packages/app`](packages/app/README.md) | React application shell, mini-apps, and product UI |
+| [`packages/app-web`](packages/app-web/README.md) | Web app build and hosting |
 | [`packages/app-capacitor`](packages/app-capacitor/README.md) | iOS and Android app and store releases |
 | [`packages/app-electrobun`](packages/app-electrobun/README.md) | Desktop app and desktop releases |
 | [`packages/website`](packages/website/README.md) | Marketing site at tearleads.com |
 | [`packages/client-sdk`](packages/client-sdk/README.md) | React-free client runtime, published to npm |
 | [`packages/windowing`](packages/windowing/README.md) | Window management for React, published to npm |
-| `packages/api`, `packages/api-shared`, `packages/api-client` | HTTP API, its persistence layer, and the typed API client |
+| [`packages/api`](packages/api/README.md), [`packages/api-shared`](packages/api-shared/README.md), [`packages/api-client`](packages/api-client/README.md) | HTTP API, its persistence layer, and the typed API client |
 | [`packages/api-cli`](packages/api-cli/README.md) | API migration and operations CLI |
-| `packages/ui` | Product-neutral UI shared by the website and app |
-| `packages/crypto`, `packages/encoding`, `packages/validators` | Cryptography, encoding, and validation support |
-| `packages/sqlite-instance`, `packages/sqlite-worker` | SQLite WASM build and worker runtime |
+| [`packages/ui`](packages/ui/README.md) | Product-neutral UI shared by the website and app |
+| [`packages/crypto`](packages/crypto/README.md), [`packages/encoding`](packages/encoding/README.md), [`packages/validators`](packages/validators/README.md) | Cryptography, encoding, and validation support |
+| [`packages/sqlite-instance`](packages/sqlite-instance/README.md), [`packages/sqlite-worker`](packages/sqlite-worker/README.md) | SQLite WASM build and worker runtime |
 | [`packages/diagnostics`](packages/diagnostics/README.md), [`packages/loro`](packages/loro/README.md) | Error diagnostics and Loro build support |
 | [`packages/bob-and-alice`](packages/bob-and-alice/README.md), [`packages/test-utils`](packages/test-utils/README.md) | Multi-party keying scenarios and shared test helpers |
 | [`packages/performance`](packages/performance/README.md) | SDK and database performance experiments |

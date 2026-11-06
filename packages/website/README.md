@@ -1,7 +1,14 @@
-# Website deployment
+# website
+
+The Astro marketing and documentation site at
+[tearleads.com](https://tearleads.com). It shares
+[`@tearleads/ui`](../ui/README.md) with the app but must not import application
+implementation code.
 
 For the Privacy Policy and Terms of Service publication status and revision
 guidance, see the [legal publication review](./LEGAL_REVIEW.md).
+
+## Deployment
 
 The Astro website is built once per environment and served directly by
 Cloudflare Workers Static Assets. It has no server runtime and does not depend

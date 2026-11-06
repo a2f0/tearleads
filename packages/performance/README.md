@@ -1,8 +1,8 @@
-# Performance experiments
+# @tearleads/performance
 
-`@tearleads/performance` is an executable SDK host for small, repeatable
-experiments against staging and production. It imports public SDK, SQLite,
-and PostgreSQL transport entry points. The app, SDK, and API do not depend on it.
+An executable SDK host for small, repeatable experiments against staging and
+production. It imports public SDK, SQLite, and PostgreSQL transport entry
+points. The app, SDK, and API do not depend on it.
 
 The [initial production baseline](baseline.md) records three registrations and
 their correlated database and CPU measurements.
