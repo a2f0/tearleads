@@ -205,14 +205,6 @@
       "lines": 512,
       "bytes": 15792
     },
-    "packages/crypto/src/keying/containerAccess.test.ts": {
-      "lines": 924,
-      "bytes": 30420
-    },
-    "packages/crypto/src/keying/containerKek.test.ts": {
-      "lines": 554,
-      "bytes": 19202
-    },
     "packages/validators/src/operation/openApi.test.ts": {
       "lines": 509,
       "bytes": 17107

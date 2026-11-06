@@ -14,6 +14,9 @@ import {
   deriveContainerAccessManifest,
 } from "./index";
 
+export const PREDECESSOR_BRIDGE_HASH = "0".repeat(64);
+export const KEYRING_HASH = "1".repeat(64);
+
 export async function createContainerManifestFixture(input: {
   readonly containerId: string;
   readonly containerKeyEpochId?: string | null;
