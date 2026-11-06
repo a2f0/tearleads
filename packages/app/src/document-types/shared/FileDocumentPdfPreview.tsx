@@ -53,6 +53,49 @@ export function resolveFileDocumentPdfPreview(
   return null;
 }
 
+interface PdfPreviewFailure {
+  storageKey: string;
+  message: string;
+}
+
+function loadPdfPreviewBytes(
+  blobStore: BlobStore,
+  storageKey: string,
+  handlers: {
+    isActive: () => boolean;
+    logError: (message: string, cause: unknown) => void;
+    onFailure: (failure: PdfPreviewFailure) => void;
+    onLoaded: (loaded: {
+      storageKey: string;
+      bytes: Uint8Array<ArrayBuffer>;
+    }) => void;
+  },
+): void {
+  void readAutomaticPreviewBlobBytes(blobStore, storageKey)
+    .then((value) => {
+      if (!value) {
+        if (handlers.isActive())
+          handlers.onFailure({
+            storageKey,
+            message:
+              "PDF preview is unavailable or over 5 MiB. You can still download it.",
+          });
+        return;
+      }
+      if (handlers.isActive()) handlers.onLoaded({ storageKey, bytes: value });
+    })
+    .catch((readError: unknown) => {
+      if (!handlers.isActive()) return;
+      if (!isDatabaseUnavailableError(readError)) {
+        handlers.logError("Failed to load PDF preview", readError);
+      }
+      handlers.onFailure({
+        storageKey,
+        message: "Couldn't load this PDF. You can still download it.",
+      });
+    });
+}
+
 export function useFileDocumentPdfPreview(params: {
   attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
   attachments: ReadonlyArray<DocumentAttachment>;
@@ -76,10 +119,7 @@ export function useFileDocumentPdfPreview(params: {
     storageKey: string;
     bytes: Uint8Array<ArrayBuffer>;
   } | null>(null);
-  const [failure, setFailure] = useState<{
-    storageKey: string;
-    message: string;
-  } | null>(null);
+  const [failure, setFailure] = useState<PdfPreviewFailure | null>(null);
   const logErrorRef = useRef(logError);
   logErrorRef.current = logError;
   const storageKey = candidate?.storageKey;
@@ -94,29 +134,12 @@ export function useFileDocumentPdfPreview(params: {
     setLoaded(null);
     setFailure(null);
     if (storageKey) {
-      void readAutomaticPreviewBlobBytes(blobStore, storageKey)
-        .then((value) => {
-          if (!value) {
-            if (active)
-              setFailure({
-                storageKey,
-                message:
-                  "PDF preview is unavailable or over 5 MiB. You can still download it.",
-              });
-            return;
-          }
-          if (active) setLoaded({ storageKey, bytes: value });
-        })
-        .catch((readError: unknown) => {
-          if (!active) return;
-          if (!isDatabaseUnavailableError(readError)) {
-            logErrorRef.current("Failed to load PDF preview", readError);
-          }
-          setFailure({
-            storageKey,
-            message: "Couldn't load this PDF. You can still download it.",
-          });
-        });
+      loadPdfPreviewBytes(blobStore, storageKey, {
+        isActive: () => active,
+        logError: (message, cause) => logErrorRef.current(message, cause),
+        onFailure: setFailure,
+        onLoaded: setLoaded,
+      });
     }
     return () => {
       active = false;

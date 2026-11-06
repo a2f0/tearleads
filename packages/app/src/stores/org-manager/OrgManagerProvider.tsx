@@ -186,6 +186,29 @@ function useOrgManagerOperationScope(): Pick<
   return { captureOperationScope, isOperationScopeActive };
 }
 
+// The operation scope captured now, or null when none is active.
+function activeOperationScope(
+  captureOperationScope: OrgManagerBehavior["captureOperationScope"],
+  isOperationScopeActive: OrgManagerBehavior["isOperationScopeActive"],
+): OrgManagerOperationScope | null {
+  const operationScope = captureOperationScope();
+  return operationScope && isOperationScopeActive(operationScope)
+    ? operationScope
+    : null;
+}
+
+// A roster profile carries the user's keys, so only an identity a verified
+// link (or this device's own keys) established may seed one.
+function requireVerifiedIdentity<Identity>(
+  trustedIdentity: Identity | null | undefined,
+  userId: string,
+): Identity {
+  if (!trustedIdentity) {
+    throw new UnverifiedUserIdentityError(userId);
+  }
+  return trustedIdentity;
+}
+
 function useEnsureRosterProfileDocument(
   input: Pick<
     OrgManagerBehavior,
@@ -205,8 +228,11 @@ function useEnsureRosterProfileDocument(
       if (user.profileDocumentId) {
         return user;
       }
-      const operationScope = captureOperationScope();
-      if (!operationScope || !isOperationScopeActive(operationScope)) {
+      const operationScope = activeOperationScope(
+        captureOperationScope,
+        isOperationScopeActive,
+      );
+      if (!operationScope) {
         return null;
       }
 
@@ -221,15 +247,13 @@ function useEnsureRosterProfileDocument(
       if (!isOperationScopeActive(operationScope)) {
         return null;
       }
-      if (!trustedIdentity) {
-        throw new UnverifiedUserIdentityError(user.userId);
-      }
+      const identity = requireVerifiedIdentity(trustedIdentity, user.userId);
 
       const profileDocumentId = await createRosterProfileDocument({
         containerId: ensuredContainer.id,
         documents,
-        identity: trustedIdentity,
-        isSelf: trustedIdentity.userId === operationScope.userId,
+        identity,
+        isSelf: identity.userId === operationScope.userId,
         names,
         organizationId: operationScope.organizationId,
       });
@@ -269,8 +293,11 @@ function useEnsureOrganizationProfileDocument(
       if (profileDocumentId) {
         return profileDocumentId;
       }
-      const operationScope = captureOperationScope();
-      if (!operationScope || !isOperationScopeActive(operationScope)) {
+      const operationScope = activeOperationScope(
+        captureOperationScope,
+        isOperationScopeActive,
+      );
+      if (!operationScope) {
         return null;
       }
 
