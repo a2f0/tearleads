@@ -1,7 +1,7 @@
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import { PendingPolicyMutation } from "../groups/PendingPolicyMutation";
-import type { OrgManagerModel } from "../hooks/useOrgManagerModel";
 import { ORG_MANAGER_LABELS } from "../labels";
+import type { OrgManagerModel } from "../model/useOrgManagerModel";
 
 export function OrgManagerFeedback({ model }: { model: OrgManagerModel }) {
   return (

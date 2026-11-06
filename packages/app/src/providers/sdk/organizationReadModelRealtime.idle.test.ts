@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from "bun:test";
 import { waitForAppTestRuntimeToSettle } from "../../../test/helpers/appRuntimeIdle";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
 import { observeOrganizationRuntime } from "../../../test/helpers/organizationRuntimeIdle";
 import { cleanupPaneTestEnvironment } from "../../../test/helpers/paneTestUtils";
 import {

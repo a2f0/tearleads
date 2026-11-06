@@ -12,7 +12,7 @@ import { useEffect } from "react";
 import { useTearleads } from "../../../src/providers/sdk/TearleadsProvider";
 import { usePaneSide } from "../../../src/shell/pane/dual-pane";
 import { waitForAppTestRuntimeToSettle } from "../appRuntimeIdle";
-import { listProxiedApiRequests } from "../mswServer";
+import { listProxiedApiRequests } from "../msw/server";
 import { waitForCondition } from "../waitForCondition";
 import {
   getPaneRoot,

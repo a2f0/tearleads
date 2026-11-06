@@ -31,13 +31,13 @@ import {
   requestPath,
   summarizeProxiedApiRequests,
 } from "../../../../test/helpers/dualPaneRequestSummary";
-import { dropNextMswServerEventWhere } from "../../../../test/helpers/mswEventRouter";
+import { dropNextMswServerEventWhere } from "../../../../test/helpers/msw/eventRouter";
 import {
   listProxiedApiRequests,
   MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
-} from "../../../../test/helpers/mswServer";
+} from "../../../../test/helpers/msw/server";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 

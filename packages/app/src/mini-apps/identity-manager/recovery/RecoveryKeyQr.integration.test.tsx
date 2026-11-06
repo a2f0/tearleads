@@ -9,8 +9,8 @@ import {
   renderRecoveryKeyView,
 } from "../../../../test/helpers/recoveryKeyTestKit";
 import { installRecoveryQrCamera } from "../../../../test/helpers/recoveryQrCameraTestKit";
-import "../../../../test/helpers/mswServer";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
+import "../../../../test/helpers/msw/server";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
 
 const originalWebSocket = globalThis.WebSocket;
 let camera: ReturnType<typeof installRecoveryQrCamera> | undefined;

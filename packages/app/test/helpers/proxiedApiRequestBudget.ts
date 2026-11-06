@@ -4,7 +4,7 @@ import {
   requestPath,
   requestPathAndQuery,
 } from "./dualPaneRequestSummary";
-import { listProxiedApiRequests } from "./mswServer";
+import { listProxiedApiRequests } from "./msw/server";
 import {
   documentSyncIntentCounts,
   proxiedApiBodyBytes,

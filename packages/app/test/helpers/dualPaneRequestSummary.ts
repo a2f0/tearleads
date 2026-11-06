@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import { listProxiedApiRequests } from "./mswServer";
+import { listProxiedApiRequests } from "./msw/server";
 
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
 

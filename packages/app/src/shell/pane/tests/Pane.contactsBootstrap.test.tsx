@@ -7,7 +7,7 @@ import { registerAndWaitForUserId } from "../../../../test/helpers/identityPaneT
 import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
-} from "../../../../test/helpers/mswServer";
+} from "../../../../test/helpers/msw/server";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,

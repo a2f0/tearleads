@@ -6,14 +6,16 @@ import type {
 } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
+import {
+  createSnapshot,
+  updatedAt,
+} from "../../../../../test/helpers/explorer/syncPanelFixtures";
 import { ExplorerSyncLanesPanelView } from "./ExplorerSyncLanesPanel";
 
 afterEach(() => {
   cleanup();
   globalThis.localStorage.clear();
 });
-
-const updatedAt = "2026-06-15T12:00:00.000Z";
 
 function createLaneSnapshot(input: {
   key: string;
@@ -54,17 +56,6 @@ const MIXED_LANES: ReadonlyArray<SyncLaneSnapshot> = [
   createLaneSnapshot({ key: "documents:error-1", status: "error" }),
   createLaneSnapshot({ key: "documents:idle-1", status: "idle" }),
 ];
-
-function createSnapshot(
-  lanes: ReadonlyArray<SyncLaneSnapshot>,
-): DomainSyncSnapshot {
-  return {
-    hasPendingWork: lanes.some((lane) => lane.requested || lane.running),
-    lanes,
-    pumpActive: lanes.some((lane) => lane.running),
-    updatedAt,
-  };
-}
 
 function createPanelElement(input: {
   selectedLaneKey?: string | null | undefined;

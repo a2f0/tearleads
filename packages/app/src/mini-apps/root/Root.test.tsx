@@ -1,9 +1,9 @@
 import { ROOT_TEST_ORGANIZATION } from "../../../test/helpers/rootConsoleFixtures";
-import "../../../test/helpers/mswServer";
+import "../../../test/helpers/msw/server";
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { cleanupIdentityManagerTestEnvironment } from "../../../test/helpers/identityManagerTestRuntime";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
 import { renderRootWithSession } from "../../../test/helpers/renderRootConsole";
 import { ROOT_TEST_IDENTITIES } from "../../../test/helpers/rootConsoleFixtures";
 

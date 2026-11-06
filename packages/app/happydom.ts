@@ -162,7 +162,7 @@ afterEach(() => {
 // Pane.identity.test.tsx recorded 10 then 7), so a per-test assertion would
 // blame whichever test happened to be running. Asserting once, after every file,
 // reports what went unmocked without pretending to know which test caused it.
-// This must live in the preload: a module-scope afterAll in mswServer.ts would
+// This must live in the preload: a module-scope afterAll in msw/server.ts would
 // fire at the end of only the first file that imported it.
 afterAll(() => {
   const unhandled = takeUnhandledRequests();
@@ -183,7 +183,7 @@ afterAll(() => {
       ...counted,
       "",
       "The app treats a failed request as non-fatal, so these do not fail a test",
-      "on their own. Add a handler to packages/app/test/helpers/mswServer.ts, or",
+      "on their own. Add a handler to packages/app/test/helpers/msw/, or",
       "call useTestApiAppHandlers() to proxy the route to the real API runtime.",
     ].join("\n"),
   );

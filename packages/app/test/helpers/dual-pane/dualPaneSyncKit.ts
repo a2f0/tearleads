@@ -12,7 +12,7 @@ import {
   summarizeProxiedApiRequests,
   truncateText,
 } from "../dualPaneRequestSummary";
-import { listProxiedApiRequests } from "../mswServer";
+import { listProxiedApiRequests } from "../msw/server";
 import { waitForCondition } from "../waitForCondition";
 import {
   DUAL_PANE_TEST_TIMEOUT_MS,

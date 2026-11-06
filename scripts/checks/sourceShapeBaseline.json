@@ -81,37 +81,9 @@
       "lines": 522,
       "bytes": 21345
     },
-    "packages/app/src/mini-apps/explorer/detail/container/ExplorerContainerDetail.test.ts": {
-      "lines": 533,
-      "bytes": 15919
-    },
-    "packages/app/src/mini-apps/explorer/detail/document/ExplorerDocumentInfoSections.test.tsx": {
-      "lines": 577,
-      "bytes": 17006
-    },
-    "packages/app/src/mini-apps/explorer/detail/sync/ExplorerSyncLanesPanel.test.tsx": {
-      "lines": 534,
-      "bytes": 16907
-    },
-    "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.test.tsx": {
-      "lines": 619,
-      "bytes": 17705
-    },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
       "lines": 485,
       "bytes": 22287
-    },
-    "packages/app/src/mini-apps/explorer/sidebar/ExplorerTree.test.tsx": {
-      "lines": 605,
-      "bytes": 17601
-    },
-    "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
-      "lines": 543,
-      "bytes": 17566
-    },
-    "packages/app/test/helpers/mswServer.ts": {
-      "lines": 844,
-      "bytes": 25801
     },
     "packages/client-sdk/src/index.ts": {
       "lines": 623,
@@ -162,7 +134,7 @@
     "packages/app/src/mini-apps/explorer/sidebar/useExplorerSidebarWindows.ts": {
       "biomeIgnore": 1
     },
-    "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
+    "packages/app/src/mini-apps/org-manager/model/useOrgManagerModel.ts": {
       "biomeIgnore": 1
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerMutations.ts": {

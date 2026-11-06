@@ -7,7 +7,7 @@ import {
 } from "@tearleads/client-sdk";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { createFakeIndexedDb } from "../../../../test/helpers/fakeIndexedDb";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
