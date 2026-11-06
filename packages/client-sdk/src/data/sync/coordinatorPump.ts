@@ -9,7 +9,6 @@ import {
 } from "./coordinatorState";
 import {
   hasPendingRequest,
-  isLaneRunning,
   isRequestDue,
   ownsLiveRun,
   transitionSyncLaneRequest,
@@ -126,10 +125,12 @@ async function runRequestedSyncLanes(
     let lane = state.disposed
       ? null
       : selectNextRequestedLane(state.lanes.values());
+    // Only a pump callback holds the barrier: an upload session on the same
+    // key owns nothing the pump waits for, and hasRunnableLaneWork ignores it.
     const structuralPending = Array.from(state.lanes.values()).some(
       (candidate) =>
         candidate.config.phase === "structural" &&
-        ((candidate.pumpDriven && isLaneRunning(candidate)) ||
+        ((candidate.pumpDriven && candidate.run.status === "running") ||
           isRequestedLaneAvailable(candidate)),
     );
     const structuralRunning = Array.from(running.keys()).some(
