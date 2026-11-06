@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { mockIdentityLink } from "../../../../test/helpers/mockIdentityLink";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,

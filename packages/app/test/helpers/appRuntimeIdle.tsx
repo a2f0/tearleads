@@ -11,7 +11,7 @@ import {
   useTearleadsRuntime,
 } from "../../src/providers/sdk/TearleadsProvider";
 import { observeIdentityLinkRuntime } from "./identityLinkFixtures";
-import { getProxiedApiNetworkActivitySnapshot } from "./mswServer";
+import { getProxiedApiNetworkActivitySnapshot } from "./msw/server";
 import {
   hasPendingOrganizationRuntimeWork,
   observeOrganizationRuntime,

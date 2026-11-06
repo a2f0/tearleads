@@ -25,7 +25,7 @@ import {
   AppTestRuntimeScopeProbe,
   waitForAppTestRuntimeToSettle,
 } from "./appRuntimeIdle";
-import { listProxiedApiRequests, resetMockServer } from "./mswServer";
+import { listProxiedApiRequests, resetMockServer } from "./msw/server";
 import { createTestHostConfig } from "./paneTestHostConfig";
 import { renderEmptyDesktop } from "./renderEmptyDesktop";
 

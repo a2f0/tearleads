@@ -13,7 +13,7 @@ import {
 } from "../../src/host/AppHostConfig";
 import { resolveTestHostProfile } from "./manualIdentityProfile";
 import { MockMessageChannel, MockWorker } from "./mockWorker";
-import { wsUrl } from "./mswServer";
+import { wsUrl } from "./msw/server";
 import { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
 
 const testMessageChannelConstructor =

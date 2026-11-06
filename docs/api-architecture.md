@@ -194,7 +194,7 @@ This layer:
 - delegates transaction orchestration to workflows
 
 App tests that need real backend behavior call `useTestApiAppHandlers`
-([`packages/app/test/helpers/mswServer.ts`](../packages/app/test/helpers/mswServer.ts)),
+([`packages/app/test/helpers/msw/server.ts`](../packages/app/test/helpers/msw/server.ts)),
 which proxies every API request into `createRouteApp`, so they exercise these
 services without a second backend implementation. The multi-party scenarios in
 [`packages/bob-and-alice`](../packages/bob-and-alice/) serve the same route app

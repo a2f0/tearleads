@@ -4,7 +4,7 @@ import type { WorkerRequest } from "@tearleads/sqlite-worker/types";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { openIdentityManagerFromPane } from "../../../../test/helpers/identityPaneTestUtils";
 import { MockWorker } from "../../../../test/helpers/mockWorker";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
 import {
   cleanupPaneTestEnvironment,
   createSharedMemoryLocalKeyringFactory,

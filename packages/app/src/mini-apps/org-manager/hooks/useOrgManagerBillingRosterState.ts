@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
-import type { OrgManagerModel } from "./useOrgManagerModel";
+import type { OrgManagerModel } from "../model/useOrgManagerModel";
 
 export function useOrgManagerBillingRosterState(
   model: OrgManagerModel,

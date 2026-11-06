@@ -12,6 +12,8 @@
     ".claude/skills/ship-pr/SKILL.md": "6cd5bc6a6321542840911011ae6823e49e74a37b8da341f98fdc6d42c0ae339e",
     ".claude/skills/squash-merge/SKILL.md": "1c1809570b50cbae66b062429defaae9855e936aec771113521c5e5d913196f7",
     ".agents/skills/update-dependencies/SKILL.md": "dd4941ab4e70b731ef801cd016fdd371d10ebb520506f4df5a1beba068080ab2",
-    ".claude/skills/update-dependencies/SKILL.md": "dd4941ab4e70b731ef801cd016fdd371d10ebb520506f4df5a1beba068080ab2"
+    ".claude/skills/update-dependencies/SKILL.md": "dd4941ab4e70b731ef801cd016fdd371d10ebb520506f4df5a1beba068080ab2",
+    ".agents/skills/open-issue/SKILL.md": "cf075fe29006db255efa83feb43100b6cff70421733cbd7e51413993ff5df814",
+    ".claude/skills/open-issue/SKILL.md": "cf075fe29006db255efa83feb43100b6cff70421733cbd7e51413993ff5df814"
   }
 }
