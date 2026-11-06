@@ -15,7 +15,7 @@ import {
   signedHistoryEpochIds,
 } from "../../../../data/documents/shared/containerKek";
 import { unwrapContainerKekPath } from "../../../../data/documents/shared/projection";
-import { projectionVerificationOptions } from "../../../../data/documents/shared/types";
+import { projectionVerificationOptions } from "../../../../data/documents/shared/projection/projectionVerificationOptions";
 import type {
   PrincipalPolicyCache,
   ProjectionUserKeyResolver,

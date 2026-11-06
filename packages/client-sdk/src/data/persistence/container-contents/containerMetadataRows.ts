@@ -2,11 +2,11 @@ import { base64ToBytes } from "@tearleads/encoding";
 import { getImportBlobMetadata } from "@tearleads/loro";
 import { and, eq } from "drizzle-orm";
 import { serializeDocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
+import { containers } from "../../sqlite/schema";
 import {
-  containers,
   documentHistoryCheckpoints,
   documents,
-} from "../../sqlite/schema";
+} from "../../sqlite/schema/documentRecordSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

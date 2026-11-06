@@ -1,10 +1,10 @@
+import { documentPlacementIntentTables } from "../../../sqlite/schema";
 import {
   documentContainerProjectionTables,
-  documentPlacementIntentTables,
   documentProjectionTables,
-  documentTables,
-  keyingCheckpointTables,
-} from "../../../sqlite/schema";
+} from "../../../sqlite/schema/documentProjectionSchema";
+import { documentTables } from "../../../sqlite/schema/documentRecordSchema";
+import { keyingCheckpointTables } from "../../../sqlite/schema/keyingCheckpointSchema";
 import {
   type ExecSql,
   ensureSqlTables,

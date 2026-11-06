@@ -6,9 +6,7 @@ import {
 import { recordSupersededContainerBindingsInTransaction } from "../../../data/persistence/container-contents/supersededContainerBindings";
 import {
   containerHydrationTombstones,
-  containerSyncWatermarks,
   containers,
-  documentContainerProjection,
   dormantContainerMetadata,
   dormantMetadataSweepRequests,
   inContainerIntentLanes,
@@ -16,7 +14,9 @@ import {
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../../data/sqlite/schema";
+import { containerSyncWatermarks } from "../../../data/sqlite/schema/containerSyncWatermarkSchema";
 import { documentIntentLinkTargets } from "../../../data/sqlite/schema/documentPlacementIntentSchema";
+import { documentContainerProjection } from "../../../data/sqlite/schema/documentProjectionSchema";
 import { remoteResetBatches } from "../../../data/sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { isRemoteResetSyncCursor } from "./remoteResetCursorScope";

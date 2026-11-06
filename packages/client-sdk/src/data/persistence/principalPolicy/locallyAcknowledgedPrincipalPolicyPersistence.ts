@@ -5,10 +5,8 @@ import {
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import {
-  keyingCheckpointTables,
-  principalPolicyTables,
-} from "../../sqlite/schema";
+import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
+import { principalPolicyTables } from "../../sqlite/schema/principalPolicySchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

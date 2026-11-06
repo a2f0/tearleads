@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
-import { documents } from "../../sqlite/schema";
+import { documents } from "../../sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import {

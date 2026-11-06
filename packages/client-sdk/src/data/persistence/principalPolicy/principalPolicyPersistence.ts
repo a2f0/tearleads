@@ -6,11 +6,11 @@ import type {
 import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { and, asc, eq } from "drizzle-orm";
 import {
-  keyingCheckpointTables,
   principalPolicies,
   principalPolicyBundleHistory,
-  principalPolicyTables,
 } from "../../sqlite/schema";
+import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
+import { principalPolicyTables } from "../../sqlite/schema/principalPolicySchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

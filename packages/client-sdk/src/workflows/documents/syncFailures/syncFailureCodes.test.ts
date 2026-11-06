@@ -14,7 +14,7 @@ import {
   isRetryableDocumentSyncConflict,
   isUpstreamDeletedDocumentSyncFailure,
 } from "../../../data/documents/shared/responses";
-import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/types";
+import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import {
   isCheckpointCoverageConflict,
   isDocumentManifestAlreadyExistsConflict,

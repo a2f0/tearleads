@@ -4,10 +4,8 @@ import {
   type PrincipalPolicyCheckpoint,
   type VerifiedOrganizationReplacementAuthorization,
 } from "@tearleads/crypto";
-import {
-  keyingCheckpointTables,
-  principalPolicyTables,
-} from "../../sqlite/schema";
+import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
+import { principalPolicyTables } from "../../sqlite/schema/principalPolicySchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { assertContainerNotRetired } from "../principalKeys/principalGrantRetirementPersistence";

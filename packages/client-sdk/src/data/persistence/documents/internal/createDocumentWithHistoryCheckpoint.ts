@@ -1,5 +1,5 @@
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
-import { documentHistoryCheckpoints } from "../../../sqlite/schema";
+import { documentHistoryCheckpoints } from "../../../sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";
 import { insertDocumentPendingUpdateWithHistoryInTransaction } from "../records/documentPendingUpdatePersistence";

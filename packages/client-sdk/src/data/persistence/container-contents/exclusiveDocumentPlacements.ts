@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
-import { documentContainerProjection, documents } from "../../sqlite/schema";
+import { documentContainerProjection } from "../../sqlite/schema/documentProjectionSchema";
+import { documents } from "../../sqlite/schema/documentRecordSchema";
 import { SQLITE_BOUND_VARIABLE_BUDGET } from "../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";

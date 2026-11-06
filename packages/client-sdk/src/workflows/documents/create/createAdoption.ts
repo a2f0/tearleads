@@ -9,13 +9,13 @@ import {
   readLinkedContainerIdsFromDocumentManifest,
   unwrapDocumentContentKeyFromWriterProjection,
 } from "../../../data/documents/shared/projection";
+import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
+import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { persistedDocumentCreateStateFromWriterProjection } from "../../../data/documents/shared/responses";
 import type {
   CreateRemoteDocumentResult,
   DocumentCreateApi,
-  ProjectionVerificationOptions,
 } from "../../../data/documents/shared/types";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import {
   readAccessEvent,
   readAccessManifest,

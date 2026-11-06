@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { ensureSqlTables } from "../sqlTableSchema";
-import { organizationReadModelTables, principalPolicyTables } from "./index";
+import { organizationReadModelTables } from "./index";
+import { principalPolicyTables } from "./principalPolicySchema";
 
 test("SDK principal epoch records round-trip the exact integer range", async () => {
   const { close, execSql } = await createTestExecSql("principal-epoch-storage");

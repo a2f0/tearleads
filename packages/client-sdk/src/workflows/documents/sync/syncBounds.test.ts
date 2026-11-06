@@ -21,7 +21,7 @@ import {
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { createStaleBundleSyncFixture } from "../../../../test/helpers/staleBundleSyncFixture";
-import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/types";
+import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";

@@ -4,7 +4,7 @@ import {
   createDocumentDiscoveryEvidenceStore,
   type DiscoveredDocumentCandidate,
 } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
-import { documentContainerProjectionTables } from "../../../data/sqlite/schema";
+import { documentContainerProjectionTables } from "../../../data/sqlite/schema/documentProjectionSchema";
 import { ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import {
   discoverContainerDocuments,

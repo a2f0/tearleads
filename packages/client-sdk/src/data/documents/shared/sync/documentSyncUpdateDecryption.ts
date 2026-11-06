@@ -24,11 +24,13 @@ import {
   readWriteHeader,
 } from "../readers";
 import {
-  type DecryptedDocumentSyncUpdate,
   DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
   DOCUMENT_ENCRYPTED_UPDATE_KEYS,
-  type ParsedDocumentEncryptedUpdate,
 } from "../types";
+import type {
+  DecryptedDocumentSyncUpdate,
+  ParsedDocumentEncryptedUpdate,
+} from "./documentSyncTypes";
 import { isolateDocumentSyncUpdateError } from "./documentSyncUpdateIsolation";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];

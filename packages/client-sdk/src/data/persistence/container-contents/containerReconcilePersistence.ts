@@ -1,8 +1,8 @@
+import { documentPlacementIntentTables } from "../../sqlite/schema";
 import {
   documentContainerProjectionTables,
-  documentPlacementIntentTables,
   documentProjectionTables,
-} from "../../sqlite/schema";
+} from "../../sqlite/schema/documentProjectionSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   ensureSqlTables,

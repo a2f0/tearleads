@@ -12,12 +12,14 @@ import {
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import {
   documentAttachmentBlobProjection,
-  documentHistoryCheckpoints,
-  documentHistoryUpdates,
   documentPendingAttachments,
-  documents,
 } from "../../../sqlite/schema";
 import { documentOrphanBlobReclaims } from "../../../sqlite/schema/documentOrphanBlobReclaimSchema";
+import {
+  documentHistoryCheckpoints,
+  documentHistoryUpdates,
+  documents,
+} from "../../../sqlite/schema/documentRecordSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

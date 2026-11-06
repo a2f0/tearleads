@@ -25,12 +25,12 @@ import type {
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { importContentKeyMaterial } from "../../../data/documents/shared/contentRecordKeys";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
+import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import {
   asWebCryptoBytes,
   readWriteHeader,
   uniqueSortedStrings,
 } from "../../../data/documents/shared/readers";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import type { DocumentWriterProjectionAuthorization } from "../../../data/keyingProjectionVerification";
 import {

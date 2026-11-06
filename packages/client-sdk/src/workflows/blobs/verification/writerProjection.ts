@@ -8,7 +8,7 @@ import { assertDocumentWriterProjectionConsistent } from "../../../data/document
 import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
-} from "../../../data/documents/shared/types";
+} from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 /**

@@ -2,11 +2,11 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import type {
   MaterializedDocumentSyncPlan,
   SyncRemoteDocumentResult,
-} from "../../../data/documents/shared/types";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
+} from "../../../data/documents/shared/sync/documentSyncTypes";
 import {
   type ProjectionUserKeyResolver,
   verifyDocumentWriterProjectionAuthorization,

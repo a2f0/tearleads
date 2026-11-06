@@ -1,12 +1,12 @@
 import { and, asc, eq, inArray, lte, min, or, sql } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../documents/shared/readers";
 import { readStringArray } from "../../shared/recordReaders";
-import { documentContainerProjectionTables } from "../../sqlite/schema";
 import {
   documentDiscoveryHeads,
   documentDiscoverySequence,
   pendingDocumentDiscoveries,
 } from "../../sqlite/schema/documentDiscoveryEvidenceSchema";
+import { documentContainerProjectionTables } from "../../sqlite/schema/documentProjectionSchema";
 import {
   remoteResetBatches,
   sqliteInsertBatchSize,

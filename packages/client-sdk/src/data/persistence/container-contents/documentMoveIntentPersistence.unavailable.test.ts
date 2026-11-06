@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { containerTables } from "../../sqlite/schema";
 import {
-  containerTables,
   documentContainerProjectionTables,
   documentProjectionTables,
-} from "../../sqlite/schema";
+} from "../../sqlite/schema/documentProjectionSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../sqlite/sqlSchema";
 import { reassignContainerDocumentsInTransaction } from "./containerDocumentReassignment";

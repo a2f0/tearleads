@@ -3,17 +3,19 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import {
   clientSqlTables,
-  containerSyncWatermarks,
   containers,
-  documentHistoryCheckpoints,
-  documentProjection,
-  documents,
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
   principalPolicyCheckpoints,
   supersededContainerBindings,
 } from "../../data/sqlite/schema";
+import { containerSyncWatermarks } from "../../data/sqlite/schema/containerSyncWatermarkSchema";
+import { documentProjection } from "../../data/sqlite/schema/documentProjectionSchema";
+import {
+  documentHistoryCheckpoints,
+  documents,
+} from "../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { clearRemoteSyncState } from "./remoteReset";

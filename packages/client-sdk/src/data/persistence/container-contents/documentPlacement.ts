@@ -1,11 +1,11 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
 import {
-  documents,
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../sqlite/schema";
+import { documents } from "../../sqlite/schema/documentRecordSchema";
 import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
