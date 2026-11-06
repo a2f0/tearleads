@@ -104,6 +104,27 @@ export async function loadCandidateContainersForPrincipals(input: {
   );
 }
 
+/** Walks loaded parents upward, stopping at a cycle or an unloaded row. */
+function loadedContainerPathIds(
+  rowsById: ReadonlyMap<string, ContainerRow>,
+  containerId: string,
+): Set<string> {
+  const pathIds = new Set<string>();
+  const visitedIds = new Set<string>();
+  let currentId: string | null = containerId;
+
+  while (currentId && !visitedIds.has(currentId)) {
+    visitedIds.add(currentId);
+    const row = rowsById.get(currentId);
+    if (!row) {
+      break;
+    }
+    pathIds.add(currentId);
+    currentId = row.parentId;
+  }
+  return pathIds;
+}
+
 export async function loadContainerPathIdsByContainerId(input: {
   readonly containerIds: readonly string[];
   readonly executor: DatabaseTransaction;
@@ -135,21 +156,10 @@ export async function loadContainerPathIdsByContainerId(input: {
 
   const pathIdsByContainerId = new Map<string, Set<string>>();
   for (const containerId of input.containerIds) {
-    const pathIds = new Set<string>();
-    const visitedIds = new Set<string>();
-    let currentId: string | null = containerId;
-
-    while (currentId && !visitedIds.has(currentId)) {
-      visitedIds.add(currentId);
-      const row = rowsById.get(currentId);
-      if (!row) {
-        break;
-      }
-      pathIds.add(currentId);
-      currentId = row.parentId;
-    }
-
-    pathIdsByContainerId.set(containerId, pathIds);
+    pathIdsByContainerId.set(
+      containerId,
+      loadedContainerPathIds(rowsById, containerId),
+    );
   }
 
   return pathIdsByContainerId;

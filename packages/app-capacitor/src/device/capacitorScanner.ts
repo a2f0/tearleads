@@ -43,6 +43,18 @@ function isCameraCancellation(error: unknown): boolean {
   );
 }
 
+function cleanupFailureCause(
+  readResult: { photo: Blob } | { error: unknown },
+  cleanupFailure: unknown,
+): unknown {
+  return "error" in readResult
+    ? new AggregateError(
+        [readResult.error, cleanupFailure],
+        "Photo read and cleanup failed.",
+      )
+    : cleanupFailure;
+}
+
 /** Adapts Capacitor's temporary camera URI into the app's Blob-based Scanner. */
 export function createCapacitorScanner(
   dependencies: {
@@ -80,13 +92,7 @@ export function createCapacitorScanner(
           if (result.uri) await deletePhoto(result.uri);
         } catch (cleanupFailure) {
           throw new ScannerPhotoCleanupError({
-            cause:
-              "error" in readResult
-                ? new AggregateError(
-                    [readResult.error, cleanupFailure],
-                    "Photo read and cleanup failed.",
-                  )
-                : cleanupFailure,
+            cause: cleanupFailureCause(readResult, cleanupFailure),
           });
         }
         if ("error" in readResult) throw readResult.error;

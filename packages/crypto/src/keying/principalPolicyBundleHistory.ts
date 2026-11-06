@@ -34,6 +34,17 @@ function assertBundleEntryInScope(
     );
 }
 
+/** A full page, or the final entry, appends the pending batch to the index. */
+function closesIndexPage(
+  batchLength: number,
+  index: number,
+  version: number,
+): boolean {
+  return (
+    batchLength === PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT || index === version - 1
+  );
+}
+
 /** Check a complete bundle against locally verified history without replaying signatures. */
 export function verifyPrincipalPolicyBundleAgainstHistory(input: {
   readonly bundle: PrincipalPolicyBundle;
@@ -86,10 +97,7 @@ export function verifyPrincipalPolicyBundleAgainstHistory(input: {
         grants: [...entry.grants],
       });
       batch.push(entry.state);
-      if (
-        batch.length === PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT ||
-        index === current.version - 1
-      ) {
+      if (closesIndexPage(batch.length, index, current.version)) {
         const appended = await appendPrincipalHistoryIndex(frontier, batch);
         frontier = appended.frontier;
         rootHash = appended.rootHash;

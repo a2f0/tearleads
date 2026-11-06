@@ -132,6 +132,23 @@ async function reportUnavailableHead(
   }
 }
 
+/** Only a typed 404 proves absence; any other failure leaves the head unavailable. */
+function failedHeadVerdict(
+  runtime: ContainerContentsWorkflowRuntime,
+  documentId: string,
+  failure: {
+    readonly code?: string | undefined;
+    readonly status?: number | null | undefined;
+  },
+): "not-found" | null {
+  if (failure.status === 404 && failure.code === DOCUMENT_NOT_FOUND_ERROR_CODE)
+    return "not-found";
+  runtime.util.log(
+    `Container contents: tombstone evidence for document ${documentId} is unavailable (${failure.status ?? "offline"})`,
+  );
+  return null;
+}
+
 /** `policyOperation` lets one discovery pass share a directory discovery. */
 export function createDocumentHeadLinkSetLoader(
   runtime: ContainerContentsWorkflowRuntime,
@@ -176,17 +193,7 @@ export function createDocumentHeadLinkSetLoader(
           { reportErrors: false },
         );
       }
-      if (!result.ok) {
-        if (
-          result.status === 404 &&
-          result.code === DOCUMENT_NOT_FOUND_ERROR_CODE
-        )
-          return "not-found";
-        runtime.util.log(
-          `Container contents: tombstone evidence for document ${documentId} is unavailable (${result.status ?? "offline"})`,
-        );
-        return null;
-      }
+      if (!result.ok) return failedHeadVerdict(runtime, documentId, result);
       return await verifiedHeadLinkSet(
         runtime,
         deps,

@@ -42,6 +42,16 @@ function payloadsConflict(
   );
 }
 
+function keepNewestGroups(
+  groups: Map<string, PrincipalPolicyHistorySourceResponse>,
+  candidates: readonly PrincipalPolicyHistorySourceResponse[],
+): void {
+  for (const group of candidates) {
+    const prior = groups.get(group.head.principalId);
+    if (newer(prior, group)) groups.set(group.head.principalId, group);
+  }
+}
+
 /** Combine proof material when locally composing projections; verification follows. */
 export function mergeProjectionPolicyEvidence(
   evidence: readonly ProjectionPolicyEvidenceResponse[],
@@ -62,10 +72,7 @@ export function mergeProjectionPolicyEvidence(
         );
       payloads.set(payload.reference.stateHash, payload);
     }
-    for (const group of proof.groups) {
-      const prior = groups.get(group.head.principalId);
-      if (newer(prior, group)) groups.set(group.head.principalId, group);
-    }
+    keepNewestGroups(groups, proof.groups);
   }
   return {
     organization: directory?.organization ?? null,

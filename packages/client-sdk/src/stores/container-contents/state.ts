@@ -186,6 +186,14 @@ export function subscribeToContainerContentsStore(
   return () => state.listeners.delete(listener);
 }
 
+function hasContainerContentsLoadState(
+  state: ContainerContentsStoreState,
+): boolean {
+  return Boolean(
+    state.snapshot.ready || state.initialized || state.initializePromise,
+  );
+}
+
 export function updateContainerContentsStoreRuntime(
   state: ContainerContentsStoreState,
   nextRuntime: ContainerContentsStoreRuntime,
@@ -223,7 +231,7 @@ export function updateContainerContentsStoreRuntime(
   }
 
   if (nextRuntime.infra.dbStatus !== "ready") {
-    if (state.snapshot.ready || state.initialized || state.initializePromise) {
+    if (hasContainerContentsLoadState(state)) {
       resetContainerContentsStore(state);
     }
     return;

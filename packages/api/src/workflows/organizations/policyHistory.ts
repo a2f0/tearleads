@@ -32,6 +32,17 @@ function reject(message: string): never {
   throw new PrincipalPolicyError(`Organization history: ${message}`, 409);
 }
 
+function keepLatestGroupHeads(
+  groupHeads: Map<string, ReferencedPrincipalHead>,
+  cited: readonly ReferencedPrincipalHead[],
+): void {
+  for (const group of cited) {
+    const previous = groupHeads.get(group.principalId);
+    if (!previous || group.version > previous.version)
+      groupHeads.set(group.principalId, group);
+  }
+}
+
 async function verifyWindow(
   executor: DatabaseSession,
   head: ReferencedPrincipalHead,
@@ -49,11 +60,7 @@ async function verifyWindow(
     if (!descriptor || descriptor.organizationId !== head.principalId)
       reject("directory scope is invalid");
     references.push(principalHistoryHead(state), ...descriptor.groupHeads);
-    for (const group of descriptor.groupHeads) {
-      const previous = groupHeads.get(group.principalId);
-      if (!previous || group.version > previous.version)
-        groupHeads.set(group.principalId, group);
-    }
+    keepLatestGroupHeads(groupHeads, descriptor.groupHeads);
   }
   const policies = await loadPrincipalPolicySelections(executor, references);
   for (const reference of references)

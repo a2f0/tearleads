@@ -93,6 +93,20 @@ function useExplorerRouteBinding() {
   return { appRoute, parsedAppRoute, route, routeSnapshot, setRoute };
 }
 
+// A null-container document is valid only through the organization-scoped
+// recovery collection. A crafted ordinary-container deep link must not select
+// a cached orphan and expose its Move action.
+function isSelectableRouteDocument(
+  result: ExplorerRouteDocumentSummaryResult,
+  containerId: string,
+): boolean {
+  return (
+    result.status === "loaded" &&
+    (isExplorerOrphanedDocumentsId(containerId) ||
+      result.documentSummary.containerId !== null)
+  );
+}
+
 function useExplorerRouteSelectionEffect(params: {
   appRouteIsRouted: boolean;
   nodes: ReadonlyArray<ContainerNode>;
@@ -151,14 +165,7 @@ function useExplorerRouteSelectionEffect(params: {
             );
             return;
           }
-          // A null-container document is valid only through the organization-
-          // scoped recovery collection. A crafted ordinary-container deep link
-          // must not select a cached orphan and expose its Move action.
-          if (
-            result.status === "loaded" &&
-            (isExplorerOrphanedDocumentsId(documentSelectionContainerId) ||
-              result.documentSummary.containerId !== null)
-          ) {
+          if (isSelectableRouteDocument(result, documentSelectionContainerId)) {
             selectDocument(
               documentSelectionLocalId,
               documentSelectionContainerId,

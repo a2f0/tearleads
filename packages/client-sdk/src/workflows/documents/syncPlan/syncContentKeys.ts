@@ -290,6 +290,21 @@ export function throwDocumentSyncContentKeyFailure(input: {
   });
 }
 
+function requireContentKeyBundle(
+  bundlesByEpoch: ReturnType<typeof syncResponseContentKeyBundlesByEpoch>,
+  contentKeyEpoch: number,
+  updates: readonly SyncResponseUpdate[],
+) {
+  const bundle = bundlesByEpoch.get(contentKeyEpoch);
+  if (!bundle) {
+    throwDocumentSyncContentKeyFailure({
+      cause: new Error("Document sync response content-key bundle missing"),
+      updates,
+    });
+  }
+  return bundle;
+}
+
 export async function unwrapDocumentSyncResponseContentKeys(
   input: {
     currentContentKey: Uint8Array;
@@ -355,18 +370,13 @@ export async function unwrapDocumentSyncResponseContentKeys(
     | undefined;
 
   for (const contentKeyEpoch of missingContentKeyEpochs) {
-    const bundle = bundlesByEpoch.get(contentKeyEpoch);
     const responseUpdates =
       updatesByContentKeyEpoch.get(contentKeyEpoch) ?? missingUpdates;
-    if (!bundle) {
-      const error = new Error(
-        "Document sync response content-key bundle missing",
-      );
-      throwDocumentSyncContentKeyFailure({
-        cause: error,
-        updates: responseUpdates,
-      });
-    }
+    const bundle = requireContentKeyBundle(
+      bundlesByEpoch,
+      contentKeyEpoch,
+      responseUpdates,
+    );
     try {
       contentKeysByEpoch.set(
         bundle.contentKeyEpoch,

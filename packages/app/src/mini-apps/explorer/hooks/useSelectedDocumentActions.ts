@@ -223,6 +223,22 @@ function usePurgeDocumentAction(params: {
   );
 }
 
+/** An unfiled document has no current container rule to satisfy. */
+function canLinkOutOfCurrentContainer(
+  document: Pick<DocumentSummary, "containerId">,
+  nodes: ReadonlyArray<ContainerNode>,
+  rulesContext: ExplorerContainerRulesContext,
+): boolean {
+  if (document.containerId === null) return true;
+  const currentContainer = nodes.find(
+    (node) => node.id === document.containerId,
+  );
+  return (
+    canWriteContainerNode(currentContainer) &&
+    canLinkDocumentOutByRules(rulesContext, currentContainer)
+  );
+}
+
 function useLinkDocumentAction(params: {
   appData: ContainerDocumentLinks;
   documentSummaries: ReadonlyArray<DocumentSummary>;
@@ -258,14 +274,8 @@ function useLinkDocumentAction(params: {
       if (!existingDocument || !canWriteDocumentSummary(existingDocument)) {
         return null;
       }
-      const currentContainer =
-        existingDocument.containerId === null
-          ? undefined
-          : nodes.find((node) => node.id === existingDocument.containerId);
       if (
-        existingDocument.containerId !== null &&
-        (!canWriteContainerNode(currentContainer) ||
-          !canLinkDocumentOutByRules(rulesContext, currentContainer))
+        !canLinkOutOfCurrentContainer(existingDocument, nodes, rulesContext)
       ) {
         return null;
       }

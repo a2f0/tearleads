@@ -27,6 +27,13 @@ interface PreparedOutgoingCoverage {
   readonly record: DocumentRecord;
 }
 
+function requirePendingBase(version: string | null, message: string): string {
+  if (version === null) {
+    throw new Error(message);
+  }
+  return version;
+}
+
 /**
  * Rebuild the durable outgoing frontier before a sync can clean-skip or delete
  * accepted queue rows. Existing rows promote the marker only through connected
@@ -44,10 +51,10 @@ export async function prepareDocumentOutgoingCoverage(input: {
   const { currentDoc, generation, state } = input;
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
 
-  const baseVersion = input.coverageBaseVersion ?? state.pendingBaseVersion;
-  if (baseVersion === null) {
-    throw new Error("Document sync requires an initialized pending base");
-  }
+  const baseVersion = requirePendingBase(
+    input.coverageBaseVersion ?? state.pendingBaseVersion,
+    "Document sync requires an initialized pending base",
+  );
 
   const documentVersion = encodeVersionVector(currentDoc);
   const queuedCoverage = extendDocumentVersionCoverage({
@@ -84,10 +91,10 @@ export async function prepareDocumentOutgoingCoverage(input: {
   // A local write may have advanced the in-memory frontier while the enqueue
   // awaited. Merge instead of assigning so this background repair can never
   // move the marker backwards.
-  const liveBaseVersion = state.pendingBaseVersion;
-  if (liveBaseVersion === null) {
-    throw new Error("Document sync lost its pending base");
-  }
+  const liveBaseVersion = requirePendingBase(
+    state.pendingBaseVersion,
+    "Document sync lost its pending base",
+  );
   const nextBaseVersion = mergeVersionVectors([
     liveBaseVersion,
     preparedCoverage,

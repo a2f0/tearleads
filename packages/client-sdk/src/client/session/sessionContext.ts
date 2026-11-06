@@ -1,6 +1,13 @@
 import { restoreSessionRoots } from "./sessionRootAuthority";
 import type { SessionContext, SessionSnapshot } from "./sessionTypes";
 
+function mergedUserId(
+  previous: SessionSnapshot,
+  context: SessionContext,
+): SessionSnapshot["userId"] {
+  return "userId" in context ? (context.userId ?? null) : previous.userId;
+}
+
 export function mergeSessionContext(
   previous: SessionSnapshot,
   context: SessionContext,
@@ -10,7 +17,7 @@ export function mergeSessionContext(
     previous.rootAcknowledgments,
     context.rootAcknowledgments,
     signingFingerprint,
-    "userId" in context ? (context.userId ?? null) : previous.userId,
+    mergedUserId(previous, context),
   );
   return {
     rootAcknowledgments,
@@ -33,7 +40,7 @@ export function mergeSessionContext(
       "organizationId" in context
         ? (context.organizationId ?? null)
         : previous.organizationId,
-    userId: "userId" in context ? (context.userId ?? null) : previous.userId,
+    userId: mergedUserId(previous, context),
   };
 }
 

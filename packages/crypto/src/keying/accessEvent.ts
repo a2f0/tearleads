@@ -398,6 +398,22 @@ export async function computeAccessManifestHash(
   return computeKeyingDomainHash("tearleads.keying.access-manifest", payload);
 }
 
+function assertExpectedAccessObject(
+  expectedObject: VerifyAccessManifestInput["expectedObject"],
+  manifest: Pick<AccessManifest, "objectId" | "objectKind">,
+): void {
+  if (
+    expectedObject &&
+    (expectedObject.objectKind !== manifest.objectKind ||
+      expectedObject.objectId !== manifest.objectId)
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "access manifest object does not match expected object",
+    );
+  }
+}
+
 export async function verifyAccessManifest({
   checkpointPredecessors,
   event,
@@ -458,16 +474,7 @@ export async function verifyAccessManifest({
       );
     }
 
-    if (
-      expectedObject &&
-      (expectedObject.objectKind !== normalizedManifest.objectKind ||
-        expectedObject.objectId !== normalizedManifest.objectId)
-    ) {
-      throwVerification(
-        "object_mismatch",
-        "access manifest object does not match expected object",
-      );
-    }
+    assertExpectedAccessObject(expectedObject, normalizedManifest);
 
     const checkpoint = accessManifestCheckpointFromManifest({
       manifest: normalizedManifest,

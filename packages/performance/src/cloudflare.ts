@@ -52,6 +52,12 @@ function tailApi(worker: string, runtime: TailRuntime) {
   return { endpoint, api };
 }
 
+/** Tail frames arrive as text or binary; anything else parses as invalid JSON. */
+function tailMessageText(data: unknown): string {
+  if (typeof data === "string") return data;
+  return data instanceof ArrayBuffer ? new TextDecoder().decode(data) : "";
+}
+
 export async function openCloudflareTail(
   worker: string,
   runId: string,
@@ -96,14 +102,10 @@ export async function openCloudflareTail(
     connection.binaryType = "arraybuffer";
     connection.addEventListener("message", (event) => {
       try {
-        const data: unknown = event.data;
-        const text =
-          typeof data === "string"
-            ? data
-            : data instanceof ArrayBuffer
-              ? new TextDecoder().decode(data)
-              : "";
-        const sanitized = sanitizeCostEvent(JSON.parse(text), runId);
+        const sanitized = sanitizeCostEvent(
+          JSON.parse(tailMessageText(event.data)),
+          runId,
+        );
         if (sanitized && events.length < 500) events.push(sanitized);
         else if (
           sanitized &&

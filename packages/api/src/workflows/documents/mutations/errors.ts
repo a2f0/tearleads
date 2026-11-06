@@ -128,6 +128,22 @@ function nonWipeStatus<Status extends number>(status: Status): Status | 409 {
   return status === 404 ? 409 : status;
 }
 
+function fromContainerMutationError(
+  error: ContainerMutationError,
+): DocumentMutationError {
+  const stalePolicyBody = isPrincipalPolicyStaleErrorResponse(error.body)
+    ? error.body
+    : null;
+  return new DocumentMutationError(
+    error.message,
+    nonWipeStatus(error.status),
+    containerMutationErrorCode(error),
+    stalePolicyBody
+      ? { principalHeads: stalePolicyBody.principalHeads }
+      : undefined,
+  );
+}
+
 export function toMutationError(error: unknown): DocumentMutationError | null {
   if (error instanceof DocumentMutationError) {
     return error;
@@ -158,17 +174,7 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
   }
 
   if (error instanceof ContainerMutationError) {
-    const stalePolicyBody = isPrincipalPolicyStaleErrorResponse(error.body)
-      ? error.body
-      : null;
-    return new DocumentMutationError(
-      error.message,
-      nonWipeStatus(error.status),
-      containerMutationErrorCode(error),
-      stalePolicyBody
-        ? { principalHeads: stalePolicyBody.principalHeads }
-        : undefined,
-    );
+    return fromContainerMutationError(error);
   }
 
   if (error instanceof ContainerWriterProjectionError) {

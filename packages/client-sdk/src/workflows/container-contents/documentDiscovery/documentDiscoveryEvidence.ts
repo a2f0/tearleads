@@ -6,6 +6,7 @@ import type {
 import type {
   DocumentHeadLinkSetLoader,
   LocalDocumentAccessEpochLoader,
+  VerifiedDocumentHeadLinkSet,
 } from "../tombstones/documentTombstoneEvidence";
 import {
   HEAD_LINK_SET_LOAD_CONCURRENCY,
@@ -14,6 +15,19 @@ import {
 import { groupPendingDocumentDiscoveries } from "./documentDiscoveryCandidates";
 import type { DiscoverContainerDocumentsOptions } from "./documentDiscoveryTypes";
 import { documentHeadMatchesOrganization } from "./documentHeadScope";
+
+// A same-epoch head can predate a link addition. Only the named head or
+// terminal signed purge evidence can settle a candidate without a retry.
+function unlistedHeadVerdict(
+  head: VerifiedDocumentHeadLinkSet,
+  input: DiscoveredDocumentCandidate,
+): null | "unavailable" {
+  return head.accessEpoch > input.accessEpoch ||
+    head.accessStateHash === input.accessStateHash ||
+    (!head.accessStateHash && head.accessEpoch === Number.MAX_SAFE_INTEGER)
+    ? null
+    : "unavailable";
+}
 
 async function verifyInput(
   input: DiscoveredDocumentCandidate,
@@ -46,15 +60,7 @@ async function verifyInput(
   const containerId = input.listedContainerIds.find((id) =>
     head.linkedContainerIds.includes(id),
   );
-  if (!containerId) {
-    // A same-epoch head can predate a link addition. Only the named head or
-    // terminal signed purge evidence can settle a candidate without a retry.
-    return head.accessEpoch > input.accessEpoch ||
-      head.accessStateHash === input.accessStateHash ||
-      (!head.accessStateHash && head.accessEpoch === Number.MAX_SAFE_INTEGER)
-      ? null
-      : "unavailable";
-  }
+  if (!containerId) return unlistedHeadVerdict(head, input);
   if (!head.accessStateHash) return "unavailable";
   if (!(await store.saveHead(input.documentId, head, generation)))
     return "unavailable";
