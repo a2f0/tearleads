@@ -34,12 +34,12 @@ import {
   capturePostShareSyncBaseline,
   waitForNoPostShareSyncFailures,
 } from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
-import { dropNextMswServerEventWhere } from "../../../../test/helpers/mswEventRouter";
+import { dropNextMswServerEventWhere } from "../../../../test/helpers/msw/eventRouter";
 import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
-} from "../../../../test/helpers/mswServer";
+} from "../../../../test/helpers/msw/server";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 
 afterEach(async () => {

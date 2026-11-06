@@ -10,8 +10,8 @@ import {
   IdentityManagerTestRuntime,
   TestWebSocket,
 } from "../../../../test/helpers/identityManagerTestRuntime";
-import "../../../../test/helpers/mswServer";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
+import "../../../../test/helpers/msw/server";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
 import { PANE_ASYNC_TEST_TIMEOUT_MS } from "../../../../test/helpers/paneTestUtils";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { sqliteDbNameForSigningFingerprint } from "../../../providers/db/sqliteDbName";

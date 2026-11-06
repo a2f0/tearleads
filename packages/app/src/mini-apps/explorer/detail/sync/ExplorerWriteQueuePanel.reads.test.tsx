@@ -1,56 +1,43 @@
 import { afterEach, expect, test } from "bun:test";
 import type {
   ContainerDocumentQueries,
-  ContainerNode,
   PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
 import {
   createDomainScope,
-  syncedContainerDocumentObjectSyncState,
+  getDomainSyncCoordinatorSnapshot,
+  getOrCreateDomainSyncCoordinator,
 } from "@tearleads/client-sdk";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
+import {
+  ARCHIVE_NODE,
+  item,
+} from "../../../../../test/helpers/explorer/syncPanelFixtures";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerWriteQueuePanel } from "./ExplorerWriteQueuePanel";
 
 afterEach(() => cleanup());
 
-const CREATED_AT = "2026-07-16T12:00:00.000Z";
-
-const ARCHIVE_NODE = {
-  id: "archive-container",
-  kind: "container",
-  name: "Archive",
-  organizationId: "custom-org",
-  parentId: null,
-  syncState: syncedContainerDocumentObjectSyncState,
-} satisfies ContainerNode;
-
-function item(): PendingWriteQueueItem {
-  return {
-    containerId: "documents-container",
-    createdAt: CREATED_AT,
-    localId: "document-local-id",
-    name: "Offline note",
-    namespace: null,
-    objectKind: "document",
-    operations: [
-      {
-        byteLength: 0,
-        count: 1,
-        createdAt: CREATED_AT,
-        kind: "update",
-        lastAttemptedAt: null,
-        lastError: null,
-        status: "pending",
-        targetContainerId: null,
-        updatedAt: CREATED_AT,
-      },
-    ],
-    organizationId: "personal-org",
-    remoteId: "document-remote-id",
-    status: "pending",
-    updatedAt: CREATED_AT,
-  };
+function renderPanelLoader(
+  documentQueries: ContainerDocumentQueries,
+  domainScope = createDomainScope(),
+) {
+  return render(
+    <ExplorerWriteQueuePanel
+      billingBlockedOrganizationId={null}
+      documentListRevision={0}
+      documentQueries={documentQueries}
+      domainScope={domainScope}
+      isAuthenticated={true}
+      nodes={[ARCHIVE_NODE]}
+      online={true}
+      openContainerInfoRoute={() => undefined}
+      openDocument={() => undefined}
+      openWriteQueueEntryRoute={() => undefined}
+      organizationNamesById={new Map()}
+      selectedEntryKey={null}
+    />,
+  );
 }
 
 test("coalesces a revision-bump burst and keeps stale rows while re-reading", async () => {
@@ -211,4 +198,49 @@ test("drops a replaced documentQueries' reads and re-reads the new one", async (
   });
   expect(previousCalls).toHaveLength(1);
   expect(nextCalls).toHaveLength(1);
+});
+
+test("reloads a settled write while another sync lane remains active", async () => {
+  let queryCount = 0;
+  let pendingItems: ReadonlyArray<PendingWriteQueueItem> = [item()];
+  const domainScope = createDomainScope();
+  const documentQueries = {
+    listPendingWrites: async () => {
+      queryCount += 1;
+      return pendingItems;
+    },
+  } as unknown as ContainerDocumentQueries;
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  const activeUpload = coordinator.beginUploadLane("write-queue-active-upload");
+  const lane = coordinator.registerLane("write-queue-settlement-test", {
+    run: async () => {
+      pendingItems = [];
+    },
+  });
+  const view = renderPanelLoader(documentQueries, domainScope);
+
+  expect(
+    await view.findByRole("button", { name: "Open object: Offline note" }),
+  ).toBeTruthy();
+  await act(async () => {
+    lane.requestSync();
+  });
+
+  try {
+    await waitFor(() => {
+      expect(queryCount).toBeGreaterThanOrEqual(2);
+      expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy();
+    });
+    const snapshot = getDomainSyncCoordinatorSnapshot(domainScope);
+    expect(snapshot.hasPendingWork).toBe(true);
+    expect(
+      snapshot.lanes.find(
+        (snapshotLane) => snapshotLane.key === "write-queue-active-upload",
+      )?.running,
+    ).toBe(true);
+  } finally {
+    await act(async () => {
+      activeUpload.complete();
+    });
+  }
 });

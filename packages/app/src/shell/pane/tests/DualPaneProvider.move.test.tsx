@@ -25,7 +25,7 @@ import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
-} from "../../../../test/helpers/mswServer";
+} from "../../../../test/helpers/msw/server";
 
 const MOVED_NOTE_TITLE = "Moved folder note";
 

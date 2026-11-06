@@ -26,7 +26,7 @@ import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
-} from "../../../../test/helpers/mswServer";
+} from "../../../../test/helpers/msw/server";
 
 const PEER_PERSONAL_MARKER = "Peer Personal Marker";
 

@@ -8,8 +8,8 @@ import {
   IdentityManagerTestRuntime,
   TestWebSocket,
 } from "../../test/helpers/identityManagerTestRuntime";
-import "../../test/helpers/mswServer";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../test/helpers/mswServer";
+import "../../test/helpers/msw/server";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../test/helpers/msw/server";
 import { useIdentityManagerIdentityMutations } from "../mini-apps/identity-manager/actions/useIdentityManagerIdentityMutations";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";

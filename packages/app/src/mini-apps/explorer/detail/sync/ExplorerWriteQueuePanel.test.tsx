@@ -1,24 +1,17 @@
 import { afterEach, expect, test } from "bun:test";
-import type {
-  ContainerDocumentQueries,
-  ContainerNode,
-  PendingWriteQueueItem,
-  PendingWriteQueueOperation,
-} from "@tearleads/client-sdk";
 import {
   createDomainScope,
   getDomainSyncCoordinatorSnapshot,
-  getOrCreateDomainSyncCoordinator,
-  syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { ComponentProps } from "react";
+import {
+  ARCHIVE_NODE,
+  CREATED_AT,
+  item,
+  operation,
+  stubPhoneMatchMedia,
+} from "../../../../../test/helpers/explorer/syncPanelFixtures";
 import {
   EXPLORER_LABELS,
   getExplorerWriteQueueAttachmentLabel,
@@ -26,10 +19,7 @@ import {
   getExplorerWriteQueueSummaryLabel,
   getExplorerWriteQueueUpdateLabel,
 } from "../../labels";
-import {
-  ExplorerWriteQueuePanel,
-  ExplorerWriteQueuePanelView,
-} from "./ExplorerWriteQueuePanel";
+import { ExplorerWriteQueuePanelView } from "./ExplorerWriteQueuePanel";
 
 let restoreMatchMedia: (() => void) | null = null;
 
@@ -40,68 +30,8 @@ afterEach(() => {
 });
 
 function usePhoneViewport() {
-  const originalMatchMedia = window.matchMedia;
-  restoreMatchMedia = () => {
-    window.matchMedia = originalMatchMedia;
-  };
-  window.matchMedia = ((query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
+  restoreMatchMedia = stubPhoneMatchMedia();
 }
-
-const CREATED_AT = "2026-07-16T12:00:00.000Z";
-
-function operation(
-  overrides: Partial<PendingWriteQueueOperation> = {},
-): PendingWriteQueueOperation {
-  return {
-    byteLength: 0,
-    count: 1,
-    createdAt: CREATED_AT,
-    kind: "update",
-    lastAttemptedAt: null,
-    lastError: null,
-    status: "pending",
-    targetContainerId: null,
-    updatedAt: CREATED_AT,
-    ...overrides,
-  };
-}
-
-function item(
-  overrides: Partial<PendingWriteQueueItem> = {},
-): PendingWriteQueueItem {
-  return {
-    containerId: "documents-container",
-    createdAt: CREATED_AT,
-    localId: "document-local-id",
-    name: "Offline note",
-    namespace: null,
-    objectKind: "document",
-    operations: [operation()],
-    organizationId: "personal-org",
-    remoteId: "document-remote-id",
-    status: "pending",
-    updatedAt: CREATED_AT,
-    ...overrides,
-  };
-}
-
-const ARCHIVE_NODE = {
-  id: "archive-container",
-  kind: "container",
-  name: "Archive",
-  organizationId: "custom-org",
-  parentId: null,
-  syncState: syncedContainerDocumentObjectSyncState,
-} satisfies ContainerNode;
 
 const EMPTY_SNAPSHOT = getDomainSyncCoordinatorSnapshot(createDomainScope());
 
@@ -131,28 +61,6 @@ function renderPanel(overrides: Partial<ViewProps> = {}) {
   };
 
   return render(<ExplorerWriteQueuePanelView {...props} />);
-}
-
-function renderPanelLoader(
-  documentQueries: ContainerDocumentQueries,
-  domainScope = createDomainScope(),
-) {
-  return render(
-    <ExplorerWriteQueuePanel
-      billingBlockedOrganizationId={null}
-      documentListRevision={0}
-      documentQueries={documentQueries}
-      domainScope={domainScope}
-      isAuthenticated={true}
-      nodes={[ARCHIVE_NODE]}
-      online={true}
-      openContainerInfoRoute={() => undefined}
-      openDocument={() => undefined}
-      openWriteQueueEntryRoute={() => undefined}
-      organizationNamesById={new Map()}
-      selectedEntryKey={null}
-    />,
-  );
 }
 
 function rowForButton(button: HTMLElement): HTMLTableRowElement {
@@ -571,49 +479,4 @@ test("renders the load error state", () => {
 
   expect(view.getByText(EXPLORER_LABELS.writeQueueFailedToLoad)).toBeTruthy();
   expect(view.getByText("Local database schema is obsolete")).toBeTruthy();
-});
-
-test("reloads a settled write while another sync lane remains active", async () => {
-  let queryCount = 0;
-  let pendingItems: ReadonlyArray<PendingWriteQueueItem> = [item()];
-  const domainScope = createDomainScope();
-  const documentQueries = {
-    listPendingWrites: async () => {
-      queryCount += 1;
-      return pendingItems;
-    },
-  } as unknown as ContainerDocumentQueries;
-  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
-  const activeUpload = coordinator.beginUploadLane("write-queue-active-upload");
-  const lane = coordinator.registerLane("write-queue-settlement-test", {
-    run: async () => {
-      pendingItems = [];
-    },
-  });
-  const view = renderPanelLoader(documentQueries, domainScope);
-
-  expect(
-    await view.findByRole("button", { name: "Open object: Offline note" }),
-  ).toBeTruthy();
-  await act(async () => {
-    lane.requestSync();
-  });
-
-  try {
-    await waitFor(() => {
-      expect(queryCount).toBeGreaterThanOrEqual(2);
-      expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy();
-    });
-    const snapshot = getDomainSyncCoordinatorSnapshot(domainScope);
-    expect(snapshot.hasPendingWork).toBe(true);
-    expect(
-      snapshot.lanes.find(
-        (snapshotLane) => snapshotLane.key === "write-queue-active-upload",
-      )?.running,
-    ).toBe(true);
-  } finally {
-    await act(async () => {
-      activeUpload.complete();
-    });
-  }
 });

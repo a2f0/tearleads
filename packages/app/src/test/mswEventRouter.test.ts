@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createMswEventRouter,
   type MswSocketClient,
-} from "../../test/helpers/mswEventRouter";
+} from "../../test/helpers/msw/eventRouter";
 
 const ORGANIZATION_A = "11111111-1111-4111-8111-111111111111";
 const ORGANIZATION_B = "22222222-2222-4222-8222-222222222222";

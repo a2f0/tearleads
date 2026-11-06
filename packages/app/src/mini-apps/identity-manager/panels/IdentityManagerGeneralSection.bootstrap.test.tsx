@@ -3,7 +3,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
-} from "../../../../test/helpers/mswServer";
+} from "../../../../test/helpers/msw/server";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
