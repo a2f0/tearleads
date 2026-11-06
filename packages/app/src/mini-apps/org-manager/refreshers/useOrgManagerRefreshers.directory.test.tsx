@@ -77,8 +77,7 @@ function createRefresherHarness(input: {
     setMembers: noop,
     setOrganizationPolicyHistory: noop,
     setReadModelCursor: noop,
-    setIsCreateGroupDialogOpen: noop,
-    setIsImportUserDialogOpen: noop,
+    sendDialogEvent: noop,
     setUserDetail: noop,
     view: "directory",
   } as unknown as Parameters<typeof useOrgManagerRefreshers>[0];

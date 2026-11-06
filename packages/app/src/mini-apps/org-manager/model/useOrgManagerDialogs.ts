@@ -1,9 +1,16 @@
-import { useCallback, useState } from "react";
+import { useCallback, useReducer } from "react";
 import type { OrgManagerView } from "../routes";
+import {
+  CLOSED_ORG_MANAGER_DIALOGS,
+  orgManagerDialogDraft,
+  transitionOrgManagerDialogs,
+} from "./orgManagerDialogsMachine";
 
 /**
- * The create-group and import-user dialogs: their open flags and drafts.
- * Each opens only when allowed and refuses to close while a mutation runs.
+ * The create-group and import-user dialogs (`orgManagerDialogsMachine`).
+ * Each opens only when allowed and refuses to close while a mutation runs;
+ * mutations and scope resets send their own events through
+ * `sendDialogEvent`.
  */
 export function useOrgManagerDialogs(params: {
   canCreateGroup: boolean;
@@ -23,20 +30,19 @@ export function useOrgManagerDialogs(params: {
     setOrgManagerView,
     setView,
   } = params;
-  const [groupNameDraft, setGroupNameDraft] = useState("");
-  const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = useState(false);
-  const [importUserIdDraft, setImportUserIdDraft] = useState("");
-  const [isImportUserDialogOpen, setIsImportUserDialogOpen] = useState(false);
+  const [dialogs, sendDialogEvent] = useReducer(
+    transitionOrgManagerDialogs,
+    CLOSED_ORG_MANAGER_DIALOGS,
+  );
   const openCreateGroupDialog = useCallback(() => {
     if (!canCreateGroup) {
       return;
     }
 
     setError(null);
-    setGroupNameDraft("");
     selectGroup(null);
     setView("groups");
-    setIsCreateGroupDialogOpen(true);
+    sendDialogEvent({ dialog: "createGroup", type: "open" });
   }, [canCreateGroup, selectGroup, setError, setView]);
   const closeCreateGroupDialog = useCallback(() => {
     if (mutating) {
@@ -44,8 +50,7 @@ export function useOrgManagerDialogs(params: {
     }
 
     setError(null);
-    setGroupNameDraft("");
-    setIsCreateGroupDialogOpen(false);
+    sendDialogEvent({ dialog: "createGroup", type: "close" });
   }, [mutating, setError]);
   const openImportUserDialog = useCallback(() => {
     if (!canImportRosterUser) {
@@ -53,9 +58,8 @@ export function useOrgManagerDialogs(params: {
     }
 
     setError(null);
-    setImportUserIdDraft("");
     setOrgManagerView("directory");
-    setIsImportUserDialogOpen(true);
+    sendDialogEvent({ dialog: "importUser", type: "open" });
   }, [canImportRosterUser, setError, setOrgManagerView]);
   const closeImportUserDialog = useCallback(() => {
     if (mutating) {
@@ -63,21 +67,25 @@ export function useOrgManagerDialogs(params: {
     }
 
     setError(null);
-    setImportUserIdDraft("");
-    setIsImportUserDialogOpen(false);
+    sendDialogEvent({ dialog: "importUser", type: "close" });
   }, [mutating, setError]);
+  const setGroupNameDraft = useCallback((draft: string) => {
+    sendDialogEvent({ dialog: "createGroup", draft, type: "editDraft" });
+  }, []);
+  const setImportUserIdDraft = useCallback((draft: string) => {
+    sendDialogEvent({ dialog: "importUser", draft, type: "editDraft" });
+  }, []);
   return {
     closeCreateGroupDialog,
     closeImportUserDialog,
-    groupNameDraft,
-    importUserIdDraft,
-    isCreateGroupDialogOpen,
-    isImportUserDialogOpen,
+    groupNameDraft: orgManagerDialogDraft(dialogs, "createGroup"),
+    importUserIdDraft: orgManagerDialogDraft(dialogs, "importUser"),
+    isCreateGroupDialogOpen: dialogs.status === "createGroup",
+    isImportUserDialogOpen: dialogs.status === "importUser",
     openCreateGroupDialog,
     openImportUserDialog,
+    sendDialogEvent,
     setGroupNameDraft,
     setImportUserIdDraft,
-    setIsCreateGroupDialogOpen,
-    setIsImportUserDialogOpen,
   };
 }
