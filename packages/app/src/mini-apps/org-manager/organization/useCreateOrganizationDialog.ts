@@ -29,6 +29,36 @@ interface CreateOrganizationActionOptions
   setIsCreateOrganizationDialogOpen: (open: boolean) => void;
 }
 
+/** Retains and selects a created organization while its dialog is current. */
+async function adoptCreatedOrganization(
+  options: CreateOrganizationActionOptions,
+  organizationProfileName: string,
+  result: SessionCreateOrganizationResult | null | undefined,
+  isCreateActive: () => boolean,
+): Promise<void> {
+  if (!result) {
+    options.setCreateOrganizationError(
+      ORG_MANAGER_LABELS.failedCreateOrganization,
+    );
+    return;
+  }
+
+  options.retainOrganization({
+    name: organizationProfileName,
+    organizationId: result.organizationId,
+    rootContainerId: result.containerId,
+  });
+  if (!isCreateActive()) {
+    return;
+  }
+  options.selectCreatedOrganization(result);
+  if (!isCreateActive()) {
+    return;
+  }
+  options.setIsCreateOrganizationDialogOpen(false);
+  await options.reload();
+}
+
 function useCreateOrganizationAction(options: CreateOrganizationActionOptions) {
   return useCallback(
     async (organizationName: string) => {
@@ -59,27 +89,12 @@ function useCreateOrganizationAction(options: CreateOrganizationActionOptions) {
         if (!isCreateActive()) {
           return;
         }
-        if (!result) {
-          options.setCreateOrganizationError(
-            ORG_MANAGER_LABELS.failedCreateOrganization,
-          );
-          return;
-        }
-
-        options.retainOrganization({
-          name: organizationProfileName,
-          organizationId: result.organizationId,
-          rootContainerId: result.containerId,
-        });
-        if (!isCreateActive()) {
-          return;
-        }
-        options.selectCreatedOrganization(result);
-        if (!isCreateActive()) {
-          return;
-        }
-        options.setIsCreateOrganizationDialogOpen(false);
-        await options.reload();
+        await adoptCreatedOrganization(
+          options,
+          organizationProfileName,
+          result,
+          isCreateActive,
+        );
       } catch (error) {
         if (!isCreateActive()) {
           return;

@@ -198,6 +198,39 @@ async function loadAccessPathPrincipalPolicies(
   );
 }
 
+/**
+ * One policy load shared by every path, keyed by reference; null when there
+ * are no paths or the shared load fails, so each path then loads its own.
+ */
+async function loadSharedPrincipalPoliciesByReference(
+  context: ContainerWriterProjectionContext,
+  accessPaths: ReadonlyMap<string, ContainerAccessPath>,
+  evidence: readonly PrincipalPolicyAuthorization[],
+): Promise<Map<string, PrincipalPolicyAuthorization> | null> {
+  if (accessPaths.size === 0) return null;
+  try {
+    const sharedPrincipalPolicies = await loadPrincipalPoliciesForAccessPaths(
+      context.executor,
+      Array.from(accessPaths.values(), (accessPath) => accessPath.verifiedPath),
+      evidence,
+      context.principalPolicyByReference,
+    );
+    return new Map(
+      sharedPrincipalPolicies.flatMap((policy) =>
+        verifiedPrincipalPolicyReferenceCacheKeys(policy).map(
+          (referenceKey) => [referenceKey, policy] as const,
+        ),
+      ),
+    );
+  } catch (error) {
+    const projectionError = asContainerWriterProjectionError(error);
+    if (!projectionError) {
+      throw error;
+    }
+    return null;
+  }
+}
+
 export async function resolveContainerAccessProjectionBatch(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerIds: readonly string[];
@@ -246,35 +279,12 @@ export async function resolveContainerAccessProjectionBatch(input: {
     accessPaths.set(pathResult.containerId, pathResult.accessPath);
   }
 
-  let sharedPrincipalPoliciesByReference: Map<
-    string,
-    PrincipalPolicyAuthorization
-  > | null = null;
-  if (accessPaths.size > 0) {
-    try {
-      const sharedPrincipalPolicies = await loadPrincipalPoliciesForAccessPaths(
-        context.executor,
-        Array.from(
-          accessPaths.values(),
-          (accessPath) => accessPath.verifiedPath,
-        ),
-        evidence,
-        context.principalPolicyByReference,
-      );
-      sharedPrincipalPoliciesByReference = new Map(
-        sharedPrincipalPolicies.flatMap((policy) =>
-          verifiedPrincipalPolicyReferenceCacheKeys(policy).map(
-            (referenceKey) => [referenceKey, policy] as const,
-          ),
-        ),
-      );
-    } catch (error) {
-      const projectionError = asContainerWriterProjectionError(error);
-      if (!projectionError) {
-        throw error;
-      }
-    }
-  }
+  const sharedPrincipalPoliciesByReference =
+    await loadSharedPrincipalPoliciesByReference(
+      context,
+      accessPaths,
+      evidence,
+    );
 
   for (const [containerId, accessPath] of accessPaths) {
     try {

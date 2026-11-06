@@ -147,35 +147,35 @@ export function useBillingOptions(input: UseBillingOptionsInput): () => void {
       );
       if (retryTimeout !== undefined) retryBudget.nextDelayIndex += 1;
     };
+    const isCurrent = () =>
+      !cancelled && scopeMatches(input.scopeRef.current, scope);
     const load = async (): Promise<void> => {
       try {
         const pendingIdentityError = await identifyBuyer(
           input.purchases,
           userId,
         );
-        if (cancelled || !scopeMatches(input.scopeRef.current, scope)) return;
+        if (!isCurrent()) return;
         const next = await input.purchases.listSyncOptions();
-        if (!cancelled && scopeMatches(input.scopeRef.current, scope)) {
-          input.setOptionsState({
-            ...scope,
-            errorKind: optionsErrorKind(pendingIdentityError),
-            options: next,
-          });
-          if (pendingIdentityError) retry(pendingIdentityError);
-        }
+        if (!isCurrent()) return;
+        input.setOptionsState({
+          ...scope,
+          errorKind: optionsErrorKind(pendingIdentityError),
+          options: next,
+        });
+        if (pendingIdentityError) retry(pendingIdentityError);
       } catch (error) {
-        if (!cancelled && scopeMatches(input.scopeRef.current, scope)) {
-          input.setOptionsState((current) => {
-            const scoped = scopeMatches(current, scope)
-              ? current
-              : emptyOptionsState(scope);
-            return {
-              ...scoped,
-              errorKind: optionsErrorKind(error),
-            };
-          });
-          retry(error);
-        }
+        if (!isCurrent()) return;
+        input.setOptionsState((current) => {
+          const scoped = scopeMatches(current, scope)
+            ? current
+            : emptyOptionsState(scope);
+          return {
+            ...scoped,
+            errorKind: optionsErrorKind(error),
+          };
+        });
+        retry(error);
       }
     };
     void load();

@@ -98,29 +98,38 @@ export function resolveNativePurchaseEligibility(
       input.billing.providerTransactionId,
   );
   if (hasProviderIdentity && !hasExpiredStripeProviderIdentity(input)) {
-    const isCompleteNativeBinding = Boolean(
-      input.billing.provider === "revenuecat" &&
-        input.billing.providerSubscriptionId &&
-        getSyncBillingTierForNativeProduct(input.billing.providerProductId),
-    );
-    if (!isCompleteNativeBinding) {
-      return ineligible("existing_subscription_conflict");
-    }
-    if (input.billing.providerCustomerId !== input.sessionUserId) {
-      return ineligible("native_subscription_buyer_mismatch");
-    }
-    if (
-      (input.billing.status === "active" ||
-        input.billing.status === "trialing") &&
-      input.persistedNativeStore !==
-        revenueCatStoreForNativeStore(input.targetNativeStore)
-    ) {
-      return ineligible("existing_subscription_conflict");
-    }
-  } else if (input.billing.status === "active") {
+    return resolveExistingNativeBindingEligibility(input);
+  }
+  if (input.billing.status === "active") {
     return ineligible("existing_subscription_conflict");
   }
 
+  return { eligible: true, reason: null };
+}
+
+/** A live provider identity may only be a native binding this buyer renews. */
+function resolveExistingNativeBindingEligibility(
+  input: NativePurchasePolicyInput,
+): OrganizationNativePurchaseEligibilityResponse {
+  const isCompleteNativeBinding = Boolean(
+    input.billing.provider === "revenuecat" &&
+      input.billing.providerSubscriptionId &&
+      getSyncBillingTierForNativeProduct(input.billing.providerProductId),
+  );
+  if (!isCompleteNativeBinding) {
+    return ineligible("existing_subscription_conflict");
+  }
+  if (input.billing.providerCustomerId !== input.sessionUserId) {
+    return ineligible("native_subscription_buyer_mismatch");
+  }
+  if (
+    (input.billing.status === "active" ||
+      input.billing.status === "trialing") &&
+    input.persistedNativeStore !==
+      revenueCatStoreForNativeStore(input.targetNativeStore)
+  ) {
+    return ineligible("existing_subscription_conflict");
+  }
   return { eligible: true, reason: null };
 }
 

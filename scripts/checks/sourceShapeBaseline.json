@@ -232,7 +232,7 @@
     },
     "packages/crypto/src/keying/testFixtures.ts": {
       "lines": 678,
-      "bytes": 23033
+      "bytes": 22981
     },
     "packages/crypto/src/keying/transparency.ts": {
       "lines": 511,

@@ -166,6 +166,19 @@ function resetRequestCursor(state: ReconciliationState): void {
   state.requestCursor = state.projection?.cursor ?? undefined;
 }
 
+/** Replays a page that applied stale, up to the retry budget. */
+function retryStaleApply(
+  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  state: ReconciliationState,
+): ReconciliationStep {
+  if (state.staleRetries >= MAX_STALE_RETRIES) {
+    return localResult(input, state, { failed: true });
+  }
+  state.staleRetries += 1;
+  resetRequestCursor(state);
+  return { kind: "continue" };
+}
+
 function isInvalidReadModelCursorFailure(
   result: RequestResult<OrganizationReadModelResponse>,
 ): boolean {
@@ -363,12 +376,7 @@ async function applyReadModelPage(
       return { kind: "done", value: null };
     }
     if (applied.result === "stale") {
-      if (state.staleRetries >= MAX_STALE_RETRIES) {
-        return localResult(input, state, { failed: true });
-      }
-      state.staleRetries += 1;
-      resetRequestCursor(state);
-      return { kind: "continue" };
+      return retryStaleApply(input, state);
     }
 
     state.expectedLocalCursor = state.projection?.cursor ?? response.nextCursor;

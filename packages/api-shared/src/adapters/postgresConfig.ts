@@ -259,36 +259,39 @@ export function createPostgresPoolConfig(
     };
   }
 
-  if (!isDevMode(env)) {
-    const missing: string[] = [];
-    const host = requirePostgresEnv(env, "POSTGRES_HOST", missing);
-    const portValue = requirePostgresEnv(env, "POSTGRES_PORT", missing);
-    const user = requirePostgresEnv(env, "POSTGRES_USER", missing);
-    const password = requirePostgresEnv(env, "POSTGRES_PASSWORD", missing);
-    const database = requirePostgresEnv(env, "POSTGRES_DATABASE", missing);
+  const connection = isDevMode(env)
+    ? readDevConnection(env)
+    : readRequiredConnection(env);
+  return {
+    ...connection,
+    ...poolSizing,
+    ...(ssl ? { ssl } : {}),
+  };
+}
 
-    if (missing.length > 0) {
-      throw new Error(
-        `Missing required Postgres environment variables: ${missing.join(", ")}`,
-      );
-    }
+function readRequiredConnection(env: ApiDatabaseEnv): PoolConfig {
+  const missing: string[] = [];
+  const host = requirePostgresEnv(env, "POSTGRES_HOST", missing);
+  const portValue = requirePostgresEnv(env, "POSTGRES_PORT", missing);
+  const user = requirePostgresEnv(env, "POSTGRES_USER", missing);
+  const password = requirePostgresEnv(env, "POSTGRES_PASSWORD", missing);
+  const database = requirePostgresEnv(env, "POSTGRES_DATABASE", missing);
 
-    const port = parsePort(portValue);
-    if (port === undefined) {
-      throw new Error("POSTGRES_PORT must be a valid number");
-    }
-
-    return {
-      database,
-      host,
-      password,
-      port,
-      user,
-      ...poolSizing,
-      ...(ssl ? { ssl } : {}),
-    };
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required Postgres environment variables: ${missing.join(", ")}`,
+    );
   }
 
+  const port = parsePort(portValue);
+  if (port === undefined) {
+    throw new Error("POSTGRES_PORT must be a valid number");
+  }
+
+  return { database, host, password, port, user };
+}
+
+function readDevConnection(env: ApiDatabaseEnv): PoolConfig {
   const defaults = getPostgresDevDefaults(env);
   const host = getEnvValue(env, hostKeys) ?? defaults.host;
   const port = parsePort(getEnvValue(env, portKeys)) ?? defaults.port;
@@ -302,7 +305,5 @@ export function createPostgresPoolConfig(
     ...(user ? { user } : {}),
     ...(password ? { password } : {}),
     ...(database ? { database } : {}),
-    ...poolSizing,
-    ...(ssl ? { ssl } : {}),
   };
 }

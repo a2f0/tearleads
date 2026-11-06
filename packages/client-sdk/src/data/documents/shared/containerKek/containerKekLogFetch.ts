@@ -38,6 +38,24 @@ function assertLogPageMatchesRequest(
 }
 
 /**
+ * The page's last epoch number after the ceiling checks. Validating before
+ * returning means a final page cannot smuggle an out-of-range epoch past them.
+ */
+function lastEpochWithinCeiling(
+  page: ContainerKekLogResponse,
+  collectedEpochs: number,
+): number | undefined {
+  if (collectedEpochs > MAX_CONTAINER_KEY_EPOCH) {
+    throw new Error("Container KEK log exceeds the maximum key epoch");
+  }
+  const lastEpoch = page.epochs.at(-1)?.containerKeyEpoch;
+  if (lastEpoch !== undefined && lastEpoch > MAX_CONTAINER_KEY_EPOCH) {
+    throw new Error("Container KEK log exceeds the maximum key epoch");
+  }
+  return lastEpoch;
+}
+
+/**
  * Fetches the container's complete rotation log across pages. The endpoint
  * bounds each page, so a long-lived container needs several round trips; the
  * cursor is the last served epoch number.
@@ -88,15 +106,7 @@ export async function fetchContainerKekLog(input: {
     }
     assertLogPageMatchesRequest(page, input.containerId, afterKeyEpoch);
     epochs.push(...page.epochs);
-    if (epochs.length > MAX_CONTAINER_KEY_EPOCH) {
-      throw new Error("Container KEK log exceeds the maximum key epoch");
-    }
-    const lastEpoch = page.epochs.at(-1)?.containerKeyEpoch;
-    // Validate before returning, so a final page cannot smuggle an
-    // out-of-range epoch past the ceiling check.
-    if (lastEpoch !== undefined && lastEpoch > MAX_CONTAINER_KEY_EPOCH) {
-      throw new Error("Container KEK log exceeds the maximum key epoch");
-    }
+    const lastEpoch = lastEpochWithinCeiling(page, epochs.length);
     if (!page.hasMore) {
       return { containerId: page.containerId, epochs };
     }

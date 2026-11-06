@@ -101,24 +101,34 @@ export async function loadPrincipalKeyEnvelopeCandidates(
       .orderBy(desc(principalHistoryStages.afterVersion))
       .limit(1);
     if (stage) encoded.push(stage.envelopes);
-    for (const json of new Set(encoded)) {
-      let envelopes: unknown;
-      try {
-        envelopes = JSON.parse(json);
-      } catch {
-        continue;
-      }
-      if (!isCurrentPrincipalMemberEnvelopesResponse(envelopes)) continue;
-      candidates.push({
-        currentState: {
-          principalType: envelopes.principalType,
-          principalId: envelopes.principalId,
-          stateHash: envelopes.stateHash,
-          keyFingerprint: fingerprint,
-        },
-        currentMemberEnvelopes: envelopes,
-      });
+    candidates.push(...decodeEnvelopeCandidates(encoded, fingerprint));
+  }
+  return candidates;
+}
+
+/** Distinct, well-formed envelope sets; malformed JSON is skipped. */
+function decodeEnvelopeCandidates(
+  encoded: readonly string[],
+  fingerprint: string,
+): PrincipalKeyEnvelopeCandidate[] {
+  const candidates: PrincipalKeyEnvelopeCandidate[] = [];
+  for (const json of new Set(encoded)) {
+    let envelopes: unknown;
+    try {
+      envelopes = JSON.parse(json);
+    } catch {
+      continue;
     }
+    if (!isCurrentPrincipalMemberEnvelopesResponse(envelopes)) continue;
+    candidates.push({
+      currentState: {
+        principalType: envelopes.principalType,
+        principalId: envelopes.principalId,
+        stateHash: envelopes.stateHash,
+        keyFingerprint: fingerprint,
+      },
+      currentMemberEnvelopes: envelopes,
+    });
   }
   return candidates;
 }
