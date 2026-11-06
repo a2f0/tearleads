@@ -12,7 +12,7 @@ import {
   createSignedPrincipalState,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { clearStoredPolicySnapshotCache } from "../../../test/helpers/principalSnapshotVerificationCache";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
@@ -21,7 +21,7 @@ import { schedulePrincipalHistoryPreparation } from "../../workflows/principals/
 for (const compound of [false, true]) {
   test(`${compound ? "compound" : "standalone"} policy preparation saturation explicitly reports rollback`, async () => {
     const actor = createTestUser();
-    await registerAndAuthenticate(actor);
+    await registerAndAuthenticateUsers(actor);
     const organizationId = await getDefaultOrganizationId(actor.userId);
     const prepared = await prepareOrganizationPolicyAdvance(
       actor,

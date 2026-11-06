@@ -18,7 +18,7 @@ import {
 import { seedLongPrincipalHistory } from "../../../test/helpers/longPrincipalHistory";
 import {
   getPolicy,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { clearStoredPolicySnapshotCache } from "../../../test/helpers/principalSnapshotVerificationCache";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
@@ -29,7 +29,7 @@ import { clearProjectionDirectoryBindingsCache } from "../../workflows/principal
 for (const method of ["GET", "PUT"] as const) {
   test(`${method} policy prepares outside the transaction and eventually succeeds`, async () => {
     const owner = createTestUser();
-    await registerAndAuthenticate(owner);
+    await registerAndAuthenticateUsers(owner);
     const root = await bootstrapRoot(owner);
     const organizationId = asVerifiedContainerManifest(root.bundle).state
       .organizationId;

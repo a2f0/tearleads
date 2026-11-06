@@ -11,7 +11,7 @@ import {
   getDefaultOrganizationId,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
 import { routeApp } from "../../routeApp";
@@ -19,7 +19,7 @@ import { deleteOrganizationGroupRows } from "../../workflows/organizations/group
 
 test("a lost compound commit response remains recoverable after a later policy update", async () => {
   const actor = createTestUser();
-  await registerAndAuthenticate(actor);
+  await registerAndAuthenticateUsers(actor);
   const organizationId = await getDefaultOrganizationId(actor.userId);
   const groupId = crypto.randomUUID();
   await createPolicyTestGroup(actor.userId, groupId);
@@ -132,7 +132,7 @@ test("a lost compound commit response remains recoverable after a later policy u
     expect([400, 409]).toContain(substituted.status);
     await substituted.arrayBuffer();
     const other = createTestUser();
-    await registerAndAuthenticate(other);
+    await registerAndAuthenticateUsers(other);
     const foreign = await transport(originalRequest.path, {
       ...originalRequest.init,
       headers: {

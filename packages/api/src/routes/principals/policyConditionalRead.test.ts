@@ -11,7 +11,7 @@ import { eq } from "drizzle-orm";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import {
   loadOrganizationGroups,
-  registerAndAuthenticate,
+  registerAndAuthenticateUsers,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
 import { routeApp } from "../../routeApp";
@@ -37,7 +37,7 @@ function conditional(path: string, version: number, stateHash: string) {
 
 test("a conditional discovery read naming the live head returns that head alone", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const { adminGroupId } = await loadOrganizationGroups(organizationId);
   for (const path of [
@@ -79,7 +79,7 @@ test("a conditional discovery read naming the live head returns that head alone"
 test("a conditional discovery read keeps live authorization and verification", async () => {
   const owner = createTestUser();
   const outsider = createTestUser();
-  await registerAndAuthenticate(owner, outsider);
+  await registerAndAuthenticateUsers(owner, outsider);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const { adminGroupId } = await loadOrganizationGroups(organizationId);
   const path = `/principals/group/${adminGroupId}/policy`;
@@ -106,7 +106,7 @@ test("a conditional discovery read keeps live authorization and verification", a
 
 test("a conditional discovery read names one whole unpinned head", async () => {
   const owner = createTestUser();
-  await registerAndAuthenticate(owner);
+  await registerAndAuthenticateUsers(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const path = `/principals/organization/${organizationId}/policy`;
   const hash = "a".repeat(64);

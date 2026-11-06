@@ -16,7 +16,7 @@ import {
 } from "../../../test/helpers/organizationGroup";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { submitOrganizationGroupPolicyCommit } from "../../../test/helpers/principalPolicy";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import * as stateStore from "../../access/read/principalStateStore";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
@@ -29,7 +29,7 @@ import { storeVerifiedPrincipalDirectoryBindings } from "./storeVerifiedPrincipa
 
 async function fixture() {
   const actor = createTestUser();
-  await registerAndAuthenticate(actor);
+  await registerAndAuthenticateUsers(actor);
   const organizationId = await getDefaultOrganizationId(actor.userId);
   const organization = await getCurrentPrincipalState(
     "organization",

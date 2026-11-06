@@ -9,13 +9,17 @@ import {
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { createTestUser } from "@tearleads/test-utils";
 import type {
   CommitOrganizationGroupPolicyRequest,
   CreateOrganizationGroupRequest,
   DeleteOrganizationGroupRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import {
+  isCommitOrganizationGroupPolicyResponse,
+  type PrincipalPolicyBundleResponse,
+} from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { getCurrentPrincipalState } from "../../src/access/read/principalStateStore";
@@ -345,4 +349,39 @@ export async function runGetCurrentPrincipalPolicyWorkflow(
     invariant(currentState, "expected a current principal state");
     return getPrincipalPolicyForStateWithExecutor(tx, currentState);
   });
+}
+
+export function toPolicyRequest(
+  signedState: Awaited<ReturnType<typeof createSignedPrincipalState>>,
+) {
+  return {
+    state: signedState.state,
+    encryptedPayload: signedState.encryptedPayload,
+    projection: signedState.projection,
+    grants: signedState.grants,
+    memberEnvelopes: signedState.memberEnvelopes,
+  };
+}
+
+export function putGroupPolicy(input: {
+  actor: ReturnType<typeof createTestUser>;
+  organizationId: string;
+  principalId: string;
+  signedState: Awaited<ReturnType<typeof createSignedPrincipalState>>;
+}) {
+  return submitOrganizationGroupPolicyCommit({
+    actor: input.actor,
+    groupId: input.principalId,
+    groupPolicy: toPolicyRequest(input.signedState),
+    organizationId: input.organizationId,
+  });
+}
+
+export async function readCommittedGroupPolicy(response: Response) {
+  const body = await response.json();
+  invariant(
+    isCommitOrganizationGroupPolicyResponse(body),
+    "expected compound principal policy response",
+  );
+  return body.groupPolicy;
 }

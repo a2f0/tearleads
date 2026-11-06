@@ -9,7 +9,7 @@ import {
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { createHeldManifestCitations } from "../../../test/helpers/heldManifestCitations";
 import { createOwnedTree } from "../../../test/helpers/ownedContainerTree";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { routeApp } from "../../routeApp";
 
 test("cited manifest projections verify rotations while hints never grant access", async () => {
@@ -96,7 +96,7 @@ test("cited manifest projections verify rotations while hints never grant access
     const hint = samples[2]?.hint;
     if (!hint) throw new Error("Expected known-manifest hint");
     const outsider = createTestUser();
-    await registerAndAuthenticate(outsider);
+    await registerAndAuthenticateUsers(outsider);
     expect(
       (
         await routeApp.request(`/containers/${tree.rootId}/writer-projection`, {

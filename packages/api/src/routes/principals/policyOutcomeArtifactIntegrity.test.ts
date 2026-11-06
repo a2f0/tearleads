@@ -11,13 +11,13 @@ import { eq } from "drizzle-orm";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { prepareOrganizationPolicyAdvance } from "../../../test/helpers/organizationPolicyOutcome";
 import { requestPreparedPrincipalPolicy } from "../../../test/helpers/principalHistoryRequest";
-import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 
 test.each(["signature", "payload", "projection", "grants"] as const)(
   "receipt replay refuses altered retired %s artifacts",
   async (artifact) => {
     const actor = createTestUser();
-    await registerAndAuthenticate(actor);
+    await registerAndAuthenticateUsers(actor);
     const organizationId = await getDefaultOrganizationId(actor.userId);
     const original = await prepareOrganizationPolicyAdvance(
       actor,
