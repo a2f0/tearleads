@@ -8,10 +8,8 @@ import {
   verifyAccessManifestLocalCheckpoint,
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
-import {
-  keyingCheckpointTables,
-  principalPolicyTables,
-} from "../../sqlite/schema";
+import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
+import { principalPolicyTables } from "../../sqlite/schema/principalPolicySchema";
 import { verifiedManifestBundleTables } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import {
   type ClientSQLiteTransactionScope,

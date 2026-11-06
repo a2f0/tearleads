@@ -3,7 +3,7 @@ import {
   documentHistoryCheckpoints,
   documentHistoryUpdates,
   documents,
-} from "../../../sqlite/schema";
+} from "../../../sqlite/schema/documentRecordSchema";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
 
 // Document rows written inside another subsystem's transaction. Container

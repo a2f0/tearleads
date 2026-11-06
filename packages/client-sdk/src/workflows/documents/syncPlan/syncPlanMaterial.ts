@@ -26,15 +26,15 @@ import {
   DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
 } from "../../../data/documents/shared/projection";
+import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
+import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { assertDocumentManifestBundleConsistent } from "../../../data/documents/shared/readers";
 import { selectDocumentSyncOutgoingBatch } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
 import type {
   BuildDocumentSyncPlanInput,
-  DocumentCreateAuthor,
   MaterializedDocumentSyncPlan,
-  ProjectionVerificationOptions,
-} from "../../../data/documents/shared/types";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
+} from "../../../data/documents/shared/sync/documentSyncTypes";
+import type { DocumentCreateAuthor } from "../../../data/documents/shared/types";
 import type { DocumentWriterProjectionAuthorization } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

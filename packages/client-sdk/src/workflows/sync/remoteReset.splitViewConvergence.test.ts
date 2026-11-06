@@ -35,12 +35,14 @@ import {
 import {
   clientSqlTables,
   containers,
-  documentHistoryCheckpoints,
-  documentHistoryUpdates,
-  documentProjection,
-  documents,
   localIntents,
 } from "../../data/sqlite/schema";
+import { documentProjection } from "../../data/sqlite/schema/documentProjectionSchema";
+import {
+  documentHistoryCheckpoints,
+  documentHistoryUpdates,
+  documents,
+} from "../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import type { ExecSql } from "../../sqlite";

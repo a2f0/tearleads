@@ -15,15 +15,13 @@ import {
   deriveDocumentTargetFromProjection,
   unwrapContainerKekPath,
 } from "../../../data/documents/shared/projection";
+import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
+import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import {
   assertEqualBytes,
   targetKey,
 } from "../../../data/documents/shared/readers";
-import type {
-  DocumentLinkSetMutationApi,
-  ProjectionVerificationOptions,
-} from "../../../data/documents/shared/types";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
+import type { DocumentLinkSetMutationApi } from "../../../data/documents/shared/types";
 import { requireProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";

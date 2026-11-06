@@ -6,11 +6,13 @@ import {
 import { CLEARED_DOCUMENT_SYNC_FAILURE } from "../../../data/persistence/documents/records/documentSyncFailurePersistence";
 import {
   documentAttachmentBlobProjection,
-  documentHistoryUpdates,
   documentPendingAttachments,
-  documentProjection,
-  documents,
 } from "../../../data/sqlite/schema";
+import { documentProjection } from "../../../data/sqlite/schema/documentProjectionSchema";
+import {
+  documentHistoryUpdates,
+  documents,
+} from "../../../data/sqlite/schema/documentRecordSchema";
 import { remoteResetBatches } from "../../../data/sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { clearResetPendingAttachments } from "./remoteResetAttachments";

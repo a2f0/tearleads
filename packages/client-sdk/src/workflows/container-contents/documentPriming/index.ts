@@ -1,10 +1,12 @@
 import {
-  documentContainerProjectionTables,
   documentPlacementIntentTables,
-  documentProjectionTables,
-  documentTables,
   LOCAL_INTENT_LANES,
 } from "../../../data/sqlite/schema";
+import {
+  documentContainerProjectionTables,
+  documentProjectionTables,
+} from "../../../data/sqlite/schema/documentProjectionSchema";
+import { documentTables } from "../../../data/sqlite/schema/documentRecordSchema";
 import { ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import { listDocumentRuntimeTargetsForContainerSubtreeFromRuntime } from "../documentQueries/documentSubtreeQueries";
 import {

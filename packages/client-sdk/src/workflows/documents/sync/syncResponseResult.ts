@@ -5,20 +5,20 @@ import type {
 } from "@tearleads/validators/response";
 import { decryptDocumentSyncUpdatesByEpoch } from "../../../data/documents/shared/crypto";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
+import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import {
   DocumentSyncResponseUpdateContentKeyError,
   persistedDocumentSyncStateFromResponse,
 } from "../../../data/documents/shared/responses";
+import type {
+  MaterializedDocumentSyncPlan,
+  SyncRemoteDocumentResult,
+} from "../../../data/documents/shared/sync/documentSyncTypes";
 import {
   type IncomingDocumentSyncUpdateValidator,
   isolateDocumentSyncBatchError,
 } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
-import type {
-  DocumentWriterPublicKeyResolver,
-  MaterializedDocumentSyncPlan,
-  SyncRemoteDocumentResult,
-} from "../../../data/documents/shared/types";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
+import type { DocumentWriterPublicKeyResolver } from "../../../data/documents/shared/types";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,

@@ -1,12 +1,12 @@
 import type { WriterProjectionTarget } from "@tearleads/api-client";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { and, eq, inArray } from "drizzle-orm";
-import { documentContainerProjection } from "../../sqlite/schema";
 import { containers } from "../../sqlite/schema/containerSchema";
 import {
   documentDiscoveryHeads,
   pendingDocumentDiscoveries,
 } from "../../sqlite/schema/documentDiscoveryEvidenceSchema";
+import { documentContainerProjection } from "../../sqlite/schema/documentProjectionSchema";
 import { verifiedAccessManifestBundles as bundles } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import type { ClientSQLiteDatabase } from "../../sqlite/sqlitePersistenceRuntime";
 

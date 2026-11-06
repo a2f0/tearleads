@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { documentProjection } from "../../sqlite/schema";
+import { documentProjection } from "../../sqlite/schema/documentProjectionSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 // The primary container of each projected document, rewritten inside Container

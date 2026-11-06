@@ -1,8 +1,6 @@
 import { and, eq } from "drizzle-orm";
-import {
-  documentAttachmentBlobProjection,
-  documents,
-} from "../../../sqlite/schema";
+import { documentAttachmentBlobProjection } from "../../../sqlite/schema";
+import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { DocumentsPersistence } from "../types";
 import { queueDocumentAttachmentStorageKeys } from "./orphanSideRows";

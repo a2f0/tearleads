@@ -13,13 +13,13 @@ import {
   persistedDocumentStateFromAcknowledgement,
 } from "../../../data/documents/shared/responses";
 import { acknowledgeDocumentMutation } from "../../../data/documents/shared/sync/mutationAcknowledgement";
+import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import type {
   DocumentCreateAuthor,
   DocumentLinkSetFailureHandler,
   DocumentLinkSetMutationApi,
   DocumentLinkSetMutationFailure,
   DocumentLinkSetMutationOperation,
-  DocumentSyncSubmitFailure,
   RelinkRemoteDocumentResult,
 } from "../../../data/documents/shared/types";
 import {

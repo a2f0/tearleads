@@ -37,12 +37,12 @@ import {
   createBlobByteSource,
 } from "../../../data/blobs/blobContracts";
 import { authorizingContainerPathRefs } from "../../../data/documents/shared/projection";
-import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
 import {
-  type DocumentCreateAuthor,
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
-} from "../../../data/documents/shared/types";
+} from "../../../data/documents/shared/projection/projectionVerificationOptions";
+import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
+import type { DocumentCreateAuthor } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import { requireProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

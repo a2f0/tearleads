@@ -2,7 +2,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { assertBlobContentKeyBundleTargetHash } from "../../../data/blobs/attachments/responses";
 import type { DecryptDocumentAttachmentBlobInput } from "../../../data/blobs/attachments/types";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
+import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import {
   type DocumentWriterProjectionAuthorization,
   requireProjectionUserKeyResolver,

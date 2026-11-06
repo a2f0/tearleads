@@ -12,7 +12,7 @@ import {
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";
 import { savePrincipalPolicyBundle } from "../../persistence/principalPolicy/principalPolicyPersistence";
-import { accessManifestCheckpoints } from "../../sqlite/schema";
+import { accessManifestCheckpoints } from "../../sqlite/schema/keyingCheckpointSchema";
 import { verifiedAccessManifestBundles } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";

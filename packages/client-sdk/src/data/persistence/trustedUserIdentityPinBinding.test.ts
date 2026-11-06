@@ -4,7 +4,7 @@ import { createPin } from "../../../test/helpers/trustedUserIdentityPin";
 import {
   trustedUserIdentityPins,
   trustedUserIdentityPinTables,
-} from "../sqlite/schema";
+} from "../sqlite/schema/trustedUserIdentityPinSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { createExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 import {

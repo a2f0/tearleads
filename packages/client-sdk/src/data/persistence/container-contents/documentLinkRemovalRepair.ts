@@ -1,11 +1,11 @@
 import { and, asc, eq, inArray, or } from "drizzle-orm";
 import {
-  documentContainerProjection,
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../sqlite/schema";
 import { documentIntentLinkTargets } from "../../sqlite/schema/documentPlacementIntentSchema";
+import { documentContainerProjection } from "../../sqlite/schema/documentProjectionSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   DOCUMENT_LINK_INTENT_TYPE,

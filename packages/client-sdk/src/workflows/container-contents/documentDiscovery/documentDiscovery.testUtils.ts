@@ -2,7 +2,7 @@ import type { SyncWatermark } from "@tearleads/validators/response";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import type { DiscoveredDocumentCandidate } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { upsertAccessManifestCheckpointInTransaction } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { keyingCheckpointTables } from "../../../data/sqlite/schema";
+import { keyingCheckpointTables } from "../../../data/sqlite/schema/keyingCheckpointSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import { discoverContainerDocumentLanes } from "./documentDiscoveryLanes";

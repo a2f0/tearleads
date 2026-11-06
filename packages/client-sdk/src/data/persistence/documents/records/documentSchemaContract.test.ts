@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import {
-  documentProjectionTables,
-  documentTables,
-} from "../../../sqlite/schema";
+import { documentProjectionTables } from "../../../sqlite/schema/documentProjectionSchema";
+import { documentTables } from "../../../sqlite/schema/documentRecordSchema";
 import { ensureSqlTables } from "../../../sqlite/sqlTableSchema";
 
 const documentsTable = documentTables[0];

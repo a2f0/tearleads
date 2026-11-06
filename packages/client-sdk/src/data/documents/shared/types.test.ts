@@ -3,7 +3,7 @@ import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
   resolveProjectionVerifier,
-} from "./types";
+} from "./projection/projectionVerificationOptions";
 
 test("projection verification trust requires literal true", () => {
   const truthyTrustedProjection = {

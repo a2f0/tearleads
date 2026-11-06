@@ -7,7 +7,7 @@ import type {
 import type {
   DocumentSyncPlan,
   MaterializedDocumentSyncPlan,
-} from "../../../data/documents/shared/types";
+} from "../../../data/documents/shared/sync/documentSyncTypes";
 import type { DocumentWriterProjectionAuthorization } from "../../../data/keyingProjectionVerification";
 import {
   boundDocumentSyncPlanRequest,

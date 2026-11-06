@@ -4,7 +4,7 @@ import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { acknowledgeContainerMutationBatch } from "../../../data/containers/shared/mutationAcknowledgement";
 import type { MaterializedContainerRekeyPlan } from "../../../data/containers/shared/types";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
+import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { requireProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import {

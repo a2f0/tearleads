@@ -1,7 +1,10 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { deserializeDocumentSyncPullContinuation } from "../../../documents/shared/sync/pullContinuation";
 import { normalizeEffectiveAccessLevel } from "../../../keying/accessLevel";
-import { documentHistoryUpdates, documents } from "../../../sqlite/schema";
+import {
+  documentHistoryUpdates,
+  documents,
+} from "../../../sqlite/schema/documentRecordSchema";
 import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";

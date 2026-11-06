@@ -6,7 +6,7 @@ import {
 } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
-import type { DocumentSyncApi, DocumentSyncPlan } from "../types";
+import type { DocumentSyncApi, DocumentSyncPlan } from "./documentSyncTypes";
 import { submitDocumentSync } from "./syncResponses";
 
 const DOCUMENT_ID = "document-pagination-validation";
