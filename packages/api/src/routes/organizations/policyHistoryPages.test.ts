@@ -166,4 +166,4 @@ test("organization history rejects a cursor beyond its pinned head and a foreign
     expect(response.status).toBe(400);
     expect(await response.json()).not.toHaveProperty("evidence");
   }
-}, 15_000);
+});

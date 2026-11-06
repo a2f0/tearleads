@@ -101,7 +101,6 @@ test("GET principal policy serves a peer the owner shared a root with", async ()
   await expectBundle(await getPolicy(peer, "organization", organizationId));
 });
 
-// Real signed setup and protocol steps approach five seconds in PGlite CI.
 test("GET principal policy serves a group-granted reader with no roster entry", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
@@ -133,9 +132,8 @@ test("GET principal policy serves a group-granted reader with no roster entry", 
   const outsider = createTestUser();
   await registerAndAuthenticateUsers(outsider);
   await expectDenied(await getPolicy(outsider, "group", groupId));
-}, 15_000);
+});
 
-// Registrations, two group grants, and descendant verification exceed 5s on CI.
 test("GET principal policy serves a reader granted above a child's group grant", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
@@ -188,7 +186,7 @@ test("GET principal policy serves a reader granted above a child's group grant",
   const outsider = createTestUser();
   await registerAndAuthenticateUsers(outsider);
   await expectDenied(await getPolicy(outsider, "group", childGroupId));
-}, 15_000);
+});
 
 test("an authorized policy with a missing stored payload is a server failure", async () => {
   const owner = createTestUser();

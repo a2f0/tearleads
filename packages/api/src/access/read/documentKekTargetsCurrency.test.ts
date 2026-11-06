@@ -5,13 +5,11 @@ import {
 } from "@tearleads/api-shared/postgres";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
+  createVerifiedContainerManifest,
   createVerifiedDocumentLinkSetManifest,
   insertContainerKeyEpoch,
 } from "../../../test/helpers/documentContentKeyStoreFixtures";
-import {
-  createVerifiedKeyedContainerManifest as createVerifiedContainerManifest,
-  staleLink,
-} from "../../../test/helpers/documentKekTargetFixtures";
+import { staleLink } from "../../../test/helpers/documentKekTargetFixtures";
 import { storeVerifiedAccessManifest } from "../write/accessManifestStore";
 import {
   assertDocumentKekTargetsCurrent,

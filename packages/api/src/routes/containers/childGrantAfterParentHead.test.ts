@@ -26,8 +26,6 @@ const share = (token: string, id: string, request: ContainerMutationRequest) =>
     body: JSON.stringify(request),
   });
 
-// Each case performs multiple real registrations and signed grants. Allow 15s
-// for this bounded crypto work while both database suites run together on CI.
 // Share the folder, then share the subfolder: the parent head advances without
 // a KEK rotation, so the child's key epoch still cites the superseded parent
 // manifest. The signed-citation binding must still resolve that evidence.
@@ -76,7 +74,7 @@ test("a child share succeeds after its parent head advanced", async () => {
   );
   const childShared = await childShare.text();
   expect(childShare.status, childShared.slice(0, 500)).toBe(200);
-}, 15_000);
+});
 
 // The same path with the child's creation manifest already in the process-wide
 // verification cache, where `verifyBundle` short-circuits instead of recursing
@@ -150,12 +148,11 @@ test("a warm-cache child share succeeds after its parent head advanced", async (
   );
   const childShared = await childShare.text();
   expect(childShare.status, childShared.slice(0, 500)).toBe(200);
-}, 15_000);
+});
 
 // The cited parent manifest now sits two heads below the current one, so the
 // intermediate is already process-cached when the child is verified. The
 // creation citation must still resolve rather than depending on cache warmth.
-// Four registrations and three signed shares need more than 5s on CI runners.
 test("a child share succeeds after its parent head advanced twice", async () => {
   const owner = createTestUser();
   await registerUser(owner);
@@ -227,7 +224,7 @@ test("a child share succeeds after its parent head advanced twice", async () => 
   );
   const ct = await cs.text();
   expect(cs.status, ct.slice(0, 400)).toBe(200);
-}, 15_000);
+});
 
 // Read-first ordering: a writer-projection GET warms both the child's creation
 // manifest and the current parent head into the process-wide verification cache
@@ -287,4 +284,4 @@ test("a child share succeeds after a projection read warmed the cache", async ()
   );
   const childShared = await childShare.text();
   expect(childShare.status, childShared.slice(0, 500)).toBe(200);
-}, 15_000);
+});

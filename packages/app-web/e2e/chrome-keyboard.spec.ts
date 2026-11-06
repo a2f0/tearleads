@@ -38,13 +38,19 @@ test("desktop launcher supports keyboard selection, dismissal and taskbar state"
     .locator(".menu")
     .getByRole("button", { name: "Explorer", exact: true });
   await expect(explorer).toBeVisible();
-  const menuBox = await page.locator(".menu").boundingBox();
-  const triggerBox = await launcher.boundingBox();
-  expect(menuBox).not.toBeNull();
-  expect(triggerBox).not.toBeNull();
-  expect((menuBox?.y ?? 0) + (menuBox?.height ?? 0)).toBeLessThanOrEqual(
-    triggerBox?.y ?? 0,
-  );
+  // The menu places itself from its measured size and re-places a frame later
+  // (ResizeObserver) when its content grows, so one read can land between the
+  // growth and the re-placement; poll until it sits above its trigger.
+  await expect
+    .poll(async () => {
+      const menuBox = await page.locator(".menu").boundingBox();
+      const triggerBox = await launcher.boundingBox();
+      if (!menuBox || !triggerBox) {
+        return null;
+      }
+      return triggerBox.y - (menuBox.y + menuBox.height);
+    })
+    .toBeGreaterThanOrEqual(0);
   await page.keyboard.press("End");
   await expect(
     page.locator(".menu button:not(:disabled)").last(),

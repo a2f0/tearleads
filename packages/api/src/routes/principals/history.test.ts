@@ -50,7 +50,7 @@ test("document history access does not load container keys", async () => {
   } finally {
     keys.mockRestore();
   }
-}, 15_000);
+});
 
 test.each(["container", "document"] as const)(
   "%s-scoped public history checks the reader on every pinned page",

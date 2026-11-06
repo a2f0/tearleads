@@ -63,6 +63,9 @@ export const EXPLORER_CONTAINER_INFO_LABELS = {
   containerInfoShareToPeerFailure: "Failed to share container with peer.",
   containerInfoShareToPeerHeading: "Share To Peer",
   containerInfoSharingAction: "Sharing...",
+  containerInfoSharingProgressDescription:
+    "Sealing this folder's keys for the recipient and recording the grant.",
+  containerInfoSharingProgressTitle: "Sharing folder...",
   containerInfoSharingTab: "Sharing",
   containerInfoSourceColumn: "Source",
   containerInfoSourceDirect: "Direct",
