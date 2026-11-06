@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
-import {
-  accessManifestCheckpoints,
-  clientSqlTables,
-} from "../../../data/sqlite/schema";
+import { clientSqlTables } from "../../../data/sqlite/schema";
+import { accessManifestCheckpoints } from "../../../data/sqlite/schema/keyingCheckpointSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../../data/sqlite/sqlTableSchema";
 import { createDiscoveredDocumentVerifier } from "./documentDiscoveryEvidence";

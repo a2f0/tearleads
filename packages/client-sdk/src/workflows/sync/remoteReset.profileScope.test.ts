@@ -1,11 +1,8 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import {
-  clientSqlTables,
-  containers,
-  documentProjection,
-  documents,
-} from "../../data/sqlite/schema";
+import { clientSqlTables, containers } from "../../data/sqlite/schema";
+import { documentProjection } from "../../data/sqlite/schema/documentProjectionSchema";
+import { documents } from "../../data/sqlite/schema/documentRecordSchema";
 import {
   organizationReadModelDirectoryUsers,
   organizationReadModelState,

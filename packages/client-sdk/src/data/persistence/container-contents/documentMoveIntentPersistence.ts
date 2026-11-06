@@ -2,12 +2,12 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   containerTables,
   documentPlacementIntentTables,
-  documentProjectionTables,
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../sqlite/schema";
 import { documentIntentLinkTargets } from "../../sqlite/schema/documentPlacementIntentSchema";
+import { documentProjectionTables } from "../../sqlite/schema/documentProjectionSchema";
 import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,

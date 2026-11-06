@@ -7,17 +7,17 @@ import {
   isUpstreamDeletedDocumentSyncFailure,
   submitDocumentSync,
 } from "../../../data/documents/shared/responses";
+import type {
+  DocumentSyncApi,
+  DocumentSyncPlan,
+  MaterializedDocumentSyncPlan,
+} from "../../../data/documents/shared/sync/documentSyncTypes";
 import {
   type DocumentSyncCommitLsnMode,
   type DocumentSyncPullContinuation,
   InvalidDocumentSyncPullContinuationError,
 } from "../../../data/documents/shared/sync/syncPagination";
-import type {
-  DocumentSyncApi,
-  DocumentSyncPlan,
-  DocumentSyncSubmitFailure,
-  MaterializedDocumentSyncPlan,
-} from "../../../data/documents/shared/types";
+import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import type { ReferencedPrincipalPolicyWarmer } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import {

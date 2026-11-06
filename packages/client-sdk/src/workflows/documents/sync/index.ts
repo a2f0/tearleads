@@ -1,14 +1,14 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  MaterializedDocumentSyncPlan,
+  SyncRemoteDocumentResult,
+} from "../../../data/documents/shared/sync/documentSyncTypes";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
   type DocumentSyncPullContinuation,
   InvalidDocumentSyncPullContinuationError,
 } from "../../../data/documents/shared/sync/syncPagination";
-import type {
-  MaterializedDocumentSyncPlan,
-  SyncRemoteDocumentResult,
-} from "../../../data/documents/shared/types";
 import {
   isProjectionVerificationCancelledError,
   type ProjectionUserKeyResolver,

@@ -1,14 +1,11 @@
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { parseWalLsn } from "@tearleads/validators/util";
-import type {
-  DocumentSyncApi,
-  DocumentSyncPlan,
-  DocumentSyncSubmitFailure,
-} from "../types";
+import type { DocumentSyncApi, DocumentSyncPlan } from "./documentSyncTypes";
 import type {
   DocumentSyncCommitLsnMode,
   DocumentSyncPullContinuation,
 } from "./pullContinuation";
+import type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
 
 export type {
   DocumentSyncCommitLsnMode,

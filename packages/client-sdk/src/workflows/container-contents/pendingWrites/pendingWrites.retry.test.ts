@@ -10,7 +10,7 @@ import {
   listDocumentPendingUpdates,
   recordDocumentSyncFailure,
 } from "../../../data/persistence/documents/records";
-import { documentHistoryUpdates } from "../../../data/sqlite/schema";
+import { documentHistoryUpdates } from "../../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { resetPendingWriteRetryState } from "./index";
 

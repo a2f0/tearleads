@@ -1,6 +1,6 @@
 import { expect, spyOn, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { documentTables } from "./schema";
+import { documentTables } from "./schema/documentRecordSchema";
 import type { ExecSql } from "./sqlExec";
 import {
   resetConnectionSchemaMemo,

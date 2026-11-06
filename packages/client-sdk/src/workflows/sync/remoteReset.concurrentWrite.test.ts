@@ -10,14 +10,13 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import { clientSqlTables, containers } from "../../data/sqlite/schema";
+import { documentProjection } from "../../data/sqlite/schema/documentProjectionSchema";
 import {
-  clientSqlTables,
-  containers,
   documentHistoryCheckpoints,
   documentHistoryUpdates,
-  documentProjection,
   documents,
-} from "../../data/sqlite/schema";
+} from "../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";

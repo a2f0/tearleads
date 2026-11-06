@@ -8,9 +8,9 @@ import {
 } from "../../../data/persistence/documents/records";
 import {
   documentPlacementIntentTables,
-  documentTables,
   LOCAL_INTENT_LANES,
 } from "../../../data/sqlite/schema";
+import { documentTables } from "../../../data/sqlite/schema/documentRecordSchema";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../containerPersistence";

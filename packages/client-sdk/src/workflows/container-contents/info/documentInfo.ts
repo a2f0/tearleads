@@ -22,8 +22,8 @@ import type { SecurityIncidentReporter } from "../../../data/shared/securityInci
 import {
   documentAttachmentBlobProjection,
   documentPendingAttachments,
-  documentProjection,
 } from "../../../data/sqlite/schema";
+import { documentProjection } from "../../../data/sqlite/schema/documentProjectionSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { loadPersistedDocumentContent } from "../../documents";

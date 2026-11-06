@@ -7,7 +7,6 @@ import {
   principalCurrentFingerprintJson,
   principalStateFingerprintJson,
 } from "../../sqlite/principalKeyFingerprintJson";
-import { principalPolicyTables } from "../../sqlite/schema";
 import {
   principalHistoryEvidenceTables,
   principalHistoryPrefixes,
@@ -17,6 +16,7 @@ import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStag
 import {
   principalPolicies,
   principalPolicyBundleHistory,
+  principalPolicyTables,
 } from "../../sqlite/schema/principalPolicySchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";

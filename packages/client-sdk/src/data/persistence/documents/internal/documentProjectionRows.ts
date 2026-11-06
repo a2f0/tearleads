@@ -10,7 +10,8 @@ import {
 } from "../../../documents/documentKinds";
 import type { DocumentSummary } from "../../../documents/documentSummary";
 import { normalizeEffectiveAccessLevel } from "../../../keying/accessLevel";
-import { documentProjection, documents } from "../../../sqlite/schema";
+import { documentProjection } from "../../../sqlite/schema/documentProjectionSchema";
+import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import type { StoredDocumentRecord } from "../types";
 
 interface SelectedDocumentProjection {

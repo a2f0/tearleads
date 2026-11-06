@@ -18,7 +18,7 @@ import {
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { principalRepairEvidence } from "../../../../test/helpers/principalRepairEvidence";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
-import type { DocumentSyncPlan } from "../../../data/documents/shared/types";
+import type { DocumentSyncPlan } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import type {
   PrincipalPolicyResolveRequest,

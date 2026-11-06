@@ -6,8 +6,8 @@ import {
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyCheckpoints,
-  principalPolicyTables,
 } from "../../sqlite/schema";
+import { principalPolicyTables } from "../../sqlite/schema/principalPolicySchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../sqlite/sqlTableSchema";
 import {

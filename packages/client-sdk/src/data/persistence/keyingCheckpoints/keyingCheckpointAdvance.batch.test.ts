@@ -6,13 +6,13 @@ import type {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { asc } from "drizzle-orm";
+import { principalPolicyCheckpoints } from "../../sqlite/schema";
 import {
   accessManifestCheckpoints,
   keyingCheckpointTables,
-  principalPolicyCheckpoints,
-  principalPolicyTables,
-} from "../../sqlite/schema";
+} from "../../sqlite/schema/keyingCheckpointSchema";
 import { principalGrantRetirements } from "../../sqlite/schema/principalGrantRetirementSchema";
+import { principalPolicyTables } from "../../sqlite/schema/principalPolicySchema";
 import {
   verifiedAccessManifestBundles,
   verifiedManifestBundleTables,

@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import {
-  containerTables,
-  documentContainerProjection,
-  documentContainerProjectionTables,
-} from "../sqlite/schema";
+import { containerTables } from "../sqlite/schema";
 import { containers } from "../sqlite/schema/containerSchema";
 import {
   documentDiscoveryHeads,
   pendingDocumentDiscoveries,
 } from "../sqlite/schema/documentDiscoveryEvidenceSchema";
+import {
+  documentContainerProjection,
+  documentContainerProjectionTables,
+} from "../sqlite/schema/documentProjectionSchema";
 import { verifiedAccessManifestBundles } from "../sqlite/schema/verifiedManifestBundleSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import {

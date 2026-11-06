@@ -10,11 +10,11 @@ import { createIdentity } from "../../src/client/identity";
 import { Database } from "../../src/client/runtime/database";
 import { createSession } from "../../src/client/session";
 import {
-  accessManifestCheckpoints,
   clientSqlTables,
   containers,
   principalPolicyCheckpoints,
 } from "../../src/data/sqlite/schema";
+import { accessManifestCheckpoints } from "../../src/data/sqlite/schema/keyingCheckpointSchema";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../src/data/sqlite/sqlTableSchema";
 import {

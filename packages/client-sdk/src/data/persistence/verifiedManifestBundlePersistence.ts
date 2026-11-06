@@ -10,10 +10,8 @@ import {
 } from "@tearleads/validators/response";
 import { KNOWN_MANIFEST_HINT_LIMIT } from "@tearleads/validators/util";
 import { and, asc, desc, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
-import {
-  containerTables,
-  documentContainerProjectionTables,
-} from "../sqlite/schema";
+import { containerTables } from "../sqlite/schema";
+import { documentContainerProjectionTables } from "../sqlite/schema/documentProjectionSchema";
 import {
   verifiedAccessManifestBundles as bundles,
   verifiedManifestBundleTables,

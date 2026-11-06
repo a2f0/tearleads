@@ -4,11 +4,11 @@ import {
   type DocumentSyncPullContinuation,
   serializeDocumentSyncPullContinuation,
 } from "../../../documents/shared/sync/pullContinuation";
+import { documentProjectionTables } from "../../../sqlite/schema/documentProjectionSchema";
 import {
-  documentProjectionTables,
   documents,
   documentTables,
-} from "../../../sqlite/schema";
+} from "../../../sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,

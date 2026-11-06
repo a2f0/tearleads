@@ -1,10 +1,10 @@
 import { and, asc, eq, inArray, or, type SQL, sql } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
+import { containerDocumentTombstoneHolds } from "../../../sqlite/schema";
 import {
-  containerDocumentTombstoneHolds,
   documentContainerProjection,
   documentProjection,
-} from "../../../sqlite/schema";
+} from "../../../sqlite/schema/documentProjectionSchema";
 import { remoteResetBatches } from "../../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
 import { filterWritableDocumentPlacements } from "../../container-contents/documentPlacement";

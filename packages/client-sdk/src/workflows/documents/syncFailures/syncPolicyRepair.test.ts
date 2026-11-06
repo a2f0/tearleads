@@ -3,7 +3,7 @@ import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/res
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { createAuthor } from "../../../../test/helpers/containerFixtures";
 import { principalRepairEvidence } from "../../../../test/helpers/principalRepairEvidence";
-import type { DocumentSyncPlan } from "../../../data/documents/shared/types";
+import type { DocumentSyncPlan } from "../../../data/documents/shared/sync/documentSyncTypes";
 import type {
   PrincipalPolicyResolveRequest,
   ReferencedPrincipalPolicyWarmer,

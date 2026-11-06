@@ -17,17 +17,17 @@ import {
   importContentKeyMaterial,
 } from "./contentRecordKeys";
 import { asWebCryptoBytes, readWriteHeader } from "./readers";
+import type {
+  DecryptedDocumentSyncUpdate,
+  DocumentEncryptedPendingUpdate,
+} from "./sync/documentSyncTypes";
 import { decryptDocumentSyncUpdate } from "./sync/documentSyncUpdateDecryption";
 import {
   isDocumentSyncUpdateIsolationError,
   isolateDocumentSyncBatchError,
   isolateDocumentSyncUpdateError,
 } from "./sync/documentSyncUpdateIsolation";
-import {
-  type DecryptedDocumentSyncUpdate,
-  DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
-  type DocumentEncryptedPendingUpdate,
-} from "./types";
+import { DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT } from "./types";
 
 export async function encryptDocumentPendingUpdate(input: {
   contentKeyMaterial: CryptoKey;

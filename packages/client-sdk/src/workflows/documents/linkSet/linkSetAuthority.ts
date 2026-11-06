@@ -7,11 +7,11 @@ import {
   ContainerAuthorAccessError,
 } from "../../../data/containers/shared/authorAccess";
 import { readLinkedContainerIdsFromDocumentManifest } from "../../../data/documents/shared/projection";
-import type { DocumentCreateAuthor } from "../../../data/documents/shared/types";
 import {
   type ProjectionVerificationOptions,
   resolveProjectionVerifier,
-} from "../../../data/documents/shared/types";
+} from "../../../data/documents/shared/projection/projectionVerificationOptions";
+import type { DocumentCreateAuthor } from "../../../data/documents/shared/types";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   type PrincipalPolicyCache,

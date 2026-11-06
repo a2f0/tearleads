@@ -6,12 +6,10 @@ import {
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { assertProjectionVerificationCurrent } from "../keyingProjectionVerification/types";
-import {
-  keyingCheckpointTables,
-  principalPolicyTables,
-} from "../sqlite/schema";
+import { keyingCheckpointTables } from "../sqlite/schema/keyingCheckpointSchema";
 import { principalHistoryPrefixes } from "../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../sqlite/schema/principalHistoryStageSchema";
+import { principalPolicyTables } from "../sqlite/schema/principalPolicySchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

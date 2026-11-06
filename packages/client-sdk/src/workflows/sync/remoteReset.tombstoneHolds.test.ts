@@ -5,12 +5,12 @@ import {
   clientSqlTables,
   containerDocumentTombstoneHolds,
   containers,
-  documentContainerProjection,
 } from "../../data/sqlite/schema";
 import {
   documentDiscoveryHeads,
   documentDiscoverySequence,
 } from "../../data/sqlite/schema/documentDiscoveryEvidenceSchema";
+import { documentContainerProjection } from "../../data/sqlite/schema/documentProjectionSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { clearRemoteSyncState } from "./remoteReset";

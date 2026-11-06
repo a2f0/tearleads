@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { documentTables } from "../../../sqlite/schema";
+import { documentTables } from "../../../sqlite/schema/documentRecordSchema";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import { ensureSqlTables } from "../../../sqlite/sqlSchema";
 import { deleteDocumentRecord } from "./documentRecordPersistence";

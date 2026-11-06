@@ -1,6 +1,6 @@
 import { base64ToBytes } from "@tearleads/encoding";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
-import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/types";
+import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import {
   MAX_PENDING_UPDATE_REKEYS,
   type PendingUpdateRecord,

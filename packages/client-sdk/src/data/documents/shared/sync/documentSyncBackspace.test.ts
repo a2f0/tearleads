@@ -12,7 +12,7 @@ import {
   addDocumentAttachments,
   getDocumentAttachments,
 } from "../../documentContent";
-import type { DecryptedDocumentSyncUpdate } from "../types";
+import type { DecryptedDocumentSyncUpdate } from "./documentSyncTypes";
 import {
   importDecryptedDocumentSyncUpdates,
   validateDocumentSyncUpdateImports,

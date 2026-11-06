@@ -3,7 +3,7 @@ import { eq, inArray } from "drizzle-orm";
 import {
   documentPurgeCheckpoints,
   keyingCheckpointTables,
-} from "../../sqlite/schema";
+} from "../../sqlite/schema/keyingCheckpointSchema";
 import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
