@@ -78,10 +78,6 @@
       "lines": 565,
       "bytes": 20433
     },
-    "packages/api/src/schema.test.ts": {
-      "lines": 526,
-      "bytes": 16513
-    },
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
       "lines": 539,
       "bytes": 17604
