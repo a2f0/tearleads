@@ -1,7 +1,6 @@
 import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
-  OrganizationGroupMembers,
 } from "@tearleads/client-sdk";
 
 // A roster user can be disabled when disabling is available at all and the
@@ -26,18 +25,10 @@ export function canDisableRosterUser(input: {
   );
 }
 
-export function canCurrentUserMutateSelectedGroup(input: {
-  directory: OrganizationDirectory | null;
-  members: OrganizationGroupMembers | null;
-  userId: string | null;
-}): boolean {
-  if (input.directory?.currentUser.isOrgAdmin) {
-    return true;
-  }
-
-  return (
-    input.members?.members.some(
-      (member) => member.userId === input.userId && member.role === "admin",
-    ) ?? false
-  );
+// The API accepts group policy changes only from organization admins (members
+// of the built-in Admins group); a direct admin of one group is not enough.
+export function canCurrentUserMutateSelectedGroup(
+  directory: OrganizationDirectory | null,
+): boolean {
+  return directory?.currentUser.isOrgAdmin ?? false;
 }
