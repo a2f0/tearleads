@@ -2,15 +2,15 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { readProjectionAccessManifest } from "../../keyingProjectionRecords";
+import { DocumentWriterProjectionError } from "./writerProjection";
 import {
   type ContainerDependencyLoadState,
-  DocumentWriterProjectionError,
   type LoadedProjectionManifestBundle,
   loadContainerDependencyPath,
   loadDocumentContainerDependencyMaterial,
   loadDocumentManifestHistory,
   loadProjectionManifestBundleByHash,
-} from "./writerProjection";
+} from "./writerProjectionManifestDependencies";
 
 export interface DocumentPurgeAuthorizationMaterial {
   readonly authorizingContainerPath: AccessManifestBundleWireResponse[];

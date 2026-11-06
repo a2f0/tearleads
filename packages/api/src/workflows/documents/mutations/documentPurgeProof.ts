@@ -27,7 +27,7 @@ import {
   StoredDocumentManifestError,
   verifyStoredDocumentManifest,
 } from "../storedDocumentManifestVerification";
-import { loadDocumentContainerDependencyMaterial } from "../writerProjection";
+import { loadDocumentContainerDependencyMaterial } from "../writerProjectionManifestDependencies";
 import {
   collectPurgeProofPrincipalReferences,
   type DocumentPurgeAuthorizationMaterial,
