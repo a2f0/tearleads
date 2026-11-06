@@ -11,6 +11,15 @@ interface TestResult {
 const allDatabases: readonly ApiTestDatabase[] = ["memory", "sqlite"];
 const databaseFlag = "--database=";
 
+// Per-test (and per-hook) budget for tests that set none, replacing Bun's
+// 5 s default. Route tests do real signing and verification (registering one
+// user alone takes about 0.4 s), so their time scales with free CPU: at
+// normal load the slowest such test took 2.4 s (p99.9 2.1 s), and on
+// throttled cores tests ran a median 3.6x and p90 5.9x slower. 2.4 s x 6
+// rounds to 15 s, the budget most slow API tests already set by hand. See
+// docs/developer/test-optimization.md. A later `--timeout` argument wins.
+const API_TEST_TIMEOUT_MS = 15_000;
+
 function isApiTestDatabase(name: string): name is ApiTestDatabase {
   return allDatabases.some((database) => database === name);
 }
@@ -73,6 +82,7 @@ async function runDatabaseTests(
     "--max-concurrency=4",
     "--parallel=2",
     "--no-isolate",
+    `--timeout=${API_TEST_TIMEOUT_MS}`,
     ...testArgs,
   ];
   const startedAt = performance.now();
