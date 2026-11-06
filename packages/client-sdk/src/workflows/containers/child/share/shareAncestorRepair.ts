@@ -64,6 +64,15 @@ function firstStaleLevelId(
  * carried-rekey cap, and its grantees are then parked behind exactly these
  * levels; the sharer is already here and able.
  */
+function boundRekeyResult(
+  apiClient: Partial<Pick<ContainerRekeyApi, "rekeyContainerResult">>,
+) {
+  const { rekeyContainerResult } = apiClient;
+  return rekeyContainerResult
+    ? { rekeyContainerResult: rekeyContainerResult.bind(apiClient) }
+    : {};
+}
+
 export async function projectionWithCurrentAncestors(input: {
   apiClient: ContainerShareApi &
     Partial<Pick<ContainerRekeyApi, "rekeyContainer" | "rekeyContainerResult">>;
@@ -77,7 +86,7 @@ export async function projectionWithCurrentAncestors(input: {
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<ContainerWriterProjectionResponse | null> {
-  const { rekeyContainer, rekeyContainerResult } = input.apiClient;
+  const { rekeyContainer } = input.apiClient;
   let projection = input.previousProjection;
   // Each round repairs one level, and a path has a bounded number of them.
   for (let round = 0; round < projection.containerKeks.length; round += 1) {
@@ -101,9 +110,7 @@ export async function projectionWithCurrentAncestors(input: {
           input.apiClient.getContainerWriterProjection(containerId),
         reciteContainer: (...args) => input.apiClient.reciteContainer(...args),
         rekeyContainer: rekeyContainer.bind(input.apiClient),
-        ...(rekeyContainerResult
-          ? { rekeyContainerResult: rekeyContainerResult.bind(input.apiClient) }
-          : {}),
+        ...boundRekeyResult(input.apiClient),
       },
       author: input.author,
       containerId: staleLevelId,

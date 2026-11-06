@@ -317,13 +317,12 @@ async function resolveSyncPlanContentMaterial(
         collectedKeks.unattributedPredecessorFailuresByContainerId,
       );
     } catch (error) {
-      if (error instanceof DocumentHistoryUnavailableError) {
-        if (
-          input.historyMode !== "raw" ||
-          !(error.historyCause instanceof ContainerKekHistoryUnavailableError)
-        ) {
-          throw error;
-        }
+      if (
+        error instanceof DocumentHistoryUnavailableError &&
+        (input.historyMode !== "raw" ||
+          !(error.historyCause instanceof ContainerKekHistoryUnavailableError))
+      ) {
+        throw error;
       }
       // A stale bundle can predate the requester's current authorizing links.
       // Keep the read-only pass alive; served updates that need this absent key

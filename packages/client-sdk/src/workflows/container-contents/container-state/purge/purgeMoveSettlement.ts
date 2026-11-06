@@ -140,6 +140,18 @@ function stopReason(input: {
  * own checks still run afterwards; this only gives the moves time to land.
  * It ends unsettled once a pass requested here has tried and left one queued.
  */
+/** Only a pass that starts after the request answers it. */
+function answeringPassStart(
+  startedAt: string | null,
+  lane: LaneRun,
+  runCountAtRequest: number,
+): string | null {
+  if (startedAt !== null || !lane || lane.runCount <= runCountAtRequest) {
+    return startedAt;
+  }
+  return lane.lastStartedAt;
+}
+
 export async function settlePurgeScopeMoves(
   input: SettlePurgeScopeMovesInput,
 ): Promise<"cancelled" | "settled" | "unsettled"> {
@@ -175,9 +187,7 @@ export async function settlePurgeScopeMoves(
     intents = await readScope();
     if (cancelled()) return "cancelled";
     if (intents.length === 0) return "settled";
-    // Only a pass that starts after the request answers it.
-    if (lane && lane.runCount > runCountAtRequest)
-      startedAt ??= lane.lastStartedAt;
+    startedAt = answeringPassStart(startedAt, lane, runCountAtRequest);
     const reason = stopReason({ deadline, intents, lane, startedAt });
     if (reason) return unsettled(reason);
   }

@@ -26,33 +26,36 @@ function newer(
   return previous.head.version < next.head.version;
 }
 
+type OrganizationPayload =
+  ProjectionPolicyEvidenceResponse["organizationPayloads"][number];
+
+function payloadsConflict(
+  previous: OrganizationPayload,
+  payload: OrganizationPayload,
+): boolean {
+  return (
+    !principalHeadMatchesReference(previous.reference, payload.reference) ||
+    previous.payload.principalId !== payload.payload.principalId ||
+    previous.payload.principalType !== payload.payload.principalType ||
+    previous.payload.ciphertext !== payload.payload.ciphertext ||
+    previous.payload.ciphertextHash !== payload.payload.ciphertextHash
+  );
+}
+
 /** Combine proof material when locally composing projections; verification follows. */
 export function mergeProjectionPolicyEvidence(
   evidence: readonly ProjectionPolicyEvidenceResponse[],
 ): ProjectionPolicyEvidenceResponse {
   let directory: ProjectionPolicyEvidenceResponse | undefined;
   const groups = new Map<string, PrincipalPolicyHistorySourceResponse>();
-  const payloads = new Map<
-    string,
-    ProjectionPolicyEvidenceResponse["organizationPayloads"][number]
-  >();
+  const payloads = new Map<string, OrganizationPayload>();
   for (const proof of evidence) {
     const organization = proof.organization;
     if (organization && newer(directory?.organization, organization))
       directory = proof;
     for (const payload of proof.organizationPayloads) {
       const previous = payloads.get(payload.reference.stateHash);
-      if (
-        previous &&
-        (!principalHeadMatchesReference(
-          previous.reference,
-          payload.reference,
-        ) ||
-          previous.payload.principalId !== payload.payload.principalId ||
-          previous.payload.principalType !== payload.payload.principalType ||
-          previous.payload.ciphertext !== payload.payload.ciphertext ||
-          previous.payload.ciphertextHash !== payload.payload.ciphertextHash)
-      )
+      if (previous && payloadsConflict(previous, payload))
         throw new KeyingVerificationError(
           "hash_mismatch",
           "Projection evidence contains conflicting directory payloads",

@@ -85,6 +85,30 @@ function sameHydrationTombstone(
   );
 }
 
+/** The fence and dormant record still match what the caller observed. */
+function observedRecoveryStateHeld(
+  fence: Parameters<typeof sameHydrationTombstone>[0],
+  currentDormantRecord: ContainerMetadataRecord | null,
+  expected: {
+    readonly expectedDormantRecord: ContainerMetadataRecord | null;
+    readonly expectedHydrationTombstone?:
+      | ContainerHydrationTombstone
+      | null
+      | undefined;
+  },
+): boolean {
+  if (
+    fence &&
+    !sameHydrationTombstone(fence, expected.expectedHydrationTombstone)
+  ) {
+    return false;
+  }
+  return sameMetadataRecord(
+    currentDormantRecord,
+    expected.expectedDormantRecord,
+  );
+}
+
 export async function recordContainerHydrationTombstones(input: {
   removals: ReadonlyArray<{
     containerId: string;
@@ -253,15 +277,7 @@ export async function commitStoredHydratedContainer(
         lockedExecSql,
         input.container.id,
       );
-      if (
-        fence &&
-        !sameHydrationTombstone(fence, input.expectedHydrationTombstone)
-      ) {
-        return { committed: false as const };
-      }
-      if (
-        !sameMetadataRecord(currentDormantRecord, input.expectedDormantRecord)
-      ) {
+      if (!observedRecoveryStateHeld(fence, currentDormantRecord, input)) {
         return { committed: false as const };
       }
       if (

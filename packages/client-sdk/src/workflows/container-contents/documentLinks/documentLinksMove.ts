@@ -142,6 +142,18 @@ async function linkRemoteContainerDocument(input: {
   });
 }
 
+/** The move target (unless link-only) and any extra links, each once. */
+function moveLinkTargets(input: {
+  readonly additionalLinkContainerIds?: readonly string[] | undefined;
+  readonly linkOnly?: boolean | undefined;
+  readonly targetContainerId: string;
+}): Set<string> {
+  return new Set([
+    ...(input.linkOnly ? [] : [input.targetContainerId]),
+    ...(input.additionalLinkContainerIds ?? []),
+  ]);
+}
+
 export async function moveRemoteContainerDocument(input: {
   linkOnly?: boolean | undefined;
   additionalLinkContainerIds?: readonly string[] | undefined;
@@ -185,10 +197,7 @@ export async function moveRemoteContainerDocument(input: {
 
   let latestLinkedContainerIds: readonly string[] = initialLinkedContainerIds;
   let latestDocument: RelinkRemoteDocumentResult | null = null;
-  for (const linkTarget of new Set([
-    ...(input.linkOnly ? [] : [targetContainerId]),
-    ...(input.additionalLinkContainerIds ?? []),
-  ])) {
+  for (const linkTarget of moveLinkTargets(input)) {
     if (latestLinkedContainerIds.includes(linkTarget)) continue;
     const linkedDocument = await linkRemoteContainerDocument({
       attachmentReuse,

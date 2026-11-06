@@ -280,12 +280,10 @@ export async function replaceDocumentHistoryCheckpoint(
       try {
         replaced = await tryReplaceCheckpointOnce(tx, scope, input);
       } catch (error) {
-        if (error instanceof CheckpointGateRejected) {
-          // A fresher checkpoint dominates this candidate: no write, and
-          // the caller's covered rows must stay for the covering pane.
-          return false;
-        }
-        throw error;
+        rethrowUnlessGateRejected(error);
+        // A fresher checkpoint dominates this candidate: no write, and
+        // the caller's covered rows must stay for the covering pane.
+        return false;
       }
       if (!replaced) {
         // CAS lost to a concurrent writer — re-read and re-evaluate the
@@ -454,6 +452,10 @@ class CheckpointGateRejected extends Error {
     super("checkpoint gate rejected");
     this.name = "CheckpointGateRejected";
   }
+}
+
+function rethrowUnlessGateRejected(error: unknown): void {
+  if (!(error instanceof CheckpointGateRejected)) throw error;
 }
 
 export async function deleteDocumentHistory(
