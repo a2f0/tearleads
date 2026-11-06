@@ -9,11 +9,11 @@ import {
 } from "../../test/helpers/stripePayloadFetch";
 import {
   createSyncSubscription,
-  findLiveOrgSubscription,
-  findOrCreateCustomer,
   hasOpenOrgSubscription,
   StripeApiError,
 } from "./stripeApi";
+import { findOrCreateCustomer } from "./stripeCustomer";
+import { findLiveOrgSubscription } from "./stripeSubscriptionManagement";
 
 /**
  * Malformed Stripe response tables: each malformed field reads as missing,

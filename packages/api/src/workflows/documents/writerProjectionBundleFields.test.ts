@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import { DocumentWriterProjectionError } from "./writerProjectionError";
 import {
   type ContainerDependencyLoadState,
   type LoadedProjectionManifestBundle,
   loadContainerDependencyPath,
   loadDocumentContainerDependencyMaterial,
   loadDocumentManifestHistory,
-} from "./writerProjection";
-import { DocumentWriterProjectionError } from "./writerProjectionError";
+} from "./writerProjectionManifestDependencies";
 
 // Every bundle these walks need is cached, so the executor is never reached.
 const unusedExecutor = {} as unknown as DatabaseSession;
