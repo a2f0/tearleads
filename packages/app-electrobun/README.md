@@ -1,4 +1,10 @@
-# Desktop development
+# app-electrobun
+
+The macOS, Linux, and Windows deployment target. It runs the
+[shared app](../app/README.md) in an [Electrobun](https://electrobun.dev)
+window whose main process runs on Bun, and owns the desktop releases.
+
+## Development
 
 After `bun install --frozen-lockfile` at the repository root, prepare the SDK
 before opening this package in an editor or invoking TypeScript directly:

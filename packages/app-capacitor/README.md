@@ -1,4 +1,11 @@
-# App Capacitor
+# app-capacitor
+
+The iOS and Android deployment target. It wraps the [shared app](../app/README.md)
+in a [Capacitor](https://capacitorjs.com) WebView with native adapters for
+purchases, device services, files, and diagnostics ([`src`](src/README.md) lists
+them), and owns the App Store and Google Play releases.
+[Maestro flows](maestro/README.md) drive the real app on a simulator or
+emulator.
 
 ## Supported OS versions
 

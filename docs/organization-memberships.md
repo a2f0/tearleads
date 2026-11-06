@@ -1,24 +1,26 @@
 # Organization memberships
 
-A user's membership in an [organization](./glossary.md#organization) is decided
-by signed [principal policy](./glossary.md#principal-policy-state): the
-[reserved `Members` group](./glossary.md#organization-members-group), any other
-groups they belong to, and the container [grants](./glossary.md#grant) those
-groups hold. Leaving or being removed therefore needs an
-[administrator](./glossary.md#organization-admins-group) to sign a new `Members`
-state and [rotate](./glossary.md#rotate) its keys. A member cannot do that for
-themselves.
+A user's membership in an [organization](./glossary/principals.md#organization)
+is decided by signed
+[principal policy](./glossary/principals.md#principal-policy-state): the
+[reserved `Members` group](./glossary/principals.md#organization-members-group),
+any other groups they belong to, and the container
+[grants](./glossary/access.md#grant) those groups hold. Leaving or being removed
+therefore needs an
+[administrator](./glossary/principals.md#organization-admins-group) to sign a
+new `Members` state and [rotate](./glossary/keys.md#rotate) its keys. A member
+cannot do that for themselves.
 
 The membership conduit is the member's own side of the relationship: product
 state the member controls, which never feeds an access or keying decision.
 It lives on the member's `organization_roster_entries` row, which exists for
 every active or disabled
-[roster member](./glossary.md#organization-roster-entry).
+[roster member](./glossary/principals.md#organization-roster-entry).
 
 ## Discovering organizations
 
 Every `Members` recipient can read the organization's metadata root, an
-independent system [container](./glossary.md#container) holding the organization
+independent system [container](./glossary/access.md#container) holding the organization
 profile and group names. A device therefore learns about an organization from
 local state alone: `listLocalOrganizations` lists every organization the device
 holds a container of, with `rootContainerId` null when the user cannot reach the
@@ -51,7 +53,7 @@ A member can pause an organization's content syncing to their devices. The
 pause is recorded on the server so it follows the user to every device, and
 each device keeps a local copy in `organization_sync_pauses` so it is honored
 offline. Pausing changes no grant, key, or policy: the member still receives
-key [rewraps](./glossary.md#rewrap), still counts as a billing seat, and can
+key [rewraps](./glossary/keys.md#rewrap), still counts as a billing seat, and can
 resume at any time.
 
 While an organization is paused, a device:
@@ -123,8 +125,8 @@ A member cannot remove themselves, so leaving is a request an administrator
 acts on. The member's device first discovers and verifies the organization's
 current policy, then signs `{organizationId, userId, requestedAt, membersHead}`
 under the `tearleads.organization-leave-request.v2` domain with the member's
-identity signing key. `membersHead` is the exact [head](./glossary.md#head) of
-the reserved Members group in that policy. The member files it with
+identity signing key. `membersHead` is the exact [head](./glossary/sync.md#head)
+of the reserved Members group in that policy. The member files it with
 `PUT /organization-memberships/{organizationId}/leave-request`; `DELETE`
 withdraws it. The API checks that the request names the caller and the path's
 organization, was signed within ten minutes, and verifies against the caller's
@@ -145,15 +147,16 @@ content depends on the viewer's role, a change to `Admins` stamps the
 pending requests. Each administrator's client stores the request only if it
 names the organization and member, and shows it only if it verifies against the
 member's [trusted](./developer/trusted-user-identity.md),
-[pinned](./glossary.md#identity-pin) identity, never the signing key served
-beside it, so a server cannot present a request the member never made.
+[pinned](./glossary/principals.md#identity-pin) identity, never the signing key
+served beside it, so a server cannot present a request the member never made.
 
 The client also shows a request only while it belongs to the member's current
 membership, judged against the Members head in the client's own verified
 organization policy. Removing anyone from Members rotates its key
-[epoch](./glossary.md#epoch) and key, so a request citing that head's epoch and
-key has seen no removal since; one citing the same epoch with another key can
-only come from a [fork](./security-guarantees.md#rollback-and-split-view) and is
+[epoch](./glossary/keys.md#epoch) and key, so a request citing that head's epoch
+and key has seen no removal since; one citing the same epoch with another key can
+only come from a
+[fork](./security-guarantees/boundaries.md#rollback-and-split-view) and is
 refused. A request citing an earlier epoch is shown only if verified Members
 history, read through the
 [private paged verifier](./principal-history-pages.md), lists the member in

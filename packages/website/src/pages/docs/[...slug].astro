@@ -3,7 +3,13 @@ import { getCollection, render } from "astro:content";
 import PageHeader from "../../components/PageHeader.astro";
 import ReadingLayout from "../../components/ReadingLayout.astro";
 import Layout from "../../layouts/Layout.astro";
-import { docForSlug, sourceUrl, type TechnicalDoc } from "../../technicalDocs";
+import {
+  docForSlug,
+  docPath,
+  sourceUrl,
+  type TechnicalDoc,
+  technicalDocPages,
+} from "../../technicalDocs";
 import "../../styles/docs.css";
 
 export async function getStaticPaths() {
@@ -19,9 +25,29 @@ const doc: TechnicalDoc = docForSlug(entry.id);
 // docLinksPlugin replaces the document's own h1; the header renders doc.title.
 const { Content, headings } = await render(entry);
 const title = doc.title;
+// A topic page sits under its document in the breadcrumb.
+const parent = doc.parent === undefined ? undefined : docForSlug(doc.parent);
 const contents = headings
   .filter((heading) => heading.depth === 2)
   .map((heading) => ({ href: `#${heading.slug}`, label: heading.text }));
+
+// A document's sections moved to its topic pages. Links to their old anchors
+// on the document's own page (bookmarks, other sites) are sent on to the
+// topic page that now holds the heading.
+const topicEntries = (await getCollection("docs")).filter((candidate) =>
+  technicalDocPages.some(
+    (page) => page.slug === candidate.id && page.parent === doc.slug,
+  ),
+);
+const forwards: Record<string, string> = {};
+for (const topic of topicEntries) {
+  const { headings: topicHeadings } = await render(topic);
+  for (const heading of topicHeadings.filter(({ depth }) => depth > 1)) {
+    forwards[heading.slug] ??=
+      `${docPath(docForSlug(topic.id))}#${heading.slug}`;
+  }
+}
+const forwardsAnchors = Object.keys(forwards).length > 0;
 ---
 
 <Layout title={`${title} | Tearleads`} description={doc.summary}>
@@ -31,6 +57,7 @@ const contents = headings
         <ol role="list">
           <li><a href="/security/">Security</a></li>
           <li><a href="/docs/">Technical documents</a></li>
+          {parent && <li><a href={docPath(parent)}>{parent.title}</a></li>}
           <li aria-current="page">{doc.title}</li>
         </ol>
       </nav>
@@ -51,4 +78,15 @@ const contents = headings
       </div>
     )}
   </article>
+  {forwardsAnchors && (
+    <script is:inline define:vars={{ forwards }}>
+      const id = location.hash.slice(1);
+      if (
+        Object.hasOwn(forwards, id) &&
+        document.getElementById(id) === null
+      ) {
+        location.replace(forwards[id]);
+      }
+    </script>
+  )}
 </Layout>

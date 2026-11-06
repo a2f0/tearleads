@@ -3,7 +3,7 @@
 Start with `tearleads.documents.open()` for normal host editing. The SDK opens
 or creates local document state and its store coordinates persistence and
 [remote sync](../client-sync-ordering.md). Use a unique `localId` for a new
-[document](../glossary.md#document); reopening that ID reuses its state.
+[document](../glossary/content.md#document); reopening that ID reuses its state.
 Initialize SQLite and generate or restore the identity first, as described in
 the [SDK guide](client-sdk.md).
 
@@ -18,8 +18,8 @@ store.requestSync();
 
 Opening the store is not an acknowledgment of server-side creation. Sync needs
 a ready database, signing and encryption keys, an authenticated
-[organization](../glossary.md#organization), and network access. When those
-inputs change, the host updates the store with
+[organization](../glossary/principals.md#organization), and network access. When
+those inputs change, the host updates the store with
 `store.updateRuntime(tearleads.documents.workflowRuntime(containerId))` and
 requests sync again. Observe the store's state for progress and errors.
 
@@ -58,7 +58,7 @@ for the control flow and callback contract.
 material for a custom workflow. It does not submit or persist the document.
 Choose this only when the host owns those remaining steps.
 
-Both are [named exports](client-sdk.md#public-api-entry-points) of
+Both are [named exports](client-sdk/public-api.md#public-api-entry-points) of
 `@tearleads/client-sdk`; use the package root rather than private `src/` paths.
 The [workflow contract](../../packages/client-sdk/src/workflows/README.md)
 describes the ports these custom hosts must provide. Most editing hosts should

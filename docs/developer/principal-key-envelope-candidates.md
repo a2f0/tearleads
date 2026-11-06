@@ -1,16 +1,16 @@
 # Principal key envelope candidates
 
 [Paged principal recovery](./principal-history-recovery.md) stores the current
-encrypted [member envelopes](../glossary.md#member-envelope) with its completed
-prefix. [Container key](../glossary.md#container-kek) unwrapping can use those
+encrypted [member envelopes](../glossary/keys.md#member-envelope) with its completed
+prefix. [Container key](../glossary/keys.md#container-kek) unwrapping can use those
 envelopes without materializing a full
-[policy history](../glossary.md#principal-policy-state). The local lookup
+[policy history](../glossary/principals.md#principal-policy-state). The local lookup
 selects only the requested principal-key fingerprints from current bundles,
 retained bundles, completed prefixes and stages, and the encrypted envelope
 archive. It selects at most one candidate per source and fingerprint and removes
 duplicate encoded candidates. SQLite indexes cover the fingerprint and
 newest-candidate ordering. The archive preserves distinct key
-[epochs](../glossary.md#epoch) while disposable stages are reclaimed; see
+[epochs](../glossary/keys.md#epoch) while disposable stages are reclaimed; see
 [cache retention](principal-history-cache.md) for its limits.
 
 These are untrusted encrypted key candidates, not authorization evidence. A
@@ -18,7 +18,7 @@ claimed fingerprint does not establish that a candidate private key is valid:
 that key must actually open the requested recipient wrap. Container projection
 verification independently checks signed policy authority, the KEK material
 identity, and the signed wrapping public key. This lookup never creates a
-verified policy, advances a [checkpoint](../glossary.md#checkpoint), or accepts
+verified policy, advances a [checkpoint](../glossary/sync.md#checkpoint), or accepts
 a prefix as a trust anchor.
 
 The lookup does not read `previous_states_json` or return policy histories.

@@ -57,7 +57,7 @@ revision; scrutinize them first (read their diffs with `git show <sha>`):
 <RECENT_SECURITY_PRS>
 
 Read the coordinator's compact baseline at <BASELINE_FILE>, then the exact
-sections of docs/security-guarantees.md, formal/README.md, the model index
+sections of docs/security-guarantees/, formal/README.md, the model index
 formal/models.md, and model docs relevant to your work item. The baseline
 provides source references, not proof that the code meets a guarantee. Do not
 reload the whole issue history or all slice/model documents. Claims the code
@@ -112,7 +112,7 @@ device with no checkpoint; first-sight (`observed`) pins of signers and other
 referenced users no identity link verified; key transparency,
 witnesses, and semantic currentness (#2186 or its successor); pure availability
 or withholding; DoS and rate limits; residuals documented as accepted in
-`docs/security-guarantees.md`; plus any exclusions the user added.
+`docs/security-guarantees/`; plus any exclusions the user added.
 
 Fill `<KNOWN_ISSUES>` with slice-relevant entries from the saved index, using
 the audit issues, their closing comments, and the "Not in scope" or follow-up

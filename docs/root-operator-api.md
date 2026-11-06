@@ -3,8 +3,9 @@
 The `/root` routes serve internal staff and technical support only. They are
 registered in the protocol operation registry and the generated OpenAPI
 contract, so the
-[root console](./developer/client-sdk.md#root-operator-lookups) reaches them
-through the typed client; access is enforced by the API, never by the client.
+[root console](./developer/client-sdk/configuration.md#root-operator-lookups)
+reaches them through the typed client; access is enforced by the API, never by
+the client.
 
 ## Routes
 
@@ -38,12 +39,12 @@ activity path so operators can see when an identity was last seen.
 ## Audit trail
 
 Every root handler records a `root_audit_events` row — actor, operation id,
-target identity or [organization](./glossary.md#organization), applied filters,
-and request IP — before it reads or changes anything it serves. A listing
-narrowed by an exact identifier (a user ID, a full signing key fingerprint, an
-organization ID search, or an audit-trail subject) names that identity or
-organization as its target, so it appears in that subject's audit trail. A
-request whose row cannot be written fails with a 500 instead of being answered
+target identity or [organization](./glossary/principals.md#organization),
+applied filters, and request IP — before it reads or changes anything it serves.
+A listing narrowed by an exact identifier (a user ID, a full signing key
+fingerprint, an organization ID search, or an audit-trail subject) names that
+identity or organization as its target, so it appears in that subject's audit
+trail. A request whose row cannot be written fails with a 500 instead of being answered
 unrecorded, and a suspension it carried is not applied; requests refused by
 `requireAuth` or `requireRoot` record nothing, while a suspension the route
 itself refuses is still recorded. The CLI's `make-admin` / `revoke-admin` record

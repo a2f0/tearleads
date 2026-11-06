@@ -62,7 +62,7 @@ revision; read their diffs first (`git show <sha>`):
 
 Read the coordinator's compact baseline at <BASELINE_FILE>, including the
 measured per-endpoint tables under <MEASUREMENT_DIR>, then the exact sections
-of docs/protocol-specification.md, docs/client-sync-ordering.md, and the
+of docs/protocol-specification/, docs/client-sync-ordering.md, and the
 slice's domain documents relevant to your work item. Do not reload the whole
 issue history or every document.
 
@@ -114,7 +114,7 @@ status, and the next step.
 
 Default `<EXCLUSIONS>`: billing routes and tables; root administration
 routes; the website; cryptographic primitive and suite choice; UI rendering
-cost; residuals `docs/security-guarantees.md` accepts; plus any exclusions
+cost; residuals `docs/security-guarantees/` accepts; plus any exclusions
 the user added.
 
 Fill `<KNOWN_DISPOSITIONS>` with slice-relevant entries from the saved index:
