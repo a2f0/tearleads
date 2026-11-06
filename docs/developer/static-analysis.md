@@ -162,6 +162,32 @@ long-form design or reference documents can warrant larger budgets when
 splitting would obscure the relationships they describe; the numeric allowance
 is still the enforced limit.
 
+Some allowances are intentional exceptions, not split debt, so growth stays
+visible and needs a reviewed bump:
+
+- [`packages/client-sdk/src/index.ts`](../../packages/client-sdk/src/index.ts)
+  is the SDK's public barrel; it names every public export.
+- [`scripts/architecture/subsystems.ts`](../../scripts/architecture/subsystems.ts)
+  is the subsystem registry, which `bun run lint:architecture` checks against
+  every source file.
+- [`dependency-cruiser.config.ts`](../../dependency-cruiser.config.ts) is a
+  holistic rule configuration that reads as one policy.
+- [`formal/document-sync/DeferredTailSettlement.tla`](../../formal/document-sync/DeferredTailSettlement.tla)
+  has no clean split. Every `.tla` file under [`formal/`](../../formal/) must
+  be a registered model with its own configuration
+  ([`scripts/checks/checkProtocolModels.sh`](../../scripts/checks/checkProtocolModels.sh)),
+  and each abstraction-map table binds its tokens to one module, so a helper
+  module would need a contrived configuration and would split the map.
+
+Grouped re-export lists and copy catalogs split by area instead. The
+validators response barrel re-exports one module per API area from
+[`packages/validators/src/response/areas/`](../../packages/validators/src/response/areas/)
+through approved star exports; export names, and so OpenAPI component names,
+stay the same. The Explorer label lookup in
+[`labels.ts`](../../packages/app/src/mini-apps/explorer/labels.ts) composes one
+catalog per area from `explorer/shared/*Labels.ts`, so new copy lands in its
+area's catalog.
+
 Generated and tool-owned files are excluded rather than given allowances,
 because their generators and drift checks own their shape: the OpenAPI
 artifact and its generated types, protocol trace and Lean vector fixtures, the
