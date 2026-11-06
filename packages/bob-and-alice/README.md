@@ -1,4 +1,4 @@
-# bob-and-alice
+# @tearleads/bob-and-alice
 
 Multi-party scenarios that establish the keying protocol's working condition
 end to end. Each scenario registers real users, gives each one or more

@@ -1,6 +1,7 @@
-# Shared test utilities
+# @tearleads/test-utils
 
-This package is test support. Production code must not import it.
+Shared test utilities for the workspace's test suites. This package is test
+support: production code must not import it.
 
 ## Transport fault harness
 
