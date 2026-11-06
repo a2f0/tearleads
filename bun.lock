@@ -236,7 +236,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.147",
+      "version": "0.1.148",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -364,7 +364,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.46",
+      "version": "0.1.47",
       "dependencies": {
         "@a2f0/agent-tool": "0.1.39",
         "@a2f0/ct-client": "0.1.6",
@@ -389,7 +389,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.27",
+      "version": "0.2.28",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",
