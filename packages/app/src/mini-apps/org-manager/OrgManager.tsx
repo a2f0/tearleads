@@ -19,11 +19,11 @@ import { GrantsView } from "./grants/GrantsView";
 import { RevokeGrantConfirmationDialog } from "./grants/RevokeGrantConfirmationDialog";
 import { GroupsView } from "./groups/GroupsView";
 import { useOrgManagerBillingRosterState } from "./hooks/useOrgManagerBillingRosterState";
+import { ORG_MANAGER_LABELS } from "./labels";
 import {
   type OrgManagerModel,
   useOrgManagerModel,
-} from "./hooks/useOrgManagerModel";
-import { ORG_MANAGER_LABELS } from "./labels";
+} from "./model/useOrgManagerModel";
 import { OrgManagerMenu } from "./OrgManagerMenu";
 import { useOrgManagerRoutedChromeActions } from "./OrgManagerRoutedChrome";
 import { CreateOrganizationDialog } from "./organization/CreateOrganizationDialog";

@@ -133,10 +133,6 @@
       "lines": 605,
       "bytes": 17601
     },
-    "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
-      "lines": 543,
-      "bytes": 17566
-    },
     "packages/client-sdk/src/Tearleads.test.ts": {
       "lines": 948,
       "bytes": 30663
@@ -206,7 +202,7 @@
     "packages/app/src/mini-apps/explorer/sidebar/useExplorerSidebarWindows.ts": {
       "biomeIgnore": 1
     },
-    "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
+    "packages/app/src/mini-apps/org-manager/model/useOrgManagerModel.ts": {
       "biomeIgnore": 1
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerMutations.ts": {
