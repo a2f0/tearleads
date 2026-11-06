@@ -162,6 +162,12 @@ bug the test correctly detected.
   current `main` the file passed 50 of 50 local runs (20 alone, 30 in six
   concurrent loops). If it returns, capture the selector's options and the
   organization runtime state at the timeout.
+- `waitForBusyPaint.test.ts` raced real timers against the 100 ms paint
+  fallback: under eight CPU burners its 10 ms sleep overran the fallback in 1
+  of 50 runs, and a 1,000 ms wall-clock bound on the fallback failed at
+  2,053 ms in a push gate. It now stubs `setTimeout`, `clearTimeout`, and
+  `requestAnimationFrame` and fires each callback by hand. Test a timer's
+  delay and effect that way rather than measuring elapsed time.
 
 ## Approaches that did not pay off
 
