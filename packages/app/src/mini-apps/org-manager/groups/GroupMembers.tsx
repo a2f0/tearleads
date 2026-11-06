@@ -66,7 +66,6 @@ export function GroupMembers({
         {virtualMembers.rows.map((member) => {
           const isLastAdmin = member.role === "admin" && adminCount <= 1;
           const canRemove =
-            canMutateGroup &&
             !(protectSelf && member.userId === userId) &&
             member.userId !== protectedUserId &&
             !isLastAdmin;
@@ -92,17 +91,19 @@ export function GroupMembers({
                       : null}
                   </MiniAppRowText>
                 </MiniAppRowButton>
-                <MiniAppButton
-                  disabled={!canRemove || mutating}
-                  title={
-                    member.userId === protectedUserId
-                      ? ORG_MANAGER_LABELS.personalOrganizationOwnerProtection
-                      : undefined
-                  }
-                  onClick={() => removeMember(member.userId)}
-                >
-                  {ORG_MANAGER_LABELS.remove}
-                </MiniAppButton>
+                {canMutateGroup ? (
+                  <MiniAppButton
+                    disabled={!canRemove || mutating}
+                    title={
+                      member.userId === protectedUserId
+                        ? ORG_MANAGER_LABELS.personalOrganizationOwnerProtection
+                        : undefined
+                    }
+                    onClick={() => removeMember(member.userId)}
+                  >
+                    {ORG_MANAGER_LABELS.remove}
+                  </MiniAppButton>
+                ) : null}
               </MiniAppRow>
             </MiniAppVirtualListRow>
           );
