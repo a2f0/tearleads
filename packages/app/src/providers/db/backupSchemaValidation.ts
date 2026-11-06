@@ -37,6 +37,21 @@ function readQuotedToken(
   return invalidSchema();
 }
 
+/** The offset after whitespace or a comment at `offset`, else null. */
+function skipWhitespaceOrComment(sql: string, offset: number): number | null {
+  if (/\s/.test(sql.charAt(offset))) return offset + 1;
+  if (sql.startsWith("--", offset)) {
+    const end = sql.indexOf("\n", offset + 2);
+    return end < 0 ? sql.length : end + 1;
+  }
+  if (sql.startsWith("/*", offset)) {
+    const end = sql.indexOf("*/", offset + 2);
+    if (end < 0) invalidSchema();
+    return end + 2;
+  }
+  return null;
+}
+
 // Read SQLite quoting and comments before checking statement boundaries. A
 // semicolon inside a quoted identifier or default value is ordinary data.
 function schemaTokens(sql: string): SqlToken[] {
@@ -44,17 +59,13 @@ function schemaTokens(sql: string): SqlToken[] {
   const tokens: SqlToken[] = [];
   let offset = 0;
   while (offset < sql.length) {
+    const skipped = skipWhitespaceOrComment(sql, offset);
+    if (skipped !== null) {
+      offset = skipped;
+      continue;
+    }
     const character = sql.charAt(offset);
-    if (/\s/.test(character)) {
-      offset += 1;
-    } else if (sql.startsWith("--", offset)) {
-      const end = sql.indexOf("\n", offset + 2);
-      offset = end < 0 ? sql.length : end + 1;
-    } else if (sql.startsWith("/*", offset)) {
-      const end = sql.indexOf("*/", offset + 2);
-      if (end < 0) invalidSchema();
-      offset = end + 2;
-    } else if (["'", '"', "`", "["].includes(character)) {
+    if (["'", '"', "`", "["].includes(character)) {
       const quoted = readQuotedToken(sql, offset, character);
       tokens.push(quoted.token);
       offset = quoted.end;

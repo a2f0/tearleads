@@ -66,26 +66,36 @@ export async function seedFiles(
     for (const row of file.rows ?? []) await store.addRow(seedTrackerRow(row));
     const used = new Set<string>();
     for (const attachment of file.attachments) {
-      const bytes = await readAttachment(attachment.file);
-      if (!bytes.length)
-        throw new Error(`Empty seed attachment: ${attachment.file}`);
-      const upload = {
-        bytes,
-        mimeType: attachment.mimeType,
-        name: attachment.file,
-      };
-      if (attachment.slot) {
-        await store.replaceAttachment(
-          resolveSeedSlot(file, attachment.slot, used),
-          upload,
-        );
-      } else {
-        if (SLOTS[file.kind])
-          throw new Error(`Missing ${file.kind} attachment slot`);
-        await (store.attachFiles([upload]) as unknown as Promise<void>);
-      }
+      await seedAttachment(store, file, attachment, used, readAttachment);
     }
     assertSeededDocument(store.getSnapshot(), file);
+  }
+}
+
+async function seedAttachment(
+  store: ReturnType<OpenSeedDocument>,
+  file: SeedFile,
+  attachment: SeedFile["attachments"][number],
+  used: Set<string>,
+  readAttachment: (fileRef: string) => Promise<BlobBytes>,
+): Promise<void> {
+  const bytes = await readAttachment(attachment.file);
+  if (!bytes.length)
+    throw new Error(`Empty seed attachment: ${attachment.file}`);
+  const upload = {
+    bytes,
+    mimeType: attachment.mimeType,
+    name: attachment.file,
+  };
+  if (attachment.slot) {
+    await store.replaceAttachment(
+      resolveSeedSlot(file, attachment.slot, used),
+      upload,
+    );
+  } else {
+    if (SLOTS[file.kind])
+      throw new Error(`Missing ${file.kind} attachment slot`);
+    await (store.attachFiles([upload]) as unknown as Promise<void>);
   }
 }
 

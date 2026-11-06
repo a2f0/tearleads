@@ -55,6 +55,17 @@ export function subscribeToDocumentSummaryDirectory(input: {
   let reloadRequested = false;
   let revision = 0;
   const isCurrent = () => active && input.isCurrent();
+  const loadOnce = async () => {
+    reloadRequested = false;
+    const requestedRevision = revision;
+    const answersRequest = () => isCurrent() && revision === requestedRevision;
+    try {
+      const rows = await input.load();
+      if (answersRequest()) input.onLoaded(rows);
+    } catch (error) {
+      if (answersRequest()) input.onError(error);
+    }
+  };
   const load = async () => {
     if (!isCurrent()) return;
     if (loading) {
@@ -64,16 +75,7 @@ export function subscribeToDocumentSummaryDirectory(input: {
     loading = true;
     try {
       do {
-        reloadRequested = false;
-        const requestedRevision = revision;
-        try {
-          const rows = await input.load();
-          if (isCurrent() && revision === requestedRevision)
-            input.onLoaded(rows);
-        } catch (error) {
-          if (isCurrent() && revision === requestedRevision)
-            input.onError(error);
-        }
+        await loadOnce();
       } while (isCurrent() && reloadRequested);
     } finally {
       loading = false;
