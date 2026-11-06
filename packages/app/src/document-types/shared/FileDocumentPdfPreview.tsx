@@ -10,12 +10,17 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
-  useState,
 } from "react";
 import { MiniAppStatus } from "../../components/mini-app/MiniAppLayout";
 import type { FileViewer } from "../../host/FileViewer";
 import { readAutomaticPreviewBlobBytes } from "./documentAttachmentUtils";
+import {
+  IDLE_PDF_PREVIEW,
+  transitionPdfPreview,
+  viewPdfPreview,
+} from "./fileDocumentPdfPreviewMachine";
 import "./FileDocument.css";
 
 const PdfInlineViewer = lazy(() => import("./PdfInlineViewer"));
@@ -53,46 +58,33 @@ export function resolveFileDocumentPdfPreview(
   return null;
 }
 
-interface PdfPreviewFailure {
-  storageKey: string;
-  message: string;
-}
-
 function loadPdfPreviewBytes(
   blobStore: BlobStore,
   storageKey: string,
   handlers: {
     isActive: () => boolean;
     logError: (message: string, cause: unknown) => void;
-    onFailure: (failure: PdfPreviewFailure) => void;
-    onLoaded: (loaded: {
-      storageKey: string;
-      bytes: Uint8Array<ArrayBuffer>;
-    }) => void;
+    onFailure: (message: string) => void;
+    onLoaded: (bytes: Uint8Array<ArrayBuffer>) => void;
   },
 ): void {
   void readAutomaticPreviewBlobBytes(blobStore, storageKey)
     .then((value) => {
       if (!value) {
         if (handlers.isActive())
-          handlers.onFailure({
-            storageKey,
-            message:
-              "PDF preview is unavailable or over 5 MiB. You can still download it.",
-          });
+          handlers.onFailure(
+            "PDF preview is unavailable or over 5 MiB. You can still download it.",
+          );
         return;
       }
-      if (handlers.isActive()) handlers.onLoaded({ storageKey, bytes: value });
+      if (handlers.isActive()) handlers.onLoaded(value);
     })
     .catch((readError: unknown) => {
       if (!handlers.isActive()) return;
       if (!isDatabaseUnavailableError(readError)) {
         handlers.logError("Failed to load PDF preview", readError);
       }
-      handlers.onFailure({
-        storageKey,
-        message: "Couldn't load this PDF. You can still download it.",
-      });
+      handlers.onFailure("Couldn't load this PDF. You can still download it.");
     });
 }
 
@@ -115,40 +107,40 @@ export function useFileDocumentPdfPreview(params: {
       resolveFileDocumentPdfPreview(attachments, attachmentStorageKeyBySlotId),
     [attachmentStorageKeyBySlotId, attachments],
   );
-  const [loaded, setLoaded] = useState<{
-    storageKey: string;
-    bytes: Uint8Array<ArrayBuffer>;
-  } | null>(null);
-  const [failure, setFailure] = useState<PdfPreviewFailure | null>(null);
+  const [state, dispatch] = useReducer(transitionPdfPreview, IDLE_PDF_PREVIEW);
+  const runRef = useRef(0);
   const logErrorRef = useRef(logError);
   logErrorRef.current = logError;
   const storageKey = candidate?.storageKey;
-  const bytes =
-    loaded && loaded.storageKey === storageKey ? loaded.bytes : null;
-  const error =
-    failure && failure.storageKey === storageKey ? failure.message : null;
-  const loading = Boolean(storageKey && !bytes && !error);
+  const { bytes, error, loadedRun, loading } = viewPdfPreview(
+    state,
+    storageKey,
+  );
 
   useEffect(() => {
-    let active = true;
-    setLoaded(null);
-    setFailure(null);
-    if (storageKey) {
-      loadPdfPreviewBytes(blobStore, storageKey, {
-        isActive: () => active,
-        logError: (message, cause) => logErrorRef.current(message, cause),
-        onFailure: setFailure,
-        onLoaded: setLoaded,
-      });
+    if (!storageKey) {
+      dispatch({ type: "cleared" });
+      return;
     }
+    let active = true;
+    const run = ++runRef.current;
+    dispatch({ run, storageKey, type: "load-started" });
+    loadPdfPreviewBytes(blobStore, storageKey, {
+      isActive: () => active,
+      logError: (message, cause) => logErrorRef.current(message, cause),
+      onFailure: (message) => dispatch({ message, run, type: "load-failed" }),
+      onLoaded: (loadedBytes) =>
+        dispatch({ bytes: loadedBytes, run, type: "bytes-loaded" }),
+    });
     return () => {
       active = false;
     };
   }, [blobStore, storageKey]);
 
   const onOpenExternal = useCallback(() => {
-    if (!bytes || !candidate || !fileViewer) return;
-    setFailure(null);
+    if (!bytes || loadedRun === null || !candidate || !fileViewer) return;
+    const run = loadedRun;
+    dispatch({ run, type: "open-started" });
     void fileViewer
       .viewFile({
         data: bytes,
@@ -157,12 +149,13 @@ export function useFileDocumentPdfPreview(params: {
       })
       .catch((openError: unknown) => {
         logError("Failed to open PDF externally", openError);
-        setFailure({
-          storageKey: candidate.storageKey,
+        dispatch({
           message: "Couldn't open this PDF in another app.",
+          run,
+          type: "open-failed",
         });
       });
-  }, [bytes, candidate, fileViewer, logError]);
+  }, [bytes, candidate, fileViewer, loadedRun, logError]);
 
   return candidate
     ? {
