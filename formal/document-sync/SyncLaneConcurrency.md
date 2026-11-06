@@ -12,9 +12,9 @@ fail and rearm once. Each callback can time out once without releasing its token
 | --- | --- |
 | `Start` / `BoundedWorkers` | `runRequestedSyncLanes` admits up to `DOCUMENT_LANE_CONCURRENCY` document callbacks |
 | `StructuralBarrier` | `runRequestedSyncLanes` drains running documents before structural work and blocks new documents behind a structural request |
-| `ExclusiveLane` / `Watchdog` | `activeRunToken` survives watchdog expiry in `runCoordinatorLane` and is cleared by `settleAbandonedSyncLaneRun` |
+| `ExclusiveLane` / `Watchdog` | `transitionSyncLaneRun` keeps the run's token when the watchdog in `runCoordinatorLane` abandons it; only `settleAbandonedSyncLaneRun` frees the lane |
 | `RequestOnce` / `TrailingRequestSurvives` | `requestLaneSync` coalesces a trailing request without completion clearing it |
-| `Fail` / `BackoffIsLocal` | `backingOff` delays the failed lane while `selectNextRequestedLane` admits healthy peers |
+| `Fail` / `BackoffIsLocal` | `runCoordinatorLane` backs a failed lane off for `FAILED_LANE_REARM_BACKOFF_MS` while `selectNextRequestedLane` admits healthy peers |
 | `Finish` / `AllLanesProgress` | `runCoordinatorLane` releases workers and wakes the pump; late callbacks retain exclusive ownership until settlement |
 
 Safety checks cover capacity, the phase barrier at admission, lane exclusivity,

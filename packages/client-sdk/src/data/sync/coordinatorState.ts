@@ -1,4 +1,10 @@
 import type { SyncLaneConfig } from "./syncLaneConfig";
+import type { SyncLaneRequest, SyncLaneRun } from "./syncLaneMachine";
+import {
+  hasPendingRequest,
+  IDLE_SYNC_LANE_RUN,
+  NO_SYNC_LANE_REQUEST,
+} from "./syncLaneMachine";
 import type {
   DomainSyncSnapshot,
   SyncLaneLastAction,
@@ -8,12 +14,6 @@ import type {
 import { createDomainSyncSnapshot } from "./syncTelemetry";
 
 export interface SyncLaneState {
-  // Identity of the lane's live run, set for the duration of a run INCLUDING
-  // after a watchdog timeout abandons it. Selection skips lanes whose token is
-  // set, so a lane can never run concurrently with its own abandoned run; the
-  // late-settle continuation clears it (matching on identity) and re-pumps.
-  activeRunToken: object | null;
-  backingOff: boolean;
   lastRunOrder: number;
   blobStorageKey: string | null;
   config: SyncLaneConfig;
@@ -26,18 +26,20 @@ export interface SyncLaneState {
   lastFailedAt: string | null;
   lastRequestedAt: string | null;
   lastStartedAt: string | null;
-  notBeforeAtMs: number | null;
   progress: SyncLaneProgress | null;
   // Registered lanes are driven by the coordinator pump. Blob upload lanes
   // are observational telemetry driven directly by the upload workflow.
   pumpDriven: boolean;
   registrationIndex: number;
+  // Written only through transitionSyncLaneRequest: whether a pass is owed.
+  request: SyncLaneRequest;
   requestCount: number;
-  requested: boolean;
-  runAbandoned: boolean;
+  // Written only through transitionSyncLaneRun. Selection skips a lane whose
+  // run is live (running, or abandoned by its watchdog), so a lane never runs
+  // concurrently with itself; the late settle frees it and re-pumps.
+  run: SyncLaneRun;
   runCount: number;
   runDurations: SyncLaneRunDurations | null;
-  running: boolean;
 }
 
 export interface DomainSyncCoordinatorState {
@@ -54,13 +56,11 @@ export interface DomainSyncCoordinatorState {
 }
 
 export const INITIAL_SYNC_LANE_RUN_STATE = {
-  activeRunToken: null,
-  backingOff: false,
   lastRunOrder: 0,
-  runAbandoned: false,
+  request: NO_SYNC_LANE_REQUEST,
+  run: IDLE_SYNC_LANE_RUN,
   runCount: 0,
   runDurations: null,
-  running: false,
 } as const;
 
 function describeSingleSyncLaneError(error: unknown): string {
@@ -110,13 +110,13 @@ export function noopLaneRun(): Promise<void> {
   return Promise.resolve();
 }
 
-// Deliberately ignores activeRunToken (unlike the pump's hasRunnableLaneWork):
+// Deliberately ignores abandoned runs (unlike the pump's hasRunnableLaneWork):
 // a watchdog-abandoned run is detached background work, and idle/pending-work
 // reporting must not block on a hung run that may never settle. Its late
 // settle still publishes a snapshot and re-pumps any queued re-request.
 export function hasPendingLaneWork(lanes: Iterable<SyncLaneState>): boolean {
   for (const lane of lanes) {
-    if (lane.requested || lane.running) {
+    if (hasPendingRequest(lane.request) || lane.run.status === "running") {
       return true;
     }
   }

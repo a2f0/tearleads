@@ -16,6 +16,7 @@ import {
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
 import type { SyncLane, SyncLaneConfig } from "./syncLaneConfig";
+import { transitionSyncLaneRequest } from "./syncLaneMachine";
 import type { DomainSyncSnapshot } from "./syncTelemetry";
 import { createDomainSyncSnapshot, createSyncTimestamp } from "./syncTelemetry";
 import type { UploadSyncLane, UploadSyncLaneOptions } from "./uploadLane";
@@ -101,8 +102,9 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
       // Drop queued work so waitForIdle reports settled immediately and a
       // lane left re-requested by an in-flight run does not survive teardown.
       for (const lane of coordinatorState.lanes.values()) {
-        lane.requested = false;
-        lane.notBeforeAtMs = null;
+        lane.request = transitionSyncLaneRequest(lane.request, {
+          type: "clear",
+        });
       }
       // Publish the final settled snapshot, then release listener closures:
       // the coordinator is dropped from the registry and a remount subscribes
@@ -146,12 +148,10 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
         lastFailedAt: null,
         lastRequestedAt: null,
         lastStartedAt: null,
-        notBeforeAtMs: null,
         progress: null,
         pumpDriven: true,
         registrationIndex: coordinatorState.nextRegistrationIndex,
         requestCount: 0,
-        requested: false,
       };
       coordinatorState.nextRegistrationIndex += 1;
       coordinatorState.lanes.set(key, nextLane);

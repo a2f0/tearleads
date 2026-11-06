@@ -1,3 +1,6 @@
+import type { SyncLaneRequest, SyncLaneRun } from "./syncLaneMachine";
+import { hasPendingRequest } from "./syncLaneMachine";
+
 export type SyncLanePhase = "structural" | "document" | "blob";
 export type SyncLaneStatus =
   | "idle"
@@ -88,12 +91,11 @@ interface SyncLaneTelemetryState {
   lastStartedAt: string | null;
   progress?: SyncLaneProgress | null;
   registrationIndex: number;
+  request: SyncLaneRequest;
   requestCount: number;
-  requested: boolean;
-  runAbandoned: boolean;
+  run: SyncLaneRun;
   runCount: number;
   runDurations: SyncLaneRunDurations | null;
-  running: boolean;
 }
 
 const DEFAULT_SYNC_LANE_PHASE: SyncLanePhase = "document";
@@ -147,11 +149,11 @@ export function compareSyncLaneOrder(
 }
 
 function getSyncLaneStatus(state: SyncLaneTelemetryState): SyncLaneStatus {
-  if (state.running) {
+  if (state.run.status === "running") {
     return "running";
   }
 
-  if (state.requested) {
+  if (hasPendingRequest(state.request)) {
     return "queued";
   }
 
@@ -185,11 +187,11 @@ function createSyncLaneSnapshot(
     progress: state.progress ?? null,
     registrationIndex: state.registrationIndex,
     requestCount: state.requestCount,
-    requested: state.requested,
-    runAbandoned: state.runAbandoned,
+    requested: hasPendingRequest(state.request),
+    runAbandoned: state.run.status === "abandoned",
     runCount: state.runCount,
     runDurations: state.runDurations,
-    running: state.running,
+    running: state.run.status === "running",
     status: getSyncLaneStatus(state),
   };
 }
