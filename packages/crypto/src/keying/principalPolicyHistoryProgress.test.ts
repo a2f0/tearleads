@@ -13,7 +13,7 @@ import {
   createPolicySigner,
   signPolicyState,
 } from "./principalPolicyTestFixtures";
-import type { KeyingVerificationResult } from "./types";
+import type { KeyingVerificationResult } from "./verificationError";
 
 let fixture: Awaited<ReturnType<typeof historyFixture>>;
 beforeAll(async () => {

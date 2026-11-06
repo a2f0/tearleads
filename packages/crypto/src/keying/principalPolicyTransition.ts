@@ -4,8 +4,8 @@ import type {
   SignedPrincipalState,
 } from "../principalState";
 import { normalizePrincipalProjectionMembers } from "../principalState";
+import type { PrincipalPolicySignedState } from "./principalPolicyTypes";
 import { throwVerification } from "./shared";
-import type { PrincipalPolicySignedState } from "./types";
 
 function principalProjectionMemberKey(
   member: PrincipalProjectionMember,

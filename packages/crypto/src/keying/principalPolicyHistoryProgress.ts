@@ -9,12 +9,12 @@ import {
 import { normalizeAuthenticatedPrincipalHistoryEntry } from "./principalPolicyHistoryProgressEntry";
 import { PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT } from "./principalPolicyHistoryTypes";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
+import type { NormalizedPrincipalPolicyStateChainEntry } from "./principalPolicyTypes";
 import {
   assertExactKeys,
   readNullableHashString,
   throwVerification,
 } from "./shared";
-import type { NormalizedPrincipalPolicyStateChainEntry } from "./types";
 
 export interface PrincipalHistoryProgress {
   readonly indexFrontier: readonly (string | null)[];

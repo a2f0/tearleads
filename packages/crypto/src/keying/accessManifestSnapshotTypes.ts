@@ -2,9 +2,9 @@ import type {
   AccessManifest,
   AccessManifestCheckpoint,
   VerifiedAccessManifest,
-  VerifiedContainerAccessManifest,
-  VerifiedDocumentLinkSetStateEvidence,
-} from "./types";
+} from "./accessManifestTypes";
+import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
+import type { VerifiedDocumentLinkSetStateEvidence } from "./documentAccessTypes";
 
 const verifiedAccessManifestSnapshotBrand: unique symbol = Symbol(
   "verifiedAccessManifestSnapshot",

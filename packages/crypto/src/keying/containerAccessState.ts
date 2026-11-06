@@ -1,13 +1,22 @@
 import { referencedPrincipalKey } from "./accessEvent";
 import { computeKeyingDomainHash } from "./canonical";
+import type { KeyingCanonicalPayload } from "./canonicalJsonTypes";
 import {
   normalizeContainerAccessMetadata,
   normalizeContainerAccessStructural,
   normalizeContainerAccessStructuralState,
 } from "./containerAccessStructure";
+import type {
+  ContainerAccessKeyState,
+  ContainerAccessManifest,
+  ContainerAccessManifestState,
+  ContainerAccessMetadata,
+  ContainerAccessStructural,
+  ContainerDirectGrant,
+  ContainerGrantPrincipalHead,
+} from "./containerAccessTypes";
 import { normalizeContainerGrantPrincipalHeads } from "./containerGrantPrincipalHead";
 import { normalizeContainerKekWrappingPublicKey } from "./containerKekWrapping";
-
 import {
   assertExactKeys,
   normalizeContainerAccessLevel,
@@ -21,16 +30,6 @@ import {
   readVersion,
   throwVerification,
 } from "./shared";
-import type {
-  ContainerAccessKeyState,
-  ContainerAccessManifest,
-  ContainerAccessManifestState,
-  ContainerAccessMetadata,
-  ContainerAccessStructural,
-  ContainerDirectGrant,
-  ContainerGrantPrincipalHead,
-  KeyingCanonicalPayload,
-} from "./types";
 
 export function normalizeContainerDirectGrant(
   value: unknown,

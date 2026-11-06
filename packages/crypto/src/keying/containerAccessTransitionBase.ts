@@ -1,4 +1,12 @@
+import type { VerifiedAccessEvent } from "./accessEventTypes";
 import { normalizeContainerAccessManifestState } from "./containerAccessState";
+import type {
+  ContainerAccessEventBody,
+  ContainerAccessLevel,
+  ContainerAccessManifestState,
+  ContainerCreateAccessEventBody,
+  VerifiedContainerAccessManifest,
+} from "./containerAccessTypes";
 import {
   requireContainerPathCurrentParent,
   requirePathLastMatchesManifest,
@@ -9,16 +17,8 @@ import {
   mergeContainerAccessLevel,
   requireContainerPathUserAccess,
 } from "./containerPathAccess";
+import type { PrincipalPolicyAuthorization } from "./principalPolicyTypes";
 import { throwVerification } from "./shared";
-import type {
-  ContainerAccessEventBody,
-  ContainerAccessLevel,
-  ContainerAccessManifestState,
-  ContainerCreateAccessEventBody,
-  PrincipalPolicyAuthorization,
-  VerifiedAccessEvent,
-  VerifiedContainerAccessManifest,
-} from "./types";
 
 function requireRootCreateSignerAdmin(input: {
   readonly body: ContainerCreateAccessEventBody;

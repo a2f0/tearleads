@@ -1,5 +1,5 @@
+import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
 import { throwVerification } from "./shared";
-import type { VerifiedContainerAccessManifest } from "./types";
 
 /** Validate topology before combining grants from individually verified heads. */
 export function assertContainerPathIntegrity(

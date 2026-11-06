@@ -1,13 +1,11 @@
+import type { KeyingCanonicalJson } from "./canonicalJsonTypes";
+import type { ContainerReciteAccessEventBody } from "./containerAccessTypes";
 import { normalizeContainerKekWrappingPublicKey } from "./containerKekWrapping";
 import {
   assertExactKeys,
   readNullableString,
   throwVerification,
 } from "./shared";
-import type {
-  ContainerReciteAccessEventBody,
-  KeyingCanonicalJson,
-} from "./types";
 
 // Reserve half of the API's 1024 same-KEK write-history budget for ordinary
 // mutations. This absolute epoch ceiling does not reset when a container rekeys.

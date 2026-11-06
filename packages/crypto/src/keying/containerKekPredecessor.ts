@@ -6,15 +6,15 @@ import {
 } from "./canonical";
 import { isContainerKekMaterialId } from "./containerKekMaterial";
 import {
+  CONTAINER_KEK_PREDECESSOR_WRAP_SUITE,
+  type ContainerKekPredecessorBridge,
+} from "./containerKekTypes";
+import {
   assertExactKeys,
   readPositiveInteger,
   readString,
   throwVerification,
 } from "./shared";
-import {
-  CONTAINER_KEK_PREDECESSOR_WRAP_SUITE,
-  type ContainerKekPredecessorBridge,
-} from "./types";
 
 const TEXT_ENCODER = new TextEncoder();
 

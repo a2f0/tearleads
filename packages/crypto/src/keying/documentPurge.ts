@@ -1,8 +1,16 @@
+import type { VerifiedAccessEvent } from "./accessEventTypes";
+import type { KeyingCanonicalJson } from "./canonicalJsonTypes";
 import {
   containerAccessLevelRank,
   requireContainerPathLast,
   resolveHistoricalContainerPathUserAccessLevel,
 } from "./containerAccess";
+import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
+import type {
+  VerifiedDocumentLinkSetManifest,
+  VerifiedDocumentLinkSetSnapshot,
+} from "./documentAccessTypes";
+import type { PrincipalPolicyAuthorization } from "./principalPolicyTypes";
 import {
   assertExactKeys,
   readHashArray,
@@ -11,15 +19,7 @@ import {
   runVerifier,
   throwVerification,
 } from "./shared";
-import type {
-  KeyingCanonicalJson,
-  KeyingVerificationResult,
-  PrincipalPolicyAuthorization,
-  VerifiedAccessEvent,
-  VerifiedContainerAccessManifest,
-  VerifiedDocumentLinkSetManifest,
-  VerifiedDocumentLinkSetSnapshot,
-} from "./types";
+import type { KeyingVerificationResult } from "./verificationError";
 
 export interface DocumentPurgeAccessEventBody {
   eventType: "document.purge";

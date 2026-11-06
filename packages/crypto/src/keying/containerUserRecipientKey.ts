@@ -1,10 +1,10 @@
+import type { ContainerUserRecipientKey } from "./containerKekTypes";
 import {
   assertExactKeys,
   readHashString,
   readString,
   throwVerification,
 } from "./shared";
-import type { ContainerUserRecipientKey } from "./types";
 
 export function normalizeContainerUserRecipientKey(
   value: unknown,

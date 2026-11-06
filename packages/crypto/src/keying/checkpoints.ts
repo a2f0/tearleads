@@ -1,4 +1,15 @@
 import type { VerifiedAccessManifestCheckpointEvidence } from "./accessManifestSnapshotTypes";
+import type {
+  AccessManifest,
+  AccessManifestCheckpoint,
+} from "./accessManifestTypes";
+import type {
+  IdentityStateCheckpoint,
+  IdentityStateHead,
+  VerifiedIdentityState,
+  VerifyIdentityStateCheckpointInput,
+} from "./checkpointTypes";
+import { makeVerifiedIdentityState } from "./checkpointTypes";
 import {
   assertExactKeys,
   normalizeAccessObjectKind,
@@ -9,16 +20,7 @@ import {
   runVerifier,
   throwVerification,
 } from "./shared";
-import type {
-  AccessManifest,
-  AccessManifestCheckpoint,
-  IdentityStateCheckpoint,
-  IdentityStateHead,
-  KeyingVerificationResult,
-  VerifiedIdentityState,
-  VerifyIdentityStateCheckpointInput,
-} from "./types";
-import { makeVerifiedIdentityState } from "./types";
+import type { KeyingVerificationResult } from "./verificationError";
 
 export type { VerifiedAccessManifestCheckpointEvidence } from "./accessManifestSnapshotTypes";
 

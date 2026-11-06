@@ -1,6 +1,6 @@
 import { toFingerprint } from "../fingerprint";
+import type { PrincipalPolicySignerPublicKey } from "./principalPolicyTypes";
 import { throwVerification } from "./shared";
-import type { PrincipalPolicySignerPublicKey } from "./types";
 
 function normalizePrincipalPolicySignerKey(
   signerKey: PrincipalPolicySignerPublicKey,

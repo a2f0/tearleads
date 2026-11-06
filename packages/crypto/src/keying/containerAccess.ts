@@ -1,16 +1,14 @@
 import { computeAccessManifestHash, verifyAccessManifest } from "./accessEvent";
+import type { VerifyContainerAccessManifestInput } from "./accessManifestVerificationTypes";
 import { normalizeContainerAccessEventBody } from "./containerAccessBodies";
 import { deriveContainerAccessManifest } from "./containerAccessState";
 import { deriveContainerAccessManifestStateFromEvent } from "./containerAccessTransitions";
+import type { VerifiedContainerAccessManifest } from "./containerAccessTypes";
+import { makeVerifiedContainerAccessManifest } from "./containerAccessTypes";
 import { assertContainerPrincipalReferencesProgress } from "./containerPrincipalReferences";
 import { assertContainerSystemTopology } from "./containerSystemTopology";
 import { runVerifier, throwVerification } from "./shared";
-import type {
-  KeyingVerificationResult,
-  VerifiedContainerAccessManifest,
-  VerifyContainerAccessManifestInput,
-} from "./types";
-import { makeVerifiedContainerAccessManifest } from "./types";
+import type { KeyingVerificationResult } from "./verificationError";
 
 export { normalizeContainerAccessEventBody } from "./containerAccessBodies";
 export {

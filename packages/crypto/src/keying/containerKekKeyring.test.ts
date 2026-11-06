@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { MAX_CONTAINER_KEY_EPOCH } from "@tearleads/validators/util";
 import { AES_GCM_TAG_BYTES } from "../symmetric";
 import {
   assertSealedContainerKekKeyringLength,
@@ -13,8 +14,7 @@ import {
   verifyContainerKekKeyringEntry,
 } from "./containerKekKeyring";
 import { computeContainerKekMaterialId } from "./containerKekMaterial";
-import type { ContainerKekKeyringEntry } from "./types";
-import { MAX_CONTAINER_KEY_EPOCH } from "./types";
+import type { ContainerKekKeyringEntry } from "./containerKekTypes";
 
 interface KeyringFixture {
   containerId: string;

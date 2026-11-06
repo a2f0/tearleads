@@ -1,6 +1,6 @@
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerCreateAccessEventBody } from "./containerAccessTypes";
 import { throwVerification } from "./shared";
-import type { ContainerCreateAccessEventBody } from "./types";
 
 /** Only organization metadata has an independent root; other slots stay children. */
 export async function assertContainerSystemTopology(

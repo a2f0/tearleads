@@ -1,4 +1,10 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import type { KeyingCanonicalJson } from "./canonicalJsonTypes";
+import type {
+  DocumentAccessEventBody,
+  DocumentLinkAccessEventBody,
+  DocumentUnlinkAccessEventBody,
+} from "./documentAccessTypes";
 import { normalizeDocumentBlobRewraps } from "./documentBlobRewraps";
 import {
   assertExactKeys,
@@ -6,12 +12,6 @@ import {
   readString,
   throwVerification,
 } from "./shared";
-import type {
-  DocumentAccessEventBody,
-  DocumentLinkAccessEventBody,
-  DocumentUnlinkAccessEventBody,
-  KeyingCanonicalJson,
-} from "./types";
 
 function normalizeDocumentLinkAccessEventBody(
   value: KeyingCanonicalJson,
