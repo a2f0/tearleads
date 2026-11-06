@@ -359,6 +359,28 @@ function collectViolations(
   return violations;
 }
 
+/** `pointer:base->revision` for each request array bound the revision lowers. */
+function tightenedMaxItems(
+  baseNodes: ReadonlyMap<string, number | null>,
+  revisionNodes: ReadonlyMap<string, number | null>,
+): string[] {
+  const changes: string[] = [];
+  for (const [pointer, revisionMaxItems] of [
+    ...revisionNodes.entries(),
+  ].sort()) {
+    if (revisionMaxItems === null || !baseNodes.has(pointer)) {
+      continue;
+    }
+    const baseMaxItems = baseNodes.get(pointer);
+    if (baseMaxItems === null) {
+      changes.push(`${pointer}:unbounded->${revisionMaxItems}`);
+    } else if (baseMaxItems !== undefined && revisionMaxItems < baseMaxItems) {
+      changes.push(`${pointer}:${baseMaxItems}->${revisionMaxItems}`);
+    }
+  }
+  return changes;
+}
+
 function collectRequestMaxItemsViolations(
   base: RequestSchemaNodesByOperation,
   revision: RequestSchemaNodesByOperation,
@@ -369,25 +391,7 @@ function collectRequestMaxItemsViolations(
     if (baseNodes === undefined) {
       continue;
     }
-    const operationChanges: string[] = [];
-    for (const [pointer, revisionMaxItems] of [
-      ...revisionNodes.entries(),
-    ].sort()) {
-      if (revisionMaxItems === null || !baseNodes.has(pointer)) {
-        continue;
-      }
-      const baseMaxItems = baseNodes.get(pointer);
-      if (baseMaxItems === null) {
-        operationChanges.push(`${pointer}:unbounded->${revisionMaxItems}`);
-      } else if (
-        baseMaxItems !== undefined &&
-        revisionMaxItems < baseMaxItems
-      ) {
-        operationChanges.push(
-          `${pointer}:${baseMaxItems}->${revisionMaxItems}`,
-        );
-      }
-    }
+    const operationChanges = tightenedMaxItems(baseNodes, revisionNodes);
     if (operationChanges.length > 0) {
       const digest = createHash("sha256")
         .update(operationChanges.join("\n"))
