@@ -1,5 +1,5 @@
 /** Longer than a frame at any refresh rate, short enough to go unnoticed. */
-const BUSY_PAINT_FALLBACK_MS = 100;
+export const BUSY_PAINT_FALLBACK_MS = 100;
 
 /**
  * Resolves once the browser has painted the frame that follows a busy-state
