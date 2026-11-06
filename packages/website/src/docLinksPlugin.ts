@@ -60,28 +60,31 @@ export function docLinksPlugin({
   if (source === null) return null;
   const slugger = new GithubSlugger();
   let titleReplaced = false;
+  const visitHeading = (node: Readonly<Element>, ctx: VisitorContext) => {
+    const existing = node.properties?.id;
+    const id =
+      typeof existing === "string"
+        ? existing
+        : slugger.slug(ctx.textContent(node));
+    if (node.tagName === "h1" && !titleReplaced) {
+      titleReplaced = true;
+      ctx.replaceNode(node, {
+        type: "element",
+        tagName: "span",
+        properties: { id },
+        children: [],
+      });
+    } else if (typeof existing !== "string") {
+      ctx.setProperty(node, "id", id);
+    }
+  };
   return {
     name: "doc-links",
     element: {
       filter: [...headingTags, "a", "table"],
       visit(node: Readonly<Element>, ctx: VisitorContext) {
         if (headingTags.includes(node.tagName)) {
-          const existing = node.properties?.id;
-          const id =
-            typeof existing === "string"
-              ? existing
-              : slugger.slug(ctx.textContent(node));
-          if (node.tagName === "h1" && !titleReplaced) {
-            titleReplaced = true;
-            ctx.replaceNode(node, {
-              type: "element",
-              tagName: "span",
-              properties: { id },
-              children: [],
-            });
-          } else if (typeof existing !== "string") {
-            ctx.setProperty(node, "id", id);
-          }
+          visitHeading(node, ctx);
         } else if (node.tagName === "a") {
           const href = node.properties?.href;
           if (typeof href === "string") {

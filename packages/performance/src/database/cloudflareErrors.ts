@@ -1,31 +1,35 @@
 import { jsonRecord } from "../jsonRecord";
 
+/** The `secret_text` binding values a Worker upload form carries. */
+function uploadSecretTexts(body: unknown): string[] {
+  if (!(body instanceof FormData)) return [];
+  const metadata = body.get("metadata");
+  if (typeof metadata !== "string") return [];
+  const bindings: unknown = Reflect.get(
+    jsonRecord(JSON.parse(metadata)),
+    "bindings",
+  );
+  if (!Array.isArray(bindings)) return [];
+  const secrets: string[] = [];
+  for (const binding of bindings) {
+    const record = jsonRecord(binding);
+    const text: unknown = Reflect.get(record, "text");
+    if (
+      Reflect.get(record, "type") === "secret_text" &&
+      typeof text === "string"
+    )
+      secrets.push(text);
+  }
+  return secrets;
+}
+
 /** Provider validation errors help diagnose bundles; redact upload secrets first. */
 export async function cloudflareFailure(
   response: Response,
   token: string,
   body: unknown,
 ) {
-  const secrets = [token];
-  if (body instanceof FormData) {
-    const metadata = body.get("metadata");
-    if (typeof metadata === "string") {
-      const bindings: unknown = Reflect.get(
-        jsonRecord(JSON.parse(metadata)),
-        "bindings",
-      );
-      if (Array.isArray(bindings))
-        for (const binding of bindings) {
-          const record = jsonRecord(binding);
-          const text: unknown = Reflect.get(record, "text");
-          if (
-            Reflect.get(record, "type") === "secret_text" &&
-            typeof text === "string"
-          )
-            secrets.push(text);
-        }
-    }
-  }
+  const secrets = [token, ...uploadSecretTexts(body)];
   const envelope = jsonRecord(await response.json().catch(() => null));
   const errors: unknown = Reflect.get(envelope, "errors");
   if (!Array.isArray(errors)) return "";
