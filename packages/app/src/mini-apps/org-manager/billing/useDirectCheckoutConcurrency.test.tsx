@@ -110,6 +110,39 @@ test("a double-clicked Pay confirms exactly once", async () => {
   expect(confirms).toBe(1);
 });
 
+test("an abandoned confirmation's failure cannot unlock a second Pay", async () => {
+  // Regression: the failed-confirm path cleared the shared confirming guard
+  // before checking whether its checkout was still current, so a stale
+  // rejection let a double-clicked Pay charge the replacement checkout twice.
+  const pending: PromiseWithResolvers<{ kind: "succeeded" }>[] = [];
+  stubTearleads();
+  const { capability } = capabilityWith({
+    confirm: () => {
+      const confirmation = Promise.withResolvers<{ kind: "succeeded" }>();
+      pending.push(confirmation);
+      return confirmation.promise;
+    },
+  });
+  const { result } = renderFlow(capability);
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+  act(() => result.current.confirm());
+  act(() => result.current.cancel());
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+  act(() => result.current.confirm());
+  expect(pending).toHaveLength(2);
+
+  await act(async () => {
+    pending[0]?.reject(new Error("element unmounted"));
+  });
+  act(() => result.current.confirm());
+
+  expect(pending).toHaveLength(2);
+  expect(result.current.phase.kind).toBe("confirming");
+});
+
 test("a cancelled confirmation releases the session so begin works again", async () => {
   // The web capability does not return `cancelled` today, but the contract
   // permits it; a stale sessionRef would make begin a permanent no-op.
