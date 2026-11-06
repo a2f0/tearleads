@@ -353,3 +353,40 @@ test("an empty selection is ignored and unmount aborts the active import", () =>
 
   expect(capturedSignal?.aborted).toBe(true);
 });
+
+test("a queued selection drains through the latest importer", async () => {
+  const calls: string[] = [];
+  const resolvers: Array<(result: ExplorerDroppedFileImportResult) => void> =
+    [];
+  // Each render hands the manager a new importer, as the Explorer does when
+  // its nodes change (the importer's upload guard closes over them).
+  const importerFor =
+    (label: string): ImportExplorerDroppedFiles =>
+    (containerId) => {
+      calls.push(`${label}:${containerId}`);
+      return new Promise((resolve) => {
+        resolvers.push(resolve);
+      });
+    };
+  const { rerender, result } = renderHook(
+    ({ importDroppedFiles }) =>
+      useExplorerUploadManager({ importDroppedFiles }),
+    { initialProps: { importDroppedFiles: importerFor("before") } },
+  );
+
+  act(() => result.current.startImport("folder-1", TWO_FILES));
+  // A folder is created while the first selection runs; the next render's
+  // importer is the one that knows about it.
+  rerender({ importDroppedFiles: importerFor("after") });
+  act(() =>
+    result.current.startImport("new-folder", [
+      new File(["Gamma"], "c.txt", { type: "text/plain" }),
+    ]),
+  );
+
+  await act(async () => {
+    resolvers[0]?.(importResult());
+  });
+  await waitFor(() => expect(calls.length).toBe(2));
+  expect(calls).toEqual(["before:folder-1", "after:new-folder"]);
+});
