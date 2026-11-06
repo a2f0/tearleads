@@ -65,6 +65,15 @@ export function subscribeToDocumentSummaryDirectory(input: {
   const isCurrent = () => state.status !== "disposed" && input.isCurrent();
   const answersRevision = (requestedRevision: number) =>
     isCurrent() && revision === requestedRevision;
+  const deliverRows = (
+    requestedRevision: number,
+    rows: ReadonlyArray<DocumentSummary>,
+  ) => {
+    if (answersRevision(requestedRevision)) input.onLoaded(rows);
+  };
+  const deliverError = (requestedRevision: number, error: unknown) => {
+    if (answersRevision(requestedRevision)) input.onError(error);
+  };
   // Keep the loop inline: an awaited helper would add microtask hops.
   const load = async () => {
     if (!isCurrent()) return;
@@ -76,10 +85,9 @@ export function subscribeToDocumentSummaryDirectory(input: {
         send({ type: "pass-started" });
         const requestedRevision = revision;
         try {
-          const rows = await input.load();
-          if (answersRevision(requestedRevision)) input.onLoaded(rows);
+          deliverRows(requestedRevision, await input.load());
         } catch (error) {
-          if (answersRevision(requestedRevision)) input.onError(error);
+          deliverError(requestedRevision, error);
         }
       } while (isCurrent() && state.status === "loading-with-reload");
     } finally {

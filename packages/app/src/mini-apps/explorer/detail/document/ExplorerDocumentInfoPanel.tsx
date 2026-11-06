@@ -25,7 +25,10 @@ import {
   ExplorerDocumentInfoAttachmentsSection,
   type OpenBlobBrowserRoute,
 } from "./ExplorerDocumentInfoAttachmentsSection";
-import { ExplorerDocumentInfoAuthorizingContainersSection } from "./ExplorerDocumentInfoContainersSection";
+import {
+  ExplorerDocumentInfoAuthorizingContainersSection,
+  ExplorerDocumentInfoLinksStatus,
+} from "./ExplorerDocumentInfoContainersSection";
 import { ExplorerDocumentInfoEditRangesSection } from "./ExplorerDocumentInfoEditRangesSection";
 import {
   ExplorerDocumentInfoBlameSection,
@@ -34,10 +37,7 @@ import {
   ExplorerDocumentInfoFieldBlameSection,
   ExplorerDocumentInfoGeneralSection,
 } from "./ExplorerDocumentInfoGeneralSections";
-import {
-  ExplorerDocumentInfoLocalSecuritySection,
-  ExplorerDocumentInfoRemoteSecuritySection,
-} from "./ExplorerDocumentInfoSecuritySections";
+import { ExplorerDocumentInfoSecurityTab } from "./ExplorerDocumentInfoSecuritySections";
 import { ExplorerLinkedContainerSection } from "./ExplorerLinkedContainers";
 import { useExplorerDocumentInfo } from "./useExplorerDocumentInfo";
 
@@ -291,14 +291,10 @@ function ExplorerDocumentInfoTabPanel(params: {
       ) : null}
       {params.activeTab === "links" ? (
         <>
-          {params.isLoadingDocumentSummary ? (
-            <MiniAppStatus>{EXPLORER_LABELS.documentInfoLoading}</MiniAppStatus>
-          ) : null}
-          {params.documentSummaryError ? (
-            <MiniAppStatus tone="error">
-              {params.documentSummaryError}
-            </MiniAppStatus>
-          ) : null}
+          <ExplorerDocumentInfoLinksStatus
+            documentSummaryError={params.documentSummaryError}
+            isLoadingDocumentSummary={params.isLoadingDocumentSummary}
+          />
           <ExplorerLinkedContainerSection
             activeContainerId={params.activeContainerId}
             activateLinkedContainer={params.activateLinkedContainer}
@@ -328,16 +324,7 @@ function ExplorerDocumentInfoTabPanel(params: {
         />
       ) : null}
       {params.activeTab === "security" ? (
-        <>
-          <ExplorerDocumentInfoLocalSecuritySection
-            documentInfo={params.documentInfo}
-          />
-          {params.documentInfo ? (
-            <ExplorerDocumentInfoRemoteSecuritySection
-              documentInfo={params.documentInfo}
-            />
-          ) : null}
-        </>
+        <ExplorerDocumentInfoSecurityTab documentInfo={params.documentInfo} />
       ) : null}
     </MiniAppTabPanel>
   );

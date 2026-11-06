@@ -139,6 +139,21 @@ function assertAcknowledgedRootSigner(input: {
  * Authenticate destination roles before admitting a binding or advancing any
  * placement pin. Shared rehomes additionally require signed replacement evidence.
  */
+function assertDestinationProjectionIdentity(
+  projection: { readonly containerId: string; readonly organizationId: string },
+  listed: DestinationIdentity,
+): void {
+  if (
+    projection.containerId !== listed.id ||
+    projection.organizationId !== listed.organizationId
+  ) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "container destination projection has the wrong identity",
+    );
+  }
+}
+
 async function verifyDestinationRole(input: {
   heldBinding: HeldContainerBinding | null;
   prefetched: PrefetchedDestinationProjection | undefined;
@@ -155,15 +170,7 @@ async function verifyDestinationRole(input: {
     ? input.prefetched.projection
     : await runtime.apiClient.getContainerWriterProjection(listed.id);
   if (!projection || isCurrent?.() === false) return null;
-  if (
-    projection.containerId !== listed.id ||
-    projection.organizationId !== listed.organizationId
-  ) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      "container destination projection has the wrong identity",
-    );
-  }
+  assertDestinationProjectionIdentity(projection, listed);
   const verificationInput = {
     execSql: runtime.infra.execSql,
     projection,
@@ -272,6 +279,26 @@ async function resolveDestinationRole(
 }
 
 /**
+ * A held ordinary binding was verified (or signed by this device) when it was
+ * stored; a listing that repeats it needs no second proof. A listing the
+ * caller already found superseded is refused.
+ */
+function heldOrdinaryBindingStands(
+  input: VerifyRemoteContainerDestinationInput,
+): boolean {
+  if (input.supersededListing) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "container was re-homed away from the listed organization",
+    );
+  }
+  return (
+    !input.refresh &&
+    listingRepeatsHeldOrdinaryBinding(input.heldBinding, input.remoteContainer)
+  );
+}
+
+/**
  * Listing hints never establish a metadata target or a system/root role, and a
  * held folder keeps its organization and metadata target unless its own user
  * re-created it or its pinned founder authorized a verified replacement.
@@ -292,18 +319,7 @@ export async function verifyRemoteContainerDestination(
       organizationId: listed.organizationId,
     },
     async () => {
-      if (input.supersededListing) {
-        throw new KeyingVerificationError(
-          "object_mismatch",
-          "container was re-homed away from the listed organization",
-        );
-      }
-      // A held ordinary binding was verified (or signed by this device) when
-      // it was stored; a listing that repeats it needs no second proof.
-      if (
-        !input.refresh &&
-        listingRepeatsHeldOrdinaryBinding(input.heldBinding, listed)
-      ) {
+      if (heldOrdinaryBindingStands(input)) {
         return { ...listed, systemSlot: null };
       }
       if (input.refresh)

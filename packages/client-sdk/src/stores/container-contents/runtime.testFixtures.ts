@@ -43,6 +43,15 @@ export function createContainerContentsStoreTestRuntime(
  * online, no key material, silent log. Omitted organizationId/userId derive
  * from isAuthenticated so an unauthenticated runtime carries no identity.
  */
+/** An explicitly passed value (even undefined) wins over the default. */
+function authenticatedDefault(
+  passed: boolean,
+  value: string | null | undefined,
+  fallback: string | null,
+): string | null {
+  return passed ? (value ?? null) : fallback;
+}
+
 export function createContainerContentsTestRuntime(input: {
   apiClient?: ContainerContentsWorkflowRuntimeInput["apiClient"] | undefined;
   containerId?: string | null | undefined;
@@ -76,18 +85,16 @@ export function createContainerContentsTestRuntime(input: {
     auth: {
       rootContainerId: input.rootContainerId ?? input.containerId ?? null,
       isAuthenticated,
-      organizationId:
-        "organizationId" in input
-          ? (input.organizationId ?? null)
-          : isAuthenticated
-            ? "org-1"
-            : null,
-      userId:
-        "userId" in input
-          ? (input.userId ?? null)
-          : isAuthenticated
-            ? "user-1"
-            : null,
+      organizationId: authenticatedDefault(
+        "organizationId" in input,
+        input.organizationId,
+        isAuthenticated ? "org-1" : null,
+      ),
+      userId: authenticatedDefault(
+        "userId" in input,
+        input.userId,
+        isAuthenticated ? "user-1" : null,
+      ),
     },
     crypto: {
       encapsulationKeyPair: input.encapsulationKeyPair ?? null,

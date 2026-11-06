@@ -18,6 +18,59 @@ import type { DocumentState, DocumentStoreState } from "../state";
 import type { DocumentStoreSyncGeneration } from "../sync/syncGeneration";
 import { isDocumentStoreSyncGenerationCurrent } from "../sync/syncGeneration";
 
+/**
+ * The pending attachments whose slot is missing or stale in `doc`, or null
+ * when the write generation moved on while comparing them.
+ */
+function droppedAttachmentSlots(
+  state: DocumentStoreState,
+  doc: NonNullable<DocumentStoreState["doc"]>,
+  writeGeneration: DocumentStoreSyncGeneration,
+): DocumentAttachment[] | null {
+  const existingBySlotId = new Map(
+    getDocumentAttachments(doc).map((attachment) => [
+      attachment.slotId,
+      attachment,
+    ]),
+  );
+  const recovered: DocumentAttachment[] = [];
+  for (const pending of state.pendingAttachments) {
+    const mimeType = pending.mimeType ?? null;
+    const existing = existingBySlotId.get(pending.slotId);
+    const contentSha256 = pending.contentSha256;
+    if (!isDocumentStoreSyncGenerationCurrent(state, writeGeneration)) {
+      return null;
+    }
+    if (
+      existing &&
+      existing.name === pending.name &&
+      existing.byteLength === pending.byteLength &&
+      existing.mimeType === mimeType &&
+      existing.contentSha256 === contentSha256
+    ) {
+      continue;
+    }
+    recovered.push({
+      contentSha256,
+      byteLength: pending.byteLength,
+      mimeType,
+      name: pending.name,
+      slotId: pending.slotId,
+    });
+  }
+  return recovered;
+}
+
+function persistedCurrent(
+  persisted: Awaited<ReturnType<typeof persistDocument>>,
+): boolean {
+  return Boolean(
+    persisted &&
+      !persisted.pullContinuationSuperseded &&
+      !persisted.syncIdentitySuperseded,
+  );
+}
+
 // Re-derive any attachment slot that lives in a durable pending-upload row but
 // is missing (or stale) in the loaded snapshot. The attach write path persists
 // the blob bytes + pending-attachment row BEFORE it enqueues the slot's CRDT op
@@ -37,36 +90,8 @@ export async function recoverDroppedAttachmentSlots(
     return;
   }
 
-  const existingBySlotId = new Map(
-    getDocumentAttachments(doc).map((attachment) => [
-      attachment.slotId,
-      attachment,
-    ]),
-  );
-  const recovered: DocumentAttachment[] = [];
-  for (const pending of state.pendingAttachments) {
-    const mimeType = pending.mimeType ?? null;
-    const existing = existingBySlotId.get(pending.slotId);
-    const contentSha256 = pending.contentSha256;
-    if (!isDocumentStoreSyncGenerationCurrent(state, writeGeneration)) return;
-    if (
-      existing &&
-      existing.name === pending.name &&
-      existing.byteLength === pending.byteLength &&
-      existing.mimeType === mimeType &&
-      existing.contentSha256 === contentSha256
-    ) {
-      continue;
-    }
-    recovered.push({
-      contentSha256,
-      byteLength: pending.byteLength,
-      mimeType,
-      name: pending.name,
-      slotId: pending.slotId,
-    });
-  }
-  if (recovered.length === 0) {
+  const recovered = droppedAttachmentSlots(state, doc, writeGeneration);
+  if (!recovered || recovered.length === 0) {
     return;
   }
 
@@ -113,11 +138,7 @@ export async function recoverDroppedAttachmentSlots(
     {},
     writeGeneration,
   );
-  if (
-    !persisted ||
-    persisted.pullContinuationSuperseded ||
-    persisted.syncIdentitySuperseded
-  ) {
+  if (!persistedCurrent(persisted)) {
     return;
   }
   advancePendingBaseVersion(state, doc);

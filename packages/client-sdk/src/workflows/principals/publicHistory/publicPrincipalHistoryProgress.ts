@@ -98,6 +98,19 @@ async function restorePublicPrefix(
   return null;
 }
 
+type RestoredVerifier = Awaited<
+  ReturnType<typeof restorePrincipalPolicyHistoryVerifier>
+>;
+
+/** A restored verifier is reusable when a completed stage still finishes. */
+function finishesSavedHistory(
+  restored: RestoredVerifier,
+  complete: boolean,
+  head: PublicPrincipalHistoryOptions["source"]["head"],
+): restored is Extract<RestoredVerifier, { ok: true }> {
+  return restored.ok && (!complete || restored.value.finish(head).ok);
+}
+
 export async function restorePublicPrincipalHistoryProgress(
   input: PublicPrincipalHistoryOptions,
   allowReuse: boolean,
@@ -134,7 +147,7 @@ export async function restorePublicPrincipalHistoryProgress(
         saved.progress,
         await principalHistoryStageProtection(input.protection, head, saved),
       );
-      if (restored.ok && (!saved.complete || restored.value.finish(head).ok)) {
+      if (finishesSavedHistory(restored, saved.complete, head)) {
         await validatePublicHistoryAuthority(input, authorityReference);
         return {
           id,

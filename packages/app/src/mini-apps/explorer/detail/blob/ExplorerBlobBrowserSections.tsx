@@ -87,6 +87,42 @@ function BlobMetadataSection(params: {
   );
 }
 
+function BlobMediaPreview(params: {
+  blob: BlobInfo;
+  kind: NonNullable<ReturnType<typeof getMediaPreviewKind>>;
+  onOpenImage: (() => void) | null;
+  url: string;
+}) {
+  const { blob, kind, onOpenImage, url } = params;
+  const media = (
+    <MediaPreview
+      className="explorer-blob-preview-media"
+      kind={kind}
+      label={blob.name ?? blob.blobId ?? blob.storageKey}
+      url={url}
+    />
+  );
+
+  // Tapping the picture is what anyone reaches for first to see it larger —
+  // the toolbar's expand control is the discoverable route, not the only one.
+  // The button carries its own name so the image's alt text (the blob's name,
+  // which the toolbar action does not repeat) stays out of the accessible
+  // name and the two controls remain distinguishable.
+  return kind === "image" && onOpenImage ? (
+    <button
+      aria-label={EXPLORER_LABELS.blobBrowserOpenPreviewAction}
+      className="explorer-blob-preview-open"
+      onClick={onOpenImage}
+      title={EXPLORER_LABELS.blobBrowserOpenPreviewAction}
+      type="button"
+    >
+      {media}
+    </button>
+  ) : (
+    media
+  );
+}
+
 function BlobPreviewContent(params: {
   blob: BlobInfo;
   onOpenImage: (() => void) | null;
@@ -118,32 +154,13 @@ function BlobPreviewContent(params: {
 
   const mediaKind = getMediaPreviewKind(blob.mimeType);
   if (preview.url && mediaKind) {
-    const media = (
-      <MediaPreview
-        className="explorer-blob-preview-media"
+    return (
+      <BlobMediaPreview
+        blob={blob}
         kind={mediaKind}
-        label={blob.name ?? blob.blobId ?? blob.storageKey}
+        onOpenImage={onOpenImage}
         url={preview.url}
       />
-    );
-
-    // Tapping the picture is what anyone reaches for first to see it larger —
-    // the toolbar's expand control is the discoverable route, not the only one.
-    // The button carries its own name so the image's alt text (the blob's name,
-    // which the toolbar action does not repeat) stays out of the accessible
-    // name and the two controls remain distinguishable.
-    return mediaKind === "image" && onOpenImage ? (
-      <button
-        aria-label={EXPLORER_LABELS.blobBrowserOpenPreviewAction}
-        className="explorer-blob-preview-open"
-        onClick={onOpenImage}
-        title={EXPLORER_LABELS.blobBrowserOpenPreviewAction}
-        type="button"
-      >
-        {media}
-      </button>
-    ) : (
-      media
     );
   }
 

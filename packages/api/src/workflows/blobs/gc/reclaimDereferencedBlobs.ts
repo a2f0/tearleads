@@ -371,15 +371,17 @@ export async function runReclaimDereferencedBlobsWorkflow(
     }
   }
 
-  if (failures.length > 0) {
-    const firstFailure = failures[0];
-    const detail =
-      firstFailure instanceof Error ? `: ${firstFailure.message}` : "";
-    throw new AggregateError(
-      failures,
-      `Blob reclamation encountered ${failures.length} failure(s)${detail}`,
-    );
-  }
-
+  throwIfReclaimFailed(failures);
   return { reclaimedBlobIds, revivedBlobIds };
+}
+
+function throwIfReclaimFailed(failures: readonly unknown[]): void {
+  if (failures.length === 0) return;
+  const firstFailure = failures[0];
+  const detail =
+    firstFailure instanceof Error ? `: ${firstFailure.message}` : "";
+  throw new AggregateError(
+    failures,
+    `Blob reclamation encountered ${failures.length} failure(s)${detail}`,
+  );
 }

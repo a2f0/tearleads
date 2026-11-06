@@ -40,6 +40,10 @@ type RematerializationEventType =
   | "container.rekey"
   | "container.revoke";
 
+type CurrentPrincipalContainerGrantRow = Awaited<
+  ReturnType<typeof listCurrentPrincipalContainerGrants>
+>[number];
+
 interface RequiredContainerRematerialization {
   readonly containerId: string;
   readonly eventType: RematerializationEventType;
@@ -100,31 +104,28 @@ async function listRequiredContainerRematerializations(input: {
       }
       continue;
     }
-    if (!next) {
-      required.push({ containerId, eventType: "container.revoke" });
-      continue;
-    }
-    if (row.accessLevel !== next.accessLevel) {
-      required.push({ containerId, eventType: "container.grant" });
-      continue;
-    }
-    if (!principalHeadMatches(row, head)) {
-      if (row.keyEpoch === null) {
-        throw new PrincipalPolicyError(
-          "Container grant is missing its principal reference",
-          409,
-        );
-      }
-      required.push({
-        containerId: row.containerId,
-        eventType:
-          row.keyEpoch === head.keyEpoch
-            ? "container.grant"
-            : "container.rekey",
-      });
-    }
+    const eventType = currentGrantEvent(row, next, head);
+    if (eventType !== null) required.push({ containerId, eventType });
   }
   return required;
+}
+
+/** The event that moves a current grant row to `next`, or null if current. */
+function currentGrantEvent(
+  row: CurrentPrincipalContainerGrantRow,
+  next: PrincipalContainerGrant | undefined,
+  head: ContainerGrantPrincipalHead,
+): RematerializationEventType | null {
+  if (!next) return "container.revoke";
+  if (row.accessLevel !== next.accessLevel) return "container.grant";
+  if (principalHeadMatches(row, head)) return null;
+  if (row.keyEpoch === null) {
+    throw new PrincipalPolicyError(
+      "Container grant is missing its principal reference",
+      409,
+    );
+  }
+  return row.keyEpoch === head.keyEpoch ? "container.grant" : "container.rekey";
 }
 
 function requestEvent(

@@ -126,11 +126,11 @@ export async function resolveNativeGrantDisposition(input: {
     input.transition.kind === "revoke" &&
     isNativeRevenueCatStore(input.event.store) &&
     (!input.event.original_transaction_id || !matchesNativeLifecycle);
-  const conflictReason = tokenlessNativePurchase
-    ? NATIVE_PURCHASE_MISSING_SUBSCRIPTION_REASON
-    : nativeBindingConflict || nativeRevokeConflict
-      ? NATIVE_EVENT_CONFLICTS_WITH_EXISTING_SUBSCRIPTION_REASON
-      : nativeStripeConflict;
+  const conflictReason = nativeConflictReason({
+    existingSubscriptionConflict: nativeBindingConflict || nativeRevokeConflict,
+    nativeStripeConflict,
+    tokenlessNativePurchase,
+  });
   if (
     conflictReason !== null &&
     (nativeBindingConflict ||
@@ -150,9 +150,26 @@ export async function resolveNativeGrantDisposition(input: {
     skipSeatReconciliation:
       input.skipSeatReconciliation || nativeStripeConflict !== null,
     transition: input.transition,
-    warning:
-      [input.warning, nativeStripeConflict]
-        .filter((reason): reason is string => reason !== null)
-        .join("; ") || null,
+    warning: joinedWarning(input.warning, nativeStripeConflict),
   };
+}
+
+function nativeConflictReason(input: {
+  readonly existingSubscriptionConflict: boolean;
+  readonly nativeStripeConflict: string | null;
+  readonly tokenlessNativePurchase: boolean;
+}): string | null {
+  if (input.tokenlessNativePurchase) {
+    return NATIVE_PURCHASE_MISSING_SUBSCRIPTION_REASON;
+  }
+  return input.existingSubscriptionConflict
+    ? NATIVE_EVENT_CONFLICTS_WITH_EXISTING_SUBSCRIPTION_REASON
+    : input.nativeStripeConflict;
+}
+
+function joinedWarning(...reasons: readonly (string | null)[]): string | null {
+  return (
+    reasons.filter((reason): reason is string => reason !== null).join("; ") ||
+    null
+  );
 }

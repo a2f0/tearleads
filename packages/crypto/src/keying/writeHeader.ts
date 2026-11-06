@@ -299,6 +299,24 @@ export async function computeWriteHeaderHash(
   return computeKeyingDomainHash("tearleads.keying.write-header", payload);
 }
 
+function assertExpectedWriteHeaderObject(
+  expectedObject: VerifyWriteHeaderInput["expectedObject"],
+  header: WriteHeader,
+): void {
+  if (
+    expectedObject &&
+    (expectedObject.objectKind !== header.objectKind ||
+      expectedObject.objectId !== header.objectId ||
+      (expectedObject.organizationId !== undefined &&
+        expectedObject.organizationId !== header.organizationId))
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "write header object does not match expected object",
+    );
+  }
+}
+
 export async function verifyWriteHeader({
   authorizationMembership = "current",
   blobAuthorization,
@@ -345,18 +363,7 @@ export async function verifyWriteHeader({
       );
     }
 
-    if (
-      expectedObject &&
-      (expectedObject.objectKind !== normalizedHeader.objectKind ||
-        expectedObject.objectId !== normalizedHeader.objectId ||
-        (expectedObject.organizationId !== undefined &&
-          expectedObject.organizationId !== normalizedHeader.organizationId))
-    ) {
-      throwVerification(
-        "object_mismatch",
-        "write header object does not match expected object",
-      );
-    }
+    assertExpectedWriteHeaderObject(expectedObject, normalizedHeader);
 
     assertWriteHeaderAuthorizations({
       authorizationMembership,
