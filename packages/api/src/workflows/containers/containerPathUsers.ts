@@ -170,6 +170,25 @@ export async function userIdsForGrant(input: {
   return userIdsForManagedGrant(input);
 }
 
+function sortedContainerPathUserIds(
+  userIdsByContainerId: ReadonlyMap<string, ReadonlySet<string>>,
+): ContainerPathUserIds {
+  const allUserIds = new Set<string>();
+  const resultUserIdsByContainerId = new Map<string, string[]>();
+  for (const [containerId, userIds] of userIdsByContainerId) {
+    const sortedUserIds = [...userIds].sort();
+    resultUserIdsByContainerId.set(containerId, sortedUserIds);
+    for (const userId of sortedUserIds) {
+      allUserIds.add(userId);
+    }
+  }
+
+  return {
+    allUserIds: [...allUserIds].sort(),
+    userIdsByContainerId: resultUserIdsByContainerId,
+  };
+}
+
 export async function userIdsByContainerPath(input: {
   readonly executor: DatabaseTransaction;
   readonly path: readonly VerifiedContainerAccessManifest[];
@@ -213,20 +232,7 @@ export async function userIdsByContainerPath(input: {
     }
   }
 
-  const allUserIds = new Set<string>();
-  const resultUserIdsByContainerId = new Map<string, string[]>();
-  for (const [containerId, userIds] of userIdsByContainerId) {
-    const sortedUserIds = [...userIds].sort();
-    resultUserIdsByContainerId.set(containerId, sortedUserIds);
-    for (const userId of sortedUserIds) {
-      allUserIds.add(userId);
-    }
-  }
-
-  return {
-    allUserIds: [...allUserIds].sort(),
-    userIdsByContainerId: resultUserIdsByContainerId,
-  };
+  return sortedContainerPathUserIds(userIdsByContainerId);
 }
 
 export async function userIdsWithReadableAccessThroughPath(input: {
