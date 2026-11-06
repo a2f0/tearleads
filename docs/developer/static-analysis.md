@@ -74,7 +74,7 @@ the shipped local and remote feature branch only for a confirmed merged PR and
 never a default or exempt branch. Merges, dependency additions, publishing, and
 permission changes get no Claude Code rule, so they follow each user's chosen
 mode, while Codex prompts before them; the agent-tool [permissions
-guide](https://github.com/a2f0/agent-tool/blob/d44686f0b9f34b4614994a33c3668031d01953f9/docs/permissions.md)
+guide](https://github.com/a2f0/agent-tool/blob/fe18524aaf0ce3279766661c70b5b097492e2a4e/docs/permissions.md)
 lists every class. Cleanup is grouped as `share`; applied teardown and skill
 or hook installs are `local`. These labels do not change the effective rules
 or runtime guards. The files are generated: do not edit or reformat them, and

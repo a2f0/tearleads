@@ -17,7 +17,7 @@
     "destroy:assets": "wrangler delete"
   },
   "dependencies": {
-    "@a2f0/agent-tool": "0.1.46",
+    "@a2f0/agent-tool": "0.1.51",
     "@a2f0/ct-client": "0.1.6",
     "@astrojs/markdown-satteri": "0.4.6",
     "@astrojs/react": "7.1.2",

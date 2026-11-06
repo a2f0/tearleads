@@ -14,6 +14,12 @@
     ".agents/skills/update-dependencies/SKILL.md": "dd4941ab4e70b731ef801cd016fdd371d10ebb520506f4df5a1beba068080ab2",
     ".claude/skills/update-dependencies/SKILL.md": "dd4941ab4e70b731ef801cd016fdd371d10ebb520506f4df5a1beba068080ab2",
     ".agents/skills/open-issue/SKILL.md": "cf075fe29006db255efa83feb43100b6cff70421733cbd7e51413993ff5df814",
-    ".claude/skills/open-issue/SKILL.md": "cf075fe29006db255efa83feb43100b6cff70421733cbd7e51413993ff5df814"
+    ".claude/skills/open-issue/SKILL.md": "cf075fe29006db255efa83feb43100b6cff70421733cbd7e51413993ff5df814",
+    ".agents/skills/explicit-state-machines/SKILL.md": "e8d33487c35e99641b2a95941b9ffb1d03aea7e5c8d5d75c385940ff3c5a7b21",
+    ".agents/skills/explicit-state-machines/references/lessons.md": "8ee9aae04dd23b5ca3d238595573c77d8eff617412118328d56c7aeab3ef7597",
+    ".agents/skills/explicit-state-machines/references/patterns.md": "700a54d86b669653c32d3f333e1770b08ada9d8f28bb0475f79991eefe8a4388",
+    ".claude/skills/explicit-state-machines/SKILL.md": "e8d33487c35e99641b2a95941b9ffb1d03aea7e5c8d5d75c385940ff3c5a7b21",
+    ".claude/skills/explicit-state-machines/references/lessons.md": "8ee9aae04dd23b5ca3d238595573c77d8eff617412118328d56c7aeab3ef7597",
+    ".claude/skills/explicit-state-machines/references/patterns.md": "700a54d86b669653c32d3f333e1770b08ada9d8f28bb0475f79991eefe8a4388"
   }
 }
