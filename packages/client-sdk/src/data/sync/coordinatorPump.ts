@@ -100,6 +100,27 @@ function selectNextRequestedLane(
   return selectedLane;
 }
 
+/**
+ * The selected lane if a worker may start it now: the pool has room, no
+ * structural lane runs, and phases never mix (a structural lane waits for
+ * every running lane; others wait for pending structural work).
+ */
+function admittedLane(
+  lane: SyncLaneState | null,
+  running: ReadonlyMap<SyncLaneState, unknown>,
+  structuralPending: boolean,
+): SyncLaneState | null {
+  if (!lane) return null;
+  const structuralRunning = Array.from(running.keys()).some(
+    (candidate) => candidate.config.phase === "structural",
+  );
+  const blocked =
+    running.size >= DOCUMENT_LANE_CONCURRENCY ||
+    structuralRunning ||
+    (lane.config.phase === "structural" ? running.size > 0 : structuralPending);
+  return blocked ? null : lane;
+}
+
 async function runRequestedSyncLanes(
   state: DomainSyncCoordinatorState,
 ): Promise<void> {
@@ -121,18 +142,7 @@ async function runRequestedSyncLanes(
         (candidate.running ||
           (candidate.requested && candidate.activeRunToken === null)),
     );
-    const structuralRunning = Array.from(running.keys()).some(
-      (candidate) => candidate.config.phase === "structural",
-    );
-    if (
-      lane &&
-      (running.size >= DOCUMENT_LANE_CONCURRENCY ||
-        structuralRunning ||
-        (lane.config.phase === "structural"
-          ? running.size > 0
-          : structuralPending))
-    )
-      lane = null;
+    lane = admittedLane(lane, running, structuralPending);
     if (lane) {
       const startedLane = lane;
       lane.lastRunOrder = ++state.nextRunOrder;
