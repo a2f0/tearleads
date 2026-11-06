@@ -13,13 +13,13 @@ import {
   toFingerprint,
   verifyContainerAccessManifest,
 } from "@tearleads/crypto";
+import { createVerifiedContainerAccessEvent } from "@tearleads/crypto/access-event-test-fixtures";
+import { fixtureHash } from "@tearleads/crypto/canonical-test-fixtures";
 import {
-  containerWrappingPublicKeyForTest,
   createContainerManifestFixture,
   createPrincipalPolicyFixture,
-  createVerifiedContainerAccessEvent,
-  fixtureHash,
-} from "@tearleads/crypto/test-fixtures";
+} from "@tearleads/crypto/container-access-test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { manifestBundle } from "../../../../test/helpers/ancestorCitationScenario";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";

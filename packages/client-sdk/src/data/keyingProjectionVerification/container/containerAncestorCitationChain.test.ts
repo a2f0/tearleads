@@ -5,11 +5,9 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { deriveContainerAccessManifest } from "@tearleads/crypto";
-import {
-  containerWrappingPublicKeyForTest,
-  createContainerManifestFixture,
-  createVerifiedContainerAccessEvent,
-} from "@tearleads/crypto/test-fixtures";
+import { createVerifiedContainerAccessEvent } from "@tearleads/crypto/access-event-test-fixtures";
+import { createContainerManifestFixture } from "@tearleads/crypto/container-access-test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   checkpointRootAt,

@@ -1,7 +1,15 @@
 import { expect, test } from "bun:test";
 import { toFingerprint } from "../fingerprint";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedDocumentAccessEvent } from "./accessEvent.testFixtures";
+import { fixtureHash } from "./canonical.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
+import {
+  createVerifiedContainerKekStateFixture,
+  deriveRequiredDocumentKekTargets,
+} from "./containerKek.testFixtures";
 import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
+import { createDocumentLinkSetManifestFixture } from "./documentLinkSetManifest.testFixtures";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
@@ -9,16 +17,8 @@ import {
   signWriteHeader,
   verifyWriteHeader,
 } from "./index";
-import {
-  createContainerManifestFixture,
-  createDocumentLinkSetManifestFixture,
-  createVerifiedContainerKekStateFixture,
-  createVerifiedDocumentAccessEvent,
-  createWriteHeaderFixture,
-  deriveRequiredDocumentKekTargets,
-  expectVerificationError,
-  fixtureHash,
-} from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
+import { createWriteHeaderFixture } from "./writeHeader.testFixtures";
 
 test("write headers are signed, hashed, and verified against expected targets", async () => {
   const signing = generateSigningSeedAndKeyPair();

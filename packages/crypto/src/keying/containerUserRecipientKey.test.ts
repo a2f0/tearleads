@@ -1,12 +1,10 @@
 import { expect, test } from "bun:test";
+import { fixtureHash } from "./canonical.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
 import { verifyContainerKekState } from "./containerKek";
+import { createVerifiedContainerKekStateFixture } from "./containerKek.testFixtures";
 import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
-import {
-  createContainerManifestFixture,
-  createVerifiedContainerKekStateFixture,
-  expectVerificationError,
-  fixtureHash,
-} from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 test("KEK verification binds every user recipient label to its identity", async () => {
   const userId = "user";

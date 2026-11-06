@@ -1,15 +1,13 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedDocumentAccessEvent } from "./accessEvent.testFixtures";
+import { createVerifiedAttachmentBinding } from "./attachmentAccessEvent.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
+import { createVerifiedContainerKekStateFixture } from "./containerKek.testFixtures";
 import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
+import { createDocumentLinkSetManifestFixture } from "./documentLinkSetManifest.testFixtures";
 import { deriveBlobKekTargets } from "./index";
-import {
-  createContainerManifestFixture,
-  createDocumentLinkSetManifestFixture,
-  createVerifiedAttachmentBinding,
-  createVerifiedContainerKekStateFixture,
-  createVerifiedDocumentAccessEvent,
-  expectVerificationError,
-} from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
 
 async function createOrganizationBlobBinding(input: {
   blobId: string;

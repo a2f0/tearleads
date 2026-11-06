@@ -9,7 +9,7 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { computeKeyingDomainHash } from "@tearleads/crypto";
-import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/container-wrapping-test-fixtures";
 
 export async function containerKekStoreFixtureHash(
   label: string,

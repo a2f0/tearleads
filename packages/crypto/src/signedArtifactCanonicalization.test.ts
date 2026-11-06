@@ -3,16 +3,14 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { generateKemSeedAndKeyPair } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
 import { verifySignedAccessEvent } from "./keying/accessEvent";
+import { createSignedContainerEvent } from "./keying/accessEvent.testFixtures";
 import { encodeDomainPayload } from "./keying/canonical";
+import { fixtureHash } from "./keying/canonical.testFixtures";
 import { readSignedAt } from "./keying/shared";
-import {
-  createSignedContainerEvent,
-  createWriteHeaderFixture,
-  fixtureHash,
-  signTransparencyTreeHeadFixture,
-} from "./keying/testFixtures";
 import { verifySignedTransparencyTreeHead } from "./keying/transparency";
+import { signTransparencyTreeHeadFixture } from "./keying/transparency.testFixtures";
 import { verifyWriteHeader } from "./keying/writeHeader";
+import { createWriteHeaderFixture } from "./keying/writeHeader.testFixtures";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,

@@ -1,23 +1,23 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { createVerifiedDocumentAccessEvent } from "./accessEvent.testFixtures";
+import { createVerifiedAttachmentBinding } from "./attachmentAccessEvent.testFixtures";
+import { fixtureHash } from "./canonical.testFixtures";
+import { createContainerManifestFixture } from "./containerAccess.testFixtures";
+import {
+  createVerifiedContainerKekStateFixture,
+  deriveRequiredBlobKekTargets,
+  deriveRequiredDocumentKekTargets,
+} from "./containerKek.testFixtures";
 import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
+import { createDocumentLinkSetManifestFixture } from "./documentLinkSetManifest.testFixtures";
 import {
   computeBlobAccessManifestHash,
   computeDocumentContentKeyTargetHash,
   verifyWriteHeader,
 } from "./index";
-import {
-  createContainerManifestFixture,
-  createDocumentLinkSetManifestFixture,
-  createVerifiedAttachmentBinding,
-  createVerifiedContainerKekStateFixture,
-  createVerifiedDocumentAccessEvent,
-  createWriteHeaderFixture,
-  deriveRequiredBlobKekTargets,
-  deriveRequiredDocumentKekTargets,
-  expectVerificationError,
-  fixtureHash,
-} from "./testFixtures";
+import { expectVerificationError } from "./verificationError.testFixtures";
+import { createWriteHeaderFixture } from "./writeHeader.testFixtures";
 
 test("write headers prove blob write access through derived attachment targets", async () => {
   const writerSigning = generateSigningSeedAndKeyPair();
