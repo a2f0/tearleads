@@ -42,7 +42,18 @@
       "./writeHeader",
       "./writeHeaderTypes"
     ],
-    "packages/loro/src/index.ts": ["./shared"]
+    "packages/loro/src/index.ts": ["./shared"],
+    "packages/validators/src/response/index.ts": [
+      "./areas/auth",
+      "./areas/billing",
+      "./areas/blobs",
+      "./areas/containers",
+      "./areas/documents",
+      "./areas/organizations",
+      "./areas/principals",
+      "./areas/root",
+      "./areas/service"
+    ]
   },
   "fileSizes": {
     "dependency-cruiser.config.ts": {
@@ -81,21 +92,9 @@
       "lines": 522,
       "bytes": 21345
     },
-    "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 485,
-      "bytes": 22287
-    },
     "packages/client-sdk/src/index.ts": {
       "lines": 623,
       "bytes": 18407
-    },
-    "packages/validators/src/operation/openApi.test.ts": {
-      "lines": 509,
-      "bytes": 17107
-    },
-    "packages/validators/src/response/index.ts": {
-      "lines": 594,
-      "bytes": 20791
     },
     "packages/windowing/README.md": {
       "lines": 558,
