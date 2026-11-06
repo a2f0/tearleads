@@ -55,6 +55,9 @@ export function subscribeToDocumentSummaryDirectory(input: {
   let reloadRequested = false;
   let revision = 0;
   const isCurrent = () => active && input.isCurrent();
+  // A load answers only while no live write has landed since it started.
+  const answersRevision = (requestedRevision: number) =>
+    isCurrent() && revision === requestedRevision;
   const load = async () => {
     if (!isCurrent()) return;
     if (loading) {
@@ -68,11 +71,9 @@ export function subscribeToDocumentSummaryDirectory(input: {
         const requestedRevision = revision;
         try {
           const rows = await input.load();
-          if (isCurrent() && revision === requestedRevision)
-            input.onLoaded(rows);
+          if (answersRevision(requestedRevision)) input.onLoaded(rows);
         } catch (error) {
-          if (isCurrent() && revision === requestedRevision)
-            input.onError(error);
+          if (answersRevision(requestedRevision)) input.onError(error);
         }
       } while (isCurrent() && reloadRequested);
     } finally {

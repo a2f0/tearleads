@@ -18,6 +18,22 @@ import { makeVerifiedPrincipalPolicy } from "./principalPolicyTypes";
 import { runVerifier, throwVerification } from "./shared";
 import type { KeyingVerificationResult } from "./verificationError";
 
+function assertBundleEntryInScope(
+  state: PrincipalPolicySignedState,
+  index: number,
+  current: Pick<VerifiedPrincipalPolicy, "principalId" | "principalType">,
+): void {
+  if (
+    state.version !== index + 1 ||
+    state.principalType !== current.principalType ||
+    state.principalId !== current.principalId
+  )
+    throwVerification(
+      "object_mismatch",
+      "principal bundle history scope or order differs",
+    );
+}
+
 /** Check a complete bundle against locally verified history without replaying signatures. */
 export function verifyPrincipalPolicyBundleAgainstHistory(input: {
   readonly bundle: PrincipalPolicyBundle;
@@ -63,15 +79,7 @@ export function verifyPrincipalPolicyBundleAgainstHistory(input: {
             }
           : bundle.previousStates[index],
       );
-      if (
-        entry.state.version !== index + 1 ||
-        entry.state.principalType !== current.principalType ||
-        entry.state.principalId !== current.principalId
-      )
-        throwVerification(
-          "object_mismatch",
-          "principal bundle history scope or order differs",
-        );
+      assertBundleEntryInScope(entry.state, index, current);
       entries.push({
         state: entry.state,
         projection: [...entry.projection],

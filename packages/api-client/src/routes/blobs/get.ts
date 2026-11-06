@@ -75,30 +75,45 @@ export async function getBlobBytes(
     if (descriptor.source.kind === "api") {
       return getBlobStream(transport, blobId, options);
     }
-    try {
-      // Never send the application's session or cookies to the object store.
-      // Reject redirects and keep bearer URLs out of referrers and errors.
-      const response = await downloadFetch(
-        descriptor.source.url,
-        storageFetchOptions(options),
-      );
-      if (response.status !== 200) {
-        await response.body?.cancel().catch(() => {});
-        if (response.status === 403) {
-          continue;
-        }
-        break;
-      }
-      return await signedBlobResponse(descriptor, response);
-    } catch {
-      // The downstream SDK still verifies length, hash and authenticated
-      // encryption. An error after streaming begins propagates to that reader.
-    }
+    const outcome = await fetchSignedBlob(
+      descriptor,
+      descriptor.source.url,
+      downloadFetch,
+      options,
+    );
+    if (outcome === "fallback") break;
+    if (outcome !== "retry") return outcome;
   }
   // Preserve downloads when storage is unreachable or a native HTTP bridge
   // cannot use the signed URL. This endpoint checks current access again.
   // A storage failure alone must not signal that the API is offline.
   return getBlobStream(transport, blobId, options);
+}
+
+/**
+ * One signed-URL attempt: the bytes, `"retry"` with a fresh URL (403 or a
+ * rejected fetch), or `"fallback"` to the API stream (any other status).
+ */
+async function fetchSignedBlob(
+  descriptor: Pick<BlobBytesResponse, "blobId" | "byteLength" | "sha256">,
+  url: string,
+  downloadFetch: DownloadFetch,
+  options: RequestResultOptions,
+): Promise<BlobBytesResponse | "retry" | "fallback"> {
+  try {
+    // Never send the application's session or cookies to the object store.
+    // Reject redirects and keep bearer URLs out of referrers and errors.
+    const response = await downloadFetch(url, storageFetchOptions(options));
+    if (response.status !== 200) {
+      await response.body?.cancel().catch(() => {});
+      return response.status === 403 ? "retry" : "fallback";
+    }
+    return await signedBlobResponse(descriptor, response);
+  } catch {
+    // The downstream SDK still verifies length, hash and authenticated
+    // encryption. An error after streaming begins propagates to that reader.
+    return "retry";
+  }
 }
 
 async function signedBlobResponse(

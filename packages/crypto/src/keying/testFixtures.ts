@@ -407,16 +407,18 @@ export async function createContainerManifestFixture(input: {
   const signer = input.signer ?? generateSigningSeedAndKeyPair();
   const metadataDocumentId =
     input.metadataDocumentId ?? `${input.containerId}-metadata-document`;
+  const containerKeyEpochId = input.containerKeyEpochId ?? null;
+  const parentManifestHash = input.parentManifestHash ?? null;
   const body: ContainerCreateAccessEventBody = {
     containerKeyPublicKey:
       input.containerKeyPublicKey ??
-      containerWrappingPublicKeyForTest(input.containerKeyEpochId ?? null),
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: input.parentContainerId ?? null,
-    parentManifestHash: input.parentManifestHash ?? null,
+    parentManifestHash,
     metadataDocumentId,
-    containerKeyEpochId: input.containerKeyEpochId ?? null,
+    containerKeyEpochId,
     directGrants: [...input.directGrants],
     referencedPrincipalHeads: input.referencedPrincipalHeads ?? [],
   };
@@ -424,9 +426,7 @@ export async function createContainerManifestFixture(input: {
     input.event ??
     (await createVerifiedContainerAccessEvent({
       body,
-      dependencyManifestHashes: input.parentManifestHash
-        ? [input.parentManifestHash]
-        : [],
+      dependencyManifestHashes: parentManifestHash ? [parentManifestHash] : [],
       objectId: input.containerId,
       organizationId,
       previousManifestHash: input.previousManifestHash ?? null,
@@ -443,9 +443,9 @@ export async function createContainerManifestFixture(input: {
     previousManifestHash: input.previousManifestHash ?? null,
     eventHash: event.eventHash,
     parentContainerId: input.parentContainerId ?? null,
-    parentManifestHash: input.parentManifestHash ?? null,
+    parentManifestHash,
     metadataDocumentId,
-    containerKeyEpochId: input.containerKeyEpochId ?? null,
+    containerKeyEpochId,
     directGrants: [...input.directGrants],
     referencedPrincipalHeads: input.referencedPrincipalHeads ?? [],
   };

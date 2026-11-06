@@ -21,33 +21,39 @@ export function documentInfoRefreshKey(
     return "";
   }
 
+  const eventKey = latestDocumentEventKey(events, documentId);
+  let baseKey = documentUpdatedAt ?? "";
+  if (eventKey !== null) {
+    baseKey = documentUpdatedAt
+      ? `${documentUpdatedAt}\u0000${eventKey}`
+      : eventKey;
+  }
+  return syncCompletionRevision > 0
+    ? `${baseKey}\u0000sync:${syncCompletionRevision}`
+    : baseKey;
+}
+
+/** Key of the newest update or mutation event for the document, if any. */
+function latestDocumentEventKey(
+  events: readonly unknown[],
+  documentId: string,
+): string | null {
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index];
     if (!event || typeof event !== "object") {
       continue;
     }
-    const eventDocumentId = Reflect.get(event, "documentId");
     const eventType = Reflect.get(event, "type");
     if (
-      eventDocumentId === documentId &&
+      Reflect.get(event, "documentId") === documentId &&
       (eventType === "document_update_created" ||
         eventType === "document_mutation_created")
     ) {
       const eventId = Reflect.get(event, "id");
-      const eventKey = typeof eventId === "string" ? eventId : String(index);
-      const baseKey = documentUpdatedAt
-        ? `${documentUpdatedAt}\u0000${eventKey}`
-        : eventKey;
-      return syncCompletionRevision > 0
-        ? `${baseKey}\u0000sync:${syncCompletionRevision}`
-        : baseKey;
+      return typeof eventId === "string" ? eventId : String(index);
     }
   }
-
-  const baseKey = documentUpdatedAt ?? "";
-  return syncCompletionRevision > 0
-    ? `${baseKey}\u0000sync:${syncCompletionRevision}`
-    : baseKey;
+  return null;
 }
 
 interface SyncCompletionStore {

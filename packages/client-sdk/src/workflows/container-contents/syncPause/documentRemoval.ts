@@ -159,6 +159,33 @@ async function deleteDocumentUnlessEdited(input: {
  * were already detached are never touched: they may be the only copy of work
  * a recovery still needs.
  */
+/** Deletes documents in order until the removal stops being current. */
+async function deleteUneditedDocuments(
+  input: Parameters<typeof removeOrganizationContentUnlessPending>[0],
+  lockedExecSql: ExecSql,
+  localIds: readonly string[],
+): Promise<string[]> {
+  const deletedLocalIds: string[] = [];
+  for (const localId of localIds) {
+    if (!input.stillCurrent()) break;
+    if (
+      await deleteDocumentUnlessEdited({
+        documentProjectors: input.documentProjectors,
+        execSql: lockedExecSql,
+        hasQueuedWrites: input.hasQueuedWrites,
+        localId,
+        organizationId: input.organizationId,
+        restoreDocument: input.restoreDocument,
+        retireDocument: input.retireDocument,
+        stillCurrent: input.stillCurrent,
+      })
+    ) {
+      deletedLocalIds.push(localId);
+    }
+  }
+  return deletedLocalIds;
+}
+
 export async function removeOrganizationContentUnlessPending(input: {
   readonly containerIds: readonly string[];
   readonly deleteContainers: (
@@ -210,27 +237,18 @@ export async function removeOrganizationContentUnlessPending(input: {
       [...containerIds],
       input.deleteContainers,
     );
-    const deletedLocalIds: string[] = [];
     if (deletedContainerIds.length !== containerIds.size) {
-      return { deletedContainerIds, deletedLocalIds, status: "interrupted" };
+      return {
+        deletedContainerIds,
+        deletedLocalIds: [],
+        status: "interrupted",
+      };
     }
-    for (const localId of localIds) {
-      if (!input.stillCurrent()) break;
-      if (
-        await deleteDocumentUnlessEdited({
-          documentProjectors: input.documentProjectors,
-          execSql: lockedExecSql,
-          hasQueuedWrites: input.hasQueuedWrites,
-          localId,
-          organizationId: input.organizationId,
-          restoreDocument: input.restoreDocument,
-          retireDocument: input.retireDocument,
-          stillCurrent: input.stillCurrent,
-        })
-      ) {
-        deletedLocalIds.push(localId);
-      }
-    }
+    const deletedLocalIds = await deleteUneditedDocuments(
+      input,
+      lockedExecSql,
+      localIds,
+    );
     return {
       deletedContainerIds,
       deletedLocalIds,

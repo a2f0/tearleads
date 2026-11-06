@@ -150,34 +150,46 @@ export class ContainerInterestQueries {
         continue;
       }
       const query = active ?? this.start(ws, ids, idsKey);
-      query.readers++;
       attempts++;
-      try {
-        const proofs = await beforeDeadline(query.result, deadline).catch(
-          (error: unknown) => {
-            // A timed-out (or failed) query is never reused: whatever it
-            // eventually answers may predate an invalidation nobody waited for.
-            query.stale = true;
-            throw error;
-          },
-        );
-        if (query.overflow)
-          throw new Error("Too many pending container access changes");
-        const allowed = acceptableProofs(query, ids, proofs);
-        if (!allowed) continue;
-        // Keep the query observable until synchronous installation. Every
-        // access event sees either this query or its installed dependencies.
-        if (isOpen()) install(allowed);
-        return;
-      } finally {
-        query.readers--;
-        this.release(key, query);
-      }
+      if (await this.read(key, query, ids, deadline, isOpen, install)) return;
     }
     if (isOpen())
       throw new Error(
         "Container access changed repeatedly during authorization",
       );
+  }
+
+  /** One read of `query`; false when its proofs no longer hold. */
+  private async read(
+    key: string,
+    query: ActiveQuery,
+    ids: string[],
+    deadline: number,
+    isOpen: () => boolean,
+    install: (proofs: VerifiedContainerInterest[]) => void,
+  ): Promise<boolean> {
+    query.readers++;
+    try {
+      const proofs = await beforeDeadline(query.result, deadline).catch(
+        (error: unknown) => {
+          // A timed-out (or failed) query is never reused: whatever it
+          // eventually answers may predate an invalidation nobody waited for.
+          query.stale = true;
+          throw error;
+        },
+      );
+      if (query.overflow)
+        throw new Error("Too many pending container access changes");
+      const allowed = acceptableProofs(query, ids, proofs);
+      if (!allowed) return false;
+      // Keep the query observable until synchronous installation. Every
+      // access event sees either this query or its installed dependencies.
+      if (isOpen()) install(allowed);
+      return true;
+    } finally {
+      query.readers--;
+      this.release(key, query);
+    }
   }
 
   private start(ws: WsConnection, ids: string[], idsKey: string): ActiveQuery {

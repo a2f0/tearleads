@@ -62,17 +62,28 @@ export function traceSyncLanes(sdk: Tearleads, tracer: Tracer): () => void {
       const action = `${lane.lastAction}@${lane.lastActionAt}`;
       if (seen.get(lane.key) === action) continue;
       seen.set(lane.key, action);
-      if (lane.lastAction === "started") {
-        tracer.event(`sync ${lane.label}: started`);
-      } else if (lane.lastAction === "completed") {
-        const ms = lane.runDurations?.lastMs;
-        const took = ms === undefined ? "" : ` in ${formatDuration(ms)}`;
-        tracer.event(`sync ${lane.label}: completed${took}`);
-      } else if (lane.lastAction === "failed") {
-        tracer.event(
-          `sync ${lane.label}: failed: ${lane.lastError ?? "unknown error"}`,
-        );
-      }
+      const message = syncLaneMessage(lane);
+      if (message !== null) tracer.event(message);
     }
   });
+}
+
+type SyncLaneSnapshot = ReturnType<
+  ReturnType<typeof getOrCreateDomainSyncCoordinator>["getSnapshot"]
+>["lanes"][number];
+
+function syncLaneMessage(lane: SyncLaneSnapshot): string | null {
+  switch (lane.lastAction) {
+    case "started":
+      return `sync ${lane.label}: started`;
+    case "completed": {
+      const ms = lane.runDurations?.lastMs;
+      const took = ms === undefined ? "" : ` in ${formatDuration(ms)}`;
+      return `sync ${lane.label}: completed${took}`;
+    }
+    case "failed":
+      return `sync ${lane.label}: failed: ${lane.lastError ?? "unknown error"}`;
+    default:
+      return null;
+  }
 }

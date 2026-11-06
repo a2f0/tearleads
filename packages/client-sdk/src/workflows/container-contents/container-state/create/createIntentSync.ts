@@ -471,8 +471,8 @@ export async function syncPendingContainerCreateIntents(input: {
       }
 
       remainingContainerIds.delete(intent.containerId);
-      progressed = result === "created" || progressed;
       if (result === "created") {
+        progressed = true;
         createdCount += 1;
         unsettledContainerIds.delete(intent.containerId);
       }

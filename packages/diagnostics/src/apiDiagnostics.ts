@@ -66,18 +66,22 @@ export function apiErrorTags(
       tags.api_cause_type = name;
     if (dataProperty(candidate, "databaseStage") === "connect") {
       tags.api_database_stage = "connect";
-      for (const [property, tag] of Object.entries(POOL_COUNTERS)) {
-        const value = dataProperty(candidate, property);
-        if (
-          Number.isSafeInteger(value) &&
-          Number(value) >= 0 &&
-          Number(value) <= 10000
-        )
-          tags[tag] = String(value);
-      }
+      addPoolCounterTags(candidate, tags);
     }
   }
   return tags;
+}
+
+function addPoolCounterTags(candidate: unknown, tags: DiagnosticTags): void {
+  for (const [property, tag] of Object.entries(POOL_COUNTERS)) {
+    const value = dataProperty(candidate, property);
+    if (
+      Number.isSafeInteger(value) &&
+      Number(value) >= 0 &&
+      Number(value) <= 10000
+    )
+      tags[tag] = String(value);
+  }
 }
 
 // Rechecked by both beforeSend and the transport; forged tags cannot bypass

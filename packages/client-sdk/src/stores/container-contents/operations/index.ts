@@ -277,16 +277,15 @@ async function ensureChildSystemContainer(
   return toContainerNode(finalized.containerState);
 }
 
-export async function deleteContainer(
-  state: ContainerContentsStoreState,
-  syncAgent: ContainerContentsStoreSyncAgent,
-  containerId: string,
-  isCurrent: ContainerWriteGuard = () => true,
-) {
-  if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
-    return null;
-  }
+type ContainerStateEntry = NonNullable<
+  ReturnType<ContainerContentsStoreState["containersById"]["get"]>
+>;
 
+/** A leaf, non-root, non-system container this device may delete now. */
+function deletableContainerState(
+  state: ContainerContentsStoreState,
+  containerId: string,
+): ContainerStateEntry | null {
   const existingState = state.containersById.get(containerId);
   if (
     !existingState ||
@@ -298,13 +297,50 @@ export async function deleteContainer(
   ) {
     return null;
   }
-
   const isRemoteContainer = Boolean(existingState.record.documentId);
-  if (isRemoteContainer) {
-    if (!state.runtime.auth.isAuthenticated || !state.runtime.state.online) {
-      return null;
-    }
+  if (
+    isRemoteContainer &&
+    (!state.runtime.auth.isAuthenticated || !state.runtime.state.online)
+  ) {
+    return null;
   }
+  return existingState;
+}
+
+/**
+ * The delete committed before this operation lost its generation. Evict only
+ * the exact state it deleted: a concurrent replacement with the same id owns a
+ * different object and must survive.
+ */
+function evictSupersededDeletedState(
+  state: ContainerContentsStoreState,
+  existingState: ContainerStateEntry,
+): void {
+  if (state.containersById.get(existingState.container.id) !== existingState) {
+    return;
+  }
+  state.containersById.delete(existingState.container.id);
+  state.documentStoresNeedPriming = true;
+  if (state.initialized) {
+    updateContainerContentsSnapshot(state);
+  }
+}
+
+export async function deleteContainer(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
+  containerId: string,
+  isCurrent: ContainerWriteGuard = () => true,
+) {
+  if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
+    return null;
+  }
+
+  const existingState = deletableContainerState(state, containerId);
+  if (!existingState) {
+    return null;
+  }
+  const isRemoteContainer = Boolean(existingState.record.documentId);
 
   const deletedNode = toContainerNode(existingState);
   const deleted = await deleteContainerState({
@@ -323,18 +359,8 @@ export async function deleteContainer(
   ) {
     state.localContainersNeedRefresh = true;
     await syncAgent.refreshLocalContainers();
-    // The delete committed before this operation lost its generation. Evict
-    // only the exact state it deleted: a concurrent replacement with the same
-    // id owns a different object and must survive.
-    if (
-      deleted === "deleted" &&
-      state.containersById.get(existingState.container.id) === existingState
-    ) {
-      state.containersById.delete(existingState.container.id);
-      state.documentStoresNeedPriming = true;
-      if (state.initialized) {
-        updateContainerContentsSnapshot(state);
-      }
+    if (deleted === "deleted") {
+      evictSupersededDeletedState(state, existingState);
     }
     if (isRemoteContainer) {
       await syncAgent.requestRemoteHydration({

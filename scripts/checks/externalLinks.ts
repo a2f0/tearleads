@@ -81,6 +81,20 @@ function isProbeable(url: string, skipHosts: RegExp): boolean {
   }
 }
 
+/** A failed fetch's outcome, or null when a GET retry may still answer. */
+function fetchFailureOutcome(
+  error: unknown,
+  method: string,
+): Pick<ExternalLinkResult, "status" | "detail"> | null {
+  const message = error instanceof Error ? error.message : String(error);
+  // Only an unknown host proves a link dead; refused or reset connections
+  // and timeouts can be a temporary outage.
+  if (/ENOTFOUND|getaddrinfo/i.test(message)) {
+    return { status: "broken", detail: message };
+  }
+  return method === "GET" ? { status: "unverified", detail: message } : null;
+}
+
 async function probe(
   url: string,
   timeoutMs: number,
@@ -95,13 +109,8 @@ async function probe(
         headers: { "user-agent": "tearleads-doc-link-check" },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      // Only an unknown host proves a link dead; refused or reset connections
-      // and timeouts can be a temporary outage.
-      if (/ENOTFOUND|getaddrinfo/i.test(message)) {
-        return { status: "broken", detail: message };
-      }
-      if (method === "GET") return { status: "unverified", detail: message };
+      const failure = fetchFailureOutcome(error, method);
+      if (failure) return failure;
       continue;
     }
     // Some servers reject or mishandle HEAD; retry those with GET.

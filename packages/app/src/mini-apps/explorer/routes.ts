@@ -146,55 +146,50 @@ export function formatExplorerRouteSegments(
   route: ExplorerRoute,
   selectedId?: string | null | undefined,
 ): ReadonlyArray<string> {
-  if (route.view === "selection") {
-    return selectedId ? ["items", selectedId] : [];
+  switch (route.view) {
+    case "selection":
+      return selectedId ? ["items", selectedId] : [];
+    case "blob-browser":
+      return formatBlobBrowserSegments(route);
+    case "sync-lanes":
+      return ["sync"];
+    case "sync-lane-detail":
+      return ["sync", "lanes", route.laneKey];
+    case "write-queue":
+      return ["writes"];
+    case "write-queue-entry":
+      return ["writes", route.entryKey];
+    case "downloads":
+      return ["downloads"];
+    case "uploads":
+      return ["uploads"];
+    case "container-info":
+      return ["containers", route.containerId, "info"];
+    case "new-structured-document":
+      return ["containers", route.containerId, "new"];
+    case "document-selection":
+      return ["containers", route.containerId, "documents", route.localId];
+    default:
+      return [
+        "containers",
+        route.containerId,
+        "documents",
+        route.localId,
+        "info",
+      ];
+  }
+}
+
+function formatBlobBrowserSegments(
+  route: Extract<ExplorerRoute, { view: "blob-browser" }>,
+): ReadonlyArray<string> {
+  if (route.storageKey) {
+    return route.blobId
+      ? ["blobs", "storage", route.storageKey, "blob", route.blobId]
+      : ["blobs", "storage", route.storageKey];
   }
 
-  if (route.view === "blob-browser") {
-    if (route.storageKey) {
-      return route.blobId
-        ? ["blobs", "storage", route.storageKey, "blob", route.blobId]
-        : ["blobs", "storage", route.storageKey];
-    }
-
-    return route.blobId ? ["blobs", "blob", route.blobId] : ["blobs"];
-  }
-
-  if (route.view === "sync-lanes") {
-    return ["sync"];
-  }
-
-  if (route.view === "sync-lane-detail") {
-    return ["sync", "lanes", route.laneKey];
-  }
-
-  if (route.view === "write-queue") {
-    return ["writes"];
-  }
-
-  if (route.view === "write-queue-entry") {
-    return ["writes", route.entryKey];
-  }
-
-  if (route.view === "downloads") return ["downloads"];
-
-  if (route.view === "uploads") {
-    return ["uploads"];
-  }
-
-  if (route.view === "container-info") {
-    return ["containers", route.containerId, "info"];
-  }
-
-  if (route.view === "new-structured-document") {
-    return ["containers", route.containerId, "new"];
-  }
-
-  if (route.view === "document-selection") {
-    return ["containers", route.containerId, "documents", route.localId];
-  }
-
-  return ["containers", route.containerId, "documents", route.localId, "info"];
+  return route.blobId ? ["blobs", "blob", route.blobId] : ["blobs"];
 }
 
 export function isExplorerRouteAvailable(
