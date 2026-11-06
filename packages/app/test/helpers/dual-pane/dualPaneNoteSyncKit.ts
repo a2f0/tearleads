@@ -5,7 +5,7 @@ import {
 } from "@tearleads/validators/response";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
-import { listProxiedApiRequests } from "../mswServer";
+import { listProxiedApiRequests } from "../msw/server";
 import type { ProxiedApiRequest } from "../proxiedApiResponse";
 import { waitForCondition } from "../waitForCondition";
 import {

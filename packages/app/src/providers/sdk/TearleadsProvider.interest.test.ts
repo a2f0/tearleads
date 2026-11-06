@@ -3,7 +3,7 @@ import { MAX_WS_INTEREST_CONTAINER_IDS } from "@tearleads/validators/realtime";
 import {
   createMswEventRouter,
   type MswSocketClient,
-} from "../../../test/helpers/mswEventRouter";
+} from "../../../test/helpers/msw/eventRouter";
 import { startContainerInterestDeclaration } from "./serverEventsBinding";
 import {
   acknowledgeInitialDeclaration,

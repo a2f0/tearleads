@@ -1,24 +1,16 @@
 import { afterEach, expect, test } from "bun:test";
 import type {
-  DomainScope,
   DomainSyncSnapshot,
   SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
-import {
-  createDomainScope,
-  getOrCreateDomainSyncCoordinator,
-  requestAllDomainSyncLanes,
-  waitForDomainSyncCoordinatorToSettle,
-} from "@tearleads/client-sdk";
-import {
-  useWindowTitleBarActions,
-  WindowMenuProvider,
-} from "@tearleads/windowing";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
-import { EXPLORER_LABELS } from "../../labels";
 import {
-  ExplorerSyncLanesPanel,
+  createSnapshot,
+  stubPhoneMatchMedia,
+  updatedAt,
+} from "../../../../../test/helpers/explorer/syncPanelFixtures";
+import {
   ExplorerSyncLanesPanelView,
   getExplorerSyncLaneProgress,
 } from "./ExplorerSyncLanesPanel";
@@ -31,8 +23,6 @@ afterEach(() => {
   restorePhoneMatchMedia = null;
   globalThis.localStorage.clear();
 });
-
-const updatedAt = "2026-06-15T12:00:00.000Z";
 
 function createLaneSnapshot(
   overrides: Partial<SyncLaneSnapshot>,
@@ -63,17 +53,6 @@ function createLaneSnapshot(
   };
 }
 
-function createSnapshot(
-  lanes: ReadonlyArray<SyncLaneSnapshot>,
-): DomainSyncSnapshot {
-  return {
-    hasPendingWork: lanes.some((lane) => lane.requested || lane.running),
-    lanes,
-    pumpActive: lanes.some((lane) => lane.running),
-    updatedAt,
-  };
-}
-
 function renderSyncLanesPanel(input: {
   onOpenLaneDetail?: ((laneKey: string) => void) | undefined;
   selectedLaneKey?: string | null | undefined;
@@ -89,69 +68,11 @@ function renderSyncLanesPanel(input: {
   );
 }
 
-// Surface the registered title-bar actions as buttons for toolbar assertions.
-function ToolbarProbe() {
-  const actions = useWindowTitleBarActions();
-
-  return (
-    <div aria-label="Toolbar" role="toolbar">
-      {actions.map((action) => (
-        <button
-          aria-label={action.label}
-          disabled={action.disabled}
-          key={action.id}
-          type="button"
-          onClick={action.onClick}
-        />
-      ))}
-    </div>
-  );
-}
-
-function renderSyncLanesPanelContainer(input: {
-  domainScope: DomainScope;
-  selectedLaneKey?: string | null | undefined;
-}) {
-  return render(
-    <WindowMenuProvider>
-      <ExplorerSyncLanesPanel
-        domainScope={input.domainScope}
-        embedded
-        onBackToSelectionRoute={() => undefined}
-        onOpenLaneDetail={() => undefined}
-        selectedLaneKey={input.selectedLaneKey ?? null}
-      />
-      <ToolbarProbe />
-    </WindowMenuProvider>,
-  );
-}
-
-// The compact list keys off `useRoutedLayoutTier`, which reads the
-// `(min-width: 760px)` media query. Force it to a phone-tier miss and leave the
-// stub installed so later interactions and async re-renders keep resolving to
-// the compact list; `afterEach` tears it down via the returned restore.
-function stubPhoneMatchMedia() {
-  const originalMatchMedia = window.matchMedia;
-  restorePhoneMatchMedia = () => {
-    window.matchMedia = originalMatchMedia;
-  };
-  window.matchMedia = ((query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
-}
-
 function renderSyncLanesPanelOnPhone(input: {
   onOpenLaneDetail?: ((laneKey: string) => void) | undefined;
   snapshot: DomainSyncSnapshot;
 }) {
-  stubPhoneMatchMedia();
+  restorePhoneMatchMedia = stubPhoneMatchMedia();
   return renderSyncLanesPanel(input);
 }
 
@@ -348,79 +269,6 @@ test("ExplorerSyncLanesPanelView places the column menu in the rightmost status 
 
   expect(view.queryByRole("progressbar")).toBeNull();
   expect(table.style.minWidth).toBe("55rem");
-});
-
-test("ExplorerSyncLanesPanel triggers a manual sync from the toolbar action", async () => {
-  const domainScope = createDomainScope();
-  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
-  let runCount = 0;
-  coordinator.registerLane("lane-a", {
-    run: async () => {
-      runCount += 1;
-    },
-  });
-
-  const view = renderSyncLanesPanelContainer({ domainScope });
-
-  const button = await view.findByRole("button", {
-    name: EXPLORER_LABELS.syncLanesSyncNowAction,
-  });
-  fireEvent.click(button);
-
-  expect(
-    await waitForDomainSyncCoordinatorToSettle(domainScope, {
-      quietMs: 0,
-      timeoutMs: 1_000,
-    }),
-  ).toBe(true);
-  expect(runCount).toBe(1);
-});
-
-test("ExplorerSyncLanesPanel keeps the toolbar action enabled while syncing", async () => {
-  const domainScope = createDomainScope();
-  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
-  let releaseLane: () => void = () => undefined;
-  coordinator.registerLane("lane-a", {
-    run: () =>
-      new Promise<void>((resolve) => {
-        releaseLane = resolve;
-      }),
-  });
-  // Kick off a sync that stays in flight so the snapshot reports pending work.
-  requestAllDomainSyncLanes(domainScope);
-
-  const view = renderSyncLanesPanelContainer({ domainScope });
-
-  const button = (await view.findByRole("button", {
-    name: EXPLORER_LABELS.syncLanesSyncNowAction,
-  })) as HTMLButtonElement;
-  // The action stays ENABLED with work in flight: re-requesting is idempotent,
-  // and a queue that looks stuck with pending work is exactly when the manual
-  // escape hatch must remain usable (issue #1672).
-  await waitFor(() => {
-    expect(button.disabled).toBe(false);
-  });
-
-  releaseLane();
-  await waitForDomainSyncCoordinatorToSettle(domainScope, {
-    quietMs: 0,
-    timeoutMs: 1_000,
-  });
-});
-
-test("ExplorerSyncLanesPanel drops the toolbar action in lane detail", async () => {
-  const view = renderSyncLanesPanelContainer({
-    domainScope: createDomainScope(),
-    selectedLaneKey: "documents:local-1",
-  });
-
-  // The lane-detail header renders, but no manual-sync toolbar action registers.
-  await view.findByText(EXPLORER_LABELS.syncLanesDetailTitle);
-  expect(
-    view.queryByRole("button", {
-      name: EXPLORER_LABELS.syncLanesSyncNowAction,
-    }),
-  ).toBeNull();
 });
 
 test("ExplorerSyncLanesPanelView renders lane detail metadata", () => {

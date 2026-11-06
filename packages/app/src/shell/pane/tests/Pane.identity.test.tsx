@@ -5,7 +5,7 @@ import {
   openIdentityManagerSection,
   registerAndWaitForUserId,
 } from "../../../../test/helpers/identityPaneTestUtils";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,

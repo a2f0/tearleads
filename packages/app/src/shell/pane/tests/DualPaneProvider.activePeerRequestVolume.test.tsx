@@ -29,13 +29,13 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import { requestPath } from "../../../../test/helpers/dualPaneRequestSummary";
 import { createPeerIdentityLink } from "../../../../test/helpers/identityLinkFixtures";
-import { dropNextMswServerEventWhere } from "../../../../test/helpers/mswEventRouter";
+import { dropNextMswServerEventWhere } from "../../../../test/helpers/msw/eventRouter";
 import {
   listProxiedApiRequests,
   MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
-} from "../../../../test/helpers/mswServer";
+} from "../../../../test/helpers/msw/server";
 import { organizationSwitcherOptions } from "../../../../test/helpers/organizationSwitcherOptions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import type { PaneSide } from "../dual-pane";

@@ -11,8 +11,8 @@ import {
   IdentityManagerTestRuntime,
   TestWebSocket,
 } from "../../../test/helpers/identityManagerTestRuntime";
-import "../../../test/helpers/mswServer";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
+import "../../../test/helpers/msw/server";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
 import { IdentityManager } from "./IdentityManager";
 
 const TEST_HOST_CONFIG = createIdentityManagerHostConfig();

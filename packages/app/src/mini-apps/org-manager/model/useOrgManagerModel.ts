@@ -1,15 +1,6 @@
-import type {
-  OrganizationContainerGrants,
-  OrganizationDirectory,
-  OrganizationGroupContainers,
-  OrganizationGroupMembers,
-  OrganizationGroupPolicyHistory,
-  OrganizationGroupSummary,
-  OrganizationPolicyHistory,
-  OrganizationUserDetail,
-} from "@tearleads/client-sdk";
+import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
 import { useCompactRoutedMode } from "@tearleads/windowing";
-import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
@@ -20,6 +11,18 @@ import { useOrgManagerScopedDataUsage } from "../billing/useOrgManagerScopedData
 import { useOrgManagerContextMenu } from "../context-menu/OrgManagerContextMenu";
 import { deriveOrgManagerState } from "../deriveOrgManagerState";
 import { useClearMissingOrgManagerUser } from "../directory/useClearMissingOrgManagerUser";
+import {
+  getOrgManagerDataUsageScopeKey,
+  getOrgManagerStateScopeKey,
+} from "../hooks/orgManagerStateScope";
+import { useEnsureRosterProfileDocument } from "../hooks/useEnsureRosterProfileDocument";
+import { useOrgManagerMutations } from "../hooks/useOrgManagerMutations";
+import { useOrgManagerPendingState } from "../hooks/useOrgManagerPendingState";
+import { useOrgManagerProfileDisplayNames } from "../hooks/useOrgManagerProfileDisplayNames";
+import { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
+import { useOrgManagerRosterActions } from "../hooks/useOrgManagerRosterActions";
+import { useOrgManagerRoute } from "../hooks/useOrgManagerRoute";
+import { useOrgManagerRouteMessages } from "../hooks/useOrgManagerRouteMessages";
 import { useOrgManagerSidebarPanel } from "../OrgManagerSidebar";
 import { useOrgManagerDetailRefreshEffects } from "../organization/useOrgManagerDetailRefreshEffects";
 import { useOrgManagerDirectorySync } from "../organization/useOrgManagerDirectorySync";
@@ -31,20 +34,9 @@ import type { GroupDetailsEffectKey } from "../refresh";
 import { useOrgManagerOrganizationHistoryRefresher } from "../refreshers/useOrgManagerOrganizationHistoryRefresher";
 import { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 import type { OrgManagerView } from "../routes";
-import {
-  getOrgManagerDataUsageScopeKey,
-  getOrgManagerStateScopeKey,
-  scopeOrganizationDirectory,
-  scopeOrganizationList,
-} from "./orgManagerStateScope";
-import { useEnsureRosterProfileDocument } from "./useEnsureRosterProfileDocument";
-import { useOrgManagerMutations } from "./useOrgManagerMutations";
-import { useOrgManagerPendingState } from "./useOrgManagerPendingState";
-import { useOrgManagerProfileDisplayNames } from "./useOrgManagerProfileDisplayNames";
-import { useOrgManagerRequestGuard } from "./useOrgManagerRequestGuard";
-import { useOrgManagerRosterActions } from "./useOrgManagerRosterActions";
-import { useOrgManagerRoute } from "./useOrgManagerRoute";
-import { useOrgManagerRouteMessages } from "./useOrgManagerRouteMessages";
+import { useOrgManagerDataState } from "./useOrgManagerDataState";
+import { useOrgManagerDialogs } from "./useOrgManagerDialogs";
+import { useOrgManagerUserSelection } from "./useOrgManagerUserSelection";
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The hook keeps related async refresh and mutation ordering in one place.
 export function useOrgManagerModel() {
@@ -53,26 +45,37 @@ export function useOrgManagerModel() {
   const orgManagerActions = useOrgManagerActions();
   const { openMiniApp } = useMiniAppBusActions();
   const addUserListId = useId();
-  const [directory, setDirectory] = useState<OrganizationDirectory | null>(
-    null,
-  );
-  const [groups, setGroups] = useState<ReadonlyArray<OrganizationGroupSummary>>(
-    [],
-  );
-  const [readModelCursor, setReadModelCursor] = useState<string | null>(null);
   const organizationId = appData.auth.organizationId;
+  const {
+    activeDirectory,
+    activeGroups,
+    error,
+    grants,
+    groupContainers,
+    groupPolicyHistory,
+    loading,
+    loadingUserDetail,
+    memberGroupId,
+    members,
+    mutating,
+    organizationPolicyHistory,
+    readModelCursor,
+    setDirectory,
+    setError,
+    setGrants,
+    setGroupContainers,
+    setGroupPolicyHistory,
+    setGroups,
+    setLoading,
+    setLoadingUserDetail,
+    setMemberGroupId,
+    setMembers,
+    setMutating,
+    setOrganizationPolicyHistory,
+    setReadModelCursor,
+  } = useOrgManagerDataState(organizationId, appData.auth.userId);
   const dataUsageScopeKey = getOrgManagerDataUsageScopeKey(appData);
   const orgManagerScopeKey = getOrgManagerStateScopeKey(appData);
-  const activeDirectory = scopeOrganizationDirectory(
-    directory,
-    organizationId,
-    appData.auth.userId,
-  );
-  const activeGroups = useMemo(
-    () => scopeOrganizationList(groups, organizationId),
-    [groups, organizationId],
-  );
-  const [memberGroupId, setMemberGroupId] = useState<string | null>(null);
   const {
     openGrantRoute,
     openGroupRoute,
@@ -88,37 +91,20 @@ export function useOrgManagerModel() {
   const view: OrgManagerView =
     !compactRoutedMode && route.view === "menu" ? "directory" : route.view;
   const showCompactMenu = compactRoutedMode && route.view === "menu";
-  const [members, setMembers] = useState<OrganizationGroupMembers | null>(null);
-  const [groupContainers, setGroupContainers] =
-    useState<OrganizationGroupContainers | null>(null);
-  const [groupPolicyHistory, setGroupPolicyHistory] =
-    useState<OrganizationGroupPolicyHistory | null>(null);
-  const [organizationPolicyHistory, setOrganizationPolicyHistory] =
-    useState<OrganizationPolicyHistory | null>(null);
-  const [grants, setGrants] = useState<OrganizationContainerGrants | null>(
-    null,
-  );
   const { dataUsage, dataUsageRef, setDataUsage } =
     useOrgManagerScopedDataUsage(dataUsageScopeKey);
-  const [selectedUserId, setSelectedUserIdState] = useState<string | null>(
-    null,
-  );
-  const [userDetail, setUserDetail] = useState<OrganizationUserDetail | null>(
-    null,
-  );
-  const [groupNameDraft, setGroupNameDraft] = useState("");
-  const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = useState(false);
-  const [importUserIdDraft, setImportUserIdDraft] = useState("");
-  const [isImportUserDialogOpen, setIsImportUserDialogOpen] = useState(false);
+  const {
+    selectUser,
+    selectedUserId,
+    selectedUserIdRef,
+    setOrgManagerView,
+    setUserDetail,
+    userDetail,
+  } = useOrgManagerUserSelection({ selectGroup, setView });
   const [addUserId, setAddUserId] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [loadingUserDetail, setLoadingUserDetail] = useState(false);
-  const [mutating, setMutating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const skippedGroupDetailsEffectRef = useRef<GroupDetailsEffectKey | null>(
     null,
   );
-  const selectedUserIdRef = useRef<string | null>(null);
   const beginRequest = useOrgManagerRequestGuard(orgManagerScopeKey);
   const canLoadAuthenticatedOrgData = Boolean(
     organizationId && appData.auth.isAuthenticated,
@@ -212,62 +198,28 @@ export function useOrgManagerModel() {
     (group: OrganizationGroupSummary) => canCreateGroup && !group.isBuiltin,
     [canCreateGroup],
   );
-  const openCreateGroupDialog = useCallback(() => {
-    if (!canCreateGroup) {
-      return;
-    }
-
-    setError(null);
-    setGroupNameDraft("");
-    selectGroup(null);
-    setView("groups");
-    setIsCreateGroupDialogOpen(true);
-  }, [canCreateGroup, selectGroup, setView]);
-  const closeCreateGroupDialog = useCallback(() => {
-    if (mutating) {
-      return;
-    }
-
-    setError(null);
-    setGroupNameDraft("");
-    setIsCreateGroupDialogOpen(false);
-  }, [mutating]);
-  const selectUser = useCallback((userId: string | null) => {
-    selectedUserIdRef.current = userId;
-    setSelectedUserIdState(userId);
-    setUserDetail(null);
-  }, []);
-  const setOrgManagerView = useCallback(
-    (nextView: OrgManagerView) => {
-      if (nextView === "directory") {
-        selectUser(null);
-      }
-      if (nextView === "groups") {
-        selectGroup(null);
-      }
-      setView(nextView);
-    },
-    [selectGroup, selectUser, setView],
-  );
-  const openImportUserDialog = useCallback(() => {
-    if (!canImportRosterUser) {
-      return;
-    }
-
-    setError(null);
-    setImportUserIdDraft("");
-    setOrgManagerView("directory");
-    setIsImportUserDialogOpen(true);
-  }, [canImportRosterUser, setOrgManagerView]);
-  const closeImportUserDialog = useCallback(() => {
-    if (mutating) {
-      return;
-    }
-
-    setError(null);
-    setImportUserIdDraft("");
-    setIsImportUserDialogOpen(false);
-  }, [mutating]);
+  const {
+    closeCreateGroupDialog,
+    closeImportUserDialog,
+    groupNameDraft,
+    importUserIdDraft,
+    isCreateGroupDialogOpen,
+    isImportUserDialogOpen,
+    openCreateGroupDialog,
+    openImportUserDialog,
+    setGroupNameDraft,
+    setImportUserIdDraft,
+    setIsCreateGroupDialogOpen,
+    setIsImportUserDialogOpen,
+  } = useOrgManagerDialogs({
+    canCreateGroup,
+    canImportRosterUser,
+    mutating,
+    selectGroup,
+    setError,
+    setOrgManagerView,
+    setView,
+  });
   const contextMenuState = useOrgManagerContextMenu();
   const rosterActions = useOrgManagerRosterActions({
     authUserId: appData.auth.userId,

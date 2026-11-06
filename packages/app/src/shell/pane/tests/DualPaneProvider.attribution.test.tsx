@@ -31,7 +31,7 @@ import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
   useTestApiAppHandlers,
-} from "../../../../test/helpers/mswServer";
+} from "../../../../test/helpers/msw/server";
 import { waitForPaneRuntimeToSettle } from "../../../../test/helpers/paneTestUtils";
 
 const appOrigin = "http://localhost:3000";

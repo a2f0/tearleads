@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { AppTestRuntimeScopeProbe } from "../../../../test/helpers/appRuntimeIdle";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
