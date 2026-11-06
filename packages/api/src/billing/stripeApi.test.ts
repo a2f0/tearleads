@@ -1,16 +1,18 @@
 import { expect, test } from "bun:test";
 import { activeStripePrice } from "../../test/helpers/stripeCatalog";
 import {
-  cancelSubscriptionAtPeriodEnd,
-  createCheckoutSession,
-  createPortalSession,
   createSyncSubscription,
-  findLiveOrgSubscription,
-  findOrCreateCustomer,
   getStripeSyncOption,
   isStripeCheckoutConfigured,
   StripeApiError,
 } from "./stripeApi";
+import { createCheckoutSession } from "./stripeCheckoutSession";
+import { findOrCreateCustomer } from "./stripeCustomer";
+import {
+  cancelSubscriptionAtPeriodEnd,
+  createPortalSession,
+  findLiveOrgSubscription,
+} from "./stripeSubscriptionManagement";
 
 const ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",

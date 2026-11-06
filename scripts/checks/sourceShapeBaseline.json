@@ -95,12 +95,8 @@
       "bytes": 17511
     },
     "packages/api/src/billing/stripeApi.test.ts": {
-      "lines": 575,
-      "bytes": 18467
-    },
-    "packages/api/src/billing/stripeApi.ts": {
-      "lines": 565,
-      "bytes": 20433
+      "lines": 577,
+      "bytes": 18590
     },
     "packages/api/src/realtime/wsRouting.test.ts": {
       "lines": 506,
@@ -125,14 +121,6 @@
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
       "lines": 539,
       "bytes": 17604
-    },
-    "packages/api/src/workflows/documents/writerProjection.ts": {
-      "lines": 568,
-      "bytes": 18914
-    },
-    "packages/api/src/workflows/principals/accessLossTombstones.ts": {
-      "lines": 536,
-      "bytes": 16368
     },
     "packages/app/src/mini-apps/explorer/detail/container/ExplorerContainerDetail.test.ts": {
       "lines": 533,

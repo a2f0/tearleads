@@ -1,5 +1,6 @@
 /**
- * Loose schemas for the Stripe REST responses stripeApi.ts reads. Each
+ * Loose schemas for the Stripe REST responses the Stripe domain calls read
+ * (stripeApi.ts and its customer, management, and session siblings). Each
  * schema covers fields one decision needs together; fields that decide
  * separately get separate schemas, so a malformed field never hides a
  * readable sibling.
