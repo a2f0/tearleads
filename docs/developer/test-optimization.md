@@ -162,6 +162,44 @@ bug the test correctly detected.
   current `main` the file passed 50 of 50 local runs (20 alone, 30 in six
   concurrent loops). If it returns, capture the selector's options and the
   organization runtime state at the timeout.
+- `waitForBusyPaint.test.ts` raced real timers against the 100 ms paint
+  fallback: under eight CPU burners its 10 ms sleep overran the fallback in 1
+  of 50 runs, and a 1,000 ms wall-clock bound on the fallback failed at
+  2,053 ms in a push gate. It now stubs `setTimeout`, `clearTimeout`, and
+  `requestAnimationFrame` and fires each callback by hand. Test a timer's
+  delay and effect that way rather than measuring elapsed time.
+
+## API test timeout
+
+[`testAllDatabases.ts`](../../packages/api/scripts/testAllDatabases.ts)
+passes `--timeout=15000` to both backends, replacing Bun's 5 s default for
+every test and hook that sets no timeout of its own (a per-test argument still
+wins). Under load, push gates lost lone 5 s timeouts in route tests that take
+1-2.5 s alone (`syncPagination`, `policy`, `organizations`,
+`deletedContainerDirectGrant`, and others). The time is real work, not hooks:
+registering and signing in one user costs about 0.4 s (0.23 s building the
+signed registration body, 0.14-0.21 s for the route), and most route tests
+register one to three users and then sign manifests and policies. It scales
+with free CPU, so the 5 s default left no room under contention.
+
+The budget comes from JUnit reports of the full suite (both backends, two
+workers each), counting only tests without their own timeout:
+
+| Run (memory / sqlite) | p99 | p99.9 | Failures |
+| --- | --- | --- | --- |
+| Normal load (~12), 5 s default | 1.6 / 1.2 s | 2.1 / 2.0 s | 0 / 0 |
+| `taskpolicy -c background`, 5 s default | 6.9 / 5.5 s | 11 / 11 s | 143 / 81 |
+| `taskpolicy -c background`, 15 s budget | 6.7 / 5.3 s | 15 / 11 s | 7 / 6 |
+
+Throttled, tests ran a median 3.6 times and p90 5.9 times slower than at
+normal load, and every failure was a timeout. Of the 13 throttled failures
+left, 9 are tests that set their own budget (the 4,098-entry histories at
+300 s among them) and 4 reached 15 s on the efficiency cores. The slowest
+default-budget test at normal load (2.4 s) times six rounds to 15 s, which is
+also the budget most slow API tests already set by hand. Run single files
+with the same budget: `API_DATABASE=memory bun test --timeout=15000 <file>`.
+Re-measure before changing it, and fix a test that needs more than its share
+rather than raising the lane budget.
 
 ## Approaches that did not pay off
 
