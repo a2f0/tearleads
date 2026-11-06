@@ -1,7 +1,7 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { listSessionsOperation } from "@tearleads/validators/operation";
 import { act, fireEvent, within } from "@testing-library/react";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
 import { openSystemMonitor } from "../../../../test/helpers/openSystemMonitor";
 import {
   cleanupPaneTestEnvironment,

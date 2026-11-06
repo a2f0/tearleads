@@ -2,7 +2,7 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import * as Crypto from "@tearleads/crypto";
 import { waitFor } from "@testing-library/react";
 import { AppTestRuntimeScopeProbe } from "../../test/helpers/appRuntimeIdle";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../test/helpers/msw/server";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,

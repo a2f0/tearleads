@@ -13,7 +13,7 @@ import {
   createIdentityManagerHostConfig,
   TestWebSocket,
 } from "../../../test/helpers/identityManagerTestRuntime";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 import {
   backupFileRequiresPassword,

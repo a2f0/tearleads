@@ -57,7 +57,7 @@ sharing and Admins fixtures also assert body-byte ceilings.
 
 The recorder already keeps every proxied request with its URL, method,
 status, authorization header, and full request and response bodies:
-`listProxiedApiRequests()` in `packages/app/test/helpers/mswServer.ts`. A
+`listProxiedApiRequests()` in `packages/app/test/helpers/msw/server.ts`. A
 preload outside the checkout can read them without changing repository code.
 Wrap `console.info` as the database audit's capture preload does; at each
 `[dual-pane-request-metrics]` line, take the last `total` requests from

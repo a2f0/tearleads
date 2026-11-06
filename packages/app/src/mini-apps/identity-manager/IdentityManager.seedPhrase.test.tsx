@@ -8,8 +8,8 @@ import {
   TestWebSocket,
 } from "../../../test/helpers/identityManagerTestRuntime";
 import { cleanupRecoveryKeyTestEnvironment } from "../../../test/helpers/recoveryKeyTestKit";
-import "../../../test/helpers/mswServer";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
+import "../../../test/helpers/msw/server";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
 import { IdentityManager } from "./IdentityManager";
 
 const TEST_HOST_CONFIG = createIdentityManagerHostConfig();

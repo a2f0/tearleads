@@ -9,8 +9,8 @@ import {
   installDeferredClipboardWriteMock,
   renderRecoveryKeyView,
 } from "../../../test/helpers/recoveryKeyTestKit";
-import "../../../test/helpers/mswServer";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
+import "../../../test/helpers/msw/server";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
 import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "./actions/recoveryKeyDisclosure";
 
 afterEach(cleanupRecoveryKeyTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);

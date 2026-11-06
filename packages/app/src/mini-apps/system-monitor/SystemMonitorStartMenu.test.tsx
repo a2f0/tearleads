@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, waitFor } from "@testing-library/react";
-import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/mswServer";
+import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,

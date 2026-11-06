@@ -1,5 +1,5 @@
 import { isUuidV4String } from "@tearleads/validators/util";
-import { evictMswContainerInterests } from "./mswContainerInterest";
+import { evictMswContainerInterests } from "./containerInterest";
 
 export interface MswSocketClient {
   addEventListener?: (
