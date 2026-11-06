@@ -46,7 +46,7 @@ test("a mutation rejects a parent-path citation of an unstored manifest", async 
     request,
     token: owner.token,
   });
-}, 15_000);
+});
 
 test("a mutation rejects a citation naming another container", async () => {
   const owner = createTestUser();
@@ -66,7 +66,7 @@ test("a mutation rejects a citation naming another container", async () => {
     request,
     token: owner.token,
   });
-}, 15_000);
+});
 
 async function postChildCreate(
   token: string,
@@ -105,7 +105,7 @@ test("a mutation refuses a principal policy ref that is not the current head", a
       version: ref.version,
     }),
   ]);
-}, 15_000);
+});
 
 test("a mutation refuses more principal policy refs than the bound", async () => {
   const owner = createTestUser();
@@ -118,7 +118,7 @@ test("a mutation refuses more principal policy refs than the bound", async () =>
 
   const response = await postChildCreate(owner.token, request);
   expect(response.status).toBe(400);
-}, 15_000);
+});
 
 test("a mutation rejects manifest history citing an unstored manifest", async () => {
   const owner = createTestUser();
@@ -145,7 +145,7 @@ test("a mutation rejects manifest history citing an unstored manifest", async ()
     request,
     token: owner.token,
   });
-}, 15_000);
+});
 
 async function shareRequestCitingHistory(
   history: (
@@ -188,7 +188,7 @@ test("a mutation refuses repeated history citations before reading them", async 
     status: 400,
     token: owner.token,
   });
-}, 15_000);
+});
 
 test("a mutation refuses history citing another container before reading it", async () => {
   const { owner, request, root } = await shareRequestCitingHistory(
@@ -205,7 +205,7 @@ test("a mutation refuses history citing another container before reading it", as
     status: 400,
     token: owner.token,
   });
-}, 15_000);
+});
 
 test("a mutation refuses a path citing one manifest twice before reading it", async () => {
   const owner = createTestUser();
@@ -225,4 +225,4 @@ test("a mutation refuses a path citing one manifest twice before reading it", as
     status: 400,
     token: owner.token,
   });
-}, 15_000);
+});

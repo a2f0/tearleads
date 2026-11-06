@@ -1,40 +1,18 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizationBilling, users } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { organizationBilling } from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
-import { registerUser } from "../../../test/helpers/registerUser";
+import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
+import {
+  REVENUECAT_WEBHOOK_ENV as REVENUECAT_ENV,
+  STRIPE_WEBHOOK_ENV as STRIPE_ENV,
+} from "../../../test/helpers/stripeWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import {
   createStripeCheckout,
   createStripeCheckoutSession,
 } from "./stripeCheckout";
-
-const STRIPE_ENV = {
-  STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
-  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
-  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
-  STRIPE_WEBHOOK_SECRET: "whsec_test",
-};
-const REVENUECAT_ENV = {
-  REVENUECAT_PROJECT_ID: "proj_1",
-  REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_pub",
-  REVENUECAT_V2_SECRET_KEY: "sk_rc",
-};
-
-async function registerAdmin(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
 
 function checkoutFetch(recordedCreates: Request[]): typeof fetch {
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -82,7 +60,7 @@ function deps(fetchImpl: typeof fetch) {
 
 test("concurrent inline and hosted services issue one provider create", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAdmin(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const creates: Request[] = [];
   const serviceDeps = deps(checkoutFetch(creates));
   const results = await Promise.allSettled([
@@ -112,7 +90,7 @@ test("concurrent inline and hosted services issue one provider create", async ()
 
 test("hosted retries reuse a provider key and expired attempts rotate it", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAdmin(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const creates: Request[] = [];
   const serviceDeps = deps(checkoutFetch(creates));
   const create = () =>
@@ -150,7 +128,7 @@ test("hosted retries reuse a provider key and expired attempts rotate it", async
 
 test("incomplete provider configuration does not reserve an attempt", async () => {
   const admin = createTestUser();
-  const organizationId = await registerAdmin(admin);
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
   expect(
     await createStripeCheckout(
       getDefaultApiServiceRuntime(),

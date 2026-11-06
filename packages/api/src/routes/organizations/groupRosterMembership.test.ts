@@ -158,9 +158,8 @@ test("group successors require active roster membership in the same organization
     members: [outsider],
   });
   expect(accepted.status, await accepted.clone().text()).toBe(200);
-}, 15_000);
+});
 
-// Real signed setup and protocol steps approach five seconds in PGlite CI.
 test.each(["remove", "delete"] as const)(
   "Members removal requires %s of ordinary membership first and ignores its retained history",
   async (operation) => {
@@ -218,5 +217,4 @@ test.each(["remove", "delete"] as const)(
     expect(disabled.status, await disabled.clone().text()).toBe(200);
     expect(await rosterStatus(organizationId, member.userId)).toBe("disabled");
   },
-  15_000,
 );

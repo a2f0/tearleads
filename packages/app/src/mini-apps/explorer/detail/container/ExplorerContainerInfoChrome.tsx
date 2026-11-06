@@ -8,13 +8,6 @@ import {
 import { EXPLORER_LABELS } from "../../labels";
 import { compactId } from "../compactId";
 
-// Kept beside the panel: labelCatalog.ts is at its source-shape budget.
-const SHARING_PROGRESS = {
-  description:
-    "Sealing this folder's keys for the recipient and recording the grant.",
-  title: "Sharing folder...",
-} as const;
-
 /**
  * Fills the info panel while a share runs: it seals keys for its recipient
  * and cannot be cancelled once started, so the form gives way to progress.
@@ -23,8 +16,8 @@ export function ExplorerContainerInfoSharingProgress() {
   return (
     <MiniAppStatePanel
       busy
-      description={SHARING_PROGRESS.description}
-      title={SHARING_PROGRESS.title}
+      description={EXPLORER_LABELS.containerInfoSharingProgressDescription}
+      title={EXPLORER_LABELS.containerInfoSharingProgressTitle}
     />
   );
 }

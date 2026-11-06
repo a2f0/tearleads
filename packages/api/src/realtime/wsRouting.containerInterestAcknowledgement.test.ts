@@ -1,19 +1,12 @@
 import { expect, test } from "bun:test";
-import { type WsConnection, WsEventRouter } from "./wsRouting";
+import { fakeSocket } from "../../test/helpers/wsRouting";
+import { WsEventRouter } from "./wsRouting";
 
 const CONTAINER_ID = "00000000-0000-4000-8000-000000000001";
 
-function fakeSocket(): WsConnection {
-  return {
-    close: () => undefined,
-    data: { sessionId: "session-a", userId: "user-a" },
-    send: () => undefined,
-  };
-}
-
 test("container interest supports optional bounded declaration ids", () => {
   const router = new WsEventRouter();
-  const socket = fakeSocket();
+  const socket = fakeSocket("user-a", "session-a");
   router.open(socket);
 
   expect(
@@ -44,7 +37,7 @@ test("container interest supports optional bounded declaration ids", () => {
 test("container interest rejects invalid declaration ids before changing routing", () => {
   for (const declarationId of [null, 7, "", "x".repeat(129)]) {
     const router = new WsEventRouter();
-    const socket = fakeSocket();
+    const socket = fakeSocket("user-a", "session-a");
     router.open(socket);
 
     expect(

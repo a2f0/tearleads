@@ -47,7 +47,7 @@ test("a container keying conflict surfaces as a coded 409", async () => {
       typeof code === "string" ? code : "",
     ),
   ).toBe(true);
-}, 15_000);
+});
 
 test("a denied projection stays a plain 403 without a projection code", async () => {
   const owner = createTestUser();
@@ -70,4 +70,4 @@ test("a denied projection stays a plain 403 without a projection code", async ()
       ? projection.code
       : undefined,
   ).toBeUndefined();
-}, 15_000);
+});

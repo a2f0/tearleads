@@ -257,6 +257,8 @@ test("primeDocumentsForContainerSubtree skips settled documents", async () => {
     });
 
     const primedLocalIds: string[] = [];
+    const openedAfterYield: boolean[] = [];
+    let yielded = false;
     const primedCount = await primeDocumentsForContainerSubtree({
       containersById: new Map([
         ["shared-root", { container: { id: "shared-root", parentId: null } }],
@@ -264,6 +266,12 @@ test("primeDocumentsForContainerSubtree skips settled documents", async () => {
       host: {
         documentWorkflowRuntime: (containerId) => ({ containerId }),
         openDocumentStore: (input) => {
+          if (primedLocalIds.length === 0) {
+            setTimeout(() => {
+              yielded = true;
+            }, 0);
+          }
+          openedAfterYield.push(yielded);
           primedLocalIds.push(input.localId);
           return {
             getSnapshot: () => ({ ready: true }),
@@ -285,8 +293,9 @@ test("primeDocumentsForContainerSubtree skips settled documents", async () => {
   }
 });
 
-// Covers the chunked open path: more prime targets than PRIME_OPEN_CHUNK_SIZE
-// (8) must all still prime, with the pass yielding between chunks.
+// Covers the chunked open path: more prime targets than the eight-store open
+// chunk must all still prime, with the pass yielding a macrotask between
+// chunks. A timer queued at the first open fires only once the pass yields.
 test("primeDocumentsForContainerSubtree primes a backlog larger than one chunk", async () => {
   const { close, execSql } = await createTestExecSql(
     "containerContents-document-subtree-prime-chunked",
@@ -312,6 +321,8 @@ test("primeDocumentsForContainerSubtree primes a backlog larger than one chunk",
     }
 
     const primedLocalIds: string[] = [];
+    const openedAfterYield: boolean[] = [];
+    let yielded = false;
     const primedCount = await primeDocumentsForContainerSubtree({
       containersById: new Map([
         ["shared-root", { container: { id: "shared-root", parentId: null } }],
@@ -319,6 +330,12 @@ test("primeDocumentsForContainerSubtree primes a backlog larger than one chunk",
       host: {
         documentWorkflowRuntime: (containerId) => ({ containerId }),
         openDocumentStore: (input) => {
+          if (primedLocalIds.length === 0) {
+            setTimeout(() => {
+              yielded = true;
+            }, 0);
+          }
+          openedAfterYield.push(yielded);
           primedLocalIds.push(input.localId);
           return {
             getSnapshot: () => ({ ready: true }),
@@ -330,6 +347,11 @@ test("primeDocumentsForContainerSubtree primes a backlog larger than one chunk",
       runtime,
     });
 
+    expect(openedAfterYield).toEqual([
+      ...Array<boolean>(8).fill(false),
+      true,
+      true,
+    ]);
     expect(primedLocalIds.sort()).toEqual(expectedLocalIds);
     expect(primedCount).toBe(10);
   } finally {
