@@ -4,6 +4,7 @@ import {
   type SignedPrincipalState,
 } from "@tearleads/crypto";
 import { listProjectionMembersForState } from "./principalProjectionStore";
+import { authorizePrincipalStateSigner } from "./principalSignerAuthority";
 import { getCurrentPrincipalState } from "./principalStateReads";
 import type {
   PrincipalStateBundleInput,
@@ -76,83 +77,56 @@ export async function validatePrincipalStateSignerAuthorization(input: {
   signerUserId: string;
   executor: DatabaseSession;
 }): Promise<StoredPrincipalProjectionMember[] | null> {
-  if (!input.currentState) {
-    if (
-      projectionIncludesAdminUser(
-        input.normalizedInput.projection,
-        input.signerUserId,
-      )
-    ) {
-      if (input.normalizedInput.state.externalAuthority !== null) {
-        rejectPrincipalPolicy(
-          "unauthorized_signer",
-          "Directly authorized principal state cannot cite external authority",
-        );
-      }
-      return null;
-    }
-
-    let isExternalAdmin = false;
-    if (
-      input.normalizedInput.projection.length === 0 &&
-      input.normalizedInput.state.externalAuthority !== null &&
-      input.options?.authorizeExternalAdminSigner
-    ) {
-      isExternalAdmin = await input.options.authorizeExternalAdminSigner({
-        currentState: null,
-        normalizedInput: input.normalizedInput,
-        previousProjection: null,
-        signerUserId: input.signerUserId,
-      });
-    }
-
-    if (!isExternalAdmin) {
-      rejectPrincipalPolicy(
-        "unauthorized_signer",
-        "Principal state signer must be an admin",
-      );
-    }
-
+  const { currentState, normalizedInput, signerUserId } = input;
+  const authorizeExternalAdminSigner =
+    input.options?.authorizeExternalAdminSigner;
+  const citesExternalAuthority =
+    normalizedInput.state.externalAuthority !== null;
+  if (!currentState) {
+    // An initial state is governed by its own projection; external authority
+    // may only vouch for one that names no members.
+    await authorizePrincipalStateSigner({
+      isDirectAdmin: projectionIncludesAdminUser(
+        normalizedInput.projection,
+        signerUserId,
+      ),
+      citesExternalAuthority,
+      mayUseExternalAuthority: normalizedInput.projection.length === 0,
+      authorizeExternalAdmin:
+        authorizeExternalAdminSigner &&
+        (() =>
+          authorizeExternalAdminSigner({
+            currentState: null,
+            normalizedInput,
+            previousProjection: null,
+            signerUserId,
+          })),
+    });
     return null;
   }
 
   const previousProjection = await listProjectionMembersForState(
-    input.currentState.principalType,
-    input.currentState.principalId,
-    input.currentState.stateHash,
+    currentState.principalType,
+    currentState.principalId,
+    currentState.stateHash,
     input.executor,
   );
-
-  const isDirectAdmin = projectionIncludesAdminUser(
-    previousProjection,
-    input.signerUserId,
-  );
-  let isExternalAdmin = false;
-  if (isDirectAdmin && input.normalizedInput.state.externalAuthority !== null) {
-    rejectPrincipalPolicy(
-      "unauthorized_signer",
-      "Directly authorized principal state cannot cite external authority",
-    );
-  }
-  if (
-    !isDirectAdmin &&
-    input.normalizedInput.state.externalAuthority !== null &&
-    input.options?.authorizeExternalAdminSigner
-  ) {
-    isExternalAdmin = await input.options.authorizeExternalAdminSigner({
-      currentState: input.currentState,
-      normalizedInput: input.normalizedInput,
+  await authorizePrincipalStateSigner({
+    isDirectAdmin: projectionIncludesAdminUser(
       previousProjection,
-      signerUserId: input.signerUserId,
-    });
-  }
-
-  if (!isDirectAdmin && !isExternalAdmin) {
-    rejectPrincipalPolicy(
-      "unauthorized_signer",
-      "Principal state signer must be an admin",
-    );
-  }
-
+      signerUserId,
+    ),
+    citesExternalAuthority,
+    mayUseExternalAuthority: true,
+    authorizeExternalAdmin:
+      authorizeExternalAdminSigner &&
+      (() =>
+        authorizeExternalAdminSigner({
+          currentState,
+          normalizedInput,
+          previousProjection,
+          signerUserId,
+        })),
+  });
   return previousProjection;
 }

@@ -55,6 +55,63 @@ test("storeVerifiedPrincipalState accepts empty initial states signed by authori
   expect(storedState.memberCount).toBe(0);
 });
 
+test("storeVerifiedPrincipalState keeps external authority off direct and member-bearing initial states", async () => {
+  const { publicKey } = generateKemSeedAndKeyPair();
+  const signingKeys = generateSigningSeedAndKeyPair();
+  const signer = await createPrincipalStateSigner(signingKeys.signingPublicKey);
+  const externalAuthority = {
+    principalType: "group" as const,
+    principalId: crypto.randomUUID(),
+    version: 1,
+    keyEpoch: 1,
+    stateHash: crypto.randomUUID(),
+    keyFingerprint: await toFingerprint(publicKey),
+  };
+  const initialState = async (adminUserId: string) =>
+    signPrincipalState(
+      {
+        principalType: "group",
+        principalId: crypto.randomUUID(),
+        version: 1,
+        prevStateHash: null,
+        keyEpoch: 1,
+        encapsulationPublicKey: bytesToBase64(publicKey),
+        keyFingerprint: await toFingerprint(publicKey),
+        members: [{ userId: adminUserId }],
+        projection: [{ userId: adminUserId, role: "admin" }],
+        externalAuthority,
+        signedAt: "2026-04-07T12:08:00.000Z",
+        ...signer,
+      },
+      signingKeys.signingPrivateKey,
+    );
+  let authorizerCalls = 0;
+  const options = {
+    authorizeExternalAdminSigner: async () => {
+      authorizerCalls += 1;
+      return true;
+    },
+  };
+
+  await expect(
+    storeVerifiedPrincipalState(
+      await initialState(signer.signerUserId),
+      db,
+      options,
+    ),
+  ).rejects.toThrow(
+    "Directly authorized principal state cannot cite external authority",
+  );
+  await expect(
+    storeVerifiedPrincipalState(
+      await initialState(crypto.randomUUID()),
+      db,
+      options,
+    ),
+  ).rejects.toThrow("Principal state signer must be an admin");
+  expect(authorizerCalls).toBe(0);
+});
+
 test("storeVerifiedPrincipalState rejects successor states signed by non-admins", async () => {
   const principalKeyPair = generateKemSeedAndKeyPair();
   const { signingPrivateKey, signingPublicKey } =

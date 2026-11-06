@@ -8,6 +8,7 @@ import {
 import {
   createSyncSubscription,
   getStripeSyncOption,
+  hasOpenOrgSubscription,
   isStripeCheckoutConfigured,
   StripeApiError,
 } from "./stripeApi";
@@ -159,6 +160,118 @@ test("a live subscription for the org refuses a second checkout", async () => {
 
   expect(outcome).toEqual({ kind: "conflict" });
   expect(requests).toHaveLength(2);
+});
+
+test("two incomplete subscriptions are ambiguous and end the walk", async () => {
+  const pages = () => [
+    {
+      body: {
+        data: [
+          { id: "sub_a", status: "incomplete" },
+          { id: "sub_b", status: "incomplete" },
+        ],
+        has_more: true,
+        next_page: "page-2",
+      },
+    },
+  ];
+  const checkout = fakeFetch([{ body: VALID_TEAM_5_PRICE }, ...pages()]);
+  const outcome = await createSyncSubscription(SYNC_SUBSCRIPTION_INPUT, {
+    env: ENV,
+    fetchImpl: checkout.fetchImpl,
+  });
+  expect(outcome).toEqual({ kind: "conflict" });
+  // Price and one search page: no second page, no resume, no create.
+  expect(checkout.requests).toHaveLength(2);
+
+  const open = fakeFetch(pages());
+  expect(
+    await hasOpenOrgSubscription("org-1", {
+      env: ENV,
+      fetchImpl: open.fetchImpl,
+    }),
+  ).toBe(true);
+  // Never inspected as if "ambiguous" were a Stripe status.
+  expect(open.requests).toHaveLength(1);
+});
+
+test("a terminal subscription from this attempt refuses beside a pending one", async () => {
+  const { fetchImpl, requests } = fakeFetch([
+    { body: VALID_TEAM_5_PRICE },
+    {
+      body: {
+        data: [
+          {
+            id: "sub_used",
+            status: "canceled",
+            metadata: { checkoutAttemptId: "attempt-1" },
+          },
+          { id: "sub_pending", status: "incomplete" },
+        ],
+      },
+    },
+  ]);
+  const outcome = await createSyncSubscription(SYNC_SUBSCRIPTION_INPUT, {
+    env: ENV,
+    fetchImpl,
+  });
+  expect(outcome).toEqual({ kind: "conflict" });
+  // The pending subscription is never resumed.
+  expect(requests).toHaveLength(2);
+});
+
+test("a used attempt keeps walking, so a later malformed page still fails", async () => {
+  const { fetchImpl, requests } = fakeFetch([
+    { body: VALID_TEAM_5_PRICE },
+    {
+      body: {
+        data: [
+          {
+            id: "sub_used",
+            status: "incomplete_expired",
+            metadata: { checkoutAttemptId: "attempt-1" },
+          },
+        ],
+        has_more: true,
+        next_page: "page-2",
+      },
+    },
+    { body: { data: "not-a-list" } },
+  ]);
+  await expect(
+    createSyncSubscription(SYNC_SUBSCRIPTION_INPUT, { env: ENV, fetchImpl }),
+  ).rejects.toMatchObject({ status: 502 });
+  expect(requests).toHaveLength(3);
+});
+
+test("an open-subscription check inspects a lone pending candidate", async () => {
+  const searchPage = {
+    body: { data: [{ id: "sub_pending", status: "incomplete" }] },
+  };
+  const results: Array<[string, boolean]> = [];
+  for (const status of ["incomplete", "active", "incomplete_expired"]) {
+    const { fetchImpl, requests } = fakeFetch([
+      searchPage,
+      { body: { id: "sub_pending", status } },
+    ]);
+    results.push([
+      status,
+      await hasOpenOrgSubscription("org-1", { env: ENV, fetchImpl }),
+    ]);
+    expect(requests[1]?.url).toEndWith("/v1/subscriptions/sub_pending");
+  }
+  expect(results).toEqual([
+    ["incomplete", true],
+    ["active", true],
+    ["incomplete_expired", false],
+  ]);
+  const empty = fakeFetch([{ body: { data: [] } }]);
+  expect(
+    await hasOpenOrgSubscription("org-1", {
+      env: ENV,
+      fetchImpl: empty.fetchImpl,
+    }),
+  ).toBe(false);
 });
 
 test("a candidate that expired since the search is recreated, not resumed", async () => {
