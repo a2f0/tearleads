@@ -92,10 +92,6 @@
       "lines": 522,
       "bytes": 21345
     },
-    "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 485,
-      "bytes": 22287
-    },
     "packages/client-sdk/src/index.ts": {
       "lines": 623,
       "bytes": 18407
