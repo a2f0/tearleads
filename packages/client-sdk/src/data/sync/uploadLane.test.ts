@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
+import { waitFor } from "../../../test/helpers/waitFor";
 import { createDomainScope } from "../shared/domainScope";
 import {
   beginDomainSyncUploadLane,
   getDomainSyncCoordinatorSnapshot,
+  getOrCreateDomainSyncCoordinator,
   hasDomainSyncCoordinatorPendingWork,
   waitForDomainSyncCoordinatorToSettle,
 } from "./syncCoordinator";
@@ -132,4 +134,97 @@ test("completed upload lanes are capped to the retention limit", () => {
   expect(uploadLanes.some((lane) => lane.key === "blob-upload:slot-13")).toBe(
     true,
   );
+});
+
+test("an upload session does not hold back a pump lane registered on its key", async () => {
+  const domainScope = createDomainScope();
+  const upload = beginDomainSyncUploadLane(domainScope, "shared-key");
+  let runs = 0;
+  getOrCreateDomainSyncCoordinator(domainScope)
+    .registerLane("shared-key", {
+      run: async () => {
+        runs += 1;
+      },
+    })
+    .requestSync();
+
+  expect(await waitForDomainSyncCoordinatorToSettle(domainScope)).toBe(true);
+  expect(runs).toBe(1);
+  upload.complete();
+  expect(findLane(domainScope, "shared-key")?.status).toBe("complete");
+});
+
+test("an upload on a key whose pump run was abandoned still reports running", async () => {
+  const domainScope = createDomainScope();
+  let release: () => void = () => {};
+  const hung = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  getOrCreateDomainSyncCoordinator(domainScope)
+    .registerLane("shared-key", { run: () => hung, watchdogMs: 5 })
+    .requestSync();
+  await waitFor(
+    () => findLane(domainScope, "shared-key")?.runAbandoned === true,
+    "watchdog did not abandon the run",
+  );
+
+  const upload = beginDomainSyncUploadLane(domainScope, "shared-key");
+  expect(findLane(domainScope, "shared-key")?.running).toBe(true);
+  expect(hasDomainSyncCoordinatorPendingWork(domainScope)).toBe(true);
+  upload.complete();
+  expect(findLane(domainScope, "shared-key")?.running).toBe(false);
+  release();
+});
+
+async function expectDocumentLaneRuns(
+  domainScope: ReturnType<typeof createDomainScope>,
+): Promise<void> {
+  let documentRuns = 0;
+  getOrCreateDomainSyncCoordinator(domainScope)
+    .registerLane("document", {
+      run: async () => {
+        documentRuns += 1;
+      },
+    })
+    .requestSync();
+  await waitFor(() => documentRuns === 1, "document lane did not run");
+}
+
+test("an upload on a structural lane's key does not hold the phase barrier", async () => {
+  const domainScope = createDomainScope();
+  const upload = beginDomainSyncUploadLane(domainScope, "shared-key");
+  getOrCreateDomainSyncCoordinator(domainScope).registerLane("shared-key", {
+    phase: "structural",
+    run: async () => undefined,
+  });
+
+  await expectDocumentLaneRuns(domainScope);
+  upload.complete();
+});
+
+test("an upload outliving the pump run on its structural key does not hold the barrier", async () => {
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  let release: () => void = () => {};
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  coordinator.registerLane("shared-key", { run: () => blocked }).requestSync();
+  await waitFor(
+    () => findLane(domainScope, "shared-key")?.running === true,
+    "pump run did not start",
+  );
+  const upload = beginDomainSyncUploadLane(domainScope, "shared-key");
+  coordinator.registerLane("shared-key", {
+    phase: "structural",
+    run: async () => undefined,
+  });
+  release();
+  await waitFor(
+    () => findLane(domainScope, "shared-key")?.lastAction === "completed",
+    "pump run did not settle",
+  );
+
+  await expectDocumentLaneRuns(domainScope);
+  upload.complete();
 });
