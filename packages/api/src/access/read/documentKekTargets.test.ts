@@ -2,13 +2,11 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
 import {
+  createVerifiedContainerManifest,
   createVerifiedDocumentLinkSetManifest,
   insertContainerKeyEpoch,
 } from "../../../test/helpers/documentContentKeyStoreFixtures";
-import {
-  createVerifiedKeyedContainerManifest as createVerifiedContainerManifest,
-  staleLink,
-} from "../../../test/helpers/documentKekTargetFixtures";
+import { staleLink } from "../../../test/helpers/documentKekTargetFixtures";
 import { storeVerifiedAccessManifest } from "../write/accessManifestStore";
 import { resolveCurrentDocumentKekTargets } from "./documentKekTargets";
 
