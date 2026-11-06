@@ -35,15 +35,12 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     selectedGroupIsAdminsGroup,
     selectedGroupIsMembersGroup,
     selectedUserIdRef,
+    sendDialogEvent,
     setAddUserId,
     setError,
     setGrants,
     setGroupContainers,
     setGroupPolicyHistory,
-    setGroupNameDraft,
-    setImportUserIdDraft,
-    setIsCreateGroupDialogOpen,
-    setIsImportUserDialogOpen,
     setMembers,
     setMutating,
     setOrgManagerView,
@@ -84,8 +81,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
         if (!isOperationActive(operationOrganizationId)) {
           return;
         }
-        setGroupNameDraft("");
-        setIsCreateGroupDialogOpen(false);
+        sendDialogEvent({ dialog: "createGroup", type: "close" });
         await refreshDirectoryAndGroups({ afterMutation: true });
         if (!isOperationActive(operationOrganizationId)) {
           return;
@@ -107,9 +103,8 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     openGroupRoute,
     orgManagerActions,
     refreshDirectoryAndGroups,
+    sendDialogEvent,
     setError,
-    setGroupNameDraft,
-    setIsCreateGroupDialogOpen,
     setMutating,
   ]);
 
@@ -174,10 +169,9 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     refreshDirectoryAndGroups,
     refreshSelectedUserDetail,
     selectUser,
+    sendDialogEvent,
     setOrgManagerView,
     setError,
-    setImportUserIdDraft,
-    setIsImportUserDialogOpen,
     setMutating,
     isOperationActive,
     logError,
