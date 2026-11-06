@@ -180,6 +180,21 @@ async function loadPrincipalPoliciesThroughCache(
     throw error;
   }
   const policies = new Set(ownPolicies);
+  const retry = await settleBorrowedPolicies(borrowed, policies);
+  for (const policy of await loadPoliciesForReferences(executor, retry)) {
+    policies.add(policy);
+  }
+  return [...policies];
+}
+
+/** Adds borrowed policies; returns the references whose borrowed load failed. */
+async function settleBorrowedPolicies(
+  borrowed: readonly {
+    readonly promise: Promise<PrincipalPolicyAuthorization | undefined>;
+    readonly reference: ReferencedPrincipalHead;
+  }[],
+  policies: Set<PrincipalPolicyAuthorization>,
+): Promise<ReferencedPrincipalHead[]> {
   const retry: ReferencedPrincipalHead[] = [];
   const settled = await Promise.allSettled(
     borrowed.map(({ promise }) => promise),
@@ -192,10 +207,7 @@ async function loadPrincipalPoliciesThroughCache(
     const entry = borrowed[index];
     if (entry) retry.push(entry.reference);
   }
-  for (const policy of await loadPoliciesForReferences(executor, retry)) {
-    policies.add(policy);
-  }
-  return [...policies];
+  return retry;
 }
 
 export async function loadPrincipalPoliciesForAccessPaths(

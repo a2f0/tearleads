@@ -156,6 +156,37 @@ function extendsObservedPolicy(
   );
 }
 
+/** The newest candidate, which must be unique and extend every other one. */
+function selectPrincipalPolicyHead(
+  key: string,
+  candidates: readonly CheckpointPolicy[],
+): CheckpointPolicy | null {
+  const maxVersion = Math.max(...candidates.map((policy) => policy.version));
+  const heads = candidates.filter((policy) => policy.version === maxVersion);
+  const head = heads[0];
+  if (!head) {
+    return null;
+  }
+  if (heads.some((candidate) => candidate.stateHash !== head.stateHash)) {
+    throw new KeyingVerificationError(
+      "equivocation",
+      `principal policy declares conflicting heads for ${key}`,
+    );
+  }
+  for (const candidate of candidates) {
+    if (candidate.version === head.version) {
+      continue;
+    }
+    if (!extendsObservedPolicy(head, candidate)) {
+      throw new KeyingVerificationError(
+        "stale_predecessor",
+        `principal policy head does not extend observed state for ${key}`,
+      );
+    }
+  }
+  return head;
+}
+
 /**
  * Checks, inside the caller's transaction, that each principal's newest policy
  * extends every other candidate and its durable checkpoint. Returns the heads
@@ -176,29 +207,12 @@ export async function validatePrincipalPolicyCheckpointAdvances(
   const pending = new Map<string, CheckpointPolicy>();
   const stored = await loadStoredPrincipalPolicyCheckpoints(tx, policies);
   for (const key of [...policiesByPrincipal.keys()].sort()) {
-    const candidates = policiesByPrincipal.get(key) ?? [];
-    const maxVersion = Math.max(...candidates.map((policy) => policy.version));
-    const heads = candidates.filter((policy) => policy.version === maxVersion);
-    const head = heads[0];
+    const head = selectPrincipalPolicyHead(
+      key,
+      policiesByPrincipal.get(key) ?? [],
+    );
     if (!head) {
       continue;
-    }
-    if (heads.some((candidate) => candidate.stateHash !== head.stateHash)) {
-      throw new KeyingVerificationError(
-        "equivocation",
-        `principal policy declares conflicting heads for ${key}`,
-      );
-    }
-    for (const candidate of candidates) {
-      if (candidate.version === head.version) {
-        continue;
-      }
-      if (!extendsObservedPolicy(head, candidate)) {
-        throw new KeyingVerificationError(
-          "stale_predecessor",
-          `principal policy head does not extend observed state for ${key}`,
-        );
-      }
     }
 
     const localCheckpoint = stored.get(key) ?? null;

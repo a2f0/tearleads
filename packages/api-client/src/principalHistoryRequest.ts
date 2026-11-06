@@ -54,20 +54,30 @@ export async function principalHistoryRequest<T>(
     }
     const data = decodeSuccess(decoded.data, input.decode);
     if (decoded.data.status !== 200 || !input.validator(data)) {
-      const failure = runtime.responseRequest.reportFailure({
-        kind: "shape",
-        message: `Invalid principal policy response for ${path}`,
-        method,
-        options:
-          method === "GET" ? options : { ...options, reportErrors: false },
-        path,
-        status: decoded.data.status,
-        statusText: decoded.data.statusText,
-      });
-      return preserveCommitUncertainty(method, context, failure);
+      return invalidResponseFailure(runtime, context, input, decoded.data);
     }
     return { ok: true, data };
   }
+}
+
+function invalidResponseFailure(
+  runtime: ApiRequestRuntime,
+  context: PrincipalHistoryRequestContext,
+  input: { readonly path: string; readonly method: HttpMethod },
+  response: { readonly status: number; readonly statusText: string },
+): RequestFailure {
+  const { path, method } = input;
+  const options = context.options;
+  const failure = runtime.responseRequest.reportFailure({
+    kind: "shape",
+    message: `Invalid principal policy response for ${path}`,
+    method,
+    options: method === "GET" ? options : { ...options, reportErrors: false },
+    path,
+    status: response.status,
+    statusText: response.statusText,
+  });
+  return preserveCommitUncertainty(method, context, failure);
 }
 
 function decodeSuccess(

@@ -148,6 +148,23 @@ export interface AcknowledgedPrincipalCurrentBatch {
   readonly stillCurrent: () => boolean;
 }
 
+async function reconcilePublications(
+  entries: readonly {
+    readonly options: RecoverPrincipalPolicyHistoryOptions;
+  }[],
+  publications: readonly AcknowledgedPrincipalCurrentPublication[],
+) {
+  const reconciled = [];
+  for (const [index, publication] of publications.entries()) {
+    const entry = entries[index];
+    if (!entry) throw new Error("Missing acknowledgement entry");
+    reconciled.push(
+      await reconcileAcknowledgedPrincipalCurrent(entry.options, publication),
+    );
+  }
+  return reconciled;
+}
+
 /**
  * Extend authenticated local progress and retain exact acknowledged artifacts
  * atomically with pins, once `checks` accept each acknowledgement.
@@ -204,17 +221,7 @@ export async function recordAcknowledgedPrincipalCurrents(
       entries.map(({ response }) => response),
     );
     for (let attempt = 0; ; attempt += 1) {
-      const reconciled = [];
-      for (const [index, publication] of publications.entries()) {
-        const entry = entries[index];
-        if (!entry) throw new Error("Missing acknowledgement entry");
-        reconciled.push(
-          await reconcileAcknowledgedPrincipalCurrent(
-            entry.options,
-            publication,
-          ),
-        );
-      }
+      const reconciled = await reconcilePublications(entries, publications);
       try {
         await persistAcknowledgedPrincipalCurrents({
           execSql,

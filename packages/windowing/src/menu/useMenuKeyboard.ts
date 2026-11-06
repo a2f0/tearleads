@@ -67,16 +67,8 @@ export function useMenuKeyboard(
     function handleKeyDown(event: KeyboardEvent) {
       if (event.altKey || event.ctrlKey || event.metaKey) return;
       if (!menu?.contains(document.activeElement)) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        restoreFocus();
-        close();
-        return;
-      }
-      if (event.key === "Tab") {
-        if (!restoreFocus()) event.preventDefault();
-        close();
+      if (event.key === "Escape" || event.key === "Tab") {
+        leaveMenu(event);
         return;
       }
       const next = nextControl(items(), document.activeElement, event.key);
@@ -85,6 +77,19 @@ export function useMenuKeyboard(
         event.stopPropagation();
         next.focus();
       }
+    }
+
+    // Escape returns focus to the trigger; Tab moves on from it natively
+    // unless focus could not return there.
+    function leaveMenu(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        restoreFocus();
+      } else if (!restoreFocus()) {
+        event.preventDefault();
+      }
+      close();
     }
 
     function handleMouseDown(event: MouseEvent) {

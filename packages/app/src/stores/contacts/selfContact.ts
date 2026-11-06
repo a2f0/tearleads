@@ -53,17 +53,19 @@ export function findPrimarySelfContact(
   // that fallback was already promoted with the same userId while remote
   // hydration was in flight. Unrelated and read-only entries cannot displace a
   // self contact that this device can maintain.
-  if (matchingUserId) {
-    for (const entry of entriesById.values()) {
-      if (
-        entry.userId === matchingUserId &&
-        entry.isSelf &&
-        entry.canWrite !== false &&
-        (!identity.localId || entry.id !== identity.localId)
-      ) {
-        return entry;
-      }
-    }
+  if (!matchingUserId) {
+    return identity.localId
+      ? (entriesById.get(identity.localId) ?? null)
+      : null;
+  }
+  const recovered = findWritableUserContact(
+    entriesById,
+    matchingUserId,
+    (entry) =>
+      entry.isSelf && (!identity.localId || entry.id !== identity.localId),
+  );
+  if (recovered) {
+    return recovered;
   }
 
   if (identity.localId) {
@@ -75,14 +77,19 @@ export function findPrimarySelfContact(
 
   // Preserve the existing promotion behavior when no deterministic fallback
   // exists, but never select a shared/read-only contact for a write operation.
-  if (matchingUserId) {
-    for (const entry of entriesById.values()) {
-      if (entry.userId === matchingUserId && entry.canWrite !== false) {
-        return entry;
-      }
+  return findWritableUserContact(entriesById, matchingUserId, () => true);
+}
+
+function findWritableUserContact(
+  entriesById: ReadonlyMap<string, ContactEntry>,
+  userId: string,
+  matches: (entry: ContactEntry) => boolean,
+): ContactEntry | null {
+  for (const entry of entriesById.values()) {
+    if (entry.userId === userId && entry.canWrite !== false && matches(entry)) {
+      return entry;
     }
   }
-
   return null;
 }
 

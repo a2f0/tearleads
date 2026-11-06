@@ -67,10 +67,12 @@ async function deleteDuplicateSelfContact(input: {
           ?.store.getSnapshot().documentId;
         if (
           !guard() ||
-          (summary
-            ? summary.documentId !== remoteDocumentId
-            : !purgeAcknowledged) ||
-          (trackedId && trackedId !== remoteDocumentId)
+          remoteCleanupTargetChanged({
+            purgeAcknowledged,
+            remoteDocumentId,
+            summary,
+            trackedId,
+          })
         ) {
           return false;
         }
@@ -86,30 +88,52 @@ async function deleteDuplicateSelfContact(input: {
           purgeAcknowledged = true;
         }
         if (!guard()) return false;
-        // Only local settlement joins the write queue. A queued edit gets its
-        // turn first and the duplicate guard is rechecked before deletion.
-        const deletion = state.writeChain
-          .catch(() => undefined)
-          .then(
-            async () =>
-              guard() &&
-              (await deleteLocalDuplicateSelfContact({
-                entry,
-                guard,
-                state,
-              })) === "deleted",
-          );
-        state.writeChain = deletion.then(
-          () => undefined,
-          () => undefined,
-        );
-        return deletion;
+        return queueLocalDuplicateSelfDeletion({ entry, guard, state });
       },
     });
     return "deferred";
   }
 
   return deleteLocalDuplicateSelfContact(input);
+}
+
+/** Whether the duplicate's remote document changed since cleanup began. */
+function remoteCleanupTargetChanged(input: {
+  readonly purgeAcknowledged: boolean;
+  readonly remoteDocumentId: string;
+  readonly summary: { readonly documentId: string | null } | null;
+  readonly trackedId: string | null | undefined;
+}): boolean {
+  const { remoteDocumentId, summary, trackedId } = input;
+  if (
+    summary ? summary.documentId !== remoteDocumentId : !input.purgeAcknowledged
+  ) {
+    return true;
+  }
+  return Boolean(trackedId && trackedId !== remoteDocumentId);
+}
+
+/**
+ * Only local settlement joins the write queue. A queued edit gets its turn
+ * first and the duplicate guard is rechecked before deletion.
+ */
+function queueLocalDuplicateSelfDeletion(input: {
+  entry: ContactEntry;
+  guard: ContactStoreOperationGuard;
+  state: ContactsStoreState;
+}): Promise<boolean> {
+  const { guard, state } = input;
+  const deletion = state.writeChain
+    .catch(() => undefined)
+    .then(
+      async () =>
+        guard() && (await deleteLocalDuplicateSelfContact(input)) === "deleted",
+    );
+  state.writeChain = deletion.then(
+    () => undefined,
+    () => undefined,
+  );
+  return deletion;
 }
 
 async function deleteLocalDuplicateSelfContact(input: {

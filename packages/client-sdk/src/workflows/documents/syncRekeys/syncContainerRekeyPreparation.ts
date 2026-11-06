@@ -108,6 +108,23 @@ function submitStandaloneRepair(
   });
 }
 
+async function abandonRefusedRepair(
+  sync: SyncRemoteDocumentInput,
+  containerId: string,
+  result: Awaited<ReturnType<typeof submitStandaloneRepair>>["result"],
+): Promise<never> {
+  if (!result.ok && isTerminalRepairStatus(result.status)) {
+    await sync.onTerminalSubmitFailure?.({
+      code: "document_ancestor_repair_refused",
+      message: `Ancestor repair refused for ${containerId}`,
+      ok: false,
+      report: () => undefined,
+      status: result.status,
+    });
+  }
+  throw new DocumentAncestorRepairAbandonedError("refused");
+}
+
 async function commitRepairPrefix(input: {
   plans: readonly MaterializedContainerRekeyPlan[];
   repairedIds: Set<string>;
@@ -133,16 +150,7 @@ async function commitRepairPrefix(input: {
     // failing again, and the retry never reaches onTerminalSubmitFailure
     // regardless, because this throws before submission.
     if (!response) {
-      if (!result.ok && isTerminalRepairStatus(result.status)) {
-        await input.sync.onTerminalSubmitFailure?.({
-          code: "document_ancestor_repair_refused",
-          message: `Ancestor repair refused for ${plan.containerId}`,
-          ok: false,
-          report: () => undefined,
-          status: result.status,
-        });
-      }
-      throw new DocumentAncestorRepairAbandonedError("refused");
+      return abandonRefusedRepair(input.sync, plan.containerId, result);
     }
     // What a repair carried committed with it, so the pins advance together.
     const acknowledged = await acknowledgeContainerMutationBatch({
