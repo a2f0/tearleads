@@ -145,3 +145,70 @@ test("surfaces a durable-write query failure", async () => {
   expect(view.getByRole("alert")).toBeTruthy();
   expect(view.getByText("database unavailable")).toBeTruthy();
 });
+
+test("drops a replaced documentQueries' reads and re-reads the new one", async () => {
+  const pendingQueries = (
+    calls: Array<(items: ReadonlyArray<PendingWriteQueueItem>) => void>,
+  ) =>
+    ({
+      listPendingWrites: () =>
+        new Promise<ReadonlyArray<PendingWriteQueueItem>>((resolve) => {
+          calls.push(resolve);
+        }),
+    }) as unknown as ContainerDocumentQueries;
+  const previousCalls: Array<
+    (items: ReadonlyArray<PendingWriteQueueItem>) => void
+  > = [];
+  const nextCalls: Array<
+    (items: ReadonlyArray<PendingWriteQueueItem>) => void
+  > = [];
+  const previousQueries = pendingQueries(previousCalls);
+  const nextQueries = pendingQueries(nextCalls);
+  const domainScope = createDomainScope();
+  const panelWith = (documentQueries: ContainerDocumentQueries) => (
+    <ExplorerWriteQueuePanel
+      billingBlockedOrganizationId={null}
+      documentListRevision={0}
+      documentQueries={documentQueries}
+      domainScope={domainScope}
+      isAuthenticated={true}
+      nodes={[ARCHIVE_NODE]}
+      online={true}
+      openContainerInfoRoute={() => undefined}
+      openDocument={() => undefined}
+      openWriteQueueEntryRoute={() => undefined}
+      organizationNamesById={new Map()}
+      selectedEntryKey={null}
+    />
+  );
+
+  const view = render(panelWith(previousQueries));
+  expect(previousCalls).toHaveLength(1);
+
+  // The database scope is replaced (org switch, logout) while the previous
+  // scope's scan is still pending: the new scope is read at once.
+  view.rerender(panelWith(nextQueries));
+  expect(nextCalls).toHaveLength(1);
+
+  // The previous scope's late rows never reach the panel, and it is not
+  // scanned again.
+  await act(async () => {
+    previousCalls[0]?.([item()]);
+  });
+  expect(
+    view.queryByRole("button", { name: "Open object: Offline note" }),
+  ).toBeNull();
+  expect(view.getByText(EXPLORER_LABELS.writeQueueLoading)).toBeTruthy();
+
+  await act(async () => {
+    nextCalls[0]?.([]);
+  });
+  await waitFor(() =>
+    expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy(),
+  );
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  });
+  expect(previousCalls).toHaveLength(1);
+  expect(nextCalls).toHaveLength(1);
+});
