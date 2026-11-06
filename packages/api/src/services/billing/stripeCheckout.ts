@@ -1,19 +1,21 @@
 import { isUuidV4String } from "@tearleads/validators/util";
 import { associateStripeSubscription } from "../../billing/revenueCatStripeAssociation";
 import {
-  cancelSubscriptionAtPeriodEnd,
-  createCheckoutSession,
-  createPortalSession,
   createSyncSubscription,
-  findLiveOrgSubscription,
-  findOrCreateCustomer,
   hasOpenOrgSubscription,
   isStripeCheckoutConfigured,
   StripeApiError,
   type StripeCheckoutIntent,
 } from "../../billing/stripeApi";
+import { createCheckoutSession } from "../../billing/stripeCheckoutSession";
+import { findOrCreateCustomer } from "../../billing/stripeCustomer";
 import { promoteCustomerEmail } from "../../billing/stripeCustomerEmail";
 import { getSubscriptionBinding } from "../../billing/stripeSubscriptionBinding";
+import {
+  cancelSubscriptionAtPeriodEnd,
+  createPortalSession,
+  findLiveOrgSubscription,
+} from "../../billing/stripeSubscriptionManagement";
 import {
   extractPaidSubscriptionInvoice,
   readStripeWebhookSecret,

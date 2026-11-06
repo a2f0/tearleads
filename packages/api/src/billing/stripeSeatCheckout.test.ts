@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { createCheckoutSession, createSyncSubscription } from "./stripeApi";
+import { createSyncSubscription } from "./stripeApi";
+import { createCheckoutSession } from "./stripeCheckoutSession";
 
 const ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
