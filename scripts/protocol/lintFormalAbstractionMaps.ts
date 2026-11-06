@@ -286,6 +286,15 @@ function scanTsString(source: string, start: number): number {
   return index + 1;
 }
 
+/** Position just past a found delimiter, or the source end when it is unterminated. */
+function indexOrEnd(
+  source: string,
+  found: number,
+  delimiterLength = 0,
+): number {
+  return found === -1 ? source.length : found + delimiterLength;
+}
+
 /**
  * Strip comments so a seam surviving only in commentary does not count as
  * code; strings are preserved in one projection (wire-tag contracts live in
@@ -301,11 +310,9 @@ export function lexTsSource(source: string): LexedTsSource {
     const pair = source.slice(index, index + 2);
     const character = source[index] ?? "";
     if (pair === "//") {
-      const newline = source.indexOf("\n", index);
-      index = newline === -1 ? source.length : newline;
+      index = indexOrEnd(source, source.indexOf("\n", index));
     } else if (pair === "/*") {
-      const end = source.indexOf("*/", index + 2);
-      index = end === -1 ? source.length : end + 2;
+      index = indexOrEnd(source, source.indexOf("*/", index + 2), 2);
       withoutComments += " ";
       withoutCommentsAndStrings += " ";
     } else if (character === '"' || character === "'" || character === "`") {
