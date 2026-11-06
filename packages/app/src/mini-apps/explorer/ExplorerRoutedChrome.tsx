@@ -99,6 +99,18 @@ export function useExplorerRoutedChromeActions({
   });
 }
 
+type TitleBarActionInput = Parameters<typeof useWindowTitleBarAction>[0];
+
+// A container toolbar action, registered only while it is visible and the
+// active container id is known.
+function containerAction(
+  visible: boolean,
+  containerId: string | null,
+  build: (containerId: string) => TitleBarActionInput,
+): TitleBarActionInput {
+  return visible && containerId ? build(containerId) : null;
+}
+
 // The container-selection toolbar: creation/upload actions plus Get Info. Every
 // visibility flag implies a non-null active container id; the id checks below
 // only narrow the type.
@@ -118,28 +130,24 @@ function useExplorerContainerToolbarActions(params: {
   const { containerId, model, show, triggerUpload } = params;
   const ready = model.explorer.ready;
   useWindowTitleBarAction(
-    show.createChild && containerId
-      ? {
-          disabled: !ready || !model.canCreateChildInActiveContainer,
-          icon: CREATE_FOLDER_ICON,
-          id: "explorer-create-child-folder",
-          label: EXPLORER_LABELS.createChildFolderAction,
-          onClick: () => model.modalState.openCreateChildModal(containerId),
-          priority: 200,
-        }
-      : null,
+    containerAction(show.createChild, containerId, (id) => ({
+      disabled: !ready || !model.canCreateChildInActiveContainer,
+      icon: CREATE_FOLDER_ICON,
+      id: "explorer-create-child-folder",
+      label: EXPLORER_LABELS.createChildFolderAction,
+      onClick: () => model.modalState.openCreateChildModal(id),
+      priority: 200,
+    })),
   );
   useWindowTitleBarAction(
-    show.upload && containerId
-      ? {
-          disabled: !ready || !model.canUploadToActiveContainer,
-          icon: UPLOAD_ICON,
-          id: "explorer-upload",
-          label: EXPLORER_LABELS.uploadAction,
-          onClick: () => triggerUpload(containerId),
-          priority: 300,
-        }
-      : null,
+    containerAction(show.upload, containerId, (id) => ({
+      disabled: !ready || !model.canUploadToActiveContainer,
+      icon: UPLOAD_ICON,
+      id: "explorer-upload",
+      label: EXPLORER_LABELS.uploadAction,
+      onClick: () => triggerUpload(id),
+      priority: 300,
+    })),
   );
   useWindowTitleBarAction(
     show.createDocument
@@ -155,27 +163,23 @@ function useExplorerContainerToolbarActions(params: {
       : null,
   );
   useWindowTitleBarAction(
-    show.createContact && containerId
-      ? {
-          disabled: !ready || !model.canCreateContactInActiveContainer,
-          icon: NEW_CONTACT_ICON,
-          id: "explorer-new-contact",
-          label: EXPLORER_LABELS.newContactAction,
-          onClick: () => model.openInlineDocument(containerId, "contact"),
-          priority: 400,
-        }
-      : null,
+    containerAction(show.createContact, containerId, (id) => ({
+      disabled: !ready || !model.canCreateContactInActiveContainer,
+      icon: NEW_CONTACT_ICON,
+      id: "explorer-new-contact",
+      label: EXPLORER_LABELS.newContactAction,
+      onClick: () => model.openInlineDocument(id, "contact"),
+      priority: 400,
+    })),
   );
   useWindowTitleBarAction(
-    show.containerInfo && containerId
-      ? {
-          icon: INFO_ICON,
-          id: "explorer-container-info",
-          label: EXPLORER_LABELS.documentInfoGetInfoAction,
-          onClick: () => model.routeState.openContainerInfoRoute(containerId),
-          priority: 100,
-        }
-      : null,
+    containerAction(show.containerInfo, containerId, (id) => ({
+      icon: INFO_ICON,
+      id: "explorer-container-info",
+      label: EXPLORER_LABELS.documentInfoGetInfoAction,
+      onClick: () => model.routeState.openContainerInfoRoute(id),
+      priority: 100,
+    })),
   );
 }
 
@@ -256,59 +260,51 @@ function useExplorerRoutedBackAction({
     // when the host has no history entry to pop, so pushing the parent would
     // create exactly one entry — and Back would then alternate between the two
     // routes forever, the loop this gate exists to prevent.
-    if (route.view === "document-info") {
-      return {
-        label: EXPLORER_LABELS.documentInfoBackAction,
-        onBack: () => {
-          // The projection-aware path, not the raw route action: it resolves a
-          // deleted document back to its container and activates a linked one.
-          model.selectDocumentProjection(route.localId, route.containerId, {
-            replace: true,
-          });
-        },
-      };
+    switch (route.view) {
+      case "document-info":
+        return {
+          label: EXPLORER_LABELS.documentInfoBackAction,
+          onBack: () => {
+            // The projection-aware path, not the raw route action: it resolves
+            // a deleted document back to its container and activates a linked
+            // one.
+            model.selectDocumentProjection(route.localId, route.containerId, {
+              replace: true,
+            });
+          },
+        };
+      case "sync-lane-detail":
+        return {
+          label: EXPLORER_LABELS.syncLanesBackToListAction,
+          onBack: () => model.routeState.openSyncLanesRoute({ replace: true }),
+        };
+      case "write-queue-entry":
+        return {
+          label: EXPLORER_LABELS.writeQueueBackToListAction,
+          onBack: () => model.routeState.openWriteQueueRoute({ replace: true }),
+        };
+      case "sync-lanes":
+      case "write-queue":
+      case "downloads":
+      case "uploads":
+        return {
+          label: EXPLORER_LABELS.syncLanesBackAction,
+          onBack: () => model.routeState.showSelectionRoute({ replace: true }),
+        };
+      // A blob opened with no history behind it falls back to the origin
+      // navigation maintained by useExplorerRoute, which returns an
+      // attachment-opened blob to its source document.
+      case "blob-browser":
+        return {
+          label: EXPLORER_LABELS.blobBrowserBackAction,
+          onBack: model.routeState.navigateBackFromBlobBrowser,
+        };
+      // Container-info, new-structured-document, and open documents no longer
+      // surface a "Back to Container" action; selecting a container in the
+      // sidebar returns to it.
+      default:
+        return null;
     }
-
-    if (route.view === "sync-lane-detail") {
-      return {
-        label: EXPLORER_LABELS.syncLanesBackToListAction,
-        onBack: () => model.routeState.openSyncLanesRoute({ replace: true }),
-      };
-    }
-
-    if (route.view === "write-queue-entry") {
-      return {
-        label: EXPLORER_LABELS.writeQueueBackToListAction,
-        onBack: () => model.routeState.openWriteQueueRoute({ replace: true }),
-      };
-    }
-
-    if (
-      route.view === "sync-lanes" ||
-      route.view === "write-queue" ||
-      route.view === "downloads" ||
-      route.view === "uploads"
-    ) {
-      return {
-        label: EXPLORER_LABELS.syncLanesBackAction,
-        onBack: () => model.routeState.showSelectionRoute({ replace: true }),
-      };
-    }
-
-    // A blob opened with no history behind it falls back to the origin
-    // navigation maintained by useExplorerRoute, which returns an
-    // attachment-opened blob to its source document.
-    if (route.view === "blob-browser") {
-      return {
-        label: EXPLORER_LABELS.blobBrowserBackAction,
-        onBack: model.routeState.navigateBackFromBlobBrowser,
-      };
-    }
-
-    // Container-info, new-structured-document, and open documents no longer
-    // surface a "Back to Container" action; selecting a container in the
-    // sidebar returns to it.
-    return null;
   }, [
     model.routeState.navigateBackFromBlobBrowser,
     model.routeState.openSyncLanesRoute,

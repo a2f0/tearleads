@@ -240,6 +240,27 @@ function ExplorerContainerInfoSharingSections(params: {
   );
 }
 
+// Remote-only tabs say so once loading settles without an error and the
+// container still has no remote info.
+function ExplorerContainerInfoNoRemoteInfo(params: {
+  activeTab: ContainerInfoTabId;
+  containerInfoError: string | null;
+  hasRemoteInfo: boolean;
+  isLoadingContainerInfo: boolean;
+}) {
+  if (
+    params.activeTab === "general" ||
+    params.hasRemoteInfo ||
+    params.isLoadingContainerInfo ||
+    params.containerInfoError
+  ) {
+    return null;
+  }
+  return (
+    <MiniAppStatus>{EXPLORER_LABELS.containerInfoNoRemoteInfo}</MiniAppStatus>
+  );
+}
+
 function ExplorerContainerInfoTabPanel(params: {
   activeTab: ContainerInfoTabId;
   canManageIcon: boolean;
@@ -290,13 +311,12 @@ function ExplorerContainerInfoTabPanel(params: {
           setContainerIcon={params.setContainerIcon}
         />
       ) : null}
-      {params.activeTab !== "general" && !remoteInfo ? (
-        params.isLoadingContainerInfo || params.containerInfoError ? null : (
-          <MiniAppStatus>
-            {EXPLORER_LABELS.containerInfoNoRemoteInfo}
-          </MiniAppStatus>
-        )
-      ) : null}
+      <ExplorerContainerInfoNoRemoteInfo
+        activeTab={params.activeTab}
+        containerInfoError={params.containerInfoError}
+        hasRemoteInfo={remoteInfo !== null}
+        isLoadingContainerInfo={params.isLoadingContainerInfo}
+      />
       {params.activeTab === "sharing" && remoteInfo ? (
         <ExplorerContainerInfoSharingSections
           containerNamesById={params.containerNamesById}

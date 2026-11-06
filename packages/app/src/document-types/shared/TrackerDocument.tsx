@@ -122,6 +122,62 @@ function TrackerEditFields<Row extends TrackerRow, QuickEntry>(
   );
 }
 
+function TrackerReadFields<Row extends TrackerRow, QuickEntry>(
+  params: Pick<
+    TrackerDocumentProps<Row, QuickEntry>,
+    | "graph"
+    | "listLabel"
+    | "onAddRow"
+    | "onEnterEdit"
+    | "renderQuickAdd"
+    | "renderReadTable"
+    | "resolveRowWriter"
+    | "rows"
+  > & {
+    controlsDisabled: boolean;
+    currentAuthorId: string | null;
+    entryPending: boolean;
+    onPendingChange: (pending: boolean) => void;
+  },
+) {
+  const {
+    controlsDisabled,
+    currentAuthorId,
+    entryPending,
+    listLabel,
+    onAddRow,
+    onEnterEdit,
+    onPendingChange,
+    renderQuickAdd,
+    renderReadTable,
+    resolveRowWriter,
+    rows,
+  } = params;
+  return (
+    <div className="tracker-document-fields">
+      {params.graph}
+      <section className="tracker-entry-list">
+        <strong>{listLabel}</strong>
+        {onEnterEdit
+          ? renderQuickAdd({
+              controlsDisabled,
+              onAddRow,
+              onPendingChange,
+            })
+          : null}
+        {rows.length === 0 && entryPending
+          ? null
+          : renderReadTable({
+              currentAuthorId,
+              onEnterEdit: entryPending ? undefined : onEnterEdit,
+              resolveRowWriter,
+            })}
+        <div className="tracker-entry-list-footer">{rows.length} entries</div>
+      </section>
+    </div>
+  );
+}
+
 /** Shared read/edit shell for repeated-row tracker documents. */
 export function TrackerDocument<Row extends TrackerRow, QuickEntry>(
   params: TrackerDocumentProps<Row, QuickEntry>,
@@ -155,27 +211,20 @@ export function TrackerDocument<Row extends TrackerRow, QuickEntry>(
 
   if (!isEditing) {
     return (
-      <div className="tracker-document-fields">
-        {ready ? params.graph : null}
-        <section className="tracker-entry-list">
-          <strong>{listLabel}</strong>
-          {onEnterEdit
-            ? renderQuickAdd({
-                controlsDisabled,
-                onAddRow,
-                onPendingChange,
-              })
-            : null}
-          {rows.length === 0 && entryPending
-            ? null
-            : renderReadTable({
-                currentAuthorId,
-                onEnterEdit: entryPending ? undefined : onEnterEdit,
-                resolveRowWriter,
-              })}
-          <div className="tracker-entry-list-footer">{rows.length} entries</div>
-        </section>
-      </div>
+      <TrackerReadFields
+        controlsDisabled={controlsDisabled}
+        currentAuthorId={currentAuthorId}
+        entryPending={entryPending}
+        graph={ready ? params.graph : null}
+        listLabel={listLabel}
+        onAddRow={onAddRow}
+        onEnterEdit={onEnterEdit}
+        onPendingChange={onPendingChange}
+        renderQuickAdd={renderQuickAdd}
+        renderReadTable={renderReadTable}
+        resolveRowWriter={resolveRowWriter}
+        rows={rows}
+      />
     );
   }
 

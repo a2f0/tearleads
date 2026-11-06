@@ -19,6 +19,40 @@ import { OrganizationDataUsage } from "./OrganizationDataUsage";
 import { OrganizationIdentities } from "./OrganizationIdentities";
 import { OrganizationOverview } from "./OrganizationOverview";
 
+// The tabs drawn from the loaded organization detail.
+function OrganizationDetailTabs({
+  activeTab,
+  detail,
+  organizationId,
+  onSelectIdentity,
+}: {
+  activeTab: RootOrganizationTab;
+  detail: RootOrganizationDetail;
+  organizationId: string;
+  onSelectIdentity: (userId: string) => void;
+}) {
+  return (
+    <>
+      {activeTab === "overview" && <OrganizationOverview detail={detail} />}
+      {activeTab === "billing" && (
+        <>
+          <OrganizationBilling
+            billing={detail.billing}
+            stripe={detail.stripe}
+          />
+          <OrganizationRevenuecatEvents
+            organizationId={organizationId}
+            onSelectIdentity={onSelectIdentity}
+          />
+        </>
+      )}
+      {activeTab === "history" && (
+        <OrganizationBillingHistory entries={detail.history} />
+      )}
+    </>
+  );
+}
+
 export function OrganizationDetailView({
   organizationId,
   activeTab,
@@ -96,26 +130,12 @@ export function OrganizationDetailView({
           <>
             {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
             {detail ? (
-              <>
-                {activeTab === "overview" && (
-                  <OrganizationOverview detail={detail} />
-                )}
-                {activeTab === "billing" && (
-                  <>
-                    <OrganizationBilling
-                      billing={detail.billing}
-                      stripe={detail.stripe}
-                    />
-                    <OrganizationRevenuecatEvents
-                      organizationId={organizationId}
-                      onSelectIdentity={onSelectIdentity}
-                    />
-                  </>
-                )}
-                {activeTab === "history" && (
-                  <OrganizationBillingHistory entries={detail.history} />
-                )}
-              </>
+              <OrganizationDetailTabs
+                activeTab={activeTab}
+                detail={detail}
+                organizationId={organizationId}
+                onSelectIdentity={onSelectIdentity}
+              />
             ) : (
               loading && <MiniAppStatus>Loading organization...</MiniAppStatus>
             )}
