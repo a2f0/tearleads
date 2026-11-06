@@ -7,6 +7,12 @@ import {
   hasPendingLaneWork,
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
+import {
+  hasPendingRequest,
+  isRequestDue,
+  ownsLiveRun,
+  transitionSyncLaneRequest,
+} from "./syncLaneMachine";
 import { compareSyncLaneOrder, createSyncTimestamp } from "./syncTelemetry";
 
 export interface SyncIdleOptions {
@@ -52,9 +58,20 @@ function compareRequestedLanes(
 }
 
 // An abandoned run still owns its lane. Its eventual settlement will restart
-// the pump; trying to restart earlier would spin without runnable work.
+// the pump; trying to restart earlier would spin without runnable work. A
+// backing-off lane counts: a structural one still holds the phase barrier.
 function isRequestedLaneAvailable(lane: SyncLaneState): boolean {
-  return lane.pumpDriven && lane.requested && lane.activeRunToken === null;
+  return (
+    lane.pumpDriven && hasPendingRequest(lane.request) && !ownsLiveRun(lane.run)
+  );
+}
+
+function canStartRequestedLane(lane: SyncLaneState, nowMs: number): boolean {
+  return (
+    lane.pumpDriven &&
+    lane.run.status === "idle" &&
+    isRequestDue(lane.request, nowMs)
+  );
 }
 
 function hasRunnableLaneWork(laneValues: Iterable<SyncLaneState>): boolean {
@@ -67,9 +84,7 @@ function hasRunnableLaneWork(laneValues: Iterable<SyncLaneState>): boolean {
   for (const lane of lanes) {
     if (
       (!structuralPending || lane.config.phase === "structural") &&
-      isRequestedLaneAvailable(lane) &&
-      (lane.notBeforeAtMs === null || lane.notBeforeAtMs <= now) &&
-      !lane.backingOff
+      canStartRequestedLane(lane, now)
     ) {
       return true;
     }
@@ -85,11 +100,7 @@ function selectNextRequestedLane(
   const now = Date.now();
 
   for (const lane of lanes) {
-    if (
-      !isRequestedLaneAvailable(lane) ||
-      (lane.notBeforeAtMs !== null && lane.notBeforeAtMs > now) ||
-      lane.backingOff
-    ) {
+    if (!canStartRequestedLane(lane, now)) {
       continue;
     }
     if (!selectedLane || compareRequestedLanes(lane, selectedLane) < 0) {
@@ -135,12 +146,13 @@ async function runRequestedSyncLanes(
     let lane = state.disposed
       ? null
       : selectNextRequestedLane(state.lanes.values());
+    // Only a pump callback holds the barrier: an upload session on the same
+    // key owns nothing the pump waits for, and hasRunnableLaneWork ignores it.
     const structuralPending = Array.from(state.lanes.values()).some(
       (candidate) =>
-        candidate.pumpDriven &&
         candidate.config.phase === "structural" &&
-        (candidate.running ||
-          (candidate.requested && candidate.activeRunToken === null)),
+        ((candidate.pumpDriven && candidate.run.status === "running") ||
+          isRequestedLaneAvailable(candidate)),
     );
     lane = admittedLane(lane, running, structuralPending);
     if (lane) {
@@ -188,7 +200,6 @@ function scheduleCoordinatorPump(coordinatorState: DomainSyncCoordinatorState) {
 }
 
 function markLaneRequested(lane: SyncLaneState, requestedAt: string): void {
-  lane.requested = true;
   lane.requestCount += 1;
   lane.lastAction = "requested";
   lane.lastActionAt = requestedAt;
@@ -202,7 +213,7 @@ export function requestLaneSync(
   if (coordinatorState.disposed || !lane.pumpDriven) {
     return;
   }
-  lane.notBeforeAtMs = null;
+  lane.request = transitionSyncLaneRequest(lane.request, { type: "request" });
   markLaneRequested(lane, createSyncTimestamp());
   publishSyncCoordinatorSnapshot(coordinatorState);
   scheduleCoordinatorPump(coordinatorState);
@@ -216,23 +227,32 @@ export function requestLaneSyncAfter(
   if (coordinatorState.disposed || !lane.pumpDriven) {
     return;
   }
-  if (lane.requested && lane.notBeforeAtMs === null) {
+  // An immediate request already owes a pass; a delay never postpones it.
+  if (lane.request.status === "queued") {
     return;
   }
-  const requestedAtMs = Date.now() + Math.max(0, delayMs);
-  lane.notBeforeAtMs =
-    lane.notBeforeAtMs === null
-      ? requestedAtMs
-      : Math.min(lane.notBeforeAtMs, requestedAtMs);
+  const request = transitionSyncLaneRequest(lane.request, {
+    type: "request-after",
+    notBeforeAtMs: Date.now() + Math.max(0, delayMs),
+  });
+  lane.request = request;
   markLaneRequested(lane, createSyncTimestamp());
   publishSyncCoordinatorSnapshot(coordinatorState);
-  const scheduledAtMs = lane.notBeforeAtMs;
+  // Narrowing only: a request-after leaves no other request pending.
+  if (request.status !== "delayed") {
+    return;
+  }
+  const scheduledAtMs = request.notBeforeAtMs;
   setTimeout(
     () => {
-      if (coordinatorState.disposed || lane.notBeforeAtMs !== scheduledAtMs) {
+      const next = transitionSyncLaneRequest(lane.request, {
+        type: "delay-elapse",
+        notBeforeAtMs: scheduledAtMs,
+      });
+      if (coordinatorState.disposed || next === lane.request) {
         return;
       }
-      lane.notBeforeAtMs = null;
+      lane.request = next;
       publishSyncCoordinatorSnapshot(coordinatorState);
       scheduleCoordinatorPump(coordinatorState);
     },
@@ -255,7 +275,7 @@ export function requestAllPumpDrivenLanes(
     if (!lane.pumpDriven) {
       continue;
     }
-    lane.notBeforeAtMs = null;
+    lane.request = transitionSyncLaneRequest(lane.request, { type: "request" });
     markLaneRequested(lane, requestedAt);
     didRequestLane = true;
   }
