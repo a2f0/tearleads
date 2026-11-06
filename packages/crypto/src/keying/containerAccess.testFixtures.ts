@@ -39,18 +39,21 @@ export async function createContainerManifestFixture(input: {
     input.metadataDocumentId ?? `${input.containerId}-metadata-document`;
   const containerKeyEpochId = input.containerKeyEpochId ?? null;
   const parentManifestHash = input.parentManifestHash ?? null;
+  const parentContainerId = input.parentContainerId ?? null;
+  const previousManifestHash = input.previousManifestHash ?? null;
+  const referencedPrincipalHeads = input.referencedPrincipalHeads ?? [];
   const body: ContainerCreateAccessEventBody = {
     containerKeyPublicKey:
       input.containerKeyPublicKey ??
       containerWrappingPublicKeyForTest(containerKeyEpochId),
     systemSlot: null,
     eventType: "container.create",
-    parentContainerId: input.parentContainerId ?? null,
+    parentContainerId,
     parentManifestHash,
     metadataDocumentId,
     containerKeyEpochId,
     directGrants: [...input.directGrants],
-    referencedPrincipalHeads: input.referencedPrincipalHeads ?? [],
+    referencedPrincipalHeads,
   };
   const event =
     input.event ??
@@ -59,7 +62,7 @@ export async function createContainerManifestFixture(input: {
       dependencyManifestHashes: parentManifestHash ? [parentManifestHash] : [],
       objectId: input.containerId,
       organizationId,
-      previousManifestHash: input.previousManifestHash ?? null,
+      previousManifestHash,
       signer,
       signerUserId: input.signerUserId ?? "fixture-signer",
     }));
@@ -70,14 +73,14 @@ export async function createContainerManifestFixture(input: {
     containerId: input.containerId,
     organizationId,
     epoch: input.epoch ?? 1,
-    previousManifestHash: input.previousManifestHash ?? null,
+    previousManifestHash,
     eventHash: event.eventHash,
-    parentContainerId: input.parentContainerId ?? null,
+    parentContainerId,
     parentManifestHash,
     metadataDocumentId,
     containerKeyEpochId,
     directGrants: [...input.directGrants],
-    referencedPrincipalHeads: input.referencedPrincipalHeads ?? [],
+    referencedPrincipalHeads,
   };
   const manifest = await deriveContainerAccessManifest(state);
 
