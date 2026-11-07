@@ -56,6 +56,11 @@ test("the signed roster admits recipients an admin this device verified added", 
   );
   await fresh.idle();
   world.model.grant(folder.id, { kind: "user", id: bob.userId }, "read");
+  // The roster vouches for Bob's encryption key, never his signing key, so it
+  // cannot back access whose signed edits this install would accept.
+  await expect(
+    freshTree.shareWithUser(folder.id, bob.userId, "write"),
+  ).rejects.toBeInstanceOf(UnverifiedUserIdentityError);
   // Carol signed Dave's addition, and this install only observed her key.
   await expect(
     freshTree.shareWithUser(folder.id, dave.userId, "read"),

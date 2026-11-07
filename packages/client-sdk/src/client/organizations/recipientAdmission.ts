@@ -1,3 +1,4 @@
+import type { ContainerAccessLevel } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { requireOrganizationGroupHead } from "../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -77,23 +78,31 @@ function createRosterAdmissionEvidence(
 }
 
 /**
- * Admits a user as a folder or group recipient, against the trust store of the
- * database the admitting runtime writes: a pin that a verified identity link
- * or this device's own keys established, or else the active organization's
- * signed roster vouching for their encryption key (`isRosterVouchedRecipient`).
- * Throws the original `UnverifiedUserIdentityError` when neither admits.
+ * Admits a folder share recipient, against the trust store of the database
+ * the admitting runtime writes: a pin that a verified identity link or this
+ * device's own keys established, or, for a read share only, the active
+ * organization's signed roster vouching for their encryption key
+ * (`isRosterVouchedRecipient`). Vouching never authenticates the recipient's
+ * signing key, so it cannot back write or admin access, whose signed actions
+ * would be checked against that key. Throws the original
+ * `UnverifiedUserIdentityError` when nothing admits.
  */
-export async function requireAdmittedRecipient(
+export async function requireShareRecipient(
   service: AdmissionRuntimeService,
   admittingExecSql: ExecSql,
   userId: string,
+  accessLevel: ContainerAccessLevel,
 ): Promise<void> {
   try {
     await service.identityLinks.requireVerified(userId, admittingExecSql);
   } catch (error) {
     const runtime = service.workflowInput();
     const organizationId = runtime.auth.organizationId;
-    if (!(error instanceof UnverifiedUserIdentityError) || !organizationId)
+    if (
+      !(error instanceof UnverifiedUserIdentityError) ||
+      accessLevel !== "read" ||
+      !organizationId
+    )
       throw error;
     const evidence = createRosterAdmissionEvidence(
       service,

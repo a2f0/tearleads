@@ -55,7 +55,7 @@ import {
   createOrganizationReadModelCoordinator,
   type OrganizationReadModelCoordinator,
 } from "../organizations/organizationReadModels";
-import { requireAdmittedRecipient } from "../organizations/recipientAdmission";
+import { requireShareRecipient } from "../organizations/recipientAdmission";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
@@ -461,11 +461,12 @@ class ContainerContentsService implements ContainerContents {
       input,
       this.runtimeService.adoptRootContainer,
       // Admit against the trust store of the database this runtime writes.
-      (userId) =>
-        requireAdmittedRecipient(
+      (userId, accessLevel) =>
+        requireShareRecipient(
           this.runtimeService,
           input.infra.execSql,
           userId,
+          accessLevel,
         ),
     );
   }

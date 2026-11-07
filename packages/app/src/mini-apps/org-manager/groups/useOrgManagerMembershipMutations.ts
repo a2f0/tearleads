@@ -15,6 +15,7 @@ import {
   addRosterUserToGroup,
   refreshAfterGroupMutation,
 } from "./orgManagerMutationOperations";
+import { resolveGroupIdentity } from "./resolveGroupIdentity";
 
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 
@@ -41,7 +42,7 @@ interface OrgManagerMembershipMutationsParams {
 
 async function addUserToSelectedGroup(
   params: OrgManagerMembershipMutationsParams,
-  identities: Pick<UserIdentities, "verifyLink">,
+  identities: Pick<UserIdentities, "verifyLink" | "resolveVerified">,
 ): Promise<void> {
   const targetUserId = params.addUserId.trim();
   const directoryUser = params.directory?.users.find(
@@ -82,11 +83,13 @@ async function addUserToSelectedGroup(
     logError: params.logError,
     operationOrganizationId,
     run: async () => {
-      // The SDK admits a roster selection only through a verified link, this
-      // device's keys, or the signed roster vouching for them; anyone else
-      // needs an identity link, verified before any group mutation.
-      const verifiedUser =
-        directoryUser ?? (await identities.verifyLink(targetUserId));
+      // A directory selection must already be link-verified; anyone else
+      // needs an identity link. The SDK refuses an unverified member too.
+      const verifiedUser = await resolveGroupIdentity({
+        directoryUser,
+        value: targetUserId,
+        ...identities,
+      });
       if (!params.isOperationActive(operationOrganizationId)) return;
       const verifiedDirectoryUser = params.directory?.users.find(
         (user) => user.userId === verifiedUser.userId,
@@ -185,11 +188,12 @@ async function removeUserFromSelectedGroup(
 export function useOrgManagerMembershipMutations(
   params: OrgManagerMembershipMutationsParams,
 ) {
-  const { verifyLink } = useIdentityLinks();
+  const { verifyLink, resolveVerified } = useIdentityLinks();
   const addUser = useCallback(
-    () => addUserToSelectedGroup(params, { verifyLink }),
+    () => addUserToSelectedGroup(params, { verifyLink, resolveVerified }),
     [
       verifyLink,
+      resolveVerified,
       params.addUserId,
       params.appData.auth.userId,
       params.appData.crypto.encapsulationKeyPair,

@@ -38,7 +38,7 @@ import { listAllContainerDocumentIdsFromApi } from "../../workflows/container-co
 import { probeUndiscoveredRemoteDocumentBatch } from "../../workflows/container-contents/documentPriming/documentHydrationProbe";
 import type { ContainerContents } from "../containerContents";
 import { discoverContainerDocumentLanesForRuntime } from "../containerContents/documentDiscovery";
-import { requireAdmittedRecipient } from "../organizations/recipientAdmission";
+import { requireShareRecipient } from "../organizations/recipientAdmission";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { createReconciledDocumentContentPuller } from "./reconciledDocumentContentPull";
 
@@ -343,7 +343,12 @@ export function createDeviceFirstWorkflowRuntime(
     input,
     runtimeService.adoptRootContainer,
     // Admit against the trust store of the database this runtime writes.
-    (userId) =>
-      requireAdmittedRecipient(runtimeService, input.infra.execSql, userId),
+    (userId, accessLevel) =>
+      requireShareRecipient(
+        runtimeService,
+        input.infra.execSql,
+        userId,
+        accessLevel,
+      ),
   );
 }

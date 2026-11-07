@@ -14,8 +14,8 @@ admit another user. Adding a contact, adding a
 [roster](../glossary/principals.md#organization-roster-entry) (organization)
 user, adding a user to a group, sharing a folder with a user, and creating a
 roster profile document all require an identity that a verified
-[identity link](#identity-links), or this device's own keys, established. Adding
-an existing member to a group and sharing a folder with one also accept the
+[identity link](#identity-links), or this device's own keys, established. A
+read-only folder share with an existing member also accepts the
 organization's signed roster when an admin this device verified added them
 ([roster vouching](#roster-vouching)). The SDK has no public lookup by user ID
 that trusts the server's first answer.
@@ -154,21 +154,20 @@ it:
   otherwise opens the identity-link form.
 - Roster: Add by Identity Link verifies the link, then adds the user to the
   [Members group](../glossary/principals.md#organization-members-group).
-- Groups: the add-member field takes an identity link, or a roster user the SDK
-  admits (a link, or [roster vouching](#roster-vouching)); otherwise the SDK
-  asks for the person's identity link.
+- Groups: the add-member field takes an identity link, or a roster user that a
+  link already verified; otherwise it asks for the person's identity link.
 - Explorer: Share with Peer verifies the other pane's published identity link
-  before sharing. A folder's New Share to a User admits the same roster users
-  as the group add-member field.
+  before sharing. A folder's New Share to a User admits a link-verified user,
+  or for read access a [roster-vouched](#roster-vouching) member.
 - Org Manager: opening a roster user without a profile document creates one
   only for a link-verified user; otherwise it asks for their identity link.
 
 The SDK enforces the same rule below the app. `organizations.addUserToGroup`
 and a container store's `shareWithUser` throw `UnverifiedUserIdentityError`
 (code `user_identity_unverified`) for a target whose pin is missing or only
-`observed`, before any request, unless the roster vouches for the target. The
-demo's dual panes publish each pane's identity link and verify the peer's
-before admitting it.
+`observed`, before any request, unless the roster vouches for the target of a
+read share. The demo's dual panes publish each pane's identity link and verify
+the peer's before admitting it.
 
 The v1 URL is `/app/contacts/import/<token>`. The token is unpadded canonical
 base64url of the UTF-8 JSON array `[1, identityTrustDomain, userId, fingerprint]`.
@@ -212,9 +211,9 @@ Adding a user to the organization's
 the adding admin's device to have verified the user's identity link, and the
 signed Members state that adds them commits the user's encryption-key
 fingerprint in its member envelopes. Removing them is a signed Members state
-too. So for the two admissions that use only the recipient's encryption key, a
-group add and a folder share, the SDK also admits an `observed` user when all of
-these hold on this device:
+too. So for a read-only folder share, which uses only the recipient's
+encryption key, the SDK also admits an `observed` user when all of these hold on
+this device:
 
 - The verified current Members state lists the user, with an envelope whose
   key fingerprint equals the user's pinned encryption-key fingerprint.
@@ -234,7 +233,12 @@ admins either, because group envelopes commit encryption keys only, so adding
 an admin does not vouch for the new admin's signing key. The walk covers 64
 history pages; a membership that started earlier needs the user's own link.
 
-Vouching admits the encryption key only. It never raises a pin to `link`, so
-`resolveVerified` and `createLinkFor` still return nothing for the user, and
-their signing key stays `observed`. Like a link, it proves no currentness: a
-device that has not seen a removal may still vouch for the removed user.
+Vouching authenticates the encryption key only; the user's signing key stays
+`observed`. Write and admin shares and group adds therefore still need a link:
+each lets this device accept actions signed with that key, so a server that
+kept the real encryption key but substituted the signing key could forge them.
+Committing members' signing-key fingerprints in signed group states would lift
+that limit. Vouching never raises a pin to `link`, so `resolveVerified` and
+`createLinkFor` still return nothing for the user. Like a link, it proves no
+currentness: a device that has not seen a removal may still vouch for the
+removed user.
