@@ -8,9 +8,11 @@ import type {
 } from "@tearleads/client-sdk";
 import { useContextMenuState } from "@tearleads/windowing";
 import { CreateGroupDialog } from "./CreateGroupDialog";
+import { DeleteGroupConfirmationDialog } from "./DeleteGroupConfirmationDialog";
 import { GroupContextMenu } from "./GroupContextMenu";
 import { GroupDetailSection } from "./GroupDetailSection";
 import { GroupListSection } from "./GroupTable";
+import { useGroupDeletionConfirmation } from "./useGroupDeletionConfirmation";
 
 interface GroupsViewProps {
   addUser: () => void | Promise<void>;
@@ -83,6 +85,12 @@ export function GroupsView({
 }: GroupsViewProps) {
   const { closeContextMenu, contextMenu, openContextMenu } =
     useContextMenuState<string | null>();
+  const deletion = useGroupDeletionConfirmation({
+    canDeleteGroup,
+    deleteGroup,
+    groups,
+    mutating,
+  });
   const contextMenuGroup =
     groups.find((group) => group.groupId === contextMenu?.id) ?? null;
   const groupContextMenu = (
@@ -90,7 +98,7 @@ export function GroupsView({
       canCreateGroup={canCreateGroup}
       canDeleteGroup={canDeleteGroup}
       closeContextMenu={closeContextMenu}
-      deleteGroup={deleteGroup}
+      requestDeleteGroup={deletion.request}
       group={contextMenuGroup}
       mutating={mutating}
       openCreateGroupDialog={openCreateGroupDialog}
@@ -118,42 +126,42 @@ export function GroupsView({
     />
   );
 
-  if (!selectedGroup) {
-    return (
-      <>
-        {groupListSection}
-        {groupContextMenu}
-        {createGroupDialog}
-      </>
-    );
-  }
-
   return (
     <>
-      <GroupDetailSection
-        pending={pending}
-        addUser={addUser}
-        addUserId={addUserId}
-        addUserListId={addUserListId}
-        addableUsers={addableUsers}
-        canMutateSelectedGroup={canMutateSelectedGroup}
-        directory={directory}
-        groupContainers={groupContainers}
-        groupPolicyHistory={groupPolicyHistory}
-        loadMoreGroupHistory={loadMoreGroupHistory}
-        members={members}
-        memberUserIds={memberUserIds}
-        mutating={mutating}
-        openGroupContextMenu={openContextMenu}
-        openRosterUser={openRosterUser}
-        profileDisplayNamesByUserId={profileDisplayNamesByUserId}
-        removeMember={removeMember}
-        selectedGroup={selectedGroup}
-        setAddUserId={setAddUserId}
-        userId={userId}
-      />
+      {selectedGroup ? (
+        <GroupDetailSection
+          pending={pending}
+          addUser={addUser}
+          addUserId={addUserId}
+          addUserListId={addUserListId}
+          addableUsers={addableUsers}
+          canMutateSelectedGroup={canMutateSelectedGroup}
+          directory={directory}
+          groupContainers={groupContainers}
+          groupPolicyHistory={groupPolicyHistory}
+          loadMoreGroupHistory={loadMoreGroupHistory}
+          members={members}
+          memberUserIds={memberUserIds}
+          mutating={mutating}
+          openGroupContextMenu={openContextMenu}
+          openRosterUser={openRosterUser}
+          profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+          removeMember={removeMember}
+          selectedGroup={selectedGroup}
+          setAddUserId={setAddUserId}
+          userId={userId}
+        />
+      ) : (
+        groupListSection
+      )}
       {groupContextMenu}
       {createGroupDialog}
+      <DeleteGroupConfirmationDialog
+        disabled={deletion.disabled}
+        group={deletion.group}
+        onCancel={deletion.cancel}
+        onConfirm={deletion.confirm}
+      />
     </>
   );
 }

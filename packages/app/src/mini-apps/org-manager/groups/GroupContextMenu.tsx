@@ -8,7 +8,7 @@ export function GroupContextMenu({
   canDeleteGroup,
   canCreateGroup,
   closeContextMenu,
-  deleteGroup,
+  requestDeleteGroup,
   group,
   mutating,
   openCreateGroupDialog,
@@ -17,7 +17,7 @@ export function GroupContextMenu({
   canDeleteGroup: (group: OrganizationGroupSummary) => boolean;
   canCreateGroup: boolean;
   closeContextMenu: () => void;
-  deleteGroup: (groupId: string) => void;
+  requestDeleteGroup: (groupId: string) => void;
   group: OrganizationGroupSummary | null;
   mutating: boolean;
   openCreateGroupDialog: () => void;
@@ -37,7 +37,7 @@ export function GroupContextMenu({
     }
 
     closeContextMenu();
-    deleteGroup(group.groupId);
+    requestDeleteGroup(group.groupId);
   };
 
   return (
