@@ -53,9 +53,9 @@ test("API Requests shows earlier traffic, updates live, survives reopening and r
   const reopened = renderPane({ hostConfig, pinSystemMonitor: false });
   table = await open(reopened);
   expect(table.getByText("2")).toBeTruthy();
-  fireEvent.click(
-    reopened.getByRole("button", { name: "Reset request counts" }),
-  );
+  const reset = reopened.getByRole("button", { name: "Reset request counts" });
+  expect(reset.closest(".window-toolbar")).not.toBeNull();
+  fireEvent.click(reset);
   expect(reopened.getByText("No API requests recorded yet.")).toBeTruthy();
   expect(reopened.getByText("No timed API requests yet.")).toBeTruthy();
   expect(metrics.getSnapshot(null).total).toBe(0);
