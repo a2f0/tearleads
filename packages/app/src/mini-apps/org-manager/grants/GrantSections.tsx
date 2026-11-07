@@ -6,6 +6,7 @@ import {
 } from "../../../components/mini-app/MiniAppLayout";
 import { useAppFeatureFlags } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
 import { useGrantRowMenu } from "../../shared/grants/useGrantRowMenu";
+import { ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerGrantRouteRef } from "../routes";
 import { GrantTable } from "./GrantTable";
 import { withoutOrganizationMetadataSystemGrants } from "./systemGrants";
@@ -48,6 +49,7 @@ export function GrantSections({
         }),
       revoke: {
         canRevoke: (grant) => canRevokeGrants && !grant.isBuiltin && !mutating,
+        label: ORG_MANAGER_LABELS.revoke,
         onRevoke: revokeGrant,
       },
     });
