@@ -108,8 +108,9 @@ function getShareableUserOptions(
   });
 }
 
-// The recipient kind and user pick. Like the group draft, a picked user who
-// leaves the roster or gains a grant falls back to the first one remaining.
+// The recipient kind and user pick. No user is preselected, and a pick who
+// leaves the roster or gains a grant clears instead of falling to another
+// member, so a user share always names the person who was chosen.
 function useExplorerContainerInfoUserDraft(params: {
   containerId: string;
   readModelProjection: OrganizationDirectoryAndGroups | null | undefined;
@@ -126,7 +127,7 @@ function useExplorerContainerInfoUserDraft(params: {
   );
   const userId = userOptions.some((option) => option.id === draftUserId)
     ? draftUserId
-    : (userOptions[0]?.id ?? "");
+    : "";
 
   useEffect(() => {
     setSubjectType("group");

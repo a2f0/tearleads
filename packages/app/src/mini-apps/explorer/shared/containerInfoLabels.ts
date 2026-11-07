@@ -10,6 +10,7 @@ export const EXPLORER_CONTAINER_INFO_LABELS = {
   containerIconUpdateFailure: "Failed to update the folder icon.",
   containerInfoChooseGroupError: "Choose a group.",
   containerInfoChooseUserError: "Choose a user.",
+  containerInfoChooseUserOption: "Choose a user",
   containerInfoChosenGroupUnavailableError:
     "The chosen group is no longer available. Choose another group.",
   containerInfoCreatedRow: "Created",

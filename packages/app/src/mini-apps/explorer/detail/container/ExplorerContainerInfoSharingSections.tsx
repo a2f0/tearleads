@@ -339,7 +339,9 @@ export function ExplorerContainerInfoNewShareSection(params: {
           placeholder={
             isGroupShare
               ? EXPLORER_LABELS.containerInfoNoGroupsOption
-              : EXPLORER_LABELS.containerInfoNoUsersOption
+              : shareDraft.userOptions.length === 0
+                ? EXPLORER_LABELS.containerInfoNoUsersOption
+                : EXPLORER_LABELS.containerInfoChooseUserOption
           }
         />
       </MiniAppFieldGroup>

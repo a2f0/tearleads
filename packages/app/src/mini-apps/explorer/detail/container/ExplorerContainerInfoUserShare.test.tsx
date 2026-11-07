@@ -100,35 +100,40 @@ type ShareWithUser = (
   accessLevel: ContainerShareAccessLevel,
 ) => Promise<boolean>;
 
+function panelElement(
+  shareWithUser: ShareWithUser,
+  readModel: OrganizationDirectoryAndGroups = READ_MODEL,
+) {
+  return createElement(ExplorerContainerInfoPanel, {
+    canManageIcon: false,
+    canShareContainer: true,
+    canShareWithPeer: false,
+    containerIcon: null,
+    containerId: "container-1",
+    containerName: "Documents",
+    containerNamesById: new Map([["container-1", "Documents"]]),
+    containerSyncStatus: "synced",
+    loadContainerInfo: async () => containerInfo(),
+    logError: () => undefined,
+    onOpenGrant: () => undefined,
+    peerUserId: null,
+    readModelProjection: readModel,
+    resolveUserLabel: (userId) =>
+      userId ? (PROFILE_NAMES[userId] ?? null) : null,
+    setContainerIcon: async () => null,
+    shareScope: {
+      domainScope: {},
+      organizationId: "org-1",
+      signingFingerprint: "fingerprint-1",
+      userId: "user-self",
+    },
+    shareWithGroup: async () => true,
+    shareWithUser,
+  });
+}
+
 function renderPanel(shareWithUser: ShareWithUser) {
-  return render(
-    createElement(ExplorerContainerInfoPanel, {
-      canManageIcon: false,
-      canShareContainer: true,
-      canShareWithPeer: false,
-      containerIcon: null,
-      containerId: "container-1",
-      containerName: "Documents",
-      containerNamesById: new Map([["container-1", "Documents"]]),
-      containerSyncStatus: "synced",
-      loadContainerInfo: async () => containerInfo(),
-      logError: () => undefined,
-      onOpenGrant: () => undefined,
-      peerUserId: null,
-      readModelProjection: READ_MODEL,
-      resolveUserLabel: (userId) =>
-        userId ? (PROFILE_NAMES[userId] ?? null) : null,
-      setContainerIcon: async () => null,
-      shareScope: {
-        domainScope: {},
-        organizationId: "org-1",
-        signingFingerprint: "fingerprint-1",
-        userId: "user-self",
-      },
-      shareWithGroup: async () => true,
-      shareWithUser,
-    }),
-  );
+  return render(panelElement(shareWithUser));
 }
 
 function openMenuOptions(view: ReturnType<typeof render>, name: string) {
@@ -177,7 +182,10 @@ test("a direct user share sends the chosen roster user and permission", async ()
         option.querySelector(".mini-app-select-menu-label")?.textContent,
     ),
   ).toEqual(["Bob", "Carol"]);
-  // Bob is preselected; picking Carol exercises the choice.
+  // No user is preselected: Share waits for an explicit pick.
+  expect(
+    view.getByRole("button", { name: "Share" }).hasAttribute("disabled"),
+  ).toBe(true);
   const carol = userOptions[1];
   if (!carol) {
     throw new Error("Expected the Carol option.");
@@ -208,6 +216,7 @@ test("an unverified recipient asks for their identity link", async () => {
     throw new UnverifiedUserIdentityError(userId);
   });
   await openUserShare(view);
+  pickOption(view, "User", "Bob");
   fireEvent.click(view.getByRole("button", { name: "Share" }));
 
   await waitFor(() => {
@@ -217,6 +226,48 @@ test("an unverified recipient asks for their identity link", async () => {
       ),
     ).toBeTruthy();
   });
+});
+
+// A roster refresh can drop the chosen person (disabled here). The pick must
+// clear rather than move to another member, so Share cannot reach the wrong
+// person.
+test("a chosen user who leaves the roster clears the pick", async () => {
+  const shareCalls: string[] = [];
+  const shareWithUser: ShareWithUser = async (_containerId, userId) => {
+    shareCalls.push(userId);
+    return true;
+  };
+  const view = renderPanel(shareWithUser);
+  await openUserShare(view);
+  pickOption(view, "User", "Bob");
+
+  view.rerender(
+    panelElement(shareWithUser, {
+      ...READ_MODEL,
+      directory: {
+        ...READ_MODEL.directory,
+        users: READ_MODEL.directory.users.map((user) =>
+          user.userId === "user-bob"
+            ? {
+                ...user,
+                disabledAt: "2026-05-25T12:00:00.000Z",
+                status: "disabled",
+              }
+            : user,
+        ),
+      },
+    }),
+  );
+
+  await waitFor(() => {
+    expect(view.getByRole("combobox", { name: "User" }).textContent).toBe(
+      "Choose a user",
+    );
+  });
+  const share = view.getByRole("button", { name: "Share" });
+  expect(share.hasAttribute("disabled")).toBe(true);
+  fireEvent.click(share);
+  expect(shareCalls).toEqual([]);
 });
 
 // A share outlives a switch to another folder. Its reload and its failure
