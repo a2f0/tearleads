@@ -47,13 +47,18 @@ function ToolbarRefresh() {
 
 function orgManagerWindow(input: {
   billingOpen: boolean;
+  isOrgAdmin?: boolean;
   rosterRefresh: () => void;
 }) {
   return (
     <WindowMenuProvider>
       <RosterRefresh onRefresh={input.rosterRefresh} />
       {input.billingOpen ? (
-        <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />
+        <BillingPanel
+          isOrgAdmin={input.isOrgAdmin ?? true}
+          organizationId="org-1"
+          userId="user-1"
+        />
       ) : null}
       <ToolbarRefresh />
     </WindowMenuProvider>
@@ -119,4 +124,21 @@ test("the toolbar Refresh waits while a checkout is in flight", async () => {
   });
 
   expect(toolbarRefresh(view).disabled).toBe(true);
+});
+
+test("losing admin rights mid history load releases the toolbar Refresh", async () => {
+  // The admin-only history read never settles, so its first load stays open.
+  stubEnvironment(false, { loadBillingHistory: () => new Promise(() => {}) });
+  const rosterRefresh = () => undefined;
+  const view = render(orgManagerWindow({ billingOpen: true, rosterRefresh }), {
+    wrapper,
+  });
+  await view.findByText(ORG_MANAGER_LABELS.billingTitle);
+  expect(toolbarRefresh(view).disabled).toBe(true);
+
+  view.rerender(
+    orgManagerWindow({ billingOpen: true, isOrgAdmin: false, rosterRefresh }),
+  );
+
+  await waitFor(() => expect(toolbarRefresh(view).disabled).toBe(false));
 });
