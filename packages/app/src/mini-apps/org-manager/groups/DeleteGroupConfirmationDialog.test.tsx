@@ -39,3 +39,27 @@ test("disabled deletion blocks form submission but still allows cancellation", (
   );
   expect(cancelled).toBe(true);
 });
+
+test("identifies unreadable groups with the same fallback as the group list", () => {
+  const view = render(
+    <DeleteGroupConfirmationDialog
+      disabled={false}
+      group={{
+        createdAt: "2026-05-20T12:00:00.000Z",
+        currentState: null,
+        groupId: "unreadable-group",
+        isBuiltin: false,
+        name: "",
+        nameUnreadable: true,
+        organizationId: "organization-1",
+      }}
+      onCancel={() => {}}
+      onConfirm={() => {}}
+    />,
+  );
+  expect(
+    view.getByText((text) =>
+      text.includes(ORG_MANAGER_LABELS.unreadableGroupName),
+    ),
+  ).toBeTruthy();
+});

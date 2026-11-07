@@ -167,7 +167,6 @@ function OrgManagerContent({
 function OrgManagerGroupsContent({ model }: { model: OrgManagerModel }) {
   return (
     <GroupsView
-      key={model.organizationId}
       addUser={model.addUser}
       addUserId={model.addUserId}
       addUserListId={model.addUserListId}
