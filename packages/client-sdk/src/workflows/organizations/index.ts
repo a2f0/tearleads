@@ -127,6 +127,13 @@ export {
   reconcileOrganizationDataUsage,
 } from "./readModel/dataUsageReadModel";
 export {
+  measureOrganizationDeviceDataUsage,
+  ORGANIZATION_DOCUMENT_USAGE_CATEGORIES,
+  type OrganizationDeviceDataUsage,
+  type OrganizationDeviceDocumentUsageCategoryBreakdown,
+  type OrganizationDocumentUsageCategory,
+} from "./readModel/deviceDataUsage";
+export {
   type LocalOrganizationSummary,
   listLocalOrganizations,
 } from "./readModel/listLocalOrganizations";

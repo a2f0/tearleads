@@ -57,6 +57,7 @@ type OrgManagerOrganizationActions = Pick<
   | "createGroup"
   | "deleteGroup"
   | "loadDataUsage"
+  | "loadDeviceDataUsage"
   | "loadDirectoryAndGroups"
   | "loadDirectoryAndGroupsAfterMutation"
   | "loadGrants"
@@ -102,6 +103,7 @@ const organizationActionKeys =
     "createGroup",
     "deleteGroup",
     "loadDataUsage",
+    "loadDeviceDataUsage",
     "loadLocalDataUsage",
     "loadDirectoryAndGroups",
     "loadDirectoryAndGroupsAfterMutation",

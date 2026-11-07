@@ -1,5 +1,12 @@
 export const DATA_USAGE_LABELS = {
+  deviceDataUsage: "On-device data usage",
+  deviceUsageDefinition:
+    "What this device stores for this organization: each document's history, keys, and search text, plus downloaded files. Measured from local records, so sizes differ from synced (encrypted) sizes.",
+  deviceUsageFailed: "Couldn't measure on-device usage. Try Refresh.",
+  deviceUsageUnavailable:
+    "On-device usage isn't available until this organization's local data is ready.",
   loadingDataUsage: "Loading data usage...",
+  loadingDeviceDataUsage: "Measuring on-device usage...",
   organizationDataUsage: "Synced data usage",
   usageBlob: "file",
   usageBlobs: "Files",
@@ -12,11 +19,14 @@ export const DATA_USAGE_LABELS = {
   usageData: "Documents and files",
   usageDefinition:
     "The encrypted documents and files sync stores for this organization. Data kept only on your devices and organization records aren't counted.",
+  usageDeviceTab: "On device",
   usageDocument: "document",
   usageDocuments: "Documents",
   usageDocumentsUnit: "documents",
+  usageSyncedTab: "Synced",
   usageSyncOff:
     "Sync is off for this organization, so locally queued metadata and files may not appear here.",
+  usageTabsLabel: "Usage sections",
   usageTotal: "Total",
   usageUnavailable: "Usage hasn't synced yet. Try Refresh.",
   usageUpdate: "update",

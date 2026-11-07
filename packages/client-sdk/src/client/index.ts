@@ -191,6 +191,8 @@ export type {
   OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDataUsage,
+  OrganizationDeviceDataUsage,
+  OrganizationDeviceDocumentUsageCategoryBreakdown,
   OrganizationDirectory,
   OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
