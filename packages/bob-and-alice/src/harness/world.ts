@@ -291,10 +291,10 @@ export class World {
     const shared = await (await device.tree()).shareWithUser(
       folder.id,
       recipient.userId,
+      "write",
     );
     if (!shared) throw device.failure(`could not share ${folder.name}`);
     await device.idle();
-    // The product's direct user share always grants write.
     this.model.grant(
       folder.id,
       { kind: "user", id: recipient.userId },

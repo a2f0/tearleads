@@ -2,6 +2,7 @@ import type {
   ContainerInfo,
   ContainerShareAccessLevel,
   OrganizationDirectoryAndGroups,
+  OrganizationDirectoryUser,
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useRef } from "react";
@@ -85,6 +86,25 @@ export function getContainerInfoShareableGroups(
       !group.nameUnreadable &&
       group.name !== "" &&
       !directlyGrantedGroupIds.has(group.groupId),
+  );
+}
+
+// Roster members a folder can be shared with directly: active, not the
+// viewer, and not already holding a direct grant on this folder.
+export function getContainerInfoShareableUsers(
+  remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>,
+  directoryUsers: ReadonlyArray<OrganizationDirectoryUser>,
+): OrganizationDirectoryUser[] {
+  const directlyGrantedUserIds = new Set(
+    remoteInfo.grants.flatMap((grant) =>
+      grant.subjectType === "user" ? [grant.subjectId] : [],
+    ),
+  );
+  return directoryUsers.filter(
+    (user) =>
+      user.status === "active" &&
+      !user.isSelf &&
+      !directlyGrantedUserIds.has(user.userId),
   );
 }
 

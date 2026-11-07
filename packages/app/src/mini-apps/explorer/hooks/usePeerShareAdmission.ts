@@ -1,3 +1,4 @@
+import type { ContainerShareAccessLevel } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import { useIdentityLinks } from "../../../providers/identity-links/useIdentityLinks";
 import {
@@ -21,14 +22,18 @@ export function usePeerShareAdmission(explorer: ExplorerValue): ExplorerValue {
     const share = explorer.shareWithUser;
     return {
       ...explorer,
-      shareWithUser: async (containerId: string, userId: string) => {
+      shareWithUser: async (
+        containerId: string,
+        userId: string,
+        accessLevel: ContainerShareAccessLevel,
+      ) => {
         if (userId === peerUserId && peerLink) {
           const identity = await verifyLink(peerLink);
           if (identity.userId !== userId) {
             throw new Error("The peer's identity link names another user.");
           }
         }
-        return share(containerId, userId);
+        return share(containerId, userId, accessLevel);
       },
     };
   }, [explorer, peerLink, peerUserId, verifyLink]);

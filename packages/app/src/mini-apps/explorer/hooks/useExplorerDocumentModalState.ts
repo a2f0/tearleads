@@ -22,7 +22,7 @@ export function useExplorerDocumentModalState(params: {
   rulesContext: ExplorerContainerRulesContext;
   setSelectedId: (id: string | null) => void;
   selectionExpandNode: (nodeId: string) => void;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+  shareWithUser: ExplorerModelExplorer["shareWithUser"];
   startContainerPurge: (containerId: string) => void;
   startEmptyTrash: (trashContainerId: string) => void;
 }): ExplorerDocumentModalState {
