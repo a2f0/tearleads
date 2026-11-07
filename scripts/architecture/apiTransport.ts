@@ -44,6 +44,10 @@ export const nonApiNetworkSourceFiles: ReadonlyMap<string, string> = new Map([
     "posts a download to the local Bun host bridge",
   ],
   [
+    `${packageSourcePath.appWeb}/worker/missingAssetWorker.ts`,
+    "the app Worker's request handler and its static assets binding",
+  ],
+  [
     `${packageSourcePath.diagnostics}/fetch.ts`,
     "Sentry envelopes and the packaged sentry-assets.json",
   ],

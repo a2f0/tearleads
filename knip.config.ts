@@ -84,6 +84,8 @@ const baseConfig = {
         "scripts/buildApp.ts",
         "src/index.tsx",
         "src/servers/devServer.ts",
+        // Published by wrangler.app.jsonc and wrangler.demo.jsonc.
+        "src/worker/missingAssetWorker.ts",
         // Knip 6.40 finds e2eServer.ts through Playwright's webServer.command.
         "e2e/**/*.spec.ts",
         // Bundled by the diagnostics browser test through a runtime path.
@@ -264,6 +266,7 @@ const productionConfig = {
         "scripts/buildApp.ts!",
         "src/index.tsx!",
         "src/servers/devServer.ts!",
+        "src/worker/missingAssetWorker.ts!",
       ],
       project: [...productionProject, "!src/servers/e2eServer.ts"],
     },
