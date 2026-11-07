@@ -48,7 +48,6 @@ function props(onRetryOptions: () => void): BillingViewProps {
     onSubscribe: () => undefined,
     onRestore: () => undefined,
     onRetryOptions,
-    onRefresh: () => undefined,
   };
 }
 

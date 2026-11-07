@@ -1,5 +1,6 @@
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { type FormEvent, useCallback, useId } from "react";
 import {
   MiniAppActions,
@@ -184,7 +185,6 @@ interface BillingPanelControlsInput {
   readonly isOrgAdmin: boolean;
   readonly isPersonalOrganization: boolean | null;
   readonly nativePurchaseAllowed: boolean;
-  readonly onRefresh: () => void;
   readonly organizationId: string;
   readonly subscriptionManagement: ReturnType<
     typeof useOpenSubscriptionManagement
@@ -224,7 +224,6 @@ function BillingPanelSummary(input: BillingPanelControlsInput) {
         actions.purchaseAvailable && input.isPersonalOrganization === false
       }
       onManageSubscription={input.subscriptionManagement.open}
-      onRefresh={input.onRefresh}
       onRestore={actions.requestSubscriptionMove}
       onRetryOptions={actions.retryOptions}
       onStartTrial={actions.startTrial}
@@ -363,8 +362,27 @@ function useBillingPanelRecovery(props: BillingPanelProps) {
   });
 }
 
-function useVoidRefresh(refresh: () => Promise<void>) {
-  return useCallback(() => void refresh(), [refresh]);
+// Billing owns the window's Refresh while visible, outranking the roster-wide
+// refresh so the toolbar re-reads this organization's billing and history.
+function useBillingWindowRefresh(
+  input: Pick<BillingPanelControlsInput, "actions" | "direct"> & {
+    readonly refresh: () => Promise<void>;
+    readonly refreshing: boolean;
+  },
+) {
+  const { actions, direct, refresh, refreshing } = input;
+  const busy =
+    actions.busy !== null ||
+    direct.checkoutActive ||
+    direct.cancel.phase.kind === "cancelling";
+  const onRefresh = useCallback(() => void refresh(), [refresh]);
+  useWindowRefreshMenuItem({
+    disabled: busy || refreshing,
+    onRefresh,
+    priority: 100,
+    refreshing,
+  });
+  return onRefresh;
 }
 
 export function BillingPanel({
@@ -387,8 +405,6 @@ export function BillingPanel({
     recovery,
   );
   const refresh = recovery.active ? recovery.refresh : billing.refresh;
-  const handleRefresh = useVoidRefresh(refresh);
-  const subscriptionManagement = useOpenSubscriptionManagement(handleRefresh);
   // Only the native store link needs a separate lookup. Ownership and direct
   // cancellation availability come from the billing snapshot itself.
   const management = useBillingManagementUrl(
@@ -433,6 +449,13 @@ export function BillingPanel({
     managementUrl: management.managementUrl,
     recoveryActive: recovery.active,
   });
+  const handleRefresh = useBillingWindowRefresh({
+    actions,
+    direct,
+    refresh,
+    refreshing: billing.loading || recovery.recovering || history.loading,
+  });
+  const subscriptionManagement = useOpenSubscriptionManagement(handleRefresh);
 
   return (
     <div>
@@ -446,7 +469,6 @@ export function BillingPanel({
         isOrgAdmin={isOrgAdmin}
         isPersonalOrganization={recovery.active ? true : isPersonalOrganization}
         nativePurchaseAllowed={nativePurchaseAllowed}
-        onRefresh={handleRefresh}
         organizationId={billingOrganizationId}
         subscriptionManagement={subscriptionManagement}
       />

@@ -85,7 +85,6 @@ const PROPS: BillingViewProps & { readonly view: OrganizationBillingView } = {
   onSubscribe: () => undefined,
   onRestore: () => undefined,
   onRetryOptions: () => undefined,
-  onRefresh: () => undefined,
 };
 
 test("native options explain when the roster exceeds every tier", () => {

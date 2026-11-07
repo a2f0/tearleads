@@ -21,7 +21,6 @@ function props(overrides: Partial<BillingViewProps> = {}): BillingViewProps {
     managementUrl: null,
     minimumSeatCount: 1,
     onManageSubscription: () => undefined,
-    onRefresh: () => undefined,
     onRestore: () => undefined,
     onRetryOptions: () => undefined,
     onStartTrial: () => undefined,

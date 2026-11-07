@@ -7,11 +7,10 @@ import {
   waitForDomainSyncCoordinatorToSettle,
 } from "@tearleads/client-sdk";
 import {
-  useWindowTitleBarActions,
+  useWindowRefreshMenuItemValue,
   WindowMenuProvider,
 } from "@tearleads/windowing";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerSyncLanesPanel } from "./ExplorerSyncLanesPanel";
 
 afterEach(() => {
@@ -19,29 +18,24 @@ afterEach(() => {
   globalThis.localStorage.clear();
 });
 
-// Surface the registered title-bar actions as buttons for toolbar assertions.
 function ToolbarProbe() {
-  const actions = useWindowTitleBarActions();
+  const refresh = useWindowRefreshMenuItemValue();
 
   return (
     <div aria-label="Toolbar" role="toolbar">
-      {actions.map((action) => (
+      {refresh ? (
         <button
-          aria-label={action.label}
-          disabled={action.disabled}
-          key={action.id}
+          aria-label={refresh.label}
+          disabled={refresh.disabled}
           type="button"
-          onClick={action.onClick}
+          onClick={refresh.onClick}
         />
-      ))}
+      ) : null}
     </div>
   );
 }
 
-function renderSyncLanesPanelContainer(input: {
-  domainScope: DomainScope;
-  selectedLaneKey?: string | null | undefined;
-}) {
+function renderSyncLanesPanelContainer(input: { domainScope: DomainScope }) {
   return render(
     <WindowMenuProvider>
       <ExplorerSyncLanesPanel
@@ -49,14 +43,14 @@ function renderSyncLanesPanelContainer(input: {
         embedded
         onBackToSelectionRoute={() => undefined}
         onOpenLaneDetail={() => undefined}
-        selectedLaneKey={input.selectedLaneKey ?? null}
+        selectedLaneKey={null}
       />
       <ToolbarProbe />
     </WindowMenuProvider>,
   );
 }
 
-test("ExplorerSyncLanesPanel triggers a manual sync from the toolbar action", async () => {
+test("ExplorerSyncLanesPanel triggers a manual sync from Refresh", async () => {
   const domainScope = createDomainScope();
   const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
   let runCount = 0;
@@ -69,7 +63,7 @@ test("ExplorerSyncLanesPanel triggers a manual sync from the toolbar action", as
   const view = renderSyncLanesPanelContainer({ domainScope });
 
   const button = await view.findByRole("button", {
-    name: EXPLORER_LABELS.syncLanesSyncNowAction,
+    name: "Refresh",
   });
   fireEvent.click(button);
 
@@ -82,7 +76,7 @@ test("ExplorerSyncLanesPanel triggers a manual sync from the toolbar action", as
   expect(runCount).toBe(1);
 });
 
-test("ExplorerSyncLanesPanel keeps the toolbar action enabled while syncing", async () => {
+test("ExplorerSyncLanesPanel keeps Refresh enabled while syncing", async () => {
   const domainScope = createDomainScope();
   const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
   let releaseLane: () => void = () => undefined;
@@ -98,7 +92,7 @@ test("ExplorerSyncLanesPanel keeps the toolbar action enabled while syncing", as
   const view = renderSyncLanesPanelContainer({ domainScope });
 
   const button = (await view.findByRole("button", {
-    name: EXPLORER_LABELS.syncLanesSyncNowAction,
+    name: "Refresh",
   })) as HTMLButtonElement;
   // The action stays ENABLED with work in flight: re-requesting is idempotent,
   // and a queue that looks stuck with pending work is exactly when the manual
@@ -112,19 +106,4 @@ test("ExplorerSyncLanesPanel keeps the toolbar action enabled while syncing", as
     quietMs: 0,
     timeoutMs: 1_000,
   });
-});
-
-test("ExplorerSyncLanesPanel drops the toolbar action in lane detail", async () => {
-  const view = renderSyncLanesPanelContainer({
-    domainScope: createDomainScope(),
-    selectedLaneKey: "documents:local-1",
-  });
-
-  // The lane-detail header renders, but no manual-sync toolbar action registers.
-  await view.findByText(EXPLORER_LABELS.syncLanesDetailTitle);
-  expect(
-    view.queryByRole("button", {
-      name: EXPLORER_LABELS.syncLanesSyncNowAction,
-    }),
-  ).toBeNull();
 });
