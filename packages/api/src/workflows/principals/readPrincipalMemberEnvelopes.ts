@@ -8,6 +8,7 @@ import {
   getPrincipalStatesForReferences,
   principalStateReferenceKey,
 } from "../../access/read/principalStateStore";
+import { getVerifiedPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
 import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
 import { assertPrincipalPolicyReadable } from "./principalPolicyReadAuthorization";
 import {
@@ -44,6 +45,10 @@ export async function runReadPrincipalMemberEnvelopesWorkflow(
       executor: tx,
       requesterUserId: input.requesterUserId,
     });
+    // Exactly as the policy read: authorization reads the live projection,
+    // which must verify against the signed live state, or a forged projection
+    // could authorize a stranger.
+    await getVerifiedPrincipalPolicyForStateWithExecutor(tx, currentState);
     const reference = { principalType, principalId, stateHash };
     const named =
       stateHash === currentState.stateHash

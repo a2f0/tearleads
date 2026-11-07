@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
+import { principalMembershipProjection } from "@tearleads/api-shared/schema";
 import { computePrincipalMemberEnvelopesRoot } from "@tearleads/crypto";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { getPrincipalMemberEnvelopesOperation } from "@tearleads/validators/operation";
+import { and, eq } from "drizzle-orm";
 import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
 import { loadOrganizationGroups } from "../../../test/helpers/principalPolicyReadFixtures";
 import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
@@ -101,4 +103,47 @@ test("GET member envelopes rejects a malformed state hash", async () => {
     const response = await getMemberEnvelopes(owner, memberGroupId, stateHash);
     expect(response.status).toBe(400);
   }
+});
+
+// Authorization reads the live projection, so the read must verify it against
+// the signed live state first, exactly as the policy read does: a projection
+// edited in the database cannot authorize anyone.
+test("GET member envelopes rejects a database-tampered live projection", async () => {
+  const owner = createTestUser();
+  const member = createTestUser();
+  const organizationId = await registerAndAuthenticateWithOrganization(owner);
+  await registerAndAuthenticateWithOrganization(member);
+  const { memberGroupId } = await loadOrganizationGroups(organizationId);
+  const historical = await getCurrentPrincipalState("group", memberGroupId, db);
+  if (!historical) throw new Error("expected the Members state");
+  await addMemberGroupUser({
+    actor: owner,
+    memberUserId: member.userId,
+    organizationId,
+  });
+  expect(
+    (await getMemberEnvelopes(owner, memberGroupId, historical.stateHash))
+      .status,
+  ).toBe(200);
+
+  await db
+    .update(principalMembershipProjection)
+    .set({ role: "admin" })
+    .where(
+      and(
+        eq(principalMembershipProjection.principalId, memberGroupId),
+        eq(principalMembershipProjection.userId, member.userId),
+      ),
+    );
+
+  const response = await getMemberEnvelopes(
+    owner,
+    memberGroupId,
+    historical.stateHash,
+  );
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error:
+      "Stored principal policy failed integrity verification: principal policy projection root does not match projection",
+  });
 });
