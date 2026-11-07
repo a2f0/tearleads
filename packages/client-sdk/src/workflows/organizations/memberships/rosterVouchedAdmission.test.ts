@@ -345,3 +345,34 @@ test("envelopes that do not match the vouching state's signed root are rejected"
 
   await expect(result).rejects.toBeInstanceOf(KeyingVerificationError);
 });
+
+// A list that cannot even be normalized (here, a duplicated member) is
+// tampering too, so it must fail as a verification error that callers record
+// as an incident, not as an envelope validation error.
+test("malformed envelopes for the vouching state fail as verification errors", async () => {
+  const fixture = await membersHistory([
+    { members: { "admin-a": "c".repeat(64) }, signer: "admin-a" },
+    {
+      members: { "admin-a": "c".repeat(64), carol: GOOD_KEY },
+      signer: "admin-a",
+    },
+  ]);
+  const served = evidence(fixture, {
+    ...VERIFIED_ADMIN_A,
+    carol: pin("carol", false),
+  });
+
+  const result = isRosterVouchedRecipient("carol", {
+    ...served,
+    async loadStateEnvelopes(state) {
+      const genuine = await served.loadStateEnvelopes(state);
+      if (!genuine) return null;
+      return {
+        ...genuine,
+        envelopes: [...genuine.envelopes, ...genuine.envelopes],
+      };
+    },
+  });
+
+  await expect(result).rejects.toBeInstanceOf(KeyingVerificationError);
+});

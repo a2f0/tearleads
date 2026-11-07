@@ -1,6 +1,7 @@
 import {
   computePrincipalMemberEnvelopesRoot,
   KeyingVerificationError,
+  PrincipalMemberEnvelopeValidationError,
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import type {
@@ -107,6 +108,20 @@ async function findMembershipStart(
   return null;
 }
 
+// The served list's root; a malformed list (duplicate members, non-canonical
+// ciphertext) is tampering with received material, like a wrong root.
+async function servedEnvelopesRoot(
+  envelopes: readonly PrincipalMemberEnvelopeResponse[],
+): Promise<string> {
+  try {
+    return await computePrincipalMemberEnvelopesRoot(envelopes);
+  } catch (error) {
+    if (error instanceof PrincipalMemberEnvelopeValidationError)
+      throw new KeyingVerificationError("invalid_shape", error.message);
+    throw error;
+  }
+}
+
 // The server's envelope list for a state must be exactly the one its signed
 // root commits, for exactly that state's members.
 async function assertStateEnvelopes(
@@ -120,7 +135,7 @@ async function assertStateEnvelopes(
     envelopes.principalId !== state.principalId ||
     envelopes.stateHash !== state.stateHash ||
     envelopes.epoch !== state.keyEpoch ||
-    (await computePrincipalMemberEnvelopesRoot(envelopes.envelopes)) !==
+    (await servedEnvelopesRoot(envelopes.envelopes)) !==
       state.memberEnvelopesRoot ||
     envelopeUsers.size !== entry.projection.length ||
     entry.projection.some((member) => !envelopeUsers.has(member.userId))
