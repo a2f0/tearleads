@@ -238,7 +238,7 @@ Vouching authenticates the encryption key only; the user's signing key stays
 each lets this device accept actions signed with that key, so a server that
 kept the real encryption key but substituted the signing key could forge them.
 Committing members' signing-key fingerprints in signed group states would lift
-that limit. Vouching never raises a pin to `link`, so `resolveVerified` and
-`createLinkFor` still return nothing for the user. Like a link, it proves no
-currentness: a device that has not seen a removal may still vouch for the
-removed user.
+that limit ([#2847](https://github.com/a2f0/tearleads/issues/2847)). Vouching
+never raises a pin to `link`, so `resolveVerified` and `createLinkFor` still
+return nothing for the user. Like a link, it proves no currentness: a device
+that has not seen a removal may still vouch for the removed user.

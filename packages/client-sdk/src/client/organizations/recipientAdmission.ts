@@ -1,6 +1,8 @@
 import type { ContainerAccessLevel } from "@tearleads/crypto";
+import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { requireOrganizationGroupHead } from "../../data/principals/organizationAuthorityDescriptor";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { UnverifiedUserIdentityError } from "../../data/trustedUserIdentity";
 import { loadCurrentOrganizationAuthority } from "../../workflows/organizations/currentOrganizationAuthority";
@@ -78,6 +80,34 @@ function createRosterAdmissionEvidence(
 }
 
 /**
+ * Whether the signed roster vouches for `userId` on this device. First sight
+ * pins the keys the server serves as observed, and the roster must then vouch
+ * for exactly that encryption key. Served material that fails verification is
+ * recorded as a security incident before the error propagates.
+ */
+export function isReportedRosterVouchedRecipient(input: {
+  readonly evidence: RosterAdmissionEvidence;
+  readonly organizationId: string;
+  readonly reportSecurityIncident: SecurityIncidentReporter;
+  readonly resolveTrustedUserIdentity: (userId: string) => Promise<unknown>;
+  readonly userId: string;
+}): Promise<boolean> {
+  const { evidence, userId } = input;
+  return runWithSecurityIncidentReporting(
+    input.reportSecurityIncident,
+    {
+      objectId: userId,
+      objectKind: "user",
+      operation: "container.share.roster_vouch",
+      organizationId: input.organizationId,
+    },
+    async () =>
+      Boolean(await input.resolveTrustedUserIdentity(userId)) &&
+      isRosterVouchedRecipient(userId, evidence),
+  );
+}
+
+/**
  * Admits a folder share recipient, against the trust store of the database
  * the admitting runtime writes: a pin that a verified identity link or this
  * device's own keys established, or, for a read share only, the active
@@ -110,9 +140,13 @@ export async function requireShareRecipient(
       organizationId,
     );
     if (!evidence) throw error;
-    // First sight pins the keys the server serves as observed; the roster
-    // must then vouch for exactly that encryption key.
-    if (!(await runtime.resolveTrustedUserIdentity(userId))) throw error;
-    if (!(await isRosterVouchedRecipient(userId, evidence))) throw error;
+    const vouched = await isReportedRosterVouchedRecipient({
+      evidence,
+      organizationId,
+      reportSecurityIncident: runtime.util.reportSecurityIncident,
+      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+      userId,
+    });
+    if (!vouched) throw error;
   }
 }
