@@ -1,11 +1,13 @@
 import {
   commitOrganizationGroupPolicyOperation,
+  getPrincipalMemberEnvelopesOperation,
   getPrincipalPolicyOperation,
   operationRoutePath,
   putPrincipalPolicyOperation,
 } from "@tearleads/validators/operation";
 import type {
   CommitOrganizationGroupPolicyResponse,
+  CurrentPrincipalMemberEnvelopesResponse,
   PrincipalPolicyMutationResponse,
   PrincipalPolicyReadResponse,
 } from "@tearleads/validators/response";
@@ -15,6 +17,7 @@ import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { getCurrentPrincipalPolicy } from "../../services/principals/getCurrentPrincipalPolicy";
+import { getPrincipalMemberEnvelopes } from "../../services/principals/getPrincipalMemberEnvelopes";
 import {
   commitOrganizationGroupPolicy,
   putPrincipalPolicy,
@@ -165,6 +168,10 @@ export function createPrincipalPolicyRoute({
   );
 
   registerPolicyReadRoute(principalPolicyRoute, { requireAuth, runtime });
+  registerMemberEnvelopesReadRoute(principalPolicyRoute, {
+    requireAuth,
+    runtime,
+  });
   registerProjectionPolicyHistoryRoute(principalPolicyRoute, {
     requireAuth,
     runtime,
@@ -240,6 +247,39 @@ function registerPolicyReadRoute(
           return response;
         }
 
+        throw error;
+      }
+    },
+  );
+}
+
+function registerMemberEnvelopesReadRoute(
+  route: Hono<SessionEnv>,
+  { requireAuth, runtime }: Omit<PrincipalPolicyRouteDeps, "publish">,
+): void {
+  route.on(
+    getPrincipalMemberEnvelopesOperation.method,
+    operationRoutePath(getPrincipalMemberEnvelopesOperation),
+    requireAuth,
+    queryParamsValidator(getPrincipalMemberEnvelopesOperation.query),
+    pathParamsValidator(
+      getPrincipalMemberEnvelopesOperation.params,
+      "Invalid principal route",
+    ),
+    async (c) => {
+      const { principalId, principalType } = c.req.valid("param");
+      try {
+        const result = await getPrincipalMemberEnvelopes(runtime, {
+          ...c.req.valid("query"),
+          principalId,
+          principalType,
+          requesterUserId: c.get("session").userId,
+        });
+        c.header("Cache-Control", "private, no-store");
+        return c.json<CurrentPrincipalMemberEnvelopesResponse>(result);
+      } catch (error) {
+        const response = toPrincipalPolicyErrorResponse(error);
+        if (response) return response;
         throw error;
       }
     },

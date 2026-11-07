@@ -9,8 +9,11 @@ import {
 import {
   CommitOrganizationGroupPolicyConflictResponseSchema,
   CommitOrganizationGroupPolicyResponseSchema,
+  type CurrentPrincipalMemberEnvelopesResponse,
+  CurrentPrincipalMemberEnvelopesResponseSchema,
   ErrorResponseSchema,
   isCommitOrganizationGroupPolicyResponse,
+  isCurrentPrincipalMemberEnvelopesResponse,
   isPrincipalPolicyMutationResponse,
   PaymentRequiredErrorResponseSchema,
   PrincipalPolicyErrorResponseSchema,
@@ -24,7 +27,7 @@ import {
   PrincipalHistoryPreparationResponseSchema,
   principalHistoryRollbackRefinement,
 } from "../response/principalHistoryPreparation";
-import { uuidV4StringSchema } from "../schema";
+import { sha256HexStringSchema, uuidV4StringSchema } from "../schema";
 import { defineJsonOperation } from "./definition";
 import { PrincipalPolicyPageQuerySchema } from "./principalPolicyPageQuery";
 
@@ -71,6 +74,39 @@ export const getPrincipalPolicyOperation = defineJsonOperation({
   responseDescriptions: preparationResponseDescriptions,
   responses: {
     200: PrincipalPolicyReadResponseSchema,
+    202: PrincipalHistoryPreparationResponseSchema,
+  },
+});
+
+export const PrincipalMemberEnvelopesQuerySchema = z.strictObject({
+  stateHash: sha256HexStringSchema,
+});
+
+export type PrincipalMemberEnvelopesQuery = z.infer<
+  typeof PrincipalMemberEnvelopesQuerySchema
+>;
+
+export const getPrincipalMemberEnvelopesOperation = defineJsonOperation({
+  auth: "session",
+  failureResponses: {
+    400: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
+    403: ErrorResponseSchema,
+    404: ErrorResponseSchema,
+    500: ErrorResponseSchema,
+  },
+  failureStatuses: [400, 401, 403, 404, 500],
+  id: "principals.policy.memberEnvelopes.get",
+  summary: "Get the member envelopes of one principal state",
+  description:
+    "Returns every member envelope of one named, immutable state of a group or organization, so a client can check a historical member's committed key fingerprint against that state's `memberEnvelopesRoot`. It is served to the same callers as the policy read, authorized against the principal's live policy before the named state is looked up; a state the principal never had returns 404. A 202 asks the client to retry the identical request after policy history is prepared.",
+  method: "GET",
+  params: PrincipalPolicyPathParamsSchema,
+  path: "/principals/{principalType}/{principalId}/policy/member-envelopes",
+  query: PrincipalMemberEnvelopesQuerySchema,
+  responseDescriptions: preparationResponseDescriptions,
+  responses: {
+    200: CurrentPrincipalMemberEnvelopesResponseSchema,
     202: PrincipalHistoryPreparationResponseSchema,
   },
 });
@@ -148,6 +184,12 @@ export function isGetPrincipalPolicyOperationResponse(
   value: unknown,
 ): value is PrincipalPolicyReadResponse {
   return PrincipalPolicyReadResponseSchema.safeParse(value).success;
+}
+
+export function isGetPrincipalMemberEnvelopesOperationResponse(
+  value: unknown,
+): value is CurrentPrincipalMemberEnvelopesResponse {
+  return isCurrentPrincipalMemberEnvelopesResponse(value);
 }
 export const isPutPrincipalPolicyOperationRequest =
   isOrganizationPrincipalPolicyRequest;

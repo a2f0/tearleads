@@ -1333,6 +1333,26 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/principals/{principalType}/{principalId}/policy/member-envelopes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the member envelopes of one principal state
+         * @description Returns every member envelope of one named, immutable state of a group or organization, so a client can check a historical member's committed key fingerprint against that state's `memberEnvelopesRoot`. It is served to the same callers as the policy read, authorized against the principal's live policy before the named state is looked up; a state the principal never had returns 404. A 202 asks the client to retry the identical request after policy history is prepared.
+         */
+        get: operations["principals.policy.memberEnvelopes.get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/principals/history": {
         parameters: {
             query?: never;
@@ -10685,6 +10705,94 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PrincipalHistoryPreparationFailureResponse"];
+                };
+            };
+        };
+    };
+    "principals.policy.memberEnvelopes.get": {
+        parameters: {
+            query: {
+                stateHash: string;
+            };
+            header?: never;
+            path: {
+                principalId: string;
+                principalType: "group" | "organization";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentPrincipalMemberEnvelopesResponse"];
+                };
+            };
+            /** @description The attempted operation rolled back. Retry the identical request to continue verification preparation. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrincipalHistoryPreparationResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

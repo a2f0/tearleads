@@ -1,6 +1,7 @@
 import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import type {
   CommitOrganizationGroupPolicyResponse,
+  CurrentPrincipalMemberEnvelopesResponse,
   OrganizationPolicyHistoryResponse,
 } from "@tearleads/validators/response";
 import { getOrganizationPolicyHistoryResult as organizationHistory } from "../organizationPolicyHistory";
@@ -45,6 +46,15 @@ export class PrincipalPolicyArea {
     ...args: Parameters<PrincipalPolicyRequests["discover"]>
   ) {
     return this.policies.discover(...args);
+  }
+
+  /** One named state's member envelopes; null only for an unknown state (404). */
+  getPrincipalMemberEnvelopes(
+    principalType: "group" | "organization",
+    principalId: string,
+    stateHash: string,
+  ): Promise<CurrentPrincipalMemberEnvelopesResponse | null> {
+    return this.policies.memberEnvelopes(principalType, principalId, stateHash);
   }
 
   getProjectionPolicyHistoryPages(

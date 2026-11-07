@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  getPrincipalMemberEnvelopesOperation,
   getPrincipalPolicyOperation,
   operationRoutePath,
   putPrincipalPolicyOperation,
@@ -24,6 +25,7 @@ test("principal policy routes register from shared operations", () => {
 
   for (const operation of [
     getPrincipalPolicyOperation,
+    getPrincipalMemberEnvelopesOperation,
     putPrincipalPolicyOperation,
   ]) {
     expect(route.routes).toContainEqual(

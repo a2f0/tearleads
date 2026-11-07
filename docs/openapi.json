@@ -20150,6 +20150,143 @@
         ]
       }
     },
+    "/principals/{principalType}/{principalId}/policy/member-envelopes": {
+      "get": {
+        "operationId": "principals.policy.memberEnvelopes.get",
+        "summary": "Get the member envelopes of one principal state",
+        "description": "Returns every member envelope of one named, immutable state of a group or organization, so a client can check a historical member's committed key fingerprint against that state's `memberEnvelopesRoot`. It is served to the same callers as the policy read, authorized against the principal's live policy before the named state is looked up; a state the principal never had returns 404. A 202 asks the client to retry the identical request after policy history is prepared.",
+        "tags": [
+          "Principals"
+        ],
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "principalType",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "group",
+                "organization"
+              ]
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "path",
+            "name": "principalId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "stateHash",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]+$",
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentPrincipalMemberEnvelopesResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrincipalHistoryPreparationResponse"
+                }
+              }
+            },
+            "description": "The attempted operation rolled back. Retry the identical request to continue verification preparation."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/principals/{principalType}/{principalId}/policy": {
       "get": {
         "operationId": "principals.policy.get",

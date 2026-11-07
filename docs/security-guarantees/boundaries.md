@@ -60,10 +60,13 @@ device's own keys: adding a contact or roster user, adding a group member,
 sharing a folder, and creating a roster profile. A link binds the service, user
 ID, algorithms, and both keys. Pins record their provenance, so an `observed`
 pin cannot stand in for a link; the SDK refuses group adds and user shares for
-such a target. Pin conflicts fail closed. Deliver links through an
-authenticated channel; they prove no revocation, freshness, or global
-consistency. An unencrypted backup can seed `link` provenance, so restoring one
-trusts the file's origin.
+such a target unless the organization's signed roster
+[vouches](../developer/trusted-user-identity.md#roster-vouching) for the
+target's encryption key. That vouching rests on an admin whose signing key
+this device verified by link or holds itself, never on an `observed` signer.
+Pin conflicts fail closed. Deliver links through an authenticated channel;
+they prove no revocation, freshness, or global consistency. An unencrypted
+backup can seed `link` provenance, so restoring one trusts the file's origin.
 
 ### Projection Rows Are Not A Security Boundary
 

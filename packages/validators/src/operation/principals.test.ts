@@ -6,6 +6,7 @@ import {
 import {
   CommitOrganizationGroupPolicyConflictResponseSchema,
   CommitOrganizationGroupPolicyResponseSchema,
+  CurrentPrincipalMemberEnvelopesResponseSchema,
   ErrorResponseSchema,
   PaymentRequiredErrorResponseSchema,
   PrincipalPolicyErrorResponseSchema,
@@ -17,7 +18,9 @@ import { PrincipalHistoryPreparationFailureResponseSchema } from "../response/pr
 import { operationRequestPath, operationRoutePath } from "./definition";
 import {
   commitOrganizationGroupPolicyOperation,
+  getPrincipalMemberEnvelopesOperation,
   getPrincipalPolicyOperation,
+  isGetPrincipalMemberEnvelopesOperationResponse,
   PrincipalPolicyPathParamsSchema,
   putPrincipalPolicyOperation,
 } from "./principals";
@@ -107,4 +110,50 @@ test("principal policy paths derive from the shared path schema", () => {
       principalType: "team" as never,
     }),
   ).toThrow("Invalid path parameters for principals.policy.get");
+});
+
+test("principal member envelope reads name one exact state", () => {
+  expect(getPrincipalMemberEnvelopesOperation).toMatchObject({
+    auth: "session",
+    failureStatuses: [400, 401, 403, 404, 500, 503],
+    id: "principals.policy.memberEnvelopes.get",
+    method: "GET",
+    params: PrincipalPolicyPathParamsSchema,
+    path: "/principals/{principalType}/{principalId}/policy/member-envelopes",
+    responses: { 200: CurrentPrincipalMemberEnvelopesResponseSchema },
+  });
+  expect(getPrincipalMemberEnvelopesOperation.failureResponses).toEqual({
+    400: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
+    403: ErrorResponseSchema,
+    404: ErrorResponseSchema,
+    500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
+  });
+  const query = getPrincipalMemberEnvelopesOperation.query;
+  expect(query.safeParse({ stateHash: "a".repeat(64) }).success).toBe(true);
+  for (const invalid of [
+    {},
+    { stateHash: "A".repeat(64) },
+    { stateHash: "a".repeat(63) },
+    { stateHash: "a".repeat(64), afterVersion: "1" },
+  ])
+    expect(query.safeParse(invalid).success).toBe(false);
+  expect(
+    operationRequestPath(getPrincipalMemberEnvelopesOperation, {
+      principalId,
+      principalType: "group",
+    }),
+  ).toBe(`/principals/group/${principalId}/policy/member-envelopes`);
+  const envelopes = {
+    envelopes: [],
+    epoch: 1,
+    principalId,
+    principalType: "group",
+    stateHash: "a".repeat(64),
+  };
+  expect(isGetPrincipalMemberEnvelopesOperationResponse(envelopes)).toBe(true);
+  expect(
+    isGetPrincipalMemberEnvelopesOperationResponse({ ...envelopes, epoch: 0 }),
+  ).toBe(false);
 });

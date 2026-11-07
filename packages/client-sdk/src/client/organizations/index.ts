@@ -58,6 +58,7 @@ import {
   removeUserFromOrganizationGroup,
   revokeOrganizationGrant,
 } from "./principalMutations";
+import { requireAdmittedRecipient } from "./recipientAdmission";
 
 export type {
   LocalOrganizationSummary,
@@ -140,14 +141,16 @@ class OrganizationsService implements Organizations {
   }
 
   async addUserToGroup(input: AddOrganizationGroupUserInput) {
-    // Group membership admits a user: only a verified identity link or this
-    // device's own keys can establish the identity it is granted to.
-    // The check reads the trust store of the scope this mutation captured, and
-    // that scope must still be current once it returns.
+    // Group membership admits a user: a verified identity link, this device's
+    // own keys, or the organization's signed roster must establish the
+    // identity it is granted to. The check reads the trust store of the scope
+    // this mutation captured, and that scope must still be current once it
+    // returns.
     const mutation = currentOrganizationMutation(this.runtimeService);
-    await this.runtimeService.identityLinks.requireVerified(
-      input.targetUserId,
+    await requireAdmittedRecipient(
+      this.runtimeService,
       mutation.runtime.infra.execSql,
+      input.targetUserId,
     );
     if (!mutation.stillCurrent()) {
       throw new DatabaseUnavailableError(

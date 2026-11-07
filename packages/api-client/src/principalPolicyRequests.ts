@@ -2,6 +2,7 @@ import {
   commitOrganizationGroupPolicyOperation,
   createOrganizationGroupOperation,
   deleteOrganizationGroupOperation,
+  getPrincipalMemberEnvelopesOperation,
   putPrincipalPolicyOperation,
 } from "@tearleads/validators/operation";
 import type {
@@ -10,7 +11,10 @@ import type {
   DeleteOrganizationGroupRequest,
   OrganizationPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type {
+  CurrentPrincipalMemberEnvelopesResponse,
+  PrincipalPolicyBundleResponse,
+} from "@tearleads/validators/response";
 import type { BoundedCache } from "./ApiCache";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
@@ -27,6 +31,7 @@ import { createOrganizationGroup } from "./routes/organizations/createGroup";
 import { deleteOrganizationGroup } from "./routes/organizations/deleteGroup";
 import {
   commitOrganizationGroupPolicy,
+  getPrincipalMemberEnvelopes,
   putPrincipalPolicy,
 } from "./routes/principals/policy";
 import type { RequestResultOptions } from "./types";
@@ -71,6 +76,36 @@ export class PrincipalPolicyRequests {
       principalId,
       options,
     );
+  }
+
+  /**
+   * Every member envelope of one named state; null only when the server has
+   * no such state for this principal (404). Any other failure throws.
+   */
+  async memberEnvelopes(
+    principalType: "group" | "organization",
+    principalId: string,
+    stateHash: string,
+  ): Promise<CurrentPrincipalMemberEnvelopesResponse | null> {
+    const result = await principalHistoryRequest(this.runtime, {
+      path: getPrincipalMemberEnvelopes.path(
+        principalType,
+        principalId,
+        stateHash,
+      ),
+      validator: (value): value is CurrentPrincipalMemberEnvelopesResponse =>
+        getPrincipalMemberEnvelopes.isResponse(value) &&
+        value.principalType === principalType &&
+        value.principalId === principalId &&
+        value.stateHash === stateHash,
+      method: getPrincipalMemberEnvelopes.method,
+      options: { reportErrors: false },
+      operation: getPrincipalMemberEnvelopesOperation,
+    });
+    if (result.ok) return result.data;
+    if (result.kind === "http" && result.status === 404) return null;
+    result.report();
+    throw new Error(result.message);
   }
 
   get(
