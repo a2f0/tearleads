@@ -194,6 +194,23 @@ key rotation fails with `HistoricalWrapUnavailableError`
 (`principal-key-unreachable`). See
 [keying-design.md](../../keying-design/container-keks.md#container-key-epoch-database-row).
 
+### Organization data usage
+
+`Organizations.loadDataUsage()` returns the active organization's synced usage
+as the server counts it, and `loadLocalDataUsage()` the last copy of it cached
+on this device. `loadDeviceDataUsage()` instead measures what this device
+stores for the active organization and resolves `OrganizationDeviceDataUsage`,
+or null when no organization runtime is active; it rejects if the local read
+fails. Its fields mirror `OrganizationDataUsage` without update counts:
+`documents.breakdown` holds one
+`OrganizationDeviceDocumentUsageCategoryBreakdown` per category, zero-filled
+and in `ORGANIZATION_DOCUMENT_USAGE_CATEGORIES` order, classified by the
+server's rules. Document bytes are the stored sizes of each document's keys,
+history, and projected text; `blobs` counts each downloaded attachment or
+pending upload once by its recorded plaintext size. The figures are logical
+sizes, so they exclude SQLite page overhead and blob encryption envelopes and
+are not comparable one-to-one with synced usage.
+
 ### Purchase capabilities
 
 `OrganizationBillingView` carries `subscriptionSource` and `canCancelDirectly`

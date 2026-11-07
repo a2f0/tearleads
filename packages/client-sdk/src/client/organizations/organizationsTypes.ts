@@ -12,6 +12,7 @@ import type {
   loadOrganizationBillingHistory,
   loadOrganizationBillingManagementUrl,
   loadStripeCheckoutOptions,
+  OrganizationDeviceDataUsage,
   revokeOrganizationContainerGrant,
   startOrganizationTrial,
   updateOrganizationProfile,
@@ -103,6 +104,13 @@ export interface Organizations {
   loadLocalDataUsage: () => ReturnType<
     OrganizationDataUsageCoordinator["loadLocal"]
   >;
+  /**
+   * Measures what this device stores for the active organization: its
+   * documents by category and the files held for them. Resolves null when no
+   * organization runtime is active (signed out, no organization, or the
+   * database not ready); rejects if the local read fails.
+   */
+  loadDeviceDataUsage: () => Promise<OrganizationDeviceDataUsage | null>;
   loadDirectoryAndGroups: () => ReturnType<
     OrganizationReadModelCoordinator["reconcile"]
   >;

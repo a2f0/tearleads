@@ -10,7 +10,6 @@ import {
   MiniAppRoot,
   MiniAppStatePanel,
 } from "../../components/mini-app/MiniAppLayout";
-import { DataUsageView } from "../shared/DataUsageView";
 import { BillingPanel } from "./billing/BillingPanel";
 import { OrgManagerContextMenuLayer } from "./context-menu/OrgManagerContextMenu";
 import { resolveOrgManagerDetailBackVisibility } from "./detailBackActions";
@@ -29,6 +28,7 @@ import { useOrgManagerRoutedChromeActions } from "./OrgManagerRoutedChrome";
 import { CreateOrganizationDialog } from "./organization/CreateOrganizationDialog";
 import { OrganizationView } from "./organization/OrganizationView";
 import { OrgManagerFeedback } from "./organization/OrgManagerFeedback";
+import { OrgManagerUsageView } from "./organization/OrgManagerUsageView";
 import { OrgSwitcher } from "./organization/OrgSwitcher";
 import "./OrgManager.css";
 
@@ -137,11 +137,12 @@ function OrgManagerContent({
 
   if (model.view === "usage") {
     return (
-      <DataUsageView
+      <OrgManagerUsageView
         canSync={
           billingMatchesOrganization ? (billing.view?.canSync ?? null) : null
         }
         dataUsage={model.dataUsage}
+        organizationId={organizationId}
         pending={model.dataUsagePending}
       />
     );
