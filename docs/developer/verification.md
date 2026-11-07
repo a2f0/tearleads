@@ -23,11 +23,11 @@ TypeScript, `check:fast`, and then the full or affected Turbo tests. Builds
 finish before tests begin.
 
 Rebuild the [client SDK](client-sdk.md) before its own tests:
-`scripts/distArtifacts.test.ts` inspects `dist`, and a few tests import
-`@tearleads/client-sdk`. `turbo run test` builds the SDK first; a bare
-`bun run test` in the package does not, because a test script that rebuilt
-`dist` would delete it under other packages' tests running alongside it in
-Turbo.
+[`scripts/distArtifacts.test.ts`](../../packages/client-sdk/scripts/distArtifacts.test.ts)
+inspects `dist`, and a few tests import `@tearleads/client-sdk`.
+`turbo run test` builds the SDK first; a bare `bun run test` in the package does
+not, because a test script that rebuilt `dist` would delete it under other
+packages' tests running alongside it in Turbo.
 
 The Turbo test and E2E scripts first record the planned tasks, then require a
 fresh run summary proving every planned task succeeded, by execution or from
@@ -117,10 +117,10 @@ archive without `.git`. Verification uses Git to locate the repository, compare
 OpenAPI changes, and record source fingerprints. Fetch `origin/main` before
 base-sensitive checks, or set `OPENAPI_BASE_REF` to the intended comparison ref.
 
-Review `.mise.toml`, then run `mise trust` in this checkout before `mise install`.
-Trust is path-specific: a fresh clone or [Scope](scope.md) workspace can require
-a separate review. Do not disable trust globally to work around a shell startup
-error.
+Review [`.mise.toml`](../../.mise.toml), then run `mise trust` in this checkout
+before `mise install`. Trust is path-specific: a fresh clone or
+[Scope](scope.md) workspace can require a separate review. Do not disable trust
+globally to work around a shell startup error.
 
 | Command | Prerequisites beyond the checkout |
 | --- | --- |
@@ -154,20 +154,20 @@ mise install java github:oasdiff/oasdiff github:tlaplus/tlaplus
 ```
 
 When local mise configuration cannot be trusted, the check scripts accept
-`OASDIFF_BIN`, `JAVA_BIN`, and `TLA_TOOLS_ROOT` as explicit paths; point them
-at the versions pinned in `.mise.toml`. For native Ruby gems on macOS, also
-verify `command -v clang`: Lean's tool directory can shadow Xcode's compiler.
-Select the compiler returned by `xcrun --find clang` and set `SDKROOT` from
-`xcrun --sdk macosx --show-sdk-path` in the child environment. A scratch
+`OASDIFF_BIN`, `JAVA_BIN`, and `TLA_TOOLS_ROOT` as explicit paths; point them at
+the versions pinned in [`.mise.toml`](../../.mise.toml). For native Ruby gems on
+macOS, also verify `command -v clang`: Lean's tool directory can shadow Xcode's
+compiler. Select the compiler returned by `xcrun --find clang` and set `SDKROOT`
+from `xcrun --sdk macosx --show-sdk-path` in the child environment. A scratch
 compile does not replace `bundle install` and `bundle check` with isolated gem
 paths and the existing frozen/deployment settings. Ruby's explicit source-build
-setting matches the source archives recorded in `mise.lock`; do not silently
-substitute prebuilt Ruby artifacts. CI uses mise. The protocol-model check
-validates the pinned Java version and the TLA+ jar digest from
-[`scripts/checks/tlaToolsPin.sh`](../../scripts/checks/tlaToolsPin.sh) on every
-run, either way. The OpenAPI check validates the reported oasdiff version for
-`OASDIFF_BIN`; use only a trusted binary at that path. These direct checks do
-not depend on Turbo's task cache.
+setting matches the source archives recorded in [`mise.lock`](../../mise.lock);
+do not silently substitute prebuilt Ruby artifacts. CI uses mise. The
+protocol-model check validates the pinned Java version and the TLA+ jar digest
+from [`scripts/checks/tlaToolsPin.sh`](../../scripts/checks/tlaToolsPin.sh) on
+every run, either way. The OpenAPI check validates the reported oasdiff version
+for `OASDIFF_BIN`; use only a trusted binary at that path. These direct checks
+do not depend on Turbo's task cache.
 
 Fetch `origin/main`, or set `OPENAPI_BASE_REF` to check OpenAPI against another
 base commit.

@@ -11,7 +11,7 @@ This repo is available on the web at <https://tearleads.com>.
 ## Quick start
 
 Install [mise](https://mise.jdx.dev/) (for example with `brew install mise`).
-It provides Bun and the other tools pinned in `.mise.toml`.
+It provides Bun and the other tools pinned in [`.mise.toml`](.mise.toml).
 
 ```sh
 mise trust                       # after reviewing .mise.toml
@@ -30,7 +30,8 @@ instead of a fresh hook install. The API keeps its data in memory by default;
 `sh scripts/dev/runApi.sh --help` lists its Postgres, SQLite, and Turso modes.
 
 To invoke repository launchers and release shortcuts by name, source
-`scripts/dev/session.sh` from the checkout. For a persistent shell shortcut:
+[`scripts/dev/session.sh`](scripts/dev/session.sh) from the checkout. For a
+persistent shell shortcut:
 
 ```sh
 tl() { . /path/to/checkout/scripts/dev/session.sh /path/to/checkout; } && tl
@@ -58,7 +59,7 @@ tl() { . /path/to/checkout/scripts/dev/session.sh /path/to/checkout; } && tl
 | [`packages/cli`](packages/cli/README.md) | `tearleads` command line built on the client SDK |
 | [`formal`](formal/README.md) | TLA+ protocol models |
 | [`scripts`](scripts/README.md) | Repository scripts, grouped by purpose |
-| `terraform` | Infrastructure stacks and modules |
+| [`terraform`](terraform/) | Infrastructure stacks and modules |
 | [`docs`](docs/README.md) | Design references and developer guides |
 
 ## Tests and checks
@@ -83,7 +84,8 @@ bun test packages/bob-and-alice/src/bobAndAlice.test.ts
 `bun run check:fast` runs the static gates, `bun run check:affected` adds
 TypeScript and the affected tests, and `bun run check` runs the full suite. The
 static gates include a Ruby lint, so run `bundle install` from
-`packages/app-capacitor` first. The pre-push hook runs the static gates,
+[`packages/app-capacitor`](packages/app-capacitor/) first. The pre-push hook runs
+the static gates,
 Terraform checks, TypeScript, and the affected tests, running the TLC model
 passes and Terraform in a background lane beside the rest. The
 [verification guide](docs/developer/verification.md#prerequisites) lists each
@@ -107,15 +109,16 @@ that reads files outside its package declares them in that package's
 
 ## Deployments and releases
 
-Run `scripts/deploy/deployStaging.sh` or
-`scripts/deploy/deployProduction.sh` for a complete tier deployment.
+Run [`scripts/deploy/deployStaging.sh`](scripts/deploy/deployStaging.sh) or
+[`scripts/deploy/deployProduction.sh`](scripts/deploy/deployProduction.sh)
+for a complete tier deployment.
 The [infrastructure guide](docs/developer/infrastructure.md) describes the
 resources, secrets layout, deployment order, verification, and teardown policy.
 Native store releases use the [Capacitor release guide](packages/app-capacitor/README.md#releases);
 desktop releases use the [Electrobun guide](packages/app-electrobun/README.md).
-Merging a version bump of `packages/client-sdk` or `packages/windowing` to
-`main` publishes it to npm. See the [script index](scripts/README.md) for
-commands grouped by purpose.
+Merging a version bump of [`packages/client-sdk`](packages/client-sdk/) or
+[`packages/windowing`](packages/windowing/) to `main` publishes it to npm. See
+the [script index](scripts/README.md) for commands grouped by purpose.
 
 ## Developer docs
 

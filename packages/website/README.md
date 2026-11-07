@@ -20,7 +20,9 @@ on the API.
 | Staging | `tearleads-website-staging` | `website-staging.tearleads.com` | `staging/website/terraform.tfstate` |
 
 Wrangler owns asset deployments; the independent Terraform roots in
-`terraform/stacks/{prod,staging}/website` own custom domains.
+[`terraform/stacks/prod/website`](../../terraform/stacks/prod/website/) and
+[`terraform/stacks/staging/website`](../../terraform/stacks/staging/website/)
+own custom domains.
 
 ```sh
 scripts/deploy/deployStagingWebsite.sh
@@ -44,23 +46,28 @@ Terraform also needs the tier's R2 state key, `TF_STATE_ACCESS_KEY_ID` and
 `TF_STATE_SECRET_ACCESS_KEY` in `app.env`. No other credentials are needed for
 a standalone website deployment.
 
-The full `scripts/deploy/deployStaging.sh` and
-`scripts/deploy/deployProduction.sh` include this website deployment. Their
+The full
+[`scripts/deploy/deployStaging.sh`](../../scripts/deploy/deployStaging.sh) and
+[`scripts/deploy/deployProduction.sh`][file-1] include this website deployment.
+Their
 `--skip-terraform` (alias `--skip-infra`) skips every Terraform apply,
 including the website domain; the Worker and its assets still deploy.
 
-`scripts/deploy/destroyStaging.sh` and `scripts/deploy/destroyProduction.sh`
+[`scripts/deploy/destroyStaging.sh`](../../scripts/deploy/destroyStaging.sh) and
+[`scripts/deploy/destroyProduction.sh`][file-2]
 detach the edge hostnames and remove the API and app Workers, database, R2
 storage, and desktop downloads, then destroy the website domain and delete the
 tier's website Worker. Deleting a Worker also needs Workers KV Storage Read. For
 a staging website-only teardown use
 `packages/website/scripts/destroyWebsite.sh staging`; production runs only under
-`scripts/deploy/destroyProduction.sh`. A failed domain teardown leaves the
+[`scripts/deploy/destroyProduction.sh`][file-2]. A failed domain teardown leaves
+the
 Worker available. The Terraform wrapper rejects production domain destruction
 before loading credentials, so the teardown applies a saved destroy plan
 instead.
 
-`public/_headers` keeps HTML and the screenshot manifest revalidating while Astro
+[`public/_headers`](public/_headers) keeps HTML and the screenshot manifest
+revalidating while Astro
 bundles and versioned screenshots receive immutable browser caching. Wrangler
 publishes assets and their cache headers together as a deployment.
 Favicons also revalidate because their URLs are not versioned, so icon updates
@@ -80,20 +87,26 @@ instructions for [macOS](../app-electrobun/README.md#macos-releases),
 
 ## Technical documents
 
-`/docs/` publishes the repository documents listed in `src/technicalDocs.ts`
+`/docs/` publishes the repository documents listed in
+[`src/technicalDocs.ts`](src/technicalDocs.ts)
 (security guarantees, keying design, protocol specification, cipher suites,
-protocol models, limits, and glossary). The Markdown under `docs/` and `formal/`
+protocol models, limits, and glossary). The Markdown under
+[`docs/`](../../docs/) and [`formal/`](../../formal/)
 stays the source of truth: the `docs` content collection
-(`src/content.config.ts`) reads it from the repository root at build time, and
-`src/docLinksPlugin.ts`, a hast plugin on Astro's default Sätteri processor,
+([`src/content.config.ts`](src/content.config.ts)) reads it from the repository
+root at build time, and
+[`src/docLinksPlugin.ts`](src/docLinksPlugin.ts), a hast plugin on Astro's
+default Sätteri processor,
 rewrites each relative link to the published page when its target is listed, or
 to the file on GitHub's `main` otherwise. It also gives headings GitHub's ids,
 so fragments behave as on GitHub, replaces each document's h1 with an anchor
 (the page header renders the listed title), and wraps tables in a scrollable
 region. Code blocks render unhighlighted to suit the grayscale theme.
-`src/docsBuild.test.ts` builds the site and checks the rendered links. To
+[`src/docsBuild.test.ts`](src/docsBuild.test.ts) builds the site and checks the
+rendered links. To
 publish another document, add it to `technicalDocs` and, if it lives outside
-`docs/*.md` and `formal/*.md`, to the `build` and `test` inputs in `turbo.json`.
+[`docs/`](../../docs/) and [`formal/`](../../formal/), to the `build` and `test`
+inputs in [`turbo.json`](turbo.json).
 Astro caches rendered entries by source digest and would not notice a plugin or
 registry change, so `freshDocsCache` drops that cache at the start of every
 build. `bun run lint:doc-links` validates the links in the source Markdown; see
@@ -104,10 +117,13 @@ links](../../docs/developer/static-analysis.md#documentation-links).
 
 Every page carries Open Graph and Twitter card tags and the `og-image.png`
 preview that the agent-tool `website` image target renders from
-`assets/brand`. Indexable pages also name their `https://tearleads.com`
+[`assets/brand`](../../assets/brand/). Indexable pages also name their
+`https://tearleads.com`
 canonical URL and `og:url`; staging pages and drafts carry a robots tag
-instead. The home page adds a schema.org graph from `src/structuredData.ts`.
-`src/seoIntegration.ts` writes the crawler files for the build's
+instead. The home page adds a schema.org graph from
+[`src/structuredData.ts`](src/structuredData.ts).
+[`src/seoIntegration.ts`](src/seoIntegration.ts) writes the crawler files for
+the build's
 `PUBLIC_ENVIRONMENT`: production gets `robots.txt` with its `Sitemap` line and
 a `sitemap.xml` of every page's canonical URL; staging gets a `robots.txt`
 without a sitemap, a `noindex, nofollow` robots tag on every page, and
@@ -118,11 +134,14 @@ crawlers.
 The `/screenshots` gallery and the home page's phone carousel are
 `@a2f0/agent-tool`'s `<screenshot-gallery>` and `<screenshot-carousel>`
 elements, themed through the `--shots-*` properties in
-`src/styles/tokens.css`. The `screenshots` section of the root
-`agent-tool.json` names their layouts, screens, labels, and alt text. Each
+[`src/styles/tokens.css`](src/styles/tokens.css). The `screenshots` section of
+the root
+[`agent-tool.json`](../../agent-tool.json) names their layouts, screens, labels,
+and alt text. Each
 screenshot route names its own screen and layout in its h1 and title, and adds
 the captured themes in its description (`screenshotPageMeta` in
-`src/screenshotPages.ts`). The gallery keeps the h1 and title in step with the
+[`src/screenshotPages.ts`](src/screenshotPages.ts)). The gallery keeps the h1
+and title in step with the
 URL it rewrites as visitors move between screens. The build test fails when a
 page lacks exactly one h1 or when two pages share a heading, title, or
 description.
@@ -133,7 +152,8 @@ the first phone loads eagerly, at high priority, because it is the hero's
 likely largest paint. Every other capture loads lazily, and each image declares
 its capture's width and height so late images never shift the layout.
 
-Unknown paths answer 404 with `src/pages/404.astro`, through the Worker's
+Unknown paths answer 404 with [`src/pages/404.astro`](src/pages/404.astro),
+through the Worker's
 `not_found_handling: "404-page"`. The host redirects `/pricing` to `/pricing/`,
 so internal links use the trailing-slash form that canonical URLs name, and the
 build test fails on a root-relative link that would redirect or miss a file.
@@ -194,7 +214,7 @@ refused, since their commit is unknown until a capture records them.
 Use `bun run screenshots --project=web` for a desktop-only recapture or
 `bun run screenshots:seed` to generate just `tearleads-seed.tlbackup.json` for
 manual restore. PNGs and the backup stay gitignored. Update the Continuity SHA
-in the root `package.json` catalog, run
+in the root [`package.json`](../../package.json) catalog, run
 `bun install`, then rebuild the screenshots and website to adopt new canon.
 The website consumes PNGs and a manifest; it does not import application code.
 
@@ -202,7 +222,8 @@ The website consumes PNGs and a manifest; it does not import application code.
 
 The [continuity repository](https://github.com/a2f0/continuity) builds and
 publishes the scrollable specimen gallery at `continuity.tearleads.com` with
-Wrangler. Its domain has a separate stack, `terraform/stacks/prod/continuity`,
+Wrangler. Its domain has a separate stack,
+[`terraform/stacks/prod/continuity`](../../terraform/stacks/prod/continuity/),
 and state key, `prod/continuity/terraform.tfstate`; website and tier deploys do
 not apply it. Publish `tearleads-continuity` first, then run:
 
@@ -222,3 +243,6 @@ app, and website Workers; do not copy that token into continuity's CI secrets.
 Automation should use an account-owned token with Editor scoped only to the
 `tearleads-continuity` Worker. See Cloudflare's
 [Workers roles and scopes](https://developers.cloudflare.com/workers/authorization/workers/).
+
+[file-1]: ../../scripts/deploy/deployProduction.sh
+[file-2]: ../../scripts/deploy/destroyProduction.sh

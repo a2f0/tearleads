@@ -8,11 +8,12 @@ lives_ and _who owns it_.
 A subsystem is an ownership and navigation index over existing paths. Import
 direction stays enforced by the lanes, layers, and
 [planes](./api-architecture.md#protocol-planes) in
-`dependency-cruiser.config.ts`. A subsystem may span layers: `Containers` covers
-its routes, service facade, and orchestration workflows. A subsystem that
-declares a **surface** is also a boundary: other subsystems import only its
-surface files. See the [architecture vocabulary](developer/architecture-vocabulary.md)
-for the related axes.
+[`dependency-cruiser.config.ts`](../dependency-cruiser.config.ts). A subsystem
+may span layers: `Containers` covers its routes, service facade, and
+orchestration workflows. A subsystem that declares a **surface** is also a
+boundary: other subsystems import only its surface files. See the
+[architecture vocabulary](developer/architecture-vocabulary.md) for the related
+axes.
 
 ## How it is kept honest
 
@@ -110,8 +111,10 @@ Registered packages: [`packages/api`](../packages/api/),
 
 1. Edit
    [`scripts/architecture/subsystems.ts`](../scripts/architecture/subsystems.ts)
-   (or `clientSdkSubsystems.ts` for the client SDK) so the owning subsystem's
-   `paths` claim the new file, or add a new subsystem entry.
+   (or
+   [`clientSdkSubsystems.ts`](../scripts/architecture/clientSdkSubsystems.ts)
+   for the client SDK) so the owning subsystem's `paths` claim the new file, or
+   add a new subsystem entry.
 2. Mirror the change in the table above.
 3. Run `bun run lint:architecture`. The coverage check reports any file that
    maps to zero or several subsystems; the docs check reports table/manifest

@@ -1,8 +1,9 @@
 # UI design system
 
-Conventions that keep the app's chrome consistent across web (desktop
-browser), iPad, and phone. Full paths are relative to the repository root;
-short paths such as `shell/...` and `components/...` are relative to
+Conventions that keep the app's chrome consistent across web (desktop browser),
+iPad, and phone. Full paths are relative to the repository root; short paths
+such as [`shell/`](../packages/app/src/shell/) and
+[`components/`](../packages/app/src/components/) are relative to
 [`packages/app/src`](../packages/app/src/).
 
 ## Two shells, three tiers
@@ -13,12 +14,14 @@ The app renders one React tree with two interchangeable shells, selected by
 from the host profile's `preferredNavigationMode`:
 
 - **windowed** — the desktop window-manager UI (`@tearleads/windowing`,
-  `shell/pane/*`). Available through the lower-right layout switch.
+  [`shell/pane/`](../packages/app/src/shell/pane/)). Available through the
+  lower-right layout switch.
 - **routed** — the single-pane UI: `@tearleads/windowing`'s routed shell
-  (`packages/windowing/src/routed/*`) dressed with the app's chrome in
-  `shell/layout/routed/AppRoutedPane.tsx`. The default on desktop, iPad, and
-  phone. The two-peer demo prefers windowed, keeping its split on wide desktop
-  screens.
+  ([`packages/windowing/src/routed/`](../packages/windowing/src/routed/))
+  dressed with the app's chrome in
+  [`shell/layout/routed/AppRoutedPane.tsx`](../packages/app/src/shell/layout/routed/AppRoutedPane.tsx).
+  The default on desktop, iPad, and phone. The two-peer demo prefers windowed,
+  keeping its split on wide desktop screens.
 
 Inside the routed shell there are two tiers, split at 760px:
 
@@ -31,15 +34,16 @@ Inside the routed shell there are two tiers, split at 760px:
 The tablet breakpoint lives in
 [`packages/windowing/src/launcher/breakpoints.ts`](../packages/windowing/src/launcher/breakpoints.ts)
 (`ROUTED_TABLET_BREAKPOINT_PX = 760`). CSS cannot read TS constants, so
-`RoutedPane.css` mirrors the 760px line in a media query;
+[`RoutedPane.css`](../packages/windowing/src/routed/RoutedPane.css) mirrors the
+760px line in a media query;
 [`packages/windowing/src/routed/breakpoints.test.ts`](../packages/windowing/src/routed/breakpoints.test.ts)
 fails if the two drift.
 
-Switching shells never remounts the runtime-owning subtrees (see the comment
-in `shell/layout/Layout.tsx`). Users can also switch shells via the
-taskbar/footer control (`NavigationModeOverrideProvider`). The choice survives
-reloads; a saved windowed choice yields to routed mode on narrow or touch
-screens.
+Switching shells never remounts the runtime-owning subtrees (see the comment in
+[`shell/layout/Layout.tsx`](../packages/app/src/shell/layout/Layout.tsx)). Users
+can also switch shells via the taskbar/footer control
+(`NavigationModeOverrideProvider`). The choice survives reloads; a saved
+windowed choice yields to routed mode on narrow or touch screens.
 
 ## Touch sizing keys off an attribute, not a media query
 
@@ -59,9 +63,10 @@ which holds every routed-mode override):
    `data-navigation-mode="routed"` (dense desktop default is `2rem`). Every
    control primitive keys its min-height/size off this token, so components
    using the shared primitives meet the floor automatically. Virtualized rows go
-   through `navigation/useTouchRowHeight.ts` (`TOUCH_ROW_HEIGHT = 44`), which
-   drives both the virtualization math and the rendered row height so they
-   cannot desync.
+   through
+   [`navigation/useTouchRowHeight.ts`](../packages/app/src/navigation/useTouchRowHeight.ts)
+   (`TOUCH_ROW_HEIGHT = 44`), which drives both the virtualization math and the
+   rendered row height so they cannot desync.
 2. **16px native inputs.** `input`/`select`/`textarea` render at
    `max(16px, 1em)` in routed mode so iOS Safari does not auto-zoom the
    viewport on focus.
@@ -81,7 +86,8 @@ everywhere else). Policy: **the chrome element that touches a screen edge
 absorbs that edge's inset**:
 
 - top — the frame header (`.tearleads-header`);
-- bottom — the routed taskbar and bottom sheet (`RoutedPane.css`), and the
+- bottom — the routed taskbar and bottom sheet
+  ([`RoutedPane.css`](../packages/windowing/src/routed/RoutedPane.css)), and the
   frame footer when present;
 - left — the tablet nav rail in side mode; the app bar, taskbar, main content,
   and sidebar in tablet bottom mode or on mobile;
@@ -112,17 +118,20 @@ overlays, and motion. Rules:
 - Themes override only the color tokens, under `:root[data-theme="<id>"]`. The
   registry is
   [`packages/app/src/theme/themes.ts`](../packages/app/src/theme/themes.ts)
-  (Light, Dark, and Dusk, whose block lives in the companion `styles.dusk.css`),
-  which each host profile offers; the windowing package's `ThemeProvider` stamps
+  (Light, Dark, and Dusk, whose block lives in the companion
+  [`styles.dusk.css`](../packages/ui/src/styles.dusk.css)), which each host
+  profile offers; the windowing package's `ThemeProvider` stamps
   `<html data-theme>` and `<html data-theme-scheme>` (`light` | `dark`). A rule
   that only cares whether surfaces are dark keys off the scheme, never a theme
   id. Structural tokens are theme-independent by design. Dusk uses slate-blue
   surfaces, ivory text, and muted blue emphasis; it has no decorative text
   effects.
-- Each component ships a sibling `.css` file imported by its `.tsx`; class
-  names are composed with `classNames` from `components/shared/classNames`.
+- Each component ships a sibling `.css` file imported by its `.tsx`; class names
+  are composed with `classNames` from
+  [`components/shared/classNames`](../packages/app/src/components/shared/classNames.ts).
 
-App-specific chrome refinements live in `shell/layout/AppChrome.css`,
+App-specific chrome refinements live in
+[`shell/layout/AppChrome.css`](../packages/app/src/shell/layout/AppChrome.css),
 scoped to the navigation attribute on the root so portaled menus inherit them
 without changing website chrome. The `--app-*` tokens define control/surface
 radii, hover fill, control borders, and overlay/window shadows. Table rules and
@@ -159,25 +168,30 @@ caps a column of entry controls.
   a column of measure-width inputs, which reads worse than stretched fields. It
   also catches the read-mode rows that `MiniAppField` never wraps — a contact's
   value and its clipboard button are only adjacent if their row is capped.
-- **The mobile tier opts out.** `RoutedPane.css` re-declares
-  `--form-measure: 100%` under `.routed-pane--mobile`, so nothing in that shell
-  is capped below 760px. The tier is single-column and deliberately
-  edge-to-edge — its tab strip bleeds past the root padding to both screen
-  edges — and it runs to 759px, well past 34rem, so a cap there would strand the
-  bleed short of the screen (`e2e/mobile-chrome.spec.ts` and
-  `e2e/form-measure.spec.ts` both assert this). Override the token, never the
-  individual rules: `100%` and not `none` because consumers also read it inside
-  `min()`, where a keyword invalidates the whole declaration. The release covers
-  the shell subtree, so portaled menus and modals keep the cap on this tier —
-  fine while they stay under the measure (`--modal-width` is 22rem).
+- **The mobile tier opts out.**
+  [`RoutedPane.css`](../packages/windowing/src/routed/RoutedPane.css)
+  re-declares `--form-measure: 100%` under `.routed-pane--mobile`, so nothing in
+  that shell is capped below 760px. The tier is single-column and deliberately
+  edge-to-edge — its tab strip bleeds past the root padding to both screen edges
+  — and it runs to 759px, well past 34rem, so a cap there would strand the bleed
+  short of the screen
+  ([`e2e/mobile-chrome.spec.ts`](../packages/app-web/e2e/mobile-chrome.spec.ts)
+  and [`e2e/form-measure.spec.ts`](../packages/app-web/e2e/form-measure.spec.ts)
+  both assert this). Override the token, never the individual rules: `100%` and
+  not `none` because consumers also read it inside `min()`, where a keyword
+  invalidates the whole declaration. The release covers the shell subtree, so
+  portaled menus and modals keep the cap on this tier — fine while they stay
+  under the measure (`--modal-width` is 22rem).
 - 34rem matches the windowed `min-width` floors those apps already declare, so a
   form fills its narrowest window exactly and simply stops growing past it.
 - The unit is deliberately `rem`, and `rem` is **not** the same pixel value in
   both shells: the windowed layout inherits the monospace default-fixed-font
   quirk (`1rem` ≈ 13px), while the routed tier anchors `font-size: 16px` (see
-  the block comment in `styles.routed.css`). The cap lands at ~442px windowed
-  and 544px routed: the same *character* count, which is what a measure should
-  hold constant in a monospace UI. Do not "fix" this by switching to `px`.
+  the block comment in
+  [`styles.routed.css`](../packages/ui/src/styles.routed.css)). The cap lands at
+  ~442px windowed and 544px routed: the same *character* count, which is what a
+  measure should hold constant in a monospace UI. Do not "fix" this by switching
+  to `px`.
 - Form columns stay **left-aligned**; the slack goes to the right. Do not cap
   what wants the width — tables, virtualized lists, document editors
   (`NoteDocument`, `EnvFile`, `JsonFileDocument`), and media previews.
@@ -191,9 +205,9 @@ caps a column of entry controls.
 The de-facto component library is [`packages/app/src/components`](../packages/app/src/components/):
 
 - **Buttons**: use `MiniAppButton`
-  (`components/mini-app/controls/MiniAppButton.tsx`) for every content-surface
-  button. It takes a `default`, `danger`, or `ghost` variant and the `block`
-  and `withIcon` (icon + label row) props; use the
+  ([`components/mini-app/controls/MiniAppButton.tsx`](../packages/app/src/components/mini-app/controls/MiniAppButton.tsx))
+  for every content-surface button. It takes a `default`, `danger`, or `ghost`
+  variant and the `block` and `withIcon` (icon + label row) props; use the
   `.mini-app-icon-button` class for square icon-only buttons and
   `MiniAppClipboardButton` for copy affordances. Do not re-declare the button
   recipe in feature CSS; keep a feature class only for layout deltas (width,
@@ -202,23 +216,30 @@ The de-facto component library is [`packages/app/src/components`](../packages/ap
   (`.tearleads-action-button`) own their own button chrome deliberately.
 - **Layout**: `MiniAppRoot` / `MiniAppHeader` / `MiniAppSection` /
   `MiniAppPanel` / `MiniAppSidebar` / `MiniAppToolbar`
-  (`components/mini-app/layout/*`), modal/sheet via
-  `components/mini-app/overlays/MiniAppModal.tsx`.
+  ([`components/mini-app/layout/`](../packages/app/src/components/mini-app/layout/)),
+  modal/sheet via
+  [`components/mini-app/overlays/MiniAppModal.tsx`](../packages/app/src/components/mini-app/overlays/MiniAppModal.tsx).
 - **Checkboxes**: use `MiniAppCheckbox`
-  (`components/mini-app/controls/MiniAppCheckbox.tsx`) with a clickable label.
-  It owns the bordered square, checked fill and checkmark, keyboard focus,
-  disabled styling, and native forced-colors appearance. Keep feature CSS to
-  label layout; in the routed shell the label must provide a
-  `--control-height` minimum tap target. Feature-flag switches use the same
-  control with `role="switch"`.
-- **Tables, rows, virtual lists**: `components/mini-app/tables/*`, `rows/*`,
-  `virtual/*`.
+  ([`components/mini-app/controls/MiniAppCheckbox.tsx`](../packages/app/src/components/mini-app/controls/MiniAppCheckbox.tsx))
+  with a clickable label. It owns the bordered square, checked fill and
+  checkmark, keyboard focus, disabled styling, and native forced-colors
+  appearance. Keep feature CSS to label layout; in the routed shell the label
+  must provide a `--control-height` minimum tap target. Feature-flag switches
+  use the same control with `role="switch"`.
+- **Tables, rows, virtual lists**:
+  [`components/mini-app/tables/`](../packages/app/src/components/mini-app/tables/),
+  [`rows/`](../packages/app/src/components/mini-app/rows/),
+  [`virtual/`](../packages/app/src/components/mini-app/virtual/).
 - **Import paths**: the canonical barrels are
-  `components/mini-app/MiniAppLayout.tsx` and
-  `components/mini-app/MiniAppTable.tsx`; rows and virtual are imported from
-  their modules directly (`components/mini-app/rows/MiniAppRow`,
-  `components/mini-app/virtual/MiniAppVirtual`). Import `Pane` family
-  components from their `shell/pane/` subdirectories (`shell/pane/shell/Pane`,
+  [`components/mini-app/MiniAppLayout.tsx`](../packages/app/src/components/mini-app/MiniAppLayout.tsx)
+  and
+  [`components/mini-app/MiniAppTable.tsx`](../packages/app/src/components/mini-app/MiniAppTable.tsx);
+  rows and virtual are imported from their modules directly
+  ([`components/mini-app/rows/MiniAppRow`](../packages/app/src/components/mini-app/rows/MiniAppRow.tsx),
+  [`components/mini-app/virtual/MiniAppVirtual`](../packages/app/src/components/mini-app/virtual/MiniAppVirtual.tsx)).
+  Import `Pane` family components from their
+  [`shell/pane/`](../packages/app/src/shell/pane/) subdirectories
+  ([`shell/pane/shell/Pane`](../packages/app/src/shell/pane/shell/Pane.tsx),
   etc.).
 
 ## Per-app chrome registration
@@ -227,7 +248,8 @@ Screens never build their own top bar. Each mini-app registers its toolbar and
 Back actions through `@tearleads/windowing`'s window hooks
 (`useWindowTitleBarAction`, `useWindowBackAction`, and related hooks in
 [`packages/windowing/src/window/WindowMenuContext.tsx`](../packages/windowing/src/window/WindowMenuContext.tsx)),
-usually from its `*RoutedChrome.tsx`. BOTH the windowed title bar and the routed
-app bar read those registrations, so a screen gets correct chrome in either
-shell. In-body section headings use `MiniAppHeader`, which is layered under the
-shell title by design.
+usually from its `*RoutedChrome.tsx` (such as
+[`ExplorerRoutedChrome.tsx`](../packages/app/src/mini-apps/explorer/ExplorerRoutedChrome.tsx)).
+BOTH the windowed title bar and the routed app bar read those registrations, so
+a screen gets correct chrome in either shell. In-body section headings use
+`MiniAppHeader`, which is layered under the shell title by design.

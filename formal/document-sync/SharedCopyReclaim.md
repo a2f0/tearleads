@@ -43,15 +43,17 @@ pending-only slot's key violates `RemovalIsDurable` when startup recovery
 restores it, and dropping a pending upload without queueing violates
 `UnheldCopyQueued`.
 
-`sharedAttachmentColdReset.test.ts` removes the reset slots from stores opened
-after the reset, restarts without recovering the removed slot, drops pending
-uploads and rolls back a staged key, all against SQLite and a byte store.
-`sharedAttachmentReset.test.ts` exercises real store initialization, organization
-reset, ordinary editing and slot removal against SQLite and a byte store. It
-keeps the other document's pending source, then reclaims after its final reference
-is removed. The no-reset smoke check preserves the other synced copy. The reset
-safety assertion fails if removal deletes the bytes directly. These are runtime
-regressions, not an automated implementation-to-model trace projection.
+[`sharedAttachmentColdReset.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/attachments/sharedAttachmentColdReset.test.ts)
+removes the reset slots from stores opened after the reset, restarts without
+recovering the removed slot, drops pending uploads and rolls back a staged key,
+all against SQLite and a byte store.
+[`sharedAttachmentReset.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/attachments/sharedAttachmentReset.test.ts)
+exercises real store initialization, organization reset, ordinary editing and
+slot removal against SQLite and a byte store. It keeps the other document's
+pending source, then reclaims after its final reference is removed. The no-reset
+smoke check preserves the other synced copy. The reset safety assertion fails if
+removal deletes the bytes directly. These are runtime regressions, not an
+automated implementation-to-model trace projection.
 
 `UnheldCopyReclaimed` checks that a copy nobody holds is eventually deleted,
 under weak fairness of the reclaim steps. The model abstracts the byte

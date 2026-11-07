@@ -25,10 +25,11 @@ after a bind attempt has finished or the process has exited;
 an outstanding network request committing across removal is outside this model.
 The separate SharedCopyReclaim model covers references from other slots.
 
-Liveness assumes eventual successful sync: reload is weakly fair and detach
-is strongly fair across repeated crashes. It does not promise progress while
-permanently offline. Negative controls independently omit the durable marker
-and the open-store map update. The SQLite regression in
-`pendingAttachmentDetach.test.ts` retains the marker and bytes across a failed
-listing, sends a signed detach for a committed binding, and cleans up after an
-absent binding. Both paths run with and without restarting the store.
+Liveness assumes eventual successful sync: reload is weakly fair and detach is
+strongly fair across repeated crashes. It does not promise progress while
+permanently offline. Negative controls independently omit the durable marker and
+the open-store map update. The SQLite regression in
+[`pendingAttachmentDetach.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/sync/pendingAttachmentDetach.test.ts)
+retains the marker and bytes across a failed listing, sends a signed detach for
+a committed binding, and cleans up after an absent binding. Both paths run with
+and without restarting the store.

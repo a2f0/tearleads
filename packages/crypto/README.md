@@ -18,12 +18,12 @@ how the pieces fit.
 
 | Path | Contents |
 | --- | --- |
-| `src/encapsulation` | ML-KEM key pairs, recipient encryption, and DEK wrapping |
-| `src/signing` | ML-DSA key pairs, signing, verification, and signature histories |
-| `src/symmetric.ts`, `src/contentKeyEnvelope.ts`, `src/blobEnvelope*.ts` | AES-GCM payloads, content keys, and encrypted blob envelopes |
-| `src/challenge.ts`, `src/identitySeedPhrase.ts`, `src/fingerprint.ts` | Sign-in challenges, the BIP39 identity seed phrase, and key fingerprints |
-| `src/principalState*.ts`, `src/principal*.ts` | Signed group and organization principal state and member envelopes |
-| `src/keying` | Canonical encoding, access events and manifests, container KEKs, document access, and principal policy history |
+| [`src/encapsulation`](src/encapsulation/) | ML-KEM key pairs, recipient encryption, and DEK wrapping |
+| [`src/signing`](src/signing/) | ML-DSA key pairs, signing, verification, and signature histories |
+| [`src/symmetric.ts`](src/symmetric.ts), [`src/contentKeyEnvelope.ts`](src/contentKeyEnvelope.ts), [`src/blobEnvelopeError.ts`](src/blobEnvelopeError.ts), [`src/blobEnvelopeFields.ts`](src/blobEnvelopeFields.ts), [`src/blobEnvelopeReader.ts`](src/blobEnvelopeReader.ts), [`src/blobEnvelopeV2.ts`](src/blobEnvelopeV2.ts) | AES-GCM payloads, content keys, and encrypted blob envelopes |
+| [`src/challenge.ts`](src/challenge.ts), [`src/identitySeedPhrase.ts`](src/identitySeedPhrase.ts), [`src/fingerprint.ts`](src/fingerprint.ts) | Sign-in challenges, the BIP39 identity seed phrase, and key fingerprints |
+| [`src/principalState.ts`](src/principalState.ts), [`src/principalStateMembers.ts`](src/principalStateMembers.ts), [`src/principalStateTypes.ts`](src/principalStateTypes.ts), [`src/principalStateVerification.ts`](src/principalStateVerification.ts), [`src/principalContainerGrants.ts`](src/principalContainerGrants.ts), [`src/principalMemberEnvelopes.ts`](src/principalMemberEnvelopes.ts), [`src/principalPolicyValidationError.ts`](src/principalPolicyValidationError.ts) | Signed group and organization principal state and member envelopes |
+| [`src/keying`](src/keying/) | Canonical encoding, access events and manifests, container KEKs, document access, and principal policy history |
 | [`src/keying/containerKek`](src/keying/containerKek/README.md) | Container KEK internals and content-key target derivations |
 
 The root entry point exports the public functions. Keep canonical hashing

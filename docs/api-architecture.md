@@ -159,8 +159,9 @@ without importing a server entry point and its runtime side effects.
 
 ### 2. Transport Layer
 
-This is the HTTP-facing layer: `packages/api/src/routes/**`, request
-validators, response shaping, and auth/session middleware.
+This is the HTTP-facing layer:
+[`packages/api/src/routes/`](../packages/api/src/routes/), request validators,
+response shaping, and auth/session middleware.
 
 For service-backed routes, this layer:
 
@@ -172,9 +173,10 @@ For service-backed routes, this layer:
   successful document mutations
 
 Document routes own that last step: `respondWithDocumentCreate` in
-`routes/documents/mutations.ts` calls `publishDocumentUpdateCreatedEvent` after
-the service returns. A publication failure does not roll back a committed
-mutation; realtime hints prompt clients to fetch verified state.
+[`routes/documents/mutations.ts`](../packages/api/src/routes/documents/mutations.ts)
+calls `publishDocumentUpdateCreatedEvent` after the service returns. A
+publication failure does not roll back a committed mutation; realtime hints
+prompt clients to fetch verified state.
 
 Routes do not import workflows or access modules. Route-local logic is limited
 to thin adapters and simple endpoints that need no service orchestration.
@@ -183,8 +185,14 @@ to thin adapters and simple endpoints that need no service orchestration.
 
 This is the route-facing use-case facade:
 
-- `packages/api/src/services/{auth,billing,blobs,containers,documents}/**`
-- `packages/api/src/services/{organizations,principals,root}/**`
+- [`packages/api/src/services/auth/`](../packages/api/src/services/auth/),
+  [`packages/api/src/services/billing/`](../packages/api/src/services/billing/),
+  [`packages/api/src/services/blobs/`](../packages/api/src/services/blobs/),
+  [`packages/api/src/services/containers/`](../packages/api/src/services/containers/),
+  [`packages/api/src/services/documents/`](../packages/api/src/services/documents/)
+- [`packages/api/src/services/organizations/`](../packages/api/src/services/organizations/),
+  [`packages/api/src/services/principals/`](../packages/api/src/services/principals/),
+  [`packages/api/src/services/root/`](../packages/api/src/services/root/)
 - [`packages/api/src/services/runtime.ts`](../packages/api/src/services/runtime.ts)
 
 This layer:
@@ -203,25 +211,27 @@ SDK clients against it.
 
 ### 4. Workflow Layer
 
-`packages/api/src/workflows/**` owns transaction-scoped orchestration: a
-workflow opens the transaction when one is required and passes the same
-executor through every access-plane read and write it composes. It is the only
-production layer that imports `access/read` and `access/write`. See
+[`packages/api/src/workflows/`](../packages/api/src/workflows/) owns
+transaction-scoped orchestration: a workflow opens the transaction when one is
+required and passes the same executor through every access-plane read and write
+it composes. It is the only production layer that imports
+[`access/read`](../packages/api/src/access/read/) and
+[`access/write`](../packages/api/src/access/write/). See
 [the workflow rules](../packages/api/src/workflows/README.md).
 
 ### 5. Access and Domain Helpers
 
 Reusable logic more specific than generic infrastructure but below a use case:
 
-- `packages/api/src/access/**`: signed manifests,
+- [`packages/api/src/access/`](../packages/api/src/access/): signed manifests,
   [KEK state](./glossary/keys.md#container-kek),
   [content-key bundles](./glossary/keys.md#content-key-bundle),
   [attachment bindings](./glossary/content.md#attachment-binding), and
   [principal state](./glossary/principals.md#principal-policy-state) and
   [member-envelope](./glossary/keys.md#member-envelope) stores (see
   [the access layout](../packages/api/src/access/README.md))
-- `packages/api/src/documents/**`: document update storage, sync baselines,
-  and edit attribution
+- [`packages/api/src/documents/`](../packages/api/src/documents/): document
+  update storage, sync baselines, and edit attribution
 
 This code models protocol and domain rules, not HTTP transport.
 
@@ -304,7 +314,7 @@ The container mutation workflow creates container metadata documents and
 persists them through the helpers under
 [`packages/api/src/workflows/containers/mutations/shared/`](../packages/api/src/workflows/containers/mutations/shared/).
 Auth registration and `POST /containers/with-metadata-document` reach that
-workflow code without importing from `routes/**`.
+workflow code without importing from [`routes/`](../packages/api/src/routes/).
 
 API route tests, API integration helpers, and in-process API integration tests
 call `routeApp` directly instead of importing a server entry point.
@@ -341,12 +351,13 @@ responses.
 
 Document creation and sync writes are signed mutation services. The document
 route validates request shape and maps service errors to HTTP responses. The
-`services/documents/documentMutations` facade delegates to
-`workflows/documents/mutations`, which owns transaction boundaries
-and composes manifest verification,
+[`services/documents/documentMutations`](../packages/api/src/services/documents/documentMutations.ts)
+facade delegates to
+[`workflows/documents/mutations`](../packages/api/src/workflows/documents/mutations/),
+which owns transaction boundaries and composes manifest verification,
 [content-key target](./glossary/keys.md#key-target) validation,
-[write-header](./glossary/content.md#signed-write-header) verification, and update
-storage through the access layer. The neutral `documentUpdateStore` owns
+[write-header](./glossary/content.md#signed-write-header) verification, and
+update storage through the access layer. The neutral `documentUpdateStore` owns
 causally-missing update reads for sync responses.
 
 Blob attachment mutations are signed blob services. They own server-visible
@@ -357,7 +368,8 @@ and blob reachability cleanup.
 
 `routeApp` lets these callers share one transport definition:
 
-1. the Workers entry in `worker/index.ts` and the Bun server in `index.ts`
+1. the Workers entry in [`worker/index.ts`](../packages/api/src/worker/index.ts)
+   and the Bun server in [`index.ts`](../packages/api/src/index.ts)
 2. in-process test proxying from the app test harness
 3. route-level API tests
 

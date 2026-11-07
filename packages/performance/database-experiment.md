@@ -27,7 +27,8 @@ command creates a temporary Worker. Use the environment loader; credentials
 never appear in arguments or reports. No SDK build is needed for this probe.
 
 The CLI copies deployed compatibility flags, pool settings, and Hyperdrive ID.
-It uploads the region hint from `packages/api/wrangler.jsonc` and requires the
+It uploads the region hint from
+[`packages/api/wrangler.jsonc`](../api/wrangler.jsonc) and requires the
 resulting persisted placement to equal the deployed API's placement before
 running SQL. Cloudflare's numeric placement targets cannot be uploaded directly.
 Neither the live API nor Hyperdrive configuration is changed.

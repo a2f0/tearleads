@@ -71,16 +71,18 @@ Web deployment selects the tier DSN, builds, uploads maps, then publishes
 assets. Missing upload credentials or an upload failure stop a configured
 deployment.
 
-Google Play builds and iOS TestFlight builds invoke `bun run build:release
-android` or `bun run build:release ios` in `packages/app-capacitor`.
-`NATIVE_RELEASE_TIER` selects `staging` or `production` (default). The builder
-reads the selected tier's `shared.env` and `app.env` (from
-`NATIVE_RELEASE_SECRETS_DIR` when set, as the Fastlane lanes do), injects only
-the selected public Sentry configuration, uploads maps, and removes them before
-Capacitor packaging. Publishing maps requires a clean Git checkout; staged,
-modified, or untracked sources stop the release before building. Upload failures
-stop packaging. Debug and local Android APK/sideload builds stay local. The root
-native `scripts/release/*Release.sh` wrappers, which
+Google Play builds and iOS TestFlight builds invoke
+`bun run build:release android` or `bun run build:release ios` in
+[`packages/app-capacitor`](../../packages/app-capacitor/).
+`NATIVE_RELEASE_TIER` selects `staging` or
+`production` (default). The builder reads the selected tier's `shared.env` and
+`app.env` (from `NATIVE_RELEASE_SECRETS_DIR` when set, as the Fastlane lanes
+do), injects only the selected public Sentry configuration, uploads maps, and
+removes them before Capacitor packaging. Publishing maps requires a clean Git
+checkout; staged, modified, or untracked sources stop the release before
+building. Upload failures stop packaging. Debug and local Android APK/sideload
+builds stay local. The root native `*Release.sh` wrappers in
+[`scripts/release/`](../../scripts/release/), which
 [`scripts/deploy/deployEverything.sh`](../../scripts/deploy/deployEverything.sh)
 also runs, reach this step through Fastlane; no separate source-map command is
 required.
@@ -275,7 +277,14 @@ Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`, `linux-x64`,
 `linux-arm64`, `win-x64`; others stop). `ELECTROBUN_RELEASE_TIER` selects
 `staging` or `production`; unset is a local build that reads no secrets and
 reports nothing. Release from the repository root with
-`scripts/release/{build,upload}{Macos,Linux}{,Staging}Release.sh`.
+[`buildMacosRelease.sh`](../../scripts/release/buildMacosRelease.sh),
+[`buildMacosStagingRelease.sh`](../../scripts/release/buildMacosStagingRelease.sh),
+[`buildLinuxRelease.sh`](../../scripts/release/buildLinuxRelease.sh),
+[`buildLinuxStagingRelease.sh`](../../scripts/release/buildLinuxStagingRelease.sh),
+[`uploadMacosRelease.sh`](../../scripts/release/uploadMacosRelease.sh),
+[`uploadMacosStagingRelease.sh`](../../scripts/release/uploadMacosStagingRelease.sh),
+[`uploadLinuxRelease.sh`](../../scripts/release/uploadLinuxRelease.sh),
+[`uploadLinuxStagingRelease.sh`](../../scripts/release/uploadLinuxStagingRelease.sh).
 [`packages/app-electrobun/scripts/withSentryReleaseEnv.ts`](../../packages/app-electrobun/scripts/withSentryReleaseEnv.ts)
 resolves that tier's DSN and full commit into the public
 `BUN_PUBLIC_SENTRY_ELECTROBUN_*` defines for the Electrobun build and its
@@ -316,7 +325,8 @@ The Linux container (no `.git` or token) sets
 `TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`: it stages and sweeps maps
 without uploading; a checkout refuses the flag. `releaseLinux.sh upload` applies
 the same checkout, `BUN_*` and token rules, copies staging to a private host
-directory and, before publishing, uploads it via `uploadDeferredSourceMaps.ts`
+directory and, before publishing, uploads it via
+[`uploadDeferredSourceMaps.ts`](../../packages/app-electrobun/scripts/uploadDeferredSourceMaps.ts)
 (`BUILD_GIT_SHA` must be the clean `HEAD`; exactly two regular-file pairs under
 the `linux-x64` dist).
 
@@ -325,8 +335,11 @@ Before changing this integration, run the tests in
 folders of [`packages/app-capacitor/src`](../../packages/app-capacitor/src/),
 [`packages/api/src`](../../packages/api/src/), and
 [`packages/app-electrobun/src`](../../packages/app-electrobun/src/),
-`packages/app-electrobun/scripts/sentry*.test.ts`, the privacy tests in
-`packages/app-web/scripts/sentry*.test.ts`, the real browser test
+`sentry*.test.ts` in
+[`packages/app-electrobun/scripts/`](../../packages/app-electrobun/scripts/),
+the `sentry*.test.ts` privacy tests in
+[`packages/app-web/scripts/`](../../packages/app-web/scripts/), the real browser
+test
 [`packages/app-web/e2e/diagnostics.spec.ts`](../../packages/app-web/e2e/diagnostics.spec.ts),
 and the app boundary/logging tests. They inspect emitted envelopes with
 synthetic private values; live verification needs the account configuration

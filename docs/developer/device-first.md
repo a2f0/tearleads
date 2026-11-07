@@ -1,7 +1,8 @@
 # Device-First Reads, Writes & Background Reconciliation
 
-The `tearleads.deviceFirst` facade (`client/deviceFirst/`) provides one
-device-first scope for reads, writes, and reconciliation. The
+The `tearleads.deviceFirst` facade
+([`client/deviceFirst/`](../../packages/client-sdk/src/client/deviceFirst/))
+provides one device-first scope for reads, writes, and reconciliation. The
 [container](../glossary/access.md#container) tree and active container's
 [document](../glossary/content.md#document) list render synchronously from local
 SQLite/OPFS, ordinary container writes commit locally and queue durable sync,
@@ -9,13 +10,16 @@ and remote reconciliation patches the same state in the background.
 
 Its public handle joins three parts in `client-sdk`:
 
-- **`ContainerContentsStore`** (`stores/container-contents/`): the shared
-  locally durable tree and ordinary container mutation path.
-- **Layer A — `LocalProjectionStore`** (`stores/local-projection/`): the
-  device-first, synchronously-readable view of a domain scope.
-- **Layer B — `ReconciliationService`** (`sync/reconciliation/`): the sole owner
-  of remote I/O, draining a priority queue over `DomainSyncCoordinator`
-  [lanes](../client-sync-ordering.md).
+- **`ContainerContentsStore`**
+  ([`stores/container-contents/`](../../packages/client-sdk/src/stores/container-contents/)):
+  the shared locally durable tree and ordinary container mutation path.
+- **Layer A — `LocalProjectionStore`**
+  ([`stores/local-projection/`](../../packages/client-sdk/src/stores/local-projection/)):
+  the device-first, synchronously-readable view of a domain scope.
+- **Layer B — `ReconciliationService`**
+  ([`sync/reconciliation/`](../../packages/client-sdk/src/sync/reconciliation/)):
+  the sole owner of remote I/O, draining a priority queue over
+  `DomainSyncCoordinator` [lanes](../client-sync-ordering.md).
 
 `DeviceFirstProvider` shares all three with the app; mini-apps neither reopen
 the tree nor drive discovery from render effects.
@@ -29,7 +33,8 @@ online-regain, and [WS events](realtime-hints.md) are *reconcile-in-place*
 signals, not resets: they patch the already-visible list with fresh data instead
 of blanking and re-fetching it.
 
-Local reads are network-free. `workflows/container-contents/documentQueries/`
+Local reads are network-free.
+[`workflows/container-contents/documentQueries/`](../../packages/client-sdk/src/workflows/container-contents/documentQueries/)
 (`listContainerItemWindow`, `loadDocumentSummary`,
 `listContainerDocumentSidebarWindow`) reads purely from SQLite, and the
 projection it reads is authoritative for first paint.
@@ -52,7 +57,8 @@ effects.
 
 ### Layer A — `LocalProjectionStore`
 
-Module: `client-sdk/src/stores/local-projection/`.
+Module:
+[`client-sdk/src/stores/local-projection/`](../../packages/client-sdk/src/stores/local-projection/).
 
 Owns the device-first, synchronously-readable view of a domain scope: the merge
 of the container-contents store snapshot (tree) and document summaries.
@@ -86,8 +92,12 @@ Hydration and key methods:
 
 ### Layer B — `ReconciliationService`
 
-Module: `client-sdk/src/sync/reconciliation/` (`service.ts`, `queue.ts`,
-`triggers.ts`, and the backfill and probe helpers beside them).
+Module:
+[`client-sdk/src/sync/reconciliation/`](../../packages/client-sdk/src/sync/reconciliation/)
+([`service.ts`](../../packages/client-sdk/src/sync/reconciliation/service.ts),
+[`queue.ts`](../../packages/client-sdk/src/sync/reconciliation/queue.ts),
+[`triggers.ts`](../../packages/client-sdk/src/sync/reconciliation/triggers.ts),
+and the backfill and probe helpers beside them).
 
 The sole owner of remote reconciliation. It wraps `DomainSyncCoordinator`
 (prioritized lanes, offline tolerance, and idle waiting) and adds a priority
@@ -247,22 +257,25 @@ discovery. `dispose()` stops every scope's reconciler.
 
 The app subscribes rather than orchestrating network:
 
-- `DeviceFirstProvider.tsx` opens the shared device-first scope once and owns
-  runtime propagation for its container store and local projection.
-- `ExplorerProvider.tsx` consumes the shared store and view.
-- `useExplorerViewProjectionSync.ts` calls
-  `view.setActiveContainer(activeContainerId)`, which drives Layer B priority,
-  and surfaces the active container's summaries from the `LocalProjectionView`
-  snapshot into the Explorer view model.
-- `useExplorerInteractionState.ts` runs Refresh through
-  `reconciler.reconcileNow()` and open-time catch-up through
-  `reconciler.reconcileRootContainersNow()`.
+- [`DeviceFirstProvider.tsx`](../../packages/app/src/stores/device-first/DeviceFirstProvider.tsx)
+  opens the shared device-first scope once and owns runtime propagation for its
+  container store and local projection.
+- [`ExplorerProvider.tsx`](../../packages/app/src/stores/explorer/ExplorerProvider.tsx)
+  consumes the shared store and view.
+- [`useExplorerViewProjectionSync.ts`](../../packages/app/src/mini-apps/explorer/hooks/useExplorerViewProjectionSync.ts)
+  calls `view.setActiveContainer(activeContainerId)`, which drives Layer B
+  priority, and surfaces the active container's summaries from the
+  `LocalProjectionView` snapshot into the Explorer view model.
+- [`useExplorerInteractionState.ts`](../../packages/app/src/mini-apps/explorer/hooks/useExplorerInteractionState.ts)
+  runs Refresh through `reconciler.reconcileNow()` and open-time catch-up
+  through `reconciler.reconcileRootContainersNow()`.
 
 ### Shared binding across mini-apps (explorer, contacts, org-manager)
 
-`useDeviceFirstBinding.ts` opens the bundle, propagates runtime through `view`
-(and its underlying container store), and routes server events. The provider
-shares it with Explorer, Contacts, Org Manager, bootstrap, and Trash actions.
+[`useDeviceFirstBinding.ts`](../../packages/app/src/stores/device-first/useDeviceFirstBinding.ts)
+opens the bundle, propagates runtime through `view` (and its underlying
+container store), and routes server events. The provider shares it with
+Explorer, Contacts, Org Manager, bootstrap, and Trash actions.
 
 `open()` is cached per `DomainScope`; consumers share one mutation store,
 projection, reconciler, and active-container pointer. Only Explorer sets that
@@ -336,22 +349,22 @@ still an operation failure.
 
 | Seam | Invariant | Enforced by |
 | --- | --- | --- |
-| Local document projection | Persisted creations and edits reload affected local views from SQLite without remote reconciliation; reopening a folder refreshes its cache. | `client/deviceFirst/offline.test.ts` |
-| Local read completion | Reads superseded by deletion or reconciliation are discarded; ordinary reads publish before a coalesced trailing refresh, so autosaves cannot starve the view. | `localProjectionStore.races.test.ts` |
-| Database replacement | Replacing the adapter or domain resets summary caches and pending reads; an old read cannot publish into the replacement. | `localProjectionStore.races.test.ts` |
-| Projection notification | Change detection covers links and every summary field. | `localProjectionStore.races.test.ts` |
-| Self-contact bootstrap | Self-key resolution stays local; remote duplicate cleanup runs outside the contact write queue, keeps duplicates until an authorized purge succeeds, retries on reconnect, and keeps edits on the retained self contact. | `contactStore.offline.test.ts`, `contactStore.cleanupSettlement.test.ts`, `contactStore.importDuringCleanup.test.ts` |
-| Container mutation queue | Explicit online work is serialized apart from ordinary folder writes; never-synced folder deletion stays local; system-folder probes watch only their slot. | `containerLocalWritesDuringProbe.test.ts`, `ensureSystemContainerDeviceFirst.test.ts` |
-| System bootstrap | System-folder creation and icon correction go through the local queue. | `systemContainerBootstrap.offline.test.ts` |
-| Document rotation | One remote operation runs per live document lane, the local queue is held only for the checked installation, and generation guards exclude replaced runtimes and database resets. | `rotationCoordinatorLiveness.test.ts`, `rotationConcurrentEdits.test.ts`, `rotationRecoveryGuards.test.ts` |
-| Offline edit then Trash | Rotation repeats the full raw-history proof for a changed queue, at most three attempts per invocation, and retains durable work for a later retry. | `rotationConflictRetry.test.ts` |
-| Share racing a rename | Serialized, guarded metadata writes preserve both the rename and the grant. | `shareRenameRace.test.ts` |
+| Local document projection | Persisted creations and edits reload affected local views from SQLite without remote reconciliation; reopening a folder refreshes its cache. | [`client/deviceFirst/offline.test.ts`](../../packages/client-sdk/src/client/deviceFirst/offline.test.ts) |
+| Local read completion | Reads superseded by deletion or reconciliation are discarded; ordinary reads publish before a coalesced trailing refresh, so autosaves cannot starve the view. | [`localProjectionStore.races.test.ts`](../../packages/client-sdk/src/stores/local-projection/localProjectionStore.races.test.ts) |
+| Database replacement | Replacing the adapter or domain resets summary caches and pending reads; an old read cannot publish into the replacement. | [`localProjectionStore.races.test.ts`](../../packages/client-sdk/src/stores/local-projection/localProjectionStore.races.test.ts) |
+| Projection notification | Change detection covers links and every summary field. | [`localProjectionStore.races.test.ts`](../../packages/client-sdk/src/stores/local-projection/localProjectionStore.races.test.ts) |
+| Self-contact bootstrap | Self-key resolution stays local; remote duplicate cleanup runs outside the contact write queue, keeps duplicates until an authorized purge succeeds, retries on reconnect, and keeps edits on the retained self contact. | [`contactStore.offline.test.ts`](../../packages/app/src/stores/contacts/contactStore.offline.test.ts), [`contactStore.cleanupSettlement.test.ts`](../../packages/app/src/stores/contacts/contactStore.cleanupSettlement.test.ts), [`contactStore.importDuringCleanup.test.ts`](../../packages/app/src/stores/contacts/contactStore.importDuringCleanup.test.ts) |
+| Container mutation queue | Explicit online work is serialized apart from ordinary folder writes; never-synced folder deletion stays local; system-folder probes watch only their slot. | [`containerLocalWritesDuringProbe.test.ts`](../../packages/client-sdk/src/stores/container-contents/containerLocalWritesDuringProbe.test.ts), [`ensureSystemContainerDeviceFirst.test.ts`](../../packages/client-sdk/src/stores/container-contents/ensureSystemContainerDeviceFirst.test.ts) |
+| System bootstrap | System-folder creation and icon correction go through the local queue. | [`systemContainerBootstrap.offline.test.ts`](../../packages/app/src/providers/system-bootstrap/systemContainerBootstrap.offline.test.ts) |
+| Document rotation | One remote operation runs per live document lane, the local queue is held only for the checked installation, and generation guards exclude replaced runtimes and database resets. | [`rotationCoordinatorLiveness.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/rotation/rotationCoordinatorLiveness.test.ts), [`rotationConcurrentEdits.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/rotation/rotationConcurrentEdits.test.ts), [`rotationRecoveryGuards.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/rotation/rotationRecoveryGuards.test.ts) |
+| Offline edit then Trash | Rotation repeats the full raw-history proof for a changed queue, at most three attempts per invocation, and retains durable work for a later retry. | [`rotationConflictRetry.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/rotation/rotationConflictRetry.test.ts) |
+| Share racing a rename | Serialized, guarded metadata writes preserve both the rename and the grant. | [`shareRenameRace.test.ts`](../../packages/app/src/stores/containers/shareRenameRace.test.ts) |
 
-`DeviceFirstOfflineRequestVolume.test.tsx` registers online, caches a note,
-disconnects, and requires zero requests to create a folder, edit the cached
-note and navigate away and back, and move the note to Trash. After reconnect it
-requires the remote folder creation and the queued link and unlink, with the
-edited note in Trash.
+[`DeviceFirstOfflineRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DeviceFirstOfflineRequestVolume.test.tsx)
+registers online, caches a note, disconnects, and requires zero requests to
+create a folder, edit the cached note and navigate away and back, and move the
+note to Trash. After reconnect it requires the remote folder creation and the
+queued link and unlink, with the edited note in Trash.
 
 ## Privacy-safe reconciliation diagnostics
 

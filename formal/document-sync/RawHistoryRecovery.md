@@ -62,16 +62,16 @@ exhaustive bounded model checking, not an unbounded proof.
 
 ## Progress and Negative Controls
 
-`RawHistoryRecoveryProgress.cfg` checks `RecoveryEventuallyTerminates` with two
-updates, two epochs, and two pages. Every fair recovery eventually either
-publishes or explicitly fails. `FairSpec` adds weak fairness only for
-`RecoveryStep`, the worker's validation, settlement, rejection, and publication
-actions. It does not require a reset, a competing write, or a waiting writer to
-run. Each worker step advances a bounded page/phase or terminates; the model
-contains no worker retry cycle that could satisfy fairness without progress.
-This assumes awaited worker operations eventually return. It does not prove
-network availability, successful recovery for invalid input, or completion
-under unbounded retries.
+[`RawHistoryRecoveryProgress.cfg`](RawHistoryRecoveryProgress.cfg) checks
+`RecoveryEventuallyTerminates` with two updates, two epochs, and two pages.
+Every fair recovery eventually either publishes or explicitly fails. `FairSpec`
+adds weak fairness only for `RecoveryStep`, the worker's validation, settlement,
+rejection, and publication actions. It does not require a reset, a competing
+write, or a waiting writer to run. Each worker step advances a bounded
+page/phase or terminates; the model contains no worker retry cycle that could
+satisfy fairness without progress. This assumes awaited worker operations
+eventually return. It does not prove network availability, successful recovery
+for invalid input, or completion under unbounded retries.
 
 The smaller progress run explores 292,008 generated states, 168,712 distinct
 states, and depth 13. The three-update safety configuration checks the larger

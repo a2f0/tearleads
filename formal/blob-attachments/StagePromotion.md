@@ -84,8 +84,9 @@ completion and the flip, and was never retried, left the same orphan.
 `cleanupExpiredBlobStages` now also deletes a pending stage's key after the
 abort. That is safe because a claimed stage can no longer be promoted. The
 control `stage-cleanup-leaves-assembled-object` restores the old behavior and
-reports `NoOrphanObjects`. `multipartStageExpiryCleanup.test.ts` reproduces
-the leak through the real S3 adapter and fails without the fix.
+reports `NoOrphanObjects`.
+[`multipartStageExpiryCleanup.test.ts`](../../packages/api/src/services/blobs/multipartStageExpiryCleanup.test.ts)
+reproduces the leak through the real S3 adapter and fails without the fix.
 
 ## Negative controls
 

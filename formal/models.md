@@ -111,8 +111,11 @@ leaves the writer unable to write.
 
 The production seams are `resolveContainerKekParentBinding` (signed historical
 epoch membership) and `assertContainerKekParentEdgesCurrent` (current epochs
-required for writes). The API and SDK `ancestorRotationRecovery.test.ts` tests
-exercise those seams with signed manifests; the SDK test also uses actual
+required for writes). The API and SDK
+[`ancestorRotationRecovery.test.ts`](../packages/api/src/routes/documents/ancestorRotationRecovery.test.ts)
+and
+[`ancestorRotationRecovery.test.ts`](../packages/client-sdk/src/workflows/containers/child/rekey/ancestorRotationRecovery.test.ts)
+tests exercise those seams with signed manifests; the SDK test also uses actual
 encrypted keys. The model abstracts cryptography and authorization; the
 signed-history tampering tests cover that boundary in the implementation.
 Independent repair by a child-only writer is

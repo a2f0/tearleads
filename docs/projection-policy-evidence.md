@@ -67,13 +67,15 @@ The protocol keeps this metadata contract and requires active organization
 every member of every live group. Group creation and policy updates enforce that
 requirement transactionally. Removing a user from
 [Members](./glossary/principals.md#organization-members-group) is refused until
-signed removals from all other live groups and direct container grants have committed.
-The app enrolls users in Members before adding them to another group and removes
-ordinary-group memberships before disabling the roster. No group mutation
-implicitly enrolls a user on the server. Direct user grants independently
-require active same-organization membership (`groupReferences.ts`); Members
-removal refuses outstanding direct grants (`roster.ts`). There is no non-roster
-access exception.
+signed removals from all other live groups and direct container grants have
+committed. The app enrolls users in Members before adding them to another group
+and removes ordinary-group memberships before disabling the roster. No group
+mutation implicitly enrolls a user on the server. Direct user grants
+independently require active same-organization membership
+([`groupReferences.ts`](../packages/api/src/workflows/containers/mutations/shared/groupReferences.ts));
+Members removal refuses outstanding direct grants
+([`roster.ts`](../packages/api/src/workflows/organizations/roster.ts)). There is
+no non-roster access exception.
 
 A group's chain extends through its last directory-bound head rather than
 stopping at the citation: a reader may already have checkpointed a later

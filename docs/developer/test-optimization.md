@@ -20,19 +20,25 @@ adding their durations does not predict CI time saved.
 Bun's case sums omit hooks and any case without a parsed duration, so they
 identify leads, not elapsed time. The known expensive files are:
 
-- **API**: `src/workflows/documents/storedDocumentHistory.test.ts` and
-  `src/workflows/containers/writerProjection/storedManifestHistory.test.ts`
-  (4,098-entry signed histories), `src/routes/documents/automaticAncestorRepair.test.ts`,
-  the container mutation route tests
-  (`src/routes/containers/mutations.*.test.ts`),
-  [writer projections](../glossary/sync.md#writer-projection), and rotation-carried
-  [rekeys](../glossary/keys.md#rekey).
-- **Client SDK**: `syncRepairLimits.test.ts`,
-  `projectionAuthorityPageBudget.test.ts`, and
-  `syncContainerRekeyPrefix.test.ts`.
+- **API**:
+  [`src/workflows/documents/storedDocumentHistory.test.ts`](../../packages/api/src/workflows/documents/storedDocumentHistory.test.ts)
+  and
+  [`src/workflows/containers/writerProjection/storedManifestHistory.test.ts`](../../packages/api/src/workflows/containers/writerProjection/storedManifestHistory.test.ts)
+  (4,098-entry signed histories),
+  [`src/routes/documents/automaticAncestorRepair.test.ts`](../../packages/api/src/routes/documents/automaticAncestorRepair.test.ts),
+  the container mutation route tests (`mutations.*.test.ts` in
+  [`packages/api/src/routes/containers/`](../../packages/api/src/routes/containers/)),
+  [writer projections](../glossary/sync.md#writer-projection), and
+  rotation-carried [rekeys](../glossary/keys.md#rekey).
+- **Client SDK**:
+  [`syncRepairLimits.test.ts`](../../packages/client-sdk/src/workflows/documents/syncFailures/syncRepairLimits.test.ts),
+  [`projectionAuthorityPageBudget.test.ts`](../../packages/client-sdk/src/workflows/principals/publicHistory/projectionAuthorityPageBudget.test.ts),
+  and
+  [`syncContainerRekeyPrefix.test.ts`](../../packages/client-sdk/src/workflows/documents/syncRekeys/syncContainerRekeyPrefix.test.ts).
 - **App**: the `DualPaneProvider.*.test.tsx` files under
-  `src/shell/pane/tests`, led by `recoveredNoteBackspace`, `sharing`, `groups`,
-  `miniAppWrites`, `currentPrincipalRecovery`, and `attribution`.
+  [`src/shell/pane/tests`](../../packages/app/src/shell/pane/tests/), led by
+  `recoveredNoteBackspace`, `sharing`, `groups`, `miniAppWrites`,
+  `currentPrincipalRecovery`, and `attribution`.
 
 Some of that cost is deliberate:
 
@@ -40,29 +46,31 @@ Some of that cost is deliberate:
   [4,096 entries](../limits.md#container-hierarchy) on purpose; shrinking them
   would drop the regression they guard. Building the signed history dominates
   their cost; verification is the smaller part.
-- `DualPaneProvider.recoveredNoteBackspace.test.tsx` is CPU-bound. Each of its
-  51 sequential uploads spends roughly 100-200 ms in client commit, upload, and
-  API work, and each cell of its creator, editor, and sync-mode matrix drives a
-  different UI or delivery path. Its upload helper already returns within a
-  millisecond of the server accepting the update, so the remaining per-update
-  cost is a production-performance lead, not a fixture problem.
+- [`DualPaneProvider.recoveredNoteBackspace.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.recoveredNoteBackspace.test.tsx)
+  is CPU-bound. Each of its 51 sequential uploads spends roughly 100-200 ms in
+  client commit, upload, and API work, and each cell of its creator, editor, and
+  sync-mode matrix drives a different UI or delivery path. Its upload helper
+  already returns within a millisecond of the server accepting the update, so
+  the remaining per-update cost is a production-performance lead, not a fixture
+  problem.
 
 ## Techniques that work
 
-- **Build immutable signed fixtures once.** `syncContainerRekeyPrefix.test.ts`
-  builds its 17-level signed ancestor graph in `beforeAll`. Each case clones
-  the graph and key data, rebuilds its identity resolver, re-registers
-  [manifest](../glossary/access.md#access-manifest) citations after the preload's
-  registry reset, and opens a fresh database. No checkpoint or mutation response
-  is shared between cases.
+- **Build immutable signed fixtures once.**
+  [`syncContainerRekeyPrefix.test.ts`](../../packages/client-sdk/src/workflows/documents/syncRekeys/syncContainerRekeyPrefix.test.ts)
+  builds its 17-level signed ancestor graph in `beforeAll`. Each case clones the
+  graph and key data, rebuilds its identity resolver, re-registers
+  [manifest](../glossary/access.md#access-manifest) citations after the
+  preload's registry reset, and opens a fresh database. No checkpoint or
+  mutation response is shared between cases.
 - **Thread acknowledged state through setup chains.**
-  `automaticAncestorRepair.test.ts` passes each child's acknowledged manifest
-  and key record into the next parent projection instead of refetching the
-  growing parent path at every level. Setup uses real SDK creation, API
-  writes, crypto verification, and acknowledgement; the root is fetched again
-  before rotation, and repair and reads use independent cold SDK databases.
-  The deep cases create 18 descendants and assert the
-  [16-repair prefix boundary](../limits.md#container-keying).
+  [`automaticAncestorRepair.test.ts`](../../packages/api/src/routes/documents/automaticAncestorRepair.test.ts)
+  passes each child's acknowledged manifest and key record into the next parent
+  projection instead of refetching the growing parent path at every level. Setup
+  uses real SDK creation, API writes, crypto verification, and acknowledgement;
+  the root is fetched again before rotation, and repair and reads use
+  independent cold SDK databases. The deep cases create 18 descendants and
+  assert the [16-repair prefix boundary](../limits.md#container-keying).
 - **Settle the app runtime in short `act` slices.** React holds commits
   scheduled inside an async `act` scope until the scope exits. A wait inside one
   long scope can therefore block the commit it waits for: Org Manager keeps its
@@ -76,15 +84,18 @@ Some of that cost is deliberate:
   use it and assert the result, so a stall fails at the step that caused it.
   Other call sites wrap `waitForAppTestRuntimeToSettle` in one `act` scope; a
   stall there shows up as `App runtime settle timed out` in the app log. The
-  short timeouts in `organizationReadModelRealtime.idle.test.ts` emit that
-  diagnostic on purpose.
-- **Sign a single successor in-process.** `test/helpers/longPrincipalHistory.ts`
+  short timeouts in
+  [`organizationReadModelRealtime.idle.test.ts`](../../packages/app/src/providers/sdk/organizationReadModelRealtime.idle.test.ts)
+  emit that diagnostic on purpose.
+- **Sign a single successor in-process.**
+  [`test/helpers/longPrincipalHistory.ts`](../../packages/api/test/helpers/longPrincipalHistory.ts)
   in the API signs one new
   [principal version](../glossary/principals.md#principal-policy-state) in the
   test process and starts signing workers only for longer histories, including
   the opt-in [16,384-version regression](../principal-history-acceptance.md) in
-  `test/slow/principalHistoryAvailability.test.ts`. Both paths
-  call `signPrincipalState`, and signing does not populate verification caches.
+  [`test/slow/principalHistoryAvailability.test.ts`](../../packages/api/test/slow/principalHistoryAvailability.test.ts).
+  Both paths call `signPrincipalState`, and signing does not populate
+  verification caches.
 - **Wrap timer-backed retries and async UI actions in `act`.** Explorer's
   menu-retry waits run inside `act`, and the recovery-key actions use async
   `act` callbacks; awaiting a synchronous callback restores the act environment
@@ -104,17 +115,19 @@ Some of that cost is deliberate:
   way). Plain `--parallel` implies `--isolate` and cost about 2.4 times the CPU
   for the SDK, 1.5 times for the app, and 2 times for the API (880 s wall). CI's
   4-vCPU runner fits the API's two backends times two workers.
-- **Split the long suites across CI runners.** On CI, the API runs one
-  backend per runner (`--database=` in `testAllDatabases.ts`) in three Bun
-  shards, and the app, client SDK, and bob-and-alice suites in two each, so no
-  job carries a whole suite. API shards keep two workers: with `--parallel=4`,
-  four PGlite workers on one 4-vCPU runner pushed a test that takes 3.3 s of
-  its 5 s budget on main past the limit. Local runs keep both backends and two
-  workers. The bob-and-alice scenarios run in four isolated workers (each
-  boots its own in-process API): 35 tests took 167 s locally, where the serial
-  CI run of 34 took 850 s. A new shard layout regroups files inside
-  `--no-isolate` workers, so it can expose a test that leaks module state
-  (see the mouse-release fix in `MiniAppControls.test.tsx`).
+- **Split the long suites across CI runners.** On CI, the API runs one backend
+  per runner (`--database=` in
+  [`testAllDatabases.ts`](../../packages/api/scripts/testAllDatabases.ts)) in
+  three Bun shards, and the app, client SDK, and bob-and-alice suites in two
+  each, so no job carries a whole suite. API shards keep two workers: with
+  `--parallel=4`, four PGlite workers on one 4-vCPU runner pushed a test that
+  takes 3.3 s of its 5 s budget on main past the limit. Local runs keep both
+  backends and two workers. The bob-and-alice scenarios run in four isolated
+  workers (each boots its own in-process API): 35 tests took 167 s locally,
+  where the serial CI run of 34 took 850 s. A new shard layout regroups files
+  inside `--no-isolate` workers, so it can expose a test that leaks module state
+  (see the mouse-release fix in
+  [`MiniAppControls.test.tsx`](../../packages/app/src/components/mini-app/controls/MiniAppControls.test.tsx)).
 - **Keep worker-safe preload hooks.** In a `--parallel` run Bun calls a
   preload's `afterAll` after every file, not once per run, while
   `--no-isolate` keeps module state for the worker's next file. The app and
@@ -122,15 +135,16 @@ Some of that cost is deliberate:
   (`BUN_TEST_WORKER_ID` is unset); closing them per file left later files a
   closed PGlite (`PGlite is closed`), which is why both suites first failed in
   parallel.
-- **Scope a process-wide swap to the calls that need it.** Which file runs
-  first in a worker decides which one pays for process-wide setup.
+- **Scope a process-wide swap to the calls that need it.** Which file runs first
+  in a worker decides which one pays for process-wide setup.
   `runWithBunFetchLock` in `@tearleads/sqlite-worker` used to point
   `globalThis.fetch` at `Bun.fetch` while SQLite loaded and while each database
   opened, so any request in that window skipped MSW and failed with
   `ECONNREFUSED`. Serially an early file always paid for the load; in a worker
-  `Root.suspension.test.tsx` could be the first, and alone it failed 17 of 30
-  runs. The lock now sends only the loader's `file:` asset to `Bun.fetch` and
-  every other request to the fetch it replaced.
+  [`Root.suspension.test.tsx`](../../packages/app/src/mini-apps/root/Root.suspension.test.tsx)
+  could be the first, and alone it failed 17 of 30 runs. The lock now sends only
+  the loader's `file:` asset to `Bun.fetch` and every other request to the fetch
+  it replaced.
 
 ## Explaining flakes
 
@@ -138,19 +152,20 @@ Widen a suspected race in an untracked probe copy (for example, delay the
 follow-up query) and log the state transitions; the failure may be a product
 bug the test correctly detected.
 
-- `DualPaneProvider.sameIdentity.test.tsx` exposed one: a recovered pane's
-  Explorer tree reloads from empty, through a root-only list, to the
-  identity's containers. `useExplorerSelection` therefore remembers the slot of
-  a vanished device-local system container until exactly one node has it,
-  stops following on an ambiguous slot, and lets any explicit selection cancel
-  it. Because the reload can still remove the table briefly,
+- [`DualPaneProvider.sameIdentity.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sameIdentity.test.tsx)
+  exposed one: a recovered pane's Explorer tree reloads from empty, through a
+  root-only list, to the identity's containers. `useExplorerSelection` therefore
+  remembers the slot of a vanished device-local system container until exactly
+  one node has it, stops following on an ambiguous slot, and lets any explicit
+  selection cancel it. Because the reload can still remove the table briefly,
   `expectSingleYouContact` reads the user-ID button from the snapshot that
   satisfied its wait instead of querying again.
-- `SystemMonitorRequests.restore.test.tsx` waits until neither identity has a
-  request in flight and reads the client totals and proxied request count from
-  that same snapshot. The runtime settle point tracks proxied traffic and quiet
-  time, while the client counts a request until its response resolves, so
-  Explorer queries could still be in flight right after settling.
+- [`SystemMonitorRequests.restore.test.tsx`](../../packages/app/src/mini-apps/system-monitor/requests/SystemMonitorRequests.restore.test.tsx)
+  waits until neither identity has a request in flight and reads the client
+  totals and proxied request count from that same snapshot. The runtime settle
+  point tracks proxied traffic and quiet time, while the client counts a request
+  until its response resolves, so Explorer queries could still be in flight
+  right after settling.
 - An unexplained failure mode in the same-identity file,
   `Primary session did not materialize the new organization profile name`,
   failed CI twice, both on `main` on 2026-10-14, and in no failed or retried
@@ -162,12 +177,13 @@ bug the test correctly detected.
   current `main` the file passed 50 of 50 local runs (20 alone, 30 in six
   concurrent loops). If it returns, capture the selector's options and the
   organization runtime state at the timeout.
-- `waitForBusyPaint.test.ts` raced real timers against the 100 ms paint
-  fallback: under eight CPU burners its 10 ms sleep overran the fallback in 1
-  of 50 runs, and a 1,000 ms wall-clock bound on the fallback failed at
-  2,053 ms in a push gate. It now stubs `setTimeout`, `clearTimeout`, and
-  `requestAnimationFrame` and fires each callback by hand. Test a timer's
-  delay and effect that way rather than measuring elapsed time.
+- [`waitForBusyPaint.test.ts`](../../packages/app/src/components/mini-app/overlays/waitForBusyPaint.test.ts)
+  raced real timers against the 100 ms paint fallback: under eight CPU burners
+  its 10 ms sleep overran the fallback in 1 of 50 runs, and a 1,000 ms
+  wall-clock bound on the fallback failed at 2,053 ms in a push gate. It now
+  stubs `setTimeout`, `clearTimeout`, and `requestAnimationFrame` and fires each
+  callback by hand. Test a timer's delay and effect that way rather than
+  measuring elapsed time.
 
 ## API test timeout
 

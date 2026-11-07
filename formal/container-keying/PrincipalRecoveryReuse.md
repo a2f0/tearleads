@@ -82,8 +82,9 @@ disable one guard each:
 - `MemoPerOperation = FALSE` violates `FreshPerOperation`: a memo that outlives
   its operation serves a directory older than the next operation's start. A
   caller's shared policy cache must not become a second such memo:
-  `principalRecoveryOperation.test.ts` shares one cache across two operations,
-  across a hint, and past a named group pin.
+  [`principalRecoveryOperation.test.ts`](../../packages/client-sdk/src/workflows/principals/recoveryOperation/principalRecoveryOperation.test.ts)
+  shares one cache across two operations, across a hint, and past a named group
+  pin.
 - `EvictOnHint = FALSE` violates `NoStaleAfterHint`: a hinted advance would not
   reach later collections of an operation already in flight.
 - `EvictOnCheckpoint = FALSE` violates `ReuseCoversPin`: another operation's
@@ -95,21 +96,25 @@ disable one guard each:
 - `StampObservedEpoch = FALSE` violates `NoStaleAfterHint`: stamping an entry
   with the epoch current when it is stored, rather than the one observed before
   its reads (or its source's), lets a hint that arrived mid-collection go
-  unnoticed by later collections. `principalRecoveryMemoHintRace.test.ts`
+  unnoticed by later collections.
+  [`principalRecoveryMemoHintRace.test.ts`](../../packages/client-sdk/src/workflows/principals/recoveryOperation/principalRecoveryMemoHintRace.test.ts)
   reproduces this race.
 - `CarryProducerLifetime = FALSE` violates `NoUseAfterProducerExpiry`: a value
   handed out under the consumer's lifetime alone stays usable after the
   collection that produced it expired.
-  `principalRecoveryOperation.test.ts` and `principalRecoveryMemo.test.ts` expire
-  the producer after hand-out and before the consumer's use.
+  [`principalRecoveryOperation.test.ts`](../../packages/client-sdk/src/workflows/principals/recoveryOperation/principalRecoveryOperation.test.ts)
+  and
+  [`principalRecoveryMemo.test.ts`](../../packages/client-sdk/src/workflows/principals/recoveryOperation/principalRecoveryMemo.test.ts)
+  expire the producer after hand-out and before the consumer's use.
 - `PrimeRequiresAcknowledgement = FALSE` violates `PinCommitted`: priming a
   head the server never acknowledged pins the device past the honest server,
   whose own head every later collection then refuses as a rollback.
 - `PrimeChecksScope = FALSE` violates `NoPrimeAfterScopeSwitch`: priming that
   binds its scope late writes progress (in production, it could pin a trust
   binding) for the replacement identity or database.
-  `provisionedPrincipalHistoryScope.test.ts` switches both before and during
-  priming and requires no durable row in either database.
+  [`provisionedPrincipalHistoryScope.test.ts`](../../packages/client-sdk/src/workflows/registration/provisionedPrincipalHistoryScope.test.ts)
+  switches both before and during priming and requires no durable row in either
+  database.
 - `UnchangedNamesHeld = FALSE` violates `FreshPerOperation`: reusing the held
   prefix on any `unchanged` reply, whatever head it names, accepts a head older
   than the server head when the operation began, so a revocation committed
@@ -118,14 +123,17 @@ disable one guard each:
 
 Public projection sources follow the completed-stage rule: `readPublicPages`
 skips its pinned read once progress is complete, and every read that does occur
-checks the returned head artifacts against the private root. Hints are lossy,
-so `FreshPerOperation` rests on the discovery read alone; hint eviction only
+checks the returned head artifacts against the private root. Hints are lossy, so
+`FreshPerOperation` rests on the discovery read alone; hint eviction only
 shortens reuse inside an operation. The model abstracts signatures, pages, the
 public/private split, the producer lease, and concurrent recovery writers; the
-signed SDK regressions in `principalHistoryRecovery.test.ts`,
-`principalRecoveryMemo.test.ts`, `principalRecoveryOperation.test.ts`,
-`principalRecoveryMemoHintRace.test.ts` and
-`runtimeProjectionPolicyRecovery.test.ts` cover those boundaries. It does not
-model the server's read authorization: dropping a confirmation read removes a
-refusal of evidence the device already verified, and writes stay authorized
-against live server state.
+signed SDK regressions in
+[`principalHistoryRecovery.test.ts`](../../packages/client-sdk/src/workflows/principals/historyRecovery/principalHistoryRecovery.test.ts),
+[`principalRecoveryMemo.test.ts`](../../packages/client-sdk/src/workflows/principals/recoveryOperation/principalRecoveryMemo.test.ts),
+[`principalRecoveryOperation.test.ts`](../../packages/client-sdk/src/workflows/principals/recoveryOperation/principalRecoveryOperation.test.ts),
+[`principalRecoveryMemoHintRace.test.ts`](../../packages/client-sdk/src/workflows/principals/recoveryOperation/principalRecoveryMemoHintRace.test.ts)
+and
+[`runtimeProjectionPolicyRecovery.test.ts`](../../packages/client-sdk/src/workflows/principals/runtimeProjectionPolicyRecovery.test.ts)
+cover those boundaries. It does not model the server's read authorization:
+dropping a confirmation read removes a refusal of evidence the device already
+verified, and writes stay authorized against live server state.

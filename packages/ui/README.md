@@ -15,16 +15,23 @@ It depends only on React and must not import application implementation code.
 
 Importing a component loads its stylesheets:
 
-- `src/styles.css` declares every color token. Its `:root` block is the Light
+- [`src/styles.css`](src/styles.css) declares every color token. Its `:root`
+  block is the Light
   theme, and each other theme re-declares the same tokens under
   `:root[data-theme="<id>"]`.
-- `src/styles.dusk.css` holds the Dusk theme's token block.
-- `src/styles.routed.css` holds touch and routed-layout overrides, and must
-  load after `styles.css`.
-- `src/styles.links.css` resets anchors for every shell.
+- [`src/styles.dusk.css`](src/styles.dusk.css) holds the Dusk theme's token
+  block.
+- [`src/styles.routed.css`](src/styles.routed.css) holds touch and
+  routed-layout overrides, and must
+  load after [`styles.css`](src/styles.css).
+- [`src/styles.links.css`](src/styles.links.css) resets anchors for every shell.
 
-The app's theme list (`packages/app/src/theme/themes.ts`) and the website's
-tokens (`packages/website/src/styles/tokens.css`) mirror these values. See the
+The app's theme list
+([`packages/app/src/theme/themes.ts`](../app/src/theme/themes.ts)) and the
+website's
+tokens
+([`packages/website/src/styles/tokens.css`](../website/src/styles/tokens.css))
+mirror these values. See the
 [UI design system](../../docs/ui-design-system.md) for the conventions they
 follow.
 

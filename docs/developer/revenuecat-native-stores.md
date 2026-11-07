@@ -219,11 +219,12 @@ Before testing the real Apple purchase sheet:
    packages in the current `default` offering and to the `sync` entitlement.
 3. Keep `VITE_REVENUECAT_IOS_API_KEY` set to that Apple app's public `appl_...`
    key. The Xcode project records the In-App Purchase capability and Swift 5;
-   StoreKit does not use a code-signing entitlement for in-app purchases, so
-   App Store Connect and RevenueCat configuration remain authoritative.
-   The project also pins `purchases-ios-spm` to the exact version resolved by
+   StoreKit does not use a code-signing entitlement for in-app purchases, so App
+   Store Connect and RevenueCat configuration remain authoritative. The project
+   also pins `purchases-ios-spm` to the exact version resolved by
    `@revenuecat/purchases-capacitor`; update that pin and regenerate
-   `Package.resolved` in lockstep whenever the Capacitor dependency changes.
+   [`Package.resolved`](../../packages/app-capacitor/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved)
+   in lockstep whenever the Capacitor dependency changes.
 4. Create an App Store Connect sandbox tester. To use Apple's sandbox controls,
    enable Developer Mode under **Settings > Privacy & Security > Developer
    Mode**, restart the device, and use the **Sandbox Apple Account** control
@@ -293,14 +294,15 @@ it shells out to `bun run build`, and Vite folds `VITE_`-prefixed
 `process.env` vars into `import.meta.env` — that is the entire chain for a store
 release.
 
-The dev run-on-device scripts have no Fastlane in the path, so `runIos.sh` and
-`runAndroid.sh` read production's `shared.env` through
-[`exportRevenueCatKeys.sh`](../../scripts/lib/exportRevenueCatKeys.sh).
-Without it, a simulator or device build inlines no key,
-`createCapacitorPurchases()` returns the unavailable stub, and the billing panel
-offers no purchase to exercise. Each script prints whether its platform's key
-made it in. An already-exported value wins, so a one-off key can be passed
-inline.
+The dev run-on-device scripts have no Fastlane in the path, so
+[`runIos.sh`](../../scripts/dev/runIos.sh) and
+[`runAndroid.sh`](../../scripts/dev/runAndroid.sh) read production's
+`shared.env` through
+[`exportRevenueCatKeys.sh`](../../scripts/lib/exportRevenueCatKeys.sh). Without
+it, a simulator or device build inlines no key, `createCapacitorPurchases()`
+returns the unavailable stub, and the billing panel offers no purchase to
+exercise. Each script prints whether its platform's key made it in. An
+already-exported value wins, so a one-off key can be passed inline.
 
 ## Sandbox events
 

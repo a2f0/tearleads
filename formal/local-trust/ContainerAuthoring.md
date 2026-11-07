@@ -47,5 +47,5 @@ The second (`CheckAcknowledgedHead = FALSE`, control
 `ack-accepts-unsigned-head`) accepts a response without comparing its hashes:
 the client still pins its own plan, but now records as committed a head the
 server says it did not commit, violating `AcknowledgedCheckpointIsSigned`.
-`shareAcknowledgementHashes.test.ts` covers the same mismatches against signed
-plans.
+[`shareAcknowledgementHashes.test.ts`](../../packages/client-sdk/src/workflows/containers/child/share/shareAcknowledgementHashes.test.ts)
+covers the same mismatches against signed plans.

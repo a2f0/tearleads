@@ -30,7 +30,8 @@ works without downloading. A fresh CI runner downloads the paired release.
 Deleting `.hutch/devkit/` requires rerunning preparation before standalone
 `bun tsc --build` or `bun run lint:knip:all` / `bun run lint:knip:production`.
 
-Run `./scripts/dev/runElectrobun.sh` from the repository root (or
+Run [`./scripts/dev/runElectrobun.sh`](../../scripts/dev/runElectrobun.sh) from
+the repository root (or
 `bun run --cwd packages/app-electrobun dev`) to start the desktop app. Arguments
 such as `--reset` are forwarded to the package launcher. Use
 `bun run --cwd packages/app-electrobun build:dev` to build it. The main process
@@ -44,7 +45,7 @@ Linux and Windows builds bundle and use Electrobun's pinned CEF renderer. On
 Windows, this pins Chromium to the app release independently of the machine's
 WebView2 installation and update cycle. macOS builds use the native WKWebView
 and explicitly disable CEF bundling. These settings apply to both development
-and release builds in `electrobun.config.ts`.
+and release builds in [`electrobun.config.ts`](electrobun.config.ts).
 
 The packaging step emits the renderer HTML and assets together with Bun and
 embeds Loro's WASM, alongside the SQLite worker and WASM. Both packaged and
@@ -78,7 +79,8 @@ artifact filenames. Production uses **Tearleads**.
 
 Like the iOS and Android wrappers, `*Release.sh` defaults to production and
 `*StagingRelease.sh` selects staging. Each supports `--help` and accepts no tier
-argument. Dispatch is shared in `scripts/release/desktopRelease.sh`.
+argument. Dispatch is shared in
+[`scripts/release/desktopRelease.sh`](../../scripts/release/desktopRelease.sh).
 
 Signing uses the installed Developer ID Application identity. Set
 `ELECTROBUN_DEVELOPER_ID` if more than one is installed. Notarization uses
@@ -87,7 +89,8 @@ Signing uses the installed Developer ID Application identity. Set
 `ELECTROBUN_APPLEAPIKEY`, `ELECTROBUN_APPLEAPIISSUER`, and
 `ELECTROBUN_APPLEAPIKEYPATH` variables can override those values. The private key
 must be accessible to `codesign`; the existing
-`scripts/keychain/authorizeCodesignPartitionList.sh` helper runs in the owner's
+[`scripts/keychain/authorizeCodesignPartitionList.sh`][file-1] helper runs in
+the owner's
 interactive Terminal when macOS requires keychain authorization.
 
 The `postBuild` hook packages the final renderer, Loro WASM, SQLite worker, and
@@ -197,9 +200,12 @@ The container build stages source maps outside the app and removes every map
 from the build directory, but uploads nothing
 (`TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`, honoured only without `.git`).
 Upload then copies the staged maps to a private host temporary directory and
-runs `scripts/uploadDeferredSourceMaps.ts`, which requires the source commit to
+runs
+[`scripts/uploadDeferredSourceMaps.ts`](scripts/uploadDeferredSourceMaps.ts),
+which requires the source commit to
 be the clean checkout's `HEAD`, accepts exactly the renderer and main-process
-pairs as regular files under the `linux-x64` dist that `releaseLinux.sh` names
+pairs as regular files under the `linux-x64` dist that
+[`releaseLinux.sh`](scripts/releaseLinux.sh) names
 (never the host's own platform), and uploads them with the token from the
 tier's `.secrets/<tier>/shared.env`. Maps upload before the installation check,
 so its first errors can symbolicate; a failed or partial upload stops before
@@ -213,7 +219,8 @@ updater uses a separate `.tar.zst`. Both use the same immutable R2 publication
 and matched checksum/discovery scheme as macOS, with the prefix
 `stable-linux-x64` or `canary-linux-x64`.
 
-Redeploy `packages/website` after publishing to refresh its Linux download link.
+Redeploy [`packages/website`](../website/) after publishing to refresh its Linux
+download link.
 The public `/downloads/linux` page explains desktop dependencies and installation.
 
 The build checks the installer contents, the updater's archive hash, and the
@@ -243,7 +250,9 @@ pwsh ./packages/app-electrobun/scripts/testWindowsPortConflict.ps1
 ```
 
 The Windows CEF persistence CI job runs this check on a native Windows runner
-through `scripts/testWindowsPortConflict.ps1`. That wrapper holds the native
+through
+[`scripts/testWindowsPortConflict.ps1`](scripts/testWindowsPortConflict.ps1).
+That wrapper holds the native
 host transport's first candidate port (50000) exclusively, verifies that an
 SO_REUSEADDR bind on it receives access denied, then requires the app to
 select a later internal websocket port on each launch. If an outside reservation
@@ -341,3 +350,5 @@ The homepage resolves the tier's Windows manifest alongside macOS and Linux.
 An unavailable or invalid Windows manifest hides that download rather than
 inventing an installer URL. `/downloads/windows` explains extraction and checksum
 verification.
+
+[file-1]: ../../scripts/keychain/authorizeCodesignPartitionList.sh

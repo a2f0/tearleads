@@ -23,7 +23,8 @@ owns its runtime adapter boundary, and production source never imports the
 testing entry point.
 
 Do not import `@tearleads/client-sdk/data/*` from host code. The root entry
-point aggregates documented public facades; `data/*` internals, deep workflow
+point aggregates documented public facades;
+[`data/`](../../../packages/client-sdk/src/data/) internals, deep workflow
 files, and store implementation files stay private. To make a contract public,
 promote it through the root entry point.
 
@@ -228,7 +229,8 @@ See [revenuecat-billing.md](../revenuecat-billing.md).
 
 The package is `private: true` and consumed across the monorepo by build output.
 The build emits ESM JavaScript, inline-source source maps, and declaration files
-from `tsconfig.build.json`, replacing any previous `dist`:
+from [`tsconfig.build.json`](../../../packages/client-sdk/tsconfig.build.json),
+replacing any previous `dist`:
 
 ```sh
 bun run --filter='@tearleads/client-sdk' build
@@ -242,8 +244,8 @@ bun run --filter='@tearleads/client-sdk' build
 - The package export map matches the
   [entry-point table](#public-api-entry-points) exactly and points at `dist`
   JavaScript/declaration files.
-- `data/*`, document, store, workflow, and deep implementation package exports
-  are rejected.
+- [`data/`](../../../packages/client-sdk/src/data/), document, store, workflow,
+  and deep implementation package exports are rejected.
 - App code uses SDK root services instead of importing SDK workflow or store
   facades directly.
 - Product window vocabulary such as `OrgManager` and `mini-app` stays in

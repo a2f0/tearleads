@@ -39,21 +39,21 @@ stored row and raise its provenance when the candidate ranks higher
 requires `link` or `self` provenance.
 
 The bounded configuration explores two domains, users, and fingerprints. It
-checks immutable pins, an injective fingerprint mapping within each domain,
-that published sessions match durable pins, that provenance only rises
-(`ProvenanceOnlyRises`), and that every admitted user is pinned by a link or
-the device's own keys (`AdmittedUsersAreLinked`). Disabling the reverse check
-reproduces a login, reboot, and second login that assigns one fingerprint to
-two users. Disabling the compare (`CheckPinCompare = FALSE`) lets a login
-presenting another key replace a user's pin, violating `PinsNeverChange`, so
-that property no longer holds by construction. Admitting on any pin
+checks immutable pins, an injective fingerprint mapping within each domain, that
+published sessions match durable pins, that provenance only rises
+(`ProvenanceOnlyRises`), and that every admitted user is pinned by a link or the
+device's own keys (`AdmittedUsersAreLinked`). Disabling the reverse check
+reproduces a login, reboot, and second login that assigns one fingerprint to two
+users. Disabling the compare (`CheckPinCompare = FALSE`) lets a login presenting
+another key replace a user's pin, violating `PinsNeverChange`, so that property
+no longer holds by construction. Admitting on any pin
 (`CheckAdmissionProvenance = FALSE`, control `admission-accepts-observed-pin`)
 admits a user the device only observed from the server, violating
-`AdmittedUsersAreLinked`. Writing the candidate's provenance over the stored
-one (`RaiseProvenanceOnly = FALSE`, control `observed-lowers-linked-pin`) lets
-a later server answer demote a linked pin, violating `ProvenanceOnlyRises`.
-`service.provenance.test.ts` covers the same rules in the SDK. Different trust
-domains remain independent.
+`AdmittedUsersAreLinked`. Writing the candidate's provenance over the stored one
+(`RaiseProvenanceOnly = FALSE`, control `observed-lowers-linked-pin`) lets a
+later server answer demote a linked pin, violating `ProvenanceOnlyRises`.
+[`service.provenance.test.ts`](../../packages/client-sdk/src/data/trustedUserIdentity/service.provenance.test.ts)
+covers the same rules in the SDK. Different trust domains remain independent.
 
 This models transactional persistence as atomic. It does not prove SQL locking,
 cryptographic fingerprint validation, first-contact identity authenticity, or

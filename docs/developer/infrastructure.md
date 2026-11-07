@@ -18,12 +18,13 @@ hostname at `/events`.
 Production web hosts are indexable, and the demo hosts' shell names the app root
 as its canonical URL. Staging web hosts name no canonical URL and send
 `X-Robots-Tag: noindex, nofollow` with a matching robots meta tag. The website
-build adds these for `PUBLIC_ENVIRONMENT=staging` (see the [website
-guide](../../packages/website/README.md#search-and-link-previews)).
+build adds these for `PUBLIC_ENVIRONMENT=staging` (see the
+[website guide](../../packages/website/README.md#search-and-link-previews)).
 [`packages/app-web/scripts/deployAppWeb.sh`](../../packages/app-web/scripts/deployAppWeb.sh)
-builds the app with `APP_WEB_TIER`, which `scripts/injectTierMeta.ts` reads,
-then adds the header while staging the assets and refuses a build whose tags do
-not match its tier.
+builds the app with `APP_WEB_TIER`, which
+[`scripts/injectTierMeta.ts`](../../packages/app-web/scripts/injectTierMeta.ts)
+reads, then adds the header while staging the assets and refuses a build whose
+tags do not match its tier.
 
 Every proxied tearleads.com host, staging and continuity included, answers
 `http://` with a 301 to `https://` before any Worker runs. That is the zone's
@@ -130,12 +131,13 @@ Each tier is four Cloudflare Workers plus independent Terraform stacks:
 Every stack keeps its state in the Cloudflare R2 bucket
 `tearleads-terraform-state`, at `<tier>/<stack>/terraform.tfstate`, through the
 S3 backend with lockfile locking. The bucket was created by hand and no stack
-manages it. The `terraform/scripts/run-*-stack.sh` wrappers hand Terraform the
+manages it. The `run-*-stack.sh` wrappers in
+[`terraform/scripts/`](../../terraform/scripts/) hand Terraform the
 tier's `TF_STATE_ACCESS_KEY_ID` and `TF_STATE_SECRET_ACCESS_KEY` from
 `.secrets/<tier>/app.env` as `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`,
 ignoring any AWS profile or session. That pair is the R2 S3 key of a token
-limited to the state bucket: the token ID and the SHA-256 of the token value.
-No stack uses the AWS provider.
+limited to the state bucket: the token ID and the SHA-256 of the token value. No
+stack uses the AWS provider.
 
 [`scripts/deploy/deployStaging.sh`](../../scripts/deploy/deployStaging.sh) and
 [`scripts/deploy/deployProduction.sh`](../../scripts/deploy/deployProduction.sh)

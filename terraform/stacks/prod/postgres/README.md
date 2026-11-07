@@ -63,8 +63,9 @@ This stack owns the database and its non-expiring `tearleads-runtime` and
 Keep this stack and its R2 state when redeploying the Workers. Deletion protection
 is a guard against accidents, not a substitute for retaining state and backups.
 
-`packages/api/scripts/deployApi.sh prod` reads the sensitive `api_connection`
-Terraform output into a mode-0600 temporary directory and removes it on exit.
+[`packages/api/scripts/deployApi.sh`](../../../../packages/api/scripts/deployApi.sh)
+with `prod` reads the sensitive `api_connection` Terraform output into a mode-0600
+temporary directory and removes it on exit.
 Reading the output needs backend access; it does not apply this stack or need
 a PlanetScale API call. The deploy runs migrations through the API CLI with the
 migration login, then reads the non-secret `hyperdrive_id` output into the
@@ -86,25 +87,30 @@ origin connections across requests. The migration login inherits `postgres` and
 connects directly on port 5432 for the duration of the deploy only.
 
 Staging has its own copy of this stack under
-`terraform/stacks/staging/postgres` without `prevent_destroy`;
-`scripts/deploy/destroyStaging.sh` empties and destroys it, including
-Hyperdrive. `scripts/deploy/destroyProduction.sh` does the same for production,
-lifting `prevent_destroy` for that run with temporary overrides. Recreating a
-Hyperdrive configuration requires only a Worker redeploy to bind its new ID.
+[`terraform/stacks/staging/postgres`](../../staging/postgres/) without
+`prevent_destroy`;
+[`scripts/deploy/destroyStaging.sh`](../../../../scripts/deploy/destroyStaging.sh)
+empties and destroys it, including Hyperdrive.
+[`scripts/deploy/destroyProduction.sh`](../../../../scripts/deploy/destroyProduction.sh)
+does the same for production, lifting `prevent_destroy` for that run with
+temporary overrides. Recreating a Hyperdrive configuration requires only a
+Worker redeploy to bind its new ID.
 See [PlanetScale roles], [connection options], and [Hyperdrive TLS].
 
 ## Deployment order
 
 1. Apply this database stack.
 2. Apply the independent [R2 storage stack](../../../modules/r2-object-storage/README.md).
-3. Run `scripts/deploy/deployProduction.sh` to migrate the database, deploy the
-   API Worker with its Hyperdrive binding, publish the app and demo Workers,
-   and attach the hostnames.
+3. Run
+   [`scripts/deploy/deployProduction.sh`](../../../../scripts/deploy/deployProduction.sh)
+   to migrate the database, deploy the API Worker with its Hyperdrive binding,
+   publish the app and demo Workers, and attach the hostnames.
 
 Staging has its own copies of this stack and the R2 storage stack, and
-`scripts/deploy/deployStaging.sh` applies both itself. Neither environment has
-a data conversion or backfill step: the API baseline initializes a fresh
-database, and schema resets replace the database and client caches together.
+[`scripts/deploy/deployStaging.sh`](../../../../scripts/deploy/deployStaging.sh)
+applies both itself. Neither environment has a data conversion or backfill step:
+the API baseline initializes a fresh database, and schema resets replace the
+database and client caches together.
 
 ## Validation
 

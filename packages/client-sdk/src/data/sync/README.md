@@ -3,7 +3,8 @@
 This directory owns the shared in-process scheduler for SDK sync work. It does
 not own a sync protocol, API request shape, persistence store, or blob store.
 
-`syncCoordinator.ts` keeps one coordinator per `DomainScope`. A domain scope is
+[`syncCoordinator.ts`](syncCoordinator.ts) keeps one coordinator per
+`DomainScope`. A domain scope is
 the identity token for the active local database/signing runtime, so sync lanes
 registered for different scopes do not share pending-work state.
 
@@ -75,8 +76,10 @@ Document lanes do both sides of document sync:
 Those blob uploads are part of the document store's executable sync lanes. The
 visualizer can show separate blob-upload telemetry, but those rows are driven by
 the real upload workflow and never own or schedule work. The byte stores, blob
-envelopes, and attachment persistence live elsewhere under `data/blobs`,
-`data/blob*`, and document persistence modules. This coordinator never reads or
+envelopes, and attachment persistence live elsewhere under
+[`data/blobs`](../blobs/),
+[`data/blob*`](../blobs/), and document persistence modules. This coordinator
+never reads or
 writes blob bytes directly.
 
 Downloads buffer each document's encrypted attachment set before
@@ -107,7 +110,7 @@ runtime helpers:
 - common teardown-error detection for destroyed database clients;
 - per-scope ids of documents this client just wrote, which the document
   store records and reconciliation consumes so the server's echo of the
-  write is skipped once (`originatedDocuments.ts`).
+  write is skipped once ([`originatedDocuments.ts`](originatedDocuments.ts)).
 
 Do not add domain-specific document, container, blob, or persistence logic
 here. Add that to the owning workflow/store lane and register it with the

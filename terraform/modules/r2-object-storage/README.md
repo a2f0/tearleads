@@ -31,7 +31,9 @@ the backend; never print `api_storage` or `release_storage` outputs to logs.
 
 ## Provision and deploy
 
-Use `terraform/scripts/run-storage-stack.sh` and `run-downloads-stack.sh` with
+Use
+[`terraform/scripts/run-storage-stack.sh`](../../scripts/run-storage-stack.sh)
+and [`run-downloads-stack.sh`](../../scripts/run-downloads-stack.sh) with
 `staging` or `prod`, inspect `plan -out=<private-plan>`, then apply that plan.
 The API deployment takes bucket, endpoint, region, and credentials from
 `api_storage`. Desktop publication reads `release_storage` immediately before

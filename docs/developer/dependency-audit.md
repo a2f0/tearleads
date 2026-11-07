@@ -12,7 +12,8 @@ process hostile input or run with deployment credentials.
 For the Ruby graph, install the audit tool with `gem install bundler-audit`,
 then run `bundle-audit check --update` from
 [`packages/app-capacitor`](../../packages/app-capacitor/) against its
-`Gemfile.lock`. Keep those results with the review too.
+[`Gemfile.lock`](../../packages/app-capacitor/Gemfile.lock). Keep those results
+with the review too.
 
 Prioritize reachable production findings and high/critical findings in every
 environment. Fix or mitigate those before release; any exception needs a named
@@ -40,7 +41,7 @@ withdrawn on October 23, 2026; its presence in the lockfile does not reactivate
 that advisory. Re-triage if upstream publishes a replacement advisory.
 
 The parent/version-scoped overrides require Bun lockfile format 3. Keep
-developer and CI Bun versions aligned with `.mise.toml`; see
+developer and CI Bun versions aligned with [`.mise.toml`](../../.mise.toml); see
 [Bun's override semantics](https://bun.com/docs/pm/overrides#nested-overrides).
 
 ## Temporary overrides
@@ -49,12 +50,12 @@ Owner: repository maintainers. Review by **2026-11-07**, or when upgrading the
 named parent, whichever comes first. Remove each override once the parent
 resolves a patched version itself and a fresh audit confirms it.
 `bun run test:static-analysis` fails if an exact parent version named by an
-override disappears or another version of that parent enters `bun.lock`,
-requiring its removal or a reviewed update. This checks configuration drift; a
-fresh audit still determines safety. Nested objects preserve npm consumer
-compatibility as well as Bun resolution. When changing an override, validate
-the exact parent selectors with fresh resolutions as well as the existing
-lockfile.
+override disappears or another version of that parent enters
+[`bun.lock`](../../bun.lock), requiring its removal or a reviewed update. This
+checks configuration drift; a fresh audit still determines safety. Nested
+objects preserve npm consumer compatibility as well as Bun resolution. When
+changing an override, validate the exact parent selectors with fresh resolutions
+as well as the existing lockfile.
 
 | Parent/version | Override | Advisory rationale and validation |
 | --- | --- | --- |

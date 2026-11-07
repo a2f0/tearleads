@@ -46,8 +46,9 @@ id; `useOptionalTheme` returns `null` outside a provider.
 
 Mount one provider above everything themed. It stamps the attributes before
 the browser paints and removes them on unmount; under a dark scheme,
-`tokens.css` sets `color-scheme: dark`. Tearleads sets its themes per host
-profile in `packages/app/src/host/AppHostConfig.ts`.
+[`tokens.css`](../src/tokens.css) sets `color-scheme: dark`. Tearleads sets its
+themes per host
+profile in [`packages/app/src/host/AppHostConfig.ts`][file-1].
 
 ## Wallpapers and Display Properties
 
@@ -118,14 +119,17 @@ chrome's look without rendering a window.
 
 The stylesheets read design tokens (colors, spacing, radii, shadows, and the
 `--window-bar-*` and `--tearleads-window-titlebar-*` chrome tokens). The package
-entry imports `tokens.css`, which defines every one of them under
+entry imports [`tokens.css`](../src/tokens.css), which defines every one of them
+under
 `:where(:root)`, so a page that defines none still renders a complete light
 window. That rule has zero specificity: any `:root` rule, theme, or scoped block
 the host writes overrides it. Tearleads overrides them with its own themes in
-`packages/ui/src/styles.css` and `packages/app/src/shell/layout/AppChrome.css`.
+[`packages/ui/src/styles.css`](../../ui/src/styles.css) and
+[`packages/app/src/shell/layout/AppChrome.css`][file-2].
 The routed shell also reads the screen's safe areas (`--safe-area-*`) and, under
 `:root[data-navigation-mode="routed"]`, a 44px `--control-height` and 24px
-`--control-icon-size`, which `tokens.css` defines the same way.
+`--control-icon-size`, which [`tokens.css`](../src/tokens.css) defines the same
+way.
 
 Several defaults derive from `--color-dark`, the foreground: the window edge
 (`--border-strong-color`), the hover and selection chip (`--emphasis-surface`
@@ -134,7 +138,8 @@ and `--emphasis-text`), and `--color-hairline`. A dark theme that sets only the
 Tearleads' dark theme does.
 
 The window, menus, and routed shell draw thin scrollbars in `--scrollbar-thumb`
-over `--scrollbar-track`. `tokens.css` leaves both unset, so the thumb falls
+over `--scrollbar-track`. [`tokens.css`](../src/tokens.css) leaves both unset,
+so the thumb falls
 back to `--color-dark` at 32%, mixed on each surface so it follows the theme
 there, including a scoped one, and the track to transparent. They use the
 standard `scrollbar-width` and
@@ -145,7 +150,8 @@ scrolls the same way: `scrollbar-color` inherits from the surface, and
 specificity, so any host rule wins.
 
 The window paints its background, behind its body and sidebar, with
-`--window-background`. `tokens.css` leaves it unset, so it falls back to
+`--window-background`. [`tokens.css`](../src/tokens.css) leaves it unset, so it
+falls back to
 `--color-light` wherever that is set, including a scoped theme. Content sets
 its own window's background with `useWindowBackground`, while it is mounted;
 `undefined` keeps the default. A document viewer can use it to set its page
@@ -165,3 +171,6 @@ Windows and menus lay out `border-box`, the box model their sizes assume. Since
 `box-sizing` does not inherit, a zero-specificity rule sets it on the window or
 menu and everything inside, including window content; any host rule overrides
 it.
+
+[file-1]: ../../app/src/host/AppHostConfig.ts
+[file-2]: ../../app/src/shell/layout/AppChrome.css

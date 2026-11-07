@@ -44,7 +44,7 @@ source an old run's helper or apply an old destruction plan.
 Check these before teardown:
 
 - Clean source, available `ship-pr` skill, required build/check tooling from
-  `.mise.toml`, and release prerequisites in the
+  [`.mise.toml`](../../.mise.toml), and release prerequisites in the
   [release runbook](greenfield-reset-releases.md).
 - Authenticated
   [Terraform state backend](./infrastructure.md#infrastructure-lifecycle) (the
@@ -105,8 +105,11 @@ temporary lifecycle override. Keep the wrapper's ordinary protections intact.
 derives the protected addresses from the stack's configuration, writes the
 override, applies the saved destroy plan, and removes the override however it
 exits; an override already present stops it. It and the other production
-teardown helpers (`drop-postgres-owned.sh`, `empty-r2-bucket.sh`,
-`deployApiMaintenance.sh`, and the Worker deletion scripts) refuse `prod` unless
+teardown helpers
+([`drop-postgres-owned.sh`](../../terraform/scripts/drop-postgres-owned.sh),
+[`empty-r2-bucket.sh`](../../terraform/scripts/empty-r2-bucket.sh),
+[`deployApiMaintenance.sh`](../../packages/api/scripts/deployApiMaintenance.sh),
+and the Worker deletion scripts) refuse `prod` unless
 `TEARLEADS_TEARDOWN_TIER=prod` is exported, which
 [`scripts/deploy/destroyProduction.sh`](../../scripts/deploy/destroyProduction.sh)
 does once confirmed. An authorized production reset exports it in its own shell.
@@ -220,9 +223,11 @@ Use individual stacks for this workflow's database/blob boundary.
 
 Remove all reset overrides before generating creation plans. Apply the tier's
 Postgres stack, wait for readiness and role creation, then apply the storage
-stack. Use `run-postgres-stack.sh` and `run-storage-stack.sh` with inspected
-plans. Confirm the new database branch ID differs from the old ID and its
-connection verifies TLS. Use client connection evidence with
+stack. Use
+[`run-postgres-stack.sh`](../../terraform/scripts/run-postgres-stack.sh) and
+[`run-storage-stack.sh`](../../terraform/scripts/run-storage-stack.sh) with
+inspected plans. Confirm the new database branch ID differs from the old ID and
+its connection verifies TLS. Use client connection evidence with
 `sslmode=verify-full`; a managed proxy's `pg_stat_ssl` backend row may describe
 a different transport leg and cannot establish client TLS. Verify there are no
 application tables before baseline initialization, and no old blobs in storage.

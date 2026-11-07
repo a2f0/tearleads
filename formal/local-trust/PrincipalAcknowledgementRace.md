@@ -42,7 +42,8 @@ independently remove predecessor capture, receipt ancestry, monotonic
 publication, CAS retry, uncovered-pin deferral and the deferred receipt's
 recovery/retry.
 
-`retainAcknowledgedPrincipalCurrents.pinRecovery.test.ts` admits a genuinely
-verified successor pin without its scoped prefix. The same receipt first defers
-without an incident or partial publication, then completes after scoped recovery
-on the honest branch or reports a fork without modifying the recovered state.
+[`retainAcknowledgedPrincipalCurrents.pinRecovery.test.ts`](../../packages/client-sdk/src/workflows/organizations/principalMutations/retainAcknowledgedPrincipalCurrents.pinRecovery.test.ts)
+admits a genuinely verified successor pin without its scoped prefix. The same
+receipt first defers without an incident or partial publication, then completes
+after scoped recovery on the honest branch or reports a fork without modifying
+the recovered state.

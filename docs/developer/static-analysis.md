@@ -16,14 +16,14 @@ the pushed commit ranges. The two TLC model passes and Terraform read no build
 output, so pre-push runs them in a background lane beside the other checks and
 the tests, and replays a model pass from the checkout's Turbo cache when its
 inputs match an earlier pass. CI runs those passes in their own job and `Lint`
-skips them. Each check retains its own push timing row. The branch
-check reads the pushed refs, not the checked-out branch, so
-`git push origin HEAD:<name>` and detached pushes are covered while deletions
-and tags are skipped. Hooks act only in a clone where `install-hooks.sh` ran, so
-CI's `Lint` job checks every pull request's branch name as well. Detached
-pre-commit checks skip only branch naming; the file, source-shape, binary, and
-staged-content checks still run. Push through a configured named remote such as
-`origin`; URL pushes fail before the full gate.
+skips them. Each check retains its own push timing row. The branch check reads
+the pushed refs, not the checked-out branch, so `git push origin HEAD:<name>`
+and detached pushes are covered while deletions and tags are skipped. Hooks act
+only in a clone where [`install-hooks.sh`](../../scripts/git/install-hooks.sh)
+ran, so CI's `Lint` job checks every pull request's branch name as well.
+Detached pre-commit checks skip only branch naming; the file, source-shape,
+binary, and staged-content checks still run. Push through a configured named
+remote such as `origin`; URL pushes fail before the full gate.
 
 Both gates need the
 [mise-pinned Java, TLA+, and oasdiff tools](verification.md#pinned-tools),
@@ -33,13 +33,13 @@ minutes to each push; use the timing log to inspect the cost of individual
 checks.
 
 `sh scripts/git/install-hooks.sh` installs the tracked hooks declared in
-`agent-tool.json` through `agent-tool hooks install --apply`. On an existing
-checkout, first compare the installed hooks with
-[`scripts/git/hooks`](../../scripts/git/hooks/), then run `sh
-scripts/git/install-hooks.sh --adopt` once to migrate the inspected hooks. The
-installer backs up replacements, records ownership, preserves unrelated hooks,
-and refuses later local edits. `bun run agent-tool hooks check` detects missing,
-edited, or stale copies. The installer honors repository/worktree
+[`agent-tool.json`](../../agent-tool.json) through
+`agent-tool hooks install --apply`. On an existing checkout, first compare the
+installed hooks with [`scripts/git/hooks`](../../scripts/git/hooks/), then run
+`sh scripts/git/install-hooks.sh --adopt` once to migrate the inspected hooks.
+The installer backs up replacements, records ownership, preserves unrelated
+hooks, and refuses later local edits. `bun run agent-tool hooks check` detects
+missing, edited, or stale copies. The installer honors repository/worktree
 `core.hooksPath`; linked worktrees share the common Git directory by default.
 
 `ship-pr` refreshes hooks through `reset` after a successful merge and
@@ -49,13 +49,14 @@ hook that predates the guard. Use
 `scripts/git/showPushGateTimings.sh --head <sha>` to inspect each push.
 
 Branch names and binary checks use shared agent-tool commands with the policy in
-`agent-tool.json`. Commit trust checks require a present signature and reject
-coauthor trailers on commits newly admitted to the push remote; commits already
-reachable from any of that remote's branches are excluded. New branches also
-exclude local `main`, so the check still has a baseline when the remote has no
-tracking refs. Commit messages retain the full pinned commitlint rules; the
-committed message is authoritative for the pre-push trailer check after Git's
-cleanup. Binary and source-shape checks still inspect each pushed tree range.
+[`agent-tool.json`](../../agent-tool.json). Commit trust checks require a
+present signature and reject coauthor trailers on commits newly admitted to the
+push remote; commits already reachable from any of that remote's branches are
+excluded. New branches also exclude local `main`, so the check still has a
+baseline when the remote has no tracking refs. Commit messages retain the full
+pinned commitlint rules; the committed message is authoritative for the pre-push
+trailer check after Git's cleanup. Binary and source-shape checks still inspect
+each pushed tree range.
 
 OpenAPI compatibility exceptions expire when the comparison base contains the
 new contract. Remove their entries from `openApiCompatibilityErrors.ignore` in
@@ -64,42 +65,45 @@ active) at that point; an unused exception deliberately fails both gates.
 
 ## Harness permissions
 
-`bun run agents:sync` installs the managed skills and then runs `agent-tool
-permissions install --apply`, which writes Claude Code rules to
+`bun run agents:sync` installs the managed skills and then runs
+`agent-tool permissions install --apply`, which writes Claude Code rules to
 [`.claude/settings.json`](../../.claude/settings.json) and Codex rules to
 [`.codex/rules/agent-tool.rules`](../../.codex/rules/agent-tool.rules) and
-records what it owns in `.agent-tool-permissions.json`. Both allow routine
-agent-tool commands, including post-merge `repo cleanup --apply`, which deletes
-the shipped local and remote feature branch only for a confirmed merged PR and
-never a default or exempt branch. Merges, dependency additions, publishing, and
-permission changes get no Claude Code rule, so they follow each user's chosen
-mode, while Codex prompts before them; the agent-tool [permissions
-guide](https://github.com/a2f0/agent-tool/blob/fe18524aaf0ce3279766661c70b5b097492e2a4e/docs/permissions.md)
-lists every class. Cleanup is grouped as `share`; applied teardown and skill
-or hook installs are `local`. These labels do not change the effective rules
-or runtime guards. The files are generated: do not edit or reformat them, and
-rerun `agents:sync` after changing the agent-tool pin or `agent-tool.json`. `bun
-run agents:check` runs `permissions check` after `skills check`, so
-`check:fast`, CI's `Lint` job, and pre-push fail when the rules are missing,
-edited, or stale.
+records what it owns in
+[`.agent-tool-permissions.json`](../../.agent-tool-permissions.json). Both allow
+routine agent-tool commands, including post-merge `repo cleanup --apply`, which
+deletes the shipped local and remote feature branch only for a confirmed merged
+PR and never a default or exempt branch. Merges, dependency additions,
+publishing, and permission changes get no Claude Code rule, so they follow each
+user's chosen mode, while Codex prompts before them; the agent-tool
+[permissions guide](https://github.com/a2f0/agent-tool/blob/fe18524aaf0ce3279766661c70b5b097492e2a4e/docs/permissions.md)
+lists every class. Cleanup is grouped as `share`; applied teardown and skill or
+hook installs are `local`. These labels do not change the effective rules or
+runtime guards. The files are generated: do not edit or reformat them, and rerun
+`agents:sync` after changing the agent-tool pin or
+[`agent-tool.json`](../../agent-tool.json). `bun run agents:check` runs
+`permissions check` after `skills check`, so `check:fast`, CI's `Lint` job, and
+pre-push fail when the rules are missing, edited, or stale.
 
-`permissions.executables` in `agent-tool.json` classifies the installed CLIs
-this repository's guidance runs directly. Agents run them as
-`bun run agent-tool bun x <name> [--cwd <package>] -- [args...]`, which runs the
-checkout's own `node_modules/.bin/<name>` with the pinned Bun. Use it in place
-of a `bunx <name>` spelling in a guide: direct `bunx` and `bun x` are never
-allowed, and Codex prompts before them, since they can download a package.
+`permissions.executables` in [`agent-tool.json`](../../agent-tool.json)
+classifies the installed CLIs this repository's guidance runs directly. Agents
+run them as `bun run agent-tool bun x <name> [--cwd <package>] -- [args...]`,
+which runs the checkout's own `node_modules/.bin/<name>` with the pinned Bun.
+Use it in place of a `bunx <name>` spelling in a guide: direct `bunx` and
+`bun x` are never allowed, and Codex prompts before them, since they can
+download a package.
 
 | Executable | Class | Installed in | Guidance |
 | --- | --- | --- | --- |
-| `tsc` | `local`: allowed | root | `AGENTS.md` and [client SDK seams](client-sdk-seams.md) type checks |
-| `commitlint` | `local`: allowed | root | `AGENTS.md` PR title check |
+| `tsc` | `local`: allowed | root | [`AGENTS.md`](../../AGENTS.md) and [client SDK seams](client-sdk-seams.md) type checks |
+| `commitlint` | `local`: allowed | root | [`AGENTS.md`](../../AGENTS.md) PR title check |
 | `cap` | `local`: allowed | [`packages/app-capacitor`](../../packages/app-capacitor/) | [Maestro](../../packages/app-capacitor/maestro/README.md) native syncs |
 | `wrangler` | `release`: not allowed; Codex prompts | [`packages/api`](../../packages/api/), [`packages/app-web`](../../packages/app-web/), [`packages/website`](../../packages/website/) | [Worker deletion](greenfield-reset.md) and [log tails](api-request-cost.md); it can also deploy |
 
 Classify a whole executable by its riskiest subcommand, and add a CLI here and
-in `agent-tool.json` before guidance tells agents to run it. Package scripts are
-not classified, so `bun run` and `agent:run` keep the harness default.
+in [`agent-tool.json`](../../agent-tool.json) before guidance tells agents to
+run it. Package scripts are not classified, so `bun run` and `agent:run` keep
+the harness default.
 
 ## Documentation links
 
@@ -179,14 +183,15 @@ visible and needs a reviewed bump:
   and each abstraction-map table binds its tokens to one module, so a helper
   module would need a contrived configuration and would split the map.
 
-Grouped re-export lists and copy catalogs split by area instead. The
-validators response barrel re-exports one module per API area from
+Grouped re-export lists and copy catalogs split by area instead. The validators
+response barrel re-exports one module per API area from
 [`packages/validators/src/response/areas/`](../../packages/validators/src/response/areas/)
 through approved star exports; export names, and so OpenAPI component names,
 stay the same. The Explorer label lookup in
 [`labels.ts`](../../packages/app/src/mini-apps/explorer/labels.ts) composes one
-catalog per area from `explorer/shared/*Labels.ts`, so new copy lands in its
-area's catalog.
+catalog per area from `*Labels.ts` in
+[`packages/app/src/mini-apps/explorer/shared/`](../../packages/app/src/mini-apps/explorer/shared/),
+so new copy lands in its area's catalog.
 
 Generated and tool-owned files are excluded rather than given allowances,
 because their generators and drift checks own their shape: the OpenAPI

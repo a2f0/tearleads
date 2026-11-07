@@ -25,9 +25,9 @@ Zod.
 ## OpenAPI
 
 [`docs/openapi.json`](../../docs/openapi.json) and
-`src/operation/generatedOpenApi.ts` are generated from the operation
-registry; never edit them by hand. Each operation needs a `summary` and each
-named schema a description. After changing a contract:
+[`src/operation/generatedOpenApi.ts`](src/operation/generatedOpenApi.ts) are
+generated from the operation registry; never edit them by hand. Each operation
+needs a `summary` and each named schema a description. After changing a contract:
 
 ```sh
 bun run generate:openapi    # rewrite both artifacts

@@ -144,10 +144,13 @@ Only group policy changes affect container reachability. Organization policy
 constraints prohibit grants and require their projection to mirror the current
 Admins group. Creating/deleting an ungranted group changes that directory, not
 read access. Group deletion also rejects built-in groups and current container
-grants, and principals contain only direct users (no nested group edges).
-Roster updates only replace a profile-document pointer. These guards live in
-`principalPolicyAuthorityConstraints.ts`, `groupDeletion.ts`, and
-`rosterMutation.ts`; those operations need no interest invalidation.
+grants, and principals contain only direct users (no nested group edges). Roster
+updates only replace a profile-document pointer. These guards live in
+[`principalPolicyAuthorityConstraints.ts`](../../packages/api/src/workflows/principals/principalPolicyAuthorityConstraints.ts),
+[`groupDeletion.ts`](../../packages/api/src/workflows/organizations/groupDeletion.ts),
+and
+[`rosterMutation.ts`](../../packages/api/src/workflows/organizations/rosterMutation.ts);
+those operations need no interest invalidation.
 
 A socket's session is checked once, at upgrade. Revocation publishes
 `session_revoked` at most once, and expiry publishes nothing, so `EndSession`
