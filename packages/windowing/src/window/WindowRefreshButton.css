@@ -1,0 +1,17 @@
+/* Turns like the app's other loading rings: one full turn every 0.8s. */
+.window-refresh-spinner {
+  animation: window-refresh-spin 0.8s linear infinite;
+}
+
+@keyframes window-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Slow the turn rather than stop it: a frozen ring reads as a hang. */
+@media (prefers-reduced-motion: reduce) {
+  .window-refresh-spinner {
+    animation-duration: 2.4s;
+  }
+}

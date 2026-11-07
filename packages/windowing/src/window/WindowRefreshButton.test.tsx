@@ -60,7 +60,7 @@ test("refresh alone reserves a window toolbar until explicitly released", () => 
 });
 
 for (const mode of ["windowed", "tablet"] as const) {
-  test(`${mode} toolbar shares refresh callback and busy state`, () => {
+  test(`${mode} toolbar shares refresh callback and busy spinner`, () => {
     let calls = 0;
     const onRefresh = () => {
       calls += 1;
@@ -99,14 +99,19 @@ for (const mode of ["windowed", "tablet"] as const) {
       name: "Refreshing...",
     }) as HTMLButtonElement;
     expect(busy.disabled).toBe(true);
+    expect(busy.getAttribute("aria-busy")).toBe("true");
+    expect(busy.querySelector(".window-refresh-spinner")).not.toBeNull();
     fireEvent.click(busy);
     expect(calls).toBe(1);
 
     view.rerender(content(true, false));
-    expect(
-      (toolbar.getByRole("button", { name: "Refresh" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    const idle = toolbar.getByRole("button", {
+      name: "Refresh",
+    }) as HTMLButtonElement;
+    expect(idle.disabled).toBe(true);
+    // Disabled without a refresh running greys out but does not spin.
+    expect(idle.getAttribute("aria-busy")).toBe("false");
+    expect(idle.querySelector(".window-refresh-spinner")).toBeNull();
     view.rerender(content(false, false));
     fireEvent.click(toolbar.getByRole("button", { name: "Refresh" }));
     expect(calls).toBe(2);
