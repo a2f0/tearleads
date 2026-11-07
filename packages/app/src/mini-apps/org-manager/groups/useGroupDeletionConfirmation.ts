@@ -1,5 +1,5 @@
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function useGroupDeletionConfirmation({
   canDeleteGroup,
@@ -16,6 +16,18 @@ export function useGroupDeletionConfirmation({
   const group =
     groups.find((candidate) => candidate.groupId === groupId) ?? null;
   const disabled = mutating || !group || !canDeleteGroup(group);
+  useEffect(() => {
+    if (groupId && !group) {
+      setGroupId(null);
+    }
+  }, [group, groupId]);
+
+  const request = (targetId: string) => {
+    const target = groups.find((candidate) => candidate.groupId === targetId);
+    if (target && !mutating && canDeleteGroup(target)) {
+      setGroupId(targetId);
+    }
+  };
 
   const confirm = () => {
     if (disabled || !group) {
@@ -30,6 +42,6 @@ export function useGroupDeletionConfirmation({
     confirm,
     disabled,
     group,
-    request: setGroupId,
+    request,
   };
 }
