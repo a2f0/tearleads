@@ -1,4 +1,12 @@
-import type { ContainerAccessLevel } from "@tearleads/crypto";
+import type { ApiClient } from "@tearleads/api-client";
+import {
+  type ContainerAccessLevel,
+  KeyingVerificationError,
+} from "@tearleads/crypto";
+import type {
+  CurrentPrincipalMemberEnvelopesResponse,
+  PrincipalStateResponse,
+} from "@tearleads/validators/response";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { requireOrganizationGroupHead } from "../../data/principals/organizationAuthorityDescriptor";
@@ -18,6 +26,32 @@ type AdmissionRuntimeService = Pick<
   InternalRuntime,
   "identityLinks" | "sessionGeneration" | "workflowInput"
 >;
+
+/**
+ * The server's member envelopes for one state, or null when it has no such
+ * state. A response that fails its schema or names another state is served
+ * material failing verification, so it surfaces as a `KeyingVerificationError`
+ * for incident reporting; other failures stay availability errors.
+ */
+export async function loadServedStateEnvelopes(
+  reader: Pick<ApiClient, "getPrincipalMemberEnvelopesResult">,
+  state: Pick<
+    PrincipalStateResponse,
+    "principalId" | "principalType" | "stateHash"
+  >,
+): Promise<CurrentPrincipalMemberEnvelopesResponse | null> {
+  const result = await reader.getPrincipalMemberEnvelopesResult(
+    state.principalType,
+    state.principalId,
+    state.stateHash,
+  );
+  if (result.ok) return result.data;
+  if (result.kind === "http" && result.status === 404) return null;
+  if (result.kind === "shape")
+    throw new KeyingVerificationError("invalid_shape", result.message);
+  result.report();
+  throw new Error(result.message);
+}
 
 function createRosterAdmissionEvidence(
   service: AdmissionRuntimeService,
@@ -71,11 +105,7 @@ function createRosterAdmissionEvidence(
         : null;
     },
     loadStateEnvelopes: (state) =>
-      runtime.apiClient.getPrincipalMemberEnvelopes(
-        state.principalType,
-        state.principalId,
-        state.stateHash,
-      ),
+      loadServedStateEnvelopes(runtime.apiClient, state),
   };
 }
 

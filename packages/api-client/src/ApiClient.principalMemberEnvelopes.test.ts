@@ -38,51 +38,49 @@ function serve(
   );
 }
 
+function read() {
+  return new ApiClient(apiBaseUrl).getPrincipalMemberEnvelopesResult(
+    "group",
+    principalId,
+    stateHash,
+  );
+}
+
 testApiClient(
   "member envelopes of a named state name that state in the query",
   async () => {
     const queries: URLSearchParams[] = [];
     serve(200, envelopes, queries);
-    const result = await new ApiClient(apiBaseUrl).getPrincipalMemberEnvelopes(
-      "group",
-      principalId,
-      stateHash,
-    );
-    expect(result).toEqual(envelopes);
+    const result = await read();
+    expect(result.ok && result.data).toEqual(envelopes);
     expect(queries.map((query) => Object.fromEntries(query))).toEqual([
       { stateHash },
     ]);
   },
 );
 
-testApiClient("an unknown state resolves null", async () => {
+testApiClient("an unknown state is an HTTP 404 failure", async () => {
   serve(404, { error: "Principal state not found" });
-  await expect(
-    new ApiClient(apiBaseUrl).getPrincipalMemberEnvelopes(
-      "group",
-      principalId,
-      stateHash,
-    ),
-  ).resolves.toBeNull();
+  const result = await read();
+  expect(
+    result.ok ? null : { kind: result.kind, status: result.status },
+  ).toEqual({ kind: "http", status: 404 });
 });
 
+// A 200 naming another state is served material that fails verification, so
+// it must stay distinguishable from an availability failure.
 testApiClient(
-  "other failures and envelopes of another state reject",
+  "envelopes of another state are shape failures, unlike HTTP errors",
   async () => {
-    for (const [status, body] of [
-      [403, { error: "Principal policy access denied" }],
-      [500, { error: "Internal server error" }],
-      [200, { ...envelopes, stateHash: "d".repeat(64) }],
-      [200, { ...envelopes, principalId: crypto.randomUUID() }],
+    for (const [status, body, kind] of [
+      [403, { error: "Principal policy access denied" }, "http"],
+      [500, { error: "Internal server error" }, "http"],
+      [200, { ...envelopes, stateHash: "d".repeat(64) }, "shape"],
+      [200, { ...envelopes, principalId: crypto.randomUUID() }, "shape"],
     ] as const) {
       serve(status, body);
-      await expect(
-        new ApiClient(apiBaseUrl).getPrincipalMemberEnvelopes(
-          "group",
-          principalId,
-          stateHash,
-        ),
-      ).rejects.toThrow();
+      const result = await read();
+      expect(result.ok ? "ok" : result.kind).toBe(kind);
     }
   },
 );

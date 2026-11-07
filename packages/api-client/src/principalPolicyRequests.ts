@@ -34,7 +34,7 @@ import {
   getPrincipalMemberEnvelopes,
   putPrincipalPolicy,
 } from "./routes/principals/policy";
-import type { RequestResultOptions } from "./types";
+import type { RequestResult, RequestResultOptions } from "./types";
 
 export class PrincipalPolicyRequests {
   constructor(
@@ -79,15 +79,16 @@ export class PrincipalPolicyRequests {
   }
 
   /**
-   * Every member envelope of one named state; null only when the server has
-   * no such state for this principal (404). Any other failure throws.
+   * Every member envelope of one named state. A response that fails its
+   * schema, or names another state, is a `shape` failure the caller can treat
+   * as tampering; an unknown state is an HTTP 404.
    */
-  async memberEnvelopes(
+  memberEnvelopes(
     principalType: "group" | "organization",
     principalId: string,
     stateHash: string,
-  ): Promise<CurrentPrincipalMemberEnvelopesResponse | null> {
-    const result = await principalHistoryRequest(this.runtime, {
+  ): Promise<RequestResult<CurrentPrincipalMemberEnvelopesResponse>> {
+    return principalHistoryRequest(this.runtime, {
       path: getPrincipalMemberEnvelopes.path(
         principalType,
         principalId,
@@ -102,10 +103,6 @@ export class PrincipalPolicyRequests {
       options: { reportErrors: false },
       operation: getPrincipalMemberEnvelopesOperation,
     });
-    if (result.ok) return result.data;
-    if (result.kind === "http" && result.status === 404) return null;
-    result.report();
-    throw new Error(result.message);
   }
 
   get(
