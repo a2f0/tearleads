@@ -26,7 +26,7 @@ blast-radius rules:
 
 Retry is event-driven, not timed: a parked failure waits for a keystroke, a
 remote WebSocket event, startup priming, reconnect, the write queue's "Retry
-sync" action, the lanes panel's "Sync now", or (for permission failures —
+sync" action, the lanes panel's Refresh, or (for permission failures —
 document writes and parked document moves alike) the org-access-restored signal,
 which is gated on recorded failure evidence. An app restart re-attempts
 everything retriable.

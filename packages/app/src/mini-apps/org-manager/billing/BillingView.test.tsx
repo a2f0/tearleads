@@ -57,7 +57,6 @@ function props(overrides: Partial<BillingViewProps>): BillingViewProps {
     onSubscribe: () => undefined,
     onRestore: () => undefined,
     onRetryOptions: () => undefined,
-    onRefresh: () => undefined,
     ...overrides,
   };
 }
@@ -307,23 +306,6 @@ test("no manage button renders without a management URL", () => {
       name: ORG_MANAGER_LABELS.billingManageSubscription,
     }),
   ).toBeNull();
-});
-
-test("refresh is always available to an admin", () => {
-  let refreshed = 0;
-  const view = render(
-    <BillingView
-      {...props({
-        onRefresh: () => {
-          refreshed += 1;
-        },
-      })}
-    />,
-  );
-  fireEvent.click(
-    view.getByRole("button", { name: ORG_MANAGER_LABELS.refresh }),
-  );
-  expect(refreshed).toBe(1);
 });
 
 test("Stripe billing awaiting renewal cannot be replaced by a native purchase", () => {

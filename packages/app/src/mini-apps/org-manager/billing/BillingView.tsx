@@ -31,7 +31,6 @@ import { BillingPlanSwitcher } from "./BillingPlanSwitcher";
 export type BillingBusyAction =
   | "trial"
   | "restore"
-  | "refresh"
   | "checkout"
   | `subscribe:${string}`;
 
@@ -108,7 +107,6 @@ export interface BillingViewProps {
   readonly onSubscribe: (option: SyncSubscriptionOption) => void;
   readonly onRestore: () => void;
   readonly onRetryOptions: () => void;
-  readonly onRefresh: () => void;
 }
 
 function resolveBillingPeriodLabel(
@@ -328,9 +326,6 @@ function BillingAdminActions({
             url={managementUrl}
           />
         ) : null}
-        <MiniAppButton disabled={props.busy !== null} onClick={props.onRefresh}>
-          {ORG_MANAGER_LABELS.refresh}
-        </MiniAppButton>
       </MiniAppActions>
 
       {props.activationPending ? (

@@ -1,10 +1,9 @@
-import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import {
   type DomainScope,
   type DomainSyncSnapshot,
   requestAllDomainSyncLanes,
 } from "@tearleads/client-sdk";
-import { useWindowTitleBarAction } from "@tearleads/windowing";
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback, useMemo, useState } from "react";
 import {
   MiniAppActions,
@@ -129,32 +128,22 @@ export function ExplorerSyncLanesPanel(params: {
 }) {
   const snapshot = useDomainSyncSnapshot(params.domainScope);
   const { domainScope, selectedLaneKey } = params;
-  const handleSyncNow = useCallback(
+  const handleRefresh = useCallback(
     () => requestAllDomainSyncLanes(domainScope),
     [domainScope],
   );
 
-  // The manual "Sync now" trigger lives on the window toolbar, registered here
-  // beside the snapshot it needs. It stays ENABLED even while work is pending:
-  // re-requesting is idempotent and cheap, and the moment the user most needs
-  // the escape hatch is exactly when the queue looks stuck with pending work
-  // (issue #1672 — the old disabled-while-pending rule made a wedged queue
-  // unrecoverable from the UI). Dropped in lane detail as before.
-  const syncNowAction = useMemo(
-    () =>
-      selectedLaneKey !== null
-        ? null
-        : {
-            disabled: false,
-            icon: <ArrowsClockwiseIcon aria-hidden size={18} />,
-            id: "explorer-sync-now",
-            label: EXPLORER_LABELS.syncLanesSyncNowAction,
-            onClick: handleSyncNow,
-            priority: 150,
-          },
-    [handleSyncNow, selectedLaneKey],
+  // Re-requesting is idempotent and must remain enabled while lanes are pending:
+  // a stuck queue is exactly when this escape hatch is needed (issue #1672).
+  // The live snapshot subscription reflects the requested work as it runs.
+  useWindowRefreshMenuItem(
+    selectedLaneKey !== null
+      ? null
+      : {
+          onRefresh: handleRefresh,
+          priority: 200,
+        },
   );
-  useWindowTitleBarAction(syncNowAction);
 
   return (
     <ExplorerSyncLanesPanelView
