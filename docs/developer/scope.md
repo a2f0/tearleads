@@ -54,13 +54,12 @@ bun run scope portal
 ```
 
 The last command runs the portal in the foreground at
-[127.0.0.1:5100](http://127.0.0.1:5100). The API is on port 3101 and the Judge on
-3201. Service ports are listed in
-      [`pins.json`](../../scripts/dev/scope/pins.json). Background services
-      write logs and PID records to `.scope/runtime/`; stop them with
-      `bun run scope stop`. Stop the foreground portal separately. Partial
-      startup failures retain PID records so `stop` can clean up before
-      retrying.
+[127.0.0.1:5100](http://127.0.0.1:5100). The API listens on port 3101;
+the Judge uses port 3201. Service ports are listed in
+[`pins.json`](../../scripts/dev/scope/pins.json). Background services write logs
+and PID records to `.scope/runtime/`; stop them with `bun run scope stop`. Stop
+the foreground portal separately. Partial startup failures retain PID records
+so `stop` can clean up before retrying.
 
 `install` verifies the upstream commit and refuses to change a dirty or different
 checkout. Set `SCOPE_SOURCE_DIR` to use another location, consistently for all

@@ -14,11 +14,9 @@ import direction across lanes, layers, and planes.
   layout (see [API architecture](../api-architecture.md)).
 - **Facade** — a package's stable public seam (api
   [`services/`](../../packages/api/src/services/), SDK
-  [`workflows/`](../../packages/client-sdk/src/workflows/), the `*.ts` in
-  [`packages/api/src/access/read/`](../../packages/api/src/access/read/) +
-  `*.ts` in
-  [`packages/api/src/access/write/`](../../packages/api/src/access/write/)
-  files).
+  [`workflows/`](../../packages/client-sdk/src/workflows/), the `*.ts` files in
+  [`packages/api/src/access/read/`](../../packages/api/src/access/read/) and
+  [`packages/api/src/access/write/`](../../packages/api/src/access/write/)).
 - **Subsystem** — a vertical (or platform) slice's proper noun, layered
   descriptively over the above.
 

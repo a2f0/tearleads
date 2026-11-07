@@ -105,8 +105,8 @@ region. Code blocks render unhighlighted to suit the grayscale theme.
 [`src/docsBuild.test.ts`](src/docsBuild.test.ts) builds the site and checks the
 rendered links. To
 publish another document, add it to `technicalDocs` and, if it lives outside
-[`docs/`](../../docs/) and [`formal/`](../../formal/), to the `build` and `test`
-inputs in [`turbo.json`](turbo.json).
+`docs/*.md` and `formal/*.md`, to the `build` and `test` inputs in
+[`turbo.json`](turbo.json).
 Astro caches rendered entries by source digest and would not notice a plugin or
 registry change, so `freshDocsCache` drops that cache at the start of every
 build. `bun run lint:doc-links` validates the links in the source Markdown; see

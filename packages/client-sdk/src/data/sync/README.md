@@ -77,10 +77,8 @@ Those blob uploads are part of the document store's executable sync lanes. The
 visualizer can show separate blob-upload telemetry, but those rows are driven by
 the real upload workflow and never own or schedule work. The byte stores, blob
 envelopes, and attachment persistence live elsewhere under
-[`data/blobs`](../blobs/),
-[`data/blob*`](../blobs/), and document persistence modules. This coordinator
-never reads or
-writes blob bytes directly.
+[`data/blobs`](../blobs/), `data/blob*`, and document persistence modules. This
+coordinator never reads or writes blob bytes directly.
 
 Downloads buffer each document's encrypted attachment set before
 decryption. Four ordinary workers can retain such sets concurrently, and

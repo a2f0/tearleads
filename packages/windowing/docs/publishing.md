@@ -15,21 +15,20 @@ bun run --cwd packages/windowing package:smoke  # pack, install, render, typeche
 The built package is ES modules with declarations and source maps, plus every
 stylesheet. React and react-dom are peer dependencies from 19.2, the first
 release with `useEffectEvent`; Phosphor icons is its one dependency. The
-stylesheets and the entry module (which imports
-[`tokens.css`](../src/tokens.css)) are declared side
-effects, so bundlers that trust `sideEffects` keep the token defaults.
-[`src/publishedPackage.test.ts`](../src/publishedPackage.test.ts) checks the
-built manifest and that no module
-reaches outside the package, so a new workspace import fails the package's tests
-rather than the publish. The declarations drop the stylesheet imports tsc keeps
+stylesheets and the entry module (which imports [`tokens.css`][tokens]) are
+declared side effects, so bundlers that trust `sideEffects` keep the token
+defaults. [`src/publishedPackage.test.ts`][package-tests] checks the built
+manifest, documentation links, and that no module reaches outside the package,
+so a new workspace import fails the package's tests rather than the publish.
+The declarations drop the stylesheet imports tsc keeps
 in them, which a consumer's typecheck could not resolve. The smoke script
 installs the lowest React the peer range admits, typechecks against the
 declarations with TypeScript's defaults, and bundles a named import with webpack.
 
-Merging to `main` publishes. When [`packages/windowing`](../) changes there,
-[`.github/workflows/windowing-publish.yml`][file-1] publishes the version in
-[`package.json`](../package.json) if it is a stable `x.y.z` newer than npm's
-`latest`; a merge that
+Merging to `main` publishes. When [`packages/windowing`][windowing-source] changes
+there, [`.github/workflows/windowing-publish.yml`][windowing-publish] publishes
+the version in [`package.json`][workspace-manifest] if it is a stable `x.y.z`
+newer than npm's `latest`; a merge that
 leaves the version alone, a re-run, or a run that finishes after a newer release
 succeeds without publishing, as decided by `agent-tool release plan`.
 The workflow authenticates with
@@ -37,8 +36,7 @@ The workflow authenticates with
 the job's GitHub OIDC token instead of an npm token, and attaches provenance to
 each version. On npmjs.com the package's trusted publisher names the `a2f0`
 owner, the `tearleads` repository, the
-[`windowing-publish.yml`](../../../.github/workflows/windowing-publish.yml)
-workflow, and
+[`windowing-publish.yml`][windowing-publish] workflow, and
 the `npm` environment, which the repository restricts to `main`. Renaming the
 workflow or the environment breaks publishing until that setting matches.
 
@@ -53,9 +51,9 @@ bun run publish:npm windowing
 
 Windowing has no workspace dependencies, and its React peers and Phosphor
 dependency already exist on npm, so it publishes on its own.
-[`scripts/release/publishNpmPackage.sh`][file-2] publishes each npm package by
-its
-directory name; `bun run --cwd packages/windowing publish:npm` runs it for
+[`scripts/release/publishNpmPackage.sh`][publish-npm-package] publishes each npm
+package by its directory name; `bun run --cwd packages/windowing publish:npm`
+runs it for
 windowing, and the workflow runs it too.
 
 The command rebuilds into a fresh temporary directory, publishes its generated
@@ -74,11 +72,15 @@ Run `package:smoke` separately before a release to verify the packed package in
 an external consumer. It needs the network to install the consumer dependencies.
 
 `ship-pr` bumps changed workspace packages before review and merge; the generated
-manifest copies `version` from [`package.json`](../package.json). For a release
-outside that flow,
-bump the version yourself before publishing. The manifest names this repository,
+manifest copies `version` from [`package.json`][workspace-manifest]. For a release
+outside that flow, bump the version yourself before publishing. The manifest
+names this repository,
 which npm requires of a version with provenance, and declares
 `"license": "UNLICENSED"`.
 
-[file-1]: ../../../.github/workflows/windowing-publish.yml
-[file-2]: ../../../scripts/release/publishNpmPackage.sh
+[tokens]: https://github.com/a2f0/tearleads/blob/main/packages/windowing/src/tokens.css
+[package-tests]: https://github.com/a2f0/tearleads/blob/main/packages/windowing/src/publishedPackage.test.ts
+[windowing-source]: https://github.com/a2f0/tearleads/tree/main/packages/windowing
+[windowing-publish]: https://github.com/a2f0/tearleads/blob/main/.github/workflows/windowing-publish.yml
+[workspace-manifest]: https://github.com/a2f0/tearleads/blob/main/packages/windowing/package.json
+[publish-npm-package]: https://github.com/a2f0/tearleads/blob/main/scripts/release/publishNpmPackage.sh
