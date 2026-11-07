@@ -1,8 +1,9 @@
-import { EraserIcon } from "@phosphor-icons/react/dist/csr/Eraser";
+import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { useWindowTitleBarAction } from "@tearleads/windowing";
 import { useMemo } from "react";
 
-const CLEAR_ICON = <EraserIcon aria-hidden size={18} />;
+// The same trash can Explorer shows for its Trash container.
+const CLEAR_ICON = <TrashIcon aria-hidden size={18} />;
 
 /**
  * Registers a tab's clear action in the shared window/routed toolbar, right
