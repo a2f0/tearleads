@@ -125,6 +125,7 @@ test("principal member envelope OpenAPI requires one exact state hash", () => {
     "401",
     "403",
     "404",
+    "409",
     "500",
     "503",
   ]);

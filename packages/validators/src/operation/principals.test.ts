@@ -115,7 +115,7 @@ test("principal policy paths derive from the shared path schema", () => {
 test("principal member envelope reads name one exact state", () => {
   expect(getPrincipalMemberEnvelopesOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 500, 503],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     id: "principals.policy.memberEnvelopes.get",
     method: "GET",
     params: PrincipalPolicyPathParamsSchema,
@@ -127,6 +127,7 @@ test("principal member envelope reads name one exact state", () => {
     401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
+    409: ErrorResponseSchema,
     500: ErrorResponseSchema,
     503: ErrorResponseSchema,
   });

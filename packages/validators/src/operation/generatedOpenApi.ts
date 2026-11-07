@@ -1342,7 +1342,7 @@ export type paths = {
         };
         /**
          * Get the member envelopes of one principal state
-         * @description Returns every member envelope of one named, immutable state of a group or organization, so a client can check a historical member's committed key fingerprint against that state's `memberEnvelopesRoot`. It is served to the same callers as the policy read, authorized against the principal's live policy before the named state is looked up; a state the principal never had returns 404. A 202 asks the client to retry the identical request after policy history is prepared.
+         * @description Returns every member envelope of one named, immutable state of a group or organization, so a client can check a historical member's committed key fingerprint against that state's `memberEnvelopesRoot`. It is served to the same callers as the policy read, authorized against the principal's live policy, which must verify against its signed state (409 otherwise), before the named state is looked up; a state the principal never had returns 404. A 202 asks the client to retry the identical request after policy history is prepared.
          */
         get: operations["principals.policy.memberEnvelopes.get"];
         put?: never;
@@ -10770,6 +10770,15 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
