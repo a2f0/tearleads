@@ -1,6 +1,8 @@
 import { afterEach, expect, jest } from "bun:test";
-import { http, passthrough } from "msw";
+import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
+import { HttpResponse, http, passthrough } from "msw";
 import {
+  apiBaseUrl,
   server as mockServer,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
@@ -106,3 +108,53 @@ for (const listing of ["parent", "document"] as const) {
     );
   }
 }
+
+// A refresh-required 401 makes the request await a session renewal that does
+// not observe the abort signal. The deadline still ends the listing; the
+// shared renewal is left to finish on its own.
+testApiClient(
+  "a lane listing waiting on a stalled session renewal still times out",
+  async () => {
+    mockServer.use(
+      http.post(`${apiBaseUrl}${listingPaths.parent}`, () =>
+        HttpResponse.json(
+          {
+            code: SESSION_ERROR_CODES.refreshRequired,
+            error: "Expired session",
+          },
+          { status: 401 },
+        ),
+      ),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("expired-session");
+    const renewing = Promise.withResolvers<void>();
+    client.setOnSessionExpired(() => {
+      renewing.resolve();
+      return Promise.withResolvers<boolean>().promise;
+    });
+    const errors: string[] = [];
+    client.setOnError((message) => errors.push(message));
+
+    jest.useFakeTimers();
+    const listed = client.listContainerParentLanes({
+      lanes: [{ laneId: "root", parentId: null, watermark: null }],
+    });
+    await renewing.promise;
+    jest.advanceTimersByTime(CONTAINER_LANE_LISTING_TIMEOUT_MS);
+    jest.useRealTimers();
+
+    // A regression here hangs without tripping the runner's per-test timeout,
+    // so bound the wait directly. A passing run settles first and never waits.
+    const hang = Promise.withResolvers<"hung">();
+    const guard = setTimeout(() => hang.resolve("hung"), 2_000);
+    try {
+      await expect(Promise.race([listed, hang.promise])).resolves.toBeNull();
+    } finally {
+      clearTimeout(guard);
+    }
+    expect(errors).toEqual([
+      `POST ${listingPaths.parent}: no response within ${CONTAINER_LANE_LISTING_TIMEOUT_MS} ms`,
+    ]);
+  },
+);

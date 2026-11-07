@@ -36,17 +36,29 @@ export async function laneListingRequest<T>(
     { reportErrors: false },
     CONTAINER_LANE_LISTING_TIMEOUT_MS,
   );
+  const expiry = new Promise<null>((resolve) => {
+    deadline.options.signal?.addEventListener("abort", () => resolve(null), {
+      once: true,
+    });
+  });
   try {
-    const result = await context.requestResult(
-      path,
-      input.validator,
-      method,
-      input.body,
-      deadline.options,
-      input.operation,
-    );
-    if (result.ok) return result;
-    if (!deadline.expired()) {
+    // Race the deadline itself rather than trusting the abort to unwind the
+    // request: a session renewal the request awaits does not observe the
+    // signal, and must not hold joined callers past it. The renewal is
+    // shared, so it keeps running.
+    const result = await Promise.race([
+      context.requestResult(
+        path,
+        input.validator,
+        method,
+        input.body,
+        deadline.options,
+        input.operation,
+      ),
+      expiry,
+    ]);
+    if (result?.ok) return result;
+    if (result && !deadline.expired()) {
       if (reportErrors) result.report();
       return result;
     }
