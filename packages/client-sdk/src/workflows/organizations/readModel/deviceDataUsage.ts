@@ -13,7 +13,6 @@ import {
   ensureSqlTables,
   type SqlRow,
 } from "../../../data/sqlite/sqlSchema";
-import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "../organizationProfile";
 
 export {
   ORGANIZATION_DOCUMENT_USAGE_CATEGORIES,
@@ -53,7 +52,9 @@ export interface OrganizationDeviceDataUsage {
 // key and manifest columns, the history checkpoint and tail, and the projected
 // text. Categories mirror the server's first-match rules, keyed by server
 // document id so a profile synced from another device (stored under that id
-// rather than a local alias) still classifies.
+// rather than a local alias) still classifies. Only the organization's current
+// profile pointer is organization metadata, as on the server, so a replaced or
+// unlinked profile counts as user data.
 //
 // Files are the bytes held in the blob store: a pending upload's bytes are
 // staged before its row is written, and an attachment row is written only
@@ -70,7 +71,6 @@ const DEVICE_DATA_USAGE_SQL = `
         NULLIF(stored.document_id, ''),
         NULLIF(projection.document_id, '')
       ) AS document_id,
-      projection.document_kind AS document_kind,
       COALESCE(octet_length(stored.document_manifest_bundle), 0)
         + COALESCE(octet_length(stored.content_key_bundle), 0)
         + COALESCE(octet_length(stored.document_kek_targets), 0)
@@ -109,12 +109,11 @@ const DEVICE_DATA_USAGE_SQL = `
           WHERE roster.organization_id = params.organization_id
             AND roster.profile_document_id = scoped.document_id
         ) THEN 'rosterProfiles'
-        WHEN scoped.document_kind = '${ORGANIZATION_PROFILE_DOCUMENT_KIND}'
-          OR EXISTS (
-            SELECT 1 FROM organization_read_model_state organization
-            WHERE organization.organization_id = params.organization_id
-              AND organization.profile_document_id = scoped.document_id
-          ) THEN 'organizationMetadata'
+        WHEN EXISTS (
+          SELECT 1 FROM organization_read_model_state organization
+          WHERE organization.organization_id = params.organization_id
+            AND organization.profile_document_id = scoped.document_id
+        ) THEN 'organizationMetadata'
         ELSE 'user'
       END AS category,
       scoped.record_byte_length

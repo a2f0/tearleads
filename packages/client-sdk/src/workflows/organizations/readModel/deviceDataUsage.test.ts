@@ -135,7 +135,7 @@ test("device usage partitions documents with the server's first-match categories
       kind: "contact",
       localId: "doc-roster",
     });
-    // Roster wins over the organization-profile kind.
+    // A roster pointer classifies the document whatever its kind.
     await store.rosterProfile({
       organizationId: ORG_A,
       profileDocumentId: "doc-roster-and-kind",
@@ -148,8 +148,8 @@ test("device usage partitions documents with the server's first-match categories
       kind: "organization_profile",
       localId: "roster-and-kind",
     });
-    // Organization profile: by the read model pointer under a local alias, and
-    // by projected kind.
+    // Organization profile: only by the read model's current pointer, here
+    // under a local alias.
     await store.organizationProfile({
       organizationId: ORG_A,
       profileDocumentId: "doc-org-profile",
@@ -160,6 +160,8 @@ test("device usage partitions documents with the server's first-match categories
       documentId: "doc-org-profile",
       localId: `org-profile:${ORG_A}`,
     });
+    // A retained former profile keeps its kind but no pointer names it, so it
+    // is user data, as on the server.
     await store.document({
       checkpoint: "o".repeat(2),
       containerId: "folder-a",
@@ -206,9 +208,9 @@ test("device usage partitions documents with the server's first-match categories
     ]);
     expect(breakdownOf(usage)).toEqual({
       containerMetadata: { byteLength: 24, documentCount: 2 },
-      organizationMetadata: { byteLength: 8, documentCount: 2 },
+      organizationMetadata: { byteLength: 6, documentCount: 1 },
       rosterProfiles: { byteLength: 23, documentCount: 2 },
-      user: { byteLength: 21, documentCount: 3 },
+      user: { byteLength: 23, documentCount: 4 },
     });
     expect(usage.documents.documentCount).toBe(9);
     expect(usage.documents.byteLength).toBe(76);
