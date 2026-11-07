@@ -135,6 +135,7 @@ the API, with its reason:
 - the Capacitor scanner reading a captured photo from a local file URL;
 - the Electrobun download bridge to its local Bun host, and that host's own
   request handlers;
+- app-web's Worker script, which answers requests that match no static asset;
 - sqlite-worker's `file:` wasm loads under Bun;
 - the website's installer metadata from the downloads bucket.
 

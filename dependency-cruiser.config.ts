@@ -24,7 +24,7 @@ const noOrphanPathExemptionPattern = [
   "(^|/)(?:babel|webpack)\\.config\\.(?:js|cjs|mjs|ts|json)$",
   "^packages/(api-cli|api-shared|cli|performance)/src/index\\.ts$",
   "^packages/app-electrobun/src/(bun/index|renderer/(databaseWorker|index))\\.tsx?$",
-  "^packages/app-web/src/index\\.tsx$",
+  "^packages/app-web/src/(index\\.tsx|worker/missingAssetWorker\\.ts)$",
   // Wrangler aliases the development-only database drivers to these stubs.
   "^packages/api/src/worker/stubs/[^/]+\\.ts$",
   "^packages/app/src/test/",
