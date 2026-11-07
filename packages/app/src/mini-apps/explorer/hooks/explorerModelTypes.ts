@@ -1,5 +1,6 @@
 import type {
   ContainerNode,
+  ContainerShareAccessLevel,
   DocumentSummary,
   LocalProjectionView,
   PurgeOptions,
@@ -52,7 +53,11 @@ export interface ExplorerModelExplorer {
     accessLevel: "admin" | "read" | "write",
     options: { expectedGroupName: string },
   ) => Promise<boolean>;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+  shareWithUser: (
+    containerId: string,
+    userId: string,
+    accessLevel: ContainerShareAccessLevel,
+  ) => Promise<boolean>;
   nodes: ReadonlyArray<ContainerNode>;
   knownNodes: ReadonlyArray<ContainerNode>;
   ready: boolean;

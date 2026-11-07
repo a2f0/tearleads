@@ -38,13 +38,14 @@ export function ExplorerContainerInfoHeader(params: {
 }
 
 export function ExplorerContainerInfoActions(params: {
-  draftShareGroupId: string;
+  // The chosen group or user; Share stays disabled until there is one.
+  draftShareRecipientId: string;
   isLoadingContainerInfo: boolean;
   isSubmitting: boolean;
   showShareButton: boolean;
 }) {
   const {
-    draftShareGroupId,
+    draftShareRecipientId,
     isLoadingContainerInfo,
     isSubmitting,
     showShareButton,
@@ -57,7 +58,9 @@ export function ExplorerContainerInfoActions(params: {
     <MiniAppActions>
       <MiniAppButton
         type="submit"
-        disabled={isSubmitting || isLoadingContainerInfo || !draftShareGroupId}
+        disabled={
+          isSubmitting || isLoadingContainerInfo || !draftShareRecipientId
+        }
       >
         {isSubmitting
           ? EXPLORER_LABELS.containerInfoSharingAction

@@ -83,7 +83,8 @@ test("a folder share refuses a recipient whose pin was only observed", async () 
   );
   try {
     const tree = createContainerContents(runtime).openTree();
-    const share = () => tree.shareWithUser("container-1", LINK_USER_ID);
+    const share = () =>
+      tree.shareWithUser("container-1", LINK_USER_ID, "write");
 
     await expect(share()).rejects.toBeInstanceOf(UnverifiedUserIdentityError);
     await trust.resolve(LINK_USER_ID);
@@ -177,7 +178,7 @@ test("a folder share admitted in one database cannot proceed in another", async 
     const tree = createContainerContents(runtime).openTree();
     armSwitch();
     await expect(
-      tree.shareWithUser("container-1", LINK_USER_ID),
+      tree.shareWithUser("container-1", LINK_USER_ID, "write"),
     ).rejects.toBeInstanceOf(DatabaseUnavailableError);
   } finally {
     close();

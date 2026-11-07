@@ -159,7 +159,11 @@ export interface ContainerContentsStore {
       expectedGroupName: string;
     },
   ) => Promise<boolean>;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+  shareWithUser: (
+    containerId: string,
+    userId: string,
+    accessLevel: ContainerContentsShareAccessLevel,
+  ) => Promise<boolean>;
   getCachedContainerWriterProjection: (
     containerId: string,
   ) => ContainerWriterProjectionResponse | null;

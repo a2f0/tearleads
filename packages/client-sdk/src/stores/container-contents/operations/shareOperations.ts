@@ -91,6 +91,7 @@ export async function shareContainerWithUser(
   syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   userId: string,
+  accessLevel: ContainerContentsShareAccessLevel,
   isCurrent: ContainerWriteGuard = () => true,
 ) {
   return shareContainerUsing(
@@ -99,7 +100,7 @@ export async function shareContainerWithUser(
     containerId,
     (containerState) =>
       shareContainerState({
-        accessLevel: "write",
+        accessLevel,
         containerState,
         persistence: state.persistence,
         recipientUserId: userId,
