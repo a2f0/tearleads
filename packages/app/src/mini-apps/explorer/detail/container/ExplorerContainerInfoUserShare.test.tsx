@@ -7,14 +7,17 @@ import {
   UnverifiedUserIdentityError,
 } from "@tearleads/client-sdk";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
+  renderHook,
   waitFor,
   within,
 } from "@testing-library/react";
 import { createElement } from "react";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
+import { useExplorerContainerInfoUserShare } from "./ExplorerContainerInfoState";
 
 afterEach(() => cleanup());
 
@@ -214,4 +217,70 @@ test("an unverified recipient asks for their identity link", async () => {
       ),
     ).toBeTruthy();
   });
+});
+
+// A share outlives a switch to another folder. Its reload and its failure
+// belong to the folder it started in, so neither may land on the one shown.
+test("a share settling after a folder switch leaves the new folder alone", async () => {
+  const outcomes = [
+    (pending: PromiseWithResolvers<boolean>) => pending.resolve(true),
+    (pending: PromiseWithResolvers<boolean>) => pending.resolve(false),
+    (pending: PromiseWithResolvers<boolean>) =>
+      pending.reject(new Error("share failed")),
+  ];
+  for (const settle of outcomes) {
+    const pending = Promise.withResolvers<boolean>();
+    let shareStarted = false;
+    const reloads: unknown[] = [];
+    const panelErrors: Array<string | null> = [];
+    const view = renderHook(
+      (props: { containerId: string }) =>
+        useExplorerContainerInfoUserShare({
+          canShareContainer: true,
+          containerId: props.containerId,
+          isSubmitting: false,
+          logError: () => undefined,
+          reloadContainerInfo: async (options) => {
+            reloads.push(options);
+          },
+          setIsSubmitting: () => undefined,
+          setPanelError: (error) => {
+            panelErrors.push(error);
+          },
+          shareScope: {
+            domainScope: {},
+            organizationId: "org-1",
+            signingFingerprint: "fingerprint-1",
+            userId: "user-self",
+          },
+          shareWithUser: () => {
+            shareStarted = true;
+            return pending.promise;
+          },
+        }),
+      { initialProps: { containerId: "container-1" } },
+    );
+
+    let submitted: Promise<void> | undefined;
+    act(() => {
+      submitted = view.result.current({
+        accessLevel: "write",
+        failureLabel: "Failed to share container with user.",
+        userId: "user-bob",
+      });
+    });
+    await waitFor(() => {
+      expect(shareStarted).toBe(true);
+    });
+    view.rerender({ containerId: "container-2" });
+    await act(async () => {
+      settle(pending);
+      await submitted;
+    });
+
+    expect(reloads).toEqual([]);
+    // Only the clear from the share's own start.
+    expect(panelErrors).toEqual([null]);
+    view.unmount();
+  }
 });

@@ -187,6 +187,8 @@ export function useExplorerContainerInfo(params: ExplorerContainerInfoParams) {
 // surface its failure label, and optimistically fold the new grant into the
 // panel's container info on success. A thrown share is reported by the SDK
 // before it reaches this catch; only the label is the panel's to choose.
+// A share settling after a folder or session switch still ends the busy
+// state, but its reload and label belong to the scope it started in.
 async function runContainerInfoShare(params: {
   errorLabel: string;
   // A label for a specific thrown error, taking precedence over errorLabel
@@ -222,7 +224,7 @@ async function runContainerInfoShare(params: {
     // Sharing seals keys on the main thread; paint the busy panel first so
     // its spinner keeps turning while that runs.
     const shared = await runAfterBusyPaint(isCurrent, share);
-    if (shared === undefined) {
+    if (shared === undefined || !isCurrent()) {
       return;
     }
     if (!shared) {
@@ -234,7 +236,9 @@ async function runContainerInfoShare(params: {
   } catch (error) {
     // The panel shows a fixed label; keep the cause for diagnosis.
     logError(errorLabel, error);
-    setPanelError(errorLabelFor?.(error) ?? errorLabel);
+    if (isCurrent()) {
+      setPanelError(errorLabelFor?.(error) ?? errorLabel);
+    }
   } finally {
     setIsSubmitting(false);
   }
