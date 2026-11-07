@@ -266,7 +266,6 @@ export const ORG_MANAGER_LABELS = {
   profileDocument: "Profile document",
   profileDocumentId: "Profile document ID",
   profileDocumentUnavailable: "This profile hasn't synced yet. Try Refresh.",
-  refresh: "Refresh",
   rosterDetailTabsLabel: "Roster detail sections",
   remove: "Remove",
   revoke: "Revoke",

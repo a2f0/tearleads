@@ -15,10 +15,12 @@ interface BillingHistorySnapshot {
  * facade (mirroring how the billing snapshot is loaded). The facade reads the
  * ACTIVE organization, so every result is scoped back to the organization that
  * requested it and stale responses are dropped. `enabled` gates the fetch:
- * the panel only requests history for org admins. `reloadToken` re-fetches when
- * it changes — pass the billing snapshot so a billing refresh (the activation
- * poll or the Refresh button) also refreshes the history, keeping the two in
- * sync instead of leaving the history stale after a purchase.
+ * the panel only requests history for org admins. Disabling it mid-load drops
+ * that load and reports nothing in flight, because the panel's Refresh waits
+ * on it. `reloadToken` re-fetches when it changes — pass the billing snapshot
+ * so a billing refresh (the activation poll or the Refresh button) also
+ * refreshes the history, keeping the two in sync instead of leaving the
+ * history stale after a purchase.
  */
 export function useBillingHistory(
   organizationId: string,
@@ -62,6 +64,7 @@ export function useBillingHistory(
     organizationId,
     reloadToken,
     source: tearleads,
+    whenDisabled: { entries: null, error: null, loading: false },
   });
 
   return snapshot ?? { entries: null, error: null, loading: enabled };

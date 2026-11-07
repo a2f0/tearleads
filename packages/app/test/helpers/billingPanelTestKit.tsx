@@ -40,9 +40,12 @@ export function stubEnvironment(
     isTrialing?: boolean;
     canCancelDirectly?: boolean;
     managementUrl?: string | null;
+    loading?: boolean;
+    refresh?: () => Promise<void>;
     subscriptionSource?: "native" | "stripe" | null;
     /** Lapsed states the fixture cannot express through canSync/isActive. */
     status?: OrganizationBillingView["status"];
+    loadBillingHistory?: () => Promise<unknown>;
     loadBillingManagementUrl?: () => Promise<unknown>;
     loadStripeCheckoutOptions?: () => Promise<unknown>;
   } = {},
@@ -78,8 +81,8 @@ export function stubEnvironment(
     spyOn(BillingProvider, "useOrganizationBilling").mockReturnValue({
       billing,
       error: null,
-      loading: false,
-      refresh: () => Promise.resolve(),
+      loading: overrides.loading ?? false,
+      refresh: overrides.refresh ?? (() => Promise.resolve()),
       startTrial: () => Promise.resolve(true),
       view,
     }),
@@ -103,7 +106,8 @@ export function stubEnvironment(
             Promise.resolve({
               managementUrl: overrides.managementUrl ?? null,
             })),
-        loadBillingHistory: () => Promise.resolve(null),
+        loadBillingHistory:
+          overrides.loadBillingHistory ?? (() => Promise.resolve(null)),
         // The wrapper's capability never finishes mounting, so a started
         // checkout stays on its screen in `starting`.
         createStripeCheckout: () =>

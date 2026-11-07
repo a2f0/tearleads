@@ -441,6 +441,7 @@ export function usePurgedOrganizationRecovery(input: {
     error: currentState.error,
     finalize: runRecovery,
     message: recoveryMessage(currentState),
+    recovering: currentState.recovering,
     refresh,
     replacement: currentState.target,
     retry,
