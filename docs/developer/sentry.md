@@ -163,7 +163,8 @@ messages never become remote breadcrumbs. Safe actions appear locally as
 `Activity: explorer.move-to-trash`. The local report and Sentry trail can be
 compared without exporting raw logs. Mini-app render failures also enter the
 local log when Sentry is disabled. Activity entries share the local log's
-1,000-entry retention limit.
+1,000-entry retention limit. **Clear logs** in the System Monitor toolbar
+empties the local log at once; anything already sent to Sentry stays there.
 
 Incoming [document](../glossary/content.md#document) and
 [container](../glossary/access.md#container)-metadata quarantines pass the original

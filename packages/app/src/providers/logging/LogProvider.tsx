@@ -25,8 +25,12 @@ interface LogContextValue {
   logError: (message: string | Error, cause?: unknown) => void;
 }
 
+interface LogActions extends LogContextValue {
+  clear: () => void;
+}
+
 const LogEntriesContext = createContext<ReadonlyArray<LogEntry> | null>(null);
-const LogActionsContext = createContext<LogContextValue | null>(null);
+const LogActionsContext = createContext<LogActions | null>(null);
 
 function formatLogCause(cause: unknown): string {
   return String(cause);
@@ -86,7 +90,13 @@ export function LogProvider({
     [appendEntry, diagnostics],
   );
 
-  const actions = useMemo(() => ({ log, logError }), [log, logError]);
+  // Empties the local log only; remote diagnostics keep what they already got.
+  const clear = useCallback(() => setEntries([]), []);
+
+  const actions = useMemo(
+    () => ({ clear, log, logError }),
+    [clear, log, logError],
+  );
 
   return (
     <LogActionsContext.Provider value={actions}>
@@ -114,4 +124,13 @@ export function useLogEntries(): ReadonlyArray<LogEntry> {
 
 export function useOptionalLogActions() {
   return useContext(LogActionsContext);
+}
+
+/** Empties the local log, as System Monitor's Clear logs does. */
+export function useClearLog(): () => void {
+  const ctx = useContext(LogActionsContext);
+  if (!ctx) {
+    throw new Error("useClearLog must be used within a LogProvider.");
+  }
+  return ctx.clear;
 }

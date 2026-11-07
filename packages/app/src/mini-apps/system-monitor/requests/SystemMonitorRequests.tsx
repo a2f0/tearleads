@@ -7,6 +7,7 @@ import {
   MiniAppTableRow,
 } from "../../../components/mini-app/MiniAppTable";
 import { useApiRequestMetrics } from "../../../providers/api/useApiRequestMetrics";
+import { useSystemMonitorClearAction } from "../useSystemMonitorClearAction";
 import {
   apiRequestTimingDescription,
   apiRequestTimingHeaders,
@@ -29,6 +30,11 @@ const timingColumns = apiRequestTimingHeaders.map((header) => ({
 
 export function SystemMonitorRequests() {
   const { snapshot, hasIdentity, reset } = useApiRequestMetrics();
+  useSystemMonitorClearAction({
+    id: "system-monitor-reset-requests",
+    label: "Reset request counts",
+    onClear: reset,
+  });
   const timingRows = listApiRequestTimingRows(snapshot);
   return (
     <section
@@ -67,9 +73,6 @@ export function SystemMonitorRequests() {
           </MiniAppInfoRow>
         </tbody>
       </MiniAppInfoTable>
-      <button className="tearleads-action-button" onClick={reset} type="button">
-        Reset request counts
-      </button>
       <div className="system-monitor-request-table">
         <MiniAppTable aria-label="Requests by endpoint" columns={columns}>
           {snapshot.endpoints.map((row) => (
