@@ -5,8 +5,8 @@ import {
   MiniAppSectionHeading,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useAppFeatureFlags } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
+import { useGrantRowMenu } from "../../shared/grants/useGrantRowMenu";
 import type { OrgManagerGrantRouteRef } from "../routes";
-import { useGrantContextMenu } from "./GrantContextMenu";
 import { GrantTable } from "./GrantTable";
 import { withoutOrganizationMetadataSystemGrants } from "./systemGrants";
 
@@ -38,12 +38,19 @@ export function GrantSections({
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   sections: ReadonlyArray<GrantSectionDescriptor>;
 }) {
-  const { grantContextMenu, openGrantContextMenu } = useGrantContextMenu({
-    canRevokeGrants,
-    mutating,
-    openGrantRoute,
-    revokeGrant,
-  });
+  const { grantRowMenu, openGrantRowMenu } =
+    useGrantRowMenu<OrganizationContainerGrant>({
+      onOpen: (grant) =>
+        openGrantRoute({
+          containerId: grant.containerId,
+          subjectId: grant.subjectId,
+          subjectType: grant.subjectType,
+        }),
+      revoke: {
+        canRevoke: (grant) => canRevokeGrants && !grant.isBuiltin && !mutating,
+        onRevoke: revokeGrant,
+      },
+    });
   const visibleSections = useVisibleGrantSections(sections, memberGroupId);
 
   return (
@@ -57,13 +64,13 @@ export function GrantSections({
             grants={section.grants}
             label={section.label}
             mutating={mutating}
-            openGrantContextMenu={openGrantContextMenu}
+            openGrantContextMenu={openGrantRowMenu}
             openGrantRoute={openGrantRoute}
             revokeGrant={revokeGrant}
           />
         </MiniAppSection>
       ))}
-      {grantContextMenu}
+      {grantRowMenu}
     </>
   );
 }

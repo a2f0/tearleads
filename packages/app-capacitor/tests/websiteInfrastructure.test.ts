@@ -78,10 +78,14 @@ test("edge domains attach the API, app, and demo hostnames to their Workers", as
       expect(assets).toHaveProperty("workers_dev", false);
       expect(assets).toHaveProperty("assets", {
         directory: `./dist-${variant}`,
+        binding: "ASSETS",
         html_handling: "auto-trailing-slash",
         not_found_handling: "single-page-application",
       });
-      expect(assets).not.toHaveProperty("main");
+      expect(assets).toHaveProperty(
+        "main",
+        "./src/worker/missingAssetWorker.ts",
+      );
       expect(assets).toHaveProperty(
         `env.${tier}.name`,
         `tearleads-${variant}-${tier}`,

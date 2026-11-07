@@ -13,8 +13,10 @@ import {
 import {
   MiniAppInfoTable,
   MiniAppInfoTableRow,
+  MiniAppRowActionsCell,
 } from "../../../../components/mini-app/MiniAppTable";
 import { isKeyboardActivationKey } from "../../../../utils/keyboardActivation";
+import { useGrantRowMenu } from "../../../shared/grants/useGrantRowMenu";
 import {
   EXPLORER_LABELS,
   getExplorerContainerInfoInheritedGrantSource,
@@ -136,18 +138,34 @@ function getKeyboardEventPosition(
   event: KeyboardEvent<HTMLTableRowElement>,
 ): MiniAppWindowPosition {
   const rect = event.currentTarget.getBoundingClientRect();
-  return {
-    x: rect.left + GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET,
-    y: rect.top + GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET,
-  };
+  return offsetGrantRouteWindowPosition({ x: rect.left, y: rect.top });
 }
 
 function getMouseEventPosition(
   event: MouseEvent<HTMLTableRowElement>,
 ): MiniAppWindowPosition {
+  return offsetGrantRouteWindowPosition({ x: event.clientX, y: event.clientY });
+}
+
+function offsetGrantRouteWindowPosition(point: {
+  x: number;
+  y: number;
+}): MiniAppWindowPosition {
   return {
-    x: event.clientX + GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET,
-    y: event.clientY + GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET,
+    x: point.x + GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET,
+    y: point.y + GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET,
+  };
+}
+
+// An inherited row's grant lives on its source container, so that is the grant
+// Org Manager opens.
+function getGrantRouteTarget(
+  grant: ExplorerContainerInfoGrantRow,
+): ExplorerContainerInfoGrantRouteTarget {
+  return {
+    containerId: grant.sourceContainerId,
+    subjectId: grant.subjectId,
+    subjectType: grant.subjectType,
   };
 }
 
@@ -162,6 +180,15 @@ function ExplorerContainerInfoGrantList(params: {
 }) {
   const { containerInfo, containerNamesById, onOpenGrant, resolveUserLabel } =
     params;
+  // Open only: revoking stays in Org Manager.
+  const { grantRowMenu, openGrantRowMenu } =
+    useGrantRowMenu<ExplorerContainerInfoGrantRow>({
+      onOpen: (grant, position) =>
+        onOpenGrant(
+          getGrantRouteTarget(grant),
+          offsetGrantRouteWindowPosition(position),
+        ),
+    });
   if (containerInfo.grantRows.length === 0) {
     return (
       <MiniAppStatus>{EXPLORER_LABELS.containerInfoNoGrants}</MiniAppStatus>
@@ -169,65 +196,72 @@ function ExplorerContainerInfoGrantList(params: {
   }
 
   return (
-    <MiniAppInfoTable className="mini-app-info-table--row-divided">
-      <thead>
-        <tr>
-          <th>{EXPLORER_LABELS.containerInfoPrincipalColumn}</th>
-          <th>{EXPLORER_LABELS.containerInfoTypeColumn}</th>
-          <th>{EXPLORER_LABELS.containerInfoPermissionColumn}</th>
-          <th>{EXPLORER_LABELS.containerInfoSourceColumn}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {containerInfo.grantRows.map((grant) => {
-          const openGrantRoute = (position?: MiniAppWindowPosition) => {
-            onOpenGrant(
-              {
-                containerId: grant.sourceContainerId,
-                subjectId: grant.subjectId,
-                subjectType: grant.subjectType,
-              },
-              position,
+    <>
+      <MiniAppInfoTable className="mini-app-info-table--row-divided">
+        <thead>
+          <tr>
+            <th>{EXPLORER_LABELS.containerInfoPrincipalColumn}</th>
+            <th>{EXPLORER_LABELS.containerInfoTypeColumn}</th>
+            <th>{EXPLORER_LABELS.containerInfoPermissionColumn}</th>
+            <th>{EXPLORER_LABELS.containerInfoSourceColumn}</th>
+            <th className="mini-app-row-actions-column">
+              <span className="mini-app-row-actions-heading">
+                {EXPLORER_LABELS.itemActionsColumn}
+              </span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {containerInfo.grantRows.map((grant) => {
+            const principal = principalLabel(
+              grant.subjectType,
+              grant.subjectId,
+              containerInfo,
+              resolveUserLabel,
             );
-          };
-          const handleGrantRowKeyDown = (
-            event: KeyboardEvent<HTMLTableRowElement>,
-          ) => {
-            if (!isKeyboardActivationKey(event.key)) {
-              return;
-            }
+            const openGrantRoute = (position?: MiniAppWindowPosition) => {
+              onOpenGrant(getGrantRouteTarget(grant), position);
+            };
+            const handleGrantRowKeyDown = (
+              event: KeyboardEvent<HTMLTableRowElement>,
+            ) => {
+              if (!isKeyboardActivationKey(event.key)) {
+                return;
+              }
 
-            event.preventDefault();
-            openGrantRoute(getKeyboardEventPosition(event));
-          };
+              event.preventDefault();
+              openGrantRoute(getKeyboardEventPosition(event));
+            };
 
-          return (
-            <MiniAppInfoTableRow
-              interactive
-              key={`${grant.sourceContainerId}:${grant.subjectType}:${grant.subjectId}`}
-              onClick={(event) => openGrantRoute(getMouseEventPosition(event))}
-              onKeyDown={handleGrantRowKeyDown}
-              role="button"
-              tabIndex={0}
-            >
-              <td title={grant.subjectId}>
-                {principalLabel(
-                  grant.subjectType,
-                  grant.subjectId,
-                  containerInfo,
-                  resolveUserLabel,
-                )}
-              </td>
-              <td>{getContainerInfoSubjectTypeLabel(grant.subjectType)}</td>
-              <td>{getContainerInfoPermissionLabel(grant.accessLevel)}</td>
-              <td title={grant.sourceContainerId}>
-                {grantSourceLabel(grant, containerNamesById)}
-              </td>
-            </MiniAppInfoTableRow>
-          );
-        })}
-      </tbody>
-    </MiniAppInfoTable>
+            return (
+              <MiniAppInfoTableRow
+                interactive
+                key={`${grant.sourceContainerId}:${grant.subjectType}:${grant.subjectId}`}
+                onClick={(event) =>
+                  openGrantRoute(getMouseEventPosition(event))
+                }
+                onContextMenu={(event) => openGrantRowMenu(event, grant)}
+                onKeyDown={handleGrantRowKeyDown}
+                role="button"
+                tabIndex={0}
+              >
+                <td title={grant.subjectId}>{principal}</td>
+                <td>{getContainerInfoSubjectTypeLabel(grant.subjectType)}</td>
+                <td>{getContainerInfoPermissionLabel(grant.accessLevel)}</td>
+                <td title={grant.sourceContainerId}>
+                  {grantSourceLabel(grant, containerNamesById)}
+                </td>
+                <MiniAppRowActionsCell
+                  label={`${EXPLORER_LABELS.itemActionsButtonPrefix} ${principal}`}
+                  onOpen={(event) => openGrantRowMenu(event, grant)}
+                />
+              </MiniAppInfoTableRow>
+            );
+          })}
+        </tbody>
+      </MiniAppInfoTable>
+      {grantRowMenu}
+    </>
   );
 }
 

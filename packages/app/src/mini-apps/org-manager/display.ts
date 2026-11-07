@@ -26,13 +26,14 @@ export function compactFingerprint(value: string): string {
   return `${value.slice(0, 10)}...${value.slice(-6)}`;
 }
 
-// One roster-user label for the directory row, the user detail header, and the
-// group member picker: the roster profile name, else "You" for yourself, else
-// the compact user ID.
+// The one roster-user name resolution for the directory rows, the user detail
+// header, the group member rows, and the group member picker: the roster
+// profile name, else "You" for yourself, else the compact user ID.
 export function getRosterUserLabel(
   user: Pick<OrganizationDirectoryUser, "isSelf" | "userId">,
-  profileDisplayName?: string | null | undefined,
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>,
 ): string {
+  const profileDisplayName = profileDisplayNamesByUserId.get(user.userId);
   if (profileDisplayName) {
     return profileDisplayName;
   }

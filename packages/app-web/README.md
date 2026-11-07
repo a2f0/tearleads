@@ -8,7 +8,12 @@ library: other packages must not import it.
 
 One bundle serves two Cloudflare Workers Static Assets sites per tier: the app
 (`app.tearleads.com`) and the two-pane demo (`demo.tearleads.com`), selected
-at build time by `BUN_PUBLIC_APP_VARIANT`.
+at build time by `BUN_PUBLIC_APP_VARIANT`. Each site's Worker script,
+[`missingAssetWorker.ts`](src/worker/missingAssetWorker.ts), runs only for a
+request that matches no file: a document for a client route gets the app
+shell, and anything else a non-cacheable 404. A deploy still propagating then
+cannot leave `index.html` cached as a chunk, which the service worker would
+serve as a white screen until the next deploy.
 
 ## Local development
 

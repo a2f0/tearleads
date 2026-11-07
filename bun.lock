@@ -98,7 +98,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.143",
+      "version": "0.1.145",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -130,7 +130,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.35",
+      "version": "0.0.36",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -190,7 +190,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -213,7 +213,7 @@
     },
     "packages/bob-and-alice": {
       "name": "@tearleads/bob-and-alice",
-      "version": "0.1.18",
+      "version": "0.1.17",
       "devDependencies": {
         "@tearleads/api": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
@@ -236,7 +236,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.158",
+      "version": "0.1.157",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -364,7 +364,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.53",
+      "version": "0.1.52",
       "dependencies": {
         "@a2f0/agent-tool": "0.1.51",
         "@a2f0/ct-client": "0.1.6",

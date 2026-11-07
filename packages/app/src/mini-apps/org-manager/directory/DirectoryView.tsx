@@ -126,7 +126,7 @@ export function DirectoryView({
           openGrantRoute={openGrantRoute}
           openGroupRoute={openGroupRoute}
           organizationId={organizationId}
-          profileDisplayName={profileDisplayNamesByUserId.get(selectedUserId)}
+          profileDisplayNamesByUserId={profileDisplayNamesByUserId}
           revokeGrant={revokeGrant}
           rosterProfileEditRequestKey={
             rosterProfileEditRequest?.userId === selectedUserId

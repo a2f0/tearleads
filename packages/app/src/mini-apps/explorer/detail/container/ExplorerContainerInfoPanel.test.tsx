@@ -310,7 +310,7 @@ test("the default group selection shares with its displayed label", async () => 
   });
 });
 
-test("container info sharing grant rows open grant detail targets", async () => {
+test("container info sharing grant rows open grant detail from a click or the row menu", async () => {
   const openedGrants: Array<{
     grant: Parameters<
       ComponentProps<typeof ExplorerContainerInfoPanel>["onOpenGrant"]
@@ -335,15 +335,27 @@ test("container info sharing grant rows open grant detail targets", async () => 
 
   fireEvent.click(grantRow, { clientX: 40, clientY: 50 });
 
+  // The kebab opens an Open-only menu without activating the row under it;
+  // a right-click on the row opens the same menu.
+  fireEvent.click(view.getByRole("button", { name: "Actions for Admins" }), {
+    clientX: 70,
+    clientY: 80,
+  });
+  expect(openedGrants).toHaveLength(1);
+  expect(view.queryByRole("button", { name: "Revoke" })).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Open" }));
+  fireEvent.contextMenu(grantRow, { clientX: 10, clientY: 20 });
+  fireEvent.click(view.getByRole("button", { name: "Open" }));
+
+  const grant = {
+    containerId: "container-1",
+    subjectId: "group-1",
+    subjectType: "group",
+  } as const;
   expect(openedGrants).toEqual([
-    {
-      grant: {
-        containerId: "container-1",
-        subjectId: "group-1",
-        subjectType: "group",
-      },
-      position: { x: 56, y: 66 },
-    },
+    { grant, position: { x: 56, y: 66 } },
+    { grant, position: { x: 86, y: 96 } },
+    { grant, position: { x: 26, y: 36 } },
   ]);
 });
 
