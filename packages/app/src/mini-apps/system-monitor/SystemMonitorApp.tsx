@@ -19,7 +19,7 @@ import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import "./SystemMonitor.css";
 import { SystemMonitorEnvironment } from "./environment/SystemMonitorEnvironment";
 import { SystemMonitorFeatureFlags } from "./feature-flags/SystemMonitorFeatureFlags";
-import { SystemMonitorLog } from "./log/SystemMonitorLog";
+import { SystemMonitorLogTab } from "./log/SystemMonitorLog";
 import { useSystemMonitorCopyReportAction } from "./report/useSystemMonitorCopyReportAction";
 import { useSystemMonitorReport } from "./report/useSystemMonitorReport";
 import { SystemMonitorRequests } from "./requests/SystemMonitorRequests";
@@ -72,7 +72,7 @@ function renderSystemMonitorTabPanel(activeTab: SystemMonitorTabId) {
     case "status":
       return <PaneStatus />;
     case "logs":
-      return <SystemMonitorLog />;
+      return <SystemMonitorLogTab />;
   }
 }
 
