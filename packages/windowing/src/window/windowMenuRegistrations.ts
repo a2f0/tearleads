@@ -26,6 +26,11 @@ export interface RegisteredWindowRefreshMenuItem {
   refreshing: boolean;
 }
 
+/** The winning refresh registration as the toolbars and View menu draw it. */
+export interface WindowRefreshMenuItem extends WindowMenuItem {
+  refreshing: boolean;
+}
+
 export function createMenuItems(
   items: ReadonlyMap<object, RegisteredWindowMenuItem>,
 ): WindowMenuItem[] {
@@ -43,7 +48,7 @@ export function createMenuItems(
 
 export function createRefreshMenuItem(
   item: RegisteredWindowRefreshMenuItem | null,
-): WindowMenuItem | null {
+): WindowRefreshMenuItem | null {
   if (!item) {
     return null;
   }
@@ -55,5 +60,6 @@ export function createRefreshMenuItem(
     onClick: () => {
       void item.onRefresh();
     },
+    refreshing: item.refreshing,
   };
 }
