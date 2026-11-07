@@ -18,13 +18,11 @@
   flex: 0 0 auto;
 }
 
+/* The per-category rows share the parent rows' left edge. */
 .organization-usage-breakdown {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  margin-left: 0.5rem;
-  padding-left: 0.75rem;
-  border-left: var(--border-width) solid var(--color-hairline);
 }
 
 .organization-usage-subrow {
