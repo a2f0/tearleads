@@ -147,6 +147,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/realtime/containerInterestAuthorization.ts`,
       `${api}/realtime/containerInterestDependencies.ts`,
       `${api}/realtime/containerInterestQueries.ts`,
+      `${api}/realtime/containerInterestQueryValidity.ts`,
       `${api}/realtime/containerInterestRevalidation.ts`,
       `${api}/realtime/containerInterestTypes.ts`,
       `${api}/realtime/hintScoping.ts`,
