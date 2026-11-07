@@ -25,7 +25,8 @@ import {
   containerParentLanes,
 } from "../routes/containers/reads";
 import type { RequestResultOptions } from "../types";
-import type { ApiClientContext } from "./apiClientContext";
+import { type ApiClientContext, dataOrNull } from "./apiClientContext";
+import { laneListingRequest } from "./laneListingRequest";
 
 /** Container rotation logs, replacement authorizations, and lane listings. */
 export class ContainerReadArea {
@@ -66,15 +67,17 @@ export class ContainerReadArea {
     return dedupedRequest(
       this.context.containerParentLaneRequestsByKey,
       listContainerParentLanesRequestKey(input),
-      () =>
-        this.context.request<ListContainerParentLanesResponse>(
-          containerParentLanes.path,
-          (value): value is ListContainerParentLanesResponse =>
-            containerParentLanes.isResponseForRequest(input, value),
-          containerParentLanes.method,
-          JSON.stringify(input),
-          undefined,
-          listContainerParentLanesOperation,
+      async () =>
+        dataOrNull(
+          await laneListingRequest(this.context, {
+            body: JSON.stringify(input),
+            method: containerParentLanes.method,
+            operation: listContainerParentLanesOperation,
+            path: containerParentLanes.path,
+            reportErrors: true,
+            validator: (value): value is ListContainerParentLanesResponse =>
+              containerParentLanes.isResponseForRequest(input, value),
+          }),
         ),
     );
   }
@@ -89,15 +92,15 @@ export class ContainerReadArea {
         this.context.containerDocumentLaneRequestsByKey,
         listContainerDocumentLanesRequestKey(input),
         () =>
-          this.context.requestResult(
-            containerDocumentLanes.path,
-            (value): value is ListContainerDocumentLanesResponse =>
+          laneListingRequest(this.context, {
+            body: JSON.stringify(input),
+            method: containerDocumentLanes.method,
+            operation: listContainerDocumentLanesOperation,
+            path: containerDocumentLanes.path,
+            reportErrors: false,
+            validator: (value): value is ListContainerDocumentLanesResponse =>
               containerDocumentLanes.isResponseForRequest(input, value),
-            containerDocumentLanes.method,
-            JSON.stringify(input),
-            { reportErrors: false },
-            listContainerDocumentLanesOperation,
-          ),
+          }),
       ),
       options.reportErrors ?? true,
       (message) => this.context.runtime.reportError(message),

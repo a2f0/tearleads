@@ -1,16 +1,18 @@
 import type { RequestResultOptions } from "./types";
 
-/** A fresh timer for one response, including its body; continuations reset it. */
-export function principalHistoryDeadline(
+/**
+ * A fresh timer for one request, including its response body; `null` sets
+ * none. A caller signal still cancels, but only the timer sets `expired()`,
+ * so a caller can tell a timeout from a cancellation.
+ */
+export function requestDeadline(
   options: RequestResultOptions,
-  timeoutMs: number | null = 15_000,
+  timeoutMs: number | null,
 ) {
   if (timeoutMs === null)
     return { options, expired: () => false, dispose: () => {} };
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
-    throw new RangeError(
-      "Principal request timeout must be positive and finite",
-    );
+    throw new RangeError("Request timeout must be positive and finite");
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   return {
