@@ -213,7 +213,7 @@ export function UserDetailView({
   rosterProfileEditRequestKey,
   openGrantRoute,
   openGroupRoute,
-  profileDisplayName,
+  profileDisplayNamesByUserId,
   revokeGrant,
   syncSeatAssigned,
   mutating,
@@ -229,7 +229,7 @@ export function UserDetailView({
   mutating: boolean;
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   openGroupRoute: (groupId: string) => void;
-  profileDisplayName: string | undefined;
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   syncSeatAssigned: boolean | null;
 }) {
@@ -305,7 +305,7 @@ export function UserDetailView({
       <MiniAppHeader className="org-manager-detail-header">
         <MiniAppHeaderCopy>
           <strong title={detail.user.userId}>
-            {getRosterUserLabel(detail.user, profileDisplayName)}
+            {getRosterUserLabel(detail.user, profileDisplayNamesByUserId)}
           </strong>
           <span title={detail.user.signingKeyFingerprint}>
             {compactFingerprint(detail.user.signingKeyFingerprint)}

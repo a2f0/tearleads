@@ -4,8 +4,12 @@
   "workers_dev": false,
   "preview_urls": false,
   // Custom domains are owned by the tier's edge Terraform stack.
+  // Runs only for a non-navigation request that matches no asset; see the
+  // script for why a missing chunk must not get index.html.
+  "main": "./src/worker/missingAssetWorker.ts",
   "assets": {
     "directory": "./dist-demo",
+    "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "single-page-application"
   },
