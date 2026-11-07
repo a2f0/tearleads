@@ -32,6 +32,7 @@ import {
   REFRESH_LABEL,
   type RegisteredWindowMenuItem,
   type RegisteredWindowRefreshMenuItem,
+  type WindowRefreshMenuItem,
 } from "./windowMenuRegistrations";
 
 interface WindowRefreshMenuItemInput {
@@ -84,7 +85,7 @@ interface WindowMenuContextValue {
    * windowed menu bar. Exposed on its own for the Refresh button shared by the
    * windowed toolbar and routed app bar.
    */
-  refreshMenuItem: WindowMenuItem | null;
+  refreshMenuItem: WindowRefreshMenuItem | null;
   titleBarActions: WindowTitleBarAction[];
   backAction: WindowBackAction | null;
   toolbarReserved: boolean;
@@ -231,7 +232,7 @@ export function useWindowViewMenuItems(): WindowMenuItem[] {
   return useContext(WindowMenuContext).viewMenuItems;
 }
 
-export function useWindowRefreshMenuItemValue(): WindowMenuItem | null {
+export function useWindowRefreshMenuItemValue(): WindowRefreshMenuItem | null {
   return useContext(WindowMenuContext).refreshMenuItem;
 }
 

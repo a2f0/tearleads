@@ -71,6 +71,8 @@ useWindowTitleBarAction(
 
 Memoized `buttonProps` forwards `ref`, `aria-expanded`, and `onMouseDown` to
 popup triggers. Both toolbars place Refresh last; it also remains in View.
+While a `useWindowRefreshMenuItem` registration reports `refreshing`, Refresh is
+disabled, announced as `aria-busy`, and shows a turning ring instead of its icon.
 
 Windows with an `appId` reserve the toolbar and offer route-history Back.
 With `historyBack={false}`, the row appears when actions register, then stays.
