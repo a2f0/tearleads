@@ -198,7 +198,7 @@ test("container info tabs split general, sharing, security, and sync details", a
       ?.querySelector("table")
       ?.classList.contains("mini-app-info-table--row-divided"),
   ).toBe(true);
-  expect(view.getByText("Share To Group")).toBeTruthy();
+  expect(view.getByText("New Share")).toBeTruthy();
   expect(
     view
       .getByRole("combobox", { name: "Group" })

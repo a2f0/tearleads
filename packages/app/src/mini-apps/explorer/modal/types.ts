@@ -1,4 +1,8 @@
-import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import type {
+  ContainerNode,
+  ContainerShareAccessLevel,
+  DocumentSummary,
+} from "@tearleads/client-sdk";
 import type { Dispatch, FormEvent, RefObject, SetStateAction } from "react";
 import type { ExplorerContainerRulesContext } from "../model/containerRules";
 import type { MoveTargetOption } from "../model/targetOptions";
@@ -53,7 +57,11 @@ export interface ExplorerModalMutationParams {
     name: string,
   ) => Promise<ContainerNode | null>;
   setSelectedId: (id: string | null) => void;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+  shareWithUser: (
+    containerId: string,
+    userId: string,
+    accessLevel: ContainerShareAccessLevel,
+  ) => Promise<boolean>;
 }
 
 export interface ExplorerModalControllerParams

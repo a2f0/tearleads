@@ -20,8 +20,12 @@ import {
   getExplorerContainerInfoInheritedGrantSource,
 } from "../../labels";
 import type { MiniAppWindowPosition } from "../../types";
+import type { ExplorerAttributionUserLabelResolver } from "../attributionDisplay";
 import { compactId } from "../compactId";
-import { getContainerInfoShareableGroups } from "./explorerContainerInfoStateHelpers";
+import type {
+  ExplorerContainerInfoShareDraft,
+  ExplorerShareSubjectType,
+} from "./useExplorerContainerInfoPanelState";
 
 type ExplorerContainerInfoGrantSubjectType = NonNullable<
   ContainerInfo["remoteInfo"]
@@ -48,6 +52,17 @@ const CONTAINER_INFO_SUBJECT_TYPE_LABELS = {
   user: EXPLORER_LABELS.containerInfoSubjectTypeUser,
 } satisfies Record<ExplorerContainerInfoGrantSubjectType, string>;
 
+const SHARE_SUBJECT_TYPE_OPTIONS = [
+  {
+    id: "group",
+    label: EXPLORER_LABELS.containerInfoShareSubjectGroupOption,
+  },
+  {
+    id: "user",
+    label: EXPLORER_LABELS.containerInfoShareSubjectUserOption,
+  },
+] satisfies ReadonlyArray<{ id: ExplorerShareSubjectType; label: string }>;
+
 const GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET = 16;
 
 function isContainerShareAccessLevel(
@@ -56,10 +71,15 @@ function isContainerShareAccessLevel(
   return value === "admin" || value === "read" || value === "write";
 }
 
+function isShareSubjectType(value: string): value is ExplorerShareSubjectType {
+  return value === "group" || value === "user";
+}
+
 function principalLabel(
   subjectType: string,
   subjectId: string,
   containerInfo: NonNullable<ContainerInfo["remoteInfo"]>,
+  resolveUserLabel: ExplorerAttributionUserLabelResolver | undefined,
 ): string {
   if (subjectType === "group") {
     const group = containerInfo.groups.find(
@@ -67,6 +87,11 @@ function principalLabel(
     );
     if (group && !group.nameUnreadable && group.name !== "") {
       return group.name;
+    }
+  } else if (subjectType === "user") {
+    const userLabel = resolveUserLabel?.(subjectId);
+    if (userLabel) {
+      return userLabel;
     }
   }
 
@@ -133,8 +158,10 @@ function ExplorerContainerInfoGrantList(params: {
     grant: ExplorerContainerInfoGrantRouteTarget,
     position?: MiniAppWindowPosition,
   ) => void;
+  resolveUserLabel: ExplorerAttributionUserLabelResolver | undefined;
 }) {
-  const { containerInfo, containerNamesById, onOpenGrant } = params;
+  const { containerInfo, containerNamesById, onOpenGrant, resolveUserLabel } =
+    params;
   if (containerInfo.grantRows.length === 0) {
     return (
       <MiniAppStatus>{EXPLORER_LABELS.containerInfoNoGrants}</MiniAppStatus>
@@ -188,6 +215,7 @@ function ExplorerContainerInfoGrantList(params: {
                   grant.subjectType,
                   grant.subjectId,
                   containerInfo,
+                  resolveUserLabel,
                 )}
               </td>
               <td>{getContainerInfoSubjectTypeLabel(grant.subjectType)}</td>
@@ -210,6 +238,7 @@ export function ExplorerContainerInfoPrincipalGrantsSection(params: {
     grant: ExplorerContainerInfoGrantRouteTarget,
     position?: MiniAppWindowPosition,
   ) => void;
+  resolveUserLabel: ExplorerAttributionUserLabelResolver | undefined;
 }) {
   return (
     <MiniAppInfoSection
@@ -219,62 +248,77 @@ export function ExplorerContainerInfoPrincipalGrantsSection(params: {
         containerNamesById={params.containerNamesById}
         containerInfo={params.remoteInfo}
         onOpenGrant={params.onOpenGrant}
+        resolveUserLabel={params.resolveUserLabel}
       />
     </MiniAppInfoSection>
   );
 }
 
-export function ExplorerContainerInfoGroupShareSection(params: {
-  draftShareAccessLevel: ContainerShareAccessLevel;
-  draftShareGroupId: string;
+// Picks the recipient kind, then the group or roster user, then the
+// permission; the panel's Share button submits the pick.
+export function ExplorerContainerInfoNewShareSection(params: {
   isSubmitting: boolean;
-  remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>;
-  setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
-  setDraftShareGroupId: (value: string) => void;
   setPanelError: (error: string | null) => void;
+  shareDraft: ExplorerContainerInfoShareDraft;
 }) {
-  const {
-    draftShareAccessLevel,
-    draftShareGroupId,
-    isSubmitting,
-    remoteInfo,
-    setDraftShareAccessLevel,
-    setDraftShareGroupId,
-    setPanelError,
-  } = params;
-  const shareableGroups = getContainerInfoShareableGroups(remoteInfo);
+  const { isSubmitting, setPanelError, shareDraft } = params;
+  const isGroupShare = shareDraft.subjectType === "group";
+  const recipientOptions = isGroupShare
+    ? shareDraft.groupOptions
+    : shareDraft.userOptions;
+  const recipientField = isGroupShare
+    ? EXPLORER_LABELS.containerInfoGroupField
+    : EXPLORER_LABELS.containerInfoUserField;
 
   return (
-    <MiniAppInfoSection
-      heading={EXPLORER_LABELS.containerInfoShareToGroupHeading}
-    >
+    <MiniAppInfoSection heading={EXPLORER_LABELS.containerInfoNewShareHeading}>
       <MiniAppFieldGroup>
-        <span>{EXPLORER_LABELS.containerInfoGroupField}</span>
+        <span>{EXPLORER_LABELS.containerInfoShareSubjectField}</span>
         <MiniAppSelectMenu
-          ariaLabel={EXPLORER_LABELS.containerInfoGroupField}
-          disabled={isSubmitting || shareableGroups.length === 0}
-          value={draftShareGroupId}
+          ariaLabel={EXPLORER_LABELS.containerInfoShareSubjectField}
+          disabled={isSubmitting}
+          value={shareDraft.subjectType}
           onChange={(value) => {
             setPanelError(null);
-            setDraftShareGroupId(value);
+            if (isShareSubjectType(value)) {
+              shareDraft.setSubjectType(value);
+            }
           }}
-          options={shareableGroups.map((group) => ({
-            id: group.groupId,
-            label: group.name,
-          }))}
-          placeholder={EXPLORER_LABELS.containerInfoNoGroupsOption}
+          options={SHARE_SUBJECT_TYPE_OPTIONS}
+        />
+      </MiniAppFieldGroup>
+      <MiniAppFieldGroup>
+        <span>{recipientField}</span>
+        <MiniAppSelectMenu
+          ariaLabel={recipientField}
+          disabled={isSubmitting || recipientOptions.length === 0}
+          value={isGroupShare ? shareDraft.groupId : shareDraft.userId}
+          onChange={(value) => {
+            setPanelError(null);
+            if (isGroupShare) {
+              shareDraft.setGroupId(value);
+            } else {
+              shareDraft.setUserId(value);
+            }
+          }}
+          options={recipientOptions}
+          placeholder={
+            isGroupShare
+              ? EXPLORER_LABELS.containerInfoNoGroupsOption
+              : EXPLORER_LABELS.containerInfoNoUsersOption
+          }
         />
       </MiniAppFieldGroup>
       <MiniAppFieldGroup>
         <span>{EXPLORER_LABELS.containerInfoPermissionField}</span>
         <MiniAppSelectMenu
           ariaLabel={EXPLORER_LABELS.containerInfoPermissionField}
-          disabled={isSubmitting || shareableGroups.length === 0}
-          value={draftShareAccessLevel}
+          disabled={isSubmitting || recipientOptions.length === 0}
+          value={shareDraft.accessLevel}
           onChange={(accessLevel) => {
             setPanelError(null);
             if (isContainerShareAccessLevel(accessLevel)) {
-              setDraftShareAccessLevel(accessLevel);
+              shareDraft.setAccessLevel(accessLevel);
             }
           }}
           options={(["read", "write", "admin"] as const).map((id) => ({

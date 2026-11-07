@@ -113,7 +113,7 @@ async function submitExplorerShareModal(params: {
   modalState: { mode: "share-peer"; nodeId: string };
   peerUserId: string | null;
   setModalError: (error: string | null) => void;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+  shareWithUser: ExplorerModalMutationParams["shareWithUser"];
 }) {
   const {
     canShareWithPeer,
@@ -133,7 +133,8 @@ async function submitExplorerShareModal(params: {
     return;
   }
 
-  const shared = await shareWithUser(modalState.nodeId, peerUserId);
+  // The peer prompt names no permission, so it grants the default write.
+  const shared = await shareWithUser(modalState.nodeId, peerUserId, "write");
   if (!shared) {
     setModalError("Failed to share container with peer.");
     return;

@@ -419,9 +419,11 @@ export function useExplorerOrganizationPresentation(input: {
     appData: input.appData,
     enabled: input.view === "container-info" || input.view === "document-info",
   });
+  // Roster profile names label writers in document info and share
+  // recipients and user grants in container info.
   const resolveAttributionUserLabel = useExplorerAttributionUserLabels({
     appData: input.appData,
-    enabled: input.view === "document-info",
+    enabled: input.view === "container-info" || input.view === "document-info",
     readModelProjection: demand.projection,
     readModelRevision: demand.revision,
   });
