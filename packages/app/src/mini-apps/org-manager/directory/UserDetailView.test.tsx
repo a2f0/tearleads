@@ -97,7 +97,7 @@ function renderUserDetailView(
       openGrantRoute={() => undefined}
       openGroupRoute={() => undefined}
       organizationId={detail.organizationId}
-      profileDisplayName={undefined}
+      profileDisplayNamesByUserId={new Map()}
       revokeGrant={() => undefined}
       rosterProfileEditRequestKey={null}
       syncSeatAssigned={null}
@@ -230,7 +230,7 @@ test("a roster edit request opens the profile tab", async () => {
       openGrantRoute={() => undefined}
       openGroupRoute={() => undefined}
       organizationId={detail.organizationId}
-      profileDisplayName={undefined}
+      profileDisplayNamesByUserId={new Map()}
       revokeGrant={() => undefined}
       rosterProfileEditRequestKey={1}
       syncSeatAssigned={null}
