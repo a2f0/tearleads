@@ -40,6 +40,8 @@ export function stubEnvironment(
     isTrialing?: boolean;
     canCancelDirectly?: boolean;
     managementUrl?: string | null;
+    loading?: boolean;
+    refresh?: () => Promise<void>;
     subscriptionSource?: "native" | "stripe" | null;
     /** Lapsed states the fixture cannot express through canSync/isActive. */
     status?: OrganizationBillingView["status"];
@@ -78,8 +80,8 @@ export function stubEnvironment(
     spyOn(BillingProvider, "useOrganizationBilling").mockReturnValue({
       billing,
       error: null,
-      loading: false,
-      refresh: () => Promise.resolve(),
+      loading: overrides.loading ?? false,
+      refresh: overrides.refresh ?? (() => Promise.resolve()),
       startTrial: () => Promise.resolve(true),
       view,
     }),
