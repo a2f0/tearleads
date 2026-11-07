@@ -76,6 +76,8 @@ export const securityIncidentTables = ["securityIncidents"];
 // listing, pending-write, and priming queries join the document tables, and it
 // loads each folder's metadata document from its history checkpoint. Keying
 // reads discovery evidence to choose which verified bundles a request cites.
+// Organization Read Models sums the stored bytes of an organization's
+// documents and files, projected text included, for on-device data usage.
 export const documentStoreReadableTables = [
   "containerDocumentTombstoneHolds",
   "documentAttachmentBlobProjection",
@@ -84,15 +86,19 @@ export const documentStoreReadableTables = [
   "documentHistoryUpdates",
   "documentPendingAttachments",
   "documentProjection",
+  "documentProjectionText",
   "documents",
   "pendingDocumentDiscoveries",
 ];
 
 // The folder tree, document placements, and queued intents: Document Store
 // reads them to delete and report on documents, and Keying to walk a folder's
-// lineage when choosing which verified bundles to cite.
+// lineage when choosing which verified bundles to cite. Organization Read
+// Models attributes folder metadata to an organization, including metadata
+// kept dormant after access loss, to measure on-device data usage.
 export const containerContentsReadableTables = [
   "containers",
   "documentContainerProjection",
+  "dormantContainerMetadata",
   "localIntents",
 ];

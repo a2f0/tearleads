@@ -12,6 +12,7 @@ import {
   loadOrganizationBillingHistory,
   loadOrganizationBillingManagementUrl,
   loadStripeCheckoutOptions,
+  measureOrganizationDeviceDataUsage,
   startOrganizationTrial,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
@@ -36,6 +37,7 @@ import {
 } from "./organizationReadModels";
 import type { Organizations } from "./organizationsTypes";
 import {
+  activeOrganizationDataRuntime,
   authenticatedOrganizationId,
   runForOrganization,
 } from "./organizationWorkflowRuntime";
@@ -69,6 +71,8 @@ export type {
   OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDataUsage,
+  OrganizationDeviceDataUsage,
+  OrganizationDeviceDocumentUsageCategoryBreakdown,
   OrganizationDirectory,
   OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
@@ -288,6 +292,17 @@ class OrganizationsService implements Organizations {
 
   loadLocalDataUsage() {
     return this.dataUsageCoordinator.loadLocal();
+  }
+
+  loadDeviceDataUsage() {
+    const active = activeOrganizationDataRuntime(this.runtimeService);
+    if (!active) {
+      return Promise.resolve(null);
+    }
+    return measureOrganizationDeviceDataUsage({
+      execSql: active.runtime.infra.execSql,
+      organizationId: active.organizationId,
+    });
   }
 
   loadDirectoryAndGroups() {
