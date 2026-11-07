@@ -157,6 +157,7 @@ test("explorer store shares an authenticated container without reseeding metadat
     const shared = await createdStore.shareWithUser(
       "child-container",
       "550e8400-e29b-41d4-a716-446655440000",
+      "read",
     );
 
     expect(shared).toBe(true);
@@ -193,7 +194,7 @@ test("explorer store shares an authenticated container without reseeding metadat
 
     expect(harness.containerShareCalls).toEqual([
       {
-        accessLevel: "write",
+        accessLevel: "read",
         containerId: "child-container",
         subjectId: "550e8400-e29b-41d4-a716-446655440000",
         wrapRecipientKinds: ["user", "user"],

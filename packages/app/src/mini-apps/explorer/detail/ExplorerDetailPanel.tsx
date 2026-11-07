@@ -207,7 +207,11 @@ interface ExplorerDetailPanelProps {
     accessLevel: ContainerShareAccessLevel,
     options: { expectedGroupName: string },
   ) => Promise<boolean>;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+  shareWithUser: (
+    containerId: string,
+    userId: string,
+    accessLevel: ContainerShareAccessLevel,
+  ) => Promise<boolean>;
   unlinkDocument: (
     documentId: string,
     removedContainerId: string,
@@ -298,6 +302,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         readModelRevision={params.readModelRevision}
         readModelScope={params.readModelScope}
         peerUserId={params.peerUserId}
+        resolveUserLabel={params.attributionUserLabelResolver}
         setContainerIcon={params.setContainerIcon}
         shareScope={{
           domainScope: params.domainScope,

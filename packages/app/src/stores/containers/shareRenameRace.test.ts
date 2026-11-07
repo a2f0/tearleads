@@ -74,7 +74,7 @@ test("a committed share racing a local rename preserves both after reconciliatio
     folderId = folder.id;
     expect(await coordinator.waitForIdle({ timeoutMs: 10_000 })).toBe(true);
     armed = true;
-    const share = tree.shareWithUser(folder.id, userId);
+    const share = tree.shareWithUser(folder.id, userId, "write");
     await Promise.race([
       persistStarted.promise,
       share.then(() => {

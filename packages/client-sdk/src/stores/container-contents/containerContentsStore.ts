@@ -229,7 +229,7 @@ function createContainerSharingMethods(
   syncAgent: ContainerContentsStoreSyncAgent,
 ): Pick<ContainerWriteMethods, "shareWithUser" | "shareWithGroup"> {
   return {
-    shareWithUser: (containerId, userId) =>
+    shareWithUser: (containerId, userId, accessLevel) =>
       chainRemoteContainerTask(
         state,
         syncAgent,
@@ -246,6 +246,7 @@ function createContainerSharingMethods(
             syncAgent,
             containerId,
             userId,
+            accessLevel,
             isCurrent,
           );
         },

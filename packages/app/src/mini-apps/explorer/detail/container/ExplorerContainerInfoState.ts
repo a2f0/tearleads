@@ -3,6 +3,7 @@ import {
   type ContainerShareAccessLevel,
   GroupShareNameMismatchError,
   type OrganizationDirectoryAndGroups,
+  UnverifiedUserIdentityError,
 } from "@tearleads/client-sdk";
 import { type FormEvent, useCallback, useRef, useState } from "react";
 import { runAfterBusyPaint } from "../../../../components/mini-app/MiniAppLayout";
@@ -47,10 +48,20 @@ interface ExplorerContainerInfoGroupShareParams
   ) => Promise<boolean>;
 }
 
-interface ExplorerContainerInfoPeerShareParams
+interface ExplorerContainerInfoUserShareParams
   extends ExplorerContainerInfoShareParams {
-  peerUserId: string | null;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+  shareWithUser: (
+    containerId: string,
+    userId: string,
+    accessLevel: ContainerShareAccessLevel,
+  ) => Promise<boolean>;
+}
+
+export interface ExplorerContainerInfoUserShareRequest {
+  accessLevel: ContainerShareAccessLevel;
+  // The roster pick and the demo peer report their own failure.
+  failureLabel: string;
+  userId: string;
 }
 
 interface ExplorerContainerInfoParams {
@@ -172,10 +183,12 @@ export function useExplorerContainerInfo(params: ExplorerContainerInfoParams) {
   };
 }
 
-// The shared submit body of the group and peer share flows: run the share,
+// The shared submit body of the group and user share flows: run the share,
 // surface its failure label, and optimistically fold the new grant into the
 // panel's container info on success. A thrown share is reported by the SDK
 // before it reaches this catch; only the label is the panel's to choose.
+// A share settling after a folder or session switch still ends the busy
+// state, but its reload and label belong to the scope it started in.
 async function runContainerInfoShare(params: {
   errorLabel: string;
   // A label for a specific thrown error, taking precedence over errorLabel
@@ -211,7 +224,7 @@ async function runContainerInfoShare(params: {
     // Sharing seals keys on the main thread; paint the busy panel first so
     // its spinner keeps turning while that runs.
     const shared = await runAfterBusyPaint(isCurrent, share);
-    if (shared === undefined) {
+    if (shared === undefined || !isCurrent()) {
       return;
     }
     if (!shared) {
@@ -223,7 +236,9 @@ async function runContainerInfoShare(params: {
   } catch (error) {
     // The panel shows a fixed label; keep the cause for diagnosis.
     logError(errorLabel, error);
-    setPanelError(errorLabelFor?.(error) ?? errorLabel);
+    if (isCurrent()) {
+      setPanelError(errorLabelFor?.(error) ?? errorLabel);
+    }
   } finally {
     setIsSubmitting(false);
   }
@@ -313,15 +328,16 @@ export function useExplorerContainerInfoGroupShare(
   );
 }
 
-export function useExplorerContainerInfoPeerShare(
-  params: ExplorerContainerInfoPeerShareParams,
+// Shares directly with one user. The SDK admits only a recipient whose
+// identity link was verified on this device, so that refusal names the fix.
+export function useExplorerContainerInfoUserShare(
+  params: ExplorerContainerInfoUserShareParams,
 ) {
   const {
     canShareContainer,
     containerId,
     isSubmitting,
     logError,
-    peerUserId,
     reloadContainerInfo,
     setIsSubmitting,
     setPanelError,
@@ -329,36 +345,43 @@ export function useExplorerContainerInfoPeerShare(
   } = params;
   const captureShareScope = useShareScopeGuard(params.shareScope, containerId);
 
-  return useCallback(async () => {
-    if (isSubmitting || !peerUserId || !canShareContainer) {
-      return;
-    }
+  return useCallback(
+    async (request: ExplorerContainerInfoUserShareRequest) => {
+      if (isSubmitting || !canShareContainer) {
+        return;
+      }
 
-    await runContainerInfoShare({
-      errorLabel: EXPLORER_LABELS.containerInfoShareToPeerFailure,
-      failureLabel: EXPLORER_LABELS.containerInfoShareToPeerFailure,
-      isCurrent: captureShareScope(),
+      await runContainerInfoShare({
+        errorLabel: request.failureLabel,
+        errorLabelFor: (error) =>
+          error instanceof UnverifiedUserIdentityError
+            ? EXPLORER_LABELS.containerInfoShareToUserNeedsIdentityLink
+            : null,
+        failureLabel: request.failureLabel,
+        isCurrent: captureShareScope(),
+        logError,
+        optimisticGrant: {
+          accessLevel: request.accessLevel,
+          subjectId: request.userId,
+          subjectType: "user",
+        },
+        reloadContainerInfo,
+        setIsSubmitting,
+        setPanelError,
+        share: () =>
+          shareWithUser(containerId, request.userId, request.accessLevel),
+      });
+    },
+    [
+      canShareContainer,
+      captureShareScope,
+      containerId,
+      isSubmitting,
       logError,
-      optimisticGrant: {
-        accessLevel: DEFAULT_SHARE_ACCESS_LEVEL,
-        subjectId: peerUserId,
-        subjectType: "user",
-      },
       reloadContainerInfo,
       setIsSubmitting,
       setPanelError,
-      share: () => shareWithUser(containerId, peerUserId),
-    });
-  }, [
-    canShareContainer,
-    captureShareScope,
-    containerId,
-    isSubmitting,
-    logError,
-    peerUserId,
-    reloadContainerInfo,
-    setIsSubmitting,
-    setPanelError,
-    shareWithUser,
-  ]);
+      shareWithUser,
+    ],
+  );
 }

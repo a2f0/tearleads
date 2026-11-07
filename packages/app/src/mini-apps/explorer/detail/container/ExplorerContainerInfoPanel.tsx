@@ -1,10 +1,5 @@
-import type {
-  ContainerInfo,
-  ContainerNode,
-  ContainerShareAccessLevel,
-  OrganizationDirectoryAndGroups,
-} from "@tearleads/client-sdk";
-import { useEffect, useId, useState } from "react";
+import type { ContainerInfo, ContainerNode } from "@tearleads/client-sdk";
+import { useId } from "react";
 import {
   MiniAppFormPanel,
   MiniAppStatus,
@@ -14,6 +9,7 @@ import {
 } from "../../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "../../labels";
 import type { MiniAppWindowPosition } from "../../types";
+import type { ExplorerAttributionUserLabelResolver } from "../attributionDisplay";
 import {
   ExplorerContainerInfoActions,
   ExplorerContainerInfoHeader,
@@ -22,60 +18,17 @@ import {
 import { ExplorerContainerInfoLocalSection } from "./ExplorerContainerInfoLocalSection";
 import { ExplorerContainerInfoSecuritySection } from "./ExplorerContainerInfoSecuritySection";
 import {
-  ExplorerContainerInfoGroupShareSection,
+  ExplorerContainerInfoNewShareSection,
   ExplorerContainerInfoPeerShareSection,
   ExplorerContainerInfoPrincipalGrantsSection,
 } from "./ExplorerContainerInfoSharingSections";
-import {
-  useExplorerContainerInfo,
-  useExplorerContainerInfoGroupShare,
-  useExplorerContainerInfoPeerShare,
-} from "./ExplorerContainerInfoState";
 import { ExplorerContainerInfoSyncCursorsSection } from "./ExplorerContainerInfoSyncCursorsSection";
 import {
-  type ExplorerShareScope,
-  getContainerInfoShareableGroups,
-} from "./explorerContainerInfoStateHelpers";
-
-interface Props {
-  canManageIcon: boolean;
-  containerIcon: string | null;
-  containerId: string;
-  containerName: string | undefined;
-  containerSyncStatus: string | null;
-  containerNamesById: ReadonlyMap<string, string>;
-  canShareContainer: boolean;
-  canShareWithPeer: boolean;
-  loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
-  logError: (message: string | Error, cause?: unknown) => void;
-  onOpenGrant: (
-    grant: {
-      containerId: string;
-      subjectId: string;
-      subjectType: "group" | "user";
-    },
-    position?: MiniAppWindowPosition,
-  ) => void;
-  readModelProjection?: OrganizationDirectoryAndGroups | null | undefined;
-  readModelRevision?: number | undefined;
-  readModelScope?: object | null | undefined;
-  peerUserId: string | null;
-  setContainerIcon: (
-    containerId: string,
-    icon: string | null,
-  ) => Promise<ContainerNode | null>;
-  shareWithGroup: (
-    containerId: string,
-    groupId: string,
-    accessLevel: ContainerShareAccessLevel,
-    options: { expectedGroupName: string },
-  ) => Promise<boolean>;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
-  // The session the panel shares in; a share pending across a switch stops.
-  shareScope: ExplorerShareScope;
-}
-
-type ContainerInfoTabId = "general" | "sharing" | "security" | "sync";
+  type ContainerInfoTabId,
+  type ExplorerContainerInfoPanelProps,
+  type ExplorerContainerInfoShareDraft,
+  useExplorerContainerInfoPanelState,
+} from "./useExplorerContainerInfoPanelState";
 
 const CONTAINER_INFO_TABS: ReadonlyArray<
   MiniAppTabDescriptor<ContainerInfoTabId>
@@ -85,69 +38,6 @@ const CONTAINER_INFO_TABS: ReadonlyArray<
   { id: "security", label: EXPLORER_LABELS.containerInfoSecurityTab },
   { id: "sync", label: EXPLORER_LABELS.containerInfoSyncTab },
 ];
-
-function useExplorerContainerInfoPanelState(params: Props) {
-  const { containerId } = params;
-  const [activeTab, setActiveTab] = useState<ContainerInfoTabId>("general");
-  const containerInfoState = useExplorerContainerInfo({
-    containerId,
-    loadContainerInfo: params.loadContainerInfo,
-    organizationReadModelProjection: params.readModelProjection,
-    organizationReadModelRevision: params.readModelRevision,
-    organizationReadModelScope: params.readModelScope,
-    reloadToken: params.containerSyncStatus,
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const remoteInfo = containerInfoState.containerInfo?.remoteInfo;
-  const handleShareWithGroup = useExplorerContainerInfoGroupShare({
-    canShareContainer: params.canShareContainer,
-    containerId,
-    draftShareAccessLevel: containerInfoState.draftShareAccessLevel,
-    draftShareGroupId: containerInfoState.draftShareGroupId,
-    // The label bound to the signed group name is the one displayed for the
-    // chosen id at the moment Share is clicked, so what the user sees and
-    // what the SDK verifies never diverge; the default selection carries its
-    // label the same way. A label the read model changed underneath fails the
-    // share closed at the SDK rather than binding a stale one.
-    draftShareGroupName: remoteInfo
-      ? getContainerInfoShareableGroups(remoteInfo).find(
-          (group) => group.groupId === containerInfoState.draftShareGroupId,
-        )?.name
-      : undefined,
-    isSubmitting,
-    logError: params.logError,
-    reloadContainerInfo: containerInfoState.reloadContainerInfo,
-    setIsSubmitting,
-    setPanelError: containerInfoState.setPanelError,
-    shareScope: params.shareScope,
-    shareWithGroup: params.shareWithGroup,
-  });
-  const handleShareWithPeer = useExplorerContainerInfoPeerShare({
-    canShareContainer: params.canShareContainer,
-    containerId,
-    isSubmitting,
-    logError: params.logError,
-    peerUserId: params.peerUserId,
-    reloadContainerInfo: containerInfoState.reloadContainerInfo,
-    setIsSubmitting,
-    setPanelError: containerInfoState.setPanelError,
-    shareScope: params.shareScope,
-    shareWithUser: params.shareWithUser,
-  });
-
-  useEffect(() => {
-    setActiveTab("general");
-  }, [containerId]);
-
-  return {
-    ...containerInfoState,
-    activeTab,
-    handleShareWithGroup,
-    handleShareWithPeer,
-    isSubmitting,
-    setActiveTab,
-  };
-}
 
 function ExplorerContainerInfoTabs(params: {
   activeTab: ContainerInfoTabId;
@@ -189,8 +79,6 @@ function ExplorerContainerInfoSharingSections(params: {
   containerNamesById: ReadonlyMap<string, string>;
   canShareContainer: boolean;
   canShareWithPeer: boolean;
-  draftShareAccessLevel: ContainerShareAccessLevel;
-  draftShareGroupId: string;
   isSubmitting: boolean;
   onOpenGrant: (
     grant: {
@@ -203,9 +91,9 @@ function ExplorerContainerInfoSharingSections(params: {
   onShareWithPeer: () => void;
   peerUserId: string | null;
   remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>;
-  setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
-  setDraftShareGroupId: (value: string) => void;
+  resolveUserLabel: ExplorerAttributionUserLabelResolver | undefined;
   setPanelError: (error: string | null) => void;
+  shareDraft: ExplorerContainerInfoShareDraft;
 }) {
   const showPeerShare =
     params.canShareContainer &&
@@ -218,16 +106,13 @@ function ExplorerContainerInfoSharingSections(params: {
         containerNamesById={params.containerNamesById}
         remoteInfo={params.remoteInfo}
         onOpenGrant={params.onOpenGrant}
+        resolveUserLabel={params.resolveUserLabel}
       />
       {params.canShareContainer ? (
-        <ExplorerContainerInfoGroupShareSection
-          draftShareAccessLevel={params.draftShareAccessLevel}
-          draftShareGroupId={params.draftShareGroupId}
+        <ExplorerContainerInfoNewShareSection
           isSubmitting={params.isSubmitting}
-          remoteInfo={params.remoteInfo}
-          setDraftShareAccessLevel={params.setDraftShareAccessLevel}
-          setDraftShareGroupId={params.setDraftShareGroupId}
           setPanelError={params.setPanelError}
+          shareDraft={params.shareDraft}
         />
       ) : null}
       {showPeerShare ? (
@@ -271,8 +156,6 @@ function ExplorerContainerInfoTabPanel(params: {
   containerNamesById: ReadonlyMap<string, string>;
   canShareContainer: boolean;
   canShareWithPeer: boolean;
-  draftShareAccessLevel: ContainerShareAccessLevel;
-  draftShareGroupId: string;
   idPrefix: string;
   isLoadingContainerInfo: boolean;
   isSubmitting: boolean;
@@ -286,13 +169,13 @@ function ExplorerContainerInfoTabPanel(params: {
   ) => void;
   onShareWithPeer: () => void;
   peerUserId: string | null;
+  resolveUserLabel: ExplorerAttributionUserLabelResolver | undefined;
   setContainerIcon: (
     containerId: string,
     icon: string | null,
   ) => Promise<ContainerNode | null>;
-  setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
-  setDraftShareGroupId: (value: string) => void;
   setPanelError: (error: string | null) => void;
+  shareDraft: ExplorerContainerInfoShareDraft;
 }) {
   const remoteInfo = params.containerInfo?.remoteInfo ?? null;
 
@@ -322,16 +205,14 @@ function ExplorerContainerInfoTabPanel(params: {
           containerNamesById={params.containerNamesById}
           canShareContainer={params.canShareContainer}
           canShareWithPeer={params.canShareWithPeer}
-          draftShareAccessLevel={params.draftShareAccessLevel}
-          draftShareGroupId={params.draftShareGroupId}
           isSubmitting={params.isSubmitting}
           remoteInfo={remoteInfo}
           onOpenGrant={params.onOpenGrant}
           onShareWithPeer={params.onShareWithPeer}
           peerUserId={params.peerUserId}
-          setDraftShareAccessLevel={params.setDraftShareAccessLevel}
-          setDraftShareGroupId={params.setDraftShareGroupId}
+          resolveUserLabel={params.resolveUserLabel}
           setPanelError={params.setPanelError}
+          shareDraft={params.shareDraft}
         />
       ) : null}
       {params.activeTab === "security" && remoteInfo ? (
@@ -347,22 +228,21 @@ function ExplorerContainerInfoTabPanel(params: {
   );
 }
 
-export function ExplorerContainerInfoPanel(params: Props) {
+export function ExplorerContainerInfoPanel(
+  params: ExplorerContainerInfoPanelProps,
+) {
   const {
     activeTab,
     containerInfo,
     containerInfoError,
-    draftShareAccessLevel,
-    draftShareGroupId,
-    handleShareWithGroup,
+    handleShare,
     handleShareWithPeer,
     isLoadingContainerInfo,
     isSubmitting,
     panelError,
-    setDraftShareAccessLevel,
-    setDraftShareGroupId,
-    setPanelError,
     setActiveTab,
+    setPanelError,
+    shareDraft,
   } = useExplorerContainerInfoPanelState(params);
   const tabIdPrefix = useId();
 
@@ -370,7 +250,7 @@ export function ExplorerContainerInfoPanel(params: Props) {
     <MiniAppFormPanel
       className="explorer-detail explorer-detail--container-info"
       key={params.containerId}
-      onSubmit={handleShareWithGroup}
+      onSubmit={handleShare}
       scroll
     >
       <ExplorerContainerInfoHeader
@@ -401,18 +281,16 @@ export function ExplorerContainerInfoPanel(params: Props) {
             containerNamesById={params.containerNamesById}
             canShareContainer={params.canShareContainer}
             canShareWithPeer={params.canShareWithPeer}
-            draftShareAccessLevel={draftShareAccessLevel}
-            draftShareGroupId={draftShareGroupId}
             idPrefix={tabIdPrefix}
             isLoadingContainerInfo={isLoadingContainerInfo}
             isSubmitting={isSubmitting}
             onOpenGrant={params.onOpenGrant}
             onShareWithPeer={handleShareWithPeer}
             peerUserId={params.peerUserId}
+            resolveUserLabel={params.resolveUserLabel}
             setContainerIcon={params.setContainerIcon}
-            setDraftShareAccessLevel={setDraftShareAccessLevel}
-            setDraftShareGroupId={setDraftShareGroupId}
             setPanelError={setPanelError}
+            shareDraft={shareDraft}
           />
         </div>
       )}
@@ -420,7 +298,11 @@ export function ExplorerContainerInfoPanel(params: Props) {
         <MiniAppStatus tone="error">{panelError}</MiniAppStatus>
       ) : null}
       <ExplorerContainerInfoActions
-        draftShareGroupId={draftShareGroupId}
+        draftShareRecipientId={
+          shareDraft.subjectType === "group"
+            ? shareDraft.groupId
+            : shareDraft.userId
+        }
         isLoadingContainerInfo={isLoadingContainerInfo}
         isSubmitting={isSubmitting}
         showShareButton={
