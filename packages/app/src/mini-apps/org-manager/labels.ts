@@ -242,7 +242,6 @@ export const ORG_MANAGER_LABELS = {
   organizationName: "Organization name",
   organizationProfileUnavailable:
     "The organization profile hasn't synced yet. Try Refresh.",
-  open: "Open",
   openRosterEntryAction: "Open Roster Entry",
   personalOrganizationOwner: "Personal organization owner",
   personalOrganizationOwnerProtection:
