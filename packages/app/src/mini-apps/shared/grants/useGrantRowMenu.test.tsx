@@ -22,6 +22,7 @@ function GrantRows(props: {
   onOpen: (grant: TestGrant, position: MenuPosition) => void;
   revoke?: {
     canRevoke: (grant: TestGrant) => boolean;
+    label: string;
     onRevoke: (grant: TestGrant) => void;
   };
 }) {
@@ -71,24 +72,27 @@ test("without a revoke action the menu offers Open alone", () => {
 
   openMenuFor(view, CUSTOM_GRANT);
 
-  expect(view.getByRole("button", { name: "Open" })).toBeTruthy();
-  expect(view.queryByRole("button", { name: "Revoke" })).toBeNull();
+  const items = Array.from(document.querySelectorAll(".menu button"));
+  expect(items.map((item) => item.textContent)).toEqual(["Open"]);
 });
 
-test("Revoke follows canRevoke per grant", () => {
+// The revoking surface owns the item's wording, so it matches that surface's
+// other revoke controls.
+test("Revoke reads the caller's label and follows canRevoke per grant", () => {
   const revoked: TestGrant[] = [];
   const view = render(
     <GrantRows
       onOpen={() => undefined}
       revoke={{
         canRevoke: (grant) => !grant.isBuiltin,
+        label: "Remove access",
         onRevoke: (grant) => revoked.push(grant),
       }}
     />,
   );
 
   openMenuFor(view, BUILTIN_GRANT);
-  const builtinRevoke = view.getByRole("button", { name: "Revoke" });
+  const builtinRevoke = view.getByRole("button", { name: "Remove access" });
   expect(builtinRevoke).toHaveProperty("disabled", true);
   fireEvent.click(builtinRevoke);
   expect(revoked).toEqual([]);
@@ -97,8 +101,8 @@ test("Revoke follows canRevoke per grant", () => {
   });
 
   openMenuFor(view, CUSTOM_GRANT);
-  fireEvent.click(view.getByRole("button", { name: "Revoke" }));
+  fireEvent.click(view.getByRole("button", { name: "Remove access" }));
 
   expect(revoked).toEqual([CUSTOM_GRANT]);
-  expect(view.queryByRole("button", { name: "Revoke" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Remove access" })).toBeNull();
 });
