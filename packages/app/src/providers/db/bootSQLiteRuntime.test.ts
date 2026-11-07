@@ -89,3 +89,56 @@ test("bootSQLiteRuntime logs circular error causes without overflowing", async (
     "Failed to resolve SQLite cipher key: Error: key unavailable (cause: [Circular Error])",
   );
 });
+
+test("bootSQLiteRuntime does not wait for an unanswered durable-storage prompt", async () => {
+  // Firefox asks the user before granting persistent storage and leaves
+  // persist() pending until they answer; boot must not wait on that answer.
+  const previousStorage = Object.getOwnPropertyDescriptor(
+    globalThis.navigator,
+    "storage",
+  );
+  const calls: string[] = [];
+  const prompt = Promise.withResolvers<boolean>();
+  Object.defineProperty(globalThis.navigator, "storage", {
+    configurable: true,
+    value: {
+      persisted: async () => false,
+      persist: () => {
+        calls.push("persist");
+        return prompt.promise;
+      },
+    },
+  });
+  const storageWarning = Promise.withResolvers<string>();
+  const runtime = createRuntime(async () => {
+    calls.push("init");
+    return { ok: true };
+  });
+
+  try {
+    await bootSQLiteRuntime(
+      runtime,
+      "test-db",
+      "opfs-sahpool",
+      async () => "test-key",
+      (message) => {
+        if (message.startsWith("Warning: durable storage")) {
+          storageWarning.resolve(message);
+        }
+      },
+    );
+    expect(calls).toEqual(["persist", "init"]);
+
+    // A later answer is still reported once the user responds.
+    prompt.resolve(false);
+    expect(await storageWarning.promise).toBe(
+      "Warning: durable storage not granted (not-persisted); local data and its encryption keyring may be evicted.",
+    );
+  } finally {
+    if (previousStorage) {
+      Object.defineProperty(globalThis.navigator, "storage", previousStorage);
+    } else {
+      Reflect.deleteProperty(globalThis.navigator, "storage");
+    }
+  }
+});

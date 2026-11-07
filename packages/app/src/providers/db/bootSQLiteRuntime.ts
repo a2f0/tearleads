@@ -105,6 +105,29 @@ function describeBootError(
   return String(error);
 }
 
+// Best-effort: a denied, unsupported, or failed durability request is only
+// logged, so it never bricks a browser that refuses persist().
+async function requestDurableStorage(
+  persistence: DatabasePersistenceMode,
+  log: (message: string) => void,
+): Promise<void> {
+  try {
+    const result = await requestPersistentStorage({
+      databasePersistence: persistence,
+      requestPersistentStorage: true,
+    });
+    if (result !== "persisted") {
+      log(
+        `Warning: durable storage not granted (${result}); local data and its encryption keyring may be evicted.`,
+      );
+    }
+  } catch (error) {
+    log(
+      `Warning: failed to request durable storage: ${unknownErrorMessage(error)}`,
+    );
+  }
+}
+
 // Opens the SQLite database for the given name and applies the cipher key, then
 // reports the mounted database's shape before features lazily create tables.
 export async function bootSQLiteRuntime(
@@ -124,24 +147,10 @@ export async function bootSQLiteRuntime(
     // sibling keyring stores (the IndexedDB wrapping key + localStorage manifest)
     // — from eviction. Eviction of the keyring while the OPFS db survives re-mints
     // a fresh root and is the primary cause of a later key/db desync
-    // (SQLITE_NOTADB). Best-effort: warn but do not block boot when durability is
-    // unavailable or denied, so we never brick a browser that refuses persist().
-    try {
-      const result = await requestPersistentStorage({
-        databasePersistence: persistence,
-        requestPersistentStorage: true,
-      });
-      if (result !== "persisted") {
-        log(
-          `Warning: durable storage not granted (${result}); local data and its encryption keyring may be evicted.`,
-        );
-      }
-    } catch (error) {
-      // Best-effort: a failed durability request must never block boot.
-      log(
-        `Warning: failed to request durable storage: ${unknownErrorMessage(error)}`,
-      );
-    }
+    // (SQLITE_NOTADB). Not awaited: Firefox asks the user and leaves persist()
+    // pending until they answer, which would stall boot indefinitely. A grant
+    // that arrives later covers the whole bucket, including data written since.
+    void requestDurableStorage(persistence, log);
   }
 
   let key: string;
