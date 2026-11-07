@@ -58,7 +58,7 @@
   "fileSizes": {
     "dependency-cruiser.config.ts": {
       "lines": 529,
-      "bytes": 16108
+      "bytes": 16141
     },
     "formal/blob-attachments/StagePromotion.tla": {
       "lines": 503,
