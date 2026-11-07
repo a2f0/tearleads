@@ -296,25 +296,6 @@ test("org manager groups view disables delete for built-in groups", () => {
   ).toBe(true);
 });
 
-test("org manager groups view deletes custom groups from the context menu", () => {
-  const deletedGroupIds: string[] = [];
-  const view = renderGroupsView({
-    deleteGroup: (groupId) => deletedGroupIds.push(groupId),
-    groups: [customGroup],
-    selectedGroup: null,
-    selectedGroupId: null,
-  });
-
-  fireEvent.contextMenu(view.getByText(customGroup.name));
-  fireEvent.click(
-    view.getByRole("button", {
-      name: ORG_MANAGER_LABELS.deleteGroupAction,
-    }),
-  );
-
-  expect(deletedGroupIds).toEqual([customGroup.groupId]);
-});
-
 test("org manager groups view opens new group from the groups area context menu", () => {
   let openCreateGroupDialogCount = 0;
   const view = renderGroupsView({
@@ -394,27 +375,43 @@ test("org manager groups view exposes new group from group row context menus", (
   expect(openCreateGroupDialogCount).toBe(1);
 });
 
+const { cancel, deleteGroupAction } = ORG_MANAGER_LABELS;
 for (const mode of ["windowed", "routed"] as const) {
-  test(`org manager groups view shows a kebab that opens the group menu (${mode})`, () => {
-    document.documentElement.setAttribute("data-navigation-mode", mode);
-    const deletedGroupIds: string[] = [];
-    const view = renderGroupsView({
-      deleteGroup: (groupId) => deletedGroupIds.push(groupId),
-      groups: [customGroup],
-      selectedGroup: null,
-      selectedGroupId: null,
-    });
+  for (const target of ["row", "kebab", "detail"]) {
+    const selectedGroup = target === "detail" ? customGroup : null;
+    test.each([cancel, deleteGroupAction])(
+      `org manager group deletion (${mode}, ${target}, %s)`,
+      (action) => {
+        document.documentElement.setAttribute("data-navigation-mode", mode);
+        const deletedGroupIds: string[] = [];
+        const view = renderGroupsView({
+          deleteGroup: (groupId) => deletedGroupIds.push(groupId),
+          groups: [customGroup],
+          selectedGroup,
+          selectedGroupId: selectedGroup?.groupId ?? null,
+        });
 
-    fireEvent.click(
-      view.getByRole("button", {
-        name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${customGroup.name}`,
-      }),
+        if (target !== "kebab") {
+          fireEvent.contextMenu(view.getByText(customGroup.name));
+        } else {
+          fireEvent.click(
+            view.getByRole("button", {
+              name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${customGroup.name}`,
+            }),
+          );
+        }
+        fireEvent.click(view.getByRole("button", { name: deleteGroupAction }));
+        expect(deletedGroupIds).toEqual([]);
+        const dialog = view.getByRole("dialog", { name: deleteGroupAction });
+        expect(within(dialog).getByText(/Operators/)).toBeTruthy();
+        fireEvent.click(within(dialog).getByRole("button", { name: action }));
+        expect(deletedGroupIds).toEqual(
+          action === cancel ? [] : [customGroup.groupId],
+        );
+        expect(view.queryByRole("dialog")).toBeNull();
+      },
     );
-    fireEvent.click(
-      view.getByRole("button", { name: ORG_MANAGER_LABELS.deleteGroupAction }),
-    );
-    expect(deletedGroupIds).toEqual([customGroup.groupId]);
-  });
+  }
 }
 
 test("org manager groups view uses two-line summaries on phone layouts", () => {

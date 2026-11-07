@@ -34,6 +34,10 @@ Mini-app implementations can use providers and stores at their own boundary.
 Keep SDK-backed data dependencies behind `packages/app/src/providers` and
 `packages/app/src/stores`; keep the bus a pure React/window messaging adapter.
 
+Org Manager group deletion opens a confirmation naming the selected group from
+both the row menu and the group detail context menu. Cancel leaves the group
+unchanged; only confirmation starts deletion. Built-in groups remain protected.
+
 ## Layout standard
 
 Every mini-app directory keeps the same shape: a small root that holds only the
