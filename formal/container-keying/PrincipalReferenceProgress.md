@@ -41,17 +41,17 @@ and re-grant or freshness of a first-seen policy on a dishonest server.
 ## Client retirement evidence
 
 A coded container-not-found response is only a planning hint. The SDK keeps the
-signed grant and records skipped container IDs atomically with the exact verified
-policy acknowledgement. Failed or unacknowledged commits do not retire anything.
-Current projection and local acknowledgement
+signed grant and records skipped container IDs atomically with the exact
+verified policy acknowledgement. Failed or unacknowledged commits do not retire
+anything. Current projection and local acknowledgement
 [checkpoint](../../docs/glossary/sync.md#checkpoint) transactions reject a head
-for one of those IDs, even the previously pinned head, as equivocation; historical
-evidence remains usable. Backup restore unions these expectations and keeps the
-live observation when another group retired the same container.
-`deletedContainerGrantReappearance.test.ts` exercises a dishonest 404, a
-successful rotation, and the contradictory old-key reappearance. This durable
-client expectation is tested at runtime, outside this model's honest-API
-progress abstraction.
+for one of those IDs, even the previously pinned head, as equivocation;
+historical evidence remains usable. Backup restore unions these expectations and
+keeps the live observation when another group retired the same container.
+[`deletedContainerGrantReappearance.test.ts`](../../packages/client-sdk/src/workflows/containers/rematerialization/deletedContainerGrantReappearance.test.ts)
+exercises a dishonest 404, a successful rotation, and the contradictory old-key
+reappearance. This durable client expectation is tested at runtime, outside this
+model's honest-API progress abstraction.
 
 An in-flight projection fetched before retirement can also be refused if it
 finishes verification afterward. This is a consistency refusal: the returned

@@ -133,30 +133,32 @@ implementation runs through this model. Four scenario tests in
 record each run as a sequence of the model's actions with the outcome the
 verifier produced:
 
-- `src/data/keyingProjectionVerification/noBrickContainerProjection.test.ts`
-  drives `verifyContainerManifestPath` against a device's persisted
-  checkpoints over the ancestor-citation scenario: a late-delivered head by
-  Mallory after her revocation is accepted; a served root rolled back below
-  the checkpoint, a forgery citing the head that revoked her, a same-epoch
-  fork of the held head, a citation regression, and a served root older than
-  the cited one are refused; the documented residual is accepted; and a device
-  with no history refuses a stale served root on the citation alone.
-- `.../noBrickGroupProjection.test.ts` verifies a child authored by a group
-  admin before removal, delivered to a cold device after the root has adopted
-  the successor group policy. Authorization uses the signed historical group
-  reference while the current ancestor still satisfies citation floors.
-- `.../noBrickHistoricalPolicyProjection.test.ts` verifies signed public policy
-  snapshots and organization directory history on two fresh local databases,
-  before and after deletion. A signed revoke removes the live grant before
-  deletion; the current path verifies through its retained, group-citing
-  predecessor. The real API + SDK counterpart is
+- [`src/data/keyingProjectionVerification/noBrickContainerProjection.test.ts`](../../packages/client-sdk/src/data/keyingProjectionVerification/noBrickContainerProjection.test.ts)
+  drives `verifyContainerManifestPath` against a device's persisted checkpoints
+  over the ancestor-citation scenario: a late-delivered head by Mallory after
+  her revocation is accepted; a served root rolled back below the checkpoint, a
+  forgery citing the head that revoked her, a same-epoch fork of the held head,
+  a citation regression, and a served root older than the cited one are refused;
+  the documented residual is accepted; and a device with no history refuses a
+  stale served root on the citation alone.
+- [`noBrickGroupProjection.test.ts`](../../packages/client-sdk/src/data/keyingProjectionVerification/noBrickGroupProjection.test.ts)
+  verifies a child authored by a group admin before removal, delivered to a cold
+  device after the root has adopted the successor group policy. Authorization
+  uses the signed historical group reference while the current ancestor still
+  satisfies citation floors.
+- [`noBrickHistoricalPolicyProjection.test.ts`](../../packages/client-sdk/src/data/keyingProjectionVerification/noBrickHistoricalPolicyProjection.test.ts)
+  verifies signed public policy snapshots and organization directory history on
+  two fresh local databases, before and after deletion. A signed revoke removes
+  the live grant before deletion; the current path verifies through its
+  retained, group-citing predecessor. The real API + SDK counterpart is
   [`packages/api/src/routes/principals/historicalPolicyProjection.test.ts`](../../packages/api/src/routes/principals/historicalPolicyProjection.test.ts).
-- `.../noBrickPolicyProjection.test.ts` drives `verifyPrincipalPolicyBundle`
-  through the stale-chain shape: a group successor by a since-removed admin
-  citing the older Admins head is accepted after Admins advances, a later
-  successor by the replacement admin is accepted with that entry in its chain,
-  and a citation regression, the removed admin citing the head that removed
-  them, and a rollback below the checkpoint are refused.
+- [`noBrickPolicyProjection.test.ts`](../../packages/client-sdk/src/data/keyingProjectionVerification/noBrickPolicyProjection.test.ts)
+  drives `verifyPrincipalPolicyBundle` through the stale-chain shape: a group
+  successor by a since-removed admin citing the older Admins head is accepted
+  after Admins advances, a later successor by the replacement admin is accepted
+  with that entry in its chain, and a citation regression, the removed admin
+  citing the head that removed them, and a rollback below the checkpoint are
+  refused.
 
 Each recorded verification becomes one `HonestSync` or `Verify` step whose
 projection the recorder derives from the served bundles: the head's epoch, how

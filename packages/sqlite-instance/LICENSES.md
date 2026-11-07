@@ -1,7 +1,8 @@
 # SQLite WebAssembly licenses
 
 `dist/jswasm/` holds the SQLite3 Multiple Ciphers WebAssembly build that
-`scripts/buildSqliteMultipleCiphers.sh` downloads. Anything that ships those
+[`scripts/buildSqliteMultipleCiphers.sh`][file-1] downloads. Anything that ships
+those
 files, or a bundle of them, ships this notice with them.
 
 ## SQLite
@@ -36,3 +37,5 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+[file-1]: scripts/buildSqliteMultipleCiphers.sh

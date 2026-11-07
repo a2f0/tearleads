@@ -19,16 +19,16 @@ applies to pull requests from clones without hooks.
 The API, app, client SDK, and bob-and-alice suites run in `Test (...)` jobs of
 their own, and `Build and test` runs the remaining package tests. The API suite
 runs one backend per job, and every one of these suites splits into Bun shards
-(`--shard=1/3` and so on); `ciPolicy.test.ts` checks that every backend's
-shards are all present. The gate requires both jobs, so the suites need no
-ruleset entries. Turbo hashes each shard's arguments, so shards cache
-independently. Turbo serves cached
-results from the GitHub Actions cache: a pull request reads entries written on
-its own ref or on `main`, while `main` never reads an entry a pull request wrote.
-The nightly `Uncached tests` workflow calls the entire CI workflow with
-`force: true`, including Postgres, Windows, native bridge compiles, and
-[protocol models](../../formal/README.md). Manual workflow dispatches also
-bypass the cache.
+(`--shard=1/3` and so on);
+[`ciPolicy.test.ts`](../../scripts/checks/staticAnalysis/ciPolicy.test.ts)
+checks that every backend's shards are all present. The gate requires both jobs,
+so the suites need no ruleset entries. Turbo hashes each shard's arguments, so
+shards cache independently. Turbo serves cached results from the GitHub Actions
+cache: a pull request reads entries written on its own ref or on `main`, while
+`main` never reads an entry a pull request wrote. The nightly `Uncached tests`
+workflow calls the entire CI workflow with `force: true`, including Postgres,
+Windows, native bridge compiles, and [protocol models](../../formal/README.md).
+Manual workflow dispatches also bypass the cache.
 
 CI runs the Postgres concurrency probe, Windows CEF persistence probe, and native
 purchase bridge compiles as dedicated root Turbo tasks. Each caches a successful
@@ -72,9 +72,10 @@ selection. The shared `agent-tool ci gate` command evaluates
 required jobs and binds conditional jobs to the classifier’s exact outputs. A
 platform job may be skipped only when successful change detection explicitly
 marked it irrelevant. A failed, cancelled, missing, or unexpectedly skipped job
-fails the gate. Changes to workflows, CI scripts, tool pins, `package.json`, or
-`bun.lock` exercise every lane. CI runs on pull requests and `main` pushes only,
-so a feature-branch push does not duplicate the pull-request run.
+fails the gate. Changes to workflows, CI scripts, tool pins,
+[`package.json`](../../package.json), or [`bun.lock`](../../bun.lock) exercise
+every lane. CI runs on pull requests and `main` pushes only, so a feature-branch
+push does not duplicate the pull-request run.
 
 Require the aggregate gate rather than a path-filtered workflow: GitHub leaves
 checks from skipped workflows pending, while skipped jobs can count as passing.
@@ -82,15 +83,16 @@ The aggregate checks the dependency results explicitly with `always()`.
 See [GitHub's required-check guidance](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
 
 The shared `agent-tool pr merge` helper reads the core checks from
-`merge.requiredChecks` in `agent-tool.json`. It independently requires them to
-succeed in the CI workflow on the exact head it will merge, and rejects any
-other reported failed or pending check. Missing checks and API errors stop the
-merge. This also protects standalone helper calls, where waiting only for the
-checks a ruleset requires would be insufficient. With
-`merge.requireStrictBaseFreshness`, the helper also refuses to merge unless the
-base's effective rules include an active strict status rule that the
-authenticated actor cannot bypass. Update `agent-tool.json` together with the
-ruleset when a required check name changes.
+`merge.requiredChecks` in [`agent-tool.json`](../../agent-tool.json). It
+independently requires them to succeed in the CI workflow on the exact head it
+will merge, and rejects any other reported failed or pending check. Missing
+checks and API errors stop the merge. This also protects standalone helper
+calls, where waiting only for the checks a ruleset requires would be
+insufficient. With `merge.requireStrictBaseFreshness`, the helper also refuses
+to merge unless the base's effective rules include an active strict status rule
+that the authenticated actor cannot bypass. Update
+[`agent-tool.json`](../../agent-tool.json) together with the ruleset when a
+required check name changes.
 
 `agent-tool pr checks --wait` waits up to `merge.checksTimeoutSeconds`, set to
 3600. Uncached, the app and API `Test (...)` jobs each take about 20 minutes
@@ -99,7 +101,7 @@ wait that times out leaves checks pending and is not a CI failure. Pass
 `--timeout <seconds>` only to override the policy for one wait.
 
 When renaming or adding a required check, first verify that a PR reports it
-under the new name, then update the ruleset and `agent-tool.json`. Open PRs
-must merge the workflow change before they can satisfy the new gate. Preserve
-the ruleset's signature, pull-request, deletion, and force-push protections
-when updating it.
+under the new name, then update the ruleset and
+[`agent-tool.json`](../../agent-tool.json). Open PRs must merge the workflow
+change before they can satisfy the new gate. Preserve the ruleset's signature,
+pull-request, deletion, and force-push protections when updating it.

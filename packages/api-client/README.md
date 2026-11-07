@@ -23,10 +23,13 @@ contracts, but must not import server, app, SDK, UI, or deployment code.
 
 `ApiClient` publishes each method as an instance property, so methods stay
 bound when passed around. Each method is implemented by one request area
-under `src/client` (session, identities, principal policies, organizations,
+under [`src/client`](src/client/) (session, identities, principal policies,
+organizations,
 containers, documents, blobs, writer projections, billing, and root admin),
-and each area calls the route helpers under `src/routes`. One transport
-(`src/apiRequestRuntime.ts`) measures requests, renews sessions, and explains
+and each area calls the route helpers under [`src/routes`](src/routes/). One
+transport
+([`src/apiRequestRuntime.ts`](src/apiRequestRuntime.ts)) measures requests,
+renews sessions, and explains
 failures.
 
 - [API network failures](../../docs/developer/api-network-failures.md)

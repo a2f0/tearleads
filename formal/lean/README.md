@@ -9,28 +9,30 @@ through a committed vector fixture that the TypeScript verifiers replay.
 
 | Module | Production counterpart |
 | --- | --- |
-| `Tearleads/Transparency/Tree.lean` | `computeTransparencyMerkleRoot`, `largestPowerOfTwoLessThan`, and the empty and node hashes in `transparencyTree.ts` |
-| `Tearleads/Transparency/Generate.lean` | `createTransparencyInclusionProof` and `createTransparencyConsistencyProof` |
-| `Tearleads/Transparency/Verify.lean` | `assertTransparencyInclusion` and `assertTransparencyConsistency` in `transparencyProofs.ts`, check for check, with the same refusal codes |
-| `Tearleads/Transparency/Theorems.lean` | The F3 theorem statements |
-| `Tearleads/Transparency/Proof/*.lean` | Their proofs |
-| `Tearleads/Transparency/Vectors.lean` | The cases in `vectors/transparency.json` |
+| [`Tearleads/Transparency/Tree.lean`](Tearleads/Transparency/Tree.lean) | `computeTransparencyMerkleRoot`, `largestPowerOfTwoLessThan`, and the empty and node hashes in [`transparencyTree.ts`](../../packages/crypto/src/keying/transparencyTree.ts) |
+| [`Tearleads/Transparency/Generate.lean`](Tearleads/Transparency/Generate.lean) | `createTransparencyInclusionProof` and `createTransparencyConsistencyProof` |
+| [`Tearleads/Transparency/Verify.lean`](Tearleads/Transparency/Verify.lean) | `assertTransparencyInclusion` and `assertTransparencyConsistency` in [`transparencyProofs.ts`](../../packages/crypto/src/keying/transparencyProofs.ts), check for check, with the same refusal codes |
+| [`Tearleads/Transparency/Theorems.lean`](Tearleads/Transparency/Theorems.lean) | The F3 theorem statements |
+| `*.lean` in [`formal/lean/Tearleads/Transparency/Proof/`](Tearleads/Transparency/Proof/) | Their proofs |
+| [`Tearleads/Transparency/Vectors.lean`](Tearleads/Transparency/Vectors.lean) | The cases in [`vectors/transparency.json`](vectors/transparency.json) |
 
 Every recursive definition takes explicit fuel and recurses structurally on it.
 The public wrappers pass the tree size, which always bounds the depth, and
-`Proof/Fuel.lean` shows the fuel stops mattering once it covers the size.
+[`Proof/Fuel.lean`](Tearleads/Transparency/Proof/Fuel.lean) shows the fuel stops
+mattering once it covers the size.
 
 ## What is proved
 
-`Theorems.lean` states the four F3 theorems for every tree size, and the
-modules under `Proof/` prove them:
+[`Theorems.lean`](Tearleads/Transparency/Theorems.lean) states the four F3
+theorems for every tree size, and the modules under
+[`Proof/`](Tearleads/Transparency/Proof/) prove them:
 
 | Theorem | Statement | Proof |
 | --- | --- | --- |
-| `InclusionComplete` | For every tree size and leaf index, the honest audit path is accepted | `inclusion_complete` in `Proof/Inclusion.lean` |
-| `InclusionSound` | Against an honest root, only the committed leaf is accepted at an index, whatever the audit path | `inclusion_sound` in `Proof/Inclusion.lean` |
-| `ConsistencyComplete` | For every `previous <= size`, the honest consistency proof is accepted | `consistency_complete` in `Proof/Consistency.lean` |
-| `ConsistencySound` | Against an honest current root, an accepted proof pins the previous root to the root of the current tree's prefix | `consistency_sound` in `Proof/ConsistencySound.lean` |
+| `InclusionComplete` | For every tree size and leaf index, the honest audit path is accepted | `inclusion_complete` in [`Proof/Inclusion.lean`](Tearleads/Transparency/Proof/Inclusion.lean) |
+| `InclusionSound` | Against an honest root, only the committed leaf is accepted at an index, whatever the audit path | `inclusion_sound` in [`Proof/Inclusion.lean`](Tearleads/Transparency/Proof/Inclusion.lean) |
+| `ConsistencyComplete` | For every `previous <= size`, the honest consistency proof is accepted | `consistency_complete` in [`Proof/Consistency.lean`](Tearleads/Transparency/Proof/Consistency.lean) |
+| `ConsistencySound` | Against an honest current root, an accepted proof pins the previous root to the root of the current tree's prefix | `consistency_sound` in [`Proof/ConsistencySound.lean`](Tearleads/Transparency/Proof/ConsistencySound.lean) |
 
 `consistency_complete_five_six`, the 5 → 6 proof #2186 refused, is one
 instance of `consistency_complete`.
@@ -59,19 +61,23 @@ verifier is the RFC 9162 walk, which climbs the tree by halving indices while
 the generator splits from the top. The consistency proofs never reason about
 powers of two directly; they climb one level at a time:
 
-- `Proof/Split.lean`: for 3 or more leaves the split point is twice the split
-  point of half the size, rounded up.
-- `Proof/Pairing.lean`: from that, a tree is the tree over its pair hashes, an
-  odd last leaf carried up. Inclusion paths and subproofs split the same way,
-  and for an odd previous size the subproof is the previous tree's last leaf
-  followed by that leaf's inclusion path.
-- `Proof/Walk.lean`: the walk over such an inclusion path reaches both roots,
-  by strong induction on the current tree's size.
-- `Proof/Consistency.lean`: an even previous size verifies as its half does
-  one level up, which reduces every case to the odd one.
-- `Proof/ConsistencySound.lean`: the same induction over arbitrary nodes. The
-  previous tree's last leaf is unknown until the walk pins it down, so it is
-  carried as a pointwise update of the leaf function.
+- [`Proof/Split.lean`](Tearleads/Transparency/Proof/Split.lean): for 3 or more
+  leaves the split point is twice the split point of half the size, rounded up.
+- [`Proof/Pairing.lean`](Tearleads/Transparency/Proof/Pairing.lean): from that,
+  a tree is the tree over its pair hashes, an odd last leaf carried up.
+  Inclusion paths and subproofs split the same way, and for an odd previous size
+  the subproof is the previous tree's last leaf followed by that leaf's
+  inclusion path.
+- [`Proof/Walk.lean`](Tearleads/Transparency/Proof/Walk.lean): the walk over
+  such an inclusion path reaches both roots, by strong induction on the current
+  tree's size.
+- [`Proof/Consistency.lean`](Tearleads/Transparency/Proof/Consistency.lean): an
+  even previous size verifies as its half does one level up, which reduces every
+  case to the odd one.
+- [`Proof/ConsistencySound.lean`](Tearleads/Transparency/Proof/ConsistencySound.lean):
+  the same induction over arbitrary nodes. The previous tree's last leaf is
+  unknown until the walk pins it down, so it is carried as a pointwise update of
+  the leaf function.
 
 `omega` handles all the arithmetic, because it only ever halves. Proofs stay
 within Lean core; the package has no Lake dependencies, so its build needs no
@@ -79,9 +85,10 @@ network access.
 
 ## Vectors
 
-`lake exe transparency-vectors` prints `vectors/transparency.json`. Each digest
-in it is named by the leaf range `[lo, size]` it is the root of, and each case
-records the outcome the model reaches: `ok` or a `KeyingVerificationCode`.
+`lake exe transparency-vectors` prints
+[`vectors/transparency.json`](vectors/transparency.json). Each digest in it is
+named by the leaf range `[lo, size]` it is the root of, and each case records
+the outcome the model reaches: `ok` or a `KeyingVerificationCode`.
 
 - Honest inclusion and consistency proofs cover every size pair through 32 leaves.
 - Mutations cover every pair through 16 leaves: appended, dropped, replaced,
@@ -92,15 +99,19 @@ records the outcome the model reaches: `ok` or a `KeyingVerificationCode`.
 
 [`transparencyLeanVectors.test.ts`](../../packages/crypto/src/keying/transparencyLeanVectors.test.ts)
 hashes the same ranges with the production domain hashes. It requires the
-production generators to produce every honest proof and the production
-verifiers to reach every recorded outcome, refusal code included. It runs in
+production generators to produce every honest proof and the production verifiers
+to reach every recorded outcome, refusal code included. It runs in
 `test:protocol-conformance` and the crypto package tests. Restoring the #2186
-fold in `transparencyProofs.ts` makes it fail at the `honest 5 → 6` case.
+fold in
+[`transparencyProofs.ts`](../../packages/crypto/src/keying/transparencyProofs.ts)
+makes it fail at the `honest 5 → 6` case.
 
 ## Running
 
-The toolchain is pinned in `.mise.toml` and `lean-toolchain`, with checksums in
-`mise.lock`. It installs about 2.8 GB, so it is not part of `check:fast`:
+The toolchain is pinned in [`.mise.toml`](../../.mise.toml) and
+[`lean-toolchain`](lean-toolchain), with checksums in
+[`mise.lock`](../../mise.lock). It installs about 2.8 GB, so it is not part of
+`check:fast`:
 
 ```sh
 mise install github:leanprover/lean4
@@ -108,12 +119,12 @@ bun run check:protocol-proofs
 bun run generate:protocol-proof-vectors
 ```
 
-`check:protocol-proofs` requires the mise pin, `lean-toolchain`, and
-`lake --version` to agree, builds the package with `lake build --wfail`, and
-fails if the regenerated fixture differs from the committed one.
-`generate:protocol-proof-vectors` rewrites the fixture instead.
-`LEAN_TOOLCHAIN_ROOT` points both at a toolchain outside mise. Editors using
-`elan` pick up `lean-toolchain` directly.
+`check:protocol-proofs` requires the mise pin,
+[`lean-toolchain`](lean-toolchain), and `lake --version` to agree, builds the
+package with `lake build --wfail`, and fails if the regenerated fixture differs
+from the committed one. `generate:protocol-proof-vectors` rewrites the fixture
+instead. `LEAN_TOOLCHAIN_ROOT` points both at a toolchain outside mise. Editors
+using `elan` pick up [`lean-toolchain`](lean-toolchain) directly.
 
 Both commands refuse `sorry`, `admit`, `native_decide`, `axiom`,
 `implemented_by`, `extern`, and `unsafe` anywhere in the sources, comments

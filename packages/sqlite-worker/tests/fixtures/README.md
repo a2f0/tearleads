@@ -1,6 +1,7 @@
 # Encrypted database compatibility fixture
 
-`cipher251.json` is a base64 OPFS snapshot produced by the official
+[`cipher251.json`](cipher251.json) is a base64 OPFS snapshot produced by the
+official
 [SQLite3MC 2.5.1 / SQLite 3.53.4 wasm archive](https://github.com/utelle/SQLite3MultipleCiphers/releases/tag/v2.5.1).
 The archive SHA256 is
 `761a41b8dc996cfa21f193fc044739fbb0c4a31a1fd657a4df49cc59085577ce`;
@@ -26,7 +27,8 @@ The explicit page size keeps this fixture compact. Cipher legacy mode,
 key derivation, salt, and header settings keep the 2.5.1 runtime defaults.
 After closing the database and pausing its pool, the snapshot preserves the
 allocated backing file including its SAHPool header; unused pool files are
-omitted. `cipherUpgrade.test.ts` mounts these persisted bytes through the current
+omitted. [`cipherUpgrade.test.ts`](../cipherUpgrade.test.ts) mounts these
+persisted bytes through the current
 production loader, rejects a wrong key, reads the original row, updates it, and
 reopens it without resetting storage. Integrity checks run before and after.
 

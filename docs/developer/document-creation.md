@@ -59,10 +59,11 @@ material for a custom workflow. It does not submit or persist the document.
 Choose this only when the host owns those remaining steps.
 
 Both are [named exports](client-sdk/public-api.md#public-api-entry-points) of
-`@tearleads/client-sdk`; use the package root rather than private `src/` paths.
-The [workflow contract](../../packages/client-sdk/src/workflows/README.md)
-describes the ports these custom hosts must provide. Most editing hosts should
-let the document store compose them.
+`@tearleads/client-sdk`; use the package root rather than private
+[`src/`](../../packages/client-sdk/src/) paths. The
+[workflow contract](../../packages/client-sdk/src/workflows/README.md) describes
+the ports these custom hosts must provide. Most editing hosts should let the
+document store compose them.
 
 ## Tests and contract changes
 

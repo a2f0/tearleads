@@ -19,7 +19,7 @@ membership.
 
 | Requirement | Executable evidence |
 | --- | --- |
-| Heads, independent checkpoints, lag, and revocation | `NoBrickedDevice.tla`: `AdvanceAuthority`, `RevokeLateSigner`, `CommitDependent`, and per-device `checkpoint` / `authorityCheckpoint` |
+| Heads, independent checkpoints, lag, and revocation | [`NoBrickedDevice.tla`](container-keying/NoBrickedDevice.tla): `AdvanceAuthority`, `RevokeLateSigner`, `CommitDependent`, and per-device `checkpoint` / `authorityCheckpoint` |
 | Refuse forks, rollback, regressing citations, and authority below a citation | `HeldChainNeverContradictsCheckpoint`, `CheckpointsAreMonotone`, `HeldCitationsNeverRegress`, `HeldAuthorityCoversHeldCitation`; adversary configuration and matching negative controls |
 | Progress without another device's cache or write | `DeviceEventuallyCurrent` (reads) and `DeviceEventuallyWrites` (the device's own `DeviceWrite`, accepted only at the current heads) with weak fairness only on each device's `HonestSync` and `DeviceWrite`; no fairness on server-side writes |
 | Stale-head and stale-chain currency rules break liveness | `no-brick-stale-head-citation` and `no-brick-stale-chain-citation` in the [negative-control registry](../scripts/protocol/protocolNoBrickNegativeControls.ts) require the temporal violation of `DeviceEventuallyCurrent`; `no-brick-writer-waits-for-fresh-dependent` requires that of `DeviceEventuallyWrites` |

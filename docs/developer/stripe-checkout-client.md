@@ -13,8 +13,8 @@ flow and can style it from its theme tokens.
   other shells use `createUnavailableDirectCheckout`, so shared UI gates on
   capability instead of platform branches.
 - `BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY` enables the web capability and is inlined
-  by `deployAppWeb.sh`. There is no
-  [RevenueCat](revenuecat-billing.md) web-purchase fallback.
+  by [`deployAppWeb.sh`](../../packages/app-web/scripts/deployAppWeb.sh). There
+  is no [RevenueCat](revenuecat-billing.md) web-purchase fallback.
 - Stripe loads from `@stripe/stripe-js/pure`, deferring Stripe.js and its fraud
   signals from startup until someone opens checkout.
 - The server pins the subscription to `card`. Redirect-based methods are not

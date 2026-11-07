@@ -16,7 +16,7 @@ it does not test a clean install, compilation, or bug-fix quality.
 | --- | --- |
 | [`scripts/dev/scope.ts`](../../scripts/dev/scope.ts) | Repository command entrypoint |
 | [`scripts/dev/scope/pins.json`](../../scripts/dev/scope/pins.json) | Scope revision, tool versions, model and local ports |
-| `scripts/dev/scope/*.py`, `loopback.cjs` | Native installation and service lifecycle |
+| `*.py` in [`scripts/dev/scope/`](../../scripts/dev/scope/), [`loopback.cjs`](../../scripts/dev/scope/loopback.cjs) | Native installation and service lifecycle |
 | [`scripts/dev/scope/judge/`](../../scripts/dev/scope/judge/) | Codex CLI Judge adapter and verdict validation tests |
 | [`scripts/dev/scope/benchmarks/`](../../scripts/dev/scope/benchmarks/) | Versioned prompts and evaluation criteria |
 | `.scope/` (ignored) | Registration IDs, databases, downloads, logs, PIDs, snapshots and receipts |
@@ -54,11 +54,12 @@ bun run scope portal
 ```
 
 The last command runs the portal in the foreground at
-[127.0.0.1:5100](http://127.0.0.1:5100). The API is on port 3101 and the Judge on
-3201. Service ports are listed in `pins.json`. Background services write logs
-and PID records to `.scope/runtime/`; stop them with `bun run scope stop`.
-Stop the foreground portal separately. Partial startup failures retain PID
-records so `stop` can clean up before retrying.
+[127.0.0.1:5100](http://127.0.0.1:5100). The API listens on port 3101;
+the Judge uses port 3201. Service ports are listed in
+[`pins.json`](../../scripts/dev/scope/pins.json). Background services write logs
+and PID records to `.scope/runtime/`; stop them with `bun run scope stop`. Stop
+the foreground portal separately. Partial startup failures retain PID records
+so `stop` can clean up before retrying.
 
 `install` verifies the upstream commit and refuses to change a dirty or different
 checkout. Set `SCOPE_SOURCE_DIR` to use another location, consistently for all
@@ -146,10 +147,11 @@ this is an onboarding probe, not a hidden-answer competition.
 
 A single trial per task is a pilot. Use `bun run scope benchmark 3` for three
 trials per case when assessing variability. The pinned Judge model is in
-`pins.json`; `CODEX_JUDGE_MODEL` overrides it for local experiments. The coder
-uses its provider default, so record the actual model from its session evidence
-before comparing runs across dates. Changing a prompt or criterion requires a
-new versioned ID: seeding refuses to silently overwrite existing definitions.
+[`pins.json`](../../scripts/dev/scope/pins.json); `CODEX_JUDGE_MODEL` overrides
+it for local experiments. The coder uses its provider default, so record the
+actual model from its session evidence before comparing runs across dates.
+Changing a prompt or criterion requires a new versioned ID: seeding refuses to
+silently overwrite existing definitions.
 
 Receipts under `.scope/benchmarks/` record the source commit, tooling commit,
 suite definitions, run links, agent version, timings, reports and verdicts.

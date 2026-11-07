@@ -15,4 +15,5 @@ adapters, expose read-model/action helpers for presentation hooks, and export
 factory functions for tests. They do not reach SDK persistence or SQLite
 internals directly, and they do not own screen composition or feature
 presentation. Reusable store test fixtures belong under
-`packages/app/test/helpers/` rather than production store directories.
+[`packages/app/test/helpers/`](../../test/helpers/) rather than production store
+directories.

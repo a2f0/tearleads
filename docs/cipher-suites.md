@@ -70,7 +70,7 @@ commit their public keys.
 | DEK wrapping under a KEM shared secret | [`packages/crypto/src/encapsulation/wrapDek.ts`](../packages/crypto/src/encapsulation/wrapDek.ts) |
 | Local keyring root-key wrapping (`account-root` envelope) | [`packages/client-sdk/src/client/localKeyring/aesGcmWrapping.ts`](../packages/client-sdk/src/client/localKeyring/aesGcmWrapping.ts) |
 | Local identity package at rest | [`packages/app/src/providers/identity/localIdentityPackageCrypto.ts`](../packages/app/src/providers/identity/localIdentityPackageCrypto.ts) |
-| Local OPFS blob store at rest (authenticated 5 MiB chunks) | [`packages/client-sdk/src/data/blobs/encryptedBlobStore.ts`](../packages/client-sdk/src/data/blobs/encryptedBlobStore.ts), `.../encryptedBlobByteSource.ts` |
+| Local OPFS blob store at rest (authenticated 5 MiB chunks) | [`packages/client-sdk/src/data/blobs/encryptedBlobStore.ts`](../packages/client-sdk/src/data/blobs/encryptedBlobStore.ts), [`encryptedBlobByteSource.ts`](../packages/client-sdk/src/data/blobs/encryptedBlobByteSource.ts) |
 
 Core helpers:
 [`packages/crypto/src/symmetric.ts`](../packages/crypto/src/symmetric.ts)

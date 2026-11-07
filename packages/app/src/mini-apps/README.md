@@ -3,9 +3,11 @@
 The mini-app layer owns app-local window composition and route-style messages
 between mini-app windows.
 
-`bus.tsx` is intentionally SDK-independent infrastructure. It opens or raises a
+[`bus.tsx`](bus.tsx) is intentionally SDK-independent infrastructure. It opens
+or raises a
 mini-app through the app's navigation actions
-(`../navigation/AppNavigationProvider.tsx`, over the windowing launcher) and
+([`../navigation/AppNavigationProvider.tsx`][file-1], over the windowing
+launcher) and
 queues each message until a subscriber of the target app claims it; a message
 sent while opening a window waits for that window. It must not import the SDK
 or other `@tearleads/*` packages beyond `@tearleads/windowing`, app runtime
@@ -14,25 +16,32 @@ implementations.
 
 The window core (`@tearleads/windowing`) is app-agnostic: it stores a window's
 `appId` as an opaque string and never imports mini-app code. Its launcher runs
-the mini-apps from a definition: `registry.ts` gives it `MINI_APP_LAUNCHER`,
+the mini-apps from a definition: [`registry.ts`](registry.ts) gives it
+`MINI_APP_LAUNCHER`,
 every mini-app's definition (title, icon, component, sidebar default) with the
 menu order and Explorer as both the routed shell's home and the empty
 desktop's default window. The package opens them in windows (`MiniAppWindow`,
 whose `AppBoundary` slot takes `LauncherMiniAppBoundary` from
-`../components/mini-app/MiniAppBoundary.tsx`) or shows one at a time in its
+[`../components/mini-app/MiniAppBoundary.tsx`][file-2]) or shows one at a time
+in its
 routed shell. Both the regular app and the demo run this one launcher; their
 host profiles differ in the layout they prefer. `isMiniAppId` narrows a
 window's `appId` back to a `MiniAppId`.
 
-`catalog.ts` holds each app's title, icon, and menu order without importing
-any app, so chrome that only labels or lists apps stays light; `registry.ts`
+[`catalog.ts`](catalog.ts) holds each app's title, icon, and menu order without
+importing
+any app, so chrome that only labels or lists apps stays light;
+[`registry.ts`](registry.ts)
 pairs those titles with the components and is imported only by the shells that
 render apps. Each app that accepts bus messages declares them in its own
-`messages.ts`, an import-free type contract; `types.ts` unions them for the bus.
+`messages.ts`, an import-free type contract; [`types.ts`](types.ts) unions them
+for the bus.
 
 Mini-app implementations can use providers and stores at their own boundary.
-Keep SDK-backed data dependencies behind `packages/app/src/providers` and
-`packages/app/src/stores`; keep the bus a pure React/window messaging adapter.
+Keep SDK-backed data dependencies behind
+[`packages/app/src/providers`](../providers/) and
+[`packages/app/src/stores`](../stores/); keep the bus a pure React/window
+messaging adapter.
 
 Org Manager group deletion opens a confirmation naming the selected group from
 both the row menu and the group detail context menu. Cancel leaves the group
@@ -73,7 +82,12 @@ Everything else lives in a feature folder. Recurring folder roles:
 
 Tests sit beside the code they exercise, in the same folder.
 
-`.ls-lint.yml` pins this shape for the larger mini-apps with a directory
+[`.ls-lint.yml`](../../../../.ls-lint.yml) pins this shape for the larger
+mini-apps with a directory
 allowlist plus per-directory file-count budgets. Adding a folder or growing a
-budget is fine — do it deliberately in `.ls-lint.yml` rather than letting a
+budget is fine — do it deliberately in
+[`.ls-lint.yml`](../../../../.ls-lint.yml) rather than letting a
 root accumulate loose files.
+
+[file-1]: ../navigation/AppNavigationProvider.tsx
+[file-2]: ../components/mini-app/MiniAppBoundary.tsx

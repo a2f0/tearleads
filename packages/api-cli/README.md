@@ -5,7 +5,8 @@ from source against each tier's PlanetScale database and R2 bucket; it can also
 be compiled to a standalone Bun executable (`tearleads-api-cli`).
 
 It is a separate deployable entry package: it depends on `@tearleads/api-shared`
-for server infrastructure and **must not** import `packages/api` (enforced by the
+for server infrastructure and **must not** import [`packages/api`](../api/)
+(enforced by the
 `api-cli-does-not-depend-on-api` dependency-cruiser rule).
 
 ```text
@@ -32,7 +33,9 @@ then calls `initializeApiDatabase` from `@tearleads/api-shared/postgres`. Turso
 uses the SQLite migration bundle.
 
 In the compiled executable both dialects' migration files are **embedded** — the
-build bundles `packages/api-shared/{drizzle,drizzle-sqlite}/**/*.{sql,json}` as
+build bundles SQL and JSON files under
+[`packages/api-shared/drizzle`](../api-shared/drizzle/) and
+[`packages/api-shared/drizzle-sqlite`](../api-shared/drizzle-sqlite/) as
 assets. The command materializes only the selected dialect into a temp directory
 (`tearleads-api-migrations-*`), passes it as `migrationsFolder`, and removes it
 afterwards. Run from source, no files are embedded and `initializeApiDatabase`
@@ -54,7 +57,8 @@ is available, and no server answers on the local socket or `localhost:5432`:
 sh scripts/postgres/runPostgresMigration.sh
 ```
 
-On deploy, `packages/api/scripts/deployApi.sh` runs it from source before
+On deploy, [`packages/api/scripts/deployApi.sh`](../api/scripts/deployApi.sh)
+runs it from source before
 publishing the API Worker, with the tier's PlanetScale migration login on the
 direct port 5432 read from the `postgres` Terraform stack output:
 
@@ -154,7 +158,8 @@ bun run test                                 # bun test src
 bun run build                                # packages/api-cli/dist/tearleads-api-cli
 ```
 
-`scripts/buildApiCliExecutable.ts` compiles from the repo root to a single
+[`scripts/buildApiCliExecutable.ts`](scripts/buildApiCliExecutable.ts) compiles
+from the repo root to a single
 executable. The target defaults to `bun-linux-x64` and can be overridden with
 `BUN_COMPILE_TARGET`: Linux x64/arm64/aarch64, or Darwin x64/arm64 for local
 executable tests. `BUN_COMPILE_OUTFILE` selects an isolated output path; it

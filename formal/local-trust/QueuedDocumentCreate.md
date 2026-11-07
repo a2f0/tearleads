@@ -41,24 +41,25 @@ update as the seed, so the seams below name both lanes.
 | `SyncWaitsForBind` / `CarriedContentNamesBoundAttachment` | the sync pass returns while `pendingAttachments` is not empty, so `syncDocumentState` sends the row only after `syncPendingAttachments` settles the bind |
 
 The model bounds one document, one queued attempt, one attachment bind, and two
-store generations.
-Two negative controls separately disable the durable-row guard and generation
-guard; TLC must detect the corresponding safety violation. Two more settle the
-seed on a plain acknowledgement and drop it on adoption; both break
-`SettledSeedIsCommitted`. The last two drop a hint for the submitted id before
-the response installs it, and let seed settlement clear a signal raised after
-submission; both break `PeerEditIsPulled`. The implementation regressions are in
-`documentStore/sync/remoteCreateAfterPurge.test.ts` and
-`documentStore/sync/syncSeededCreate.test.ts`.
+store generations. Two negative controls separately disable the durable-row
+guard and generation guard; TLC must detect the corresponding safety violation.
+Two more settle the seed on a plain acknowledgement and drop it on adoption;
+both break `SettledSeedIsCommitted`. The last two drop a hint for the submitted
+id before the response installs it, and let seed settlement clear a signal
+raised after submission; both break `PeerEditIsPulled`. The implementation
+regressions are in
+[`documentStore/sync/remoteCreateAfterPurge.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/sync/remoteCreateAfterPurge.test.ts)
+and
+[`documentStore/sync/syncSeededCreate.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/sync/syncSeededCreate.test.ts).
 
-A document whose first update waits for its only attachment's bind maps onto
-the same actions: `createRemoteDocument` signs that row against the create plan
+A document whose first update waits for its only attachment's bind maps onto the
+same actions: `createRemoteDocument` signs that row against the create plan
 without sending it (`deferredSeedUpdate`), the bind carries it as
 `documentSync`, `persistBindCarriedSeed` settles it only when the bind's
 acknowledgement names it (`RequireSeedAcknowledgement`), and a refused carry
 binds plainly so the row syncs as an ordinary update (`SubmitPlain`,
 `SyncQueuedRow`). The tests are in
-`documentStore/initialization/deferredInitialUpdateCarried.integration.test.ts`.
+[`documentStore/initialization/deferredInitialUpdateCarried.integration.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/initialization/deferredInitialUpdateCarried.integration.test.ts).
 
 The durable read and its continuation are separate actions. Purge can happen
 before, during, or after them. The no-create guarantee covers a purge visible to

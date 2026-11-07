@@ -12,18 +12,22 @@ lifecycle behavior.
 
 ## Flows
 
-- `first-identity-offline.yaml` — a fresh install auto-generates the first
+- [`first-identity-offline.yaml`](first-identity-offline.yaml) — a fresh
+  install auto-generates the first
   identity offline and reaches a usable, keyed state.
-- `offline-second-identity.yaml` — provisioning a **second** identity from the
+- [`offline-second-identity.yaml`](offline-second-identity.yaml) — provisioning
+  a **second** identity from the
   Identity Manager works offline, yields a genuinely new active identity, then
   repeatedly switches between both identities. A WebView cannot construct a
   second SQLite worker, so the app reuses one dedicated worker across identity
   switches (`AppHostConfig.reuseDatabaseWorker`); this flow guards that path
   against provisioning and transition hangs.
-- `review/subscription-review-screenshots.yaml` — registers or logs in a
+- [`review/subscription-review-screenshots.yaml`][file-1] — registers or logs
+  in a
   persistent simulator identity against the production API, opens the real
   native Billing surface, verifies the three RevenueCat/StoreKit tiers and
-  prices, and captures one App Store review screenshot per tier. Its `review/`
+  prices, and captures one App Store review screenshot per tier. Its
+  [`review/`](review/)
   location keeps this credentialed production flow out of the general offline
   Maestro runner.
 
@@ -35,7 +39,7 @@ Maestro must be installed (`curl -fsSL https://get.maestro.mobile.dev | bash`).
 
 `scripts/testing/runMaestroTests.sh [ios|android]` (default `ios`) runs the
 steps below end to end: build, sync, native compile, simulator/emulator install,
-then every flow at the top of this directory (not `review/`). On iOS,
+then every flow at the top of this directory (not [`review/`](review/)). On iOS,
 `MAESTRO_IOS_SIMULATOR` selects a simulator by name; Android runs only on a
 running emulator, never a physical device, because the flows clear app state.
 
@@ -101,7 +105,8 @@ dev-only URLs are rejected before simulator state changes. Tests can point
 
 These are native review screenshots, not App Store product-page marketing
 screenshots. Do not substitute the resized-browser output from
-`scripts/testing/takeScreenshots.sh`: the web shell follows the Stripe purchase
+[`scripts/testing/takeScreenshots.sh`][file-2]: the web shell follows the Stripe
+purchase
 path, while App Review needs evidence of the native App Store subscription
 surface.
 
@@ -123,3 +128,6 @@ The offline flows use `launchApp: { clearState: true }`, so each run starts
 from a clean install. They match on WebView text (`Contacts`,
 `Identity Manager`, `Register`, `New Identity`, …), so the same flow runs
 unchanged on both platforms.
+
+[file-1]: review/subscription-review-screenshots.yaml
+[file-2]: ../../../scripts/testing/takeScreenshots.sh

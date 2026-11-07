@@ -16,8 +16,10 @@ reference.
 - **Host interface**: the set of ports one component receives from its caller,
   such as `ReconciliationHost`.
 - **Composition root**: where production adapters are wired to ports:
-  `src/Tearleads.ts`, `src/client/deviceFirst/`, and the workflow runtime
-  in `src/client/runtime/workflowRuntime.ts`.
+  [`src/Tearleads.ts`](../../packages/client-sdk/src/Tearleads.ts),
+  [`src/client/deviceFirst/`](../../packages/client-sdk/src/client/deviceFirst/),
+  and the workflow runtime in
+  [`src/client/runtime/workflowRuntime.ts`](../../packages/client-sdk/src/client/runtime/workflowRuntime.ts).
 - **Scoped singleton**: one object per database or per domain scope, returned
   by a `getOrCreate…(scope)` function backed by a module-private `WeakMap`.
 
@@ -35,46 +37,75 @@ reference.
 
 ## Where code goes
 
-`data/`, `workflows/`, and `client/` hold folders, not loose modules, and each
-folder maps to a [subsystem](../subsystems.md) in
+[`data/`](../../packages/client-sdk/src/data/),
+[`workflows/`](../../packages/client-sdk/src/workflows/), and
+[`client/`](../../packages/client-sdk/src/client/) hold folders, not loose
+modules, and each folder maps to a [subsystem](../subsystems.md) in
 [`scripts/architecture/subsystems.ts`](../../scripts/architecture/subsystems.ts)
 or names one shared role.
 
-In `data/`, the root holds only its README; `bun run lint:files` rejects any
-other file there.
+In [`data/`](../../packages/client-sdk/src/data/), the root holds only its
+[`README`](../../packages/client-sdk/src/data/README.md); `bun run lint:files`
+rejects any other file there.
 
-- Domain folders (`blobs/`, `containers/`, `documents/`, `principals/`,
-  `sync/`, `trustedUserIdentity/`) hold that domain's contracts and helpers.
-- `keyingProjectionVerification/` is entered through its `index.ts` facade;
-  `keying/` holds the [keying primitives](../keying-design.md) it shares with
-  persistence and workflows.
-- `shared/` holds only contracts and helpers every layer uses with no
-  subsystem of their own: `DomainScope`, the `SecurityIncidentReporter` port,
-  `errorMessage`, record readers, and User Timing marks. A helper one
-  subsystem uses goes in that subsystem's folder instead.
-- `blobs/`, `persistence/`, `sqlite/`, and `sync/` are internal to stores. A
+- Domain folders ([`blobs/`](../../packages/client-sdk/src/data/blobs/),
+  [`containers/`](../../packages/client-sdk/src/data/containers/),
+  [`documents/`](../../packages/client-sdk/src/data/documents/),
+  [`principals/`](../../packages/client-sdk/src/data/principals/),
+  [`sync/`](../../packages/client-sdk/src/data/sync/),
+  [`trustedUserIdentity/`](../../packages/client-sdk/src/data/trustedUserIdentity/))
+  hold that domain's contracts and helpers.
+- [`keyingProjectionVerification/`](../../packages/client-sdk/src/data/keyingProjectionVerification/)
+  is entered through its
+  [`index.ts`](../../packages/client-sdk/src/data/keyingProjectionVerification/index.ts)
+  facade; [`keying/`](../../packages/client-sdk/src/data/keying/) holds the
+  [keying primitives](../keying-design.md) it shares with persistence and
+  workflows.
+- [`shared/`](../../packages/client-sdk/src/data/shared/) holds only contracts
+  and helpers every layer uses with no subsystem of their own: `DomainScope`,
+  the `SecurityIncidentReporter` port, `errorMessage`, record readers, and User
+  Timing marks. A helper one subsystem uses goes in that subsystem's folder
+  instead.
+- [`blobs/`](../../packages/client-sdk/src/data/blobs/),
+  [`persistence/`](../../packages/client-sdk/src/data/persistence/),
+  [`sqlite/`](../../packages/client-sdk/src/data/sqlite/), and
+  [`sync/`](../../packages/client-sdk/src/data/sync/) are internal to stores. A
   store reaches a module there through the matching workflow facade, such as
-  `workflows/blobs` or `workflows/sync`.
+  [`workflows/blobs`](../../packages/client-sdk/src/workflows/blobs/) or
+  [`workflows/sync`](../../packages/client-sdk/src/workflows/sync/).
 
-In `workflows/`, the root holds only its README. Each folder is a workflow
-facade except `shared/`, which holds the runtime input contract that the
-per-domain workflow runtimes build on.
+In [`workflows/`](../../packages/client-sdk/src/workflows/), the root holds only
+its [`README`](../../packages/client-sdk/src/workflows/README.md). Each folder
+is a workflow facade except
+[`shared/`](../../packages/client-sdk/src/workflows/shared/), which holds the
+runtime input contract that the per-domain workflow runtimes build on.
 
-In `client/`, the root holds only the `index.ts` facade barrel; `bun run
-lint:files` rejects any other file there.
+In [`client/`](../../packages/client-sdk/src/client/), the root holds only the
+[`index.ts`](../../packages/client-sdk/src/client/index.ts) facade barrel;
+`bun run lint:files` rejects any other file there.
 
-- Each `tearleads.*` facade with its own subsystem has a folder whose
-  `index.ts` is the facade: `blobs/`, `containerContents/`, `deviceFirst/`,
-  `documents/`, `identity/`, `organizations/`, `root/`, `securityIncidents/`,
-  and `session/`. Helpers that only one facade uses sit beside it.
-- `runtime/` holds live client state (`Database`, `Events`, `Network`,
-  `ApiVersion`, `SyncBillingGate`) and the workflow runtime with the adapters
-  the composition root builds for it, such as principal history custody and
-  principal mutation dispatch.
-- `host/` holds contracts the embedding app implements, such as `Logger` and
-  `FileSaver`, when no single facade owns them. Its README lists them.
-- `billing/` and `localKeyring/` hold the purchase and local keyring
-  adapters.
+- Each `tearleads.*` facade with its own subsystem has a folder whose `index.ts`
+  is the facade: [`blobs/`](../../packages/client-sdk/src/client/blobs/),
+  [`containerContents/`](../../packages/client-sdk/src/client/containerContents/),
+  [`deviceFirst/`](../../packages/client-sdk/src/client/deviceFirst/),
+  [`documents/`](../../packages/client-sdk/src/client/documents/),
+  [`identity/`](../../packages/client-sdk/src/client/identity/),
+  [`organizations/`](../../packages/client-sdk/src/client/organizations/),
+  [`root/`](../../packages/client-sdk/src/client/root/),
+  [`securityIncidents/`](../../packages/client-sdk/src/client/securityIncidents/),
+  and [`session/`](../../packages/client-sdk/src/client/session/). Helpers that
+  only one facade uses sit beside it.
+- [`runtime/`](../../packages/client-sdk/src/client/runtime/) holds live client
+  state (`Database`, `Events`, `Network`, `ApiVersion`, `SyncBillingGate`) and
+  the workflow runtime with the adapters the composition root builds for it,
+  such as principal history custody and principal mutation dispatch.
+- [`host/`](../../packages/client-sdk/src/client/host/) holds contracts the
+  embedding app implements, such as `Logger` and `FileSaver`, when no single
+  facade owns them. Its
+  [`README`](../../packages/client-sdk/src/client/host/README.md) lists them.
+- [`billing/`](../../packages/client-sdk/src/client/billing/) and
+  [`localKeyring/`](../../packages/client-sdk/src/client/localKeyring/) hold the
+  purchase and local keyring adapters.
 
 Inside a large folder, each feature gets a subfolder:
 
@@ -147,9 +178,10 @@ principal currents, but only the organization workflows that authored a
 mutation can check its receipt, so they pass those checks in as
 `PrincipalAcknowledgementChecks` rather than recovery importing them.
 
-State that a lower layer also writes lives in a neutral lower module, reached
-by upper layers through a `workflows/*` facade. The originated-documents
-registry lives in `data/sync/` for this reason.
+State that a lower layer also writes lives in a neutral lower module, reached by
+upper layers through a [`workflows/`](../../packages/client-sdk/src/workflows/)
+facade. The originated-documents registry lives in
+[`data/sync/`](../../packages/client-sdk/src/data/sync/) for this reason.
 
 ## Scoped singletons
 
@@ -193,11 +225,12 @@ replacing option bags that thread the same collaborators through every call.
 
 Each subsystem in
 [`scripts/architecture/clientSdkSubsystems.ts`](../../scripts/architecture/clientSdkSubsystems.ts)
-declares a `surface`, listed in `clientSdkSurfaces.ts`: the files other
-subsystems may import. It holds the subsystem's facade indexes, the contract
-modules it means to share, such as types, errors, document kinds, and its main
-persistence module, and the capabilities other subsystems build on, such as
-keying [checkpoint](../glossary/sync.md#checkpoint) persistence or
+declares a `surface`, listed in
+[`clientSdkSurfaces.ts`](../../scripts/architecture/clientSdkSurfaces.ts): the
+files other subsystems may import. It holds the subsystem's facade indexes, the
+contract modules it means to share, such as types, errors, document kinds, and
+its main persistence module, and the capabilities other subsystems build on,
+such as keying [checkpoint](../glossary/sync.md#checkpoint) persistence or
 [admin-signer verification](../security-guarantees/properties.md#admin-signer-authorization).
 SQLite Runtime and SDK Shared Utilities declare none, so any of their files may
 be imported.
@@ -264,10 +297,12 @@ An extracted component gets:
 
 - a declared entry: other code imports the component's `index.ts`, not its
   internals. A whole subsystem gets this from its surface; a component inside
-  one, such as `sync/reconciliation`, gets its own rule. When the entry is a
-  public workflow facade, list the modules the rest of the SDK may import in
-  the surface instead, as `workflows/principals` does, rather than adding
-  internal exports to the facade;
+  one, such as
+  [`sync/reconciliation`](../../packages/client-sdk/src/sync/reconciliation/),
+  gets its own rule. When the entry is a public workflow facade, list the
+  modules the rest of the SDK may import in the surface instead, as
+  [`workflows/principals`](../../packages/client-sdk/src/workflows/principals/)
+  does, rather than adding internal exports to the facade;
 - no runtime imports of upper layers, with type-only imports allowed through
   `dependencyTypesNot: ["type-only"]`;
 - its place in the tier order data → workflows → stores → sync → client.

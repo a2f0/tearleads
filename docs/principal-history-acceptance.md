@@ -20,7 +20,7 @@ or unavailable evidence; prefetch success never authorizes an object.
 | Cold historical access | The same test removes verification hints, restarts the API and creates a fresh SDK database. The surviving member recovers historical document plaintext without another device or a repair write. |
 | Bounded HTTP work | A separate loopback proxy enforces 15 seconds through every response body, including mutation requests. Each request must use fewer than 1,024 SQL statements; mutation responses stay below 200 KB and recovery responses below 400 KB for the fixture's fixed policy sizes. |
 | Interrupted preparation | The isolated fixture kills the API after its first completed preparation response. Durable progress survives, and the original compound mutation completes once after restart. |
-| Uncertain final commit | `policyJournalOutcome.test.ts`, `policyJournalProcess.test.ts` and `groupOperationJournalProcess.test.ts` withhold a committed acknowledgement, advance the policy, then recover the original exact receipt from a fresh client. They cover compound, organization, creation and deletion operations. |
+| Uncertain final commit | [`policyJournalOutcome.test.ts`](../packages/api/src/routes/principals/policyJournalOutcome.test.ts), [`policyJournalProcess.test.ts`](../packages/api/src/routes/principals/policyJournalProcess.test.ts) and [`groupOperationJournalProcess.test.ts`](../packages/api/src/routes/organizations/groupOperationJournalProcess.test.ts) withhold a committed acknowledgement, advance the policy, then recover the original exact receipt from a fresh client. They cover compound, organization, creation and deletion operations. |
 | Moving heads and malicious evidence | API-client page tests enforce pinned artifacts and contiguous cursors. SDK and crypto suites reject substituted pages, disconnected histories, forged authority, rollback, equivocation, expired lifetimes and conflicting dependency pins. |
 | Bounded runtime consumers | Built-in mutations, sharing, metadata/name reads, history views and projection recovery require private paged evidence. Missing custody or failed paging cannot select full-history recovery. Offline verification requires authenticated local evidence. |
 | Scheduling | Each API process permits two preparation workers per database, one active page per principal, two queued requests per principal and 64 overall. Queue expiry/refusal preserves continuation and does not impose a lifetime history limit. |
@@ -49,7 +49,7 @@ set `API_DATABASE=postgres` and `DATABASE_URL`, and run the same test. Omit
 `PRINCIPAL_HISTORY_THROUGH_VERSION` to exercise 16,384 signed predecessors; a
 smaller value is a short diagnostic, not boundary acceptance. The regular API
 suite runs a 64-version isolated SQLite case in
-`principalHistoryProcessRecovery.test.ts`.
+[`principalHistoryProcessRecovery.test.ts`](../packages/api/src/routes/principals/principalHistoryProcessRecovery.test.ts).
 
 The log records wall time, HTTP latency and bytes, SQL statements and isolated
 server memory samples. It reports retained heap after explicit GC separately
@@ -61,17 +61,19 @@ details](principal-history-transport.md#measuring-http-work).
 Repeated recovery of identical current artifacts preserves the completed
 prefix's sealed progress, so a reader cannot invalidate a pending
 acknowledgement merely by resealing its unchanged predecessor. The signed
-regression in `retainAcknowledgedPrincipalCurrents.recoveryRace.test.ts` fails
-if that preservation is removed. Explicit replacement of a rejected prefix still
-works; conflicting pins, changed prefixes and overlapping acknowledgements
+regression in
+[`retainAcknowledgedPrincipalCurrents.recoveryRace.test.ts`](../packages/client-sdk/src/workflows/organizations/principalMutations/retainAcknowledgedPrincipalCurrents.recoveryRace.test.ts)
+fails if that preservation is removed. Explicit replacement of a rejected prefix
+still works; conflicting pins, changed prefixes and overlapping acknowledgements
 retain their atomic rejection checks.
 
-If a durable principal [checkpoint](./glossary/sync.md#checkpoint) advances after
-scoped recovery completes, projection admission obtains one fresh recovery batch
-and checks the latest pins again. It never admits the older result. Conflicting
-checkpoints and confirmed server
-[rollback](./security-guarantees/boundaries.md#rollback-and-split-view) remain terminal.
-The signed regressions in `runtimePolicyRecoveryCheckpointRace.test.ts`
+If a durable principal [checkpoint](./glossary/sync.md#checkpoint) advances
+after scoped recovery completes, projection admission obtains one fresh recovery
+batch and checks the latest pins again. It never admits the older result.
+Conflicting checkpoints and confirmed server
+[rollback](./security-guarantees/boundaries.md#rollback-and-split-view) remain
+terminal. The signed regressions in
+[`runtimePolicyRecoveryCheckpointRace.test.ts`](../packages/client-sdk/src/workflows/principals/runtimePolicyRecoveryCheckpointRace.test.ts)
 reproduce the race for both the target and its dependency, fail without the
 refresh, and preserve rollback rejection.
 
@@ -103,12 +105,13 @@ recovery lease, so built-in verifiers consult the scoped resolver before that
 cache, even for entries produced earlier in the same caller. Current-only
 entries with `retainedHistory` never take the bare-cache path, and a complete
 cached history cannot bypass scoped resolution.
-`runtimePolicyRecoveryLocal.test.ts` proves that a held full bundle cannot
-replace protected evidence; recovery tests also reject expired lifetimes and
-changed or conflicting dependency pins. Reuse of a completed stage keeps those
-checks: its stored current artifacts are verified against the authenticated
-history, the durable checkpoint is reloaded and compared, and a stored current
-that fails verification is replayed online instead of refused.
+[`runtimePolicyRecoveryLocal.test.ts`](../packages/client-sdk/src/workflows/principals/runtimePolicyRecoveryLocal.test.ts)
+proves that a held full bundle cannot replace protected evidence; recovery tests
+also reject expired lifetimes and changed or conflicting dependency pins. Reuse
+of a completed stage keeps those checks: its stored current artifacts are
+verified against the authenticated history, the durable checkpoint is reloaded
+and compared, and a stored current that fails verification is replayed online
+instead of refused.
 
 ## Limits of the evidence
 

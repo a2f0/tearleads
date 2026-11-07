@@ -46,10 +46,11 @@ through the request error reporter and returns null. The separate
 revoke. Fairness on that member's own action establishes
 `AuthorizedRevokeEventuallyCommits`; it adds no fairness assumption to the leaf
 writer's no-brick property. The route test
-`selfRevokeDescendants.test.ts` covers refusal, atomic rollback, completion by
-the owner, a proactively carried batch, and a self-revoker retaining a separate
-grant on `mid`. Without the authority guard, an incapable rotator leaves `mid`
-stale; the negative control checks `GrantedPathNeverStranded` detects that harm.
+[`selfRevokeDescendants.test.ts`](../../packages/api/src/routes/containers/selfRevokeDescendants.test.ts)
+covers refusal, atomic rollback, completion by the owner, a proactively carried
+batch, and a self-revoker retaining a separate grant on `mid`. Without the
+authority guard, an incapable rotator leaves `mid` stale; the negative control
+checks `GrantedPathNeverStranded` detects that harm.
 
 With rotations carrying their repairs, `mid` is never stale, so the other two
 hazards are unreachable, and `GrantedPathNeverStranded` states that directly.
@@ -65,17 +66,20 @@ The model abstracts signatures, ciphertext, and policy evaluation. It has one
 granted container; production computes the carried set over the whole subtree
 and caps it at `MAX_ROTATION_CONTAINER_REKEYS`, past which the remainder repairs
 lazily rather than refuse a revocation
-([docs/limits.md](../../docs/limits.md#limits-that-trade-write-liveness)
-records that as a write-liveness trade). The matching precondition on a
-container's first direct grant, a current chain above it, is enforced by
+([docs/limits.md](../../docs/limits.md#limits-that-trade-write-liveness) records
+that as a write-liveness trade). The matching precondition on a container's
+first direct grant, a current chain above it, is enforced by
 `assertParentKekStateCurrent` and is not modeled: the grant exists from `Init`.
 Ordinary group rematerialization retains organization-admin access: the policy
 mutation boundary requires organization admin even for a group's own admin
 (`lockOrganizationReadModelForPolicyMutation`). Leaving an ordinary group does
 not remove that independent root grant. The lost-authority configuration models
-standalone user-grant self-revocation; it does not claim that leaving the reserved
-Admins group is supported. Supplied carried rekeys still pass their own signed
-authorization checks before the final currency check.
-The API test `inaccessibleIntermediateRepair.test.ts`
-and the SDK tests `carriedDescendantRekeys.test.ts` and
-`syncInaccessibleAncestorRepair.test.ts` exercise both sides with real keys.
+standalone user-grant self-revocation; it does not claim that leaving the
+reserved Admins group is supported. Supplied carried rekeys still pass their own
+signed authorization checks before the final currency check. The API test
+[`inaccessibleIntermediateRepair.test.ts`](../../packages/api/src/routes/documents/inaccessibleIntermediateRepair.test.ts)
+and the SDK tests
+[`carriedDescendantRekeys.test.ts`](../../packages/client-sdk/src/workflows/containers/child/rekey/carriedDescendantRekeys.test.ts)
+and
+[`syncInaccessibleAncestorRepair.test.ts`](../../packages/client-sdk/src/workflows/documents/sync/syncInaccessibleAncestorRepair.test.ts)
+exercise both sides with real keys.

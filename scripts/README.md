@@ -1,54 +1,62 @@
 # Repository scripts
 
-Commands are grouped by purpose. Root `package.json` scripts are the stable
-entrypoints for automated checks, builds, and publishing, such as
+Commands are grouped by purpose. Root [`package.json`](../package.json) scripts
+are the stable entrypoints for automated checks, builds, and publishing, such as
 `bun run check:fast`, `bun run lint:architecture`, or
 `bun run test:static-analysis`. Direct shell shortcuts live in the groups
 below; run them from the repository root, for example
-`./scripts/dev/runApp.sh`, `./scripts/release/buildIosRelease.sh`, or
-`./scripts/deploy/deployStaging.sh`.
+[`./scripts/dev/runApp.sh`](dev/runApp.sh),
+[`./scripts/release/buildIosRelease.sh`](release/buildIosRelease.sh), or
+[`./scripts/deploy/deployStaging.sh`](deploy/deployStaging.sh).
 
 | Folder | Contents |
 | --- | --- |
-| `admin/` | Explicit operational utilities, including blob-bucket inspection. |
-| `architecture/` | Architecture checks and reports, dependency rules, workspace and subsystem registries. |
-| `checks/` | Check entry points, static analysis helpers, baselines, and regression fixtures. |
-| `deploy/` | Tier and website deployments, teardown, and their shared helpers. |
-| `dev/` | Local launchers, shell setup, seed generation, and cache maintenance. |
-| `git/` | Hook installation, hook implementations, and push timing reports. |
-| `keychain/` | Manual macOS keychain utilities. |
-| `lib/` | Helpers shared across script groups, including timings, build metadata, and release environment guards. |
-| `localstack/` | Local S3 setup, shutdown, and reset commands. |
-| `postgres/` | Development database setup, migration, and reset commands. |
-| `protocol/` | Formal protocol checks, trace generation and projection, negative controls, and their tests. |
-| `release/` | Native and desktop release builds/uploads, npm publishing, and their helpers and tests. |
-| `testing/` | Test runners, screenshots, device-test launchers, and verification evidence. |
+| [`admin/`](admin/) | Explicit operational utilities, including blob-bucket inspection. |
+| [`architecture/`](architecture/) | Architecture checks and reports, dependency rules, workspace and subsystem registries. |
+| [`checks/`](checks/) | Check entry points, static analysis helpers, baselines, and regression fixtures. |
+| [`deploy/`](deploy/) | Tier and website deployments, teardown, and their shared helpers. |
+| [`dev/`](dev/) | Local launchers, shell setup, seed generation, and cache maintenance. |
+| [`git/`](git/) | Hook installation, hook implementations, and push timing reports. |
+| [`keychain/`](keychain/) | Manual macOS keychain utilities. |
+| [`lib/`](lib/) | Helpers shared across script groups, including timings, build metadata, and release environment guards. |
+| [`localstack/`](localstack/) | Local S3 setup, shutdown, and reset commands. |
+| [`postgres/`](postgres/) | Development database setup, migration, and reset commands. |
+| [`protocol/`](protocol/) | Formal protocol checks, trace generation and projection, negative controls, and their tests. |
+| [`release/`](release/) | Native and desktop release builds/uploads, npm publishing, and their helpers and tests. |
+| [`testing/`](testing/) | Test runners, screenshots, device-test launchers, and verification evidence. |
 
 ## Scope evaluations
 
 For repository discoverability probes with Claude Code and a Codex Judge, see
 the [Scope setup guide](../docs/developer/scope.md). Reusable tooling and benchmark
-definitions live in `scripts/dev/scope/`; local state and artifacts stay in the
-ignored `.scope/` directory. `bun run scope install`, `start`, and `portal` manage
-the local stack. `bun run scope:register` uploads committed source; `calibrate`
+definitions live in [`scripts/dev/scope/`](dev/scope/); local state and artifacts
+stay in the ignored `.scope/` directory. `bun run scope install`, `start`, and
+`portal` manage the local stack. `bun run scope:register` uploads committed
+source; `calibrate`
 checks the Judge and `benchmark` runs the three inspection tasks.
 
 ## Deployment and release shortcuts
 
-For website-only deployments, run `./scripts/deploy/deployStagingWebsite.sh` or
-`./scripts/deploy/deployProductionWebsite.sh`. Both use the shared helper in
-`packages/website/scripts/deployWebsite.sh`; see the
+For website-only deployments, run
+[`./scripts/deploy/deployStagingWebsite.sh`](deploy/deployStagingWebsite.sh) or
+[`./scripts/deploy/deployProductionWebsite.sh`](deploy/deployProductionWebsite.sh).
+Both use the shared helper in
+[`packages/website/scripts/deployWebsite.sh`](../packages/website/scripts/deployWebsite.sh);
+see the
 [website deployment guide](../packages/website/README.md) for credentials and
 dry-run options.
 
-Windows desktop releases use `./scripts/release/windowsRelease.sh build staging`
-or `build production` to dispatch GitHub Actions. After the run completes, use
+Windows desktop releases use
+[`./scripts/release/windowsRelease.sh`](release/windowsRelease.sh) with
+`build staging` or `build production` to dispatch GitHub Actions.
+After the run completes, use
 `download <tier> <run-id>` to retrieve its package or `upload <tier> <run-id>`
 to publish it to R2 with local credentials. See the
 [Windows release guide](../packages/app-electrobun/README.md#windows-releases-from-github-actions).
 
-`release/publishNpmPackage.sh` publishes a package to npm by its directory name:
-`windowing` or `client-sdk`. Each package's publish workflow runs it when a
+[`release/publishNpmPackage.sh`](release/publishNpmPackage.sh) publishes a
+package to npm by its directory name: `windowing` or `client-sdk`.
+Each package's publish workflow runs it when a
 version bump merges, after `agent-tool release plan --allow-private-source`
 confirms the version is new; the flag is needed because these private
 workspaces build public consumer manifests. To publish by hand, run
@@ -81,7 +89,8 @@ stages the existing captures into the website gallery; it never captures (see
 Add canonical facts and photographic assets in
 [a2f0/continuity](https://github.com/a2f0/continuity), regenerate and ship them
 there, then update the root catalog commit pin and run `bun install`. The
-contract test in `packages/app/test/screenshot-seed/continuitySeed.test.ts`
+contract test in
+[`packages/app/test/screenshot-seed/continuitySeed.test.ts`](../packages/app/test/screenshot-seed/continuitySeed.test.ts)
 builds and restores the pinned data into a separate database and blob store.
 Tracker `rows` go through `addRow`; repeated `equipment-photos` entries append
 independent images, while single-image attachment slots reject duplicates.
@@ -106,10 +115,11 @@ prerequisites, Turbo task evidence, command capture, and checkout-bound reports.
   aggregation, and npm release decisions. Keep repository policy, path
   classification, application checks, and release orchestration here.
 - Keep helpers and their tests beside their owning commands, including domain
-  groups such as `architecture/` and `protocol/`. Reserve `lib/` for helpers
-  shared across groups, and put test launchers in `testing/`.
+  groups such as [`architecture/`](architecture/) and [`protocol/`](protocol/).
+  Reserve [`lib/`](lib/) for helpers shared across groups, and put test launchers
+  in [`testing/`](testing/).
 - Native platform scripts stay with their package; Terraform scripts stay in
   the infrastructure tree.
-- Wire automated commands through the root `package.json`. When moving a file,
-  update its imports, shell source paths, test fixtures, documentation, and Turbo
-  inputs together.
+- Wire automated commands through the root [`package.json`](../package.json).
+  When moving a file, update its imports, shell source paths, test fixtures,
+  documentation, and Turbo inputs together.

@@ -5,10 +5,13 @@ September 14, 2026, and of the click-analytics (CT) disclosure, with browser
 privacy preferences honored, on October 22, 2026. The current revision
 discloses CT click analytics, its Tearleads, LLC operator, Cloudflare hosting,
 IP/geography, and 90-day retention.
-`src/legal.ts` records the current effective date and sets `isDraft: false`.
+[`src/legal.ts`](src/legal.ts) records the current effective date and sets
+`isDraft: false`.
 Both documents render in full in production, staging, and local builds, with an
 effective date and no draft notice. Staging remains non-indexable. The
-publication build tests (`src/legalPublication.test.ts`) require the full
+publication build tests
+([`src/legalPublication.test.ts`](src/legalPublication.test.ts)) require the
+full
 documents independently of the draft flag, so a return to placeholders fails
 validation.
 
@@ -79,7 +82,8 @@ These terms need review whenever the documents change:
 ## Publication
 
 For approved revisions, update the document text and agreed effective date in
-`src/legal.ts`, keeping the published documents available. The display label is
+[`src/legal.ts`](src/legal.ts), keeping the published documents available. The
+display label is
 derived in UTC. `isDraft: false` enables full production rendering without the
 review notice or document-specific `noindex`; staging remains non-indexable.
 Preserve a copy of adopted versions and arrange appropriate notice to users.
@@ -89,17 +93,17 @@ Build and review both pages again, then deploy only when publication is authoriz
 
 | Disclosure | Repository evidence |
 | --- | --- |
-| Encryption, visible metadata, sharing limits | `docs/security-guarantees.md`, `docs/keying-design.md` |
-| App and API diagnostics, exclusions, connection IP exposure | `docs/developer/sentry.md`, `packages/diagnostics/src/privacy.ts` |
-| App API network-failure reports | `docs/developer/api-network-failures.md`, `packages/diagnostics/src/apiNetworkFailure.ts` |
-| Hosted click analytics, privacy preferences, and retention | `docs/developer/click-tracking.md`, `packages/app-web/src/clickTracking.ts`, `src/clickTracking.ts` |
-| Session IPs and activity | `packages/api/src/routes/auth/sessions.ts`, `packages/api/src/middleware/session.ts` |
-| Local identity destruction is local | `packages/app/src/providers/identity/useDestroyKey.ts` |
-| Billing providers and platform responsibilities | `docs/developer/revenuecat-billing.md` |
-| Billing-email cancellation | `src/pages/manage-subscription.astro`, `packages/api/src/billing/stripeCustomerEmail.ts` |
-| Blob lifecycle and durable audit metadata | `docs/attachment-retention.md` |
-| Lapse purge and retained organization/identity/billing records | `docs/developer/billing-lapse-recovery.md`, `docs/developer/billing-purge-recovery.md` |
-| Hosting providers and primary regions | `terraform/stacks/prod/{edge,postgres,storage,website}`, `packages/api/wrangler.jsonc`, `packages/app-web/wrangler.app.jsonc` |
+| Encryption, visible metadata, sharing limits | [`docs/security-guarantees.md`](../../docs/security-guarantees.md), [`docs/keying-design.md`](../../docs/keying-design.md) |
+| App and API diagnostics, exclusions, connection IP exposure | [`docs/developer/sentry.md`](../../docs/developer/sentry.md), [`packages/diagnostics/src/privacy.ts`](../diagnostics/src/privacy.ts) |
+| App API network-failure reports | [`docs/developer/api-network-failures.md`](../../docs/developer/api-network-failures.md), [`packages/diagnostics/src/apiNetworkFailure.ts`](../diagnostics/src/apiNetworkFailure.ts) |
+| Hosted click analytics, privacy preferences, and retention | [`docs/developer/click-tracking.md`](../../docs/developer/click-tracking.md), [`packages/app-web/src/clickTracking.ts`](../app-web/src/clickTracking.ts), [`src/clickTracking.ts`](src/clickTracking.ts) |
+| Session IPs and activity | [`packages/api/src/routes/auth/sessions.ts`](../api/src/routes/auth/sessions.ts), [`packages/api/src/middleware/session.ts`](../api/src/middleware/session.ts) |
+| Local identity destruction is local | [`packages/app/src/providers/identity/useDestroyKey.ts`](../app/src/providers/identity/useDestroyKey.ts) |
+| Billing providers and platform responsibilities | [`docs/developer/revenuecat-billing.md`](../../docs/developer/revenuecat-billing.md) |
+| Billing-email cancellation | [`src/pages/manage-subscription.astro`](src/pages/manage-subscription.astro), [`packages/api/src/billing/stripeCustomerEmail.ts`](../api/src/billing/stripeCustomerEmail.ts) |
+| Blob lifecycle and durable audit metadata | [`docs/attachment-retention.md`](../../docs/attachment-retention.md) |
+| Lapse purge and retained organization/identity/billing records | [`docs/developer/billing-lapse-recovery.md`](../../docs/developer/billing-lapse-recovery.md), [`docs/developer/billing-purge-recovery.md`](../../docs/developer/billing-purge-recovery.md) |
+| Hosting providers and primary regions | [`terraform/stacks/prod/edge`](../../terraform/stacks/prod/edge/), [`terraform/stacks/prod/postgres`](../../terraform/stacks/prod/postgres/), [`terraform/stacks/prod/storage`](../../terraform/stacks/prod/storage/), [`terraform/stacks/prod/website`](../../terraform/stacks/prod/website/), [`packages/api/wrangler.jsonc`](../api/wrangler.jsonc), [`packages/app-web/wrangler.app.jsonc`](../app-web/wrangler.app.jsonc) |
 
 Paths outside this package are relative to the repository root.
 

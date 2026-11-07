@@ -1,6 +1,7 @@
 # DB Provider
 
-- `DatabaseProvider.tsx` owns the React-facing database lifecycle and exposes
+- [`DatabaseProvider.tsx`](DatabaseProvider.tsx) owns the React-facing database
+  lifecycle and exposes
   the active worker client through context.
 - Host-facing SQLite runtime contracts and factories come from
   `@tearleads/client-sdk/sqlite`.
@@ -12,5 +13,7 @@
   through `AppHostConfig`.
 - Local backups support password encryption or an unencrypted JSON payload.
   Restore detects the format and validates the same versioned payload in both
-  cases. `localBackupFormat.ts` handles file encoding and encryption;
-  `localBackupPayload.ts` owns the payload types and validation.
+  cases. [`localBackupFormat.ts`](localBackupFormat.ts) handles file encoding
+  and encryption;
+  [`localBackupPayload.ts`](localBackupPayload.ts) owns the payload types and
+  validation.

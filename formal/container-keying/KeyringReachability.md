@@ -30,21 +30,23 @@ id, so a check that requires those ids refuses the forgery.
 Where the lineage arrives is the server's choice for each projection.
 `SealWithServedForgery` takes it as a parameter: under the container's own KEK
 or under its parent's. An honest server may do either, and the SDK test
-`containerKekPathRelocatedLineage.test.ts` opens honest history served under
-another KEK. The anchored walk follows the verified lineage from the head
-wherever it was served, so its required ids do not depend on the location and
-an honest keyring seals the same either way. A check confined to the KEK's own
-bucket requires the real ids only while the server serves them there; moved
-under the parent, the bucket is empty and the forged entry passes.
+[`containerKekPathRelocatedLineage.test.ts`](../../packages/client-sdk/src/data/documents/shared/containerKek/containerKekPathRelocatedLineage.test.ts)
+opens honest history served under another KEK. The anchored walk follows the
+verified lineage from the head wherever it was served, so its required ids do
+not depend on the location and an honest keyring seals the same either way. A
+check confined to the KEK's own bucket requires the real ids only while the
+server serves them there; moved under the parent, the bucket is empty and the
+forged entry passes.
 
 `RotationsSealOnlySignedLineage` holds with the anchored walk. The negative
 control `kek-history-anchor-seals-relocated-forgery` sets
 `AnchorToSignedLineage = FALSE`, and the violation needs a rotation whose
-projection served the lineage under the parent. Restricted to projections
-served under the container's own KEK, the same switch violates nothing: the
-own-bucket check is enough against an honest placement, and the anchor is what
-defeats a relocation. `keyringOverrideLineage.test.ts` exercises the
-production refusals.
+projection served the lineage under the parent. Restricted to projections served
+under the container's own KEK, the same switch violates nothing: the own-bucket
+check is enough against an honest placement, and the anchor is what defeats a
+relocation.
+[`keyringOverrideLineage.test.ts`](../../packages/client-sdk/src/workflows/containers/child/rekey/keyringOverrideLineage.test.ts)
+exercises the production refusals.
 
 ## Registered configuration
 

@@ -9,13 +9,13 @@ the reset at release time.
 
 Read [desktop packaging](../../packages/app-electrobun/README.md),
 [native packaging](../../packages/app-capacitor/README.md), and the current root
-wrappers. Resolve tooling from `.mise.toml` and verify the processes actually
-use it: Bun, Ruby, Bundler/Fastlane, Java, Xcode, and Docker where applicable.
-Check `bundle check` in the native package's documented context. Check signing
-assets and authenticated read access to the Match repository, Apple API
-credentials, Google Play service account and track access, Sentry source-map
-upload credentials, and both selected download buckets. Match preflight must
-use the configured release authentication, including
+wrappers. Resolve tooling from [`.mise.toml`](../../.mise.toml) and verify the
+processes actually use it: Bun, Ruby, Bundler/Fastlane, Java, Xcode, and Docker
+where applicable. Check `bundle check` in the native package's documented
+context. Check signing assets and authenticated read access to the Match
+repository, Apple API credentials, Google Play service account and track access,
+Sentry source-map upload credentials, and both selected download buckets. Match
+preflight must use the configured release authentication, including
 `MATCH_GIT_BASIC_AUTHORIZATION` from the release environment when set; an
 unauthenticated `git ls-remote` is not an equivalent probe. Keep authorization
 out of logs and command arguments.
@@ -61,12 +61,13 @@ deployments before store uploads so both environments regain service sooner.
 
 ## Windows build and publication
 
-Dispatch `electrobun-windows.yml` at a pushed ref resolving to the frozen SHA,
-with `tier=staging`, `production`, or `both`. Record the run ID and verify its
-`headSha` before publication. The workflow runs CEF persistence and installer
-checks; successful builds alone do not publish a release.
-Dispatch once the source is frozen, before downtime where practical, so the
-remote build can run alongside infrastructure work.
+Dispatch
+[`electrobun-windows.yml`](../../.github/workflows/electrobun-windows.yml) at a
+pushed ref resolving to the frozen SHA, with `tier=staging`, `production`, or
+`both`. Record the run ID and verify its `headSha` before publication. The
+workflow runs CEF persistence and installer checks; successful builds alone do
+not publish a release. Dispatch once the source is frozen, before downtime where
+practical, so the remote build can run alongside infrastructure work.
 
 After the run succeeds, use `scripts/release/windowsRelease.sh download <tier> RUN_ID`
 and `upload <tier> RUN_ID` from the clean frozen checkout. These helpers verify

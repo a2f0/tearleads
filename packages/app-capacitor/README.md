@@ -54,8 +54,10 @@ bundle install
 ### Tiers
 
 `NATIVE_RELEASE_TIER` selects the tier and defaults to `production`; an unknown
-tier fails before any lane runs. `fastlane/lib/native_release_target.rb` owns
-the table, and the Appfile reads its app identifier, so set the tier in the
+tier fails before any lane runs.
+[`fastlane/lib/native_release_target.rb`][file-1] owns
+the table, and the [`Appfile`](fastlane/Appfile) reads its app identifier, so
+set the tier in the
 environment rather than as a lane option:
 
 | Tier | Native app identifier | Android variant | iOS scheme / configuration | Secrets |
@@ -120,7 +122,9 @@ The repository-root wrappers run the store lanes with release guards:
 ./scripts/release/buildIosStagingRelease.sh      # and the other Staging wrappers
 ```
 
-All of them delegate to `scripts/release/nativeRelease.sh`. They default
+All of them delegate to
+[`scripts/release/nativeRelease.sh`](../../scripts/release/nativeRelease.sh).
+They default
 `VITE_API_BASE_URL` to the tier's API (`https://api.tearleads.com` or
 `https://api-staging.tearleads.com`), reject a dev-only or cross-tier API or
 WebSocket URL and a RevenueCat Test Store or wrong-store key, and let upload
@@ -267,5 +271,9 @@ code. Narrow the tracks with `google_tracks:internal,beta` or
 TestFlight state instead of the live version with `apple_live:false` or
 `APP_STORE_LIVE=false`, and skip a store with `skip_google:true`
 (`SKIP_GOOGLE_PLAY`) or `skip_apple:true` (`SKIP_APP_STORE`).
-`scripts/release/getCurrentAppStoreBuildNumbers.sh` wraps it for the App Store
+[`scripts/release/getCurrentAppStoreBuildNumbers.sh`][file-2] wraps it for the
+App Store
 builds of both tiers.
+
+[file-1]: fastlane/lib/native_release_target.rb
+[file-2]: ../../scripts/release/getCurrentAppStoreBuildNumbers.sh

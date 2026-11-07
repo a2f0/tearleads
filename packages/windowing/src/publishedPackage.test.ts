@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { buildPackage } from "../scripts/buildPackage";
 
 // The package npm receives is built once into a temporary directory, so these
@@ -99,13 +99,29 @@ test("every module imports only React, Phosphor, or its own files", () => {
   }
 });
 
-test("the README's relative links resolve inside the package", () => {
-  const targets = [
-    ...readOutput("README.md").matchAll(/\]\((\.[^)#\s]+)/g),
-  ].map((match) => match[1] ?? "");
-  expect(targets).toContain("./docs/publishing.md");
-  for (const target of targets) {
-    expect(existsSync(join(outDir, target)), target).toBe(true);
+test("published documentation links resolve inside the package", () => {
+  for (const file of files.filter((file) => file.endsWith(".md"))) {
+    const source = readOutput(file);
+    const targets = [
+      ...source.matchAll(/\]\(([^)#\s]+)/g),
+      ...source.matchAll(/^\[[^\]]+\]:\s*(\S+)/gm),
+    ].map((match) => match[1] ?? "");
+    for (const target of targets) {
+      if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(target)) {
+        continue;
+      }
+      const destination = resolve(
+        outDir,
+        dirname(file),
+        decodeURIComponent(target.split("#")[0] ?? ""),
+      );
+      const context = `${file}: ${target}`;
+      expect(
+        destination === outDir || destination.startsWith(`${outDir}${sep}`),
+        context,
+      ).toBe(true);
+      expect(existsSync(destination), context).toBe(true);
+    }
   }
 });
 

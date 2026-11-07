@@ -6,22 +6,27 @@ devices, and drives them through the client SDK's public API against the real
 API served over HTTP. Nothing reaches past those two surfaces, so a scenario
 can only do and observe what a deployed client could.
 
-- `src/harness/apiServer.ts` boots one in-process API per test process from
+- [`src/harness/apiServer.ts`](src/harness/apiServer.ts) boots one in-process
+  API per test process from
   `@tearleads/api/test-runtime`.
-- `src/harness/device.ts` is one installed client: its own SQLite database and
+- [`src/harness/device.ts`](src/harness/device.ts) is one installed client: its
+  own SQLite database and
   a full `Tearleads` runtime. `Device.login` is a fresh install of an existing
   identity, with the same keys and an empty database. `Device.restart` reopens
   the runtime with the same database, blob store, identity, and trust pins.
-- `src/harness/transport.ts` puts a device-local HTTP proxy in front of the real
+- [`src/harness/transport.ts`](src/harness/transport.ts) puts a device-local
+  HTTP proxy in front of the real
   API. A scenario can hold a selected request before submission or its response
   after commit, then release or drop it. Gates make races reproducible and
   recorded HTTP statuses prove which transaction lost the race. A scenario can
   also rewrite matching JSON responses to play a dishonest server at the
   network boundary, while the API itself stays honest.
-- `src/harness/accessModel.ts` is a deliberately naive reference for who may
+- [`src/harness/accessModel.ts`](src/harness/accessModel.ts) is a deliberately
+  naive reference for who may
   read and write each document, from parent pointers, grants, and group
   memberships alone.
-- `src/harness/world.ts` applies each operation to a device and, once the
+- [`src/harness/world.ts`](src/harness/world.ts) applies each operation to a
+  device and, once the
   device has settled, to the model. A member added to another user's
   organization works inside it from then on, on every device, as a member
   switching to that organization would.
@@ -42,7 +47,8 @@ can only do and observe what a deployed client could.
 
 ## Scenarios
 
-Scenarios live in `src/scenarios`. Set `HARNESS_TRACE=1` to print each
+Scenarios live in [`src/scenarios`](src/scenarios/). Set `HARNESS_TRACE=1` to
+print each
 operation, each device's read, each scenario's key-epoch series, and every
 request the API refuses with its error body.
 

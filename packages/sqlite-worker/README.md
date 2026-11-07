@@ -38,6 +38,7 @@ the codecs the worker accepts and the one the app selects.
 bun run --cwd packages/sqlite-worker test
 ```
 
-The tests run the worker against an OPFS shim. `tests/fixtures` holds an
+The tests run the worker against an OPFS shim.
+[`tests/fixtures`](tests/fixtures/) holds an
 [encrypted database from an earlier runtime](tests/fixtures/README.md) that
 every upgrade must still open; keep its bytes.

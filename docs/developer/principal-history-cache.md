@@ -134,7 +134,7 @@ its unpublished stage is evicted.
 This bounds staged recovery attempts and cleanup batches, not total cache bytes.
 Retained [key epochs](../glossary/keys.md#epoch), signed entries, leaf-reference
 hints and the shared nodes needed to prove them still grow with history. In
-`principalHistoryNodeRetention.test.ts`, 128 successive private heads retain 133
-proof nodes for the current head and predecessor, and public recovery retains
-127 nodes for its single published root; every historical version remains
-provable offline.
+[`principalHistoryNodeRetention.test.ts`](../../packages/client-sdk/src/data/persistence/principalHistory/principalHistoryNodeRetention.test.ts),
+128 successive private heads retain 133 proof nodes for the current head and
+predecessor, and public recovery retains 127 nodes for its single published
+root; every historical version remains provable offline.

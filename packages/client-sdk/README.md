@@ -97,17 +97,19 @@ published, so the build compiles them with the SDK, from its entry points, and
 ships each one under `internal/<package>/`. Imports of them become relative
 paths. Only modules the entry points reach are emitted, and only declarations
 their types reach are kept. The SQLite worker files come from the same
-`scripts/buildSqliteWorker.ts` the workspace build runs, which every Tearleads
-host copies, so npm consumers serve the worker the apps run. The npm
+[`scripts/buildSqliteWorker.ts`][build-sqlite-worker] the workspace build runs,
+which every Tearleads host copies, so npm consumers serve the worker the apps run.
+The npm
 dependencies are the packages that output imports, at the versions the
 workspace pins, as caret ranges except for explicit compatibility holds. The
 Loro hold keeps its exact declared version in the published manifest; see
 [dependency maintenance](https://github.com/a2f0/tearleads/blob/main/docs/dependency-upgrades.md#current-constraints).
 Source maps carry their sources inline and name them by file name alone.
 
-`scripts/publishedPackage.test.ts` builds the package and checks its manifest,
-that every module imports only its own files or a declared dependency, and that
-no build path or test module ships. The smoke script installs fresh consumers
+[`scripts/publishedPackage.test.ts`][package-tests] builds the package and checks
+its manifest, documentation links, that every module imports only its own files
+or a declared dependency, and that no build path or test module ships. The smoke
+script installs fresh consumers
 with Bun and npm, imports every entry point under Bun and Node, resolves and
 parses the SQLite worker files, and bundles the entry points for the browser.
 It also runs the source-owned history identity regressions through the installed
@@ -118,20 +120,23 @@ without it, failing
 on errors in the SDK's declarations and ignoring those in drizzle-orm's and
 loro-crdt's own. It needs the network to install the consumer's dependencies.
 
-Merging to `main` publishes. When `packages/client-sdk` changes there,
-`.github/workflows/client-sdk-publish.yml` publishes the version in
-`package.json` if it is a stable `x.y.z` newer than npm's `latest`, after the
+Merging to `main` publishes. When [`packages/client-sdk`][sdk-source] changes
+there, [`.github/workflows/client-sdk-publish.yml`][client-sdk-publish] publishes
+the version in [`package.json`][workspace-manifest] if it is a stable `x.y.z`
+newer than npm's `latest`, after the
 smoke script passes. A merge that leaves the version alone, a re-run, or a run
 that finishes after a newer release succeeds without publishing
 (`agent-tool release plan` makes that call). Because the package ships the
-workspace packages above, `agent-tool.json` lists it under `versions.bundles`:
+workspace packages above, [`agent-tool.json`][version-policy] lists it under
+`versions.bundles`:
 a change to any of them also bumps the SDK's version, so it publishes too.
 
 The workflow authenticates with
 [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) and
 attaches provenance to each version. On npmjs.com the package's trusted
 publisher names the `a2f0` owner, the `tearleads` repository, the
-`client-sdk-publish.yml` workflow, and the `npm` environment, which the
+[`client-sdk-publish.yml`][client-sdk-publish] workflow, and the `npm` environment,
+which the
 repository restricts to `main`. Renaming the workflow or the environment breaks
 publishing until that setting matches.
 
@@ -144,13 +149,22 @@ bun run publish:npm:dry-run client-sdk
 bun run publish:npm client-sdk --otp 123456
 ```
 
-`scripts/release/publishNpmPackage.sh` rebuilds into a fresh temporary
+[`scripts/release/publishNpmPackage.sh`][publish-npm-package] rebuilds into a fresh
+temporary
 directory, publishes its generated manifest with public access to
 `https://registry.npmjs.org`, and removes the directory on success or failure.
 A temporary `.npmrc` overrides any scope-specific registry without changing
 your npm configuration. It accepts `--dry-run`, `--tag <tag>` (default
 `latest`), and `--otp <code>`.
 
-The generated manifest copies `version` from `package.json`, names this
-repository (npm requires that of a version with provenance), and declares
-`"license": "UNLICENSED"`.
+The generated manifest copies `version` from
+[`package.json`][workspace-manifest], names this repository (npm requires that of
+a version with provenance), and declares `"license": "UNLICENSED"`.
+
+[build-sqlite-worker]: https://github.com/a2f0/tearleads/blob/main/packages/client-sdk/scripts/buildSqliteWorker.ts
+[package-tests]: https://github.com/a2f0/tearleads/blob/main/packages/client-sdk/scripts/publishedPackage.test.ts
+[sdk-source]: https://github.com/a2f0/tearleads/tree/main/packages/client-sdk
+[client-sdk-publish]: https://github.com/a2f0/tearleads/blob/main/.github/workflows/client-sdk-publish.yml
+[workspace-manifest]: https://github.com/a2f0/tearleads/blob/main/packages/client-sdk/package.json
+[version-policy]: https://github.com/a2f0/tearleads/blob/main/agent-tool.json
+[publish-npm-package]: https://github.com/a2f0/tearleads/blob/main/scripts/release/publishNpmPackage.sh

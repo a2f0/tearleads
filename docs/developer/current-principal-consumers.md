@@ -171,51 +171,56 @@ The app's request-volume tests enforce the [budgets](../request-budgets.md)
 below, together with per-route limits and mutation-count assertions. They are
 local fixed-cardinality measurements, not production benchmarks.
 
-`OrganizationBootstrapRequestVolume.test.tsx` measures 30 requests for personal
-bootstrap with a ceiling of 31, and caps creating and activating another
-organization at 6. Provisioning seeds discovery evidence for the profile
-documents it signed and primes recovery of the founding policy heads, so neither
-flow fetches those documents' writer projections or reads group policy history
-for the founding heads.
+[`OrganizationBootstrapRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/OrganizationBootstrapRequestVolume.test.tsx)
+measures 30 requests for personal bootstrap with a ceiling of 31, and caps
+creating and activating another organization at 6. Provisioning seeds discovery
+evidence for the profile documents it signed and primes recovery of the founding
+policy heads, so neither flow fetches those documents' writer projections or
+reads group policy history for the founding heads.
 
 A cold Org Manager open uses three requests: one read-model read, one
 organization-policy read and one Admins-policy read
-(`DualPaneProvider.groupsRequestVolume.test.tsx`). An active peer reconciles an
-ungranted group change with four policy/read-model requests and no container or
-document fanout; its unchanged Admins stage needs no read
-(`DualPaneProvider.activePeerRequestVolume.test.tsx`).
+([`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)).
+An active peer reconciles an ungranted group change with four policy/read-model
+requests and no container or document fanout; its unchanged Admins stage needs
+no read
+([`DualPaneProvider.activePeerRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx)).
 
-`GroupMutationRequestVolume.test.tsx` measures 7 requests for creating the first
-group and 6 for a later one, with ceilings of 10 and 9. First enrollment of a
-peer measures 40 requests with a ceiling of 45; a later addition is capped at
+[`GroupMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx)
+measures 7 requests for creating the first group and 6 for a later one, with
+ceilings of 10 and 9. First enrollment of a peer measures 40 requests with a
+ceiling of 45; a later addition is capped at
 11. The creation/addition pairs are capped at 53 and 17 requests, with at most
 11 and 3 public history reads. First addition permits 10 organization-policy and
 3 group-policy reads. Creation may also receive one validated rollback
 preparation response with identical request bytes.
 
-The Admins enrollment fixture in `DualPaneProvider.groupsRequestVolume.test.tsx`
+The Admins enrollment fixture in
+[`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)
 measures 55 completed requests; its ceiling is 58, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 17,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
 160,000 request bytes and 740,000 response bytes (0.67 MB measured). The root
-attachment-sharing fixture in `DualPaneProvider.sharing.test.tsx` measures 59
-requests and permits 66, with body ceilings of 130,000 request bytes and 560,000
-response bytes (0.51 MB measured). Container mutation acknowledgements carry
-hashes rather than echoes, which keeps the policy commit at about 73 KB.
-Container mutations cite stored
+attachment-sharing fixture in
+[`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
+measures 59 requests and permits 66, with body ceilings of 130,000 request bytes
+and 560,000 response bytes (0.51 MB measured). Container mutation
+acknowledgements carry hashes rather than echoes, which keeps the policy commit
+at about 73 KB. Container mutations cite stored
 [manifests](../glossary/access.md#access-manifest) by
 `{containerId, manifestHash}` and principal policies by head rather than echoing
 path bundles or policies.
 
-`ExplorerUploadRequestVolume.test.tsx` measures 6 calls and 29 KB received for a
-small Explorer upload and permits 7 calls and 32,500 response bytes; its
+[`ExplorerUploadRequestVolume.test.tsx`](../../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx)
+measures 6 calls and 29 KB received for a small Explorer upload and permits 7
+calls and 32,500 response bytes; its
 [blob stage](../glossary/content.md#blob-stage) costs three calls (initiate with
 the first part's upload source, the part bytes, and the
 [attachment bind](../glossary/content.md#attachment-binding) that completes the
 stage and carries the document's first content update).
 
-`FolderMutationRequestVolume.test.tsx` sets these ceilings, which include
-private current-policy reads:
+[`FolderMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx)
+sets these ceilings, which include private current-policy reads:
 
 | Operation | Request ceiling |
 | --- | ---: |

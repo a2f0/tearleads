@@ -1,16 +1,18 @@
 # Dependency maintenance
 
-Workspace versions live in `package.json`, package manifests, and `bun.lock`.
-Toolchain versions live in `.mise.toml`; Terraform provider constraints and
-lockfiles live beside each stack. Native dependency lockfiles and SQLite build
-checksums are checked in with their owning packages.
+Workspace versions live in [`package.json`](../package.json), package manifests,
+and [`bun.lock`](../bun.lock). Toolchain versions live in
+[`.mise.toml`](../.mise.toml); Terraform provider constraints and lockfiles live
+beside each stack. Native dependency lockfiles and SQLite build checksums are
+checked in with their owning packages.
 
-Linux and macOS CI install each job's required tools from `.mise.toml` and
-`mise.lock` through the pinned mise action. Keep Bun's `packageManager`
-declaration aligned with its mise pin. Ruby keeps `ruby/setup-ruby` for Bundler
-caching, and npm trusted publishing keeps `actions/setup-node`. Windows jobs
-keep `oven-sh/setup-bun`; their Bun pins must match `.mise.toml`, since
-`mise.lock` covers macOS arm64 and Linux x64, not Windows.
+Linux and macOS CI install each job's required tools from
+[`.mise.toml`](../.mise.toml) and [`mise.lock`](../mise.lock) through the pinned
+mise action. Keep Bun's `packageManager` declaration aligned with its mise pin.
+Ruby keeps `ruby/setup-ruby` for Bundler caching, and npm trusted publishing
+keeps `actions/setup-node`. Windows jobs keep `oven-sh/setup-bun`; their Bun
+pins must match [`.mise.toml`](../.mise.toml), since [`mise.lock`](../mise.lock)
+covers macOS arm64 and Linux x64, not Windows.
 
 Regenerate TLA+ integrity with `mise lock`, targeting every recorded platform,
 not only the host. For the Linux entries, use:
@@ -160,5 +162,6 @@ against the final dependency graph, update rationale and removal checks in
 place, and remove resolved entries. Keep per-run inventories, old/new version
 tables, audit results, validation and preview receipts, and skipped-work ledgers
 in the upgrade PR. Use an existing sweep issue only when requested; do not
-create one just to store evidence. README and AGENTS.md need only concise links.
-Keep credentials, raw logs, state, and plans out of public records.
+create one just to store evidence. [`README.md`](../README.md) and
+[`AGENTS.md`](../AGENTS.md) need only concise links. Keep credentials, raw logs,
+state, and plans out of public records.

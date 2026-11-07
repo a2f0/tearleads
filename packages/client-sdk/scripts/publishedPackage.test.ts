@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { buildPackage } from "./buildPackage";
 import { listFiles, moduleSpecifiers, packageName } from "./packageOutput";
 
@@ -144,6 +144,28 @@ test("source maps name their sources without build paths", () => {
         source: expect.stringMatching(/^[^/\\]+\.ts$/),
       });
     }
+  }
+});
+
+test("the published README's relative links resolve inside the package", () => {
+  const source = readOutput("README.md");
+  const targets = [
+    ...source.matchAll(/\]\(([^)#\s]+)/g),
+    ...source.matchAll(/^\[[^\]]+\]:\s*(\S+)/gm),
+  ].map((match) => match[1] ?? "");
+  for (const target of targets) {
+    if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(target)) {
+      continue;
+    }
+    const destination = resolve(
+      outDir,
+      decodeURIComponent(target.split("#")[0] ?? ""),
+    );
+    expect(
+      destination === outDir || destination.startsWith(`${outDir}${sep}`),
+      target,
+    ).toBe(true);
+    expect(existsSync(destination), target).toBe(true);
   }
 });
 

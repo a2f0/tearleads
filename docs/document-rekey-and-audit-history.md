@@ -307,12 +307,16 @@ serves the redirect.
 
 Three readers consume it:
 
-- the coverage-gated baseline redirect (`documentSyncBaselineRedirect.ts`),
+- the coverage-gated baseline redirect
+  ([`documentSyncBaselineRedirect.ts`](../packages/api/src/documents/documentSyncBaselineRedirect.ts)),
   which picks the newest replayable baseline by update sequence
-- the sync response (`syncResponseUpdates.ts`), which echoes a served
-  baseline's checkpoint metadata
-- edit attribution (`documentEditAttribution.ts`), which flags spans a baseline
-  first delivered as re-assertions rather than authorship
+- the sync response
+  ([`syncResponseUpdates.ts`](../packages/api/src/workflows/documents/mutations/syncResponseUpdates.ts)),
+  which echoes a served baseline's checkpoint metadata
+- edit attribution
+  ([`documentEditAttribution.ts`](../packages/api/src/documents/documentEditAttribution.ts)),
+  which flags spans a baseline first delivered as re-assertions rather than
+  authorship
 
 The redirect and the sync response recompute the signed metadata hash from the
 constant kinds, this column, and the update row before they serve a baseline,

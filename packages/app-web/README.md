@@ -31,10 +31,12 @@ packages/app-web/scripts/deployAppWeb.sh staging   # or prod
 ```
 
 `build` writes `dist/`, its static assets, brand images, tier metadata, and the
-service worker. `deployAppWeb.sh` builds the app and demo variants for the
+service worker. [`deployAppWeb.sh`](scripts/deployAppWeb.sh) builds the app and
+demo variants for the
 tier and publishes `tearleads-app-<tier>` and `tearleads-demo-<tier>`; the
 tier's edge Terraform stack attaches the hostnames. The full tier deployments
-(`scripts/deploy/deployStaging.sh`, `scripts/deploy/deployProduction.sh`)
+([`scripts/deploy/deployStaging.sh`](../../scripts/deploy/deployStaging.sh),
+[`scripts/deploy/deployProduction.sh`][file-1])
 include it. See the [infrastructure guide](../../docs/developer/infrastructure.md#public-hostnames)
 for hostnames and indexing, and
 [click tracking](../../docs/developer/click-tracking.md) and the
@@ -49,6 +51,9 @@ bun run --cwd packages/app-web e2e    # Playwright against a local server
 ```
 
 The end-to-end suite serves the app on port 3100 (`APP_WEB_PORT`). Shared
-screenshots are captured from `screenshots/` by the repository's screenshot
+screenshots are captured from [`screenshots/`](screenshots/) by the repository's
+screenshot
 workflow (see the [script index](../../scripts/README.md#screenshot-seed-and-capture)),
 not per deploy.
+
+[file-1]: ../../scripts/deploy/deployProduction.sh

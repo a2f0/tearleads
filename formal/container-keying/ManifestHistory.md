@@ -40,15 +40,16 @@ Production has no lifetime history-depth refusal, but it has two key-scoped
 budgets, both in the model at small bounds. Same-key mutations never check the
 first, so a container's history can grow past 1,024 manifests under one key.
 Past that, resolving the container as a KEK target, which a child minting a
-secret or a write beneath it needs, is refused with "rekey required". A rekey
-or revoke rotates the key and resolves only its parent's targets, so the
-overflow never refuses it (`RekeyAvailable`, `RevocationAvailable`), and it
-clears the overflow; with `RotationBypassesBudget = FALSE` an overflowed
-container is stranded and TLC reports both. The runtime regression
-`containerKekHistoryBounds.test.ts` accepts the bound, refuses the overflow,
-and resumes after a rekey. A recite is refused at an absolute manifest epoch of
-512, which reserves half of the same-key budget for ordinary mutations and does
-not reset on rekey; the other mutations stay available past it.
+secret or a write beneath it needs, is refused with "rekey required". A rekey or
+revoke rotates the key and resolves only its parent's targets, so the overflow
+never refuses it (`RekeyAvailable`, `RevocationAvailable`), and it clears the
+overflow; with `RotationBypassesBudget = FALSE` an overflowed container is
+stranded and TLC reports both. The runtime regression
+[`containerKekHistoryBounds.test.ts`](../../packages/api/src/access/read/containerKekHistoryBounds.test.ts)
+accepts the bound, refuses the overflow, and resumes after a rekey. A recite is
+refused at an absolute manifest epoch of 512, which reserves half of the
+same-key budget for ordinary mutations and does not reset on rekey; the other
+mutations stay available past it.
 
 Each mutation runs
 the stored-history verifier over the manifest it stores and marks it, and a

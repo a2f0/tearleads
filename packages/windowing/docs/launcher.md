@@ -27,11 +27,12 @@ receives where the menu opened, for placing a new window near it:
 The button is named "Menu" unless `label` says otherwise, and announces its
 menu with `aria-haspopup` and `aria-expanded`. By default it is a square,
 borderless control the height of the bar's controls, lit while hovered,
-focused, or open (`StartMenu.css`). A `className` replaces that styling, so a
+focused, or open ([`StartMenu.css`][start-menu-styles]). A `className` replaces
+that styling, so a
 host's own button styles apply alone. A menu that needs more than a list passes
 `renderMenu`, which renders the open menu itself and receives its `position`
 and a `close` callback. Tearleads' footer does this in
-`packages/app/src/shell/pane/footer/PaneFooter.tsx`.
+[`packages/app/src/shell/pane/footer/PaneFooter.tsx`][pane-footer].
 
 ## Launching mini-apps
 
@@ -124,7 +125,9 @@ writes one JSON string, so the host chooses where it lives:
 `createOpfsDesktopStateStorage` keeps a file in the origin private file system,
 `createMemoryDesktopStateStorage` keeps it in memory (the default), and a host
 can wrap its own store, as Tearleads wraps each identity's encrypted blob store
-in `packages/app/src/shell/pane/shell/usePaneDesktopStateStorage.ts`. Keep the
+in
+[`packages/app/src/shell/pane/shell/usePaneDesktopStateStorage.ts`][desktop-storage].
+Keep the
 adapter stable: a new adapter reloads the layout from what it holds. Moves made
 before the load finishes win and are saved with the stored layout; when the
 read fails, moves stay in memory and nothing is written.
@@ -160,4 +163,9 @@ offers, such as to those the session may see, and
 Overlays that should fill the content pane rather than the screen portal into
 `useRoutedPaneOverlayHost().host`. The shell sizes to the box its host gives
 `.routed-pane`, as a grid item or a block with a height. Tearleads dresses it in
-`packages/app/src/shell/layout/routed/AppRoutedPane.tsx`.
+[`packages/app/src/shell/layout/routed/AppRoutedPane.tsx`][app-routed-pane].
+
+[start-menu-styles]: https://github.com/a2f0/tearleads/blob/main/packages/windowing/src/menu/StartMenu.css
+[pane-footer]: https://github.com/a2f0/tearleads/blob/main/packages/app/src/shell/pane/footer/PaneFooter.tsx
+[desktop-storage]: https://github.com/a2f0/tearleads/blob/main/packages/app/src/shell/pane/shell/usePaneDesktopStateStorage.ts
+[app-routed-pane]: https://github.com/a2f0/tearleads/blob/main/packages/app/src/shell/layout/routed/AppRoutedPane.tsx
