@@ -157,7 +157,7 @@ export function GroupDetailSection({
                 <datalist id={addUserListId}>
                   {addableUsers.map((user) => (
                     <option key={user.userId} value={user.userId}>
-                      {getRosterUserLabel(user)}
+                      {getRosterUserLabel(user, profileDisplayNamesByUserId)}
                     </option>
                   ))}
                 </datalist>
@@ -191,6 +191,7 @@ export function GroupDetailSection({
                 members={members?.members ?? []}
                 mutating={mutating}
                 openRosterUser={openRosterUser}
+                profileDisplayNamesByUserId={profileDisplayNamesByUserId}
                 protectedUserId={
                   selectedGroup.isBuiltin
                     ? (directory?.users.find(

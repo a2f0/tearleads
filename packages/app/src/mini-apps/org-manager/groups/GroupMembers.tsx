@@ -15,7 +15,7 @@ import {
   MiniAppVirtualListRow,
   useMiniAppVirtualRows,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
-import { compactFingerprint } from "../display";
+import { getRosterUserLabel } from "../display";
 import { getOrgManagerPolicyRoleLabel, ORG_MANAGER_LABELS } from "../labels";
 
 export function GroupMembers({
@@ -23,6 +23,7 @@ export function GroupMembers({
   members,
   mutating,
   openRosterUser,
+  profileDisplayNamesByUserId,
   protectedUserId,
   protectSelf,
   removeMember,
@@ -32,6 +33,7 @@ export function GroupMembers({
   members: ReadonlyArray<OrganizationGroupMember>;
   mutating: boolean;
   openRosterUser: (userId: string) => void;
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
   protectedUserId: string | null;
   /** Built-in groups keep the signed-in user from removing themselves. */
   protectSelf: boolean;
@@ -82,7 +84,13 @@ export function GroupMembers({
                   onClick={() => openRosterUser(member.userId)}
                 >
                   <strong title={member.userId}>
-                    {compactFingerprint(member.userId)}
+                    {getRosterUserLabel(
+                      {
+                        isSelf: member.userId === userId,
+                        userId: member.userId,
+                      },
+                      profileDisplayNamesByUserId,
+                    )}
                   </strong>
                   <MiniAppRowText muted>
                     {getOrgManagerPolicyRoleLabel(member.role)}

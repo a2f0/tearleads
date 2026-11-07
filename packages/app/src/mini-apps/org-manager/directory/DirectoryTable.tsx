@@ -23,7 +23,7 @@ import {
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { isKeyboardActivationKey } from "../../../utils/keyboardActivation";
-import { getRosterUserLabel } from "../display";
+import { EMPTY_PROFILE_DISPLAY_NAMES, getRosterUserLabel } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { useOrgManagerTableColumns } from "../orgManagerTableColumns";
 
@@ -91,16 +91,6 @@ const DIRECTORY_COLUMN_LABELS: Readonly<
   user: ORG_MANAGER_LABELS.user,
 };
 
-function getDirectoryUserDisplayName(
-  user: Pick<OrganizationDirectoryUser, "isSelf" | "userId">,
-  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined,
-): string {
-  return getRosterUserLabel(
-    user,
-    profileDisplayNamesByUserId?.get(user.userId),
-  );
-}
-
 function isDirectoryAreaContextMenuTarget(
   event: MouseEvent<HTMLElement>,
 ): boolean {
@@ -118,7 +108,7 @@ function isDirectoryAreaContextMenuTarget(
 function renderDirectoryUserCell(
   columnId: DirectoryTableColumnId,
   params: {
-    profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
+    profileDisplayNamesByUserId: ReadonlyMap<string, string>;
     syncSeatUserIds: ReadonlySet<string> | null;
     user: OrganizationDirectoryUser;
   },
@@ -129,7 +119,7 @@ function renderDirectoryUserCell(
       return (
         <MiniAppTableCell key="user">
           <MiniAppTableText title={user.userId}>
-            {getDirectoryUserDisplayName(user, profileDisplayNamesByUserId)}
+            {getRosterUserLabel(user, profileDisplayNamesByUserId)}
           </MiniAppTableText>
         </MiniAppTableCell>
       );
@@ -155,7 +145,7 @@ function renderDirectoryUserCell(
 function getDirectoryCompactField(
   columnId: DirectoryTableColumnId,
   params: {
-    profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
+    profileDisplayNamesByUserId: ReadonlyMap<string, string>;
     syncSeatUserIds: ReadonlySet<string> | null;
     user: OrganizationDirectoryUser;
   },
@@ -166,7 +156,7 @@ function getDirectoryCompactField(
       return {
         id: columnId,
         label: DIRECTORY_COLUMN_LABELS[columnId],
-        text: getDirectoryUserDisplayName(user, profileDisplayNamesByUserId),
+        text: getRosterUserLabel(user, profileDisplayNamesByUserId),
         title: user.userId,
       };
     case "status":
@@ -207,7 +197,7 @@ function DirectoryUserRow({
 }: {
   compact: boolean;
   openRosterUserContextMenu?: RosterUserContextMenuHandler | undefined;
-  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
   selectedUserId?: string | null | undefined;
   selectUser?: ((userId: string) => void) | undefined;
   showActions: boolean;
@@ -261,7 +251,7 @@ function DirectoryUserRow({
       )}
       {showActions ? (
         <MiniAppRowActionsCell
-          label={`${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${getDirectoryUserDisplayName(
+          label={`${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${getRosterUserLabel(
             user,
             profileDisplayNamesByUserId,
           )}`}
@@ -275,7 +265,7 @@ function DirectoryUserRow({
 export function DirectoryTable({
   directory,
   pending,
-  profileDisplayNamesByUserId,
+  profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
   selectedUserId,
   openRosterUserContextMenu,
   selectUser,
