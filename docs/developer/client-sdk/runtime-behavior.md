@@ -133,9 +133,9 @@ null until a response reports them.
 Hosts can pass an `ApiRequestMetrics` instance as `apiRequestMetrics` to keep
 counts across SDK disposal/recreation; the app keeps one per API/identity
 namespace for the page's lifetime, shown in System Monitor's **API Requests**
-tab. Reset discards earlier in-flight completions without affecting the
-requests themselves. This telemetry never uses durable storage or a remote
-diagnostics service.
+tab, whose toolbar **Reset request counts** calls `reset`. Reset discards
+earlier in-flight completions without affecting the requests themselves. This
+telemetry never uses durable storage or a remote diagnostics service.
 
 ## Explorer hydration and pending downloads
 
