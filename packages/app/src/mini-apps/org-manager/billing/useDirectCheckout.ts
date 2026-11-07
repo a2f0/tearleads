@@ -1,13 +1,16 @@
-import type {
-  DirectCheckoutCapability,
-  DirectCheckoutSession,
-} from "@tearleads/client-sdk";
+import type { DirectCheckoutCapability } from "@tearleads/client-sdk";
 import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDirectCheckout as useDirectCheckoutCapability } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
+import {
+  type DirectCheckoutEvent,
+  type DirectCheckoutMachineState,
+  IDLE_DIRECT_CHECKOUT,
+  transitionDirectCheckout,
+} from "../model/directCheckoutMachine";
 import { checkoutOptionErrorMessage } from "./billingCheckoutErrors";
 import { readCheckoutAppearance } from "./checkoutAppearance";
 
@@ -69,20 +72,15 @@ export interface DirectCheckoutState {
  * this teardown is what stops a secret minted for the old org from being
  * confirmed under the new one.
  */
-function useCheckoutLifecycle(
-  scopeKey: string,
-  teardown: () => void,
-  reset: () => void,
-): void {
+function useCheckoutLifecycle(scopeKey: string, teardown: () => void): void {
   useEffect(() => {
     // `scopeKey` is intentionally a dependency without appearing in the body:
     // React runs the CLEANUP when a dependency changes, which is exactly the
     // teardown-on-scope-change this needs (plus teardown on unmount).
     return () => {
       teardown();
-      reset();
     };
-  }, [scopeKey, teardown, reset]);
+  }, [scopeKey, teardown]);
 }
 
 /**
@@ -163,47 +161,58 @@ function useCheckoutOptionForFlow(
   );
 }
 
-/** Refs the begin/confirm actions share with the flow hook. */
-interface CheckoutRefs {
+/**
+ * The flow's state machine (`model/directCheckoutMachine.ts`). The ref is
+ * the machine and the state copy renders it: a second click that lands before
+ * React re-renders reads the ref, so it can neither start a second checkout
+ * nor charge the card twice.
+ */
+interface CheckoutMachine {
   readonly hostRef: React.RefObject<HTMLDivElement | null>;
-  readonly sessionRef: React.RefObject<DirectCheckoutSession | null>;
-  /** Bumped by every begin/teardown so a late mount can detect it lost. */
-  readonly startTokenRef: React.RefObject<number>;
-  /**
-   * True while a confirm is in flight. A ref, not the `confirming` phase:
-   * state writes are asynchronous, so two clicks landing in the same React
-   * batch would both read the pre-render phase and charge the card twice.
-   */
-  readonly confirmingRef: React.RefObject<boolean>;
-  /**
-   * True from the moment `begin` fires until the element mounts or the
-   * attempt fails. `sessionRef` alone leaves the `starting` window open, so
-   * two clicks in one React batch would both reach the server.
-   */
-  readonly startingRef: React.RefObject<boolean>;
-  readonly setPhase: (phase: DirectCheckoutPhase) => void;
-  readonly setError: (error: string | null) => void;
-  readonly setBillingEmailComplete: (complete: boolean) => void;
+  readonly current: () => DirectCheckoutMachineState;
+  /** Applies `event`; returns the new state, or null when it was ignored. */
+  readonly send: (
+    event: DirectCheckoutEvent,
+  ) => DirectCheckoutMachineState | null;
+  readonly nextAttempt: () => number;
+}
+
+function useCheckoutMachine(): {
+  readonly machine: CheckoutMachine;
+  readonly state: DirectCheckoutMachineState;
+} {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const current = useRef(IDLE_DIRECT_CHECKOUT);
+  const attempts = useRef(0);
+  const [state, setState] = useState(IDLE_DIRECT_CHECKOUT);
+  const machine = useMemo<CheckoutMachine>(
+    () => ({
+      hostRef,
+      current: () => current.current,
+      send: (event) => {
+        const previous = current.current;
+        const next = transitionDirectCheckout(previous, event);
+        if (next === previous) return null;
+        current.current = next;
+        setState(next);
+        // The session belongs to the states holding it: leaving them (cancel,
+        // org switch, disable, unmount, a spent confirmation) unmounts it.
+        if ("session" in previous && !("session" in next)) {
+          previous.session.unmount();
+        }
+        return next;
+      },
+      nextAttempt: () => {
+        attempts.current += 1;
+        return attempts.current;
+      },
+    }),
+    [],
+  );
+  return { machine, state };
 }
 
 type LogError = (message: string | Error, cause?: unknown) => void;
-
-// Same token guard: calling the shared teardown here would bump the token and
-// cancel a newer attempt started after this one failed.
-function abandonFailedStart(refs: CheckoutRefs, token: number): void {
-  if (refs.startTokenRef.current !== token) return;
-  refs.startingRef.current = false;
-  refs.sessionRef.current = null;
-  refs.setPhase({ kind: "idle" });
-  refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
-}
-
-function restoreAfterFailedConfirm(refs: CheckoutRefs, token: number): void {
-  refs.confirmingRef.current = false;
-  if (refs.startTokenRef.current !== token) return;
-  refs.setPhase({ kind: "collecting" });
-  refs.setError(ORG_MANAGER_LABELS.failedSubscribe);
-}
 
 interface BeginCheckoutDeps {
   readonly available: boolean;
@@ -213,7 +222,6 @@ interface BeginCheckoutDeps {
   readonly capability: DirectCheckoutCapability;
   readonly logError: LogError;
   readonly tearleads: ReturnType<typeof useTearleads>;
-  readonly teardown: () => void;
 }
 
 /**
@@ -221,161 +229,136 @@ interface BeginCheckoutDeps {
  * panel's host.
  */
 function useBeginCheckout(
-  refs: CheckoutRefs,
+  machine: CheckoutMachine,
   deps: BeginCheckoutDeps,
 ): () => void {
   return useCallback(() => {
     if (!deps.available || !deps.canSubscribe || !deps.enabled) {
       return;
     }
-    // Re-entrancy guard: a second begin would bump the token and overwrite
-    // sessionRef, stranding the previous element's iframe. The UI prevents
-    // this today; the hook must not depend on that. Both refs are needed —
-    // `sessionRef` covers a mounted element, `startingRef` the window before
-    // it mounts, where state has not re-rendered yet.
-    if (refs.sessionRef.current || refs.startingRef.current) {
+    // Ignored unless idle: a second begin would strand the previous
+    // element's iframe. The UI prevents this today; the hook must not depend
+    // on that.
+    const attempt = machine.nextAttempt();
+    if (!machine.send({ type: "begin", attempt })) {
       return;
     }
-    refs.startingRef.current = true;
-    refs.setPhase({ kind: "starting" });
-    refs.setError(null);
-    // A fresh element starts with an empty email field.
-    refs.setBillingEmailComplete(false);
-    refs.startTokenRef.current += 1;
-    const token = refs.startTokenRef.current;
+    const unavailable = ORG_MANAGER_LABELS.billingCheckoutUnavailable;
     void (async () => {
       try {
         const intent = await deps.tearleads.organizations.createStripeCheckout(
           deps.organizationId,
         );
-        // Every continuation re-checks the token: teardown (cancel, org
-        // switch, disable, unmount) bumps it, and a losing attempt must
-        // neither write state onto the panel it no longer owns nor cancel the
-        // attempt that replaced it.
-        if (refs.startTokenRef.current !== token) {
+        // Teardown (cancel, org switch, disable, unmount) ends the attempt,
+        // and a losing attempt must neither mount onto the panel it no longer
+        // owns nor disturb the attempt that replaced it.
+        const now = machine.current();
+        if (now.kind !== "starting" || now.attempt !== attempt) {
           return;
         }
-        const host = refs.hostRef.current;
+        const host = machine.hostRef.current;
         if (!intent || !host) {
-          refs.startingRef.current = false;
-          refs.setPhase({ kind: "idle" });
-          refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
+          machine.send({ type: "start-failed", attempt, error: unavailable });
           return;
         }
         const session = await deps.capability.mount({
           host,
           clientSecret: intent.clientSecret,
           appearance: readCheckoutAppearance(host),
-          // Same token guard as every continuation: a late event from an
-          // abandoned element must not unlock Pay on the panel.
+          // The machine ignores a late event from an abandoned element, so it
+          // cannot unlock Pay on the panel.
           onBillingEmailChange: (email) => {
-            if (refs.startTokenRef.current === token) {
-              refs.setBillingEmailComplete(email !== null);
-            }
+            machine.send({
+              type: "email-changed",
+              attempt,
+              complete: email !== null,
+            });
           },
         });
         // The panel may have unmounted (or the flow been cancelled) while the
         // provider script loaded; keeping this session would strand its
         // iframe with nothing able to destroy it.
-        if (refs.startTokenRef.current !== token) {
+        if (!machine.send({ type: "mounted", attempt, session })) {
           session.unmount();
-          return;
         }
-        refs.startingRef.current = false;
-        refs.sessionRef.current = session;
-        refs.setPhase({ kind: "collecting" });
       } catch (mountError) {
         deps.logError("Failed to start the direct checkout", mountError);
-        abandonFailedStart(refs, token);
+        machine.send({ type: "start-failed", attempt, error: unavailable });
       }
     })();
-  }, [deps, refs]);
+  }, [deps, machine]);
 }
 
 /**
- * Confirms the mounted payment. Every continuation re-checks the start token:
- * teardown (cancel, org switch, disable, unmount) bumps it, and writing state
+ * Confirms the mounted payment. Every continuation names its attempt:
+ * teardown (cancel, org switch, disable, unmount) ends it, and writing state
  * for a checkout the user already left would resurrect a dead form.
  */
 function useConfirmCheckout(
-  refs: CheckoutRefs,
-  teardown: () => void,
+  machine: CheckoutMachine,
   onPaid: () => void,
   logError: LogError,
 ): () => void {
   return useCallback(() => {
-    const session = refs.sessionRef.current;
-    // Re-entrancy guard. The Pay button disables itself while confirming, but
-    // that only takes effect after a re-render; the hook must not depend on
-    // the UI to prevent a double charge.
-    if (!session || refs.confirmingRef.current) {
+    // Ignored unless collecting. The Pay button disables itself while
+    // confirming, but only after a re-render; the hook must not depend on the
+    // UI to prevent a double charge.
+    const confirming = machine.send({ type: "confirm" });
+    if (confirming?.kind !== "confirming") {
       return;
     }
-    refs.confirmingRef.current = true;
-    refs.setPhase({ kind: "confirming" });
-    refs.setError(null);
-    const token = refs.startTokenRef.current;
+    const { attempt, session } = confirming;
     void (async () => {
       try {
         const outcome = await session.confirm();
-        // Teardown (cancel, org switch, unmount) bumps the token. Do not
-        // trust the session to report `cancelled` for us — the capability
-        // contract does not require it — and never write state belonging to
-        // a checkout the user has already left.
-        if (refs.startTokenRef.current !== token) {
-          return;
-        }
-        refs.confirmingRef.current = false;
+        // Do not trust the session to report `cancelled` after a teardown —
+        // the capability contract does not require it; the machine ignores
+        // an attempt the user has already left.
         if (outcome.kind === "declined") {
           // The element stays mounted so the buyer can correct their input.
-          refs.setPhase({ kind: "collecting" });
-          refs.setError(outcome.message ?? ORG_MANAGER_LABELS.failedSubscribe);
+          machine.send({
+            type: "confirm-failed",
+            attempt,
+            error: outcome.message ?? ORG_MANAGER_LABELS.failedSubscribe,
+          });
           return;
         }
-        if (outcome.kind === "cancelled") {
-          // Tear down rather than only resetting the phase: the session is
-          // spent, and leaving `sessionRef` populated would make the
-          // re-entrancy guard in `begin` reject every later attempt. The web
-          // capability does not return this today, but the contract permits
-          // it, so a conforming implementation must not strand the panel.
-          teardown();
-          refs.setPhase({ kind: "idle" });
-          return;
+        // Paid or cancelled, the session is spent: `confirmed` unmounts it
+        // and returns to idle, so a later begin works again. The web
+        // capability does not return `cancelled` today, but the contract
+        // permits it. Paid goes back to idle too, not a checkout-owned
+        // "activating" state: the entitlement arrives via Stripe →
+        // RevenueCat → our webhook, the shared billing view renders
+        // activation-pending from the flag `onPaid` sets, and a phase parked
+        // here would have no exit if that poll gave up.
+        const finished = machine.send({ type: "confirmed", attempt });
+        if (finished && outcome.kind !== "cancelled") {
+          onPaid();
         }
-        // Paid. The entitlement arrives via Stripe → RevenueCat → our webhook,
-        // so hand off to the shared activation poll rather than assuming.
-        teardown();
-        // Back to idle, not a checkout-owned "activating" state: the shared
-        // billing view already renders activation-pending from the flag
-        // `onPaid` sets, and a phase parked here would have no exit if the
-        // poll gave up.
-        refs.setPhase({ kind: "idle" });
-        refs.setError(null);
-        onPaid();
       } catch (confirmError) {
         logError("Failed to confirm the direct checkout", confirmError);
-        restoreAfterFailedConfirm(refs, token);
+        machine.send({
+          type: "confirm-failed",
+          attempt,
+          error: ORG_MANAGER_LABELS.failedSubscribe,
+        });
       }
     })();
-  }, [logError, onPaid, refs, teardown]);
+  }, [logError, machine, onPaid]);
 }
 
-/** The panel-visible flow state, and the reset back to an idle panel. */
-function useCheckoutPanelState() {
-  const [phase, setPhase] = useState<DirectCheckoutPhase>({ kind: "idle" });
-  const [error, setError] = useState<string | null>(null);
-  const [billingEmailComplete, setBillingEmailComplete] = useState(false);
-  const reset = useCallback(() => {
-    setPhase({ kind: "idle" });
-    setError(null);
-    setBillingEmailComplete(false);
-  }, []);
-  // React's setters are stable, so this object is too.
-  const setters = useMemo(
-    () => ({ setPhase, setError, setBillingEmailComplete }),
-    [],
-  );
-  return { phase, error, billingEmailComplete, reset, setters };
+const PHASES: Record<DirectCheckoutMachineState["kind"], DirectCheckoutPhase> =
+  {
+    idle: { kind: "idle" },
+    starting: { kind: "starting" },
+    collecting: { kind: "collecting" },
+    confirming: { kind: "confirming" },
+  };
+
+function panelError(state: DirectCheckoutMachineState): string | null {
+  return state.kind === "idle" || state.kind === "collecting"
+    ? state.error
+    : null;
 }
 
 export function useDirectCheckoutFlow(input: {
@@ -394,45 +377,18 @@ export function useDirectCheckoutFlow(input: {
   const capability = useDirectCheckoutCapability();
   const tearleads = useTearleads();
   const { logError } = useLog();
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const sessionRef = useRef<DirectCheckoutSession | null>(null);
-  /** Bumped by every begin/teardown so a late mount can detect it lost. */
-  const startTokenRef = useRef(0);
-  const confirmingRef = useRef(false);
-  const startingRef = useRef(false);
-  const panel = useCheckoutPanelState();
-  const { reset } = panel;
+  const { machine, state } = useCheckoutMachine();
   const available = capability.isAvailable;
   const checkoutOption = useCheckoutOptionForFlow(input, available, tearleads);
+  const cancel = useCallback(() => {
+    machine.send({ type: "teardown" });
+  }, [machine]);
 
-  const teardown = useCallback(() => {
-    startTokenRef.current += 1;
-    confirmingRef.current = false;
-    startingRef.current = false;
-    sessionRef.current?.unmount();
-    sessionRef.current = null;
-  }, []);
-
-  useCheckoutLifecycle(
-    `${input.organizationId}:${input.enabled}`,
-    teardown,
-    reset,
-  );
+  useCheckoutLifecycle(`${input.organizationId}:${input.enabled}`, cancel);
 
   // Memoized: these are `useCallback` dependencies, so rebuilding them each
   // render would give `begin`/`confirm` a new identity every time and defeat
   // the memoization their consumers rely on.
-  const refs = useMemo<CheckoutRefs>(
-    () => ({
-      hostRef,
-      sessionRef,
-      startTokenRef,
-      confirmingRef,
-      startingRef,
-      ...panel.setters,
-    }),
-    [panel.setters],
-  );
   const deps = useMemo<BeginCheckoutDeps>(
     () => ({
       available,
@@ -442,7 +398,6 @@ export function useDirectCheckoutFlow(input: {
       capability,
       logError,
       tearleads,
-      teardown,
     }),
     [
       available,
@@ -452,27 +407,21 @@ export function useDirectCheckoutFlow(input: {
       input.organizationId,
       logError,
       tearleads,
-      teardown,
     ],
   );
 
-  const cancel = useCallback(() => {
-    teardown();
-    reset();
-  }, [reset, teardown]);
+  const begin = useBeginCheckout(machine, deps);
 
-  const begin = useBeginCheckout(refs, deps);
-
-  const confirm = useConfirmCheckout(refs, teardown, input.onPaid, logError);
+  const confirm = useConfirmCheckout(machine, input.onPaid, logError);
 
   return {
     available,
     option: checkoutOption.option,
     organizationId: input.organizationId,
-    phase: panel.phase,
-    error: panel.error ?? checkoutOption.error,
-    hostRef,
-    billingEmailComplete: panel.billingEmailComplete,
+    phase: PHASES[state.kind],
+    error: panelError(state) ?? checkoutOption.error,
+    hostRef: machine.hostRef,
+    billingEmailComplete: state.kind !== "idle" && state.emailComplete,
     begin,
     confirm,
     cancel,

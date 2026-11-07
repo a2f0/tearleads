@@ -1,3 +1,7 @@
+import {
+  type ContainerInterestQueryValidity,
+  transitionQueryValidity,
+} from "./containerInterestQueryValidity";
 import type {
   AuthorizeContainerAccess,
   VerifiedContainerInterest,
@@ -9,7 +13,6 @@ const MAX_AUTHORIZATION_ATTEMPTS = 3;
 // Scale for larger trees, with a hard ceiling of six base intervals (60s).
 const IDS_PER_AUTHORIZATION_BUDGET = 100;
 const MAX_AUTHORIZATION_BUDGETS = 6;
-const MAX_PENDING_ACCESS_CHANGES = 10_000;
 
 interface ActiveQuery {
   readonly changed: Set<string>;
@@ -17,10 +20,16 @@ interface ActiveQuery {
   readonly result: Promise<VerifiedContainerInterest[]>;
   readonly finished: Promise<void>;
   readonly finish: () => void;
-  overflow: boolean;
+  /** Written only through `transitionQueryValidity`. */
+  validity: ContainerInterestQueryValidity;
   settled: boolean;
-  stale: boolean;
   readers: number;
+}
+
+function markStale(query: ActiveQuery): void {
+  query.validity = transitionQueryValidity(query.validity, {
+    type: "marked-stale",
+  });
 }
 
 async function beforeDeadline<T>(
@@ -65,6 +74,18 @@ function authorizationWasInvalidated(
   );
 }
 
+function authorizationBudgets(ids: readonly string[]): number {
+  return Math.min(
+    MAX_AUTHORIZATION_BUDGETS,
+    Math.max(1, Math.ceil(ids.length / IDS_PER_AUTHORIZATION_BUDGET)),
+  );
+}
+
+/** Whether a later run for `idsKey` may read `query` instead of waiting. */
+function canShare(query: ActiveQuery, idsKey: string): boolean {
+  return query.idsKey === idsKey && query.validity === "reusable";
+}
+
 /** The proofs a run may install, or null when it must re-query. */
 function acceptableProofs(
   query: ActiveQuery,
@@ -73,11 +94,11 @@ function acceptableProofs(
 ): VerifiedContainerInterest[] | null {
   // Marked stale while this reader waited (a reconnect, or another reader's
   // timeout): the answer may predate a lost invalidation.
-  if (query.stale) return null;
+  if (query.validity === "stale") return null;
   const requested = new Set(ids);
   const allowed = proofs.filter((proof) => requested.has(proof.containerId));
   if (authorizationWasInvalidated(query, allowed, ids)) {
-    query.stale = true;
+    markStale(query);
     return null;
   }
   return allowed;
@@ -93,9 +114,11 @@ export class ContainerInterestQueries {
 
   invalidate(containerId: string): void {
     for (const query of this.active.values()) {
-      if (query.changed.size >= MAX_PENDING_ACCESS_CHANGES)
-        query.overflow = true;
-      else query.changed.add(containerId);
+      query.validity = transitionQueryValidity(query.validity, {
+        type: "change-observed",
+        pendingChanges: query.changed.size,
+      });
+      if (query.validity !== "overflowed") query.changed.add(containerId);
     }
   }
 
@@ -106,7 +129,7 @@ export class ContainerInterestQueries {
    * and readers already waiting on it discard the answer and re-query.
    */
   markAllStale(): void {
-    for (const query of this.active.values()) query.stale = true;
+    for (const query of this.active.values()) markStale(query);
   }
 
   /**
@@ -116,7 +139,7 @@ export class ContainerInterestQueries {
    */
   markStale(ws: WsConnection): void {
     const query = this.active.get(socketSessionKey(ws));
-    if (query) query.stale = true;
+    if (query) markStale(query);
   }
 
   async run(
@@ -131,22 +154,13 @@ export class ContainerInterestQueries {
     }
     const key = socketSessionKey(ws);
     const idsKey = JSON.stringify([...ids].sort());
-    const deadline =
-      Date.now() +
-      this.timeoutMs *
-        Math.min(
-          MAX_AUTHORIZATION_BUDGETS,
-          Math.max(1, Math.ceil(ids.length / IDS_PER_AUTHORIZATION_BUDGET)),
-        );
+    const deadline = Date.now() + this.timeoutMs * authorizationBudgets(ids);
     let attempts = 0;
     while (isOpen() && attempts < MAX_AUTHORIZATION_ATTEMPTS) {
       if (Date.now() >= deadline)
         throw new Error("Container authorization timed out");
       const active = this.active.get(key);
-      if (
-        active &&
-        (active.idsKey !== idsKey || active.stale || active.overflow)
-      ) {
+      if (active && !canShare(active, idsKey)) {
         // Different tabs may declare different trees. Wait within the same
         // deadline instead of rejecting an otherwise healthy shared session.
         // A stale or overflowed query cannot answer a later declaration, so
@@ -179,11 +193,11 @@ export class ContainerInterestQueries {
         (error: unknown) => {
           // A timed-out (or failed) query is never reused: whatever it
           // eventually answers may predate an invalidation nobody waited for.
-          query.stale = true;
+          markStale(query);
           throw error;
         },
       );
-      if (query.overflow)
+      if (query.validity === "overflowed")
         throw new Error("Too many pending container access changes");
       const allowed = acceptableProofs(query, ids, proofs);
       if (!allowed) return false;
@@ -203,10 +217,9 @@ export class ContainerInterestQueries {
     const query: ActiveQuery = {
       changed: new Set(),
       idsKey,
-      overflow: false,
       readers: 0,
       settled: false,
-      stale: false,
+      validity: "reusable",
       finished: completion.promise,
       finish: completion.resolve,
       result: Promise.resolve()

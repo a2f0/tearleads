@@ -94,6 +94,31 @@ test("a declaration after an overflow awaits the query and re-queries", async ()
   expect(installed).toEqual(["second"]);
 });
 
+test("a stale query that then overflows refuses its waiting reader", async () => {
+  const held = Promise.withResolvers<void>();
+  let calls = 0;
+  const queries = new ContainerInterestQueries(async (_user, ids) => {
+    if (++calls === 1) await held.promise;
+    return proofsFor(ids);
+  }, 1_000);
+  const first = queries.run(
+    ws,
+    [CONTAINER],
+    () => true,
+    () => undefined,
+  );
+  await flush();
+  queries.markAllStale();
+  for (let index = 0; index <= 10_000; index++)
+    queries.invalidate(`unrelated-${index}`);
+  held.resolve();
+  // The overflow outranks the reconnect: the reader is refused, not retried.
+  await expect(first).rejects.toThrow(
+    "Too many pending container access changes",
+  );
+  expect(calls).toBe(1);
+});
+
 test("a timed-out query is awaited but never reused by a later run", async () => {
   const held = Promise.withResolvers<void>();
   let calls = 0;
