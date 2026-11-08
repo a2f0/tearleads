@@ -30,6 +30,7 @@ type ExecSql = DocumentsRuntime["infra"]["execSql"];
 function createGatedPersistence() {
   let commits = 0;
   let pendingHold: {
+    fail: boolean;
     held: PromiseWithResolvers<void>;
     release: PromiseWithResolvers<void>;
   } | null = null;
@@ -42,16 +43,23 @@ function createGatedPersistence() {
       if (hold) {
         hold.held.resolve();
         await hold.release.promise;
+        if (hold.fail) {
+          throw new Error("held commit failed");
+        }
       }
       return defaultDocumentsPersistence.commitDocumentMutation(...args);
     },
   };
   return {
     persistence,
-    /** Holds the next commit; resets the count so it measures from here. */
-    holdNextCommit() {
+    /**
+     * Holds the next commit, failing it on release when `fail` is set; resets
+     * the count so it measures from here.
+     */
+    holdNextCommit(options: { readonly fail?: boolean } = {}) {
       commits = 0;
       const hold = {
+        fail: options.fail ?? false,
         held: Promise.withResolvers<void>(),
         release: Promise.withResolvers<void>(),
       };
@@ -140,6 +148,37 @@ test("a setText burst behind a held commit persists the final text in at most tw
     expect(store.getSnapshot().text).toBe(typed);
     expect((await reopen(execSql, "note", localId)).text).toBe(typed);
     expect((await readQueued(execSql, localId)).text).toBe(typed);
+  } finally {
+    close();
+  }
+});
+
+test("a write that restores a failed save's text still persists that text", async () => {
+  const { close, execSql } = await createTestExecSql("coalesce-failed-save");
+  const gated = createGatedPersistence();
+  try {
+    await ensureDeferredBirthSchema(execSql);
+    const localId = "coalesce-failed-save";
+    const store = openStore({
+      execSql,
+      kind: "note",
+      localId,
+      persistence: gated.persistence,
+    });
+    expect(await store.ensureInitialized()).toBe(true);
+
+    // "a" is applied in memory but its save fails; "ab" is superseded by the
+    // final "a", which matches the unsaved in-memory text.
+    const hold = gated.holdNextCommit({ fail: true });
+    const writes = [store.setText("a")];
+    await hold.held;
+    writes.push(store.setText("ab"), store.setText("a"));
+    hold.release();
+    await Promise.all(writes);
+
+    expect(store.hasQueuedWrites()).toBe(false);
+    expect((await reopen(execSql, "note", localId)).text).toBe("a");
+    expect((await readQueued(execSql, localId)).text).toBe("a");
   } finally {
     close();
   }

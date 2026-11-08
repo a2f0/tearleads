@@ -128,16 +128,12 @@ async function writeDocumentText(
     return;
   }
 
-  if (getTextValue(writeDoc) === value) {
-    await revalidateDocumentMutationIdentity({
-      currentDoc: writeDoc,
-      generation: syncGeneration,
-      state,
-    });
-    return;
+  if (getTextValue(writeDoc) !== value) {
+    writeDoc.getText("text").update(value);
   }
-
-  writeDoc.getText("text").update(value);
+  // Export since pendingBaseVersion even when the text already matches: an
+  // earlier write may have applied its ops and then failed to persist, and a
+  // superseded write never ran to carry them, so this write must enqueue them.
   const update = pendingDeltaSinceBase(state, writeDoc);
   // Captured at delta time: the enqueued row proves durable coverage up
   // to exactly this version, so this is the frontier the persist may
@@ -145,6 +141,12 @@ async function writeDocumentText(
   const coveredVersion = encodeVersionVector(writeDoc);
   const pendingUpdate = createPendingUpdateFields(update);
   if (!pendingUpdate) {
+    // Nothing outstanding to enqueue: still adopt a relinked identity.
+    await revalidateDocumentMutationIdentity({
+      currentDoc: writeDoc,
+      generation: syncGeneration,
+      state,
+    });
     return;
   }
   const persisted = await persistDocument(
