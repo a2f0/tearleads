@@ -55,6 +55,7 @@ import {
   createOrganizationReadModelCoordinator,
   type OrganizationReadModelCoordinator,
 } from "../organizations/organizationReadModels";
+import { requireShareRecipient } from "../organizations/recipientAdmission";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
@@ -459,13 +460,14 @@ class ContainerContentsService implements ContainerContents {
     return createContainerContentsStoreWorkflowRuntime(
       input,
       this.runtimeService.adoptRootContainer,
-      async (userId) => {
-        // Admit against the trust store of the database this runtime writes.
-        await this.runtimeService.identityLinks.requireVerified(
-          userId,
+      // Admit against the trust store of the database this runtime writes.
+      (userId, accessLevel) =>
+        requireShareRecipient(
+          this.runtimeService,
           input.infra.execSql,
-        );
-      },
+          userId,
+          accessLevel,
+        ),
     );
   }
 }

@@ -313,7 +313,10 @@ checks before pinning as `link`; `resolveVerified` and `createLinkFor` (a peer's
 link) read only a `link` or `self` pin. No public user-ID lookup trusts on first
 use: `organizations.addUserToGroup` and a store's `shareWithUser` throw
 `UnverifiedUserIdentityError` for a target no link verified
-([trust scope](../../../../docs/developer/trusted-user-identity.md#identity-links)).
+([trust scope](../../../../docs/developer/trusted-user-identity.md#identity-links)),
+unless the organization's signed roster vouches for the encryption key of a
+read-only share's target
+([roster vouching](../../../../docs/developer/trusted-user-identity.md#roster-vouching)).
 Workflows accept opaque trusted bundles or gateway-resolved user IDs. Raw API
 identity and directory responses must not reach signature or encryption helpers.
 Lower-level integration tests may use `@tearleads/client-sdk/testing` to

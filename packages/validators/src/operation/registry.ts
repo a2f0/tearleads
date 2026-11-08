@@ -83,6 +83,7 @@ import {
 } from "./organizations";
 import {
   commitOrganizationGroupPolicyOperation,
+  getPrincipalMemberEnvelopesOperation,
   getPrincipalPolicyOperation,
   putPrincipalPolicyOperation,
 } from "./principals";
@@ -190,6 +191,7 @@ export const protocolOperations: readonly [
   typeof requestOrganizationLeaveOperation,
   typeof withdrawOrganizationLeaveRequestOperation,
   typeof getPrincipalPolicyOperation,
+  typeof getPrincipalMemberEnvelopesOperation,
   typeof getProjectionPolicyHistoryOperation,
   typeof commitOrganizationGroupPolicyOperation,
   typeof putPrincipalPolicyOperation,
@@ -275,6 +277,7 @@ export const protocolOperations: readonly [
   requestOrganizationLeaveOperation,
   withdrawOrganizationLeaveRequestOperation,
   getPrincipalPolicyOperation,
+  getPrincipalMemberEnvelopesOperation,
   getProjectionPolicyHistoryOperation,
   commitOrganizationGroupPolicyOperation,
   putPrincipalPolicyOperation,

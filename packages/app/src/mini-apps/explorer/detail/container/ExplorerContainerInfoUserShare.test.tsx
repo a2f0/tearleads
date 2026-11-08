@@ -209,9 +209,10 @@ test("a direct user share sends the chosen roster user and permission", async ()
   expect(within(grants).getByText("Erin")).toBeTruthy();
 });
 
-// The SDK admits only a recipient whose identity link was verified here, so
-// its refusal tells the user what to do instead of a generic failure.
-test("an unverified recipient asks for their identity link", async () => {
+// Without a verified link, write or admin access is refused outright, and read
+// access only when the signed roster does not vouch for the recipient; each
+// refusal names its own fix instead of a generic failure.
+test("an unverified recipient's refusal names the fix for the chosen access", async () => {
   const view = renderPanel(async (_containerId, userId) => {
     throw new UnverifiedUserIdentityError(userId);
   });
@@ -219,6 +220,16 @@ test("an unverified recipient asks for their identity link", async () => {
   pickOption(view, "User", "Bob");
   fireEvent.click(view.getByRole("button", { name: "Share" }));
 
+  await waitFor(() => {
+    expect(
+      view.getByText(
+        "Verify this person's identity link to give them write or admin access. Without it you can share read-only.",
+      ),
+    ).toBeTruthy();
+  });
+
+  pickOption(view, "Permission", "read");
+  fireEvent.click(view.getByRole("button", { name: "Share" }));
   await waitFor(() => {
     expect(
       view.getByText(

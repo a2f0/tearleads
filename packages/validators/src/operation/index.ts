@@ -255,14 +255,18 @@ export {
 } from "./principalPolicyPageQuery";
 export {
   commitOrganizationGroupPolicyOperation,
+  getPrincipalMemberEnvelopesOperation,
   getPrincipalPolicyOperation,
   isCommitOrganizationGroupPolicyOperationRequest,
   isCommitOrganizationGroupPolicyOperationResponse,
+  isGetPrincipalMemberEnvelopesOperationResponse,
   isGetPrincipalPolicyOperationResponse,
   isPutPrincipalPolicyOperationRequest,
   isPutPrincipalPolicyOperationResponse,
   type OrganizationGroupPolicyPathParams,
   OrganizationGroupPolicyPathParamsSchema,
+  type PrincipalMemberEnvelopesQuery,
+  PrincipalMemberEnvelopesQuerySchema,
   type PrincipalPolicyPathParams,
   PrincipalPolicyPathParamsSchema,
   putPrincipalPolicyOperation,

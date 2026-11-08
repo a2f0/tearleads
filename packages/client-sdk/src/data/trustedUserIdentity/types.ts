@@ -58,6 +58,13 @@ export interface LocalUserIdentityCandidate {
   readonly signingPublicKey: Uint8Array;
 }
 
+/** An existing pin as an admission reads it: never admits by itself. */
+export interface TrustedUserIdentityAdmissionPin {
+  readonly identity: TrustedUserIdentity;
+  /** Established by a verified identity link or this device's own keys. */
+  readonly verified: boolean;
+}
+
 export interface TrustedUserIdentityService {
   createLink(appUrl: string): Promise<string>;
   /**
@@ -81,6 +88,15 @@ export interface TrustedUserIdentityService {
     userId: string,
     admittingExecSql: ExecSql | null,
   ): Promise<TrustedUserIdentity>;
+  /**
+   * Any existing pin and whether a link or this device's keys established it,
+   * read with `requireVerified`'s database scoping. Admissions that accept
+   * evidence other than a verified pin compare against it.
+   */
+  loadAdmissionPin(
+    userId: string,
+    admittingExecSql: ExecSql | null,
+  ): Promise<TrustedUserIdentityAdmissionPin | null>;
   /** The user this device's trust store already binds a signing key to. */
   boundUserId(signingKeyFingerprint: string): Promise<string | null>;
   pinLocal(

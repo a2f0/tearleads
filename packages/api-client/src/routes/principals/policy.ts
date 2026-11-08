@@ -1,8 +1,10 @@
 import {
   commitOrganizationGroupPolicyOperation,
+  getPrincipalMemberEnvelopesOperation,
   getPrincipalPolicyOperation,
   isCommitOrganizationGroupPolicyOperationRequest,
   isCommitOrganizationGroupPolicyOperationResponse,
+  isGetPrincipalMemberEnvelopesOperationResponse,
   isGetPrincipalPolicyOperationResponse,
   isPutPrincipalPolicyOperationRequest,
   isPutPrincipalPolicyOperationResponse,
@@ -39,6 +41,22 @@ export const getPrincipalPolicy = {
         principalType,
       },
       query,
+    );
+  },
+};
+
+export const getPrincipalMemberEnvelopes = {
+  isResponse: isGetPrincipalMemberEnvelopesOperationResponse,
+  method: getPrincipalMemberEnvelopesOperation.method,
+  path(
+    principalType: "group" | "organization",
+    principalId: string,
+    stateHash: string,
+  ) {
+    return operationRequestPathWithQuery(
+      getPrincipalMemberEnvelopesOperation,
+      { principalId, principalType },
+      { stateHash },
     );
   },
 };

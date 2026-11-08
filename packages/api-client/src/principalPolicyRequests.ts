@@ -2,6 +2,7 @@ import {
   commitOrganizationGroupPolicyOperation,
   createOrganizationGroupOperation,
   deleteOrganizationGroupOperation,
+  getPrincipalMemberEnvelopesOperation,
   putPrincipalPolicyOperation,
 } from "@tearleads/validators/operation";
 import type {
@@ -10,7 +11,10 @@ import type {
   DeleteOrganizationGroupRequest,
   OrganizationPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type {
+  CurrentPrincipalMemberEnvelopesResponse,
+  PrincipalPolicyBundleResponse,
+} from "@tearleads/validators/response";
 import type { BoundedCache } from "./ApiCache";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
@@ -27,9 +31,10 @@ import { createOrganizationGroup } from "./routes/organizations/createGroup";
 import { deleteOrganizationGroup } from "./routes/organizations/deleteGroup";
 import {
   commitOrganizationGroupPolicy,
+  getPrincipalMemberEnvelopes,
   putPrincipalPolicy,
 } from "./routes/principals/policy";
-import type { RequestResultOptions } from "./types";
+import type { RequestResult, RequestResultOptions } from "./types";
 
 export class PrincipalPolicyRequests {
   constructor(
@@ -71,6 +76,33 @@ export class PrincipalPolicyRequests {
       principalId,
       options,
     );
+  }
+
+  /**
+   * Every member envelope of one named state. A response that fails its
+   * schema, or names another state, is a `shape` failure the caller can treat
+   * as tampering; an unknown state is an HTTP 404.
+   */
+  memberEnvelopes(
+    principalType: "group" | "organization",
+    principalId: string,
+    stateHash: string,
+  ): Promise<RequestResult<CurrentPrincipalMemberEnvelopesResponse>> {
+    return principalHistoryRequest(this.runtime, {
+      path: getPrincipalMemberEnvelopes.path(
+        principalType,
+        principalId,
+        stateHash,
+      ),
+      validator: (value): value is CurrentPrincipalMemberEnvelopesResponse =>
+        getPrincipalMemberEnvelopes.isResponse(value) &&
+        value.principalType === principalType &&
+        value.principalId === principalId &&
+        value.stateHash === stateHash,
+      method: getPrincipalMemberEnvelopes.method,
+      options: { reportErrors: false },
+      operation: getPrincipalMemberEnvelopesOperation,
+    });
   }
 
   get(
