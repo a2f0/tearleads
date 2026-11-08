@@ -61,3 +61,66 @@ for (const installed of [false, true]) {
     });
   }
 }
+
+// A request whose deadline or caller aborts during a renewal must settle at
+// once, not when the renewal does; the renewal is shared, so a request still
+// waiting on it is renewed as usual.
+test("an aborted request stops waiting for a shared renewal without cancelling it", async () => {
+  let token: string | null = "identity-a";
+  const tracker = new SessionRenewalTracker(() => token);
+  const release = Promise.withResolvers<void>();
+  let renewals = 0;
+  const input = (signal?: AbortSignal) => ({
+    authToken: "identity-a",
+    body: undefined,
+    code: SESSION_ERROR_CODES.refreshRequired,
+    responseStatus: 401,
+    getCurrentAuthToken: () => token,
+    isKnownSessionRenewal: (from: string, to: string) =>
+      tracker.isKnown(from, to),
+    pendingSessionRenewal: (from: string) => tracker.pending(from),
+    options: { signal },
+    reportError: () => undefined,
+    refreshSession: () =>
+      tracker.renew(async () => {
+        renewals += 1;
+        await release.promise;
+        token = "identity-a-renewed";
+        tracker.tokenChanged();
+        return true;
+      }),
+  });
+  const controller = new AbortController();
+  const abandoned = shouldRetryAfterSessionExpired(input(controller.signal));
+  const waiting = shouldRetryAfterSessionExpired(input());
+  controller.abort();
+
+  expect(await abandoned).toBe(false);
+  release.resolve();
+  expect(await waiting).toBe(true);
+  expect(renewals).toBe(1);
+});
+
+test("an already aborted request starts no renewal", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  let renewals = 0;
+  await expect(
+    shouldRetryAfterSessionExpired({
+      authToken: "identity-a",
+      body: undefined,
+      code: SESSION_ERROR_CODES.refreshRequired,
+      responseStatus: 401,
+      getCurrentAuthToken: () => "identity-a",
+      isKnownSessionRenewal: () => false,
+      pendingSessionRenewal: () => null,
+      options: { signal: controller.signal },
+      reportError: () => undefined,
+      refreshSession: () => {
+        renewals += 1;
+        return true;
+      },
+    }),
+  ).resolves.toBe(false);
+  expect(renewals).toBe(0);
+});
