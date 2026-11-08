@@ -206,6 +206,15 @@ write in flight and one queued: a queued `setText` superseded by a newer
 `setText`, or a `setStructuredFields` patch whose every field a newer
 non-deferred patch sets again, never persists on its own.
 
+### Queued document updates
+
+Before each send, a document store merges runs of consecutive queued local
+updates into one update under a fresh id, so a typing burst or an offline
+backlog uploads one update per run. Custom `DocumentsPersistence` adapters
+return `QueuedPendingUpdateRecord` rows (each with its `origin`) from
+`listPendingUpdates` and must implement `replaceQueuedPendingUpdates`; see
+[custom document persistence](../custom-document-persistence.md).
+
 ### Organization data usage
 
 `Organizations.loadDataUsage()` returns the active organization's synced usage
