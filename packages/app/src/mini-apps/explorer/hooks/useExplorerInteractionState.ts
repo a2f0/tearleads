@@ -1,8 +1,14 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import { useCallback, useRef, useState } from "react";
-import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
+import { useCallback } from "react";
+import { useTearleadsExternalValue } from "../../../providers/sdk/useTearleadsSubscription";
 import { explorerDocumentQueryContainerId } from "../../../stores/explorer/orphanedDocuments";
 import { usePrimeDiscoveredDocuments } from "../../../stores/explorer/primeDiscoveredDocuments";
+import {
+  cancelExplorerRefresh,
+  explorerRefreshState,
+  runExplorerRefresh,
+  subscribeExplorerRefresh,
+} from "../model/explorerRefreshRuns";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
 import { useExplorerViewProjectionSync } from "./useExplorerViewProjectionSync";
 
@@ -47,58 +53,57 @@ export function useExplorerInteractionState(params: {
 /**
  * Manual refresh and open catch-up both drive the reconciler's full-sweep
  * entry points, which share one in-flight sweep at the service layer. Route
- * them through one in-flight ref here too so the Refresh menu item is disabled
- * (via isRefreshing) for the whole sweep — a manual refresh cannot start while
- * an auto catch-up is still running, and vice versa.
+ * them through one run here too, shared by every Explorer window of this
+ * scope (`explorerRefreshRuns.ts`), so Refresh is disabled (via
+ * isRefreshing) for the whole sweep in every window.
+ *
+ * Cancelling withdraws Explorer from the sweep at once. The reconciler stops
+ * the sweep at its next safe boundary only if no other caller, such as the
+ * reconnect catch-up, still waits on it.
  */
-function useExplorerRefreshActions(
+export function useExplorerRefreshActions(
   reconciler: ExplorerModelExplorer["reconciler"],
   logError: (message: string | Error, cause?: unknown) => void,
 ) {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshError, setRefreshError] = useState<string | null>(null);
-  const refreshPromiseRef = useRef<Promise<boolean> | null>(null);
-
-  const runSweep = useCallback(
-    (sweep: () => Promise<void>): Promise<boolean> => {
-      if (refreshPromiseRef.current) {
-        return refreshPromiseRef.current;
-      }
-
-      setRefreshError(null);
-      setIsRefreshing(true);
-      const refreshPromise = sweep()
-        .then(() => true)
-        .catch((error: unknown) => {
-          if (!isIgnorableDatabaseWorkerError(error)) {
-            logError("Failed to refresh explorer", error);
-            setRefreshError("Failed to refresh explorer.");
-          }
-          return false;
-        })
-        .finally(() => {
-          if (refreshPromiseRef.current === refreshPromise) {
-            refreshPromiseRef.current = null;
-            setIsRefreshing(false);
-          }
-        });
-
-      refreshPromiseRef.current = refreshPromise;
-      return refreshPromise;
-    },
-    [logError],
+  const subscribe = useCallback(
+    (listener: () => void) => subscribeExplorerRefresh(reconciler, listener),
+    [reconciler],
+  );
+  const state = useTearleadsExternalValue(subscribe, () =>
+    explorerRefreshState(reconciler),
   );
 
   const handleRefresh = useCallback(
-    (): Promise<boolean> => runSweep(() => reconciler.reconcileNow()),
-    [reconciler, runSweep],
+    (): Promise<boolean> =>
+      runExplorerRefresh({
+        key: reconciler,
+        logError,
+        scope: "full",
+        sweep: (signal) => reconciler.reconcileNow({ signal }),
+      }),
+    [logError, reconciler],
   );
 
   const handleOpenCatchup = useCallback(
     (): Promise<boolean> =>
-      runSweep(() => reconciler.reconcileRootContainersNow()),
-    [reconciler, runSweep],
+      runExplorerRefresh({
+        key: reconciler,
+        logError,
+        scope: "root",
+        sweep: (signal) => reconciler.reconcileRootContainersNow({ signal }),
+      }),
+    [logError, reconciler],
   );
 
-  return { handleOpenCatchup, handleRefresh, isRefreshing, refreshError };
+  const handleCancelRefresh = useCallback(() => {
+    cancelExplorerRefresh(reconciler);
+  }, [reconciler]);
+
+  return {
+    handleCancelRefresh,
+    handleOpenCatchup,
+    handleRefresh,
+    isRefreshing: state.status === "refreshing",
+    refreshError: state.status === "failed" ? state.message : null,
+  };
 }

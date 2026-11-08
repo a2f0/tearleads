@@ -1,8 +1,10 @@
 import {
   createContext,
   type PropsWithChildren,
+  useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
 } from "react";
@@ -38,6 +40,11 @@ import {
 interface WindowRefreshMenuItemInput {
   disabled?: boolean;
   label?: string;
+  /**
+   * Cancels the running refresh. While `refreshing`, the Refresh button
+   * offers it in a context menu, by right-click or touch long press.
+   */
+  onCancel?: (() => unknown) | undefined;
   onRefresh: () => unknown;
   priority?: number;
   refreshing?: boolean;
@@ -67,10 +74,12 @@ function createRegisteredMenuItem(
 function createRegisteredRefreshMenuItem(
   item: WindowRefreshMenuItemInput,
   onRefresh: () => unknown,
+  onCancel: (() => unknown) | null,
 ): RegisteredWindowRefreshMenuItem {
   return {
     disabled: item.disabled ?? false,
     label: item.label ?? REFRESH_LABEL,
+    onCancel: item.onCancel ? onCancel : null,
     onRefresh,
     priority: item.priority ?? 0,
     refreshing: item.refreshing ?? false,
@@ -361,9 +370,18 @@ export function useWindowRefreshMenuItem(
 ): void {
   const { registerRefreshMenuItem, unregisterRefreshMenuItem } =
     useContext(WindowMenuContext);
+  // The registration compares items by value, so cancel goes through one
+  // stable handler that calls the caller's latest callback.
+  const onCancel = item?.onCancel ?? null;
+  const cancelRef = useRef(onCancel);
+  useLayoutEffect(() => {
+    cancelRef.current = onCancel;
+  }, [onCancel]);
+  const handleCancel = useCallback(() => cancelRef.current?.(), []);
   useWindowItemRegistration({
     action: item?.onRefresh ?? null,
-    createRegisteredItem: createRegisteredRefreshMenuItem,
+    createRegisteredItem: (input: WindowRefreshMenuItemInput, onRefresh) =>
+      createRegisteredRefreshMenuItem(input, onRefresh, handleCancel),
     input: item,
     registerItem: registerRefreshMenuItem,
     unregisterItem: unregisterRefreshMenuItem,

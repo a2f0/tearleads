@@ -95,6 +95,20 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
   logError?: ((message: string, error: unknown) => void) | undefined;
 }
 
+export interface RefreshRequestOptions {
+  readonly freshListing?: boolean;
+  /**
+   * Withdraws this caller from the refresh it joined: the returned promise
+   * rejects with the signal's reason at once. The refresh, which other
+   * callers may share, stops only once every caller has withdrawn, and then
+   * at a safe boundary: before its document sweep or between sweep batches.
+   * The batch in flight finishes, the store's tree crawl runs on, and the
+   * containers it never reached keep their queued and forced work. A caller
+   * without a signal never withdraws, so it keeps the refresh running.
+   */
+  readonly signal?: AbortSignal | undefined;
+}
+
 export interface ReconciliationService {
   start: () => void;
   setActiveContainer: (containerId: string | null) => void;
@@ -121,18 +135,18 @@ export interface ReconciliationService {
    * request joins a sweep already in flight. With `freshListing`, the returned
    * sweep starts after this call: a discovery event (a root shared with or
    * created for this user) must not be satisfied by a sweep that may have
-   * listed roots before the event committed.
+   * listed roots before the event committed. See {@link RefreshRequestOptions}
+   * for `signal`.
    */
-  reconcileRootContainersNow: (options?: {
-    readonly freshListing?: boolean;
-  }) => Promise<void>;
+  reconcileRootContainersNow: (
+    options?: RefreshRequestOptions,
+  ) => Promise<void>;
   /**
    * Refresh the whole tree and reconcile every known container. With
    * `freshListing`, never join a sweep that already started listing: one
    * queues behind it instead, so the listing reflects a change made after.
+   * See {@link RefreshRequestOptions} for `signal`.
    */
-  reconcileNow: (options?: {
-    readonly freshListing?: boolean;
-  }) => Promise<void>;
+  reconcileNow: (options?: RefreshRequestOptions) => Promise<void>;
   stop: () => void;
 }

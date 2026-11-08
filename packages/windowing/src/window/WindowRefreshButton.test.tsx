@@ -1,5 +1,11 @@
-import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { afterEach, expect, jest, test } from "bun:test";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  within,
+} from "@testing-library/react";
 import { LauncherNavigationProvider } from "../launcher/LauncherNavigationProvider";
 import { RoutedPaneAppBar } from "../routed/RoutedPaneAppBar";
 import { TEST_LAUNCHER } from "../routed/routedPane.testUtils";
@@ -11,19 +17,52 @@ import {
 import { WindowStateProvider } from "./WindowStateProvider";
 import { WindowToolBar } from "./WindowToolBar";
 
-afterEach(cleanup);
+afterEach(() => {
+  jest.useRealTimers();
+  cleanup();
+});
+
+interface RefreshRegistrationProps {
+  disabled: boolean;
+  onCancel?: (() => void) | undefined;
+  onRefresh: () => void;
+  refreshing: boolean;
+}
 
 function RefreshRegistration({
   disabled,
+  onCancel,
   onRefresh,
   refreshing,
-}: {
-  disabled: boolean;
-  onRefresh: () => void;
-  refreshing: boolean;
-}) {
-  useWindowRefreshMenuItem({ disabled, onRefresh, refreshing });
+}: RefreshRegistrationProps) {
+  useWindowRefreshMenuItem({ disabled, onCancel, onRefresh, refreshing });
   return null;
+}
+
+function toolbarContent(
+  mode: "windowed" | "tablet",
+  registration: RefreshRegistrationProps,
+) {
+  return (
+    <WindowStateProvider>
+      <LauncherNavigationProvider definition={TEST_LAUNCHER} mode="routed">
+        <WindowMenuProvider>
+          <RefreshRegistration {...registration} />
+          {mode === "windowed" ? (
+            <WindowToolBar />
+          ) : (
+            <RoutedPaneAppBar
+              activeAppId="explorer"
+              hasSidebar={false}
+              onToggleSidebar={() => undefined}
+              sidebarExpanded={false}
+              tier="tablet"
+            />
+          )}
+        </WindowMenuProvider>
+      </LauncherNavigationProvider>
+    </WindowStateProvider>
+  );
 }
 
 test("refresh alone reserves a window toolbar until explicitly released", () => {
@@ -117,3 +156,81 @@ for (const mode of ["windowed", "tablet"] as const) {
     expect(calls).toBe(2);
   });
 }
+
+for (const mode of ["windowed", "tablet"] as const) {
+  test(`${mode} toolbar offers Cancel Refresh while a cancellable refresh runs`, () => {
+    let refreshes = 0;
+    let cancels = 0;
+    const registration = (refreshing: boolean, cancellable: boolean) => ({
+      disabled: refreshing,
+      onCancel: cancellable
+        ? () => {
+            cancels += 1;
+          }
+        : undefined,
+      onRefresh: () => {
+        refreshes += 1;
+      },
+      refreshing,
+    });
+    const view = render(toolbarContent(mode, registration(true, true)));
+    const toolbar = within(view.getByRole("toolbar", { name: "Toolbar" }));
+    const busy = toolbar.getByRole("button", {
+      name: "Refreshing...",
+    }) as HTMLButtonElement;
+    // Reachable for its context menu, but inert to a click.
+    expect(busy.disabled).toBe(false);
+    expect(busy.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(busy);
+    expect(refreshes).toBe(0);
+
+    fireEvent.contextMenu(busy, { clientX: 10, clientY: 10 });
+    fireEvent.click(view.getByRole("button", { name: "Cancel Refresh" }));
+    expect(cancels).toBe(1);
+    expect(view.queryByRole("button", { name: "Cancel Refresh" })).toBeNull();
+
+    // A refresh that settles with its menu open takes the menu with it, and
+    // the next refresh does not reopen it.
+    fireEvent.contextMenu(busy, { clientX: 10, clientY: 10 });
+    view.rerender(toolbarContent(mode, registration(false, true)));
+    expect(view.queryByRole("button", { name: "Cancel Refresh" })).toBeNull();
+    view.rerender(toolbarContent(mode, registration(true, true)));
+    expect(view.queryByRole("button", { name: "Cancel Refresh" })).toBeNull();
+
+    // A refresh that cannot be cancelled stays disabled, with no menu.
+    view.rerender(toolbarContent(mode, registration(true, false)));
+    const plain = toolbar.getByRole("button", {
+      name: "Refreshing...",
+    }) as HTMLButtonElement;
+    expect(plain.disabled).toBe(true);
+    fireEvent.contextMenu(plain, { clientX: 10, clientY: 10 });
+    expect(view.queryByRole("button", { name: "Cancel Refresh" })).toBeNull();
+  });
+}
+
+test("a touch long press on a running refresh offers Cancel Refresh", () => {
+  let cancels = 0;
+  jest.useFakeTimers();
+  const view = render(
+    toolbarContent("windowed", {
+      disabled: true,
+      onCancel: () => {
+        cancels += 1;
+      },
+      onRefresh: () => undefined,
+      refreshing: true,
+    }),
+  );
+  const busy = view.getByRole("button", { name: "Refreshing..." });
+
+  fireEvent.pointerDown(busy, { pointerType: "touch", clientX: 5, clientY: 5 });
+  act(() => {
+    jest.advanceTimersByTime(500);
+  });
+  // The click the browser synthesizes from the release is swallowed; the
+  // next tap lands on the menu.
+  fireEvent.pointerUp(busy, { pointerType: "touch", clientX: 5, clientY: 5 });
+  fireEvent.click(busy);
+  fireEvent.click(view.getByRole("button", { name: "Cancel Refresh" }));
+  expect(cancels).toBe(1);
+});

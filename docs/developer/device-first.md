@@ -112,11 +112,22 @@ interface ReconciliationService {
   enqueueContainer(containerId, priority: "active" | "idle", force?, documentId?): void;
   enqueueIdleBackfill(): void;           // known-container catch-up
   resetDiscovered(): void;               // re-arm after reconnect/relogin
-  reconcileRootContainersNow(o?: { freshListing?: boolean }): Promise<void>;
-  reconcileNow(o?: { freshListing?: boolean }): Promise<void>;  // explicit "Refresh"
+  reconcileRootContainersNow(o?: RefreshRequestOptions): Promise<void>;
+  reconcileNow(o?: RefreshRequestOptions): Promise<void>;  // explicit "Refresh"
   stop(): void;
 }
+// { freshListing?: boolean; signal?: AbortSignal }
 ```
+
+A refresh request with a `signal` withdraws when it aborts: its promise rejects
+at once. The refresh is shared, so it stops only after every caller has
+withdrawn, and then only at a safe boundary: before the document sweep, or
+between sweep batches. The batch in flight finishes, the store's tree crawl
+runs on, and containers the sweep never reached keep their queued and forced
+work. The sweep marked them discovered up front, which made the background
+lane drop their queued entries and suppressed opening one, so a stop releases
+those marks and queues the containers again, the active one first. A caller
+without a signal, such as the reconnect catch-up, keeps the refresh running.
 
 Work items and the functions that perform them:
 
@@ -281,7 +292,14 @@ The app subscribes rather than orchestrating network:
   `LocalProjectionView` snapshot into the Explorer view model.
 - [`useExplorerInteractionState.ts`](../../packages/app/src/mini-apps/explorer/hooks/useExplorerInteractionState.ts)
   runs Refresh through `reconciler.reconcileNow()` and open-time catch-up
-  through `reconciler.reconcileRootContainersNow()`.
+  through `reconciler.reconcileRootContainersNow()`, each with a signal. The
+  Refresh button's context menu (or a long press) offers Cancel Refresh while
+  one runs; cancelling withdraws Explorer from the shared refresh. Explorer
+  keeps its run per reconciler, not per window
+  ([`explorerRefreshRuns.ts`](../../packages/app/src/mini-apps/explorer/model/explorerRefreshRuns.ts)):
+  every open Explorer window shows it and can cancel it, closing a window
+  leaves it running, a full Refresh replaces a running root catch-up instead
+  of joining it, and a scope change stops showing the old scope's run.
 
 ### Shared binding across mini-apps (explorer, contacts, org-manager)
 

@@ -378,6 +378,7 @@ function ExplorerContent() {
   });
   useWindowRefreshMenuItem({
     disabled: !model.explorer.ready || model.isRefreshing,
+    onCancel: model.handleCancelRefresh,
     onRefresh: model.handleRefresh,
     priority: 100,
     refreshing: model.isRefreshing,

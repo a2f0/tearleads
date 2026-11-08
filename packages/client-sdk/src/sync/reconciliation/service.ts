@@ -21,23 +21,22 @@ import type {
   ReconciliationRuntimeStatus,
   ReconciliationService,
 } from "./serviceTypes";
+import {
+  type RefreshScope,
+  refreshTreeForSweep,
+  SharedRefresh,
+} from "./sharedRefresh";
 
 function canReconcile(status: ReconciliationRuntimeStatus): boolean {
   return status.dbStatus === "ready" && status.isAuthenticated && status.online;
 }
-
-type RefreshScope = "root" | "full";
 
 interface ReconciliationState extends IdleBackfillState {
   active: boolean;
   lane: SyncLane | null;
   lifecycleGeneration: number;
   probeContinuationCancel: (() => void) | null;
-  pendingRefresh: {
-    readonly promise: Promise<void>;
-    readonly scope: RefreshScope;
-    readonly started: { value: boolean };
-  } | null;
+  pendingRefresh: SharedRefresh | null;
 }
 
 /**
@@ -160,8 +159,10 @@ async function refreshAndReconcileContainers(input: {
   listContainerIds: () => ReadonlyArray<string>;
   refreshTree: () => Promise<void>;
   state: ReconciliationState;
+  /** Every caller withdrew: stop at the next safe boundary. */
+  stop: AbortSignal;
 }): Promise<void> {
-  const { host, listContainerIds, refreshTree, state } = input;
+  const { host, listContainerIds, refreshTree, state, stop } = input;
   if (!canReconcile(host.getRuntimeStatus())) {
     return;
   }
@@ -180,16 +181,12 @@ async function refreshAndReconcileContainers(input: {
     // refresh can re-add the same id.
     forgetIneligibleDiscoveredContainers(host, state);
     // A tree refresh that failed still leaves every known container to
-    // reconcile: sweep them, then report the tree failure. A lost database
-    // ends the refresh at once, as before.
-    let treeError: unknown;
-    try {
-      await refreshTree();
-    } catch (error) {
-      if (host.isIgnorableError(error)) throw error;
-      treeError = error;
-    }
-    if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) {
+    // reconcile: sweep them, then report the tree failure.
+    const treeError = await refreshTreeForSweep(host, refreshTree, stop);
+    if (
+      !isCurrentReconciliationLifecycle(state, lifecycleGeneration) ||
+      stop.aborted
+    ) {
       return;
     }
     // Structural hydration can revoke and remove a container after a targeted
@@ -204,8 +201,12 @@ async function refreshAndReconcileContainers(input: {
       knownIds: listContainerIds(),
       lifecycleGeneration,
       state,
+      stop,
     });
-    if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) {
+    if (
+      !isCurrentReconciliationLifecycle(state, lifecycleGeneration) ||
+      stop.aborted
+    ) {
       return;
     }
     if (treeError !== undefined) throw treeError;
@@ -257,6 +258,7 @@ function requeueUnsettledContainers(
 // must wait for it and then refresh the whole tree. A fresh-listing request
 // joins only a sweep that has not started: one already running may have listed
 // before the event behind the request, so it queues a trailing sweep instead.
+// A sweep every caller withdrew from is stopping, so nothing joins it.
 function requestContainerRefresh(input: {
   freshListing: boolean;
   host: ReconciliationHost;
@@ -264,38 +266,38 @@ function requestContainerRefresh(input: {
   refreshTree: () => Promise<void>;
   listContainerIds: () => ReadonlyArray<string>;
   scope: RefreshScope;
+  signal: AbortSignal | undefined;
 }): Promise<void> {
-  const { state, scope } = input;
+  const { state, scope, signal } = input;
+  if (signal?.aborted) return Promise.reject(signal.reason);
   const pending = state.pendingRefresh;
   if (
     pending &&
+    !pending.stopping &&
     (scope === "root" || pending.scope === "full") &&
-    !(input.freshListing && pending.started.value)
+    !(input.freshListing && pending.started)
   ) {
-    return pending.promise;
+    return pending.join(signal);
   }
 
-  const started = { value: false };
-  const promise = (pending?.promise ?? Promise.resolve())
-    // A failed earlier sweep must not prevent the queued refresh.
-    .catch(() => undefined)
-    .then(() => {
-      started.value = true;
-      return refreshAndReconcileContainers({
+  const refresh = new SharedRefresh({
+    after: pending?.promise,
+    onSettled: (settled) => {
+      if (state.pendingRefresh === settled) state.pendingRefresh = null;
+    },
+    run: (stop) =>
+      refreshAndReconcileContainers({
         forceAllDocumentContentPulls: scope === "full",
         host: input.host,
         listContainerIds: input.listContainerIds,
         refreshTree: input.refreshTree,
         state,
-      });
-    })
-    .finally(() => {
-      if (state.pendingRefresh?.promise === promise) {
-        state.pendingRefresh = null;
-      }
-    });
-  state.pendingRefresh = { promise, scope, started };
-  return promise;
+        stop,
+      }),
+    scope,
+  });
+  state.pendingRefresh = refresh;
+  return refresh.join(signal);
 }
 
 function listFullRefreshContainerIds(
@@ -466,6 +468,7 @@ export function createReconciliationService(
         refreshTree: host.refreshRootTree,
         listContainerIds: host.listAutomaticRootCatchupContainerIds,
         scope: "root",
+        signal: options?.signal,
       }),
     reconcileNow: (options) =>
       requestContainerRefresh({
@@ -475,6 +478,7 @@ export function createReconciliationService(
         refreshTree: host.refreshTree,
         listContainerIds: () => listFullRefreshContainerIds(host, state),
         scope: "full",
+        signal: options?.signal,
       }),
     stop: () => stopReconciliationService(host, state),
   };

@@ -1,3 +1,4 @@
+import { useLongPress } from "@tearleads/windowing";
 import {
   type ButtonHTMLAttributes,
   forwardRef,
@@ -10,7 +11,6 @@ import {
   type ThHTMLAttributes,
 } from "react";
 import { classNames } from "../../shared/classNames";
-import { useLongPress } from "../../shared/useLongPress";
 import { MiniAppRowActionsButton } from "./MiniAppRowActionsButton";
 import "./MiniAppTable.css";
 
