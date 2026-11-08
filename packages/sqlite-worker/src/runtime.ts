@@ -1,3 +1,4 @@
+import { evictCachedDatabasePages } from "./cachedPageEviction";
 import {
   createDatabaseWorkerClient,
   type DatabaseWorkerClient,
@@ -428,6 +429,7 @@ export function createSharedDatabaseRuntime(
 export function createModuleDatabaseRuntime(
   options: CreateModuleDatabaseRuntimeOptions = {},
 ): DatabaseRuntime {
+  evictCachedDatabasePages();
   if (
     !options.workerConstructor &&
     options.sharedWorkerConstructor === undefined &&
