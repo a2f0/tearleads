@@ -18,8 +18,10 @@ import { type RefObject, useEffect } from "react";
 // promptly. This also covers a killed worker whose graceful close is still
 // pending: runtimeRef has already been cleared so the user can spawn a fresh
 // worker after release, but a hard reload still needs to tear down the old
-// runtime immediately. The worker-side install retry remains the backstop for
-// the residual race where even this does not land before the new page boots.
+// runtime immediately. If the termination loses the race with the
+// back/forward cache's freeze, the next page's runtime evicts this cached page
+// (`evictCachedDatabasePages` in `@tearleads/sqlite-worker`), and the
+// worker-side install retry covers the time the eviction takes.
 export function useReleaseRuntimeOnPageHide(
   runtimeRef: RefObject<SQLiteRuntime | null>,
   runtimeReleaseRef?: RefObject<{

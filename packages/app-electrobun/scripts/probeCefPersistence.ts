@@ -211,30 +211,29 @@ function toPersistentState(snapshot: StorageSnapshot): PersistentState {
   };
 }
 
-// Records whether the outgoing page entered the back/forward cache. A
-// `location.assign` to another route stores it there (`persisted` in CEF),
-// frozen with its SQLite worker, which can keep holding the database's OPFS
-// access handles so the next page's boot fails until the cache evicts it. A
-// reload never stores the outgoing page, so the probe reloads the nested route
-// and checks that it did.
+// Navigates to a nested route the way an in-app link does. CEF stores the
+// outgoing page in the back/forward cache, frozen with its SQLite worker, and
+// that worker can still hold the database's OPFS access handles; the next
+// page's runtime evicts it (#2859), so the database must still reopen. The
+// probe requires that the outgoing page was cached, since otherwise it would not
+// exercise that eviction. A frozen worker that kept its handles was rare (about
+// 3% of runs before the eviction), so one run cannot show the eviction is needed;
+// the regression shows up as this probe failing to reopen the database.
 const pageHidePersistedKey = "tearleads.probe.pagehide-persisted";
-const nestedRouteReloadExpression = `addEventListener('pagehide', (event) => sessionStorage.setItem(${JSON.stringify(pageHidePersistedKey)}, String(event.persisted)));
-setTimeout(() => {
-  history.pushState(null, '', '/app/contacts');
-  location.reload();
-}, 100);
+const nestedRouteNavigationExpression = `addEventListener('pagehide', (event) => sessionStorage.setItem(${JSON.stringify(pageHidePersistedKey)}, String(event.persisted)));
+setTimeout(() => location.assign('/app/contacts'), 100);
 undefined`;
 
-async function assertReloadDiscardedPage(): Promise<void> {
+async function assertOutgoingPageCached(): Promise<void> {
   const page = await readPageTarget();
-  if (!page?.webSocketDebuggerUrl) throw new Error("No reloaded CEF page.");
+  if (!page?.webSocketDebuggerUrl) throw new Error("No navigated CEF page.");
   const persisted = await evaluate<string | null>(
     page.webSocketDebuggerUrl,
     `sessionStorage.getItem(${JSON.stringify(pageHidePersistedKey)})`,
   );
-  if (persisted !== "false") {
+  if (persisted !== "true") {
     throw new Error(
-      `The reloaded page's predecessor reported pagehide persisted=${String(persisted)}; it must not enter the back/forward cache.`,
+      `The navigated page's predecessor reported pagehide persisted=${String(persisted)}; the probe must leave it in the back/forward cache to exercise its eviction.`,
     );
   }
 }
@@ -249,17 +248,19 @@ async function main(): Promise<void> {
   if (mode === "reopen") {
     previousTimeOrigin = (await readReadySnapshot(true)).timeOrigin;
     const page = await readPageTarget();
-    if (!page?.webSocketDebuggerUrl) throw new Error("No CEF page to reload.");
+    if (!page?.webSocketDebuggerUrl) {
+      throw new Error("No CEF page to navigate.");
+    }
     await evaluate<undefined>(
       page.webSocketDebuggerUrl,
-      nestedRouteReloadExpression,
+      nestedRouteNavigationExpression,
     );
   }
   const current = toPersistentState(
     await readReadySnapshot(mode === "reopen", previousTimeOrigin),
   );
   if (mode === "reopen") {
-    await assertReloadDiscardedPage();
+    await assertOutgoingPageCached();
   }
   if (mode === "first") {
     console.log(JSON.stringify(current));
@@ -278,7 +279,7 @@ async function main(): Promise<void> {
     throw new Error("Electrobun reopened a different identity database.");
   }
   console.log(
-    `Electrobun reopened ${current.databaseName} from CEF OPFS after restart and nested-route reload.`,
+    `Electrobun reopened ${current.databaseName} from CEF OPFS after restart and a nested-route navigation that cached the outgoing page.`,
   );
 }
 

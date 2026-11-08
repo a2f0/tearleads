@@ -261,12 +261,12 @@ runs the persistence checks without those forced-conflict assertions.
 The application origin remains `http://127.0.0.1:3002` across both launches.
 It verifies bundled CEF selection and reuses the Linux storage probe to confirm
 that a populated encrypted identity database reopens after a process restart
-and a nested-route reload. The probe reloads `/app/contacts` rather than
-navigating to it: a navigation stores the outgoing page in the back/forward
-cache with its SQLite worker frozen, and that worker can keep the database's
-OPFS access handles so the next page cannot boot
-([#2859](https://github.com/a2f0/tearleads/issues/2859)). The probe fails if
-the outgoing page reports `pagehide` with `persisted`.
+and a navigation to `/app/contacts`. CEF stores the outgoing page in the
+back/forward cache with its SQLite worker frozen, and that worker can keep the
+database's OPFS access handles; the next page's SQLite runtime evicts it
+([#2859](https://github.com/a2f0/tearleads/issues/2859)), so the database must
+still reopen. The probe fails unless the outgoing page reports `pagehide` with
+`persisted`, since otherwise it would not exercise that eviction.
 The local test requires Bun and Git Bash and isolates storage in a temporary
 `LOCALAPPDATA` directory.
 
