@@ -1,3 +1,4 @@
+import { useLongPress } from "@tearleads/windowing";
 import {
   type ButtonHTMLAttributes,
   createElement,
@@ -5,7 +6,6 @@ import {
   type HTMLAttributes,
 } from "react";
 import { classNames } from "../../shared/classNames";
-import { useLongPress } from "../../shared/useLongPress";
 import "./MiniAppRow.css";
 
 type MiniAppRowDensity = "compact" | "normal" | "roomy";

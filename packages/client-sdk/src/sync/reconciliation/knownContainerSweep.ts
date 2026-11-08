@@ -194,12 +194,34 @@ async function sweepContainerBatch(input: {
   return { failedForces, firstError };
 }
 
+/**
+ * Releases the up-front marks of containers a stopped sweep never reached,
+ * so passive reconciliation still reaches them. A container that was already
+ * discovered before the sweep keeps its mark.
+ */
+function releaseUnreachedMarks(
+  state: KnownContainerSweepState,
+  unreached: ReadonlyArray<string>,
+  markedBySweep: ReadonlySet<string>,
+): void {
+  for (const containerId of unreached) {
+    if (markedBySweep.has(containerId)) {
+      state.discoveredContainerIds.delete(containerId);
+    }
+  }
+}
+
 export async function sweepKnownContainers(input: {
   forceAllDocumentContentPulls: boolean;
   host: ReconciliationHost;
   knownIds: ReadonlyArray<string>;
   lifecycleGeneration: number;
   state: KnownContainerSweepState;
+  /**
+   * Ends the sweep before its next batch. The batch in flight finishes, and
+   * the sweep settles without reporting a failure, since no caller waits.
+   */
+  stop?: AbortSignal | undefined;
 }): Promise<void> {
   const {
     forceAllDocumentContentPulls,
@@ -221,6 +243,9 @@ export async function sweepKnownContainers(input: {
   // Mark only the containers this sweep will fetch. Automatic root hints are
   // discovery signals, so already-reconciled containers stay settled unless a
   // targeted event forced them; explicit full refreshes still fetch every id.
+  const markedBySweep = new Set(
+    containerIds.filter((id) => !state.discoveredContainerIds.has(id)),
+  );
   for (const containerId of containerIds) {
     state.discoveredContainerIds.add(containerId);
   }
@@ -233,6 +258,10 @@ export async function sweepKnownContainers(input: {
     offset < containerIds.length;
     offset += MAX_CONTAINER_DOCUMENT_LANES
   ) {
+    if (input.stop?.aborted) {
+      releaseUnreachedMarks(state, containerIds.slice(offset), markedBySweep);
+      break;
+    }
     const batch = await sweepContainerBatch({
       containerIds: containerIds.slice(
         offset,
@@ -248,7 +277,7 @@ export async function sweepKnownContainers(input: {
     if (firstError === undefined) firstError = batch.firstError;
   }
   rearmFailedSweepContainers(state, failedForces, lifecycleGeneration);
-  if (firstError !== undefined) {
+  if (firstError !== undefined && !input.stop?.aborted) {
     throw firstError;
   }
 }

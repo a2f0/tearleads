@@ -4,6 +4,7 @@ import type {
   ContainerItemSort,
   ContainerNode,
 } from "@tearleads/client-sdk";
+import { useLongPress } from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useEffect, useState } from "react";
 import {
   MiniAppActions,
@@ -18,7 +19,6 @@ import {
   shouldFoldCompactRows,
 } from "../../../../components/mini-app/MiniAppTable";
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
-import { useLongPress } from "../../../../components/shared/useLongPress";
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import { isExplorerOrphanedDocumentsId } from "../../../../stores/explorer/orphanedDocuments";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
