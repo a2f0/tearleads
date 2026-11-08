@@ -9,6 +9,10 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { TestUser } from "@tearleads/test-utils";
+import {
+  LocalWorkerExitedEarlyError,
+  retryPortCollisions,
+} from "./localWorkerRetry";
 
 /**
  * Runs the deployed Worker entry in workerd through `wrangler dev`: the real
@@ -89,30 +93,22 @@ async function freePort(): Promise<number> {
   return port;
 }
 
-// `freePort` releases its port before wrangler binds it, so another process
-// can take it first. Only that bind failure retries, on fresh ports.
 const PORT_COLLISION_ATTEMPTS = 3;
 
 export async function startLocalWorker(
   overrides: Readonly<Record<string, string>> = {},
 ): Promise<LocalWorker> {
-  for (let attempt = 1; ; attempt += 1) {
-    try {
-      return await startLocalWorkerOnce(overrides);
-    } catch (error) {
-      if (
-        attempt >= PORT_COLLISION_ATTEMPTS ||
-        !(error instanceof Error) ||
-        !error.message.includes("Address already in use")
-      ) {
-        throw error;
-      }
-    }
-  }
+  // Every attempt shares one deadline, so callers' hook timeouts still hold.
+  const deadline = Date.now() + START_TIMEOUT_MS;
+  return retryPortCollisions(
+    () => startLocalWorkerOnce(overrides, deadline),
+    PORT_COLLISION_ATTEMPTS,
+  );
 }
 
 async function startLocalWorkerOnce(
   overrides: Readonly<Record<string, string>>,
+  deadline: number,
 ): Promise<LocalWorker> {
   const [port, inspectorPort] = await Promise.all([freePort(), freePort()]);
   const persist = await mkdtemp(resolve(tmpdir(), "tearleads-worker-state-"));
@@ -162,8 +158,7 @@ async function startLocalWorkerOnce(
       output += new TextDecoder().decode(chunk);
     }
   };
-  void collect(child.stdout);
-  void collect(child.stderr);
+  const readers = [collect(child.stdout), collect(child.stderr)];
   const origin = `http://127.0.0.1:${port}`;
   const stop = async () => {
     child.kill();
@@ -171,16 +166,18 @@ async function startLocalWorkerOnce(
     await rm(persist, { recursive: true, force: true });
   };
   // Neither an early exit nor a timeout hands back a handle: the child is
-  // stopped, its state removed, and the failure quotes the bounded output.
-  const fail = async (reason: string): Promise<never> => {
+  // stopped, its state removed, and its output read before the failure quotes
+  // it. A workerd grandchild can hold the pipes open, so reading is bounded.
+  const stopAndDrain = async () => {
     await stop();
-    throw new Error(`${reason}\nwrangler dev output:\n${output.slice(-6000)}`);
+    await Promise.race([Promise.all(readers), Bun.sleep(2_000)]);
   };
-  const deadline = Date.now() + START_TIMEOUT_MS;
   let ready = false;
   while (!ready && Date.now() < deadline) {
     if (child.exitCode !== null) {
-      return fail(`wrangler dev exited early with code ${child.exitCode}`);
+      const exitCode = child.exitCode;
+      await stopAndDrain();
+      throw new LocalWorkerExitedEarlyError(exitCode, output);
     }
     try {
       const response = await fetch(`${origin}/`, {
@@ -195,7 +192,10 @@ async function startLocalWorkerOnce(
     }
   }
   if (!ready) {
-    return fail(`wrangler dev was not ready within ${START_TIMEOUT_MS} ms`);
+    await stopAndDrain();
+    throw new Error(
+      `wrangler dev was not ready within ${START_TIMEOUT_MS} ms\nwrangler dev output:\n${output.slice(-6000)}`,
+    );
   }
   return { origin, logs: () => output, stop };
 }
