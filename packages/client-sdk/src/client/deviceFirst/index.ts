@@ -308,18 +308,37 @@ class DeviceFirstService implements DeviceFirst {
       applyReconciled: (delta) => store.applyReconciled(delta),
       requestDocumentContentPull,
       ...createInitialDocumentProbeHost(runtimeService, domainScope),
-      refreshTree: async () => {
-        await store.getContainerStore().refresh();
-      },
-      refreshRootTree: async () => {
-        await store.getContainerStore().refreshRootLane();
-      },
+      refreshTree: () =>
+        refreshContainerTree((onListingUnavailable) =>
+          store.getContainerStore().refresh({ onListingUnavailable }),
+        ),
+      refreshRootTree: () =>
+        refreshContainerTree((onListingUnavailable) =>
+          store.getContainerStore().refreshRootLane({ onListingUnavailable }),
+        ),
       isIgnorableError: isDatabaseUnavailableError,
       // Resolve the runtime per call: it is rebuilt as the active identity
       // changes, and a reference captured here would report into a dead host.
       logError: (message, error) =>
         logReconciliationFailure(this.workflowRuntime(), message, error),
     };
+  }
+}
+
+/**
+ * Runs one tree refresh and rejects if any listing request it made failed or
+ * timed out: the crawl stopped short, so the tree may be stale even though
+ * the refresh itself settled.
+ */
+async function refreshContainerTree(
+  refresh: (onListingUnavailable: () => void) => Promise<boolean>,
+): Promise<void> {
+  let listingUnavailable = false;
+  await refresh(() => {
+    listingUnavailable = true;
+  });
+  if (listingUnavailable) {
+    throw new Error("Container tree listing was unavailable");
   }
 }
 

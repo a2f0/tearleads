@@ -30,6 +30,8 @@ async function prepareContainerParentLanePage(input: {
 export async function fetchContainerParentLaneBatch(input: {
   batch: ReadonlyArray<ContainerParentHydrationLane>;
   isCurrent?: (() => boolean) | undefined;
+  /** Called when the listing request itself fails or times out. */
+  onListingUnavailable?: (() => void) | undefined;
   state: RemoteContainerHydrationState;
 }): Promise<ReadonlyArray<FetchedContainerParentLanePage> | null> {
   const { batch, state } = input;
@@ -68,6 +70,8 @@ export async function fetchContainerParentLaneBatch(input: {
     lanes: preparedPages.map((page) => page.request),
   });
   if (!response) {
+    // A superseded crawl's failure is not this crawl's to report.
+    if (input.isCurrent?.() !== false) input.onListingUnavailable?.();
     return null;
   }
 

@@ -176,7 +176,16 @@ async function refreshAndReconcileContainers(input: {
     // race against the old tree, forget the stale discovered bit before this
     // refresh can re-add the same id.
     forgetIneligibleDiscoveredContainers(host, state);
-    await refreshTree();
+    // A tree refresh that failed still leaves every known container to
+    // reconcile: sweep them, then report the tree failure. A lost database
+    // ends the refresh at once, as before.
+    let treeError: unknown;
+    try {
+      await refreshTree();
+    } catch (error) {
+      if (host.isIgnorableError(error)) throw error;
+      treeError = error;
+    }
     if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) {
       return;
     }
@@ -196,6 +205,7 @@ async function refreshAndReconcileContainers(input: {
     if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) {
       return;
     }
+    if (treeError !== undefined) throw treeError;
   } catch (error) {
     if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) {
       return;

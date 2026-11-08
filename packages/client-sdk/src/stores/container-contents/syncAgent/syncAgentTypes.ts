@@ -10,7 +10,17 @@ import type { ContainerContentsSyncLane } from "../../../workflows/container-con
 export type ContainerContentsStoreRuntime =
   ContainerContentsStoreWorkflowRuntime;
 
-export interface RefreshRootLaneOptions {
+/** Lets an explicit tree refresh learn that it stopped short. */
+export interface ContainerTreeRefreshObserver {
+  /**
+   * Called when a container listing request this refresh crawls with fails
+   * or times out, so lanes it would have listed stay unlisted. A refused or
+   * unverifiable item is not reported: retrying cannot fix it.
+   */
+  readonly onListingUnavailable?: (() => void) | undefined;
+}
+
+export interface RefreshRootLaneOptions extends ContainerTreeRefreshObserver {
   readonly includeActiveRootChildLane?: boolean | undefined;
   // Extra parent lanes to re-list alongside the root lane. Used by the
   // resync_required handler to re-list affected containers' parent lanes so a
@@ -27,7 +37,11 @@ export interface ContainerContentsStoreSyncAgent {
     isCurrent?: (() => boolean) | undefined,
   ) => Promise<void>;
   refreshLocalContainers: () => Promise<void>;
-  refresh: (options?: { resetAllLaneWatermarks?: boolean }) => Promise<boolean>;
+  refresh: (
+    options?: ContainerTreeRefreshObserver & {
+      resetAllLaneWatermarks?: boolean;
+    },
+  ) => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   requestRemoteHydration: (options?: {
     followDiscoveredParentLanes?: boolean | undefined;

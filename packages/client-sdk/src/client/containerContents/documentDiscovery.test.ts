@@ -9,6 +9,7 @@ import { clientSqlTables, containers } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { createExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { laneApi } from "../../workflows/container-contents/documentDiscovery/documentDiscovery.testUtils";
+import { ContainerDocumentListingUnavailableError } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryTypes";
 import {
   discoverContainerDocumentLanesForRuntime,
   discoverContainerDocumentsForRuntime,
@@ -143,6 +144,60 @@ test("runtime discovery lists every stored lane in one request", async () => {
       { containerId: "second", status: "fulfilled", value: [] },
     ]);
     expect(fullListings).toEqual(["first", "second"]);
+  } finally {
+    native.close();
+  }
+});
+
+// A failed listing request is retryable, so batch discovery rejects every
+// lane it carried instead of settling as if the containers had no changes.
+// The single-container API keeps its documented `null` for that case.
+test("a failed listing request rejects its lanes as unavailable", async () => {
+  const native = createNativeTestExecSql();
+  try {
+    await ensureSqlTables(native.execSql, clientSqlTables);
+    const runtime = getClientSQLitePersistenceRuntime(native.execSql);
+    for (const id of ["first", "second"])
+      await runtime.db.insert(containers).values({
+        id,
+        organizationId: "org",
+        parentId: null,
+        metadataDocumentId: `metadata-${id}`,
+        localCreatedAt: "2026-09-28",
+        localUpdatedAt: "2026-09-28",
+      });
+    const input = createWorkflowInputFixture({
+      apiClient: { listContainerDocumentLanes: async () => null } as never,
+      execSql: native.execSql,
+    });
+    const runtimeService = createInternalRuntimeFixture(() => input);
+
+    const outcomes = await discoverContainerDocumentLanesForRuntime({
+      requests: ["first", "missing", "second"].map((containerId) => ({
+        containerId,
+      })),
+      runtimeService,
+    });
+
+    expect(
+      outcomes.map(({ containerId, status }) => [containerId, status]),
+    ).toEqual([
+      ["first", "rejected"],
+      ["missing", "fulfilled"],
+      ["second", "rejected"],
+    ]);
+    for (const outcome of outcomes) {
+      if (outcome.status === "rejected")
+        expect(outcome.reason).toBeInstanceOf(
+          ContainerDocumentListingUnavailableError,
+        );
+    }
+    await expect(
+      discoverContainerDocumentsForRuntime({
+        containerId: "first",
+        runtimeService,
+      }),
+    ).resolves.toBeNull();
   } finally {
     native.close();
   }

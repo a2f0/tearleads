@@ -233,6 +233,13 @@ observed version per container/document pair, so historical `updatedAt` values
 do not accumulate for its lifetime. An explicit Refresh can retry the same
 version after a failed pull.
 
+A full or root refresh settles only after its tree crawl and document sweep.
+When a container or document listing request it depends on fails or hits its
+deadline, the refresh rejects instead of resolving as if nothing changed; the
+sweep still reconciles every known container before it does. The
+single-container `discoverContainerDocuments` keeps reporting an unavailable
+listing as `null`.
+
 An additional organization starts with local-only billing. Provisioning commits
 its initial roster and organization-profile bodies atomically with their
 [manifests](../glossary/access.md#access-manifest), so another authorized

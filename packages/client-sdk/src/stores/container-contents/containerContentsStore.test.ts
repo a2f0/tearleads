@@ -410,3 +410,52 @@ test("refresh re-lists the root lane unwatermarked to surface a newly shared roo
     close();
   }
 });
+
+// A crawl whose listing request fails stops short while its promise still
+// settles. An explicit refresh learns of it so its caller can report a stale
+// tree; a crawl whose listings all answer reports nothing.
+test("refresh reports a container listing that failed", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-contents-store-refresh-listing-unavailable-test",
+  );
+  const domainScope = {} as DomainScope;
+  let listingAvailable = true;
+
+  try {
+    await seedLocalRootContainer(execSql, { rootContainerId: "peer-root" });
+    await markContainerSyncLaneChecked(
+      execSql,
+      createContainerParentSyncLane(null),
+    );
+    const listEmptyLanes = batchParentLanes(async () =>
+      emptyListContainersResponse(),
+    );
+    const runtime = createContainerContentsTestRuntime({
+      apiClient: createMockApiClient({
+        listContainerParentLanes: async (input) =>
+          listingAvailable ? listEmptyLanes(input) : null,
+      }),
+      domainScope,
+      execSql,
+    });
+    const store = createContainerContentsStore(runtime);
+    store.updateRuntime(runtime);
+    await waitFor(
+      () => store.getSnapshot().ready,
+      "Container contents store did not become ready.",
+    );
+
+    let unavailable = 0;
+    const onListingUnavailable = () => {
+      unavailable += 1;
+    };
+    await store.refresh({ onListingUnavailable });
+    expect(unavailable).toBe(0);
+
+    listingAvailable = false;
+    await store.refresh({ onListingUnavailable });
+    expect(unavailable).toBe(1);
+  } finally {
+    close();
+  }
+});

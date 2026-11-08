@@ -116,19 +116,29 @@ test("batched listing continues only unfinished lanes and isolates failures", as
   expect(listed.get("rejected")).toBeNull();
 });
 
-test("a failed batch request leaves every lane in it unlisted", async () => {
+// A failed request says nothing about the lanes it carried, so they are
+// unavailable rather than refused; a later batch of the same pass still lists.
+test("a failed batch request marks only the lanes it carried unavailable", async () => {
+  const containerIds = Array.from(
+    { length: 33 },
+    (_, index) => `container-${index}`,
+  );
+  let requests = 0;
   const listed = await listAllContainerDocumentLanes({
-    lanes: [
-      { containerId: "a", watermark: null },
-      { containerId: "b", watermark: null },
-    ],
-    listContainerDocumentLanes: async () => null,
+    lanes: containerIds.map((containerId) => ({
+      containerId,
+      watermark: null,
+    })),
+    listContainerDocumentLanes: async (lanes) => {
+      requests += 1;
+      return requests === 1 ? null : lanes.map(() => page(["d"]));
+    },
   });
 
-  expect([...listed.entries()]).toEqual([
-    ["a", null],
-    ["b", null],
-  ]);
+  expect(containerIds.slice(0, 32).map((id) => listed.get(id))).toEqual(
+    Array.from({ length: 32 }, () => "unavailable"),
+  );
+  expect(listed.get("container-32")).toMatchObject({ items: [{ id: "d" }] });
 });
 
 test("lanes beyond the request bound split while rows stay within one page", async () => {

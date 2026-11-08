@@ -1,6 +1,8 @@
 export interface RemoteHydrationRefreshOptions {
   followDiscoveredParentLanes?: boolean | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
+  /** Called when a listing request of this crawl fails or times out. */
+  onListingUnavailable?: (() => void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
   resetRootLaneWatermark?: boolean | undefined;
@@ -96,6 +98,7 @@ function canRefreshRemoteHydration(
 
 export function refreshAllRemoteHydration(input: {
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
+  onListingUnavailable?: (() => void) | undefined;
   recreateOnFullyHydratedAfterReset?:
     | (() => () => Promise<void> | void)
     | undefined;
@@ -120,6 +123,7 @@ export function refreshAllRemoteHydration(input: {
   return requestHydration({
     followDiscoveredParentLanes: true,
     onFullyHydrated: input.onFullyHydrated,
+    onListingUnavailable: input.onListingUnavailable,
     recreateOnFullyHydratedAfterReset: input.recreateOnFullyHydratedAfterReset,
     ...(input.resetAllLaneWatermarks ? { resetAllLaneWatermarks: true } : {}),
     resetRootLaneWatermark: true,
@@ -132,6 +136,7 @@ export function refreshAllRemoteHydration(input: {
 
 export function refreshRootRemoteHydration(input: {
   includeActiveRootChildLane?: boolean | undefined;
+  onListingUnavailable?: (() => void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   requestHydration: RemoteHydrationRequester;
   state: RemoteHydrationRefreshState;
@@ -158,6 +163,7 @@ export function refreshRootRemoteHydration(input: {
       resolveActiveRootChildLaneParentId(state);
     return requestHydration({
       followDiscoveredParentLanes: false,
+      onListingUnavailable: input.onListingUnavailable,
       parentIds: activeRootChildLaneParentId
         ? [null, activeRootChildLaneParentId]
         : [null],
@@ -183,6 +189,7 @@ export function refreshRootRemoteHydration(input: {
   );
   return requestHydration({
     followDiscoveredParentLanes: false,
+    onListingUnavailable: input.onListingUnavailable,
     parentIds: parentLanes,
     resetRootLaneWatermark: true,
   }).then(() => true);

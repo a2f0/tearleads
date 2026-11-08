@@ -10,6 +10,7 @@ import type { ContainerDocumentObjectSyncState } from "../../workflows/container
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncState,
+  ContainerTreeRefreshObserver,
   RefreshRootLaneOptions,
 } from "./syncAgent/syncAgentTypes";
 
@@ -127,7 +128,7 @@ export interface ContainerContentsStore {
     accessLevel: ContainerContentsShareAccessLevel,
     options?: { requireExistingGrant?: boolean } | undefined,
   ) => Promise<ContainerGroupRewrapPreparation | null>;
-  refresh: () => Promise<boolean>;
+  refresh: (options?: ContainerTreeRefreshObserver) => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   // Re-read root-lane containers from local SQLite into the snapshot with NO
   // server round-trip. Surfaces a just-persisted container — e.g. the Trash bin

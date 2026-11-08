@@ -277,6 +277,30 @@ test("root refresh retains a directly granted non-root container in catch-up", a
   ]);
 });
 
+// A tree listing that stopped short leaves the known containers' document
+// lanes still worth listing, but the refresh must not report success.
+test("a failed tree refresh still reconciles known containers, then rejects", async () => {
+  const calls: string[] = [];
+  const host = createHost({
+    knownContainerIds: ["c-1", "c-2"],
+    discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
+      calls.push(`discover:${containerId}`);
+      return [];
+    }),
+    refreshTree: async () => {
+      calls.push("refresh-full");
+      throw new Error("Container tree listing was unavailable");
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+
+  await expect(service.reconcileNow()).rejects.toThrow(
+    "Container tree listing was unavailable",
+  );
+  expect(calls).toEqual(["refresh-full", "discover:c-1", "discover:c-2"]);
+});
+
 test("explicit full refresh retries an active container outside the background set", async () => {
   const discovered: string[] = [];
   const host = createHost({

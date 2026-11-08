@@ -422,7 +422,8 @@ function createContainerContentsStoreEntry(
     },
     store: {
       ...writeMethods,
-      refresh: () => syncAgent.refresh({ resetAllLaneWatermarks: true }),
+      refresh: (options) =>
+        syncAgent.refresh({ ...options, resetAllLaneWatermarks: true }),
       refreshRootLane: (options) => syncAgent.refreshRootLane(options),
       // Force an on-demand local SQLite re-read (see the interface doc): arm the
       // gate refreshLocalContainerStates otherwise requires, which the runtime

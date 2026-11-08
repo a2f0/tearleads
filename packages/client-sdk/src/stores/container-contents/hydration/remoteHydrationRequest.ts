@@ -30,6 +30,7 @@ interface RemoteHydrationRequestInput {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
+  onListingUnavailable?: (() => void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
   resetRootLaneWatermark?: boolean | undefined;
@@ -261,6 +262,21 @@ function consumeQueuedHydrationScope(
   };
 }
 
+/** Whether a settled, current request should schedule the follow-up sync. */
+function shouldScheduleSyncAfterHydration(
+  input: RemoteHydrationRequestInput,
+  changed: boolean,
+): boolean {
+  const { state } = input;
+  return (
+    (((input.scheduleSyncOnHydrationChange ?? true) && changed) ||
+      input.scheduleSyncAfterHydration === true) &&
+    state.snapshot.ready &&
+    state.runtime.auth.isAuthenticated &&
+    state.runtime.state.online
+  );
+}
+
 export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
@@ -307,6 +323,7 @@ export function requestContainerContentsRemoteHydration(
         host: hydrationHost,
         isCurrent,
         onFullyHydrated,
+        onListingUnavailable: input.onListingUnavailable,
         parentIds,
         resetAllLaneWatermarks: input.resetAllLaneWatermarks,
         resetRootLaneWatermark: input.resetRootLaneWatermark,
@@ -338,16 +355,10 @@ export function requestContainerContentsRemoteHydration(
         state.remoteHydrationStructuralGeneration = null;
       }
 
-      if (
-        isCurrent() &&
-        (((input.scheduleSyncOnHydrationChange ?? true) &&
-          (appliedRemoteContainerChange ||
-            (!rootLaneHydratedBeforeRequest && state.rootLaneHydrated))) ||
-          input.scheduleSyncAfterHydration) &&
-        state.snapshot.ready &&
-        state.runtime.auth.isAuthenticated &&
-        state.runtime.state.online
-      ) {
+      const changed =
+        appliedRemoteContainerChange ||
+        (!rootLaneHydratedBeforeRequest && state.rootLaneHydrated);
+      if (isCurrent() && shouldScheduleSyncAfterHydration(input, changed)) {
         scheduleSync();
       }
       if (shouldRetryAfterReset) {

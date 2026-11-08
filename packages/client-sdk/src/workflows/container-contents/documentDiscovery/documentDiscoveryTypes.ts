@@ -214,3 +214,26 @@ export interface ListedContainerDocuments {
   nextWatermark: SyncWatermark | null;
   tombstones: ContainerDocumentTombstone[];
 }
+
+/**
+ * One lane's listing: complete; `null` when the server refused the lane or a
+ * continuation came back without a watermark; or `"unavailable"` when the
+ * batched request carrying it failed or timed out, which says nothing about
+ * the lane and is worth retrying.
+ */
+export type ContainerDocumentLaneListing =
+  | ListedContainerDocuments
+  | "unavailable"
+  | null;
+
+/**
+ * Discovery could not list the container because its listing request failed
+ * or timed out. Unlike a refused lane, a later attempt may succeed, so the
+ * reconciler treats it as a failed reconciliation, not a skipped one.
+ */
+export class ContainerDocumentListingUnavailableError extends Error {
+  constructor(readonly containerId: string) {
+    super(`Document listing for container ${containerId} is unavailable`);
+    this.name = "ContainerDocumentListingUnavailableError";
+  }
+}
