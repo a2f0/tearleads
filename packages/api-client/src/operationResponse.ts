@@ -133,12 +133,13 @@ function reportBodyReadFailure(
   options: RequestResultOptions,
   error: unknown,
 ) {
-  const failure = options.signal?.aborted
-    ? { kind: "cancelled" as const, message: "Request was cancelled" }
-    : responseBodyFailure(error, errorMessage(error));
+  const failure = responseBodyFailure(
+    error,
+    errorMessage(error),
+    options.signal?.aborted === true,
+  );
   return request.reportFailure({
-    ...(failure.kind === "cancelled" ? { code: "request_aborted" } : {}),
-    kind: failure.kind,
+    ...failure,
     message: `${operation.method} ${path}: ${failure.message}`,
     method: operation.method,
     options,
