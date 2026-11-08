@@ -1,14 +1,16 @@
 import type { JsonOperation } from "@tearleads/validators/operation";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { decodeJsonOperationResponse } from "./operationResponse";
-import { principalHistoryDeadline } from "./principalHistoryDeadline";
 import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
+import { requestDeadline } from "./requestDeadline";
 import type {
   HttpMethod,
   RequestFailure,
   RequestResult,
   RequestResultOptions,
 } from "./types";
+
+const PRINCIPAL_HISTORY_READ_TIMEOUT_MS = 15_000;
 
 function requestContext(
   runtime: ApiRequestRuntime,
@@ -168,11 +170,13 @@ async function readResponse(
     readonly requestTimeoutMs?: number;
   },
 ) {
-  const deadline = principalHistoryDeadline(
+  // A fresh timer per response, so preparation continuations reset it.
+  const deadline = requestDeadline(
     context.options,
     // Writes await acknowledgement unless the caller supplies a deadline.
     // Aborting a committed write cannot be repaired by the continuation loop.
-    input.requestTimeoutMs ?? (input.method === "GET" ? undefined : null),
+    input.requestTimeoutMs ??
+      (input.method === "GET" ? PRINCIPAL_HISTORY_READ_TIMEOUT_MS : null),
   );
   const options =
     input.method === "GET"

@@ -42,6 +42,38 @@ function concurrentRenewal(
 }
 
 /**
+ * Ends a request's wait for a renewal when its signal aborts. Only the wait
+ * ends: the renewal is shared with other requests and keeps running, and a
+ * rejection it settles with later is still delivered to them.
+ */
+function renewalUnlessAborted(
+  renewal: boolean | Promise<boolean>,
+  signal: AbortSignal | undefined,
+): Promise<boolean> {
+  if (!signal) return Promise.resolve(renewal);
+  // Starting the renewal can abort the signal before a listener exists. The
+  // renewal is still consumed, so a later rejection is never unhandled.
+  if (signal.aborted) {
+    Promise.resolve(renewal).catch(() => undefined);
+    return Promise.resolve(false);
+  }
+  return new Promise<boolean>((resolve, reject) => {
+    const abandon = () => resolve(false);
+    signal.addEventListener("abort", abandon, { once: true });
+    Promise.resolve(renewal).then(
+      (renewed) => {
+        signal.removeEventListener("abort", abandon);
+        resolve(renewed);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", abandon);
+        reject(error);
+      },
+    );
+  });
+}
+
+/**
  * Decides whether a failed request can be replayed after session renewal.
  * Identity-integrity failures are terminal and must retain their typed error.
  */
@@ -60,10 +92,15 @@ export async function shouldRetryAfterSessionExpired(
   const concurrent = concurrentRenewal(input, input.authToken);
   if (typeof concurrent === "boolean") return concurrent;
   const pending = concurrent.pending;
+  // An aborted request has no use for a renewal and must not start one.
+  if (input.options.signal?.aborted) return false;
 
   let refreshed = false;
   try {
-    refreshed = await (pending ?? input.refreshSession());
+    refreshed = await renewalUnlessAborted(
+      pending ?? input.refreshSession(),
+      input.options.signal,
+    );
   } catch (error: unknown) {
     if (error instanceof KeyingVerificationError) {
       throw error;

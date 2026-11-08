@@ -244,16 +244,18 @@ export class ApiRequestRuntime {
     try {
       data = await response.json();
     } catch (error) {
-      const failure = responseBodyFailure(error, errorMessage(error));
-      if (failure.kind === "network") {
-        this.onNetworkError?.();
-      }
+      const failure = responseBodyFailure(
+        error,
+        errorMessage(error),
+        options.signal?.aborted === true,
+      );
+      if (failure.kind === "network") this.onNetworkError?.();
       return this.requestFailure({
-        kind: failure.kind,
+        ...failure,
         message: `${method} ${path}: ${failure.message}`,
         method,
         path,
-        reportErrors,
+        reportErrors: failure.kind !== "cancelled" && reportErrors,
         stalePrincipalHeads: undefined,
         status: response.status,
         statusText: response.statusText,
