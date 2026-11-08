@@ -98,13 +98,18 @@ for (const delayed of [false, true]) {
       await within(secondary).findByText(attachmentName);
       const baseline = capturePostShareSyncBaseline();
 
+      // Before each send the recovered device merges the keystrokes still
+      // queued, so the server holds between one and 24 updates. Each accepted
+      // update publishes one hint, which is dropped here.
+      const documentId = getAttachedNoteDocumentId();
       let dropUpdates = delayed;
       const dropped = delayed
         ? Array.from({ length: 24 }, () =>
             dropNextMswServerEventWhere(
               (event) =>
                 dropUpdates &&
-                Reflect.get(event, "type") === "document_update_created",
+                Reflect.get(event, "type") === "document_update_created" &&
+                Reflect.get(event, "documentId") === documentId,
             ),
           )
         : [];
@@ -114,12 +119,12 @@ for (const delayed of [false, true]) {
         text += character;
         await editSelectedNoteText(secondary, text);
       }
+      let uploaded = 0;
       if (delayed) {
         await waitForNoPostShareSyncFailures([primary, secondary], baseline);
         dropUpdates = false;
-        expect(
-          dropped.reduce((count, read) => count + read(), 0),
-        ).toBeGreaterThan(0);
+        uploaded = dropped.reduce((count, read) => count + read(), 0);
+        expect(uploaded).toBeGreaterThan(0);
         await waitForSelectedNoteText(
           primary,
           initialText,
@@ -133,8 +138,9 @@ for (const delayed of [false, true]) {
         "Original device did not receive the recovered device's edits.",
       );
       if (delayed) {
+        // The delayed pull delivers every update the server accepted at once.
         expect(documentSyncBatchSizes(baseline.requestStartIndex)).toContain(
-          24,
+          uploaded,
         );
       }
       expect(within(primary).getByText(attachmentName)).toBeTruthy();
