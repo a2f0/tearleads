@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type {
   DocumentRecord,
   DocumentsPersistence,
-  PendingUpdateRecord,
+  QueuedPendingUpdateRecord,
 } from "@tearleads/client-sdk";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import { createRuntime } from "../../../../test/helpers/document-store/documentStoreSyncRuntime";
@@ -14,7 +14,7 @@ import {
 type MemoryPersistence = DocumentsPersistence & {
   getState: () => {
     document: DocumentRecord | null;
-    pendingUpdates: PendingUpdateRecord[];
+    pendingUpdates: QueuedPendingUpdateRecord[];
   };
 };
 type ExecSql = Parameters<DocumentsPersistence["saveDocument"]>[0];

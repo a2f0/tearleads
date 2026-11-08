@@ -17,7 +17,12 @@ export const QUEUED_UPDATE_MERGE_MAX_DATA_CHARACTERS = Math.floor(
   MAX_DOCUMENT_SYNC_REQUEST_BYTES / 2,
 );
 
-/** Most queued rows folded into merged updates in one sync pass. */
+/**
+ * Most queued rows a merge pass inspects: only the front of the queue (the
+ * rows sent first) is proven and planned, so a fragmented backlog cannot hold
+ * the SQL lock for proofs of the whole queue. Rows merged per pass are
+ * bounded by the same count.
+ */
 export const QUEUED_UPDATE_MERGE_MAX_ROWS_PER_PASS = 256;
 
 export interface QueuedUpdateMergeLimits {
@@ -89,12 +94,10 @@ function canExtendRun(
   run: MergeRun,
   row: QueuedPendingUpdateRecord,
   ranges: PeerRanges,
-  input: { limits: QueuedUpdateMergeLimits; remainingRows: number },
+  limits: QueuedUpdateMergeLimits,
 ): boolean {
   return (
-    run.members.length < input.remainingRows &&
-    run.dataCharacters + row.updateData.length <=
-      input.limits.maxDataCharacters &&
+    run.dataCharacters + row.updateData.length <= limits.maxDataCharacters &&
     rangesConnect(run.peers, ranges)
   );
 }
@@ -136,13 +139,13 @@ function toMergeGroup(run: MergeRun): QueuedUpdateMergeGroup {
 }
 
 /**
- * Plan which queued rows to merge. Rows are taken in queue order and grouped
+ * Plan which queued rows to merge. Only the first `limits.maxRows` rows in
+ * queue order are inspected; later rows are never proven. They are grouped
  * into maximal runs of consecutive mergeable rows: ordinary local rows (not
  * outbox, not a rotation checkpoint) within the size cap that the live
  * document proves. A run is cut at any other row, where a shared peer's
- * ranges would leave a gap (overlaps are fine), or where the summed data or
- * the per-pass row budget would be exceeded. Only runs of two or more rows
- * become groups.
+ * ranges would leave a gap (overlaps are fine), or where the summed data
+ * would pass the cap. Only runs of two or more rows become groups.
  */
 export function planQueuedUpdateMerge(input: {
   readonly doc: DocumentState;
@@ -151,25 +154,18 @@ export function planQueuedUpdateMerge(input: {
 }): QueuedUpdateMergeGroup[] {
   const limits = input.limits ?? DEFAULT_QUEUED_UPDATE_MERGE_LIMITS;
   const groups: QueuedUpdateMergeGroup[] = [];
-  let remainingRows = limits.maxRows;
   let run: MergeRun | null = null;
   const closeRun = () => {
-    if (run && run.members.length >= 2) {
-      groups.push(toMergeGroup(run));
-      remainingRows -= run.members.length;
-    }
+    if (run && run.members.length >= 2) groups.push(toMergeGroup(run));
     run = null;
   };
-  for (const row of input.rows) {
-    if (remainingRows < 2) break;
+  for (const row of input.rows.slice(0, limits.maxRows)) {
     if (!isMergeableRow(row, input.doc, limits)) {
       closeRun();
       continue;
     }
     const ranges = rowPeerRanges(row);
-    if (run && !canExtendRun(run, row, ranges, { limits, remainingRows })) {
-      closeRun();
-    }
+    if (run && !canExtendRun(run, row, ranges, limits)) closeRun();
     run ??= { dataCharacters: 0, members: [], peers: new Map() };
     extendRun(run, row, ranges);
   }

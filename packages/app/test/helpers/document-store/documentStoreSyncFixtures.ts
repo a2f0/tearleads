@@ -7,7 +7,7 @@ import {
   type DocumentsRuntime,
   type LocalAttachmentRecord,
   type PendingAttachmentRecord,
-  type PendingUpdateRecord,
+  type QueuedPendingUpdateRecord,
 } from "@tearleads/client-sdk";
 import {
   computeAccessEventHash,
@@ -43,7 +43,7 @@ export interface StoredDocumentsState {
   documentSummaries: DocumentSummary[];
   localAttachments: LocalAttachmentRecord[];
   pendingAttachments: PendingAttachmentRecord[];
-  pendingUpdates: PendingUpdateRecord[];
+  pendingUpdates: QueuedPendingUpdateRecord[];
 }
 
 export type DocumentsRuntimeInput = Parameters<

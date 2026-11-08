@@ -4,7 +4,7 @@ import type {
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
-  PendingUpdateRecord,
+  QueuedPendingUpdateRecord,
 } from "@tearleads/client-sdk";
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
 import {
@@ -17,7 +17,7 @@ export interface StoredDocumentsState {
   document: DocumentRecord | null;
   localAttachments: LocalAttachmentRecord[];
   pendingAttachments: PendingAttachmentRecord[];
-  pendingUpdates: PendingUpdateRecord[];
+  pendingUpdates: QueuedPendingUpdateRecord[];
 }
 
 export interface StoredHistoryState {

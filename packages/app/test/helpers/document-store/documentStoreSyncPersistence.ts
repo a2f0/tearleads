@@ -4,7 +4,7 @@ import type {
   LocalAttachmentRecord,
   PendingAttachmentRecord,
   PendingUpdateInsert,
-  PendingUpdateRecord,
+  QueuedPendingUpdateRecord,
 } from "@tearleads/client-sdk";
 import { invalidateMemoryDocumentPullContinuation } from "./documentPullContinuationPersistence";
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
@@ -35,7 +35,7 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
   let document: DocumentRecord | null = null;
   let localAttachments: LocalAttachmentRecord[] = [];
   let pendingAttachments: PendingAttachmentRecord[] = [];
-  let pendingUpdates: PendingUpdateRecord[] = [];
+  let pendingUpdates: QueuedPendingUpdateRecord[] = [];
   const historyByLocalId = new Map<string, StoredHistoryState>();
   const historyFor = (localId: string): StoredHistoryState =>
     memoryHistoryFor(historyByLocalId, localId);

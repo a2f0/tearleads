@@ -161,7 +161,7 @@ test("the data cap splits a run", async () => {
   ]);
 });
 
-test("the per-pass row budget bounds merged rows", async () => {
+test("the per-pass row bound limits merged rows", async () => {
   const { doc, rows } = await queuedRows(7, "merge-plan-budget");
   const maxDataCharacters = QUEUED_UPDATE_MERGE_MAX_DATA_CHARACTERS;
 
@@ -183,6 +183,53 @@ test("the per-pass row budget bounds merged rows", async () => {
       }),
     ),
   ).toEqual([["row-0", "row-1", "row-2", "row-3", "row-4"]]);
+});
+
+test("rows past the per-pass bound are never inspected", async () => {
+  const { doc, rows } = await queuedRows(3, "merge-plan-fragmented");
+  const [r0, r1, r2] = rows;
+  if (!r0 || !r1 || !r2) throw new Error("expected three rows");
+  const stranger = await createDocument("merge-plan-fragmented-stranger");
+  const unproven = [0, 1, 2].map((index) =>
+    commitRow(stranger, `unproven-${index}`),
+  );
+  // Reading any field of this row fails, so inspecting it would throw.
+  const uninspectable = new Proxy(
+    {},
+    {
+      get() {
+        throw new Error("a row past the bound was inspected");
+      },
+    },
+  ) as QueuedPendingUpdateRecord;
+  // A fragmented front (a singleton, then unproven rows) followed by a
+  // mergeable pair and the uninspectable row.
+  const queue = [r0, ...unproven, r1, r2, uninspectable];
+  const maxDataCharacters = QUEUED_UPDATE_MERGE_MAX_DATA_CHARACTERS;
+
+  expect(
+    planQueuedUpdateMerge({
+      doc,
+      limits: { maxDataCharacters, maxRows: 4 },
+      rows: queue,
+    }),
+  ).toEqual([]);
+  expect(
+    memberIds(
+      planQueuedUpdateMerge({
+        doc,
+        limits: { maxDataCharacters, maxRows: 6 },
+        rows: queue,
+      }),
+    ),
+  ).toEqual([["row-1", "row-2"]]);
+  expect(() =>
+    planQueuedUpdateMerge({
+      doc,
+      limits: { maxDataCharacters, maxRows: 7 },
+      rows: queue,
+    }),
+  ).toThrow("a row past the bound was inspected");
 });
 
 test("a per-peer gap cuts a run and an overlap merges", async () => {

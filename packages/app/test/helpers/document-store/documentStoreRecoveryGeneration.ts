@@ -2,7 +2,7 @@ import type {
   DocumentRecord,
   DocumentsPersistence,
   PendingUpdateInsert,
-  PendingUpdateRecord,
+  QueuedPendingUpdateRecord,
 } from "@tearleads/client-sdk";
 
 interface MemoryHistoryState {
@@ -64,8 +64,8 @@ export function enqueueMemoryPendingUpdate(input: {
   historyByLocalId: Map<string, MemoryHistoryState>;
   options: EnqueueOptions;
   pendingUpdate: PendingUpdateInsert;
-  pendingUpdates: PendingUpdateRecord[];
-}): { enqueued: boolean; pendingUpdates: PendingUpdateRecord[] } {
+  pendingUpdates: QueuedPendingUpdateRecord[];
+}): { enqueued: boolean; pendingUpdates: QueuedPendingUpdateRecord[] } {
   if (
     input.options &&
     !memoryDocumentWriteFenceMatches(
@@ -113,9 +113,12 @@ export function enqueueMemoryPendingUpdate(input: {
  */
 export function replaceMemoryQueuedPendingUpdates(input: {
   document: DocumentRecord | null;
-  pendingUpdates: PendingUpdateRecord[];
+  pendingUpdates: QueuedPendingUpdateRecord[];
   replacement: ReplaceInput;
-}): { pendingUpdates: PendingUpdateRecord[]; updateId: string | null } {
+}): {
+  pendingUpdates: QueuedPendingUpdateRecord[];
+  updateId: string | null;
+} {
   const { memberUpdateIds } = input.replacement;
   const first = input.pendingUpdates.findIndex(
     (row) => row.id === memberUpdateIds[0],
@@ -141,7 +144,7 @@ export function replaceMemoryQueuedPendingUpdates(input: {
     return { pendingUpdates: input.pendingUpdates, updateId: null };
   }
   const updateId = crypto.randomUUID();
-  const merged: PendingUpdateRecord = {
+  const merged: QueuedPendingUpdateRecord = {
     ...input.replacement.merged,
     id: updateId,
     origin: "local",
