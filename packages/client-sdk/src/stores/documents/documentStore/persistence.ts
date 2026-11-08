@@ -16,8 +16,8 @@ import {
   type ExecSql,
   enqueuePendingDocumentUpdate,
   listPendingDocumentUpdates,
-  type PendingUpdateRecord,
   persistDocumentState,
+  type QueuedPendingUpdateRecord,
   runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
@@ -307,7 +307,7 @@ export async function publishPersistedDocument(
 
 export async function listPendingUpdates(
   state: DocumentStoreState,
-): Promise<PendingUpdateRecord[]> {
+): Promise<QueuedPendingUpdateRecord[]> {
   return listPendingDocumentUpdates({
     execSql: state.runtime.infra.execSql,
     localId: state.localId,

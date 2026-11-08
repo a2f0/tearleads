@@ -32,6 +32,7 @@ generation and reject its stale enqueue or save.
 | `hasUnverifiedLocalGap` / `RejectUnverifiedLocalGap` | exact `updateMatchesDocumentHistory` compaction coverage plus recovery's exact-history rejection; unmatched and malformed tail rows remain durable evidence |
 | `AppendCheckpointArtifact` | a checkpoint row racing collection; the atomic install (`installRebuiltDocument`) retires the selected artifact without importing it as history |
 | `BeginBlockedWriter` / `FinishBlockedWriterAfterRecovery` | the durable `recoveryGeneration` captured by enqueue/save preparation and rechecked by settlement and commit paths |
+| `VerifyOrdinaryProvenance` / `BeginBlockedWriter` for merged rows | a row written by `replaceQueuedPendingUpdates` has no source version vector, the update import mode, and stored vectors equal to its decoded ones, so `importProvenOrdinaryPendingHistory` proves it with `updateMatchesDocumentHistory` like any ordinary row; `replaceDocumentQueuedUpdates` compares the document's `recoveryGeneration` inside its transaction, so a merge planned before recovery advanced the generation changes nothing |
 
 ## Checked Properties and Bounds
 

@@ -11,6 +11,7 @@ import { createMemoryPullContinuationPersistence } from "./document-store/docume
 import {
   enqueueMemoryPendingUpdate,
   memoryDocumentWriteFenceMatches,
+  replaceMemoryQueuedPendingUpdates,
 } from "./document-store/documentStoreRecoveryGeneration";
 import {
   createDocumentWritePersistence,
@@ -126,6 +127,7 @@ function createPendingUpdatePersistence(
   | "listPendingUpdates"
   | "rekeyPendingUpdate"
   | "enqueuePendingUpdate"
+  | "replaceQueuedPendingUpdates"
   | "deletePendingUpdate"
   | "deletePendingUpdates"
 > {
@@ -160,6 +162,15 @@ function createPendingUpdatePersistence(
       });
       state.pendingUpdates = result.pendingUpdates;
       return result.enqueued;
+    },
+    async replaceQueuedPendingUpdates(_execSql, replacement) {
+      const result = replaceMemoryQueuedPendingUpdates({
+        document: state.document,
+        pendingUpdates: state.pendingUpdates,
+        replacement,
+      });
+      state.pendingUpdates = result.pendingUpdates;
+      return result.updateId;
     },
     async deletePendingUpdate(_execSql, id) {
       state.pendingUpdates = state.pendingUpdates.filter(

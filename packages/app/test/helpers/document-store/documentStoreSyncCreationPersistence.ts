@@ -1,16 +1,16 @@
 import type {
   DocumentRecord,
   DocumentsPersistence,
-  PendingUpdateRecord,
+  QueuedPendingUpdateRecord,
 } from "@tearleads/client-sdk";
 import type { StoredHistoryState } from "./documentStoreSyncPersistenceState";
 
 export function createMemoryDocumentCreationPersistence(input: {
   getDocument: () => DocumentRecord | null;
-  getPendingUpdates: () => PendingUpdateRecord[];
+  getPendingUpdates: () => QueuedPendingUpdateRecord[];
   historyByLocalId: Map<string, StoredHistoryState>;
   setDocument: (document: DocumentRecord | null) => void;
-  setPendingUpdates: (updates: PendingUpdateRecord[]) => void;
+  setPendingUpdates: (updates: QueuedPendingUpdateRecord[]) => void;
 }): Pick<DocumentsPersistence, "createDocumentWithHistoryCheckpoint"> {
   return {
     async createDocumentWithHistoryCheckpoint(
@@ -42,7 +42,11 @@ export function createMemoryDocumentCreationPersistence(input: {
         if (options?.pendingUpdate) {
           input.setPendingUpdates([
             ...input.getPendingUpdates(),
-            { id: crypto.randomUUID(), ...options.pendingUpdate },
+            {
+              id: crypto.randomUUID(),
+              origin: "local",
+              ...options.pendingUpdate,
+            },
           ]);
         }
         await saveClientProjection(execSql, updatedAt);

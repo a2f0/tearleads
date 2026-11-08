@@ -3,7 +3,7 @@ import type {
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
-  PendingUpdateRecord,
+  QueuedPendingUpdateRecord,
 } from "@tearleads/client-sdk";
 import { applyMemoryHistoryCheckpoint } from "./documentStoreRecoveryPruning";
 import { applyMemoryAttachmentRemoval } from "./documentStoreSyncPersistenceState";
@@ -12,7 +12,7 @@ interface MemoryDocumentState {
   document: DocumentRecord | null;
   localAttachments: LocalAttachmentRecord[];
   pendingAttachments: PendingAttachmentRecord[];
-  pendingUpdates: PendingUpdateRecord[];
+  pendingUpdates: QueuedPendingUpdateRecord[];
 }
 
 interface MemoryHistoryState {
@@ -110,6 +110,7 @@ async function stageMutation(input: {
   if (input.mutation.pendingUpdate) {
     input.state.pendingUpdates.push({
       id: crypto.randomUUID(),
+      origin: "local",
       ...input.mutation.pendingUpdate,
     });
     history.tail.push({

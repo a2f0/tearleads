@@ -45,6 +45,7 @@ import {
   isDocumentStoreSyncLaneGenerationCurrent,
 } from "./syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
+import { mergeQueuedDocumentUpdates } from "./syncQueueMerge";
 import { requestRemoteDocumentSync } from "./syncRequest";
 import {
   ensureSeededRemoteDocument,
@@ -156,7 +157,7 @@ async function syncDocumentState(
   // finalizeDocumentSync must not clear the signal if this sequence has moved.
   const consumedRemoteUpdateSignalSeq = state.remoteUpdateSignalSeq;
   const wasRemoteProbe = state.remoteUpdatePending;
-  let pendingUpdates = await listPendingUpdates(state);
+  let pendingUpdates: PendingUpdateRecord[] = await listPendingUpdates(state);
   if (!isDocumentStoreSyncGenerationCurrent(state, generation))
     return requestSyncAgain(state, nextRecord);
   if (pendingUpdates.length === 0 && isDocumentStoreRemoteSyncBlocked(state)) {
@@ -195,7 +196,12 @@ async function syncDocumentState(
   });
   if (!preparedCoverage) return requestSyncAgain(state, nextRemoteRecord);
   nextRemoteRecord = preparedCoverage.record;
-  pendingUpdates = preparedCoverage.pendingUpdates;
+  pendingUpdates = await mergeQueuedDocumentUpdates({
+    currentDoc,
+    generation,
+    pendingUpdates: preparedCoverage.pendingUpdates,
+    state,
+  });
 
   if (
     shouldSkipCleanScheduledDocumentSync({

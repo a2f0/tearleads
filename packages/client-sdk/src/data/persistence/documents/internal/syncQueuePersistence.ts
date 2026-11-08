@@ -9,6 +9,7 @@ import {
   enqueueDocumentPendingUpdateWithHistory,
   listDocumentPendingUpdates,
   rekeyDocumentPendingUpdate,
+  replaceDocumentQueuedUpdates,
   settleDocumentPendingUpdate,
   unqueueDocumentPendingUpdates,
 } from "../records";
@@ -40,6 +41,7 @@ type DocumentSyncQueuePersistence = Pick<
   | "listHistoryTailEntries"
   | "replaceHistoryCheckpoint"
   | "enqueuePendingUpdate"
+  | "replaceQueuedPendingUpdates"
   | "saveLocalAttachment"
   | "deleteLocalAttachment"
   | "markLocalAttachmentDetached"
@@ -148,6 +150,15 @@ export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
       );
       return pendingUpdateId !== null;
     });
+  },
+  async replaceQueuedPendingUpdates(execSql, { localId, ...replacement }) {
+    return runSerializedSqlMutation(execSql, (lockedExecSql) =>
+      replaceDocumentQueuedUpdates(
+        lockedExecSql,
+        getDocumentScope(localId),
+        replacement,
+      ),
+    );
   },
   async saveLocalAttachment(execSql, attachment) {
     const updatedAt = new Date().toISOString();

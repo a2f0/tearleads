@@ -434,6 +434,7 @@ export type {
   PendingAttachmentRecord,
   PendingUpdateInsert,
   PendingUpdateRecord,
+  QueuedPendingUpdateRecord,
   SyncRemoteDocumentInput,
 } from "./workflows/documents";
 export {

@@ -28,6 +28,7 @@ export type {
   PendingAttachmentUploadIdentity,
   PendingUpdateInsert,
   PendingUpdateRecord,
+  QueuedPendingUpdateRecord,
   RelinkPersistedDocumentInput,
   StoredDocumentRecord as DocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";

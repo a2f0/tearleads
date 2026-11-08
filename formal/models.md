@@ -191,6 +191,17 @@ work and that a stale completion can never publish into a replacement
 generation. See the
 [production mapping, explored orderings, invariants, and bounds](./document-sync/DeferredTailSettlement.md).
 
+### Outgoing Queue Merge
+
+[`document-sync/OutgoingQueueMerge.tla`](./document-sync/OutgoingQueueMerge.tla)
+models two runtimes sharing one durable outgoing queue while a sync pass
+replaces a run of consecutive queued local rows with one row holding exactly
+their operations, alongside edits, full-state rows, submission, acceptance,
+lost acknowledgements, settlement by id, conflict re-keying, and restarts. It
+requires that no local operation is lost, that an update id never names two
+contents, and that a merged row keeps its first member's queue position. See
+the [production mapping, negative controls, and bounds](./document-sync/OutgoingQueueMerge.md).
+
 ### Opened-Document Recovery Probes
 
 [Raw-history reconstruction](../docs/raw-document-history-recovery.md) before

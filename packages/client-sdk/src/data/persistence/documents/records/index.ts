@@ -91,7 +91,12 @@ export type {
   DocumentScope,
   PendingUpdateFields,
   PendingUpdateRecord,
+  QueuedPendingUpdateRecord,
 } from "./documentPersistenceTypes";
+export {
+  type QueuedUpdateReplacement,
+  replaceDocumentQueuedUpdates,
+} from "./documentQueuedUpdateReplacement";
 export {
   deleteDocumentRecord,
   documentRecordSelection,

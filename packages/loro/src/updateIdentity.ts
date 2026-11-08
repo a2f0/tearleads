@@ -1,9 +1,4 @@
-import {
-  idStrToId,
-  type JsonSchema,
-  type LoroDoc,
-  type PeerID,
-} from "loro-crdt";
+import { idStrToId, type JsonSchema, type LoroDoc } from "loro-crdt";
 import {
   decodeVersionVector,
   encodeVersionVector,
@@ -14,6 +9,7 @@ import {
   versionVectorsEqual,
 } from "./document";
 import { serializeCanonicalHistory } from "./historyCanonicalization";
+import { operationSpans } from "./versionRange";
 
 function rangeDependencyFrontiers(
   history: JsonSchema,
@@ -37,26 +33,6 @@ function rangeDependencyFrontiers(
     }
   }
   return [...externalDependencies.values()];
-}
-
-function operationSpans(
-  startVersion: ReturnType<typeof decodeVersionVector>,
-  endVersion: ReturnType<typeof decodeVersionVector>,
-): { id: { counter: number; peer: PeerID }; len: number }[] | null {
-  for (const [peer, startCounter] of startVersion.toJSON()) {
-    if (startCounter > (endVersion.get(peer) ?? 0)) return null;
-  }
-  return [...endVersion.toJSON()].flatMap(([peer, endCounter]) => {
-    const startCounter = startVersion.get(peer) ?? 0;
-    return endCounter === startCounter
-      ? []
-      : [
-          {
-            id: { counter: startCounter, peer },
-            len: endCounter - startCounter,
-          },
-        ];
-  });
 }
 
 function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {

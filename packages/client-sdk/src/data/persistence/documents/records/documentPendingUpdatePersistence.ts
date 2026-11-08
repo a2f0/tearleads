@@ -19,7 +19,8 @@ import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type {
   DocumentScope,
   PendingUpdateFields,
-  PendingUpdateRecord,
+  PendingUpdateOrigin,
+  QueuedPendingUpdateRecord,
   SelectedPendingUpdateRow,
 } from "./documentPersistenceTypes";
 
@@ -34,7 +35,7 @@ const OUTBOX_ORIGIN = "outbox";
 type QueueStatement = Pick<ClientSQLiteTransactionScope, "delete" | "update">;
 type QueueRead = Pick<ClientSQLiteTransactionScope, "selectDistinct">;
 
-function queuedInScope(scope: DocumentScope) {
+export function queuedInScope(scope: DocumentScope) {
   return and(
     eq(documentHistoryUpdates.appKind, scope.appKind),
     eq(documentHistoryUpdates.localId, scope.localId),
@@ -44,7 +45,7 @@ function queuedInScope(scope: DocumentScope) {
 
 function mapSelectedPendingUpdate(
   row: SelectedPendingUpdateRow,
-): PendingUpdateRecord {
+): QueuedPendingUpdateRecord {
   // A queued row always carries its submission vectors; a row without them
   // cannot be submitted and must fail closed rather than send empty ranges.
   if (
@@ -53,8 +54,12 @@ function mapSelectedPendingUpdate(
   ) {
     throw new Error("Queued document update is missing its version vectors");
   }
+  if (row.origin !== "local" && row.origin !== OUTBOX_ORIGIN) {
+    throw new Error("Queued document update has an unqueueable origin");
+  }
   return {
     id: String(row.id ?? ""),
+    origin: row.origin,
     updateData: row.updateData,
     partialStartVersionVector: row.partialStartVersionVector,
     partialEndVersionVector: row.partialEndVersionVector,
@@ -98,11 +103,12 @@ export async function hasQueuedDocumentUpdates(
 export async function listDocumentPendingUpdates(
   execSql: ExecSql,
   scope: DocumentScope,
-): Promise<PendingUpdateRecord[]> {
+): Promise<QueuedPendingUpdateRecord[]> {
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select({
       id: documentHistoryUpdates.updateId,
+      origin: documentHistoryUpdates.origin,
       updateData: documentHistoryUpdates.updateData,
       partialStartVersionVector:
         documentHistoryUpdates.partialStartVersionVector,
@@ -112,15 +118,47 @@ export async function listDocumentPendingUpdates(
     })
     .from(documentHistoryUpdates)
     .where(queuedInScope(scope))
-    .orderBy(asc(documentHistoryUpdates.createdAt), asc(sql`rowid`));
+    .orderBy(...queueOrder());
 
   return rows.map(mapSelectedPendingUpdate);
+}
+
+/** Queue order: insertion time, then insertion order within one instant. */
+export function queueOrder() {
+  return [asc(documentHistoryUpdates.createdAt), asc(sql`rowid`)] as const;
+}
+
+/**
+ * Write fence inside an open transaction: the scope's document still has the
+ * captured server document id and recovery generation.
+ */
+export async function documentWriteFenceMatchesInTransaction(
+  tx: Pick<ClientSQLiteTransactionScope, "select">,
+  scope: DocumentScope,
+  fence: {
+    expectedDocumentId: string | null;
+    expectedRecoveryGeneration: number;
+  },
+): Promise<boolean> {
+  const matchingDocuments = await tx
+    .select({ localId: documents.localId })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.appKind, scope.appKind),
+        eq(documents.localId, scope.localId),
+        sql`${documents.documentId} IS ${fence.expectedDocumentId}`,
+        eq(documents.recoveryGeneration, fence.expectedRecoveryGeneration),
+      ),
+    )
+    .limit(1);
+  return matchingDocuments.length > 0;
 }
 
 /** One log row for a queued update; `origin` decides its tail role. */
 export function queuedUpdateRow(input: {
   createdAt: string;
-  origin: "local" | typeof OUTBOX_ORIGIN;
+  origin: PendingUpdateOrigin;
   pendingUpdate: PendingUpdateFields;
   scope: DocumentScope;
   updateId: string;
@@ -184,25 +222,11 @@ export async function enqueueDocumentPendingUpdateWithHistory(
   const createdAt = new Date().toISOString();
   return getClientSQLitePersistenceRuntime(execSql).transaction(
     async (tx) => {
-      if (options) {
-        const matchingDocuments = await tx
-          .select({ localId: documents.localId })
-          .from(documents)
-          .where(
-            and(
-              eq(documents.appKind, scope.appKind),
-              eq(documents.localId, scope.localId),
-              sql`${documents.documentId} IS ${options.expectedDocumentId}`,
-              eq(
-                documents.recoveryGeneration,
-                options.expectedRecoveryGeneration,
-              ),
-            ),
-          )
-          .limit(1);
-        if (matchingDocuments.length === 0) {
-          return null;
-        }
+      if (
+        options &&
+        !(await documentWriteFenceMatchesInTransaction(tx, scope, options))
+      ) {
+        return null;
       }
 
       return insertDocumentPendingUpdateWithHistoryInTransaction({

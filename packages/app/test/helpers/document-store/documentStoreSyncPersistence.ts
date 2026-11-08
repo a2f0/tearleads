@@ -4,7 +4,7 @@ import type {
   LocalAttachmentRecord,
   PendingAttachmentRecord,
   PendingUpdateInsert,
-  PendingUpdateRecord,
+  QueuedPendingUpdateRecord,
 } from "@tearleads/client-sdk";
 import { invalidateMemoryDocumentPullContinuation } from "./documentPullContinuationPersistence";
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
@@ -14,6 +14,7 @@ import {
   memoryDocumentRecoveryGenerationMatches,
   memoryDocumentWriteFenceMatches,
   memoryHistoryFor,
+  replaceMemoryQueuedPendingUpdates,
 } from "./documentStoreRecoveryGeneration";
 import { createMemoryDocumentStartupReads } from "./documentStoreStartupReads";
 import { buildMemoryDocumentSummaries } from "./documentStoreSummaries";
@@ -34,7 +35,7 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
   let document: DocumentRecord | null = null;
   let localAttachments: LocalAttachmentRecord[] = [];
   let pendingAttachments: PendingAttachmentRecord[] = [];
-  let pendingUpdates: PendingUpdateRecord[] = [];
+  let pendingUpdates: QueuedPendingUpdateRecord[] = [];
   const historyByLocalId = new Map<string, StoredHistoryState>();
   const historyFor = (localId: string): StoredHistoryState =>
     memoryHistoryFor(historyByLocalId, localId);
@@ -349,6 +350,15 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       });
       pendingUpdates = result.pendingUpdates;
       return result.enqueued;
+    },
+    async replaceQueuedPendingUpdates(_execSql, replacement) {
+      const result = replaceMemoryQueuedPendingUpdates({
+        document,
+        pendingUpdates,
+        replacement,
+      });
+      pendingUpdates = result.pendingUpdates;
+      return result.updateId;
     },
     async deletePendingUpdate(_execSql, id: string) {
       pendingUpdates = pendingUpdates.filter(
