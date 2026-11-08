@@ -28,6 +28,7 @@ import {
 } from "./attachmentStagingPersistence";
 import {
   sameDocumentSecurityIdentity,
+  sameDocumentSettlementIdentity,
   sameNullableDocumentValue,
 } from "./documentRecordIdentity";
 import { documentSaveTimestampFrom, saveDocumentRows } from "./documentRows";
@@ -103,7 +104,7 @@ async function settleMutationConflict(input: {
   if (
     input.currentRecord &&
     input.mutation.settleAcceptedPendingOnConflict &&
-    sameDocumentSecurityIdentity(
+    sameDocumentSettlementIdentity(
       input.currentRecord,
       input.mutation.expectedRecord,
     ) &&
@@ -408,7 +409,7 @@ export async function settleStoredDocumentPendingUpdates(
         );
         if (
           currentRecord &&
-          sameDocumentSecurityIdentity(currentRecord, input.expectedRecord) &&
+          sameDocumentSettlementIdentity(currentRecord, input.expectedRecord) &&
           sameRecoveryGeneration(currentRecord, input.expectedRecord)
         ) {
           await deleteAcceptedPendingUpdates(

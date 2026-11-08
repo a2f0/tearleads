@@ -42,6 +42,8 @@ export function projectionFailureHandler(
     : input.onReadOnlyProjectionFailure;
 }
 export async function planDocumentSyncAttempt(input: {
+  /** The version the request advertises; defaults to the sync's live one. */
+  localVersionVector?: string | null | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   pullContinuation?: DocumentSyncPullContinuation | undefined;
   regenerateQueuedCheckpoints: boolean;
@@ -82,6 +84,7 @@ export async function planDocumentSyncAttempt(input: {
       buildWithProjection: (projection) =>
         buildRemoteDocumentSyncPlan({
           pendingUpdates,
+          localVersionVector: input.localVersionVector,
           preparedRekeys:
             projection === prepared.projection ? prepared.plans : undefined,
           minLsn: resolvePullContinuationMinLsn(

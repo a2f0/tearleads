@@ -27,6 +27,7 @@ import {
 } from "../syncFailures/syncAbandon";
 import { recoverablePendingUpdates } from "../syncPlan/syncPlanRequestBounds";
 import { requireStandaloneAncestorRepairs } from "../syncRekeys/syncContainerRekeyPreparation";
+import { recoveryLocalVersionVector } from "../syncRekeys/syncRecoveryRekey";
 import {
   type SyncRemoteDocumentInput,
   tryPersistedReadOnlyDocumentSync,
@@ -231,6 +232,12 @@ async function runRemoteDocumentSyncAttempt(input: {
     return { kind: "complete", result: null };
   }
   const planned = await planDocumentSyncAttempt({
+    // The sync input stays the same object: per-pass repair state is keyed on
+    // it (see syncContainerRekeyPreparation.ts).
+    localVersionVector: recoveryLocalVersionVector(
+      input.sync.localVersionVector,
+      input.state.recoveryPendingUpdatesById,
+    ),
     pendingUpdates: input.state.pendingUpdates,
     pullContinuation: input.state.pullContinuation,
     regenerateQueuedCheckpoints: input.state.regenerateQueuedCheckpoints,

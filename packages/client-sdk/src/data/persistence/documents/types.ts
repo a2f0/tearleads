@@ -216,7 +216,7 @@ export interface DocumentsPersistence
     | { committed: true; updatedAt: string }
     | { committed: false; currentRecord: StoredDocumentRecord | null }
   >;
-  /** Settle acknowledged rows only while the response's security identity survives. */
+  /** Settle acknowledged rows while the response's identity, apart from access state, survives. */
   settleAcceptedPendingUpdates: (
     execSql: ExecSql,
     input: {

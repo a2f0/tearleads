@@ -56,10 +56,13 @@ normally. A lost response is adopted through
 committed, so the row stays queued and syncs as an ordinary update. That sync
 encrypts the row again, so when the seed did commit, the reused id no longer
 matches the stored ciphertext and the server answers
-`409 document_sync_update_id_conflict`. Recovery settles the row when its pull
-carries the stored update and otherwise re-keys the row, whose ops then commit
-again under a fresh id; the duplicate is harmless because CRDT import is
-idempotent. A lost response therefore costs the recovery round trips, not data.
+`409 document_sync_update_id_conflict`. Recovery pulls with the live version
+lowered to the start of each conflicted row, because the server returns only
+updates past the advertised version and the live version already covers every
+queued row. It settles a row when that pull carries the stored update with the
+same content, and otherwise re-keys the row, whose ops then commit again under
+a fresh id; that duplicate is harmless because CRDT import is idempotent. A
+lost response therefore costs the recovery round trips, not data.
 
 Both link and unlink bodies require `blobRewraps`: one entry per
 [blob](./glossary/content.md#blob) actively bound to the changed document, with

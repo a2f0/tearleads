@@ -83,8 +83,14 @@ writer can rebase and a sync response can adopt the winner. A failed comparison
 must not enqueue the optional outgoing update.
 
 `settleAcceptedPendingUpdates(...)` removes acknowledged updates from the queue
-only while the response's complete security identity still matches the
-canonical record.
+only while the canonical record still has the response's security identity and
+`recoveryGeneration`, apart from its access state: `accessStateHash` and
+`effectiveAccessLevel` may differ. Discovery and membership refreshes rewrite
+them without changing the document the server stored the updates in, so a
+refresh that lands while a sync response is persisted must not leave those
+updates queued, to be resent, rejected as an id conflict, and re-keyed into
+duplicates. `commitDocumentMutation(...)` applies the same comparison when it
+settles accepted updates after a lost compare-and-set.
 It returns the authoritative record whether the comparison succeeds or loses.
 
 `loadDocumentStoreState(...)` reads the canonical record, durable history,

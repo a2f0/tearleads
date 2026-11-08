@@ -42,19 +42,17 @@ export function documentSummaryFromRecord(
   };
 }
 
-function sameSecurityIdentity(
+/** Mirrors sameDocumentSettlementIdentity in the client SDK. */
+function sameSettlementIdentity(
   current: DocumentRecord | null,
   expected: DocumentRecord,
-): boolean {
+): current is DocumentRecord {
   return (
     current !== null &&
     current.id === expected.id &&
     current.documentId === expected.documentId &&
     current.containerId === expected.containerId &&
     current.accessEpoch === expected.accessEpoch &&
-    (current.accessStateHash ?? null) === (expected.accessStateHash ?? null) &&
-    (current.effectiveAccessLevel ?? null) ===
-      (expected.effectiveAccessLevel ?? null) &&
     (current.contentKeyBundle ?? null) ===
       (expected.contentKeyBundle ?? null) &&
     (current.documentKekTargets ?? null) ===
@@ -62,6 +60,18 @@ function sameSecurityIdentity(
     (current.documentManifestBundle ?? null) ===
       (expected.documentManifestBundle ?? null) &&
     memoryDocumentRecoveryGenerationMatches(current, expected)
+  );
+}
+
+function sameSecurityIdentity(
+  current: DocumentRecord | null,
+  expected: DocumentRecord,
+): boolean {
+  return (
+    sameSettlementIdentity(current, expected) &&
+    (current.accessStateHash ?? null) === (expected.accessStateHash ?? null) &&
+    (current.effectiveAccessLevel ?? null) ===
+      (expected.effectiveAccessLevel ?? null)
   );
 }
 
@@ -144,7 +154,7 @@ export function createDocumentWritePersistence(
       });
     },
     async settleAcceptedPendingUpdates(_execSql, input) {
-      if (sameSecurityIdentity(state.document, input.expectedRecord)) {
+      if (sameSettlementIdentity(state.document, input.expectedRecord)) {
         const acceptedIds = new Set(input.pendingUpdateIds);
         state.pendingUpdates = state.pendingUpdates.filter(
           ({ id }) => !acceptedIds.has(id),
