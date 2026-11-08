@@ -14,6 +14,10 @@ type EnqueueOptions = Parameters<
   DocumentsPersistence["enqueuePendingUpdate"]
 >[2];
 
+type ReplaceInput = Parameters<
+  DocumentsPersistence["replaceQueuedPendingUpdates"]
+>[1];
+
 export function memoryHistoryFor(
   historyByLocalId: Map<string, MemoryHistoryState>,
   localId: string,
@@ -89,6 +93,7 @@ export function enqueueMemoryPendingUpdate(input: {
       ...input.pendingUpdates,
       {
         id: crypto.randomUUID(),
+        origin: "local",
         partialEndVersionVector: input.pendingUpdate.partialEndVersionVector,
         partialStartVersionVector:
           input.pendingUpdate.partialStartVersionVector,
@@ -96,5 +101,59 @@ export function enqueueMemoryPendingUpdate(input: {
         updateData: input.pendingUpdate.updateData,
       },
     ],
+  };
+}
+
+/**
+ * The memory counterpart of `replaceQueuedPendingUpdates`: under the write
+ * fence, replace a contiguous run of ordinary local queued rows (starting
+ * with the first listed member) with the merged row at the first member's
+ * position under a fresh id. Any failed check changes nothing. History tail
+ * entries are kept separately here and already replay the same operations.
+ */
+export function replaceMemoryQueuedPendingUpdates(input: {
+  document: DocumentRecord | null;
+  pendingUpdates: PendingUpdateRecord[];
+  replacement: ReplaceInput;
+}): { pendingUpdates: PendingUpdateRecord[]; updateId: string | null } {
+  const { memberUpdateIds } = input.replacement;
+  const first = input.pendingUpdates.findIndex(
+    (row) => row.id === memberUpdateIds[0],
+  );
+  const run = input.pendingUpdates.slice(first, first + memberUpdateIds.length);
+  const matches =
+    memberUpdateIds.length >= 2 &&
+    first >= 0 &&
+    run.length === memberUpdateIds.length &&
+    run.every(
+      (row, index) =>
+        row.id === memberUpdateIds[index] &&
+        row.origin === "local" &&
+        row.sourceVersionVector == null,
+    ) &&
+    memoryDocumentWriteFenceMatches(
+      input.document,
+      input.replacement.localId,
+      input.replacement.expectedDocumentId,
+      input.replacement.expectedRecoveryGeneration,
+    );
+  if (!matches) {
+    return { pendingUpdates: input.pendingUpdates, updateId: null };
+  }
+  const updateId = crypto.randomUUID();
+  const merged: PendingUpdateRecord = {
+    ...input.replacement.merged,
+    id: updateId,
+    origin: "local",
+    rekeyCount: input.replacement.rekeyCount,
+    sourceVersionVector: null,
+  };
+  return {
+    pendingUpdates: [
+      ...input.pendingUpdates.slice(0, first),
+      merged,
+      ...input.pendingUpdates.slice(first + memberUpdateIds.length),
+    ],
+    updateId,
   };
 }

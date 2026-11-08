@@ -15,6 +15,7 @@ import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyN
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
 import type { NegativeControl } from "./protocolNegativeControlTypes";
 import { NO_BRICK_NEGATIVE_CONTROLS } from "./protocolNoBrickNegativeControls";
+import { OUTGOING_QUEUE_MERGE_NEGATIVE_CONTROLS } from "./protocolOutgoingQueueMergeNegativeControls";
 import { PURGE_SCOPE_NEGATIVE_CONTROLS } from "./protocolPurgeScopeNegativeControls";
 import { READ_MODEL_STAMP_NEGATIVE_CONTROLS } from "./protocolReadModelStampNegativeControls";
 import { RECOVERY_NEGATIVE_CONTROLS } from "./protocolRecoveryNegativeControls";
@@ -52,6 +53,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...TOMBSTONE_NEGATIVE_CONTROLS,
   ...DOCUMENT_MOVE_NEGATIVE_CONTROLS,
   ...DEFERRED_TAIL_NEGATIVE_CONTROLS,
+  ...OUTGOING_QUEUE_MERGE_NEGATIVE_CONTROLS,
   ...RECOVERY_NEGATIVE_CONTROLS,
   ...RESTART_PROBE_NEGATIVE_CONTROLS,
   ...CONTAINER_ADOPTION_NEGATIVE_CONTROLS,

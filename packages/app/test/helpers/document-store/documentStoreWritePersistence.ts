@@ -121,6 +121,7 @@ export function createDocumentWritePersistence(
         if (options?.pendingUpdate) {
           state.pendingUpdates.push({
             id: crypto.randomUUID(),
+            origin: "local",
             ...options.pendingUpdate,
           });
         }

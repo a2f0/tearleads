@@ -42,7 +42,11 @@ export function createMemoryDocumentCreationPersistence(input: {
         if (options?.pendingUpdate) {
           input.setPendingUpdates([
             ...input.getPendingUpdates(),
-            { id: crypto.randomUUID(), ...options.pendingUpdate },
+            {
+              id: crypto.randomUUID(),
+              origin: "local",
+              ...options.pendingUpdate,
+            },
           ]);
         }
         await saveClientProjection(execSql, updatedAt);

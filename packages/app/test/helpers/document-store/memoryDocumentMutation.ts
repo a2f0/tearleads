@@ -110,6 +110,7 @@ async function stageMutation(input: {
   if (input.mutation.pendingUpdate) {
     input.state.pendingUpdates.push({
       id: crypto.randomUUID(),
+      origin: "local",
       ...input.mutation.pendingUpdate,
     });
     history.tail.push({

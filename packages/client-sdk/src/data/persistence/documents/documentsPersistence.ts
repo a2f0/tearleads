@@ -62,6 +62,7 @@ import type {
 } from "./types";
 
 export { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
+export type { PendingUpdateRecord, QueuedPendingUpdateRecord } from "./records";
 export type {
   AttachmentRemovalRows,
   AttachmentStagingRows,
@@ -72,7 +73,6 @@ export type {
   PendingAttachmentRecord,
   PendingAttachmentUploadIdentity,
   PendingUpdateInsert,
-  PendingUpdateRecord,
   RelinkPersistedDocumentInput,
   StoredDocumentRecord,
 } from "./types";

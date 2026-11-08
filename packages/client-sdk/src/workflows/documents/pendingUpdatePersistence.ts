@@ -1,7 +1,7 @@
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import type {
   DocumentsPersistence,
-  PendingUpdateRecord,
+  QueuedPendingUpdateRecord,
 } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
@@ -9,7 +9,7 @@ export async function listPendingDocumentUpdates(input: {
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
-}): Promise<PendingUpdateRecord[]> {
+}): Promise<QueuedPendingUpdateRecord[]> {
   return input.persistence.listPendingUpdates(input.execSql, input.localId);
 }
 

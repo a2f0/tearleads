@@ -107,6 +107,9 @@ Model-specific gaps:
   cannot derive later keys.
 - `DeferredTailSettlement` checks durability and generation safety only; it has
   no eventual-settlement property.
+- `OutgoingQueueMerge` checks safety only; it has no eventual-sending property.
+  It leaves out the merge byte cap, the per-pass row limit, and the rekey
+  budget.
 - `RawHistoryRecovery` progress assumes awaited worker operations return; it
   does not cover retries, cancellation, or network failure.
 - `RestartProbeConvergence` and the honest `NoBrickedDevice` configuration bound

@@ -1,14 +1,11 @@
-import { base64ToBytes } from "@tearleads/encoding";
 import {
   encodeVersionVector,
   exportFullHistoryIdentity,
-  getImportBlobMetadata,
   importUpdates,
   satisfiesVersionVector,
-  updateMatchesDocumentHistory,
-  versionVectorsEqual,
 } from "@tearleads/loro";
 import type { PendingUpdateRecord } from "../../../../workflows/documents";
+import { provenOrdinaryUpdateBytes } from "../history/ordinaryUpdateProof";
 import type { DocumentState } from "../state";
 
 function unverifiedLocalHistory(cause?: unknown): Error {
@@ -24,20 +21,8 @@ function ordinaryPendingUpdateBytes(input: {
 }): Uint8Array[] {
   return input.pendingUpdates.flatMap((update) => {
     if (update.sourceVersionVector != null) return [];
-    const bytes = base64ToBytes(update.updateData);
-    const metadata = getImportBlobMetadata(bytes);
-    if (
-      metadata.mode !== "update" ||
-      !versionVectorsEqual(
-        metadata.partialStartVersionVector,
-        update.partialStartVersionVector,
-      ) ||
-      !versionVectorsEqual(
-        metadata.partialEndVersionVector,
-        update.partialEndVersionVector,
-      ) ||
-      !updateMatchesDocumentHistory(input.currentDocument, bytes)
-    ) {
+    const bytes = provenOrdinaryUpdateBytes(input.currentDocument, update);
+    if (!bytes) {
       throw new Error("Ordinary pending-update provenance is inconsistent");
     }
     return [bytes];

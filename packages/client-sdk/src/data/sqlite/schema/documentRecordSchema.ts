@@ -124,7 +124,11 @@ export const documentHistoryCheckpoints = sqliteTable(
  * Every locally authored update is stored once. While it waits for sync it
  * carries an `updateId` (the id submitted to the server) and the version-vector
  * metadata the submission needs; settlement clears them, leaving the row as
- * ordinary tail history until compaction folds it into a checkpoint.
+ * ordinary tail history until compaction folds it into a checkpoint. Before a
+ * send, a contiguous run of queued local rows may be replaced by one merged
+ * row holding exactly their operations: the first row is updated in place
+ * (same `id`, `createdAt` and `rowid`, so the same queue and replay position)
+ * under a fresh `updateId`, and the other rows are deleted.
  *
  * Columns:
  * - `id`: Row id; tail compaction deletes by it.
@@ -140,11 +144,13 @@ export const documentHistoryCheckpoints = sqliteTable(
  *   compaction never see it and settlement deletes it.
  * - `createdAt`: Insertion timestamp; with `rowid`, deterministic replay order.
  * - `updateId`: Present exactly while the row is queued for sync; rekeyed
- *   after a lost acknowledgement poisons the submitted id.
+ *   after a lost acknowledgement poisons the submitted id, and replaced by a
+ *   fresh id when queued rows merge. An id never names two payloads.
  * - `partialStartVersionVector` / `partialEndVersionVector`: Version vectors
  *   around a queued partial update.
  * - `sourceVersionVector`: Present on a queued rotation baseline checkpoint.
- * - `rekeyCount`: Durable bound on rekeys of a queued row.
+ * - `rekeyCount`: Durable bound on rekeys of a queued row; a merged row takes
+ *   the largest count among the rows it replaces.
  *
  * Invariant: compaction never deletes a queued row, so a checkpoint can cover
  * a queued update's operations without removing it from the queue.

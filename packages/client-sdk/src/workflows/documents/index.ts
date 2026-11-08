@@ -80,6 +80,7 @@ export {
   type PendingUpdateInsert,
   type PendingUpdateRecord,
   persistDocumentState,
+  type QueuedPendingUpdateRecord,
   type RelinkPersistedDocumentInput,
   runSerializedSqlMutation,
 } from "./persistence";

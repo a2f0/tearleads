@@ -14,6 +14,7 @@ import {
   memoryDocumentRecoveryGenerationMatches,
   memoryDocumentWriteFenceMatches,
   memoryHistoryFor,
+  replaceMemoryQueuedPendingUpdates,
 } from "./documentStoreRecoveryGeneration";
 import { createMemoryDocumentStartupReads } from "./documentStoreStartupReads";
 import { buildMemoryDocumentSummaries } from "./documentStoreSummaries";
@@ -349,6 +350,15 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       });
       pendingUpdates = result.pendingUpdates;
       return result.enqueued;
+    },
+    async replaceQueuedPendingUpdates(_execSql, replacement) {
+      const result = replaceMemoryQueuedPendingUpdates({
+        document,
+        pendingUpdates,
+        replacement,
+      });
+      pendingUpdates = result.pendingUpdates;
+      return result.updateId;
     },
     async deletePendingUpdate(_execSql, id: string) {
       pendingUpdates = pendingUpdates.filter(

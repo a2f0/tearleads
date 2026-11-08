@@ -43,6 +43,13 @@ export interface PendingUpdateFields {
   sourceVersionVector?: string | null;
 }
 
+/**
+ * Who owns a queued row: `local` rows are locally authored history-tail
+ * entries; `outbox` rows (full-state re-uploads, container metadata) have no
+ * tail role.
+ */
+export type PendingUpdateOrigin = "local" | "outbox";
+
 export interface PendingUpdateRecord extends PendingUpdateFields {
   id: string;
   /**
@@ -51,6 +58,11 @@ export interface PendingUpdateRecord extends PendingUpdateFields {
    * simple test doubles).
    */
   rekeyCount?: number | undefined;
+}
+
+/** A row as the durable outgoing queue lists it, with its owner. */
+export interface QueuedPendingUpdateRecord extends PendingUpdateRecord {
+  origin: PendingUpdateOrigin;
 }
 
 export interface DocumentScope {
@@ -77,6 +89,7 @@ export interface SelectedDocumentRecordRow {
 
 export interface SelectedPendingUpdateRow {
   id: string | null;
+  origin: string;
   updateData: string;
   partialStartVersionVector: string | null;
   partialEndVersionVector: string | null;

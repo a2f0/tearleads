@@ -26,6 +26,19 @@ for a no-op update, where there is no queue row to insert but a relink or
 [raw history recovery](../raw-document-history-recovery.md) still must be
 observed before the caller reports success.
 
+`replaceQueuedPendingUpdates(...)` merges a run of queued local updates into one
+before a send. In one mutation it checks that the canonical row still has
+`expectedDocumentId` and `expectedRecoveryGeneration`, and that every id in
+`memberUpdateIds` is still queued as an ordinary local row (not an outbox row,
+not a rotation checkpoint), the members are contiguous in queue order
+(`created_at`, then insertion order) with no other queued row between them,
+and the first listed member comes first. If every check holds, it updates the
+first member in place, so the row keeps its identity, creation time, and queue
+and history-tail position, with a fresh update id, the `merged` data and
+version vectors, and `rekeyCount`. It deletes the other members and resolves
+to the new update id. If any check fails it resolves `null` and changes
+nothing. An update id must never be reused for different content.
+
 `commitDocumentMutation(...).attachmentStaging` compares the complete expected
 canonical document record and then writes pending attachment rows, local
 attachment projections, the outgoing [CRDT update](../glossary/content.md#loro-update),
@@ -50,9 +63,10 @@ Store startup and local removal schedule this maintenance without waiting for
 byte storage. An awaited maintenance run includes all requested batches.
 
 An atomic raw-history recovery increments the canonical record's
-`recoveryGeneration`. Every enqueue and save compares the generation captured
-before it waited for the mutation queue; a stale writer returns a compare-and-set
-loss and reloads the recovered record rather than publishing old history.
+`recoveryGeneration`. Every enqueue, queued-update merge, and save compares the
+generation captured before it waited for the mutation queue; a stale writer
+returns a compare-and-set loss and reloads the recovered record rather than
+publishing old history.
 `supportsAtomicRecoveryHistoryPruning: true` declares that recovery checkpoint
 replacement, covered-history selection, rejection of unproven pending rows, and
 quarantine of queued checkpoint artifacts share the guarded

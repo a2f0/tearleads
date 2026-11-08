@@ -32,3 +32,7 @@ export {
 } from "./document";
 export * from "./shared";
 export { updateMatchesDocumentHistory } from "./updateIdentity";
+export {
+  exportUpdatesInVersionRange,
+  minimumVersionVectors,
+} from "./versionRange";

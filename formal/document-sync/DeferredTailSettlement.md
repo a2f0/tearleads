@@ -116,6 +116,7 @@ The abstraction maps to production at these seams:
 | `CancelOrIgnoreResponse` | response cancellation or `finalizeDocumentSync` returning and re-arming without response-derived snapshot, marker, or queue mutation |
 | `CompleteCapturedPass` | `shouldSkipCleanScheduledDocumentSync` after outgoing coverage preparation |
 | `CompactHistory` | `replaceDocumentHistoryCheckpoint` deleting only covered `documentHistoryUpdates` rows whose `updateId` is null, so a queued update survives a checkpoint that covers it |
+| `queued` under a send-time merge | `mergeQueuedDocumentUpdates` replacing a run of queued rows through `replaceQueuedPendingUpdates` with one row under a fresh id that holds exactly the members' operations; `queued` is a set of operations, so the merge leaves it, the marker, and the persisted base unchanged (checked in the Outgoing Queue Merge model) |
 
 TLC explores restarts before and after both durable preparation steps, every
 partial/all queued-settlement ordering, ordinary edits that re-export an older

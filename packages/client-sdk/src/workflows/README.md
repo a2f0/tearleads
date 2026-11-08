@@ -194,7 +194,7 @@ filter their own catches with the documents facade's
 ### Persistence adapters
 
 Custom `DocumentsPersistence` adapters implement the atomic create, enqueue,
-commit, snapshot-load, hydration, and orphan-blob contract described in
+queue-merge, commit, snapshot-load, hydration, and orphan-blob contract in
 [custom document persistence](../../../../docs/developer/custom-document-persistence.md).
 Store maintenance uses the required `orphanBlobs` methods for every adapter, so
 shared bytes survive until their final reference is removed; explicit

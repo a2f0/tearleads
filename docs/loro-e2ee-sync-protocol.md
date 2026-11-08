@@ -262,7 +262,11 @@ drive document kind selection.
 The server never needs plaintext CRDT state. The visible metadata of an update
 is its `id`, `documentId`, `authorFingerprint`, `createdAt`, `accessEpoch`,
 partial start and end version vectors, opaque `plaintextHash`, optional
-checkpoint fields, and signed `writeHeader`.
+checkpoint fields, and signed `writeHeader`. One update may cover many local
+writes: the client merges consecutive queued local updates under a fresh `id`
+before sending ([limits](./limits.md#document-sync)), so attribution is per
+upload, and another runtime's in-flight writes may be stored twice, which the
+CRDT ignores.
 
 The database `sequence` column is an internal storage order behind the opaque
 pull cursor; it is not part of the client-visible sync contract.

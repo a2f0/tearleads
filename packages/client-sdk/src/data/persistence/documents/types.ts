@@ -9,13 +9,12 @@ import type {
 import type { DocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import type { DocumentOrphanBlobPersistence } from "./orphanBlobPersistence";
+import type { QueuedPendingUpdateReplacementPort } from "./queuedUpdateReplacementPort";
 import type {
   DocumentRecord as BaseDocumentRecord,
   PendingUpdateFields,
-  PendingUpdateRecord,
+  QueuedPendingUpdateRecord,
 } from "./records";
-
-export type { PendingUpdateRecord } from "./records";
 
 export interface StoredDocumentRecord extends BaseDocumentRecord {
   containerId: string | null;
@@ -138,7 +137,8 @@ export interface DocumentSummaryList {
   readonly totalCount: number;
 }
 
-export interface DocumentsPersistence {
+export interface DocumentsPersistence
+  extends QueuedPendingUpdateReplacementPort {
   readonly orphanBlobs: DocumentOrphanBlobPersistence;
   /**
    * The adapter guarantees that recovery checkpoint replacement, selection of
@@ -405,7 +405,7 @@ export interface DocumentsPersistence {
   listPendingUpdates: (
     execSql: ExecSql,
     localId: string,
-  ) => Promise<PendingUpdateRecord[]>;
+  ) => Promise<QueuedPendingUpdateRecord[]>;
   rekeyPendingUpdate: (execSql: ExecSql, id: string) => Promise<string | null>;
   listPendingAttachments: (
     execSql: ExecSql,
