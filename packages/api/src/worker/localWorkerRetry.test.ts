@@ -12,7 +12,11 @@ const inspectorCollision = new LocalWorkerExitedEarlyError(
   1,
   "Error: listen EADDRINUSE: address already in use 127.0.0.1:9229",
 );
-const open = { attempts: 3, deadline: Number.POSITIVE_INFINITY };
+const open = {
+  attempts: 3,
+  deadline: Number.POSITIVE_INFINITY,
+  minimumStartMs: 30_000,
+};
 
 function scriptedStarts(failures: readonly unknown[]) {
   let attempts = 0;
@@ -66,10 +70,13 @@ test.each([
   expect(starts.attempts()).toBe(1);
 });
 
-test("a collision after the shared deadline propagates without another start", async () => {
+test("a collision too close to the shared deadline propagates without another start", async () => {
   const starts = scriptedStarts([workerdCollision]);
   await expect(
-    retryPortCollisions(starts.startOnce, { attempts: 3, deadline: 0 }),
+    retryPortCollisions(starts.startOnce, {
+      ...open,
+      deadline: Date.now() + 10_000,
+    }),
   ).rejects.toBe(workerdCollision);
   expect(starts.attempts()).toBe(1);
 });

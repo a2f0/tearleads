@@ -94,15 +94,21 @@ async function freePort(): Promise<number> {
 }
 
 const PORT_COLLISION_ATTEMPTS = 3;
+// A retry needs room to compile and start the Worker; with less, it would
+// only time out and hide the collision.
+const MINIMUM_RETRY_START_MS = 30_000;
 
 export async function startLocalWorker(
   overrides: Readonly<Record<string, string>> = {},
 ): Promise<LocalWorker> {
-  // Every attempt shares one deadline, so callers' hook timeouts still hold.
+  // Attempts share one deadline, and each poll stops at it, so a failed start
+  // ends within its cleanup bound (a 3 s SIGKILL fallback and a 2 s output
+  // drain) of the deadline: inside callers' START_TIMEOUT_MS + 10 s hooks.
   const deadline = Date.now() + START_TIMEOUT_MS;
   return retryPortCollisions(() => startLocalWorkerOnce(overrides, deadline), {
     attempts: PORT_COLLISION_ATTEMPTS,
     deadline,
+    minimumStartMs: MINIMUM_RETRY_START_MS,
   });
 }
 
@@ -191,20 +197,22 @@ async function startLocalWorkerOnce(
     }
     try {
       const response = await fetch(`${origin}/`, {
-        signal: AbortSignal.timeout(5_000),
+        signal: AbortSignal.timeout(
+          Math.max(1, Math.min(5_000, deadline - Date.now())),
+        ),
       });
       ready = response.status === 200;
     } catch {
       // Not listening yet.
     }
     if (!ready) {
-      await Bun.sleep(500);
+      await Bun.sleep(Math.max(0, Math.min(500, deadline - Date.now())));
     }
   }
   if (!ready) {
     await stopAndDrain();
     throw new Error(
-      `wrangler dev was not ready within ${START_TIMEOUT_MS} ms\nwrangler dev output:\n${output.slice(-6000)}`,
+      `wrangler dev was not ready before its ${START_TIMEOUT_MS} ms start deadline\nwrangler dev output:\n${output.slice(-6000)}`,
     );
   }
   return { origin, logs: () => output, stop };

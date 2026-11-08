@@ -26,14 +26,19 @@ function isPortCollision(error: unknown): boolean {
 /**
  * Port reservation releases each port before `wrangler dev` binds it, so
  * another process can take it first. Starts again on fresh ports only after
- * that bind failure, at most `attempts` times and only before `deadline`;
- * every other failure, and the last collision, propagates. Each retried
- * collision is logged, so a run that later fails for another reason still
- * shows it.
+ * that bind failure, at most `attempts` times, and only while `minimumStartMs`
+ * remains before `deadline`: a start with less time would fail as a timeout
+ * and hide the collision. Every other failure, and the last collision,
+ * propagates. Each retried collision is logged, so a run that later fails for
+ * another reason still shows it.
  */
 export async function retryPortCollisions<T>(
   startOnce: () => Promise<T>,
-  limits: { readonly attempts: number; readonly deadline: number },
+  limits: {
+    readonly attempts: number;
+    readonly deadline: number;
+    readonly minimumStartMs: number;
+  },
 ): Promise<T> {
   for (let attempt = 1; ; attempt += 1) {
     try {
@@ -41,7 +46,7 @@ export async function retryPortCollisions<T>(
     } catch (error) {
       if (
         attempt >= limits.attempts ||
-        Date.now() >= limits.deadline ||
+        limits.deadline - Date.now() < limits.minimumStartMs ||
         !isPortCollision(error)
       )
         throw error;
