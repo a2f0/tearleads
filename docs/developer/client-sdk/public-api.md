@@ -197,13 +197,14 @@ key rotation fails with `HistoricalWrapUnavailableError`
 ### Unsaved document writes
 
 `hasPendingLocalDocumentWrites(domainScope)` synchronously reports whether any
-open document store in that domain scope holds local edits that have not
-reached SQLite yet; it is the registry-wide counterpart of a store's
-`hasQueuedWrites()`. Hosts can check it before an unload that would terminate
-the SQLite worker. A typing burst keeps at most one write in flight and one
-queued: a queued `setText` that a newer `setText` supersedes never persists on
-its own, and superseded `setStructuredFields` patches apply but persist through
-the newest one's commit.
+open document store in that domain scope holds local edits that are not durable
+in SQLite yet: queued writes, and applied edits whose save failed and that no
+later save or sync has covered. A store reports the two through
+`hasQueuedWrites()` and `hasUnsavedLocalEdits()`. Hosts can check it before an
+unload that would terminate the SQLite worker. A typing burst keeps at most one
+write in flight and one queued: a queued `setText` superseded by a newer
+`setText`, or a `setStructuredFields` patch whose every field a newer
+non-deferred patch sets again, never persists on its own.
 
 ### Organization data usage
 

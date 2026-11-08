@@ -181,10 +181,10 @@ export function hasQueuedDocumentStoreWrites(
 }
 
 /**
- * Whether any open store in `domainScope` holds local writes that have not
- * reached SQLite yet, e.g. so a host can warn before an unload loses them. A
- * retired store reads through its removed stand-in, which never queues: the
- * removal it stands for commits only once no write is queued.
+ * Whether any open store in `domainScope` holds local edits that have not
+ * reached SQLite yet — queued writes, or applied edits whose save failed — so
+ * a host can warn before an unload loses them. A retired store reads through
+ * its removed stand-in, which holds none: the document it stood for is gone.
  */
 export function hasPendingLocalDocumentWrites(
   domainScope: DomainScope,
@@ -192,7 +192,7 @@ export function hasPendingLocalDocumentWrites(
   const registry = documentStoreRegistriesByScope.get(domainScope);
   if (!registry) return false;
   for (const store of registry.storesByKey.values()) {
-    if (store.hasQueuedWrites()) return true;
+    if (store.hasQueuedWrites() || store.hasUnsavedLocalEdits()) return true;
   }
   return false;
 }
@@ -310,6 +310,7 @@ export function createDocumentStoreFacade(
     ensureInitialized: () => targetStore.ensureInitialized(),
     getSnapshot: () => targetStore.getSnapshot(),
     hasQueuedWrites: () => targetStore.hasQueuedWrites(),
+    hasUnsavedLocalEdits: () => targetStore.hasUnsavedLocalEdits(),
     removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),
     removeRow: (id) => targetStore.removeRow(id),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>

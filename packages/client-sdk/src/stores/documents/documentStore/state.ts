@@ -134,8 +134,8 @@ export interface DocumentStoreState {
   initializePromise: Promise<void> | null;
   initialized: boolean;
   lastEventCount: number;
-  /** Newest queued write per coalescing lane; see `localWriteQueue.ts`. */
-  latestLocalWriteTickets: { structuredFields: number; text: number };
+  /** Newest queued coalescing write per key; see `localWriteQueue`. */
+  localWriteTickets: { issued: number; latestByKey: Map<string, number> };
   /** Invalidates queued local-write closures when this store is cleared. */
   localWriteGeneration: number;
   locallyAcceptedUpdateIds: Set<string>;
@@ -185,6 +185,12 @@ export interface DocumentStoreState {
   remoteUpdatePending: boolean;
   /** Sequence used to keep an older pass from clearing a newer remote event. */
   remoteUpdateSignalSeq: number;
+  /**
+   * Whether local writes applied ops to `doc` that are not yet durable (e.g.
+   * their save failed). Set when a write exports a non-empty delta; cleared once
+   * a persist covers `doc` or `doc` is replaced from durable history.
+   */
+  unsavedLocalEdits: boolean;
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
   syncLane: DocumentSyncLane | null;
@@ -240,7 +246,7 @@ export function createDocumentStoreState(
     initializePromise: null,
     initialized: false,
     lastEventCount: 0,
-    latestLocalWriteTickets: { structuredFields: 0, text: 0 },
+    localWriteTickets: { issued: 0, latestByKey: new Map() },
     localWriteGeneration: 0,
     locallyAcceptedUpdateIds: new Set(),
     localId,
@@ -263,6 +269,7 @@ export function createDocumentStoreState(
     awaitingAncestorRepair: false,
     remoteUpdatePending: false,
     remoteUpdateSignalSeq: 0,
+    unsavedLocalEdits: false,
     runtime: initialRuntime,
     snapshot: { ...EMPTY_DOCUMENT_SNAPSHOT },
     syncLane: null,
@@ -342,6 +349,7 @@ function clearDocumentStoreState(
   state.awaitingAncestorRepair = false;
   state.remoteUpdatePending = false;
   state.remoteUpdateSignalSeq = 0;
+  state.unsavedLocalEdits = false;
   state.writerProjection = null;
   state.initialized = initialized;
   state.initializePromise = null;

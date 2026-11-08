@@ -11,6 +11,7 @@ import type {
 import { chainIdentityWrite } from "../identityWriteChain";
 import { rebaseDocumentAfterPendingUpdateRefusal } from "../pendingUpdateRefusal";
 import {
+  clearCoveredUnsavedLocalEdits,
   enqueuePendingUpdate,
   listPendingUpdates,
   persistDocument,
@@ -106,6 +107,7 @@ export async function prepareDocumentOutgoingCoverage(input: {
   }
   if (liveRecord.pendingBaseVersion === nextBaseVersion) {
     state.pendingBaseVersion = nextBaseVersion;
+    clearCoveredUnsavedLocalEdits(state);
     return { pendingUpdates, record: liveRecord };
   }
 
@@ -146,5 +148,7 @@ export async function prepareDocumentOutgoingCoverage(input: {
     currentBaseVersion,
     nextBaseVersion,
   ]);
+  // A failed local save's ops this pass enqueued are durable now.
+  clearCoveredUnsavedLocalEdits(state);
   return { pendingUpdates, record: persisted.record };
 }

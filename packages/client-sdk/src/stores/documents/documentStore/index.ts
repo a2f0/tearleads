@@ -76,7 +76,6 @@ import { handleDocumentRemoteEvents } from "./sync/syncRemoteSignals";
 
 export {
   discardRegisteredDocumentLocalState,
-  hasPendingLocalDocumentWrites,
   requestDomainDocumentSync,
   subscribeToPersistedDocuments,
 } from "../registry";
@@ -373,6 +372,7 @@ function createBackingDocumentStore(
       withLiveSyncLane(() => ensureDocumentStoreReady(state, scheduleSync)),
     getSnapshot: () => state.snapshot,
     hasQueuedWrites: () => state.queuedWrites > 0,
+    hasUnsavedLocalEdits: () => state.unsavedLocalEdits,
     removeAttachment: (slotId: string) =>
       liveWrite(() =>
         removeAttachmentFromDocumentStore(state, scheduleSync, slotId),

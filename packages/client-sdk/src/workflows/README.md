@@ -216,12 +216,14 @@ take that option, with `remoteSyncMode`, as a trailing
 
 ### Queued local writes
 
-Document stores coalesce local edits queued behind an in-flight commit: a
-`setText` superseded by a newer `setText` skips, and a non-deferred
-`setStructuredFields` superseded by a newer one applies its fields but leaves
-the commit to the newest, whose delta since the outgoing marker carries both.
+Document stores coalesce local edits queued behind an in-flight commit. A
+`setText` superseded by a newer `setText` skips, as does a non-deferred
+`setStructuredFields` patch once newer non-deferred patches set every one of
+its fields; the newest write persists the delta since the outgoing marker.
 `hasPendingLocalDocumentWrites(domainScope)`, exported from the SDK root, reports
-whether any open store in the scope still holds writes not yet in SQLite.
+whether any open store in the scope holds edits not yet durable in SQLite:
+queued writes (`hasQueuedWrites()`) and applied edits whose save failed
+(`hasUnsavedLocalEdits()`).
 
 ### Persistence notifications
 

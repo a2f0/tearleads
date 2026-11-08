@@ -19,6 +19,7 @@ import {
   chainQueuedWrite,
   isLocalWriteSuperseded,
   issueLocalWriteTicket,
+  type LocalWriteKey,
   type LocalWriteTicket,
 } from "./localWriteQueue";
 import { revalidateDocumentMutationIdentity } from "./mutationIdentityRevalidation";
@@ -149,6 +150,8 @@ async function writeDocumentText(
     });
     return;
   }
+  // From here until a persist covers it, the doc holds edits SQLite lacks.
+  state.unsavedLocalEdits = true;
   const persisted = await persistDocument(
     state,
     writeDoc,
@@ -176,7 +179,7 @@ function queueDocumentTextWrite(
   const writeGeneration = state.localWriteGeneration;
   // Supersedes every text write still queued: only the newest reaches SQLite.
   // Field, row, and attachment writes never supersede a text write.
-  const ticket = issueLocalWriteTicket(state, "text");
+  const ticket = issueLocalWriteTicket(state, ["text"]);
 
   // Mark a local edit as in flight SYNCHRONOUSLY, before chaining, so a sync
   // pass that runs during this burst sees pendingLocalWrites > 0 and preserves
@@ -253,7 +256,10 @@ async function writeDocumentStructuredFields(
   write: StructuredFieldWrite,
 ): Promise<void> {
   const { kind, options, patch, ticket, writeGeneration } = write;
+  // Newer queued patches set every field of this one, and the one persisting
+  // them exports every op since pendingBaseVersion: nothing to add here.
   if (
+    isLocalWriteSuperseded(state, ticket) ||
     state.localWriteGeneration !== writeGeneration ||
     !state.doc ||
     !canWriteDocument(state)
@@ -272,12 +278,6 @@ async function writeDocumentStructuredFields(
     patch,
     state.runtime.infra.documentProjectors,
   );
-  // Patches are partial, so a superseded write still applies its fields. The
-  // newer write's persist exports every op since pendingBaseVersion, these
-  // included, so only this commit is redundant.
-  if (isLocalWriteSuperseded(state, ticket)) {
-    return;
-  }
   const update = pendingDeltaSinceBase(state, writeDoc);
   if (update.byteLength === 0) {
     await revalidateDocumentMutationIdentity({
@@ -303,6 +303,8 @@ async function writeDocumentStructuredFields(
     });
     return;
   }
+  // From here until a persist covers it, the doc holds edits SQLite lacks.
+  state.unsavedLocalEdits = true;
   // A deferred write advances the record's content frontier AHEAD of the
   // outgoing queue (the op is re-derived by the next edit). Its delta
   // rides in the persist's own claimed mutation as a durable-history tail
@@ -327,10 +329,13 @@ async function writeDocumentStructuredFields(
   ) {
     return;
   }
-  if (!options.deferRemoteSync) {
-    advancePendingBaseVersion(state, writeDoc);
-    requestDocumentStoreSync(state);
+  if (options.deferRemoteSync) {
+    // The history tail now holds the delta; the next edit enqueues it.
+    state.unsavedLocalEdits = false;
+    return;
   }
+  advancePendingBaseVersion(state, writeDoc);
+  requestDocumentStoreSync(state);
 }
 
 function queueDocumentStructuredFieldWrite(
@@ -350,7 +355,10 @@ function queueDocumentStructuredFieldWrite(
     // earlier write's enqueue: deferred writes neither supersede nor coalesce.
     ticket: options.deferRemoteSync
       ? null
-      : issueLocalWriteTicket(state, "structuredFields"),
+      : issueLocalWriteTicket(
+          state,
+          Object.keys(patch).map((field): LocalWriteKey => `field:${field}`),
+        ),
     writeGeneration: state.localWriteGeneration,
   };
 

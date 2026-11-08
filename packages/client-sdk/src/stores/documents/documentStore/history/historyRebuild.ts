@@ -94,6 +94,8 @@ export async function installRebuiltDocument(input: {
   ) {
     input.state.pendingBaseVersion = rebuiltEndVersion;
     input.state.doc = input.rebuiltDoc;
+    // The rebuild replays durable history only; live-only ops are gone.
+    input.state.unsavedLocalEdits = false;
   }
   if (persisted.pullContinuationSuperseded) input.state.writerProjection = null;
   else

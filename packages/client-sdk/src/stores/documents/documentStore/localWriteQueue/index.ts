@@ -1,42 +1,44 @@
 import type { DocumentStoreState } from "../state";
 
 /**
- * Lanes whose queued local writes coalesce. A write still waiting on the write
- * chain when a newer write in its lane is queued is superseded:
- * - `text`: `setText` carries the whole value, so a superseded write skips
- *   entirely and the newest one applies the latest text.
- * - `structuredFields`: patches are partial, so a superseded write still
- *   applies its fields and skips only its durable persist.
- * Either way the newest write's persist exports every op since
- * `pendingBaseVersion`, which covers what the superseded writes left in the
- * doc, so a typing burst costs at most one commit in flight plus one queued.
+ * Queued local writes coalesce per key: `text` for `setText`, and
+ * `field:<name>` per structured field a non-deferred patch sets. A write still
+ * waiting on the write chain is superseded once a newer write claims EVERY key
+ * it covers. It then skips entirely — no apply, no persist — because the newer
+ * writes carry each of its values, and the persist that applies them exports
+ * every op since `pendingBaseVersion`. A write with any key still its own runs
+ * in full, so its values never live only in memory, where a durable reload
+ * between it and a newer write would drop them. A typing burst in one field
+ * thus costs at most one commit in flight plus one queued.
  */
-export type CoalescedLocalWriteLane =
-  keyof DocumentStoreState["latestLocalWriteTickets"];
+export type LocalWriteKey = "text" | `field:${string}`;
 
 export interface LocalWriteTicket {
-  readonly lane: CoalescedLocalWriteLane;
+  readonly keys: readonly LocalWriteKey[];
   readonly sequence: number;
 }
 
-/** Issues `lane`'s newest ticket, superseding every earlier write in it. */
+/** Issues the newest ticket for `keys`, superseding older claims on them. */
 export function issueLocalWriteTicket(
   state: DocumentStoreState,
-  lane: CoalescedLocalWriteLane,
+  keys: readonly LocalWriteKey[],
 ): LocalWriteTicket {
-  state.latestLocalWriteTickets[lane] += 1;
-  return { lane, sequence: state.latestLocalWriteTickets[lane] };
+  const tickets = state.localWriteTickets;
+  tickets.issued += 1;
+  for (const key of keys) {
+    tickets.latestByKey.set(key, tickets.issued);
+  }
+  return { keys, sequence: tickets.issued };
 }
 
-/** Whether a newer write in the ticket's lane was queued after it. */
+/** Whether newer queued writes claimed every key of a (non-empty) ticket. */
 export function isLocalWriteSuperseded(
   state: DocumentStoreState,
   ticket: LocalWriteTicket | null,
 ): boolean {
-  return (
-    ticket !== null &&
-    state.latestLocalWriteTickets[ticket.lane] !== ticket.sequence
-  );
+  if (ticket === null || ticket.keys.length === 0) return false;
+  const { latestByKey } = state.localWriteTickets;
+  return ticket.keys.every((key) => latestByKey.get(key) !== ticket.sequence);
 }
 
 /**

@@ -184,12 +184,55 @@ test("a write that restores a failed save's text still persists that text", asyn
   }
 });
 
-test("structured patches behind a held commit all persist in at most two commits", async () => {
-  const { close, execSql } = await createTestExecSql("coalesce-field-burst");
+test("typing into one field behind a held commit persists in at most two commits", async () => {
+  const { close, execSql } = await createTestExecSql("coalesce-field-typing");
   const gated = createGatedPersistence();
   try {
     await ensureDeferredBirthSchema(execSql);
-    const localId = "coalesce-field-burst";
+    const localId = "coalesce-field-typing";
+    const store = openStore({
+      execSql,
+      kind: "contact",
+      localId,
+      persistence: gated.persistence,
+    });
+    expect(await store.ensureInitialized()).toBe(true);
+
+    const typed = "Augusta Ada";
+    const hold = gated.holdNextCommit();
+    const writes = [store.setStructuredFields("contact", { firstName: "A" })];
+    await hold.held;
+    for (let length = 2; length <= typed.length; length += 1) {
+      writes.push(
+        store.setStructuredFields("contact", {
+          firstName: typed.slice(0, length),
+        }),
+      );
+    }
+    expect(store.hasQueuedWrites()).toBe(true);
+
+    hold.release();
+    await Promise.all(writes);
+
+    expect(store.hasQueuedWrites()).toBe(false);
+    expect(gated.commitCount()).toBeLessThanOrEqual(2);
+    expect(
+      (await reopen(execSql, "contact", localId)).structuredFields,
+    ).toMatchObject({ firstName: typed });
+    expect((await readQueued(execSql, localId)).structuredFields).toMatchObject(
+      { firstName: typed },
+    );
+  } finally {
+    close();
+  }
+});
+
+test("a patch skips only once newer patches set every one of its fields", async () => {
+  const { close, execSql } = await createTestExecSql("coalesce-field-patches");
+  const gated = createGatedPersistence();
+  try {
+    await ensureDeferredBirthSchema(execSql);
+    const localId = "coalesce-field-patches";
     const store = openStore({
       execSql,
       kind: "contact",
@@ -202,8 +245,13 @@ test("structured patches behind a held commit all persist in at most two commits
     const writes = [store.setStructuredFields("contact", { firstName: "Ada" })];
     await hold.held;
     writes.push(
-      store.setStructuredFields("contact", { lastName: "Lovelace" }),
+      // Both fields are set again below, so this patch skips entirely.
+      store.setStructuredFields("contact", {
+        lastName: "Byron",
+        nickname: "Ada",
+      }),
       store.setStructuredFields("contact", { nickname: "Countess" }),
+      store.setStructuredFields("contact", { lastName: "Lovelace" }),
       store.setStructuredFields("contact", { firstName: "Augusta" }),
     );
     expect(store.hasQueuedWrites()).toBe(true);
@@ -217,7 +265,8 @@ test("structured patches behind a held commit all persist in at most two commits
       nickname: "Countess",
     };
     expect(store.hasQueuedWrites()).toBe(false);
-    expect(gated.commitCount()).toBeLessThanOrEqual(2);
+    // The held commit, then one per patch that still owns a field.
+    expect(gated.commitCount()).toBe(4);
     expect(
       (await reopen(execSql, "contact", localId)).structuredFields,
     ).toMatchObject(expected);
@@ -260,8 +309,8 @@ test("interleaved text and field edits behind a held commit both persist", async
 
     const expected = { firstName: "Ada", lastName: "Lovelace" };
     expect(store.hasQueuedWrites()).toBe(false);
-    // One in flight, then at most one commit per lane.
-    expect(gated.commitCount()).toBeLessThanOrEqual(3);
+    // The held commit, each field patch, and only the newest text.
+    expect(gated.commitCount()).toBe(4);
     const durable = await reopen(execSql, "contact", localId);
     expect(durable.text).toBe("final notes");
     expect(durable.structuredFields).toMatchObject(expected);
@@ -347,6 +396,44 @@ test("hasPendingLocalDocumentWrites reports queued writes per domain scope", asy
     hold.release();
     await write;
     expect(hasPendingLocalDocumentWrites(domainScope)).toBe(false);
+  } finally {
+    close();
+  }
+});
+
+test("hasPendingLocalDocumentWrites stays true for an edit whose save failed", async () => {
+  const { close, execSql } = await createTestExecSql("pending-failed-save");
+  const gated = createGatedPersistence();
+  try {
+    await ensureDeferredBirthSchema(execSql);
+    const domainScope = createDomainScope();
+    const localId = "pending-failed-save";
+    const store = openStore({
+      execSql,
+      kind: "note",
+      localId,
+      persistence: gated.persistence,
+    });
+    registerDocumentStore(domainScope, localId, store, null);
+    expect(await store.ensureInitialized()).toBe(true);
+
+    const hold = gated.holdNextCommit({ fail: true });
+    const write = store.setText("unsaved");
+    await hold.held;
+    hold.release();
+    await write;
+
+    // The queue drained, but the applied edit never reached SQLite.
+    expect(store.hasQueuedWrites()).toBe(false);
+    expect(hasPendingLocalDocumentWrites(domainScope)).toBe(true);
+    expect(store.hasUnsavedLocalEdits()).toBe(true);
+
+    await store.setText("unsaved, then saved");
+    expect(store.hasUnsavedLocalEdits()).toBe(false);
+    expect(hasPendingLocalDocumentWrites(domainScope)).toBe(false);
+    expect((await reopen(execSql, "note", localId)).text).toBe(
+      "unsaved, then saved",
+    );
   } finally {
     close();
   }

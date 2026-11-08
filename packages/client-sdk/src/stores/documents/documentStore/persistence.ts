@@ -1,4 +1,8 @@
-import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
+import {
+  encodeVersionVector,
+  exportUpdatesSince,
+  satisfiesVersionVector,
+} from "@tearleads/loro";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
   type DocumentProjectorRegistry,
@@ -346,11 +350,26 @@ export function advancePendingBaseVersion(
   doc: DocumentState,
 ): void {
   state.pendingBaseVersion = encodeVersionVector(doc);
+  clearCoveredUnsavedLocalEdits(state);
   // Every op through here is enqueued or remote, so a deferred birth is now
   // covered: lift its scheduled-sync hold and request the pass it skipped.
   if (state.deferInitialUpdate) {
     state.deferInitialUpdate = false;
     requestDocumentStoreSync(state);
+  }
+}
+
+/** Clears `unsavedLocalEdits` once the durable marker covers all of `doc`. */
+export function clearCoveredUnsavedLocalEdits(state: DocumentStoreState): void {
+  if (
+    state.doc &&
+    state.pendingBaseVersion !== null &&
+    satisfiesVersionVector(
+      state.pendingBaseVersion,
+      encodeVersionVector(state.doc),
+    )
+  ) {
+    state.unsavedLocalEdits = false;
   }
 }
 
