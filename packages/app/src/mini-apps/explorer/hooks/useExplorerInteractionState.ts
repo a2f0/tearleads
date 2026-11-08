@@ -1,5 +1,11 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+} from "react";
 import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import { explorerDocumentQueryContainerId } from "../../../stores/explorer/orphanedDocuments";
 import { usePrimeDiscoveredDocuments } from "../../../stores/explorer/primeDiscoveredDocuments";
@@ -60,6 +66,44 @@ interface ExplorerRefreshRun {
 const REFRESH_FAILED_MESSAGE = "Failed to refresh explorer.";
 
 /**
+ * Withdraws Explorer's run once it stops being Explorer's. A scope change
+ * replaces the reconciler; keyed on it, so StrictMode's remount of the same
+ * one keeps the run. Closing Explorer withdraws too, or its abandoned caller
+ * would keep a shared refresh running past a later Explorer's Cancel. That
+ * withdrawal waits one macrotask: StrictMode unmounts and remounts in the
+ * same tick, and the remount cancels it.
+ */
+function useWithdrawAbandonedRun(
+  runRef: RefObject<ExplorerRefreshRun | null>,
+  reconciler: ExplorerReconciler,
+  withdraw: (run: ExplorerRefreshRun) => void,
+): void {
+  useEffect(() => {
+    const run = runRef.current;
+    if (run && run.reconciler !== reconciler) {
+      withdraw(run);
+    }
+  }, [reconciler, runRef, withdraw]);
+
+  const unmountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (unmountTimerRef.current !== null) {
+      clearTimeout(unmountTimerRef.current);
+      unmountTimerRef.current = null;
+    }
+    return () => {
+      unmountTimerRef.current = setTimeout(() => {
+        unmountTimerRef.current = null;
+        const run = runRef.current;
+        if (run) {
+          withdraw(run);
+        }
+      }, 0);
+    };
+  }, [runRef, withdraw]);
+}
+
+/**
  * Manual refresh and open catch-up both drive the reconciler's full-sweep
  * entry points, which share one in-flight sweep at the service layer. Route
  * them through one run here too so the Refresh menu item is disabled (via
@@ -94,14 +138,7 @@ export function useExplorerRefreshActions(
     );
   }, []);
 
-  // Keyed on the reconciler, so StrictMode's remount of the same one keeps
-  // the run.
-  useEffect(() => {
-    const run = runRef.current;
-    if (run && run.reconciler !== reconciler) {
-      withdraw(run);
-    }
-  }, [reconciler, withdraw]);
+  useWithdrawAbandonedRun(runRef, reconciler, withdraw);
 
   const runSweep = useCallback(
     (sweep: (signal: AbortSignal) => Promise<void>): Promise<boolean> => {

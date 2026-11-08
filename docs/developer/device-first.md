@@ -295,7 +295,8 @@ The app subscribes rather than orchestrating network:
   through `reconciler.reconcileRootContainersNow()`, each with a signal. The
   Refresh button's context menu (or a long press) offers Cancel Refresh while
   one runs; cancelling withdraws Explorer from the shared refresh. A run
-  belongs to its reconciler, so a scope change withdraws from the old one.
+  belongs to its reconciler, so a scope change withdraws from the old one,
+  and closing Explorer withdraws it too.
 
 ### Shared binding across mini-apps (explorer, contacts, org-manager)
 
