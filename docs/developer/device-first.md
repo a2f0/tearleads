@@ -295,9 +295,11 @@ The app subscribes rather than orchestrating network:
   through `reconciler.reconcileRootContainersNow()`, each with a signal. The
   Refresh button's context menu (or a long press) offers Cancel Refresh while
   one runs; cancelling withdraws Explorer from the shared refresh. Explorer
-  keeps its run per reconciler, not per window: closing Explorer leaves it
-  running, a reopened Explorer shows it and can cancel it, and a scope change
-  stops showing the old scope's run.
+  keeps its run per reconciler, not per window
+  ([`explorerRefreshRuns.ts`](../../packages/app/src/mini-apps/explorer/model/explorerRefreshRuns.ts)):
+  every open Explorer window shows it and can cancel it, closing a window
+  leaves it running, a full Refresh replaces a running root catch-up instead
+  of joining it, and a scope change stops showing the old scope's run.
 
 ### Shared binding across mini-apps (explorer, contacts, org-manager)
 
