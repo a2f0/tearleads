@@ -195,27 +195,32 @@ async function sweepContainerBatch(input: {
 }
 
 /**
- * Releases the up-front marks of containers a stopped sweep never reached,
- * so passive reconciliation still reaches them. A container that was already
- * discovered before the sweep keeps its mark. Opening a container while the
- * sweep ran was suppressed by its mark, so an unreached active container is
- * queued now rather than waiting for the next navigation.
+ * Hands a stopped sweep's unreached containers back to the background lane.
+ * The sweep marked them discovered up front, so while it ran the lane dropped
+ * any queued entry for them and a navigation to one was suppressed. Their
+ * marks are released and they are queued again, the active container first,
+ * so stopping a sweep never loses work it had absorbed. A container that was
+ * already discovered before the sweep keeps its mark: the lane skips it
+ * either way.
  */
-function releaseUnreachedMarks(
+function releaseUnreachedContainers(
   state: KnownContainerSweepState,
   unreached: ReadonlyArray<string>,
   markedBySweep: ReadonlySet<string>,
 ): void {
   for (const containerId of unreached) {
-    if (markedBySweep.has(containerId)) {
-      state.discoveredContainerIds.delete(containerId);
-    }
+    if (!markedBySweep.has(containerId)) continue;
+    state.discoveredContainerIds.delete(containerId);
+    state.queue.enqueue(
+      containerId,
+      containerId === state.activeContainerId ? "active" : "idle",
+    );
   }
   const activeContainerId = state.activeContainerId;
   if (activeContainerId && unreached.includes(activeContainerId)) {
     state.queue.enqueue(activeContainerId, "active");
-    state.lane?.requestSync();
   }
+  if (state.queue.size > 0) state.lane?.requestSync();
 }
 
 export async function sweepKnownContainers(input: {
@@ -266,7 +271,11 @@ export async function sweepKnownContainers(input: {
     offset += MAX_CONTAINER_DOCUMENT_LANES
   ) {
     if (input.stop?.aborted) {
-      releaseUnreachedMarks(state, containerIds.slice(offset), markedBySweep);
+      releaseUnreachedContainers(
+        state,
+        containerIds.slice(offset),
+        markedBySweep,
+      );
       break;
     }
     const batch = await sweepContainerBatch({

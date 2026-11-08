@@ -14,52 +14,54 @@ function abortError(): DOMException {
   return new DOMException("Refresh cancelled", "AbortError");
 }
 
-// The last caller withdrawing stops the sweep before its next batch. Its own
-// promise settles at once; the batch in flight finishes; containers it never
-// reached keep no discovered mark, so passive reconciliation still reaches
-// them instead of treating them as reconciled for the rest of the session.
-test("withdrawing the last caller stops the sweep between batches", async () => {
-  const firstBatchStarted = createGate();
-  const finishFirstBatch = createGate();
-  const discovered: string[] = [];
-  const host = createReconciliationTestHost({
-    discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
-      discovered.push(containerId);
-      if (containerId === "c-0") {
-        firstBatchStarted.open();
-        await finishFirstBatch.wait;
-      }
-      return [];
-    }),
-    listKnownContainerIds: () => KNOWN,
+// The last caller withdrawing stops the sweep before its next batch, for a
+// full refresh and a root catch-up alike. Its own promise settles at once and
+// the batch in flight finishes. The sweep lists 32 containers per request;
+// the containers it never reached go back to the background lane, which
+// lists at most 4 at a time, so no later listing is a sweep batch.
+for (const scope of ["full", "root"] as const) {
+  test(`withdrawing the last caller stops a ${scope} sweep between batches`, async () => {
+    const firstBatchStarted = createGate();
+    const finishFirstBatch = createGate();
+    const batchSizes: number[] = [];
+    const listed = new Set<string>();
+    const discoverEach = perContainerDiscovery(async () => []);
+    const host = createReconciliationTestHost({
+      discoverContainerDocuments: async (requests, onOutcome) => {
+        batchSizes.push(requests.length);
+        for (const { containerId } of requests) listed.add(containerId);
+        if (batchSizes.length === 1) {
+          firstBatchStarted.open();
+          await finishFirstBatch.wait;
+        }
+        return discoverEach(requests, onOutcome);
+      },
+      listAutomaticRootCatchupContainerIds: () => KNOWN,
+      listKnownContainerIds: () => KNOWN,
+    });
+    const service = createReconciliationService(host);
+    service.start();
+    const caller = new AbortController();
+
+    const refresh =
+      scope === "full"
+        ? service.reconcileNow({ signal: caller.signal })
+        : service.reconcileRootContainersNow({ signal: caller.signal });
+    await firstBatchStarted.wait;
+    const reason = abortError();
+    caller.abort(reason);
+    await expect(refresh).rejects.toBe(reason);
+    finishFirstBatch.open();
+
+    await waitFor(
+      () => listed.size === KNOWN.length,
+      "Expected the unreached containers to reconcile in the background",
+      2_000,
+    );
+    expect(batchSizes[0]).toBe(32);
+    expect(batchSizes.slice(1).every((size) => size <= 4)).toBe(true);
   });
-  const service = createReconciliationService(host);
-  service.start();
-  const caller = new AbortController();
-
-  const refresh = service.reconcileNow({ signal: caller.signal });
-  await firstBatchStarted.wait;
-  const reason = abortError();
-  caller.abort(reason);
-  await expect(refresh).rejects.toBe(reason);
-  finishFirstBatch.open();
-
-  // A passive enqueue is suppressed while the mark stands, and goes through
-  // once the stopped sweep has released it.
-  await waitFor(
-    () => {
-      service.enqueueContainer("c-35", "active");
-      return discovered.includes("c-35");
-    },
-    "Expected an unreached container to stay reachable after the stop",
-    2_000,
-  );
-  // The second batch never ran: only the passive enqueue reached one of its
-  // containers.
-  expect(discovered.filter((id) => KNOWN.slice(32).includes(id))).toEqual([
-    "c-35",
-  ]);
-});
+}
 
 // Opening a container the sweep had not reached yet is suppressed by the
 // sweep's mark. If the sweep then stops, that one navigation must still

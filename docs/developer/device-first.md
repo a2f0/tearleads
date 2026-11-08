@@ -124,8 +124,10 @@ at once. The refresh is shared, so it stops only after every caller has
 withdrawn, and then only at a safe boundary: before the document sweep, or
 between sweep batches. The batch in flight finishes, the store's tree crawl
 runs on, and containers the sweep never reached keep their queued and forced
-work. A caller without a signal, such as the reconnect catch-up, keeps the
-refresh running.
+work. The sweep marked them discovered up front, which made the background
+lane drop their queued entries and suppressed opening one, so a stop releases
+those marks and queues the containers again, the active one first. A caller
+without a signal, such as the reconnect catch-up, keeps the refresh running.
 
 Work items and the functions that perform them:
 
@@ -292,7 +294,8 @@ The app subscribes rather than orchestrating network:
   runs Refresh through `reconciler.reconcileNow()` and open-time catch-up
   through `reconciler.reconcileRootContainersNow()`, each with a signal. The
   Refresh button's context menu (or a long press) offers Cancel Refresh while
-  one runs; cancelling withdraws Explorer from the shared refresh.
+  one runs; cancelling withdraws Explorer from the shared refresh. A run
+  belongs to its reconciler, so a scope change withdraws from the old one.
 
 ### Shared binding across mini-apps (explorer, contacts, org-manager)
 
