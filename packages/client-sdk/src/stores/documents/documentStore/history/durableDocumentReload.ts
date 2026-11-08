@@ -44,6 +44,8 @@ export function installDurableDocumentReload(input: {
   preserveQueuedWritesWhenIdentityMatches: boolean;
   registerIdentityChange?: boolean | undefined;
   replacementDoc: DocumentState;
+  /** The replacement imported the live doc, unsaved local edits included. */
+  retainsLiveDocEdits?: boolean | undefined;
   state: DocumentStoreState;
 }): void {
   const { durableRecord, replacementDoc, state } = input;
@@ -66,6 +68,8 @@ export function installDurableDocumentReload(input: {
       ? durableRecord.snapshotEndVersion
       : null);
   state.doc = replacementDoc;
+  // Ops only the live doc held are gone unless the replacement imported them.
+  if (!input.retainsLiveDocEdits) state.unsavedLocalEdits = false;
   state.writerProjection = null;
   if (identityChanged && input.registerIdentityChange !== false) {
     state.effects.registerDocumentIdentity(
@@ -134,6 +138,7 @@ export async function reloadDocumentFromDurableHistory(input: {
         preserveQueuedWritesWhenIdentityMatches:
           input.preserveQueuedWritesWhenIdentityMatches,
         replacementDoc,
+        retainsLiveDocEdits: canRestoreCapturedSnapshot,
         state,
       });
       return true;

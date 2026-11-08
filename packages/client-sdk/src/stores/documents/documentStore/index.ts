@@ -39,6 +39,7 @@ import {
 } from "./initialization";
 import { assertInitialContentFitsKind } from "./initialization/initialContent";
 import { registerInternalDocumentRelink } from "./internalRelink";
+import { countQueuedWrite } from "./localWriteQueue";
 import { setDocumentStructuredFields, setDocumentText } from "./mutations";
 import { assertDocumentStoreCanRotateContentKey } from "./rotation";
 import {
@@ -47,7 +48,6 @@ import {
   updateRowInDocumentStore,
 } from "./rows";
 import {
-  countQueuedWrite,
   createDocumentStoreState,
   type DocumentStoreState,
   refreshAttachabilitySnapshot,
@@ -372,6 +372,7 @@ function createBackingDocumentStore(
       withLiveSyncLane(() => ensureDocumentStoreReady(state, scheduleSync)),
     getSnapshot: () => state.snapshot,
     hasQueuedWrites: () => state.queuedWrites > 0,
+    hasUnsavedLocalEdits: () => state.unsavedLocalEdits,
     removeAttachment: (slotId: string) =>
       liveWrite(() =>
         removeAttachmentFromDocumentStore(state, scheduleSync, slotId),

@@ -22,6 +22,7 @@ import { useSQLiteRuntimeActions } from "./useSQLiteRuntimeActions";
 import { useSQLiteRuntimeControls } from "./useSQLiteRuntimeControls";
 import { useTransientBootFailureRecovery } from "./useTransientBootFailureRecovery";
 import { useUnreadableDatabaseRecovery } from "./useUnreadableDatabaseRecovery";
+import { useWarnBeforeUnloadWithPendingDocumentWrites } from "./useWarnBeforeUnloadWithPendingDocumentWrites";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
 
@@ -359,6 +360,7 @@ export function useManagedSQLiteRuntime(
     reuseWorker,
   );
   useReleaseRuntimeOnPageHide(runtimeRef, runtimeOperationRef);
+  useWarnBeforeUnloadWithPendingDocumentWrites(tearleads);
 
   return {
     id: snapshot.id,

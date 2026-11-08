@@ -322,6 +322,7 @@ export {
   createDocumentStore,
   discardRegisteredDocumentLocalState,
   getOrCreateDocumentStore,
+  hasPendingLocalDocumentWrites,
   openDocumentStore,
   requestDomainDocumentSync,
   subscribeToPersistedDocuments,

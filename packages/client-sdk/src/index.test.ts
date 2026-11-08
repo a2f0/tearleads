@@ -216,6 +216,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "getStoredDocumentTypeLabel",
   "getUntitledDocumentTitle",
   "hasDomainSyncCoordinatorPendingWork",
+  "hasPendingLocalDocumentWrites",
   "hydrateDocumentAttachmentBlobs",
   "initializeDocumentLinksSchema",
   "initializeStoredDocumentKind",

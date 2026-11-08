@@ -11,12 +11,9 @@ import { createRuntimePrincipalPolicyWarmer } from "../../../../workflows/princi
 import { requestDocumentStoreSync } from "../../registry";
 import { installRebuiltDocument } from "../history/historyRebuild";
 import { chainIdentityWrite } from "../identityWriteChain";
+import { chainQueuedWrite } from "../localWriteQueue";
 import { listPendingUpdates } from "../persistence";
-import {
-  chainQueuedWrite,
-  type DocumentState,
-  type DocumentStoreState,
-} from "../state";
+import type { DocumentState, DocumentStoreState } from "../state";
 import { createStoredDocument } from "../storedDocument";
 import { runDocumentRemoteWork } from "../sync/remoteWork";
 import {
