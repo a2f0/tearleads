@@ -10,6 +10,12 @@ import {
   type LocalContainerRefreshState,
   refreshLocalContainerStates,
 } from "../localRefresh";
+import {
+  IDLE_RECOVERY_HYDRATION,
+  type RecoveryHydrationEvent,
+  type RecoveryHydrationState,
+  transitionRecoveryHydration,
+} from "./recoveryHydrationMachine";
 
 type RemoteHydrationRequestState = RemoteContainerHydrationState &
   LocalContainerRefreshState & {
@@ -61,31 +67,37 @@ function isRequestGenerationCurrent(input: {
   );
 }
 
-const recoveryHydrationRequestsByState = new WeakMap<
+const recoveryHydrationByState = new WeakMap<
   RemoteHydrationRequestState,
-  RecoveryHydrationRequest[]
+  RecoveryHydrationState<RecoveryHydrationRequest>
 >();
+
+function dispatchRecoveryHydration(
+  state: RemoteHydrationRequestState,
+  event: RecoveryHydrationEvent<RecoveryHydrationRequest>,
+): void {
+  const next = transitionRecoveryHydration(
+    recoveryHydrationByState.get(state) ?? IDLE_RECOVERY_HYDRATION,
+    event,
+  );
+  if (next.status === "idle") {
+    recoveryHydrationByState.delete(state);
+  } else {
+    recoveryHydrationByState.set(state, next);
+  }
+}
+
 function queueRecoveryHydrationRequest(
   input: RemoteHydrationRequestInput,
 ): void {
-  const requests = recoveryHydrationRequestsByState.get(input.state);
-  if (requests) {
-    if (!requests.some((request) => request.input === input)) {
-      requests.push({
-        input,
-        lifecycleGeneration: input.state.lifecycleGeneration,
-        structuralGeneration: input.state.structuralGeneration,
-      });
-    }
-    return;
-  }
-  recoveryHydrationRequestsByState.set(input.state, [
-    {
+  dispatchRecoveryHydration(input.state, {
+    request: {
       input,
       lifecycleGeneration: input.state.lifecycleGeneration,
       structuralGeneration: input.state.structuralGeneration,
     },
-  ]);
+    type: "queued",
+  });
 }
 
 function hasRemoteHydrationPrerequisites(
@@ -190,25 +202,15 @@ function retainResetRecoveryHydration(
   queueRecoveryHydrationRequest(createResetRecoveryInput(input));
 }
 
-/**
- * The recovery run that last took over the queued recovery requests. A
- * request whose queued recovery another caller already took over settles
- * with that run, so it never resolves before the crawl that covers it.
- */
-const activeRecoveryHydrationByState = new WeakMap<
-  RemoteHydrationRequestState,
-  Promise<void>
->();
-
 export function resumeContainerContentsRecoveryHydration(
   state: RemoteHydrationRequestState,
 ): Promise<void> | null {
-  const requests = recoveryHydrationRequestsByState.get(state);
-  if (!requests) {
-    return activeRecoveryHydrationByState.get(state) ?? null;
-  }
-  recoveryHydrationRequestsByState.delete(state);
-  const inputs = requests.map((request) =>
+  const recovery =
+    recoveryHydrationByState.get(state) ?? IDLE_RECOVERY_HYDRATION;
+  if (recovery.status === "idle") return null;
+  // Another caller already took this caller's queued request over.
+  if (recovery.status === "running") return recovery.run;
+  const inputs = recovery.requests.map((request) =>
     isRequestGenerationCurrent({
       lifecycleGeneration: request.lifecycleGeneration,
       state,
@@ -217,24 +219,33 @@ export function resumeContainerContentsRecoveryHydration(
       ? request.input
       : createResetRecoveryInput(request.input),
   );
-  const recovery = Promise.all(
-    inputs.map(requestContainerContentsRemoteHydration),
-  )
-    .then(() => undefined)
-    .catch((error: unknown) => {
-      for (const input of inputs) {
-        queueRecoveryHydrationRequest(input);
-      }
-      throw error;
-    });
-  activeRecoveryHydrationByState.set(state, recovery);
-  const forget = () => {
-    if (activeRecoveryHydrationByState.get(state) === recovery) {
-      activeRecoveryHydrationByState.delete(state);
+  let resolveRun: () => void = () => undefined;
+  let rejectRun: (error: unknown) => void = () => undefined;
+  const run = new Promise<void>((resolve, reject) => {
+    resolveRun = resolve;
+    rejectRun = reject;
+  });
+  // The run is current before its requests start, so a request one of them
+  // queues meanwhile waits for the next resume instead of being dropped.
+  dispatchRecoveryHydration(state, { run, type: "started" });
+  const settle = () =>
+    dispatchRecoveryHydration(state, { run, type: "settled" });
+  run.then(settle, settle);
+  const fail = (error: unknown) => {
+    for (const input of inputs) {
+      queueRecoveryHydrationRequest(input);
     }
+    rejectRun(error);
   };
-  recovery.then(forget, forget);
-  return recovery;
+  try {
+    Promise.all(inputs.map(requestContainerContentsRemoteHydration)).then(
+      () => resolveRun(),
+      fail,
+    );
+  } catch (error) {
+    fail(error);
+  }
+  return run;
 }
 
 function queueRequestedParentIds(input: RemoteHydrationRequestInput): void {
