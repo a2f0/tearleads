@@ -138,6 +138,7 @@ export const organizationReadModelSurface = [
   `${sdk}/workflows/organizations/principalPolicy/index.ts`,
   `${sdk}/workflows/organizations/readModel/index.ts`,
   `${sdk}/client/organizations/organizationReadModels.ts`,
+  `${sdk}/client/organizations/recipientAdmission.ts`,
   `${sdk}/workflows/organizations/groupMetadata/groupMetadataErrors.ts`,
   `${sdk}/workflows/organizations/groupMetadata/groupMetadataRuntime.ts`,
   `${sdk}/workflows/organizations/groupMetadata/runtimeGroupMetadataAuthority.ts`,

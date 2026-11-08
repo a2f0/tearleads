@@ -95,6 +95,7 @@ export function createInternalRuntimeFixture(
   return {
     adoptRootContainer: overrides.adoptRootContainer ?? (() => false),
     identityLinks: {
+      loadAdmissionPin: async () => null,
       resolvePinned: async () => null,
       resolveVerified: async () => null,
       requireVerified: async (userId) => {

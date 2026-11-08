@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { openApiDocument } from "./openApi";
 import {
   commitOrganizationGroupPolicyOperation,
+  getPrincipalMemberEnvelopesOperation,
   getPrincipalPolicyOperation,
   putPrincipalPolicyOperation,
 } from "./principals";
@@ -95,6 +96,42 @@ test("principal policy OpenAPI documents both shared operations", () => {
   expect(putPolicy.security).toEqual([{ bearerAuth: [] }]);
 });
 
+test("principal member envelope OpenAPI requires one exact state hash", () => {
+  const getEnvelopes =
+    openApiDocument.paths[
+      "/principals/{principalType}/{principalId}/policy/member-envelopes"
+    ]?.get;
+  if (getEnvelopes === undefined)
+    throw new Error("Principal member envelope OpenAPI operation is missing");
+
+  expect(getEnvelopes.operationId).toBe(
+    "principals.policy.memberEnvelopes.get",
+  );
+  expect(getEnvelopes.parameters.slice(2)).toEqual([
+    expect.objectContaining({
+      in: "query",
+      name: "stateHash",
+      required: true,
+      schema: expect.objectContaining({
+        maxLength: 64,
+        minLength: 64,
+      }),
+    }),
+  ]);
+  expect(Object.keys(getEnvelopes.responses)).toEqual([
+    "200",
+    "202",
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "500",
+    "503",
+  ]);
+  expect(getEnvelopes.security).toEqual([{ bearerAuth: [] }]);
+});
+
 test("principal preparation contracts require rollback and changing progress", () => {
   const pending = {
     code: "principal_history_preparation_pending",
@@ -105,6 +142,7 @@ test("principal preparation contracts require rollback and changing progress", (
     getPrincipalPolicyOperation,
     putPrincipalPolicyOperation,
     commitOrganizationGroupPolicyOperation,
+    getPrincipalMemberEnvelopesOperation,
   ]) {
     const schema = operation.responses[202];
     expect(schema.safeParse(pending).success).toBe(true);

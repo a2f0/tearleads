@@ -1,4 +1,5 @@
 import type { ApiClient } from "@tearleads/api-client";
+import type { ContainerAccessLevel } from "@tearleads/crypto";
 import {
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
@@ -102,10 +103,12 @@ export interface ContainerContentsWorkflowRuntime
 
 /**
  * Refuses a share recipient whose identity no verified identity link (or this
- * device's own keys) established. Sharing admits a user.
+ * device's own keys) established. Sharing admits a user; a read share, which
+ * grants no signing authority, may also rest on roster vouching.
  */
 export type ContainerContentsVerifiedRecipientGuard = (
   userId: string,
+  accessLevel: ContainerAccessLevel,
 ) => Promise<void>;
 
 export interface ContainerContentsStoreWorkflowRuntime
