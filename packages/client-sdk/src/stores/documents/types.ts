@@ -118,6 +118,11 @@ export interface DocumentStore {
   getSnapshot: () => DocumentSnapshot;
   /** Whether local writes are queued that have not reached SQLite yet. */
   hasQueuedWrites: () => boolean;
+  /**
+   * Whether applied local edits have not reached SQLite, e.g. after a failed
+   * save, even though no write is queued any more.
+   */
+  hasUnsavedLocalEdits: () => boolean;
   removeAttachment: (slotId: string) => void;
   removeRow: RemoveDocumentRow;
   replaceAttachment: (

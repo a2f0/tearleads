@@ -27,6 +27,7 @@ export function createRemovedDocumentStore(
     ensureInitialized: async () => false,
     getSnapshot: () => snapshot,
     hasQueuedWrites: () => false,
+    hasUnsavedLocalEdits: () => false,
     removeAttachment: () => undefined,
     removeRow: refuse,
     replaceAttachment: refuse,

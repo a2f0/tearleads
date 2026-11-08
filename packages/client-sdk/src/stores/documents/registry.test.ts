@@ -46,6 +46,7 @@ function createStore(
     ensureInitialized: async () => true,
     getSnapshot: () => READY_SNAPSHOT,
     hasQueuedWrites: () => false,
+    hasUnsavedLocalEdits: () => false,
     removeAttachment: () => undefined,
     removeRow: async () => undefined,
     replaceAttachment: () => Promise.resolve(),

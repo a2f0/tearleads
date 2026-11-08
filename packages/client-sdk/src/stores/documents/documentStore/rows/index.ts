@@ -8,6 +8,7 @@ import {
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import { requestDocumentStoreSync } from "../../registry";
 import { ensureDocumentStoreReady } from "../initialization";
+import { chainQueuedWrite } from "../localWriteQueue";
 import { revalidateDocumentMutationIdentity } from "../mutationIdentityRevalidation";
 import {
   advancePendingBaseVersion,
@@ -17,7 +18,6 @@ import {
 import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
 import {
   canWriteDocument,
-  chainQueuedWrite,
   type DocumentState,
   type DocumentStoreState,
 } from "../state";
@@ -66,6 +66,8 @@ async function persistRowMutation(
     await revalidateDocumentMutationIdentity({ currentDoc, generation, state });
     return;
   }
+  // From here until a persist covers it, the doc holds edits SQLite lacks.
+  state.unsavedLocalEdits = true;
   // Row writes change neither prose nor structured fields; setReadySnapshot
   // always re-derives rows from the doc, so preserve the text/structured fields
   // in case this write overlaps an in-flight keystroke elsewhere.
