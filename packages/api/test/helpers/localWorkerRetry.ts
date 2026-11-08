@@ -27,7 +27,8 @@ export function isPortCollision(error: unknown): boolean {
  * Port reservation releases each port before `wrangler dev` binds it, so
  * another process can take it first. Starts again on fresh ports only after
  * that bind failure, at most `attempts` times; every other failure, and the
- * last collision, propagates.
+ * last collision, propagates. Each retried collision is logged, so a run that
+ * later fails for another reason still shows it.
  */
 export async function retryPortCollisions<T>(
   startOnce: () => Promise<T>,
@@ -38,6 +39,9 @@ export async function retryPortCollisions<T>(
       return await startOnce();
     } catch (error) {
       if (attempt >= attempts || !isPortCollision(error)) throw error;
+      console.warn(
+        `wrangler dev lost a reserved port (attempt ${attempt} of ${attempts}); starting again on fresh ports.`,
+      );
     }
   }
 }
