@@ -1,5 +1,6 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback } from "react";
+import { useTearleadsExternalValue } from "../../../providers/sdk/useTearleadsSubscription";
 import { explorerDocumentQueryContainerId } from "../../../stores/explorer/orphanedDocuments";
 import { usePrimeDiscoveredDocuments } from "../../../stores/explorer/primeDiscoveredDocuments";
 import {
@@ -68,7 +69,7 @@ export function useExplorerRefreshActions(
     (listener: () => void) => subscribeExplorerRefresh(reconciler, listener),
     [reconciler],
   );
-  const state = useSyncExternalStore(subscribe, () =>
+  const state = useTearleadsExternalValue(subscribe, () =>
     explorerRefreshState(reconciler),
   );
 
