@@ -20,19 +20,6 @@ const appServerPort = 3002;
 // app server binds.
 const mainDiagnostics = configureMainProcessDiagnostics(import.meta.url);
 
-// Keep the app shell out of the back/forward cache: Chromium does not store a
-// `no-store` document there. A full same-origin navigation (a deep-link reload)
-// would otherwise freeze the outgoing page with its SQLite worker, whose OPFS
-// access handles can stay held by the frozen page and fail the next page's
-// database boot. The app reloads rather than resume a restored page anyway
-// (see useReleaseRuntimeOnPageHide), so nothing is lost. The Windows CEF
-// persistence probe asserts the reload does not use the cache.
-function responseHeaders(contentType: string): Record<string, string> {
-  return contentType.startsWith("text/html")
-    ? { "Cache-Control": "no-store", "Content-Type": contentType }
-    : { "Content-Type": contentType };
-}
-
 // The renderer's WKWebView has no browser download destination, so the app posts
 // a file's bytes here (same origin, see src/renderer/electrobunFileSaver.ts) and
 // the main process writes them to the user's Downloads folder and reveals the
@@ -188,9 +175,9 @@ function createPackagedServerConfig() {
       const responseFile = Bun.file(responsePath);
 
       return new Response(responseFile, {
-        headers: responseHeaders(
-          responseFile.type || "application/octet-stream",
-        ),
+        headers: {
+          "Content-Type": responseFile.type || "application/octet-stream",
+        },
       });
     },
   };
@@ -279,7 +266,7 @@ async function createDevServerConfig() {
 
       const webOutput = webOutputs.get(pathname) ?? indexOutput;
       return new Response(webOutput, {
-        headers: responseHeaders(webOutput.type),
+        headers: { "Content-Type": webOutput.type },
       });
     },
   };

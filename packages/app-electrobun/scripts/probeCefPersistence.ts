@@ -211,11 +211,19 @@ function toPersistentState(snapshot: StorageSnapshot): PersistentState {
   };
 }
 
-// Records whether the outgoing page was stored in the back/forward cache. A
-// stored page keeps its SQLite worker frozen with the database's OPFS access
-// handles, which can fail the next page's boot; the app shell is served
-// `no-store` so the reload always discards it.
+// Records whether the outgoing page entered the back/forward cache. A
+// `location.assign` to another route stores it there (`persisted` in CEF),
+// frozen with its SQLite worker, which can keep holding the database's OPFS
+// access handles so the next page's boot fails until the cache evicts it. A
+// reload never stores the outgoing page, so the probe reloads the nested route
+// and checks that it did.
 const pageHidePersistedKey = "tearleads.probe.pagehide-persisted";
+const nestedRouteReloadExpression = `addEventListener('pagehide', (event) => sessionStorage.setItem(${JSON.stringify(pageHidePersistedKey)}, String(event.persisted)));
+setTimeout(() => {
+  history.pushState(null, '', '/app/contacts');
+  location.reload();
+}, 100);
+undefined`;
 
 async function assertReloadDiscardedPage(): Promise<void> {
   const page = await readPageTarget();
@@ -244,7 +252,7 @@ async function main(): Promise<void> {
     if (!page?.webSocketDebuggerUrl) throw new Error("No CEF page to reload.");
     await evaluate<undefined>(
       page.webSocketDebuggerUrl,
-      `addEventListener('pagehide', (event) => sessionStorage.setItem(${JSON.stringify(pageHidePersistedKey)}, String(event.persisted))); setTimeout(() => location.assign('/app/contacts'), 100); undefined`,
+      nestedRouteReloadExpression,
     );
   }
   const current = toPersistentState(
