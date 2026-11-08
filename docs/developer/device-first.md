@@ -240,6 +240,12 @@ sweep still reconciles every known container before it does. The
 single-container `discoverContainerDocuments` keeps reporting an unavailable
 listing as `null`.
 
+A full sweep takes over the reconcile queue so each container is fetched once,
+then hands back every queued container it did not settle, after the sweep's
+retry backoff. A container it failed to reconcile keeps the sweep's force like
+a hint's force, so it gets the one automatic retry and stays forced until a
+later reconciliation succeeds.
+
 An additional organization starts with local-only billing. Provisioning commits
 its initial roster and organization-profile bodies atomically with their
 [manifests](../glossary/access.md#access-manifest), so another authorized

@@ -14,7 +14,7 @@ import {
   reconcileMarkedContainers,
   sweepKnownContainers,
 } from "./knownContainerSweep";
-import { rearmFailedContainer } from "./laneFailure";
+import { rearmFailedContainer, SWEEP_RETRY_BACKOFF_MS } from "./laneFailure";
 import { createReconcileQueue, type ReconcilePriority } from "./queue";
 import type {
   ReconciliationHost,
@@ -167,9 +167,12 @@ async function refreshAndReconcileContainers(input: {
   }
   const lifecycleGeneration = state.lifecycleGeneration;
 
-  if (input.forceAllDocumentContentPulls) {
-    state.queue.clear();
-  }
+  // A full sweep reconciles every known container, so it takes over the queue
+  // and each container is fetched once. It hands back whatever it leaves
+  // unsettled, so queued work is never dropped.
+  const takenOver = input.forceAllDocumentContentPulls
+    ? state.queue.drain()
+    : [];
   try {
     // A resync_required structural refresh runs independently of this service.
     // If it already removed a container after the forced document lane won its
@@ -213,6 +216,39 @@ async function refreshAndReconcileContainers(input: {
     if (!host.isIgnorableError(error)) {
       throw error;
     }
+  } finally {
+    requeueUnsettledContainers(state, takenOver, lifecycleGeneration);
+  }
+}
+
+/**
+ * Re-queues the containers a full sweep took over but did not settle: one it
+ * never reached, one outside the known set, a failure, or a force it did not
+ * acknowledge. A container it settled is discovered with no force left, which
+ * the lane would only skip. The lane picks them up after the sweep's retry
+ * backoff, so a container that just failed is not retried at once.
+ */
+function requeueUnsettledContainers(
+  state: ReconciliationState,
+  entries: ReadonlyArray<readonly [string, ReconcilePriority]>,
+  lifecycleGeneration: number,
+): void {
+  if (
+    entries.length === 0 ||
+    !isCurrentReconciliationLifecycle(state, lifecycleGeneration)
+  ) {
+    return;
+  }
+  for (const [containerId, priority] of entries) {
+    if (
+      state.forcedContainerGenerations.has(containerId) ||
+      !state.discoveredContainerIds.has(containerId)
+    ) {
+      state.queue.enqueue(containerId, priority);
+    }
+  }
+  if (state.queue.size > 0) {
+    state.lane?.requestSyncAfter(SWEEP_RETRY_BACKOFF_MS);
   }
 }
 

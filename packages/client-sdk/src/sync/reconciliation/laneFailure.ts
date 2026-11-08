@@ -17,7 +17,7 @@ export interface FailedForcedContainer {
   forceGeneration: number;
 }
 
-const SWEEP_RETRY_BACKOFF_MS = 1_000;
+export const SWEEP_RETRY_BACKOFF_MS = 1_000;
 
 export function rearmFailedContainer(
   state: FailedLaneState,

@@ -3,6 +3,7 @@ import type { ReconciliationClock } from "./clock";
 import {
   acknowledgeContainerForce,
   type IdleBackfillState,
+  markContainerForced,
 } from "./idleBackfill";
 import {
   type FailedForcedContainer,
@@ -109,6 +110,33 @@ export async function reconcileMarkedContainers(
 }
 
 /**
+ * The force a failed container keeps for its automatic retry: the one it had
+ * when its batch started, or, in a full sweep, the sweep's own. A full sweep
+ * forces every container but only within its pass, so a failure keeps that
+ * force like a hint's, to be acknowledged only by a later success. A newer
+ * hint that arrived meanwhile already holds a force and its own queue entry,
+ * so it is left alone.
+ */
+function failedContainerForce(
+  state: KnownContainerSweepState,
+  containerId: string,
+  batchForceGeneration: number | undefined,
+  fullSweep: boolean,
+): FailedForcedContainer | null {
+  if (batchForceGeneration !== undefined) {
+    return { containerId, forceGeneration: batchForceGeneration };
+  }
+  if (!fullSweep || state.forcedContainerGenerations.has(containerId)) {
+    return null;
+  }
+  markContainerForced(state, containerId);
+  const forceGeneration = state.forcedContainerGenerations.get(containerId);
+  return forceGeneration === undefined
+    ? null
+    : { containerId, forceGeneration };
+}
+
+/**
  * Reconciles one batch of a sweep. Force generations are read before the
  * batched listing starts, so a hint arriving while the batch is in flight
  * keeps its newer generation and runs again.
@@ -151,9 +179,13 @@ async function sweepContainerBatch(input: {
     if (result.status === "reconciled") {
       acknowledgeContainerForce(state, result.containerId, forceGeneration);
     } else if (result.status === "failed") {
-      if (forceGeneration !== undefined) {
-        failedForces.push({ containerId: result.containerId, forceGeneration });
-      }
+      const failedForce = failedContainerForce(
+        state,
+        result.containerId,
+        forceGeneration,
+        forceAllDocumentContentPulls,
+      );
+      if (failedForce) failedForces.push(failedForce);
       if (!host.isIgnorableError(result.error) && firstError === undefined) {
         firstError = result.error;
       }
