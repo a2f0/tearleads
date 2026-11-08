@@ -13,6 +13,8 @@ import { computeInlineRekeyCommitId } from "./syncRekeyCommit";
 /** Plan only: standalone server repairs belong to the outer sync attempt. */
 export async function buildRemoteDocumentSyncPlan(input: {
   preparedRekeys?: readonly MaterializedContainerRekeyPlan[] | undefined;
+  /** The version the request advertises; defaults to the sync's live one. */
+  localVersionVector?: string | null | undefined;
   minLsn?: string | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   pullCursor?: string | undefined;
@@ -77,7 +79,10 @@ export async function buildRemoteDocumentSyncPlan(input: {
     execSql: input.sync.execSql,
     historyMode: input.sync.historyMode,
     inlineRekeyCommitId,
-    localVersionVector: input.sync.localVersionVector,
+    localVersionVector:
+      input.localVersionVector === undefined
+        ? input.sync.localVersionVector
+        : input.localVersionVector,
     minLsn: input.minLsn,
     onSyncTrace: input.sync.onSyncTrace,
     pendingUpdates: input.pendingUpdates,

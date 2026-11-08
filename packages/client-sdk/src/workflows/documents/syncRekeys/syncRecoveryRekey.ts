@@ -1,4 +1,5 @@
 import { base64ToBytes } from "@tearleads/encoding";
+import { minimumVersionVectors } from "@tearleads/loro";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import {
@@ -71,16 +72,41 @@ export function settledPendingUpdateIdsFromSync(input: {
 }
 
 /**
+ * The version a read-only recovery pass advertises after an update-id
+ * conflict: the live version, lowered to the start of each conflicted row.
+ * The server returns only updates with a span past the advertised frontier,
+ * and every conflicted row is in the live version, so advertising the live
+ * version would hide the server's copy of each row it already holds. Recovery
+ * could then never settle a row by content and would re-key it, and the
+ * server would store its operations twice. A null version (raw history, or a
+ * document with nothing local) already covers nothing.
+ */
+export function recoveryLocalVersionVector(
+  localVersionVector: string | null,
+  recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>,
+): string | null {
+  if (localVersionVector === null || recoveryPendingUpdatesById.size === 0) {
+    return localVersionVector;
+  }
+  return minimumVersionVectors([
+    localVersionVector,
+    ...[...recoveryPendingUpdatesById.values()].map(
+      (update) => update.partialStartVersionVector,
+    ),
+  ]);
+}
+
+/**
  * A read-only recovery sync settles a conflicted pending update only when the
- * response carries it — but the server's frontier filter omits spans the
- * request's localVersionVector already covers, which a locally-applied
- * pending update always is. Left alone, the conflicted id is resubmitted (and
- * 409s the whole outgoing batch) forever: a lost ack leaves the server
- * holding the original ciphertext, and every rebuild encrypts with a fresh
- * IV, so a byte-identical retry can never be reproduced. Re-key what
- * recovery could not settle so the next sync pass submits the same ops under
- * a conflict-free id; the server-side copy stays harmless because CRDT
- * update import is idempotent.
+ * response carries the server's copy with the same content. It asks for those
+ * copies (see recoveryLocalVersionVector), but a copy can still be missing:
+ * the server holds different content under the id, or the copy is on a later
+ * pull page. Left alone, the conflicted id is resubmitted (and 409s the whole
+ * outgoing batch) forever: every rebuild encrypts with a fresh IV, so a
+ * byte-identical retry can never be reproduced. Re-key what recovery could
+ * not settle so the next sync pass submits the same ops under a
+ * conflict-free id; a server-side copy stays harmless because CRDT update
+ * import is idempotent.
  *
  * Re-keying goes through the caller's persistence implementation when given
  * (defaulting to the built-in pending-update table) and reports only ids

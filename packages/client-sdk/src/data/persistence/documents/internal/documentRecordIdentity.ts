@@ -8,7 +8,8 @@ export function sameNullableDocumentValue(
   return (left ?? null) === (right ?? null);
 }
 
-export function sameCanonicalDocumentSecurityIdentity(
+/** The local row, remote document, recovery target, access epoch, and keys. */
+function sameDocumentTargetAndKeys(
   current: DocumentRecord,
   expected: DocumentRecord,
 ): boolean {
@@ -20,12 +21,6 @@ export function sameCanonicalDocumentSecurityIdentity(
       expected.recoveryDocumentId,
     ) &&
     current.accessEpoch === expected.accessEpoch &&
-    sameNullableDocumentValue(
-      current.accessStateHash,
-      expected.accessStateHash,
-    ) &&
-    (current.effectiveAccessLevel ?? null) ===
-      (expected.effectiveAccessLevel ?? null) &&
     sameNullableDocumentValue(
       current.contentKeyBundle,
       expected.contentKeyBundle,
@@ -41,12 +36,47 @@ export function sameCanonicalDocumentSecurityIdentity(
   );
 }
 
+export function sameCanonicalDocumentSecurityIdentity(
+  current: DocumentRecord,
+  expected: DocumentRecord,
+): boolean {
+  return (
+    sameDocumentTargetAndKeys(current, expected) &&
+    sameNullableDocumentValue(
+      current.accessStateHash,
+      expected.accessStateHash,
+    ) &&
+    (current.effectiveAccessLevel ?? null) ===
+      (expected.effectiveAccessLevel ?? null)
+  );
+}
+
 export function sameDocumentSecurityIdentity(
   current: StoredDocumentRecord,
   expected: StoredDocumentRecord,
 ): boolean {
   return (
     sameCanonicalDocumentSecurityIdentity(current, expected) &&
+    current.containerId === expected.containerId
+  );
+}
+
+/**
+ * The identity a server acknowledgement must still match before its queued
+ * updates settle: the same local row and placement, remote document, recovery
+ * target, access epoch, and key material. Access state (`accessStateHash`,
+ * `effectiveAccessLevel`) is left out on purpose. Discovery and membership
+ * refreshes rewrite it without changing the document the server stored the
+ * updates in, so a refresh that lands while a sync response is being
+ * persisted must not leave acknowledged updates queued: the next pass would
+ * resend their ids, hit an id conflict, and re-key them into duplicates.
+ */
+export function sameDocumentSettlementIdentity(
+  current: StoredDocumentRecord,
+  expected: StoredDocumentRecord,
+): boolean {
+  return (
+    sameDocumentTargetAndKeys(current, expected) &&
     current.containerId === expected.containerId
   );
 }
