@@ -4,6 +4,7 @@ import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../../test/helpers/principalAuthorityRecovery";
+import { pinPrincipalPolicyCheckpoint } from "../../../../test/helpers/principalPolicyCheckpointPins";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { savePrincipalHistoryStage } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
@@ -15,6 +16,45 @@ let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
 }, 30_000);
+
+type RecoverySource = Awaited<
+  ReturnType<typeof createAuthorityRecoveryFixture>
+>;
+
+function createResolver(
+  source: RecoverySource,
+  state: { current: boolean; online: boolean },
+  incidents: unknown[],
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
+) {
+  const resolve = createRuntimePrincipalPolicyCurrentResolver({
+    apiClient: {
+      getPrincipalPolicyPages: source.apiClient.getPrincipalPolicyPages.bind(
+        source.apiClient,
+      ),
+    },
+    infra: { execSql: source.options.execSql },
+    state,
+    resolveTrustedUserIdentity,
+    withPrincipalHistoryProtection: (operation) =>
+      operation({
+        protection: source.options.protection,
+        stillCurrent: () => state.current,
+      }),
+    util: {
+      reportSecurityIncident: async (error) => {
+        incidents.push(error);
+      },
+    },
+  });
+  if (!resolve) throw new Error("Expected current policy recovery");
+  return (stillCurrent: () => boolean) =>
+    resolve({
+      organizationId: history.organizationId,
+      reference: principalPolicyHead(history.group),
+      stillCurrent,
+    });
+}
 
 /**
  * A queued recovery held after it loads its stages, while the same head is
@@ -42,32 +82,12 @@ async function supersededRecovery() {
     }
     return source.options.resolveTrustedUserIdentity(userId);
   };
-  const resolve = createRuntimePrincipalPolicyCurrentResolver({
-    apiClient: {
-      getPrincipalPolicyPages: source.apiClient.getPrincipalPolicyPages.bind(
-        source.apiClient,
-      ),
-    },
-    infra: { execSql: source.options.execSql },
+  const pending = createResolver(
+    source,
     state,
-    resolveTrustedUserIdentity: gatedIdentity,
-    withPrincipalHistoryProtection: (operation) =>
-      operation({
-        protection: source.options.protection,
-        stillCurrent: () => state.current,
-      }),
-    util: {
-      reportSecurityIncident: async (error) => {
-        incidents.push(error);
-      },
-    },
-  });
-  if (!resolve) throw new Error("Expected current policy recovery");
-  const pending = resolve({
-    organizationId: history.organizationId,
-    reference: principalPolicyHead(history.group),
-    stillCurrent: () => state.current,
-  });
+    incidents,
+    gatedIdentity,
+  )(() => state.current);
   await atGate;
   await createPrincipalCurrentRecoveryBatch().recover({
     ...source.options,
@@ -90,6 +110,44 @@ test("a queued recovery superseded by a publication of its head resumes and veri
     expect(f.incidents).toEqual([]);
   } finally {
     f.source.close();
+  }
+});
+
+test("a recovery whose head another verifier admits meanwhile resumes and verifies", async () => {
+  // Name hydration and container verification admit checkpoints outside the
+  // recovery queue. A peer opening an organization lost its group names when
+  // one landed while this recovery read the group's history.
+  const source = await createAuthorityRecoveryFixture(history);
+  try {
+    const groupId = history.group.currentState.principalId;
+    let admitted = false;
+    source.controls.mutate = async (page) => {
+      if (admitted || page.currentState.principalId !== groupId) return;
+      admitted = true;
+      await pinPrincipalPolicyCheckpoint(source.db, {
+        principalType: "group",
+        principalId: groupId,
+        version: history.group.currentState.version,
+        stateHash: history.group.currentState.stateHash,
+        updatedAt: history.group.currentState.createdAt,
+        organizationId: history.organizationId,
+      });
+    };
+    const state = { current: true, online: true };
+    const incidents: unknown[] = [];
+    const recovered = await createResolver(
+      source,
+      state,
+      incidents,
+      source.options.resolveTrustedUserIdentity,
+    )(() => true);
+    expect(admitted).toBe(true);
+    expect(recovered.policy.stateHash).toBe(
+      history.group.currentState.stateHash,
+    );
+    expect(incidents).toEqual([]);
+  } finally {
+    source.close();
   }
 });
 

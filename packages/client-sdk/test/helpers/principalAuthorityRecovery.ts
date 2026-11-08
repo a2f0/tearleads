@@ -112,7 +112,10 @@ export async function createAuthorityRecoveryFixture(
     unchanged?: boolean;
   }[] = [];
   const controls: {
-    mutate: ((page: PrincipalPolicyPageResponse) => void) | null;
+    /** Rewrites a served page; a returned promise holds the reply until it settles. */
+    mutate:
+      | ((page: PrincipalPolicyPageResponse) => void | Promise<void>)
+      | null;
     failureStatus?: number;
     /** Answer conditional reads like the API; otherwise ignore them. */
     conditional?: boolean;
@@ -122,7 +125,7 @@ export async function createAuthorityRecoveryFixture(
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
-    fetch(request) {
+    async fetch(request) {
       if (controls.failureStatus)
         return Response.json(
           { error: "Unavailable" },
@@ -176,7 +179,7 @@ export async function createAuthorityRecoveryFixture(
             next === bundle.currentState.version - 1 ? null : next,
         },
       });
-      controls.mutate?.(page);
+      await controls.mutate?.(page);
       return Response.json(page);
     },
   });
