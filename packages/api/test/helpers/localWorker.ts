@@ -100,10 +100,10 @@ export async function startLocalWorker(
 ): Promise<LocalWorker> {
   // Every attempt shares one deadline, so callers' hook timeouts still hold.
   const deadline = Date.now() + START_TIMEOUT_MS;
-  return retryPortCollisions(
-    () => startLocalWorkerOnce(overrides, deadline),
-    PORT_COLLISION_ATTEMPTS,
-  );
+  return retryPortCollisions(() => startLocalWorkerOnce(overrides, deadline), {
+    attempts: PORT_COLLISION_ATTEMPTS,
+    deadline,
+  });
 }
 
 async function startLocalWorkerOnce(
@@ -153,16 +153,26 @@ async function startLocalWorkerOnce(
     },
   );
   let output = "";
+  // A stream error must not replace the start failure the output explains.
   const collect = async (stream: ReadableStream<Uint8Array>) => {
-    for await (const chunk of stream) {
-      output += new TextDecoder().decode(chunk);
+    try {
+      for await (const chunk of stream) {
+        output += new TextDecoder().decode(chunk);
+      }
+    } catch {
+      // Keep what was read.
     }
   };
   const readers = [collect(child.stdout), collect(child.stderr)];
   const origin = `http://127.0.0.1:${port}`;
   const stop = async () => {
     child.kill();
-    await child.exited;
+    const kill = setTimeout(() => child.kill("SIGKILL"), 3_000);
+    try {
+      await child.exited;
+    } finally {
+      clearTimeout(kill);
+    }
     await rm(persist, { recursive: true, force: true });
   };
   // Neither an early exit nor a timeout hands back a handle: the child is

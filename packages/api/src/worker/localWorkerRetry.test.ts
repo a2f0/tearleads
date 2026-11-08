@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   LocalWorkerExitedEarlyError,
   retryPortCollisions,
-} from "./localWorkerRetry";
+} from "../../test/helpers/localWorkerRetry";
 
 const workerdCollision = new LocalWorkerExitedEarlyError(
   1,
@@ -12,6 +12,7 @@ const inspectorCollision = new LocalWorkerExitedEarlyError(
   1,
   "Error: listen EADDRINUSE: address already in use 127.0.0.1:9229",
 );
+const open = { attempts: 3, deadline: Number.POSITIVE_INFINITY };
 
 function scriptedStarts(failures: readonly unknown[]) {
   let attempts = 0;
@@ -31,7 +32,7 @@ test.each([
   "a port collision reported by %s starts again on fresh ports",
   async (_, collision) => {
     const starts = scriptedStarts([collision]);
-    await expect(retryPortCollisions(starts.startOnce, 3)).resolves.toBe(
+    await expect(retryPortCollisions(starts.startOnce, open)).resolves.toBe(
       "worker",
     );
     expect(starts.attempts()).toBe(2);
@@ -44,7 +45,7 @@ test("the last collision propagates at the attempt cap", async () => {
     workerdCollision,
     workerdCollision,
   ]);
-  await expect(retryPortCollisions(starts.startOnce, 3)).rejects.toBe(
+  await expect(retryPortCollisions(starts.startOnce, open)).rejects.toBe(
     workerdCollision,
   );
   expect(starts.attempts()).toBe(3);
@@ -59,6 +60,16 @@ test.each([
   ],
 ])("%s propagates without another start", async (_, failure) => {
   const starts = scriptedStarts([failure]);
-  await expect(retryPortCollisions(starts.startOnce, 3)).rejects.toBe(failure);
+  await expect(retryPortCollisions(starts.startOnce, open)).rejects.toBe(
+    failure,
+  );
+  expect(starts.attempts()).toBe(1);
+});
+
+test("a collision after the shared deadline propagates without another start", async () => {
+  const starts = scriptedStarts([workerdCollision]);
+  await expect(
+    retryPortCollisions(starts.startOnce, { attempts: 3, deadline: 0 }),
+  ).rejects.toBe(workerdCollision);
   expect(starts.attempts()).toBe(1);
 });
