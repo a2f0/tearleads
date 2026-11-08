@@ -61,6 +61,42 @@ test("withdrawing the last caller stops the sweep between batches", async () => 
   ]);
 });
 
+// Opening a container the sweep had not reached yet is suppressed by the
+// sweep's mark. If the sweep then stops, that one navigation must still
+// reconcile the container, with no second enqueue to rescue it.
+test("a container opened during a stopped sweep still reconciles", async () => {
+  const firstBatchStarted = createGate();
+  const finishFirstBatch = createGate();
+  const discovered: string[] = [];
+  const host = createReconciliationTestHost({
+    discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
+      discovered.push(containerId);
+      if (containerId === "c-0") {
+        firstBatchStarted.open();
+        await finishFirstBatch.wait;
+      }
+      return [];
+    }),
+    listKnownContainerIds: () => KNOWN,
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  const caller = new AbortController();
+
+  const refresh = service.reconcileNow({ signal: caller.signal });
+  await firstBatchStarted.wait;
+  service.setActiveContainer("c-35");
+  caller.abort(abortError());
+  await expect(refresh).rejects.toThrow("Refresh cancelled");
+  finishFirstBatch.open();
+
+  await waitFor(
+    () => discovered.includes("c-35"),
+    "Expected the opened container to reconcile after the stop",
+    2_000,
+  );
+});
+
 // The reconnect catch-up joins an Explorer refresh without a signal. The
 // Explorer withdrawing must not cancel the catch-up's sweep.
 test("a caller without a signal keeps a shared refresh running", async () => {

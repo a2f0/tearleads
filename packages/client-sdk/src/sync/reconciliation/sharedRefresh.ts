@@ -1,22 +1,24 @@
 import type { ReconciliationHost } from "./serviceTypes";
+import {
+  QUEUED_SHARED_REFRESH,
+  type SharedRefreshEvent,
+  type SharedRefreshState,
+  transitionSharedRefresh,
+} from "./sharedRefreshMachine";
 
 export type RefreshScope = "root" | "full";
 
 /**
- * One refresh every joining caller shares. A caller that passes a signal can
- * withdraw: its own promise rejects at once with the signal's reason. The
- * refresh itself stops, at its next safe boundary, only once every caller has
- * withdrawn, so a caller without a signal (the reconnect catch-up, an
- * organization-membership refresh) always keeps it running. A refresh whose
- * callers all withdrew before it began never starts.
+ * One refresh every joining caller shares; see `sharedRefreshMachine.ts` for
+ * its lifecycle. A caller that passes a signal can withdraw: its own promise
+ * rejects at once with the signal's reason. Entering `stopping` aborts the
+ * signal the running refresh checks at its safe boundaries.
  */
 export class SharedRefresh {
   readonly promise: Promise<void>;
   readonly scope: RefreshScope;
-  /** Set once the refresh begins; a fresh-listing request queues behind it. */
-  started = false;
+  private state: SharedRefreshState = QUEUED_SHARED_REFRESH;
   private readonly stopController = new AbortController();
-  private waiters = 0;
 
   constructor(input: {
     /** A refresh this one queues behind; its failure never prevents this one. */
@@ -26,30 +28,36 @@ export class SharedRefresh {
     readonly scope: RefreshScope;
   }) {
     this.scope = input.scope;
-    const stop = this.stopController.signal;
     this.promise = (input.after ?? Promise.resolve())
       .catch(() => undefined)
       .then(() => {
-        if (stop.aborted) return;
-        this.started = true;
-        return input.run(stop);
+        this.dispatch({ type: "started" });
+        if (this.state.status !== "running") return;
+        return input.run(this.stopController.signal);
       })
-      .finally(() => input.onSettled(this));
+      .finally(() => {
+        this.dispatch({ type: "settled" });
+        input.onSettled(this);
+      });
   }
 
-  /** True once every caller withdrew; a new caller must not join it. */
+  /** Running: a fresh-listing request must queue behind it, not join it. */
+  get started(): boolean {
+    return this.state.status === "running";
+  }
+
+  /** Every caller withdrew; a new caller must start a new refresh. */
   get stopping(): boolean {
-    return this.stopController.signal.aborted;
+    return this.state.status === "stopping";
   }
 
   /** Adds one caller; `signal` lets that caller withdraw. */
   join(signal: AbortSignal | undefined): Promise<void> {
-    this.waiters += 1;
+    this.dispatch({ type: "joined" });
     if (!signal) return this.promise;
     return new Promise<void>((resolve, reject) => {
       const withdraw = () => {
-        this.waiters -= 1;
-        if (this.waiters === 0) this.stopController.abort();
+        this.dispatch({ type: "withdrew" });
         reject(signal.reason);
       };
       signal.addEventListener("abort", withdraw, { once: true });
@@ -64,6 +72,14 @@ export class SharedRefresh {
         },
       );
     });
+  }
+
+  private dispatch(event: SharedRefreshEvent): void {
+    const next = transitionSharedRefresh(this.state, event);
+    const stops =
+      next.status === "stopping" && this.state.status !== "stopping";
+    this.state = next;
+    if (stops) this.stopController.abort();
   }
 }
 

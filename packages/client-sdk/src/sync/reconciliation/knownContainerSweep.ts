@@ -197,7 +197,9 @@ async function sweepContainerBatch(input: {
 /**
  * Releases the up-front marks of containers a stopped sweep never reached,
  * so passive reconciliation still reaches them. A container that was already
- * discovered before the sweep keeps its mark.
+ * discovered before the sweep keeps its mark. Opening a container while the
+ * sweep ran was suppressed by its mark, so an unreached active container is
+ * queued now rather than waiting for the next navigation.
  */
 function releaseUnreachedMarks(
   state: KnownContainerSweepState,
@@ -208,6 +210,11 @@ function releaseUnreachedMarks(
     if (markedBySweep.has(containerId)) {
       state.discoveredContainerIds.delete(containerId);
     }
+  }
+  const activeContainerId = state.activeContainerId;
+  if (activeContainerId && unreached.includes(activeContainerId)) {
+    state.queue.enqueue(activeContainerId, "active");
+    state.lane?.requestSync();
   }
 }
 
