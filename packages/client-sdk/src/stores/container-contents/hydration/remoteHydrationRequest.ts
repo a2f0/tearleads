@@ -120,6 +120,41 @@ function resumeRetainedRecoveryHydration(
     : Promise.resolve();
 }
 
+/**
+ * Who learns of each started crawl's listing failures: its own request, and
+ * any request whose queued parent lanes that crawl took over.
+ */
+const listingObserversByHydration = new WeakMap<
+  Promise<void>,
+  Set<() => void>
+>();
+
+function createListingObservers(
+  input: RemoteHydrationRequestInput,
+): Set<() => void> {
+  return new Set(
+    input.onListingUnavailable ? [input.onListingUnavailable] : [],
+  );
+}
+
+/**
+ * Another request's crawl took over this request's queued parent lanes, so
+ * this request settles with that crawl and observes its listing failures,
+ * instead of resolving at once as if its lanes had been listed.
+ */
+function joinActiveRemoteHydration(
+  input: RemoteHydrationRequestInput,
+): Promise<void> | undefined {
+  const activeHydration = input.state.remoteHydrationPromise;
+  if (!activeHydration) return undefined;
+  if (input.onListingUnavailable) {
+    listingObserversByHydration
+      .get(activeHydration)
+      ?.add(input.onListingUnavailable);
+  }
+  return activeHydration;
+}
+
 function waitForActiveRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> | null {
@@ -146,7 +181,7 @@ function waitForActiveRemoteHydration(
     return needsCurrentGenerationHydration ||
       state.containerParentIdsNeedingHydration.size > 0
       ? requestContainerContentsRemoteHydration(input)
-      : undefined;
+      : joinActiveRemoteHydration(input);
   };
   return activeHydration.then(
     requestQueuedHydration,
@@ -307,6 +342,7 @@ export function requestContainerContentsRemoteHydration(
     host,
     isCurrent,
   });
+  const listingObservers = createListingObservers(input);
   const rootLaneHydratedBeforeRequest = state.rootLaneHydrated;
   state.remoteHydrationGeneration = lifecycleGeneration;
   state.remoteHydrationStructuralGeneration = structuralGeneration;
@@ -323,7 +359,9 @@ export function requestContainerContentsRemoteHydration(
         host: hydrationHost,
         isCurrent,
         onFullyHydrated,
-        onListingUnavailable: input.onListingUnavailable,
+        onListingUnavailable: () => {
+          for (const observe of listingObservers) observe();
+        },
         parentIds,
         resetAllLaneWatermarks: input.resetAllLaneWatermarks,
         resetRootLaneWatermark: input.resetRootLaneWatermark,
@@ -370,6 +408,7 @@ export function requestContainerContentsRemoteHydration(
       return undefined;
     });
   state.remoteHydrationPromise = hydrationPromise;
+  listingObserversByHydration.set(hydrationPromise, listingObservers);
 
   return hydrationPromise;
 }
