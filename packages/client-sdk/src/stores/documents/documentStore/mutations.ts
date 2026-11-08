@@ -129,12 +129,22 @@ async function writeDocumentText(
     return;
   }
 
-  if (getTextValue(writeDoc) !== value) {
+  const textChanged = getTextValue(writeDoc) !== value;
+  // Equal text still persists when an earlier write applied ops that never
+  // became durable (its save failed, and the write in between was superseded):
+  // this write is the last one queued to carry them. Without such edits it
+  // only revalidates, so a deferred birth keeps riding the next real edit.
+  if (!textChanged && !state.unsavedLocalEdits) {
+    await revalidateDocumentMutationIdentity({
+      currentDoc: writeDoc,
+      generation: syncGeneration,
+      state,
+    });
+    return;
+  }
+  if (textChanged) {
     writeDoc.getText("text").update(value);
   }
-  // Export since pendingBaseVersion even when the text already matches: an
-  // earlier write may have applied its ops and then failed to persist, and a
-  // superseded write never ran to carry them, so this write must enqueue them.
   const update = pendingDeltaSinceBase(state, writeDoc);
   // Captured at delta time: the enqueued row proves durable coverage up
   // to exactly this version, so this is the frontier the persist may
