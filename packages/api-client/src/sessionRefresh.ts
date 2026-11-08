@@ -51,6 +51,12 @@ function renewalUnlessAborted(
   signal: AbortSignal | undefined,
 ): Promise<boolean> {
   if (!signal) return Promise.resolve(renewal);
+  // Starting the renewal can abort the signal before a listener exists. The
+  // renewal is still consumed, so a later rejection is never unhandled.
+  if (signal.aborted) {
+    Promise.resolve(renewal).catch(() => undefined);
+    return Promise.resolve(false);
+  }
   return new Promise<boolean>((resolve, reject) => {
     const abandon = () => resolve(false);
     signal.addEventListener("abort", abandon, { once: true });

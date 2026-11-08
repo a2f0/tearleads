@@ -124,3 +124,34 @@ test("an already aborted request starts no renewal", async () => {
   ).resolves.toBe(false);
   expect(renewals).toBe(0);
 });
+
+// Starting a renewal can abort the request before the wait listens for it;
+// that abort must still end the wait rather than hang on the renewal.
+test("a renewal that aborts its request while starting still ends the wait", async () => {
+  const controller = new AbortController();
+  const pendingRenewal = Promise.withResolvers<boolean>();
+  const wait = shouldRetryAfterSessionExpired({
+    authToken: "identity-a",
+    body: undefined,
+    code: SESSION_ERROR_CODES.refreshRequired,
+    responseStatus: 401,
+    getCurrentAuthToken: () => "identity-a",
+    isKnownSessionRenewal: () => false,
+    pendingSessionRenewal: () => null,
+    options: { signal: controller.signal },
+    reportError: () => undefined,
+    refreshSession: () => {
+      controller.abort();
+      return pendingRenewal.promise;
+    },
+  });
+  // Bound the wait: a regression hangs on the never-settled renewal.
+  const hang = Promise.withResolvers<"hung">();
+  const guard = setTimeout(() => hang.resolve("hung"), 2_000);
+  try {
+    expect(await Promise.race([wait, hang.promise])).toBe(false);
+  } finally {
+    clearTimeout(guard);
+  }
+  pendingRenewal.reject(new Error("renewal failed after the request ended"));
+});

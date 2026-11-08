@@ -67,6 +67,10 @@ for (const listing of ["parent", "document"] as const) {
         const client = new ApiClient(server.url.origin);
         const errors: string[] = [];
         client.setOnError((message) => errors.push(message));
+        let networkErrors = 0;
+        client.setOnNetworkError(() => {
+          networkErrors += 1;
+        });
         const list = () =>
           listing === "parent"
             ? client.listContainerParentLanes({
@@ -100,6 +104,9 @@ for (const listing of ["parent", "document"] as const) {
           expect(errors).toEqual(
             listing === "parent" ? [timeout] : [timeout, timeout],
           );
+          // One shared request timed out: one reachability hint, in either
+          // phase, not a second one for the body read the deadline aborted.
+          expect(networkErrors).toBe(1);
         } finally {
           stalled.resolve();
           await server.stop(true);
@@ -109,9 +116,8 @@ for (const listing of ["parent", "document"] as const) {
   }
 }
 
-// A refresh-required 401 makes the request await a session renewal that does
-// not observe the abort signal. The deadline still ends the listing; the
-// shared renewal is left to finish on its own.
+// A refresh-required 401 makes the request await a session renewal. The
+// deadline still ends the listing; the shared renewal keeps running.
 testApiClient(
   "a lane listing waiting on a stalled session renewal still times out",
   async () => {
