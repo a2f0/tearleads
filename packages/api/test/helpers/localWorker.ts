@@ -9,6 +9,10 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { TestUser } from "@tearleads/test-utils";
+import {
+  LocalWorkerExitedEarlyError,
+  retryPortCollisions,
+} from "./localWorkerRetry";
 
 /**
  * Runs the deployed Worker entry in workerd through `wrangler dev`: the real
@@ -89,8 +93,28 @@ async function freePort(): Promise<number> {
   return port;
 }
 
+const PORT_COLLISION_ATTEMPTS = 3;
+// A retry needs room to compile and start the Worker; with less, it would
+// only time out and hide the collision.
+const MINIMUM_RETRY_START_MS = 30_000;
+
 export async function startLocalWorker(
   overrides: Readonly<Record<string, string>> = {},
+): Promise<LocalWorker> {
+  // Attempts share one deadline, and each poll stops at it, so a failed start
+  // ends within its cleanup bound (a 3 s SIGKILL fallback and a 2 s output
+  // drain) of the deadline: inside callers' START_TIMEOUT_MS + 10 s hooks.
+  const deadline = Date.now() + START_TIMEOUT_MS;
+  return retryPortCollisions(() => startLocalWorkerOnce(overrides, deadline), {
+    attempts: PORT_COLLISION_ATTEMPTS,
+    deadline,
+    minimumStartMs: MINIMUM_RETRY_START_MS,
+  });
+}
+
+async function startLocalWorkerOnce(
+  overrides: Readonly<Record<string, string>>,
+  deadline: number,
 ): Promise<LocalWorker> {
   const [port, inspectorPort] = await Promise.all([freePort(), freePort()]);
   const persist = await mkdtemp(resolve(tmpdir(), "tearleads-worker-state-"));
@@ -135,45 +159,61 @@ export async function startLocalWorker(
     },
   );
   let output = "";
+  // A stream error must not replace the start failure the output explains.
   const collect = async (stream: ReadableStream<Uint8Array>) => {
-    for await (const chunk of stream) {
-      output += new TextDecoder().decode(chunk);
+    try {
+      for await (const chunk of stream) {
+        output += new TextDecoder().decode(chunk);
+      }
+    } catch {
+      // Keep what was read.
     }
   };
-  void collect(child.stdout);
-  void collect(child.stderr);
+  const readers = [collect(child.stdout), collect(child.stderr)];
   const origin = `http://127.0.0.1:${port}`;
   const stop = async () => {
     child.kill();
-    await child.exited;
+    const kill = setTimeout(() => child.kill("SIGKILL"), 3_000);
+    try {
+      await child.exited;
+    } finally {
+      clearTimeout(kill);
+    }
     await rm(persist, { recursive: true, force: true });
   };
   // Neither an early exit nor a timeout hands back a handle: the child is
-  // stopped, its state removed, and the failure quotes the bounded output.
-  const fail = async (reason: string): Promise<never> => {
+  // stopped, its state removed, and its output read before the failure quotes
+  // it. A workerd grandchild can hold the pipes open, so reading is bounded.
+  const stopAndDrain = async () => {
     await stop();
-    throw new Error(`${reason}\nwrangler dev output:\n${output.slice(-6000)}`);
+    await Promise.race([Promise.all(readers), Bun.sleep(2_000)]);
   };
-  const deadline = Date.now() + START_TIMEOUT_MS;
   let ready = false;
   while (!ready && Date.now() < deadline) {
     if (child.exitCode !== null) {
-      return fail(`wrangler dev exited early with code ${child.exitCode}`);
+      const exitCode = child.exitCode;
+      await stopAndDrain();
+      throw new LocalWorkerExitedEarlyError(exitCode, output);
     }
     try {
       const response = await fetch(`${origin}/`, {
-        signal: AbortSignal.timeout(5_000),
+        signal: AbortSignal.timeout(
+          Math.max(1, Math.min(5_000, deadline - Date.now())),
+        ),
       });
       ready = response.status === 200;
     } catch {
       // Not listening yet.
     }
     if (!ready) {
-      await Bun.sleep(500);
+      await Bun.sleep(Math.max(0, Math.min(500, deadline - Date.now())));
     }
   }
   if (!ready) {
-    return fail(`wrangler dev was not ready within ${START_TIMEOUT_MS} ms`);
+    await stopAndDrain();
+    throw new Error(
+      `wrangler dev was not ready before its ${START_TIMEOUT_MS} ms start deadline\nwrangler dev output:\n${output.slice(-6000)}`,
+    );
   }
   return { origin, logs: () => output, stop };
 }
