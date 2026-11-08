@@ -129,12 +129,27 @@ const listingObserversByHydration = new WeakMap<
   Set<() => void>
 >();
 
-function createListingObservers(
-  input: RemoteHydrationRequestInput,
-): Set<() => void> {
-  return new Set(
+/**
+ * A crawl's listing observers, and its request's input re-pointed at all of
+ * them. A restart after a generation reset, or a retained recovery, runs with
+ * that input, so it still reports to every request that joined this crawl.
+ */
+function observeCrawlListing(input: RemoteHydrationRequestInput): {
+  readonly input: RemoteHydrationRequestInput;
+  readonly observers: Set<() => void>;
+} {
+  const observers = new Set(
     input.onListingUnavailable ? [input.onListingUnavailable] : [],
   );
+  return {
+    input: {
+      ...input,
+      onListingUnavailable: () => {
+        for (const observe of observers) observe();
+      },
+    },
+    observers,
+  };
 }
 
 /**
@@ -342,7 +357,7 @@ export function requestContainerContentsRemoteHydration(
     host,
     isCurrent,
   });
-  const listingObservers = createListingObservers(input);
+  const listing = observeCrawlListing(input);
   const rootLaneHydratedBeforeRequest = state.rootLaneHydrated;
   state.remoteHydrationGeneration = lifecycleGeneration;
   state.remoteHydrationStructuralGeneration = structuralGeneration;
@@ -359,9 +374,7 @@ export function requestContainerContentsRemoteHydration(
         host: hydrationHost,
         isCurrent,
         onFullyHydrated,
-        onListingUnavailable: () => {
-          for (const observe of listingObservers) observe();
-        },
+        onListingUnavailable: listing.input.onListingUnavailable,
         parentIds,
         resetAllLaneWatermarks: input.resetAllLaneWatermarks,
         resetRootLaneWatermark: input.resetRootLaneWatermark,
@@ -400,15 +413,15 @@ export function requestContainerContentsRemoteHydration(
         scheduleSync();
       }
       if (shouldRetryAfterReset) {
-        return retryRemoteHydrationAfterReset(input);
+        return retryRemoteHydrationAfterReset(listing.input);
       }
       if (retainInterruptedHydration) {
-        retainResetRecoveryHydration(input);
+        retainResetRecoveryHydration(listing.input);
       }
       return undefined;
     });
   state.remoteHydrationPromise = hydrationPromise;
-  listingObserversByHydration.set(hydrationPromise, listingObservers);
+  listingObserversByHydration.set(hydrationPromise, listing.observers);
 
   return hydrationPromise;
 }
