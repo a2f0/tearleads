@@ -211,6 +211,26 @@ function toPersistentState(snapshot: StorageSnapshot): PersistentState {
   };
 }
 
+// Records whether the outgoing page was stored in the back/forward cache. A
+// stored page keeps its SQLite worker frozen with the database's OPFS access
+// handles, which can fail the next page's boot; the app shell is served
+// `no-store` so the reload always discards it.
+const pageHidePersistedKey = "tearleads.probe.pagehide-persisted";
+
+async function assertReloadDiscardedPage(): Promise<void> {
+  const page = await readPageTarget();
+  if (!page?.webSocketDebuggerUrl) throw new Error("No reloaded CEF page.");
+  const persisted = await evaluate<string | null>(
+    page.webSocketDebuggerUrl,
+    `sessionStorage.getItem(${JSON.stringify(pageHidePersistedKey)})`,
+  );
+  if (persisted !== "false") {
+    throw new Error(
+      `The reloaded page's predecessor reported pagehide persisted=${String(persisted)}; it must not enter the back/forward cache.`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   const mode = Bun.argv[2];
   if (mode !== "first" && mode !== "reopen") {
@@ -224,12 +244,15 @@ async function main(): Promise<void> {
     if (!page?.webSocketDebuggerUrl) throw new Error("No CEF page to reload.");
     await evaluate<undefined>(
       page.webSocketDebuggerUrl,
-      "setTimeout(() => location.assign('/app/contacts'), 100); undefined",
+      `addEventListener('pagehide', (event) => sessionStorage.setItem(${JSON.stringify(pageHidePersistedKey)}, String(event.persisted))); setTimeout(() => location.assign('/app/contacts'), 100); undefined`,
     );
   }
   const current = toPersistentState(
     await readReadySnapshot(mode === "reopen", previousTimeOrigin),
   );
+  if (mode === "reopen") {
+    await assertReloadDiscardedPage();
+  }
   if (mode === "first") {
     console.log(JSON.stringify(current));
     return;

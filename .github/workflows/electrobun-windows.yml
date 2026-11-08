@@ -55,7 +55,8 @@ jobs:
         uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        shell: bash
+        run: sh scripts/lib/installDependencies.sh
 
       - name: Build and reopen CEF with a port conflict
         run: bun scripts/testing/runVerifiedTurbo.ts test:windows-ci
@@ -103,7 +104,7 @@ jobs:
           SENTRY_ELECTROBUN_PRODUCTION_DSN: ${{ vars.SENTRY_ELECTROBUN_PRODUCTION_DSN }}
         run: |
           cd "$(cygpath -u "$RUNNER_TEMP")/windows-release"
-          bun install --frozen-lockfile
+          sh scripts/lib/installDependencies.sh
           bash packages/app-electrobun/scripts/buildWindowsNative.sh "$RELEASE_TIER"
 
       - name: Save installer and update artifacts

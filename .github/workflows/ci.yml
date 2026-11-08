@@ -75,7 +75,7 @@ jobs:
           install_args: bun
           cache: true
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: sh scripts/lib/installDependencies.sh
       - name: Require every applicable check to succeed
         env:
           CI_NEEDS: ${{ toJSON(needs) }}
@@ -113,7 +113,7 @@ jobs:
           working-directory: packages/app-capacitor
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: sh scripts/lib/installDependencies.sh
 
       # Pre-push lints a pushed branch only where hooks are installed, so a
       # pull request opened from any other clone is checked here. The name is
@@ -169,7 +169,7 @@ jobs:
         uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: sh scripts/lib/installDependencies.sh
 
       - name: Run model check
         env:
@@ -226,7 +226,7 @@ jobs:
           working-directory: packages/app-capacitor
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: sh scripts/lib/installDependencies.sh
 
       - name: Build workspace packages
         run: bun run build:packages
@@ -314,7 +314,7 @@ jobs:
         uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: sh scripts/lib/installDependencies.sh
 
       # SUITE_ARGS is a fixed matrix value: split on spaces, it reaches the
       # package's test script after Turbo's `--`.
@@ -368,7 +368,7 @@ jobs:
         uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: sh scripts/lib/installDependencies.sh
 
       - name: Run Postgres concurrency lane
         env:

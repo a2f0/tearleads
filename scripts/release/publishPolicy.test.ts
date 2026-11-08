@@ -37,7 +37,9 @@ for (const name of ["client-sdk", "windowing"]) {
     expect(install).toBeGreaterThanOrEqual(0);
     expect(install).toBeLessThan(plan);
     expect(publish.steps[install]?.if).toBeUndefined();
-    expect(publish.steps[install]?.run).toBe("bun install --frozen-lockfile");
+    expect(publish.steps[install]?.run).toBe(
+      "sh scripts/lib/installDependencies.sh",
+    );
     expect(publish.steps[plan]?.run).toBe(
       `bun run agent-tool release plan packages/${name}/package.json --allow-private-source --github-output`,
     );

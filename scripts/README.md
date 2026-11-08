@@ -18,7 +18,7 @@ below; run them from the repository root, for example
 | [`dev/`](dev/) | Local launchers, shell setup, seed generation, and cache maintenance. |
 | [`git/`](git/) | Hook installation, hook implementations, and push timing reports. |
 | [`keychain/`](keychain/) | Manual macOS keychain utilities. |
-| [`lib/`](lib/) | Helpers shared across script groups, including timings, build metadata, and release environment guards. |
+| [`lib/`](lib/) | Helpers shared across script groups, including timings, build metadata, release environment guards, and the retried CI dependency install. |
 | [`localstack/`](localstack/) | Local S3 setup, shutdown, and reset commands. |
 | [`postgres/`](postgres/) | Development database setup, migration, and reset commands. |
 | [`protocol/`](protocol/) | Formal protocol checks, trace generation and projection, negative controls, and their tests. |

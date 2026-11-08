@@ -261,7 +261,11 @@ runs the persistence checks without those forced-conflict assertions.
 The application origin remains `http://127.0.0.1:3002` across both launches.
 It verifies bundled CEF selection and reuses the Linux storage probe to confirm
 that a populated encrypted identity database reopens after a process restart
-and a nested-route reload.
+and a nested-route reload. The app server sends the HTML shell with
+`Cache-Control: no-store`, so that reload discards the outgoing page instead of
+freezing it in the back/forward cache with its SQLite worker still holding the
+database's OPFS access handles; the probe fails if the outgoing page reports
+`pagehide` with `persisted`.
 The local test requires Bun and Git Bash and isolates storage in a temporary
 `LOCALAPPDATA` directory.
 
