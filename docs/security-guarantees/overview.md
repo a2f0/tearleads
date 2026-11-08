@@ -53,8 +53,11 @@ a different user. Later substitutions hard-fail, and policy verification also
 checks the signing fingerprint in signed state. Verifying signed state pins a
 referenced user on first sight (`observed`); only an independently exchanged
 identity link (`link`) or the device's own keys (`self`) admit a user as a
-contact, roster or group member, or share recipient. Neither mechanism proves
-global currentness.
+contact, roster or group member, or share recipient. A read-only share
+recipient can also be admitted by the organization's signed roster when an
+admin this device verified signed the Members state that admitted them, for the
+encryption key that state commits. Neither mechanism proves global
+currentness.
 
 ## Root And System Destinations
 

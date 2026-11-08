@@ -77,6 +77,7 @@ export interface InternalRuntime {
     | "createLink"
     | "createLinkFor"
     | "verifyLink"
+    | "loadAdmissionPin"
     | "resolvePinned"
     | "resolveVerified"
     | "requireVerified"

@@ -9,13 +9,16 @@ plus both computed SHA-256 fingerprints. Every signature-verification and
 user-recipient encryption workflow uses it; organization directory responses are
 never accepted as cryptographic key input.
 
-[Identity links](../glossary/principals.md#identity-link) are the only way to
+[Identity links](../glossary/principals.md#identity-link) are the way to
 admit another user. Adding a contact, adding a
 [roster](../glossary/principals.md#organization-roster-entry) (organization)
 user, adding a user to a group, sharing a folder with a user, and creating a
 roster profile document all require an identity that a verified
-[identity link](#identity-links), or this device's own keys, established. The
-SDK has no public lookup by user ID that trusts the server's first answer.
+[identity link](#identity-links), or this device's own keys, established. A
+read-only folder share with an existing member also accepts the
+organization's signed roster when an admin this device verified added them
+([roster vouching](#roster-vouching)). The SDK has no public lookup by user ID
+that trusts the server's first answer.
 
 ## Pinning
 
@@ -45,13 +48,14 @@ Each pin records how it was established:
   [fails closed](../glossary/access.md#fail-closed) for users the device has not
   met.
 
-Only `self` and `link` admit a user. Verifying a link whose keys match an
-`observed` pin raises that pin to `link`; provenance never falls back, and an
-`observed` sight of a linked user leaves it `link`. A link whose keys differ
-from the pin fails exactly as before, and neither the keys nor the provenance
-change. A local database whose pin table lacks the provenance column is
-obsolete: the SDK refuses it with "reset the local database", and there is no
-migration.
+Only `self` and `link` admit a user, apart from
+[roster vouching](#roster-vouching), which never changes a pin. Verifying a
+link whose keys match an `observed` pin raises that pin to `link`; provenance
+never falls back, and an `observed` sight of a linked user leaves it `link`. A
+link whose keys differ from the pin fails exactly as before, and neither the
+keys nor the provenance change. A local database whose pin table lacks the
+provenance column is obsolete: the SDK refuses it with "reset the local
+database", and there is no migration.
 
 The binding also holds in reverse: within a
 [trust domain](../glossary/principals.md#identity-trust-domain), a signing key
@@ -153,15 +157,17 @@ it:
 - Groups: the add-member field takes an identity link, or a roster user that a
   link already verified; otherwise it asks for the person's identity link.
 - Explorer: Share with Peer verifies the other pane's published identity link
-  before sharing.
+  before sharing. A folder's New Share to a User admits a link-verified user,
+  or for read access a [roster-vouched](#roster-vouching) member.
 - Org Manager: opening a roster user without a profile document creates one
   only for a link-verified user; otherwise it asks for their identity link.
 
 The SDK enforces the same rule below the app. `organizations.addUserToGroup`
 and a container store's `shareWithUser` throw `UnverifiedUserIdentityError`
 (code `user_identity_unverified`) for a target whose pin is missing or only
-`observed`, before any request. The demo's dual panes publish each pane's
-identity link and verify the peer's before admitting it.
+`observed`, before any request, unless the roster vouches for the target of a
+read share. The demo's dual panes publish each pane's identity link and verify
+the peer's before admitting it.
 
 The v1 URL is `/app/contacts/import/<token>`. The token is unpadded canonical
 base64url of the UTF-8 JSON array `[1, identityTrustDomain, userId, fingerprint]`.
@@ -197,3 +203,42 @@ and currentness remain open in
 [#2186](https://github.com/a2f0/tearleads/issues/2186). Link-verification errors
 are shown to the user; a mismatched supplied link alone is not attributed as a
 server security incident.
+
+## Roster Vouching
+
+Adding a user to the organization's
+[Members group](../glossary/principals.md#organization-members-group) requires
+the adding admin's device to have verified the user's identity link, and the
+signed Members state that adds them commits the user's encryption-key
+fingerprint in its member envelopes. Removing them is a signed Members state
+too. So for a read-only folder share, which uses only the recipient's
+encryption key, the SDK also admits an `observed` user when all of these hold on
+this device:
+
+- The verified current Members state lists the user, with an envelope whose
+  key fingerprint equals the user's pinned encryption-key fingerprint.
+- Walking verified Members history back from that state, the state that started
+  the user's current, unbroken membership was signed by another user whose pin
+  is `link` or `self` and whose pinned signing fingerprint is the state's
+  signer fingerprint.
+- The server's member envelopes for that starting state match its signed
+  `memberEnvelopesRoot` and member set, and commit that same encryption-key
+  fingerprint. A mismatch is a verification failure, not a refusal.
+
+The starting state matters because later Members states carry every envelope
+forward under whichever admin signs them, and that admin may never have
+verified this user. An admin the device only `observed` vouches for no one:
+the server could have substituted that admin's key. Nothing chains through other
+admins either, because group envelopes commit encryption keys only, so adding
+an admin does not vouch for the new admin's signing key. The walk covers 64
+history pages; a membership that started earlier needs the user's own link.
+
+Vouching authenticates the encryption key only; the user's signing key stays
+`observed`. Write and admin shares and group adds therefore still need a link:
+each lets this device accept actions signed with that key, so a server that
+kept the real encryption key but substituted the signing key could forge them.
+Committing members' signing-key fingerprints in signed group states would lift
+that limit ([#2847](https://github.com/a2f0/tearleads/issues/2847)). Vouching
+never raises a pin to `link`, so `resolveVerified` and `createLinkFor` still
+return nothing for the user. Like a link, it proves no currentness: a device
+that has not seen a removal may still vouch for the removed user.
