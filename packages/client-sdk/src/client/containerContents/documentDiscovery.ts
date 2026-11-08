@@ -17,6 +17,7 @@ import {
   type ContainerDocumentDiscoveryOutcomeHandler,
   discoverContainerDocumentLanes,
 } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryLanes";
+import { ContainerDocumentListingUnavailableError } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryTypes";
 import { createContainerDocumentQueriesFromRuntime } from "../../workflows/container-contents/documentQueries";
 import {
   type ContainerContentsWorkflowRuntime,
@@ -194,7 +195,10 @@ export async function discoverContainerDocumentLanesForRuntime({
   );
 }
 
-/** Discovers one container; a rejected lane rethrows its failure. */
+/**
+ * Discovers one container; a rejected lane rethrows its failure, except an
+ * unavailable listing, which this contract reports as `null`.
+ */
 export async function discoverContainerDocumentsForRuntime({
   runtimeService,
   ...request
@@ -205,6 +209,11 @@ export async function discoverContainerDocumentsForRuntime({
     requests: [request],
     runtimeService,
   });
-  if (outcome?.status === "rejected") throw outcome.reason;
+  if (outcome?.status === "rejected") {
+    if (outcome.reason instanceof ContainerDocumentListingUnavailableError) {
+      return null;
+    }
+    throw outcome.reason;
+  }
   return outcome?.value ?? null;
 }

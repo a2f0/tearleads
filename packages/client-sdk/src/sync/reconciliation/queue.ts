@@ -15,6 +15,8 @@ export interface ReconcileQueue {
   dequeue: () => string | null;
   get size(): number;
   clear: () => void;
+  /** Empty the queue, returning each container with its priority, in order. */
+  drain: () => Array<readonly [string, ReconcilePriority]>;
 }
 
 export function createReconcileQueue(): ReconcileQueue {
@@ -48,5 +50,10 @@ export function createReconcileQueue(): ReconcileQueue {
       return priorityByContainerId.size;
     },
     clear: () => priorityByContainerId.clear(),
+    drain: () => {
+      const entries = Array.from(priorityByContainerId);
+      priorityByContainerId.clear();
+      return entries;
+    },
   };
 }

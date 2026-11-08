@@ -1,3 +1,9 @@
+import type { ContainerContentsStoreSyncAgent } from "../syncAgent/syncAgentTypes";
+import type {
+  ContainerContentsStore,
+  ContainerTreeRefreshObserver,
+} from "../types";
+
 export interface RemoteHydrationRefreshOptions {
   followDiscoveredParentLanes?: boolean | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
@@ -14,6 +20,42 @@ export interface RemoteHydrationRefreshOptions {
 export type RemoteHydrationRequester = (
   options: RemoteHydrationRefreshOptions,
 ) => Promise<void>;
+
+/**
+ * The store's explicit tree refreshes. Each reports whether any container
+ * listing request failed or timed out while it ran: it waits on every crawl
+ * that lists its lanes, so each of their failures falls inside that window.
+ * Another crawl failing meanwhile is reported too, which errs toward calling
+ * the tree possibly stale.
+ */
+export function createTreeRefreshMethods(
+  state: { readonly containerListingFailures: number },
+  syncAgent: Pick<
+    ContainerContentsStoreSyncAgent,
+    "refresh" | "refreshRootLane"
+  >,
+): Pick<ContainerContentsStore, "refresh" | "refreshRootLane"> {
+  const observe = async (
+    refresh: () => Promise<boolean>,
+    observer: ContainerTreeRefreshObserver | undefined,
+  ): Promise<boolean> => {
+    const failuresBefore = state.containerListingFailures;
+    const started = await refresh();
+    if (state.containerListingFailures !== failuresBefore) {
+      observer?.onListingUnavailable?.();
+    }
+    return started;
+  };
+  return {
+    refresh: (options) =>
+      observe(
+        () => syncAgent.refresh({ resetAllLaneWatermarks: true }),
+        options,
+      ),
+    refreshRootLane: (options) =>
+      observe(() => syncAgent.refreshRootLane(options), options),
+  };
+}
 
 interface RemoteHydrationRefreshState {
   containerParentIdsNeedingHydration: Set<string | null>;

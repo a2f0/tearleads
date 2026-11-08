@@ -68,6 +68,11 @@ export async function fetchContainerParentLaneBatch(input: {
     lanes: preparedPages.map((page) => page.request),
   });
   if (!response) {
+    // A superseded crawl's failure says nothing about the current tree.
+    if (input.isCurrent?.() !== false) {
+      state.containerListingFailures =
+        (state.containerListingFailures ?? 0) + 1;
+    }
     return null;
   }
 

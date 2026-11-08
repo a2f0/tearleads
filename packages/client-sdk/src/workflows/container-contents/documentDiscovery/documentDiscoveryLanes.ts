@@ -4,10 +4,11 @@ import {
   applyListedContainerDocuments,
   type ContainerDocumentDiscoveryLane,
 } from "./documentDiscoveryApply";
-import type {
-  ContainerDocumentLaneLister,
-  DiscoverContainerDocumentsOptions,
-  ListedContainerDocuments,
+import {
+  type ContainerDocumentLaneLister,
+  type ContainerDocumentLaneListing,
+  ContainerDocumentListingUnavailableError,
+  type DiscoverContainerDocumentsOptions,
 } from "./documentDiscoveryTypes";
 
 export type { ContainerDocumentDiscoveryLane } from "./documentDiscoveryApply";
@@ -33,8 +34,17 @@ export type ContainerDocumentDiscoveryOutcomeHandler = (
 async function applyListedLane(
   lane: ContainerDocumentDiscoveryLane,
   generation: number,
-  listedDocuments: ListedContainerDocuments | null,
+  listedDocuments: ContainerDocumentLaneListing,
 ): Promise<ContainerDocumentDiscoveryOutcome> {
+  // A failed request is retryable, unlike a refused lane: reject it so the
+  // caller retries and reports it rather than settling as if nothing changed.
+  if (listedDocuments === "unavailable") {
+    return {
+      containerId: lane.containerId,
+      reason: new ContainerDocumentListingUnavailableError(lane.containerId),
+      status: "rejected",
+    };
+  }
   try {
     return {
       containerId: lane.containerId,

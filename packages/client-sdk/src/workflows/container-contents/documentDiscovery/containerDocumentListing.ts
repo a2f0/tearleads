@@ -7,9 +7,9 @@ import type { SyncWatermark } from "@tearleads/validators/response";
 import type {
   ContainerDocumentDiscoveryApi,
   ContainerDocumentLaneLister,
+  ContainerDocumentLaneListing,
   ContainerDocumentTombstone,
   ListedContainerDocument,
-  ListedContainerDocuments,
 } from "./documentDiscoveryTypes";
 
 type ContainerDocumentLaneApi = Pick<
@@ -73,7 +73,8 @@ interface PendingContainerDocumentLane {
 /**
  * Pages every lane to exhaustion, batching first pages and continuations
  * alike. Each container keeps its own watermark, so one lane's failure or
- * continuation never changes another lane's result.
+ * continuation never changes another lane's result. A failed request marks
+ * only the lanes it carried unavailable; the other batches still list.
  */
 export async function listAllContainerDocumentLanes(input: {
   readonly lanes: ReadonlyArray<{
@@ -81,8 +82,8 @@ export async function listAllContainerDocumentLanes(input: {
     readonly watermark: SyncWatermark | null;
   }>;
   readonly listContainerDocumentLanes: ContainerDocumentLaneLister;
-}): Promise<ReadonlyMap<string, ListedContainerDocuments | null>> {
-  const listed = new Map<string, ListedContainerDocuments | null>();
+}): Promise<ReadonlyMap<string, ContainerDocumentLaneListing>> {
+  const listed = new Map<string, ContainerDocumentLaneListing>();
   const pending: PendingContainerDocumentLane[] = [];
   const queued = new Set<string>();
   for (const { containerId, watermark } of input.lanes) {
@@ -103,7 +104,11 @@ export async function listAllContainerDocumentLanes(input: {
       batch.map(({ containerId, watermark }) => ({ containerId, watermark })),
     );
     batch.forEach((lane, index) => {
-      const page = pages?.[index] ?? null;
+      if (!pages) {
+        listed.set(lane.containerId, "unavailable");
+        return;
+      }
+      const page = pages[index] ?? null;
       if (!page) {
         listed.set(lane.containerId, null);
         return;
@@ -145,7 +150,7 @@ export async function listAllContainerDocumentIdsFromApi(input: {
         ),
     })
   ).get(input.containerId);
-  return listed
+  return listed && listed !== "unavailable"
     ? Array.from(new Set(listed.items.map((document) => document.id)))
     : null;
 }
@@ -157,7 +162,7 @@ export async function listContainerDocumentsFromWatermarks(input: {
   readonly loadContainerDocumentWatermark: (
     containerId: string,
   ) => Promise<SyncWatermark | null>;
-}): Promise<ReadonlyMap<string, ListedContainerDocuments | null>> {
+}): Promise<ReadonlyMap<string, ContainerDocumentLaneListing>> {
   const lanes: Array<{ containerId: string; watermark: SyncWatermark | null }> =
     [];
   for (const containerId of new Set(input.containerIds)) {

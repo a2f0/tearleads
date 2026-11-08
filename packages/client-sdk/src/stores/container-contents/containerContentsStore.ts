@@ -5,6 +5,7 @@ import {
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
 import { persistContainerState } from "./containerState/containerStatePersistence";
+import { createTreeRefreshMethods } from "./hydration/remoteHydrationRefresh";
 import {
   createChildContainer,
   deleteContainer,
@@ -423,8 +424,7 @@ function createContainerContentsStoreEntry(
     },
     store: {
       ...writeMethods,
-      refresh: () => syncAgent.refresh({ resetAllLaneWatermarks: true }),
-      refreshRootLane: (options) => syncAgent.refreshRootLane(options),
+      ...createTreeRefreshMethods(state, syncAgent),
       // Force an on-demand local SQLite re-read (see the interface doc): arm the
       // gate refreshLocalContainerStates otherwise requires, which the runtime
       // auto-arms only on a context transition an on-demand caller cannot rely on.

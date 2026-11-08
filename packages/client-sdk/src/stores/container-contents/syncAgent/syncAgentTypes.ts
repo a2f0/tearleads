@@ -39,6 +39,8 @@ export interface ContainerContentsStoreSyncAgent {
 }
 
 export interface ContainerContentsStoreSyncState {
+  /** Container listing requests that failed or timed out in a current crawl. */
+  containerListingFailures: number;
   containersById: Map<string, ContainerState>;
   documentStoresNeedPriming: boolean;
   initializeGeneration: number | null;
