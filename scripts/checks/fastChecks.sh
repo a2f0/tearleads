@@ -54,6 +54,7 @@ run_fast_checks() {
   step_timings_run ruby bun run lint:ruby
   step_timings_run shellcheck bun run lint:scripts
   step_timings_run timing-tests bun run test:step-timings
+  step_timings_run install-tests bun run test:install-dependencies
   step_timings_run npm-publish-tests bun run test:npm-publish
   step_timings_run markdown bun run lint:markdown
   step_timings_run doc-links bun run lint:doc-links

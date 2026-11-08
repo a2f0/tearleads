@@ -211,6 +211,34 @@ function toPersistentState(snapshot: StorageSnapshot): PersistentState {
   };
 }
 
+// Records whether the outgoing page entered the back/forward cache. A
+// `location.assign` to another route stores it there (`persisted` in CEF),
+// frozen with its SQLite worker, which can keep holding the database's OPFS
+// access handles so the next page's boot fails until the cache evicts it. A
+// reload never stores the outgoing page, so the probe reloads the nested route
+// and checks that it did.
+const pageHidePersistedKey = "tearleads.probe.pagehide-persisted";
+const nestedRouteReloadExpression = `addEventListener('pagehide', (event) => sessionStorage.setItem(${JSON.stringify(pageHidePersistedKey)}, String(event.persisted)));
+setTimeout(() => {
+  history.pushState(null, '', '/app/contacts');
+  location.reload();
+}, 100);
+undefined`;
+
+async function assertReloadDiscardedPage(): Promise<void> {
+  const page = await readPageTarget();
+  if (!page?.webSocketDebuggerUrl) throw new Error("No reloaded CEF page.");
+  const persisted = await evaluate<string | null>(
+    page.webSocketDebuggerUrl,
+    `sessionStorage.getItem(${JSON.stringify(pageHidePersistedKey)})`,
+  );
+  if (persisted !== "false") {
+    throw new Error(
+      `The reloaded page's predecessor reported pagehide persisted=${String(persisted)}; it must not enter the back/forward cache.`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   const mode = Bun.argv[2];
   if (mode !== "first" && mode !== "reopen") {
@@ -224,12 +252,15 @@ async function main(): Promise<void> {
     if (!page?.webSocketDebuggerUrl) throw new Error("No CEF page to reload.");
     await evaluate<undefined>(
       page.webSocketDebuggerUrl,
-      "setTimeout(() => location.assign('/app/contacts'), 100); undefined",
+      nestedRouteReloadExpression,
     );
   }
   const current = toPersistentState(
     await readReadySnapshot(mode === "reopen", previousTimeOrigin),
   );
+  if (mode === "reopen") {
+    await assertReloadDiscardedPage();
+  }
   if (mode === "first") {
     console.log(JSON.stringify(current));
     return;
