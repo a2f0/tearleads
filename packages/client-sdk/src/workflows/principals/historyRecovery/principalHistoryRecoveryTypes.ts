@@ -20,6 +20,12 @@ export class PrincipalHistoryRecoveryRaceError extends KeyingVerificationError {
   }
 }
 
+/**
+ * Another verifier admitted exactly the head this recovery was proving while
+ * it read history. The queued resolver may resume once from that checkpoint.
+ */
+export class PrincipalHeadAdmittedDuringRecoveryError extends PrincipalHistoryRecoveryRaceError {}
+
 export interface RecoverPrincipalPolicyHistoryOptions {
   readonly historyReader: PrincipalPolicyPageReader;
   readonly execSql: ExecSql;

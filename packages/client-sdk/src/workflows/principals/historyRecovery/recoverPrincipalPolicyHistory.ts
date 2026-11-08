@@ -31,6 +31,7 @@ import {
   restorePrincipalHistoryRecoveryStage,
 } from "./principalHistoryRecoveryStage";
 import {
+  PrincipalHeadAdmittedDuringRecoveryError,
   PrincipalHistoryRecoveryRaceError,
   PrincipalPolicyHistoryReadError,
   type RecoveredPrincipalPolicyHistory,
@@ -228,9 +229,14 @@ async function finishRecovery(
     latest?.version !== checkpoint?.version ||
     latest?.stateHash !== checkpoint?.stateHash
   )
-    throw new PrincipalHistoryRecoveryRaceError(
-      "Local principal checkpoint changed during history recovery",
-    );
+    throw latest?.version === input.expectedHead.version &&
+      latest.stateHash === input.expectedHead.stateHash
+      ? new PrincipalHeadAdmittedDuringRecoveryError(
+          "Local principal checkpoint admitted this head during history recovery",
+        )
+      : new PrincipalHistoryRecoveryRaceError(
+          "Local principal checkpoint changed during history recovery",
+        );
   assertCurrent(input);
   if (!input.offline)
     await publishReusablePrincipalHistoryPrefix(

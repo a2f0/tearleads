@@ -84,8 +84,15 @@ serializes recovery within an organization, but an acknowledged publication
 (`persistAcknowledgedPrincipalCurrents`) writes the private stage of its head
 outside that queue, so the queued current-policy resolver
 (`createRuntimePrincipalPolicyCurrentResolver`) starts that recovery itself,
-once, in the same queue turn (`resumeAfterSupersededStage`). Custom hosts with
-overlapping calls must handle this retry. Eviction imposes no history-version cutoff.
+once, in the same queue turn (`resumeAfterSupersededStage`). The same single
+resume covers another verifier admitting exactly that head to the local
+checkpoint while recovery reads history, such as
+`advanceKeyingCheckpointsAtomically` during group-name hydration. Recovery
+reports that as a `PrincipalHeadAdmittedDuringRecoveryError`. The resumed
+attempt verifies against the admitted checkpoint from scratch. A second race,
+or a checkpoint that moved anywhere else, propagates as an availability
+failure. Custom hosts with overlapping calls must handle this retry. Eviction
+imposes no history-version cutoff.
 Cancellation rolls back page acceptance, key archival and reclamation. Incomplete
 cleanup reads only stage identifiers; completed cleanup reads current artifacts
 only for its bounded archival/deletion batch. Both use the scoped recency index.
