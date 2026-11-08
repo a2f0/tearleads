@@ -284,24 +284,41 @@ function admissionScopeChanged(): DatabaseUnavailableError {
 /** Reads that admit a user: only `self` and `link` pins qualify. */
 function verifiedPinReaders(
   dependencies: TrustedUserIdentityServiceDependencies,
-): Pick<TrustedUserIdentityService, "resolveVerified" | "requireVerified"> {
+): Pick<
+  TrustedUserIdentityService,
+  "loadAdmissionPin" | "resolveVerified" | "requireVerified"
+> {
   const resolveVerified = async (userId: string) => {
     const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
     const pin = await loadPin({ execSql, identityTrustDomain, userId });
     if (dependencies.getExecSql() !== execSql) throw admissionScopeChanged();
     return pin && pin.provenance !== "observed" ? pin.identity : null;
   };
+  // The pin in the trust store of the database the admission captured.
+  const loadAdmittingPin = async (
+    userId: string,
+    admittingExecSql: ExecSql | null,
+  ) => {
+    const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
+    if (execSql !== admittingExecSql) throw admissionScopeChanged();
+    const pin = await loadPin({ execSql, identityTrustDomain, userId });
+    if (dependencies.getExecSql() !== execSql) throw admissionScopeChanged();
+    return pin;
+  };
   return {
     resolveVerified,
     async requireVerified(userId, admittingExecSql) {
-      const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
-      if (execSql !== admittingExecSql) throw admissionScopeChanged();
-      const pin = await loadPin({ execSql, identityTrustDomain, userId });
-      if (dependencies.getExecSql() !== execSql) throw admissionScopeChanged();
+      const pin = await loadAdmittingPin(userId, admittingExecSql);
       if (!pin || pin.provenance === "observed") {
         throw new UnverifiedUserIdentityError(userId);
       }
       return pin.identity;
+    },
+    async loadAdmissionPin(userId, admittingExecSql) {
+      const pin = await loadAdmittingPin(userId, admittingExecSql);
+      return pin
+        ? { identity: pin.identity, verified: pin.provenance !== "observed" }
+        : null;
     },
   };
 }

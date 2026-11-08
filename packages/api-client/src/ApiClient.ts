@@ -36,6 +36,8 @@ export class ApiClient extends ApiClientAreas {
   // Principal policies and organization groups.
   getPrincipalPolicyPages = this.policies.getPrincipalPolicyPages;
   getPrincipalPolicyDiscovery = this.policies.getPrincipalPolicyDiscovery;
+  getPrincipalMemberEnvelopesResult =
+    this.policies.getPrincipalMemberEnvelopesResult;
   getProjectionPolicyHistoryPages =
     this.policies.getProjectionPolicyHistoryPages;
   getCurrentPrincipalPolicy = this.policies.getCurrentPrincipalPolicy;

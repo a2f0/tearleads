@@ -328,8 +328,9 @@ export function useExplorerContainerInfoGroupShare(
   );
 }
 
-// Shares directly with one user. The SDK admits only a recipient whose
-// identity link was verified on this device, so that refusal names the fix.
+// Shares directly with one user. The SDK admits a recipient whose identity
+// link this device verified, or, for read access only, one the signed roster
+// vouches for; its refusal names the fix for the access level chosen.
 export function useExplorerContainerInfoUserShare(
   params: ExplorerContainerInfoUserShareParams,
 ) {
@@ -355,7 +356,9 @@ export function useExplorerContainerInfoUserShare(
         errorLabel: request.failureLabel,
         errorLabelFor: (error) =>
           error instanceof UnverifiedUserIdentityError
-            ? EXPLORER_LABELS.containerInfoShareToUserNeedsIdentityLink
+            ? request.accessLevel === "read"
+              ? EXPLORER_LABELS.containerInfoShareToUserNeedsIdentityLink
+              : EXPLORER_LABELS.containerInfoShareToUserNeedsIdentityLinkForWrite
             : null,
         failureLabel: request.failureLabel,
         isCurrent: captureShareScope(),
