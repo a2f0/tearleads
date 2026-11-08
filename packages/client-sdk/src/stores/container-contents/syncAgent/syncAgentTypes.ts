@@ -10,17 +10,7 @@ import type { ContainerContentsSyncLane } from "../../../workflows/container-con
 export type ContainerContentsStoreRuntime =
   ContainerContentsStoreWorkflowRuntime;
 
-/** Lets an explicit tree refresh learn that it stopped short. */
-export interface ContainerTreeRefreshObserver {
-  /**
-   * Called when a container listing request this refresh crawls with fails
-   * or times out, so lanes it would have listed stay unlisted. A refused or
-   * unverifiable item is not reported: retrying cannot fix it.
-   */
-  readonly onListingUnavailable?: (() => void) | undefined;
-}
-
-export interface RefreshRootLaneOptions extends ContainerTreeRefreshObserver {
+export interface RefreshRootLaneOptions {
   readonly includeActiveRootChildLane?: boolean | undefined;
   // Extra parent lanes to re-list alongside the root lane. Used by the
   // resync_required handler to re-list affected containers' parent lanes so a
@@ -37,11 +27,7 @@ export interface ContainerContentsStoreSyncAgent {
     isCurrent?: (() => boolean) | undefined,
   ) => Promise<void>;
   refreshLocalContainers: () => Promise<void>;
-  refresh: (
-    options?: ContainerTreeRefreshObserver & {
-      resetAllLaneWatermarks?: boolean;
-    },
-  ) => Promise<boolean>;
+  refresh: (options?: { resetAllLaneWatermarks?: boolean }) => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   requestRemoteHydration: (options?: {
     followDiscoveredParentLanes?: boolean | undefined;
@@ -53,6 +39,8 @@ export interface ContainerContentsStoreSyncAgent {
 }
 
 export interface ContainerContentsStoreSyncState {
+  /** Container listing requests that failed or timed out in a current crawl. */
+  containerListingFailures: number;
   containersById: Map<string, ContainerState>;
   documentStoresNeedPriming: boolean;
   initializeGeneration: number | null;

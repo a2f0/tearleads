@@ -435,7 +435,6 @@ export async function hydrateRemoteContainers(input: {
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
-  onListingUnavailable?: (() => void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
   resetRootLaneWatermark?: boolean | undefined;
@@ -471,7 +470,6 @@ export async function hydrateRemoteContainers(input: {
     host,
     isCurrent: input.isCurrent,
     lanes,
-    onListingUnavailable: input.onListingUnavailable,
     queueParentLane: queueDiscoveredParentLane,
     seenContainerIds,
     state,

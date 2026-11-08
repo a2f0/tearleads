@@ -366,7 +366,6 @@ export async function hydrateContainerParentLanes(input: {
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
   lanes: ContainerParentHydrationLane[];
-  onListingUnavailable?: (() => void) | undefined;
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
   state: RemoteContainerHydrationState;
@@ -397,7 +396,6 @@ export async function hydrateContainerParentLanes(input: {
     const fetchedPages = await fetchContainerParentLaneBatch({
       batch,
       isCurrent: input.isCurrent,
-      onListingUnavailable: input.onListingUnavailable,
       state,
     });
     if (!fetchedPages) {

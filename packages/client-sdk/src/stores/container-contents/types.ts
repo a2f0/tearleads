@@ -10,7 +10,6 @@ import type { ContainerDocumentObjectSyncState } from "../../workflows/container
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncState,
-  ContainerTreeRefreshObserver,
   RefreshRootLaneOptions,
 } from "./syncAgent/syncAgentTypes";
 
@@ -22,6 +21,16 @@ export type ContainerContentsShareAccessLevel = ContainerAccessLevel;
 export interface ContainerContentsStoreOptions {
   logLabel?: string | undefined;
   persistence?: ContainerContentsPersistence | undefined;
+}
+
+/** Lets an explicit tree refresh learn that it may have stopped short. */
+export interface ContainerTreeRefreshObserver {
+  /**
+   * Called once the refresh settles if any container listing request failed
+   * or timed out while it ran, so lanes may have stayed unlisted. A refused
+   * or unverifiable item is not reported: retrying cannot fix it.
+   */
+  readonly onListingUnavailable?: (() => void) | undefined;
 }
 
 export interface ContainerNode {
@@ -129,7 +138,9 @@ export interface ContainerContentsStore {
     options?: { requireExistingGrant?: boolean } | undefined,
   ) => Promise<ContainerGroupRewrapPreparation | null>;
   refresh: (options?: ContainerTreeRefreshObserver) => Promise<boolean>;
-  refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
+  refreshRootLane: (
+    options?: RefreshRootLaneOptions & ContainerTreeRefreshObserver,
+  ) => Promise<boolean>;
   // Re-read root-lane containers from local SQLite into the snapshot with NO
   // server round-trip. Surfaces a just-persisted container — e.g. the Trash bin
   // that registration/org-creation provisioned server-side and wrote to SQLite

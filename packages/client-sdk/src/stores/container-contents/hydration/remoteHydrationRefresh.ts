@@ -1,8 +1,12 @@
+import type { ContainerContentsStoreSyncAgent } from "../syncAgent/syncAgentTypes";
+import type {
+  ContainerContentsStore,
+  ContainerTreeRefreshObserver,
+} from "../types";
+
 export interface RemoteHydrationRefreshOptions {
   followDiscoveredParentLanes?: boolean | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
-  /** Called when a listing request of this crawl fails or times out. */
-  onListingUnavailable?: (() => void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
   resetRootLaneWatermark?: boolean | undefined;
@@ -16,6 +20,42 @@ export interface RemoteHydrationRefreshOptions {
 export type RemoteHydrationRequester = (
   options: RemoteHydrationRefreshOptions,
 ) => Promise<void>;
+
+/**
+ * The store's explicit tree refreshes. Each reports whether any container
+ * listing request failed or timed out while it ran: it waits on every crawl
+ * that lists its lanes, so each of their failures falls inside that window.
+ * Another crawl failing meanwhile is reported too, which errs toward calling
+ * the tree possibly stale.
+ */
+export function createTreeRefreshMethods(
+  state: { readonly containerListingFailures: number },
+  syncAgent: Pick<
+    ContainerContentsStoreSyncAgent,
+    "refresh" | "refreshRootLane"
+  >,
+): Pick<ContainerContentsStore, "refresh" | "refreshRootLane"> {
+  const observe = async (
+    refresh: () => Promise<boolean>,
+    observer: ContainerTreeRefreshObserver | undefined,
+  ): Promise<boolean> => {
+    const failuresBefore = state.containerListingFailures;
+    const started = await refresh();
+    if (state.containerListingFailures !== failuresBefore) {
+      observer?.onListingUnavailable?.();
+    }
+    return started;
+  };
+  return {
+    refresh: (options) =>
+      observe(
+        () => syncAgent.refresh({ resetAllLaneWatermarks: true }),
+        options,
+      ),
+    refreshRootLane: (options) =>
+      observe(() => syncAgent.refreshRootLane(options), options),
+  };
+}
 
 interface RemoteHydrationRefreshState {
   containerParentIdsNeedingHydration: Set<string | null>;
@@ -98,7 +138,6 @@ function canRefreshRemoteHydration(
 
 export function refreshAllRemoteHydration(input: {
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
-  onListingUnavailable?: (() => void) | undefined;
   recreateOnFullyHydratedAfterReset?:
     | (() => () => Promise<void> | void)
     | undefined;
@@ -123,7 +162,6 @@ export function refreshAllRemoteHydration(input: {
   return requestHydration({
     followDiscoveredParentLanes: true,
     onFullyHydrated: input.onFullyHydrated,
-    onListingUnavailable: input.onListingUnavailable,
     recreateOnFullyHydratedAfterReset: input.recreateOnFullyHydratedAfterReset,
     ...(input.resetAllLaneWatermarks ? { resetAllLaneWatermarks: true } : {}),
     resetRootLaneWatermark: true,
@@ -136,7 +174,6 @@ export function refreshAllRemoteHydration(input: {
 
 export function refreshRootRemoteHydration(input: {
   includeActiveRootChildLane?: boolean | undefined;
-  onListingUnavailable?: (() => void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   requestHydration: RemoteHydrationRequester;
   state: RemoteHydrationRefreshState;
@@ -163,7 +200,6 @@ export function refreshRootRemoteHydration(input: {
       resolveActiveRootChildLaneParentId(state);
     return requestHydration({
       followDiscoveredParentLanes: false,
-      onListingUnavailable: input.onListingUnavailable,
       parentIds: activeRootChildLaneParentId
         ? [null, activeRootChildLaneParentId]
         : [null],
@@ -189,7 +225,6 @@ export function refreshRootRemoteHydration(input: {
   );
   return requestHydration({
     followDiscoveredParentLanes: false,
-    onListingUnavailable: input.onListingUnavailable,
     parentIds: parentLanes,
     resetRootLaneWatermark: true,
   }).then(() => true);

@@ -82,6 +82,7 @@ export function createContainerContentsStoreState(
   logLabel?: string | undefined,
 ): ContainerContentsStoreState {
   return {
+    containerListingFailures: 0,
     containersById: new ContainerStateMap(),
     containerParentIdsNeedingHydration: new Set(),
     documentStoresNeedPriming: true,

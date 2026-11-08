@@ -111,6 +111,12 @@ interface RemoteContainerHydrationRuntime
 }
 
 export interface RemoteContainerHydrationState {
+  /**
+   * Container listing requests that failed or timed out, in a current crawl.
+   * An explicit refresh compares it across its wait to tell whether a listing
+   * fell short while it ran.
+   */
+  containerListingFailures?: number | undefined;
   containersById: Map<string, ContainerState>;
   lifecycleGeneration?: number | undefined;
   persistence: ContainerContentsPersistence;

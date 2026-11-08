@@ -8,9 +8,9 @@ import {
   resumeContainerContentsRecoveryHydration,
 } from "./remoteHydrationRequest";
 
-type RequestInput = Parameters<
+type RequestState = Parameters<
   typeof requestContainerContentsRemoteHydration
->[0];
+>[0]["state"];
 
 const emptyRootLane: ListContainerParentLanesResponse = {
   results: [
@@ -21,24 +21,23 @@ const emptyRootLane: ListContainerParentLanesResponse = {
   ],
 };
 
-// A request whose queued lanes another request's crawl took over joins that
-// crawl. When a generation reset restarts the crawl, the restart must still
-// report a listing failure to the joined request, not only to the request
-// that started the crawl.
-test("a joined refresh learns of a listing failure after its crawl restarts", async () => {
+// Requests queued behind a crawl that a generation reset interrupts all retry
+// through recovery, and one of them takes over the others' queued recovery.
+// None may resolve before the recovery crawl that covers it settles; an
+// explicit refresh would otherwise report success before its listing failed.
+test("requests queued across a reset settle with the recovery crawl", async () => {
   const { close, execSql } = await createTestExecSql(
-    "container-listing-observer-recovery",
+    "container-hydration-recovery-coverage",
   );
   try {
     const listings: Array<
       PromiseWithResolvers<ListContainerParentLanesResponse | null>
     > = [];
-    const listingStarted: Array<PromiseWithResolvers<void>> = [
+    const listingStarted = Array.from({ length: 3 }, () =>
       Promise.withResolvers<void>(),
-      Promise.withResolvers<void>(),
-      Promise.withResolvers<void>(),
-    ];
+    );
     const state = {
+      containerListingFailures: 0,
       containerParentIdsNeedingHydration: new Set<string | null>(),
       containersById: new Map(),
       initializePromise: null,
@@ -70,9 +69,8 @@ test("a joined refresh learns of a listing failure after its crawl restarts", as
       },
       snapshot: { ready: true },
       structuralGeneration: 0,
-    } as unknown as RequestInput["state"];
-    const unavailable = { joined: 0, starter: 0 };
-    const request = (onListingUnavailable?: () => void) =>
+    } as unknown as RequestState;
+    const request = () =>
       requestContainerContentsRemoteHydration({
         host: {
           persistContainerState: async () => {
@@ -80,35 +78,33 @@ test("a joined refresh learns of a listing failure after its crawl restarts", as
           },
           updateSnapshot: () => {},
         } as RemoteContainerHydrationHost,
-        onListingUnavailable,
         parentIds: [null],
+        // Production resumes ingestion first, so a second resume can queue
+        // its recovery before the first one takes the queue over.
         resumeRecoveryWork: async () => {
+          await Promise.resolve();
           await resumeContainerContentsRecoveryHydration(state);
         },
         scheduleSync: () => {},
         state,
       });
+    const settled: string[] = [];
 
     const running = request();
     await listingStarted[0]?.promise;
-    // Both queue behind the running crawl; the first starts the follow-up
-    // crawl with both requests' lanes, and the second joins it.
-    const starter = request(() => {
-      unavailable.starter += 1;
-    });
-    const joined = request(() => {
-      unavailable.joined += 1;
-    });
+    const first = request().then(() => settled.push("first"));
+    const second = request().then(() => settled.push("second"));
+    state.structuralGeneration += 1;
     listings[0]?.resolve(emptyRootLane);
     await listingStarted[1]?.promise;
-
-    state.structuralGeneration += 1;
     listings[1]?.resolve(emptyRootLane);
     await listingStarted[2]?.promise;
-    listings[2]?.resolve(null);
 
-    await Promise.all([running, starter, joined]);
-    expect(unavailable).toEqual({ joined: 1, starter: 1 });
+    expect(settled).toEqual([]);
+    listings[2]?.resolve(null);
+    await Promise.all([running, first, second]);
+    expect(settled.sort()).toEqual(["first", "second"]);
+    expect(state.containerListingFailures).toBe(1);
   } finally {
     close();
   }

@@ -30,7 +30,6 @@ interface RemoteHydrationRequestInput {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
-  onListingUnavailable?: (() => void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
   resetRootLaneWatermark?: boolean | undefined;
@@ -120,56 +119,6 @@ function resumeRetainedRecoveryHydration(
     : Promise.resolve();
 }
 
-/**
- * Who learns of each started crawl's listing failures: its own request, and
- * any request whose queued parent lanes that crawl took over.
- */
-const listingObserversByHydration = new WeakMap<
-  Promise<void>,
-  Set<() => void>
->();
-
-/**
- * A crawl's listing observers, and its request's input re-pointed at all of
- * them. A restart after a generation reset, or a retained recovery, runs with
- * that input, so it still reports to every request that joined this crawl.
- */
-function observeCrawlListing(input: RemoteHydrationRequestInput): {
-  readonly input: RemoteHydrationRequestInput;
-  readonly observers: Set<() => void>;
-} {
-  const observers = new Set(
-    input.onListingUnavailable ? [input.onListingUnavailable] : [],
-  );
-  return {
-    input: {
-      ...input,
-      onListingUnavailable: () => {
-        for (const observe of observers) observe();
-      },
-    },
-    observers,
-  };
-}
-
-/**
- * Another request's crawl took over this request's queued parent lanes, so
- * this request settles with that crawl and observes its listing failures,
- * instead of resolving at once as if its lanes had been listed.
- */
-function joinActiveRemoteHydration(
-  input: RemoteHydrationRequestInput,
-): Promise<void> | undefined {
-  const activeHydration = input.state.remoteHydrationPromise;
-  if (!activeHydration) return undefined;
-  if (input.onListingUnavailable) {
-    listingObserversByHydration
-      .get(activeHydration)
-      ?.add(input.onListingUnavailable);
-  }
-  return activeHydration;
-}
-
 function waitForActiveRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> | null {
@@ -193,10 +142,13 @@ function waitForActiveRemoteHydration(
     ) {
       return retryRemoteHydrationAfterReset(input);
     }
+    // Another request's crawl may have taken over this request's queued
+    // lanes. Settle with that crawl rather than at once, so the request never
+    // resolves before the listing that covers it.
     return needsCurrentGenerationHydration ||
       state.containerParentIdsNeedingHydration.size > 0
       ? requestContainerContentsRemoteHydration(input)
-      : joinActiveRemoteHydration(input);
+      : (state.remoteHydrationPromise ?? undefined);
   };
   return activeHydration.then(
     requestQueuedHydration,
@@ -238,12 +190,22 @@ function retainResetRecoveryHydration(
   queueRecoveryHydrationRequest(createResetRecoveryInput(input));
 }
 
+/**
+ * The recovery run that last took over the queued recovery requests. A
+ * request whose queued recovery another caller already took over settles
+ * with that run, so it never resolves before the crawl that covers it.
+ */
+const activeRecoveryHydrationByState = new WeakMap<
+  RemoteHydrationRequestState,
+  Promise<void>
+>();
+
 export function resumeContainerContentsRecoveryHydration(
   state: RemoteHydrationRequestState,
 ): Promise<void> | null {
   const requests = recoveryHydrationRequestsByState.get(state);
   if (!requests) {
-    return null;
+    return activeRecoveryHydrationByState.get(state) ?? null;
   }
   recoveryHydrationRequestsByState.delete(state);
   const inputs = requests.map((request) =>
@@ -255,7 +217,9 @@ export function resumeContainerContentsRecoveryHydration(
       ? request.input
       : createResetRecoveryInput(request.input),
   );
-  return Promise.all(inputs.map(requestContainerContentsRemoteHydration))
+  const recovery = Promise.all(
+    inputs.map(requestContainerContentsRemoteHydration),
+  )
     .then(() => undefined)
     .catch((error: unknown) => {
       for (const input of inputs) {
@@ -263,6 +227,14 @@ export function resumeContainerContentsRecoveryHydration(
       }
       throw error;
     });
+  activeRecoveryHydrationByState.set(state, recovery);
+  const forget = () => {
+    if (activeRecoveryHydrationByState.get(state) === recovery) {
+      activeRecoveryHydrationByState.delete(state);
+    }
+  };
+  recovery.then(forget, forget);
+  return recovery;
 }
 
 function queueRequestedParentIds(input: RemoteHydrationRequestInput): void {
@@ -312,21 +284,6 @@ function consumeQueuedHydrationScope(
   };
 }
 
-/** Whether a settled, current request should schedule the follow-up sync. */
-function shouldScheduleSyncAfterHydration(
-  input: RemoteHydrationRequestInput,
-  changed: boolean,
-): boolean {
-  const { state } = input;
-  return (
-    (((input.scheduleSyncOnHydrationChange ?? true) && changed) ||
-      input.scheduleSyncAfterHydration === true) &&
-    state.snapshot.ready &&
-    state.runtime.auth.isAuthenticated &&
-    state.runtime.state.online
-  );
-}
-
 export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
@@ -357,7 +314,6 @@ export function requestContainerContentsRemoteHydration(
     host,
     isCurrent,
   });
-  const listing = observeCrawlListing(input);
   const rootLaneHydratedBeforeRequest = state.rootLaneHydrated;
   state.remoteHydrationGeneration = lifecycleGeneration;
   state.remoteHydrationStructuralGeneration = structuralGeneration;
@@ -374,7 +330,6 @@ export function requestContainerContentsRemoteHydration(
         host: hydrationHost,
         isCurrent,
         onFullyHydrated,
-        onListingUnavailable: listing.input.onListingUnavailable,
         parentIds,
         resetAllLaneWatermarks: input.resetAllLaneWatermarks,
         resetRootLaneWatermark: input.resetRootLaneWatermark,
@@ -406,22 +361,27 @@ export function requestContainerContentsRemoteHydration(
         state.remoteHydrationStructuralGeneration = null;
       }
 
-      const changed =
-        appliedRemoteContainerChange ||
-        (!rootLaneHydratedBeforeRequest && state.rootLaneHydrated);
-      if (isCurrent() && shouldScheduleSyncAfterHydration(input, changed)) {
+      if (
+        isCurrent() &&
+        (((input.scheduleSyncOnHydrationChange ?? true) &&
+          (appliedRemoteContainerChange ||
+            (!rootLaneHydratedBeforeRequest && state.rootLaneHydrated))) ||
+          input.scheduleSyncAfterHydration) &&
+        state.snapshot.ready &&
+        state.runtime.auth.isAuthenticated &&
+        state.runtime.state.online
+      ) {
         scheduleSync();
       }
       if (shouldRetryAfterReset) {
-        return retryRemoteHydrationAfterReset(listing.input);
+        return retryRemoteHydrationAfterReset(input);
       }
       if (retainInterruptedHydration) {
-        retainResetRecoveryHydration(listing.input);
+        retainResetRecoveryHydration(input);
       }
       return undefined;
     });
   state.remoteHydrationPromise = hydrationPromise;
-  listingObserversByHydration.set(hydrationPromise, listing.observers);
 
   return hydrationPromise;
 }

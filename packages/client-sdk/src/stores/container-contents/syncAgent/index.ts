@@ -291,7 +291,6 @@ export function createContainerContentsStoreSyncAgent(input: {
   ) => observeContainerBackgroundHydration(state, requestHydration(options));
   const refresh: ContainerContentsStoreSyncAgent["refresh"] = (options) =>
     refreshAllRemoteHydration({
-      onListingUnavailable: options?.onListingUnavailable,
       // Explicit user refresh must rediscover children hidden by unsigned hints.
       resetAllLaneWatermarks: options?.resetAllLaneWatermarks,
       requestHydration: requestRefreshHydration,
@@ -346,7 +345,6 @@ export function createContainerContentsStoreSyncAgent(input: {
     refreshRootLane: (options) =>
       refreshRootRemoteHydration({
         includeActiveRootChildLane: options?.includeActiveRootChildLane,
-        onListingUnavailable: options?.onListingUnavailable,
         parentIds: options?.parentIds,
         requestHydration: requestRefreshHydration,
         state,
