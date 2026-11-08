@@ -194,6 +194,17 @@ key rotation fails with `HistoricalWrapUnavailableError`
 (`principal-key-unreachable`). See
 [keying-design.md](../../keying-design/container-keks.md#container-key-epoch-database-row).
 
+### Unsaved document writes
+
+`hasPendingLocalDocumentWrites(domainScope)` synchronously reports whether any
+open document store in that domain scope holds local edits that have not
+reached SQLite yet; it is the registry-wide counterpart of a store's
+`hasQueuedWrites()`. Hosts can check it before an unload that would terminate
+the SQLite worker. A typing burst keeps at most one write in flight and one
+queued: a queued `setText` that a newer `setText` supersedes never persists on
+its own, and superseded `setStructuredFields` patches apply but persist through
+the newest one's commit.
+
 ### Organization data usage
 
 `Organizations.loadDataUsage()` returns the active organization's synced usage

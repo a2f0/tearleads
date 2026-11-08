@@ -134,6 +134,8 @@ export interface DocumentStoreState {
   initializePromise: Promise<void> | null;
   initialized: boolean;
   lastEventCount: number;
+  /** Newest queued write per coalescing lane; see `localWriteQueue.ts`. */
+  latestLocalWriteTickets: { structuredFields: number; text: number };
   /** Invalidates queued local-write closures when this store is cleared. */
   localWriteGeneration: number;
   locallyAcceptedUpdateIds: Set<string>;
@@ -238,6 +240,7 @@ export function createDocumentStoreState(
     initializePromise: null,
     initialized: false,
     lastEventCount: 0,
+    latestLocalWriteTickets: { structuredFields: 0, text: 0 },
     localWriteGeneration: 0,
     locallyAcceptedUpdateIds: new Set(),
     localId,
@@ -472,29 +475,4 @@ export function subscribeToDocumentStore(
 ) {
   state.listeners.add(listener);
   return () => void state.listeners.delete(listener);
-}
-
-/**
- * Counts `write` in `queuedWrites` until it settles. Counted synchronously, so
- * a write started while a removal runs is visible to its commit guard.
- */
-export function countQueuedWrite<T>(
-  state: DocumentStoreState,
-  write: Promise<T>,
-): Promise<T> {
-  state.queuedWrites += 1;
-  const settle = () => {
-    state.queuedWrites -= 1;
-  };
-  void write.then(settle, settle);
-  return write;
-}
-
-/** Installs `link` as the store's write chain, counted until it settles. */
-export function chainQueuedWrite(
-  state: DocumentStoreState,
-  link: Promise<void>,
-): Promise<void> {
-  state.writeChain = countQueuedWrite(state, link);
-  return state.writeChain;
 }

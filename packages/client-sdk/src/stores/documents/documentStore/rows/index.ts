@@ -8,6 +8,7 @@ import {
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import { requestDocumentStoreSync } from "../../registry";
 import { ensureDocumentStoreReady } from "../initialization";
+import { chainQueuedWrite } from "../localWriteQueue";
 import { revalidateDocumentMutationIdentity } from "../mutationIdentityRevalidation";
 import {
   advancePendingBaseVersion,
@@ -17,7 +18,6 @@ import {
 import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
 import {
   canWriteDocument,
-  chainQueuedWrite,
   type DocumentState,
   type DocumentStoreState,
 } from "../state";

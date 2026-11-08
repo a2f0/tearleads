@@ -180,6 +180,23 @@ export function hasQueuedDocumentStoreWrites(
   return registry?.storesByKey.get(storeKey)?.hasQueuedWrites() ?? false;
 }
 
+/**
+ * Whether any open store in `domainScope` holds local writes that have not
+ * reached SQLite yet, e.g. so a host can warn before an unload loses them. A
+ * retired store reads through its removed stand-in, which never queues: the
+ * removal it stands for commits only once no write is queued.
+ */
+export function hasPendingLocalDocumentWrites(
+  domainScope: DomainScope,
+): boolean {
+  const registry = documentStoreRegistriesByScope.get(domainScope);
+  if (!registry) return false;
+  for (const store of registry.storesByKey.values()) {
+    if (store.hasQueuedWrites()) return true;
+  }
+  return false;
+}
+
 export function requestDocumentStoreSync(state: {
   syncLane: {
     requestSync: () => void;

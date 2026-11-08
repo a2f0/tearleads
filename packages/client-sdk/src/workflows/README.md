@@ -214,6 +214,15 @@ take that option, with `remoteSyncMode`, as a trailing
 `DocumentStoreOpenOptions` object. Its `initialStructuredFields` and
 `initialRows` join the birth update when the open creates the record.
 
+### Queued local writes
+
+Document stores coalesce local edits queued behind an in-flight commit: a
+`setText` superseded by a newer `setText` skips, and a non-deferred
+`setStructuredFields` superseded by a newer one applies its fields but leaves
+the commit to the newest, whose delta since the outgoing marker carries both.
+`hasPendingLocalDocumentWrites(domainScope)`, exported from the SDK root, reports
+whether any open store in the scope still holds writes not yet in SQLite.
+
 ### Persistence notifications
 
 `PersistedDocumentListener` supplies a summary and `placementChanged` flag.

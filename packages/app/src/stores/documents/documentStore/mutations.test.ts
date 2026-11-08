@@ -60,6 +60,7 @@ test("document store does not replay intermediate persisted text during queued e
   );
 
   const originalCommitDocumentMutation = persistence.commitDocumentMutation;
+  const firstEditSaveStarted = createDeferred();
   const releaseFirstEditSave = createDeferred();
   const releaseSecondEditSave = createDeferred();
   let editSaveCount = 0;
@@ -67,6 +68,7 @@ test("document store does not replay intermediate persisted text during queued e
   persistence.commitDocumentMutation = async (...args) => {
     editSaveCount += 1;
     if (editSaveCount === 1) {
+      firstEditSaveStarted.resolve();
       await releaseFirstEditSave.promise;
     } else if (editSaveCount === 2) {
       await releaseSecondEditSave.promise;
@@ -75,7 +77,10 @@ test("document store does not replay intermediate persisted text during queued e
     return originalCommitDocumentMutation(...args);
   };
 
+  // The next edit lands while the older text is mid-save: a save already in
+  // flight cannot be superseded, so it persists "a" behind the newer "ab".
   const firstWrite = store.setText("a");
+  await firstEditSaveStarted.promise;
   const secondWrite = store.setText("ab");
 
   expect(store.getSnapshot().text).toBe("ab");
@@ -211,6 +216,7 @@ test("document store does not replay intermediate structured fields during queue
   );
 
   const originalCommitDocumentMutation = persistence.commitDocumentMutation;
+  const firstEditSaveStarted = createDeferred();
   const releaseFirstEditSave = createDeferred();
   const releaseSecondEditSave = createDeferred();
   let editSaveCount = 0;
@@ -218,6 +224,7 @@ test("document store does not replay intermediate structured fields during queue
   persistence.commitDocumentMutation = async (...args) => {
     editSaveCount += 1;
     if (editSaveCount === 1) {
+      firstEditSaveStarted.resolve();
       await releaseFirstEditSave.promise;
     } else if (editSaveCount === 2) {
       await releaseSecondEditSave.promise;
@@ -226,9 +233,12 @@ test("document store does not replay intermediate structured fields during queue
     return originalCommitDocumentMutation(...args);
   };
 
+  // The next edit lands while the older card number is mid-save, so that save
+  // still persists behind the newer value.
   const firstWrite = store.setStructuredFields("credit_card", {
     cardNumber: "4111",
   });
+  await firstEditSaveStarted.promise;
   const secondWrite = store.setStructuredFields("credit_card", {
     cardNumber: "4112",
   });

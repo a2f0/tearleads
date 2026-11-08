@@ -13,6 +13,7 @@ import {
 } from "../attachmentUpload/attachmentStaging";
 import { ensureDocumentStoreReady } from "../initialization";
 import { settleDeferredInitialUpdate } from "../initialization/deferredInitialUpdate";
+import { chainQueuedWrite } from "../localWriteQueue";
 import {
   advancePendingBaseVersion,
   pendingDeltaSinceBase,
@@ -21,7 +22,6 @@ import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
 import {
   canAttachFiles,
   canWriteDocument,
-  chainQueuedWrite,
   type DocumentStoreState,
 } from "../state";
 import { captureDocumentStoreSyncGeneration } from "../sync/syncGeneration";

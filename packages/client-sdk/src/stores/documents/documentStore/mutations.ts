@@ -15,6 +15,12 @@ import {
   ensureDocumentStoreInitialized,
   ensureDocumentStoreReady,
 } from "./initialization";
+import {
+  chainQueuedWrite,
+  isLocalWriteSuperseded,
+  issueLocalWriteTicket,
+  type LocalWriteTicket,
+} from "./localWriteQueue";
 import { revalidateDocumentMutationIdentity } from "./mutationIdentityRevalidation";
 import {
   advancePendingBaseVersion,
@@ -24,7 +30,6 @@ import {
 import { reportDocumentStoreWriteFailure } from "./reportWriteFailure";
 import {
   canWriteDocument,
-  chainQueuedWrite,
   type DocumentState,
   type DocumentStoreState,
   type SaveDocumentRecordOptions,
@@ -101,6 +106,64 @@ function publishDocumentTextSnapshot(
   });
 }
 
+async function writeDocumentText(
+  state: DocumentStoreState,
+  writeGeneration: number,
+  ticket: LocalWriteTicket,
+  value: string,
+): Promise<void> {
+  // A newer queued setText carries the whole latest value, and its persist
+  // exports every op since pendingBaseVersion: this one has nothing to add.
+  if (
+    isLocalWriteSuperseded(state, ticket) ||
+    state.localWriteGeneration !== writeGeneration ||
+    !state.doc ||
+    !canWriteDocument(state)
+  ) {
+    return;
+  }
+  const writeDoc = state.doc;
+  const syncGeneration = captureDocumentStoreSyncGeneration(state, writeDoc);
+  if (!syncGeneration) {
+    return;
+  }
+
+  if (getTextValue(writeDoc) === value) {
+    await revalidateDocumentMutationIdentity({
+      currentDoc: writeDoc,
+      generation: syncGeneration,
+      state,
+    });
+    return;
+  }
+
+  writeDoc.getText("text").update(value);
+  const update = pendingDeltaSinceBase(state, writeDoc);
+  // Captured at delta time: the enqueued row proves durable coverage up
+  // to exactly this version, so this is the frontier the persist may
+  // publish (a raced later edit publishes its own on its own persist).
+  const coveredVersion = encodeVersionVector(writeDoc);
+  const pendingUpdate = createPendingUpdateFields(update);
+  if (!pendingUpdate) {
+    return;
+  }
+  const persisted = await persistDocument(
+    state,
+    writeDoc,
+    { snapshotEndVersion: coveredVersion },
+    { pendingUpdate, preserveSnapshotText: true },
+    syncGeneration,
+  );
+  if (
+    !persisted ||
+    !isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)
+  ) {
+    return;
+  }
+  advancePendingBaseVersion(state, writeDoc);
+  requestDocumentStoreSync(state);
+}
+
 function queueDocumentTextWrite(
   state: DocumentStoreState,
   value: string,
@@ -109,6 +172,9 @@ function queueDocumentTextWrite(
     return Promise.resolve();
   }
   const writeGeneration = state.localWriteGeneration;
+  // Supersedes every text write still queued: only the newest reaches SQLite.
+  // Field, row, and attachment writes never supersede a text write.
+  const ticket = issueLocalWriteTicket(state, "text");
 
   // Mark a local edit as in flight SYNCHRONOUSLY, before chaining, so a sync
   // pass that runs during this burst sees pendingLocalWrites > 0 and preserves
@@ -118,66 +184,16 @@ function queueDocumentTextWrite(
     state,
     state.writeChain
       .catch(() => undefined)
-      .then(async () => {
-        if (
-          state.localWriteGeneration !== writeGeneration ||
-          !state.doc ||
-          !canWriteDocument(state)
-        ) {
-          return;
-        }
-        const writeDoc = state.doc;
-        const syncGeneration = captureDocumentStoreSyncGeneration(
-          state,
-          writeDoc,
-        );
-        if (!syncGeneration) {
-          return;
-        }
-
-        if (getTextValue(writeDoc) === value) {
-          await revalidateDocumentMutationIdentity({
-            currentDoc: writeDoc,
-            generation: syncGeneration,
-            state,
-          });
-          return;
-        }
-
-        writeDoc.getText("text").update(value);
-        const update = pendingDeltaSinceBase(state, writeDoc);
-        // Captured at delta time: the enqueued row proves durable coverage up
-        // to exactly this version, so this is the frontier the persist may
-        // publish (a raced later edit publishes its own on its own persist).
-        const coveredVersion = encodeVersionVector(writeDoc);
-        const pendingUpdate = createPendingUpdateFields(update);
-        if (!pendingUpdate) {
-          return;
-        }
-        const persisted = await persistDocument(
-          state,
-          writeDoc,
-          { snapshotEndVersion: coveredVersion },
-          { pendingUpdate, preserveSnapshotText: true },
-          syncGeneration,
-        );
-        if (
-          !persisted ||
-          !isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)
-        ) {
-          return;
-        }
-        advancePendingBaseVersion(state, writeDoc);
-        requestDocumentStoreSync(state);
-      })
+      .then(() => writeDocumentText(state, writeGeneration, ticket, value))
       // The user is already looking at this text: publishDocumentTextSnapshot ran
       // before the chain, and nothing downstream surfaces a failed persist.
       .catch((error: unknown) => {
         reportDocumentStoreWriteFailure(state, TEXT_FAILURE_MESSAGE, error);
       })
-      // Always settle, even on the value-equality short-circuit or a throw, so the
-      // current document's counter cannot stick non-zero. The generation guard
-      // keeps a reset write from decrementing a replacement generation.
+      // Always settle, even on supersession, the value-equality short-circuit,
+      // or a throw, so the current document's counter cannot stick non-zero.
+      // The generation guard keeps a reset write from decrementing a
+      // replacement generation.
       .finally(() => {
         settleDocumentLocalWrite(state, writeGeneration);
       }),
@@ -221,6 +237,100 @@ function publishDocumentStructuredFieldSnapshot(
   });
 }
 
+interface StructuredFieldWrite {
+  readonly kind: Exclude<StoredDocumentKind, "note">;
+  readonly options: DocumentMutationOptions;
+  readonly patch: DocumentStructuredFieldPatch;
+  /** `null` for a deferred write, which neither supersedes nor coalesces. */
+  readonly ticket: LocalWriteTicket | null;
+  readonly writeGeneration: number;
+}
+
+async function writeDocumentStructuredFields(
+  state: DocumentStoreState,
+  write: StructuredFieldWrite,
+): Promise<void> {
+  const { kind, options, patch, ticket, writeGeneration } = write;
+  if (
+    state.localWriteGeneration !== writeGeneration ||
+    !state.doc ||
+    !canWriteDocument(state)
+  ) {
+    return;
+  }
+  const writeDoc = state.doc;
+  const syncGeneration = captureDocumentStoreSyncGeneration(state, writeDoc);
+  if (!syncGeneration) {
+    return;
+  }
+
+  writeStoredDocumentFields(
+    writeDoc,
+    kind,
+    patch,
+    state.runtime.infra.documentProjectors,
+  );
+  // Patches are partial, so a superseded write still applies its fields. The
+  // newer write's persist exports every op since pendingBaseVersion, these
+  // included, so only this commit is redundant.
+  if (isLocalWriteSuperseded(state, ticket)) {
+    return;
+  }
+  const update = pendingDeltaSinceBase(state, writeDoc);
+  if (update.byteLength === 0) {
+    await revalidateDocumentMutationIdentity({
+      currentDoc: writeDoc,
+      generation: syncGeneration,
+      state,
+    });
+    return;
+  }
+  // Captured at delta time: the durable row written below (queue
+  // dual-write or in-mutation tail append) proves coverage up to exactly
+  // this version, so it is the frontier this persist may publish.
+  const coveredVersion = encodeVersionVector(writeDoc);
+  const durabilityOptions = structuredMutationDurabilityOptions(
+    options,
+    update,
+  );
+  if (!durabilityOptions) {
+    await revalidateDocumentMutationIdentity({
+      currentDoc: writeDoc,
+      generation: syncGeneration,
+      state,
+    });
+    return;
+  }
+  // A deferred write advances the record's content frontier AHEAD of the
+  // outgoing queue (the op is re-derived by the next edit). Its delta
+  // rides in the persist's own claimed mutation as a durable-history tail
+  // row written before the record — the tail is the only content store,
+  // so the record frontier must never durably lead the tail row that
+  // holds its content. Passed as an option (no pre-persist await) so this
+  // write adds no extra hop that would change cross-store interleaving.
+  const persisted = await persistDocument(
+    state,
+    writeDoc,
+    { snapshotEndVersion: coveredVersion },
+    {
+      preserveSnapshotStructuredFields: true,
+      preserveSnapshotText: true,
+      ...durabilityOptions,
+    },
+    syncGeneration,
+  );
+  if (
+    !persisted ||
+    !isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)
+  ) {
+    return;
+  }
+  if (!options.deferRemoteSync) {
+    advancePendingBaseVersion(state, writeDoc);
+    requestDocumentStoreSync(state);
+  }
+}
+
 function queueDocumentStructuredFieldWrite(
   state: DocumentStoreState,
   kind: Exclude<StoredDocumentKind, "note">,
@@ -230,7 +340,17 @@ function queueDocumentStructuredFieldWrite(
   if (!state.doc) {
     return Promise.resolve();
   }
-  const writeGeneration = state.localWriteGeneration;
+  const write: StructuredFieldWrite = {
+    kind,
+    options,
+    patch,
+    // A deferred persist is history-only, so it must never stand in for an
+    // earlier write's enqueue: deferred writes neither supersede nor coalesce.
+    ticket: options.deferRemoteSync
+      ? null
+      : issueLocalWriteTicket(state, "structuredFields"),
+    writeGeneration: state.localWriteGeneration,
+  };
 
   // See queueDocumentTextWrite: gate sync-lane text/field republish on the same
   // in-flight-write counter so structured edits get the identical protection.
@@ -239,90 +359,14 @@ function queueDocumentStructuredFieldWrite(
     state,
     state.writeChain
       .catch(() => undefined)
-      .then(async () => {
-        if (
-          state.localWriteGeneration !== writeGeneration ||
-          !state.doc ||
-          !canWriteDocument(state)
-        ) {
-          return;
-        }
-        const writeDoc = state.doc;
-        const syncGeneration = captureDocumentStoreSyncGeneration(
-          state,
-          writeDoc,
-        );
-        if (!syncGeneration) {
-          return;
-        }
-
-        writeStoredDocumentFields(
-          writeDoc,
-          kind,
-          patch,
-          state.runtime.infra.documentProjectors,
-        );
-        const update = pendingDeltaSinceBase(state, writeDoc);
-        if (update.byteLength === 0) {
-          await revalidateDocumentMutationIdentity({
-            currentDoc: writeDoc,
-            generation: syncGeneration,
-            state,
-          });
-          return;
-        }
-        // Captured at delta time: the durable row written below (queue
-        // dual-write or in-mutation tail append) proves coverage up to exactly
-        // this version, so it is the frontier this persist may publish.
-        const coveredVersion = encodeVersionVector(writeDoc);
-        const durabilityOptions = structuredMutationDurabilityOptions(
-          options,
-          update,
-        );
-        if (!durabilityOptions) {
-          await revalidateDocumentMutationIdentity({
-            currentDoc: writeDoc,
-            generation: syncGeneration,
-            state,
-          });
-          return;
-        }
-        // A deferred write advances the record's content frontier AHEAD of the
-        // outgoing queue (the op is re-derived by the next edit). Its delta
-        // rides in the persist's own claimed mutation as a durable-history tail
-        // row written before the record — the tail is the only content store,
-        // so the record frontier must never durably lead the tail row that
-        // holds its content. Passed as an option (no pre-persist await) so this
-        // write adds no extra hop that would change cross-store interleaving.
-        const persisted = await persistDocument(
-          state,
-          writeDoc,
-          { snapshotEndVersion: coveredVersion },
-          {
-            preserveSnapshotStructuredFields: true,
-            preserveSnapshotText: true,
-            ...durabilityOptions,
-          },
-          syncGeneration,
-        );
-        if (
-          !persisted ||
-          !isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)
-        ) {
-          return;
-        }
-        if (!options.deferRemoteSync) {
-          advancePendingBaseVersion(state, writeDoc);
-          requestDocumentStoreSync(state);
-        }
-      })
+      .then(() => writeDocumentStructuredFields(state, write))
       .catch((error: unknown) => {
         reportDocumentStoreWriteFailure(state, FIELD_FAILURE_MESSAGE, error);
       })
       // See queueDocumentTextWrite: the final current-generation write also
       // republishes any remote content that was held during the optimistic burst.
       .finally(() => {
-        settleDocumentLocalWrite(state, writeGeneration);
+        settleDocumentLocalWrite(state, write.writeGeneration);
       }),
   );
 }

@@ -9,6 +9,7 @@ import {
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import { requestDocumentStoreSync } from "../../registry";
 import { ensureDocumentStoreReady } from "../initialization";
+import { chainQueuedWrite } from "../localWriteQueue";
 import { runDocumentOrphanMaintenance } from "../orphanMaintenance";
 import {
   advancePendingBaseVersion,
@@ -18,7 +19,6 @@ import {
 import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
 import {
   canWriteDocument,
-  chainQueuedWrite,
   type DocumentStoreState,
   setReadySnapshot,
 } from "../state";
