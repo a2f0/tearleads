@@ -89,8 +89,30 @@ async function freePort(): Promise<number> {
   return port;
 }
 
+// `freePort` releases its port before wrangler binds it, so another process
+// can take it first. Only that bind failure retries, on fresh ports.
+const PORT_COLLISION_ATTEMPTS = 3;
+
 export async function startLocalWorker(
   overrides: Readonly<Record<string, string>> = {},
+): Promise<LocalWorker> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await startLocalWorkerOnce(overrides);
+    } catch (error) {
+      if (
+        attempt >= PORT_COLLISION_ATTEMPTS ||
+        !(error instanceof Error) ||
+        !error.message.includes("Address already in use")
+      ) {
+        throw error;
+      }
+    }
+  }
+}
+
+async function startLocalWorkerOnce(
+  overrides: Readonly<Record<string, string>>,
 ): Promise<LocalWorker> {
   const [port, inspectorPort] = await Promise.all([freePort(), freePort()]);
   const persist = await mkdtemp(resolve(tmpdir(), "tearleads-worker-state-"));
