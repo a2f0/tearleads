@@ -1,11 +1,5 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useReducer,
-  useRef,
-} from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import { explorerDocumentQueryContainerId } from "../../../stores/explorer/orphanedDocuments";
 import { usePrimeDiscoveredDocuments } from "../../../stores/explorer/primeDiscoveredDocuments";
@@ -56,51 +50,54 @@ export function useExplorerInteractionState(params: {
 
 type ExplorerReconciler = ExplorerModelExplorer["reconciler"];
 
+type ExplorerRunOutcome =
+  | { readonly type: "succeeded" | "interrupted" | "cancelled" }
+  | { readonly type: "failed"; readonly message: string };
+
 interface ExplorerRefreshRun {
   readonly controller: AbortController;
-  readonly promise: Promise<boolean>;
-  readonly reconciler: ExplorerReconciler;
+  /** How the run ended; never rejects. */
+  readonly outcome: Promise<ExplorerRunOutcome>;
   readonly request: object;
 }
 
 const REFRESH_FAILED_MESSAGE = "Failed to refresh explorer.";
 
 /**
- * Withdraws Explorer's run once it stops being Explorer's. A scope change
- * replaces the reconciler; keyed on it, so StrictMode's remount of the same
- * one keeps the run. Closing Explorer withdraws too, or its abandoned caller
- * would keep a shared refresh running past a later Explorer's Cancel. That
- * withdrawal waits one macrotask: StrictMode unmounts and remounts in the
- * same tick, and the remount cancels it.
+ * Explorer's running refresh, kept per reconciler rather than per mounted
+ * Explorer. Closing Explorer leaves it running, so an open catch-up still
+ * completes for its scope; a remounted or reopened Explorer shows it as
+ * running, and its Cancel reaches it.
  */
-function useWithdrawAbandonedRun(
-  runRef: RefObject<ExplorerRefreshRun | null>,
-  reconciler: ExplorerReconciler,
-  withdraw: (run: ExplorerRefreshRun) => void,
-): void {
-  useEffect(() => {
-    const run = runRef.current;
-    if (run && run.reconciler !== reconciler) {
-      withdraw(run);
-    }
-  }, [reconciler, runRef, withdraw]);
+const explorerRuns = new WeakMap<ExplorerReconciler, ExplorerRefreshRun>();
 
-  const unmountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (unmountTimerRef.current !== null) {
-      clearTimeout(unmountTimerRef.current);
-      unmountTimerRef.current = null;
+function startExplorerRun(
+  reconciler: ExplorerReconciler,
+  sweep: (signal: AbortSignal) => Promise<void>,
+  logError: (message: string | Error, cause?: unknown) => void,
+): ExplorerRefreshRun {
+  const controller = new AbortController();
+  const outcome = sweep(controller.signal).then(
+    (): ExplorerRunOutcome => ({ type: "succeeded" }),
+    (error: unknown): ExplorerRunOutcome => {
+      if (controller.signal.aborted) {
+        return { type: "cancelled" };
+      }
+      if (isIgnorableDatabaseWorkerError(error)) {
+        return { type: "interrupted" };
+      }
+      logError("Failed to refresh explorer", error);
+      return { type: "failed", message: REFRESH_FAILED_MESSAGE };
+    },
+  );
+  const run = { controller, outcome, request: {} };
+  explorerRuns.set(reconciler, run);
+  void outcome.then(() => {
+    if (explorerRuns.get(reconciler) === run) {
+      explorerRuns.delete(reconciler);
     }
-    return () => {
-      unmountTimerRef.current = setTimeout(() => {
-        unmountTimerRef.current = null;
-        const run = runRef.current;
-        if (run) {
-          withdraw(run);
-        }
-      }, 0);
-    };
-  }, [runRef, withdraw]);
+  });
+  return run;
 }
 
 /**
@@ -112,9 +109,9 @@ function useWithdrawAbandonedRun(
  *
  * Cancelling withdraws Explorer from the sweep at once. The reconciler stops
  * the sweep at its next safe boundary only if no other caller, such as the
- * reconnect catch-up, still waits on it. A run belongs to its reconciler: a
- * scope change withdraws from the old scope's run, so it neither blocks this
- * scope's refresh nor reports into it.
+ * reconnect catch-up, still waits on it. A scope change replaces the
+ * reconciler: the old scope's run then neither blocks this scope's refresh
+ * nor reports into it.
  */
 export function useExplorerRefreshActions(
   reconciler: ExplorerReconciler,
@@ -124,66 +121,52 @@ export function useExplorerRefreshActions(
     transitionExplorerRefresh,
     IDLE_EXPLORER_REFRESH,
   );
-  // Mirrors the running run, so a second request before the next render joins
-  // it instead of starting another, and so cancel reaches its controller.
-  const runRef = useRef<ExplorerRefreshRun | null>(null);
+  // The run this Explorer shows, and the reconciler it belongs to.
+  const shownRef = useRef<{
+    readonly reconciler: ExplorerReconciler;
+    readonly run: ExplorerRefreshRun;
+  } | null>(null);
 
-  const withdraw = useCallback((run: ExplorerRefreshRun) => {
-    if (runRef.current === run) {
-      runRef.current = null;
+  const show = useCallback(
+    (run: ExplorerRefreshRun) => {
+      if (shownRef.current?.run === run) {
+        return;
+      }
+      shownRef.current = { reconciler, run };
+      const { request } = run;
+      dispatch({ type: "started", request });
+      void run.outcome.then((outcome) => {
+        dispatch(
+          outcome.type === "failed"
+            ? { message: outcome.message, request, type: "failed" }
+            : { request, type: outcome.type },
+        );
+      });
+    },
+    [reconciler],
+  );
+
+  useEffect(() => {
+    const shown = shownRef.current;
+    if (shown && shown.reconciler !== reconciler) {
+      shownRef.current = null;
+      dispatch({ type: "cancelled", request: shown.run.request });
     }
-    dispatch({ type: "cancelled", request: run.request });
-    run.controller.abort(
-      new DOMException("Explorer refresh cancelled", "AbortError"),
-    );
-  }, []);
-
-  useWithdrawAbandonedRun(runRef, reconciler, withdraw);
+    const run = explorerRuns.get(reconciler);
+    if (run) {
+      show(run);
+    }
+  }, [reconciler, show]);
 
   const runSweep = useCallback(
     (sweep: (signal: AbortSignal) => Promise<void>): Promise<boolean> => {
-      const current = runRef.current;
-      if (current?.reconciler === reconciler) {
-        return current.promise;
-      }
-      if (current) {
-        withdraw(current);
-      }
-
-      const request = {};
-      const controller = new AbortController();
-      dispatch({ type: "started", request });
-      const promise = sweep(controller.signal)
-        .then(() => {
-          dispatch({ type: "succeeded", request });
-          return true;
-        })
-        .catch((error: unknown) => {
-          if (controller.signal.aborted) {
-            return false;
-          }
-          if (isIgnorableDatabaseWorkerError(error)) {
-            dispatch({ type: "interrupted", request });
-          } else {
-            logError("Failed to refresh explorer", error);
-            dispatch({
-              type: "failed",
-              message: REFRESH_FAILED_MESSAGE,
-              request,
-            });
-          }
-          return false;
-        })
-        .finally(() => {
-          if (runRef.current?.request === request) {
-            runRef.current = null;
-          }
-        });
-
-      runRef.current = { controller, promise, reconciler, request };
-      return promise;
+      const run =
+        explorerRuns.get(reconciler) ??
+        startExplorerRun(reconciler, sweep, logError);
+      show(run);
+      return run.outcome.then((outcome) => outcome.type === "succeeded");
     },
-    [logError, reconciler, withdraw],
+    [logError, reconciler, show],
   );
 
   const handleRefresh = useCallback(
@@ -199,11 +182,16 @@ export function useExplorerRefreshActions(
   );
 
   const handleCancelRefresh = useCallback(() => {
-    const run = runRef.current;
-    if (run) {
-      withdraw(run);
+    const run = explorerRuns.get(reconciler);
+    if (!run) {
+      return;
     }
-  }, [withdraw]);
+    explorerRuns.delete(reconciler);
+    dispatch({ type: "cancelled", request: run.request });
+    run.controller.abort(
+      new DOMException("Explorer refresh cancelled", "AbortError"),
+    );
+  }, [reconciler]);
 
   return {
     handleCancelRefresh,

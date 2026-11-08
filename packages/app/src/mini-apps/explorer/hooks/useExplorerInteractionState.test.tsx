@@ -8,11 +8,16 @@ afterEach(cleanup);
 
 type Reconciler = ExplorerModelExplorer["reconciler"];
 
-/** A reconciler whose sweeps run until the caller's signal withdraws them. */
+/**
+ * A reconciler whose sweeps run until the caller's signal withdraws them or
+ * the test fails them.
+ */
 function pendingReconciler() {
   const signals: AbortSignal[] = [];
+  const failures: Array<(error: Error) => void> = [];
   const sweep = ({ signal }: { signal?: AbortSignal } = {}) =>
     new Promise<void>((_resolve, reject) => {
+      failures.push(reject);
       if (!signal) return;
       signals.push(signal);
       signal.addEventListener("abort", () => reject(signal.reason), {
@@ -23,38 +28,42 @@ function pendingReconciler() {
     reconcileNow: sweep,
     reconcileRootContainersNow: sweep,
   } as unknown as Reconciler;
-  return { reconciler, signals };
+  const failAll = (error: Error) => {
+    for (const fail of failures) fail(error);
+  };
+  return { failAll, reconciler, signals };
 }
 
+const logError = () => undefined;
+
 // A scope change replaces the reconciler. The old scope's run must neither
-// keep Refresh busy nor make the new scope's refresh join it.
-test("replacing the reconciler withdraws from the old scope's refresh", async () => {
+// keep Refresh busy, nor make the new scope's refresh join it, nor report its
+// late failure into the new scope.
+test("a replaced reconciler's run neither blocks nor reports", async () => {
   const first = pendingReconciler();
   const second = pendingReconciler();
-  const logError = () => undefined;
   const { result, rerender } = renderHook(
     ({ reconciler }) => useExplorerRefreshActions(reconciler, logError),
     { initialProps: { reconciler: first.reconciler } },
   );
 
-  let firstRun: Promise<boolean> = Promise.resolve(true);
   act(() => {
-    firstRun = result.current.handleRefresh();
+    void result.current.handleRefresh();
   });
   expect(result.current.isRefreshing).toBe(true);
 
   rerender({ reconciler: second.reconciler });
   expect(result.current.isRefreshing).toBe(false);
-  expect(first.signals[0]?.aborted).toBe(true);
-  await act(async () => {
-    expect(await firstRun).toBe(false);
-  });
-  expect(result.current.refreshError).toBeNull();
-
   act(() => {
     void result.current.handleRefresh();
   });
   expect(second.signals).toHaveLength(1);
+  expect(result.current.isRefreshing).toBe(true);
+
+  await act(async () => {
+    first.failAll(new Error("old scope failed"));
+  });
+  expect(result.current.refreshError).toBeNull();
   expect(result.current.isRefreshing).toBe(true);
 });
 
@@ -62,14 +71,12 @@ function nextMacrotask(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-// Closing Explorer must withdraw it from the shared refresh, or its abandoned
-// caller keeps the refresh running past a reopened Explorer's Cancel.
-// StrictMode's simulated unmount and remount must not withdraw the open
-// catch-up that the mount started.
-test("unmounting withdraws the run; a StrictMode remount keeps it", async () => {
+// Closing Explorer must not abandon the open catch-up, which runs once per
+// scope; and a reopened Explorer must show the run and be able to cancel it,
+// or an orphaned caller would keep the shared refresh going past Cancel.
+test("a reopened Explorer shows and cancels the run a closed one began", async () => {
   const { reconciler, signals } = pendingReconciler();
-  const logError = () => undefined;
-  const { result, unmount } = renderHook(
+  const opened = renderHook(
     () => {
       const actions = useExplorerRefreshActions(reconciler, logError);
       const { handleOpenCatchup } = actions;
@@ -80,13 +87,21 @@ test("unmounting withdraws the run; a StrictMode remount keeps it", async () => 
     },
     { wrapper: StrictMode },
   );
-
   await act(nextMacrotask);
   expect(signals).toHaveLength(1);
-  expect(signals[0]?.aborted).toBe(false);
-  expect(result.current.isRefreshing).toBe(true);
+  expect(opened.result.current.isRefreshing).toBe(true);
 
-  unmount();
+  opened.unmount();
   await nextMacrotask();
+  expect(signals[0]?.aborted).toBe(false);
+
+  const reopened = renderHook(() =>
+    useExplorerRefreshActions(reconciler, logError),
+  );
+  expect(reopened.result.current.isRefreshing).toBe(true);
+  await act(async () => {
+    reopened.result.current.handleCancelRefresh();
+  });
   expect(signals[0]?.aborted).toBe(true);
+  expect(reopened.result.current.isRefreshing).toBe(false);
 });
