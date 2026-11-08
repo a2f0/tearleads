@@ -70,6 +70,7 @@ interface ExplorerModel {
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   explorer: ExplorerModelExplorer;
+  handleCancelRefresh: () => void;
   handleOpenCatchup: () => Promise<boolean>;
   handleRefresh: () => Promise<boolean>;
   uploadManager: ExplorerPanelState["uploadManager"];
@@ -190,14 +191,19 @@ export function useExplorerModel(
       explorer.trashSystemSlot,
     ],
   );
-  const { handleOpenCatchup, handleRefresh, isRefreshing, refreshError } =
-    useExplorerInteractionState({
-      activeContainerId: selection.activeContainerId,
-      explorer,
-      logError: appData.util.logError,
-      mergeDocumentSummaries,
-      onDocumentLinksChanged: handleDocumentLinksChanged,
-    });
+  const {
+    handleCancelRefresh,
+    handleOpenCatchup,
+    handleRefresh,
+    isRefreshing,
+    refreshError,
+  } = useExplorerInteractionState({
+    activeContainerId: selection.activeContainerId,
+    explorer,
+    logError: appData.util.logError,
+    mergeDocumentSummaries,
+    onDocumentLinksChanged: handleDocumentLinksChanged,
+  });
   const {
     activateLinkedContainer,
     canMutateDocumentLinks,
@@ -381,6 +387,7 @@ export function useExplorerModel(
     documentSummaries,
     currentSelfContactLocalId,
     explorer,
+    handleCancelRefresh,
     handleOpenCatchup,
     handleRefresh,
     uploadManager,

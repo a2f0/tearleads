@@ -194,12 +194,46 @@ async function sweepContainerBatch(input: {
   return { failedForces, firstError };
 }
 
+/**
+ * Hands a stopped sweep's unreached containers back to the background lane.
+ * The sweep marked them discovered up front, so while it ran the lane dropped
+ * any queued entry for them and a navigation to one was suppressed. Their
+ * marks are released and they are queued again, the active container first,
+ * so stopping a sweep never loses work it had absorbed. A container that was
+ * already discovered before the sweep keeps its mark: the lane skips it
+ * either way.
+ */
+function releaseUnreachedContainers(
+  state: KnownContainerSweepState,
+  unreached: ReadonlyArray<string>,
+  markedBySweep: ReadonlySet<string>,
+): void {
+  for (const containerId of unreached) {
+    if (!markedBySweep.has(containerId)) continue;
+    state.discoveredContainerIds.delete(containerId);
+    state.queue.enqueue(
+      containerId,
+      containerId === state.activeContainerId ? "active" : "idle",
+    );
+  }
+  const activeContainerId = state.activeContainerId;
+  if (activeContainerId && unreached.includes(activeContainerId)) {
+    state.queue.enqueue(activeContainerId, "active");
+  }
+  if (state.queue.size > 0) state.lane?.requestSync();
+}
+
 export async function sweepKnownContainers(input: {
   forceAllDocumentContentPulls: boolean;
   host: ReconciliationHost;
   knownIds: ReadonlyArray<string>;
   lifecycleGeneration: number;
   state: KnownContainerSweepState;
+  /**
+   * Ends the sweep before its next batch. The batch in flight finishes, and
+   * the sweep settles without reporting a failure, since no caller waits.
+   */
+  stop?: AbortSignal | undefined;
 }): Promise<void> {
   const {
     forceAllDocumentContentPulls,
@@ -221,6 +255,9 @@ export async function sweepKnownContainers(input: {
   // Mark only the containers this sweep will fetch. Automatic root hints are
   // discovery signals, so already-reconciled containers stay settled unless a
   // targeted event forced them; explicit full refreshes still fetch every id.
+  const markedBySweep = new Set(
+    containerIds.filter((id) => !state.discoveredContainerIds.has(id)),
+  );
   for (const containerId of containerIds) {
     state.discoveredContainerIds.add(containerId);
   }
@@ -233,6 +270,14 @@ export async function sweepKnownContainers(input: {
     offset < containerIds.length;
     offset += MAX_CONTAINER_DOCUMENT_LANES
   ) {
+    if (input.stop?.aborted) {
+      releaseUnreachedContainers(
+        state,
+        containerIds.slice(offset),
+        markedBySweep,
+      );
+      break;
+    }
     const batch = await sweepContainerBatch({
       containerIds: containerIds.slice(
         offset,
@@ -248,7 +293,7 @@ export async function sweepKnownContainers(input: {
     if (firstError === undefined) firstError = batch.firstError;
   }
   rearmFailedSweepContainers(state, failedForces, lifecycleGeneration);
-  if (firstError !== undefined) {
+  if (firstError !== undefined && !input.stop?.aborted) {
     throw firstError;
   }
 }

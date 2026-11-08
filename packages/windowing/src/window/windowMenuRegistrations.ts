@@ -21,6 +21,7 @@ export interface RegisteredWindowMenuItem {
 export interface RegisteredWindowRefreshMenuItem {
   disabled: boolean;
   label: string;
+  onCancel: (() => unknown) | null;
   onRefresh: () => unknown;
   priority: number;
   refreshing: boolean;
@@ -28,6 +29,8 @@ export interface RegisteredWindowRefreshMenuItem {
 
 /** The winning refresh registration as the toolbars and View menu draw it. */
 export interface WindowRefreshMenuItem extends WindowMenuItem {
+  /** Set only while a refresh that can be cancelled is running. */
+  onCancel: (() => void) | null;
   refreshing: boolean;
 }
 
@@ -57,6 +60,12 @@ export function createRefreshMenuItem(
     disabled: item.disabled || item.refreshing,
     id: "window-refresh",
     label: item.refreshing ? REFRESHING_LABEL : item.label,
+    onCancel:
+      item.refreshing && item.onCancel
+        ? () => {
+            void item.onCancel?.();
+          }
+        : null,
     onClick: () => {
       void item.onRefresh();
     },

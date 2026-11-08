@@ -108,6 +108,7 @@ export {
   useContextMenuPositionState,
   useContextMenuState,
 } from "./menu/useContextMenuState";
+export { useLongPress } from "./menu/useLongPress";
 export { RoutedPane, type RoutedPaneProps } from "./routed/RoutedPane";
 export {
   RoutedPaneOverlayHostProvider,
