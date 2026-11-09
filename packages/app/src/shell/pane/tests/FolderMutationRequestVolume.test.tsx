@@ -302,8 +302,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
     },
     budget: {
       // A parent-only hint must refresh the root lane independently. A
-      // hydration pass's pages share one directory discovery (measured 11).
-      total: 11,
+      // hydration pass's pages share one directory discovery. Moving an
+      // ungranted folder no longer stamps the grants lane (measured 10, 11
+      // before).
+      total: 10,
       // The move cites the destination parent's KEK state instead of carrying
       // it: 16.6 KB sent (34.3 KB before) and 44.3 KB received.
       bodyBytes: { request: 18_500, response: 49_000 },
@@ -314,7 +316,7 @@ test("folder creation, document linking, unlinking and trash have separate reque
         "POST /containers/documents/query": 1,
         "GET /containers/:containerId/writer-projection": 0,
         "GET /documents/:documentId/writer-projection": 1,
-        "GET /organizations/:organizationId/read-model": 1,
+        "GET /organizations/:organizationId/read-model": 0,
         "POST /containers/:containerId/move": 1,
         "POST /containers/parent-lanes/query": 2,
         "POST /documents/:documentId/sync": 1,
@@ -338,8 +340,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
     budget: {
       // Root reconciliation now completes and verifies the remaining system
       // slot, alongside the moved folder and destination root. No duplicate
-      // reads; a hydration pass discovers the directory once (measured 12).
-      total: 12,
+      // reads; a hydration pass discovers the directory once, and the
+      // ungranted move stamps no grants (measured 11, 12 before).
+      total: 11,
       // Projection reads cite the KEK levels the device holds by digest:
       // 100.4 KB received (120.7 KB before); keep about 10% headroom. The
       // move cites its parent KEK state: 16.8 KB sent (20.6 KB before).
@@ -351,7 +354,7 @@ test("folder creation, document linking, unlinking and trash have separate reque
         "POST /containers/documents/query": 1,
         "GET /containers/:containerId/writer-projection": 3,
         "GET /documents/:documentId/writer-projection": 1,
-        "GET /organizations/:organizationId/read-model": 1,
+        "GET /organizations/:organizationId/read-model": 0,
         "POST /containers/:containerId/move": 1,
         "POST /containers/parent-lanes/query": 1,
         "POST /documents/:documentId/sync": 1,

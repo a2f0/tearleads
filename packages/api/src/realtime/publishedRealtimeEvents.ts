@@ -3,7 +3,7 @@ import {
   WsDocumentMutationCreatedHintSchema,
   WsDocumentUpdateCreatedHintSchema,
   WsOrganizationMembershipsChangedHintSchema,
-  WsOrganizationReadModelAccessRevokedFrameSchema,
+  WsOrganizationReadModelChangedFrameSchema,
   WsSharedWithYouHintSchema,
   WsUserRegisteredHintSchema,
 } from "@tearleads/validators/realtime";
@@ -11,7 +11,7 @@ import { z } from "zod";
 
 // The exact uuid-v4 constraint the public organization frames use.
 const uuidV4Schema =
-  WsOrganizationReadModelAccessRevokedFrameSchema.shape.organizationId;
+  WsOrganizationReadModelChangedFrameSchema.shape.organizationId;
 
 /**
  * The internal pub/sub event contract, derived from the shared public
@@ -56,11 +56,9 @@ const PublishedRealtimeEventSchema = z.discriminatedUnion("type", [
     type: z.literal("session_revoked"),
     userId: z.string().min(1),
   }),
-  z.object({
-    organizationId: uuidV4Schema,
-    origin: wsOriginSchema.optional(),
+  // The router copies the committed cursor into each recipient's frame.
+  WsOrganizationReadModelChangedFrameSchema.extend({
     recipientUserIds: z.array(uuidV4Schema),
-    type: z.literal("organization_read_model_changed"),
   }),
 ]);
 

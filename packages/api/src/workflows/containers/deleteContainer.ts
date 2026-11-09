@@ -307,10 +307,15 @@ async function deleteContainerWithExecutor(input: {
     documentId: targetManifest.state.metadataDocumentId,
     executor: input.executor,
   });
-  await appendOrganizationReadModelChangeInTransaction(input.executor, {
-    organizationId,
-    lanes: ["grants"],
-  });
+  // Only a leaf is deleted, and the grants listing
+  // (organizations/containerGrants.ts) shows it only while its current
+  // manifest grants directly; deleting an unlisted leaf changes no listed row.
+  if (targetManifest.state.directGrants.length > 0) {
+    await appendOrganizationReadModelChangeInTransaction(input.executor, {
+      organizationId,
+      lanes: ["grants"],
+    });
+  }
 
   return {
     containerId: input.containerId,

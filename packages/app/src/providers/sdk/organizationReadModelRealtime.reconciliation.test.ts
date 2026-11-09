@@ -13,6 +13,7 @@ import {
   ORGANIZATION_A,
   ORGANIZATION_B,
   parsedMessages,
+  readModelCursor,
   USER_B,
 } from "./test/organizationReadModelRealtimeHarness";
 
@@ -291,7 +292,7 @@ test("a newly demanded scope is handed off across reconciliation finalization", 
   detach();
 });
 
-test("an unmounted mutation owner releases its deferred hint to remaining demand", async () => {
+test("an unmounted mutation owner releases its held hint to remaining demand", async () => {
   const runtime = createRuntimeHarness();
   const socket = fakeOpenSocket();
   const detach = attachOrganizationReadModelSocket(
@@ -322,7 +323,11 @@ test("an unmounted mutation owner releases its deferred hint to remaining demand
   );
   expect(runtime.reconcileCalls).toBe(1);
 
-  handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, true);
+  handleOrganizationReadModelHint(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    readModelCursor(1),
+  );
   unsubscribeMutationOwner();
   mutating = false;
   await new Promise((resolve) => setTimeout(resolve, 0));

@@ -14,6 +14,7 @@ import {
   createRuntimeHarness,
   fakeOpenSocket,
   ORGANIZATION_A,
+  readModelCursor,
 } from "./test/organizationReadModelRealtimeHarness";
 
 // Idle observes global API activity too; drain previous real runtimes before
@@ -75,7 +76,11 @@ test("runtime idle waits for local projection work and its queued feed pass", as
   );
   try {
     await entered.promise;
-    handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, false);
+    handleOrganizationReadModelHint(
+      runtime.tearleads,
+      ORGANIZATION_A,
+      readModelCursor(1),
+    );
     expect(runtime.reconcileCalls).toBe(1);
     expect(await waitForAppTestRuntimeToSettle({ timeoutMs: 80 })).toBe(false);
     release.resolve();

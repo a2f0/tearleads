@@ -98,16 +98,18 @@ async function persistRecitation(
   if (manifestHead.manifestHash !== manifest.manifestHash)
     throw mutationStateStale("Container manifest head is stale");
   await markStoredContainerManifest(context.executor, manifest.manifestHash);
-  // No KEK, wrap, grant, parent edge, or tombstone changes accompany a re-cite.
-  // The grants read model includes metadataAccessStateHash from the current
-  // manifest head (organizations/containerGrants.ts), so omitting this lane
-  // invalidation would leave the materialized access identity stale.
+  // No KEK, wrap, grant, parent edge, or tombstone changes accompany a re-cite:
+  // the new manifest keeps the previous direct grants. The grants listing
+  // (organizations/containerGrants.ts) shows this container's new manifest
+  // head only when it grants directly, so only then is the lane stamped.
   // Each request commits independently; a client can stop before its next
   // descendant. A later request therefore cannot own this durable cursor.
-  await appendOrganizationReadModelChangeInTransaction(context.executor, {
-    organizationId: manifest.state.organizationId,
-    lanes: ["grants"],
-  });
+  if (manifest.state.directGrants.length > 0) {
+    await appendOrganizationReadModelChangeInTransaction(context.executor, {
+      organizationId: manifest.state.organizationId,
+      lanes: ["grants"],
+    });
+  }
   return {
     ...(isContainerSystemSlot(container.systemSlot)
       ? { systemSlot: container.systemSlot }

@@ -187,24 +187,26 @@ no read
 ([`DualPaneProvider.activePeerRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx)).
 
 [`GroupMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx)
-measures 7 requests for creating the first group and 6 for a later one, with
-ceilings of 10 and 9. First enrollment of a peer measures 40 requests with a
-ceiling of 45; a later addition is capped at
-11. The creation/addition pairs are capped at 53 and 17 requests, with at most
+measures 6 requests for creating the first group and 5 for a later one (one
+read-model read each; the hint naming the post-mutation cursor costs none),
+with ceilings of 9 and 8. First enrollment of a peer measures 31 requests with
+a ceiling of 43; a later addition measures 6 and is capped at 9. The
+creation/addition pairs are capped at 50 and 14 requests, with at most
 11 and 3 public history reads. First addition permits 10 organization-policy and
 3 group-policy reads. Creation may also receive one validated rollback
 preparation response with identical request bytes.
 
 The Admins enrollment fixture in
 [`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)
-measures 55 completed requests; its ceiling is 58, plus explicitly counted
+measures 53 completed requests; its ceiling is 56, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 17,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
 160,000 request bytes and 700,000 response bytes (0.63 MB measured). The root
 attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
-measures 59 requests and permits 66, with body ceilings of 130,000 request bytes
-and 560,000 response bytes (0.51 MB measured). Container mutation
+measures 56 requests and permits 64, with body ceilings of 128,000 request
+bytes and 510,000 response bytes (0.46 MB measured; recites of ungranted
+containers no longer stamp the grants lane). Container mutation
 acknowledgements carry hashes rather than echoes, which keeps the policy commit
 at about 73 KB. Container mutations cite stored
 [manifests](../glossary/access.md#access-manifest) by

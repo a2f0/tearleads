@@ -1,6 +1,7 @@
 import type { DomainScope } from "../../data/shared/domainScope";
 import { recoverOrganizationAccess } from "../../workflows/container-contents/recovery/accessRestoration";
 import {
+  loadAppliedOrganizationReadModelCursor,
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationDirectoryAndGroups,
   loadLocalOrganizationGroupContainers,
@@ -109,6 +110,10 @@ export interface OrganizationReadModelCoordinator {
   reconcileAfterMutation(
     organizationId?: string | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
+  /** The applied cursor once this scope's in-flight reconcile settles. */
+  loadAppliedCursor(
+    organizationId?: string | undefined,
+  ): Promise<string | null>;
 }
 
 class OrganizationReadModelCoordinatorImpl
@@ -118,16 +123,18 @@ class OrganizationReadModelCoordinatorImpl
     DomainScope,
     Map<string, Promise<OrganizationDirectoryAndGroups | null | undefined>>
   >();
+  // The cursor each requester's last reconcile fully presented: applied,
+  // group names hydrated and leave requests verified. A stored cursor whose
+  // presentation work failed does not count as applied, so the next hint
+  // reconciles and retries that work.
+  private readonly presentedCursorsByScope = new WeakMap<
+    DomainScope,
+    Map<string, string>
+  >();
   constructor(private readonly runtimeService: InternalRuntime) {}
 
   private reconciliationMap(active: ActiveOrganizationDataRuntime) {
-    const scope = active.runtime.state.domainScope;
-    let byKey = this.reconciliationsByScope.get(scope);
-    if (!byKey) {
-      byKey = new Map();
-      this.reconciliationsByScope.set(scope, byKey);
-    }
-    return byKey;
+    return scopedMap(this.reconciliationsByScope, active);
   }
 
   async loadLocal(organizationId?: string) {
@@ -283,6 +290,7 @@ class OrganizationReadModelCoordinatorImpl
     if (existing) {
       return existing;
     }
+    const presentedCursors = scopedMap(this.presentedCursorsByScope, active);
 
     // Snapshot the server-denied flag before reconciling. A reconcile that
     // flips it back to readable means org access was just restored (e.g. the
@@ -341,6 +349,17 @@ class OrganizationReadModelCoordinatorImpl
           leaveRequestVerifier(this.runtimeService, active.runtime, active),
         );
       })
+      .then(
+        (presented) => {
+          if (presented) presentedCursors.set(key, presented.readModelCursor);
+          else presentedCursors.delete(key);
+          return presented;
+        },
+        (error: unknown) => {
+          presentedCursors.delete(key);
+          throw error;
+        },
+      )
       .finally(() => {
         if (byKey.get(key) === reconciliation) {
           byKey.delete(key);
@@ -360,14 +379,50 @@ class OrganizationReadModelCoordinatorImpl
     if (!active?.runtime.state.online) {
       return undefined;
     }
-    const existing = this.reconciliationMap(active).get(
-      organizationAccessScopeKey(active.organizationId, active.userId),
-    );
-    if (existing) {
-      await existing.catch(() => null);
-    }
+    await this.settleInFlightReconcile(active);
     return this.reconcile(active.organizationId);
   }
+
+  async loadAppliedCursor(organizationId?: string): Promise<string | null> {
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
+    if (!active) {
+      return null;
+    }
+    await this.settleInFlightReconcile(active);
+    const applied = await loadAppliedOrganizationReadModelCursor({
+      execSql: active.runtime.infra.execSql,
+      organizationId: active.organizationId,
+      requesterUserId: active.userId,
+    });
+    const presented = scopedMap(this.presentedCursorsByScope, active).get(
+      organizationAccessScopeKey(active.organizationId, active.userId),
+    );
+    return applied !== null && applied === presented ? applied : null;
+  }
+
+  private async settleInFlightReconcile(
+    active: ActiveOrganizationDataRuntime,
+  ): Promise<void> {
+    await this.reconciliationMap(active)
+      .get(organizationAccessScopeKey(active.organizationId, active.userId))
+      ?.catch(() => null);
+  }
+}
+
+function scopedMap<T>(
+  byScope: WeakMap<DomainScope, Map<string, T>>,
+  active: ActiveOrganizationDataRuntime,
+): Map<string, T> {
+  const scope = active.runtime.state.domainScope;
+  let byKey = byScope.get(scope);
+  if (!byKey) {
+    byKey = new Map();
+    byScope.set(scope, byKey);
+  }
+  return byKey;
 }
 
 export function createOrganizationReadModelCoordinator(
