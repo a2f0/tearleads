@@ -2,6 +2,7 @@ import type {
   ContainerNode,
   ContainerShareAccessLevel,
 } from "@tearleads/client-sdk";
+import { SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES } from "../../../stores/systemContainers";
 
 /** A container this user can reach whose parent they cannot. */
 export interface OrganizationDashboardFolder {
@@ -43,6 +44,18 @@ function compareNames(left: string, right: string): number {
   return left.localeCompare(right, undefined, { sensitivity: "base" });
 }
 
+/**
+ * The organization's own system containers (its metadata root and roster
+ * profiles) are plumbing, never folders. A shared Contacts or Trash is a
+ * folder; it carries its owner's opaque slot, so, as in Explorer, it is
+ * recognized by name.
+ */
+function isFolderNode(node: ContainerNode): boolean {
+  return (
+    !node.systemSlot || SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES.has(node.name)
+  );
+}
+
 function toFolder(node: ContainerNode): OrganizationDashboardFolder {
   return {
     // An unknown level fails closed to read, as the SDK's own default does.
@@ -80,8 +93,8 @@ function compareCards(
  * A card's folders are its entry points: the containers this user can reach
  * whose parent they cannot. For a workspace that is the organization's root;
  * otherwise it is each topmost folder shared with the user or one of their
- * groups. System containers (the metadata root, Contacts, Trash, roster
- * profiles) are never entry points, so an organization known only through the
+ * groups, including a shared Contacts or Trash. The metadata root and roster
+ * profiles are never entry points, so an organization known only through the
  * metadata root that every Members recipient can read still gets a card, with
  * no folders.
  */
@@ -108,7 +121,7 @@ export function buildOrganizationDashboardCards(input: {
     }
     const reachableParent =
       node.parentId !== null && nodeIds.has(node.parentId);
-    if (!node.systemSlot && !reachableParent) {
+    if (isFolderNode(node) && !reachableParent) {
       folders.push(toFolder(node));
     }
   }

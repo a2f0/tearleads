@@ -165,6 +165,38 @@ test("keeps an organization known only through its metadata root", () => {
   ]);
 });
 
+test("lists a Contacts folder shared on its own, but not roster profiles", () => {
+  const [card] = buildOrganizationDashboardCards({
+    ...NO_SYNC_CHOICES,
+    activeOrganizationId: null,
+    namesById: new Map(),
+    nodes: [
+      node({
+        id: "acme-metadata",
+        organizationId: "acme",
+        parentId: null,
+        systemSlot: METADATA_SLOT,
+      }),
+      node({
+        id: "acme-roster-profiles",
+        name: "Roster Profiles",
+        organizationId: "acme",
+        parentId: "acme-root",
+        systemSlot: `sys_v1_${"r".repeat(43)}`,
+      }),
+      node({
+        id: "acme-contacts",
+        name: "Contacts",
+        organizationId: "acme",
+        parentId: "acme-root",
+        systemSlot: `sys_v1_${"c".repeat(43)}`,
+      }),
+    ],
+  });
+
+  expect(card?.folders.map((folder) => folder.id)).toEqual(["acme-contacts"]);
+});
+
 test("orders the active organization, then workspaces, then named organizations", () => {
   const cards = buildOrganizationDashboardCards({
     ...NO_SYNC_CHOICES,
