@@ -394,7 +394,7 @@ function useExplorerDocumentInfoPanelState(params: Props) {
     }
     params.requestAttributionProfileHydration({
       contributorUserIds,
-      documentId: documentInfo.local.documentId ?? params.localId,
+      documentId: documentInfo.local.documentId ?? documentInfo.local.localId,
     });
   }, [documentInfo, params.requestAttributionProfileHydration]);
 

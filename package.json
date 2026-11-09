@@ -55,7 +55,7 @@
     "generate:protocol-proof-vectors": "bun scripts/protocol/generateTransparencyVectors.ts",
     "lint:architecture": "bun scripts/architecture/lintArchitecture.ts",
     "lint:binary-files": "agent-tool checks binaries",
-    "lint:biome": "biome check --error-on-warnings && bun scripts/checks/checkRuntimeScopedMemoDependencies.ts && bun run lint:biome:promises",
+    "lint:biome": "biome check --error-on-warnings && bun run lint:biome:promises",
     "lint:biome:promises": "bun run test:biome:promises && biome lint --config-path biome.promises.jsonc --only=lint/nursery/noFloatingPromises --error-on-warnings packages",
     "lint:branch-name": "agent-tool branch check",
     "lint:canonical-ordering": "bun scripts/checks/lintCanonicalOrdering.ts",

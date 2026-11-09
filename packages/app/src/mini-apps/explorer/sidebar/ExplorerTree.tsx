@@ -240,9 +240,40 @@ function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
   );
 }
 
-export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
-  const sidebar = useMemo(
-    () => <ExplorerSidebar {...params} />,
+// The panel's caller builds a new params object each render; the sidebar is
+// rebuilt only when one of its fields changes.
+function useExplorerSidebarProps(
+  params: ExplorerSidebarPanelParams,
+): ExplorerSidebarPanelParams {
+  return useMemo(
+    () => ({
+      activeContainerId: params.activeContainerId,
+      collapsedIds: params.collapsedIds,
+      contactAvatarUrlByLocalId: params.contactAvatarUrlByLocalId,
+      currentOrganizationId: params.currentOrganizationId,
+      currentSelfContactLocalId: params.currentSelfContactLocalId,
+      currentSigningFingerprint: params.currentSigningFingerprint,
+      currentUserId: params.currentUserId,
+      databaseError: params.databaseError,
+      documentLinkProjectionVersion: params.documentLinkProjectionVersion,
+      documentLinkProjectionVersionByContainerId:
+        params.documentLinkProjectionVersionByContainerId,
+      documentListRevision: params.documentListRevision,
+      documentQueries: params.documentQueries,
+      handleContainerContextMenu: params.handleContainerContextMenu,
+      handleSidebarDocumentContextMenu: params.handleSidebarDocumentContextMenu,
+      nodes: params.nodes,
+      onRetryDatabase: params.onRetryDatabase,
+      organizationNamesById: params.organizationNamesById,
+      primaryOrganizationId: params.primaryOrganizationId,
+      ready: params.ready,
+      selectDocumentProjection: params.selectDocumentProjection,
+      selectedId: params.selectedId,
+      setSelectedId: params.setSelectedId,
+      setSidebar: params.setSidebar,
+      toggleCollapsed: params.toggleCollapsed,
+      treeEntries: params.treeEntries,
+    }),
     [
       params.activeContainerId,
       params.collapsedIds,
@@ -270,6 +301,14 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.toggleCollapsed,
       params.treeEntries,
     ],
+  );
+}
+
+export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
+  const sidebarProps = useExplorerSidebarProps(params);
+  const sidebar = useMemo(
+    () => <ExplorerSidebar {...sidebarProps} />,
+    [sidebarProps],
   );
 
   // Explorer's sidebar is always the folder tree, in every layout. The

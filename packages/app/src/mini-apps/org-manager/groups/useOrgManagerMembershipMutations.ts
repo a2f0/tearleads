@@ -40,8 +40,59 @@ interface OrgManagerMembershipMutationsParams {
   readonly setMutating: Dispatch<SetStateAction<boolean>>;
 }
 
+type AddMemberInput = Pick<
+  OrgManagerMembershipMutationsParams,
+  | "addUserId"
+  | "directory"
+  | "invalidateSelectedGroupDetails"
+  | "isOperationActive"
+  | "logError"
+  | "members"
+  | "orgManagerActions"
+  | "refreshDirectoryAndGroups"
+  | "refreshSelectedGroupDetails"
+  | "selectedGroupId"
+  | "selectedGroupIsMembersGroup"
+  | "selectedGroupName"
+  | "setAddUserId"
+  | "setError"
+  | "setMutating"
+> & { readonly canSignAndEncrypt: boolean };
+
+type RemoveMemberInput = Pick<
+  OrgManagerMembershipMutationsParams,
+  | "directory"
+  | "invalidateSelectedGroupDetails"
+  | "isOperationActive"
+  | "logError"
+  | "memberGroupId"
+  | "orgManagerActions"
+  | "refreshDirectoryAndGroups"
+  | "refreshSelectedGroupDetails"
+  | "selectedGroupId"
+  | "selectedGroupIsAdminsGroup"
+  | "selectedGroupName"
+  | "setError"
+  | "setMutating"
+> & { readonly canSign: boolean };
+
+// Both mutations only check that the actor's keys are present before starting.
+function signingReadiness(
+  appData: OrgManagerMembershipMutationsParams["appData"],
+) {
+  const canSign = Boolean(
+    appData.auth.userId &&
+      appData.crypto.signingFingerprint &&
+      appData.crypto.signingKeyPair,
+  );
+  return {
+    canSign,
+    canSignAndEncrypt: canSign && Boolean(appData.crypto.encapsulationKeyPair),
+  };
+}
+
 async function addUserToSelectedGroup(
-  params: OrgManagerMembershipMutationsParams,
+  params: AddMemberInput,
   identities: Pick<UserIdentities, "verifyLink" | "resolveVerified">,
 ): Promise<void> {
   const targetUserId = params.addUserId.trim();
@@ -53,10 +104,7 @@ async function addUserToSelectedGroup(
     !params.members ||
     targetUserId.length === 0 ||
     !params.selectedGroupId ||
-    !params.appData.auth.userId ||
-    !params.appData.crypto.signingFingerprint ||
-    !params.appData.crypto.signingKeyPair ||
-    !params.appData.crypto.encapsulationKeyPair
+    !params.canSignAndEncrypt
   ) {
     return;
   }
@@ -128,16 +176,10 @@ async function addUserToSelectedGroup(
 }
 
 async function removeUserFromSelectedGroup(
-  params: OrgManagerMembershipMutationsParams,
+  params: RemoveMemberInput,
   removedUserId: string,
 ): Promise<void> {
-  if (
-    !params.selectedGroupId ||
-    !params.appData.auth.userId ||
-    !params.appData.crypto.signingFingerprint ||
-    !params.appData.crypto.signingKeyPair ||
-    !params.directory
-  ) {
+  if (!params.selectedGroupId || !params.canSign || !params.directory) {
     return;
   }
   if (
@@ -185,60 +227,138 @@ async function removeUserFromSelectedGroup(
   });
 }
 
-export function useOrgManagerMembershipMutations(
+function useAddUserToSelectedGroup(
   params: OrgManagerMembershipMutationsParams,
 ) {
   const { verifyLink, resolveVerified } = useIdentityLinks();
-  const addUser = useCallback(
-    () => addUserToSelectedGroup(params, { verifyLink, resolveVerified }),
+  const { canSignAndEncrypt } = signingReadiness(params.appData);
+  const {
+    addUserId,
+    directory,
+    invalidateSelectedGroupDetails,
+    isOperationActive,
+    logError,
+    members,
+    orgManagerActions,
+    refreshDirectoryAndGroups,
+    refreshSelectedGroupDetails,
+    selectedGroupId,
+    selectedGroupIsMembersGroup,
+    selectedGroupName,
+    setAddUserId,
+    setError,
+    setMutating,
+  } = params;
+  return useCallback(
+    () =>
+      addUserToSelectedGroup(
+        {
+          addUserId,
+          canSignAndEncrypt,
+          directory,
+          invalidateSelectedGroupDetails,
+          isOperationActive,
+          logError,
+          members,
+          orgManagerActions,
+          refreshDirectoryAndGroups,
+          refreshSelectedGroupDetails,
+          selectedGroupId,
+          selectedGroupIsMembersGroup,
+          selectedGroupName,
+          setAddUserId,
+          setError,
+          setMutating,
+        },
+        { resolveVerified, verifyLink },
+      ),
     [
-      verifyLink,
+      addUserId,
+      canSignAndEncrypt,
+      directory,
+      invalidateSelectedGroupDetails,
+      isOperationActive,
+      logError,
+      members,
+      orgManagerActions,
+      refreshDirectoryAndGroups,
+      refreshSelectedGroupDetails,
       resolveVerified,
-      params.addUserId,
-      params.appData.auth.userId,
-      params.appData.crypto.encapsulationKeyPair,
-      params.appData.crypto.signingFingerprint,
-      params.appData.crypto.signingKeyPair,
-      params.directory,
-      params.invalidateSelectedGroupDetails,
-      params.isOperationActive,
-      params.logError,
-      params.memberGroupId,
-      params.members,
-      params.orgManagerActions,
-      params.refreshDirectoryAndGroups,
-      params.refreshSelectedGroupDetails,
-      params.selectedGroupId,
-      params.selectedGroupName,
-      params.selectedGroupIsAdminsGroup,
-      params.selectedGroupIsMembersGroup,
-      params.setAddUserId,
-      params.setError,
-      params.setMutating,
+      selectedGroupId,
+      selectedGroupIsMembersGroup,
+      selectedGroupName,
+      setAddUserId,
+      setError,
+      setMutating,
+      verifyLink,
     ],
   );
-  const removeMember = useCallback(
-    (removedUserId: string) =>
-      removeUserFromSelectedGroup(params, removedUserId),
-    [
-      params.appData.auth.userId,
-      params.appData.crypto.signingFingerprint,
-      params.appData.crypto.signingKeyPair,
-      params.directory,
-      params.invalidateSelectedGroupDetails,
-      params.isOperationActive,
-      params.logError,
-      params.memberGroupId,
-      params.orgManagerActions,
-      params.refreshDirectoryAndGroups,
-      params.refreshSelectedGroupDetails,
-      params.selectedGroupId,
-      params.selectedGroupIsAdminsGroup,
-      params.selectedGroupName,
-      params.setError,
-      params.setMutating,
-    ],
-  );
+}
 
-  return { addUser, removeMember };
+function useRemoveUserFromSelectedGroup(
+  params: OrgManagerMembershipMutationsParams,
+) {
+  const { canSign } = signingReadiness(params.appData);
+  const {
+    directory,
+    invalidateSelectedGroupDetails,
+    isOperationActive,
+    logError,
+    memberGroupId,
+    orgManagerActions,
+    refreshDirectoryAndGroups,
+    refreshSelectedGroupDetails,
+    selectedGroupId,
+    selectedGroupIsAdminsGroup,
+    selectedGroupName,
+    setError,
+    setMutating,
+  } = params;
+  return useCallback(
+    (removedUserId: string) =>
+      removeUserFromSelectedGroup(
+        {
+          canSign,
+          directory,
+          invalidateSelectedGroupDetails,
+          isOperationActive,
+          logError,
+          memberGroupId,
+          orgManagerActions,
+          refreshDirectoryAndGroups,
+          refreshSelectedGroupDetails,
+          selectedGroupId,
+          selectedGroupIsAdminsGroup,
+          selectedGroupName,
+          setError,
+          setMutating,
+        },
+        removedUserId,
+      ),
+    [
+      canSign,
+      directory,
+      invalidateSelectedGroupDetails,
+      isOperationActive,
+      logError,
+      memberGroupId,
+      orgManagerActions,
+      refreshDirectoryAndGroups,
+      refreshSelectedGroupDetails,
+      selectedGroupId,
+      selectedGroupIsAdminsGroup,
+      selectedGroupName,
+      setError,
+      setMutating,
+    ],
+  );
+}
+
+export function useOrgManagerMembershipMutations(
+  params: OrgManagerMembershipMutationsParams,
+) {
+  return {
+    addUser: useAddUserToSelectedGroup(params),
+    removeMember: useRemoveUserFromSelectedGroup(params),
+  };
 }

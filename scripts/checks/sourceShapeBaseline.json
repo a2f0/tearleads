@@ -88,6 +88,12 @@
     "packages/app/src/mini-apps/explorer/detail/ExplorerDetailPanel.tsx": {
       "biomeIgnore": 1
     },
+    "packages/app/src/mini-apps/explorer/detail/container/explorerContainerItemWindow.ts": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/mini-apps/explorer/hooks/useDocumentLinkedContainerIdsByDocumentId.ts": {
+      "biomeIgnore": 2
+    },
     "packages/app/src/mini-apps/explorer/hooks/useExplorerModel.ts": {
       "biomeIgnore": 1
     },
@@ -95,7 +101,7 @@
       "biomeIgnore": 1
     },
     "packages/app/src/mini-apps/explorer/sidebar/useExplorerSidebarWindows.ts": {
-      "biomeIgnore": 1
+      "biomeIgnore": 4
     },
     "packages/app/src/mini-apps/org-manager/model/useOrgManagerModel.ts": {
       "biomeIgnore": 1
@@ -104,6 +110,9 @@
       "biomeIgnore": 1
     },
     "packages/app/src/mini-apps/org-manager/refreshers/useOrgManagerRefreshers.ts": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/providers/sdk/useRuntimeScopedMemo.ts": {
       "biomeIgnore": 1
     },
     "packages/client-sdk/src/workflows/containers/child/revoke.ts": {

@@ -77,6 +77,7 @@ export function useExplorerSidebarDocumentWindows(params: {
     () => getExplorerTreeIdSetKey(collapsedIds),
     [collapsedIds],
   );
+  // biome-ignore lint/correctness/useExhaustiveDependencies(collapsedIds): collapsedIdsKey keys the set by content, so an equal new Set does not recompute.
   const expandedContainerIds = useMemo(
     () => listExpandedExplorerTreeContainerIds(treeEntries, collapsedIds),
     [collapsedIdsKey, treeEntries],
@@ -332,6 +333,7 @@ export function useExplorerSidebarVisibleRows(params: {
   } = useMiniAppVirtualWindow({
     rowHeight: EXPLORER_SIDEBAR_ROW_HEIGHT,
   });
+  // biome-ignore lint/correctness/useExhaustiveDependencies(collapsedIds): collapsedIdsKey keys the set by content, so an equal new Set does not recompute.
   const sidebarSections = useMemo(
     () =>
       buildExplorerSidebarSections({
@@ -357,6 +359,7 @@ export function useExplorerSidebarVisibleRows(params: {
     sidebarRangeOffset,
     Math.max(0, totalRows - sidebarLimit),
   );
+  // biome-ignore lint/correctness/useExhaustiveDependencies(collapsedIds): collapsedIdsKey keys the set by content, so an equal new Set does not recompute.
   const rows = useMemo(
     () =>
       getExplorerSidebarRowsInRange({

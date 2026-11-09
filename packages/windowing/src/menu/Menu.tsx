@@ -225,7 +225,7 @@ export function Menu({
         placeMenuInViewport({
           direction,
           height: rect.height,
-          position,
+          position: { x, y },
           viewportHeight: window.innerHeight,
           viewportWidth: window.innerWidth,
           width: rect.width,
