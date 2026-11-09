@@ -65,11 +65,12 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // attachment's stage carries its part upload source and the bind completes
   // it. Batched discovery lists each reconciliation pass's lanes in one
   // request. The empty folder's create carries its metadata as its seed, so
-  // no metadata sync follows. Measured 58 calls (62–68 before the seed);
-  // document, attachment and metadata syncs share their coordinator drain's
-  // policy operation, so a drain discovers once: measured 50 calls (51 with
-  // seeded provisioned container roles). Keep eight calls of scheduling room.
-  total: 59,
+  // no metadata sync follows. Document, attachment and metadata syncs share
+  // their coordinator drain's policy operation, so a drain discovers once, and
+  // recites of ungranted containers no longer stamp the grants lane: measured
+  // 48 calls (50 before the grants-stamp gate, 62–68 before the seed). Keep
+  // eight calls of scheduling room.
+  total: 56,
   // Container mutations cite stored manifests by hash and principal policies
   // by head, so the share and its recitations echo neither path bundles nor
   // ~9.8 KB policies: 120 KB sent with create seeds (180 KB with policies,
@@ -83,8 +84,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // containers cite their parent KEK state and the login signature travels as
   // base64: 117 KB sent (120 KB before). Document creates and attachment
   // binds acknowledge by hash too: 0.48 MB received. A drain's syncs share one
-  // discovery read, and destination checks record the KEK levels they served,
-  // so later projections cite them: 0.42 MB received.
+  // discovery read, destination checks record the KEK levels they served, and
+  // recites of ungranted containers stamp no grants: 0.41 MB received.
   bodyBytes: { request: 128_000, response: 460_000 },
   byRequest: {
     "GET /principals/history": 0,
@@ -104,7 +105,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /containers/:containerId/writer-projection": 7,
     "GET /documents/:documentId/attachments": 2,
     "GET /organizations/:organizationId/billing": 0,
-    "GET /organizations/:organizationId/read-model": 6,
+    // Measured 1 (4 before ungranted recites stopped stamping grants).
+    "GET /organizations/:organizationId/read-model": 3,
     "GET /principals/group/:groupId/policy": 0,
     // Measured 8: one per operation, pass or coordinator drain.
     "GET /principals/organization/:organizationId/policy": 10,

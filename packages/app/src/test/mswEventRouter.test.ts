@@ -9,6 +9,7 @@ const ORGANIZATION_B = "22222222-2222-4222-8222-222222222222";
 const USER_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const USER_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const CONTAINER_A = "33333333-3333-4333-8333-333333333333";
+const CURSOR = "eyJ2ZXJzaW9uIjo2fQ";
 
 class FakeSocketClient implements MswSocketClient {
   readonly sent: string[] = [];
@@ -103,25 +104,20 @@ describe("MSW organization event routing", () => {
     await router.publish({
       type: "organization_read_model_changed",
       organizationId: ORGANIZATION_A,
+      cursor: CURSOR,
       recipientUserIds: [USER_A],
-      origin: { sessionId: "shared-session", userId: USER_A },
       internalOnly: "must not reach clients",
     });
 
-    expect(parsedMessages(author)).toEqual([
-      {
-        type: "organization_read_model_changed",
-        organizationId: ORGANIZATION_A,
-        originatedFromSession: true,
-      },
-    ]);
-    expect(parsedMessages(otherSession)).toEqual([
-      {
-        type: "organization_read_model_changed",
-        organizationId: ORGANIZATION_A,
-        originatedFromSession: false,
-      },
-    ]);
+    for (const socket of [author, otherSession]) {
+      expect(parsedMessages(socket)).toEqual([
+        {
+          type: "organization_read_model_changed",
+          organizationId: ORGANIZATION_A,
+          cursor: CURSOR,
+        },
+      ]);
+    }
     expect(parsedMessages(excluded)).toEqual([
       {
         type: "organization_read_model_access_revoked",
@@ -146,6 +142,7 @@ describe("MSW organization event routing", () => {
       router.publish({
         type: "organization_read_model_changed",
         organizationId: ORGANIZATION_A,
+        cursor: CURSOR,
         recipientUserIds,
       });
 
@@ -159,7 +156,7 @@ describe("MSW organization event routing", () => {
       {
         type: "organization_read_model_changed",
         organizationId: ORGANIZATION_A,
-        originatedFromSession: false,
+        cursor: CURSOR,
       },
       {
         type: "organization_read_model_access_revoked",
@@ -168,7 +165,7 @@ describe("MSW organization event routing", () => {
       {
         type: "organization_read_model_changed",
         organizationId: ORGANIZATION_A,
-        originatedFromSession: false,
+        cursor: CURSOR,
       },
       {
         type: "organization_read_model_access_revoked",
@@ -194,11 +191,13 @@ describe("MSW organization event routing", () => {
     await router.publish({
       type: "organization_read_model_changed",
       organizationId: ORGANIZATION_A,
+      cursor: CURSOR,
       recipientUserIds: [USER_A],
     });
     await router.publish({
       type: "organization_read_model_changed",
       organizationId: ORGANIZATION_B,
+      cursor: CURSOR,
       recipientUserIds: ["not-a-user-id"],
     });
 
@@ -243,13 +242,14 @@ describe("MSW organization event routing", () => {
     await router.publish({
       type: "organization_read_model_changed",
       organizationId: ORGANIZATION_A,
+      cursor: CURSOR,
       recipientUserIds: [USER_A],
     });
     expect(parsedMessages(alice)).toEqual([
       {
         type: "organization_read_model_changed",
         organizationId: ORGANIZATION_A,
-        originatedFromSession: false,
+        cursor: CURSOR,
       },
     ]);
     router.clear();

@@ -96,6 +96,7 @@ function startInterestHarness(
       },
       onOrganizationInterestAcknowledged: () => undefined,
       onOrganizationReadModelChanged: () => undefined,
+      onOrganizationReadModelAccessRevoked: () => undefined,
       onResyncRequired: () => undefined,
       onServerEvent: (event) => {
         hints.push(event);

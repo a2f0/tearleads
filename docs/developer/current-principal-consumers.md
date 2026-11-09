@@ -193,27 +193,29 @@ no read
 ([`DualPaneProvider.activePeerRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx)).
 
 [`GroupMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx)
-measures 9 requests for creating the first group and 6 for a later one, with
-ceilings of 12 and 9; the first create reads the roster profile container's
-projection and its Admins history, which bootstrap no longer reads. First
-enrollment of a peer measures 40 requests with a
-ceiling of 45; a later addition is capped at
-11. The creation/addition pairs are capped at 53 and 17 requests, with at most
+measures 8 requests for creating the first group and 5 for a later one (one
+read-model read each; the hint naming the post-mutation cursor costs none),
+with ceilings of 11 and 8; the first create reads the roster profile
+container's projection and its Admins history, which bootstrap no longer reads.
+First enrollment of a peer measures 38 requests, its group create included (30
+for the add itself), with a ceiling of 43 for the add; a later addition measures
+6 and is capped at 9. The creation/addition pairs are capped at 50 and 14
+requests, with at most
 11 and 3 public history reads. First addition permits 10 organization-policy and
 3 group-policy reads. Creation may also receive one validated rollback
 preparation response with identical request bytes.
 
 The Admins enrollment fixture in
 [`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)
-measures 50 completed requests; its ceiling is 53, plus explicitly counted
+measures 48 completed requests; its ceiling is 51, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 10,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
 160,000 request bytes and 730,000 response bytes (0.66 MB measured, including
 the roster profile projection read that bootstrap no longer makes). The root
 attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
-measures 51 requests and permits 59, with body ceilings of 128,000 request bytes
-and 460,000 response bytes (0.42 MB measured). Container mutation
+measures 48 requests and permits 56, with body ceilings of 128,000 request
+bytes and 460,000 response bytes (0.41 MB measured). Container mutation
 acknowledgements carry hashes rather than echoes, which keeps the policy commit
 at about 73 KB. Container mutations cite stored
 [manifests](../glossary/access.md#access-manifest) by
@@ -237,8 +239,8 @@ sets these ceilings, which include private current-policy reads:
 | Link document | 3 |
 | Unlink document | 8 |
 | Trash document | 9 |
-| Trash folder | 11 |
-| Restore folder | 12 |
+| Trash folder | 10 |
+| Restore folder | 11 |
 
 The folder workflows, whose heads are all completed locally, permit no public
 history or group-policy reads. Sharing discovery reads across passes would need

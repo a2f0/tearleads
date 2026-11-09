@@ -46,17 +46,18 @@ test("group creation and adding a peer have separate request budgets", async () 
       label: `create ${group} organization group`,
       operation: () => createOrganizationGroup(pane, `Budget ${group} group`),
       budget: {
-        // Measured 9/6 requests. Bootstrap no longer reads the roster profile
+        // Measured 8/5 requests. Bootstrap no longer reads the roster profile
         // container's projection (its role is seeded), so the first group
-        // create reads it and its Admins history (7/6 before). Allow three
+        // create reads it and its Admins history; the read-model hint carries
+        // its cursor, so one read-model read follows the create. Allow three
         // directory/Admins reads to move across the phase boundary; metadata
         // unwrap reuses exact local evidence.
-        total: group === "first" ? 12 : 9,
+        total: group === "first" ? 11 : 8,
         byRequest: {
           "GET /principals/history": group === "first" ? 2 : 1,
           "GET /containers/:containerId/writer-projection":
             group === "first" ? 2 : 1,
-          "GET /organizations/:organizationId/read-model": 2,
+          "GET /organizations/:organizationId/read-model": 1,
           "GET /principals/group/:groupId/policy": 1,
           "GET /principals/organization/:organizationId/policy": 2,
           "POST /organizations/:organizationId/groups": 1,
@@ -105,19 +106,18 @@ test("group creation and adding a peer have separate request budgets", async () 
         // The first add enrolls the peer in Members and the custom group in
         // one write, including metadata discovery, read-only sync, and billing.
         // The second add reuses the roster membership.
-        // First enrollment measures 40 calls with private metadata-root
-        // authority, its group create included (31 for the add itself, 32
-        // before drain-scoped sync operations, 33 before that). The add
-        // applies the SDK's post-commit read model instead of reading it again
-        // (later adds measure 7, 8 before). Keep five reads of phase headroom;
-        // later adds get three.
-        total: group === "first" ? 44 : 10,
+        // First enrollment measures 38 calls with private metadata-root
+        // authority, its group create included (30 for the add itself). The
+        // add applies the SDK's post-commit read model instead of reading it
+        // again, and the hint naming that cursor costs no read (later adds
+        // measure 6). Keep five reads of phase headroom; later adds get three.
+        total: group === "first" ? 43 : 9,
         byRequest: {
           "GET /principals/history": group === "first" ? 8 : 2,
           "GET /containers/:containerId/writer-projection":
             group === "first" ? 3 : 1,
           "GET /organizations/:organizationId/read-model":
-            group === "first" ? 3 : 2,
+            group === "first" ? 2 : 1,
           "GET /principals/group/:groupId/policy": group === "first" ? 3 : 1,
           "GET /auth/user-identity/:userId": group === "first" ? 2 : 0,
           "GET /principals/organization/:organizationId/policy":
@@ -159,7 +159,7 @@ test("group creation and adding a peer have separate request budgets", async () 
       `create and add peer to ${group} group`,
       pairStart,
     );
-    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 52 : 16);
+    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 50 : 14);
     expect(
       combined.filter(
         (request) =>

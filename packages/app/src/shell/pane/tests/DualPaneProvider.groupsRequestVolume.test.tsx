@@ -67,14 +67,15 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Private metadata-root authority adds one directory discovery read per
   // operation (one per pass for hydration, discovery and move workflows) and
   // the first read of each new head. Batched discovery lists each
-  // reconciliation pass's lanes in one request. Measured completed calls are
-  // 50 (49 with drain-scoped sync operations alone; provisioning seeds the
-  // roster profile container's role, which moves the founder's first read of
-  // its projection and Admins history here from bootstrap. 55 before
+  // reconciliation pass's lanes in one request. Provisioning seeds the roster
+  // profile container's role, which moves the founder's first read of its
+  // projection and Admins history here from bootstrap. Measured completed
+  // calls are 48 (50 before read-model hints carried their cursor and
+  // recites of ungranted containers stopped stamping grants; 55 before
   // drain-scoped sync operations, 56 before pass-scoped discovery, 70–73
   // before #2537); allow three more bounded reads.
   // Preparation continuations are counted below.
-  total: 53,
+  total: 51,
   // Container mutations cite stored manifests by hash and principal policies
   // by head: 134 KB sent with one descendant recitation (193 KB when they
   // carried each ~9.8 KB policy, 389.5 KB when they also echoed path
@@ -101,7 +102,8 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
     "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 12,
     "GET /auth/user-identity/:userId": 2,
-    "GET /organizations/:organizationId/read-model": 6,
+    // Measured 1 (4 before cursor-carrying hints and conditional grant stamps).
+    "GET /organizations/:organizationId/read-model": 3,
     "GET /organizations/:organizationId/groups/:groupId/containers": 0,
     "GET /organizations/:organizationId/groups/:groupId/members": 1,
     // Includes first classification of all newly visible system slots, roots,

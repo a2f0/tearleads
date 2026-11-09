@@ -9,6 +9,7 @@ import {
 } from "./containerInterest";
 import {
   attachOrganizationReadModelSocket,
+  handleOrganizationReadModelAccessRevoked,
   handleOrganizationReadModelHint,
   handleOrganizationReadModelInterestAcknowledgement,
 } from "./organizationReadModelRealtime";
@@ -242,15 +243,11 @@ export function useServerEventsBinding(
               authorized,
             );
           },
-          onOrganizationReadModelChanged: (
-            organizationId,
-            originatedFromSession,
-          ) => {
-            handleOrganizationReadModelHint(
-              tearleads,
-              organizationId,
-              originatedFromSession,
-            );
+          onOrganizationReadModelChanged: (organizationId, cursor) => {
+            handleOrganizationReadModelHint(tearleads, organizationId, cursor);
+          },
+          onOrganizationReadModelAccessRevoked: (organizationId) => {
+            handleOrganizationReadModelAccessRevoked(tearleads, organizationId);
           },
           onOrganizationMembershipsChanged: () =>
             refreshOrganizationMemberships(tearleads, log),

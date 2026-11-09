@@ -80,10 +80,18 @@ test("publishes one committed hint to the active roster audience", async () => {
   const hints = organizationReadModelEvents(publishedEvents);
   expect(hints).toHaveLength(1);
   expect(Reflect.get(hints[0] ?? {}, "organizationId")).toBe(organizationId);
-  const origin = Reflect.get(hints[0] ?? {}, "origin");
-  invariant(typeof origin === "object" && origin !== null, "expected origin");
-  expect(Reflect.get(origin, "userId")).toBe(actor.userId);
-  expect(Reflect.get(origin, "sessionId")).toBeString();
+  expect(Reflect.has(hints[0] ?? {}, "origin")).toBe(false);
+  // The hint names the committed cursor a read returns as `nextCursor`.
+  const readModel = await app.request(
+    `/organizations/${organizationId}/read-model`,
+    { headers: { Authorization: `Bearer ${actor.token}` } },
+  );
+  expect(readModel.status).toBe(200);
+  const body: unknown = await readModel.json();
+  invariant(typeof body === "object" && body !== null, "expected read model");
+  expect(Reflect.get(hints[0] ?? {}, "cursor")).toBe(
+    Reflect.get(body, "nextCursor"),
+  );
   expect(Reflect.get(hints[0] ?? {}, "recipientUserIds")).toEqual(
     [actor.userId, activeRecipientUserId].sort(),
   );
