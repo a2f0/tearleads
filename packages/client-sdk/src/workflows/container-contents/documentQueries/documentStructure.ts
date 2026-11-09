@@ -236,9 +236,11 @@ export async function removeDocumentLink<TRuntime>(params: {
     return null;
   }
 
-  // Keep the rotation preflight before accepting an unlink. Replay proves it
-  // again before publishing the signed key rotation from the durable intent.
-  await currentDocumentStore.assertCanRotateContentKey();
+  // Prove the full history before accepting an unlink. The store keeps this
+  // proof in memory; the durable intent's replay reuses it while the document
+  // is unchanged, and proves again after a reload, a local or pulled change,
+  // or the server's stale-baseline refusal.
+  await currentDocumentStore.assertCanRotateContentKey("prove");
   return removeDocumentLinkLocally({
     ...params,
     currentDocumentStore,

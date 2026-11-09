@@ -302,7 +302,8 @@ export function createDocumentStoreFacade(
 
   const facade: DocumentStoreFacade = {
     addRow: (fields) => targetStore.addRow(fields),
-    assertCanRotateContentKey: () => targetStore.assertCanRotateContentKey(),
+    assertCanRotateContentKey: (proof) =>
+      targetStore.assertCanRotateContentKey(proof),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       targetStore.attachFiles(files),
     discardLocalState: (expectedDocumentId: string) =>

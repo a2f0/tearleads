@@ -19,6 +19,7 @@ export type {
   DocumentCreateAuthor,
   DocumentLinkSetFailureHandler,
   DocumentLinkSetMutationFailure,
+  DocumentRotationProofMode,
   RelinkRemoteDocumentResult,
 } from "../../data/documents/shared/types";
 export {

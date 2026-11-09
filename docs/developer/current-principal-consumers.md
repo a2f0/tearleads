@@ -243,8 +243,8 @@ sets these ceilings, which include private current-policy reads:
 | --- | ---: |
 | Create folder | 3 |
 | Link document | 3 |
-| Unlink document | 8 |
-| Trash document | 9 |
+| Unlink document | 6 |
+| Trash document | 5 |
 | Trash folder | 10 |
 | Restore folder | 11 |
 

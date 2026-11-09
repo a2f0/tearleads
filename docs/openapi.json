@@ -3209,6 +3209,10 @@
           {
             "type": "string",
             "const": "container_unavailable"
+          },
+          {
+            "type": "string",
+            "const": "document_unlink_rotation_baseline_stale"
           }
         ],
         "description": "A machine-readable reason a document mutation was refused."

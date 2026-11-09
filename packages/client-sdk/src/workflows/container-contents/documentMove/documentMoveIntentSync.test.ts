@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  DOCUMENT_MUTATION_ERROR_CODES,
+  DOCUMENT_SYNC_ERROR_CODES,
+} from "@tearleads/validators/response";
 import { runQueuedDocumentMoveFixture } from "../../../../test/helpers/queuedDocumentMoveFixture";
 import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { createDomainScope } from "../../../data/shared/domainScope";
@@ -60,6 +64,46 @@ test("a partially applied document move stays pending without reporting progress
     lastError: "Remote document move partially applied; retry required",
     syncStatus: "pending",
   });
+});
+
+// The replay reuses the proof taken when the unlink was accepted. Only the
+// server's coded stale-baseline refusal makes it prove the full history again
+// and retry; any other unlink refusal leaves the move pending as before.
+test("a stale unlink rotation baseline proves again and retries the replay", async () => {
+  const staleBaseline = {
+    code: DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
+    message: "Document unlink rotation baseline is stale",
+    status: 409,
+  };
+  const fixture = await runQueuedDocumentMoveFixture({
+    testDbName: "containerContents-document-move-stale-baseline",
+    unlinkAvailable: true,
+    unlinkFailure: staleBaseline,
+    unlinkFailureTimes: 1,
+  });
+
+  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.rotationProofModes).toEqual(["reuse", "prove"]);
+  expect(fixture.submittedOperations).toEqual([
+    "preflight",
+    "link",
+    "preflight",
+    "unlink",
+  ]);
+  expect(fixture.pendingIntents).toEqual([]);
+
+  const otherConflict = await runQueuedDocumentMoveFixture({
+    testDbName: "containerContents-document-move-other-unlink-conflict",
+    unlinkAvailable: true,
+    unlinkFailure: {
+      ...staleBaseline,
+      code: DOCUMENT_SYNC_ERROR_CODES.conflict,
+    },
+    unlinkFailureTimes: 1,
+  });
+  expect(otherConflict.syncedCount).toBe(0);
+  expect(otherConflict.rotationProofModes).toEqual(["reuse"]);
+  expect(otherConflict.pendingIntents).toHaveLength(1);
 });
 
 test("document move sync propagates identity failures without recording a retry", async () => {

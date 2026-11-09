@@ -11,6 +11,10 @@ export const DOCUMENT_MUTATION_ERROR_CODES = {
   // schema (see ContainerMutationErrorCodeSchema).
   containerUnavailable: CONTAINER_UNAVAILABLE_ERROR_CODE,
   manifestAlreadyExists: "document_manifest_already_exists",
+  // An unlink's rotation baseline does not cover a committed update. The
+  // client proves the full history again and retries; the rotation and its
+  // frontier check stay authoritative on the server.
+  unlinkRotationBaselineStale: "document_unlink_rotation_baseline_stale",
 } as const;
 
 export const DocumentMutationBehaviorErrorCodeSchema = z.literal([
@@ -22,6 +26,7 @@ export const DocumentMutationErrorCodeSchema = z.union([
   DocumentSyncErrorCodeSchema,
   z.literal(DOCUMENT_NOT_FOUND_ERROR_CODE),
   z.literal(DOCUMENT_MUTATION_ERROR_CODES.containerUnavailable),
+  z.literal(DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale),
 ]);
 
 export type DocumentMutationErrorCode = z.infer<

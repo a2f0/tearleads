@@ -88,8 +88,8 @@ function createContainerContentsStoreDocumentMoveHost(
         documentId,
       );
       return {
-        assertCanRotateContentKey: () =>
-          store.assertCanRotateContentKey().catch((error: unknown) => {
+        assertCanRotateContentKey: (proof) =>
+          store.assertCanRotateContentKey(proof).catch((error: unknown) => {
             if (error instanceof DocumentRemoteWorkBusyError) {
               void error.whenIdle.then(() => {
                 if (isCurrent()) requestContainerContentsStoreSync(state);

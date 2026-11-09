@@ -1,5 +1,9 @@
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
-import type { ExecSql, RelinkPersistedDocumentInput } from "../../documents";
+import type {
+  DocumentRotationProofMode,
+  ExecSql,
+  RelinkPersistedDocumentInput,
+} from "../../documents";
 import type { ContainerContentsProjectionUserKeyResolver } from "../projectionKeys";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 
@@ -26,7 +30,9 @@ export interface DocumentStructuralMutationRelinkInput
 }
 
 export interface DocumentStructuralMutationLocalStore<TRuntime> {
-  assertCanRotateContentKey: () => Promise<Uint8Array>;
+  assertCanRotateContentKey: (
+    proof: DocumentRotationProofMode,
+  ) => Promise<Uint8Array>;
   ensureInitialized: () => Promise<boolean>;
   relink: (
     input: DocumentStructuralMutationRelinkInput,
