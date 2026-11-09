@@ -294,12 +294,15 @@ function useCommittedAttributionHydrationScope(
       }
     };
   }, [
+    abortControllerRef,
     active,
     authenticated,
     attributionKey,
     containerId,
     domainScope,
     organizationId,
+    requestedBindingKeysRef,
+    selectionsByDocumentIdRef,
     syncPrerequisitesReady,
     userId,
   ]);

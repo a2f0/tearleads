@@ -186,6 +186,7 @@ export function useExplorerContainerItemWindow(
   // `sort` with the same key/direction doesn't re-run the fetch.
   const { direction: sortDirection, key: sortKey } = sort;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies(visibleSystemSlots): serializedSystemSlots keys the slots by content, so an equal new Set does not refetch.
   useEffect(() => {
     if (!enabled) {
       setState(EMPTY_CONTAINER_ITEM_WINDOW_STATE);

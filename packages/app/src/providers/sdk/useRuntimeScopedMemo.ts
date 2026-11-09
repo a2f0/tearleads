@@ -14,5 +14,6 @@ export function useRuntimeScopedMemo<T>(
 ): T {
   const runtime = useTearleadsRuntime();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies(factory): callers pass the factory's dependencies, and the configured useRuntimeScopedMemo hook checks them at each call site.
   return useMemo(factory, [runtime, ...dependencies]);
 }

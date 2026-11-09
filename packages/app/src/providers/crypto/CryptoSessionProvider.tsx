@@ -82,7 +82,7 @@ function useResetCryptoSession(
 
     containerBootstrapped.current = null;
     resetSession();
-  }, [resetSession, signingKeyPair]);
+  }, [containerBootstrapped, resetSession, signingKeyPair]);
 }
 
 function useBootstrapCryptoSessionContainer(
@@ -124,6 +124,7 @@ function useBootstrapCryptoSessionContainer(
       }
     })();
   }, [
+    containerBootstrapped,
     dbStatus,
     dbClient,
     containerId,
@@ -250,6 +251,7 @@ function useRestorePersistedSession(input: {
     authToken,
     checkedFingerprint,
     localPersistence,
+    log,
     logError,
     signingFingerprint,
     tearleads,

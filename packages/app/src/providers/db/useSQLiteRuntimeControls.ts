@@ -107,11 +107,11 @@ export function useSQLiteRuntimeControls(params: {
 
   const spawnRuntime = useCallback(() => {
     spawnRuntimeForDbName(targetDbNameRef.current);
-  }, [spawnRuntimeForDbName]);
+  }, [spawnRuntimeForDbName, targetDbNameRef]);
 
   const ensureReady = useCallback(
     () => ensureReadyForDbName(targetDbNameRef.current),
-    [ensureReadyForDbName],
+    [ensureReadyForDbName, targetDbNameRef],
   );
 
   const ensureIdentityReady = useCallback(
@@ -141,7 +141,7 @@ export function useSQLiteRuntimeControls(params: {
 
     destroyCurrentRuntime("terminated");
     log("Worker killed");
-  }, [destroyCurrentRuntime, log]);
+  }, [destroyCurrentRuntime, log, runtimeRef]);
 
   const purgeWorker = useCallback(async () => {
     await purgeCurrentRuntime();

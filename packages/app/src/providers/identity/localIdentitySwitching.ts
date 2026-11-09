@@ -3,7 +3,7 @@ import {
   type IdentityKeyPackage,
   Tearleads,
 } from "@tearleads/client-sdk";
-import { type MutableRefObject, useCallback } from "react";
+import { type MutableRefObject, useCallback, useMemo } from "react";
 import { prepareForIdentityTransition } from "./identityRuntimeTransition";
 import {
   logIdentityTransitionPhase,
@@ -127,9 +127,11 @@ async function switchLocalIdentity(
   return switched;
 }
 
-export function useSwitchLocalIdentity(
+// One object per distinct set of dependencies: a transition receives all of
+// them, and the callbacks that start one keep their identity until one changes.
+function useIdentitySwitchDependencies(
   input: IdentitySwitchDependencies,
-): (signingFingerprint: string) => Promise<boolean> {
+): IdentitySwitchDependencies {
   const {
     clearDatabase,
     ensureIdentityDatabaseReady,
@@ -137,10 +139,51 @@ export function useSwitchLocalIdentity(
     generationInFlight,
     localPersistence,
     onIdentitiesChanged,
+    persistSessionBeforeIdentityTransition,
     setTransitionInFlight,
     tearleads,
     transitionInFlightRef,
   } = input;
+  return useMemo(
+    () => ({
+      clearDatabase,
+      ensureIdentityDatabaseReady,
+      generationIdRef,
+      generationInFlight,
+      localPersistence,
+      onIdentitiesChanged,
+      persistSessionBeforeIdentityTransition,
+      setTransitionInFlight,
+      tearleads,
+      transitionInFlightRef,
+    }),
+    [
+      clearDatabase,
+      ensureIdentityDatabaseReady,
+      generationIdRef,
+      generationInFlight,
+      localPersistence,
+      onIdentitiesChanged,
+      persistSessionBeforeIdentityTransition,
+      setTransitionInFlight,
+      tearleads,
+      transitionInFlightRef,
+    ],
+  );
+}
+
+export function useSwitchLocalIdentity(
+  input: IdentitySwitchDependencies,
+): (signingFingerprint: string) => Promise<boolean> {
+  const dependencies = useIdentitySwitchDependencies(input);
+  const {
+    generationIdRef,
+    generationInFlight,
+    localPersistence,
+    setTransitionInFlight,
+    tearleads,
+    transitionInFlightRef,
+  } = dependencies;
 
   return useCallback(
     async (signingFingerprint: string) => {
@@ -163,7 +206,7 @@ export function useSwitchLocalIdentity(
       logIdentityTransitionPhase(tearleads, generationId, "switch", "started");
       try {
         return await switchLocalIdentity({
-          ...input,
+          ...dependencies,
           generationId,
           kind: "switch",
           localPersistence,
@@ -178,13 +221,10 @@ export function useSwitchLocalIdentity(
       }
     },
     [
-      clearDatabase,
-      ensureIdentityDatabaseReady,
+      dependencies,
       generationIdRef,
       generationInFlight,
-      input.persistSessionBeforeIdentityTransition,
       localPersistence,
-      onIdentitiesChanged,
       setTransitionInFlight,
       tearleads,
       transitionInFlightRef,
@@ -207,17 +247,15 @@ async function validateIdentityKeyPackage(
 export function useImportLocalIdentity(
   input: IdentitySwitchDependencies,
 ): (keyPackage: unknown) => Promise<boolean> {
+  const dependencies = useIdentitySwitchDependencies(input);
   const {
-    clearDatabase,
-    ensureIdentityDatabaseReady,
     generationIdRef,
     generationInFlight,
     localPersistence,
-    onIdentitiesChanged,
     setTransitionInFlight,
     tearleads,
     transitionInFlightRef,
-  } = input;
+  } = dependencies;
 
   return useCallback(
     async (keyPackage: unknown) => {
@@ -234,7 +272,7 @@ export function useImportLocalIdentity(
       try {
         const target = await validateIdentityKeyPackage(keyPackage);
         const operation: IdentitySwitchOperation = {
-          ...input,
+          ...dependencies,
           generationId,
           kind: "import",
           signingFingerprint: target.signingFingerprint,
@@ -279,13 +317,10 @@ export function useImportLocalIdentity(
       }
     },
     [
-      clearDatabase,
-      ensureIdentityDatabaseReady,
+      dependencies,
       generationIdRef,
       generationInFlight,
-      input.persistSessionBeforeIdentityTransition,
       localPersistence,
-      onIdentitiesChanged,
       setTransitionInFlight,
       tearleads,
       transitionInFlightRef,

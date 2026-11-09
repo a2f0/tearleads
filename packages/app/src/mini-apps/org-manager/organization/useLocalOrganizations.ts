@@ -319,22 +319,25 @@ function useRetainOrganization(
   },
   setOrganizations: OrganizationsSetter,
 ) {
-  return useCallback((organization: OrganizationWorkspace) => {
-    const retained = retainedOrganizationsRef.current.get(
-      organization.organizationId,
-    );
-    const nextOrganization =
-      organization.name === null && retained?.name !== null
-        ? { ...organization, name: retained?.name ?? null }
-        : organization;
-    retainedOrganizationsRef.current.set(
-      organization.organizationId,
-      nextOrganization,
-    );
-    setOrganizations((current) =>
-      retainOrganizationSummary(current, nextOrganization),
-    );
-  }, []);
+  return useCallback(
+    (organization: OrganizationWorkspace) => {
+      const retained = retainedOrganizationsRef.current.get(
+        organization.organizationId,
+      );
+      const nextOrganization =
+        organization.name === null && retained?.name !== null
+          ? { ...organization, name: retained?.name ?? null }
+          : organization;
+      retainedOrganizationsRef.current.set(
+        organization.organizationId,
+        nextOrganization,
+      );
+      setOrganizations((current) =>
+        retainOrganizationSummary(current, nextOrganization),
+      );
+    },
+    [retainedOrganizationsRef, setOrganizations],
+  );
 }
 
 export function useLocalOrganizations(input: {

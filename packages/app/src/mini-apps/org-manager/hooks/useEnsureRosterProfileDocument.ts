@@ -113,15 +113,34 @@ function useUpdateRosterUserState(
   );
 }
 
-interface ProfileCreationContext extends EnsureRosterProfileDocumentParams {
-  readonly cancelled: { current: boolean };
+type RuntimeSnapshot = EnsureRosterProfileDocumentParams["appData"];
+
+interface ProfileCreationInput
+  extends Pick<
+    EnsureRosterProfileDocumentParams,
+    | "canLoadAuthenticatedOrgData"
+    | "canUpdateSelectedRosterEntry"
+    | "domainScope"
+    | "orgManagerActions"
+    | "scopeKey"
+    | "selectedRosterUser"
+    | "selectedUserIdRef"
+    | "setError"
+    | "setMutating"
+  > {
   readonly committedScopeKeyRef: { current: string | null };
-  readonly creationKey: string;
+  readonly containerId: RuntimeSnapshot["state"]["containerId"];
   readonly creationKeysRef: { current: Map<string, symbol> };
+  readonly organizationId: RuntimeSnapshot["auth"]["organizationId"];
+  readonly updateRosterUserState: (user: OrganizationDirectoryUser) => void;
+}
+
+interface ProfileCreationContext extends ProfileCreationInput {
+  readonly cancelled: { current: boolean };
+  readonly creationKey: string;
   readonly operationToken: symbol;
   readonly pendingKey: string;
   readonly selectedRosterUser: OrganizationDirectoryUser;
-  readonly updateRosterUserState: (user: OrganizationDirectoryUser) => void;
 }
 
 function releaseProfileCreation(context: ProfileCreationContext): void {
@@ -179,11 +198,7 @@ function observeProfileCreation(context: ProfileCreationContext): void {
 }
 
 function startProfileCreation(
-  input: EnsureRosterProfileDocumentParams & {
-    committedScopeKeyRef: { current: string | null };
-    creationKeysRef: { current: Map<string, symbol> };
-    updateRosterUserState: (user: OrganizationDirectoryUser) => void;
-  },
+  input: ProfileCreationInput,
 ): (() => void) | undefined {
   const { selectedRosterUser } = input;
   if (
@@ -191,8 +206,8 @@ function startProfileCreation(
     selectedRosterUser.profileDocumentId ||
     !input.canLoadAuthenticatedOrgData ||
     !input.canUpdateSelectedRosterEntry ||
-    !input.appData.auth.organizationId ||
-    !input.appData.state.containerId
+    !input.organizationId ||
+    !input.containerId
   ) {
     return;
   }
@@ -210,7 +225,7 @@ function startProfileCreation(
     cancelled: { current: false },
     creationKey,
     operationToken,
-    pendingKey: `${input.appData.auth.organizationId}:${input.appData.state.containerId}:${selectedRosterUser.userId}`,
+    pendingKey: `${input.organizationId}:${input.containerId}:${selectedRosterUser.userId}`,
     selectedRosterUser,
   };
   observeProfileCreation(context);
@@ -231,7 +246,10 @@ export function useEnsureRosterProfileDocument(
   params: EnsureRosterProfileDocumentParams,
 ) {
   const {
-    appData,
+    appData: {
+      auth: { organizationId },
+      state: { containerId },
+    },
     canLoadAuthenticatedOrgData,
     canUpdateSelectedRosterEntry,
     domainScope,
@@ -262,17 +280,27 @@ export function useEnsureRosterProfileDocument(
   useEffect(
     () =>
       startProfileCreation({
-        ...params,
+        canLoadAuthenticatedOrgData,
+        canUpdateSelectedRosterEntry,
         committedScopeKeyRef,
+        containerId,
         creationKeysRef: profileDocumentCreationKeysRef,
+        domainScope,
+        organizationId,
+        orgManagerActions,
+        scopeKey,
+        selectedRosterUser,
+        selectedUserIdRef,
+        setError,
+        setMutating,
         updateRosterUserState,
       }),
     [
-      appData.auth.organizationId,
-      appData.state.containerId,
       canLoadAuthenticatedOrgData,
       canUpdateSelectedRosterEntry,
+      containerId,
       domainScope,
+      organizationId,
       orgManagerActions,
       scopeKey,
       selectedRosterUser,
