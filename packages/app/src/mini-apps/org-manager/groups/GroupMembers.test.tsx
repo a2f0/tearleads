@@ -25,6 +25,7 @@ test("group members use roster display names before user ids", () => {
       protectedUserId={null}
       protectSelf={false}
       removeMember={() => undefined}
+      removingUserId={null}
       userId="user-1"
     />,
   );

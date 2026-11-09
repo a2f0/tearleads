@@ -27,6 +27,7 @@ export function GroupMembers({
   protectedUserId,
   protectSelf,
   removeMember,
+  removingUserId,
   userId,
 }: {
   canMutateGroup: boolean;
@@ -38,6 +39,8 @@ export function GroupMembers({
   /** Built-in groups keep the signed-in user from removing themselves. */
   protectSelf: boolean;
   removeMember: (userId: string) => void;
+  /** The member whose removal is in flight; its Remove button spins. */
+  removingUserId: string | null;
   userId: string | null;
 }) {
   const virtualMembers = useMiniAppVirtualRows({
@@ -102,6 +105,7 @@ export function GroupMembers({
                 {canMutateGroup ? (
                   <MiniAppButton
                     disabled={!canRemove || mutating}
+                    loading={member.userId === removingUserId}
                     title={
                       member.userId === protectedUserId
                         ? ORG_MANAGER_LABELS.personalOrganizationOwnerProtection
