@@ -8,7 +8,8 @@ import { principalHistoryRetentionTables } from "./principalHistoryRetentionSche
  * Provisional, locally authenticated verification work; never an app
  * checkpoint. `scopeId` and `touchedAt` are eviction hints for bounded
  * retention (which principal history the stage belongs to, and when a writer
- * last used it), never authenticated recovery state.
+ * last used it), never authenticated recovery state. `rootHash` is the proof
+ * root a saved stage keeps live: a disposable liveness hint.
  */
 export const principalHistoryStages = sqliteTable(
   "principal_history_stages",
@@ -21,6 +22,7 @@ export const principalHistoryStages = sqliteTable(
     complete: integer("complete", { mode: "boolean" }).notNull(),
     touchedAt: integer("touched_at").notNull(),
     progress: text("progress").notNull(),
+    rootHash: text("root_hash"),
   },
   (table) => [
     index("principal_history_stages_key_fingerprint_idx").on(
@@ -50,7 +52,7 @@ export const principalHistoryStages = sqliteTable(
 export const principalHistoryStageTables: ReadonlyArray<SqlTableSchema> = [
   {
     ...defineSqlTableSchema(principalHistoryStages),
-    requiredColumns: ["scope_id", "touched_at"],
+    requiredColumns: ["scope_id", "touched_at", "root_hash"],
   },
   ...principalHistoryRetentionTables,
 ];

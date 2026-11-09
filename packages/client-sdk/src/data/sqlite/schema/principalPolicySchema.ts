@@ -1,10 +1,11 @@
-import { desc } from "drizzle-orm";
+import { desc, sql } from "drizzle-orm";
 import {
   index,
   integer,
   primaryKey,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 import { principalStateFingerprintJson } from "../principalKeyFingerprintJson";
@@ -12,11 +13,18 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
 import { principalHistoryEvidenceTables } from "./principalHistoryEvidenceSchema";
 import { principalHistoryStageTables } from "./principalHistoryStageSchema";
 
-function principalPolicyBundleColumns() {
-  return {
+/**
+ * Every verified policy bundle kept per managed principal: the one current
+ * head, and older bundles retained for exact-reference verification and epoch
+ * key unwrapping. Promotion flips `isCurrent` instead of copying bundles.
+ */
+export const principalPolicyBundles = sqliteTable(
+  "principal_policy_bundles",
+  {
     principalType: text("principal_type").notNull(),
     principalId: text("principal_id").notNull(),
     stateHash: text("state_hash").notNull(),
+    isCurrent: integer("is_current", { mode: "boolean" }).notNull(),
     currentStateJson: text("current_state_json").notNull(),
     currentPayloadJson: text("current_payload_json").notNull(),
     currentProjectionJson: text("current_projection_json").notNull(),
@@ -24,32 +32,17 @@ function principalPolicyBundleColumns() {
     currentMemberEnvelopesJson: text("current_member_envelopes_json").notNull(),
     previousStatesJson: text("previous_states_json").notNull(),
     updatedAt: text("updated_at").notNull(),
-  };
-}
-
-/** Latest full policy bundle per managed principal. */
-export const principalPolicies = sqliteTable(
-  "principal_policies",
-  principalPolicyBundleColumns(),
-  (table) => [
-    primaryKey({ columns: [table.principalType, table.principalId] }),
-    index("principal_policies_key_fingerprint_idx").on(
-      principalStateFingerprintJson(table.currentStateJson),
-      desc(table.updatedAt),
-    ),
-  ],
-);
-
-/** Older verified bundles retained for exact-reference verification and epoch key unwrapping. */
-export const principalPolicyBundleHistory = sqliteTable(
-  "principal_policy_bundle_history",
-  principalPolicyBundleColumns(),
+  },
   (table) => [
     primaryKey({
       columns: [table.principalType, table.principalId, table.stateHash],
     }),
-    index("principal_policy_history_key_fingerprint_idx").on(
+    uniqueIndex("principal_policy_bundles_current_idx")
+      .on(table.principalType, table.principalId)
+      .where(sql`${table.isCurrent} = 1`),
+    index("principal_policy_bundles_key_fingerprint_idx").on(
       principalStateFingerprintJson(table.currentStateJson),
+      table.isCurrent,
       desc(table.updatedAt),
     ),
   ],
@@ -110,14 +103,7 @@ export const principalPolicyCheckpointTable = {
 };
 
 export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
-  {
-    ...defineSqlTableSchema(principalPolicies),
-    requiredColumns: ["current_grants_json"],
-  },
-  {
-    ...defineSqlTableSchema(principalPolicyBundleHistory),
-    requiredColumns: ["current_grants_json"],
-  },
+  defineSqlTableSchema(principalPolicyBundles),
   defineSqlTableSchema(principalPolicyBundleReferences),
   principalPolicyCheckpointTable,
   ...principalHistoryStageTables,

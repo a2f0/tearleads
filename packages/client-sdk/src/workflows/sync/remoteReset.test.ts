@@ -14,7 +14,7 @@ import {
   documentAttachmentBlobProjection,
   documentPendingAttachments,
   localIntents,
-  principalPolicies,
+  principalPolicyBundles,
   securityIncidents,
 } from "../../data/sqlite/schema";
 import { containerSyncWatermarks } from "../../data/sqlite/schema/containerSyncWatermarkSchema";
@@ -187,10 +187,11 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         containerId: "child",
         updatedAt: stale,
       });
-      await tx.insert(principalPolicies).values({
+      await tx.insert(principalPolicyBundles).values({
         principalType: "organization",
         principalId: "org-old",
         stateHash: "state",
+        isCurrent: true,
         currentStateJson: "{}",
         currentPayloadJson: "{}",
         currentProjectionJson: "[]",
@@ -460,7 +461,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         syncStatus: "pending",
       }),
     ]);
-    expect(await db.select().from(principalPolicies)).toEqual([]);
+    expect(await db.select().from(principalPolicyBundles)).toEqual([]);
     expect(await db.select().from(trustedUserIdentityPins)).toEqual([
       expect.objectContaining({
         identityTrustDomain: "https://api.example.test/v1",

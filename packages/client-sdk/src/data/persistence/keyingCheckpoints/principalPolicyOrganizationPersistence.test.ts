@@ -3,8 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createPrincipalPolicyBundle } from "../../../../test/helpers/policyCacheFixtures";
 import { countingExecSql } from "../../../../test/helpers/statementCounting";
 import {
-  principalPolicies,
-  principalPolicyBundleHistory,
+  principalPolicyBundles,
   principalPolicyCheckpoints,
 } from "../../sqlite/schema";
 import { principalPolicyTables } from "../../sqlite/schema/principalPolicySchema";
@@ -62,10 +61,9 @@ test.each([undefined, ""])(
           ),
         ),
       ).rejects.toThrow("require an organization ID");
-      expect(await runtime.db.select().from(principalPolicies)).toEqual([]);
-      expect(
-        await runtime.db.select().from(principalPolicyBundleHistory),
-      ).toEqual([]);
+      expect(await runtime.db.select().from(principalPolicyBundles)).toEqual(
+        [],
+      );
       expect(
         await runtime.db.select().from(principalPolicyCheckpoints),
       ).toEqual([]);

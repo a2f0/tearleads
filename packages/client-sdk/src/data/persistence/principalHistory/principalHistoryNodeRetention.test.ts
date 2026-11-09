@@ -12,13 +12,28 @@ import { recoverPublicPrincipalHistory } from "../../../workflows/principals/pub
 import {
   principalHistoryEntries,
   principalHistoryNodes,
+  principalHistoryPrefixes,
 } from "../../sqlite/schema/principalHistoryEvidenceSchema";
-import { principalHistoryRootOwners } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
+import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
+import type { ClientSQLiteDatabase } from "../../sqlite/sqlitePersistenceRuntime";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedRecoveryHistory(128);
 }, 30_000);
+
+/** Saved stages and prefixes that keep a proof root live. */
+async function rootOwnerCount(db: ClientSQLiteDatabase) {
+  let count = 0;
+  for (const table of [principalHistoryStages, principalHistoryPrefixes])
+    count += (
+      await db
+        .select({ rootHash: table.rootHash })
+        .from(table)
+        .where(isNotNull(table.rootHash))
+    ).length;
+  return count;
+}
 
 function earlierBundles() {
   return history.bundle.previousStates.map((entry, index) => ({
@@ -54,9 +69,7 @@ test("128 private heads retain a linear proof graph and every authenticated hist
         .where(isNotNull(principalHistoryNodes.leftHash)),
     ).toHaveLength(133);
     expect(await f.db.select().from(principalHistoryEntries)).toHaveLength(128);
-    expect(await f.db.select().from(principalHistoryRootOwners)).toHaveLength(
-      3,
-    );
+    expect(await rootOwnerCount(f.db)).toBe(3);
     const requests = f.requests.length;
     for (const bundle of bundles.slice(-2)) {
       const recovered = await recoverPrincipalPolicyHistory({
@@ -98,9 +111,7 @@ test("public prefix replacement releases obsolete roots while preserving old-hea
         .where(isNotNull(principalHistoryNodes.leftHash)),
     ).toHaveLength(127);
     expect(await f.db.select().from(principalHistoryEntries)).toHaveLength(128);
-    expect(await f.db.select().from(principalHistoryRootOwners)).toHaveLength(
-      1,
-    );
+    expect(await rootOwnerCount(f.db)).toBe(1);
     const requests = f.requests.length;
     for (const bundle of bundles) {
       const recovered = await recoverPublicPrincipalHistory({

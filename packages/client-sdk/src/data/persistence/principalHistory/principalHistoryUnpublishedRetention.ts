@@ -3,7 +3,10 @@ import { principalHistoryPrefixes } from "../../sqlite/schema/principalHistoryEv
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { archivePrincipalHistoryKeyEnvelopes } from "../principalKeys/principalKeyEnvelopeArchivePersistence";
-import { releasePrincipalHistoryRoot } from "./principalHistoryRootOwnership";
+import {
+  principalHistoryStageRootOwnerColumns,
+  releasePrincipalHistoryRoot,
+} from "./principalHistoryRootOwnership";
 import { PRINCIPAL_HISTORY_STAGE_RECLAIM_LIMIT } from "./principalHistoryStageRetention";
 
 const COMPLETED_STAGE_LIMIT = 8;
@@ -73,6 +76,7 @@ export async function reclaimUnpublishedPrincipalHistoryStages(
         currentJson: principalHistoryStages.currentJson,
         afterVersion: principalHistoryStages.afterVersion,
       },
+      owner: principalHistoryStageRootOwnerColumns,
     })
     .from(principalHistoryStages)
     .where(
@@ -95,7 +99,8 @@ export async function reclaimUnpublishedPrincipalHistoryStages(
       version: stage.afterVersion + 1,
     });
   const ids = obsolete.map(({ stage }) => stage.id);
-  for (const id of ids) await releasePrincipalHistoryRoot(tx, `stage:${id}`);
+  for (const { owner } of obsolete)
+    await releasePrincipalHistoryRoot(tx, owner);
   await tx
     .delete(principalHistoryStages)
     .where(inArray(principalHistoryStages.id, ids))

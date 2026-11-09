@@ -1,14 +1,15 @@
 import { expect, test } from "bun:test";
 import type { PrincipalHistoryIndexNode } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { eq } from "drizzle-orm";
 import {
   principalHistoryEvidenceTables,
   principalHistoryNodes,
 } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import {
-  principalHistoryNodeRetentionTables,
-  principalHistoryRootOwners,
-} from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
+  principalHistoryStages,
+  principalHistoryStageTables,
+} from "../../sqlite/schema/principalHistoryStageSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -23,8 +24,10 @@ import {
   writePrincipalHistoryNodes,
 } from "./principalHistoryNodeRetention";
 import {
+  principalHistoryRootRetention,
+  principalHistoryStageRootOwnerColumns,
   releasePrincipalHistoryRoot,
-  retainPrincipalHistoryRoot,
+  writePrincipalHistoryRootEdges,
 } from "./principalHistoryRootOwnership";
 
 const scope = { scopeId: "scope-1", organizationId: "org-1" };
@@ -32,11 +35,58 @@ const shared = { hash: "shared", leftHash: "leaf-1", rightHash: "leaf-2" };
 const old = { hash: "old", leftHash: "shared", rightHash: "leaf-3" };
 const next = { hash: "next", leftHash: "shared", rightHash: "leaf-4" };
 
+/** Saves a stage row owning `rootHash`, as stage persistence does. */
+async function retainStageRoot(
+  tx: ClientSQLiteTransactionScope,
+  id: string,
+  rootHash: string,
+) {
+  const [previous] = await tx
+    .select(principalHistoryStageRootOwnerColumns)
+    .from(principalHistoryStages)
+    .where(eq(principalHistoryStages.id, id))
+    .limit(1);
+  const root = { ...scope, rootHash };
+  const row = {
+    ...root,
+    id,
+    currentJson: "{}",
+    afterVersion: 0,
+    complete: false,
+    touchedAt: 0,
+    progress: id,
+  };
+  await tx
+    .insert(principalHistoryStages)
+    .values(row)
+    .onConflictDoUpdate({ target: principalHistoryStages.id, set: row })
+    .run();
+  await writePrincipalHistoryRootEdges(
+    tx,
+    principalHistoryRootRetention(previous, root),
+  );
+}
+
+/** Discards a stage row and the root it owns. */
+async function releaseStageRoot(tx: ClientSQLiteTransactionScope, id: string) {
+  const [owner] = await tx
+    .select(principalHistoryStageRootOwnerColumns)
+    .from(principalHistoryStages)
+    .where(eq(principalHistoryStages.id, id))
+    .limit(1);
+  if (!owner) return;
+  await releasePrincipalHistoryRoot(tx, owner);
+  await tx
+    .delete(principalHistoryStages)
+    .where(eq(principalHistoryStages.id, id))
+    .run();
+}
+
 async function fixture() {
   const sqlite = await createTestExecSql("principal-proof-retention");
   await ensureSqlTables(sqlite.execSql, [
     ...principalHistoryEvidenceTables,
-    ...principalHistoryNodeRetentionTables,
+    ...principalHistoryStageTables,
   ]);
   const runtime = getClientSQLitePersistenceRuntime(sqlite.execSql);
   return {
@@ -53,7 +103,12 @@ async function fixture() {
               : [],
         ),
         references,
-        owners: await runtime.db.select().from(principalHistoryRootOwners),
+        owners: await runtime.db
+          .select({
+            id: principalHistoryStages.id,
+            rootHash: principalHistoryStages.rootHash,
+          })
+          .from(principalHistoryStages),
       };
     },
   };
@@ -77,16 +132,12 @@ test("shared nodes survive root replacement and the last owner releases the obso
         ["stage-next", "next"],
       ]) {
         if (!id || !rootHash) throw new Error("Missing root fixture");
-        await retainPrincipalHistoryRoot(tx, { ...scope, id, rootHash });
+        await retainStageRoot(tx, id, rootHash);
       }
       expect(await reclaimPrincipalHistoryNodes(tx, scope)).toBe(0);
-      await releasePrincipalHistoryRoot(tx, "stage-old");
+      await releaseStageRoot(tx, "stage-old");
       expect(await reclaimPrincipalHistoryNodes(tx, scope)).toBe(0);
-      await retainPrincipalHistoryRoot(tx, {
-        ...scope,
-        id: "prefix",
-        rootHash: "next",
-      });
+      await retainStageRoot(tx, "prefix", "next");
       expect(await reclaimPrincipalHistoryNodes(tx, scope)).toBe(1);
     });
     expect((await f.snapshot()).nodes.map((node) => node.hash).sort()).toEqual([
@@ -94,8 +145,8 @@ test("shared nodes survive root replacement and the last owner releases the obso
       "shared",
     ]);
     await f.transaction(async (tx) => {
-      await releasePrincipalHistoryRoot(tx, "prefix");
-      await releasePrincipalHistoryRoot(tx, "stage-next");
+      await releaseStageRoot(tx, "prefix");
+      await releaseStageRoot(tx, "stage-next");
       expect(await reclaimPrincipalHistoryNodes(tx, scope)).toBe(2);
     });
     expect((await f.snapshot()).nodes).toEqual([]);
@@ -111,19 +162,15 @@ test("repeated evidence and owner writes do not accumulate references", async ()
     await f.transaction(async (tx) => {
       for (let attempt = 0; attempt < 3; attempt++) {
         await putNodes(tx, [old, shared]);
-        await retainPrincipalHistoryRoot(tx, {
-          ...scope,
-          id: "stage",
-          rootHash: "old",
-        });
+        await retainStageRoot(tx, "stage", "old");
       }
     });
     expect(
       (await f.snapshot()).references.every((row) => row.referenceCount === 1),
     ).toBe(true);
     await f.transaction(async (tx) => {
-      await releasePrincipalHistoryRoot(tx, "stage");
-      await releasePrincipalHistoryRoot(tx, "stage");
+      await releaseStageRoot(tx, "stage");
+      await releaseStageRoot(tx, "stage");
       expect(await reclaimPrincipalHistoryNodes(tx, scope)).toBe(2);
     });
     expect((await f.snapshot()).nodes).toEqual([]);
@@ -140,12 +187,8 @@ test("pre-index nodes stay available after a newly indexed parent is reclaimed",
       .values({ ...scope, ...shared, referenceCount: 0, managed: false });
     await f.transaction(async (tx) => {
       await putNodes(tx, [shared, old]);
-      await retainPrincipalHistoryRoot(tx, {
-        ...scope,
-        id: "stage",
-        rootHash: "old",
-      });
-      await releasePrincipalHistoryRoot(tx, "stage");
+      await retainStageRoot(tx, "stage", "old");
+      await releaseStageRoot(tx, "stage");
       expect(await reclaimPrincipalHistoryNodes(tx, scope)).toBe(1);
     });
     expect((await f.snapshot()).nodes).toEqual([{ ...scope, ...shared }]);
@@ -191,18 +234,14 @@ test("guard rejection rolls back root changes, edge counts and proof deletion", 
   try {
     await f.transaction(async (tx) => {
       await putNodes(tx, [old, shared]);
-      await retainPrincipalHistoryRoot(tx, {
-        ...scope,
-        id: "stage",
-        rootHash: "old",
-      });
+      await retainStageRoot(tx, "stage", "old");
     });
     const before = await f.snapshot();
     let current = true;
     let reclaimed = 0;
     const result = await f.guardedTransaction(
       async (tx) => {
-        await releasePrincipalHistoryRoot(tx, "stage");
+        await releaseStageRoot(tx, "stage");
         reclaimed = await reclaimPrincipalHistoryNodes(tx, scope);
         current = false;
       },

@@ -29,7 +29,7 @@ test("built-in labels require a descriptor matching its verified checkpoint", as
     );
 
     await execSql(
-      "UPDATE principal_policies SET current_payload_json = ? WHERE principal_type = 'organization' AND principal_id = ?",
+      "UPDATE principal_policy_bundles SET current_payload_json = ? WHERE is_current = 1 AND principal_type = 'organization' AND principal_id = ?",
       [
         JSON.stringify({
           ...authority.bundle.currentPayload,

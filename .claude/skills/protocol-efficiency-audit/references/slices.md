@@ -29,14 +29,15 @@ column since #2536), `principal_state_payloads`,
 `principal_epoch_keys`, `principal_directory_bindings`,
 `principal_history_index_nodes`, `principal_history_progress`,
 `principal_policy_commits`, `principal_policy_mutation_acknowledgements`.
-SDK `principal_policies`,
-`principal_policy_bundle_history`, `principal_policy_bundle_references`,
+SDK `principal_policy_bundles` (current head flag and retained bundles),
+`principal_policy_bundle_references`,
 `principal_policy_checkpoints` (owner and pin, #2697),
 `principal_history_prefixes`, `principal_history_entries`,
 `principal_history_nodes` (stored nodes and liveness rows, #2697),
-`principal_history_root_owners`, `principal_key_envelope_archive`,
-`principal_history_stages` (with scope and recency columns, #2539),
-`principal_mutation_journal`, `principal_grant_retirements`.
+`principal_key_envelope_archive`,
+`principal_history_stages` (with scope and recency columns, #2539; stages
+and prefixes own their proof roots), `principal_mutation_journal`,
+`principal_grant_retirements`.
 
 - One small Explorer upload measures 8 requests, 3 of them
   organization-policy discovery reads, one per workflow operation
@@ -63,8 +64,8 @@ SDK `principal_policies`,
   `principal_policy_mutation_acknowledgements` collapse into one receipt keyed
   by the signed event? #2522 declined this (#15: the keys and lifetimes
   differ, and some acknowledgements have no request hash); answer that first.
-- Of the fifteen local principal tables, which hold at most one row per
-  principal and could be columns, and which duplicate `principal_policies`?
+- Of the local principal tables, which hold at most one row per principal
+  and could be columns, and which duplicate `principal_policy_bundles`?
 - Count the pages a typical organization policy read takes at the directory
   sizes the fixtures use, and at ten times that size.
 

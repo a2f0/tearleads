@@ -84,7 +84,7 @@ test("exact principal policy lookup loads a retained bundle when current is abse
       "org-1",
     );
     await execSql(
-      "DELETE FROM principal_policies WHERE principal_type = ? AND principal_id = ?",
+      "DELETE FROM principal_policy_bundles WHERE is_current = 1 AND principal_type = ? AND principal_id = ?",
       [
         retainedBundle.currentState.principalType,
         retainedBundle.currentState.principalId,
@@ -179,12 +179,12 @@ test("exact principal policy lookup ignores a corrupt unrelated retained row", a
       "org-1",
     );
     await execSql(
-      `INSERT INTO principal_policy_bundle_history
-         (principal_type, principal_id, state_hash, current_state_json,
-          current_payload_json, current_projection_json,
+      `INSERT INTO principal_policy_bundles
+         (principal_type, principal_id, state_hash, is_current,
+          current_state_json, current_payload_json, current_projection_json,
           current_member_envelopes_json, current_grants_json,
           previous_states_json, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
       [
         reference.principalType,
         reference.principalId,
@@ -221,19 +221,8 @@ test("exact principal policy lookup hard-fails for a corrupt indexed retained ro
       "org-1",
     );
     await execSql(
-      `INSERT INTO principal_policy_bundle_history
-       SELECT * FROM principal_policies
-       WHERE principal_type = ? AND principal_id = ?`,
-      [reference.principalType, reference.principalId],
-    );
-    await execSql(
-      `DELETE FROM principal_policies
-       WHERE principal_type = ? AND principal_id = ?`,
-      [reference.principalType, reference.principalId],
-    );
-    await execSql(
-      `UPDATE principal_policy_bundle_history
-       SET current_state_json = ?
+      `UPDATE principal_policy_bundles
+       SET is_current = 0, current_state_json = ?
        WHERE principal_type = ? AND principal_id = ? AND state_hash = ?`,
       [
         "{",
@@ -365,12 +354,12 @@ test("exact principal policy lookup hard-fails on same-version indexed candidate
       "org-1",
     );
     await execSql(
-      `INSERT INTO principal_policy_bundle_history
-         (principal_type, principal_id, state_hash, current_state_json,
-          current_payload_json, current_projection_json,
+      `INSERT INTO principal_policy_bundles
+         (principal_type, principal_id, state_hash, is_current,
+          current_state_json, current_payload_json, current_projection_json,
           current_member_envelopes_json, current_grants_json,
           previous_states_json, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
       [
         reference.principalType,
         reference.principalId,
@@ -446,8 +435,8 @@ test("exact principal policy lookup rejects conflicting orphaned index metadata"
       ],
     );
     await execSql(
-      `DELETE FROM principal_policies
-       WHERE principal_type = ? AND principal_id = ?`,
+      `DELETE FROM principal_policy_bundles
+       WHERE is_current = 1 AND principal_type = ? AND principal_id = ?`,
       [reference.principalType, reference.principalId],
     );
 

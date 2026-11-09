@@ -2,9 +2,8 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   clientSqlTables,
-  principalPolicies,
-  principalPolicyBundleHistory,
   principalPolicyBundleReferences,
+  principalPolicyBundles,
   principalPolicyCheckpoints,
 } from "../../data/sqlite/schema";
 import { organizationReadModelGroups } from "../../data/sqlite/schema/organizationReadModelSchema";
@@ -25,7 +24,7 @@ test.each(["current", "history", "references"] as const)(
     try {
       await ensureSqlTables(execSql, clientSqlTables);
       const { db } = getClientSQLitePersistenceRuntime(execSql);
-      const owned = policyRow("owned-group", "owned-head");
+      const owned = policyRow("owned-group", "owned-head", true);
       // Owned, not pinned.
       const owner = {
         principalId: "owned-group",
@@ -35,7 +34,7 @@ test.each(["current", "history", "references"] as const)(
         stateHash: null,
         updatedAt: null,
       };
-      await db.insert(principalPolicies).values(owned);
+      await db.insert(principalPolicyBundles).values(owned);
       await db.insert(principalPolicyCheckpoints).values(owner);
       // Display rows are not ownership evidence, even when they look usable.
       await db
@@ -43,12 +42,10 @@ test.each(["current", "history", "references"] as const)(
         .values(groupRow("org-purged", "unowned-group"));
       if (placement === "current" || placement === "history") {
         await db
-          .insert(
-            placement === "current"
-              ? principalPolicies
-              : principalPolicyBundleHistory,
-          )
-          .values(policyRow("unowned-group", "unowned-head"));
+          .insert(principalPolicyBundles)
+          .values(
+            policyRow("unowned-group", "unowned-head", placement === "current"),
+          );
       } else {
         await db.insert(principalPolicyBundleReferences).values({
           principalType: "group",
@@ -62,8 +59,7 @@ test.each(["current", "history", "references"] as const)(
         });
       }
       const tables = [
-        principalPolicies,
-        principalPolicyBundleHistory,
+        principalPolicyBundles,
         principalPolicyBundleReferences,
         principalPolicyCheckpoints,
         organizationReadModelGroups,
@@ -88,11 +84,12 @@ test.each(["current", "history", "references"] as const)(
   },
 );
 
-function policyRow(principalId: string, stateHash: string) {
+function policyRow(principalId: string, stateHash: string, isCurrent: boolean) {
   return {
     principalType: "group" as const,
     principalId,
     stateHash,
+    isCurrent,
     currentStateJson: "{}",
     currentPayloadJson: "{}",
     currentProjectionJson: "[]",
@@ -126,16 +123,12 @@ test("reset follows pinned cache ownership without deriving it from read models"
     await ensureSqlTables(execSql, clientSqlTables);
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     await db
-      .insert(principalPolicies)
+      .insert(principalPolicyBundles)
       .values([
-        policyRow("purged-group", "head"),
-        policyRow("retained-group", "retained-head"),
-      ]);
-    await db
-      .insert(principalPolicyBundleHistory)
-      .values([
-        policyRow("purged-group", "history"),
-        policyRow("retained-group", "retained-history"),
+        policyRow("purged-group", "head", true),
+        policyRow("retained-group", "retained-head", true),
+        policyRow("purged-group", "history", false),
+        policyRow("retained-group", "retained-history", false),
       ]);
     await db.insert(principalPolicyBundleReferences).values([
       {
@@ -190,18 +183,22 @@ test("reset follows pinned cache ownership without deriving it from read models"
     expect(result.clearedPrincipalPolicyCount).toBe(1);
     // Both pins survive with their owners.
     expect(await db.select().from(principalPolicyCheckpoints)).toHaveLength(2);
-    for (const table of [
-      principalPolicies,
-      principalPolicyBundleHistory,
-      principalPolicyBundleReferences,
-    ] as const) {
-      expect(await db.select().from(table)).toEqual([
-        expect.objectContaining({
-          principalId: "retained-group",
-          principalType: "group",
-        }),
-      ]);
-    }
+    expect(await db.select().from(principalPolicyBundles)).toEqual([
+      expect.objectContaining({
+        principalId: "retained-group",
+        stateHash: "retained-head",
+      }),
+      expect.objectContaining({
+        principalId: "retained-group",
+        stateHash: "retained-history",
+      }),
+    ]);
+    expect(await db.select().from(principalPolicyBundleReferences)).toEqual([
+      expect.objectContaining({
+        principalId: "retained-group",
+        principalType: "group",
+      }),
+    ]);
   } finally {
     close();
   }

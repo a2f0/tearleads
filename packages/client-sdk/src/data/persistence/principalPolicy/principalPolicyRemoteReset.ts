@@ -1,15 +1,13 @@
 import { and, eq, or } from "drizzle-orm";
 import {
-  principalPolicies,
-  principalPolicyBundleHistory,
   principalPolicyBundleReferences,
+  principalPolicyBundles,
 } from "../../sqlite/schema";
 import {
   principalHistoryEntries,
   principalHistoryNodes,
   principalHistoryPrefixes,
 } from "../../sqlite/schema/principalHistoryEvidenceSchema";
-import { principalHistoryRootOwners } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
 import { principalKeyEnvelopeArchive } from "../../sqlite/schema/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import { remoteResetBatches } from "../../sqlite/sqliteBindBudget";
@@ -76,20 +74,20 @@ export async function loadRemoteResetPrincipalScope(
   const [policyRows, retainedRows, ownershipRows] = await Promise.all([
     tx
       .select({
-        id: principalPolicies.principalId,
-        type: principalPolicies.principalType,
+        id: principalPolicyBundles.principalId,
+        type: principalPolicyBundles.principalType,
       })
-      .from(principalPolicies),
+      .from(principalPolicyBundles)
+      .where(eq(principalPolicyBundles.isCurrent, true)),
     // Every checkpoint row names its owner, so only the caches need a check.
     Promise.all(
-      [principalPolicyBundleHistory, principalPolicyBundleReferences].map(
-        (table) =>
-          tx
-            .selectDistinct({
-              id: table.principalId,
-              type: table.principalType,
-            })
-            .from(table),
+      [principalPolicyBundles, principalPolicyBundleReferences].map((table) =>
+        tx
+          .selectDistinct({
+            id: table.principalId,
+            type: table.principalType,
+          })
+          .from(table),
       ),
     ),
     listPrincipalPolicyOwners(tx),
@@ -127,7 +125,6 @@ export async function clearRemoteResetPrincipalRows(input: {
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   for (const table of [
-    principalHistoryRootOwners,
     principalHistoryEntries,
     principalHistoryNodes,
     principalHistoryPrefixes,
@@ -145,8 +142,7 @@ export async function clearRemoteResetPrincipalRows(input: {
     input.snapshot.principalKeys,
   )) {
     for (const table of [
-      principalPolicies,
-      principalPolicyBundleHistory,
+      principalPolicyBundles,
       principalPolicyBundleReferences,
     ] as const) {
       await input.tx
