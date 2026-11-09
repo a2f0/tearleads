@@ -22,6 +22,7 @@ import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
+  policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
@@ -91,18 +92,15 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
             previous: organizationPolicy,
           });
           return {
-            groupPolicy: {
+            groupPolicy: policyReceiptFromBundle({
               ...groupPolicy,
               containerMutations: await Promise.all(
                 submittedRequests.map((request) =>
                   createMutationResponseFromRequest(request),
                 ),
               ),
-            },
-            organizationPolicy: {
-              ...organizationPolicy,
-              containerMutations: [],
-            },
+            }),
+            organizationPolicy: policyReceiptFromBundle(organizationPolicy),
           };
         },
         getContainerWriterProjectionResult: async () => ({

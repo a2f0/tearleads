@@ -17,8 +17,7 @@ test.each(["missing", "changed"])(
     const response = structuredClone(fixture.response);
     invariant(response.memberPolicy, "expected enrollment receipt");
     if (kind === "missing") delete response.memberPolicy;
-    else
-      response.memberPolicy.currentState.signedAt = "2026-04-01T00:00:00.000Z";
+    else response.memberPolicy.head.version += 1;
     const context = {
       ...fixture,
       execSql: sqlite.execSql,
@@ -29,7 +28,7 @@ test.each(["missing", "changed"])(
       const error =
         kind === "missing"
           ? "receipt Members policy differs"
-          : "receipt state differs";
+          : "acknowledgement names another head";
       await expect(
         submitJournaledPrincipalMutation({
           ...context,

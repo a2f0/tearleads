@@ -159,9 +159,9 @@ async function selectPullResponsePrefix(input: {
   readonly page: RawPullPage;
   readonly plan: SyncPullPagePlan;
 }) {
-  // The current epoch's bundle already travels as `contentKeyBundle` and is
-  // counted in the base bytes; the array carries only the older epochs the
-  // selected updates cite.
+  // The client already holds the current epoch's bundle (it planned the sync
+  // against it), so the array carries only the older epochs the selected
+  // updates cite.
   const historicalBundlesByEpoch = new Map<number, WireContentKeyBundle>();
   let bundleArrayDelta = 0;
   let selectedCount = 0;
@@ -256,12 +256,6 @@ export async function buildPaginatedSyncPullResponse(input: {
   readonly plan: SyncPullPagePlan;
 }): Promise<SyncResponseWithoutCommit> {
   const maxBytes = input.maxBytes ?? MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES;
-  if (
-    input.base.contentKeyBundle.contentKeyEpoch !==
-    input.identity.contentKeyEpoch
-  ) {
-    throw new DocumentMutationError("Document content-key bundle missing", 409);
-  }
   const sizingBase = {
     ...input.base,
     commitLsn: MAX_COMMIT_LSN,

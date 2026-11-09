@@ -12,6 +12,7 @@ import { currentPolicyAcknowledgementFixture } from "./currentPolicyAcknowledgem
 import type { signedAuthorityRecoveryHistory } from "./principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
+  policyReceiptFromBundle,
   principalPolicyHead,
 } from "./principalPolicyFixtures";
 
@@ -51,7 +52,7 @@ export async function currentPolicyPublicationFixture(
         signingFingerprint: identity.signingKeyFingerprint,
         signingKeyPair: history.signingKeyPair,
       });
-    const organizationResponse = await policyBundleAfterMutation({
+    const organizationBundle = await policyBundleAfterMutation({
       previous: history.directory,
       mutation: organizationRequest,
     });
@@ -83,6 +84,7 @@ export async function currentPolicyPublicationFixture(
     return {
       ...f,
       groupRecovery,
+      organizationBundle,
       organizationRecovery,
       publication: {
         execSql: f.options.execSql,
@@ -93,7 +95,7 @@ export async function currentPolicyPublicationFixture(
             predecessor:
               await captureAcknowledgedPrincipalPredecessor(groupRecovery),
             request: f.input.request,
-            response: f.response,
+            response: policyReceiptFromBundle(f.response),
           },
           {
             recovery: organizationRecovery,
@@ -102,7 +104,7 @@ export async function currentPolicyPublicationFixture(
                 organizationRecovery,
               ),
             request: organizationRequest,
-            response: organizationResponse,
+            response: policyReceiptFromBundle(organizationBundle),
           },
         ],
         stillCurrent: () => f.lifetime.current,

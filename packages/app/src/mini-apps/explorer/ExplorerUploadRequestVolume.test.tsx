@@ -35,6 +35,8 @@ afterEach(async () => {
 // this only covers the upload itself (local import -> document sync -> blob
 // bytes upload -> attachment binding). Run with DUAL_PANE_REQUEST_PROFILE=1 to
 // print the observed volume when re-baselining.
+const EXPLORER_UPLOAD_BODY_BYTES = { request: 38_000, response: 2_700 };
+
 const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Seven mutation/blob requests and three directory discovery reads (one per
   // workflow operation) measured 10 calls; the stage now carries its part
@@ -45,9 +47,12 @@ const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // (measured 8 before, 6 after). Keep one request of scheduling headroom.
   total: 7,
   // Each discovery read names the held directory head and receives that head
-  // alone. The carried update moves the sync's 9.7 KB into the bind request:
-  // measured 34.8 KB sent and 29.2 KB received; keep about 10% headroom.
-  bodyBytes: { request: 38_000, response: 32_500 },
+  // alone. The carried update moves the sync's 9.7 KB into the bind request.
+  // The bind acknowledges its KEK targets by hash instead of echoing them
+  // (1,730 -> 814 B): measured 34.8 KB sent and 3.3 -> 2.4 KB received, with
+  // no writer-projection read; keep about 10% headroom. An allowed projection
+  // read's bytes are added on top where the budget is checked.
+  bodyBytes: EXPLORER_UPLOAD_BODY_BYTES,
   byRequest: {
     // Completed public stages of the cited heads need no confirmation read.
     "GET /principals/history": 0,
@@ -121,10 +126,32 @@ test(
       "explorer single-file upload",
       uploadRequestStartIndex,
     );
+    const uploadRequests = listProxiedApiRequests().slice(
+      uploadRequestStartIndex,
+    );
+    // The one allowed root projection read is not part of the upload's
+    // acknowledgements; when it happens, its bytes ride on top of the ceiling
+    // so the bind's hash-form acknowledgement stays tightly pinned.
+    const projectionResponseBytes = uploadRequests
+      .filter(
+        (request) =>
+          request.method === "GET" &&
+          /^\/containers\/[^/]+\/writer-projection$/u.test(
+            new URL(request.url, "http://localhost").pathname,
+          ),
+      )
+      .reduce((sum, request) => sum + request.responseBodyBytes, 0);
     expectProxiedApiRequestBudget(
       "explorer single-file upload",
-      listProxiedApiRequests().slice(uploadRequestStartIndex),
-      EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET,
+      uploadRequests,
+      {
+        ...EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET,
+        bodyBytes: {
+          request: EXPLORER_UPLOAD_BODY_BYTES.request,
+          response:
+            EXPLORER_UPLOAD_BODY_BYTES.response + projectionResponseBytes,
+        },
+      },
     );
 
     view.unmount();

@@ -39,14 +39,14 @@ test.each([false, true])(
       const [group, organization] = f.publication.entries;
       if (!group || !organization) throw new Error("Missing fixture entries");
       const latest = await history.extend(
-        fork ? history.directory : organization.response,
+        fork ? history.directory : f.organizationBundle,
         68,
       );
       for (const fixture of [f, reader]) {
         fixture.policies.set(history.organizationId, latest);
         fixture.policies.set(
           history.group.currentState.principalId,
-          group.response,
+          f.response,
         );
       }
       // Verify on a separate connection, then admit only the evidence's pin.

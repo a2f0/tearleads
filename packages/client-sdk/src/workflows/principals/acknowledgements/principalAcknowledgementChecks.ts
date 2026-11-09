@@ -1,3 +1,4 @@
+import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import type {
   PrincipalPolicyExternalAuthority,
   PrincipalPolicySignerPublicKey,
@@ -17,18 +18,20 @@ export interface PrincipalAcknowledgementChecks {
   readonly authoredHead: (
     request: PutPrincipalPolicyRequest,
   ) => Promise<ReferencedPrincipalHead>;
-  /** The receipt carries exactly the authored state and artifacts. */
-  readonly assertReceipt: (input: {
-    readonly expectedHead: ReferencedPrincipalHead;
+  /**
+   * The receipt names the authored head; the current it commits is rebuilt
+   * from the authored request and the server-assigned fields.
+   */
+  readonly acknowledgedCurrent: (input: {
     readonly request: PutPrincipalPolicyRequest;
     readonly response: PrincipalPolicyMutationResponse;
-  }) => Promise<void>;
+  }) => Promise<PrincipalPolicyPageCurrent>;
   /** The acknowledged state is the authored successor of the verified predecessor. */
   readonly acknowledgeSuccessor: (input: {
     readonly verifiedCurrentPolicy: VerifiedPrincipalPolicyCurrent;
     readonly expectedHead: ReferencedPrincipalHead;
     readonly request: PutPrincipalPolicyRequest;
-    readonly response: PrincipalPolicyMutationResponse["currentState"];
+    readonly response: PrincipalPolicyPageCurrent["currentState"];
     readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
     readonly externalAuthority?: PrincipalPolicyExternalAuthority | undefined;
     readonly stillCurrent: () => boolean;
@@ -36,6 +39,6 @@ export interface PrincipalAcknowledgementChecks {
   /** Acknowledged directory and group heads cite each other. */
   readonly assertDirectoryBindings: (
     organizationId: string,
-    responses: readonly PrincipalPolicyMutationResponse[],
+    currents: readonly PrincipalPolicyPageCurrent[],
   ) => void;
 }

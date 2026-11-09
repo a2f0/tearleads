@@ -126,11 +126,11 @@ test("organization policy transitions publish strict policy-head deltas", async 
     organizationPolicy: {
       organizationId,
       currentState: {
-        stateHash: storedSuccessor.currentState.stateHash,
-        version: storedSuccessor.currentState.version,
-        keyEpoch: storedSuccessor.currentState.keyEpoch,
-        keyFingerprint: storedSuccessor.currentState.keyFingerprint,
-        memberCount: storedSuccessor.currentState.memberCount,
+        stateHash: storedSuccessor.head.stateHash,
+        version: storedSuccessor.head.version,
+        keyEpoch: storedSuccessor.head.keyEpoch,
+        keyFingerprint: storedSuccessor.head.keyFingerprint,
+        memberCount: stateMembers.length,
       },
     },
   });

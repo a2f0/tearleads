@@ -125,13 +125,13 @@ test("raw-history sync bypasses an otherwise dominant rotation baseline", async 
   expect(isDocumentSyncResponse(raw)).toBe(true);
   expect(raw.updates.map(({ id }) => id)).toContain(updateId);
   expect(raw.updates.map(({ id }) => id)).toContain(rotationBaselineId);
-  const currentEpoch = raw.contentKeyBundle.contentKeyEpoch;
+  const currentEpoch = readRequest.contentKeyEpoch;
   const updateEpochs = new Set(
     raw.updates.map(({ writeHeader }) =>
       Number(Reflect.get(writeHeader, "contentKeyEpoch")),
     ),
   );
-  // The current epoch's bundle travels only as contentKeyBundle; the array
+  // The current epoch's bundle never travels in the response; the array
   // carries exactly the older epochs the served updates cite.
   expect(updateEpochs.has(currentEpoch)).toBe(true);
   expect(

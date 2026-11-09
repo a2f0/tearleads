@@ -6,6 +6,7 @@ import type {
 import type {
   AccessManifestBundleWireResponse,
   DocumentContentKeyBundleResponse,
+  DocumentKekTargetsResponse,
   DocumentPurgeProofResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
@@ -69,7 +70,7 @@ export interface BuildDocumentSyncPlanInput {
   containerRekeys?: DocumentSyncRequest["containerRekeys"];
   contentKeyBundle: DocumentContentKeyBundleResponse;
   documentId?: string | undefined;
-  documentKekTargets: DocumentSyncResponse["documentKekTargets"];
+  documentKekTargets: DocumentKekTargetsResponse;
   documentManifest: AccessManifestBundleWireResponse;
   historyMode?: "raw" | undefined;
   inlineRekeyCommitId?: string | undefined;
@@ -83,7 +84,7 @@ export interface BuildDocumentSyncPlanInput {
 export interface DocumentSyncPlan {
   contentKeyEpoch: number;
   documentId: string;
-  documentKekTargets: DocumentSyncResponse["documentKekTargets"];
+  documentKekTargets: DocumentKekTargetsResponse;
   documentManifest: AccessManifestBundleWireResponse;
   documentWriterAuthorization?: WriterAuthorization | undefined;
   expectedLinkSetManifestHash: string;

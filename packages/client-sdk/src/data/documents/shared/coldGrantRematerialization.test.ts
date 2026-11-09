@@ -143,7 +143,7 @@ for (const grantKind of ["user", "group"] as const) {
       const projection = rootOnlyProjection(rotated, wraps);
       const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({
         currentContentKey: new Uint8Array(),
-        currentContentKeyEpoch: 2,
+        currentContentKeyBundle: document.contentKeyBundle,
         execSql,
         response: document.response,
         targetSecretKey: rotated.fixture.secretKey,
@@ -170,7 +170,7 @@ for (const grantKind of ["user", "group"] as const) {
       const { attributionGetCount, info } = await loadColdRecoveredDocumentInfo(
         {
           authorFingerprint: reader.author.signerKeyFingerprint,
-          document: document.response,
+          document,
           execSql,
           projection,
           recovered,
@@ -264,7 +264,7 @@ test("an interrupted client warms a rotated-group policy and recovers in the sam
     );
     const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({
       currentContentKey: new Uint8Array(),
-      currentContentKeyEpoch: 2,
+      currentContentKeyBundle: document.contentKeyBundle,
       execSql,
       response: document.response,
       targetSecretKey: rotated.fixture.secretKey,

@@ -5,7 +5,10 @@ import {
 } from "@tearleads/crypto";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { policyBundleAfterMutation } from "../../../../test/helpers/principalPolicyFixtures";
+import {
+  policyBundleAfterMutation,
+  policyReceiptFromBundle,
+} from "../../../../test/helpers/principalPolicyFixtures";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   encodeOrganizationAuthorityDescriptor,
@@ -44,10 +47,12 @@ test("a valid signed directory cannot substitute its payload organization", asyn
         history.signingKeyPair.signingPrivateKey,
       ),
     };
-    const response = await policyBundleAfterMutation({
-      previous: history.directory,
-      mutation: request,
-    });
+    const response = policyReceiptFromBundle(
+      await policyBundleAfterMutation({
+        previous: history.directory,
+        mutation: request,
+      }),
+    );
     await expect(
       retainAcknowledgedPrincipalCurrents({
         ...f.publication,
@@ -118,10 +123,12 @@ test("individually valid receipts cannot publish a group absent from the acknowl
       signingFingerprint: signer.signingKeyFingerprint,
       signingKeyPair: history.signingKeyPair,
     });
-    const response = await policyBundleAfterMutation({
-      previous: history.directory,
-      mutation: request,
-    });
+    const response = policyReceiptFromBundle(
+      await policyBundleAfterMutation({
+        previous: history.directory,
+        mutation: request,
+      }),
+    );
     await expect(
       retainAcknowledgedPrincipalCurrents({
         ...f.publication,

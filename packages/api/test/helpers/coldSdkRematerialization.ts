@@ -389,8 +389,7 @@ export async function syncDocumentWithInlineRootRekey(input: {
 
     return {
       documentId: created.documentId,
-      documentTargetHash:
-        synced.response.documentKekTargets.documentKeyTargetHash,
+      documentTargetHash: synced.plan.documentKekTargets.documentKeyTargetHash,
       rekeyManifestHash,
     };
   } finally {

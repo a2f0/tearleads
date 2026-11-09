@@ -1,7 +1,7 @@
 import type {
   AccessManifestBundleWireResponse,
   DocumentContentKeyBundleResponse,
-  DocumentSyncResponse,
+  DocumentKekTargetsResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type {
@@ -17,7 +17,7 @@ import {
 interface SyncPlanProjectionMaterial {
   readonly contentKey: Uint8Array;
   readonly contentKeyBundle: DocumentContentKeyBundleResponse;
-  readonly documentKekTargets: DocumentSyncResponse["documentKekTargets"];
+  readonly documentKekTargets: DocumentKekTargetsResponse;
   readonly documentManifest: AccessManifestBundleWireResponse;
   readonly healedStaleContentKeyBundle: boolean;
   readonly heldBackPendingUpdateIds: readonly string[];

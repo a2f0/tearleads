@@ -82,8 +82,7 @@ export const documentSyncResponsePullPageRefinement = {
 } as const;
 
 export const documentSyncResponseHistoricalBundlesRefinement = {
-  description:
-    "contentKeyBundles carries each content-key epoch at most once, and only epochs older than contentKeyBundle.contentKeyEpoch",
+  description: "contentKeyBundles carries each content-key epoch at most once",
   id: "response.historical-content-key-bundles",
 } as const;
 

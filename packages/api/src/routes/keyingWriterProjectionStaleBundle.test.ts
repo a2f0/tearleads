@@ -91,9 +91,8 @@ test("read-only document sync pulls stay served against the stored bundle while 
 
   await shareAndRevokeRoot({ owner, root });
 
-  // A reader synced to the stale state pulls with the stale expectations; the
-  // response echoes the bundle-derived targets so the stale pair stays
-  // self-consistent instead of mixing in the current (unhealed) targets.
+  // A reader synced to the stale state pulls with the stale expectations and
+  // is still served the committed updates.
   const readOnlyResponse = await postDocumentSync(owner, created.id, {
     contentKeyEpoch: created.contentKeyEpoch,
     expectedLinkSetManifestHash: created.manifestHash,
@@ -107,12 +106,6 @@ test("read-only document sync pulls stay served against the stored bundle while 
   expect(isDocumentSyncResponse(readOnly)).toBe(true);
   expect(readOnly.updates.map((update: { id: string }) => update.id)).toContain(
     preRevokeSync.updateId,
-  );
-  expect(readOnly.contentKeyBundle.contentKeyEpoch).toBe(
-    created.contentKeyEpoch,
-  );
-  expect(readOnly.documentKekTargets.documentKeyTargetHash).toBe(
-    created.targetHash,
   );
   expect(readOnly.pullPage).toMatchObject({
     hasMore: false,
@@ -158,9 +151,6 @@ test("a write-bearing sync heals the stale bundle at the next content-key epoch"
   const healed = await healingResponse.json();
   expect(isDocumentSyncResponse(healed)).toBe(true);
   expect(healed.acceptedOutgoingUpdateIds).toContain(healingSync.updateId);
-  expect(healed.contentKeyBundle.contentKeyEpoch).toBe(
-    healedBundle.contentKeyEpoch,
-  );
 
   // The document is healed for everyone: the projection is current again and
   // no longer flags the bundle.

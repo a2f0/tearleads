@@ -24,7 +24,7 @@ for (const [nullable, interruption] of [
         organizationPolicy: request.organizationPolicy,
       };
       const deletion = { organizationPolicy: request.organizationPolicy };
-      const state = fixture.response.groupPolicy.currentState;
+      const state = fixture.bundles.groupPolicy.currentState;
       const creation = {
         group: {
           groupId,
@@ -56,7 +56,7 @@ for (const [nullable, interruption] of [
       const invalid = structuredClone(response);
       if ("group" in invalid) invalid.group.groupId = crypto.randomUUID();
       else if ("groupId" in invalid) invalid.groupId = crypto.randomUUID();
-      else invalid.currentState.stateHash = "substituted-state-hash";
+      else invalid.head.stateHash = "substituted-state-hash";
       const invalidReceipts = [invalid];
       if ("group" in response) {
         for (const field of ["memberCount", "keyEpoch"] as const) {

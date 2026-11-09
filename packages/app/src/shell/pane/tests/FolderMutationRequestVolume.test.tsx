@@ -236,10 +236,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // Validate history before accepting the local unlink; its durable
       // intent's replay reuses that proof while the document is unchanged
       // (measured 6, 8 before). A restart, a change, or the server's
-      // stale-baseline refusal proves again. 17.9 KB sent and 32.7 KB
+      // stale-baseline refusal proves again. 17.9 KB sent and 30.2 KB
       // received (44.3 KB before); keep about 10% headroom.
       total: 6,
-      bodyBytes: { request: 20_000, response: 36_000 },
+      bodyBytes: { request: 20_000, response: 33_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 2,
         "GET /principals/group/:groupId/policy": 0,
@@ -315,8 +315,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // before).
       total: 10,
       // The move cites the destination parent's KEK state instead of carrying
-      // it: 16.6 KB sent (34.3 KB before) and 44.3 KB received.
-      bodyBytes: { request: 18_500, response: 49_000 },
+      // it: 16.6 KB sent (34.3 KB before). Syncs no longer echo the bundle and
+      // KEK targets the request named: 40.7 KB received (44.3 KB before); keep
+      // about 10% headroom.
+      bodyBytes: { request: 18_500, response: 45_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 4,
         "GET /principals/group/:groupId/policy": 0,
@@ -351,10 +353,11 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // reads; a hydration pass discovers the directory once, and the
       // ungranted move stamps no grants (measured 11, 12 before).
       total: 11,
-      // Projection reads cite the KEK levels the device holds by digest:
-      // 100.4 KB received (120.7 KB before); keep about 10% headroom. The
-      // move cites its parent KEK state: 16.8 KB sent (20.6 KB before).
-      bodyBytes: { request: 18_500, response: 110_000 },
+      // Projection reads cite the KEK levels the device holds by digest, and
+      // syncs no longer echo the bundle and KEK targets the request named:
+      // 53.2 KB received (56.7 KB before); keep about 10% headroom. The move
+      // cites its parent KEK state: 16.8 KB sent (20.6 KB before).
+      bodyBytes: { request: 18_500, response: 59_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 3,
         "GET /principals/group/:groupId/policy": 0,

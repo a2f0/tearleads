@@ -141,18 +141,24 @@ For accepted writes, the API verifies:
   header match the already accepted update
 
 The sync response returns accepted outgoing ids, a `commitLsn` and its
-`commitLsnMode`, the active content-key bundle, a required array of the older
-epoch bundles that served updates cite, document KEK targets, encrypted updates
-missing from the client-supplied frontier, and `pullPage`. `pullPage.hasMore`
-and `pullPage.nextCursor` are consistent: a continuation is present exactly when
-more updates remain in the frozen pull snapshot.
+`commitLsnMode`, a required array of the older epoch bundles that served
+updates cite, encrypted updates missing from the client-supplied frontier, and
+`pullPage`. `pullPage.hasMore` and `pullPage.nextCursor` are consistent: a
+continuation is present exactly when more updates remain in the frozen pull
+snapshot.
 
-The active bundle travels only as `contentKeyBundle`. `contentKeyBundles` holds
-each older epoch at most once and never the active epoch, so an empty probe or a
-page whose updates are all at the active epoch carries an empty array. The
-response validator and the client's bundle merge reject a repeated epoch, and
-the validator also rejects an array epoch at or above the active one, as a
-malformed response.
+The response does not echo the active content-key bundle or the document KEK
+targets. The server commits a sync only against the bundle the request carries
+or, without one, the stored bundle whose epoch, link-set hash, and target hash
+the request names, so the client keeps and persists the bundle and targets it
+planned against. A read-only pull served against a stale stored bundle is
+allowed only when that bundle is the latest one and matches the request's
+expectations, so it is the bundle the client already holds. `contentKeyBundles`
+holds each older epoch at most once and never the active epoch, so an empty
+probe or a page whose updates are all at the active epoch carries an empty
+array. The response validator rejects a repeated epoch, and the client's bundle
+merge rejects a repeated epoch and an epoch newer than the one it synced
+against, as a malformed response.
 
 Every sync request must set `supportsPullPagination: true`, and every successful
 response must carry `pullPage`; there is no unbounded response mode. The first

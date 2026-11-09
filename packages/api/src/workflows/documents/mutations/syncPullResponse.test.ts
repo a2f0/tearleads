@@ -63,16 +63,7 @@ function fixture(
   return {
     base: {
       acceptedOutgoingUpdateIds: [],
-      contentKeyBundle: toContentKeyBundleResponse(currentBundle),
       documentId: DOCUMENT_ID,
-      documentKekTargets: {
-        documentId: DOCUMENT_ID,
-        documentKeyTargetHash: currentBundle.targetHash,
-        linkedContainerKeyEpochIds: ["container-key-1"],
-        linkedContainerManifestHashes: ["container-manifest-1"],
-        linkSetManifestHash: currentBundle.linkSetManifestHash,
-        targets: [{}],
-      },
     },
     cursorHmacKey: "tearleads-test-document-sync-cursor-hmac-key",
     entries,
@@ -185,7 +176,7 @@ test("content-key bundles load only through the first response overflow", async 
   expect(loadedEpochs).toEqual([1, 3]);
 });
 
-test("the current epoch's bundle travels only as contentKeyBundle", async () => {
+test("the current epoch's bundle is never loaded or served", async () => {
   const loadedEpochs: number[] = [];
   const entries = [entry(1, 1), entry(2, 3), entry(3, 3), entry(4, 1)];
   const base = fixture(entries, 3);
@@ -198,7 +189,6 @@ test("the current epoch's bundle travels only as contentKeyBundle", async () => 
   });
 
   expect(response.updates).toHaveLength(entries.length);
-  expect(response.contentKeyBundle.contentKeyEpoch).toBe(3);
   expect(response.contentKeyBundles).toEqual([
     toContentKeyBundleResponse(bundle(1)),
   ]);
@@ -218,7 +208,7 @@ test("pages at the current epoch and empty probes carry no bundle array", async 
   }
 });
 
-test("byte accounting counts the current bundle once", async () => {
+test("byte accounting matches the served response exactly", async () => {
   const first = entry(1, 2);
   const entries = [first, entry(2, 2)];
   const unbounded = await buildPaginatedSyncPullResponse(fixture(entries));

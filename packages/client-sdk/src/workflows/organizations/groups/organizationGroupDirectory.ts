@@ -33,9 +33,8 @@ import type {
 import type { loadOrganizationExternalAdminPolicy } from "../../principals/externalAdminPolicy";
 import { assertGroupNameUniqueInDirectory } from "../groupNames/groupNameUniqueness";
 import {
-  acknowledgeGroupPolicyState,
+  acknowledgeGroupPolicyBundle,
   acknowledgeInitialGroupPolicy,
-  buildAcknowledgedGroupPolicyBundle,
 } from "../groupPolicy/groupPolicyMutationAcknowledgement";
 import type { OrganizationPrincipalPolicyApi } from "../groupPolicy/groupPolicyMutationContext";
 import { groupPolicyMutationHead } from "../groupPolicy/groupPolicyMutationHead";
@@ -224,23 +223,16 @@ export async function commitCreatedGroupToDirectory(input: {
     response: stored.group,
     stateHash: expectedHead.stateHash,
   });
-  const organizationHead = await groupPolicyMutationHead(organizationRequest);
-  const organizationPolicy = await acknowledgeGroupPolicyState({
+  const organization = await acknowledgeGroupPolicyBundle({
     currentPolicy: input.externalAdminPolicy.bundle,
-    expectedHead: organizationHead,
-    request: organizationRequest,
-    response: stored.organizationPolicy.currentState,
-  });
-  const organizationBundle = await buildAcknowledgedGroupPolicyBundle({
-    currentPolicy: input.externalAdminPolicy.bundle,
-    expectedHead: organizationHead,
+    expectedHead: await groupPolicyMutationHead(organizationRequest),
     request: organizationRequest,
     response: stored.organizationPolicy,
   });
   await persistLocallyAcknowledgedPrincipalPolicyBundles({
     entries: [
       { bundle: acknowledged.bundle, policy: acknowledged.policy },
-      { bundle: organizationBundle, policy: organizationPolicy },
+      organization,
     ],
     execSql: input.execSql,
     organizationId: input.organizationId,

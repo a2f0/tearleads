@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   generateKemSeedAndKeyPair,
   toFingerprint,
@@ -14,6 +15,7 @@ import { prepareUserForAdminGroup } from "../../../test/helpers/organizationAdmi
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import {
   createPolicyTestGroup,
+  runGetCurrentPrincipalPolicyWorkflow,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
 import {
@@ -201,7 +203,15 @@ test("combined policy commit still succeeds when shared_with_you publish throws"
     [...envelopes].sort((left, right) =>
       left.userId.localeCompare(right.userId),
     );
-  expect(
-    sortByMemberId(storedPolicy.groupPolicy.currentMemberEnvelopes.envelopes),
-  ).toEqual(sortByMemberId(request.memberEnvelopes));
+  const stored = await runGetCurrentPrincipalPolicyWorkflow(
+    db,
+    "group",
+    adminGroupId,
+  );
+  expect(stored.currentState.stateHash).toBe(
+    storedPolicy.groupPolicy.head.stateHash,
+  );
+  expect(sortByMemberId(stored.currentMemberEnvelopes.envelopes)).toEqual(
+    sortByMemberId(request.memberEnvelopes),
+  );
 });

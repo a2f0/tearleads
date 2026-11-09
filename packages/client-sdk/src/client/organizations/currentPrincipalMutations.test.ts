@@ -10,7 +10,10 @@ import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
-import { policyBundleAfterMutation } from "../../../test/helpers/principalPolicyFixtures";
+import {
+  policyBundleAfterMutation,
+  policyReceiptFromBundle,
+} from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { principalGrantRetirements } from "../../data/sqlite/schema/principalGrantRetirementSchema";
@@ -57,8 +60,7 @@ async function fixture() {
     if (!previous) throw new Error("Missing committed predecessor");
     const next = await policyBundleAfterMutation({ previous, mutation });
     f.policies.set(principalId, next);
-    const { previousStates: _history, ...current } = structuredClone(next);
-    return current;
+    return policyReceiptFromBundle(structuredClone(next));
   };
   apiClient.getCurrentPrincipalPolicy = async () => {
     state.fullReads += 1;
@@ -77,7 +79,7 @@ async function fixture() {
     const groupPolicy = await advance(request.groupPolicy);
     const organizationPolicy = await advance(request.organizationPolicy);
     state.writes += 1;
-    if (state.corruptReceipt) groupPolicy.currentProjection = [];
+    if (state.corruptReceipt) groupPolicy.head.stateHash = "0".repeat(64);
     if (state.expireOnReceipt) state.current = false;
     return {
       ok: true,
@@ -143,7 +145,11 @@ test("built-in current mutation adds then removes an Admin with only paged reads
       expectedGroupName: "Admins",
       targetUserId: history.targetUserId,
     });
-    expect(added.response).not.toHaveProperty("previousStates");
+    expect(added.response).toEqual({
+      head: expect.objectContaining({ principalId: f.groupId, version: 67 }),
+      createdAt: expect.any(String),
+      containerMutations: [],
+    });
     expect(added.enrolled).toBe(true);
     expect(f.state.writes).toBe(1);
     expect(
@@ -153,7 +159,8 @@ test("built-in current mutation adds then removes an Admin with only paged reads
       userId: history.targetUserId,
       role: "member",
     });
-    expect(added.response.currentProjection).toContainEqual({
+    const afterAdd = f.policies.get(f.groupId);
+    expect(afterAdd?.currentProjection).toContainEqual({
       userId: history.targetUserId,
       role: "admin",
     });
@@ -162,12 +169,16 @@ test("built-in current mutation adds then removes an Admin with only paged reads
       expectedGroupName: "Admins",
       removedUserId: history.targetUserId,
     });
-    expect(removed.response.currentProjection).toEqual(
+    const afterRemove = f.policies.get(f.groupId);
+    expect(afterRemove?.currentProjection).toEqual(
       history.admin.currentProjection,
     );
-    expect(removed.response.currentState.version).toBe(68);
-    expect(removed.response.currentState.keyEpoch).toBe(
-      added.response.currentState.keyEpoch + 1,
+    expect(removed.response.head.version).toBe(68);
+    expect(removed.response.head.keyEpoch).toBe(
+      added.response.head.keyEpoch + 1,
+    );
+    expect(afterRemove?.currentState.stateHash).toBe(
+      removed.response.head.stateHash,
     );
     expect(f.state.writes).toBe(2);
     expect(f.state.fullReads).toBe(0);
@@ -244,15 +255,14 @@ test("current grant revocation rotates an externally administered group and reta
       kind: "revoke",
       revokedContainerId: containerId,
     });
-    expect(response.currentGrants).toEqual([]);
-    expect(response.currentState.keyEpoch).toBe(
-      group.currentState.keyEpoch + 1,
-    );
-    expect(response.currentState.externalAuthority?.version).toBe(66);
+    const stored = f.policies.get(group.currentState.principalId);
+    expect(stored?.currentGrants).toEqual([]);
+    expect(response.head.keyEpoch).toBe(group.currentState.keyEpoch + 1);
+    expect(stored?.currentState.externalAuthority?.version).toBe(66);
     expect(f.state.fullReads).toBe(0);
     expect(f.state.writes).toBe(1);
     expect(await f.db.select().from(principalGrantRetirements)).toMatchObject([
-      { containerId, policyStateHash: response.currentState.stateHash },
+      { containerId, policyStateHash: response.head.stateHash },
     ]);
   } finally {
     f.close();

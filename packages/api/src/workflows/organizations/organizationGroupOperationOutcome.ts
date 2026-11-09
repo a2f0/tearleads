@@ -77,8 +77,8 @@ export async function organizationGroupCreationOutcome(
         createdAt: group.createdAt,
         isBuiltin: false,
         state: {
-          ...groupPolicy.currentState,
-          memberCount: groupPolicy.currentProjection.length,
+          ...groupPolicy.head,
+          memberCount: input.request.initialGroupPolicy.state.memberCount,
         },
       }),
       organizationPolicy,
@@ -94,9 +94,7 @@ export async function organizationGroupCreationOutcome(
           ...input.request.initialGroupPolicy.state,
           stateHash: result.group.currentState.stateHash,
         }),
-        organizationPolicy: principalHistoryHead(
-          result.organizationPolicy.currentState,
-        ),
+        organizationPolicy: result.organizationPolicy.head,
       });
     },
   };
@@ -127,9 +125,7 @@ export async function organizationGroupDeletionOutcome(
   return {
     response,
     save(result: DeleteOrganizationGroupResponse) {
-      return receipt.save(
-        principalHistoryHead(result.organizationPolicy.currentState),
-      );
+      return receipt.save(result.organizationPolicy.head);
     },
   };
 }

@@ -1,10 +1,10 @@
+import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   createPrincipalPolicyHistoryVerifier,
   KeyingVerificationError,
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import type { AcknowledgedPrincipalCurrentPublication } from "../../../data/persistence/principalCurrentAcknowledgementPersistence";
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
@@ -24,12 +24,12 @@ import { sealPrincipalCurrentPublication } from "./principalCurrentPublicationSe
 export async function prepareInitialGroupCurrentPublication(
   input: RecoverPrincipalPolicyHistoryOptions,
   request: PutPrincipalPolicyRequest,
-  response: PrincipalPolicyMutationResponse,
+  current: PrincipalPolicyPageCurrent,
   predecessor: AcknowledgedPrincipalPredecessor | null,
   checks: PrincipalAcknowledgementChecks,
 ): Promise<AcknowledgedPrincipalCurrentPublication> {
-  const current = () => !input.signal?.aborted && input.stillCurrent();
-  assertProjectionVerificationCurrent(current);
+  const stillCurrent = () => !input.signal?.aborted && input.stillCurrent();
+  assertProjectionVerificationCurrent(stillCurrent);
   const expectedHead = await checks.authoredHead(request);
   if (
     predecessor !== null ||
@@ -42,9 +42,8 @@ export async function prepareInitialGroupCurrentPublication(
       "object_mismatch",
       "Initial group publication must begin at its exact genesis",
     );
-  await checks.assertReceipt({ expectedHead, request, response });
   const keys = await collectPrincipalPolicySignerPublicKeys({
-    bundle: { currentState: response.currentState, previousStates: [] },
+    bundle: { currentState: current.currentState, previousStates: [] },
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if ("error" in keys)
@@ -55,15 +54,15 @@ export async function prepareInitialGroupCurrentPublication(
   const externalAuthority = await input.loadExternalAuthority?.(
     request.state.externalAuthority ? [request.state.externalAuthority] : [],
   );
-  assertProjectionVerificationCurrent(current);
+  assertProjectionVerificationCurrent(stillCurrent);
   const verifier = createPrincipalPolicyHistoryVerifier({
     principalType: "group",
     principalId: expectedHead.principalId,
   });
   const entry = {
-    state: response.currentState,
-    projection: response.currentProjection,
-    grants: response.currentGrants,
+    state: current.currentState,
+    projection: current.currentProjection,
+    grants: current.currentGrants,
   };
   assertPrincipalHistoryVerificationMode(input, [entry]);
   const appended = await verifier.append({
@@ -75,7 +74,7 @@ export async function prepareInitialGroupCurrentPublication(
   const history = verifier.finish(expectedHead);
   if (!history.ok) throw history.error;
   const policy = await verifyPrincipalPolicyCurrent({
-    current: response,
+    current,
     history: history.value,
   });
   if (!policy.ok) throw policy.error;
@@ -96,9 +95,9 @@ export async function prepareInitialGroupCurrentPublication(
     scopeId,
     expectedHead,
     verifier,
-    response,
+    current,
   );
-  assertProjectionVerificationCurrent(current);
+  assertProjectionVerificationCurrent(stillCurrent);
   return {
     ...sealed,
     policy: policy.value,
