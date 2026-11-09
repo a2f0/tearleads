@@ -79,14 +79,15 @@ export function createRotationRecoveryRuntime(input: {
       }
       const echoedUpdates = request.outgoingUpdates.map((update) => ({
         accessEpoch: 1,
-        authorizationTargets: response.contentKeyBundle.targets.map(
-          (target) => ({
-            containerId: target.containerId,
-            containerKeyEpoch: target.containerKeyEpoch,
-            containerKeyEpochId: target.containerKeyEpochId,
-            containerManifestHash: target.containerManifestHash,
-          }),
-        ),
+        authorizationTargets:
+          input.fixture.writerProjection.contentKeyBundle.targets.map(
+            (target) => ({
+              containerId: target.containerId,
+              containerKeyEpoch: target.containerKeyEpoch,
+              containerKeyEpochId: target.containerKeyEpochId,
+              containerManifestHash: target.containerManifestHash,
+            }),
+          ),
         ...(update.checkpointKind === undefined
           ? {}
           : { checkpointKind: update.checkpointKind }),

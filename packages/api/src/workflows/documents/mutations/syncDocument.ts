@@ -3,15 +3,11 @@ import type {
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import {
-  type DocumentSyncResponse,
-  documentKekTargetsFromContentKeyBundle,
-} from "@tearleads/validators/response";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import {
   getDocumentContentKeyBundle,
   type StoredDocumentContentKeyBundle,
 } from "../../../access/read/documentContentKeyStore";
-import type { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import {
   readCommitLsnMode,
   readCurrentCommitLsn,
@@ -26,10 +22,6 @@ import { loadSignerPublicKey } from "../../signerPublicKey";
 import type { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import { DocumentMutationError, toMutationError } from "./errors";
 import { assertProvisionedDocumentInitialUpdate } from "./shared/provisionedInitialUpdate";
-import {
-  toContentKeyBundleResponse,
-  toDocumentKekTargetsResponse,
-} from "./shared/records";
 import { resolveSyncPullPagePlan } from "./syncPullPagination";
 import {
   buildPaginatedSyncPullResponse,
@@ -62,20 +54,22 @@ async function syncDocumentTransaction(
     executor: input.tx,
     insertedUpdateIds: committed.appendResult.insertedUpdateIds,
   });
-  return { ...result, containerRekeys: committed.containerRekeys };
+  return {
+    ...result,
+    containerRekeys: committed.containerRekeys,
+    linkedContainerIds: committed.currentTargets.targets.map(
+      (target) => target.containerId,
+    ),
+  };
 }
 
 async function buildSyncDocumentTransactionResult(input: {
   readonly appendResult: Awaited<ReturnType<typeof appendDocumentUpdates>>;
   readonly contentKeyBundle: StoredDocumentContentKeyBundle;
   readonly cursorHmacKey: string | null;
-  readonly currentTargets: Awaited<
-    ReturnType<typeof resolveCurrentDocumentKekTargets>
-  >;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;
-  readonly servedStaleBundle: boolean;
 }) {
   if (input.request.supportsPullPagination === true) {
     // A replica may advance between statements, which is safe only in this
@@ -111,17 +105,12 @@ async function buildSyncDocumentTransactionResult(input: {
     pullPagePlan,
     request: input.request,
   });
-  const contentKeyBundle = toContentKeyBundleResponse(input.contentKeyBundle);
+  // The client planned this sync against the bundle and targets the request's
+  // expectations name, and the server refuses any other pair, so the response
+  // carries neither back.
   const responseBase = {
     acceptedOutgoingUpdateIds: input.appendResult.acceptedOutgoingUpdateIds,
-    contentKeyBundle,
     documentId: input.documentId,
-    // A stale-served read-only pull must echo the targets the bundle actually
-    // wraps to; mixing the stale bundle with current targets would fail the
-    // client's plan/response consistency checks.
-    documentKekTargets: input.servedStaleBundle
-      ? documentKekTargetsFromContentKeyBundle(contentKeyBundle)
-      : toDocumentKekTargetsResponse(input.currentTargets),
   };
   if (pullPagePlan === null || page === undefined) {
     throw new DocumentMutationError(
@@ -161,6 +150,8 @@ export interface DocumentSyncWorkflowResult {
    * for the caller's own pending-queue reconciliation.
    */
   readonly insertedUpdateIds: readonly string[];
+  /** The document's current KEK target containers, for the update broadcast. */
+  readonly linkedContainerIds: readonly string[];
   readonly response: DocumentSyncResponse;
 }
 
@@ -355,6 +346,7 @@ export async function runDocumentSyncWorkflow(
     return {
       containerRekeys: transactionResult.containerRekeys,
       insertedUpdateIds: transactionResult.insertedUpdateIds,
+      linkedContainerIds: transactionResult.linkedContainerIds,
       response,
     };
   } catch (error) {

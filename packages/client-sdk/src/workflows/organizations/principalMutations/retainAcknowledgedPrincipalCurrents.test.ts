@@ -3,7 +3,6 @@ import { signPrincipalState, wrapDekForRecipients } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { loadPrincipalKeyEnvelopeCandidates } from "../../../data/persistence/principalKeys/principalKeyEnvelopeCandidates";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../../data/principals/principalPolicyCrypto";
@@ -60,22 +59,20 @@ test("compound current acknowledgement retains protected artifacts and pins with
         ...entry.recovery,
         execSql: f.publication.execSql,
         organizationId: history.organizationId,
-        expectedHead: principalPolicyHead(entry.response),
+        expectedHead: entry.response.head,
         offline: true,
         stillCurrent: () => true,
       });
       expect(recovered.current).not.toHaveProperty("previousStates");
-      expect(recovered.current.currentMemberEnvelopes).toEqual(
-        entry.response.currentMemberEnvelopes,
+      expect(recovered.current.currentMemberEnvelopes.envelopes).toEqual(
+        entry.request.memberEnvelopes,
       );
-      expect(recovered.policy.stateHash).toBe(
-        entry.response.currentState.stateHash,
-      );
+      expect(recovered.policy.stateHash).toBe(entry.response.head.stateHash);
       expect(
         await loadPrincipalPolicyCheckpoint(
           f.options.execSql,
-          entry.response.currentState.principalType,
-          entry.response.currentState.principalId,
+          entry.response.head.principalType,
+          entry.response.head.principalId,
         ),
       ).toEqual(recovered.policy.checkpoint);
     }
@@ -96,10 +93,10 @@ test("a mismatched organization receipt cannot publish either half of a compound
     const before = await f.db.select().from(principalHistoryPrefixes);
     const organization = f.publication.entries[1];
     if (!organization) throw new Error("Missing organization receipt");
-    organization.response.currentState.signature = "substituted";
+    organization.response.head.stateHash = "0".repeat(64);
     await expect(
       retainAcknowledgedPrincipalCurrents(f.publication),
-    ).rejects.toThrow("acknowledgement mismatch");
+    ).rejects.toThrow("acknowledgement names another head");
     expect(await f.db.select().from(principalHistoryPrefixes)).toEqual(before);
     expect(
       await loadPrincipalPolicyCheckpoint(
@@ -131,7 +128,7 @@ test.each(["stage", "prefix"] as const)(
         base64ToBytes(history.directory.currentState.encapsulationPublicKey),
       ]);
       await retainAcknowledgedPrincipalCurrents(f.publication);
-      expect(f.publication.entries[1]?.response.currentState.keyEpoch).toBe(
+      expect(f.publication.entries[1]?.response.head.keyEpoch).toBe(
         history.directory.currentState.keyEpoch + 1,
       );
       const unwrapped = await unwrapKeyEnvelopesWithPrincipalPolicies({
@@ -153,8 +150,8 @@ test.each(["stage", "prefix"] as const)(
 test("current publication captures the authored request and receipt before asynchronous restoration", async () => {
   const f = await currentPolicyPublicationFixture(history);
   try {
-    const first = f.publication.entries[0];
-    if (!first) throw new Error("Missing group receipt");
+    const [first, second] = f.publication.entries;
+    if (!first || !second) throw new Error("Missing compound receipts");
     const signature = first.request.state.signature;
     const resigned = await signPrincipalState(
       first.request.state,
@@ -162,9 +159,14 @@ test("current publication captures the authored request and receipt before async
     );
     const pending = retainAcknowledgedPrincipalCurrents(f.publication);
     first.request.state.signature = resigned.signature;
-    first.response.currentState.signature = resigned.signature;
+    first.response.head.stateHash = "0".repeat(64);
+    // A later receipt is captured before the first asynchronous check too.
+    second.response.head.stateHash = "0".repeat(64);
+    second.request.state.version += 1;
+    second.recovery.protection.localKey.fill(0);
     const policies = await pending;
     expect(policies[0]?.state.signature).toBe(signature);
+    expect(policies).toHaveLength(2);
   } finally {
     f.close();
   }

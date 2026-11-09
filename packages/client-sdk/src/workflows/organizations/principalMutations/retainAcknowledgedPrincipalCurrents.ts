@@ -6,7 +6,7 @@ import {
 import type { PrincipalAcknowledgementChecks } from "../../principals/acknowledgements/principalAcknowledgementChecks";
 import { acknowledgeGroupPolicyState } from "../groupPolicy/groupPolicyMutationAcknowledgement";
 import { groupPolicyMutationHead } from "../groupPolicy/groupPolicyMutationHead";
-import { assertPrincipalPolicyReceiptArtifacts } from "../principalPolicy/principalPolicyReceiptArtifacts";
+import { acknowledgedPrincipalPolicyCurrent } from "../principalPolicy/principalPolicyReceiptArtifacts";
 import { assertAcknowledgedDirectoryBindings } from "./acknowledgedDirectoryBindings";
 
 export type { AcknowledgedPrincipalCurrentRetirement } from "../../../data/persistence/principalCurrentAcknowledgementPersistence";
@@ -15,7 +15,7 @@ export type { AcknowledgedPrincipalCurrentInput } from "../../principals/acknowl
 /** How organization and group mutations check an acknowledgement they authored. */
 const principalAcknowledgementChecks: PrincipalAcknowledgementChecks = {
   authoredHead: groupPolicyMutationHead,
-  assertReceipt: assertPrincipalPolicyReceiptArtifacts,
+  acknowledgedCurrent: acknowledgedPrincipalPolicyCurrent,
   acknowledgeSuccessor: (input) => acknowledgeGroupPolicyState(input),
   assertDirectoryBindings: assertAcknowledgedDirectoryBindings,
 };

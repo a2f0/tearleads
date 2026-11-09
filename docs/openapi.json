@@ -136,11 +136,18 @@
           "bindingId": {
             "type": "string"
           },
+          "blobAccessManifestHash": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Access manifest hash of the blob after the bind, from the targets the API resolved."
+          },
           "blobId": {
             "type": "string"
           },
-          "blobKekTargets": {
-            "$ref": "#/components/schemas/BlobKekTargetsResponse"
+          "blobKeyTargetHash": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Hash of the KEK target set the API resolved for the blob after the bind."
           },
           "contentKeyEpoch": {
             "exclusiveMinimum": 0,
@@ -223,8 +230,9 @@
         },
         "required": [
           "bindingId",
+          "blobAccessManifestHash",
           "blobId",
-          "blobKekTargets",
+          "blobKeyTargetHash",
           "contentKeyEpoch",
           "documentId",
           "documentManifestHash",
@@ -795,7 +803,7 @@
           "organizationPolicy"
         ],
         "additionalProperties": {},
-        "description": "Acknowledges a group policy commit with every policy it advanced."
+        "description": "Acknowledges a group policy commit with the head of every policy it advanced."
       },
       "ContainerCreateWithMetadataDocumentRequest": {
         "type": "object",
@@ -3857,23 +3865,15 @@
             ],
             "description": "`tracked` for a durable backend position; `untracked` with the `0/0` sentinel when the backend cannot report one."
           },
-          "contentKeyBundle": {
-            "$ref": "#/components/schemas/DocumentContentKeyBundleResponse",
-            "description": "Content-key bundle of the current epoch."
-          },
           "contentKeyBundles": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DocumentContentKeyBundleResponse"
             },
-            "description": "Bundles of older epochs that this page's updates were written at; never the current epoch."
+            "description": "Bundles of older epochs that this page's updates were written at; never the epoch the request synced against."
           },
           "documentId": {
             "type": "string"
-          },
-          "documentKekTargets": {
-            "$ref": "#/components/schemas/DocumentKekTargetsResponse",
-            "description": "The document's current key targets."
           },
           "pullPage": {
             "$ref": "#/components/schemas/DocumentSyncPullPageResponse"
@@ -3891,15 +3891,13 @@
           "acceptedOutgoingUpdateIds",
           "commitLsn",
           "commitLsnMode",
-          "contentKeyBundle",
           "contentKeyBundles",
           "documentId",
-          "documentKekTargets",
           "pullPage",
           "updates"
         ],
         "additionalProperties": {},
-        "description": "The result of a sync: which uploads were accepted, one page of missing updates, and the key material to decrypt them."
+        "description": "The result of a sync: which uploads were accepted, one page of missing updates, and the older-epoch key material to decrypt them. The current epoch's bundle and the key targets are the ones the request named, so they are not echoed."
       },
       "DocumentSyncUpdateResponse": {
         "type": "object",
@@ -7619,44 +7617,29 @@
       "PrincipalPolicyMutationResponse": {
         "type": "object",
         "properties": {
-          "currentGrants": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PrincipalContainerGrantResponse"
-            }
-          },
-          "currentMemberEnvelopes": {
-            "$ref": "#/components/schemas/CurrentPrincipalMemberEnvelopesResponse"
-          },
-          "currentPayload": {
-            "$ref": "#/components/schemas/PrincipalStatePayloadResponse"
-          },
-          "currentProjection": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PrincipalProjectionMemberResponse"
-            }
-          },
-          "currentState": {
-            "$ref": "#/components/schemas/PrincipalStateResponse"
-          },
           "containerMutations": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ContainerMutationResponse"
-            }
+            },
+            "description": "Hash-form acknowledgements of the container mutations committed with the policy, in request order."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Server-assigned insertion time of the stored state and its payload; the only acknowledged field the request does not carry."
+          },
+          "head": {
+            "$ref": "#/components/schemas/ReferencedPrincipalStateResponse",
+            "description": "The committed head; it must equal the head the caller computes from its own signed state."
           }
         },
         "required": [
-          "currentGrants",
-          "currentMemberEnvelopes",
-          "currentPayload",
-          "currentProjection",
-          "currentState",
-          "containerMutations"
+          "containerMutations",
+          "createdAt",
+          "head"
         ],
         "additionalProperties": {},
-        "description": "A principal's current policy after a write, with acknowledgements of the container mutations committed with it."
+        "description": "Acknowledges a principal policy write by the head it committed rather than an echo of the signed request. The caller rebuilds the acknowledged state and artifacts from its own request."
       },
       "PrincipalPolicyPageResponse": {
         "type": "object",
@@ -16558,7 +16541,7 @@
             "id": "response.pull-page-continuation"
           },
           {
-            "description": "contentKeyBundles carries each content-key epoch at most once, and only epochs older than contentKeyBundle.contentKeyEpoch",
+            "description": "contentKeyBundles carries each content-key epoch at most once",
             "id": "response.historical-content-key-bundles"
           }
         ]

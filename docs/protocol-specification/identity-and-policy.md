@@ -101,6 +101,17 @@ Group creation uses the same rule: `POST /organizations/:organizationId/groups`
 stores the group row, initial group policy, and matching organization-policy
 successor in one transaction, or stores none of them.
 
+These writes, group deletion, and the organization policy `PUT` acknowledge
+each policy they stored by its head, the server-assigned `createdAt` of the
+state and payload, and the hash-form container mutation acknowledgements; they
+never echo the signed request. The author refuses an acknowledgement whose head
+differs from the one its own signed state commits to, rebuilds the acknowledged
+current from that state and its artifacts, and verifies the signature and
+successor rule on those bytes before retaining it
+([mutation acknowledgements](../principal-history-transport.md#mutation-acknowledgements)).
+An exact replay of a committed request returns the same heads from its
+actor-bound receipt after rechecking organization administrator access.
+
 A state commits the [principal](../glossary/principals.md#principal) identity,
 version and predecessor, key epoch and encapsulation key, membership/projection/envelope
 roots, payload hash, member count, signer identity, and timestamp. The API

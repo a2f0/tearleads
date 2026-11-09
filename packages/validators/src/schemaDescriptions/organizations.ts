@@ -219,7 +219,7 @@ describeSchema(
 
 describeSchema(
   CommitOrganizationGroupPolicyResponseSchema,
-  "Acknowledges a group policy commit with every policy it advanced.",
+  "Acknowledges a group policy commit with the head of every policy it advanced.",
 );
 
 describeSchema(
@@ -229,7 +229,14 @@ describeSchema(
 
 describeSchema(
   PrincipalPolicyMutationResponseSchema,
-  "A principal's current policy after a write, with acknowledgements of the container mutations committed with it.",
+  "Acknowledges a principal policy write by the head it committed rather than an echo of the signed request. The caller rebuilds the acknowledged state and artifacts from its own request.",
+  {
+    containerMutations:
+      "Hash-form acknowledgements of the container mutations committed with the policy, in request order.",
+    createdAt:
+      "Server-assigned insertion time of the stored state and its payload; the only acknowledged field the request does not carry.",
+    head: "The committed head; it must equal the head the caller computes from its own signed state.",
+  },
 );
 
 describeSchema(

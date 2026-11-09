@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { ContainerContentsStore } from "@tearleads/client-sdk";
-import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
+import { isCommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import {
   act,
   cleanup,
@@ -279,13 +279,13 @@ test(
     const groupId =
       committedGroupPath && requestPath(committedGroupPath.url).split("/")[4];
     invariant(groupId, "Expected the committed custom group id.");
-    const receipt: unknown = JSON.parse(committedGroupPath.responseBody);
+    const commit: unknown = JSON.parse(committedGroupPath.requestBody ?? "");
     invariant(
-      isCommitOrganizationGroupPolicyResponse(receipt),
-      "Expected the group receipt.",
+      isCommitOrganizationGroupPolicyRequest(commit),
+      "Expected the signed group commit.",
     );
     const adminGroupId =
-      receipt.groupPolicy.currentState.externalAuthority?.principalId;
+      commit.groupPolicy.state.externalAuthority?.principalId;
     invariant(adminGroupId, "Expected the signed Admins authority citation.");
     const peerReadModelRequests = peerMutationRequests.filter(
       (request) =>

@@ -28,7 +28,7 @@ export function createBlobAttachmentBindRequest(): BlobAttachmentBindRequest {
         },
       ],
     },
-    event: {},
+    event: { organizationId: "organization-1" },
     stagedBlob: { stageId: "stage-1", writeHeader: {} },
   };
 }
@@ -42,21 +42,11 @@ export function createBlobAttachmentDetachRequest(): BlobAttachmentDetachRequest
 }
 
 export function createBlobAttachmentBindResponse(): BlobAttachmentBindResponse {
-  const blobKekTargets = {
-    activeBindingIds: ["binding-1"],
+  return {
+    bindingId: "binding-1",
     blobAccessManifestHash: "blob-manifest-hash",
     blobId: "blob-1",
     blobKeyTargetHash: "blob-target-hash",
-    documentManifestHashes: ["blob-manifest-hash"],
-    linkedContainerKeyEpochIds: ["container-key-epoch-id"],
-    linkedContainerManifestHashes: ["container-manifest-hash"],
-    organizationId: "organization-1",
-    targets: [],
-  };
-  return {
-    bindingId: "binding-1",
-    blobId: "blob-1",
-    blobKekTargets,
     contentKeyEpoch: 1,
     documentId: "document-1",
     documentManifestHash: "document-manifest-hash",

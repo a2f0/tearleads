@@ -239,7 +239,7 @@ export function createSyncRequest() {
   };
 }
 
-function createContentKeyBundleResponse() {
+export function createContentKeyBundleResponse() {
   return {
     contentKeyEpoch: 1,
     documentId: "document-1",
@@ -401,17 +401,8 @@ export function createSyncResponse() {
     acceptedOutgoingUpdateIds: [UPDATE_ID],
     commitLsn: null,
     commitLsnMode: "tracked" as const,
-    contentKeyBundle: createContentKeyBundleResponse(),
     contentKeyBundles: [],
     documentId: "document-1",
-    documentKekTargets: {
-      documentId: "document-1",
-      documentKeyTargetHash: "target-hash",
-      linkedContainerKeyEpochIds: ["container-key-epoch-id"],
-      linkedContainerManifestHashes: ["manifest-hash"],
-      linkSetManifestHash: "link-set-hash",
-      targets: [{ containerId: "container-1" }],
-    },
     futureResponseField: true,
     pullPage: { hasMore: false, nextCursor: null },
     updates: [

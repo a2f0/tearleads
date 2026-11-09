@@ -9,7 +9,10 @@ import {
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
-import { principalPolicyBundleResponseFor } from "../test/helpers/principalPolicyPage";
+import {
+  principalPolicyAcknowledgementFor,
+  principalPolicyBundleResponseFor,
+} from "../test/helpers/principalPolicyPage";
 import { ApiClient } from "./ApiClient";
 import type { RequestResultOptions } from "./types";
 
@@ -26,10 +29,9 @@ function fixture(operation: "create" | "delete") {
     ...createOrganizationGroupRequest(),
     organizationPolicy: createPrincipalPolicyRequest(),
   };
-  const organizationPolicy = {
-    ...principalPolicyBundleResponseFor("organization", organizationId),
-    containerMutations: [],
-  };
+  const organizationPolicy = principalPolicyAcknowledgementFor(
+    principalPolicyBundleResponseFor("organization", organizationId),
+  );
   const deletion = { organizationPolicy: input.organizationPolicy };
   const response =
     operation === "create"

@@ -134,7 +134,7 @@ test("emitted schemas reject the same structural failures as runtime schemas", (
   ];
 
   const missingResponseField = createSyncResponse();
-  Reflect.deleteProperty(missingResponseField, "documentKekTargets");
+  Reflect.deleteProperty(missingResponseField, "pullPage");
   const invalidResponses = [
     missingResponseField,
     {

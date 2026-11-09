@@ -309,7 +309,6 @@ async function stageAndBindBlobAttachment(input: {
     response,
     slotId: input.slotId,
     targetHash: input.material.targetHash,
-    targets: input.material.targets,
     writeHeaderHash,
   });
 

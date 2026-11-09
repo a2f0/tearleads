@@ -147,10 +147,10 @@ test("a lost standalone directory acknowledgement survives a later directory hea
       ),
     );
     const originalReference = references.find(
-      (reference) => reference.stateHash === first.currentState.stateHash,
+      (reference) => reference.stateHash === first.head.stateHash,
     );
     const laterReference = references.find(
-      (reference) => reference.stateHash !== first.currentState.stateHash,
+      (reference) => reference.stateHash !== first.head.stateHash,
     );
     if (!originalReference || !laterReference)
       throw new Error("Missing distinct acknowledgement references");

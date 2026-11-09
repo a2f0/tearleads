@@ -90,12 +90,14 @@ served heads the re-citation pins past is likewise planned once more.
 
 Principal-policy writes
 [acknowledge](../../principal-history-transport.md#mutation-acknowledgements) the
-exact submitted state and current artifacts without retransmitting
-`previousStates`. The SDK verifies that receipt against its authored request.
-Group revocation returns `OrganizationGroupMutationReceipt`; `addUserToGroup`
-and `removeUserFromGroup` return `OrganizationGroupMutationResult`, that receipt
-plus the read model the SDK reconciled after the commit, so a caller applies it
-instead of reading the read model again. Each atomically retains current
+committed head, its server-assigned `createdAt`, and container results, never an
+echo of the submitted state. The SDK refuses a head other than the one its
+authored request commits to and rebuilds the current artifacts from that
+request. Group revocation returns `OrganizationGroupMutationReceipt`, that
+acknowledgement; `addUserToGroup` and `removeUserFromGroup` return
+`OrganizationGroupMutationResult`, that receipt plus the read model the SDK
+reconciled after the commit, so a caller applies it instead of reading the read
+model again. Each atomically retains current
 artifacts and authenticated progress. Built-in workflows require private paged
 recovery; standalone full-bundle utilities keep their explicit complete-history
 contracts. See [current mutations](../principal-current-mutations.md). Missing or

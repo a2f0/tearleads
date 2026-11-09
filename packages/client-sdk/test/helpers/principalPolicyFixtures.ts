@@ -18,7 +18,7 @@ type BundleState = Omit<
 >;
 
 export function principalPolicyHead(
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: Pick<PrincipalPolicyBundleResponse, "currentState">,
   principalId = bundle.currentState.principalId,
 ): ReferencedPrincipalHead {
   return {
@@ -137,7 +137,10 @@ export async function signedPrincipalPolicyBundle(input: {
 export async function policyBundleAfterMutation(input: {
   readonly mutation: PutPrincipalPolicyRequest;
   readonly previous: PrincipalPolicyBundleResponse;
-}): Promise<PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse> {
+}): Promise<
+  PrincipalPolicyBundleResponse &
+    Pick<PrincipalPolicyMutationResponse, "containerMutations">
+> {
   return {
     ...(await principalPolicyBundleFromState({
       createdAt: input.mutation.state.signedAt,
@@ -159,12 +162,16 @@ export async function policyBundleAfterMutation(input: {
   };
 }
 
-/** The wire receipt omits the prefix retained by the SDK's verified store. */
+/** The wire receipt names the bundle's head; the author holds every other byte. */
 export function policyReceiptFromBundle(
-  bundle: PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse,
+  bundle: Pick<PrincipalPolicyBundleResponse, "currentState"> &
+    Partial<Pick<PrincipalPolicyMutationResponse, "containerMutations">>,
 ): PrincipalPolicyMutationResponse {
-  const { previousStates: _previousStates, ...receipt } = bundle;
-  return receipt;
+  return {
+    head: principalPolicyHead(bundle),
+    createdAt: bundle.currentState.createdAt,
+    containerMutations: bundle.containerMutations ?? [],
+  };
 }
 
 export async function policyBundleFromInitialRequest(

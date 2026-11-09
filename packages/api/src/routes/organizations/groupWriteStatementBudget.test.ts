@@ -93,7 +93,8 @@ async function signGroupSuccessor(actor: TestUser, groupId: string) {
 // statements PGlite hides. Before per-transaction memos of current principal
 // states and organization descriptors under their locks: create 132 (PGlite
 // and SQLite) / 134 (Postgres), commit 155 / 159. After: 117 / 119 and
-// 133 / 137.
+// 133 / 137. Once policy writes acknowledged heads instead of re-reading the
+// stored bundle: 114 / 116 and 127 / 131.
 test("group create and group policy commit stay within their statement budgets", async () => {
   const actor = createTestUser();
   await registerUser(actor);
@@ -120,6 +121,6 @@ test("group create and group policy commit stay within their statement budgets",
     }),
   );
 
-  expect(create).toBeLessThanOrEqual(119);
-  expect(commit).toBeLessThanOrEqual(137);
+  expect(create).toBeLessThanOrEqual(116);
+  expect(commit).toBeLessThanOrEqual(131);
 });

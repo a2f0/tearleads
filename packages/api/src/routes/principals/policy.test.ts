@@ -42,9 +42,9 @@ test("PUT /principals/:principalType/:principalId/policy atomically stores and r
 
   expect(putPolicyResponse.status).toBe(200);
   const storedPolicy = await readCommittedGroupPolicy(putPolicyResponse);
-  const storedState = storedPolicy.currentState;
+  const storedState = storedPolicy.head;
   expect(storedState.stateHash.length).toBeGreaterThan(0);
-  expect(storedState.memberCount).toBe(1);
+  expect(storedState.principalId).toBe(principalId);
 
   const getPolicyResponse = await routeApp.request(
     `/principals/group/${principalId}/policy`,
@@ -109,7 +109,7 @@ test("GET /principals/:principalType/:principalId/policy returns previous states
   expect(initialPutResponse.status).toBe(200);
   const initialStoredPolicy =
     await readCommittedGroupPolicy(initialPutResponse);
-  const initialStoredState = initialStoredPolicy.currentState;
+  const initialStoredState = initialStoredPolicy.head;
 
   const successorSignedState = await createSignedPrincipalState({
     principalType: "group",
@@ -135,7 +135,7 @@ test("GET /principals/:principalType/:principalId/policy returns previous states
   expect(successorPutResponse.status).toBe(200);
   const successorStoredPolicy =
     await readCommittedGroupPolicy(successorPutResponse);
-  const successorStoredState = successorStoredPolicy.currentState;
+  const successorStoredState = successorStoredPolicy.head;
 
   const getPolicyResponse = await routeApp.request(
     `/principals/group/${principalId}/policy`,
@@ -190,10 +190,7 @@ test("PUT /principals/:principalType/:principalId/policy stores signed current m
 
   expect(putPolicyResponse.status).toBe(200);
   const storedPolicy = await readCommittedGroupPolicy(putPolicyResponse);
-  const storedState = storedPolicy.currentState;
-  const storedMemberEnvelopes = storedPolicy.currentMemberEnvelopes;
-  expect(storedMemberEnvelopes.stateHash).toBe(storedState.stateHash);
-  expect(storedMemberEnvelopes.envelopes).toEqual(signedState.memberEnvelopes);
+  const storedState = storedPolicy.head;
 
   const getPolicyResponse = await routeApp.request(
     `/principals/group/${principalId}/policy`,
@@ -211,7 +208,10 @@ test("PUT /principals/:principalType/:principalId/policy stores signed current m
     isPrincipalPolicyBundleResponse(policyBundle),
     "expected principal policy bundle response",
   );
+  expect(policyBundle.currentMemberEnvelopes.stateHash).toBe(
+    storedState.stateHash,
+  );
   expect(policyBundle.currentMemberEnvelopes.envelopes).toEqual(
-    storedMemberEnvelopes.envelopes,
+    signedState.memberEnvelopes,
   );
 });

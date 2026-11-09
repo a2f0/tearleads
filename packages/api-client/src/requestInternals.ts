@@ -1,10 +1,10 @@
 import type { HttpOperation } from "@tearleads/validators/operation";
 import type {
+  DocumentSyncRequest,
   ListContainerDocumentLanesRequest,
   ListContainerParentLanesRequest,
 } from "@tearleads/validators/request";
 import type {
-  DocumentSyncResponse,
   DocumentWriterProjectionResponse,
   ReferencedPrincipalStateResponse,
   SyncWatermark,
@@ -23,40 +23,45 @@ import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import type { RequestBody } from "./types";
 
 /**
- * True when a sync response advances the document's write material past what a
- * cached/primed writer projection holds, so the projection must be re-fetched
- * before the next write. Compares the content-key bundle and KEK target hashes
- * the projection authorizes against the ones the server just committed.
+ * True when a committed sync advances the document's write material past what
+ * a cached/primed writer projection holds, so the projection must be re-fetched
+ * before the next write. The server commits a sync only against the bundle the
+ * request carries or, without one, the bundle its expectations name, and the
+ * KEK targets that bundle wraps to; compare the projection with those.
  */
 function documentSyncInvalidatesWriterProjection(
   projection: DocumentWriterProjectionResponse,
-  response: DocumentSyncResponse,
+  request: DocumentSyncRequest,
 ): boolean {
+  const committed = request.contentKeyBundle ?? {
+    contentKeyEpoch: request.contentKeyEpoch,
+    linkSetManifestHash: request.expectedLinkSetManifestHash,
+    targetHash: request.expectedTargetHash,
+  };
   return (
     projection.contentKeyBundle?.contentKeyEpoch !==
-      response.contentKeyBundle?.contentKeyEpoch ||
+      committed.contentKeyEpoch ||
     projection.contentKeyBundle?.linkSetManifestHash !==
-      response.contentKeyBundle?.linkSetManifestHash ||
-    projection.contentKeyBundle?.targetHash !==
-      response.contentKeyBundle?.targetHash ||
+      committed.linkSetManifestHash ||
+    projection.contentKeyBundle?.targetHash !== committed.targetHash ||
     projection.documentKekTargets?.linkSetManifestHash !==
-      response.documentKekTargets?.linkSetManifestHash ||
+      committed.linkSetManifestHash ||
     projection.documentKekTargets?.documentKeyTargetHash !==
-      response.documentKekTargets?.documentKeyTargetHash
+      committed.targetHash
   );
 }
 
 /**
  * Evict a cached/primed document writer projection iff the just-committed sync
- * response moved its write material. Re-checks the cache slot after awaiting so
- * a concurrent invalidation or refetch is not clobbered. `onEvicted` fires
+ * moved its write material. Re-checks the cache slot after awaiting so a
+ * concurrent invalidation or refetch is not clobbered. `onEvicted` fires
  * whenever an invalidation is issued, so callers can invalidate parallel
  * bookkeeping (e.g. an in-flight result fetch that predates the sync).
  */
 export async function evictWriterProjectionIfSyncChanged(
   cache: RequestCache<DocumentWriterProjectionResponse>,
   documentId: string,
-  response: DocumentSyncResponse,
+  request: DocumentSyncRequest,
   onEvicted?: () => void,
 ): Promise<void> {
   const cached = cache.get(documentId);
@@ -75,7 +80,7 @@ export async function evictWriterProjectionIfSyncChanged(
   if (cache.get(documentId) !== cached || !projection) {
     return;
   }
-  if (documentSyncInvalidatesWriterProjection(projection, response)) {
+  if (documentSyncInvalidatesWriterProjection(projection, request)) {
     cache.delete(documentId);
     onEvicted?.();
   }

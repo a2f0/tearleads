@@ -77,7 +77,7 @@ test("a direct group admin cannot manage policy without built-in Admins authorit
     isCommitOrganizationGroupPolicyResponse(initialBundle),
     "expected compound principal policy response",
   );
-  const currentState = initialBundle.groupPolicy.currentState;
+  const currentState = initialBundle.groupPolicy.head;
   const successor = await createSignedPrincipalState({
     principalType: "group",
     principalId: groupId,

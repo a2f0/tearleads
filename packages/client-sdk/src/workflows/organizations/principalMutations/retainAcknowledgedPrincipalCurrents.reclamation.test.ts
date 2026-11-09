@@ -5,6 +5,7 @@ import { currentPolicyPublicationFixture } from "../../../../test/helpers/curren
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
+  policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
@@ -32,7 +33,7 @@ test("successive acknowledgements reclaim old stages while preserving predecesso
       base64ToBytes(history.directory.currentState.encapsulationPublicKey),
     ]);
     await retainAcknowledgedPrincipalCurrents(f.publication);
-    let current = entry.response;
+    let current = f.organizationBundle;
     let predecessor = current;
     for (let count = 0; count < 2; count++) {
       predecessor = current;
@@ -66,7 +67,7 @@ test("successive acknowledgements reclaim old stages while preserving predecesso
               expectedHead: principalPolicyHead(current),
             },
             request,
-            response,
+            response: policyReceiptFromBundle(response),
           },
         ],
       });

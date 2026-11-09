@@ -13,6 +13,7 @@ import {
 import type {
   ContainerWriterProjectionResponse,
   DocumentContentKeyBundleResponse,
+  DocumentKekTargetsResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import { prepareDocumentOutgoingUpdates } from "../../src/workflows/documents/syncPlan/syncContentKeys";
@@ -214,28 +215,28 @@ export async function createMultiEpochDocumentFixture(input: {
   }
 
   return {
+    contentKeyBundle: currentBundle,
+    documentKekTargets: {
+      documentId: DOCUMENT_ID,
+      documentKeyTargetHash: currentBundle.targetHash,
+      linkedContainerKeyEpochIds: [currentTarget.containerKeyEpochId],
+      linkedContainerManifestHashes: [currentTarget.containerManifestHash],
+      linkSetManifestHash,
+      targets: [
+        {
+          containerId: currentTarget.containerId,
+          containerKeyEpoch: currentTarget.containerKeyEpoch,
+          containerKeyEpochId: currentTarget.containerKeyEpochId,
+          containerManifestHash: currentTarget.containerManifestHash,
+        },
+      ],
+    } satisfies DocumentKekTargetsResponse,
     response: {
       acceptedOutgoingUpdateIds: [],
       commitLsn: "0/16B6C50",
       commitLsnMode: "tracked",
-      contentKeyBundle: currentBundle,
       contentKeyBundles: [historicalBundle],
       documentId: DOCUMENT_ID,
-      documentKekTargets: {
-        documentId: DOCUMENT_ID,
-        documentKeyTargetHash: currentBundle.targetHash,
-        linkedContainerKeyEpochIds: [currentTarget.containerKeyEpochId],
-        linkedContainerManifestHashes: [currentTarget.containerManifestHash],
-        linkSetManifestHash,
-        targets: [
-          {
-            containerId: currentTarget.containerId,
-            containerKeyEpoch: currentTarget.containerKeyEpoch,
-            containerKeyEpochId: currentTarget.containerKeyEpochId,
-            containerManifestHash: currentTarget.containerManifestHash,
-          },
-        ],
-      },
       pullPage: { hasMore: false, nextCursor: null },
       updates: updates.map(syncResponseUpdate),
     } satisfies DocumentSyncResponse,

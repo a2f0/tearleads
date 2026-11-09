@@ -120,11 +120,12 @@ identify signed [container manifests](./glossary/access.md#access-manifest) alre
 held by the API; the expected link-set hash pins the server-resolved
 [document manifest](./glossary/access.md#document-link-set-manifest). Responses
 return `documentId`, `acceptedOutgoingUpdateIds`, `commitLsn`, `commitLsnMode`,
-the current-epoch `contentKeyBundle`, the `contentKeyBundles` array of older
+the `contentKeyBundles` array of older
 [epochs](./glossary/keys.md#epoch) that served updates cite (empty for an empty
-probe or a page at the current epoch; never a repeat of `contentKeyBundle`),
-`documentKekTargets`, `pullPage: {hasMore, nextCursor}`, and encrypted
-`updates[]`.
+probe or a page at the current epoch; never the epoch the request synced
+against), `pullPage: {hasMore, nextCursor}`, and encrypted `updates[]`. The
+current bundle and KEK targets are the ones the request named, so the response
+does not echo them.
 
 Other route families have their own documents:
 

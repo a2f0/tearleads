@@ -1,13 +1,12 @@
 import { expect, mock, test } from "bun:test";
 import { currentGroupMutationInput } from "../../../../test/helpers/currentGroupMutation";
 import { principalMutationJournalFixture } from "../../../../test/helpers/principalMutationJournalFixture";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { withAuthoredPrincipalPolicies } from "./authoredPrincipalPolicyWarmer";
 
 async function fixture() {
   const f = await principalMutationJournalFixture();
   const { verifiedCurrentPolicy } = await currentGroupMutationInput(
-    f.response.groupPolicy,
+    f.bundles.groupPolicy,
     [
       {
         userId: f.scope.userId,
@@ -40,7 +39,7 @@ async function fixture() {
     },
     request: {
       organizationId: f.scope.organizationId,
-      reference: principalPolicyHead(f.response.groupPolicy),
+      reference: f.response.groupPolicy.head,
       stillCurrent: () => true,
     },
   };
