@@ -8,6 +8,7 @@ import type { DocumentRow } from "../../data/documents/documentRowList";
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import type { BlobByteSourceInput } from "../../workflows/blobs";
 import type {
+  DocumentRotationProofMode,
   DocumentsWorkflowRuntime,
   RelinkPersistedDocumentInput,
 } from "../../workflows/documents";
@@ -102,7 +103,9 @@ export interface DocumentSnapshot {
 export interface DocumentStore {
   addRow: AddDocumentRow;
   /** Fail unless this store can produce a mergeable full-history checkpoint. */
-  assertCanRotateContentKey: () => Promise<Uint8Array>;
+  assertCanRotateContentKey: (
+    proof: DocumentRotationProofMode,
+  ) => Promise<Uint8Array>;
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
   /**
    * Convert this document's persisted local state to the discovered-share

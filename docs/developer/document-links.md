@@ -27,7 +27,10 @@ Replay uses current, verified
 mutations. It adds only explicitly queued targets, preserves unrelated remote
 links, and does not restore a preferred link removed by a peer. Additions do not
 [rotate](../glossary/keys.md#rotate) the content key; queued removals require a
-[full-history rotation proof](../document-rekey-and-audit-history.md). Network
+[full-history rotation proof](../document-rekey-and-audit-history.md). Replay
+reuses the proof taken when the removal was accepted while the document is
+unchanged, and proves again after a restart, a change, or a
+`document_unlink_rotation_baseline_stale` refusal. Network
 failures leave the durable intent available for retry. Permission denials and
 vanished containers use the
 [structural queue's recovery policy](../sync-edge-cases.md). Successful

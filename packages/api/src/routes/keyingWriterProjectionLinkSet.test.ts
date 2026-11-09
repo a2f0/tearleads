@@ -11,7 +11,10 @@ import { computeAccessEventHash } from "@tearleads/crypto";
 import { emptyVersionVector } from "@tearleads/loro";
 import { createTestUser } from "@tearleads/test-utils";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
-import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
+import {
+  DOCUMENT_MUTATION_ERROR_CODES,
+  isDocumentLinkSetMutationResponse,
+} from "@tearleads/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
@@ -209,6 +212,7 @@ test("POST /documents/:documentId/unlink requires a rotation baseline covering c
   );
   expect(missingBaselineResponse.status).toBe(409);
   expect(await missingBaselineResponse.json()).toEqual({
+    code: DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
     error:
       "Document unlink requires a rotation baseline covering committed updates",
   });

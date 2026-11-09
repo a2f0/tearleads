@@ -8,7 +8,10 @@ import {
   type DocumentStructuralMutationRuntime,
   removeDocumentLink,
 } from "../../src/workflows/container-contents/documentQueries/documentStructure";
-import { defaultDocumentsPersistence } from "../../src/workflows/documents";
+import {
+  type DocumentRotationProofMode,
+  defaultDocumentsPersistence,
+} from "../../src/workflows/documents";
 
 export async function persistQueuedDocumentPlacement(input: {
   execSql: ExecSql;
@@ -85,12 +88,15 @@ export function createQueuedDocumentPlacementHost(input: {
 }) {
   const { execSql, rotationSnapshot, submittedOperations, relinkInputs } =
     input;
+  const rotationProofModes: DocumentRotationProofMode[] = [];
   return {
     documentWorkflowRuntime: (containerId: string | null) =>
       `runtime:${containerId}`,
     mergeDocumentSummary: () => {},
+    rotationProofModes,
     openDocumentStore: () => ({
-      assertCanRotateContentKey: async () => {
+      assertCanRotateContentKey: async (proof: DocumentRotationProofMode) => {
+        rotationProofModes.push(proof);
         submittedOperations.push("preflight");
         return rotationSnapshot;
       },

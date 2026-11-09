@@ -21,5 +21,5 @@ export async function prepareContainerDocumentRotationSnapshot(
   if (!(await store.ensureInitialized())) {
     return null;
   }
-  return store.assertCanRotateContentKey();
+  return store.assertCanRotateContentKey("prove");
 }

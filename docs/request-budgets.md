@@ -64,10 +64,10 @@ unless noted.
 | [`GroupMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx) | Create the first / a later custom group | 11 / 8 | One group create, one read-model read (the hint naming its cursor costs none), plus at most one validated preparation response; the first create reads the roster profile container's projection and its Admins history, which bootstrap no longer reads |
 | [`GroupMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx) | Add a new peer to the first / a later custom group | 43 / 9 | One policy commit, applying the SDK's post-commit read model without a second read; the first add enrolls the peer in Members in the same commit, a later add reuses that roster membership; no write-bearing syncs |
 | [`GroupMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx) | Create plus add, as one pair | 50 / 14 | At most 11 / 3 public history reads |
-| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Create a child folder under a warm root | 3 | One create; its metadata rides the create, so no metadata sync; 36,000 request and 12,500 response bytes |
-| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Link a document into the folder, keeping its root link | 3 | One link |
-| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Unlink the document from the folder | 8 | One unlink, one document projection, two syncs |
-| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Move the document to Trash | 9 | One link and one unlink, sharing one attachment listing; the first write into Trash reads its projection |
+| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Create a child folder under a warm root | 3 | One create; its metadata rides the create, so no metadata sync; 36,000 request and 2,000 response bytes |
+| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Link a document into the folder, keeping its root link | 3 | One link; 10,500 request and 700 response bytes |
+| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Unlink the document from the folder | 6 | One unlink, one document projection, one rotation-preflight sync that the replay reuses; 20,000 request and 33,000 response bytes |
+| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Move the document to Trash | 5 | One link and one unlink, sharing one attachment listing; the first write into Trash reads its projection, and the unlink reuses the unchanged document's rotation proof, so no sync or document projection; 30,000 request and 25,000 response bytes |
 | [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Move the emptied folder to Trash | 10 | One move, no read-model read (an ungranted move stamps no grants); 18,500 request and 45,000 response bytes |
 | [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Restore the folder to the root | 11 | One move, no read-model read; 18,500 request and 59,000 response bytes |
 | [`DualPaneProvider.groupsRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx) | Open Org Manager and select Admins | 3 | One read-model, one organization-policy and one Admins-policy read |
@@ -161,8 +161,12 @@ policy heads and refreshing the
 [organization read model](./glossary/principals.md#organization-read-model).
 Those reads feed signed compare-and-swap mutations, so reusing stale
 authorization state to save them is not an option. Unlinking a document reads a
-current writer projection and runs a rotation-preflight sync; dropping either
-would need another proof that the client holds current authorization and
-complete history. Moving a document to Trash is a
-[durable link-then-unlink workflow](./developer/document-links.md): an outage
-can briefly leave both links present, and a retry completes the remaining leg.
+current writer projection and runs one rotation-preflight sync; the queued
+unlink's replay reuses that proof while the document is unchanged, because the
+server refuses a baseline that misses a committed update with
+`409 document_unlink_rotation_baseline_stale` and the replay then proves again.
+Dropping the projection or the first proof would need another proof that the
+client holds current authorization and complete history. Moving a document to
+Trash is a [durable link-then-unlink workflow](./developer/document-links.md):
+an outage can briefly leave both links present, and a retry completes the
+remaining leg.

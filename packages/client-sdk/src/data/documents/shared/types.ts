@@ -203,6 +203,14 @@ export type DocumentLinkSetFailureHandler = (
   failure: DocumentLinkSetMutationFailure,
 ) => void;
 
+/**
+ * `prove` pulls and verifies the document's full history. `reuse` returns the
+ * store's last completed proof while the same local document still sits at
+ * that proof's version vector, and proves otherwise; only a caller the server
+ * re-checks (an unlink's rotation baseline) may reuse.
+ */
+export type DocumentRotationProofMode = "prove" | "reuse";
+
 type DocumentLinkSetMutationResult =
   | { readonly data: DocumentLinkSetMutationResponse; readonly ok: true }
   | (DocumentLinkSetMutationFailure & { readonly ok: false });

@@ -1,6 +1,7 @@
 import { encodeVersionVector, versionVectorsEqual } from "@tearleads/loro";
 import {
   createDocumentWriterPublicKeyResolver,
+  type DocumentRotationProofMode,
   type DocumentSyncPullContinuation,
   readPullContinuation,
   resolveDocumentCreateAuthor,
@@ -26,6 +27,10 @@ import {
 import { deleteUpstreamDeletedDocument } from "../sync/syncRequest";
 import { documentIncomingUpdateIsolationFailureHandler } from "../sync/syncShared";
 import { importSyncedDocumentUpdates } from "../sync/syncUpdateImport";
+import {
+  currentRecordedRotationProof,
+  recordRotationProof,
+} from "./rotationProofRecord";
 import {
   assertExactDocumentHistory,
   importProvenOrdinaryPendingHistory,
@@ -421,9 +426,12 @@ async function recoverFullHistoryForRotation(
  * Wait for prior local writes and serialize with other remote work. Edits can
  * continue during the pull; the checked install rejects a changed document so
  * a stale recovery cannot replace them. This preflight can then be retried.
+ * `reuse` returns the last completed proof while it still covers this exact
+ * local document (rotationProofRecord); otherwise it proves like `prove`.
  */
 export function assertDocumentStoreCanRotateContentKey(
   state: DocumentStoreState,
+  proof: DocumentRotationProofMode = "prove",
 ): Promise<Uint8Array> {
   const laneGeneration = captureDocumentStoreSyncLaneGeneration(state);
   const generation = captureDocumentStoreAttachmentSyncGeneration(
@@ -441,24 +449,41 @@ export function assertDocumentStoreCanRotateContentKey(
         "Document changed before rotation recovery; retry key rotation",
       );
     }
-    for (let attempt = 0; ; attempt += 1) {
-      try {
-        return await recoverFullHistoryForRotation(state, laneGeneration);
-      } catch (error) {
-        // Autosaves and conflict re-keying can invalidate the proven frontier.
-        // Repeat the complete proof without blocking new local edits; repeated
-        // changes remain bounded and leave the durable queue retryable.
-        if (
-          !(
-            error instanceof RotationPendingUpdatesChangedError ||
-            error instanceof RotationDocumentChangedError
-          ) ||
-          attempt >= 2 ||
-          !isDocumentStoreSyncGenerationCurrent(state, generation)
-        ) {
-          throw error;
-        }
+    const recorded =
+      proof === "reuse" ? currentRecordedRotationProof(state) : null;
+    if (recorded) return recorded;
+    const snapshot = await proveFullHistoryForRotation(
+      state,
+      laneGeneration,
+      generation,
+    );
+    recordRotationProof(state, snapshot);
+    return snapshot;
+  });
+}
+
+async function proveFullHistoryForRotation(
+  state: DocumentStoreState,
+  laneGeneration: DocumentStoreSyncLaneGeneration,
+  generation: DocumentStoreSyncGeneration,
+): Promise<Uint8Array> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await recoverFullHistoryForRotation(state, laneGeneration);
+    } catch (error) {
+      // Autosaves and conflict re-keying can invalidate the proven frontier.
+      // Repeat the complete proof without blocking new local edits; repeated
+      // changes remain bounded and leave the durable queue retryable.
+      if (
+        !(
+          error instanceof RotationPendingUpdatesChangedError ||
+          error instanceof RotationDocumentChangedError
+        ) ||
+        attempt >= 2 ||
+        !isDocumentStoreSyncGenerationCurrent(state, generation)
+      ) {
+        throw error;
       }
     }
-  });
+  }
 }

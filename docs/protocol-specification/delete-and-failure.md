@@ -93,6 +93,11 @@ The protocol is fail-closed:
 - malformed route JSON returns validation errors
 - stale manifest heads, stale key targets, and stale recipient keys return
   conflicts
+- an unlink whose [rotation baseline](../glossary/keys.md#rotation-baseline)
+  does not cover every committed update, or that carries none while updates
+  are committed, returns `409 document_unlink_rotation_baseline_stale`; the
+  client proves the full history again and retries instead of resubmitting the
+  refused snapshot
 - missing signed policy material prevents managed-principal key derivation
 - signer/session mismatches return forbidden
 - unavailable policy, key, blob, or document material is an availability

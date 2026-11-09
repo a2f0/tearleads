@@ -30,6 +30,7 @@ import {
 } from "./documentMoveFailure";
 import { recordPendingDocumentMoveIntentError } from "./documentMoveIntentErrors";
 import { settleDocumentMoveIntent } from "./documentMoveIntentSettlement";
+import { moveWithRotationProof } from "./documentMoveRotationProof";
 import { moveWithVanishedContainerRefresh } from "./documentMoveVanishedRefresh";
 
 type DocumentMoveIntentReplayResult =
@@ -137,29 +138,6 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
   });
 }
 
-async function assertMoveIntentRotationPreflight<TRuntime>(input: {
-  existingContainerId: string | null | undefined;
-  host: DocumentMoveIntentSyncHost<TRuntime>;
-  isCurrent: () => boolean;
-  intent: DocumentMoveIntentRecord;
-}): Promise<Uint8Array | null> {
-  if (!input.isCurrent()) return null;
-  const preflightStore = input.host.openDocumentStore({
-    // The optimistic move already changed local placement. Use that scope so
-    // opening the destination view cannot invalidate this shared store's proof.
-    // Remote link-set authorization still uses the intent's source below.
-    containerId: input.existingContainerId ?? input.intent.targetContainerId,
-    documentId: input.intent.documentId,
-    localId: input.intent.localId,
-  });
-  if (!(await preflightStore.ensureInitialized())) {
-    throw new Error("Document rotation preflight could not load the document");
-  }
-  if (!input.isCurrent()) return null;
-  const rotationSnapshot = await preflightStore.assertCanRotateContentKey();
-  return input.isCurrent() ? rotationSnapshot : null;
-}
-
 async function movePendingDocumentIntent<TRuntime>(input: {
   existingContainerId: string | null | undefined;
   host: DocumentMoveIntentSyncHost<TRuntime>;
@@ -170,28 +148,35 @@ async function movePendingDocumentIntent<TRuntime>(input: {
 }) {
   // Adding links keeps the content key and needs no full-history rotation proof.
   const linkOnly = input.intent.intentType === DOCUMENT_LINK_INTENT_TYPE;
-  const rotationSnapshot =
-    linkOnly && !input.intent.removedLinkContainerIds?.length
-      ? new Uint8Array()
-      : await assertMoveIntentRotationPreflight(input);
-  if (!rotationSnapshot || !input.isCurrent()) return "abandoned" as const;
-  return moveRemoteContainerDocument({
-    linkOnly,
-    additionalLinkContainerIds: input.intent.additionalLinkContainerIds,
-    removedLinkContainerIds: input.intent.removedLinkContainerIds,
-    currentContainerId:
-      input.intent.sourceContainerId ??
-      input.existingContainerId ??
-      input.intent.targetContainerId,
-    documentId: input.intent.documentId,
-    isCurrent: input.isCurrent,
-    noteId: input.intent.localId,
-    onFailure: input.onFailure,
-    replaceLinkedContainers: input.intent.replaceLinkedContainers,
-    resolveProjectionUserKey: input.state.resolveProjectionUserKey,
-    rotationSnapshot,
-    runtime: input.state.runtime,
-    targetContainerId: input.intent.targetContainerId,
+  const move = (
+    rotationSnapshot: Uint8Array,
+    onFailure: DocumentLinkSetFailureHandler,
+  ) =>
+    moveRemoteContainerDocument({
+      linkOnly,
+      additionalLinkContainerIds: input.intent.additionalLinkContainerIds,
+      removedLinkContainerIds: input.intent.removedLinkContainerIds,
+      currentContainerId:
+        input.intent.sourceContainerId ??
+        input.existingContainerId ??
+        input.intent.targetContainerId,
+      documentId: input.intent.documentId,
+      isCurrent: input.isCurrent,
+      noteId: input.intent.localId,
+      onFailure,
+      replaceLinkedContainers: input.intent.replaceLinkedContainers,
+      resolveProjectionUserKey: input.state.resolveProjectionUserKey,
+      rotationSnapshot,
+      runtime: input.state.runtime,
+      targetContainerId: input.intent.targetContainerId,
+    });
+  if (linkOnly && !input.intent.removedLinkContainerIds?.length) {
+    return move(new Uint8Array(), input.onFailure);
+  }
+  return moveWithRotationProof({
+    ...input,
+    attempt: move,
+    log: (message) => input.state.runtime.util.log(message),
   });
 }
 

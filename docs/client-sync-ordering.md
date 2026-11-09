@@ -79,6 +79,20 @@ When a move is accepted, the lane updates the local snapshot, requests document
 sync for the domain, and requests a structural follow-up. Because that follow-up
 is structural, it drains before the requested document lanes.
 
+Removing a link [rotates](./glossary/keys.md#rotate) the content key, so it
+needs a [full-history rotation proof](./document-rekey-and-audit-history.md):
+the document store pulls and verifies the raw history and exports the snapshot
+that becomes the unlink's
+[rotation baseline](./glossary/keys.md#rotation-baseline). The store proves
+before it accepts the unlink and keeps that proof in memory with the version
+vector it covers. The replay of the durable intent, including the unlink leg of
+a move to Trash, reuses the proof while the store still holds the same local
+document at that version vector. A local or pulled change, a discarded or
+reloaded document, or a restart proves again. The server stays authoritative:
+under the manifest-head lock it refuses a baseline that misses a committed
+update with `409 document_unlink_rotation_baseline_stale`, and the replay then
+proves again and retries once in the same pass.
+
 Remote container hydration is read/discovery work, not a sync lane. It can prime
 local state and schedule the structural lane, but must not write document
 content or blob attachment state. One hydration pass, one document discovery

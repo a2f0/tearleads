@@ -22,6 +22,7 @@ import type {
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
+import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { routeApp } from "../../src/routeApp";
 import { currentDocumentLinkRows } from "./currentDocumentLinks";
@@ -323,6 +324,7 @@ export async function expectStaleAtomicUnlinkRollsBack(input: {
   );
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
+    code: DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
     error: "Document unlink rotation baseline is stale",
   });
   const [manifest, update, links] = await Promise.all([
