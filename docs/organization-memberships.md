@@ -27,8 +27,10 @@ holds a container of, with `rootContainerId` null when the user cannot reach the
 organization's workspace root. The Organizations mini-app shows each one with
 the folders the user can reach in it, the containers whose parent is not on the
 device, each labeled with the user's effective permission there (read, write, or
-admin). The Org Manager switcher lists only workspaces, because activating an
-organization makes its root the session container.
+admin). A Contacts or Trash folder shared on its own is one of them; the
+metadata root and roster profiles never are. The Org Manager switcher lists only
+workspaces, because activating an organization makes its root the session
+container.
 
 ## Membership list
 
