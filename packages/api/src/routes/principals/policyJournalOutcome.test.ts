@@ -121,7 +121,7 @@ test("SDK journal recovers a lost HTTP acknowledgement after a later policy comm
         ...signing,
         version: 2,
         keyEpoch: 2,
-        prevStateHash: first.groupPolicy.currentState.stateHash,
+        prevStateHash: first.groupPolicy.head.stateHash,
       }),
     });
     expect(
@@ -162,7 +162,7 @@ test("SDK journal recovers a lost HTTP acknowledgement after a later policy comm
     expect(
       (await getCurrentPrincipalState("organization", organizationId, db))
         ?.version,
-    ).toBe(first.organizationPolicy.currentState.version + 1);
+    ).toBe(first.organizationPolicy.head.version + 1);
     expect(
       await db
         .select()

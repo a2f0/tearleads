@@ -55,20 +55,21 @@ for (const historyMode of [undefined, "raw"] as const) {
         const response = await createSyncResponse(materializedPlan.plan, {
           contentKeyBundles: [
             {
-              ...historicalResponse.contentKeyBundle,
+              ...historicalPlan.plan.sourceContentKeyBundle,
               linkSetManifestHash: "refreshed-link-set-metadata",
               targets: wrongKey
                 ? await wrapDocumentContentKeyForCreate({
                     contentKey: new Uint8Array(32).fill(7),
                     contentKeyEpoch:
-                      historicalResponse.contentKeyBundle.contentKeyEpoch,
+                      historicalPlan.plan.sourceContentKeyBundle
+                        .contentKeyEpoch,
                     documentId: fixture.writerProjection.documentId,
                     execSql,
                     projection: fixture.projection,
                     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
                     secretKey: fixture.secretKey,
                   })
-                : historicalResponse.contentKeyBundle.targets,
+                : historicalPlan.plan.sourceContentKeyBundle.targets,
             },
           ],
           updates: historicalResponse.updates,

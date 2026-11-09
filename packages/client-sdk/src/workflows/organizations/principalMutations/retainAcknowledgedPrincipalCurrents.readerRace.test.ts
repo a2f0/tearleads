@@ -32,10 +32,10 @@ test.each([
       // test HTTP transport. Its current reply is delayed until after a reader.
       const latest =
         version > 67
-          ? await history.extend(organization.response, version)
-          : organization.response;
+          ? await history.extend(f.organizationBundle, version)
+          : f.organizationBundle;
       f.policies.set(history.organizationId, latest);
-      f.policies.set(history.group.currentState.principalId, group.response);
+      f.policies.set(history.group.currentState.principalId, f.response);
       if (version) {
         // A normal organization directory reader can observe the committed head
         // before the originating mutation receives/retains its acknowledgement.
@@ -83,7 +83,7 @@ test.each([
         version: admit ? version : 67,
         stateHash: admit
           ? latest.currentState.stateHash
-          : organization.response.currentState.stateHash,
+          : organization.response.head.stateHash,
       });
     } finally {
       f.close();

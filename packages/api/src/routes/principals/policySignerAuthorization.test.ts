@@ -18,6 +18,7 @@ import {
   getDefaultOrganizationId,
   putGroupPolicy,
   readCommittedGroupPolicy,
+  runGetCurrentPrincipalPolicyWorkflow,
   submitOrganizationGroupPolicyCommit,
   toPolicyRequest,
 } from "../../../test/helpers/principalPolicy";
@@ -199,7 +200,7 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
   });
   expect(initialResponse.status).toBe(200);
   const initialStoredPolicy = await readCommittedGroupPolicy(initialResponse);
-  const initialStoredState = initialStoredPolicy.currentState;
+  const initialStoredState = initialStoredPolicy.head;
   const successorProjection = [
     {
       userId: groupAdmin.userId,
@@ -236,7 +237,14 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
   expect(successorResponse.status).toBe(200);
   const successorStoredPolicy =
     await readCommittedGroupPolicy(successorResponse);
-  const successorStoredState = successorStoredPolicy.currentState;
-  expect(successorStoredState.signerUserId).toBe(orgAdmin.userId);
-  expect(successorStoredState.version).toBe(2);
+  expect(successorStoredPolicy.head.version).toBe(2);
+  const storedSuccessor = await runGetCurrentPrincipalPolicyWorkflow(
+    db,
+    "group",
+    groupId,
+  );
+  expect(storedSuccessor.currentState.stateHash).toBe(
+    successorStoredPolicy.head.stateHash,
+  );
+  expect(storedSuccessor.currentState.signerUserId).toBe(orgAdmin.userId);
 }, 10_000);

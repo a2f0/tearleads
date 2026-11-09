@@ -1,5 +1,6 @@
 import type {
   PrincipalPolicyBundleResponse,
+  PrincipalPolicyMutationResponse,
   PrincipalPolicyPageResponse,
 } from "@tearleads/validators/response";
 import { PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT } from "@tearleads/validators/util";
@@ -21,6 +22,25 @@ export function principalPolicyBundleResponseFor(
     artifact.stateHash = stateHash;
   }
   return bundle;
+}
+
+/** The head-only acknowledgement a policy write returns for `bundle`. */
+export function principalPolicyAcknowledgementFor(
+  bundle: PrincipalPolicyBundleResponse,
+): PrincipalPolicyMutationResponse {
+  const state = bundle.currentState;
+  return {
+    head: {
+      principalType: state.principalType,
+      principalId: state.principalId,
+      version: state.version,
+      keyEpoch: state.keyEpoch,
+      stateHash: state.stateHash,
+      keyFingerprint: state.keyFingerprint,
+    },
+    createdAt: state.createdAt,
+    containerMutations: [],
+  };
 }
 
 export function principalPolicyPageResponse(

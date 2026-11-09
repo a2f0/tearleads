@@ -68,7 +68,7 @@ export async function createCurrentOrganizationMutationRetention(input: {
           response: receipt.response,
           recovery: {
             historyReader: input.historyReader,
-            expectedHead: principalPolicyReferenceFromBundle(receipt.response),
+            expectedHead: receipt.response.head,
             protection: scopedGroupHistoryProtection(
               input.protection,
               input.organizationId,

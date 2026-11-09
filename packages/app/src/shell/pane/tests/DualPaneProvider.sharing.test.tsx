@@ -81,9 +81,11 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // 35 KB -> 0.8 KB): 0.51 MB received; keep about 10% headroom. Child
   // containers cite their parent KEK state and the login signature travels as
   // base64: 117 KB sent (120 KB before). Document creates and attachment
-  // binds acknowledge by hash too: 0.48 MB received. Recites of ungranted
-  // containers no longer stamp the grants lane: 0.46 MB received.
-  bodyBytes: { request: 128_000, response: 510_000 },
+  // binds acknowledge by hash too: 0.48 MB received. Syncs no longer echo the
+  // bundle and KEK targets the request named, the bind acknowledges its KEK
+  // targets by hash, and recites of ungranted containers no longer stamp the
+  // grants lane: 0.44 MB received (0.468 MB before); keep about 10% headroom.
+  bodyBytes: { request: 128_000, response: 490_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,

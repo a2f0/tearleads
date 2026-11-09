@@ -6,10 +6,7 @@ import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import { loadOrganizationExternalAdminPolicy } from "../../principals/externalAdminPolicy";
-import {
-  acknowledgeGroupPolicyState,
-  buildAcknowledgedGroupPolicyBundle,
-} from "../groupPolicy/groupPolicyMutationAcknowledgement";
+import { acknowledgeGroupPolicyBundle } from "../groupPolicy/groupPolicyMutationAcknowledgement";
 import type { PrincipalPolicyReadApi } from "../groupPolicy/groupPolicyMutationContext";
 import { groupPolicyMutationHead } from "../groupPolicy/groupPolicyMutationHead";
 import {
@@ -88,21 +85,14 @@ export async function deleteOrganizationGroup(input: {
   ) {
     throw new Error("Group deletion response target mismatch");
   }
-  const organizationHead = await groupPolicyMutationHead(organizationRequest);
-  const organizationPolicy = await acknowledgeGroupPolicyState({
+  const organization = await acknowledgeGroupPolicyBundle({
     currentPolicy: externalAdminPolicy.bundle,
-    expectedHead: organizationHead,
-    request: organizationRequest,
-    response: stored.organizationPolicy.currentState,
-  });
-  const organizationBundle = await buildAcknowledgedGroupPolicyBundle({
-    currentPolicy: externalAdminPolicy.bundle,
-    expectedHead: organizationHead,
+    expectedHead: await groupPolicyMutationHead(organizationRequest),
     request: organizationRequest,
     response: stored.organizationPolicy,
   });
   await persistLocallyAcknowledgedPrincipalPolicyBundles({
-    entries: [{ bundle: organizationBundle, policy: organizationPolicy }],
+    entries: [organization],
     execSql: input.execSql,
     organizationId: input.organizationId,
     updatedAt: new Date().toISOString(),

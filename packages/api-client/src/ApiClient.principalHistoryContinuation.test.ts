@@ -11,6 +11,7 @@ import {
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
 import {
+  principalPolicyAcknowledgementFor,
   principalPolicyBundleResponseFor,
   principalPolicyPageResponse,
 } from "../test/helpers/principalPolicyPage";
@@ -103,14 +104,12 @@ const request = () => ({
   organizationPolicy: createPrincipalPolicyRequest(),
 });
 const response = () => ({
-  groupPolicy: {
-    ...createPrincipalPolicyBundleResponse(),
-    containerMutations: [],
-  },
-  organizationPolicy: {
-    ...createPrincipalPolicyBundleResponse(),
-    containerMutations: [],
-  },
+  groupPolicy: principalPolicyAcknowledgementFor(
+    createPrincipalPolicyBundleResponse(),
+  ),
+  organizationPolicy: principalPolicyAcknowledgementFor(
+    createPrincipalPolicyBundleResponse(),
+  ),
 });
 
 testApiClient(
@@ -300,7 +299,7 @@ testApiClient(
       "organization",
       organizationId,
     );
-    const committed = { ...bundle, containerMutations: [] };
+    const committed = principalPolicyAcknowledgementFor(bundle);
     server.use(
       http.get(
         `${apiBaseUrl}/principals/organization/:principalId/policy`,

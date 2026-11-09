@@ -11,10 +11,8 @@ import {
 } from "@tearleads/validators/response";
 import type { AuthoredPrincipalMutation } from "../../../data/principals/principalMutationJournal";
 import { acknowledgeInitialGroupPolicy } from "../groupPolicy/groupPolicyMutationAcknowledgement";
-import {
-  assertAuthoredPrincipalMutationReceipt,
-  assertAuthoredPrincipalPolicyReceipt,
-} from "./principalMutationReceipt";
+import { acknowledgedPrincipalPolicyCurrent } from "../principalPolicy/principalPolicyReceiptArtifacts";
+import { assertAuthoredPrincipalMutationReceipt } from "./principalMutationReceipt";
 
 export type PrincipalMutationResponse =
   | CommitOrganizationGroupPolicyResponse
@@ -33,7 +31,11 @@ export async function assertAuthoredPrincipalOperationReceipt(
       return assertAuthoredPrincipalMutationReceipt(mutation.request, response);
     case "organization":
       if (!isPrincipalPolicyMutationResponse(response)) break;
-      return assertAuthoredPrincipalPolicyReceipt(mutation.request, response);
+      await acknowledgedPrincipalPolicyCurrent({
+        request: mutation.request,
+        response,
+      });
+      return;
     case "group-create":
       if (!isCreateOrganizationGroupResponse(response)) break;
       await acknowledgeInitialGroupPolicy({
@@ -44,10 +46,11 @@ export async function assertAuthoredPrincipalOperationReceipt(
           mutation.request.initialGroupPolicy.state,
         ),
       });
-      return assertAuthoredPrincipalPolicyReceipt(
-        mutation.request.organizationPolicy,
-        response.organizationPolicy,
-      );
+      await acknowledgedPrincipalPolicyCurrent({
+        request: mutation.request.organizationPolicy,
+        response: response.organizationPolicy,
+      });
+      return;
     case "group-delete":
       if (
         !isDeleteOrganizationGroupResponse(response) ||
@@ -56,10 +59,11 @@ export async function assertAuthoredPrincipalOperationReceipt(
           mutation.request.organizationPolicy.state.principalId
       )
         break;
-      return assertAuthoredPrincipalPolicyReceipt(
-        mutation.request.organizationPolicy,
-        response.organizationPolicy,
-      );
+      await acknowledgedPrincipalPolicyCurrent({
+        request: mutation.request.organizationPolicy,
+        response: response.organizationPolicy,
+      });
+      return;
   }
   throw new Error("Principal mutation receipt operation or target differs");
 }

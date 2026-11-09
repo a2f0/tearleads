@@ -366,10 +366,8 @@ export function createDocumentSyncResponse(): DocumentSyncResponse {
     acceptedOutgoingUpdateIds: [],
     commitLsn: "0/16B6C50",
     commitLsnMode: "tracked",
-    contentKeyBundle: mutationResponse.contentKeyBundle,
     contentKeyBundles: [],
     documentId: mutationResponse.id,
-    documentKekTargets: mutationResponse.documentKekTargets,
     pullPage: { hasMore: false, nextCursor: null },
     updates: [],
   };

@@ -151,7 +151,7 @@ test("an exact policy replay succeeds after the signer removes themself", async 
     principalId,
     principalKem: generateKemSeedAndKeyPair(),
     version: 2,
-    prevStateHash: initialBundle.groupPolicy.currentState.stateHash,
+    prevStateHash: initialBundle.groupPolicy.head.stateHash,
     keyEpoch: 2,
     signedAt: "2026-07-15T12:01:00.000Z",
     signer: departingAdmin,
@@ -174,6 +174,23 @@ test("an exact policy replay succeeds after the signer removes themself", async 
     isCommitOrganizationGroupPolicyResponse(successorBundle),
     "expected successor compound policy bundle",
   );
+  // One acknowledged `createdAt` stands for the state and its payload, so both
+  // rows must carry it exactly, including where SQLite evaluates each default.
+  for (const policy of [
+    successorBundle.groupPolicy,
+    successorBundle.organizationPolicy,
+  ]) {
+    const [state] = await db
+      .select({ createdAt: principalStates.createdAt })
+      .from(principalStates)
+      .where(eq(principalStates.stateHash, policy.head.stateHash));
+    const [payload] = await db
+      .select({ createdAt: principalStatePayloads.createdAt })
+      .from(principalStatePayloads)
+      .where(eq(principalStatePayloads.stateHash, policy.head.stateHash));
+    expect(state?.createdAt.toISOString()).toBe(policy.createdAt);
+    expect(payload?.createdAt.toISOString()).toBe(policy.createdAt);
+  }
 
   const projectionAfterRemoval = await listCurrentPrincipalProjectionMembers(
     "group",
@@ -204,14 +221,12 @@ test("an exact policy replay succeeds after the signer removes themself", async 
     isCommitOrganizationGroupPolicyResponse(replayBundle),
     "expected replayed compound policy bundle",
   );
-  expect(replayBundle.groupPolicy.currentState.stateHash).toBe(
-    successorBundle.groupPolicy.currentState.stateHash,
+  expect(replayBundle.groupPolicy.head).toEqual(
+    successorBundle.groupPolicy.head,
   );
-  expect(replayBundle.groupPolicy.currentMemberEnvelopes).toEqual(
-    successorBundle.groupPolicy.currentMemberEnvelopes,
+  expect(replayBundle.groupPolicy.createdAt).toBe(
+    successorBundle.groupPolicy.createdAt,
   );
-  expect(replayBundle.groupPolicy).not.toHaveProperty("previousStates");
-  expect(replayBundle.organizationPolicy).not.toHaveProperty("previousStates");
 }, 10_000);
 
 test("recipient-key rejection rolls back every policy artifact", async () => {

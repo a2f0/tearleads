@@ -74,6 +74,7 @@ export class DocumentArea {
   // projection only if the sync moved its write material.
   private settleSyncedDocument(
     documentId: string,
+    request: DocumentSyncRequest,
     response: DocumentSyncResponse,
   ): Promise<void> {
     if (response.updates.length > 0) {
@@ -82,7 +83,7 @@ export class DocumentArea {
     return evictWriterProjectionIfSyncChanged(
       this.projections,
       documentId,
-      response,
+      request,
       () => this.projectionResults.delete(documentId),
     );
   }
@@ -244,7 +245,7 @@ export class DocumentArea {
       )
       .then(async (response) => {
         if (response) {
-          await this.settleSyncedDocument(documentId, response);
+          await this.settleSyncedDocument(documentId, input, response);
         } else {
           this.dropProjectionIfUnchanged(documentId, cachedBefore);
         }
@@ -273,7 +274,7 @@ export class DocumentArea {
         options,
       );
       if (result.ok) {
-        await this.settleSyncedDocument(documentId, result.data);
+        await this.settleSyncedDocument(documentId, input, result.data);
       } else {
         this.dropProjectionIfUnchanged(documentId, cachedBefore);
       }

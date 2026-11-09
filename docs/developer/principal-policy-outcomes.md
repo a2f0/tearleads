@@ -34,17 +34,19 @@ revocation and recovery scenario.
 Receipts survive until their group or organization is deleted. Expiring them on
 a time limit would make an old unknown outcome indistinguishable from a failed
 commit. Each receipt stores only one or two exact public state references.
-Replay loads the immutable state and its public artifacts and reconstructs
-retired [member envelopes](../glossary/keys.md#member-envelope) from the
-authenticated, hash-matched original request. The receipt keeps no payload,
-envelope, projection, [grant](../glossary/access.md#grant) or container-result
-copy, so [rotation](../glossary/keys.md#rotate) can remove superseded envelope
-rows without losing the original acknowledgement. Reference substitution or
-missing immutable state fails closed. Reconstructed signature bytes, ciphertext,
-projection and grants must match the receipt-authenticated original request; the
-state hash alone cannot authenticate signature bytes. Altered retired artifacts
-cannot return a successful receipt. Storage still grows by a fixed-size record per
-accepted commit.
+Replay checks that each reference is the head the receipt-authenticated request
+commits to, loads that immutable state, and returns the same
+[head acknowledgement](../principal-history-transport.md#mutation-acknowledgements)
+as the original response: the head, the state's server-assigned `createdAt`,
+and the container results still held for that head. The receipt keeps no
+payload, [member envelope](../glossary/keys.md#member-envelope), projection,
+[grant](../glossary/access.md#grant) or container-result copy, and replay
+rebuilds none of them, so [rotation](../glossary/keys.md#rotate) can remove
+superseded envelope rows without losing the original acknowledgement. Reference
+substitution or missing immutable state fails closed, and the stored signature
+must equal the request's, since the state hash alone cannot authenticate
+signature bytes. Storage still grows by a fixed-size record per accepted
+commit.
 
 ## Group creation and deletion transport
 
@@ -59,10 +61,10 @@ with the original request bytes and identity. Its
 preserve unknown outcomes and accept cancellation options; the nullable methods
 delegate to those results.
 
-Creation receipts reconstruct the original group summary and directory outcome,
-even after later policies advance. Deletion receipts reconstruct the original
-directory outcome after the group is gone. Neither creates another read-model
-change on replay. Both require current administrator access under mutation locks.
+Creation receipts return the original group summary and directory head, even
+after later policies advance. Deletion receipts return the original directory
+head after the group is gone. Neither creates another read-model change on
+replay. Both require current administrator access under mutation locks.
 The runtime journals these operations in the same durable organization lane as
 compound and standalone organization policy requests.
 

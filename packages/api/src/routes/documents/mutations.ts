@@ -48,7 +48,6 @@ import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
 import { toPrincipalHistoryPreparationResponse } from "../principals/preparationResponse";
 import {
-  documentKekTargetContainerIds,
   publishDocumentMutationCreatedEvent,
   publishDocumentPurgeEvent,
   publishDocumentSyncContainerRekeyEvents,
@@ -204,15 +203,13 @@ async function respondWithDocumentSync(
   const session = c.get("session");
 
   try {
-    const { containerRekeys, insertedUpdateIds, response } = await syncDocument(
-      input.runtime,
-      {
+    const { containerRekeys, insertedUpdateIds, linkedContainerIds, response } =
+      await syncDocument(input.runtime, {
         documentId,
         fingerprint: session.fingerprint,
         request: input.request,
         userId: session.userId,
-      },
-    );
+      });
     const origin = { sessionId: session.id, userId: session.userId };
     await publishDocumentSyncContainerRekeyEvents({
       containerRekeys,
@@ -228,9 +225,7 @@ async function respondWithDocumentSync(
     // that hint recovers on its next reconcile, per the lossy-hint contract.
     if (insertedUpdateIds.length > 0) {
       await publishDocumentUpdateCreatedEvent({
-        containerIds: documentKekTargetContainerIds(
-          response.documentKekTargets,
-        ),
+        containerIds: linkedContainerIds,
         documentId,
         origin,
         publish: input.publish,

@@ -3,7 +3,7 @@ import {
   type DocumentContentKeyTarget,
   makeVerifiedDocumentKekTargets,
 } from "@tearleads/crypto";
-import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import type { DocumentContentKeyBundleResponse } from "@tearleads/validators/response";
 import { resolveEventContainerPaths } from "../../../keyingProjectionVerification";
 import { sortDocumentTargets } from "../readers";
 import type { DocumentSyncPlan } from "./documentSyncTypes";
@@ -12,7 +12,7 @@ export async function documentWriteAuthorizationForHeader(input: {
   readonly allowMissingAuthorization: boolean;
   readonly dependencyManifestHashes: readonly string[];
   readonly authorizationTargets: readonly DocumentContentKeyTarget[];
-  readonly contentKeyBundle: DocumentSyncResponse["contentKeyBundle"];
+  readonly contentKeyBundle: DocumentContentKeyBundleResponse;
   readonly manifestHash: string;
   readonly plan: Pick<
     DocumentSyncPlan,

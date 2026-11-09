@@ -309,6 +309,13 @@ async function appendCarriedDocumentSync(carried: {
 interface BindTransactionResult {
   /** The carried document sync's accepted ids; null when none was carried. */
   readonly acceptedOutgoingUpdateIds: readonly string[] | null;
+  /** Containers of the resolved KEK targets, for the realtime hint. */
+  readonly linkedContainerIds: readonly string[];
+  readonly response: BlobAttachmentBindResponse;
+}
+
+export interface BindBlobAttachmentWorkflowResult {
+  readonly linkedContainerIds: readonly string[];
   readonly response: BlobAttachmentBindResponse;
 }
 
@@ -403,6 +410,9 @@ async function bindBlobAttachmentTransaction(
       signingPublicKey,
       tx,
     }),
+    linkedContainerIds: currentTargets.targets.map(
+      (target) => target.containerId,
+    ),
     response: toBindResponse({
       binding: verifiedBinding,
       blobId: input.blobId,
@@ -418,27 +428,32 @@ export async function runBindBlobAttachmentWorkflow(
   input: BindBlobAttachmentInput & {
     readonly prevalidatedMultipartStage?: PrevalidatedMultipartBlobStage | null;
   },
-): Promise<BlobAttachmentBindResponse> {
+): Promise<BindBlobAttachmentWorkflowResult> {
   try {
-    const { acceptedOutgoingUpdateIds, response } = await db.transaction((tx) =>
-      bindBlobAttachmentTransaction(
-        {
-          ...input,
-          prevalidatedMultipartStage: input.prevalidatedMultipartStage ?? null,
-        },
-        tx,
-      ),
-    );
+    const { acceptedOutgoingUpdateIds, linkedContainerIds, response } =
+      await db.transaction((tx) =>
+        bindBlobAttachmentTransaction(
+          {
+            ...input,
+            prevalidatedMultipartStage:
+              input.prevalidatedMultipartStage ?? null,
+          },
+          tx,
+        ),
+      );
     if (acceptedOutgoingUpdateIds === null) {
-      return response;
+      return { linkedContainerIds, response };
     }
     // Read after commit, as a standalone sync reports its commit position.
     return {
-      ...response,
-      documentSync: {
-        acceptedOutgoingUpdateIds: [...acceptedOutgoingUpdateIds],
-        commitLsn: await readCurrentCommitLsn(db),
-        commitLsnMode: readCommitLsnMode(),
+      linkedContainerIds,
+      response: {
+        ...response,
+        documentSync: {
+          acceptedOutgoingUpdateIds: [...acceptedOutgoingUpdateIds],
+          commitLsn: await readCurrentCommitLsn(db),
+          commitLsnMode: readCommitLsnMode(),
+        },
       },
     };
   } catch (error) {

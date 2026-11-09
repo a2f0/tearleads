@@ -103,11 +103,12 @@ test("raw history reports the lowest unavailable epoch regardless of response or
     writerProjection: fixture.writerProjection,
   });
   const response = await createSyncResponse(materializedPlan.plan);
+  const plannedBundle = materializedPlan.plan.sourceContentKeyBundle;
   const currentBundle = {
-    ...response.contentKeyBundle,
+    ...plannedBundle,
     contentKeyEpoch: 3,
   };
-  const target = response.contentKeyBundle.targets[0];
+  const target = plannedBundle.targets[0];
   if (!target) throw new Error("Expected a content-key target");
   const unavailableTarget = {
     ...target,
@@ -134,16 +135,15 @@ test("raw history reports the lowest unavailable epoch regardless of response or
   });
   const reversedEpochResponse = {
     ...response,
-    contentKeyBundle: currentBundle,
     contentKeyBundles: [
       {
-        ...response.contentKeyBundle,
+        ...plannedBundle,
         contentKeyEpoch: 1,
         targetHash: unavailableTargetHash,
         targets: [unavailableTarget],
       },
       {
-        ...response.contentKeyBundle,
+        ...plannedBundle,
         contentKeyEpoch: 2,
         targetHash: unavailableTargetHash,
         targets: [unavailableTarget],
@@ -154,7 +154,7 @@ test("raw history reports the lowest unavailable epoch regardless of response or
 
   const error = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: fixture.contentKey,
-    currentContentKeyEpoch: 3,
+    currentContentKeyBundle: currentBundle,
     historyMode: "raw",
     response: reversedEpochResponse,
     targetSecretKey: fixture.secretKey,
@@ -188,12 +188,13 @@ test("a missing bundle outranks an earlier unavailable epoch", async () => {
   });
   const response = await createSyncResponse(materializedPlan.plan);
   const [epochOneUpdate, epochTwoUpdate] = response.updates;
-  const target = response.contentKeyBundle.targets[0];
+  const plannedBundle = materializedPlan.plan.sourceContentKeyBundle;
+  const target = plannedBundle.targets[0];
   if (!epochOneUpdate || !epochTwoUpdate || !target) {
     throw new Error("Expected two updates and one content-key target");
   }
   const currentBundle = {
-    ...response.contentKeyBundle,
+    ...plannedBundle,
     contentKeyEpoch: 3,
   };
   const unavailableTarget = {
@@ -205,10 +206,9 @@ test("a missing bundle outranks an earlier unavailable epoch", async () => {
   ]);
   const mixedResponse = {
     ...response,
-    contentKeyBundle: currentBundle,
     contentKeyBundles: [
       {
-        ...response.contentKeyBundle,
+        ...plannedBundle,
         contentKeyEpoch: 1,
         targetHash: unavailableTargetHash,
         targets: [unavailableTarget],
@@ -228,7 +228,7 @@ test("a missing bundle outranks an earlier unavailable epoch", async () => {
 
   const error = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: fixture.contentKey,
-    currentContentKeyEpoch: 3,
+    currentContentKeyBundle: currentBundle,
     historyMode: "raw",
     response: mixedResponse,
     targetSecretKey: fixture.secretKey,
@@ -392,7 +392,7 @@ test("a malformed later epoch outranks raw-history unavailability", async () => 
 
   const error = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: fixture.contentKey,
-    currentContentKeyEpoch: 3,
+    currentContentKeyBundle: currentBundle,
     historyMode: "raw",
     response,
     targetSecretKey: fixture.secretKey,

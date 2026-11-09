@@ -5,7 +5,6 @@ import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validator
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 import { requireDirectOrganizationAccess } from "../organizations/access";
-import { principalHistoryHead } from "./principalHistoryRecords";
 import { loadExactReplayMutationResponses } from "./principalPolicyMutationAcknowledgements";
 import { principalPolicyOutcomeHash } from "./principalPolicyOutcomeHash";
 import { loadPrincipalPolicyOutcomeReference } from "./principalPolicyOutcomeReference";
@@ -63,16 +62,10 @@ export async function principalPolicyCommitOutcome(
         requesterUserId: input.requesterUserId,
         responseJson: JSON.stringify({
           ...(policy.memberPolicy
-            ? {
-                memberPolicy: principalHistoryHead(
-                  policy.memberPolicy.currentState,
-                ),
-              }
+            ? { memberPolicy: policy.memberPolicy.head }
             : {}),
-          groupPolicy: principalHistoryHead(policy.groupPolicy.currentState),
-          organizationPolicy: principalHistoryHead(
-            policy.organizationPolicy.currentState,
-          ),
+          groupPolicy: policy.groupPolicy.head,
+          organizationPolicy: policy.organizationPolicy.head,
         }),
       });
     },
@@ -115,7 +108,7 @@ async function loadMemberOutcome(
   if (memberPolicy) {
     memberPolicy.containerMutations = await loadExactReplayMutationResponses({
       executor,
-      nextHead: memberPolicy.currentState,
+      nextHead: memberPolicy.head,
       requests: input.request.memberPolicy?.containerMutations ?? [],
     });
   }
@@ -151,7 +144,7 @@ async function loadCommitResponse(
   // Purged container acknowledgements cannot be resurrected from a receipt.
   groupPolicy.containerMutations = await loadExactReplayMutationResponses({
     executor,
-    nextHead: groupPolicy.currentState,
+    nextHead: groupPolicy.head,
     requests: input.request.groupPolicy.containerMutations ?? [],
   });
   const memberPolicy = await loadMemberOutcome(executor, input, stored);

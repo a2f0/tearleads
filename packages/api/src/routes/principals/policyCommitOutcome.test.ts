@@ -96,7 +96,7 @@ test("a lost compound commit response remains recoverable after a later policy u
       members: [{ userId: actor.userId }],
       version: 2,
       keyEpoch: 2,
-      prevStateHash: first.groupPolicy.currentState.stateHash,
+      prevStateHash: first.groupPolicy.head.stateHash,
     });
     const next = await submitOrganizationGroupPolicyCommit({
       actor,
@@ -149,7 +149,7 @@ test("a lost compound commit response remains recoverable after a later policy u
     expect(
       (await getCurrentPrincipalState("organization", organizationId, db))
         ?.version,
-    ).toBe(first.organizationPolicy.currentState.version + 1);
+    ).toBe(first.organizationPolicy.head.version + 1);
     expect(
       await db
         .select()
@@ -161,7 +161,7 @@ test("a lost compound commit response remains recoverable after a later policy u
       .from(principalPolicyCommits)
       .where(eq(principalPolicyCommits.groupId, groupId));
     const receipt = receipts.find((row) =>
-      row.responseJson.includes(first.groupPolicy.currentState.stateHash),
+      row.responseJson.includes(first.groupPolicy.head.stateHash),
     );
     const laterReceipt = receipts.find((row) => row !== receipt);
     if (!receipt || !laterReceipt)

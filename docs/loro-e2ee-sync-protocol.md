@@ -75,10 +75,10 @@ Document write routes:
     metadata hash commits the opaque, record-key-derived plaintext HMAC
   - response shape: `DocumentSyncResponse`
   - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`,
-    `commitLsnMode`, `contentKeyBundle`, `contentKeyBundles[]`, `documentId`,
-    `documentKekTargets`, required `pullPage: {hasMore, nextCursor}`, and
-    encrypted `updates[]`
-  - `contentKeyBundles[]` holds each older epoch a served update cites, once
+    `commitLsnMode`, `contentKeyBundles[]`, `documentId`, required
+    `pullPage: {hasMore, nextCursor}`, and encrypted `updates[]`
+  - `contentKeyBundles[]` holds each older epoch a served update cites, once;
+    the current bundle and KEK targets are the planned ones, never echoed
   - each returned update includes its stored `accessEpoch`, visible causal
     metadata, `plaintextHash`, and signed `writeHeader`, which names that
     content-key epoch; readers verify the signed metadata commitment, decrypt,

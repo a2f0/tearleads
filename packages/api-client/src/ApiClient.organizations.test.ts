@@ -15,6 +15,7 @@ import {
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
 import {
+  principalPolicyAcknowledgementFor,
   principalPolicyBundleResponseFor,
   principalPolicyPageResponse,
 } from "../test/helpers/principalPolicyPage";
@@ -298,12 +299,16 @@ testApiClient(
           });
         }
         if (request.url.endsWith("/policy")) {
-          return HttpResponse.json({
-            ...createPrincipalPolicyBundleResponse(),
-            ...(request.method === "PUT"
-              ? { containerMutations: [] }
-              : { historyPage: { afterVersion: 0, nextAfterVersion: null } }),
-          });
+          return HttpResponse.json(
+            request.method === "PUT"
+              ? principalPolicyAcknowledgementFor(
+                  createPrincipalPolicyBundleResponse(),
+                )
+              : {
+                  ...createPrincipalPolicyBundleResponse(),
+                  historyPage: { afterVersion: 0, nextAfterVersion: null },
+                },
+          );
         }
         if (request.method === "POST") {
           return HttpResponse.json({
@@ -321,20 +326,18 @@ testApiClient(
                 memberCount: 1,
               },
             },
-            organizationPolicy: {
-              ...createPrincipalPolicyBundleResponse(),
-              containerMutations: [],
-            },
+            organizationPolicy: principalPolicyAcknowledgementFor(
+              createPrincipalPolicyBundleResponse(),
+            ),
           });
         }
         if (request.method === "DELETE") {
           return HttpResponse.json({
             deleted: true,
             groupId: "group-1",
-            organizationPolicy: {
-              ...createPrincipalPolicyBundleResponse(),
-              containerMutations: [],
-            },
+            organizationPolicy: principalPolicyAcknowledgementFor(
+              createPrincipalPolicyBundleResponse(),
+            ),
             organizationId: "org-1",
           });
         }

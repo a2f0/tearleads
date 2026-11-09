@@ -59,9 +59,17 @@ export type PrincipalPolicyBundleResponse = z.infer<
   typeof PrincipalPolicyBundleResponseSchema
 >;
 
+/**
+ * Acknowledges a policy the caller authored without echoing it: the head the
+ * write committed, the server-assigned `createdAt` of the stored state and
+ * payload, and the hash-form acknowledgement of each container mutation it
+ * carried. The caller rebuilds the acknowledged artifacts from its own signed
+ * request and refuses a head it did not author.
+ */
 export const PrincipalPolicyMutationResponseSchema = loosePlainObject({
-  ...principalPolicyCurrentResponseShape,
   containerMutations: arraySchema(ContainerMutationResponseSchema),
+  createdAt: z.string(),
+  head: ReferencedPrincipalStateResponseSchema,
 });
 
 export type PrincipalPolicyMutationResponse = z.infer<

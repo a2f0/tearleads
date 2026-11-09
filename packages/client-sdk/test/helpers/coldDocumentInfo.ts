@@ -8,6 +8,8 @@ import {
 } from "@tearleads/loro";
 import type {
   ContainerWriterProjectionResponse,
+  DocumentContentKeyBundleResponse,
+  DocumentKekTargetsResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -15,8 +17,15 @@ import { sqlDocumentsPersistence } from "../../src/data/persistence/documents/do
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { loadDocumentInfo } from "../../src/workflows/container-contents/info/documentInfo";
 
+/** A synced document: the server response plus the bundle and targets it synced against. */
+type ColdSyncedDocument = {
+  contentKeyBundle: DocumentContentKeyBundleResponse;
+  documentKekTargets: DocumentKekTargetsResponse;
+  response: DocumentSyncResponse;
+};
+
 function documentInfoProjection(input: {
-  document: DocumentSyncResponse;
+  document: ColdSyncedDocument;
   projection: ContainerWriterProjectionResponse;
 }): DocumentWriterProjectionResponse {
   const manifestHash = input.document.contentKeyBundle.linkSetManifestHash;
@@ -30,7 +39,7 @@ function documentInfoProjection(input: {
     authorizingContainerPaths: [input.projection],
     contentKeyBundle: input.document.contentKeyBundle,
     documentContainerManifestHistory: input.projection.path,
-    documentId: input.document.documentId,
+    documentId: input.document.response.documentId,
     documentKekTargets: input.document.documentKekTargets,
     documentManifest: {
       event: {
@@ -49,14 +58,15 @@ function documentInfoProjection(input: {
 
 export async function loadColdRecoveredDocumentInfo(input: {
   authorFingerprint: string;
-  document: DocumentSyncResponse;
+  document: ColdSyncedDocument;
   execSql: ExecSql;
   projection: ContainerWriterProjectionResponse;
   recovered: Awaited<ReturnType<typeof createDocument>>;
   userId: string;
 }) {
   const writerProjection = documentInfoProjection(input);
-  const attributionSegments = input.document.updates.flatMap((update) =>
+  const { response } = input.document;
+  const attributionSegments = response.updates.flatMap((update) =>
     listVersionVectorSpans(update).map((span) => ({
       ...span,
       authorityKind: "direct" as const,
@@ -72,14 +82,14 @@ export async function loadColdRecoveredDocumentInfo(input: {
       accessStateHash: "cold-access-state",
       containerId: input.projection.containerId,
       contentKeyBundle: JSON.stringify(input.document.contentKeyBundle),
-      documentId: input.document.documentId,
+      documentId: response.documentId,
       documentKekTargets: JSON.stringify(input.document.documentKekTargets),
       documentKind: "note",
       documentManifestBundle: JSON.stringify({
         manifestHash: input.document.contentKeyBundle.linkSetManifestHash,
       }),
-      id: input.document.documentId,
-      lastCommitLsn: input.document.commitLsn,
+      id: response.documentId,
+      lastCommitLsn: response.commitLsn,
       snapshotEndVersion: encodeVersionVector(input.recovered),
       text: getTextValue(input.recovered),
       title: "Recovered",
@@ -90,7 +100,7 @@ export async function loadColdRecoveredDocumentInfo(input: {
     coveredTailIds: [],
     endVersionVector: encodeVersionVector(input.recovered),
     force: true,
-    localId: input.document.documentId,
+    localId: response.documentId,
     snapshot: bytesToBase64(exportFullHistorySnapshot(input.recovered)),
   });
   let attributionGetCount = 0;
@@ -98,7 +108,7 @@ export async function loadColdRecoveredDocumentInfo(input: {
     apiClient: {
       getDocumentEditAttribution: async (documentId) => {
         attributionGetCount += 1;
-        if (documentId !== input.document.documentId) {
+        if (documentId !== response.documentId) {
           throw new Error(`Unexpected attribution document ${documentId}`);
         }
         return {
@@ -111,7 +121,7 @@ export async function loadColdRecoveredDocumentInfo(input: {
       listDocumentAttachments: async () => [],
     },
     execSql: input.execSql,
-    localId: input.document.documentId,
+    localId: response.documentId,
     remoteInfoMode: "if-synced",
     reportSecurityIncident: async () => undefined,
   });
