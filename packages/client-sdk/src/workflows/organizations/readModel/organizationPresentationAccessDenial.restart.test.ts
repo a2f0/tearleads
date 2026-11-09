@@ -178,9 +178,9 @@ test("a denied requester's purge keeps shared rows for another local identity", 
     });
     await execSql(
       `INSERT INTO organization_read_model_requesters
-         (organization_id, user_id, is_org_admin, updated_at)
-       VALUES (?, ?, 0, ?)`,
-      [organizationId, otherUserId, "2026-07-18T12:00:00.000Z"],
+         (organization_id, user_id, is_org_admin, applied_cursor, updated_at)
+       VALUES (?, ?, 0, ?, ?)`,
+      [organizationId, otherUserId, "cursor-1", "2026-07-18T12:00:00.000Z"],
     );
 
     // The server denies user-2: only that requester's access falls.

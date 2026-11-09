@@ -65,9 +65,10 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // attachment's stage carries its part upload source and the bind completes
   // it. Batched discovery lists each reconciliation pass's lanes in one
   // request. The empty folder's create carries its metadata as its seed, so
-  // no metadata sync follows. Measured 58 calls (62–68 before the seed) and
-  // about 2.0–2.1 MB received; keep eight calls of scheduling room.
-  total: 66,
+  // no metadata sync follows. Measured 56 calls (58 before grants stamps
+  // skipped ungranted recites, 62–68 before the seed); keep eight calls of
+  // scheduling room.
+  total: 64,
   // Container mutations cite stored manifests by hash and principal policies
   // by head, so the share and its recitations echo neither path bundles nor
   // ~9.8 KB policies: 120 KB sent with create seeds (180 KB with policies,
@@ -80,8 +81,9 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // 35 KB -> 0.8 KB): 0.51 MB received; keep about 10% headroom. Child
   // containers cite their parent KEK state and the login signature travels as
   // base64: 117 KB sent (120 KB before). Document creates and attachment
-  // binds acknowledge by hash too: 0.48 MB received.
-  bodyBytes: { request: 128_000, response: 530_000 },
+  // binds acknowledge by hash too: 0.48 MB received. Recites of ungranted
+  // containers no longer stamp the grants lane: 0.46 MB received.
+  bodyBytes: { request: 128_000, response: 510_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,
@@ -100,7 +102,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /containers/:containerId/writer-projection": 7,
     "GET /documents/:documentId/attachments": 2,
     "GET /organizations/:organizationId/billing": 0,
-    "GET /organizations/:organizationId/read-model": 6,
+    // Measured 1 (4 before ungranted recites stopped stamping grants).
+    "GET /organizations/:organizationId/read-model": 3,
     "GET /principals/group/:groupId/policy": 0,
     // Measured 16–17, one per operation or pass.
     "GET /principals/organization/:organizationId/policy": 19,

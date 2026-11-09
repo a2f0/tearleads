@@ -9,6 +9,7 @@ const ORGANIZATION_ID = "00000000-0000-4000-8000-00000000000a";
 const USER_ID = "10000000-0000-4000-8000-00000000000a";
 const SECOND_USER_ID = "20000000-0000-4000-8000-00000000000a";
 const DECLARATION_ID = "organization-interest-a";
+const CURSOR = "eyJ2ZXJzaW9uIjo2fQ";
 
 function serverSocket(
   ws: FakeSocket,
@@ -106,6 +107,7 @@ test("authorization timeout acknowledges denial and leaves late success inert", 
     JSON.stringify({
       type: "organization_read_model_changed",
       organizationId: ORGANIZATION_ID,
+      cursor: CURSOR,
       recipientUserIds: [USER_ID],
     }),
   );
@@ -149,6 +151,7 @@ test("a stalled declaration cannot strand events for authorized recipients", asy
   await bus.publish({
     type: "organization_read_model_changed",
     organizationId: ORGANIZATION_ID,
+    cursor: CURSOR,
     recipientUserIds: [USER_ID, SECOND_USER_ID],
   });
   await settleWithin(stalledDeclaration);
@@ -164,7 +167,7 @@ test("a stalled declaration cannot strand events for authorized recipients", asy
     {
       type: "organization_read_model_changed",
       organizationId: ORGANIZATION_ID,
-      originatedFromSession: false,
+      cursor: CURSOR,
     },
   ]);
   expect(stalledSocket.sent.map((message) => JSON.parse(message))).toEqual([

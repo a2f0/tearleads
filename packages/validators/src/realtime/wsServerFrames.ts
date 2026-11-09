@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { OrganizationReadModelEncodedCursorSchema } from "../organizationReadModelCursor";
 import { uuidV4StringSchema } from "../schema";
 import {
   type WsInvalidationHint,
@@ -36,10 +37,13 @@ export const WsResyncRequiredFrameSchema = z.object({
   containerIds: z.array(z.string().min(1)).min(1),
 });
 
+// The committed read-model cursor lets a client skip the read when it already
+// applied that cursor. Only the organization audience, which reads the same
+// cursor as `nextCursor` over HTTP, receives it.
 export const WsOrganizationReadModelChangedFrameSchema = z.object({
   type: z.literal("organization_read_model_changed"),
   organizationId: uuidV4StringSchema,
-  originatedFromSession: z.boolean(),
+  cursor: OrganizationReadModelEncodedCursorSchema,
 });
 
 export const WsOrganizationReadModelAccessRevokedFrameSchema = z.object({

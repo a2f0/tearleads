@@ -30,7 +30,7 @@ const controlFrames: WsServerMessage[] = [
   { containerIds: [C1], type: "resync_required" },
   {
     organizationId: ORG,
-    originatedFromSession: false,
+    cursor: "eyJ2ZXJzaW9uIjo2fQ",
     type: "organization_read_model_changed",
   },
   { organizationId: ORG, type: "organization_read_model_access_revoked" },
@@ -114,7 +114,7 @@ test("malformed and unknown server frames fail closed", () => {
     parseWsServerMessage(
       JSON.stringify({
         organizationId: "not-a-uuid",
-        originatedFromSession: true,
+        cursor: "eyJ2ZXJzaW9uIjo2fQ",
         type: "organization_read_model_changed",
       }),
     ),

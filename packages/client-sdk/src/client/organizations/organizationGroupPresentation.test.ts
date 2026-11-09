@@ -97,6 +97,9 @@ function coordinatorWithMembers(
     async reconcileAfterMutation() {
       return null;
     },
+    async loadAppliedCursor() {
+      return null;
+    },
   };
 }
 
