@@ -6,7 +6,7 @@ import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFix
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import type { PrincipalHistoryProtectionLease } from "../../../data/principals/principalHistoryProtection";
 import {
-  principalPolicies,
+  principalPolicyBundles,
   principalPolicyCheckpoints,
 } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimeCurrentSharePrincipalPolicy } from "./currentSharePrincipalPolicy";
@@ -99,7 +99,7 @@ test("current share reads bind names and heads, retain only bounded evidence, an
     expect(f.state.fullReads).toBe(0);
     expect(f.requests.length).toBeGreaterThan(0);
     expect(f.requests.every((request) => request.count <= 32)).toBe(true);
-    expect(await f.db.select().from(principalPolicies)).toEqual([]);
+    expect(await f.db.select().from(principalPolicyBundles)).toEqual([]);
     expect(f.ownedKeys.length).toBeGreaterThan(0);
     expect(f.ownedKeys.every((key) => key.every((byte) => byte === 0))).toBe(
       true,

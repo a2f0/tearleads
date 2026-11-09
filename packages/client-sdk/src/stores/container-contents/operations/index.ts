@@ -28,12 +28,12 @@ import type {
 } from "../syncAgent";
 import { updateExistingSystemContainer } from "../systemContainers/existingSystemContainer";
 import { ensureOrganizationMetadataSystemContainer } from "../systemContainers/organizationMetadataSystemContainer";
+import { createSystemContainer } from "../systemContainers/systemContainerCreate";
 import { probeExistingSystemContainer } from "../systemContainers/systemContainerHydration";
 import {
   findRootContainerState,
   findSystemContainerStateForRoot,
 } from "../systemContainers/systemContainerLookup";
-import { finalizeCreatedSystemContainer } from "../systemContainers/systemContainerPostCreate";
 import { hasAdvancedManagedPrincipalReference } from "../systemContainers/systemContainerPromotion";
 import type {
   ContainerContentsStoreState,
@@ -235,34 +235,15 @@ async function ensureChildSystemContainer(
     allowSynchronousRemoteBootstrap &&
     state.runtime.auth.isAuthenticated &&
     Boolean(state.runtime.crypto.encapsulationKeyPair);
-  const created = await createChildContainerState({
-    systemSlot,
+  const finalized = await createSystemContainer({
     createRemote,
-    icon: options.icon,
-    name: trimmedName,
-    parentState: rootState,
-    persistence: state.persistence,
-    queueRemoteSync: !options.deferRemoteSync,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
-    stillCurrent: isCurrent,
-  });
-  if (!isCurrent()) {
-    if (createRemote) {
-      state.containerParentIdsNeedingHydration.add(rootState.container.id);
-      syncAgent.scheduleRemoteHydration();
-    }
-    return null;
-  }
-  if (!created) return null;
-
-  const finalized = await finalizeCreatedSystemContainer({
-    created,
-    logLabel: getContainerContentsStoreLogLabel(state),
+    isCurrent,
+    options,
+    rootState,
     state,
     syncAgent,
     systemSlot,
-    isCurrent,
+    trimmedName,
   });
   if (!finalized || !isCurrent()) return null;
   if (

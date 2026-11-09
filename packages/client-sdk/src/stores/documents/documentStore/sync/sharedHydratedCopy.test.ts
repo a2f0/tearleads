@@ -7,6 +7,7 @@ import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { reclaimDocumentOrphanBlobs } from "../../../../workflows/documents";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import type { DocumentsRuntime } from "../../types";
 import { discardDocumentStoreLocalState } from "../discard";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
@@ -109,7 +110,12 @@ test("detaching one slot keeps a hydrated copy another document holds", async ()
     const generation = captureDocumentStoreSyncGeneration(state, doc);
     if (!generation) throw new Error("Expected a sync generation");
 
-    await syncDetachedAttachmentBindings(state, record, generation);
+    await syncDetachedAttachmentBindings(
+      state,
+      record,
+      generation,
+      createPrincipalPolicyOperation(),
+    );
     await reclaimDocumentOrphanBlobs(state.runtime);
 
     expect(

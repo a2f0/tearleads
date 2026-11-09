@@ -15,7 +15,7 @@ import {
   type ProvisionedSystemContainerSpec,
   persistOrganizationProvisioningState,
 } from "../../registration/organizationProvisioning";
-import type { ProvisionedPrincipalHistoryPrimer } from "../../registration/provisionedPrincipalHistory";
+import type { ProvisionedStatePrimer } from "../../registration/provisionedStatePrimer";
 import {
   makeOrganizationProvisioningAttemptDurable,
   removeNativeSubscriptionRestoreProvisioningAttempt,
@@ -50,8 +50,8 @@ export interface CreateOrganizationInput {
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
   /** Overrides the seeded organization profile name; see registration. */
   organizationProfileName?: string | undefined;
-  /** Seeds verified recovery progress for the founding policy heads. */
-  primePrincipalHistory?: ProvisionedPrincipalHistoryPrimer | undefined;
+  /** Seeds what the committed bootstrap already proves. */
+  primeProvisionedState?: ProvisionedStatePrimer | undefined;
   /**
    * App-owned system containers to provision atomically with the new
    * organization (e.g. a trash bin). See registration.
@@ -238,7 +238,7 @@ export async function createOrganization(
     log: input.log,
     logError: input.logError,
     organizationMetadataBootstrap: artifacts.organizationMetadataBootstrap,
-    primePrincipalHistory: input.primePrincipalHistory,
+    primeProvisionedState: input.primeProvisionedState,
     response,
     rootContainer: artifacts.rootContainer,
     rootMetadataDocument: artifacts.rootMetadataDocument,

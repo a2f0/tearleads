@@ -3,6 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { PrincipalPolicyNotCachedError } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
+import { createPrincipalPolicyOperation } from "../../principals/runtimePolicyWarmer";
 import { createContainerMetadataDocument } from "./containerMetadataDocument";
 import { syncContainerMetadataState } from "./index";
 import {
@@ -79,6 +80,7 @@ test("syncContainerMetadataState defers a cold principal-policy cache", async ()
   const logs: string[] = [];
 
   const synced = await syncContainerMetadataState({
+    policyOperation: createPrincipalPolicyOperation(),
     ...createForcedMetadataSyncInput(
       createMetadataSyncRuntime({
         getDocumentWriterProjection: async () => {
@@ -137,6 +139,7 @@ test("an isolated metadata response does not starve the next container", async (
   for (const metadataState of states) {
     try {
       await syncContainerMetadataState({
+        policyOperation: createPrincipalPolicyOperation(),
         ...createForcedMetadataSyncInput(runtime),
         metadataState,
       });
@@ -181,6 +184,7 @@ test("isolated metadata reports a nested verification incident", async () => {
   const incidents: Array<{ context: unknown; error: unknown }> = [];
 
   const synced = await syncContainerMetadataState({
+    policyOperation: createPrincipalPolicyOperation(),
     ...createForcedMetadataSyncInput(
       createMetadataSyncRuntime({
         getDocumentWriterProjection: async () => {
@@ -227,6 +231,7 @@ test("syncContainerMetadataState rethrows unrelated sync errors", async () => {
 
   await expect(
     syncContainerMetadataState({
+      policyOperation: createPrincipalPolicyOperation(),
       ...createForcedMetadataSyncInput(
         createMetadataSyncRuntime({
           getDocumentWriterProjection: async () => {
@@ -266,6 +271,7 @@ test("a clean metadata follow-up resumes its durable pull cursor", async () => {
 
   await expect(
     syncContainerMetadataState({
+      policyOperation: createPrincipalPolicyOperation(),
       ...createForcedMetadataSyncInput(
         createMetadataSyncRuntime({
           getDocumentWriterProjection: async () => {
@@ -308,6 +314,7 @@ test("malformed durable metadata progress forces a page-one recovery", async () 
 
   await expect(
     syncContainerMetadataState({
+      policyOperation: createPrincipalPolicyOperation(),
       ...createForcedMetadataSyncInput(
         createMetadataSyncRuntime({
           getDocumentWriterProjection: async () => {
@@ -344,6 +351,7 @@ test("syncContainerMetadataState never defers keying verification failures", asy
 
   await expect(
     syncContainerMetadataState({
+      policyOperation: createPrincipalPolicyOperation(),
       ...createForcedMetadataSyncInput(
         createMetadataSyncRuntime({
           getDocumentWriterProjection: async () => {

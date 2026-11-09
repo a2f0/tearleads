@@ -2,7 +2,7 @@ import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { createOrganization as createOrganizationWorkflow } from "../../workflows/organizations/provisioning/createOrganization";
 import type { ProvisionedSystemContainerSpec } from "../../workflows/registration";
-import type { ProvisionedPrincipalHistoryPrimer } from "../../workflows/registration/provisionedPrincipalHistory";
+import type { ProvisionedStatePrimer } from "../../workflows/registration/provisionedStatePrimer";
 import type { Identity } from "../identity";
 import type { Database } from "../runtime/database";
 import type {
@@ -17,9 +17,7 @@ interface SessionOrganizationCreationDependencies {
   readonly identity: Identity;
   readonly log: (message: string) => void;
   readonly logError: (message: string | Error, cause?: unknown) => void;
-  readonly primeProvisionedPrincipalHistory?:
-    | ProvisionedPrincipalHistoryPrimer
-    | undefined;
+  readonly primeProvisionedState?: ProvisionedStatePrimer | undefined;
   readonly provisionedSystemContainers?:
     | ReadonlyArray<ProvisionedSystemContainerSpec>
     | undefined;
@@ -69,7 +67,7 @@ export async function createSessionOrganization(
       logError: dependencies.logError,
       nativeSubscriptionRestore: input.nativeSubscriptionRestore,
       organizationProfileName: input.options?.organizationProfileName,
-      primePrincipalHistory: dependencies.primeProvisionedPrincipalHistory,
+      primeProvisionedState: dependencies.primeProvisionedState,
       provisionedSystemContainers: dependencies.provisionedSystemContainers,
       replacesOrganizationId: input.replacesOrganizationId,
       rosterProfileNickname: input.options?.rosterProfileNickname,

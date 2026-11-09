@@ -267,8 +267,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
     budget: {
       // The link and unlink legs share one directory discovery and one
       // attachment listing: the unlink re-cites the envelopes the link
-      // committed (measured 7, 8 before).
-      total: 8,
+      // committed. The first write into Trash reads its projection, which
+      // bootstrap no longer reads because provisioning seeds its role
+      // (measured 8, 7 before).
+      total: 9,
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 2,
         "GET /principals/group/:groupId/policy": 0,

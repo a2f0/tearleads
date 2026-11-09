@@ -6,6 +6,7 @@ import {
   documentCreateSeedCandidate,
   type PendingUpdateRecord,
 } from "../../../../workflows/documents";
+import type { PrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import { chainIdentityWrite } from "../identityWriteChain";
 import { listPendingUpdates } from "../persistence";
 import type {
@@ -72,6 +73,7 @@ export async function ensureRemoteDocumentCarryingFirstUpdate(input: {
   readonly generation: DocumentStoreSyncGeneration;
   readonly nextRecord: DocumentRecord;
   readonly onCarried: (carried: CarriedFirstUpdate) => void;
+  readonly policyOperation: PrincipalPolicyOperation;
   readonly state: DocumentStoreState;
 }): Promise<DocumentRecord | null> {
   const update = await deferredFirstUpdateCandidate(
@@ -83,6 +85,7 @@ export async function ensureRemoteDocumentCarryingFirstUpdate(input: {
     input.currentDoc,
     input.nextRecord,
     input.encapsulationKeyPair,
+    input.policyOperation,
     input.generation,
     undefined,
     update

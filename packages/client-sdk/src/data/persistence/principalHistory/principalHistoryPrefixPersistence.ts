@@ -10,22 +10,35 @@ import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { archivePrincipalHistoryKeyEnvelopes } from "../principalKeys/principalKeyEnvelopeArchivePersistence";
 import { reclaimPrincipalHistoryNodes } from "./principalHistoryNodeRetention";
 import {
+  principalHistoryPrefixRootOwnerColumns,
+  principalHistoryRootRetention,
   releasePrincipalHistoryRoot,
-  retainPrincipalHistoryRoot,
+  writePrincipalHistoryRootEdges,
 } from "./principalHistoryRootOwnership";
 import { reclaimCompletedPrincipalHistoryStages } from "./principalHistoryStageRetention";
 
-export type PrincipalHistoryPrefix =
-  typeof principalHistoryPrefixes.$inferSelect;
+export type PrincipalHistoryPrefix = Omit<
+  typeof principalHistoryPrefixes.$inferSelect,
+  "rootHash"
+>;
+
+const principalHistoryPrefixColumns = {
+  scopeId: principalHistoryPrefixes.scopeId,
+  organizationId: principalHistoryPrefixes.organizationId,
+  version: principalHistoryPrefixes.version,
+  headJson: principalHistoryPrefixes.headJson,
+  currentJson: principalHistoryPrefixes.currentJson,
+  progress: principalHistoryPrefixes.progress,
+};
 
 export async function loadPrincipalHistoryPrefix(
   execSql: ExecSql,
   scopeId: string,
-) {
+): Promise<PrincipalHistoryPrefix | null> {
   await ensureSqlTables(execSql, principalHistoryEvidenceTables);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const [prefix] = await db
-    .select()
+    .select(principalHistoryPrefixColumns)
     .from(principalHistoryPrefixes)
     .where(eq(principalHistoryPrefixes.scopeId, scopeId))
     .limit(1);
@@ -90,21 +103,25 @@ export async function savePrincipalHistoryPrefix(input: {
       )
         await archivePrincipalHistoryKeyEnvelopes(tx, previous);
       await archivePrincipalHistoryKeyEnvelopes(tx, prefix);
-      await tx
-        .insert(principalHistoryPrefixes)
-        .values(prefix)
-        .onConflictDoUpdate({
-          target: principalHistoryPrefixes.scopeId,
-          set: prefix,
-        })
-        .run();
-      await reclaimCompletedPrincipalHistoryStages(tx, prefix);
-      await retainPrincipalHistoryRoot(tx, {
-        id: `prefix:${prefix.scopeId}`,
+      const root = {
         scopeId: prefix.scopeId,
         organizationId: prefix.organizationId,
         rootHash: indexRootHash,
-      });
+      };
+      const row = { ...prefix, rootHash: indexRootHash };
+      await tx
+        .insert(principalHistoryPrefixes)
+        .values(row)
+        .onConflictDoUpdate({
+          target: principalHistoryPrefixes.scopeId,
+          set: row,
+        })
+        .run();
+      await reclaimCompletedPrincipalHistoryStages(tx, prefix);
+      await writePrincipalHistoryRootEdges(
+        tx,
+        principalHistoryRootRetention(previous, root),
+      );
       await reclaimPrincipalHistoryNodes(tx, prefix);
     },
     input.stillCurrent,
@@ -125,12 +142,15 @@ export async function discardPrincipalHistoryPrefix(input: {
   const result = await runtime.guardedTransaction(
     async (tx) => {
       const [current] = await tx
-        .select({ progress: principalHistoryPrefixes.progress })
+        .select({
+          progress: principalHistoryPrefixes.progress,
+          ...principalHistoryPrefixRootOwnerColumns,
+        })
         .from(principalHistoryPrefixes)
         .where(eq(principalHistoryPrefixes.scopeId, prefix.scopeId))
         .limit(1);
-      if (current?.progress !== prefix.progress) return;
-      await releasePrincipalHistoryRoot(tx, `prefix:${prefix.scopeId}`);
+      if (!current || current.progress !== prefix.progress) return;
+      await releasePrincipalHistoryRoot(tx, current);
       await tx
         .delete(principalHistoryPrefixes)
         .where(

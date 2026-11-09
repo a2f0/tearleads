@@ -8,11 +8,12 @@ import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type PendingAttachmentRecord,
-  recordDocumentSyncFailure,
   resolveDocumentCreateAuthor,
-  runSerializedSqlMutation,
 } from "../../../../workflows/documents";
-import { createRuntimePrincipalPolicyWarmer } from "../../../../workflows/principals/runtimePolicyWarmer";
+import {
+  createRuntimePrincipalPolicyWarmer,
+  type PrincipalPolicyOperation,
+} from "../../../../workflows/principals/runtimePolicyWarmer";
 import { markOriginatedDocuments } from "../../../../workflows/sync";
 import { requestDocumentStoreSync } from "../../registry";
 import {
@@ -23,7 +24,6 @@ import {
 import { uploadAttachmentWithWriterProjectionRetry } from "../attachmentUpload/attachmentUploadAttempt";
 import {
   type AttachmentUploadLaneReporter,
-  createAttachmentUploadFailedError,
   createAttachmentUploadLaneReporter,
 } from "../attachmentUpload/attachmentUploadLane";
 import type { AttachmentUploadResume } from "../attachmentUpload/attachmentUploadResume";
@@ -33,6 +33,7 @@ import type {
   EncapsulationKeyPair,
   PendingMutationSyncResult,
 } from "../state";
+import { reportAttachmentUploadFailure } from "./attachmentUploadFailure";
 import {
   type CarriedFirstUpdate,
   ensureRemoteDocumentCarryingFirstUpdate,
@@ -78,6 +79,7 @@ export async function syncPendingAttachments(
   nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
   attachmentGeneration: DocumentStoreSyncGeneration,
+  policyOperation: PrincipalPolicyOperation,
 ): Promise<PendingMutationSyncResult> {
   if (state.pendingAttachments.length === 0) {
     return { completed: false, nextRecord };
@@ -99,6 +101,7 @@ export async function syncPendingAttachments(
         onCarried: (carried) => {
           carriedFirstUpdate = carried;
         },
+        policyOperation,
         state,
       });
   if (!currentRecord?.documentId) {
@@ -120,6 +123,7 @@ export async function syncPendingAttachments(
         carriedFirstUpdate,
         encapsulationKeyPair,
         pendingAttachment,
+        policyOperation,
         remoteDocumentId,
         state,
       },
@@ -235,6 +239,7 @@ interface PendingAttachmentUploadInput {
   carriedFirstUpdate?: CarriedFirstUpdate | undefined;
   encapsulationKeyPair: EncapsulationKeyPair;
   pendingAttachment: PendingAttachmentRecord;
+  policyOperation: PrincipalPolicyOperation;
   remoteDocumentId: string;
   state: DocumentStoreState;
 }
@@ -317,6 +322,7 @@ function createAttachmentBaseUploadInput(input: {
     targetSecretKey: input.pendingUpload.encapsulationKeyPair.secretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       state.runtime,
+      { operation: input.pendingUpload.policyOperation },
     ),
   };
 }
@@ -455,46 +461,4 @@ async function syncPendingAttachmentUpload(
     pendingUpload: input,
     uploadLane,
   });
-}
-
-function reportAttachmentUploadFailure(input: {
-  attachmentGeneration: DocumentStoreSyncGeneration;
-  error: unknown;
-  pendingAttachment: PendingAttachmentRecord;
-  state: DocumentStoreState;
-  uploadLane: AttachmentUploadLaneReporter;
-}): void {
-  const error = createAttachmentUploadFailedError(
-    input.pendingAttachment,
-    input.error,
-  );
-  input.uploadLane.fail(error);
-  input.state.runtime.util.log(`Documents: ${error.message}`);
-  // Surface the stuck upload in the write queue; a later successful sync pass
-  // for the document clears the record. Validated inside the serialized
-  // mutation: a teardown (reset/discard) racing this pass just cleared the
-  // failure row, and re-recording it would resurrect a phantom queue entry
-  // for work that no longer exists.
-  void runSerializedSqlMutation(
-    input.state.runtime.infra.execSql,
-    async (lockedExecSql) => {
-      if (
-        !isDocumentStoreSyncGenerationCurrent(
-          input.state,
-          input.attachmentGeneration,
-        )
-      ) {
-        return;
-      }
-      await recordDocumentSyncFailure(
-        lockedExecSql,
-        { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
-        {
-          attemptedAt: new Date().toISOString(),
-          message: error.message,
-          status: null,
-        },
-      );
-    },
-  ).catch(() => undefined);
 }

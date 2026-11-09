@@ -1,7 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { assertProjectionVerificationCurrent } from "../../keyingProjectionVerification/types";
 import { principalHistoryEvidenceTables } from "../../sqlite/schema/principalHistoryEvidenceSchema";
-import { principalHistoryNodeRetentionTables } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
 import {
   principalHistoryStages,
   principalHistoryStageTables,
@@ -16,16 +15,17 @@ import { reclaimIncompletePrincipalHistoryStages } from "./principalHistoryIncom
 import { reclaimPrincipalHistoryNodes } from "./principalHistoryNodeRetention";
 import {
   foldablePrincipalHistoryRootEdges,
-  loadPrincipalHistoryRootRetention,
+  principalHistoryRootRetention,
+  principalHistoryStageRootOwnerColumns,
   releasePrincipalHistoryRoot,
-  writePrincipalHistoryRootRetention,
+  writePrincipalHistoryRootEdges,
 } from "./principalHistoryRootOwnership";
 import { reclaimUnpublishedPrincipalHistoryStages } from "./principalHistoryUnpublishedRetention";
 
 /** A stage's verification work; its retention hints are written by persistence. */
 export type PrincipalHistoryStage = Omit<
   typeof principalHistoryStages.$inferSelect,
-  "scopeId" | "touchedAt"
+  "scopeId" | "touchedAt" | "rootHash"
 >;
 
 const principalHistoryStageColumns = {
@@ -84,7 +84,10 @@ export async function savePrincipalHistoryStage(input: {
   const saved = await runtime.guardedTransaction(
     async (tx) => {
       const [previous] = await tx
-        .select({ progress: principalHistoryStages.progress })
+        .select({
+          progress: principalHistoryStages.progress,
+          ...principalHistoryStageRootOwnerColumns,
+        })
         .from(principalHistoryStages)
         .where(eq(principalHistoryStages.id, stage.id))
         .limit(1);
@@ -92,21 +95,21 @@ export async function savePrincipalHistoryStage(input: {
         throw new PrincipalHistoryStageChangedError();
       // The node write replays the root's edges after the page's own, as
       // separate statements after it would.
-      const retention = await loadPrincipalHistoryRootRetention(tx, {
-        id: `stage:${stage.id}`,
+      const root = {
         scopeId: evidence.scopeId,
         organizationId: stage.organizationId,
         rootHash: evidence.indexRootHash,
-      });
+      };
+      const retention = principalHistoryRootRetention(previous, root);
       const rootEdges = foldablePrincipalHistoryRootEdges(retention, evidence);
       await writePrincipalHistoryEvidencePage(tx, evidence, rootEdges);
-      const row = { ...stage, touchedAt: Date.now() };
+      const row = { ...stage, ...root, touchedAt: Date.now() };
       await tx
         .insert(principalHistoryStages)
         .values(row)
         .onConflictDoUpdate({ target: principalHistoryStages.id, set: row })
         .run();
-      await writePrincipalHistoryRootRetention(tx, retention, rootEdges);
+      await writePrincipalHistoryRootEdges(tx, retention, rootEdges);
       await reclaimIncompletePrincipalHistoryStages(tx, stage);
       await reclaimUnpublishedPrincipalHistoryStages(tx, stage);
       await reclaimPrincipalHistoryNodes(tx, evidence);
@@ -124,18 +127,21 @@ export async function discardPrincipalHistoryStage(
 ) {
   await ensureSqlTables(execSql, [
     ...principalHistoryStageTables,
-    ...principalHistoryNodeRetentionTables,
+    ...principalHistoryEvidenceTables,
   ]);
   const runtime = getClientSQLitePersistenceRuntime(execSql);
   const discarded = await runtime.guardedTransaction(
     async (db) => {
       const [current] = await db
-        .select({ progress: principalHistoryStages.progress })
+        .select({
+          progress: principalHistoryStages.progress,
+          ...principalHistoryStageRootOwnerColumns,
+        })
         .from(principalHistoryStages)
         .where(eq(principalHistoryStages.id, stage.id))
         .limit(1);
-      if (current?.progress !== stage.progress) return;
-      await releasePrincipalHistoryRoot(db, `stage:${stage.id}`);
+      if (!current || current.progress !== stage.progress) return;
+      await releasePrincipalHistoryRoot(db, current);
       await db
         .delete(principalHistoryStages)
         .where(

@@ -25,6 +25,7 @@ import {
   defaultDocumentsPersistence,
 } from "../../../../workflows/documents";
 import { buildMaterializedDocumentSyncPlan } from "../../../../workflows/documents/syncPlan/syncPlanMaterial";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import type { DocumentsRuntime } from "../../types";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { chainIdentityWrite } from "../identityWriteChain";
@@ -233,6 +234,7 @@ test("a store durably invalidates a regressed cursor before a failed fresh retry
 
   try {
     const attempt = await requestRemoteDocumentSync({
+      policyOperation: createPrincipalPolicyOperation(),
       currentDoc: document,
       currentRecord: record,
       encapsulationKeyPair: {

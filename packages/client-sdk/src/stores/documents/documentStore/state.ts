@@ -36,6 +36,7 @@ import {
   type PendingUpdateInsert,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
+import type { PrincipalPolicyOperation } from "../../../workflows/principals/runtimePolicyWarmer";
 import type {
   DocumentSnapshot,
   DocumentStoreOpenOptions,
@@ -97,6 +98,8 @@ export interface SaveDocumentRecordOptions {
 export interface DocumentSyncAttempt {
   consumedPullContinuation: DocumentSyncPullContinuation | null;
   outgoingUpdateCount: number;
+  /** The request's policy operation; finalizing hydration reuses it. */
+  policyOperation: PrincipalPolicyOperation;
   requestRecord: DocumentRecord;
   synced: SyncRemoteDocumentResult;
   /** `writerProjectionGeneration` when the request left; gates the install. */

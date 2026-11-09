@@ -10,6 +10,7 @@ import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
 } from "../../../../workflows/documents";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { createDocumentStoreState } from "../state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
@@ -124,6 +125,7 @@ test.each(["document", "api-client", "container"] as const)(
       if (!generation) throw new Error("Expected a live sync generation");
 
       const attempt = await requestRemoteDocumentSync({
+        policyOperation: createPrincipalPolicyOperation(),
         currentDoc,
         currentRecord: record,
         encapsulationKeyPair: {
@@ -199,6 +201,7 @@ test("a replaced store generation cannot submit a planned remote create", async 
       currentDoc,
       record,
       { publicKey: fixture.publicKey, secretKey: fixture.secretKey },
+      createPrincipalPolicyOperation(),
       generation,
     );
 

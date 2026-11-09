@@ -45,8 +45,8 @@ merges each by its kind:
 The model checks one representative of each kind. Some local tables are
 deliberately not anchors, because losing them costs only a refetch:
 `document_history_checkpoints` holds each document's Loro content snapshot;
-`principal_policies` and `principal_policy_bundle_history` cache verified
-bundles; `principal_history_prefixes`, `principal_history_entries`, and
+`principal_policy_bundles` caches verified bundles;
+`principal_history_prefixes`, `principal_history_entries`, and
 `principal_history_nodes` hold proof material checked against a private root;
 and the
 [organization read model](../../docs/glossary/principals.md#organization-read-model)

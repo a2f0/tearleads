@@ -7,6 +7,7 @@ import {
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
 } from "../../../../workflows/documents";
+import type { PrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import {
   onDocumentStoreRetired,
   requestDocumentStoreSync,
@@ -47,6 +48,7 @@ import {
 import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
 import { mergeQueuedDocumentUpdates } from "./syncQueueMerge";
 import { requestRemoteDocumentSync } from "./syncRequest";
+import { revalidateRemoteDocumentBeforeAttachments } from "./syncRevalidation";
 import {
   ensureSeededRemoteDocument,
   remoteCreateGate,
@@ -72,6 +74,7 @@ async function requestOutgoingDocumentBatch(input: {
   readonly encapsulationKeyPair: EncapsulationKeyPair;
   readonly generation: DocumentStoreSyncGeneration;
   readonly pendingUpdates: PendingUpdateRecord[];
+  readonly policyOperation: PrincipalPolicyOperation;
   readonly record: DocumentRecord;
   readonly state: DocumentStoreState;
 }): Promise<{
@@ -98,6 +101,7 @@ async function requestOutgoingDocumentBatch(input: {
             updateIds,
           ),
         pendingUpdates: planningUpdates,
+        policyOperation: input.policyOperation,
         queuedUpdateCount,
         state: input.state,
         unavailableWriterLogMessage:
@@ -150,6 +154,7 @@ async function syncDocumentState(
   nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
   generation: DocumentStoreSyncGeneration,
+  policyOperation: PrincipalPolicyOperation,
 ): Promise<DocumentRecord> {
   // Snapshot the remote-update signal sequence before any await. The GET below
   // fetches server state as of its own snapshot; any remote event delivered
@@ -180,6 +185,7 @@ async function syncDocumentState(
     generation,
     nextRecord,
     pendingUpdates,
+    policyOperation,
     state,
   });
   let nextRemoteRecord = created.record;
@@ -224,6 +230,7 @@ async function syncDocumentState(
     encapsulationKeyPair,
     generation,
     pendingUpdates,
+    policyOperation,
     record: nextRemoteRecord,
     state,
   });
@@ -252,61 +259,10 @@ async function syncDocumentState(
   );
 }
 
-async function revalidateRemoteDocumentBeforeAttachments(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  nextRecord: DocumentRecord,
-  encapsulationKeyPair: EncapsulationKeyPair,
-  generation: DocumentStoreSyncGeneration,
-): Promise<{ canSyncAttachments: boolean; nextRecord: DocumentRecord }> {
-  if (state.pendingAttachments.length === 0 || !nextRecord.documentId) {
-    return { canSyncAttachments: true, nextRecord };
-  }
-
-  const consumedRemoteUpdateSignalSeq = state.remoteUpdateSignalSeq;
-  const wasRemoteProbe = state.remoteUpdatePending;
-  const syncAttempt = await requestRemoteDocumentSync({
-    state,
-    currentDoc,
-    currentRecord: nextRecord,
-    encapsulationKeyPair,
-    generation,
-    pendingUpdates: [],
-    unavailableWriterLogMessage:
-      "Documents: skipped pre-attachment revalidation because the writer context is unavailable.",
-  });
-  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
-    requestDocumentStoreSync(state);
-    return { canSyncAttachments: false, nextRecord };
-  }
-  if (!syncAttempt) {
-    logUnavailable(state, wasRemoteProbe);
-    return { canSyncAttachments: false, nextRecord };
-  }
-
-  const refreshedRecord = await finalizeDocumentSync(
-    state,
-    currentDoc,
-    nextRecord,
-    syncAttempt,
-    consumedRemoteUpdateSignalSeq,
-    generation,
-    [],
-    wasRemoteProbe,
-  );
-  return {
-    canSyncAttachments:
-      !syncAttempt.synced.hasIncompletePull &&
-      refreshedRecord.pullContinuation == null &&
-      refreshedRecord.pullContinuationRecoveryRequired !== true &&
-      isDocumentStoreSyncGenerationCurrent(state, generation),
-    nextRecord: refreshedRecord,
-  };
-}
-
 async function runDocumentSyncPass(
   state: DocumentStoreState,
   syncLaneGeneration: DocumentStoreSyncLaneGeneration,
+  policyOperation: PrincipalPolicyOperation,
 ) {
   const currentDoc = state.doc;
   const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
@@ -337,6 +293,7 @@ async function runDocumentSyncPass(
     nextRecord,
     encapsulationKeyPair,
     generation,
+    policyOperation,
   );
   nextRecord = revalidation.nextRecord;
   if (!revalidation.canSyncAttachments) {
@@ -348,6 +305,7 @@ async function runDocumentSyncPass(
     nextRecord,
     encapsulationKeyPair,
     attachmentGeneration,
+    policyOperation,
   );
   nextRecord = attachmentResult.nextRecord;
   if (state.pendingAttachments.length > 0) {
@@ -364,6 +322,7 @@ async function runDocumentSyncPass(
     nextRecord,
     encapsulationKeyPair,
     generation,
+    policyOperation,
   );
 
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
@@ -382,7 +341,12 @@ async function runDocumentSyncPass(
     return;
   }
 
-  await syncDetachedAttachmentBindings(state, nextRecord, generation);
+  await syncDetachedAttachmentBindings(
+    state,
+    nextRecord,
+    generation,
+    policyOperation,
+  );
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
     requestDocumentStoreSync(state);
   }
@@ -391,6 +355,7 @@ async function runDocumentSyncPass(
 async function runScheduledSyncIteration(
   state: DocumentStoreState,
   syncLaneGeneration: DocumentStoreSyncLaneGeneration,
+  policyOperation: PrincipalPolicyOperation,
 ) {
   if (!(await awaitInitializationForSync(state))) {
     return false;
@@ -404,7 +369,7 @@ async function runScheduledSyncIteration(
   }
 
   try {
-    await runDocumentSyncPass(state, syncLaneGeneration);
+    await runDocumentSyncPass(state, syncLaneGeneration, policyOperation);
     return true;
   } catch (error) {
     if (isDatabaseUnavailableError(error)) {
@@ -428,6 +393,7 @@ async function runScheduledSyncIteration(
 async function runScheduledSyncLoop(
   state: DocumentStoreState,
   syncLaneGeneration: DocumentStoreSyncLaneGeneration,
+  policyOperation: PrincipalPolicyOperation,
 ) {
   const syncingGeneration = captureDocumentStoreSyncGeneration(
     state,
@@ -436,7 +402,7 @@ async function runScheduledSyncLoop(
   setDocumentSyncing(state, true);
 
   try {
-    await runScheduledSyncIteration(state, syncLaneGeneration);
+    await runScheduledSyncIteration(state, syncLaneGeneration, policyOperation);
   } finally {
     if (
       syncingGeneration &&
@@ -472,7 +438,7 @@ export function registerDocumentStoreSyncLane(
       // be async, and the lane reporter only catches a rejection it is handed.
       return logError ? logError(message, error) : log(message);
     },
-    run: () => {
+    run: (policyOperation) => {
       const syncLaneGeneration = getSyncLaneGeneration();
       if (!syncLaneGeneration) return Promise.resolve();
       const activeWork = getActiveDocumentRemoteWork(state);
@@ -490,7 +456,7 @@ export function registerDocumentStoreSyncLane(
       }
       return runDocumentRemoteWork(state, () =>
         isDocumentStoreSyncLaneGenerationCurrent(state, syncLaneGeneration)
-          ? runScheduledSyncLoop(state, syncLaneGeneration)
+          ? runScheduledSyncLoop(state, syncLaneGeneration, policyOperation)
           : Promise.resolve(),
       );
     },

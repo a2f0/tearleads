@@ -4,7 +4,7 @@ import { createGroupNameDirectory } from "../../../../test/helpers/groupNameDire
 import { createAuthorityRecoveryFixture } from "../../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import {
-  principalPolicies,
+  principalPolicyBundles,
   principalPolicyCheckpoints,
 } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
@@ -85,7 +85,7 @@ test("current group names hydrate without a full-policy read or fabricated bundl
       "Operators",
     ]);
     expect(fullReads).toBe(0);
-    expect(await f.db.select().from(principalPolicies)).toEqual([]);
+    expect(await f.db.select().from(principalPolicyBundles)).toEqual([]);
     expect(await f.db.select().from(principalPolicyCheckpoints)).toHaveLength(
       2,
     );

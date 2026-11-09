@@ -46,13 +46,11 @@ export const principalPolicyTables = [
   "principalHistoryEntries",
   "principalHistoryNodes",
   "principalHistoryPrefixes",
-  "principalHistoryRootOwners",
   "principalHistoryStages",
   "principalKeyEnvelopeArchive",
   "principalMutationJournal",
-  "principalPolicies",
-  "principalPolicyBundleHistory",
   "principalPolicyBundleReferences",
+  "principalPolicyBundles",
 ];
 
 export const identityTables = ["trustedUserIdentityPins"];

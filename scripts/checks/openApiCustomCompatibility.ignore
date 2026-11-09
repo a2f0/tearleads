@@ -1,5 +1,0 @@
-# a2f0/tearleads#2864 DWP-1 (greenfield flag day): the sync response no longer
-# echoes the current contentKeyBundle, so the response can only require distinct
-# contentKeyBundles epochs; the client enforces "older than the epoch it synced
-# against". Remove this exact diagnostic once main contains this contract.
-POST /documents/{documentId}/sync: refinement 'response.historical-content-key-bundles' was reworded; treat semantic changes as breaking.

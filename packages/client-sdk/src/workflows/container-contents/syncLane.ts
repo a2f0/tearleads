@@ -4,6 +4,7 @@ import {
   isDatabaseUnavailableError,
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
+import type { PrincipalPolicyOperation } from "../principals/runtimePolicyWarmer";
 
 export { sequenceUnchanged } from "../../data/sync/sequence";
 // Facade re-exports: container-contents stores must reach these shared sync
@@ -20,7 +21,11 @@ export function registerContainerContentsSyncLane(input: {
   readonly domainScope: DomainScope;
   /** Host diagnostics sink; bare runtimes do not structure errors. */
   readonly logError?: ((message: string, error: unknown) => void) | undefined;
-  readonly run: () => Promise<void>;
+  /**
+   * Receives the coordinator drain's pass token, which is the principal-policy
+   * operation of every metadata sync this run performs.
+   */
+  readonly run: (policyOperation: PrincipalPolicyOperation) => Promise<void>;
 }): ContainerContentsSyncLane {
   return getOrCreateDomainSyncCoordinator(input.domainScope).registerLane(
     CONTAINER_CONTENTS_SYNC_LANE_KEY,

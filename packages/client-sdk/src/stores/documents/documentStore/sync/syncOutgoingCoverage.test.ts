@@ -10,6 +10,7 @@ import {
 import { createCoverageFixture } from "../../../../../test/helpers/syncOutgoingCoverage";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { listDeferredPendingWriteCandidates } from "../../../../workflows/container-contents/pendingWrites/deferredTails";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import { pendingDeltaSinceBase, persistDocument } from "../persistence";
 import { resetDocumentStore, setReadySnapshot } from "../state";
 import { shouldReArmDocumentSync } from "./syncFinalize";
@@ -183,6 +184,7 @@ test("a completed cursor re-arms queued document writes", async () => {
       shouldReArmDocumentSync(fixture.state, {
         consumedPullContinuation: null,
         outgoingUpdateCount: 1,
+        policyOperation: createPrincipalPolicyOperation(),
         requestRecord: fixture.state.record as NonNullable<
           typeof fixture.state.record
         >,
