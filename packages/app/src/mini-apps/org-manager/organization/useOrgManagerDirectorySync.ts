@@ -8,6 +8,11 @@ import type {
   DirectoryRefreshOptions,
   DirectoryRefreshResult,
 } from "../refresh";
+import {
+  type DirectoryCatchUpState,
+  initialDirectoryCatchUp,
+  transitionDirectoryCatchUp,
+} from "./directoryCatchUpMachine";
 
 interface OrgManagerDirectorySyncInput {
   readonly canLoadAuthenticatedOrgData: boolean;
@@ -19,13 +24,6 @@ interface OrgManagerDirectorySyncInput {
   ) => Promise<DirectoryRefreshResult>;
   readonly scopeKey: string;
   readonly tearleads: Tearleads;
-}
-
-/** The catch-up owed to one subscription key, stamped with that key so a new
- * organization, scope, or reconnect awaits its own catch-up. */
-interface DirectoryCatchUp {
-  readonly key: string | null;
-  readonly status: "awaiting" | "settled";
 }
 
 /**
@@ -44,14 +42,17 @@ export function useOrgManagerDirectorySync(
     input.canLoadAuthenticatedOrgData && input.online && input.organizationId
       ? input.scopeKey
       : null;
-  const [catchUp, setCatchUp] = useState<DirectoryCatchUp>(() => ({
-    key: catchUpKey,
-    status: "awaiting",
-  }));
-  // Reset during render, as the key changes, so the first frame of a new
+  const [storedCatchUp, setCatchUp] = useState<DirectoryCatchUpState>(() =>
+    initialDirectoryCatchUp(catchUpKey),
+  );
+  // Apply a changed key during render, so the first frame of a new
   // subscription already reads as awaiting its catch-up.
-  if (catchUp.key !== catchUpKey) {
-    setCatchUp({ key: catchUpKey, status: "awaiting" });
+  const catchUp = transitionDirectoryCatchUp(storedCatchUp, {
+    type: "demand",
+    key: catchUpKey,
+  });
+  if (catchUp !== storedCatchUp) {
+    setCatchUp(catchUp);
   }
 
   useEffect(() => {
@@ -82,9 +83,10 @@ export function useOrgManagerDirectorySync(
         isMutationActive: () => mutatingRef.current,
         onCatchUpSettled: () =>
           setCatchUp((current) =>
-            current.key === input.scopeKey
-              ? { key: input.scopeKey, status: "settled" }
-              : current,
+            transitionDirectoryCatchUp(current, {
+              type: "settle",
+              key: input.scopeKey,
+            }),
           ),
       },
     );
@@ -103,8 +105,5 @@ export function useOrgManagerDirectorySync(
     releaseHeldOrganizationReadModelHint(input.tearleads, input.organizationId);
   }, [input.mutating, input.organizationId, input.tearleads]);
 
-  return (
-    catchUpKey !== null &&
-    (catchUp.key !== catchUpKey || catchUp.status === "awaiting")
-  );
+  return catchUp.status === "awaiting";
 }
