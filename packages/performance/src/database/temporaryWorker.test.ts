@@ -24,7 +24,7 @@ function fixture(existing = false, failAddress = false) {
   let exists = existing;
   const calls: string[] = [];
   let metadata = "";
-  const api: CloudflareApi = async (path, method = "GET", body) => {
+  const api: CloudflareApi = async (path, method = "GET", body?) => {
     calls.push(`${method} ${path}`);
     if (method === "PUT") {
       if (!(body instanceof FormData))

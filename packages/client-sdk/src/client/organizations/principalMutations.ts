@@ -301,26 +301,24 @@ export async function revokeOrganizationGrant(
               revokedContainerId: input.containerId,
             })
           ).response;
-        } else {
-          return revokeOrganizationContainerGrant({
-            stillCurrent: input.stillCurrent,
-            reportSecurityIncident: input.runtime.util.reportSecurityIncident,
-            apiClient: input.runtime.apiClient,
-            containerId: input.containerId,
-            encapsulationKeyPair,
-            execSql: input.runtime.infra.execSql,
-            revokedSubject: {
-              subjectId: input.subjectId,
-              subjectType: input.subjectType,
-            },
-            resolveTrustedUserIdentity:
-              input.runtime.resolveTrustedUserIdentity,
-            warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-              input.runtime,
-            ),
-            ...signingContext,
-          });
         }
+        return revokeOrganizationContainerGrant({
+          stillCurrent: input.stillCurrent,
+          reportSecurityIncident: input.runtime.util.reportSecurityIncident,
+          apiClient: input.runtime.apiClient,
+          containerId: input.containerId,
+          encapsulationKeyPair,
+          execSql: input.runtime.infra.execSql,
+          revokedSubject: {
+            subjectId: input.subjectId,
+            subjectType: input.subjectType,
+          },
+          resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+          warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+            input.runtime,
+          ),
+          ...signingContext,
+        });
       };
       const response = await revoke();
       await input.readModelCoordinator.reconcileAfterMutation(

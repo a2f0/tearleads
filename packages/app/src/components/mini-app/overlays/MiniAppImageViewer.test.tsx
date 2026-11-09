@@ -246,12 +246,16 @@ test("Escape closes only the viewer that owns focus", () => {
     <>
       <MiniAppImageViewer
         label="first.png"
-        onClose={() => (firstCloses += 1)}
+        onClose={() => {
+          firstCloses += 1;
+        }}
         url="blob:first"
       />
       <MiniAppImageViewer
         label="second.png"
-        onClose={() => (secondCloses += 1)}
+        onClose={() => {
+          secondCloses += 1;
+        }}
         url="blob:second"
       />
     </>,
@@ -264,7 +268,11 @@ test("Escape closes only the viewer that owns focus", () => {
 
 test("Escape still closes after interacting with the image stage", () => {
   let closes = 0;
-  const { stage } = renderViewer({ onClose: () => (closes += 1) });
+  const { stage } = renderViewer({
+    onClose: () => {
+      closes += 1;
+    },
+  });
 
   fireEvent.pointerDown(stage, { pointerId: 1, pointerType: "mouse" });
   expect(document.activeElement).toBe(stage.closest("[role=dialog]"));
@@ -286,7 +294,11 @@ test("the image's name labels the dialog without a visible subheader", () => {
 
 test("close is reachable from the toolbar and from Escape", () => {
   let closes = 0;
-  const { view } = renderViewer({ onClose: () => (closes += 1) });
+  const { view } = renderViewer({
+    onClose: () => {
+      closes += 1;
+    },
+  });
 
   fireEvent.click(view.getByRole("button", { name: "Close" }));
   expect(closes).toBe(1);
@@ -297,7 +309,11 @@ test("close is reachable from the toolbar and from Escape", () => {
 
 test("download appears in the toolbar only when the host offers it", () => {
   let downloads = 0;
-  const withDownload = renderViewer({ onDownload: () => (downloads += 1) });
+  const withDownload = renderViewer({
+    onDownload: () => {
+      downloads += 1;
+    },
+  });
 
   fireEvent.click(withDownload.view.getByRole("button", { name: "Download" }));
   expect(downloads).toBe(1);

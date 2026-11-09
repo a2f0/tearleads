@@ -59,7 +59,7 @@ async function register(
     "/auth/register",
     "POST",
     options.body ?? JSON.stringify({ password: "secret-body-value" }),
-    options.signal ? { signal: options.signal } : undefined,
+    options.signal ? { signal: options.signal } : {},
     [],
     registerOperation,
   );

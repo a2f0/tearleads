@@ -1,4 +1,4 @@
-import type { FormEvent, RefObject } from "react";
+import { type FormEvent, type RefObject, useId } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -182,6 +182,7 @@ export function ExplorerModalLayer(params: {
     setModalError,
     targetSelectRef,
   } = params;
+  const titleId = useId();
 
   if (!modalState) {
     return null;
@@ -191,11 +192,11 @@ export function ExplorerModalLayer(params: {
     <MiniAppModalBackdrop role="presentation">
       <MiniAppModalPanel
         role="dialog"
-        aria-labelledby="explorer-modal-title"
+        aria-labelledby={titleId}
         aria-modal="true"
       >
         <MiniAppModalForm onSubmit={handleModalSubmit}>
-          <h2 id="explorer-modal-title">{getExplorerModalTitle(modalState)}</h2>
+          <h2 id={titleId}>{getExplorerModalTitle(modalState)}</h2>
           <ExplorerModalBody
             draftName={draftName}
             draftTargetContainerId={draftTargetContainerId}

@@ -223,14 +223,14 @@ export class ApiRequestRuntime {
     validator: (value: unknown) => value is T,
     method: HttpMethod,
     body: RequestBody | undefined,
-    options: RequestResultOptions = {},
+    options: RequestResultOptions | undefined,
     failureOperation: Parameters<OperationRequestFn>[5],
   ): Promise<RequestResult<T>> {
     const responseResult = await this.makeResponseRequest(
       path,
       method,
       body,
-      options,
+      options ?? {},
       [],
       failureOperation,
     );
@@ -239,7 +239,7 @@ export class ApiRequestRuntime {
     }
 
     const response = responseResult.data;
-    const reportErrors = options.reportErrors ?? true;
+    const reportErrors = options?.reportErrors ?? true;
     let data: unknown;
     try {
       data = await response.json();
@@ -247,7 +247,7 @@ export class ApiRequestRuntime {
       const failure = responseBodyFailure(
         error,
         errorMessage(error),
-        options.signal?.aborted === true,
+        options?.signal?.aborted === true,
       );
       if (failure.kind === "network") this.onNetworkError?.();
       return this.requestFailure({
@@ -282,7 +282,7 @@ export class ApiRequestRuntime {
     path: string,
     method: HttpMethod,
     body: RequestBody | undefined,
-    options: RequestResultOptions = {},
+    options: RequestResultOptions,
     additionalSuccessStatuses: readonly number[],
     failureOperation: Parameters<OperationResponseRequestFn>[5],
   ): Promise<RequestResult<Response>> {

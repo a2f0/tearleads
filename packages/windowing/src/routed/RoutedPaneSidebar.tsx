@@ -7,6 +7,8 @@ import {
 import "./RoutedPaneSidebar.css";
 
 const DEFAULT_WIDTH = 224;
+// The routed shell renders one sidebar per page; the app bar's toggle names it.
+export const ROUTED_PANE_SIDEBAR_ID = "routed-pane-sidebar";
 
 function getResizeContainer(sidebar: HTMLElement) {
   // The app bar spans sidebar + content in both launcher placements. Its width
@@ -35,7 +37,7 @@ function RoutedPaneMobileSidebar({
       />
       <div
         className="routed-pane-sidebar"
-        id="routed-pane-sidebar"
+        id={ROUTED_PANE_SIDEBAR_ID}
         role="dialog"
       >
         {children}
@@ -55,7 +57,7 @@ function RoutedPaneTabletSidebar({ children }: { children: ReactNode }) {
     <div className="routed-pane-sidebar-frame">
       <div
         className="routed-pane-sidebar"
-        id="routed-pane-sidebar"
+        id={ROUTED_PANE_SIDEBAR_ID}
         ref={resize.sidebarRef}
         style={resize.width === null ? undefined : { width: resize.width }}
       >
@@ -63,7 +65,7 @@ function RoutedPaneTabletSidebar({ children }: { children: ReactNode }) {
       </div>
       <SidebarResizeHandle
         className="routed-pane-sidebar-resize-handle"
-        controls="routed-pane-sidebar"
+        controls={ROUTED_PANE_SIDEBAR_ID}
         currentWidth={resize.resolvedWidth}
         maxWidth={resize.maxWidth}
         onKeyDown={resize.handleKeyDown}

@@ -260,22 +260,42 @@ const changedRecoveryContexts: ReadonlyArray<
     mutate: (state: ReturnType<typeof createFixture>["state"]) => void,
   ]
 > = [
-  ["authentication", (state) => (state.runtime.auth.isAuthenticated = false)],
-  ["container", (state) => (state.runtime.state.containerId = "another-root")],
+  [
+    "authentication",
+    (state) => {
+      state.runtime.auth.isAuthenticated = false;
+    },
+  ],
+  [
+    "container",
+    (state) => {
+      state.runtime.state.containerId = "another-root";
+    },
+  ],
   [
     "default organization",
-    (state) =>
-      (state.runtime.auth.defaultOrganizationId = "another-organization"),
+    (state) => {
+      state.runtime.auth.defaultOrganizationId = "another-organization";
+    },
   ],
   [
     "domain scope",
-    (state) => (state.runtime.state.domainScope = createDomainScope()),
+    (state) => {
+      state.runtime.state.domainScope = createDomainScope();
+    },
   ],
   [
     "organization",
-    (state) => (state.runtime.auth.organizationId = "another-organization"),
+    (state) => {
+      state.runtime.auth.organizationId = "another-organization";
+    },
   ],
-  ["user", (state) => (state.runtime.auth.userId = "another-user")],
+  [
+    "user",
+    (state) => {
+      state.runtime.auth.userId = "another-user";
+    },
+  ],
 ];
 
 for (const [name, mutate] of changedRecoveryContexts) {

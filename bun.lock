@@ -67,7 +67,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.53",
+      "version": "0.1.54",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -98,7 +98,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.168",
+      "version": "0.1.169",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -169,7 +169,7 @@
     },
     "packages/app-electrobun": {
       "name": "app-electrobun",
-      "version": "0.0.20",
+      "version": "0.0.21",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
@@ -236,7 +236,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.174",
+      "version": "0.1.175",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -298,7 +298,7 @@
     },
     "packages/performance": {
       "name": "@tearleads/performance",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "dependencies": {
         "@tearleads/api-shared": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
@@ -389,7 +389,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.33",
+      "version": "0.2.34",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",

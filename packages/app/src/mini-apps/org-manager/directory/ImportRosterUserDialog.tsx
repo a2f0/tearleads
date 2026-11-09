@@ -66,6 +66,7 @@ function ImportRosterUserForm({
   setImportUserIdDraft,
 }: ImportRosterUserDialogProps) {
   const inputId = useId();
+  const titleId = useId();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const inputsDisabled = !canImportRosterUser || mutating;
@@ -88,15 +89,13 @@ function ImportRosterUserForm({
     <MiniAppModalBackdrop role="presentation">
       <MiniAppModalPanel
         aria-busy={mutating}
-        aria-labelledby="org-manager-import-user-title"
+        aria-labelledby={titleId}
         aria-modal="true"
         className="org-manager-import-user-dialog"
         role="dialog"
       >
         <MiniAppModalForm onSubmit={handleSubmit}>
-          <h2 id="org-manager-import-user-title">
-            {ORG_MANAGER_LABELS.importUserAction}
-          </h2>
+          <h2 id={titleId}>{ORG_MANAGER_LABELS.importUserAction}</h2>
           <MiniAppStatus>
             Ask the person for their identity link through a trusted channel.
             Their keys will be verified before they join the roster.

@@ -86,12 +86,12 @@ interface IdentityChangePreparation {
 }
 
 export function createIdentity(
-  options: IdentityOptions = {},
+  options: IdentityOptions | undefined,
   identityChanges: IdentityChangePreparation,
   log: (message: string) => void,
   runtimeHooks: IdentityRuntimeHooks = {},
 ): Identity {
-  return new IdentityService(options, identityChanges, log, runtimeHooks);
+  return new IdentityService(options ?? {}, identityChanges, log, runtimeHooks);
 }
 
 class IdentityService implements Identity {
@@ -100,7 +100,7 @@ class IdentityService implements Identity {
   private changeRevision = 0;
 
   constructor(
-    options: IdentityOptions = {},
+    options: IdentityOptions,
     private readonly identityChanges: IdentityChangePreparation,
     private readonly log: (message: string) => void,
     private readonly runtimeHooks: IdentityRuntimeHooks,

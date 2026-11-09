@@ -352,7 +352,9 @@ test("clicking an image preview opens the shared image viewer", () => {
       mediaKind: "image",
       mediaUrl: "blob:png-preview",
     },
-    onDownload: () => (downloads += 1),
+    onDownload: () => {
+      downloads += 1;
+    },
   });
 
   fireEvent.click(view.getByRole("button", { name: "Open full screen" }));

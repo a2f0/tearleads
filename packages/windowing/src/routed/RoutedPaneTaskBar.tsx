@@ -1,7 +1,10 @@
 import type { ReactNode, RefObject } from "react";
 import type { RoutedLayoutTier } from "../launcher/useRoutedLayoutTier";
 import type { LauncherPlacement } from "./launcherPlacement";
-import { ROUTED_PANE_NAV_PANEL_ID } from "./RoutedPaneNav";
+import {
+  ROUTED_PANE_NAV_PANEL_ID,
+  ROUTED_PANE_SHEET_ID,
+} from "./RoutedPaneNav";
 
 interface RoutedPaneTaskBarProps {
   drawerOpen: boolean;
@@ -42,7 +45,7 @@ export function RoutedPaneTaskBar({
   // nav panel only exists while expanded, so reference it only then (mirroring
   // the rail toggle) rather than pointing aria-controls at an absent element.
   const controls = usesSheet
-    ? "routed-pane-sheet"
+    ? ROUTED_PANE_SHEET_ID
     : expanded
       ? ROUTED_PANE_NAV_PANEL_ID
       : undefined;

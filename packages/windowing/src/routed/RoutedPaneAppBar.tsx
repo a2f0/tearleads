@@ -13,6 +13,7 @@ import {
   useWindowTitleBarActions,
 } from "../window/WindowMenuContext";
 import { WindowRefreshButton } from "../window/WindowRefreshButton";
+import { ROUTED_PANE_SIDEBAR_ID } from "./RoutedPaneSidebar";
 
 export function RoutedPaneAppBar({
   activeAppId,
@@ -65,7 +66,7 @@ export function RoutedPaneAppBar({
         </div>
         {hasSidebar && (
           <button
-            aria-controls="routed-pane-sidebar"
+            aria-controls={ROUTED_PANE_SIDEBAR_ID}
             aria-expanded={sidebarExpanded}
             aria-label={sidebarLabel}
             className="routed-pane-iconbutton"

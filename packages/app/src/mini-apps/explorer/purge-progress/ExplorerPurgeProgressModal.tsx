@@ -1,3 +1,4 @@
+import { useId } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -41,6 +42,7 @@ export function ExplorerPurgeProgressModal(params: {
   run: ExplorerPurgeRunState | null;
 }) {
   const { onCancel, onClose, run } = params;
+  const titleId = useId();
   if (!run) {
     return null;
   }
@@ -60,11 +62,11 @@ export function ExplorerPurgeProgressModal(params: {
   return (
     <MiniAppModalBackdrop role="presentation">
       <MiniAppModalPanel
-        aria-labelledby="explorer-purge-progress-title"
+        aria-labelledby={titleId}
         aria-modal="true"
         role="dialog"
       >
-        <h2 id="explorer-purge-progress-title">{run.title}</h2>
+        <h2 id={titleId}>{run.title}</h2>
         <span
           aria-label={run.title}
           aria-valuemax={100}
