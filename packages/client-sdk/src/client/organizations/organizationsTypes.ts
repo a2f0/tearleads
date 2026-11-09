@@ -111,6 +111,11 @@ export interface Organizations {
    * database not ready); rejects if the local read fails.
    */
   loadDeviceDataUsage: () => Promise<OrganizationDeviceDataUsage | null>;
+  /**
+   * The opaque read-model cursor the active requester has applied, once any
+   * in-flight reconcile of that scope settles; null when it holds none.
+   */
+  loadAppliedReadModelCursor: () => Promise<string | null>;
   loadDirectoryAndGroups: () => ReturnType<
     OrganizationReadModelCoordinator["reconcile"]
   >;

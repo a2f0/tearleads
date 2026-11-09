@@ -19,7 +19,7 @@ export function hasPendingOrganizationRuntimeWork(): boolean {
     return (
       state.pendingDeclaration !== null ||
       state.reconciliationsByOrganizationId.size > 0 ||
-      state.deferredSelfHintByOrganizationId.size > 0 ||
+      state.pendingHintByOrganizationId.size > 0 ||
       state.disconnectedFallbackByOrganizationId.size > 0
     );
   });

@@ -1,16 +1,11 @@
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import { z } from "zod";
+import {
+  MAX_ORGANIZATION_READ_MODEL_CURSOR_POSITION,
+  ORGANIZATION_READ_MODEL_CURSOR_VERSION,
+  type OrganizationReadModelCursorPayload,
+  OrganizationReadModelCursorPayloadSchema,
+} from "@tearleads/validators/organizationReadModelCursor";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
 import { OrganizationReadModelCursorError } from "./errors";
-
-const MAX_CURSOR = 9_223_372_036_854_775_807n;
-const DECIMAL_PATTERN = /^(0|[1-9]\d*)$/u;
-
-interface OrganizationReadModelCursorPayload {
-  readonly cursor: string;
-  readonly organizationId: string;
-  readonly version: 6;
-}
 
 function invalidCursor(): OrganizationReadModelCursorError {
   return new OrganizationReadModelCursorError(
@@ -18,29 +13,12 @@ function invalidCursor(): OrganizationReadModelCursorError {
   );
 }
 
-// Exactly these three keys: a cursor from another version never decodes.
-const organizationReadModelCursorSchema = z
-  .custom<Record<string, unknown>>(isPlainObject)
-  .pipe(
-    z.strictObject({
-      version: z.literal(6),
-      organizationId: z.string(),
-      cursor: z.string().regex(DECIMAL_PATTERN),
-    }),
-  );
-
-function parseOrganizationReadModelCursor(
-  payload: unknown,
-): OrganizationReadModelCursorPayload | undefined {
-  return organizationReadModelCursorSchema.safeParse(payload).data;
-}
-
 export function encodeOrganizationReadModelCursor(
   organizationId: string,
   cursor: bigint,
 ): string {
   const payload: OrganizationReadModelCursorPayload = {
-    version: 6,
+    version: ORGANIZATION_READ_MODEL_CURSOR_VERSION,
     organizationId,
     cursor: cursor.toString(),
   };
@@ -53,7 +31,8 @@ export function decodeOrganizationReadModelCursor(
 ): bigint {
   const payload = decodeCursor(
     value,
-    parseOrganizationReadModelCursor,
+    (candidate) =>
+      OrganizationReadModelCursorPayloadSchema.safeParse(candidate).data,
     invalidCursor,
   );
   if (payload.organizationId !== organizationId) {
@@ -61,7 +40,7 @@ export function decodeOrganizationReadModelCursor(
   }
 
   const cursor = BigInt(payload.cursor);
-  if (cursor > MAX_CURSOR) {
+  if (cursor > MAX_ORGANIZATION_READ_MODEL_CURSOR_POSITION) {
     throw invalidCursor();
   }
 

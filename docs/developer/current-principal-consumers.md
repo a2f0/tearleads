@@ -187,28 +187,30 @@ no read
 ([`DualPaneProvider.activePeerRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx)).
 
 [`GroupMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx)
-measures 7 requests for creating the first group and 6 for a later one, with
-ceilings of 10 and 9. First enrollment of a peer measures 40 requests with a
-ceiling of 45; a later addition is capped at
-11. The creation/addition pairs are capped at 53 and 17 requests, with at most
+measures 6 requests for creating the first group and 5 for a later one (one
+read-model read each; the hint naming the post-mutation cursor costs none),
+with ceilings of 9 and 8. First enrollment of a peer measures 31 requests with
+a ceiling of 43; a later addition measures 6 and is capped at 9. The
+creation/addition pairs are capped at 50 and 14 requests, with at most
 11 and 3 public history reads. First addition permits 10 organization-policy and
 3 group-policy reads. Creation may also receive one validated rollback
 preparation response with identical request bytes. Policy writes acknowledge
 heads rather than echoing policies, so a group create receives about 0.8 KB
 (17–18 KB before) and a group policy commit 0.7–1.9 KB (36–60 KB before): the
 first creation/addition pair receives 343 KB (423 KB before) and a later pair
-38 KB (91 KB before).
+37 KB (91 KB before).
 
 The Admins enrollment fixture in
 [`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)
-measures 55 completed requests; its ceiling is 58, plus explicitly counted
+measures 53 completed requests; its ceiling is 56, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 17,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
 160,000 request bytes and 650,000 response bytes (0.59 MB measured). The root
 attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
-measures 59 requests and permits 66, with body ceilings of 128,000 request bytes
-and 500,000 response bytes (0.45 MB measured). Container mutation
+measures 56 requests and permits 64, with body ceilings of 128,000 request
+bytes and 490,000 response bytes (0.44 MB measured; recites of
+ungranted containers no longer stamp the grants lane). Container mutation
 acknowledgements carry hashes and policy acknowledgements carry heads rather
 than echoes, which keeps the Admins policy commit at about 3.5 KB (73 KB with
 echoed policies). Container mutations cite stored

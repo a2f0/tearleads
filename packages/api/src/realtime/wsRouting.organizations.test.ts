@@ -7,6 +7,7 @@ const ORG_B = "00000000-0000-4000-8000-00000000000b";
 const USER_A = "10000000-0000-4000-8000-00000000000a";
 const USER_B = "20000000-0000-4000-8000-00000000000b";
 const DECLARATION_ID = "organization-interest-a";
+const CURSOR = "eyJ2ZXJzaW9uIjo2fQ";
 
 function declareAuthorizedOrganization(
   router: WsEventRouter,
@@ -29,7 +30,7 @@ function declareAuthorizedOrganization(
   router.applyAuthorizedOrganizationInterest(ws, organizationId);
 }
 
-test("routes minimal organization hints to the audience including the author session", () => {
+test("routes the committed cursor to the audience including the author session", () => {
   const router = new WsEventRouter();
   const author = fakeSocket(USER_A, "shared-session");
   const sameSessionPeer = fakeSocket(USER_A, "shared-session");
@@ -48,8 +49,8 @@ test("routes minimal organization hints to the audience including the author ses
     JSON.stringify({
       type: "organization_read_model_changed",
       organizationId: ORG_A,
+      cursor: CURSOR,
       recipientUserIds: [USER_A],
-      origin: { sessionId: "shared-session", userId: USER_A },
       internalOnly: "must not cross the websocket boundary",
     }),
   );
@@ -57,17 +58,13 @@ test("routes minimal organization hints to the audience including the author ses
   const clientMessage = {
     type: "organization_read_model_changed",
     organizationId: ORG_A,
-    originatedFromSession: true,
+    cursor: CURSOR,
   };
-  expect(author.sent.map((message) => JSON.parse(message))).toEqual([
-    clientMessage,
-  ]);
-  expect(sameSessionPeer.sent.map((message) => JSON.parse(message))).toEqual([
-    clientMessage,
-  ]);
-  expect(otherSession.sent.map((message) => JSON.parse(message))).toEqual([
-    { ...clientMessage, originatedFromSession: false },
-  ]);
+  for (const socket of [author, sameSessionPeer, otherSession]) {
+    expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
+      clientMessage,
+    ]);
+  }
   expect(otherOrganization.sent).toEqual([]);
 });
 
@@ -82,6 +79,7 @@ test("organization interest replaces scope and is removed on close", () => {
     JSON.stringify({
       type: "organization_read_model_changed",
       organizationId: ORG_A,
+      cursor: CURSOR,
       recipientUserIds: [USER_A],
     }),
   );
@@ -91,6 +89,7 @@ test("organization interest replaces scope and is removed on close", () => {
     JSON.stringify({
       type: "organization_read_model_changed",
       organizationId: ORG_B,
+      cursor: CURSOR,
       recipientUserIds: [USER_A],
     }),
   );
@@ -101,6 +100,7 @@ test("organization interest replaces scope and is removed on close", () => {
     JSON.stringify({
       type: "organization_read_model_changed",
       organizationId: ORG_B,
+      cursor: CURSOR,
       recipientUserIds: [USER_A],
     }),
   );
@@ -149,6 +149,7 @@ test("rejects malformed organization interest declarations", () => {
     JSON.stringify({
       type: "organization_read_model_changed",
       organizationId: ORG_A,
+      cursor: CURSOR,
       recipientUserIds: [USER_A],
     }),
   );
@@ -188,7 +189,13 @@ test("drops organization events without a strict authoritative audience", () => 
     {
       type: "organization_read_model_changed",
       organizationId: ORG_A,
+      cursor: CURSOR,
       recipientUserIds: [USER_A, "not-a-user-id"],
+    },
+    {
+      type: "organization_read_model_changed",
+      organizationId: ORG_A,
+      recipientUserIds: [USER_A],
     },
   ]) {
     router.routeServerEvent(JSON.stringify(event));
@@ -211,6 +218,7 @@ test("notifies an audience revocation once and restores later delivery", () => {
       JSON.stringify({
         type: "organization_read_model_changed",
         organizationId: ORG_A,
+        cursor: CURSOR,
         recipientUserIds,
       }),
     );
@@ -222,7 +230,7 @@ test("notifies an audience revocation once and restores later delivery", () => {
     {
       type: "organization_read_model_changed",
       organizationId: ORG_A,
-      originatedFromSession: false,
+      cursor: CURSOR,
     },
     {
       type: "organization_read_model_access_revoked",
@@ -237,7 +245,7 @@ test("notifies an audience revocation once and restores later delivery", () => {
     {
       type: "organization_read_model_changed",
       organizationId: ORG_A,
-      originatedFromSession: false,
+      cursor: CURSOR,
     },
     {
       type: "organization_read_model_access_revoked",
@@ -246,7 +254,7 @@ test("notifies an audience revocation once and restores later delivery", () => {
     {
       type: "organization_read_model_changed",
       organizationId: ORG_A,
-      originatedFromSession: false,
+      cursor: CURSOR,
     },
     {
       type: "organization_read_model_access_revoked",

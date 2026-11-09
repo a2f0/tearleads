@@ -128,6 +128,7 @@ test("organization declarations remain routable after hibernation", async () => 
     JSON.stringify({
       type: "organization_read_model_changed",
       organizationId: CONTAINER,
+      cursor: "eyJ2ZXJzaW9uIjo2fQ",
       recipientUserIds: [OTHER],
     }),
   );
@@ -135,7 +136,7 @@ test("organization declarations remain routable after hibernation", async () => 
     {
       type: "organization_read_model_changed",
       organizationId: CONTAINER,
-      originatedFromSession: false,
+      cursor: "eyJ2ZXJzaW9uIjo2fQ",
     },
   ]);
 });

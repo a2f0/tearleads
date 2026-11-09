@@ -279,6 +279,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         organizationId: "org-old",
         userId: "user-old",
         isOrgAdmin: true,
+        appliedCursor: "cursor-old",
         updatedAt: stale,
       });
       await tx.insert(organizationReadModelDirectoryUsers).values({

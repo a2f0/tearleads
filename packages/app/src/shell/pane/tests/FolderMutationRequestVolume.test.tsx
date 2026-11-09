@@ -302,12 +302,15 @@ test("folder creation, document linking, unlinking and trash have separate reque
     },
     budget: {
       // A parent-only hint must refresh the root lane independently. A
-      // hydration pass's pages share one directory discovery (measured 11).
-      total: 11,
+      // hydration pass's pages share one directory discovery. Moving an
+      // ungranted folder no longer stamps the grants lane (measured 10, 11
+      // before).
+      total: 10,
       // The move cites the destination parent's KEK state instead of carrying
       // it: 16.6 KB sent (34.3 KB before). Syncs no longer echo the bundle and
-      // KEK targets the request named: 42.7 KB received (44.3 KB before).
-      bodyBytes: { request: 18_500, response: 47_000 },
+      // KEK targets the request named: 40.7 KB received (44.3 KB before); keep
+      // about 10% headroom.
+      bodyBytes: { request: 18_500, response: 45_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 4,
         "GET /principals/group/:groupId/policy": 0,
@@ -315,7 +318,7 @@ test("folder creation, document linking, unlinking and trash have separate reque
         "POST /containers/documents/query": 1,
         "GET /containers/:containerId/writer-projection": 0,
         "GET /documents/:documentId/writer-projection": 1,
-        "GET /organizations/:organizationId/read-model": 1,
+        "GET /organizations/:organizationId/read-model": 0,
         "POST /containers/:containerId/move": 1,
         "POST /containers/parent-lanes/query": 2,
         "POST /documents/:documentId/sync": 1,
@@ -339,13 +342,14 @@ test("folder creation, document linking, unlinking and trash have separate reque
     budget: {
       // Root reconciliation now completes and verifies the remaining system
       // slot, alongside the moved folder and destination root. No duplicate
-      // reads; a hydration pass discovers the directory once (measured 12).
-      total: 12,
+      // reads; a hydration pass discovers the directory once, and the
+      // ungranted move stamps no grants (measured 11, 12 before).
+      total: 11,
       // Projection reads cite the KEK levels the device holds by digest, and
       // syncs no longer echo the bundle and KEK targets the request named:
-      // 55.1 KB received (56.7 KB before); keep about 10% headroom. The move
+      // 53.2 KB received (56.7 KB before); keep about 10% headroom. The move
       // cites its parent KEK state: 16.8 KB sent (20.6 KB before).
-      bodyBytes: { request: 18_500, response: 61_000 },
+      bodyBytes: { request: 18_500, response: 59_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 3,
         "GET /principals/group/:groupId/policy": 0,
@@ -353,7 +357,7 @@ test("folder creation, document linking, unlinking and trash have separate reque
         "POST /containers/documents/query": 1,
         "GET /containers/:containerId/writer-projection": 3,
         "GET /documents/:documentId/writer-projection": 1,
-        "GET /organizations/:organizationId/read-model": 1,
+        "GET /organizations/:organizationId/read-model": 0,
         "POST /containers/:containerId/move": 1,
         "POST /containers/parent-lanes/query": 1,
         "POST /documents/:documentId/sync": 1,

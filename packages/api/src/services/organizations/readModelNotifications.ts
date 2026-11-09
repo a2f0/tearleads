@@ -1,29 +1,11 @@
-import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import {
   type CommittedOrganizationReadModelChange,
   listCommittedOrganizationReadModelChanges,
   type ObservedOrganizationReadModelChange,
 } from "../../workflows/organizations/readModelChanges";
+import { encodeOrganizationReadModelCursor } from "../../workflows/organizations/readModelCursor";
 import type { ApiServiceRuntime } from "../runtime";
-
-interface OrganizationReadModelChangedOrigin {
-  readonly sessionId: string;
-  readonly userId: string;
-}
-
-function createOrganizationReadModelChangedEvent(input: {
-  readonly organizationId: string;
-  readonly origin: OrganizationReadModelChangedOrigin;
-  readonly recipientUserIds: readonly string[];
-}): PublishedRealtimeEvent {
-  return {
-    type: "organization_read_model_changed",
-    organizationId: input.organizationId,
-    origin: input.origin,
-    recipientUserIds: [...input.recipientUserIds],
-  };
-}
 
 export async function resolveCommittedOrganizationReadModelChanges(input: {
   readonly observedChanges: readonly ObservedOrganizationReadModelChange[];
@@ -36,19 +18,26 @@ export async function resolveCommittedOrganizationReadModelChanges(input: {
 }
 
 /**
- * Publish only after the source transaction has committed. Realtime is a lossy,
- * content-free wake-up; the cursor feed remains authoritative, so a broker
- * failure must not turn a committed mutation into a retrying HTTP failure.
+ * Publish only after the source transaction has committed. Realtime is a lossy
+ * wake-up carrying only the committed cursor, which the audience already reads
+ * as `nextCursor`; the cursor feed remains authoritative, so a broker failure
+ * must not turn a committed mutation into a retrying HTTP failure.
  */
 export async function publishOrganizationReadModelChanged(input: {
-  readonly organizationId: string;
-  readonly origin: OrganizationReadModelChangedOrigin;
+  readonly change: CommittedOrganizationReadModelChange;
   readonly publish: ApiServiceRuntime["eventPublisher"]["publish"];
-  readonly recipientUserIds: readonly string[];
 }): Promise<void> {
   await publishBestEffort(
     input.publish,
-    createOrganizationReadModelChangedEvent(input),
+    {
+      type: "organization_read_model_changed",
+      organizationId: input.change.organizationId,
+      cursor: encodeOrganizationReadModelCursor(
+        input.change.organizationId,
+        input.change.cursor,
+      ),
+      recipientUserIds: [...input.change.recipientUserIds],
+    },
     "organization read-model notification",
   );
 }

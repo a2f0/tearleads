@@ -11,6 +11,7 @@ const ORGANIZATION_ID = "00000000-0000-4000-8000-00000000000a";
 const USER_ID = "10000000-0000-4000-8000-00000000000a";
 const DECLARATION_ID = "organization-interest-a";
 const CLEAR_DECLARATION_ID = "organization-interest-clear";
+const CURSOR = "eyJ2ZXJzaW9uIjo2fQ";
 
 function serverSocket(
   ws: FakeSocket,
@@ -89,6 +90,7 @@ test("rejects unauthorized organization declarations before indexing", async () 
   await bus.publish({
     type: "organization_read_model_changed",
     organizationId: ORGANIZATION_ID,
+    cursor: CURSOR,
     recipientUserIds: [USER_ID],
   });
   await flushAsyncRouting();
@@ -135,6 +137,7 @@ test("reauthorizes denied demand when a later audience restores access", async (
   await bus.publish({
     type: "organization_read_model_changed",
     organizationId: ORGANIZATION_ID,
+    cursor: CURSOR,
     recipientUserIds: [USER_ID],
   });
   await flushAsyncRouting();
@@ -145,6 +148,7 @@ test("reauthorizes denied demand when a later audience restores access", async (
   await bus.publish({
     type: "organization_read_model_changed",
     organizationId: ORGANIZATION_ID,
+    cursor: CURSOR,
     recipientUserIds: [USER_ID],
   });
   await flushAsyncRouting();
@@ -160,7 +164,7 @@ test("reauthorizes denied demand when a later audience restores access", async (
     {
       type: "organization_read_model_changed",
       organizationId: ORGANIZATION_ID,
-      originatedFromSession: false,
+      cursor: CURSOR,
     },
   ]);
   gateway.stop();
@@ -192,6 +196,7 @@ test("does not index an organization until asynchronous authorization resolves",
   await bus.publish({
     type: "organization_read_model_changed",
     organizationId: ORGANIZATION_ID,
+    cursor: CURSOR,
     recipientUserIds: [USER_ID],
   });
   expect(socket.sent).toHaveLength(0);
@@ -210,7 +215,7 @@ test("does not index an organization until asynchronous authorization resolves",
     {
       type: "organization_read_model_changed",
       organizationId: ORGANIZATION_ID,
-      originatedFromSession: false,
+      cursor: CURSOR,
     },
   ]);
   gateway.stop();
@@ -252,6 +257,7 @@ test("a newer clear declaration defeats stale asynchronous authorization", async
   await bus.publish({
     type: "organization_read_model_changed",
     organizationId: ORGANIZATION_ID,
+    cursor: CURSOR,
     recipientUserIds: [USER_ID],
   });
 

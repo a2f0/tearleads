@@ -1,7 +1,7 @@
 import type { Tearleads } from "@tearleads/client-sdk";
 import { useEffect, useRef } from "react";
 import {
-  releaseDeferredOrganizationReadModelHint,
+  releaseHeldOrganizationReadModelHint,
   subscribeOrganizationReadModelRealtime,
 } from "../../../providers/sdk/organizationReadModelRealtime";
 import type {
@@ -69,9 +69,6 @@ export function useOrgManagerDirectorySync(
     if (input.mutating || !input.organizationId) {
       return;
     }
-    releaseDeferredOrganizationReadModelHint(
-      input.tearleads,
-      input.organizationId,
-    );
+    releaseHeldOrganizationReadModelHint(input.tearleads, input.organizationId);
   }, [input.mutating, input.organizationId, input.tearleads]);
 }

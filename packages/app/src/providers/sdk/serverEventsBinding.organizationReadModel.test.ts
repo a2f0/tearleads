@@ -13,6 +13,7 @@ import {
   fakeOpenSocket,
   ORGANIZATION_A,
   parsedMessages,
+  readModelCursor,
 } from "./test/organizationReadModelRealtimeHarness";
 
 test("declares organization interest only while a consumer has demand", async () => {
@@ -20,7 +21,11 @@ test("declares organization interest only while a consumer has demand", async ()
   const { sent, ws } = fakeOpenSocket();
   const detach = attachOrganizationReadModelSocket(runtime.tearleads, ws);
 
-  handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, false);
+  handleOrganizationReadModelHint(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    readModelCursor(1),
+  );
   await Promise.resolve();
   expect(sent).toEqual([]);
   expect(runtime.reconcileCalls).toBe(0);
@@ -67,12 +72,14 @@ test("routes valid organization controls outside the domain event queue", () => 
       onOrganizationInterestAcknowledged: (...acknowledgement) =>
         acknowledgements.push(acknowledgement),
       onOrganizationReadModelChanged: () => undefined,
+      onOrganizationReadModelAccessRevoked: () => undefined,
       onResyncRequired: () => undefined,
       onServerEvent: (event) => genericEvents.push(event),
       onOrganizationMembershipsChanged: () => undefined,
       onSharedWithYou: () => undefined,
     },
   );
+  const cursor = readModelCursor(4);
   for (const type of [
     "organization_read_model_changed",
     "organization_read_model_access_revoked",
@@ -81,15 +88,15 @@ test("routes valid organization controls outside the domain event queue", () => 
       JSON.stringify({
         type,
         organizationId: ORGANIZATION_A,
-        ...(type === "organization_read_model_changed"
-          ? { originatedFromSession: false }
-          : {}),
+        ...(type === "organization_read_model_changed" ? { cursor } : {}),
       }),
       {
         onContainerInterestAcknowledged: () => undefined,
         onOrganizationInterestAcknowledged: () => undefined,
-        onOrganizationReadModelChanged: (organizationId) =>
-          organizationHints.push(organizationId),
+        onOrganizationReadModelChanged: (organizationId, hintCursor) =>
+          organizationHints.push(`changed:${organizationId}:${hintCursor}`),
+        onOrganizationReadModelAccessRevoked: (organizationId) =>
+          organizationHints.push(`revoked:${organizationId}`),
         onResyncRequired: () => undefined,
         onServerEvent: (event) => genericEvents.push(event),
         onOrganizationMembershipsChanged: () => undefined,
@@ -99,7 +106,10 @@ test("routes valid organization controls outside the domain event queue", () => 
   }
 
   expect(acknowledgements).toEqual([["declaration-1", ORGANIZATION_A, true]]);
-  expect(organizationHints).toEqual([ORGANIZATION_A, ORGANIZATION_A]);
+  expect(organizationHints).toEqual([
+    `changed:${ORGANIZATION_A}:${cursor}`,
+    `revoked:${ORGANIZATION_A}`,
+  ]);
   expect(genericEvents).toEqual([]);
 });
 
@@ -115,6 +125,9 @@ test("drops malformed read-model controls instead of entering domain sync", () =
     onOrganizationReadModelChanged: () => {
       organizationHints += 1;
     },
+    onOrganizationReadModelAccessRevoked: () => {
+      organizationHints += 1;
+    },
     onResyncRequired: () => undefined,
     onServerEvent: () => {
       genericEvents += 1;
@@ -122,13 +135,16 @@ test("drops malformed read-model controls instead of entering domain sync", () =
     onOrganizationMembershipsChanged: () => undefined,
     onSharedWithYou: () => undefined,
   };
-  routeIncomingWsMessage(
-    JSON.stringify({
+  for (const malformedHint of [
+    {
       type: "organization_read_model_changed",
       organizationId: "not-an-organization-id",
-    }),
-    handlers,
-  );
+      cursor: readModelCursor(1),
+    },
+    { type: "organization_read_model_changed", organizationId: ORGANIZATION_A },
+  ]) {
+    routeIncomingWsMessage(JSON.stringify(malformedHint), handlers);
+  }
   for (const malformedAcknowledgement of [
     {
       type: "known_organizations_ack",
