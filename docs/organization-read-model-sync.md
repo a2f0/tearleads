@@ -298,11 +298,15 @@ a retrying HTTP failure.
 
 Author sockets receive the hint because one auth session can own multiple client
 instances and session-wide suppression would strand siblings. The client
-compares the hint's cursor with the cursor its projection has applied, by the
-cursor's monotone position rather than its encoding, and reads only when the
-hint is ahead; a cursor it cannot decode reads. An author's echo of a change its
-post-mutation read already applied therefore costs no request, while a sibling
-client of the same session, whose projection has not applied it, still reads.
+compares the hint's cursor with the cursor this requester last applied (stored
+on its requester row, and counted only while it is still the projection's
+cursor, because another identity on the device can advance the shared rows),
+by the cursor's monotone position rather than its encoding, and reads only when
+the hint is ahead; a cursor it cannot decode reads. A pass discards a cursor
+check that an identity or domain transition overtook. An author's echo of a
+change its post-mutation read already applied therefore costs no request, while
+a sibling client or another identity on the same device, which has not applied
+it, still reads.
 A forged low cursor could only suppress a read, which withholding the hint
 already can; a lost hint is recovered as before.
 

@@ -129,6 +129,37 @@ test("a hint whose cursor cannot be compared reads", async () => {
   expect(runtime.reconcileCalls).toBe(1);
 });
 
+test("an identity transition during the cursor check repaints no stale consumer", async () => {
+  const checkStarted = Promise.withResolvers<void>();
+  const check = Promise.withResolvers<string | null>();
+  const runtime = createRuntimeHarness({
+    loadAppliedReadModelCursor: () => {
+      checkStarted.resolve();
+      return check.promise;
+    },
+  });
+  let staleRepaints = 0;
+  subscribeOrganizationReadModelRealtime(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    () => {
+      staleRepaints += 1;
+    },
+  );
+  handleOrganizationReadModelHint(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    readModelCursor(3),
+  );
+  await checkStarted.promise;
+  runtime.transitionDomainScope();
+  check.resolve(readModelCursor(3));
+  await settleReconciliation(runtime.tearleads);
+
+  expect(staleRepaints).toBe(0);
+  expect(runtime.reconcileCalls).toBe(0);
+});
+
 test("an authoritative null reconcile still repaints mounted consumers", async () => {
   // Null is a completed pass — an authoritative denial purged the durable
   // projection — so listeners must repaint the loss instead of holding

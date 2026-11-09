@@ -36,6 +36,7 @@ export async function settleReconciliation(
 
 export function createRuntimeHarness(input?: {
   readonly execSql?: (sql: string) => Promise<unknown[]>;
+  readonly loadAppliedReadModelCursor?: () => Promise<string | null>;
   readonly loadDirectoryAndGroups?: () => Promise<unknown>;
 }) {
   let auth = {
@@ -70,7 +71,8 @@ export function createRuntimeHarness(input?: {
       },
     },
     organizations: {
-      loadAppliedReadModelCursor: async () => appliedCursor,
+      loadAppliedReadModelCursor:
+        input?.loadAppliedReadModelCursor ?? (async () => appliedCursor),
       loadDirectoryAndGroups,
       loadDirectoryAndGroupsAfterMutation: loadDirectoryAndGroups,
     },

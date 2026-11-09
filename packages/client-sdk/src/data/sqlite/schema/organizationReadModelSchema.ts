@@ -35,6 +35,9 @@ export const organizationReadModelRequesters = sqliteTable(
     organizationId: text("organization_id").notNull(),
     userId: text("user_id").notNull(),
     isOrgAdmin: integer("is_org_admin", { mode: "boolean" }).notNull(),
+    // The response cursor this requester last applied. The organization row's
+    // cursor proves only that some requester applied shared lanes.
+    appliedCursor: text("applied_cursor").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [primaryKey({ columns: [table.organizationId, table.userId] })],

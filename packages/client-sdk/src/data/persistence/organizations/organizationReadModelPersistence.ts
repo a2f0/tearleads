@@ -123,6 +123,7 @@ async function replaceDirectoryLane(input: {
 }
 
 async function upsertRequester(input: {
+  readonly appliedCursor: string;
   readonly currentUserId: string;
   readonly isOrgAdmin: boolean;
   readonly now: string;
@@ -133,6 +134,7 @@ async function upsertRequester(input: {
     organizationId: input.organizationId,
     userId: input.currentUserId,
     isOrgAdmin: input.isOrgAdmin,
+    appliedCursor: input.appliedCursor,
     updatedAt: input.now,
   };
   await input.tx
@@ -145,6 +147,7 @@ async function upsertRequester(input: {
       ],
       set: {
         isOrgAdmin: requesterRow.isOrgAdmin,
+        appliedCursor: requesterRow.appliedCursor,
         updatedAt: requesterRow.updatedAt,
       },
     })
@@ -432,6 +435,7 @@ export async function applyOrganizationReadModelResponse(input: {
       }
       const now = new Date().toISOString();
       await upsertRequester({
+        appliedCursor: input.response.nextCursor,
         currentUserId: input.currentUserId,
         isOrgAdmin: input.response.currentUser.isOrgAdmin,
         now,

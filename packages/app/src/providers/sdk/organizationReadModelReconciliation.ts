@@ -130,7 +130,20 @@ async function passNeedsRead(
   if (!hint) {
     return false;
   }
-  if (!(await appliedCursorCovers(tearleads, hint))) {
+  const covered = await appliedCursorCovers(tearleads, hint);
+  // The check is tagged with its scope: an identity or domain transition
+  // during the await must neither repaint nor read for the stale scope. The
+  // current scope, if any, owes its own catch-up.
+  const currentScope = activeDemandScope(
+    tearleads,
+    state,
+    passScope.organizationId,
+  );
+  if (!isSameOrganizationReadModelScope(passScope, currentScope)) {
+    reconciliation.demanded ||= currentScope !== null;
+    return false;
+  }
+  if (!covered) {
     return true;
   }
   // The hint names a cursor already applied, possibly by a read this pass
