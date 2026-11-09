@@ -72,6 +72,8 @@ export function useDocumentLinkedContainerIdsByDocumentId(params: {
     [],
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies(requestedDocumentIds): requestedDocumentIdsKey keys the ids by content, so an equal new array does not reload.
+  // biome-ignore lint/correctness/useExhaustiveDependencies(requestedDocumentIds.length): the same content key covers the array's length.
   useEffect(() => {
     if (dbStatus !== "ready" || requestedDocumentIds.length === 0) {
       setLinkedContainerIdsByDocumentId((currentMap) =>

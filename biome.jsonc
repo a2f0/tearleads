@@ -53,7 +53,34 @@
         "noReactPropAssignments": "error",
         "noRenderReturnValue": "error",
         "useJsxKeyInIterable": "error",
-        "useUniqueElementIds": "error"
+        "useUniqueElementIds": "error",
+        // Revision counters and scope keys are listed on purpose to re-run a
+        // hook, so only missing dependencies are reported. The custom hooks
+        // below return a useRef object, which never changes identity.
+        "useExhaustiveDependencies": {
+          "level": "error",
+          "options": {
+            "reportUnnecessaryDependencies": false,
+            "hooks": [
+              {
+                "name": "useRuntimeScopedMemo",
+                "closureIndex": 0,
+                "dependenciesIndex": 1
+              },
+              { "name": "useAllowedRef", "stableResult": true },
+              {
+                "name": "useCommittedAttributionHydrationScope",
+                "stableResult": true
+              },
+              {
+                "name": "useContainerInfoOrganizationGroups",
+                "stableResult": true
+              },
+              { "name": "useLatestImporter", "stableResult": true },
+              { "name": "useMountedRef", "stableResult": true }
+            ]
+          }
+        }
       },
       "security": {
         "noDangerouslySetInnerHtml": "error",

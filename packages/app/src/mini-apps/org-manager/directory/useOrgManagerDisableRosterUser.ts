@@ -62,7 +62,10 @@ async function removeRosterDisableMembershipTargets(input: {
 }
 
 async function disableRosterUser(
-  input: UseOrgManagerDisableRosterUserParams & { disabledUserId: string },
+  input: Omit<UseOrgManagerDisableRosterUserParams, "appData"> & {
+    authUserId: string | null;
+    disabledUserId: string;
+  },
 ): Promise<void> {
   const targetUser =
     input.directory?.users.find(
@@ -72,7 +75,7 @@ async function disableRosterUser(
     !input.directory ||
     !input.memberGroupId ||
     !canDisableRosterUser({
-      authUserId: input.appData.auth.userId,
+      authUserId: input.authUserId,
       canDisableRosterUsers: input.canDisableRosterUsers,
       targetUser,
     })
@@ -130,7 +133,9 @@ export function useOrgManagerDisableRosterUser(
   params: UseOrgManagerDisableRosterUserParams,
 ) {
   const {
-    appData,
+    appData: {
+      auth: { userId: authUserId },
+    },
     canDisableRosterUsers,
     directory,
     groups,
@@ -150,7 +155,7 @@ export function useOrgManagerDisableRosterUser(
   return useCallback(
     (disabledUserId: string) =>
       disableRosterUser({
-        appData,
+        authUserId,
         canDisableRosterUsers,
         directory,
         disabledUserId,
@@ -168,7 +173,7 @@ export function useOrgManagerDisableRosterUser(
         setMutating,
       }),
     [
-      appData.auth.userId,
+      authUserId,
       canDisableRosterUsers,
       directory,
       groups,

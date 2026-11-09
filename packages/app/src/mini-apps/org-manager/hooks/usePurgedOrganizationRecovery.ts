@@ -345,6 +345,7 @@ function useRecoveryAttemptInput(params: {
       logError,
       persistSession,
       scopeKey,
+      setState,
       tearleads,
     ],
   );

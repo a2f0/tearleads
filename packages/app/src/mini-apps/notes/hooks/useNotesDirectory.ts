@@ -243,14 +243,19 @@ export function useNotesDirectory({
     mergeNoteSummary(nextNote);
     setSelectedNoteId(noteId);
     selectNoteRoute({ noteId });
-  }, [appData.state.containerId, mergeNoteSummary, selectNoteRoute]);
+  }, [
+    appData.state.containerId,
+    mergeNoteSummary,
+    selectNoteRoute,
+    setSelectedNoteId,
+  ]);
 
   const selectNote = useCallback(
     (noteId: string) => {
       setSelectedNoteId(noteId);
       selectNoteRoute({ noteId });
     },
-    [selectNoteRoute],
+    [selectNoteRoute, setSelectedNoteId],
   );
 
   const deleteNote = useDeleteNote({

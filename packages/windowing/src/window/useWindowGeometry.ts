@@ -280,7 +280,7 @@ function useGestureStarts(
         borderY: borderBox ? 0 : el.offsetHeight - el.clientHeight,
       };
     },
-    [maximized, position, resizing, windowRef],
+    [dragging, maximized, position, resizing, windowRef],
   );
 
   return { handlePointerDown, handleResizePointerDown };
