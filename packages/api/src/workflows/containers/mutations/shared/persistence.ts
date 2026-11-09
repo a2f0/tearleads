@@ -30,6 +30,10 @@ import type { ContainerMutationContext, StoredContainerRow } from "../types";
 import type { VerifiedContainerKekMutationState } from "./containerKek";
 import { persistContainerStructure } from "./containerStructure";
 import {
+  descendantsIncludeListedGrant,
+  manifestAdvanceChangesGrantsListing,
+} from "./grantsListing";
+import {
   directGrantKey,
   pruneAccessGrantTombstones,
 } from "./grantTombstonePruning";
@@ -340,10 +344,19 @@ export async function persistVerifiedMutation(
       executor,
     ),
   );
-  await appendOrganizationReadModelChangeInTransaction(executor, {
-    organizationId: manifest.state.organizationId,
-    lanes: ["grants"],
-  });
+  if (
+    manifestAdvanceChangesGrantsListing(previousManifest, manifest) ||
+    (manifest.event.event.eventType === "container.move" &&
+      (await descendantsIncludeListedGrant(
+        executor,
+        manifest.state.containerId,
+      )))
+  ) {
+    await appendOrganizationReadModelChangeInTransaction(executor, {
+      organizationId: manifest.state.organizationId,
+      lanes: ["grants"],
+    });
+  }
 
   const systemSlot = isContainerSystemSlot(container.systemSlot)
     ? container.systemSlot

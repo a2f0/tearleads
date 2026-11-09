@@ -15,7 +15,10 @@ export const organizationReadModelTables: ReadonlyArray<SqlTableSchema> = [
     ...defineSqlTableSchema(organizationReadModelState),
     requiredColumns: ["member_group_state_hash", "organization_state_hash"],
   },
-  defineSqlTableSchema(organizationReadModelRequesters),
+  {
+    ...defineSqlTableSchema(organizationReadModelRequesters),
+    requiredColumns: ["applied_cursor"],
+  },
   {
     ...defineSqlTableSchema(organizationReadModelDirectoryUsers),
     requiredColumns: ["is_personal_organization_owner"],

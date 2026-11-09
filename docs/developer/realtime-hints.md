@@ -49,6 +49,21 @@ unaffected siblings. It also refreshes the root lane to cover moves that occurre
 before a child's interest was confirmed. This trades extra reads and cache misses
 for concealing child identity; a folder move may require two listing requests.
 
+## Organization read-model hints
+
+An organization read-model hint goes only to sockets whose declared
+organization interest the gateway authorized and whose user is in the
+committed change's active-roster audience. The frame
+`{type, organizationId, cursor}` names the organization and the committed
+opaque read-model cursor. That cursor is the `nextCursor` every recipient
+already reads over HTTP, so it reveals nothing beyond the change timing the
+hint itself carries; recipient ids and the authoring session never cross the
+socket. The client reads only when the cursor is ahead of the cursor its
+projection applied (see
+[organization read-model sync](../organization-read-model-sync.md#realtime-behavior)).
+A user who leaves the audience receives one cursorless
+`organization_read_model_access_revoked` instead.
+
 ## Cloudflare hub hibernation
 
 `RealtimeHub` accepts sockets through Cloudflare's hibernation API. Each socket

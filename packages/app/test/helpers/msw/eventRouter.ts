@@ -1,3 +1,4 @@
+import { OrganizationReadModelEncodedCursorSchema } from "@tearleads/validators/organizationReadModelCursor";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { evictMswContainerInterests } from "./containerInterest";
 
@@ -91,12 +92,17 @@ function readOrganizationDeclarationId(value: unknown): string | null {
 }
 
 function readOrganizationReadModelAudience(event: Record<string, unknown>): {
+  cursor: string;
   organizationId: string;
   recipientUserIds: ReadonlySet<string>;
 } | null {
+  const cursor = OrganizationReadModelEncodedCursorSchema.safeParse(
+    Reflect.get(event, "cursor"),
+  ).data;
   const organizationId = Reflect.get(event, "organizationId");
   const recipientUserIds = Reflect.get(event, "recipientUserIds");
   if (
+    cursor === undefined ||
     typeof organizationId !== "string" ||
     !isUuidV4String(organizationId) ||
     !Array.isArray(recipientUserIds) ||
@@ -106,7 +112,8 @@ function readOrganizationReadModelAudience(event: Record<string, unknown>): {
   ) {
     return null;
   }
-  return { organizationId, recipientUserIds: new Set(recipientUserIds) };
+  const recipients = new Set<string>(recipientUserIds);
+  return { cursor, organizationId, recipientUserIds: recipients };
 }
 
 function readStringField(value: unknown): string | null {
@@ -360,7 +367,6 @@ export function createMswEventRouter(
     if (!audience) {
       return;
     }
-    const origin = readEventOrigin(event);
 
     for (const [client, organizationId] of organizationInterestByClient) {
       if (organizationId !== audience.organizationId) {
@@ -375,16 +381,10 @@ export function createMswEventRouter(
       absentOrganizationAudienceByClient.set(client, absentOrganizations);
       if (audience.recipientUserIds.has(identity.userId)) {
         absentOrganizations.delete(audience.organizationId);
-        // Organization author echoes are deliberate. Multiple app clients can
-        // share one authenticated session, so session-wide origin suppression
-        // would leave sibling clients stale.
-        sendSocketEvent(client, {
-          type: "organization_read_model_changed",
-          organizationId: audience.organizationId,
-          originatedFromSession:
-            origin?.userId === identity.userId &&
-            origin.sessionId === identity.sessionId,
-        });
+        // Author echoes are deliberate; the cursor lets each client skip a read.
+        const { cursor } = audience;
+        const type = "organization_read_model_changed";
+        sendSocketEvent(client, { type, organizationId, cursor });
       } else if (!absentOrganizations.has(audience.organizationId)) {
         absentOrganizations.add(audience.organizationId);
         sendSocketEvent(client, {

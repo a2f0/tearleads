@@ -3,7 +3,7 @@ import {
   type PublishedOrganizationReadModelChangedEvent,
   parsePublishedRealtimeEvent,
 } from "./publishedRealtimeEvents";
-import { isSameSession, sendSafely, type WsConnection } from "./wsConnection";
+import { sendSafely, type WsConnection } from "./wsConnection";
 
 export type OrganizationInterestDeclaration = {
   readonly declarationId: string;
@@ -110,8 +110,9 @@ export class WsOrganizationRouter {
 
   /**
    * Route only through the authoritative internal audience. Client frames are
-   * reconstructed from the shared public schema so neither the audience nor
-   * the authoring origin crosses the websocket boundary.
+   * reconstructed from the shared public schema so the audience never crosses
+   * the websocket boundary; recipients receive only the committed cursor they
+   * already read as `nextCursor` over HTTP.
    */
   routeReadModelChanged(
     event: PublishedOrganizationReadModelChangedEvent,
@@ -123,7 +124,11 @@ export class WsOrganizationRouter {
     if (!interested) {
       return;
     }
-    const origin = event.origin ?? null;
+    const changedMessage = serializeWsServerMessage({
+      type: "organization_read_model_changed",
+      organizationId: audience.organizationId,
+      cursor: event.cursor,
+    });
     const revokedMessage = serializeWsServerMessage({
       type: "organization_read_model_access_revoked",
       organizationId: audience.organizationId,
@@ -133,15 +138,9 @@ export class WsOrganizationRouter {
       this.absentAudienceBySocket.set(ws, absent);
       if (audience.recipientUserIds.has(ws.data.userId)) {
         absent.delete(audience.organizationId);
-        // Author echoes are deliberate: one session can own multiple clients.
-        sendSafely(
-          ws,
-          serializeWsServerMessage({
-            type: "organization_read_model_changed",
-            organizationId: audience.organizationId,
-            originatedFromSession: origin ? isSameSession(ws, origin) : false,
-          }),
-        );
+        // Author echoes are deliberate: one session can own multiple clients,
+        // and the cursor lets each skip a read it already applied.
+        sendSafely(ws, changedMessage);
       } else if (!absent.has(audience.organizationId)) {
         absent.add(audience.organizationId);
         sendSafely(ws, revokedMessage);

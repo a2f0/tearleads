@@ -1,12 +1,11 @@
-import type { DomainScope, Tearleads } from "@tearleads/client-sdk";
+import type { Tearleads } from "@tearleads/client-sdk";
+import type { ReconciliationPassState } from "./organizationReadModelPassMachine";
+import {
+  isSameOrganizationReadModelScope,
+  type OrganizationReadModelScope,
+} from "./organizationReadModelScope";
 
 export type ProjectionListener = () => unknown | Promise<unknown>;
-
-export interface OrganizationReadModelScope {
-  readonly domainScope: DomainScope;
-  readonly organizationId: string;
-  readonly userId: string;
-}
 
 export interface ProjectionSubscription {
   active: boolean;
@@ -15,16 +14,17 @@ export interface ProjectionSubscription {
   readonly scope: OrganizationReadModelScope | null;
 }
 
+/** One pass owner per organization: its explicit machine state
+ * (`organizationReadModelPassMachine.ts`) and the promise of its loop. */
 export interface ReconciliationState {
-  pending: boolean;
+  pass: ReconciliationPassState;
   promise: Promise<void>;
-  requiresSdkBarrier: boolean;
-  scope: OrganizationReadModelScope;
-  started: boolean;
 }
 
-interface DeferredSelfHint {
-  readonly owner: ProjectionSubscription;
+/** The highest committed cursor position realtime hints named for one scope
+ * that no pass has consumed yet. */
+export interface PendingReadModelHint {
+  readonly position: bigint;
   readonly scope: OrganizationReadModelScope;
 }
 
@@ -33,7 +33,6 @@ export interface OrganizationRealtimeState {
   caughtUpScope: OrganizationReadModelScope | null;
   declarationSequence: number;
   declaredOrganizationId: string | null | undefined;
-  readonly deferredSelfHintByOrganizationId: Map<string, DeferredSelfHint>;
   readonly disconnectedFallbackByOrganizationId: Map<
     string,
     ReturnType<typeof setTimeout>
@@ -44,6 +43,7 @@ export interface OrganizationRealtimeState {
     readonly organizationId: string | null;
     readonly socket: WebSocket;
   } | null;
+  readonly pendingHintByOrganizationId: Map<string, PendingReadModelHint>;
   readonly reconciliationsByOrganizationId: Map<string, ReconciliationState>;
   socket: WebSocket | null;
 }
@@ -61,10 +61,10 @@ export function stateFor(tearleads: Tearleads): OrganizationRealtimeState {
       caughtUpScope: null,
       declarationSequence: 0,
       declaredOrganizationId: undefined,
-      deferredSelfHintByOrganizationId: new Map(),
       disconnectedFallbackByOrganizationId: new Map(),
       listenersByOrganizationId: new Map(),
       pendingDeclaration: null,
+      pendingHintByOrganizationId: new Map(),
       reconciliationsByOrganizationId: new Map(),
       socket: null,
     };
@@ -79,16 +79,32 @@ export function hasOpenOrganizationReadModelSocket(
   return state.socket?.readyState === WebSocket.OPEN;
 }
 
-export function isSameOrganizationReadModelScope(
-  left: OrganizationReadModelScope | null,
-  right: OrganizationReadModelScope | null,
+/** A hint only raises the pending position for its scope; a pending hint
+ * from another scope is irrelevant to the new one and is replaced. */
+export function raisePendingReadModelHint(
+  current: PendingReadModelHint | undefined,
+  hint: PendingReadModelHint,
+): PendingReadModelHint {
+  return current &&
+    isSameOrganizationReadModelScope(current.scope, hint.scope) &&
+    current.position >= hint.position
+    ? current
+    : hint;
+}
+
+/** An Org Manager mutation in this exact scope is still running; it ends
+ * with its own post-commit read. */
+export function hasActiveOrganizationMutation(
+  state: OrganizationRealtimeState,
+  scope: OrganizationReadModelScope,
 ): boolean {
-  return (
-    left !== null &&
-    right !== null &&
-    left.domainScope === right.domainScope &&
-    left.organizationId === right.organizationId &&
-    left.userId === right.userId
+  return [
+    ...(state.listenersByOrganizationId.get(scope.organizationId) ?? []),
+  ].some(
+    (subscription) =>
+      subscription.active &&
+      isSameOrganizationReadModelScope(subscription.scope, scope) &&
+      subscription.isMutationActive(),
   );
 }
 

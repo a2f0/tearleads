@@ -2,24 +2,30 @@ import {
   subscribeOrganizationReadModelInvalidation,
   type Tearleads,
 } from "@tearleads/client-sdk";
+import { organizationReadModelCursorPosition } from "@tearleads/validators/organizationReadModelCursor";
 import { serializeWsClientDeclaration } from "@tearleads/validators/realtime";
 import {
   activeDemandOrganizationId,
   activeDemandScope,
   currentOrganizationReadModelScope,
+  hasActiveOrganizationMutation,
   hasOpenOrganizationReadModelSocket,
-  isSameOrganizationReadModelScope,
-  type OrganizationReadModelScope,
   type OrganizationRealtimeState,
   type ProjectionListener,
   type ProjectionSubscription,
+  raisePendingReadModelHint,
   stateFor,
 } from "./organizationReadModelRealtimeState";
 import {
   ensureOrganizationReadModelReconciliation,
+  scheduleOrganizationReadModelHintReconciliation,
   scheduleOrganizationReadModelReconciliation,
   scheduleOrganizationReadModelReconciliationAfterActivePass,
 } from "./organizationReadModelReconciliation";
+import {
+  isSameOrganizationReadModelScope,
+  type OrganizationReadModelScope,
+} from "./organizationReadModelScope";
 
 export {
   ensureOrganizationReadModelReconciliation,
@@ -206,13 +212,6 @@ export function subscribeOrganizationReadModelRealtime(
     }
     subscription.active = false;
     unsubscribeInvalidation?.();
-    const deferredSelfHint =
-      state.deferredSelfHintByOrganizationId.get(organizationId);
-    const abandonedSelfHint =
-      deferredSelfHint?.owner === subscription ? deferredSelfHint : null;
-    if (abandonedSelfHint) {
-      state.deferredSelfHintByOrganizationId.delete(organizationId);
-    }
     // React route transitions can unmount and remount the same exact consumer
     // in one passive-effect flush. Keep its demand lease through the current
     // task so that transition neither drops server interest nor starts a second
@@ -221,16 +220,13 @@ export function subscribeOrganizationReadModelRealtime(
       listeners.delete(subscription);
       if (listeners.size === 0) {
         state.listenersByOrganizationId.delete(organizationId);
-        state.deferredSelfHintByOrganizationId.delete(organizationId);
+        state.pendingHintByOrganizationId.delete(organizationId);
         clearDisconnectedReconciliationFallback(state, organizationId);
       }
       syncOrganizationInterest(tearleads, state);
-      const currentScope = activeDemandScope(tearleads, state, organizationId);
-      if (
-        abandonedSelfHint &&
-        isSameOrganizationReadModelScope(abandonedSelfHint.scope, currentScope)
-      ) {
-        void scheduleOrganizationReadModelReconciliationAfterActivePass(
+      // A mutating consumer that unmounts no longer holds the pending hint.
+      if (state.pendingHintByOrganizationId.has(organizationId)) {
+        void scheduleOrganizationReadModelHintReconciliation(
           tearleads,
           organizationId,
         );
@@ -310,59 +306,70 @@ export function handleOrganizationReadModelInterestAcknowledgement(
   }
 }
 
+/**
+ * A hint names the committed cursor of the change it announces. It raises the
+ * pending cursor for the scope; a pass reads only when that cursor is ahead of
+ * the applied one, so the author's own echo of a change its post-mutation
+ * read already applied costs nothing, while a sibling client or another
+ * member's change still reads. An Org Manager mutation in the same scope holds
+ * the hint until it ends, because it finishes with its own post-commit read.
+ */
 export function handleOrganizationReadModelHint(
   tearleads: Tearleads,
   organizationId: string,
-  originatedFromSession: boolean,
+  cursor: string,
 ): void {
   const state = stateFor(tearleads);
-  const subscriptions = state.listenersByOrganizationId.get(organizationId);
   const scope = activeDemandScope(tearleads, state, organizationId);
-  const mutationSubscription =
-    originatedFromSession && scope
-      ? [...(subscriptions ?? [])].find(
-          (subscription) =>
-            subscription.active &&
-            isSameOrganizationReadModelScope(subscription.scope, scope) &&
-            subscription.isMutationActive(),
-        )
-      : undefined;
-  if (mutationSubscription && scope) {
-    state.deferredSelfHintByOrganizationId.set(organizationId, {
-      owner: mutationSubscription,
-      scope,
-    });
+  if (!scope) {
     return;
   }
+  const position = organizationReadModelCursorPosition(cursor, organizationId);
+  if (position === null) {
+    // A cursor this client cannot compare proves nothing; read.
+    void scheduleOrganizationReadModelReconciliationAfterActivePass(
+      tearleads,
+      organizationId,
+    );
+    return;
+  }
+  state.pendingHintByOrganizationId.set(
+    organizationId,
+    raisePendingReadModelHint(
+      state.pendingHintByOrganizationId.get(organizationId),
+      { position, scope },
+    ),
+  );
+  if (!hasActiveOrganizationMutation(state, scope)) {
+    void scheduleOrganizationReadModelHintReconciliation(
+      tearleads,
+      organizationId,
+    );
+  }
+}
+
+/** Access revocation carries no cursor and always reads: the coded denial
+ * purges the local projection. */
+export function handleOrganizationReadModelAccessRevoked(
+  tearleads: Tearleads,
+  organizationId: string,
+): void {
   void scheduleOrganizationReadModelReconciliationAfterActivePass(
     tearleads,
     organizationId,
   );
 }
 
-/**
- * Release author hints held during an Org Manager mutation. Session-scoped
- * origin flags cannot prove the deferred change was this client's own echo (a
- * sibling client on the same login session sets the same flag), so the release
- * always reconciles the feed rather than trusting a repaint shortcut.
- */
-export function releaseDeferredOrganizationReadModelHint(
+/** Release a hint held during an Org Manager mutation. Its post-commit read
+ * has run, so the follow-up reads only if the hint is still ahead. */
+export function releaseHeldOrganizationReadModelHint(
   tearleads: Tearleads,
   organizationId: string,
 ): void {
-  const state = stateFor(tearleads);
-  const deferredHint =
-    state.deferredSelfHintByOrganizationId.get(organizationId);
-  if (!deferredHint) {
-    return;
+  if (stateFor(tearleads).pendingHintByOrganizationId.has(organizationId)) {
+    void scheduleOrganizationReadModelHintReconciliation(
+      tearleads,
+      organizationId,
+    );
   }
-  state.deferredSelfHintByOrganizationId.delete(organizationId);
-  const activeScope = activeDemandScope(tearleads, state, organizationId);
-  if (!isSameOrganizationReadModelScope(deferredHint.scope, activeScope)) {
-    return;
-  }
-  void scheduleOrganizationReadModelReconciliationAfterActivePass(
-    tearleads,
-    organizationId,
-  );
 }
