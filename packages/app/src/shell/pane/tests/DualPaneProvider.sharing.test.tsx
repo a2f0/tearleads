@@ -67,9 +67,9 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // request. The empty folder's create carries its metadata as its seed, so
   // no metadata sync follows. Measured 58 calls (62–68 before the seed);
   // document, attachment and metadata syncs share their coordinator drain's
-  // policy operation, so a drain discovers once: measured 50 calls. Keep
-  // eight calls of scheduling room.
-  total: 58,
+  // policy operation, so a drain discovers once: measured 50 calls (51 with
+  // seeded provisioned container roles). Keep eight calls of scheduling room.
+  total: 59,
   // Container mutations cite stored manifests by hash and principal policies
   // by head, so the share and its recitations echo neither path bundles nor
   // ~9.8 KB policies: 120 KB sent with create seeds (180 KB with policies,
@@ -84,8 +84,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // base64: 117 KB sent (120 KB before). Document creates and attachment
   // binds acknowledge by hash too: 0.48 MB received. A drain's syncs share one
   // discovery read, and destination checks record the KEK levels they served,
-  // so later projections cite them: 0.41 MB received.
-  bodyBytes: { request: 128_000, response: 455_000 },
+  // so later projections cite them: 0.42 MB received.
+  bodyBytes: { request: 128_000, response: 460_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,

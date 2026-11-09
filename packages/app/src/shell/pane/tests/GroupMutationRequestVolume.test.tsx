@@ -46,12 +46,16 @@ test("group creation and adding a peer have separate request budgets", async () 
       label: `create ${group} organization group`,
       operation: () => createOrganizationGroup(pane, `Budget ${group} group`),
       budget: {
-        // Measured 7/6 requests. Allow three directory/Admins reads to move
-        // across the phase boundary; metadata unwrap reuses exact local evidence.
-        total: group === "first" ? 10 : 9,
+        // Measured 9/6 requests. Bootstrap no longer reads the roster profile
+        // container's projection (its role is seeded), so the first group
+        // create reads it and its Admins history (7/6 before). Allow three
+        // directory/Admins reads to move across the phase boundary; metadata
+        // unwrap reuses exact local evidence.
+        total: group === "first" ? 12 : 9,
         byRequest: {
-          "GET /principals/history": 1,
-          "GET /containers/:containerId/writer-projection": 1,
+          "GET /principals/history": group === "first" ? 2 : 1,
+          "GET /containers/:containerId/writer-projection":
+            group === "first" ? 2 : 1,
           "GET /organizations/:organizationId/read-model": 2,
           "GET /principals/group/:groupId/policy": 1,
           "GET /principals/organization/:organizationId/policy": 2,
@@ -101,10 +105,11 @@ test("group creation and adding a peer have separate request budgets", async () 
         // The first add enrolls the peer in Members and the custom group in
         // one write, including metadata discovery, read-only sync, and billing.
         // The second add reuses the roster membership.
-        // First enrollment measures 39 calls with private metadata-root
-        // authority (32 for the add itself, 33 before). The add applies the
-        // SDK's post-commit read model instead of reading it again (later
-        // adds measure 7, 8 before). Keep five reads of phase headroom;
+        // First enrollment measures 40 calls with private metadata-root
+        // authority, its group create included (31 for the add itself, 32
+        // before drain-scoped sync operations, 33 before that). The add
+        // applies the SDK's post-commit read model instead of reading it again
+        // (later adds measure 7, 8 before). Keep five reads of phase headroom;
         // later adds get three.
         total: group === "first" ? 44 : 10,
         byRequest: {

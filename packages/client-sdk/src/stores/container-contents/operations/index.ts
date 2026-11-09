@@ -239,6 +239,7 @@ async function ensureChildSystemContainer(
     systemSlot,
     createRemote,
     icon: options.icon,
+    locallyAcceptedMetadataUpdateIds: state.locallyAcceptedMetadataUpdateIds,
     name: trimmedName,
     parentState: rootState,
     persistence: state.persistence,

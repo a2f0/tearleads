@@ -41,7 +41,15 @@ heads of the roster and organization profile documents also seed discovery
 evidence, and the founding policy heads seed verified
 [recovery progress](../developer/principal-history-recovery.md), so the device
 fetches neither those documents' writer projections nor the founding groups'
-history. Creating an additional organization follows the same rule.
+history. Each created container whose acknowledged head equals the epoch-1
+create the registering identity signed also seeds the immutable destination
+role (creator, metadata document, system slot, fixed parent and path root)
+that hydration would otherwise verify from a writer projection: the
+acknowledged root, the organization metadata root, and the system children of
+that root. Seeded roles authorize nothing; their reuse still rechecks the
+session-root creator, and a mismatch seeds nothing, so hydration verifies
+online. A container's writer projection is read on its first write. Creating
+an additional organization follows the same rule.
 
 `organizations.adminGroupId` is the reserved org-admin authority. Reachability
 through it grants org-admin behavior. `organizations.memberGroupId` is the

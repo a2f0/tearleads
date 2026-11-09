@@ -317,8 +317,7 @@ class SessionService implements Session {
         logError: this.dependencies.logError,
         organizationProfileName: options?.organizationProfileName,
         pinLocalUserIdentity,
-        primePrincipalHistory:
-          this.dependencies.primeProvisionedPrincipalHistory,
+        primeProvisionedState: this.dependencies.primeProvisionedState,
         provisionedSystemContainers:
           this.dependencies.provisionedSystemContainers,
         rosterProfileNickname: options?.rosterProfileNickname,

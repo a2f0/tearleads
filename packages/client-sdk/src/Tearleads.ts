@@ -101,7 +101,7 @@ export class Tearleads {
     async () => {
       throw new Error("Trusted user identity runtime is not initialized");
     };
-  private primeProvisionedPrincipalHistory: InternalRuntime["primeProvisionedPrincipalHistory"] =
+  private primeProvisionedState: InternalRuntime["primeProvisionedState"] =
     async () => undefined;
   private boundUserId: InternalRuntime["boundUserId"] = async () => {
     throw new Error("Trusted user identity runtime is not initialized");
@@ -214,8 +214,7 @@ export class Tearleads {
         this.boundUserId(signingKeyFingerprint),
       onUserIdentityAvailable: (userId, candidate) =>
         this.pinLocalUserIdentity(userId, candidate),
-      primeProvisionedPrincipalHistory: (input) =>
-        this.primeProvisionedPrincipalHistory(input),
+      primeProvisionedState: (input) => this.primeProvisionedState(input),
       provisionedSystemContainers: options.provisionedSystemContainers,
       reportSecurityIncident,
     });
@@ -242,8 +241,7 @@ export class Tearleads {
       runtime.retirePrincipalHistoryProtection;
     this.pinLocalUserIdentity = (userId, candidate) =>
       runtime.pinLocalUserIdentity(userId, candidate);
-    this.primeProvisionedPrincipalHistory =
-      runtime.primeProvisionedPrincipalHistory;
+    this.primeProvisionedState = runtime.primeProvisionedState;
     this.boundUserId = (signingKeyFingerprint) =>
       runtime.boundUserId(signingKeyFingerprint);
   }

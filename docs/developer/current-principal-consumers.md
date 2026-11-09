@@ -175,11 +175,14 @@ below, together with per-route limits and mutation-count assertions. They are
 local fixed-cardinality measurements, not production benchmarks.
 
 [`OrganizationBootstrapRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/OrganizationBootstrapRequestVolume.test.tsx)
-measures 29 requests for personal bootstrap with a ceiling of 30, and caps
+measures 24 requests for personal bootstrap with a ceiling of 25, and caps
 creating and activating another organization at 6. Provisioning seeds discovery
-evidence for the profile documents it signed and primes recovery of the founding
-policy heads, so neither flow fetches those documents' writer projections or
-reads group policy history for the founding heads.
+evidence for the profile documents it signed, the destination roles of the
+containers it created, and recovery of the founding policy heads, so neither
+flow fetches those documents' writer projections, verifies the provisioned
+containers through their projections, or reads group policy history for the
+founding heads. A provisioned container's projection is read on its first
+write instead.
 
 A cold Org Manager open uses three requests: one read-model read, one
 organization-policy read and one Admins-policy read
@@ -190,8 +193,10 @@ no read
 ([`DualPaneProvider.activePeerRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx)).
 
 [`GroupMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx)
-measures 7 requests for creating the first group and 6 for a later one, with
-ceilings of 10 and 9. First enrollment of a peer measures 40 requests with a
+measures 9 requests for creating the first group and 6 for a later one, with
+ceilings of 12 and 9; the first create reads the roster profile container's
+projection and its Admins history, which bootstrap no longer reads. First
+enrollment of a peer measures 40 requests with a
 ceiling of 45; a later addition is capped at
 11. The creation/addition pairs are capped at 53 and 17 requests, with at most
 11 and 3 public history reads. First addition permits 10 organization-policy and
@@ -200,14 +205,15 @@ preparation response with identical request bytes.
 
 The Admins enrollment fixture in
 [`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)
-measures 49 completed requests; its ceiling is 52, plus explicitly counted
+measures 50 completed requests; its ceiling is 53, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 10,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
-160,000 request bytes and 700,000 response bytes (0.63 MB measured). The root
+160,000 request bytes and 730,000 response bytes (0.66 MB measured, including
+the roster profile projection read that bootstrap no longer makes). The root
 attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
-measures 50 requests and permits 58, with body ceilings of 128,000 request bytes
-and 455,000 response bytes (0.41 MB measured). Container mutation
+measures 51 requests and permits 59, with body ceilings of 128,000 request bytes
+and 460,000 response bytes (0.42 MB measured). Container mutation
 acknowledgements carry hashes rather than echoes, which keeps the policy commit
 at about 73 KB. Container mutations cite stored
 [manifests](../glossary/access.md#access-manifest) by
