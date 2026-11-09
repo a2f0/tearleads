@@ -33,7 +33,12 @@ test("lists the root of a workspace and the topmost shared folders elsewhere", (
       ["acme", "Acme"],
     ]),
     nodes: [
-      node({ id: "personal-root", organizationId: "personal", parentId: null }),
+      node({
+        effectiveAccessLevel: "admin",
+        id: "personal-root",
+        organizationId: "personal",
+        parentId: null,
+      }),
       node({
         id: "personal-trash",
         organizationId: "personal",
@@ -80,9 +85,9 @@ test("lists the root of a workspace and the topmost shared folders elsewhere", (
       canChangeSync: false,
       folders: [
         {
+          accessLevel: "admin",
           id: "personal-root",
           name: "personal-root",
-          readOnly: false,
           workspaceRoot: true,
         },
       ],
@@ -98,12 +103,17 @@ test("lists the root of a workspace and the topmost shared folders elsewhere", (
       canChangeSync: true,
       folders: [
         {
+          accessLevel: "write",
           id: "acme-design",
           name: "design",
-          readOnly: false,
           workspaceRoot: false,
         },
-        { id: "acme-team", name: "Team", readOnly: true, workspaceRoot: false },
+        {
+          accessLevel: "read",
+          id: "acme-team",
+          name: "Team",
+          workspaceRoot: false,
+        },
       ],
       leaveRequested: false,
       name: "Acme",
@@ -112,6 +122,17 @@ test("lists the root of a workspace and the topmost shared folders elsewhere", (
       workspace: false,
     },
   ]);
+});
+
+test("treats a folder with no synced access level as read only", () => {
+  const [card] = buildOrganizationDashboardCards({
+    ...NO_SYNC_CHOICES,
+    activeOrganizationId: null,
+    namesById: new Map(),
+    nodes: [node({ id: "shared", organizationId: "acme", parentId: "hidden" })],
+  });
+
+  expect(card?.folders.map((folder) => folder.accessLevel)).toEqual(["read"]);
 });
 
 test("keeps an organization known only through its metadata root", () => {

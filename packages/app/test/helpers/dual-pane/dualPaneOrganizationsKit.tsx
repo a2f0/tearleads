@@ -46,8 +46,11 @@ export function memberCardShowsFolder(
   folderName: string,
 ): boolean {
   const card = memberOrganizationCard(pane);
+  // A folder row's accessible name also carries its permission badge.
   return (
     card !== null &&
-    within(card).queryByRole("button", { name: folderName }) !== null
+    within(card)
+      .queryAllByRole("button")
+      .some((row) => within(row).queryByText(folderName) !== null)
   );
 }
