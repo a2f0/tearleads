@@ -33,7 +33,7 @@ const SYSTEM_CONTAINER_ID_NAMESPACE_BYTES = new Uint8Array([
  * container APIs currently validate container ids with the same v4 UUID contract
  * they use for random user-created containers.
  */
-function deriveSystemContainerId(input: {
+export function deriveSystemContainerId(input: {
   parentContainerId: string;
   systemSlot: ContainerSystemSlot;
 }): Promise<string> {
