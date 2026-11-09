@@ -3,7 +3,7 @@ import {
   useLauncherNavigationActions,
   useLauncherNavigationState,
 } from "../launcher/LauncherNavigationProvider";
-import { isLauncherAppId } from "../launcher/launcherDefinition";
+import { resolveLauncherAppIds } from "../launcher/launcherDefinition";
 import { useContextMenuState } from "../menu/useContextMenuState";
 import { DesktopIcon } from "./DesktopIcon";
 import { DesktopIconMenu, type DesktopIconMenuItem } from "./DesktopIconMenu";
@@ -18,8 +18,11 @@ import { useDesktopSurface } from "./useDesktopSurface";
 import "./DesktopIcons.css";
 
 export interface DesktopIconsProps<AppId extends string = string> {
-  /** The launcher apps to show, in their default grid order. */
-  appIds: ReadonlyArray<AppId>;
+  /**
+   * The launcher apps to show, in their default grid order. Defaults to the
+   * launcher definition's `desktopAppIds`.
+   */
+  appIds?: ReadonlyArray<AppId> | undefined;
   /** The icon list's accessible name. Defaults to "Desktop". */
   label?: string | undefined;
   /** Extra context-menu items for an icon, shown below Open. */
@@ -59,7 +62,11 @@ export function DesktopIcons<AppId extends string>({
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
   const { clamp, surface } = useDesktopSurface(layer);
   const shownIds = useMemo(
-    () => appIds.filter((appId) => isLauncherAppId(definition, appId)),
+    () =>
+      resolveLauncherAppIds<AppId>(
+        definition,
+        appIds ?? definition.desktopAppIds,
+      ),
     [appIds, definition],
   );
   const { selected, setSelected, step, tabbableId } = useDesktopIconSelection(

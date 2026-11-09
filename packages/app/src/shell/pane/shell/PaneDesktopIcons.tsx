@@ -1,15 +1,15 @@
 import { DesktopIcons } from "@tearleads/windowing";
 import { useMemo } from "react";
+import { MINI_APP_LAUNCHER } from "../../../mini-apps/registry";
 import { useSystemMonitor } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
-import type { MiniAppId } from "../../../mini-apps/types";
 import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItems";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { usePaneDesktopStateStorage } from "./usePaneDesktopStateStorage";
 
-// The apps the windowed desktop shows as icons, in their default order.
-const DESKTOP_ITEMS: ReadonlyArray<{ appId: MiniAppId }> = [
-  { appId: "explorer" },
-];
+// The launcher's desktop apps, as the items the session's visibility filters.
+const DESKTOP_ITEMS = (MINI_APP_LAUNCHER.desktopAppIds ?? []).map((appId) => ({
+  appId,
+}));
 
 /**
  * The pane desktop's app icons, saved per identity in its encrypted blob

@@ -99,6 +99,22 @@ test("shows the launcher's apps it is given, with their icons", async () => {
   expect(icon(view, "Explorer").style.top).toBe(`${originY}px`);
 });
 
+test("defaults to the launcher's desktop apps, each once, skipping unknown ones", async () => {
+  const definition: LauncherDefinition = {
+    ...LAUNCHER,
+    desktopAppIds: ["notes", "missing", "notes"],
+  };
+  const view = render(
+    <WindowStateProvider>
+      <LauncherNavigationProvider definition={definition} mode="windowed">
+        <DesktopIcons />
+      </LauncherNavigationProvider>
+    </WindowStateProvider>,
+  );
+  await act(async () => {});
+  expect(view.getAllByRole("option")).toEqual([icon(view, "Notes")]);
+});
+
 test("double-click and Enter open the app through the launcher", async () => {
   const view = await renderLoadedDesktop({ appIds: ["explorer", "notes"] });
 

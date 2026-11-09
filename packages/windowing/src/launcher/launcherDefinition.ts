@@ -27,16 +27,23 @@ export interface MiniAppDefinition {
 
 /**
  * A launcher application: the mini-apps it can open, the order its launchers
- * list them in, and the one the routed shell shows at the root route.
+ * list them in, the ones the windowed desktop shows as icons and opens on
+ * entry, and the one the routed shell shows at the root route.
  */
 export interface LauncherDefinition<AppId extends string = string> {
   apps: Readonly<Record<AppId, MiniAppDefinition>>;
   /**
-   * Opens when entering windowed mode with no windows, including on mount.
-   * Closing the last window leaves the desktop empty until the next entry.
-   * Omit to leave window startup to the host. Unknown app ids are ignored.
+   * Open, in this order, when entering windowed mode with no windows,
+   * including on mount, so the last opens in front. Closing the last window
+   * leaves the desktop empty until the next entry. Omit to leave window
+   * startup to the host. Unknown app ids are skipped.
    */
-  defaultWindowAppId?: AppId | undefined;
+  defaultWindowAppIds?: ReadonlyArray<AppId> | undefined;
+  /**
+   * The apps `DesktopIcons` shows on the windowed desktop, in their default
+   * grid order. Defaults to none. Unknown app ids are skipped.
+   */
+  desktopAppIds?: ReadonlyArray<AppId> | undefined;
   /** Shown at the root route. Defaults to the first app in `order`. */
   homeAppId?: AppId | undefined;
   /**
@@ -52,6 +59,23 @@ export function isLauncherAppId<AppId extends string>(
   value: string | null | undefined,
 ): value is AppId {
   return typeof value === "string" && Object.hasOwn(definition.apps, value);
+}
+
+/**
+ * `appIds` that name the launcher's apps, each once, in their given order, as
+ * the host's id type: the navigation context names apps by their string ids.
+ */
+export function resolveLauncherAppIds<AppId extends string = string>(
+  definition: LauncherDefinition,
+  appIds: ReadonlyArray<string> | undefined,
+): ReadonlyArray<AppId> {
+  return [
+    ...new Set(
+      (appIds ?? []).filter((appId): appId is AppId =>
+        Object.hasOwn(definition.apps, appId),
+      ),
+    ),
+  ];
 }
 
 /** The launcher's apps in the order its launchers list them. */
