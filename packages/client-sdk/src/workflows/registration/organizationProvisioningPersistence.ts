@@ -10,7 +10,8 @@ import {
   buildOrganizationProfileBootstrapInput,
   buildRosterProfileBootstrapInput,
 } from "./profileBootstrapPersistence";
-import type { ProvisionedPrincipalHistoryPrimer } from "./provisionedPrincipalHistory";
+import type { ProvisionedContainerSeed } from "./provisionedContainerSeeds";
+import type { ProvisionedStatePrimer } from "./provisionedStatePrimer";
 import {
   provisioningAcknowledgedAccessHeads,
   provisioningDiscoveryHeads,
@@ -44,10 +45,8 @@ type PersistOrganizationProvisioningStateInput = Pick<
   readonly logError?:
     | ((message: string | Error, cause?: unknown) => void)
     | undefined;
-  /** Seeds verified recovery progress once the bootstrap commits. */
-  readonly primePrincipalHistory?:
-    | ProvisionedPrincipalHistoryPrimer
-    | undefined;
+  /** Seeds what the bootstrap proves once it commits. */
+  readonly primeProvisionedState?: ProvisionedStatePrimer | undefined;
   readonly response: OrganizationProvisioningResponse;
 };
 
@@ -132,6 +131,40 @@ function buildSystemContainersBootstrapInput(
     });
   }
   return entries.length > 0 ? entries : undefined;
+}
+
+/** Every container the request created, with the head the response acknowledged. */
+function provisionedContainerSeeds(
+  input: PersistOrganizationProvisioningStateInput,
+): ProvisionedContainerSeed[] {
+  const { response } = input;
+  const systemHeads = new Map(
+    response.systemContainers.map(({ container }) => [
+      container.containerId,
+      container.manifestHead.manifestHash,
+    ]),
+  );
+  return [
+    {
+      acknowledgedManifestHash: response.rootMetadataAccessStateHash,
+      plan: input.rootContainer.plan,
+    },
+    {
+      acknowledgedManifestHash:
+        response.rosterProfileContainer?.container.manifestHead.manifestHash,
+      plan: input.rosterProfileBootstrap.containerPlan.plan,
+    },
+    {
+      acknowledgedManifestHash:
+        response.organizationMetadataContainer.container.manifestHead
+          .manifestHash,
+      plan: input.organizationMetadataBootstrap.containerPlan.plan,
+    },
+    ...input.systemContainerBootstraps.map((bootstrap) => ({
+      acknowledgedManifestHash: systemHeads.get(bootstrap.containerId),
+      plan: bootstrap.containerPlan.plan,
+    })),
+  ];
 }
 
 async function buildProvisioningPersistenceArtifacts(
@@ -285,7 +318,8 @@ export async function persistOrganizationProvisioningState(
         : "Local organization bootstrap skipped: identity replaced",
     );
     if (persisted)
-      await input.primePrincipalHistory?.({
+      await input.primeProvisionedState?.({
+        containers: provisionedContainerSeeds(input),
         database: input.dbClient,
         isCurrent: input.canStartDurableMutation ?? (() => true),
         organizationId: input.response.organizationId,
@@ -294,6 +328,7 @@ export async function persistOrganizationProvisioningState(
           memberGroup: artifacts.initialMemberGroupPolicy,
           organization: artifacts.initialOrganizationPolicy,
         },
+        rootContainerId: input.response.rootContainerId,
         userId: input.response.userId,
       });
   } catch (error: unknown) {

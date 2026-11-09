@@ -86,8 +86,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // metadata sync (and its discovery read) follows.
       total: 3,
       // The create cites its parent's KEK state instead of carrying it:
-      // 32.6 KB sent (36.4 KB before) and 11.3 KB received.
-      bodyBytes: { request: 36_000, response: 12_500 },
+      // 32.6 KB sent (36.4 KB before) and 1.8 KB received; keep about 10%
+      // headroom.
+      bodyBytes: { request: 36_000, response: 2_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
@@ -141,8 +142,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
       await expectNote(pane, "/", true);
     },
     // Link-set writes read the complete binding frontier before signing rewraps.
+    // 9.6 KB sent and 0.6 KB received; keep about 10% headroom.
     budget: {
       total: 3,
+      bodyBytes: { request: 10_500, response: 700 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
@@ -271,18 +274,21 @@ test("folder creation, document linking, unlinking and trash have separate reque
     budget: {
       // The link and unlink legs share one directory discovery and one
       // attachment listing: the unlink re-cites the envelopes the link
-      // committed. The unchanged document still holds the proof the unlink
-      // above recorded, so the unlink leg reuses it: no sync and no document
-      // projection (measured 4, 7 before). 27.3 KB sent and 0.9 KB received
-      // (36.8 KB before); keep about 10% headroom.
-      total: 4,
-      bodyBytes: { request: 30_000, response: 1_000 },
+      // committed. The first write into Trash reads its projection (21.5 KB),
+      // which bootstrap no longer reads because provisioning seeds its role.
+      // The unchanged document still holds the proof the unlink above
+      // recorded, so the unlink leg reuses it: no sync and no document
+      // projection. Measured 5 (main 8; the reused proof saves the sync, the
+      // document projection and a policy read). 27.3 KB sent and 22.4 KB
+      // received; keep about 10% headroom.
+      total: 5,
+      bodyBytes: { request: 30_000, response: 25_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
         "GET /documents/:documentId/attachments": 1,
-        "GET /containers/:containerId/writer-projection": 0,
+        "GET /containers/:containerId/writer-projection": 1,
         "GET /documents/:documentId/writer-projection": 0,
         "POST /documents/:documentId/link": 1,
         "POST /documents/:documentId/sync": 0,

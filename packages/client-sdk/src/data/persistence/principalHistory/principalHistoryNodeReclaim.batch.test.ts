@@ -7,10 +7,6 @@ import {
   principalHistoryNodes,
 } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import {
-  principalHistoryNodeRetentionTables,
-  principalHistoryRootOwners,
-} from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
-import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
@@ -24,15 +20,14 @@ import { reclaimPrincipalHistoryNodes } from "./principalHistoryNodeRetention";
 import {
   decrementPrincipalHistoryNodeReference,
   foldablePrincipalHistoryRootEdges,
-  loadPrincipalHistoryRootRetention,
   type PrincipalHistoryNodeScope,
-  retainPrincipalHistoryRoot,
-  writePrincipalHistoryRootRetention,
+  type PrincipalHistoryRootOwner,
+  principalHistoryRootRetention,
+  writePrincipalHistoryRootEdges,
 } from "./principalHistoryRootOwnership";
 
 type Reclaim = typeof reclaimPrincipalHistoryNodes;
 type NodeRow = typeof principalHistoryNodes.$inferInsert;
-type OwnerRow = typeof principalHistoryRootOwners.$inferInsert;
 
 /** The per-node reclamation the set statements replaced, kept as reference behavior. */
 const reclaimOneNodeAtATime: Reclaim = async (tx, scope) => {
@@ -83,15 +78,11 @@ function seededRandom(seed: number): () => number {
 
 interface Seed {
   readonly nodes: NodeRow[];
-  readonly owners?: OwnerRow[];
 }
 
 async function retentionDatabase(key: string) {
   const sqlite = await createTestExecSql(key);
-  await ensureSqlTables(sqlite.execSql, [
-    ...principalHistoryEvidenceTables,
-    ...principalHistoryNodeRetentionTables,
-  ]);
+  await ensureSqlTables(sqlite.execSql, principalHistoryEvidenceTables);
   const counter = { statements: 0 };
   const counted: ExecSql = createExecSql({
     async exec({ sql, bind, rowMode }) {
@@ -109,16 +100,13 @@ async function retentionDatabase(key: string) {
     counter,
     async seed(seed: Seed) {
       await runtime.transaction(async (tx) => {
-        for (const table of [principalHistoryNodes, principalHistoryRootOwners])
-          await tx.delete(table).run();
+        await tx.delete(principalHistoryNodes).run();
         for (const node of seed.nodes)
           await tx
             .insert(principalHistoryNodes)
             .values(node)
             .onConflictDoNothing()
             .run();
-        for (const owner of seed.owners ?? [])
-          await tx.insert(principalHistoryRootOwners).values(owner).run();
       });
     },
     /** Statements `work` issued, without the transaction's BEGIN and COMMIT. */
@@ -143,10 +131,6 @@ async function retentionDatabase(key: string) {
             asc(principalHistoryNodes.scopeId),
             asc(principalHistoryNodes.hash),
           ),
-        owners: await runtime.db
-          .select()
-          .from(principalHistoryRootOwners)
-          .orderBy(asc(principalHistoryRootOwners.id)),
       };
     },
   };
@@ -279,7 +263,6 @@ function randomPage(random: () => number) {
       nodes,
     },
     owner: {
-      id: "stage:1",
       scopeId: random() < 0.85 ? scope.scopeId : "scope-2",
       organizationId: random() < 0.85 ? scope.organizationId : "org-2",
       rootHash: random() < 0.7 ? (nodes.at(-1)?.hash ?? pick()) : pick(),
@@ -295,24 +278,23 @@ test("root ownership folded into the node write matches its separate statements"
     let folded = 0;
     for (let iteration = 0; iteration < 300; iteration++) {
       const graph = randomGraph(random, 10);
-      const previous = randomPage(random).owner;
-      const seed = {
-        ...graph,
-        owners: random() < 0.75 ? [previous] : [],
-      };
+      const saved = randomPage(random).owner;
+      // The owner row's root as read before its write; absent for a new row.
+      const previous: PrincipalHistoryRootOwner | undefined =
+        random() < 0.75 ? saved : undefined;
       const { page, owner } = randomPage(random);
-      await reference.seed(seed);
-      await batched.seed(seed);
+      await reference.seed(graph);
+      await batched.seed(graph);
+      const retention = principalHistoryRootRetention(previous, owner);
       const expected = await reference.run(async (tx) => {
         await writePrincipalHistoryEvidencePage(tx, page);
-        await retainPrincipalHistoryRoot(tx, owner);
+        await writePrincipalHistoryRootEdges(tx, retention);
       });
       const actual = await batched.run(async (tx) => {
-        const retention = await loadPrincipalHistoryRootRetention(tx, owner);
         const edges = foldablePrincipalHistoryRootEdges(retention, page);
         if (edges) folded += 1;
         await writePrincipalHistoryEvidencePage(tx, page, edges);
-        await writePrincipalHistoryRootRetention(tx, retention, edges);
+        await writePrincipalHistoryRootEdges(tx, retention, edges);
       });
       expect(await batched.snapshot()).toEqual(await reference.snapshot());
       expect(actual.statements).toBeLessThanOrEqual(expected.statements);
@@ -333,7 +315,7 @@ test("a stage save folds its root increment and previous-root decrement", async 
       { hash: "root-1", leftHash: "leaf-1", rightHash: "leaf-2" },
     ];
     const page = { ...scope, indexRootHash: "root-2", entries: [], nodes };
-    const owner = { ...scope, id: "stage:1", rootHash: "root-2" };
+    const owner = { ...scope, rootHash: "root-2" };
     const seed: Seed = {
       nodes: [
         {
@@ -345,19 +327,21 @@ test("a stage save folds its root increment and previous-root decrement", async 
           rightHash: "leaf-2",
         },
       ],
-      owners: [{ ...owner, rootHash: "root-1" }],
     };
+    const retention = principalHistoryRootRetention(
+      { ...owner, rootHash: "root-1" },
+      owner,
+    );
     await reference.seed(seed);
     await batched.seed(seed);
     const expected = await reference.run(async (tx) => {
       await writePrincipalHistoryEvidencePage(tx, page);
-      await retainPrincipalHistoryRoot(tx, owner);
+      await writePrincipalHistoryRootEdges(tx, retention);
     });
     const actual = await batched.run(async (tx) => {
-      const retention = await loadPrincipalHistoryRootRetention(tx, owner);
       const edges = foldablePrincipalHistoryRootEdges(retention, page);
       await writePrincipalHistoryEvidencePage(tx, page, edges);
-      await writePrincipalHistoryRootRetention(tx, retention, edges);
+      await writePrincipalHistoryRootEdges(tx, retention, edges);
     });
     expect(await batched.snapshot()).toEqual(await reference.snapshot());
     expect(actual.statements).toBe(expected.statements - 2);

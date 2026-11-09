@@ -8,15 +8,14 @@ import {
   isPrincipalPolicyBundleResponse,
   isReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import {
   principalPolicyBundleContainsReference,
   principalPolicyBundleStates,
 } from "../../principals/principalPolicyStates";
 import {
-  principalPolicies,
-  principalPolicyBundleHistory,
   principalPolicyBundleReferences,
+  principalPolicyBundles,
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
@@ -25,6 +24,7 @@ import {
   ensurePrincipalPolicyTables,
   principalPolicyBundleSelection,
   type SelectedPrincipalPolicyRow,
+  wherePrincipalPolicyBundlePrincipal,
 } from "./principalPolicyPersistence";
 import { applyPrincipalPolicyReferenceCheckpoint } from "./principalPolicyReferenceCheckpoint";
 import { storedPrincipalPolicyBundleFromJson } from "./storedPrincipalPolicyBundle";
@@ -239,24 +239,6 @@ function assertReferenceShape(reference: ReferencedPrincipalHead): void {
   }
 }
 
-async function loadCurrentRow(
-  execSql: ExecSql,
-  reference: ReferencedPrincipalHead,
-): Promise<SelectedPrincipalPolicyRow | undefined> {
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const [row] = await db
-    .select(principalPolicyBundleSelection(principalPolicies))
-    .from(principalPolicies)
-    .where(
-      and(
-        eq(principalPolicies.principalType, reference.principalType),
-        eq(principalPolicies.principalId, reference.principalId),
-      ),
-    )
-    .limit(1);
-  return row;
-}
-
 async function loadIndexedHeads(
   execSql: ExecSql,
   reference: ReferencedPrincipalHead,
@@ -313,33 +295,37 @@ function indexHeadsByHash(
   return new Map(heads.map((head) => [head.bundleStateHash, head]));
 }
 
-async function loadRetainedRows(
+/** The current head and the retained bundles at the referenced or indexed hashes, in one read. */
+async function loadReferencedRows(
   execSql: ExecSql,
   reference: ReferencedPrincipalHead,
-  currentRow: SelectedPrincipalPolicyRow | undefined,
   indexedByHash: ReadonlyMap<string, IndexedBundleHead>,
-): Promise<SelectedPrincipalPolicyRow[]> {
-  const hashes = new Set([reference.stateHash, ...indexedByHash.keys()]);
-  if (currentRow) {
-    hashes.delete(currentRow.stateHash);
-  }
-  if (hashes.size === 0) {
-    return [];
-  }
+): Promise<{
+  currentRow: SelectedPrincipalPolicyRow | undefined;
+  retainedRows: SelectedPrincipalPolicyRow[];
+}> {
   // Remote reset deliberately clears mutable heads while retaining historical
   // key material, so an index target can outlive its bundle row. Such a target
   // is only a selection hint; rows that still exist remain authoritative.
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  return db
-    .select(principalPolicyBundleSelection(principalPolicyBundleHistory))
-    .from(principalPolicyBundleHistory)
+  const rows = await db
+    .select(principalPolicyBundleSelection)
+    .from(principalPolicyBundles)
     .where(
       and(
-        eq(principalPolicyBundleHistory.principalType, reference.principalType),
-        eq(principalPolicyBundleHistory.principalId, reference.principalId),
-        inArray(principalPolicyBundleHistory.stateHash, [...hashes]),
+        wherePrincipalPolicyBundlePrincipal(reference),
+        or(
+          eq(principalPolicyBundles.isCurrent, true),
+          inArray(principalPolicyBundles.stateHash, [
+            ...new Set([reference.stateHash, ...indexedByHash.keys()]),
+          ]),
+        ),
       ),
     );
+  return {
+    currentRow: rows.find((row) => row.isCurrent),
+    retainedRows: rows.filter((row) => !row.isCurrent),
+  };
 }
 
 function collectCandidates(
@@ -387,15 +373,12 @@ export async function loadPrincipalPolicyBundleForReference(
 ): Promise<PrincipalPolicyBundleResponse | null> {
   assertReferenceShape(reference);
   await ensurePrincipalPolicyTables(execSql);
-  const [currentRow, indexedHeads] = await Promise.all([
-    loadCurrentRow(execSql, reference),
-    loadIndexedHeads(execSql, reference),
-  ]);
-  const indexedByHash = indexHeadsByHash(indexedHeads);
-  const retainedRows = await loadRetainedRows(
+  const indexedByHash = indexHeadsByHash(
+    await loadIndexedHeads(execSql, reference),
+  );
+  const { currentRow, retainedRows } = await loadReferencedRows(
     execSql,
     reference,
-    currentRow,
     indexedByHash,
   );
   const candidates = collectCandidates(

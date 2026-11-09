@@ -31,7 +31,38 @@ test("container move events mark previous parent hydration lanes", () => {
         previousParentId: "old-parent",
       },
     ]),
-  ).toEqual([null, "new-parent", "container-1", "old-parent"]);
+  ).toEqual(["new-parent", "container-1", "old-parent"]);
+});
+
+test("only hints that can change direct grants re-list root for a nested container", () => {
+  // Root lists directly granted nested containers, so a grant or revoke on one
+  // may add or drop a root row; a rekey or recite leaves grants alone and the
+  // held parent lane already lists the container.
+  const nested = (eventType: string) =>
+    listContainerParentIdsForEventHydration([
+      {
+        type: "container_mutation_created",
+        containerId: "container-1",
+        eventType,
+        parentId: "parent-1",
+        previousParentId: "parent-1",
+      },
+    ]);
+  for (const eventType of ["container.rekey", "container.recite"])
+    expect(nested(eventType)).toEqual(["parent-1", "container-1"]);
+  for (const eventType of ["container.grant", "container.revoke"])
+    expect(nested(eventType)).toEqual([null, "parent-1", "container-1"]);
+  // A move whose source is withheld can only be seen from root.
+  expect(
+    listContainerParentIdsForEventHydration([
+      {
+        type: "container_mutation_created",
+        containerId: "container-1",
+        eventType: "container.move",
+        parentId: "parent-1",
+      },
+    ]),
+  ).toEqual([null, "parent-1", "container-1"]);
 });
 
 test("a hint whose parents were withheld hydrates only the lanes it names", () => {

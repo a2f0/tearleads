@@ -118,7 +118,7 @@ test("a rejected provisioning acknowledgement primes nothing", async () => {
         dbClient: execSqlClientFromExecSql(execSql),
         encapsulationKeyPair: owner.encapsulationKeyPair,
         logError: () => undefined,
-        primePrincipalHistory: async () => {
+        primeProvisionedState: async () => {
           primed += 1;
         },
         signingKeyPair: owner.signingKeyPair,

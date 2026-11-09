@@ -2,7 +2,10 @@ import { and, asc, desc, eq, lt } from "drizzle-orm";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { archivePrincipalHistoryKeyEnvelopes } from "../principalKeys/principalKeyEnvelopeArchivePersistence";
-import { releasePrincipalHistoryRoot } from "./principalHistoryRootOwnership";
+import {
+  principalHistoryStageRootOwnerColumns,
+  releasePrincipalHistoryRoot,
+} from "./principalHistoryRootOwnership";
 
 /** Each publication reclaims at most this many obsolete completed heads. */
 export const PRINCIPAL_HISTORY_STAGE_RECLAIM_LIMIT = 16;
@@ -36,6 +39,7 @@ export async function reclaimCompletedPrincipalHistoryStages(
         currentJson: principalHistoryStages.currentJson,
         afterVersion: principalHistoryStages.afterVersion,
       },
+      owner: principalHistoryStageRootOwnerColumns,
     })
     .from(principalHistoryStages)
     .where(
@@ -55,8 +59,8 @@ export async function reclaimCompletedPrincipalHistoryStages(
     // This also preserves the prefix-only predecessor restored after an ack.
     .offset(2)
     .limit(PRINCIPAL_HISTORY_STAGE_RECLAIM_LIMIT);
-  for (const { stage } of obsolete) {
-    await releasePrincipalHistoryRoot(tx, `stage:${stage.id}`);
+  for (const { stage, owner } of obsolete) {
+    await releasePrincipalHistoryRoot(tx, owner);
     await archivePrincipalHistoryKeyEnvelopes(tx, {
       ...stage,
       version: stage.afterVersion + 1,

@@ -25,8 +25,11 @@ state or replace live object authorization. Metadata verification uses the
 Directory discovery and cited recovery share one caller's batch. Batches belong
 to the database's principal-policy coordinator, keyed by an operation token. A
 reconciliation pass (remote [container](../glossary/access.md#container) hydration,
-[document](../glossary/content.md#document) discovery) or a user workflow (a document
-move's link and unlink legs) mints one token at its root, and every warmer it
+[document](../glossary/content.md#document) discovery), a sync coordinator drain
+(the pump hands every lane run it starts one pass token, which document,
+attachment and container-metadata syncs use as their operation), or a user
+workflow (a document move's link and unlink legs) mints one token at its root,
+and every warmer it
 creates with `createRuntimePrincipalPolicyWarmer( runtime, { operation })`
 shares one batch, so the pass discovers the directory once. A warmer created
 without a token is its own operation. A batch entry is reused only while its
@@ -172,11 +175,14 @@ below, together with per-route limits and mutation-count assertions. They are
 local fixed-cardinality measurements, not production benchmarks.
 
 [`OrganizationBootstrapRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/OrganizationBootstrapRequestVolume.test.tsx)
-measures 30 requests for personal bootstrap with a ceiling of 31, and caps
+measures 26 requests for personal bootstrap with a ceiling of 27, and caps
 creating and activating another organization at 6. Provisioning seeds discovery
-evidence for the profile documents it signed and primes recovery of the founding
-policy heads, so neither flow fetches those documents' writer projections or
-reads group policy history for the founding heads.
+evidence for the profile documents it signed, the destination roles of the
+containers it created, and recovery of the founding policy heads, so neither
+flow fetches those documents' writer projections, verifies the provisioned
+containers through their projections, or reads group policy history for the
+founding heads. A provisioned container's projection is read on its first
+write instead.
 
 A cold Org Manager open uses three requests: one read-model read, one
 organization-policy read and one Admins-policy read
@@ -187,30 +193,33 @@ no read
 ([`DualPaneProvider.activePeerRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx)).
 
 [`GroupMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx)
-measures 6 requests for creating the first group and 5 for a later one (one
+measures 8 requests for creating the first group and 5 for a later one (one
 read-model read each; the hint naming the post-mutation cursor costs none),
-with ceilings of 9 and 8. First enrollment of a peer measures 31 requests with
-a ceiling of 43; a later addition measures 6 and is capped at 9. The
-creation/addition pairs are capped at 50 and 14 requests, with at most
+with ceilings of 11 and 8; the first create reads the roster profile
+container's projection and its Admins history, which bootstrap no longer reads.
+First enrollment of a peer measures 38 requests, its group create included (30
+for the add itself), with a ceiling of 43 for the add; a later addition measures
+6 and is capped at 9. The creation/addition pairs are capped at 50 and 14
+requests, with at most
 11 and 3 public history reads. First addition permits 10 organization-policy and
 3 group-policy reads. Creation may also receive one validated rollback
 preparation response with identical request bytes. Policy writes acknowledge
 heads rather than echoing policies, so a group create receives about 0.8 KB
 (17–18 KB before) and a group policy commit 0.7–1.9 KB (36–60 KB before): the
-first creation/addition pair receives 343 KB (423 KB before) and a later pair
-37 KB (91 KB before).
+first creation/addition pair receives 372 KB (452 KB before) and a later pair
+37 KB (90 KB before).
 
 The Admins enrollment fixture in
 [`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)
-measures 53 completed requests; its ceiling is 56, plus explicitly counted
-validated preparation continuations. It caps organization-policy reads at 17,
+measures 48 completed requests; its ceiling is 51, plus explicitly counted
+validated preparation continuations. It caps organization-policy reads at 10,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
-160,000 request bytes and 650,000 response bytes (0.59 MB measured). The root
+160,000 request bytes and 635,000 response bytes (0.58 MB measured, including
+the roster profile projection read that bootstrap no longer makes). The root
 attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
-measures 56 requests and permits 64, with body ceilings of 128,000 request
-bytes and 490,000 response bytes (0.44 MB measured; recites of
-ungranted containers no longer stamp the grants lane). Container mutation
+measures 48 requests and permits 56, with body ceilings of 128,000 request
+bytes and 440,000 response bytes (0.40 MB measured). Container mutation
 acknowledgements carry hashes and policy acknowledgements carry heads rather
 than echoes, which keeps the Admins policy commit at about 3.5 KB (73 KB with
 echoed policies). Container mutations cite stored
@@ -219,8 +228,8 @@ echoed policies). Container mutations cite stored
 path bundles or policies.
 
 [`ExplorerUploadRequestVolume.test.tsx`](../../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx)
-measures 6 calls and 2.4 KB received for a small Explorer upload and permits 7
-calls and 2,700 response bytes; its
+measures 5 calls and 2.1 KB received for a small Explorer upload and permits 6
+calls and 2,300 response bytes; its
 [blob stage](../glossary/content.md#blob-stage) costs three calls (initiate with
 the first part's upload source, the part bytes, and the
 [attachment bind](../glossary/content.md#attachment-binding) that completes the
@@ -235,12 +244,13 @@ sets these ceilings, which include private current-policy reads:
 | Create folder | 3 |
 | Link document | 3 |
 | Unlink document | 6 |
-| Trash document | 4 |
-| Trash folder | 11 |
-| Restore folder | 12 |
+| Trash document | 5 |
+| Trash folder | 10 |
+| Restore folder | 11 |
 
 The folder workflows, whose heads are all completed locally, permit no public
 history or group-policy reads. Sharing discovery reads across passes would need
 the same organization, dependency, checkpoint and lifetime checks as scoped
 recovery, plus a freshness argument the per-pass read supplies. Document syncs
-that a pass schedules through document stores still discover once per sync.
+that a pass schedules through document stores run in a coordinator drain and
+share its operation, so a drain discovers once rather than once per sync.

@@ -3,7 +3,10 @@
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
 import { hydrateDocumentAttachmentBlobs } from "../../../../workflows/blobs";
 import type { DocumentRecord } from "../../../../workflows/documents";
-import { createRuntimePrincipalPolicyWarmer } from "../../../../workflows/principals/runtimePolicyWarmer";
+import {
+  createRuntimePrincipalPolicyWarmer,
+  type PrincipalPolicyOperation,
+} from "../../../../workflows/principals/runtimePolicyWarmer";
 import { runDocumentOrphanMaintenance } from "../orphanMaintenance";
 import type { DocumentState, DocumentStoreState } from "../state";
 import {
@@ -24,6 +27,7 @@ export async function hydrateAttachmentBlobs(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   currentRecord: DocumentRecord | null,
+  policyOperation: PrincipalPolicyOperation,
   expectedGeneration?: DocumentStoreSyncGeneration,
 ) {
   const generationIsCurrent = () =>
@@ -78,8 +82,10 @@ export async function hydrateAttachmentBlobs(
       state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
     stillCurrent: generationIsCurrent,
-    warmReferencedPrincipalPolicies:
-      createRuntimePrincipalPolicyWarmer(runtime),
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      runtime,
+      { operation: policyOperation },
+    ),
   });
   if (!generationIsCurrent()) return;
   if (!hydratedBlobs) {

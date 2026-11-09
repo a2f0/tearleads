@@ -173,8 +173,8 @@ test("same-head timestamp and envelope-order differences are a no-op", async () 
       ),
     ).resolves.toEqual(bundle);
     const rows = await execSql(
-      `SELECT updated_at AS updatedAt FROM principal_policies
-       WHERE principal_type = ? AND principal_id = ?`,
+      `SELECT updated_at AS updatedAt FROM principal_policy_bundles
+       WHERE is_current = 1 AND principal_type = ? AND principal_id = ?`,
       [policy.principalType, policy.principalId],
     );
     expect(Reflect.get(rows[0] ?? {}, "updatedAt")).toBe(firstUpdatedAt);

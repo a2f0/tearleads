@@ -7,6 +7,7 @@ import {
   hasPendingLaneWork,
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
+import type { SyncPass } from "./syncLaneConfig";
 import {
   hasPendingRequest,
   isRequestDue,
@@ -136,6 +137,8 @@ async function runRequestedSyncLanes(
   state: DomainSyncCoordinatorState,
 ): Promise<void> {
   const running = new Map<SyncLaneState, Promise<void>>();
+  // Every lane this drain starts shares its pass token.
+  const pass: SyncPass = {};
   let startsSinceYield = 0;
   while (!state.disposed || running.size > 0) {
     // Install the wake-up before selecting or starting work. New requests can
@@ -158,7 +161,7 @@ async function runRequestedSyncLanes(
     if (lane) {
       const startedLane = lane;
       lane.lastRunOrder = ++state.nextRunOrder;
-      const run = runCoordinatorLane(state, lane, () =>
+      const run = runCoordinatorLane(state, lane, pass, () =>
         scheduleCoordinatorPump(state),
       ).finally(() => {
         running.delete(startedLane);

@@ -94,8 +94,9 @@ or a checkpoint that moved anywhere else, propagates as an availability
 failure. Custom hosts with overlapping calls must handle this retry. Eviction
 imposes no history-version cutoff.
 Cancellation rolls back page acceptance, key archival and reclamation. Incomplete
-cleanup reads only stage identifiers; completed cleanup reads current artifacts
-only for its bounded archival/deletion batch. Both use the scoped recency index.
+cleanup reads only stage identifiers and their roots; completed cleanup reads
+current artifacts only for its bounded archival/deletion batch. Both use the
+scoped recency index.
 
 Stored proof nodes that lack graph edges when a write indexes them stay
 unmanaged and are never reclaimed; their owners cannot be reconstructed from
@@ -103,8 +104,9 @@ unauthenticated metadata alone.
 
 Accepted pages record their computed
 [proof root](../principal-history-pages.md#index-proofs) and each new node's
-outgoing edges. Saved stages and prefixes own roots; replacing or removing their
-exact progress releases that ownership in the same guarded transaction. Shared
+outgoing edges. Saved stages and prefixes own roots in their own `root_hash`
+column; replacing or removing their exact progress releases that ownership in
+the same guarded transaction, reading the previous root before the write. Shared
 child nodes remain live until all incoming references disappear. Each accepted
 page, prefix save and atomic acknowledgement reclaims at most 64 newly indexed,
 unreferenced nodes, including children made unreachable by the bounded cascade.

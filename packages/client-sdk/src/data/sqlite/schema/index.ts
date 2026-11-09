@@ -41,7 +41,6 @@ import {
   principalHistoryNodes,
   principalHistoryPrefixes,
 } from "./principalHistoryEvidenceSchema";
-import { principalHistoryRootOwners } from "./principalHistoryNodeRetentionSchema";
 import { principalKeyEnvelopeArchive } from "./principalHistoryRetentionSchema";
 import { principalHistoryStages } from "./principalHistoryStageSchema";
 import {
@@ -49,9 +48,8 @@ import {
   principalMutationJournalTables,
 } from "./principalMutationJournalSchema";
 import {
-  principalPolicies,
-  principalPolicyBundleHistory,
   principalPolicyBundleReferences,
+  principalPolicyBundles,
   principalPolicyCheckpoints,
   principalPolicyCheckpointTable,
   principalPolicyTables,
@@ -88,9 +86,8 @@ export {
   localIntents,
 } from "./localIntentSchema";
 export {
-  principalPolicies,
-  principalPolicyBundleHistory,
   principalPolicyBundleReferences,
+  principalPolicyBundles,
   principalPolicyCheckpoints,
 } from "./principalPolicySchema";
 export { securityIncidents } from "./securityIncidentSchema";
@@ -131,7 +128,6 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
 ];
 
 export const clientSQLiteSchema = {
-  principalHistoryRootOwners,
   principalKeyEnvelopeArchive,
   principalMutationJournal,
   principalHistoryEntries,
@@ -141,8 +137,7 @@ export const clientSQLiteSchema = {
   organizationFounders,
   principalGrantRetirements,
   documents,
-  principalPolicies,
-  principalPolicyBundleHistory,
+  principalPolicyBundles,
   principalPolicyBundleReferences,
   accessManifestCheckpoints,
   documentPurgeCheckpoints,

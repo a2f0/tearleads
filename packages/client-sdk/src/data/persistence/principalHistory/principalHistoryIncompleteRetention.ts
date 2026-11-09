@@ -1,7 +1,10 @@
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { releasePrincipalHistoryRoot } from "./principalHistoryRootOwnership";
+import {
+  principalHistoryStageRootOwnerColumns,
+  releasePrincipalHistoryRoot,
+} from "./principalHistoryRootOwnership";
 
 const INCOMPLETE_STAGE_LIMIT = 8;
 const RECLAIM_BATCH_LIMIT = 16;
@@ -17,7 +20,10 @@ export async function reclaimIncompletePrincipalHistoryStages(
   },
 ) {
   const obsolete = await tx
-    .select({ id: principalHistoryStages.id })
+    .select({
+      id: principalHistoryStages.id,
+      ...principalHistoryStageRootOwnerColumns,
+    })
     .from(principalHistoryStages)
     .where(
       and(
@@ -34,8 +40,8 @@ export async function reclaimIncompletePrincipalHistoryStages(
     // The writer always keeps its own stage, even when recency hints tie.
     .offset(INCOMPLETE_STAGE_LIMIT - (current.complete ? 0 : 1))
     .limit(RECLAIM_BATCH_LIMIT);
+  for (const owner of obsolete) await releasePrincipalHistoryRoot(tx, owner);
   const ids = obsolete.map(({ id }) => id);
-  for (const id of ids) await releasePrincipalHistoryRoot(tx, `stage:${id}`);
   if (ids.length === 0) return;
   await tx
     .delete(principalHistoryStages)

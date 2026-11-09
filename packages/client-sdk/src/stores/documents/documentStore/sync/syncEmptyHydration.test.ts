@@ -3,6 +3,7 @@ import { emptyVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "../../../../workflows/container-contents/documentQueries";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
@@ -63,6 +64,7 @@ for (const hasMore of [false, true]) {
         }),
       ).toBeNull();
       const attempt = await requestRemoteDocumentSync({
+        policyOperation: createPrincipalPolicyOperation(),
         currentDoc,
         currentRecord,
         encapsulationKeyPair: fixture,

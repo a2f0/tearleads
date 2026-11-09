@@ -39,7 +39,7 @@ test("principal policy sync hard-fails rollback after the mutable bundle cache i
       version: bundle.currentState.version,
       stateHash: bundle.currentState.stateHash,
     });
-    await execSql("DELETE FROM principal_policies");
+    await execSql("DELETE FROM principal_policy_bundles WHERE is_current = 1");
 
     const olderBundle = predecessorBundleFromSuccessor(bundle);
     await expect(
@@ -75,7 +75,7 @@ test("principal policy sync cannot pin a head when its full bundle write fails",
     });
     await ensurePrincipalPolicyTables(execSql);
     await execSql(`CREATE TRIGGER reject_principal_policy_bundle
-      BEFORE INSERT ON principal_policies
+      BEFORE INSERT ON principal_policy_bundles
       BEGIN
         SELECT RAISE(ABORT, 'injected principal policy bundle failure');
       END`);

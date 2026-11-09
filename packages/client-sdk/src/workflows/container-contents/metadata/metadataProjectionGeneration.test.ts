@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import { createPrincipalPolicyOperation } from "../../principals/runtimePolicyWarmer";
 import { invalidateContainerProjections } from "../container-state/projectionCache";
 import type { ContainerState } from "../remoteHydration";
 import { createContainerMetadataDocument } from "./containerMetadataDocument";
@@ -77,6 +78,7 @@ test("a metadata sync held open across a hint leaves the live projection dropped
   };
   let hintsDelivered = 0;
   const synced = await syncContainerMetadataState({
+    policyOperation: createPrincipalPolicyOperation(),
     isCurrent: () => true,
     metadataState: live,
     persistence: {

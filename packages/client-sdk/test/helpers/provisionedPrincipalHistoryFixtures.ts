@@ -150,7 +150,7 @@ export async function provisionOrganization(input: {
     dbClient: input.database.client,
     encapsulationKeyPair: input.founder.encapsulationKeyPair,
     isIdentityCurrent: input.isIdentityCurrent,
-    primePrincipalHistory: input.primePrincipalHistory,
+    primeProvisionedState: input.primePrincipalHistory,
     signingKeyPair: input.founder.signingKeyPair,
     userId: input.founder.userId,
   });

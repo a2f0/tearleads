@@ -8,6 +8,7 @@ import {
   type ExecSql,
   resolveCanonicalExecSql,
 } from "../../../data/sqlite/sqlSchema";
+import { createPrincipalPolicyOperation } from "../../principals/runtimePolicyWarmer";
 import {
   createContainerMetadataDocument,
   readContainerMetadataValue,
@@ -373,6 +374,7 @@ test("syncContainerMetadataState skips clean metadata with current read state", 
   const persistence = createContainerContentsPersistence({});
 
   const synced = await syncContainerMetadataState({
+    policyOperation: createPrincipalPolicyOperation(),
     isCurrent: () => true,
     metadataState: { container, doc, record },
     persistence: {

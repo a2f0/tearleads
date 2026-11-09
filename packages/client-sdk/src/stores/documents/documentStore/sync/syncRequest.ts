@@ -12,7 +12,10 @@ import {
   syncRemoteDocument,
   validateDocumentSyncUpdateImports,
 } from "../../../../workflows/documents";
-import { createRuntimePrincipalPolicyWarmer } from "../../../../workflows/principals/runtimePolicyWarmer";
+import {
+  createRuntimePrincipalPolicyWarmer,
+  type PrincipalPolicyOperation,
+} from "../../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../../registry";
 import { parkForAncestorRepair } from "../ancestorRepairPark";
 import { chainIdentityWrite } from "../identityWriteChain";
@@ -93,6 +96,7 @@ export async function deleteUpstreamDeletedDocument(
 function createDocumentSyncAttempt(input: {
   currentRecord: DocumentRecord;
   outgoingUpdateCount: number;
+  policyOperation: PrincipalPolicyOperation;
   requestedPullContinuation: DocumentStoreState["pullContinuation"];
   synced: DocumentSyncAttempt["synced"];
   writerProjectionGeneration: number;
@@ -103,6 +107,7 @@ function createDocumentSyncAttempt(input: {
         ? null
         : input.requestedPullContinuation,
     outgoingUpdateCount: input.outgoingUpdateCount,
+    policyOperation: input.policyOperation,
     requestRecord: input.currentRecord,
     synced: input.synced,
     writerProjectionGeneration: input.writerProjectionGeneration,
@@ -119,6 +124,8 @@ interface RequestRemoteDocumentSyncInput {
     | ((updateIds: readonly string[]) => void)
     | undefined;
   pendingUpdates: PendingUpdateRecord[];
+  /** The pass or workflow operation the sync's policy reads belong to. */
+  policyOperation: PrincipalPolicyOperation;
   queuedUpdateCount?: number | undefined;
   state: DocumentStoreState;
   unavailableWriterLogMessage: string;
@@ -205,8 +212,10 @@ function runRemoteDocumentSync(
         decryptedUpdates: result.decryptedUpdates,
         responseUpdates: result.response.updates,
       }),
-    warmReferencedPrincipalPolicies:
-      createRuntimePrincipalPolicyWarmer(runtime),
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      runtime,
+      { operation: input.policyOperation },
+    ),
     writerProjection:
       state.writerProjection?.documentId === currentRecord.documentId
         ? state.writerProjection
@@ -253,6 +262,7 @@ export async function requestRemoteDocumentSync(
   return createDocumentSyncAttempt({
     currentRecord,
     outgoingUpdateCount,
+    policyOperation: input.policyOperation,
     requestedPullContinuation,
     synced,
     writerProjectionGeneration,

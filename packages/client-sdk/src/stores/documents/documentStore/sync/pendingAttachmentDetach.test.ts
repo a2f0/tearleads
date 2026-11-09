@@ -33,6 +33,7 @@ import {
   defaultDocumentsPersistence,
   reclaimDocumentOrphanBlobs,
 } from "../../../../workflows/documents";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import { removeAttachmentFromDocumentStore } from "../attachments/attachmentRemoval";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "../initialization";
@@ -278,14 +279,24 @@ test.each([
         throw new Error("Expected sync state");
       input.listBindings.mockRejectedValueOnce(new Error("offline"));
       await expect(
-        syncDetachedAttachmentBindings(current, current.record, generation),
+        syncDetachedAttachmentBindings(
+          current,
+          current.record,
+          generation,
+          createPrincipalPolicyOperation(),
+        ),
       ).rejects.toThrow("offline");
       expect(
         await db.select().from(documentAttachmentBlobProjection),
       ).toHaveLength(1);
       // A later pass may find the bind absent (never committed or already detached).
       // It still has to list before dropping the marker and reclaiming the bytes.
-      await syncDetachedAttachmentBindings(current, current.record, generation);
+      await syncDetachedAttachmentBindings(
+        current,
+        current.record,
+        generation,
+        createPrincipalPolicyOperation(),
+      );
       expect(input.listBindings).toHaveBeenCalledTimes(2);
       expect(input.listBindings).toHaveBeenCalledWith(REMOTE_ID);
       expect(input.detachRequests).toHaveLength(bound ? 1 : 0);

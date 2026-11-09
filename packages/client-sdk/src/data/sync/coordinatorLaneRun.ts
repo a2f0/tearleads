@@ -10,7 +10,7 @@ import {
   describeSyncLaneError,
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
-import type { SyncLaneConfig } from "./syncLaneConfig";
+import type { SyncLaneConfig, SyncPass } from "./syncLaneConfig";
 import {
   hasPendingRequest,
   transitionSyncLaneRequest,
@@ -59,9 +59,12 @@ function reportUnexpectedSyncLaneFailure(
   }
 }
 
-async function runSyncLane(state: SyncLaneState): Promise<SyncLaneRunResult> {
+async function runSyncLane(
+  state: SyncLaneState,
+  pass: SyncPass,
+): Promise<SyncLaneRunResult> {
   try {
-    await state.config.run();
+    await state.config.run(pass);
     return { status: "completed" };
   } catch (error: unknown) {
     if (state.config.shouldIgnoreError?.(error)) {
@@ -158,6 +161,7 @@ function settleAbandonedSyncLaneRun(
 function startSyncLaneRun(
   coordinatorState: DomainSyncCoordinatorState,
   lane: SyncLaneState,
+  pass: SyncPass,
 ) {
   const runToken = {};
   lane.request = transitionSyncLaneRequest(lane.request, { type: "clear" });
@@ -177,7 +181,10 @@ function startSyncLaneRun(
   // Keep follow-up requests even on failure to preserve phase ordering; see
   // docs/client-sync-ordering.md.
   // The fallback also catches errors thrown by the lane's error handlers.
-  const runResultPromise: Promise<SyncLaneRunResult> = runSyncLane(lane).then(
+  const runResultPromise: Promise<SyncLaneRunResult> = runSyncLane(
+    lane,
+    pass,
+  ).then(
     (result) => result,
     (error: unknown) => {
       reportUnexpectedSyncLaneError(lane, error);
@@ -191,11 +198,13 @@ function startSyncLaneRun(
 export async function runCoordinatorLane(
   coordinatorState: DomainSyncCoordinatorState,
   lane: SyncLaneState,
+  pass: SyncPass,
   wake: () => void,
 ): Promise<void> {
   const { runToken, runResultPromise, startedAtMs } = startSyncLaneRun(
     coordinatorState,
     lane,
+    pass,
   );
   // Clamp overrides to at least 1ms so every run has a chance to complete.
   const watchdogMs = Math.max(

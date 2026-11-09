@@ -32,15 +32,27 @@ function addHydrationParentId(
   parentIds.set(parentId ?? "root", parentId);
 }
 
+/**
+ * The root lane lists root containers and every directly granted nested one.
+ * A nested container whose parents the hint names stays listed by those
+ * parent lanes, so root is re-listed only when the hint names root, withholds
+ * a parent (only root can then show the container), or is a grant or revoke,
+ * the only events that change direct grants. Only a move names a previous
+ * parent that differs from the current one.
+ */
 function shouldHydrateRootLane(input: {
   eventType: string;
   parentId: string | null | undefined;
   previousParentId: string | null | undefined;
 }): boolean {
+  if (input.parentId === null || input.previousParentId === null) return true;
+  if (input.eventType === "container.create") return false;
   return (
-    input.parentId === null ||
-    input.previousParentId === null ||
-    input.eventType !== "container.create"
+    input.parentId === undefined ||
+    (input.eventType === "container.move" &&
+      input.previousParentId === undefined) ||
+    input.eventType === "container.grant" ||
+    input.eventType === "container.revoke"
   );
 }
 
