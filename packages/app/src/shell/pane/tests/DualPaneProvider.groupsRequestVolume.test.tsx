@@ -83,10 +83,11 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Prefetches of unstored folders cite their listed parent's held bundles
   // and projections cite held KEK levels by digest: 0.80 MB received.
   // Container acknowledgements carry hashes, not echoes (the policy commit
-  // 192 KB -> 73 KB): 0.67 MB received. Policy acknowledgements carry heads,
-  // not policies (the commit 73 KB -> 3.5 KB): 0.60 MB received; keep about
-  // 10% headroom.
-  bodyBytes: { request: 160_000, response: 665_000 },
+  // 192 KB -> 73 KB): 0.67 MB received. Syncs no longer echo the bundle and
+  // KEK targets the request named, and policy acknowledgements carry heads,
+  // not policies (the commit 73 KB -> 3.5 KB): 0.59 MB received; keep
+  // about 10% headroom.
+  bodyBytes: { request: 160_000, response: 650_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,

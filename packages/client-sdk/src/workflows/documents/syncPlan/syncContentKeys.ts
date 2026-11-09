@@ -1,4 +1,5 @@
 import type {
+  DocumentContentKeyBundleResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -162,12 +163,13 @@ export async function prepareDocumentOutgoingUpdates(input: {
 }
 
 function syncResponseContentKeyBundlesByEpoch(
+  currentContentKeyBundle: DocumentContentKeyBundleResponse,
   response: DocumentSyncResponse,
-): ReadonlyMap<number, DocumentSyncResponse["contentKeyBundle"]> {
-  const byEpoch = new Map<number, DocumentSyncResponse["contentKeyBundle"]>();
+): ReadonlyMap<number, DocumentContentKeyBundleResponse> {
+  const byEpoch = new Map<number, DocumentContentKeyBundleResponse>();
 
   for (const bundle of [
-    response.contentKeyBundle,
+    currentContentKeyBundle,
     ...response.contentKeyBundles,
   ]) {
     if (byEpoch.has(bundle.contentKeyEpoch)) {
@@ -206,7 +208,7 @@ function syncResponseUpdatesByContentKeyEpoch(
 }
 
 function assertBundleMatchesUpdateHeaders(input: {
-  bundle: DocumentSyncResponse["contentKeyBundle"];
+  bundle: DocumentContentKeyBundleResponse;
   requireOriginalTargets: boolean;
   updates: readonly SyncResponseUpdate[];
 }): void {
@@ -242,7 +244,7 @@ function assertBundleMatchesUpdateHeaders(input: {
  * still be quarantined, never disguised as legitimate missing history.
  */
 async function unwrapHistoricalContentKey(input: {
-  bundle: DocumentSyncResponse["contentKeyBundle"];
+  bundle: DocumentContentKeyBundleResponse;
   documentId: string;
   collectedKeks: Awaited<
     ReturnType<typeof collectContainerKeksForDocumentSync>
@@ -308,7 +310,8 @@ function requireContentKeyBundle(
 export async function unwrapDocumentSyncResponseContentKeys(
   input: {
     currentContentKey: Uint8Array;
-    currentContentKeyEpoch: number;
+    /** The bundle the sync was planned against; it wraps `currentContentKey`. */
+    currentContentKeyBundle: DocumentContentKeyBundleResponse;
     execSql?: ExecSql | undefined;
     historyMode?: "raw" | undefined;
     /** @internal Validate every decryptable sibling before raw availability wins. */
@@ -322,9 +325,10 @@ export async function unwrapDocumentSyncResponseContentKeys(
   // authorizing paths reaches the bundle target. Do not mark that epoch as
   // resolved: every served update must instead unwrap its bundle through the
   // verified predecessor KEK chain or fail with an honest error.
+  const currentEpoch = input.currentContentKeyBundle.contentKeyEpoch;
   const contentKeysByEpoch = new Map<number, Uint8Array>(
     input.currentContentKey.byteLength > 0
-      ? [[input.currentContentKeyEpoch, input.currentContentKey]]
+      ? [[currentEpoch, input.currentContentKey]]
       : [],
   );
   const updatesByContentKeyEpoch = syncResponseUpdatesByContentKeyEpoch(
@@ -342,7 +346,10 @@ export async function unwrapDocumentSyncResponseContentKeys(
   );
   let bundlesByEpoch: ReturnType<typeof syncResponseContentKeyBundlesByEpoch>;
   try {
-    bundlesByEpoch = syncResponseContentKeyBundlesByEpoch(input.response);
+    bundlesByEpoch = syncResponseContentKeyBundlesByEpoch(
+      input.currentContentKeyBundle,
+      input.response,
+    );
   } catch (error) {
     throwDocumentSyncContentKeyFailure({
       cause: error,

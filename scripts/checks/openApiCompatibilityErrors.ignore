@@ -1,3 +1,19 @@
+# a2f0/tearleads#2864 DWPB-2 (greenfield flag day): the attachment bind
+# acknowledges the resolved KEK targets by `blobKeyTargetHash` and
+# `blobAccessManifestHash` instead of echoing `blobKekTargets`. Remove this
+# exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the required property `blobKekTargets` from the response with the `200` status
+
+# a2f0/tearleads#2864 DWP-1 (greenfield flag day): the document sync response
+# no longer echoes the current content-key bundle the request named. Remove
+# this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/sync removed the required property `contentKeyBundle` from the response with the `200` status
+
+# a2f0/tearleads#2864 DWP-1: the document sync response no longer echoes the
+# KEK targets the request named. Remove this exact diagnostic as soon as main
+# contains the new contract.
+POST /documents/{documentId}/sync removed the required property `documentKekTargets` from the response with the `200` status
+
 # Issue #2864 PR-1 (greenfield flag day): authored principal policy writes
 # acknowledge the committed head, the server-assigned createdAt, and hash-form
 # container acknowledgements instead of echoing the signed current state,

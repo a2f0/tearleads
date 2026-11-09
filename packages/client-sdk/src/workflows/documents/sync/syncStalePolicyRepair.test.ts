@@ -238,7 +238,7 @@ test("syncRemoteDocument retries failed chained rekeys after recovering stale po
     ]);
     const returnedWriterProjection = synced?.writerProjection;
     expect(returnedWriterProjection?.contentKeyBundle).toEqual(
-      synced?.response.contentKeyBundle,
+      synced?.plan.sourceContentKeyBundle,
     );
     expect(returnedWriterProjection?.contentKeyBundleStale).toBeUndefined();
     if (!synced || !returnedWriterProjection) {

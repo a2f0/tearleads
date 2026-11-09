@@ -32,35 +32,20 @@ type AttachmentMutationOrigin = {
   readonly userId: string;
 };
 
-function listBlobKekTargetContainerIds(
-  blobKekTargets: BlobAttachmentBindResponse["blobKekTargets"],
-): string[] {
-  const targets = Array.isArray(blobKekTargets?.targets)
-    ? blobKekTargets.targets
-    : [];
-  const containerIds = targets.flatMap((target) => {
-    const containerId =
-      typeof target === "object" && target !== null
-        ? Reflect.get(target, "containerId")
-        : null;
-    return typeof containerId === "string" ? [containerId] : [];
-  });
-
-  return uniqueSortedStrings(containerIds);
-}
-
-export function createAttachmentBindDocumentEvent(
-  response: Pick<
+export function createAttachmentBindDocumentEvent(input: {
+  /** Containers of the bind's resolved KEK targets. */
+  readonly containerIds: readonly string[];
+  readonly origin: AttachmentMutationOrigin;
+  readonly response: Pick<
     BlobAttachmentBindResponse,
-    "blobKekTargets" | "documentId" | "documentSync"
-  >,
-  origin: AttachmentMutationOrigin,
-): PublishedRealtimeEvent {
-  const updateIds = response.documentSync?.acceptedOutgoingUpdateIds;
+    "documentId" | "documentSync"
+  >;
+}): PublishedRealtimeEvent {
+  const updateIds = input.response.documentSync?.acceptedOutgoingUpdateIds;
   return {
     type: "document_update_created",
-    containerIds: listBlobKekTargetContainerIds(response.blobKekTargets),
-    documentId: response.documentId,
+    containerIds: uniqueSortedStrings(input.containerIds),
+    documentId: input.response.documentId,
     // A carried document sync names its update, as a sync's event does.
     ...(updateIds ? { updateIds: [...updateIds] } : {}),
     // Tag the authoring session so the ws router does not echo this bind back
@@ -68,7 +53,7 @@ export function createAttachmentBindDocumentEvent(
     // tagged (routes/documents/mutations.ts). The router strips `origin` before
     // forwarding, so it never reaches any client. A peer still receives the
     // event (no updateIds) and correctly treats it as a lossy hint to pull.
-    origin,
+    origin: input.origin,
   };
 }
 
@@ -183,18 +168,19 @@ export async function bindBlobAttachment(
     input,
   );
 
-  const response = await runBindBlobAttachmentWorkflow(runtime.db, {
+  const result = await runBindBlobAttachmentWorkflow(runtime.db, {
     ...input,
     prevalidatedMultipartStage,
   });
   await publishAttachmentDocumentEvent({
-    event: createAttachmentBindDocumentEvent(response, {
-      sessionId: input.sessionId,
-      userId: input.userId,
+    event: createAttachmentBindDocumentEvent({
+      containerIds: result.linkedContainerIds,
+      origin: { sessionId: input.sessionId, userId: input.userId },
+      response: result.response,
     }),
     publish: runtime.eventPublisher.publish,
   });
-  return response;
+  return result.response;
 }
 
 export async function detachBlobAttachment(

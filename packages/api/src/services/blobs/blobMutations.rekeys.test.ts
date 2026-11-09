@@ -13,6 +13,7 @@ import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
 } from "../../../test/helpers/containerRekey";
+import { resolveCurrentBlobKekTargets } from "../../access/read/blobKekTargets";
 import { getCurrentContainerKeyEpoch } from "../../access/read/containerKekStore";
 import { bindBlobAttachment } from "./blobMutations";
 
@@ -51,7 +52,9 @@ test("bindBlobAttachment applies optional container rekeys before target validat
     userId: owner.userId,
   });
 
-  expect(response.blobKekTargets.linkedContainerKeyEpochIds).toEqual([
+  const targets = await resolveCurrentBlobKekTargets(blobId, db);
+  expect(response.blobKeyTargetHash).toBe(targets.blobKeyTargetHash);
+  expect(targets.linkedContainerKeyEpochIds).toEqual([
     rekey.container.kekState.containerKeyEpochId,
   ]);
   const currentRootEpoch = await getCurrentContainerKeyEpoch(

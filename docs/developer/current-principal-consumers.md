@@ -196,7 +196,7 @@ ceiling of 45; a later addition is capped at
 preparation response with identical request bytes. Policy writes acknowledge
 heads rather than echoing policies, so a group create receives about 0.8 KB
 (17–18 KB before) and a group policy commit 0.7–1.9 KB (36–60 KB before): the
-first creation/addition pair receives 348 KB (423 KB before) and a later pair
+first creation/addition pair receives 343 KB (423 KB before) and a later pair
 38 KB (91 KB before).
 
 The Admins enrollment fixture in
@@ -204,11 +204,11 @@ The Admins enrollment fixture in
 measures 55 completed requests; its ceiling is 58, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 17,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
-160,000 request bytes and 665,000 response bytes (0.60 MB measured). The root
+160,000 request bytes and 650,000 response bytes (0.59 MB measured). The root
 attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
-measures 59 requests and permits 66, with body ceilings of 130,000 request bytes
-and 560,000 response bytes (0.51 MB measured). Container mutation
+measures 59 requests and permits 66, with body ceilings of 128,000 request bytes
+and 500,000 response bytes (0.45 MB measured). Container mutation
 acknowledgements carry hashes and policy acknowledgements carry heads rather
 than echoes, which keeps the Admins policy commit at about 3.5 KB (73 KB with
 echoed policies). Container mutations cite stored
@@ -217,12 +217,13 @@ echoed policies). Container mutations cite stored
 path bundles or policies.
 
 [`ExplorerUploadRequestVolume.test.tsx`](../../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx)
-measures 6 calls and 29 KB received for a small Explorer upload and permits 7
-calls and 32,500 response bytes; its
+measures 6 calls and 2.4 KB received for a small Explorer upload and permits 7
+calls and 2,700 response bytes; its
 [blob stage](../glossary/content.md#blob-stage) costs three calls (initiate with
 the first part's upload source, the part bytes, and the
 [attachment bind](../glossary/content.md#attachment-binding) that completes the
-stage and carries the document's first content update).
+stage, carries the document's first content update, and acknowledges its KEK
+targets by hash).
 
 [`FolderMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx)
 sets these ceilings, which include private current-policy reads:

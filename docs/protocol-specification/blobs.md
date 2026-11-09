@@ -129,6 +129,17 @@ under the blob row lock, recomputes the merged target hash, stores the blob
 write header, registers the blob in `blob_audit_objects`, and touches the
 document plus linked containers for sync discovery.
 
+`BlobAttachmentBindResponse` acknowledges by hash: the binding identity,
+`previousBindingId`, `documentManifestHash`, the signed event's `eventHash`,
+the stored `contentKeyEpoch`, the stored write header's `writeHeaderHash`, and
+the hashes of the resolved KEK targets, `blobKeyTargetHash`, and blob access
+manifest, `blobAccessManifestHash`. The client compares each with what it
+signed; the access manifest hash commits to the blob's organization, active
+bindings, document manifests, and linked container manifests and KEKs, so a
+match proves the server resolved exactly the targets the client wrapped to. The
+[realtime hint](../developer/realtime-hints.md) names the containers of the
+targets the API resolved.
+
 When the request carries `documentSync`, the API then commits it in the same
 transaction, after the binding row, under every check a standalone sync makes
 (write header, target and link-set expectations, billing, minimum commit

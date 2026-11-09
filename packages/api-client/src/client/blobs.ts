@@ -85,22 +85,21 @@ export class BlobArea {
 
   /**
    * The bind acknowledges by hash, so the cached listing entry is rebuilt
-   * from the request it acknowledged: a staged upload's bind stores exactly
-   * the signed event, content-key bundle, and write header it carried, with
-   * the resolved KEK targets as its write authorization. Any other bind (no
-   * staged blob, or a blob other bindings share) keeps material the response
-   * does not carry, so it drops the cached listing instead.
+   * from the request it acknowledged: a staged upload's bind creates the blob,
+   * so its one binding's KEK targets are the ones its content-key bundle wraps
+   * to, and it stores exactly the signed event, bundle, and write header it
+   * carried. Any other bind (no staged blob, or a target set other than the
+   * one the bundle names) keeps material the response does not carry, so it
+   * drops the cached listing instead.
    */
   private cacheBlobAttachmentBindResponse(
     request: BlobAttachmentBindRequest,
     response: BlobAttachmentBindResponse,
   ): void {
     const { stagedBlob } = request;
-    const activeBindingIds = response.blobKekTargets.activeBindingIds;
     if (
       !stagedBlob ||
-      activeBindingIds.length !== 1 ||
-      activeBindingIds[0] !== response.bindingId
+      response.blobKeyTargetHash !== request.contentKeyBundle.targetHash
     ) {
       this.attachmentLists.delete(response.documentId);
       return;

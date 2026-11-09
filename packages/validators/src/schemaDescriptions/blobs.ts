@@ -238,6 +238,10 @@ describeSchema(
   BlobAttachmentBindResponseSchema,
   "Acknowledges a bind by hash, so the client can compare it with what it signed.",
   {
+    blobAccessManifestHash:
+      "Access manifest hash of the blob after the bind, from the targets the API resolved.",
+    blobKeyTargetHash:
+      "Hash of the KEK target set the API resolved for the blob after the bind.",
     contentKeyEpoch: "Content-key epoch the API stored for the blob.",
     documentManifestHash:
       "Document link-set manifest head the bind was checked against.",

@@ -103,7 +103,7 @@ testApiClient("rejects an invalid document sync response shape", async () => {
     http.post(`${apiBaseUrl}/documents/:documentId/sync`, () =>
       HttpResponse.json({
         ...createDocumentSyncResponse(),
-        contentKeyBundle: undefined,
+        pullPage: undefined,
       }),
     ),
   );

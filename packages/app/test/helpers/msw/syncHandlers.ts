@@ -55,9 +55,8 @@ export const syncHandlers = [
   }),
   // Background sync fires from any test that establishes an identity, including
   // the ones that never opt into useTestApiAppHandlers. A success response is not
-  // constructible here: isDocumentSyncResponse demands a per-document
-  // contentKeyBundle and documentKekTargets that a static handler cannot forge,
-  // and a shape-valid fake would still fail write-header signature verification.
+  // constructible here: a shape-valid fake would fail write-header signature
+  // verification against the document's synced content-key state.
   // 401 is the one failure the SDK handles cleanly — it is not refreshable (so no
   // session-refresh replay), and unlike 402/404 it triggers no onPaymentRequired
   // or onRemoteDocumentDeleted side effect. The lane reports and stops.

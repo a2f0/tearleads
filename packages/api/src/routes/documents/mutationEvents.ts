@@ -2,10 +2,7 @@ import type {
   ContainerMutationRequest,
   DocumentLinkSetMutationRequest,
 } from "@tearleads/validators/request";
-import type {
-  ContainerMutationResponse,
-  DocumentSyncResponse,
-} from "@tearleads/validators/response";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { uniqueSortedStrings } from "../../utils/array";
 import { publishBestEffort } from "../../utils/publishBestEffort";
@@ -17,16 +14,6 @@ type DocumentMutationOrigin = {
   readonly userId: string;
 };
 type Publish = (event: PublishedRealtimeEvent) => Promise<void>;
-
-export function documentKekTargetContainerIds(
-  documentKekTargets: DocumentSyncResponse["documentKekTargets"],
-): string[] {
-  return documentKekTargets.targets.flatMap((target) => {
-    if (typeof target !== "object" || target === null) return [];
-    const containerId = Reflect.get(target, "containerId");
-    return typeof containerId === "string" ? [containerId] : [];
-  });
-}
 
 export function createDocumentMutationCreatedEvent(input: {
   readonly documentId: string;

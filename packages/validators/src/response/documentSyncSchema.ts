@@ -129,31 +129,25 @@ function contentKeyEpochOf(bundle: unknown): number | null {
 }
 
 /**
- * The current epoch's bundle travels only as `contentKeyBundle`, so the array
- * holds the distinct older epochs that served updates cite. Field issues do not
- * stop this object refinement, so it judges only epochs that parsed.
+ * The client already holds the current epoch's bundle, so the array holds the
+ * distinct older epochs that served updates cite; the client rejects any epoch
+ * not older than the one it planned against. Field issues do not stop this
+ * object refinement, so it judges only epochs that parsed.
  */
 function addHistoricalContentKeyBundleIssues(
-  response: {
-    readonly contentKeyBundle: unknown;
-    readonly contentKeyBundles: unknown;
-  },
+  response: { readonly contentKeyBundles: unknown },
   context: z.RefinementCtx,
 ): void {
-  const currentEpoch = contentKeyEpochOf(response.contentKeyBundle);
-  if (currentEpoch === null || !Array.isArray(response.contentKeyBundles)) {
-    return;
-  }
+  if (!Array.isArray(response.contentKeyBundles)) return;
   const seenEpochs = new Set<number>();
   // forEach skips holes exactly as arraySchema's item validation does.
   response.contentKeyBundles.forEach((bundle: unknown, index: number) => {
     const contentKeyEpoch = contentKeyEpochOf(bundle);
     if (contentKeyEpoch === null) return;
-    if (contentKeyEpoch >= currentEpoch || seenEpochs.has(contentKeyEpoch)) {
+    if (seenEpochs.has(contentKeyEpoch)) {
       context.addIssue({
         code: "custom",
-        message:
-          "content-key bundles must be distinct epochs older than contentKeyBundle",
+        message: "content-key bundles must be distinct epochs",
         path: ["contentKeyBundles", index, "contentKeyEpoch"],
       });
     }
@@ -197,10 +191,8 @@ export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
       MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
     ),
     ...commitLsnResponseShape,
-    contentKeyBundle: DocumentContentKeyBundleResponseSchema,
     contentKeyBundles: arraySchema(DocumentContentKeyBundleResponseSchema),
     documentId: z.string(),
-    documentKekTargets: DocumentKekTargetsResponseSchema,
     pullPage: DocumentSyncPullPageResponseSchema,
     updates: arraySchema(
       DocumentSyncUpdateResponseSchema,
