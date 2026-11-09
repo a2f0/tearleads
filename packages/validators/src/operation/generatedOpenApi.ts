@@ -2657,7 +2657,7 @@ export type components = {
             [key: string]: unknown;
         };
         /** @description A machine-readable reason a document mutation was refused. */
-        DocumentMutationErrorCode: ("document_manifest_already_exists" | "document_unlink_rotation_baseline_stale") | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
+        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_unlink_rotation_baseline_stale";
         /** @description A refused document create, link, unlink, or purge. */
         DocumentMutationFailureResponse: {
             code?: components["schemas"]["DocumentMutationErrorCode"];

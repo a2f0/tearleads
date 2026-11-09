@@ -3182,10 +3182,7 @@
         "anyOf": [
           {
             "type": "string",
-            "enum": [
-              "document_manifest_already_exists",
-              "document_unlink_rotation_baseline_stale"
-            ]
+            "const": "document_manifest_already_exists"
           },
           {
             "type": "string",
@@ -3204,6 +3201,10 @@
           {
             "type": "string",
             "const": "container_unavailable"
+          },
+          {
+            "type": "string",
+            "const": "document_unlink_rotation_baseline_stale"
           }
         ],
         "description": "A machine-readable reason a document mutation was refused."

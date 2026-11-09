@@ -19,7 +19,6 @@ export const DOCUMENT_MUTATION_ERROR_CODES = {
 
 export const DocumentMutationBehaviorErrorCodeSchema = z.literal([
   DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
-  DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
 ]);
 
 export const DocumentMutationErrorCodeSchema = z.union([
@@ -27,6 +26,7 @@ export const DocumentMutationErrorCodeSchema = z.union([
   DocumentSyncErrorCodeSchema,
   z.literal(DOCUMENT_NOT_FOUND_ERROR_CODE),
   z.literal(DOCUMENT_MUTATION_ERROR_CODES.containerUnavailable),
+  z.literal(DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale),
 ]);
 
 export type DocumentMutationErrorCode = z.infer<
