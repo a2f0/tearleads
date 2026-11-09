@@ -66,9 +66,11 @@ test(
         total: 31,
         // Provisioned containers and documents are acknowledged by hash, not
         // echoed: 157 KB received (305 KB before; register 118 KB -> 63 KB).
+        // Public history reads name the founding heads registration holds and
+        // receive no current state: 129 KB received.
         // Keys and the login signature travel as base64 and child containers
         // cite their parent KEK state: 291 KB sent (322 KB before).
-        bodyBytes: { request: 320_000, response: 175_000 },
+        bodyBytes: { request: 320_000, response: 145_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 5,
           "GET /principals/group/:groupId/policy": 0,

@@ -89,7 +89,7 @@ test.each(["container", "document"] as const)(
       expect(response.headers.get("cache-control")).toBe("private, no-store");
       const raw = await response.json();
       const page = PrincipalPolicySnapshotPageResponseSchema.parse(raw);
-      expect(page.currentState.stateHash).toBe(history.head.stateHash);
+      expect(page.currentState?.stateHash).toBe(history.head.stateHash);
       expect(page.previousStates.map(({ state }) => state.version)).toEqual(
         Array.from(
           { length: Math.min(32, 65 - after) },
@@ -99,6 +99,32 @@ test.each(["container", "document"] as const)(
       expect(raw).not.toHaveProperty("currentPayload");
       expect(raw).not.toHaveProperty("currentMemberEnvelopes");
     }
+    // Naming the held head omits only its state; any other hash is served it.
+    for (const [knownStateHash, served] of [
+      [history.head.stateHash, false],
+      ["f".repeat(64), true],
+    ] as const) {
+      const response = await requestPreparedPrincipalPolicy(
+        `/principals/history?${new URLSearchParams({ grant, afterVersion: "32", knownStateHash })}`,
+        { headers: { Authorization: `Bearer ${owner.token}` } },
+      );
+      expect(response.status, await response.clone().text()).toBe(200);
+      const page = PrincipalPolicySnapshotPageResponseSchema.parse(
+        await response.json(),
+      );
+      expect(page.currentState?.stateHash ?? null).toBe(
+        served ? history.head.stateHash : null,
+      );
+      expect(page.previousStates).toHaveLength(32);
+    }
+    expect(
+      (
+        await requestPreparedPrincipalPolicy(
+          `/principals/history?${new URLSearchParams({ grant, knownStateHash: "x" })}`,
+          { headers: { Authorization: `Bearer ${owner.token}` } },
+        )
+      ).status,
+    ).toBe(400);
     expect((await request(grant, 32, outsider)).status).toBe(403);
     // A correctly signed scope is insufficient once its user lacks current
     // access; pinning an old head must not freeze authorization.

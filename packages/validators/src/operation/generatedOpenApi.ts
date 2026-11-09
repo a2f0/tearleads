@@ -1362,7 +1362,7 @@ export type paths = {
         };
         /**
          * Page projection policy history
-         * @description Pages public signed policy snapshots, up to 32 predecessor states at a time, for a principal head cited by an object the caller can read. The opaque `grant` query value names that object and head, and every page rechecks current access to it. A 202 asks the client to retry the identical request after policy history is prepared.
+         * @description Pages public signed policy snapshots, up to 32 predecessor states at a time, for a principal head cited by an object the caller can read. The opaque `grant` query value names that object and head, and every page rechecks current access to it. A `knownStateHash` equal to that head's state hash makes every page answer `currentState: null`; the client then verifies the signed copy it holds. A 202 asks the client to retry the identical request after policy history is prepared.
          */
         get: operations["principals.history.get"];
         put?: never;
@@ -3838,7 +3838,8 @@ export type components = {
         PrincipalPolicySnapshotPageResponse: {
             currentGrants: components["schemas"]["PrincipalContainerGrantResponse"][];
             currentProjection: components["schemas"]["PrincipalProjectionMemberResponse"][];
-            currentState: components["schemas"]["PrincipalStateResponse"];
+            /** @description The signed head state, or null when the request's `knownStateHash` named it and the client verifies its own copy. */
+            currentState: components["schemas"]["PrincipalStateResponse"] | null;
             /** @description Which predecessor versions this page covers and where the next page starts. */
             historyPage: {
                 afterVersion: number;
@@ -10811,6 +10812,7 @@ export interface operations {
             query: {
                 afterVersion?: number;
                 grant: string;
+                knownStateHash?: string;
             };
             header?: never;
             path?: never;

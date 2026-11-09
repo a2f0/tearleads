@@ -70,7 +70,7 @@ for (const versions of [64, 128]) {
             const page = PrincipalPolicySnapshotPageResponseSchema.parse(
               await pageResponse.json(),
             );
-            expect(page.currentState.stateHash).toBe(source.head.stateHash);
+            expect(page.currentState?.stateHash).toBe(source.head.stateHash);
             expect(page.previousStates.length).toBeLessThanOrEqual(32);
           }
         }

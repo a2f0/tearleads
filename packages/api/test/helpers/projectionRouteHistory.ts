@@ -30,9 +30,11 @@ export function projectionRouteHistory(
     async *getProjectionPolicyHistoryPages(source, options = {}) {
       let afterVersion = options.afterVersion ?? 0;
       do {
+        const known = options.knownCurrentState;
         const query = new URLSearchParams({
           grant: source.grant,
           afterVersion: String(afterVersion),
+          ...(known ? { knownStateHash: known.stateHash } : {}),
         });
         const response = await projectionRouteRequest(
           `/principals/history?${query}`,
@@ -42,9 +44,13 @@ export function projectionRouteHistory(
           throw new Error(
             `Projection history failed: ${response.status}: ${await response.text()}`,
           );
-        const data = PrincipalPolicySnapshotPageResponseSchema.parse(
+        const page = PrincipalPolicySnapshotPageResponseSchema.parse(
           await response.json(),
         );
+        const currentState = known ?? page.currentState;
+        if (!currentState || (known && page.currentState !== null))
+          throw new Error("Projection history answered the wrong head form");
+        const data = { ...page, currentState };
         yield { ok: true as const, data };
         if (data.historyPage.nextAfterVersion === null) return;
         afterVersion = data.historyPage.nextAfterVersion;

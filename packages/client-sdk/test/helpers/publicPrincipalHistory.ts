@@ -2,7 +2,7 @@ import { ApiClient } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   PrincipalPolicyBundleResponse,
-  PrincipalPolicySnapshotPageResponse,
+  PrincipalPolicySnapshotPage,
 } from "@tearleads/validators/response";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import type { TrustedUserIdentityResolver } from "../../src/data/trustedUserIdentity";
@@ -24,10 +24,12 @@ export async function createPublicHistoryFixture(
     ]),
   );
   const requests: number[] = [];
+  /** The `knownStateHash` each request named, or null. */
+  const knownHashes: (string | null)[] = [];
   const controls: {
     failAfter: number | null;
     failureStatus?: number;
-    mutate: ((page: PrincipalPolicySnapshotPageResponse) => void) | null;
+    mutate: ((page: PrincipalPolicySnapshotPage) => void) | null;
   } = { failAfter: null, mutate: null };
   const server = Bun.serve({
     hostname: "127.0.0.1",
@@ -38,6 +40,8 @@ export async function createPublicHistoryFixture(
       if (!bundle) return new Response("Not found", { status: 404 });
       const afterVersion = Number(query.get("afterVersion") ?? 0);
       requests.push(afterVersion);
+      const knownStateHash = query.get("knownStateHash");
+      knownHashes.push(knownStateHash);
       if (controls.failAfter === afterVersion)
         return new Response("Unavailable", {
           status: controls.failureStatus ?? 503,
@@ -47,7 +51,7 @@ export async function createPublicHistoryFixture(
         afterVersion + 32,
       );
       const through = afterVersion + previousStates.length;
-      const page: PrincipalPolicySnapshotPageResponse = structuredClone({
+      const page: PrincipalPolicySnapshotPage = structuredClone({
         currentState: bundle.currentState,
         currentProjection: bundle.currentProjection,
         currentGrants: bundle.currentGrants,
@@ -59,7 +63,11 @@ export async function createPublicHistoryFixture(
         },
       });
       controls.mutate?.(page);
-      return Response.json(page);
+      return Response.json(
+        knownStateHash === bundle.currentState.stateHash
+          ? { ...page, currentState: null }
+          : page,
+      );
     },
   });
   const client = () => new ApiClient(server.url.origin);
@@ -84,6 +92,7 @@ export async function createPublicHistoryFixture(
     client,
     source,
     requests,
+    knownHashes,
     controls,
     retain(bundle: PrincipalPolicyBundleResponse) {
       policies.set(bundle.currentState.stateHash, bundle);

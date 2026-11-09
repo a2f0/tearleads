@@ -36,11 +36,15 @@ export async function runReadProjectionPolicyHistoryWorkflow(
           "Projection policy history head is unavailable",
           409,
         );
-      return buildPrincipalPolicySnapshotPage(
+      const page = await buildPrincipalPolicySnapshotPage(
         tx,
         head,
         input.afterVersion ?? 0,
       );
+      // The page is still built and verified; only redelivery is skipped.
+      return input.knownStateHash === head.stateHash
+        ? { ...page, currentState: null }
+        : page;
     });
   } catch (error) {
     if (

@@ -215,7 +215,12 @@ test("strict public Admins verification cannot reuse a general history prefix", 
     await expect(
       recoverPublicPrincipalHistory({ ...f.options, strictAdmins: true }),
     ).rejects.toThrow("only direct admin users");
-    expect(f.requests).toEqual([0]);
+    // The refusal with the held head is confirmed once against the served one.
+    expect(f.requests).toEqual([0, 0]);
+    expect(f.knownHashes.slice(-2)).toEqual([
+      signed.bundle.currentState.stateHash,
+      null,
+    ]);
   } finally {
     f.close();
   }

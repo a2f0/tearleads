@@ -5,9 +5,12 @@ import {
 } from "@tearleads/validators/operation";
 import {
   isPrincipalPolicySnapshotPageResponse,
+  isPrincipalStateResponse,
   type PrincipalPolicyHistorySourceResponse,
   PrincipalPolicyHistorySourceResponseSchema,
+  type PrincipalPolicySnapshotPage,
   type PrincipalPolicySnapshotPageResponse,
+  type PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
@@ -18,23 +21,51 @@ export interface ProjectionPolicyHistoryReadOptions
   extends RequestResultOptions {
   /** Only skip a prefix already authenticated by the caller. */
   readonly afterVersion?: number | undefined;
+  /**
+   * A signed state the caller holds for exactly the source head. The server
+   * then omits its copy and every page carries this one; the caller verifies
+   * it as it would a served state.
+   */
+  readonly knownCurrentState?: PrincipalStateResponse | undefined;
 }
 
-function validPage(
-  page: PrincipalPolicySnapshotPageResponse,
-  source: PrincipalPolicyHistorySourceResponse,
-  after: number,
+function matchesHead(
+  state: PrincipalStateResponse,
+  head: PrincipalPolicyHistorySourceResponse["head"],
 ): boolean {
-  const head = source.head;
-  const state = page.currentState;
-  const through = after + page.previousStates.length;
   return (
     state.principalType === head.principalType &&
     state.principalId === head.principalId &&
     state.version === head.version &&
     state.stateHash === head.stateHash &&
     state.keyEpoch === head.keyEpoch &&
-    state.keyFingerprint === head.keyFingerprint &&
+    state.keyFingerprint === head.keyFingerprint
+  );
+}
+
+/** A held state replaces only an explicit omission; a served one must be absent from the request. */
+function currentPage(
+  page: PrincipalPolicySnapshotPageResponse,
+  known: PrincipalStateResponse | undefined,
+): PrincipalPolicySnapshotPage | undefined {
+  if (known) {
+    return page.currentState === null
+      ? { ...page, currentState: structuredClone(known) }
+      : undefined;
+  }
+  const currentState = page.currentState;
+  return currentState === null ? undefined : { ...page, currentState };
+}
+
+function validPage(
+  page: PrincipalPolicySnapshotPage,
+  source: PrincipalPolicyHistorySourceResponse,
+  after: number,
+): boolean {
+  const head = source.head;
+  const through = after + page.previousStates.length;
+  return (
+    matchesHead(page.currentState, head) &&
     page.historyPage.afterVersion === after &&
     through < head.version &&
     page.previousStates.every(
@@ -51,14 +82,37 @@ function validPage(
   );
 }
 
+/** Owned copies of a valid source, cursor and held head, or undefined. */
+function readStart(
+  input: PrincipalPolicyHistorySourceResponse,
+  options: ProjectionPolicyHistoryReadOptions,
+) {
+  const parsed = PrincipalPolicyHistorySourceResponseSchema.safeParse(input);
+  const afterVersion = options.afterVersion ?? 0;
+  const known = options.knownCurrentState;
+  if (
+    !parsed.success ||
+    !Number.isSafeInteger(afterVersion) ||
+    afterVersion < 0 ||
+    afterVersion >= parsed.data.head.version ||
+    (known !== undefined &&
+      (!isPrincipalStateResponse(known) ||
+        !matchesHead(known, parsed.data.head)))
+  )
+    return undefined;
+  return {
+    source: structuredClone(parsed.data),
+    afterVersion,
+    knownCurrentState: known && structuredClone(known),
+  };
+}
+
 /** One bounded public page at a time. Only the caller authenticates its contents. */
 export async function* readProjectionPolicyHistoryPages(
   runtime: ApiRequestRuntime,
   input: PrincipalPolicyHistorySourceResponse,
   options: ProjectionPolicyHistoryReadOptions = {},
-): AsyncGenerator<RequestResult<PrincipalPolicySnapshotPageResponse>, void> {
-  const parsed = PrincipalPolicyHistorySourceResponseSchema.safeParse(input);
-  let afterVersion = options.afterVersion ?? 0;
+): AsyncGenerator<RequestResult<PrincipalPolicySnapshotPage>, void> {
   const invalid = (message: string, status: number | null = null) =>
     runtime.responseRequest.reportFailure({
       kind: "shape",
@@ -69,16 +123,13 @@ export async function* readProjectionPolicyHistoryPages(
       status,
       statusText: "",
     });
-  if (
-    !parsed.success ||
-    !Number.isSafeInteger(afterVersion) ||
-    afterVersion < 0 ||
-    afterVersion >= parsed.data.head.version
-  ) {
+  const start = readStart(input, options);
+  if (!start) {
     yield invalid("Invalid projection history source or cursor");
     return;
   }
-  const source = structuredClone(parsed.data);
+  const { source, knownCurrentState } = start;
+  let afterVersion = start.afterVersion;
   const context = new PrincipalHistoryRequestContext(
     runtime,
     "GET",
@@ -90,7 +141,13 @@ export async function* readProjectionPolicyHistoryPages(
     const path = operationRequestPathWithQuery(
       getProjectionPolicyHistoryOperation,
       {},
-      { grant: source.grant, afterVersion },
+      {
+        grant: source.grant,
+        afterVersion,
+        ...(knownCurrentState
+          ? { knownStateHash: knownCurrentState.stateHash }
+          : {}),
+      },
     );
     const result = await principalHistoryRequest(runtime, {
       path,
@@ -104,13 +161,16 @@ export async function* readProjectionPolicyHistoryPages(
       yield result;
       return;
     }
-    const page = result.data;
-    const bytes = serializeKeyingCanonicalJson({
-      currentState: page.currentState,
-      currentProjection: page.currentProjection,
-      currentGrants: page.currentGrants,
-    });
+    const page = currentPage(result.data, knownCurrentState);
+    const bytes =
+      page &&
+      serializeKeyingCanonicalJson({
+        currentState: page.currentState,
+        currentProjection: page.currentProjection,
+        currentGrants: page.currentGrants,
+      });
     if (
+      !page ||
       !validPage(page, source, afterVersion) ||
       (pinnedBytes !== undefined && bytes !== pinnedBytes)
     ) {
@@ -123,7 +183,7 @@ export async function* readProjectionPolicyHistoryPages(
     pinnedBytes ??= bytes;
     context.afterReadPage();
     const next = page.historyPage.nextAfterVersion;
-    yield result;
+    yield { ...result, data: page };
     if (context.cancelled()) {
       yield context.failure();
       return;

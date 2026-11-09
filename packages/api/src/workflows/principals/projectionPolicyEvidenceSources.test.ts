@@ -56,7 +56,7 @@ test("projection sources issue scoped exact-head grants without full snapshots",
       const page = PrincipalPolicySnapshotPageResponseSchema.parse(
         await response.json(),
       );
-      expect(page.currentState.stateHash).toBe(source.head.stateHash);
+      expect(page.currentState?.stateHash).toBe(source.head.stateHash);
       expect(source).not.toHaveProperty("previousStates");
       expect(source).not.toHaveProperty("currentPayload");
       expect(source).not.toHaveProperty("currentMemberEnvelopes");

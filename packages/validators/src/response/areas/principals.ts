@@ -48,9 +48,11 @@ export {
   PrincipalPolicyUnchangedResponseSchema,
 } from "../principalPolicyPage";
 export {
+  isPrincipalPolicySnapshotPage,
   isPrincipalPolicySnapshotPageResponse,
   type PrincipalPolicyHistorySourceResponse,
   PrincipalPolicyHistorySourceResponseSchema,
+  type PrincipalPolicySnapshotPage,
   type PrincipalPolicySnapshotPageResponse,
   PrincipalPolicySnapshotPageResponseSchema,
 } from "../principalPolicySnapshotPage";

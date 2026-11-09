@@ -11,6 +11,7 @@ import {
   PrincipalContainerGrantResponseSchema,
   PrincipalPolicyStateChainEntryResponseSchema,
   PrincipalProjectionMemberResponseSchema,
+  type PrincipalStateResponse,
   PrincipalStateResponseSchema,
 } from "./principalSnapshot";
 
@@ -24,11 +25,16 @@ export type PrincipalPolicyHistorySourceResponse = z.infer<
   typeof PrincipalPolicyHistorySourceResponseSchema
 >;
 
-/** Public signed authorization only; contains no payloads or key envelopes. */
+/**
+ * Public signed authorization only; contains no payloads or key envelopes.
+ * `currentState` is null exactly when the request's `knownStateHash` named
+ * this head: the client supplies its own signed copy and verifies it as it
+ * would a served one.
+ */
 export const PrincipalPolicySnapshotPageResponseSchema = loosePlainObject({
   currentGrants: arraySchema(PrincipalContainerGrantResponseSchema),
   currentProjection: arraySchema(PrincipalProjectionMemberResponseSchema),
-  currentState: PrincipalStateResponseSchema,
+  currentState: PrincipalStateResponseSchema.nullable(),
   previousStates: arraySchema(
     PrincipalPolicyStateChainEntryResponseSchema,
     PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT,
@@ -43,8 +49,22 @@ export type PrincipalPolicySnapshotPageResponse = z.infer<
   typeof PrincipalPolicySnapshotPageResponseSchema
 >;
 
+/** A public page with its current state, served or held by the client. */
+export type PrincipalPolicySnapshotPage = Omit<
+  PrincipalPolicySnapshotPageResponse,
+  "currentState"
+> & { currentState: PrincipalStateResponse };
+
 export function isPrincipalPolicySnapshotPageResponse(
   value: unknown,
 ): value is PrincipalPolicySnapshotPageResponse {
   return PrincipalPolicySnapshotPageResponseSchema.safeParse(value).success;
+}
+
+export function isPrincipalPolicySnapshotPage(
+  value: unknown,
+): value is PrincipalPolicySnapshotPage {
+  return (
+    isPrincipalPolicySnapshotPageResponse(value) && value.currentState !== null
+  );
 }

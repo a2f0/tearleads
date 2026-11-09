@@ -2,7 +2,7 @@ import {
   KeyingVerificationError,
   type PrincipalPolicyStateChainEntry,
 } from "@tearleads/crypto";
-import type { PrincipalPolicySnapshotPageResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicySnapshotPage } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { savePrincipalHistoryStage } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
@@ -57,7 +57,7 @@ function assertPublicAuthorityScope(
 export async function appendPublicPrincipalHistoryPage(
   input: PublicPrincipalHistoryOptions,
   progress: PublicPrincipalHistoryProgress,
-  page: PrincipalPolicySnapshotPageResponse,
+  page: PrincipalPolicySnapshotPage,
 ): Promise<PublicPrincipalHistoryProgress> {
   const stillCurrent = () => !input.signal?.aborted && input.stillCurrent();
   const complete = page.historyPage.nextAfterVersion === null;

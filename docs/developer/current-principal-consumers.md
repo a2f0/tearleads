@@ -200,7 +200,7 @@ The Admins enrollment fixture in
 measures 55 completed requests; its ceiling is 58, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 17,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
-160,000 request bytes and 740,000 response bytes (0.67 MB measured). The root
+160,000 request bytes and 700,000 response bytes (0.63 MB measured). The root
 attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
 measures 59 requests and permits 66, with body ceilings of 130,000 request bytes

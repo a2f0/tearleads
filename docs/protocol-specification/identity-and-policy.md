@@ -130,3 +130,11 @@ and `ifStateHash`; when that is the live head, the reply is
 `{unchanged: true, head}` and carries no artifacts, otherwise it is the first
 page. The reply proves only freshness: the client authenticates the held head
 from its own verified history and re-reads unconditionally on any other reply.
+
+`GET /principals/history` pages the public signed history of the head an opaque
+projection grant names. A request may name a signed head state the client holds
+with `knownStateHash`; when it equals the grant's head, every page answers
+`currentState: null` and keeps its projection, grants and predecessors. The
+client supplies its stored state with exactly that reference and verifies it as
+it would a served one, so omission changes only bytes. A client that holds no
+such state names none and receives the state.
