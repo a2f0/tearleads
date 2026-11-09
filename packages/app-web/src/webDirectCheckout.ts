@@ -13,6 +13,12 @@ import {
   type DirectCheckoutConfirmation,
   type DirectCheckoutSession,
 } from "@tearleads/client-sdk";
+import {
+  INITIAL_STRIPE_FORM_LOAD,
+  type StripeFormElement,
+  type StripeFormLoadEvent,
+  transitionStripeFormLoad,
+} from "./stripeFormLoadState";
 
 /**
  * Stripe-backed {@link DirectCheckoutCapability} for the web shell (issue
@@ -199,6 +205,11 @@ function releaseElements(
   }
 }
 
+type MountCallbacks = Pick<
+  Parameters<DirectCheckoutCapability["mount"]>[0],
+  "onBillingEmailChange" | "onLoadError" | "onReady"
+>;
+
 /**
  * The two Stripe elements share one Elements group and one host: the Contact
  * Details element (Stripe's own email field) above the Payment Element, so
@@ -207,7 +218,7 @@ function releaseElements(
 function mountElements(
   elements: StripeElements,
   host: HTMLElement,
-  onBillingEmailChange: (email: string | null) => void,
+  callbacks: MountCallbacks,
 ): {
   readonly billingEmail: () => string | null;
   readonly wrappers: readonly HTMLElement[];
@@ -221,20 +232,25 @@ function mountElements(
   host.append(emailHost, paymentHost);
   const wrappers = [emailHost, paymentHost];
 
+  const load = trackFormLoad(callbacks);
   let billingEmail: string | null = null;
   try {
     const contact = elements.create("contactDetails");
     contact.on("change", (event) => {
       const email = event.value.email.trim();
       billingEmail = event.complete && email.length > 0 ? email : null;
-      onBillingEmailChange(billingEmail);
+      callbacks.onBillingEmailChange(billingEmail);
     });
+    contact.on("ready", load.ready("contactDetails"));
+    contact.on("loaderror", load.failed);
     contact.mount(emailHost);
     // The email belongs to the Contact Details element above, not the card
     // form; `never` here obliges confirm to send it explicitly.
     const payment = elements.create("payment", {
       fields: { billingDetails: { email: "never" } },
     });
+    payment.on("ready", load.ready("payment"));
+    payment.on("loaderror", load.failed);
     payment.mount(paymentHost);
   } catch (mountError) {
     // No session exists to unmount a half-built form; a retry would stack a
@@ -243,6 +259,38 @@ function mountElements(
     throw mountError;
   }
   return { billingEmail: () => billingEmail, wrappers };
+}
+
+/**
+ * Runs the form-load machine (`stripeFormLoadState.ts`) and its entry
+ * effects: the host hears `onReady` once, or `onLoadError` once.
+ */
+function trackFormLoad(callbacks: MountCallbacks): {
+  readonly ready: (element: StripeFormElement) => () => void;
+  readonly failed: (event: { readonly error: unknown }) => void;
+} {
+  let state = INITIAL_STRIPE_FORM_LOAD;
+  const send = (event: StripeFormLoadEvent) => {
+    const next = transitionStripeFormLoad(state, event);
+    if (next === state) {
+      return;
+    }
+    state = next;
+    if (next.status === "ready") {
+      callbacks.onReady();
+    } else if (event.type === "element-failed") {
+      // Stripe reports a plain object; an Error carries it to diagnostics.
+      callbacks.onLoadError(
+        new Error("The payment form could not be loaded.", {
+          cause: event.error,
+        }),
+      );
+    }
+  };
+  return {
+    ready: (element) => () => send({ type: "element-ready", element }),
+    failed: (event) => send({ type: "element-failed", error: event.error }),
+  };
 }
 
 function createSession(
@@ -321,7 +369,7 @@ export function createWebDirectCheckout(
 
   return {
     isAvailable: true,
-    async mount({ host, clientSecret, appearance, onBillingEmailChange }) {
+    async mount({ host, clientSecret, appearance, ...callbacks }) {
       stripePromise = stripePromise ?? loadStripeImpl(publishableKey);
       // `loadStripe` REJECTS when the script cannot be fetched (blocked by an
       // extension, offline) and resolves null only where there is no `window`.
@@ -347,7 +395,7 @@ export function createWebDirectCheckout(
         clientSecret,
         appearance: toStripeAppearance(appearance),
       });
-      const mounted = mountElements(elements, host, onBillingEmailChange);
+      const mounted = mountElements(elements, host, callbacks);
       return createSession(stripe, elements, mounted);
     },
   };

@@ -3,12 +3,52 @@
  * none }` here: this host must be laid out at the moment the element mounts,
  * because Stripe sizes its iframe from the host box. The Payment Element is
  * themed through the Appearance API instead (see checkoutAppearance.ts).
+ *
+ * Stripe's frames take `width: calc(100% + 8px)` with a -4px margin, so their
+ * focus rings can paint outside the host. Org Manager's scroll region has no
+ * inline padding, so that overhang widened it into a horizontal scrollbar.
+ * The region clipped the overhang anyway, so clipping it here changes nothing
+ * visible; vertical overflow stays visible.
  */
 .org-manager-direct-checkout {
   margin-top: var(--space-sm);
+  overflow-x: clip;
 }
 
 /* The capability mounts Stripe's email element above the card form. */
 .org-manager-direct-checkout > * + * {
   margin-top: var(--space-sm);
+}
+
+/* Lays the checkout screen out in the section's own grid. */
+.org-manager-checkout-screen {
+  display: contents;
+}
+
+/*
+ * While the form loads, the loading panel fills the billing panel, as other
+ * mini-app loading screens fill theirs.
+ */
+.org-manager-billing--checkout-loading {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.org-manager-checkout--loading {
+  position: relative;
+  flex: 1 1 auto;
+}
+
+/*
+ * The form stays laid out so Stripe can size its frames, but out of flow,
+ * invisible, and clipped to the section so it adds no scrolling.
+ */
+.org-manager-checkout-screen--loading {
+  display: block;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
 }

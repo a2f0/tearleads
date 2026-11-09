@@ -4,6 +4,7 @@ import {
   MiniAppButton,
   MiniAppSection,
   MiniAppSectionHeading,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
@@ -11,6 +12,7 @@ import {
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../../components/mini-app/rows/MiniAppRow";
+import { classNames } from "../../../components/shared/classNames";
 import { useAppFeatureFlags } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
 import { formatPrice } from "../../shared/billingFormatters";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -112,9 +114,126 @@ function CheckoutScreenActions({
   );
 }
 
+/**
+ * The checkout screen while the server checkout and the provider form load:
+ * a whole-panel busy state, like the other mini-app loading screens. Cancel
+ * stays offered, so the screen never traps the buyer; teardown discards a
+ * mount that lands after it.
+ */
+function CheckoutLoadingPanel({ onCancel }: { readonly onCancel: () => void }) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  // The Subscribe button that had focus is gone; keep focus on this screen.
+  useEffect(() => {
+    cancelRef.current?.focus();
+  }, []);
+  return (
+    <MiniAppStatePanel
+      busy
+      description={ORG_MANAGER_LABELS.billingCheckoutStartingDescription}
+      title={ORG_MANAGER_LABELS.billingCheckoutStarting}
+    >
+      <MiniAppButton onClick={onCancel} ref={cancelRef}>
+        {ORG_MANAGER_LABELS.billingCancelCheckout}
+      </MiniAppButton>
+    </MiniAppStatePanel>
+  );
+}
+
 /** Whether the checkout has left the billing panel for its own screen. */
 export function isCheckoutScreenOpen(checkout: DirectCheckoutState): boolean {
   return checkout.phase.kind !== "idle";
+}
+
+/** Whether the checkout screen is showing its loading state. */
+export function isCheckoutLoading(checkout: DirectCheckoutState): boolean {
+  return checkout.phase.kind === "starting";
+}
+
+function CheckoutIdleOffer({
+  checkout,
+  disabled,
+  name,
+  priceLabel,
+}: {
+  readonly checkout: DirectCheckoutState;
+  readonly disabled: boolean;
+  readonly name: string;
+  readonly priceLabel: string;
+}) {
+  const { isEnabled } = useAppFeatureFlags();
+  return (
+    <>
+      <BillingPurchaseOption
+        actionLabel={ORG_MANAGER_LABELS.billingSubscribe}
+        disabled={disabled}
+        name={name}
+        onSelect={checkout.begin}
+        priceLabel={priceLabel}
+      />
+      {/* The hosted-page escape hatch for buyers who prefer not to type
+          their card into our inline form; behind a feature flag (off by
+          default) while the inline form is the only advertised path. */}
+      {isEnabled("stripe-hosted-checkout") ? (
+        <HostedCheckoutLink
+          disabled={disabled}
+          organizationId={checkout.organizationId}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * The header, provider host, email hint, and actions. Always mounted while
+ * the flow is live so the element has a stable host to attach to; while the
+ * form loads it stays laid out but invisible behind the loading panel.
+ */
+function CheckoutScreen({
+  checkout,
+  disabled,
+  name,
+  priceLabel,
+}: {
+  readonly checkout: DirectCheckoutState;
+  readonly disabled: boolean;
+  readonly name: string;
+  readonly priceLabel: string;
+}) {
+  const idle = checkout.phase.kind === "idle";
+  const loading = isCheckoutLoading(checkout);
+  const shown = !idle && !loading;
+  return (
+    <div
+      className={classNames(
+        "org-manager-checkout-screen",
+        loading && "org-manager-checkout-screen--loading",
+      )}
+    >
+      {/* Mounting on reveal moves focus to the heading. */}
+      {shown ? (
+        <CheckoutScreenHeader name={name} priceLabel={priceLabel} />
+      ) : null}
+      <div
+        className="org-manager-direct-checkout"
+        ref={checkout.hostRef}
+        // Hidden rather than unmounted between attempts: unmounting would
+        // destroy the node the provider element is attached to. Displayed
+        // from `starting` on, because that is exactly when the element
+        // mounts and providers size their iframe off the host — mounting
+        // into a display:none node yields a collapsed or unsized form.
+        hidden={idle}
+      />
+      {/* Stripe's form above asks for the email; this says why. */}
+      {shown ? (
+        <MiniAppStatus className="org-manager-hint">
+          {ORG_MANAGER_LABELS.billingEmailHint}
+        </MiniAppStatus>
+      ) : null}
+      {shown ? (
+        <CheckoutScreenActions checkout={checkout} disabled={disabled} />
+      ) : null}
+    </div>
+  );
 }
 
 export function BillingDirectCheckout({
@@ -125,8 +244,7 @@ export function BillingDirectCheckout({
   /** Another billing action is in flight; do not start a competing one. */
   readonly disabled: boolean;
 }) {
-  const { isEnabled } = useAppFeatureFlags();
-  const { option, phase } = checkout;
+  const { option } = checkout;
   if (!checkout.available) {
     return null;
   }
@@ -137,8 +255,8 @@ export function BillingDirectCheckout({
       </MiniAppSection>
     ) : null;
   }
-  const starting = phase.kind === "starting";
-  const idle = phase.kind === "idle";
+  const idle = checkout.phase.kind === "idle";
+  const loading = isCheckoutLoading(checkout);
   const priceLabel = formatPrice(
     option.unitAmount,
     option.currency,
@@ -147,68 +265,24 @@ export function BillingDirectCheckout({
   );
 
   return (
-    <MiniAppSection>
+    <MiniAppSection
+      className={loading ? "org-manager-checkout--loading" : undefined}
+    >
       {idle ? (
-        <>
-          <BillingPurchaseOption
-            actionLabel={ORG_MANAGER_LABELS.billingSubscribe}
-            disabled={disabled}
-            name={option.productName}
-            onSelect={checkout.begin}
-            priceLabel={priceLabel}
-          />
-          {/* The hosted-page escape hatch for buyers who prefer not to type
-              their card into our inline form; behind a feature flag (off by
-              default) while the inline form is the only advertised path. */}
-          {isEnabled("stripe-hosted-checkout") ? (
-            <HostedCheckoutLink
-              disabled={disabled}
-              organizationId={checkout.organizationId}
-            />
-          ) : null}
-        </>
-      ) : (
-        <CheckoutScreenHeader
+        <CheckoutIdleOffer
+          checkout={checkout}
+          disabled={disabled}
           name={option.productName}
           priceLabel={priceLabel}
         />
-      )}
-
-      {starting ? (
-        <MiniAppStatus className="org-manager-hint">
-          {ORG_MANAGER_LABELS.billingCheckoutStarting}
-        </MiniAppStatus>
       ) : null}
-
-      {/*
-        Always mounted while the flow is live so the element has a stable host
-        to attach to; the payment fields render inside it.
-      */}
-      <div
-        className="org-manager-direct-checkout"
-        ref={checkout.hostRef}
-        // Hidden rather than unmounted between attempts: unmounting would
-        // destroy the node the provider element is attached to. Visible from
-        // `starting` on, because that is exactly when the element mounts and
-        // providers size their iframe off the host — mounting into a
-        // display:none node yields a collapsed or unsized form.
-        hidden={idle}
+      {loading ? <CheckoutLoadingPanel onCancel={checkout.cancel} /> : null}
+      <CheckoutScreen
+        checkout={checkout}
+        disabled={disabled}
+        name={option.productName}
+        priceLabel={priceLabel}
       />
-
-      {/* Stripe's form above asks for the email; this says why. */}
-      {idle ? null : (
-        <MiniAppStatus className="org-manager-hint">
-          {ORG_MANAGER_LABELS.billingEmailHint}
-        </MiniAppStatus>
-      )}
-
-      {/* Cancel is the way back to the billing panel, so it is offered from
-          `starting` on: the screen must never trap the buyer while the form
-          loads. Teardown discards a mount that lands after it. */}
-      {idle ? null : (
-        <CheckoutScreenActions checkout={checkout} disabled={disabled} />
-      )}
-
       {checkout.error ? (
         <MiniAppStatus tone="error">{checkout.error}</MiniAppStatus>
       ) : null}

@@ -26,6 +26,8 @@ test("Stripe's email element sits above the card form and its email is sent", as
     host: target,
     clientSecret: "pi_secret",
     onBillingEmailChange: (email) => reported.push(email),
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: APPEARANCE,
   });
 
@@ -62,6 +64,8 @@ test("confirm without a complete email declines without calling Stripe", async (
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: (email) => reported.push(email),
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: APPEARANCE,
   });
 
@@ -83,6 +87,8 @@ test("unmount destroys both elements and clears only the wrappers it added", asy
     host: target,
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: APPEARANCE,
   });
 
@@ -106,6 +112,8 @@ test("an abandoned mount's unmount leaves its replacement's form in place", asyn
     host: target,
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: APPEARANCE,
   };
   const first = capability.mount(input);
@@ -137,6 +145,8 @@ test("a failed card element releases the email element and its wrappers", async 
       host: target,
       clientSecret: "pi_secret",
       onBillingEmailChange: () => undefined,
+      onReady: () => undefined,
+      onLoadError: () => undefined,
       appearance: APPEARANCE,
     }),
   ).rejects.toThrow("payment element failed");

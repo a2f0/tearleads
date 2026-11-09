@@ -13,6 +13,7 @@ import { createAppHostConfig } from "../../../host/AppHostConfig";
 import { DirectCheckoutProvider } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
 import { LogProvider } from "../../../providers/logging/LogProvider";
+import { ORG_MANAGER_LABELS } from "../labels";
 import { useDirectCheckoutFlow } from "./useDirectCheckout";
 
 afterEach(restoreDirectCheckoutSpies);
@@ -275,4 +276,43 @@ test("disabling the checkout mid-flow tears the element down", async () => {
 
   expect(unmount).toHaveBeenCalledTimes(1);
   expect(result.current.phase.kind).toBe("idle");
+});
+
+test("the checkout stays starting until the mounted form is ready", async () => {
+  stubTearleads();
+  const { capability, mounted } = capabilityWith({}, { formReady: false });
+  const { result } = renderFlow(capability);
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(mounted).toHaveLength(1));
+  expect(result.current.phase.kind).toBe("starting");
+
+  act(() => mounted[0]?.onReady());
+  expect(result.current.phase.kind).toBe("collecting");
+});
+
+test("a form that fails to load unmounts its session and reports why", async () => {
+  stubTearleads();
+  const unmount = mock(() => undefined);
+  const { capability, mounted } = capabilityWith(
+    { unmount },
+    { formReady: false },
+  );
+  const { captured, diagnostics } = createCapturingDiagnostics();
+  const { result } = renderFlow(capability, undefined, "org-1", diagnostics);
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(mounted).toHaveLength(1));
+  const failure = new Error("The payment form could not be loaded.");
+
+  act(() => mounted[0]?.onLoadError(failure));
+
+  expect(result.current.phase.kind).toBe("idle");
+  expect(result.current.error).toBe(
+    ORG_MANAGER_LABELS.billingCheckoutUnavailable,
+  );
+  expect(unmount).toHaveBeenCalledTimes(1);
+  // The original Error reaches diagnostics, not just the generic label.
+  expect(captured).toEqual([failure]);
 });

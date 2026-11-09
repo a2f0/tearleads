@@ -379,16 +379,21 @@ test("Subscribe moves the payment form to its own screen and Cancel returns", as
 
   fireEvent.click(subscribe);
 
-  const heading = await view.findByRole("heading", {
-    name: ORG_MANAGER_LABELS.billingCheckoutTitle,
+  // The wrapper's form never finishes loading, so the screen stays on its
+  // loading panel, which keeps focus and the way back.
+  const cancel = await view.findByRole("button", {
+    name: ORG_MANAGER_LABELS.billingCancelCheckout,
   });
-  expect(document.activeElement).toBe(heading);
+  expect(document.activeElement).toBe(cancel);
+  expect(view.getByRole("status").textContent).toContain(
+    ORG_MANAGER_LABELS.billingCheckoutStarting,
+  );
   expect(view.queryByText(ORG_MANAGER_LABELS.billingTitle)).toBeNull();
   expect(view.queryByText(ORG_MANAGER_LABELS.billingHistoryTitle)).toBeNull();
   expect(
     view.queryByRole("button", { name: ORG_MANAGER_LABELS.billingSubscribe }),
   ).toBeNull();
-  // The provider element's host is the same node, now visible: switching
+  // The provider element's host is the same node, now laid out: switching
   // screens must not remount what Stripe attaches to.
   const checkoutHost = view.container.querySelector(
     ".org-manager-direct-checkout",
@@ -396,18 +401,14 @@ test("Subscribe moves the payment form to its own screen and Cancel returns", as
   expect(checkoutHost).toBe(host);
   expect(checkoutHost?.hasAttribute("hidden")).toBe(false);
 
-  fireEvent.click(
-    view.getByRole("button", {
-      name: ORG_MANAGER_LABELS.billingCancelCheckout,
-    }),
-  );
+  fireEvent.click(cancel);
 
   await waitFor(() =>
     expect(view.getByText(ORG_MANAGER_LABELS.billingTitle)).toBeDefined(),
   );
   expect(
-    view.queryByRole("heading", {
-      name: ORG_MANAGER_LABELS.billingCheckoutTitle,
+    view.queryByRole("button", {
+      name: ORG_MANAGER_LABELS.billingCancelCheckout,
     }),
   ).toBeNull();
   expect(

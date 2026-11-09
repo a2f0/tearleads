@@ -35,6 +35,8 @@ test("a card error is a decline the buyer can correct, not a throw", async () =>
       host: host(),
       clientSecret: "pi_secret",
       onBillingEmailChange: () => undefined,
+      onReady: () => undefined,
+      onLoadError: () => undefined,
       appearance: APPEARANCE,
     }),
   );
@@ -54,6 +56,8 @@ test("a non-buyer error throws so the caller surfaces a real failure", async () 
       host: host(),
       clientSecret: "pi_secret",
       onBillingEmailChange: () => undefined,
+      onReady: () => undefined,
+      onLoadError: () => undefined,
       appearance: APPEARANCE,
     }),
   );
@@ -73,6 +77,8 @@ test("confirming after unmount reports cancelled, never a live success", async (
       host: host(),
       clientSecret: "pi_secret",
       onBillingEmailChange: () => undefined,
+      onReady: () => undefined,
+      onLoadError: () => undefined,
       appearance: APPEARANCE,
     }),
   );
@@ -99,6 +105,8 @@ test("a rejected script load surfaces the buyer-facing failure", async () => {
       host: host(),
       clientSecret: "pi_secret",
       onBillingEmailChange: () => undefined,
+      onReady: () => undefined,
+      onLoadError: () => undefined,
       appearance: APPEARANCE,
     }),
   ).rejects.toThrow("could not be loaded");
@@ -115,6 +123,8 @@ test("a null script load surfaces the same buyer-facing failure", async () => {
       host: host(),
       clientSecret: "pi_secret",
       onBillingEmailChange: () => undefined,
+      onReady: () => undefined,
+      onLoadError: () => undefined,
       appearance: APPEARANCE,
     }),
   ).rejects.toThrow("could not be loaded");
@@ -133,6 +143,8 @@ test("confirm supplies a return url for a redirect-requiring 3-D Secure step", a
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: APPEARANCE,
   });
 
@@ -174,6 +186,8 @@ test("confirm omits the return url where there is no page to return to", async (
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: APPEARANCE,
   });
 
@@ -194,6 +208,8 @@ test("a charge that lands during an unmount is reported, not swallowed", async (
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: APPEARANCE,
   });
 
@@ -214,6 +230,8 @@ test("a dark surface mounts the Payment Element on the night base theme", async 
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "rgb(17, 17, 17)" },
   });
 
@@ -230,6 +248,8 @@ test("a light surface mounts the Payment Element on the stripe base theme", asyn
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "rgb(255, 255, 255)" },
   });
 
@@ -248,6 +268,8 @@ test("an unparseable surface color falls back to the light base theme", async ()
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "not-a-color" },
   });
 
@@ -264,6 +286,8 @@ test("a transparent surface (unresolved token) uses the light base theme", async
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "rgba(0, 0, 0, 0)" },
   });
 
@@ -280,6 +304,8 @@ test("a surface color with too few channels uses the light base theme", async ()
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "rgb(0)" },
   });
 
@@ -299,6 +325,8 @@ test("a colour space we do not convert falls back to the light base theme", asyn
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "oklch(0.2 0 0)" },
   });
 
@@ -318,6 +346,8 @@ test("an sRGB color() dark surface is normalized and classifies as night", async
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "color(srgb 0.1 0.1 0.1)" },
   });
 
@@ -340,6 +370,8 @@ test("a color(srgb …) border is normalized to rgba for the input rule", async 
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: {
       ...APPEARANCE,
       colorBorder: "color(srgb 0.898039 0.898039 0.898039 / 0.12)",
@@ -365,6 +397,8 @@ test("the card icon colour is pinned to the text colour", async () => {
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: { ...APPEARANCE, colorText: "rgb(229, 229, 229)" },
   });
 
@@ -383,6 +417,8 @@ test("a partially-transparent dark surface still classifies as night", async () 
     host: host(),
     clientSecret: "pi_secret",
     onBillingEmailChange: () => undefined,
+    onReady: () => undefined,
+    onLoadError: () => undefined,
     appearance: { ...APPEARANCE, colorBackground: "rgba(17, 17, 17, 0.9)" },
   });
 

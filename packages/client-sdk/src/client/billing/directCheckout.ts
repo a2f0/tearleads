@@ -60,7 +60,9 @@ export interface DirectCheckoutCapability {
   readonly isAvailable: boolean;
   /**
    * Mounts the provider's billing-email and payment elements into `host`
-   * for the given client secret.
+   * for the given client secret. Resolves once the elements are attached;
+   * the provider form may still be loading, which `onReady` and
+   * `onLoadError` report.
    * Rejects with {@link DirectCheckoutUnavailableError} on the stub, and with
    * an ordinary error when the provider script cannot load.
    */
@@ -76,6 +78,17 @@ export interface DirectCheckoutCapability {
      * complete email itself.
      */
     readonly onBillingEmailChange: (email: string | null) => void;
+    /**
+     * Called once, when every provider element has rendered and accepts
+     * input. `host` must stay laid out (not `display: none`) until then,
+     * because the provider sizes its frames from it.
+     */
+    readonly onReady: () => void;
+    /**
+     * Called with an error when the provider form fails to load after
+     * mounting. The session can no longer be used; the host should unmount it.
+     */
+    readonly onLoadError: (error: unknown) => void;
   }): Promise<DirectCheckoutSession>;
 }
 

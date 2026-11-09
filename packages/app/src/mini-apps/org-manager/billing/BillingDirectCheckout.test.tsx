@@ -471,16 +471,26 @@ test("the hosted-checkout link is not offered once the inline flow starts", () =
   expect(view.queryByText(ORG_MANAGER_LABELS.billingPayOnStripe)).toBeNull();
 });
 
-test("a starting checkout screen names itself and can be left before it loads", () => {
+test("a loading checkout shows a busy panel that can be left before the form appears", () => {
   const cancel = mock(() => undefined);
   const checkout = state({ phase: { kind: "starting" }, cancel });
   const view = render(
     <BillingDirectCheckout checkout={checkout} disabled={false} />,
   );
-  const button = (name: string) => view.getByRole("button", { name });
+  const cancelButton = view.getByRole("button", {
+    name: ORG_MANAGER_LABELS.billingCancelCheckout,
+  });
 
-  expect(view.getByRole("heading", { name: "Checkout" })).toBeDefined();
-  expect(button("Pay and subscribe").hasAttribute("disabled")).toBe(true);
-  fireEvent.click(button(ORG_MANAGER_LABELS.billingCancelCheckout));
+  expect(view.getByRole("status").textContent).toContain(
+    ORG_MANAGER_LABELS.billingCheckoutStarting,
+  );
+  expect(document.activeElement).toBe(cancelButton);
+  // The form stays laid out for the provider to size, but nothing of the
+  // checkout screen is offered until it is ready.
+  const host = view.container.querySelector(".org-manager-direct-checkout");
+  expect(host?.hasAttribute("hidden")).toBe(false);
+  expect(view.queryByRole("heading", { name: "Checkout" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Pay and subscribe" })).toBeNull();
+  fireEvent.click(cancelButton);
   expect(cancel).toHaveBeenCalledTimes(1);
 });

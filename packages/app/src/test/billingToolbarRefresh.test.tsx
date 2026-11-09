@@ -113,14 +113,15 @@ test("the toolbar Refresh waits while a checkout is in flight", async () => {
   );
   await waitFor(() => expect(toolbarRefresh(view).disabled).toBe(false));
 
-  // The wrapper's checkout never finishes mounting, so it stays in flight.
+  // The wrapper's checkout never finishes mounting, so it stays in flight on
+  // its loading panel.
   fireEvent.click(
     await view.findByRole("button", {
       name: ORG_MANAGER_LABELS.billingSubscribe,
     }),
   );
-  await view.findByRole("heading", {
-    name: ORG_MANAGER_LABELS.billingCheckoutTitle,
+  await view.findByRole("button", {
+    name: ORG_MANAGER_LABELS.billingCancelCheckout,
   });
 
   expect(toolbarRefresh(view).disabled).toBe(true);
