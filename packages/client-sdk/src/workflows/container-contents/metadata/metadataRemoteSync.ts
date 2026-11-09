@@ -9,7 +9,10 @@ import {
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../../documents";
-import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
+import {
+  createRuntimePrincipalPolicyWarmer,
+  type PrincipalPolicyOperation,
+} from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import {
   metadataIncomingUpdateIsolation,
@@ -66,6 +69,7 @@ interface SyncRemoteContainerMetadataInput {
   >[0]["onPullContinuationInvalidated"];
   pendingUpdates: readonly PendingUpdateRecord[];
   persistedState: ContainerMetadataState["record"];
+  policyOperation: PrincipalPolicyOperation;
   pullContinuation?: ContainerMetadataState["pullContinuation"];
   rekeyPendingUpdate: RekeyPendingUpdate;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -154,8 +158,10 @@ export async function syncRemoteContainerMetadata(
     }),
     stillCurrent: isCurrent,
     targetSecretKey: input.targetSecretKey,
-    warmReferencedPrincipalPolicies:
-      createRuntimePrincipalPolicyWarmer(runtime),
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      runtime,
+      { operation: input.policyOperation },
+    ),
     writerProjection: input.writerProjection,
   }).catch((error: unknown) =>
     deferRecoverableMetadataSyncError({

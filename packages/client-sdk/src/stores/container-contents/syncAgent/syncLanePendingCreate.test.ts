@@ -8,6 +8,7 @@ import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,
 } from "../../../workflows/container-contents/containerPersistence";
+import { createPrincipalPolicyOperation } from "../../../workflows/principals/runtimePolicyWarmer";
 import { createContainerContentsTestRuntime } from "../runtime.testFixtures";
 import {
   createContainerContentsStoreState,
@@ -79,6 +80,7 @@ test("the sync lane skips metadata sync for a folder whose create is pending", a
         persistContainerState: async () => ({ status: "missing" }),
         updateSnapshot: () => updateContainerContentsSnapshot(state),
       },
+      policyOperation: createPrincipalPolicyOperation(),
       reconcileRestoredAccess: async () => {},
       requestRemoteReconciliation: () => {},
       state,

@@ -1,5 +1,6 @@
 import { encodeVersionVector, satisfiesVersionVector } from "@tearleads/loro";
 import type { PendingUpdateRecord } from "../../../../workflows/documents";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import { chainIdentityWrite } from "../identityWriteChain";
 import { listPendingUpdates, persistDocument } from "../persistence";
 import type {
@@ -273,6 +274,8 @@ async function settleOrdinaryUpdatePass(input: {
             updateIds,
           ),
         pendingUpdates: preparedPendingUpdates,
+        // Rotation settlement runs outside a sync drain: its own operation.
+        policyOperation: createPrincipalPolicyOperation(),
         queuedUpdateCount: preparedPendingUpdates.length,
         state,
         unavailableWriterLogMessage:

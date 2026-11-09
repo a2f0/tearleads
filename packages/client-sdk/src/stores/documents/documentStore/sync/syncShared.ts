@@ -12,7 +12,10 @@ import {
   runSerializedSqlMutation,
 } from "../../../../workflows/documents";
 import { reportDocumentSyncQuarantine } from "../../../../workflows/documents/sync/reportDocumentSyncQuarantine";
-import { createRuntimePrincipalPolicyWarmer } from "../../../../workflows/principals/runtimePolicyWarmer";
+import {
+  createRuntimePrincipalPolicyWarmer,
+  type PrincipalPolicyOperation,
+} from "../../../../workflows/principals/runtimePolicyWarmer";
 import { chainIdentityWrite } from "../identityWriteChain";
 import {
   type DocumentState,
@@ -212,6 +215,7 @@ export async function ensureRemoteDocument(
   currentDoc: DocumentState,
   nextRecord: DocumentRecord | null,
   encapsulationKeyPair: EncapsulationKeyPair,
+  policyOperation: PrincipalPolicyOperation,
   generation?: DocumentStoreSyncGeneration,
   seed?: CreateSeed,
   deferredSeed?: DeferredBindSeed,
@@ -282,8 +286,10 @@ export async function ensureRemoteDocument(
     seedUpdate: seed?.update,
     stillCurrent: generationIsCurrent,
     targetSecretKey: encapsulationKeyPair.secretKey,
-    warmReferencedPrincipalPolicies:
-      createRuntimePrincipalPolicyWarmer(runtime),
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      runtime,
+      { operation: policyOperation },
+    ),
   });
   if (!generationIsCurrent()) return state.record ?? nextRecord;
   if (!created) {

@@ -4,6 +4,7 @@ import {
   documentCreateSeedCandidate,
   type PendingUpdateRecord,
 } from "../../../../workflows/documents";
+import type { PrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import { listPendingUpdates } from "../persistence";
 import type {
   DocumentState,
@@ -56,6 +57,7 @@ export async function ensureSeededRemoteDocument(input: {
   readonly generation: DocumentStoreSyncGeneration;
   readonly nextRecord: DocumentRecord;
   readonly pendingUpdates: PendingUpdateRecord[];
+  readonly policyOperation: PrincipalPolicyOperation;
   readonly state: DocumentStoreState;
 }): Promise<{
   readonly pendingUpdates: PendingUpdateRecord[];
@@ -68,12 +70,13 @@ export async function ensureSeededRemoteDocument(input: {
         documentVersion: encodeVersionVector(input.currentDoc),
         pendingUpdates: input.pendingUpdates,
       });
-  const ensure = (seed: Parameters<typeof ensureRemoteDocument>[5]) =>
+  const ensure = (seed: Parameters<typeof ensureRemoteDocument>[6]) =>
     ensureRemoteDocument(
       state,
       input.currentDoc,
       input.nextRecord,
       input.encapsulationKeyPair,
+      input.policyOperation,
       input.generation,
       seed,
     );

@@ -61,16 +61,18 @@ test(
         // Login returns the first websocket ticket, so no ticket request. The
         // self contact's create carries its queued content as its seed, so no
         // content sync (and its discovery read) follows.
-        // A hydration pass discovers the directory once (measured 30, 31
-        // before); a discovery naming the held head receives that head alone.
-        total: 31,
+        // A hydration pass discovers the directory once, and a coordinator
+        // drain's syncs share one operation (measured 29; 30 before, 31
+        // before that); a discovery naming the held head receives that head
+        // alone.
+        total: 30,
         // Provisioned containers and documents are acknowledged by hash, not
         // echoed: 157 KB received (305 KB before; register 118 KB -> 63 KB).
         // Keys and the login signature travel as base64 and child containers
         // cite their parent KEK state: 291 KB sent (322 KB before).
         bodyBytes: { request: 320_000, response: 175_000 },
         byRequest: {
-          "GET /principals/organization/:organizationId/policy": 5,
+          "GET /principals/organization/:organizationId/policy": 4,
           "GET /principals/group/:groupId/policy": 0,
           // Compact projections read each new public head once; completed
           // stages need no confirmation read.

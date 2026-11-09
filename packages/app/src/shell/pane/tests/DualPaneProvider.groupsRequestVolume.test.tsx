@@ -68,9 +68,10 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // operation (one per pass for hydration, discovery and move workflows) and
   // the first read of each new head. Batched discovery lists each
   // reconciliation pass's lanes in one request. Measured completed calls are
-  // 55 (56 before pass-scoped discovery, 70–73 before #2537); allow three more
-  // bounded reads. Preparation continuations are counted below.
-  total: 58,
+  // 49 (55 before drain-scoped sync operations, 56 before pass-scoped
+  // discovery, 70–73 before #2537); allow three more bounded reads.
+  // Preparation continuations are counted below.
+  total: 52,
   // Container mutations cite stored manifests by hash and principal policies
   // by head: 134 KB sent with one descendant recitation (193 KB when they
   // carried each ~9.8 KB policy, 389.5 KB when they also echoed path
@@ -83,8 +84,9 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Prefetches of unstored folders cite their listed parent's held bundles
   // and projections cite held KEK levels by digest: 0.80 MB received.
   // Container acknowledgements carry hashes, not echoes (the policy commit
-  // 192 KB -> 73 KB): 0.67 MB received; keep about 10% headroom.
-  bodyBytes: { request: 160_000, response: 740_000 },
+  // 192 KB -> 73 KB): 0.67 MB received. Drain-scoped sync operations and
+  // destination-cited KEK levels: 0.63 MB received; keep about 10% headroom.
+  bodyBytes: { request: 160_000, response: 700_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,
@@ -105,8 +107,9 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
     "GET /organizations/:organizationId/billing": 1,
-    // Measured 15–16 discovery reads, nearly all answered with a bare head.
-    "GET /principals/organization/:organizationId/policy": 17,
+    // Measured 9 discovery reads (15–16 before drain-scoped sync operations),
+    // nearly all answered with a bare head.
+    "GET /principals/organization/:organizationId/policy": 10,
     "POST /containers/:containerId/share": 0,
     "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 1,
     "POST /containers/:containerId/recite": 2,

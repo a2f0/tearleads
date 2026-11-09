@@ -19,7 +19,12 @@ HTTP after that acknowledgement (see
 
 - A watcher of the mutated container receives `container_mutation_created` with
   its id and event type. Parent ids appear only when that socket watches them;
-  a null parent denotes the [root](../glossary/access.md#root-container).
+  a null parent denotes the [root](../glossary/access.md#root-container). The
+  SDK re-lists the container's lane and each parent the frame names. It
+  re-lists the root lane only when the frame names root, withholds an existing
+  container's parent (or a move's source), or carries a grant or revoke: the
+  root lane lists directly granted nested containers, and no other event
+  changes direct grants.
 - A parent-only watcher receives `container_children_changed` with only the
   parent ids it watches. That frame carries no child id, event type, other
   parent id, author session, or mutation timestamp. The SDK clears cached

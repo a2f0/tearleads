@@ -11,6 +11,7 @@ import {
   readPullContinuation,
   shouldClearDocumentSyncFailureAfterPass,
 } from "../../documents";
+import type { PrincipalPolicyOperation } from "../../principals/runtimePolicyWarmer";
 import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
 import {
   currentMetadataPullContinuation,
@@ -134,6 +135,8 @@ interface SyncContainerMetadataStateInput {
   metadataState: ContainerMetadataState;
   onDurableStateNeedsReload?: (() => void) | undefined;
   persistence: ContainerContentsPersistence;
+  /** The sync pass's operation; its policy reads share one directory view. */
+  policyOperation: PrincipalPolicyOperation;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerMetadataSyncRuntime;
   targetSecretKey: Uint8Array;
@@ -179,6 +182,7 @@ async function requestContainerMetadataSync(input: {
           }),
         pendingUpdates: input.pendingUpdates,
         persistedState: metadataState.record,
+        policyOperation: syncInput.policyOperation,
         pullContinuation:
           currentMetadataPullContinuation(metadataState) ?? undefined,
         rekeyPendingUpdate: persistence.rekeyPendingUpdate,

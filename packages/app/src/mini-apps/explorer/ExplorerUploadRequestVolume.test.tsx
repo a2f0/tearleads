@@ -42,19 +42,21 @@ const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Held bytes match the authenticated attachment intent, so local settlement
   // needs no binding listing. The bind carries the document's deferred first
   // update, so neither that sync nor its directory discovery read is sent
-  // (measured 8 before, 6 after). Keep one request of scheduling headroom.
-  total: 7,
+  // (measured 8 before, 6 after). The create and the attachment upload run in
+  // one sync drain and share its policy operation, so one discovery read
+  // serves both (measured 5). Keep one request of scheduling headroom.
+  total: 6,
   // Each discovery read names the held directory head and receives that head
   // alone. The carried update moves the sync's 9.7 KB into the bind request:
-  // measured 34.8 KB sent and 29.2 KB received; keep about 10% headroom.
+  // measured 34.8 KB sent and 28.9 KB received; keep about 10% headroom.
   bodyBytes: { request: 38_000, response: 32_500 },
   byRequest: {
     // Completed public stages of the cited heads need no confirmation read.
     "GET /principals/history": 0,
-    // Each workflow operation discovers the server-current directory head once
-    // (the create and the bind); its completed directory and Admins stages
+    // The sync drain discovers the server-current directory head once for
+    // both the create and the bind; its completed directory and Admins stages
     // need no pinned read.
-    "GET /principals/organization/:organizationId/policy": 2,
+    "GET /principals/organization/:organizationId/policy": 1,
     "GET /principals/group/:groupId/policy": 0,
     // Create the image document shell, then upload + bind its attachment
     // blob. The bind commits the held-back first content update after its

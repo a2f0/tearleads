@@ -7,6 +7,7 @@ import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
+  observeVerifiedKekLevels,
   observeVerifiedProjectionBundles,
 } from "../checkpoints/checkpointContext";
 import { verifyProjectionAuthorizationEvidence } from "../principalPolicy/projectionAuthorizationEvidence";
@@ -79,6 +80,10 @@ export async function verifyContainerDestinationProjection(input: {
     bundlesByHash,
     verifiedByHash,
   );
+  // Destination roles never unwrap these levels; a citation refills them only
+  // where the API's current level has the same digest, and the reading
+  // verification then checks them like served bytes.
+  observeVerifiedKekLevels(checkpointContext, [input.projection]);
   await finalizeProjectionCheckpoints(checkpointContext, {
     stillCurrent: current,
     persistVerificationCheckpoints: false,

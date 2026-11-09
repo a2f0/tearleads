@@ -327,7 +327,13 @@ export async function finalizeDocumentSync(
     requestDocumentStoreSync(state);
   }
 
-  await hydrateAttachmentBlobs(state, currentDoc, nextRecord, generation);
+  await hydrateAttachmentBlobs(
+    state,
+    currentDoc,
+    nextRecord,
+    syncAttempt.policyOperation,
+    generation,
+  );
   logApplied(state, currentDoc, synced.decryptedUpdates.length, wasRemoteProbe);
   return nextRecord;
 }

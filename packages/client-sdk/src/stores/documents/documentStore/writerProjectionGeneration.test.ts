@@ -3,6 +3,7 @@ import { createDocument, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import { createPrincipalPolicyOperation } from "../../../workflows/principals/runtimePolicyWarmer";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
@@ -72,6 +73,7 @@ test("a sync whose request straddles a hint does not reinstall its pre-hint proj
     } as NonNullable<typeof state.syncLane>;
 
     const attempt = await requestRemoteDocumentSync({
+      policyOperation: createPrincipalPolicyOperation(),
       currentDoc,
       currentRecord,
       encapsulationKeyPair: fixture,
@@ -148,6 +150,7 @@ test("an undisturbed sync settlement installs its projection", async () => {
       requestSync: () => undefined,
     } as NonNullable<typeof state.syncLane>;
     const attempt = await requestRemoteDocumentSync({
+      policyOperation: createPrincipalPolicyOperation(),
       currentDoc,
       currentRecord,
       encapsulationKeyPair: fixture,

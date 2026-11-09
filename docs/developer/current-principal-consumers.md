@@ -25,8 +25,11 @@ state or replace live object authorization. Metadata verification uses the
 Directory discovery and cited recovery share one caller's batch. Batches belong
 to the database's principal-policy coordinator, keyed by an operation token. A
 reconciliation pass (remote [container](../glossary/access.md#container) hydration,
-[document](../glossary/content.md#document) discovery) or a user workflow (a document
-move's link and unlink legs) mints one token at its root, and every warmer it
+[document](../glossary/content.md#document) discovery), a sync coordinator drain
+(the pump hands every lane run it starts one pass token, which document,
+attachment and container-metadata syncs use as their operation), or a user
+workflow (a document move's link and unlink legs) mints one token at its root,
+and every warmer it
 creates with `createRuntimePrincipalPolicyWarmer( runtime, { operation })`
 shares one batch, so the pass discovers the directory once. A warmer created
 without a token is its own operation. A batch entry is reused only while its
@@ -172,7 +175,7 @@ below, together with per-route limits and mutation-count assertions. They are
 local fixed-cardinality measurements, not production benchmarks.
 
 [`OrganizationBootstrapRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/OrganizationBootstrapRequestVolume.test.tsx)
-measures 30 requests for personal bootstrap with a ceiling of 31, and caps
+measures 29 requests for personal bootstrap with a ceiling of 30, and caps
 creating and activating another organization at 6. Provisioning seeds discovery
 evidence for the profile documents it signed and primes recovery of the founding
 policy heads, so neither flow fetches those documents' writer projections or
@@ -197,14 +200,14 @@ preparation response with identical request bytes.
 
 The Admins enrollment fixture in
 [`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)
-measures 55 completed requests; its ceiling is 58, plus explicitly counted
-validated preparation continuations. It caps organization-policy reads at 17,
+measures 49 completed requests; its ceiling is 52, plus explicitly counted
+validated preparation continuations. It caps organization-policy reads at 10,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
-160,000 request bytes and 740,000 response bytes (0.67 MB measured). The root
+160,000 request bytes and 700,000 response bytes (0.63 MB measured). The root
 attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
-measures 59 requests and permits 66, with body ceilings of 130,000 request bytes
-and 560,000 response bytes (0.51 MB measured). Container mutation
+measures 50 requests and permits 58, with body ceilings of 128,000 request bytes
+and 455,000 response bytes (0.41 MB measured). Container mutation
 acknowledgements carry hashes rather than echoes, which keeps the policy commit
 at about 73 KB. Container mutations cite stored
 [manifests](../glossary/access.md#access-manifest) by
@@ -212,7 +215,7 @@ at about 73 KB. Container mutations cite stored
 path bundles or policies.
 
 [`ExplorerUploadRequestVolume.test.tsx`](../../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx)
-measures 6 calls and 29 KB received for a small Explorer upload and permits 7
+measures 5 calls and 28.9 KB received for a small Explorer upload and permits 6
 calls and 32,500 response bytes; its
 [blob stage](../glossary/content.md#blob-stage) costs three calls (initiate with
 the first part's upload source, the part bytes, and the
@@ -235,4 +238,5 @@ The folder workflows, whose heads are all completed locally, permit no public
 history or group-policy reads. Sharing discovery reads across passes would need
 the same organization, dependency, checkpoint and lifetime checks as scoped
 recovery, plus a freshness argument the per-pass read supplies. Document syncs
-that a pass schedules through document stores still discover once per sync.
+that a pass schedules through document stores run in a coordinator drain and
+share its operation, so a drain discovers once rather than once per sync.

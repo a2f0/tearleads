@@ -4,7 +4,10 @@ import {
   type DocumentRecord,
   resolveDocumentCreateAuthor,
 } from "../../../../workflows/documents";
-import { createRuntimePrincipalPolicyWarmer } from "../../../../workflows/principals/runtimePolicyWarmer";
+import {
+  createRuntimePrincipalPolicyWarmer,
+  type PrincipalPolicyOperation,
+} from "../../../../workflows/principals/runtimePolicyWarmer";
 import { deleteLocalAttachmentRecord } from "../attachments/attachmentPersistence";
 import { runDocumentOrphanMaintenance } from "../orphanMaintenance";
 import type {
@@ -28,6 +31,7 @@ export async function syncDetachedAttachmentBindings(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
   generation: DocumentStoreSyncGeneration,
+  policyOperation: PrincipalPolicyOperation,
 ): Promise<void> {
   const currentDoc = generation.currentDoc;
   if (
@@ -77,6 +81,7 @@ export async function syncDetachedAttachmentBindings(
       !(await syncDetachedAttachmentBinding({
         binding: activeBinding,
         generation,
+        policyOperation,
         remoteDocumentId,
         requestRecord: nextRecord,
         state,
@@ -173,6 +178,7 @@ async function cleanupDetachedAttachmentMarker(
 async function syncDetachedAttachmentBinding(input: {
   binding: DocumentAttachmentBinding;
   generation: DocumentStoreSyncGeneration;
+  policyOperation: PrincipalPolicyOperation;
   remoteDocumentId: string;
   requestRecord: DocumentRecord;
   state: DocumentStoreState;
@@ -213,6 +219,7 @@ async function syncDetachedAttachmentBinding(input: {
     stillCurrent: contextIsCurrent,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       state.runtime,
+      { operation: input.policyOperation },
     ),
   };
   let detached = await detachDocumentAttachment({

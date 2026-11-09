@@ -21,6 +21,7 @@ import {
   defaultDocumentsPersistence,
 } from "../../../../workflows/documents";
 import { buildMaterializedDocumentSyncPlan } from "../../../../workflows/documents/syncPlan/syncPlanMaterial";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { createDocumentStoreState, setReadySnapshot } from "../state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
@@ -185,6 +186,7 @@ test("an advanced durable winner republishes before a failed fresh retry", async
 
   try {
     const attempt = await requestRemoteDocumentSync({
+      policyOperation: createPrincipalPolicyOperation(),
       currentDoc: document,
       currentRecord: record,
       encapsulationKeyPair: {

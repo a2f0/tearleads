@@ -8,6 +8,7 @@ import {
   type DocumentRecord,
   defaultDocumentsPersistence,
 } from "../../../../workflows/documents";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { createDocumentStoreState } from "../state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
@@ -89,6 +90,7 @@ test.each(["unchanged", "replaced"] as const)(
         document,
         record,
         { publicKey: fixture.publicKey, secretKey: fixture.secretKey },
+        createPrincipalPolicyOperation(),
         generation,
       );
       expect(submissions).toBe(0);

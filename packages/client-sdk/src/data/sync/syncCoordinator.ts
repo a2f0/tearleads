@@ -27,7 +27,7 @@ export type { SyncIdleOptions } from "./coordinatorPump";
 // rest of the coordinator surface; it lives beside this coordinator with the
 // error type it discriminates on.
 export { isDatabaseUnavailableError } from "./databaseUnavailable";
-export type { SyncLane, SyncLaneConfig } from "./syncLaneConfig";
+export type { SyncLane, SyncLaneConfig, SyncPass } from "./syncLaneConfig";
 export {
   didRegainSyncPrerequisites,
   type SyncRuntimeStatus,
