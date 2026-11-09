@@ -2,7 +2,10 @@ import { useEffect, useRef } from "react";
 import { isLauncherAppId, type LauncherDefinition } from "./launcherDefinition";
 import type { NavigationMode } from "./navigationMode";
 
-/** Opens the host's default once per entry into an empty windowed desktop. */
+/**
+ * Opens the host's default windows, in order so the last is in front, once
+ * per entry into an empty windowed desktop.
+ */
 export function useDefaultWindow({
   definition,
   enabled,
@@ -26,9 +29,11 @@ export function useDefaultWindow({
     if (!enabled || handledWindowedEntry.current) return;
     // Record the entry before opening, including across StrictMode effects.
     handledWindowedEntry.current = true;
-    const { defaultWindowAppId } = definition;
-    if (windowCount === 0 && isLauncherAppId(definition, defaultWindowAppId)) {
-      openMiniApp({ appId: defaultWindowAppId });
+    if (windowCount > 0) return;
+    // Each app once: the launcher's open requests within this pass cannot see
+    // the windows the earlier ones created.
+    for (const appId of new Set(definition.defaultWindowAppIds)) {
+      if (isLauncherAppId(definition, appId)) openMiniApp({ appId });
     }
   }, [definition, enabled, mode, openMiniApp, windowCount]);
 }

@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { StrictMode, useState } from "react";
 import {
+  findTopWindow,
   useWindowActions,
   useWindowStateData,
   WindowStateProvider,
@@ -16,7 +17,7 @@ const DEFINITION: LauncherDefinition = {
     explorer: { createComponent: () => EmptyApp, title: "Explorer" },
     notes: { createComponent: () => EmptyApp, title: "Notes" },
   },
-  defaultWindowAppId: "explorer",
+  defaultWindowAppIds: ["explorer"],
   homeAppId: "notes",
 };
 
@@ -56,6 +57,9 @@ function WindowProbe() {
         {JSON.stringify(
           windows.map(({ id, appId, minimized }) => ({ id, appId, minimized })),
         )}
+      </output>
+      <output data-testid="front">
+        {findTopWindow(windows, () => true)?.appId}
       </output>
     </>
   );
@@ -124,18 +128,23 @@ test("entering an empty desktop opens its default without navigating", () => {
   ]);
 });
 
-test("initial windowed mount opens the configured app once in StrictMode", () => {
+test("initial windowed mount opens the configured apps once, in order, in StrictMode", () => {
   const view = render(
     <StrictMode>
       <Harness
-        definition={{ ...DEFINITION, defaultWindowAppId: "notes" }}
+        definition={{
+          ...DEFINITION,
+          defaultWindowAppIds: ["notes", "missing", "explorer", "notes"],
+        }}
         initialMode="windowed"
       />
     </StrictMode>,
   );
   expect(JSON.parse(view.getByTestId("windows").textContent ?? "")).toEqual([
     { id: "1", appId: "notes", minimized: false },
+    { id: "2", appId: "explorer", minimized: false },
   ]);
+  expect(view.getByTestId("front").textContent).toBe("explorer");
 });
 
 test("disabled defaults wait until enabled and preserve existing windows", () => {
@@ -171,18 +180,19 @@ test.each([false, true])(
   },
 );
 
-test.each([undefined, "missing"])(
-  "no default is opened for configuration %s",
-  (defaultWindowAppId) => {
-    const view = render(
-      <Harness
-        definition={{ ...DEFINITION, defaultWindowAppId }}
-        initialMode="windowed"
-      />,
-    );
-    expect(view.getByTestId("windows").textContent).toBe("[]");
-    fireEvent.click(view.getByRole("button", { name: "Switch mode" }));
-    fireEvent.click(view.getByRole("button", { name: "Switch mode" }));
-    expect(view.getByTestId("windows").textContent).toBe("[]");
-  },
-);
+test.each<[ReadonlyArray<string> | undefined]>([
+  [undefined],
+  [[]],
+  [["missing"]],
+])("no default is opened for configuration %p", (defaultWindowAppIds) => {
+  const view = render(
+    <Harness
+      definition={{ ...DEFINITION, defaultWindowAppIds }}
+      initialMode="windowed"
+    />,
+  );
+  expect(view.getByTestId("windows").textContent).toBe("[]");
+  fireEvent.click(view.getByRole("button", { name: "Switch mode" }));
+  fireEvent.click(view.getByRole("button", { name: "Switch mode" }));
+  expect(view.getByTestId("windows").textContent).toBe("[]");
+});
