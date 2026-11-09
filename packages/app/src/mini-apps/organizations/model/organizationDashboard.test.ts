@@ -124,6 +124,17 @@ test("lists the root of a workspace and the topmost shared folders elsewhere", (
   ]);
 });
 
+test("treats a folder with no synced access level as read only", () => {
+  const [card] = buildOrganizationDashboardCards({
+    ...NO_SYNC_CHOICES,
+    activeOrganizationId: null,
+    namesById: new Map(),
+    nodes: [node({ id: "shared", organizationId: "acme", parentId: "hidden" })],
+  });
+
+  expect(card?.folders.map((folder) => folder.accessLevel)).toEqual(["read"]);
+});
+
 test("keeps an organization known only through its metadata root", () => {
   const cards = buildOrganizationDashboardCards({
     ...NO_SYNC_CHOICES,

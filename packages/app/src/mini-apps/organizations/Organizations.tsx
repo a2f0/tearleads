@@ -1,6 +1,4 @@
 import { BuildingOfficeIcon } from "@phosphor-icons/react/dist/csr/BuildingOffice";
-import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
-import type { ContainerShareAccessLevel } from "@tearleads/client-sdk";
 import { useCallback, useId } from "react";
 import {
   MiniAppButton,
@@ -11,29 +9,17 @@ import {
   MiniAppStatePanel,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
-import {
-  MiniAppRowButton,
-  MiniAppRowText,
-} from "../../components/mini-app/rows/MiniAppRow";
 import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapProgress";
 import { useMiniAppBusActions } from "../bus";
 import { useOrganizationDashboard } from "./hooks/useOrganizationDashboard";
 import type { OrganizationSyncChoices } from "./hooks/useOrganizationSyncChoices";
 import { ORGANIZATIONS_LABELS } from "./labels";
-import type {
-  OrganizationDashboardCard,
-  OrganizationDashboardFolder,
-} from "./model/organizationDashboard";
+import type { OrganizationDashboardCard } from "./model/organizationDashboard";
 import { resolveOrganizationsSurfaceState } from "./model/organizationsSurfaceState";
+import { OrganizationFolders } from "./OrganizationFolders";
 import "./Organizations.css";
 
 const EMPTY_ICON = <BuildingOfficeIcon size={40} weight="light" />;
-
-const PERMISSION_LABELS = {
-  admin: ORGANIZATIONS_LABELS.permissionAdmin,
-  read: ORGANIZATIONS_LABELS.permissionRead,
-  write: ORGANIZATIONS_LABELS.permissionWrite,
-} satisfies Record<ContainerShareAccessLevel, string>;
 
 function cardBadge(card: OrganizationDashboardCard): string {
   if (card.active) return ORGANIZATIONS_LABELS.activeBadge;
@@ -41,33 +27,6 @@ function cardBadge(card: OrganizationDashboardCard): string {
   return card.workspace
     ? ORGANIZATIONS_LABELS.workspaceBadge
     : ORGANIZATIONS_LABELS.memberBadge;
-}
-
-function OrganizationFolderRow({
-  folder,
-  onOpen,
-}: {
-  folder: OrganizationDashboardFolder;
-  onOpen: (folderId: string) => void;
-}) {
-  return (
-    <li>
-      <MiniAppRowButton onClick={() => onOpen(folder.id)}>
-        <FolderIcon aria-hidden="true" focusable="false" size={18} />
-        <MiniAppRowText>
-          {folder.workspaceRoot
-            ? ORGANIZATIONS_LABELS.workspaceRoot
-            : folder.name}
-        </MiniAppRowText>
-        <span
-          className="organizations-badge"
-          title={ORGANIZATIONS_LABELS.permission}
-        >
-          {PERMISSION_LABELS[folder.accessLevel]}
-        </span>
-      </MiniAppRowButton>
-    </li>
-  );
 }
 
 function syncButtonLabel(card: OrganizationDashboardCard, busy: boolean) {
@@ -134,39 +93,6 @@ function OrganizationLeaveButton({
     >
       {leaveButtonLabel(card, busy)}
     </MiniAppButton>
-  );
-}
-
-function OrganizationFolders({
-  card,
-  name,
-  onOpenFolder,
-}: {
-  card: OrganizationDashboardCard;
-  name: string;
-  onOpenFolder: (folderId: string) => void;
-}) {
-  if (card.syncPaused) {
-    return (
-      <MiniAppStatus>{ORGANIZATIONS_LABELS.syncPausedStatus}</MiniAppStatus>
-    );
-  }
-  if (card.folders.length === 0) {
-    return <MiniAppStatus>{ORGANIZATIONS_LABELS.noFolders}</MiniAppStatus>;
-  }
-  return (
-    <ul
-      aria-label={ORGANIZATIONS_LABELS.foldersIn(name)}
-      className="organizations-folders"
-    >
-      {card.folders.map((folder) => (
-        <OrganizationFolderRow
-          folder={folder}
-          key={folder.id}
-          onOpen={onOpenFolder}
-        />
-      ))}
-    </ul>
   );
 }
 
