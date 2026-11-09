@@ -21,7 +21,7 @@ import type {
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../../../data/keying/canonicalJson";
-import { assertPrincipalPolicyReceiptArtifacts } from "../principalPolicy/principalPolicyReceiptArtifacts";
+import { acknowledgedPrincipalPolicyCurrent } from "../principalPolicy/principalPolicyReceiptArtifacts";
 import {
   type CurrentPolicyMutationInput,
   verifyCurrentPolicyMutation,
@@ -66,19 +66,6 @@ function isAuthoredSuccessorConsistent(
     state.version === previous.version + 1 &&
     state.prevStateHash === previous.stateHash
   );
-}
-
-export async function buildAcknowledgedGroupPolicyBundle(input: {
-  readonly currentPolicy: PrincipalPolicyBundleResponse;
-  readonly expectedHead: ReferencedPrincipalHead;
-  readonly request: PutPrincipalPolicyRequest;
-  readonly response: PrincipalPolicyMutationResponse;
-}): Promise<PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse> {
-  await assertPrincipalPolicyReceiptArtifacts(input);
-  return {
-    ...input.response,
-    previousStates: historyWithCurrent(input.currentPolicy),
-  };
 }
 
 async function assertPolicyRequestCommitments(
@@ -198,6 +185,35 @@ export async function acknowledgeGroupPolicyState(
     grants: input.request.grants,
     state: input.response,
   });
+}
+
+/**
+ * Rebuild an acknowledged successor from the authored request, check it
+ * against the full predecessor, and return the bundle to retain with it.
+ */
+export async function acknowledgeGroupPolicyBundle(input: {
+  readonly currentPolicy: PrincipalPolicyBundleResponse;
+  readonly expectedHead: ReferencedPrincipalHead;
+  readonly request: PutPrincipalPolicyRequest;
+  readonly response: PrincipalPolicyMutationResponse;
+}): Promise<{
+  readonly bundle: PrincipalPolicyBundleResponse;
+  readonly policy: VerifiedPrincipalPolicy;
+}> {
+  const current = await acknowledgedPrincipalPolicyCurrent(input);
+  const policy = await acknowledgeGroupPolicyState({
+    currentPolicy: input.currentPolicy,
+    expectedHead: input.expectedHead,
+    request: input.request,
+    response: current.currentState,
+  });
+  return {
+    bundle: {
+      ...current,
+      previousStates: historyWithCurrent(input.currentPolicy),
+    },
+    policy,
+  };
 }
 
 /**

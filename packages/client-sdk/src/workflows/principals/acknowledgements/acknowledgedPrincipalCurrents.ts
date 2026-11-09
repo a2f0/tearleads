@@ -1,3 +1,4 @@
+import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   KeyingVerificationError,
   type VerifiedPrincipalPolicyCurrent,
@@ -49,7 +50,7 @@ export interface AcknowledgedPrincipalCurrentInput {
 async function preparePublication(
   options: RecoverPrincipalPolicyHistoryOptions,
   request: PutPrincipalPolicyRequest,
-  response: PrincipalPolicyMutationResponse,
+  current: PrincipalPolicyPageCurrent,
   predecessor: AcknowledgedPrincipalPredecessor | null,
   checks: PrincipalAcknowledgementChecks,
 ): Promise<AcknowledgedPrincipalCurrentPublication> {
@@ -60,8 +61,8 @@ async function preparePublication(
       context: principalHistoryVerificationContext(options),
     },
   };
-  const current = () => !options.signal?.aborted && options.stillCurrent();
-  assertProjectionVerificationCurrent(current);
+  const stillCurrent = () => !options.signal?.aborted && options.stillCurrent();
+  assertProjectionVerificationCurrent(stillCurrent);
   const {
     scopeId,
     saved,
@@ -71,12 +72,11 @@ async function preparePublication(
     predecessorIndexRootHash,
   } = await restoreAcknowledgedPrincipalPredecessor(options, predecessor);
   const expectedHead = await checks.authoredHead(request);
-  await checks.assertReceipt({ expectedHead, request, response });
   const keys = await collectPrincipalPolicySignerPublicKeys({
-    bundle: { currentState: response.currentState, previousStates: [] },
+    bundle: { currentState: current.currentState, previousStates: [] },
     resolveTrustedUserIdentity: options.resolveTrustedUserIdentity,
   });
-  assertProjectionVerificationCurrent(current);
+  assertProjectionVerificationCurrent(stillCurrent);
   if ("error" in keys)
     throw new KeyingVerificationError(
       keys.error === "not-found" ? "missing_dependency" : "signer_mismatch",
@@ -85,20 +85,20 @@ async function preparePublication(
   const externalAuthority = await options.loadExternalAuthority?.(
     request.state.externalAuthority ? [request.state.externalAuthority] : [],
   );
-  assertProjectionVerificationCurrent(current);
+  assertProjectionVerificationCurrent(stillCurrent);
   const policy = await checks.acknowledgeSuccessor({
     verifiedCurrentPolicy: previous,
     expectedHead,
     request,
-    response: response.currentState,
+    response: current.currentState,
     signerPublicKeys: keys.signerPublicKeys,
     externalAuthority,
-    stillCurrent: current,
+    stillCurrent,
   });
   const entry = {
-    state: response.currentState,
-    projection: response.currentProjection,
-    grants: response.currentGrants,
+    state: current.currentState,
+    projection: current.currentProjection,
+    grants: current.currentGrants,
   };
   assertPrincipalHistoryVerificationMode(options, [entry]);
   const predecessorStage = await sealPrincipalCurrentStage(
@@ -118,9 +118,9 @@ async function preparePublication(
     scopeId,
     expectedHead,
     verifier,
-    response,
+    current,
   );
-  assertProjectionVerificationCurrent(current);
+  assertProjectionVerificationCurrent(stillCurrent);
   return {
     policy,
     previousPrefixProgress: saved.progress,
@@ -182,18 +182,22 @@ export async function recordAcknowledgedPrincipalCurrents(
   const entries: {
     initialGroup: boolean;
     request: PutPrincipalPolicyRequest;
-    response: PrincipalPolicyMutationResponse;
+    current: PrincipalPolicyPageCurrent;
     options: RecoverPrincipalPolicyHistoryOptions;
     predecessor: AcknowledgedPrincipalPredecessor | null;
   }[] = [];
   try {
     assertProjectionVerificationCurrent(stillCurrent);
-    for (const entry of input.entries)
+    for (const entry of input.entries) {
+      const request = structuredClone(entry.request);
       entries.push({
         initialGroup: entry.initialGroup === true,
         predecessor: structuredClone(entry.predecessor),
-        request: structuredClone(entry.request),
-        response: structuredClone(entry.response),
+        request,
+        current: await checks.acknowledgedCurrent({
+          request,
+          response: structuredClone(entry.response),
+        }),
         options: {
           ...entry.recovery,
           expectedHead: structuredClone(entry.recovery.expectedHead),
@@ -203,6 +207,7 @@ export async function recordAcknowledgedPrincipalCurrents(
           stillCurrent,
         },
       });
+    }
     const publications: AcknowledgedPrincipalCurrentPublication[] = [];
     for (const entry of entries)
       publications.push(
@@ -211,14 +216,14 @@ export async function recordAcknowledgedPrincipalCurrents(
           : preparePublication)(
           entry.options,
           entry.request,
-          entry.response,
+          entry.current,
           entry.predecessor,
           checks,
         ),
       );
     checks.assertDirectoryBindings(
       organizationId,
-      entries.map(({ response }) => response),
+      entries.map(({ current }) => current),
     );
     for (let attempt = 0; ; attempt += 1) {
       const reconciled = await reconcilePublications(entries, publications);

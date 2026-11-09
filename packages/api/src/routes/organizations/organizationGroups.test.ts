@@ -211,7 +211,7 @@ test("org manager routes create and list groups with members", async () => {
     deleted: true,
     groupId,
     organizationPolicy: expect.objectContaining({
-      currentState: expect.objectContaining({
+      head: expect.objectContaining({
         principalId: organizationId,
         principalType: "organization",
       }),

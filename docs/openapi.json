@@ -795,7 +795,7 @@
           "organizationPolicy"
         ],
         "additionalProperties": {},
-        "description": "Acknowledges a group policy commit with every policy it advanced."
+        "description": "Acknowledges a group policy commit with the head of every policy it advanced."
       },
       "ContainerCreateWithMetadataDocumentRequest": {
         "type": "object",
@@ -7619,44 +7619,29 @@
       "PrincipalPolicyMutationResponse": {
         "type": "object",
         "properties": {
-          "currentGrants": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PrincipalContainerGrantResponse"
-            }
-          },
-          "currentMemberEnvelopes": {
-            "$ref": "#/components/schemas/CurrentPrincipalMemberEnvelopesResponse"
-          },
-          "currentPayload": {
-            "$ref": "#/components/schemas/PrincipalStatePayloadResponse"
-          },
-          "currentProjection": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PrincipalProjectionMemberResponse"
-            }
-          },
-          "currentState": {
-            "$ref": "#/components/schemas/PrincipalStateResponse"
-          },
           "containerMutations": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ContainerMutationResponse"
-            }
+            },
+            "description": "Hash-form acknowledgements of the container mutations committed with the policy, in request order."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Server-assigned insertion time of the stored state and its payload; the only acknowledged field the request does not carry."
+          },
+          "head": {
+            "$ref": "#/components/schemas/ReferencedPrincipalStateResponse",
+            "description": "The committed head; it must equal the head the caller computes from its own signed state."
           }
         },
         "required": [
-          "currentGrants",
-          "currentMemberEnvelopes",
-          "currentPayload",
-          "currentProjection",
-          "currentState",
-          "containerMutations"
+          "containerMutations",
+          "createdAt",
+          "head"
         ],
         "additionalProperties": {},
-        "description": "A principal's current policy after a write, with acknowledgements of the container mutations committed with it."
+        "description": "Acknowledges a principal policy write by the head it committed rather than an echo of the signed request. The caller rebuilds the acknowledged state and artifacts from its own request."
       },
       "PrincipalPolicyPageResponse": {
         "type": "object",

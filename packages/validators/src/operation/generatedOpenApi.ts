@@ -1918,7 +1918,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description Acknowledges a group policy commit with every policy it advanced. */
+        /** @description Acknowledges a group policy commit with the head of every policy it advanced. */
         CommitOrganizationGroupPolicyResponse: {
             groupPolicy: components["schemas"]["PrincipalPolicyMutationResponse"];
             memberPolicy?: components["schemas"]["PrincipalPolicyMutationResponse"];
@@ -3790,14 +3790,14 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A principal's current policy after a write, with acknowledgements of the container mutations committed with it. */
+        /** @description Acknowledges a principal policy write by the head it committed rather than an echo of the signed request. The caller rebuilds the acknowledged state and artifacts from its own request. */
         PrincipalPolicyMutationResponse: {
+            /** @description Hash-form acknowledgements of the container mutations committed with the policy, in request order. */
             containerMutations: components["schemas"]["ContainerMutationResponse"][];
-            currentGrants: components["schemas"]["PrincipalContainerGrantResponse"][];
-            currentMemberEnvelopes: components["schemas"]["CurrentPrincipalMemberEnvelopesResponse"];
-            currentPayload: components["schemas"]["PrincipalStatePayloadResponse"];
-            currentProjection: components["schemas"]["PrincipalProjectionMemberResponse"][];
-            currentState: components["schemas"]["PrincipalStateResponse"];
+            /** @description Server-assigned insertion time of the stored state and its payload; the only acknowledged field the request does not carry. */
+            createdAt: string;
+            /** @description The committed head; it must equal the head the caller computes from its own signed state. */
+            head: components["schemas"]["ReferencedPrincipalStateResponse"];
         } & {
             [key: string]: unknown;
         };

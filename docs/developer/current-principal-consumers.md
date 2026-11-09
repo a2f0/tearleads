@@ -193,20 +193,25 @@ ceiling of 45; a later addition is capped at
 11. The creation/addition pairs are capped at 53 and 17 requests, with at most
 11 and 3 public history reads. First addition permits 10 organization-policy and
 3 group-policy reads. Creation may also receive one validated rollback
-preparation response with identical request bytes.
+preparation response with identical request bytes. Policy writes acknowledge
+heads rather than echoing policies, so a group create receives about 0.8 KB
+(17–18 KB before) and a group policy commit 0.7–1.9 KB (36–60 KB before): the
+first creation/addition pair receives 348 KB (423 KB before) and a later pair
+38 KB (91 KB before).
 
 The Admins enrollment fixture in
 [`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)
 measures 55 completed requests; its ceiling is 58, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 17,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
-160,000 request bytes and 740,000 response bytes (0.67 MB measured). The root
+160,000 request bytes and 665,000 response bytes (0.60 MB measured). The root
 attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
 measures 59 requests and permits 66, with body ceilings of 130,000 request bytes
 and 560,000 response bytes (0.51 MB measured). Container mutation
-acknowledgements carry hashes rather than echoes, which keeps the policy commit
-at about 73 KB. Container mutations cite stored
+acknowledgements carry hashes and policy acknowledgements carry heads rather
+than echoes, which keeps the Admins policy commit at about 3.5 KB (73 KB with
+echoed policies). Container mutations cite stored
 [manifests](../glossary/access.md#access-manifest) by
 `{containerId, manifestHash}` and principal policies by head rather than echoing
 path bundles or policies.

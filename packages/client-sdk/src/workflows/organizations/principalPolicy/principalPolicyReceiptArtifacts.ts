@@ -1,10 +1,9 @@
+import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   compareCanonicalStrings,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
-  normalizePrincipalContainerGrants,
-  normalizePrincipalProjectionMembers,
-  type ReferencedPrincipalHead,
+  computePrincipalStateHash,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type {
@@ -17,6 +16,7 @@ import {
   readContainerKeyEpoch,
   readContainerKeyWrap,
 } from "../../../data/keyingProjectionVerification/readers";
+import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 
 function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
   return [...values].sort((left, right) =>
@@ -116,62 +116,54 @@ async function assertContainerMutationAcknowledgements(input: {
   }
 }
 
-/** Compare receipt artifacts without manufacturing predecessor history or pins. */
-export async function assertPrincipalPolicyReceiptArtifacts(input: {
-  readonly expectedHead: ReferencedPrincipalHead;
+/**
+ * The current an acknowledgement commits, rebuilt from this client's own
+ * signed request: the server returns only the head it stored, the insertion
+ * time it assigned to the state and payload, and hash-form container
+ * acknowledgements. A head other than the one the request commits to refuses.
+ * Nothing here manufactures predecessor history or pins.
+ */
+export async function acknowledgedPrincipalPolicyCurrent(input: {
   readonly request: PutPrincipalPolicyRequest;
   readonly response: PrincipalPolicyMutationResponse;
-}): Promise<void> {
-  await assertContainerMutationAcknowledgements({
-    requests: input.request.containerMutations ?? [],
-    responses: input.response.containerMutations,
-  });
-  const { createdAt: _payloadCreatedAt, ...observedPayload } =
-    input.response.currentPayload;
-  const expectedPayload = {
-    principalType: input.request.state.principalType,
-    principalId: input.request.state.principalId,
-    stateHash: input.expectedHead.stateHash,
-    ...input.request.encryptedPayload,
-  };
-
+}): Promise<PrincipalPolicyPageCurrent> {
+  const { request, response } = input;
+  const { state } = request;
+  const stateHash = await computePrincipalStateHash(state);
   if (
-    canonicalKeyingJsonString(
-      observedPayload,
-      "stored group policy payload",
-    ) !==
-      canonicalKeyingJsonString(
-        expectedPayload,
-        "authored group policy payload",
-      ) ||
-    canonicalKeyingJsonString(
-      normalizePrincipalProjectionMembers(input.response.currentProjection),
-      "stored group policy projection",
-    ) !==
-      canonicalKeyingJsonString(
-        normalizePrincipalProjectionMembers(input.request.projection),
-        "authored group policy projection",
-      ) ||
-    canonicalKeyingJsonString(
-      normalizePrincipalContainerGrants(input.response.currentGrants),
-      "stored group policy grants",
-    ) !==
-      canonicalKeyingJsonString(
-        normalizePrincipalContainerGrants(input.request.grants),
-        "authored group policy grants",
-      )
-  ) {
-    throw new Error("Group policy bundle acknowledgement mismatch");
-  }
-
-  assertGroupPolicyEnvelopesMatchAcknowledgement(
-    {
-      principalType: input.request.state.principalType,
-      principalId: input.request.state.principalId,
-      stateHash: input.expectedHead.stateHash,
-      epoch: input.request.state.keyEpoch,
-      envelopes: input.request.memberEnvelopes,
+    !principalHeadMatchesReference(response.head, {
+      principalType: state.principalType,
+      principalId: state.principalId,
+      version: state.version,
+      keyEpoch: state.keyEpoch,
+      stateHash,
+      keyFingerprint: state.keyFingerprint,
+    })
+  )
+    throw new Error("Principal policy acknowledgement names another head");
+  await assertContainerMutationAcknowledgements({
+    requests: request.containerMutations ?? [],
+    responses: response.containerMutations,
+  });
+  const { principalType, principalId } = state;
+  const { createdAt } = response;
+  return {
+    currentState: { ...state, stateHash, createdAt },
+    currentPayload: {
+      principalType,
+      principalId,
+      stateHash,
+      ...request.encryptedPayload,
+      createdAt,
     },
-    input.response.currentMemberEnvelopes,
-  );
+    currentProjection: request.projection,
+    currentGrants: request.grants,
+    currentMemberEnvelopes: {
+      principalType,
+      principalId,
+      stateHash,
+      epoch: state.keyEpoch,
+      envelopes: request.memberEnvelopes,
+    },
+  };
 }

@@ -8,6 +8,7 @@ import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/r
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createAtomicEnrollmentFixture } from "../../../test/helpers/atomicGroupEnrollment";
+import { runGetCurrentPrincipalPolicyWorkflow } from "../../../test/helpers/principalPolicy";
 import { createRouteApp } from "../../routeApp";
 
 async function roster(
@@ -34,14 +35,19 @@ test("one commit enrolls a new user in Members and a custom group and replays bo
     isCommitOrganizationGroupPolicyResponse(body),
     "expected compound receipt",
   );
-  expect(body.memberPolicy?.currentProjection).toContainEqual({
-    userId: f.member.userId,
-    role: "member",
-  });
-  expect(body.groupPolicy.currentProjection).toContainEqual({
-    userId: f.member.userId,
-    role: "member",
-  });
+  invariant(body.memberPolicy, "expected Members policy acknowledgement");
+  for (const acknowledgement of [body.memberPolicy, body.groupPolicy]) {
+    const stored = await runGetCurrentPrincipalPolicyWorkflow(
+      db,
+      "group",
+      acknowledgement.head.principalId,
+    );
+    expect(stored.currentState.stateHash).toBe(acknowledgement.head.stateHash);
+    expect(stored.currentProjection).toContainEqual({
+      userId: f.member.userId,
+      role: "member",
+    });
+  }
   expect(await roster(f)).toMatchObject([{ status: "active" }]);
   const heads = await f.readHeads();
   const replay = await f.commit();

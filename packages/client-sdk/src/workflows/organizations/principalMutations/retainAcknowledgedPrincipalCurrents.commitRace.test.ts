@@ -14,9 +14,9 @@ test("a reader winning after reconciliation retries local retention without repl
   try {
     const [group, directory] = f.publication.entries;
     if (!group || !directory) throw new Error("Missing receipts");
-    const latest = await history.extend(directory.response, 68);
+    const latest = await history.extend(f.organizationBundle, 68);
     f.policies.set(history.organizationId, latest);
-    f.policies.set(group.request.state.principalId, group.response);
+    f.policies.set(group.request.state.principalId, f.response);
     let begins = 0;
     let readerRequests = 0;
     const execSql = createExecSql({

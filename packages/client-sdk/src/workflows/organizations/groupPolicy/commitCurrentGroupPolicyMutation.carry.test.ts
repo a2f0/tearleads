@@ -8,7 +8,10 @@ import {
   stubRekeyRequest,
 } from "../../../../test/helpers/groupRemovalCarryFixture";
 import { createAuthorityRecoveryFixture } from "../../../../test/helpers/principalAuthorityRecovery";
-import { policyBundleAfterMutation } from "../../../../test/helpers/principalPolicyFixtures";
+import {
+  policyBundleAfterMutation,
+  policyReceiptFromBundle,
+} from "../../../../test/helpers/principalPolicyFixtures";
 import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import { createRuntimeCurrentGroupMutation } from "../principalMutations/runtimeCurrentGroupMutation";
 import { commitCurrentGroupPolicyMutation } from "./commitCurrentGroupPolicyMutation";
@@ -54,7 +57,7 @@ test.each(["carry", "stale"] as const)(
       return {
         ok: true,
         data: {
-          groupPolicy: {
+          groupPolicy: policyReceiptFromBundle({
             ...(await policyBundleAfterMutation({
               previous: fixture.getCurrentPolicy(),
               mutation: request.groupPolicy,
@@ -62,11 +65,13 @@ test.each(["carry", "stale"] as const)(
             containerMutations: (await Promise.all(
               (request.groupPolicy.containerMutations ?? []).map(echoMutation),
             )) as never,
-          },
-          organizationPolicy: await policyBundleAfterMutation({
-            previous: fixture.getOrganizationPolicy(),
-            mutation: request.organizationPolicy,
           }),
+          organizationPolicy: policyReceiptFromBundle(
+            await policyBundleAfterMutation({
+              previous: fixture.getOrganizationPolicy(),
+              mutation: request.organizationPolicy,
+            }),
+          ),
         },
       };
     };
@@ -153,7 +158,7 @@ test.each(["carry", "stale"] as const)(
           containerId: afterCarry,
           organizationId: fixture.organizationId,
           principalId: fixture.groupId,
-          policyStateHash: response.currentState.stateHash,
+          policyStateHash: response.head.stateHash,
         },
       ]);
     } finally {

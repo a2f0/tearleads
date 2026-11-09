@@ -46,7 +46,8 @@ async function fixture(fallback = false) {
       previous: history.directory,
       mutation: request.organizationPolicy,
     });
-    if (state.corrupt) directory.currentState.signature = "invalid";
+    const organizationPolicy = policyReceiptFromBundle(directory);
+    if (state.corrupt) organizationPolicy.head.stateHash = "0".repeat(64);
     if (state.expire) state.current = false;
     return {
       group: {
@@ -61,7 +62,7 @@ async function fixture(fallback = false) {
         },
         isBuiltin: false,
       },
-      organizationPolicy: policyReceiptFromBundle(directory),
+      organizationPolicy,
     };
   };
   const mutate = createRuntimeCurrentOrganizationMutation({
@@ -196,7 +197,11 @@ test.each(["corrupt", "expire", "wrongFingerprint"] as const)(
     f.state[mode] = true;
     try {
       await expect(f.create("Bounded new group")).rejects.toThrow(
-        mode === "expire" ? "generation expired" : "acknowledgement mismatch",
+        mode === "expire"
+          ? "generation expired"
+          : mode === "corrupt"
+            ? "acknowledgement names another head"
+            : "acknowledgement mismatch",
       );
       expect(f.state.writes).toBe(1);
       expect(

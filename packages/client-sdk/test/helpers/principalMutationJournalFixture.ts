@@ -8,6 +8,7 @@ import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
+  policyReceiptFromBundle,
   principalPolicyHead,
 } from "./principalPolicyFixtures";
 
@@ -75,10 +76,15 @@ export async function principalMutationJournalFixture(
   );
   const response = {
     ...(memberBundle
-      ? { memberPolicy: { ...memberBundle, containerMutations: [] } }
+      ? { memberPolicy: policyReceiptFromBundle(memberBundle) }
       : {}),
-    groupPolicy: { ...groupBundle, containerMutations: [] },
-    organizationPolicy: { ...organizationBundle, containerMutations: [] },
+    groupPolicy: policyReceiptFromBundle(groupBundle),
+    organizationPolicy: policyReceiptFromBundle(organizationBundle),
   };
-  return { scope, mutation, signingKeyPair, response };
+  const bundles = {
+    groupPolicy: groupBundle,
+    organizationPolicy: organizationBundle,
+    memberPolicy: memberBundle,
+  };
+  return { scope, mutation, signingKeyPair, response, bundles };
 }

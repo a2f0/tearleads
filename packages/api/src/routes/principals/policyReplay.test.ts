@@ -151,7 +151,7 @@ test("an exact policy replay succeeds after the signer removes themself", async 
     principalId,
     principalKem: generateKemSeedAndKeyPair(),
     version: 2,
-    prevStateHash: initialBundle.groupPolicy.currentState.stateHash,
+    prevStateHash: initialBundle.groupPolicy.head.stateHash,
     keyEpoch: 2,
     signedAt: "2026-07-15T12:01:00.000Z",
     signer: departingAdmin,
@@ -204,14 +204,12 @@ test("an exact policy replay succeeds after the signer removes themself", async 
     isCommitOrganizationGroupPolicyResponse(replayBundle),
     "expected replayed compound policy bundle",
   );
-  expect(replayBundle.groupPolicy.currentState.stateHash).toBe(
-    successorBundle.groupPolicy.currentState.stateHash,
+  expect(replayBundle.groupPolicy.head).toEqual(
+    successorBundle.groupPolicy.head,
   );
-  expect(replayBundle.groupPolicy.currentMemberEnvelopes).toEqual(
-    successorBundle.groupPolicy.currentMemberEnvelopes,
+  expect(replayBundle.groupPolicy.createdAt).toBe(
+    successorBundle.groupPolicy.createdAt,
   );
-  expect(replayBundle.groupPolicy).not.toHaveProperty("previousStates");
-  expect(replayBundle.organizationPolicy).not.toHaveProperty("previousStates");
 }, 10_000);
 
 test("recipient-key rejection rolls back every policy artifact", async () => {
