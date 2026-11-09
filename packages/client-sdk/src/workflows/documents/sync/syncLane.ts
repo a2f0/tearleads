@@ -4,6 +4,7 @@ import {
   isDatabaseUnavailableError,
   type SyncLane,
 } from "../../../data/sync/syncCoordinator";
+import type { PrincipalPolicyOperation } from "../../principals/runtimePolicyWarmer";
 
 // Facade re-export: document stores must reach this shared sync helper
 // through this workflow boundary, not by importing data/sync directly.
@@ -20,7 +21,11 @@ export function registerDocumentSyncLane(input: {
   readonly localId: string;
   /** Host diagnostics sink; bare runtimes do not structure errors. */
   readonly logError?: ((message: string, error: unknown) => void) | undefined;
-  readonly run: () => Promise<void>;
+  /**
+   * Receives the coordinator drain's pass token, which is the principal-policy
+   * operation of every sync this run performs.
+   */
+  readonly run: (policyOperation: PrincipalPolicyOperation) => Promise<void>;
   readonly priority?: (() => number) | undefined;
 }): DocumentSyncLane {
   return getOrCreateDomainSyncCoordinator(input.domainScope).registerLane(

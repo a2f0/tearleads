@@ -6,6 +6,7 @@ import {
 } from "../../../../../test/helpers/blobHydration";
 import { addDocumentAttachments } from "../../../../data/documents/documentContent";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
@@ -59,30 +60,31 @@ test("settled attachments skip listings until a remote signal or missing/mismatc
       }
       return [];
     };
-    await hydrateAttachmentBlobs(state, doc, record);
-    await hydrateAttachmentBlobs(state, doc, record);
+    const policyOperation = createPrincipalPolicyOperation();
+    await hydrateAttachmentBlobs(state, doc, record, policyOperation);
+    await hydrateAttachmentBlobs(state, doc, record, policyOperation);
     expect(listings).toBe(0);
     state.remoteUpdateSignalSeq += 1;
     signalDuringListing = true;
-    await hydrateAttachmentBlobs(state, doc, record);
-    await hydrateAttachmentBlobs(state, doc, record);
-    await hydrateAttachmentBlobs(state, doc, record);
+    await hydrateAttachmentBlobs(state, doc, record, policyOperation);
+    await hydrateAttachmentBlobs(state, doc, record, policyOperation);
+    await hydrateAttachmentBlobs(state, doc, record, policyOperation);
     expect(listings).toBe(2);
     delete state.attachmentStorageKeyBySlotId[attachment.slotId];
-    await hydrateAttachmentBlobs(state, doc, record);
+    await hydrateAttachmentBlobs(state, doc, record, policyOperation);
     expect(listings).toBe(3);
     state.attachmentStorageKeyBySlotId[attachment.slotId] = "held";
     addDocumentAttachments(doc, [
       { ...attachment, contentSha256: "2".repeat(64) },
     ]);
-    await hydrateAttachmentBlobs(state, doc, record);
+    await hydrateAttachmentBlobs(state, doc, record, policyOperation);
     expect(listings).toBe(4);
     // Reloading the same remote document resets its signal sequence.
     state.attachmentContentSha256BySlotId[attachment.slotId] = "2".repeat(64);
     state.remoteUpdateSignalSeq = 1;
     const reloaded = doc.fork();
     try {
-      await hydrateAttachmentBlobs(state, reloaded, record);
+      await hydrateAttachmentBlobs(state, reloaded, record, policyOperation);
       expect(listings).toBe(5);
     } finally {
       reloaded.free();
@@ -103,8 +105,8 @@ test("settled attachments skip listings until a remote signal or missing/mismatc
       downloads += 1;
       return null;
     };
-    await hydrateAttachmentBlobs(state, doc, record);
-    await hydrateAttachmentBlobs(state, doc, record);
+    await hydrateAttachmentBlobs(state, doc, record, policyOperation);
+    await hydrateAttachmentBlobs(state, doc, record, policyOperation);
     expect(downloads).toBe(2);
   } finally {
     fixture.remoteDocument.free();

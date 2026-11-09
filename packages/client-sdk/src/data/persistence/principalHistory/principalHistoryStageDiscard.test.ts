@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { principalHistoryRootOwners } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
+import { principalHistoryNodes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
@@ -64,15 +64,26 @@ test("a stale discard preserves newer stage progress and its scope hint", async 
     });
     const { db } = getClientSQLitePersistenceRuntime(f.execSql);
     const saved = await db.select().from(principalHistoryStages);
-    expect(saved).toMatchObject([{ ...newer, scopeId: "scope-1" }]);
-    const owners = await db.select().from(principalHistoryRootOwners);
-    expect(owners).toMatchObject([{ rootHash: "newer-index-root" }]);
+    expect(saved).toMatchObject([
+      { ...newer, scopeId: "scope-1", rootHash: "newer-index-root" },
+    ]);
     await discardPrincipalHistoryStage(f.execSql, stage, () => true);
     expect(await db.select().from(principalHistoryStages)).toEqual(saved);
-    expect(await db.select().from(principalHistoryRootOwners)).toEqual(owners);
     await discardPrincipalHistoryStage(f.execSql, newer, () => true);
     expect(await db.select().from(principalHistoryStages)).toEqual([]);
-    expect(await db.select().from(principalHistoryRootOwners)).toEqual([]);
+    // Both roots lost their stage's edge: the replaced one on save, the last on discard.
+    expect(
+      await db
+        .select({
+          hash: principalHistoryNodes.hash,
+          referenceCount: principalHistoryNodes.referenceCount,
+        })
+        .from(principalHistoryNodes)
+        .orderBy(principalHistoryNodes.hash),
+    ).toEqual([
+      { hash: "newer-index-root", referenceCount: 0 },
+      { hash: "opaque-index-root", referenceCount: 0 },
+    ]);
   } finally {
     f.close();
   }

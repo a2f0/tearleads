@@ -20,6 +20,7 @@ import {
   documentWriterProjectionFromCreateResponse,
   type PendingUpdateRecord,
 } from "../../../../workflows/documents";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import {
   createDocumentStoreState,
@@ -207,6 +208,7 @@ async function runSeededCreate(
     if (!generation) throw new Error("Expected sync generation");
 
     const created = await ensureSeededRemoteDocument({
+      policyOperation: createPrincipalPolicyOperation(),
       consumedRemoteUpdateSignalSeq: 1,
       currentDoc: document,
       encapsulationKeyPair: {

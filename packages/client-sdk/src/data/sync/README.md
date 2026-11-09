@@ -10,8 +10,12 @@ registered for different scopes do not share pending-work state.
 
 ## What It Coordinates
 
-A coordinator manages named lanes. Each lane supplies a `run()` callback, and
-callers trigger that callback through `requestSync()`.
+A coordinator manages named lanes. Each lane supplies a `run(pass)` callback,
+and callers trigger that callback through `requestSync()`. One pump drain, from
+its start until no lane runs or is due, hands every run it starts the same
+opaque `pass` token; document and container-contents lanes use it as the
+principal-policy operation of their syncs, so a drain discovers the directory
+once.
 
 Production lanes are:
 

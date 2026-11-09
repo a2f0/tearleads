@@ -8,9 +8,11 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { principalCurrentFingerprintJson } from "../principalKeyFingerprintJson";
 import { defineSqlTableSchema } from "../sqlTableSchema";
-import { principalHistoryNodeRetentionTables } from "./principalHistoryNodeRetentionSchema";
 
-/** A completed, locally authenticated prefix; never an application trust pin. */
+/**
+ * A completed, locally authenticated prefix; never an application trust pin.
+ * `rootHash` is the proof root it keeps live: a disposable liveness hint.
+ */
 export const principalHistoryPrefixes = sqliteTable(
   "principal_history_prefixes",
   {
@@ -20,6 +22,7 @@ export const principalHistoryPrefixes = sqliteTable(
     headJson: text("head_json").notNull(),
     currentJson: text("current_json").notNull(),
     progress: text("progress").notNull(),
+    rootHash: text("root_hash"),
   },
   (table) => [
     index("principal_history_prefixes_key_fingerprint_idx").on(
@@ -92,10 +95,9 @@ export const principalHistoryNodes = sqliteTable(
 );
 
 export const principalHistoryEvidenceTables = [
-  ...principalHistoryNodeRetentionTables,
   {
     ...defineSqlTableSchema(principalHistoryPrefixes),
-    requiredColumns: ["current_json"],
+    requiredColumns: ["current_json", "root_hash"],
   },
   defineSqlTableSchema(principalHistoryEntries),
   {

@@ -6,7 +6,6 @@ import {
   principalHistoryNodes,
   principalHistoryPrefixes,
 } from "../../data/sqlite/schema/principalHistoryEvidenceSchema";
-import { principalHistoryRootOwners } from "../../data/sqlite/schema/principalHistoryNodeRetentionSchema";
 import { principalKeyEnvelopeArchive } from "../../data/sqlite/schema/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../data/sqlite/schema/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
@@ -30,16 +29,12 @@ test("organization reset discards only its principal history stages and evidence
           complete: false,
           touchedAt: 1,
           progress: "opaque-authenticated-progress",
+          rootHash: "node-hash",
         })),
       )
       .run();
     for (const organizationId of ["org-1", "org-2"]) {
       const scope = { organizationId, scopeId: `scope-${organizationId}` };
-      await db.insert(principalHistoryRootOwners).values({
-        ...scope,
-        id: `stage:${organizationId}`,
-        rootHash: "node-hash",
-      });
       await db
         .insert(principalKeyEnvelopeArchive)
         .values({
@@ -59,6 +54,7 @@ test("organization reset discards only its principal history stages and evidence
           headJson: "{}",
           currentJson: "{}",
           progress: "opaque-prefix",
+          rootHash: "node-hash",
         })
         .run();
       await db
@@ -84,7 +80,6 @@ test("organization reset discards only its principal history stages and evidence
         .from(principalHistoryStages),
     ).toEqual([{ organizationId: "org-2" }]);
     for (const table of [
-      principalHistoryRootOwners,
       principalHistoryPrefixes,
       principalHistoryEntries,
       principalHistoryNodes,

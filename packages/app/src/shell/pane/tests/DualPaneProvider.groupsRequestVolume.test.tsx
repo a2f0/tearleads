@@ -67,11 +67,15 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Private metadata-root authority adds one directory discovery read per
   // operation (one per pass for hydration, discovery and move workflows) and
   // the first read of each new head. Batched discovery lists each
-  // reconciliation pass's lanes in one request. Measured completed calls are
-  // 53 (55 before read-model hints carried their cursor and recites of
-  // ungranted containers stopped stamping grants, 70–73 before #2537); allow
-  // three more bounded reads. Preparation continuations are counted below.
-  total: 56,
+  // reconciliation pass's lanes in one request. Provisioning seeds the roster
+  // profile container's role, which moves the founder's first read of its
+  // projection and Admins history here from bootstrap. Measured completed
+  // calls are 48 (50 before read-model hints carried their cursor and
+  // recites of ungranted containers stopped stamping grants; 55 before
+  // drain-scoped sync operations, 56 before pass-scoped discovery, 70–73
+  // before #2537); allow three more bounded reads.
+  // Preparation continuations are counted below.
+  total: 51,
   // Container mutations cite stored manifests by hash and principal policies
   // by head: 134 KB sent with one descendant recitation (193 KB when they
   // carried each ~9.8 KB policy, 389.5 KB when they also echoed path
@@ -84,12 +88,14 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Prefetches of unstored folders cite their listed parent's held bundles
   // and projections cite held KEK levels by digest: 0.80 MB received.
   // Container acknowledgements carry hashes, not echoes (the policy commit
-  // 192 KB -> 73 KB): 0.67 MB received. Syncs no longer echo the bundle and
-  // KEK targets the request named, and policy acknowledgements carry heads,
-  // not policies (the commit 73 KB -> 3.5 KB): 0.59 MB received. Public
-  // history reads naming a held head receive no current state: 0.55 MB
+  // 192 KB -> 73 KB): 0.67 MB received. Drain-scoped sync operations,
+  // destination-cited KEK levels, and the roster profile projection read here
+  // instead of at bootstrap: 0.66 MB received. Syncs no longer echo the bundle
+  // and KEK targets the request named, and policy acknowledgements carry
+  // heads, not policies (the commit 73 KB -> 3.5 KB): 0.58 MB received. Public
+  // history reads naming a held head receive no current state: 0.54 MB
   // received; keep about 10% headroom.
-  bodyBytes: { request: 160_000, response: 605_000 },
+  bodyBytes: { request: 160_000, response: 595_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,
@@ -99,8 +105,8 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
     "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 12,
     "GET /auth/user-identity/:userId": 2,
-    // Measured 2 (4 before cursor-carrying hints and conditional grant stamps).
-    "GET /organizations/:organizationId/read-model": 4,
+    // Measured 1 (4 before cursor-carrying hints and conditional grant stamps).
+    "GET /organizations/:organizationId/read-model": 3,
     "GET /organizations/:organizationId/groups/:groupId/containers": 0,
     "GET /organizations/:organizationId/groups/:groupId/members": 1,
     // Includes first classification of all newly visible system slots, roots,
@@ -111,8 +117,9 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
     "GET /organizations/:organizationId/billing": 1,
-    // Measured 15–16 discovery reads, nearly all answered with a bare head.
-    "GET /principals/organization/:organizationId/policy": 17,
+    // Measured 9 discovery reads (15–16 before drain-scoped sync operations),
+    // nearly all answered with a bare head.
+    "GET /principals/organization/:organizationId/policy": 10,
     "POST /containers/:containerId/share": 0,
     "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 1,
     "POST /containers/:containerId/recite": 2,

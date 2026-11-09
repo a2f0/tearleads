@@ -104,7 +104,7 @@ async function primeProvisionedPrincipalHistory(input: {
 }
 
 /** The runtime seams priming reads; none of them writes durable state. */
-interface ProvisionedPrincipalHistoryRuntime {
+export interface ProvisionedPrincipalHistoryRuntime {
   readonly bindLease: () => PrincipalHistoryProtectionLease | undefined;
   /** The runtime executor, only while `database` is its ready database. */
   readonly execSqlFor: (database: ExecSqlClientLike) => ExecSql | null;

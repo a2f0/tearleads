@@ -14,8 +14,7 @@ import {
 import { principalKeyEnvelopeArchive } from "../../sqlite/schema/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import {
-  principalPolicies,
-  principalPolicyBundleHistory,
+  principalPolicyBundles,
   principalPolicyTables,
 } from "../../sqlite/schema/principalPolicySchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
@@ -56,17 +55,25 @@ export async function loadPrincipalKeyEnvelopeCandidates(
       .orderBy(desc(principalKeyEnvelopeArchive.version))
       .limit(1);
     if (archived) encoded.push(archived.envelopes);
-    for (const table of [principalPolicies, principalPolicyBundleHistory]) {
+    // The newest current head and the newest retained bundle each offer one.
+    for (const isCurrent of [true, false]) {
       const [row] = await db
-        .select({ envelopes: table.currentMemberEnvelopesJson })
-        .from(table)
+        .select({
+          envelopes: principalPolicyBundles.currentMemberEnvelopesJson,
+        })
+        .from(principalPolicyBundles)
         .where(
-          eq(
-            principalStateFingerprintJson(table.currentStateJson),
-            fingerprint,
+          and(
+            eq(
+              principalStateFingerprintJson(
+                principalPolicyBundles.currentStateJson,
+              ),
+              fingerprint,
+            ),
+            eq(principalPolicyBundles.isCurrent, isCurrent),
           ),
         )
-        .orderBy(desc(table.updatedAt))
+        .orderBy(desc(principalPolicyBundles.updatedAt))
         .limit(1);
       if (row) encoded.push(row.envelopes);
     }

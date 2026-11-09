@@ -7,7 +7,7 @@ import {
   policyReceiptFromBundle,
 } from "../../../../../test/helpers/principalPolicyFixtures";
 import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { principalPolicies } from "../../../../data/sqlite/schema/principalPolicySchema";
+import { principalPolicyBundles } from "../../../../data/sqlite/schema/principalPolicySchema";
 import { shareRemoteContainerWithGroup } from "../remote";
 
 async function fixture() {
@@ -78,7 +78,7 @@ test("runtime group share mints a compound grant using Current evidence and reta
     expect(f.compoundCalls()).toBe(1);
     expect(f.shareCalls()).toBe(0);
     expect(f.fullReads()).toBe(0);
-    expect(await f.db.select().from(principalPolicies)).toEqual([]);
+    expect(await f.db.select().from(principalPolicyBundles)).toEqual([]);
     expect(
       await loadPrincipalPolicyCheckpoint(
         f.options.execSql,

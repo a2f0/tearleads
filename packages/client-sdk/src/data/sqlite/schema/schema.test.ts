@@ -5,7 +5,6 @@ import type { ExecSql, SqlRow } from "../sqlSchema";
 import { ensureSqlTables } from "../sqlTableSchema";
 import { documentTables } from "./documentRecordSchema";
 import { clientSqlTables } from "./index";
-import { principalPolicyTables } from "./principalPolicySchema";
 
 function readString(row: SqlRow, key: string): string {
   return String(row[key] ?? "");
@@ -107,14 +106,13 @@ test("client sqlite schema creates tables and indexes", async () => {
       "principal_history_nodes_reclaim_idx",
       "principal_history_prefixes_key_fingerprint_idx",
       "principal_history_prefixes_organization_idx",
-      "principal_history_root_owners_organization_idx",
       "principal_history_stages_incomplete_idx",
       "principal_history_stages_key_fingerprint_idx",
       "principal_history_stages_organization_idx",
       "principal_history_stages_scope_idx",
       "principal_key_envelope_archive_fingerprint_idx",
-      "principal_policies_key_fingerprint_idx",
-      "principal_policy_history_key_fingerprint_idx",
+      "principal_policy_bundles_current_idx",
+      "principal_policy_bundles_key_fingerprint_idx",
       "security_incidents_trust_last_detected_idx",
       "trusted_user_identity_pins_domain_signing_fingerprint_idx",
       "verified_access_manifest_bundles_eviction_idx",
@@ -431,32 +429,6 @@ test("client sqlite schema creates tables and indexes", async () => {
       pk: 0,
       type: "TEXT",
     });
-  } finally {
-    close();
-  }
-});
-
-test("principal policy schema rejects a legacy database that cannot authenticate grants", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "principal-policy-legacy-schema-test",
-  );
-  try {
-    await execSql(`
-      CREATE TABLE principal_policies (
-        principal_type TEXT NOT NULL,
-        principal_id TEXT NOT NULL,
-        PRIMARY KEY (principal_type, principal_id)
-      )
-    `);
-    const currentPolicyTable = principalPolicyTables[0];
-    if (!currentPolicyTable) {
-      throw new Error("Principal policy table schema is missing");
-    }
-    await expect(
-      ensureSqlTables(execSql, [currentPolicyTable]),
-    ).rejects.toThrow(
-      "Local database schema for principal_policies is obsolete; reset the local database before continuing",
-    );
   } finally {
     close();
   }

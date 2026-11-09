@@ -7,6 +7,7 @@ import {
   recordDocumentSyncFailure,
 } from "../../../../data/persistence/documents/records";
 import type { DocumentsPersistence } from "../../../../workflows/documents";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
@@ -130,6 +131,7 @@ test("a superseded finalize keeps its signal and requests another pass", async (
     );
 
     const attempt = await requestRemoteDocumentSync({
+      policyOperation: createPrincipalPolicyOperation(),
       currentDoc,
       currentRecord,
       encapsulationKeyPair: fixture,
@@ -242,6 +244,7 @@ for (const typeDuringClaim of [false, true]) {
       const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
       if (!generation) throw new Error("Expected current generation");
       const attempt = await requestRemoteDocumentSync({
+        policyOperation: createPrincipalPolicyOperation(),
         currentDoc,
         currentRecord,
         encapsulationKeyPair: fixture,

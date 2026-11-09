@@ -103,6 +103,22 @@ async function reconcileCreatedSystemContainerIntoTarget(input: {
   );
 }
 
+/**
+ * A peer's metadata hint can queue the container's read while its create was
+ * in flight; a pass that ran before the install could not sync it.
+ */
+function createdSystemContainerNeedsSync(
+  state: ContainerContentsStoreState,
+  created: CreatedChildContainerState,
+): boolean {
+  const metadataDocumentId = created.containerState.record.documentId;
+  return (
+    created.shouldRequestSync ||
+    (typeof metadataDocumentId === "string" &&
+      state.metadataDocumentIdsNeedingSync.has(metadataDocumentId))
+  );
+}
+
 export async function finalizeCreatedSystemContainer(input: {
   created: CreatedChildContainerState;
   logLabel: string;
@@ -167,7 +183,7 @@ export async function finalizeCreatedSystemContainer(input: {
     created.containerState,
   );
   updateContainerContentsSnapshot(state);
-  if (created.shouldRequestSync) {
+  if (createdSystemContainerNeedsSync(state, created)) {
     syncAgent.scheduleSync();
   }
   state.runtime.util.log(

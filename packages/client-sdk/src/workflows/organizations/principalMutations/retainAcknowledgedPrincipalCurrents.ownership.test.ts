@@ -2,8 +2,10 @@ import { beforeAll, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { retainPrincipalHistoryRoot } from "../../../data/persistence/principalHistory/principalHistoryRootOwnership";
-import { principalHistoryRootOwners } from "../../../data/sqlite/schema/principalHistoryNodeRetentionSchema";
+import {
+  principalHistoryRootRetention,
+  writePrincipalHistoryRootEdges,
+} from "../../../data/persistence/principalHistory/principalHistoryRootOwnership";
 import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
@@ -25,35 +27,37 @@ test.each([false, true])(
           history.group.currentState.principalId,
       );
       if (!stage) throw new Error("Missing predecessor stage");
-      const selected = eq(principalHistoryRootOwners.id, `stage:${stage.id}`);
-      const [owner] = await f.db
-        .select()
-        .from(principalHistoryRootOwners)
-        .where(selected);
-      if (!owner) throw new Error("Missing predecessor root owner");
-      // Distinct disposable metadata makes a rejected owner rewrite observable.
-      const savedOwner = { ...owner, rootHash: "existing-stage-root" };
+      if (!stage.rootHash) throw new Error("Missing predecessor root");
+      // Distinct disposable metadata makes a rejected root rewrite observable.
+      const savedRoot = { ...stage, rootHash: "existing-stage-root" };
       const runtime = getClientSQLitePersistenceRuntime(f.options.execSql);
       await runtime.transaction(async (tx) => {
         await tx
           .update(principalHistoryStages)
-          .set({ complete })
+          .set({ complete, rootHash: savedRoot.rootHash })
           .where(eq(principalHistoryStages.id, stage.id))
           .run();
-        await retainPrincipalHistoryRoot(tx, savedOwner);
+        await writePrincipalHistoryRootEdges(
+          tx,
+          principalHistoryRootRetention(stage, savedRoot),
+        );
       });
       await retainAcknowledgedPrincipalCurrents(f.publication);
-      expect(
-        await f.db.select().from(principalHistoryRootOwners).where(selected),
-      ).toEqual([complete ? savedOwner : owner]);
       const [saved] = await f.db
         .select()
         .from(principalHistoryStages)
         .where(eq(principalHistoryStages.id, stage.id));
+      expect(saved?.rootHash).toBe(
+        complete ? savedRoot.rootHash : stage.rootHash,
+      );
       expect(saved?.complete).toBe(true);
       // A completed predecessor keeps its work; only its recency hint moves.
       if (complete)
-        expect(saved).toEqual({ ...stage, touchedAt: expect.any(Number) });
+        expect(saved).toEqual({
+          ...stage,
+          rootHash: savedRoot.rootHash,
+          touchedAt: expect.any(Number),
+        });
     } finally {
       f.close();
     }

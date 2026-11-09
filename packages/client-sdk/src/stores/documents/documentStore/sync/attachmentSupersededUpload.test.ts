@@ -9,6 +9,7 @@ import {
   removeDocumentAttachment,
 } from "../../../../data/documents/documentContent";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
@@ -128,6 +129,7 @@ for (const change of [
           secretKey: fixture.secretKey,
         },
         generation,
+        createPrincipalPolicyOperation(),
       );
       if (change === "read-failure")
         await expect(syncing).rejects.toThrow("temporary source read failure");

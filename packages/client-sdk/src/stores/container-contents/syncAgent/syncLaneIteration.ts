@@ -10,6 +10,7 @@ import type {
   RemoteContainerHydrationHost,
 } from "../../../workflows/container-contents/remoteHydration";
 import { createContainerContentsDocumentsRuntime } from "../../../workflows/container-contents/runtime";
+import type { PrincipalPolicyOperation } from "../../../workflows/principals/runtimePolicyWarmer";
 import { openDocumentStore, requestDomainDocumentSync } from "../../documents";
 import { relinkDocumentStoreWithCommitSideEffect } from "../../documents/documentStore/internalRelink";
 import { DocumentRemoteWorkBusyError } from "../../documents/documentStore/sync/remoteWork";
@@ -150,6 +151,7 @@ async function syncSingleContainerMetadata(input: {
   encapsulationKeyPair: NonNullable<
     ContainerContentsStoreRuntime["crypto"]["encapsulationKeyPair"]
   >;
+  policyOperation: PrincipalPolicyOperation;
   syncContainerMetadata?: SyncContainerMetadata | undefined;
 }) {
   const { containerState, encapsulationKeyPair, host, isCurrent, state } =
@@ -183,6 +185,7 @@ async function syncSingleContainerMetadata(input: {
       requestContainerContentsStoreSync(state);
     },
     persistence: state.persistence,
+    policyOperation: input.policyOperation,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
     targetSecretKey: encapsulationKeyPair.secretKey,
@@ -238,6 +241,8 @@ async function loadPendingCreatePredicate(
 
 interface ContainerContentsStoreSyncIterationInput {
   host: RemoteContainerHydrationHost;
+  /** The drain's operation: every metadata sync of this pass shares it. */
+  policyOperation: PrincipalPolicyOperation;
   reconcileRestoredAccess: (isCurrent: () => boolean) => Promise<void>;
   requestRemoteReconciliation: (parentContainerId: string | null) => void;
   state: ContainerContentsStoreSyncState;
@@ -309,12 +314,10 @@ export async function runContainerContentsStoreSyncIteration(
   for (const containerState of Array.from(state.containersById.values())) {
     if (isCreatePending(containerState.container.id)) continue;
     await syncSingleContainerMetadata({
+      ...input,
       containerState,
       encapsulationKeyPair,
-      host,
       isCurrent,
-      state,
-      syncContainerMetadata: input.syncContainerMetadata,
     });
     if (!isCurrent()) {
       return;

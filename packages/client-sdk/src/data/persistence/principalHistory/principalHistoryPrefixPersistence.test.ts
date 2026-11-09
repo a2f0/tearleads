@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
 import { isProjectionVerificationCancelledError } from "../../keyingProjectionVerification/types";
-import { principalHistoryRootOwners } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
+import { principalHistoryPrefixes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import { principalKeyEnvelopeArchive } from "../../sqlite/schema/principalHistoryRetentionSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { createExecSql } from "../../sqlite/sqlSchema";
@@ -33,7 +33,7 @@ test("discarding a missing prefix initializes its tables on a fresh database", a
       stillCurrent: () => true,
     });
     const { db } = getClientSQLitePersistenceRuntime(sqlite.execSql);
-    expect(await db.select().from(principalHistoryRootOwners)).toEqual([]);
+    expect(await db.select().from(principalHistoryPrefixes)).toEqual([]);
     expect(
       await loadPrincipalHistoryPrefix(sqlite.execSql, "test-scope"),
     ).toBeNull();
@@ -82,19 +82,23 @@ test("older completion and stale discard preserve the newest completed prefix", 
       indexRootHash: "newer-index-root",
     });
     const { db } = getClientSQLitePersistenceRuntime(sqlite.execSql);
-    const owners = await db.select().from(principalHistoryRootOwners);
-    expect(owners).toMatchObject([{ rootHash: "newer-index-root" }]);
+    const roots = () =>
+      db
+        .select({ rootHash: principalHistoryPrefixes.rootHash })
+        .from(principalHistoryPrefixes);
+    const owners = await roots();
+    expect(owners).toEqual([{ rootHash: "newer-index-root" }]);
     await savePrincipalHistoryPrefix({ ...input, prefix: previous });
     expect(
       await loadPrincipalHistoryPrefix(sqlite.execSql, latest.scopeId),
     ).toEqual(latest);
     await discardPrincipalHistoryPrefix({ ...input, prefix: previous });
-    expect(await db.select().from(principalHistoryRootOwners)).toEqual(owners);
+    expect(await roots()).toEqual(owners);
     expect(
       await loadPrincipalHistoryPrefix(sqlite.execSql, latest.scopeId),
     ).toEqual(latest);
     await discardPrincipalHistoryPrefix({ ...input, prefix: latest });
-    expect(await db.select().from(principalHistoryRootOwners)).toEqual([]);
+    expect(await roots()).toEqual([]);
     expect(
       await loadPrincipalHistoryPrefix(sqlite.execSql, latest.scopeId),
     ).toBeNull();
@@ -140,7 +144,7 @@ test("identical completion preserves progress while repairing root ownership", a
     await savePrincipalHistoryPrefix({ ...input, prefix: previous });
     const { db } = getClientSQLitePersistenceRuntime(sqlite.execSql);
     await db
-      .update(principalHistoryRootOwners)
+      .update(principalHistoryPrefixes)
       .set({ rootHash: "corrupt-root-hint" })
       .run();
     await savePrincipalHistoryPrefix({
@@ -150,9 +154,11 @@ test("identical completion preserves progress while repairing root ownership", a
     expect(
       await loadPrincipalHistoryPrefix(sqlite.execSql, previous.scopeId),
     ).toEqual(previous);
-    expect(await db.select().from(principalHistoryRootOwners)).toMatchObject([
-      { rootHash: input.indexRootHash },
-    ]);
+    expect(
+      await db
+        .select({ rootHash: principalHistoryPrefixes.rootHash })
+        .from(principalHistoryPrefixes),
+    ).toEqual([{ rootHash: input.indexRootHash }]);
   } finally {
     sqlite.close();
   }

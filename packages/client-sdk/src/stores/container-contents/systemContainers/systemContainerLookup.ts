@@ -70,8 +70,14 @@ export function findSystemContainerStateForRoot(
     const container = containerState.container;
     if (container.systemSlot !== systemSlot) continue;
     if (expectedRootId && container.parentId !== expectedRootId) continue;
+    // A device-first copy made before this root gained its organization keeps
+    // no organization until its create intent settles. Its id derives from
+    // this root and slot, so it is this slot's container: creating it again
+    // would race its own pending create.
     const isLocalCandidate =
-      rootState && isPreAuthRootState(rootState) && !container.organizationId;
+      rootState &&
+      !container.organizationId &&
+      (isPreAuthRootState(rootState) || !containerState.record.documentId);
     if (
       organizationId &&
       !isLocalCandidate &&

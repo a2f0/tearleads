@@ -7,6 +7,7 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../../workflows/container-contents/containerPersistence";
+import { createPrincipalPolicyOperation } from "../../../workflows/principals/runtimePolicyWarmer";
 import { createContainerContentsTestRuntime } from "../runtime.testFixtures";
 import {
   createContainerContentsStoreState,
@@ -63,6 +64,7 @@ for (const change of contextChanges) {
         },
         updateSnapshot: () => updateContainerContentsSnapshot(state),
       },
+      policyOperation: createPrincipalPolicyOperation(),
       reconcileRestoredAccess: (isCurrent) => {
         restorationStarted = true;
         return new Promise<void>((resolve) => {
@@ -247,6 +249,7 @@ test("runtime ABA replacement invalidates and re-arms a structural pass", async 
       },
       updateSnapshot: () => updateContainerContentsSnapshot(state),
     },
+    policyOperation: createPrincipalPolicyOperation(),
     reconcileRestoredAccess: (isCurrent) =>
       new Promise<void>((resolve) => {
         releaseRestoration = () => {
@@ -308,6 +311,7 @@ test("persistence ABA replacement invalidates and re-arms a structural pass", as
       },
       updateSnapshot: () => updateContainerContentsSnapshot(state),
     },
+    policyOperation: createPrincipalPolicyOperation(),
     reconcileRestoredAccess: (isCurrent) =>
       new Promise<void>((resolve) => {
         releaseRestoration = () => {
@@ -390,6 +394,7 @@ test("the sync lane preserves metadata edits already settled by the workflow", a
         persistContainerState: async () => ({ status: "missing" }),
         updateSnapshot,
       },
+      policyOperation: createPrincipalPolicyOperation(),
       reconcileRestoredAccess: async () => {},
       requestRemoteReconciliation: () => {},
       state,

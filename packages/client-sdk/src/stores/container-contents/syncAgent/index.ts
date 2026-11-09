@@ -310,9 +310,10 @@ export function createContainerContentsStoreSyncAgent(input: {
   state.syncLane = registerContainerContentsSyncLane({
     domainScope: state.runtime.state.domainScope,
     logError: (message, error) => logSyncLaneFailure(state, message, error),
-    run: () =>
+    run: (policyOperation) =>
       runContainerContentsStoreSyncIteration({
         host,
+        policyOperation,
         reconcileRestoredAccess,
         requestRemoteReconciliation: (parentContainerId) => {
           scheduleHydration({

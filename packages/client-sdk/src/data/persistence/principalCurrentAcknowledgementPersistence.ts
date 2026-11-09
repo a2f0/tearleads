@@ -26,7 +26,12 @@ import {
 } from "./principalHistory/principalHistoryEvidencePersistence";
 import { reclaimPrincipalHistoryNodes } from "./principalHistory/principalHistoryNodeRetention";
 import type { PrincipalHistoryPrefix } from "./principalHistory/principalHistoryPrefixPersistence";
-import { retainPrincipalHistoryRoot } from "./principalHistory/principalHistoryRootOwnership";
+import {
+  principalHistoryPrefixRootOwnerColumns,
+  principalHistoryRootRetention,
+  principalHistoryStageRootOwnerColumns,
+  writePrincipalHistoryRootEdges,
+} from "./principalHistory/principalHistoryRootOwnership";
 import type { PrincipalHistoryStage } from "./principalHistory/principalHistoryStagePersistence";
 import {
   reclaimCompletedPrincipalHistoryStages,
@@ -163,18 +168,32 @@ async function archiveAcknowledgedStageKeys(
   }
 }
 
+async function loadStageRootOwner(
+  tx: ClientSQLiteTransactionScope,
+  id: string,
+) {
+  const [owner] = await tx
+    .select(principalHistoryStageRootOwnerColumns)
+    .from(principalHistoryStages)
+    .where(eq(principalHistoryStages.id, id))
+    .limit(1);
+  return owner;
+}
+
 async function retainPredecessorStage(
   tx: ClientSQLiteTransactionScope,
   entry: AcknowledgedPrincipalCurrentPublication,
 ) {
   // Preserve a prefix-only predecessor without replacing an existing completion.
   if (!entry.predecessorStage || !entry.predecessorIndexRootHash) return;
-  const row = {
-    ...entry.predecessorStage,
+  const root = {
     scopeId: entry.prefix.scopeId,
-    touchedAt: Date.now(),
+    organizationId: entry.prefix.organizationId,
+    rootHash: entry.predecessorIndexRootHash,
   };
-  const inserted = await tx
+  const previous = await loadStageRootOwner(tx, entry.predecessorStage.id);
+  const row = { ...entry.predecessorStage, ...root, touchedAt: Date.now() };
+  const written = await tx
     .insert(principalHistoryStages)
     .values(row)
     .onConflictDoUpdate({
@@ -183,13 +202,12 @@ async function retainPredecessorStage(
       setWhere: eq(principalHistoryStages.complete, false),
     })
     .returning({ id: principalHistoryStages.id });
-  if (inserted.length > 0)
-    await retainPrincipalHistoryRoot(tx, {
-      id: `stage:${entry.predecessorStage.id}`,
-      scopeId: entry.prefix.scopeId,
-      organizationId: entry.prefix.organizationId,
-      rootHash: entry.predecessorIndexRootHash,
-    });
+  // An existing completion keeps its row, so it also keeps its root.
+  if (written.length > 0)
+    await writePrincipalHistoryRootEdges(
+      tx,
+      principalHistoryRootRetention(previous, root),
+    );
 }
 
 // A fully authenticated publication supersedes an in-flight stage for this
@@ -198,16 +216,48 @@ async function saveAcknowledgedStage(
   tx: ClientSQLiteTransactionScope,
   entry: AcknowledgedPrincipalCurrentPublication,
 ) {
-  const row = {
-    ...entry.stage,
+  const root = {
     scopeId: entry.prefix.scopeId,
-    touchedAt: Date.now(),
+    organizationId: entry.stage.organizationId,
+    rootHash: entry.evidence.indexRootHash,
   };
+  const previous = await loadStageRootOwner(tx, entry.stage.id);
+  const row = { ...entry.stage, ...root, touchedAt: Date.now() };
   await tx
     .insert(principalHistoryStages)
     .values(row)
     .onConflictDoUpdate({ target: principalHistoryStages.id, set: row })
     .run();
+  await writePrincipalHistoryRootEdges(
+    tx,
+    principalHistoryRootRetention(previous, root),
+  );
+}
+
+async function saveAcknowledgedPrefix(
+  tx: ClientSQLiteTransactionScope,
+  entry: AcknowledgedPrincipalCurrentPublication,
+) {
+  const root = {
+    scopeId: entry.prefix.scopeId,
+    organizationId: entry.prefix.organizationId,
+    rootHash: entry.evidence.indexRootHash,
+  };
+  const [previous] = await tx
+    .select(principalHistoryPrefixRootOwnerColumns)
+    .from(principalHistoryPrefixes)
+    .where(eq(principalHistoryPrefixes.scopeId, root.scopeId))
+    .limit(1);
+  const row = { ...entry.prefix, rootHash: root.rootHash };
+  await tx
+    .insert(principalHistoryPrefixes)
+    .values(row)
+    .onConflictDoUpdate({ target: principalHistoryPrefixes.scopeId, set: row })
+    .run();
+  await writePrincipalHistoryRootEdges(
+    tx,
+    principalHistoryRootRetention(previous, root),
+  );
 }
 
 async function storeRetirement(
@@ -243,28 +293,7 @@ async function storeAcknowledgedPublication(
   await retainPredecessorStage(tx, entry);
   await saveAcknowledgedStage(tx, entry);
   await archiveAcknowledgedStageKeys(tx, entry);
-  if (!entry.preservePrefix)
-    await tx
-      .insert(principalHistoryPrefixes)
-      .values(entry.prefix)
-      .onConflictDoUpdate({
-        target: principalHistoryPrefixes.scopeId,
-        set: entry.prefix,
-      })
-      .run();
-  await retainPrincipalHistoryRoot(tx, {
-    id: `stage:${entry.stage.id}`,
-    scopeId: entry.prefix.scopeId,
-    organizationId,
-    rootHash: entry.evidence.indexRootHash,
-  });
-  if (!entry.preservePrefix)
-    await retainPrincipalHistoryRoot(tx, {
-      id: `prefix:${entry.prefix.scopeId}`,
-      scopeId: entry.prefix.scopeId,
-      organizationId,
-      rootHash: entry.evidence.indexRootHash,
-    });
+  if (!entry.preservePrefix) await saveAcknowledgedPrefix(tx, entry);
   await reclaimCompletedPrincipalHistoryStages(tx, entry.retainedPrefix);
   await reclaimPrincipalHistoryNodes(tx, entry.retainedPrefix);
   if (

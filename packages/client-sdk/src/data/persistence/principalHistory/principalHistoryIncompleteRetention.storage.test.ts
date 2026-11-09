@@ -177,7 +177,11 @@ test("partial cleanup uses the recency index without sorting all staged rows", a
   let selection: { sql: string; bind: Parameters<ExecSql>[1] } | undefined;
   const execSql = createExecSql({
     exec: async ({ sql, bind, rowMode }) => {
-      if (sql.startsWith('select "id" from "principal_history_stages" where'))
+      if (
+        sql.startsWith(
+          'select "id", "scope_id", "organization_id", "root_hash"',
+        )
+      )
         selection = { sql, bind };
       return {
         rows: await f.execSql(sql, bind, rowMode ? { rowMode } : undefined),

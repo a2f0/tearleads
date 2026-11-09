@@ -85,8 +85,11 @@ add bounded directory and group reads. A completed stage of the exact pinned
 [head](./glossary/sync.md#head) is used without a confirmation read, and one
 operation discovers the directory once and shares the recovered view across its
 collections. An operation is one reconciliation pass (container hydration,
-document discovery) or one user workflow (a document move's link and unlink
-legs) that mints an operation token, or otherwise one policy warmer. That view
+document discovery), one sync coordinator drain (every document, attachment and
+container-metadata sync its lane runs perform, including a document's create
+and its attachment uploads), or one user workflow (a document move's link and
+unlink legs) that mints an operation token, or otherwise one policy warmer. A
+drain lasts until no lane runs or is due. That view
 never outlives the operation; an
 [organization read-model](./organization-read-model-sync.md) hint, a durable pin
 past a head it names, or the end of the producing lease evicts it first. Every

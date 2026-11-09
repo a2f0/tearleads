@@ -10,6 +10,7 @@ import { clearDocumentSyncFailure } from "../../../../data/persistence/documents
 import { hasRecordedTerminalSyncFailures } from "../../../../data/persistence/documents/records/documentSyncFailurePersistence";
 import { runSerializedSqlMutation } from "../../../../data/sqlite/sqlExec";
 import type { DocumentRecord } from "../../../../workflows/documents/persistence";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/runtimePolicyWarmer";
 import type {
   DocumentState,
   DocumentStoreState,
@@ -121,6 +122,7 @@ test("a container-less local-only create records a terminal failure", async () =
       {} as unknown as DocumentState,
       record,
       {} as unknown as EncapsulationKeyPair,
+      createPrincipalPolicyOperation(),
     );
 
     expect(result).toBe(record);

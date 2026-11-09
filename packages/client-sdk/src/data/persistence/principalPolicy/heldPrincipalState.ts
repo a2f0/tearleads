@@ -6,9 +6,8 @@ import {
 import { and, eq, inArray } from "drizzle-orm";
 import { principalHeadMatchesReference } from "../../principals/organizationAuthorityDescriptor";
 import {
-  principalPolicies,
-  principalPolicyBundleHistory,
   principalPolicyBundleReferences,
+  principalPolicyBundles,
 } from "../../sqlite/schema";
 import {
   principalHistoryEntries,
@@ -84,7 +83,10 @@ function bundleRowState(
   return Array.isArray(previous) ? stateOf(previous[head.version - 1]) : null;
 }
 
-/** States in a cached policy bundle chain: its head, or a predecessor the reference index names. */
+/**
+ * States in a cached policy bundle chain, current or retained: its head, or a
+ * predecessor the reference index names.
+ */
 async function bundleState(
   db: ClientSQLiteDatabase,
   head: ReferencedPrincipalHead,
@@ -105,29 +107,26 @@ async function bundleState(
       ),
     )
     .limit(HELD_STATE_CANDIDATES);
-  const bundleStateHashes = [
-    head.stateHash,
-    ...indexed.map(({ bundleStateHash }) => bundleStateHash),
-  ];
-  for (const table of [principalPolicies, principalPolicyBundleHistory]) {
-    const rows = await db
-      .select({
-        stateHash: table.stateHash,
-        currentStateJson: table.currentStateJson,
-        previousStatesJson: table.previousStatesJson,
-      })
-      .from(table)
-      .where(
-        and(
-          eq(table.principalType, head.principalType),
-          eq(table.principalId, head.principalId),
-          inArray(table.stateHash, bundleStateHashes),
-        ),
-      );
-    for (const row of rows) {
-      const state = exactState(bundleRowState(row, head), head);
-      if (state) return state;
-    }
+  const rows = await db
+    .select({
+      stateHash: principalPolicyBundles.stateHash,
+      currentStateJson: principalPolicyBundles.currentStateJson,
+      previousStatesJson: principalPolicyBundles.previousStatesJson,
+    })
+    .from(principalPolicyBundles)
+    .where(
+      and(
+        eq(principalPolicyBundles.principalType, head.principalType),
+        eq(principalPolicyBundles.principalId, head.principalId),
+        inArray(principalPolicyBundles.stateHash, [
+          head.stateHash,
+          ...indexed.map(({ bundleStateHash }) => bundleStateHash),
+        ]),
+      ),
+    );
+  for (const row of rows) {
+    const state = exactState(bundleRowState(row, head), head);
+    if (state) return state;
   }
   return null;
 }

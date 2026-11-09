@@ -25,9 +25,9 @@ test("principal policy sync hard-fails without fetching or repairing an invalid 
       "org-1",
     );
     await execSql(
-      `UPDATE principal_policies
+      `UPDATE principal_policy_bundles
        SET current_state_json = ?
-       WHERE principal_type = ? AND principal_id = ?`,
+       WHERE is_current = 1 AND principal_type = ? AND principal_id = ?`,
       ["{}", "group", bundle.currentState.principalId],
     );
 
@@ -51,8 +51,8 @@ test("principal policy sync hard-fails without fetching or repairing an invalid 
     expect(policyReadCount).toBe(0);
     const rows = await execSql(
       `SELECT current_state_json AS currentStateJson
-       FROM principal_policies
-       WHERE principal_type = ? AND principal_id = ?`,
+       FROM principal_policy_bundles
+       WHERE is_current = 1 AND principal_type = ? AND principal_id = ?`,
       [bundle.currentState.principalType, bundle.currentState.principalId],
     );
     expect(Reflect.get(rows[0] ?? {}, "currentStateJson")).toBe("{}");

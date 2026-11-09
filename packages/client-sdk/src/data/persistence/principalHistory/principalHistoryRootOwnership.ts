@@ -1,6 +1,9 @@
 import { and, eq, sql } from "drizzle-orm";
-import { principalHistoryNodes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
-import { principalHistoryRootOwners } from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
+import {
+  principalHistoryNodes,
+  principalHistoryPrefixes,
+} from "../../sqlite/schema/principalHistoryEvidenceSchema";
+import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 export interface PrincipalHistoryNodeScope {
@@ -53,17 +56,34 @@ export async function decrementPrincipalHistoryNodeReference(
     .run();
 }
 
-type PrincipalHistoryRootOwner = typeof principalHistoryRootOwners.$inferSelect;
-
-type PrincipalHistoryRootInput = PrincipalHistoryNodeScope & {
-  readonly id: string;
+/** A root a saved stage or prefix row keeps live through its `rootHash`. */
+export interface PrincipalHistoryRoot extends PrincipalHistoryNodeScope {
   readonly rootHash: string;
+}
+
+/** A saved stage or prefix row's scope and root column, as read before its write. */
+export interface PrincipalHistoryRootOwner extends PrincipalHistoryNodeScope {
+  readonly rootHash: string | null;
+}
+
+/** A stage row's root owner columns. */
+export const principalHistoryStageRootOwnerColumns = {
+  scopeId: principalHistoryStages.scopeId,
+  organizationId: principalHistoryStages.organizationId,
+  rootHash: principalHistoryStages.rootHash,
+};
+
+/** A prefix row's root owner columns. */
+export const principalHistoryPrefixRootOwnerColumns = {
+  scopeId: principalHistoryPrefixes.scopeId,
+  organizationId: principalHistoryPrefixes.organizationId,
+  rootHash: principalHistoryPrefixes.rootHash,
 };
 
 /** An owner whose root changes: the new root gains an edge, the old one loses it. */
 export interface PrincipalHistoryRootRetention {
-  readonly input: PrincipalHistoryRootInput;
-  readonly previous: PrincipalHistoryRootOwner | undefined;
+  readonly input: PrincipalHistoryRoot;
+  readonly previous: PrincipalHistoryRoot | undefined;
 }
 
 /** The root edges a node write replays itself, after its nodes and in this order. */
@@ -72,23 +92,34 @@ export interface PrincipalHistoryRootEdges {
   readonly decrement: string | null;
 }
 
-/** Null when the owner already holds this exact root, which changes nothing. */
-export async function loadPrincipalHistoryRootRetention(
-  tx: ClientSQLiteTransactionScope,
-  input: PrincipalHistoryRootInput,
-): Promise<PrincipalHistoryRootRetention | null> {
-  const [previous] = await tx
-    .select()
-    .from(principalHistoryRootOwners)
-    .where(eq(principalHistoryRootOwners.id, input.id))
-    .limit(1);
+function ownedRoot(
+  owner: PrincipalHistoryRootOwner | undefined,
+): PrincipalHistoryRoot | undefined {
+  if (!owner?.rootHash) return undefined;
+  return {
+    scopeId: owner.scopeId,
+    organizationId: owner.organizationId,
+    rootHash: owner.rootHash,
+  };
+}
+
+/**
+ * The edges that move an owner row from `previous` (read before the row's
+ * write) to `input`. Null when the row already holds this exact root, which
+ * changes nothing.
+ */
+export function principalHistoryRootRetention(
+  previous: PrincipalHistoryRootOwner | undefined,
+  input: PrincipalHistoryRoot,
+): PrincipalHistoryRootRetention | null {
+  const owned = ownedRoot(previous);
   if (
-    previous?.scopeId === input.scopeId &&
-    previous.organizationId === input.organizationId &&
-    previous.rootHash === input.rootHash
+    owned?.scopeId === input.scopeId &&
+    owned.organizationId === input.organizationId &&
+    owned.rootHash === input.rootHash
   )
     return null;
-  return { input: { ...input }, previous };
+  return { input: { ...input }, previous: owned };
 }
 
 function sameScope(
@@ -125,11 +156,12 @@ export function foldablePrincipalHistoryRootEdges(
 }
 
 /**
- * Records the owner and applies the root edges `folded` did not already
- * write. Caller commits ownership together with the exact saved progress it
+ * Applies the root edges `folded` did not already write: the new root's
+ * increment, then the previous root's decrement. The caller writes the owner
+ * row's `rootHash` in the same transaction as the exact saved progress it
  * describes.
  */
-export async function writePrincipalHistoryRootRetention(
+export async function writePrincipalHistoryRootEdges(
   tx: ClientSQLiteTransactionScope,
   retention: PrincipalHistoryRootRetention | null,
   folded?: PrincipalHistoryRootEdges | undefined,
@@ -138,14 +170,6 @@ export async function writePrincipalHistoryRootRetention(
   const { input, previous } = retention;
   if (!folded)
     await incrementPrincipalHistoryNodeReference(tx, input, input.rootHash);
-  await tx
-    .insert(principalHistoryRootOwners)
-    .values(input)
-    .onConflictDoUpdate({
-      target: principalHistoryRootOwners.id,
-      set: input,
-    })
-    .run();
   if (previous && !folded?.decrement)
     await decrementPrincipalHistoryNodeReference(
       tx,
@@ -154,30 +178,12 @@ export async function writePrincipalHistoryRootRetention(
     );
 }
 
-/** Caller commits ownership together with the exact saved progress it describes. */
-export async function retainPrincipalHistoryRoot(
-  tx: ClientSQLiteTransactionScope,
-  input: PrincipalHistoryRootInput,
-) {
-  await writePrincipalHistoryRootRetention(
-    tx,
-    await loadPrincipalHistoryRootRetention(tx, input),
-  );
-}
-
+/** Releases a stage or prefix row's root; the caller deletes the row in the same transaction. */
 export async function releasePrincipalHistoryRoot(
   tx: ClientSQLiteTransactionScope,
-  id: string,
+  owner: PrincipalHistoryRootOwner,
 ) {
-  const [previous] = await tx
-    .select()
-    .from(principalHistoryRootOwners)
-    .where(eq(principalHistoryRootOwners.id, id))
-    .limit(1);
-  if (!previous) return;
-  await tx
-    .delete(principalHistoryRootOwners)
-    .where(eq(principalHistoryRootOwners.id, id))
-    .run();
-  await decrementPrincipalHistoryNodeReference(tx, previous, previous.rootHash);
+  const owned = ownedRoot(owner);
+  if (owned)
+    await decrementPrincipalHistoryNodeReference(tx, owned, owned.rootHash);
 }
