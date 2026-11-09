@@ -1,5 +1,6 @@
 import { BuildingOfficeIcon } from "@phosphor-icons/react/dist/csr/BuildingOffice";
 import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
+import type { ContainerShareAccessLevel } from "@tearleads/client-sdk";
 import { useCallback, useId } from "react";
 import {
   MiniAppButton,
@@ -28,6 +29,12 @@ import "./Organizations.css";
 
 const EMPTY_ICON = <BuildingOfficeIcon size={40} weight="light" />;
 
+const PERMISSION_LABELS = {
+  admin: ORGANIZATIONS_LABELS.permissionAdmin,
+  read: ORGANIZATIONS_LABELS.permissionRead,
+  write: ORGANIZATIONS_LABELS.permissionWrite,
+} satisfies Record<ContainerShareAccessLevel, string>;
+
 function cardBadge(card: OrganizationDashboardCard): string {
   if (card.active) return ORGANIZATIONS_LABELS.activeBadge;
   if (card.syncPaused) return ORGANIZATIONS_LABELS.syncPausedBadge;
@@ -52,11 +59,12 @@ function OrganizationFolderRow({
             ? ORGANIZATIONS_LABELS.workspaceRoot
             : folder.name}
         </MiniAppRowText>
-        {folder.readOnly ? (
-          <span className="organizations-badge">
-            {ORGANIZATIONS_LABELS.readOnlyBadge}
-          </span>
-        ) : null}
+        <span
+          className="organizations-badge"
+          title={ORGANIZATIONS_LABELS.permission}
+        >
+          {PERMISSION_LABELS[folder.accessLevel]}
+        </span>
       </MiniAppRowButton>
     </li>
   );

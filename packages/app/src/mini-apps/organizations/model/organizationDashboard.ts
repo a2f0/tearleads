@@ -1,10 +1,14 @@
-import type { ContainerNode } from "@tearleads/client-sdk";
+import type {
+  ContainerNode,
+  ContainerShareAccessLevel,
+} from "@tearleads/client-sdk";
 
 /** A container this user can reach whose parent they cannot. */
 export interface OrganizationDashboardFolder {
+  /** The user's effective permission on the folder, as last synced here. */
+  readonly accessLevel: ContainerShareAccessLevel;
   readonly id: string;
   readonly name: string;
-  readonly readOnly: boolean;
   /** The organization's own root rather than a folder shared from beneath it. */
   readonly workspaceRoot: boolean;
 }
@@ -41,9 +45,10 @@ function compareNames(left: string, right: string): number {
 
 function toFolder(node: ContainerNode): OrganizationDashboardFolder {
   return {
+    // An unknown level fails closed to read, as the SDK's own default does.
+    accessLevel: node.effectiveAccessLevel ?? "read",
     id: node.id,
     name: node.name,
-    readOnly: node.effectiveAccessLevel === "read",
     workspaceRoot: node.parentId === null,
   };
 }
