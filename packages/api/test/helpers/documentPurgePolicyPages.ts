@@ -27,7 +27,7 @@ export async function assertPurgePolicyPages(
     const body = PrincipalPolicySnapshotPageResponseSchema.parse(
       await page.json(),
     );
-    expect(body.currentState.stateHash).toBe(source.head.stateHash);
+    expect(body.currentState?.stateHash).toBe(source.head.stateHash);
     expect(body.previousStates.length).toBeLessThanOrEqual(32);
   }
   return proof;

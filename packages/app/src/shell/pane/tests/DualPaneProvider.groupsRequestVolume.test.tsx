@@ -92,9 +92,10 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // destination-cited KEK levels, and the roster profile projection read here
   // instead of at bootstrap: 0.66 MB received. Syncs no longer echo the bundle
   // and KEK targets the request named, and policy acknowledgements carry
-  // heads, not policies (the commit 73 KB -> 3.5 KB): 0.58 MB received; keep
-  // about 10% headroom.
-  bodyBytes: { request: 160_000, response: 635_000 },
+  // heads, not policies (the commit 73 KB -> 3.5 KB): 0.58 MB received. Public
+  // history reads naming a held head receive no current state: 0.54 MB
+  // received; keep about 10% headroom.
+  bodyBytes: { request: 160_000, response: 595_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,

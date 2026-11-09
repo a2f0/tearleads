@@ -76,10 +76,12 @@ test(
         // echoed, seeded roles skip three destination projections, and syncs
         // no longer echo the bundle and KEK targets the request named: 61 KB
         // received (70 KB before the sync echo went, 157 KB before seeded
-        // roles; register 118 KB -> 63 KB). Keys and the login signature
-        // travel as base64 and child containers cite their parent KEK state:
-        // 291 KB sent (322 KB before).
-        bodyBytes: { request: 320_000, response: 67_000 },
+        // roles; register 118 KB -> 63 KB). Public history reads name the
+        // founding heads registration holds and receive no current state:
+        // 42 KB received. Keys and the login signature travel as base64 and
+        // child containers cite their parent KEK state: 291 KB sent (322 KB
+        // before).
+        bodyBytes: { request: 320_000, response: 47_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 5,
           "GET /principals/group/:groupId/policy": 0,

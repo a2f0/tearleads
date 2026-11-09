@@ -1,6 +1,6 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { selectPrincipalPolicyAuthorization } from "@tearleads/crypto";
-import type { PrincipalPolicySnapshotPageResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicySnapshotPage } from "@tearleads/validators/response";
 import { PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT } from "@tearleads/validators/util";
 import { readPrincipalHistoryPage } from "../../access/read/principalHistoryProgress";
 import type { StoredPrincipalState } from "../../access/read/principalStateStore";
@@ -12,7 +12,7 @@ export async function buildPrincipalPolicySnapshotPage(
   executor: DatabaseSession,
   head: StoredPrincipalState,
   afterVersion: number,
-): Promise<PrincipalPolicySnapshotPageResponse> {
+): Promise<PrincipalPolicySnapshotPage> {
   if (
     !Number.isSafeInteger(afterVersion) ||
     afterVersion < 0 ||

@@ -214,7 +214,7 @@ The Admins enrollment fixture in
 measures 48 completed requests; its ceiling is 51, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 10,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
-160,000 request bytes and 635,000 response bytes (0.58 MB measured, including
+160,000 request bytes and 595,000 response bytes (0.54 MB measured, including
 the roster profile projection read that bootstrap no longer makes). The root
 attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)

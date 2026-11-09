@@ -197,10 +197,23 @@ authorize these reads. A grant has no expiry because every read reauthorizes; it
 never establishes a client checkpoint or permits access after revocation.
 
 `ApiClient.getProjectionPolicyHistoryPages` accepts a source containing `head`
-and `grant`, plus an optional caller-authenticated prefix offset. It shares the
-15-second per-request deadline and preparation handling, validates exact head,
-public artifacts and cursor continuity, and checks identity changes after each
-consumer yield. The compact source builder checks every
+and `grant`, plus an optional caller-authenticated prefix offset and an optional
+held head state. It shares the 15-second per-request deadline and preparation
+handling, validates exact head, public artifacts and cursor continuity, and
+checks identity changes after each consumer yield.
+
+A held head state must match the source head's exact reference. The client then
+sends its hash as `knownStateHash`, and the server answers each page with
+`currentState: null`, which the client accepts only for a request that named
+one. It places its own copy in every page, so the final page appends and
+checks that copy exactly as a served one: signature, predecessor link, and head
+equality. Public recovery looks the state up by exact reference in its stored
+history evidence (states it verified or acknowledged, including one it signed)
+and in cached policy bundle chains; it never seeds public progress from them. If
+the verifier rejects a held copy, recovery reads the served state once instead,
+so a device without a usable copy recovers as before.
+
+The compact source builder checks every
 [manifest](./glossary/access.md#access-manifest) citation against the signed directory
 head and verified chain before issuing any grant. It includes only the
 organization payloads needed for those bindings, with exact references for

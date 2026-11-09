@@ -6,15 +6,22 @@ import {
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
 import {
-  isPrincipalPolicySnapshotPageResponse,
-  type PrincipalPolicySnapshotPageResponse,
+  isPrincipalPolicySnapshotPage,
+  type PrincipalPolicySnapshotPage,
+  type PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
+import { loadHeldPrincipalState } from "../../../data/persistence/principalPolicy/heldPrincipalState";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { PrincipalPolicyHistoryReadError } from "../historyRecovery/principalHistoryRecoveryTypes";
+import {
+  type HeldHeadState,
+  initialHeldHeadState,
+  transitionHeldHeadState,
+} from "./heldHeadStateMachine";
 import { PublicHistoryAuthorityUnavailableError } from "./publicPrincipalHistoryAuthority";
 import {
   appendPublicPrincipalHistoryPage,
@@ -30,13 +37,18 @@ import type {
   RecoveredPublicPrincipalHistory,
 } from "./publicPrincipalHistoryTypes";
 
+/** The attempt's held-head machine; written only through its transition. */
+interface HeldHeadCell {
+  state: HeldHeadState;
+}
+
 function assertPage(
   input: PublicPrincipalHistoryOptions,
-  page: PrincipalPolicySnapshotPageResponse,
+  page: PrincipalPolicySnapshotPage,
   after: number,
 ): void {
   if (
-    !isPrincipalPolicySnapshotPageResponse(page) ||
+    !isPrincipalPolicySnapshotPage(page) ||
     !principalHeadMatchesReference(page.currentState, input.source.head) ||
     page.historyPage.afterVersion !== after
   )
@@ -60,19 +72,44 @@ function assertPage(
     );
 }
 
+/**
+ * A held copy of the head replaces only its download; the final page appends
+ * and checks it exactly as a served state.
+ */
+async function loadHeldHead(
+  input: PublicPrincipalHistoryOptions,
+  held: HeldHeadCell,
+): Promise<PrincipalStateResponse | undefined> {
+  const knownCurrentState =
+    held.state.status === "eligible"
+      ? ((await loadHeldPrincipalState(input.execSql, input.source.head)) ??
+        undefined)
+      : undefined;
+  held.state = transitionHeldHeadState(held.state, {
+    type: knownCurrentState ? "heldLoaded" : "heldMissing",
+  });
+  return knownCurrentState;
+}
+
 async function readPublicPages(
   input: PublicPrincipalHistoryOptions,
   initial: PublicPrincipalHistoryProgress,
+  held: HeldHeadCell,
 ) {
   const current = () => !input.signal?.aborted && input.stillCurrent();
   let progress = initial;
-  let lastPage: PrincipalPolicySnapshotPageResponse | undefined;
+  let lastPage: PrincipalPolicySnapshotPage | undefined;
   // Completed progress already verified every signed entry through the cited
   // head; a read pinned to that head could only repeat it or refuse.
   if (!input.offline && !progress.completedHead) {
+    const knownCurrentState = await loadHeldHead(input, held);
     for await (const result of input.historyReader.getProjectionPolicyHistoryPages(
       input.source,
-      { afterVersion: progress.afterVersion, signal: input.signal },
+      {
+        afterVersion: progress.afterVersion,
+        knownCurrentState,
+        signal: input.signal,
+      },
     )) {
       assertProjectionVerificationCurrent(current);
       if (!result.ok) throw new PrincipalPolicyHistoryReadError(result);
@@ -139,8 +176,9 @@ function replaysReusedProgress(
 
 async function recoverAttempt(
   input: PublicPrincipalHistoryOptions,
-  allowReuse = true,
-  rejectedPrefix: PrincipalHistoryPrefix | null = null,
+  allowReuse: boolean,
+  rejectedPrefix: PrincipalHistoryPrefix | null,
+  held: HeldHeadCell,
 ): Promise<RecoveredPublicPrincipalHistory> {
   const current = () => !input.signal?.aborted && input.stillCurrent();
   assertProjectionVerificationCurrent(current);
@@ -151,7 +189,7 @@ async function recoverAttempt(
   );
   let pages: Awaited<ReturnType<typeof readPublicPages>>;
   try {
-    pages = await readPublicPages(input, initial);
+    pages = await readPublicPages(input, initial, held);
   } catch (error) {
     if (!(error instanceof PublicPrincipalHistoryPrefixDisconnectedError))
       throw error;
@@ -207,13 +245,27 @@ async function recover(
   input: PublicPrincipalHistoryOptions,
   allowReuse = true,
   rejectedPrefix: PrincipalHistoryPrefix | null = null,
+  useHeldState = true,
 ): Promise<RecoveredPublicPrincipalHistory> {
+  // A replay distrusts local material, so it reads the served head as well.
+  const held: HeldHeadCell = {
+    state: initialHeldHeadState(useHeldState && allowReuse),
+  };
   try {
-    return await recoverAttempt(input, allowReuse, rejectedPrefix);
+    return await recoverAttempt(input, allowReuse, rejectedPrefix, held);
   } catch (error) {
+    // A held head copy only saves its download; one the verifier rejects must
+    // not block recovery, so read the served copy once instead.
+    if (
+      held.state.status === "heldSent" &&
+      error instanceof KeyingVerificationError
+    )
+      return recover(input, allowReuse, rejectedPrefix, false);
     if (!(error instanceof PublicHistoryAuthorityUnavailableError)) throw error;
     if (allowReuse && !input.offline)
-      return recoverAttempt(input, false, error.rejectedPrefix);
+      return recoverAttempt(input, false, error.rejectedPrefix, {
+        state: initialHeldHeadState(false),
+      });
     throw error.verificationError;
   }
 }

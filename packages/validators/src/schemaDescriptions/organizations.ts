@@ -149,6 +149,8 @@ describeSchema(
   PrincipalPolicySnapshotPageResponseSchema,
   "A page of public signed policy history, without encrypted payloads or member envelopes.",
   {
+    currentState:
+      "The signed head state, or null when the request's `knownStateHash` named it and the client verifies its own copy.",
     historyPage:
       "Which predecessor versions this page covers and where the next page starts.",
   },

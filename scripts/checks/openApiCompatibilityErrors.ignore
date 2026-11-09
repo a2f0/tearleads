@@ -1,74 +1,97 @@
-# Issue #2864 (DWPB-1, greenfield flag day): unlinks refused for a stale
-# rotation baseline now return the `document_unlink_rotation_baseline_stale`
-# code, a new member of DocumentMutationErrorCode shared by every document and
-# container mutation 409. Remove these exact diagnostics as soon as main
-# contains the new contract.
-POST /containers added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
+# Issue #2864 PR-2 shape (a) (greenfield flag day): projection policy history
+# pages answer `currentState: null` when the request's `knownStateHash` names
+# the grant's head, and the client verifies its own held copy. Remove these
+# exact diagnostics as soon as main contains the new contract.
+GET /principals/history added `#/components/schemas/PrincipalStateResponse, subschema #2` to the `currentState` response property `anyOf` list for the response status `200`
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/with-metadata-document added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
+GET /principals/history the `currentState` response's property `type` changed from `object` to `any` for status `200`
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-DELETE /containers/{containerId} added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
+GET /principals/history removed the required property `currentState/createdAt` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/move added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
+GET /principals/history removed the required property `currentState/encapsulationPublicKey` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/recite added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
+GET /principals/history removed the required property `currentState/externalAuthority` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/rekey added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
+GET /principals/history removed the required property `currentState/grantCount` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/revoke added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
+GET /principals/history removed the required property `currentState/grantRoot` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /containers/{containerId}/share added `subschema #5` to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/` response property `anyOf` list for the response status `409`
+GET /principals/history removed the required property `currentState/keyEpoch` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents added `subschema #5` to the `code` response property `anyOf` list for the response status `404`
+GET /principals/history removed the required property `currentState/keyFingerprint` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents added `subschema #5` to the `code` response property `anyOf` list for the response status `409`
+GET /principals/history removed the required property `currentState/memberCount` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/link added `subschema #5` to the `code` response property `anyOf` list for the response status `404`
+GET /principals/history removed the required property `currentState/memberEnvelopesRoot` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/link added `subschema #5` to the `code` response property `anyOf` list for the response status `409`
+GET /principals/history removed the required property `currentState/membershipMode` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/purge added `subschema #5` to the `code` response property `anyOf` list for the response status `404`
+GET /principals/history removed the required property `currentState/membershipRoot` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-GET /documents/{documentId}/purge added `subschema #5` to the `code` response property `anyOf` list for the response status `409`
+GET /principals/history removed the required property `currentState/payloadCiphertextHash` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/purge added `subschema #5` to the `code` response property `anyOf` list for the response status `404`
+GET /principals/history removed the required property `currentState/prevStateHash` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/purge added `subschema #5` to the `code` response property `anyOf` list for the response status `409`
+GET /principals/history removed the required property `currentState/principalId` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/unlink added `subschema #5` to the `code` response property `anyOf` list for the response status `404`
+GET /principals/history removed the required property `currentState/principalType` from the response with the `200` status
 
-# Issue #2864 DWPB-1: see above.
+# Issue #2864 PR-2: see above.
 # Remove this exact diagnostic as soon as main contains the new contract.
-POST /documents/{documentId}/unlink added `subschema #5` to the `code` response property `anyOf` list for the response status `409`
+GET /principals/history removed the required property `currentState/projectionRoot` from the response with the `200` status
+
+# Issue #2864 PR-2: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+GET /principals/history removed the required property `currentState/signature` from the response with the `200` status
+
+# Issue #2864 PR-2: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+GET /principals/history removed the required property `currentState/signedAt` from the response with the `200` status
+
+# Issue #2864 PR-2: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+GET /principals/history removed the required property `currentState/signerUserId` from the response with the `200` status
+
+# Issue #2864 PR-2: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+GET /principals/history removed the required property `currentState/signerUserKeyFingerprint` from the response with the `200` status
+
+# Issue #2864 PR-2: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+GET /principals/history removed the required property `currentState/stateHash` from the response with the `200` status
+
+# Issue #2864 PR-2: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+GET /principals/history removed the required property `currentState/version` from the response with the `200` status

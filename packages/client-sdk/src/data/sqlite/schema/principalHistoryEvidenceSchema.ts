@@ -1,4 +1,4 @@
-import { desc } from "drizzle-orm";
+import { desc, type SQLWrapper, sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -35,7 +35,15 @@ export const principalHistoryPrefixes = sqliteTable(
   ],
 );
 
-/** Entries are selected by their exact signed leaf, including signature bytes. */
+/** Match the held-state query to its expression index, including corrupt rows. */
+export function principalHistoryEntryStateHashJson(column: SQLWrapper) {
+  return sql<string>`json_extract(CASE WHEN json_valid(${column}) THEN ${column} END, '$.state.stateHash')`;
+}
+
+/**
+ * Entries are selected by their exact signed leaf, including signature bytes,
+ * or by state hash to supply a held head state to public history reads.
+ */
 export const principalHistoryEntries = sqliteTable(
   "principal_history_entries",
   {
@@ -48,6 +56,9 @@ export const principalHistoryEntries = sqliteTable(
     primaryKey({ columns: [table.scopeId, table.leafHash] }),
     index("principal_history_entries_organization_idx").on(
       table.organizationId,
+    ),
+    index("principal_history_entries_state_hash_idx").on(
+      principalHistoryEntryStateHashJson(table.entryJson),
     ),
   ],
 );

@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import type { PrincipalPolicySnapshotPageResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicySnapshotPage } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import { createPrincipalPolicyBundleResponse } from "../test/helpers/apiClientTestFactories";
 import {
@@ -24,9 +24,12 @@ function fixture() {
     grant: "opaque-server-read-grant",
   };
   const cursors: number[] = [];
+  const knownHashes: (string | null)[] = [];
   const control: {
-    corrupt?: (page: PrincipalPolicySnapshotPageResponse) => void;
+    corrupt?: (page: PrincipalPolicySnapshotPage) => void;
     preparing: boolean;
+    /** Serve the head even when the request names it as held. */
+    ignoreKnown?: boolean;
   } = { preparing: false };
   server.use(
     http.get(`${apiBaseUrl}/principals/history`, ({ request }) => {
@@ -34,6 +37,7 @@ function fixture() {
       expect(query.get("grant")).toBe("opaque-server-read-grant");
       const after = Number(query.get("afterVersion"));
       cursors.push(after);
+      knownHashes.push(query.get("knownStateHash"));
       if (control.preparing) {
         control.preparing = false;
         return HttpResponse.json(
@@ -46,7 +50,7 @@ function fixture() {
         );
       }
       const full = principalPolicyPageResponse(bundle, after);
-      const page: PrincipalPolicySnapshotPageResponse = {
+      const page: PrincipalPolicySnapshotPage = {
         currentState: full.currentState,
         currentGrants: full.currentGrants,
         currentProjection: full.currentProjection,
@@ -54,10 +58,22 @@ function fixture() {
         historyPage: full.historyPage,
       };
       if (after > 0) control.corrupt?.(page);
-      return HttpResponse.json(page);
+      return HttpResponse.json(
+        !control.ignoreKnown &&
+          query.get("knownStateHash") === bundle.currentState.stateHash
+          ? { ...page, currentState: null }
+          : page,
+      );
     }),
   );
-  return { source, cursors, control, client: new ApiClient(apiBaseUrl) };
+  return {
+    bundle,
+    source,
+    cursors,
+    knownHashes,
+    control,
+    client: new ApiClient(apiBaseUrl),
+  };
 }
 
 testApiClient(
@@ -91,7 +107,7 @@ testApiClient(
 
 const corruptions: readonly [
   string,
-  (page: PrincipalPolicySnapshotPageResponse) => void,
+  (page: PrincipalPolicySnapshotPage) => void,
 ][] = [
   [
     "head substitution",
@@ -207,5 +223,68 @@ testApiClient(
     });
     expect((await pages.next()).done).toBe(true);
     expect(f.cursors).toEqual([0]);
+  },
+);
+
+testApiClient(
+  "public history fills a held head state the server omitted on every page",
+  async () => {
+    const f = fixture();
+    const knownCurrentState = structuredClone(f.bundle.currentState);
+    knownCurrentState.createdAt = "held-copy";
+    const results = await Array.fromAsync(
+      f.client.getProjectionPolicyHistoryPages(f.source, {
+        knownCurrentState,
+      }),
+    );
+    expect(results.map((result) => result.ok)).toEqual([true, true, true]);
+    for (const result of results)
+      if (result.ok)
+        expect(result.data.currentState).toEqual(knownCurrentState);
+    expect(f.cursors).toEqual([0, 32, 64]);
+    expect(f.knownHashes).toEqual(
+      Array(3).fill(f.bundle.currentState.stateHash),
+    );
+  },
+);
+
+testApiClient(
+  "public history refuses an ambiguous or mismatched held head state",
+  async () => {
+    const f = fixture();
+    const knownCurrentState = structuredClone(f.bundle.currentState);
+    // A held state must name exactly the source head; refuse before HTTP.
+    for (const mismatch of [
+      { ...knownCurrentState, keyEpoch: knownCurrentState.keyEpoch + 1 },
+      { ...knownCurrentState, stateHash: "b".repeat(64) },
+    ])
+      expect(
+        await Array.fromAsync(
+          f.client.getProjectionPolicyHistoryPages(f.source, {
+            knownCurrentState: mismatch,
+          }),
+        ),
+      ).toMatchObject([{ ok: false, kind: "shape" }]);
+    expect(f.cursors).toEqual([]);
+    // A served state answers only a request that named none.
+    f.control.ignoreKnown = true;
+    expect(
+      await Array.fromAsync(
+        f.client.getProjectionPolicyHistoryPages(f.source, {
+          knownCurrentState,
+        }),
+      ),
+    ).toMatchObject([{ ok: false, kind: "shape" }]);
+    server.use(
+      http.get(`${apiBaseUrl}/principals/history`, () =>
+        HttpResponse.json({
+          ...principalPolicyPageResponse(f.bundle, 0),
+          currentState: null,
+        }),
+      ),
+    );
+    expect(
+      await Array.fromAsync(f.client.getProjectionPolicyHistoryPages(f.source)),
+    ).toMatchObject([{ ok: false, kind: "shape" }]);
   },
 );

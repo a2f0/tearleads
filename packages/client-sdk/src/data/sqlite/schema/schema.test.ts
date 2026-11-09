@@ -101,6 +101,7 @@ test("client sqlite schema creates tables and indexes", async () => {
       "dormant_container_metadata_organization_idx",
       "local_intents_lane_status_created_idx",
       "principal_history_entries_organization_idx",
+      "principal_history_entries_state_hash_idx",
       "principal_history_nodes_organization_idx",
       "principal_history_nodes_reclaim_idx",
       "principal_history_prefixes_key_fingerprint_idx",

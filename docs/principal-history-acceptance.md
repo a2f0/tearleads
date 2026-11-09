@@ -99,7 +99,12 @@ the [organization](./glossary/principals.md#organization) policy; see
 Discovery names the directory head the device holds, so an unchanged head costs
 a bare head reply instead of a page. Principal mutation flows keep a fresh batch
 per authority load, so their reads after a commit or a refused predecessor still
-rediscover. The current per-workflow budgets are listed under
+rediscover. A public history read names a head state the device already stores
+(one it signed, verified or cached), so the server omits that state; public
+progress still starts only from its own stage or prefix, and the device
+verifies the held copy as a served one
+([public projection history](principal-history-transport.md#public-projection-history)).
+The current per-workflow budgets are listed under
 [current-policy request costs](developer/current-principal-consumers.md#request-costs).
 
 `principalPolicyCacheForVerifiedPolicies` retains signatures and exact

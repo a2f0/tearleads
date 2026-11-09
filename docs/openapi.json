@@ -7786,7 +7786,15 @@
             }
           },
           "currentState": {
-            "$ref": "#/components/schemas/PrincipalStateResponse"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrincipalStateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The signed head state, or null when the request's `knownStateHash` named it and the client verifies its own copy."
           },
           "previousStates": {
             "type": "array",
@@ -20008,7 +20016,7 @@
       "get": {
         "operationId": "principals.history.get",
         "summary": "Page projection policy history",
-        "description": "Pages public signed policy snapshots, up to 32 predecessor states at a time, for a principal head cited by an object the caller can read. The opaque `grant` query value names that object and head, and every page rechecks current access to it. A 202 asks the client to retry the identical request after policy history is prepared.",
+        "description": "Pages public signed policy snapshots, up to 32 predecessor states at a time, for a principal head cited by an object the caller can read. The opaque `grant` query value names that object and head, and every page rechecks current access to it. A `knownStateHash` equal to that head's state hash makes every page answer `currentState: null`; the client then verifies the signed copy it holds. A 202 asks the client to retry the identical request after policy history is prepared.",
         "tags": [
           "Principals"
         ],
@@ -20034,6 +20042,19 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 9007199254740991
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "knownStateHash",
+            "required": false,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]+$",
+              "type": "string"
             },
             "style": "form"
           }
