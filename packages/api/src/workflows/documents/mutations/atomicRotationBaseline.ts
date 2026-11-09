@@ -9,6 +9,7 @@ import type {
   DocumentLinkSetMutationRequest,
   DocumentOutgoingUpdate,
 } from "@tearleads/validators/request";
+import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { isAuthenticatedReplayableBaseline } from "../../../documents/documentReplayableBaseline";
 import { loadSignerPublicKey } from "../../signerPublicKey";
@@ -88,6 +89,7 @@ export async function assertAtomicRotationBaselineCoversCommittedFrontier(
     throw new DocumentMutationError(
       "Document unlink rotation baseline is stale",
       409,
+      DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
     );
   }
 }

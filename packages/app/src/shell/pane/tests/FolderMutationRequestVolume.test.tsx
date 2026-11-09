@@ -233,16 +233,20 @@ test("folder creation, document linking, unlinking and trash have separate reque
       await expectNote(pane, "/", true);
     },
     budget: {
-      // Validate history before accepting the local unlink, then obtain fresh
-      // proof when its durable intent replays (potentially after a restart).
-      total: 8,
+      // Validate history before accepting the local unlink; its durable
+      // intent's replay reuses that proof while the document is unchanged
+      // (measured 6, 8 before). A restart, a change, or the server's
+      // stale-baseline refusal proves again. 17.9 KB sent and 32.7 KB
+      // received (44.3 KB before); keep about 10% headroom.
+      total: 6,
+      bodyBytes: { request: 20_000, response: 36_000 },
       byRequest: {
-        "GET /principals/organization/:organizationId/policy": 3,
+        "GET /principals/organization/:organizationId/policy": 2,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
         "GET /documents/:documentId/attachments": 1,
         "GET /documents/:documentId/writer-projection": 1,
-        "POST /documents/:documentId/sync": 2,
+        "POST /documents/:documentId/sync": 1,
         "POST /documents/:documentId/unlink": 1,
       },
     },
@@ -267,17 +271,21 @@ test("folder creation, document linking, unlinking and trash have separate reque
     budget: {
       // The link and unlink legs share one directory discovery and one
       // attachment listing: the unlink re-cites the envelopes the link
-      // committed (measured 7, 8 before).
-      total: 8,
+      // committed. The unchanged document still holds the proof the unlink
+      // above recorded, so the unlink leg reuses it: no sync and no document
+      // projection (measured 4, 7 before). 27.3 KB sent and 0.9 KB received
+      // (36.8 KB before); keep about 10% headroom.
+      total: 4,
+      bodyBytes: { request: 30_000, response: 1_000 },
       byRequest: {
-        "GET /principals/organization/:organizationId/policy": 2,
+        "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
         "GET /documents/:documentId/attachments": 1,
-        "GET /containers/:containerId/writer-projection": 1,
-        "GET /documents/:documentId/writer-projection": 1,
+        "GET /containers/:containerId/writer-projection": 0,
+        "GET /documents/:documentId/writer-projection": 0,
         "POST /documents/:documentId/link": 1,
-        "POST /documents/:documentId/sync": 1,
+        "POST /documents/:documentId/sync": 0,
         "POST /documents/:documentId/unlink": 1,
       },
     },

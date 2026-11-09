@@ -41,7 +41,7 @@ import { assertInitialContentFitsKind } from "./initialization/initialContent";
 import { registerInternalDocumentRelink } from "./internalRelink";
 import { countQueuedWrite } from "./localWriteQueue";
 import { setDocumentStructuredFields, setDocumentText } from "./mutations";
-import { assertDocumentStoreCanRotateContentKey } from "./rotation";
+import { assertLoadedDocumentStoreCanRotate } from "./rotation/rotationPreflight";
 import {
   addRowToDocumentStore,
   removeRowFromDocumentStore,
@@ -241,18 +241,6 @@ function requestRemoteDocumentStoreSyncAndWait(
   );
 }
 
-async function assertBackingDocumentStoreCanRotate(
-  state: DocumentStoreState,
-  scheduleSync: () => void,
-) {
-  if (!(await ensureDocumentStoreReady(state, scheduleSync)) || !state.doc) {
-    throw new Error(
-      "Document must finish loading before its content key can rotate",
-    );
-  }
-  return assertDocumentStoreCanRotateContentKey(state);
-}
-
 async function discardBackingDocumentStoreLocalState(
   state: DocumentStoreState,
   scheduleSync: () => void,
@@ -354,9 +342,9 @@ function createBackingDocumentStore(
   const store: DocumentStore = {
     addRow: (fields) =>
       liveWrite(() => addRowToDocumentStore(state, scheduleSync, fields)),
-    assertCanRotateContentKey: () =>
+    assertCanRotateContentKey: (proof) =>
       withLiveSyncLane(() =>
-        assertBackingDocumentStoreCanRotate(state, scheduleSync),
+        assertLoadedDocumentStoreCanRotate(state, scheduleSync, proof),
       ),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       liveWrite(() => attachFilesToDocumentStore(state, scheduleSync, files)),

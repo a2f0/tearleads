@@ -3182,7 +3182,10 @@
         "anyOf": [
           {
             "type": "string",
-            "const": "document_manifest_already_exists"
+            "enum": [
+              "document_manifest_already_exists",
+              "document_unlink_rotation_baseline_stale"
+            ]
           },
           {
             "type": "string",

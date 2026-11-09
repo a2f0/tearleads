@@ -488,6 +488,7 @@ export async function runQueuedDocumentMoveFixture(input: {
         "SELECT * FROM document_intent_link_targets",
       ),
       relinkInputs,
+      rotationProofModes: host.rotationProofModes,
       rootContainerId: rootProjection.containerId,
       submittedOperations,
       syncedCount,

@@ -12,6 +12,7 @@ import {
   encodeVersionVector,
 } from "@tearleads/loro";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
+import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   assertAtomicRotationBaselineCoversCommittedFrontier,
   assertBaselinelessUnlinkHasEmptyCommittedFrontier,
@@ -102,6 +103,7 @@ test("atomic rotation baseline must cover the complete committed frontier", asyn
       documentId,
     }),
   ).rejects.toMatchObject({
+    code: DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
     message: "Document unlink rotation baseline is stale",
     status: 409,
   });
