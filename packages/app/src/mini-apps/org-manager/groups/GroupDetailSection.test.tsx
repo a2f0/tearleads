@@ -3,7 +3,13 @@ import type {
   OrganizationDirectoryUser,
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  within,
+} from "@testing-library/react";
 import {
   groupDisplayName,
   groupSignedName,
@@ -29,60 +35,63 @@ const group: OrganizationGroupSummary = {
   organizationId: "organization-1",
 };
 
-test("member controls hide for non-admins and protect owner and self in built-in groups", () => {
-  const owner: OrganizationDirectoryUser = {
-    userId: "owner",
-    isPersonalOrganizationOwner: true,
-    isSelf: false,
-    status: "active",
-    createdAt: group.createdAt,
-    joinedAt: group.createdAt,
-    leaveRequest: null,
-    updatedAt: group.createdAt,
+const owner: OrganizationDirectoryUser = {
+  userId: "owner",
+  isPersonalOrganizationOwner: true,
+  isSelf: false,
+  status: "active",
+  createdAt: group.createdAt,
+  joinedAt: group.createdAt,
+  leaveRequest: null,
+  updatedAt: group.createdAt,
+  profileDocumentId: null,
+  disabledAt: null,
+  disabledByUserId: null,
+  signingKeyFingerprint: "signing-fingerprint",
+  signingPublicKey: "signing-key",
+  encapsulationKeyFingerprint: "kem-fingerprint",
+  encapsulationPublicKey: "kem-key",
+};
+
+const memberControlProps = {
+  addUser: () => undefined,
+  addUserId: "",
+  addUserListId: "add-user-list",
+  addableUsers: [],
+  canMutateSelectedGroup: true,
+  directory: {
+    organizationId: group.organizationId,
+    currentUser: { isOrgAdmin: true },
     profileDocumentId: null,
-    disabledAt: null,
-    disabledByUserId: null,
-    signingKeyFingerprint: "signing-fingerprint",
-    signingPublicKey: "signing-key",
-    encapsulationKeyFingerprint: "kem-fingerprint",
-    encapsulationPublicKey: "kem-key",
-  };
-  const props = {
-    addUser: () => undefined,
-    addUserId: "",
-    addUserListId: "add-user-list",
-    addableUsers: [],
-    canMutateSelectedGroup: true,
-    directory: {
-      organizationId: group.organizationId,
-      currentUser: { isOrgAdmin: true },
-      profileDocumentId: null,
-      users: [owner],
-    },
-    groupContainers: null,
-    groupPolicyHistory: null,
-    members: {
-      groupId: group.groupId,
-      organizationId: group.organizationId,
-      members: ["owner", "peer"].map((userId) => ({
-        signingKeyFingerprint: owner.signingKeyFingerprint,
-        signingPublicKey: owner.signingPublicKey,
-        encapsulationKeyFingerprint: owner.encapsulationKeyFingerprint,
-        encapsulationPublicKey: owner.encapsulationPublicKey,
-        userId,
-        role: "admin" as const,
-      })),
-    },
-    memberUserIds: new Set(["owner", "peer"]),
-    mutating: false,
-    pending: false,
-    openGroupContextMenu: () => undefined,
-    openRosterUser: () => undefined,
-    removeMember: () => undefined,
-    selectedGroup: group,
-    setAddUserId: () => undefined,
-    userId: "peer",
-  };
+    users: [owner],
+  },
+  groupContainers: null,
+  groupPolicyHistory: null,
+  members: {
+    groupId: group.groupId,
+    organizationId: group.organizationId,
+    members: ["owner", "peer"].map((userId) => ({
+      signingKeyFingerprint: owner.signingKeyFingerprint,
+      signingPublicKey: owner.signingPublicKey,
+      encapsulationKeyFingerprint: owner.encapsulationKeyFingerprint,
+      encapsulationPublicKey: owner.encapsulationPublicKey,
+      userId,
+      role: "admin" as const,
+    })),
+  },
+  memberUserIds: new Set(["owner", "peer"]),
+  mutating: false,
+  pending: false,
+  openGroupContextMenu: () => undefined,
+  openRosterUser: () => undefined,
+  removeMember: () => undefined,
+  selectedGroup: group,
+  setAddUserId: () => undefined,
+  userId: "peer",
+};
+
+test("member controls hide for non-admins and protect owner and self in built-in groups", () => {
+  const props = memberControlProps;
   const enabledRemoveButtons = () =>
     view
       .getAllByRole("button", { name: ORG_MANAGER_LABELS.remove })
@@ -127,6 +136,50 @@ test("member controls hide for non-admins and protect owner and self in built-in
     expect(view.getByTitle("owner")).toBeTruthy();
     expect(view.getByTitle("peer")).toBeTruthy();
   }
+});
+
+test("removing a member spins only that member's Remove until it settles", async () => {
+  const removal = Promise.withResolvers<void>();
+  const removedUserIds: string[] = [];
+  const view = render(
+    <GroupDetailSection
+      {...memberControlProps}
+      removeMember={(removedUserId) => {
+        removedUserIds.push(removedUserId);
+        return removal.promise;
+      }}
+      selectedGroup={{ ...group, isBuiltin: false, name: "Operators" }}
+    />,
+  );
+  const removeButtonFor = (userId: string) =>
+    within(
+      view.getByTitle(userId).closest(".org-manager-member-row") as HTMLElement,
+    ).getByRole("button", { name: ORG_MANAGER_LABELS.remove });
+
+  fireEvent.click(removeButtonFor("owner"));
+
+  expect(removedUserIds).toEqual(["owner"]);
+  expect(
+    removeButtonFor("owner").querySelector(".mini-app-button-spinner"),
+  ).not.toBeNull();
+  expect(removeButtonFor("owner").getAttribute("aria-busy")).toBe("true");
+  expect(
+    removeButtonFor("peer").querySelector(".mini-app-button-spinner"),
+  ).toBeNull();
+  expect(
+    view
+      .getByRole("button", { name: ORG_MANAGER_LABELS.add })
+      .querySelector(".mini-app-button-spinner"),
+  ).toBeNull();
+
+  await act(async () => {
+    removal.resolve();
+    await removal.promise;
+  });
+
+  expect(
+    removeButtonFor("owner").querySelector(".mini-app-button-spinner"),
+  ).toBeNull();
 });
 
 test("a group whose signed name does not open shows a placeholder", () => {

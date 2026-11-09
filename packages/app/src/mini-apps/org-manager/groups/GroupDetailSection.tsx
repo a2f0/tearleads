@@ -32,6 +32,7 @@ import {
 import { PolicyHistorySection } from "../policy-history/PolicyHistory";
 import { GroupContainers } from "./GroupContainers";
 import { GroupMembers } from "./GroupMembers";
+import { useGroupMemberAction } from "./useGroupMemberAction";
 
 type GroupDetailTabId = "members" | "policy-history" | "links";
 
@@ -71,6 +72,62 @@ function GroupDetailHeader({
           : ORG_MANAGER_LABELS.noPolicy}
       </span>
     </MiniAppHeader>
+  );
+}
+
+function GroupAddMemberToolbar({
+  addableUsers,
+  adding,
+  addUserId,
+  addUserListId,
+  memberUserIds,
+  members,
+  mutating,
+  onAdd,
+  profileDisplayNamesByUserId,
+  setAddUserId,
+}: {
+  addableUsers: ReadonlyArray<OrganizationDirectoryUser>;
+  adding: boolean;
+  addUserId: string;
+  addUserListId: string;
+  memberUserIds: ReadonlySet<string>;
+  members: OrganizationGroupMembers | null;
+  mutating: boolean;
+  onAdd: () => void;
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
+  setAddUserId: (userId: string) => void;
+}) {
+  return (
+    <MiniAppToolbar className="org-manager-form-toolbar">
+      <MiniAppInput
+        aria-label={ORG_MANAGER_LABELS.rosterIdentity}
+        disabled={mutating}
+        list={addUserListId}
+        onChange={(event) => setAddUserId(event.target.value)}
+        placeholder="Select a roster user or paste an identity link"
+        value={addUserId}
+      />
+      <datalist id={addUserListId}>
+        {addableUsers.map((user) => (
+          <option key={user.userId} value={user.userId}>
+            {getRosterUserLabel(user, profileDisplayNamesByUserId)}
+          </option>
+        ))}
+      </datalist>
+      <MiniAppButton
+        disabled={
+          mutating ||
+          !members ||
+          addUserId.trim().length === 0 ||
+          memberUserIds.has(addUserId.trim())
+        }
+        onClick={onAdd}
+        loading={adding}
+      >
+        {ORG_MANAGER_LABELS.add}
+      </MiniAppButton>
+    </MiniAppToolbar>
   );
 }
 
@@ -115,14 +172,14 @@ export function GroupDetailSection({
   ) => void;
   openRosterUser: (userId: string) => void;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
-  removeMember: (userId: string) => void;
+  removeMember: (userId: string) => void | Promise<void>;
   selectedGroup: OrganizationGroupSummary;
   setAddUserId: (userId: string) => void;
   userId: string | null;
 }) {
   const idPrefix = useId();
   const [activeTab, setActiveTab] = useState<GroupDetailTabId>("members");
-  const [addingToGroupId, setAddingToGroupId] = useState<string | null>(null);
+  const memberAction = useGroupMemberAction(selectedGroup.groupId);
 
   return (
     <section className="org-manager-panel">
@@ -145,42 +202,18 @@ export function GroupDetailSection({
         {activeTab === "members" ? (
           <>
             {canMutateSelectedGroup ? (
-              <MiniAppToolbar className="org-manager-form-toolbar">
-                <MiniAppInput
-                  aria-label={ORG_MANAGER_LABELS.rosterIdentity}
-                  disabled={mutating}
-                  list={addUserListId}
-                  onChange={(event) => setAddUserId(event.target.value)}
-                  placeholder="Select a roster user or paste an identity link"
-                  value={addUserId}
-                />
-                <datalist id={addUserListId}>
-                  {addableUsers.map((user) => (
-                    <option key={user.userId} value={user.userId}>
-                      {getRosterUserLabel(user, profileDisplayNamesByUserId)}
-                    </option>
-                  ))}
-                </datalist>
-                <MiniAppButton
-                  disabled={
-                    mutating ||
-                    !members ||
-                    addUserId.trim().length === 0 ||
-                    memberUserIds.has(addUserId.trim())
-                  }
-                  onClick={async () => {
-                    setAddingToGroupId(selectedGroup.groupId);
-                    try {
-                      await addUser();
-                    } finally {
-                      setAddingToGroupId(null);
-                    }
-                  }}
-                  loading={addingToGroupId === selectedGroup.groupId}
-                >
-                  {ORG_MANAGER_LABELS.add}
-                </MiniAppButton>
-              </MiniAppToolbar>
+              <GroupAddMemberToolbar
+                addableUsers={addableUsers}
+                adding={memberAction.adding}
+                addUserId={addUserId}
+                addUserListId={addUserListId}
+                memberUserIds={memberUserIds}
+                members={members}
+                mutating={mutating}
+                onAdd={() => void memberAction.add(addUser)}
+                profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+                setAddUserId={setAddUserId}
+              />
             ) : null}
             <MiniAppSection>
               <MiniAppSectionHeading>
@@ -200,7 +233,12 @@ export function GroupDetailSection({
                     : null
                 }
                 protectSelf={selectedGroup.isBuiltin}
-                removeMember={removeMember}
+                removeMember={(removedUserId) =>
+                  void memberAction.remove(removedUserId, () =>
+                    removeMember(removedUserId),
+                  )
+                }
+                removingUserId={memberAction.removingUserId}
                 userId={userId}
               />
             </MiniAppSection>

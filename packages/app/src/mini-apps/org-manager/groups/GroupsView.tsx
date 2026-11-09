@@ -40,7 +40,7 @@ interface GroupsViewProps {
   openCreateGroupDialog: () => void;
   openRosterUser: (userId: string) => void;
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;
-  removeMember: (userId: string) => void;
+  removeMember: (userId: string) => void | Promise<void>;
   selectedGroup: OrganizationGroupSummary | null;
   selectedGroupId: string | null;
   selectGroup: (groupId: string | null) => void;
