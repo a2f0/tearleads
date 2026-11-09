@@ -8,6 +8,7 @@ import {
 import {
   isPrincipalPolicySnapshotPage,
   type PrincipalPolicySnapshotPage,
+  type PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
@@ -16,6 +17,11 @@ import { loadHeldPrincipalState } from "../../../data/persistence/principalPolic
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { PrincipalPolicyHistoryReadError } from "../historyRecovery/principalHistoryRecoveryTypes";
+import {
+  type HeldHeadState,
+  initialHeldHeadState,
+  transitionHeldHeadState,
+} from "./heldHeadStateMachine";
 import { PublicHistoryAuthorityUnavailableError } from "./publicPrincipalHistoryAuthority";
 import {
   appendPublicPrincipalHistoryPage,
@@ -31,10 +37,9 @@ import type {
   RecoveredPublicPrincipalHistory,
 } from "./publicPrincipalHistoryTypes";
 
-/** Whether this attempt may name a held head state, and whether it did. */
-interface HeldHeadState {
-  readonly allowed: boolean;
-  sent: boolean;
+/** The attempt's held-head machine; written only through its transition. */
+interface HeldHeadCell {
+  state: HeldHeadState;
 }
 
 function assertPage(
@@ -67,10 +72,29 @@ function assertPage(
     );
 }
 
+/**
+ * A held copy of the head replaces only its download; the final page appends
+ * and checks it exactly as a served state.
+ */
+async function loadHeldHead(
+  input: PublicPrincipalHistoryOptions,
+  held: HeldHeadCell,
+): Promise<PrincipalStateResponse | undefined> {
+  const knownCurrentState =
+    held.state.status === "eligible"
+      ? ((await loadHeldPrincipalState(input.execSql, input.source.head)) ??
+        undefined)
+      : undefined;
+  held.state = transitionHeldHeadState(held.state, {
+    type: knownCurrentState ? "heldLoaded" : "heldMissing",
+  });
+  return knownCurrentState;
+}
+
 async function readPublicPages(
   input: PublicPrincipalHistoryOptions,
   initial: PublicPrincipalHistoryProgress,
-  held: HeldHeadState,
+  held: HeldHeadCell,
 ) {
   const current = () => !input.signal?.aborted && input.stillCurrent();
   let progress = initial;
@@ -78,13 +102,7 @@ async function readPublicPages(
   // Completed progress already verified every signed entry through the cited
   // head; a read pinned to that head could only repeat it or refuse.
   if (!input.offline && !progress.completedHead) {
-    // A held copy of the head replaces only its download; the final page
-    // appends and checks it exactly as a served state.
-    const knownCurrentState = held.allowed
-      ? ((await loadHeldPrincipalState(input.execSql, input.source.head)) ??
-        undefined)
-      : undefined;
-    held.sent = knownCurrentState !== undefined;
+    const knownCurrentState = await loadHeldHead(input, held);
     for await (const result of input.historyReader.getProjectionPolicyHistoryPages(
       input.source,
       {
@@ -160,7 +178,7 @@ async function recoverAttempt(
   input: PublicPrincipalHistoryOptions,
   allowReuse: boolean,
   rejectedPrefix: PrincipalHistoryPrefix | null,
-  held: HeldHeadState,
+  held: HeldHeadCell,
 ): Promise<RecoveredPublicPrincipalHistory> {
   const current = () => !input.signal?.aborted && input.stillCurrent();
   assertProjectionVerificationCurrent(current);
@@ -230,22 +248,23 @@ async function recover(
   useHeldState = true,
 ): Promise<RecoveredPublicPrincipalHistory> {
   // A replay distrusts local material, so it reads the served head as well.
-  const held: HeldHeadState = {
-    allowed: useHeldState && allowReuse,
-    sent: false,
+  const held: HeldHeadCell = {
+    state: initialHeldHeadState(useHeldState && allowReuse),
   };
   try {
     return await recoverAttempt(input, allowReuse, rejectedPrefix, held);
   } catch (error) {
     // A held head copy only saves its download; one the verifier rejects must
     // not block recovery, so read the served copy once instead.
-    if (held.sent && error instanceof KeyingVerificationError)
+    if (
+      held.state.status === "heldSent" &&
+      error instanceof KeyingVerificationError
+    )
       return recover(input, allowReuse, rejectedPrefix, false);
     if (!(error instanceof PublicHistoryAuthorityUnavailableError)) throw error;
     if (allowReuse && !input.offline)
       return recoverAttempt(input, false, error.rejectedPrefix, {
-        allowed: false,
-        sent: false,
+        state: initialHeldHeadState(false),
       });
     throw error.verificationError;
   }
