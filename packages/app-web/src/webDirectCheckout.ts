@@ -208,7 +208,6 @@ type MountCallbacks = Pick<
  * The two Stripe elements share one Elements group and one host: the Contact
  * Details element (Stripe's own email field) above the Payment Element, so
  * the email reads as part of Stripe's form rather than an app field on top.
- * Each element's frame loads on its own; the form is ready once both are.
  */
 function mountElements(
   elements: StripeElements,
@@ -227,11 +226,24 @@ function mountElements(
   host.append(emailHost, paymentHost);
   const wrappers = [emailHost, paymentHost];
 
+  // Each frame loads on its own: the form is ready once both have rendered,
+  // and failed as soon as either cannot load.
   const loading = new Set(["contactDetails", "payment"]);
+  let failed = false;
   const markReady = (type: string) => () => {
-    if (loading.delete(type) && loading.size === 0) {
+    if (!failed && loading.delete(type) && loading.size === 0) {
       callbacks.onReady();
     }
+  };
+  // Stripe reports a plain object; an Error carries it to diagnostics.
+  const markFailed = (event: { error: unknown }) => {
+    if (failed) return;
+    failed = true;
+    callbacks.onLoadError(
+      new Error("The payment form could not be loaded.", {
+        cause: event.error,
+      }),
+    );
   };
   let billingEmail: string | null = null;
   try {
@@ -242,6 +254,7 @@ function mountElements(
       callbacks.onBillingEmailChange(billingEmail);
     });
     contact.on("ready", markReady("contactDetails"));
+    contact.on("loaderror", markFailed);
     contact.mount(emailHost);
     // The email belongs to the Contact Details element above, not the card
     // form; `never` here obliges confirm to send it explicitly.
@@ -249,14 +262,7 @@ function mountElements(
       fields: { billingDetails: { email: "never" } },
     });
     payment.on("ready", markReady("payment"));
-    // Stripe reports a plain object; an Error carries it to diagnostics.
-    payment.on("loaderror", (event) => {
-      callbacks.onLoadError(
-        new Error("The payment form could not be loaded.", {
-          cause: event.error,
-        }),
-      );
-    });
+    payment.on("loaderror", markFailed);
     payment.mount(paymentHost);
   } catch (mountError) {
     // No session exists to unmount a half-built form; a retry would stack a

@@ -56,3 +56,22 @@ test("a payment element that fails to load reports an Error carrying Stripe's", 
   expect((errors[0] as Error).cause).toBe(failure);
   expect(reports).toEqual([]);
 });
+
+test("either element failing to load fails the form once and never readies it", async () => {
+  const { emit, stripe } = fakeStripe();
+  const { errors, reports, session } = mountWith(stripe);
+  await session;
+  const failure = { type: "api_connection_error" };
+
+  emit("contactDetails", "loaderror", {
+    elementType: "contactDetails",
+    error: failure,
+  });
+  emit("payment", "loaderror", { elementType: "payment", error: failure });
+  emit("payment", "ready");
+  emit("contactDetails", "ready");
+
+  expect(errors).toHaveLength(1);
+  expect((errors[0] as Error).cause).toBe(failure);
+  expect(reports).toEqual([]);
+});
