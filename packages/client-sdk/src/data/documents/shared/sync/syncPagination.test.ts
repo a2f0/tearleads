@@ -19,47 +19,18 @@ import { submitDocumentSync } from "./syncResponses";
 
 const DOCUMENT_ID = "document-1";
 
-function contentKeyBundle(contentKeyEpoch: number) {
-  return {
-    contentKeyEpoch,
-    documentId: DOCUMENT_ID,
-    linkSetManifestHash: "manifest-1",
-    targetHash: "targets-1",
-    targets: [
-      {
-        containerId: "container-1",
-        containerKeyEpoch: 1,
-        containerKeyEpochId: "container-key-1",
-        containerManifestHash: "container-manifest-1",
-        wrappedKey: "wrapped-key",
-        wrappingMetadata: {},
-      },
-    ],
-  };
-}
-
 function response(input: {
   readonly commitLsn: string;
   readonly cursor: string | null;
   readonly updateId: string;
 }): DocumentSyncResponse {
-  const bundle = contentKeyBundle(1);
   return {
     acceptedOutgoingUpdateIds:
       input.updateId === "update-1" ? ["outgoing-1"] : [],
     commitLsn: input.commitLsn,
     commitLsnMode: "tracked",
-    contentKeyBundle: bundle,
     contentKeyBundles: [],
     documentId: DOCUMENT_ID,
-    documentKekTargets: {
-      documentId: DOCUMENT_ID,
-      documentKeyTargetHash: "targets-1",
-      linkedContainerKeyEpochIds: ["container-key-1"],
-      linkedContainerManifestHashes: ["container-manifest-1"],
-      linkSetManifestHash: "manifest-1",
-      targets: [{}],
-    },
     pullPage: {
       hasMore: input.cursor !== null,
       nextCursor: input.cursor,

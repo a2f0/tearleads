@@ -1,6 +1,7 @@
 import {
   type AccessManifestBundleWireResponse,
   type DocumentContentKeyBundleResponse,
+  type DocumentKekTargetsResponse,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
   isAccessManifestBundleWireResponse,
@@ -122,7 +123,7 @@ function parsePersistedDocumentSyncState(
   documentId: string,
 ): {
   contentKeyBundle: DocumentContentKeyBundleResponse;
-  documentKekTargets: DocumentSyncResponse["documentKekTargets"];
+  documentKekTargets: DocumentKekTargetsResponse;
   documentManifest: AccessManifestBundleWireResponse;
 } | null {
   if (persistedState?.documentId !== documentId) {
@@ -148,7 +149,6 @@ function parsePersistedDocumentSyncState(
   if (!contentKeyBundle || !documentKekTargets || !documentManifest) {
     return null;
   }
-
   return {
     contentKeyBundle,
     documentKekTargets,

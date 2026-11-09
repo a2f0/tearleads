@@ -14,6 +14,7 @@ import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
+  policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
@@ -353,16 +354,14 @@ test("a verified Admins member can mutate another group after the signed directo
           previous: currentOrganizationPolicy,
         });
         return {
-          groupPolicy: {
-            ...(principalId === adminGroupId
+          groupPolicy: policyReceiptFromBundle(
+            principalId === adminGroupId
               ? currentAdminPolicy
-              : currentGroupPolicy),
-            containerMutations: [],
-          },
-          organizationPolicy: {
-            ...currentOrganizationPolicy,
-            containerMutations: [],
-          },
+              : currentGroupPolicy,
+          ),
+          organizationPolicy: policyReceiptFromBundle(
+            currentOrganizationPolicy,
+          ),
         };
       },
     };

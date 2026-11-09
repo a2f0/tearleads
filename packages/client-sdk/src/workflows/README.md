@@ -384,16 +384,16 @@ downloaded attachments, without detached rows, counted once per storage key.
 Group mutations are authorized through the verified reserved `Admins` policy.
 Before committing a principal rotation, the client derives the complete
 container batch from verified writer projections; the API atomically rejects
-any transition that leaves a stale principal pin. Policy mutation receipts omit
-the historical prefix. The client verifies the exact authored state and
-artifacts. Built-in member changes and group revocation use bounded current
-evidence and atomically retain authenticated progress. The public
-`OrganizationGroupMutationReceipt` omits `previousStates`; explicit standalone
-complete-bundle utilities retain their own contracts. `addUserToGroup` and
-`removeUserFromGroup` return `OrganizationGroupMutationResult`: that receipt as
-`.receipt`, plus `.directoryAndGroups`, the read model reconciled after the
-commit (`undefined` when that reconcile was declined offline), which callers
-apply instead of reading the read model again. See
+any transition that leaves a stale principal pin. Policy mutation receipts name
+the committed head; the client refuses any other head than its authored state's
+and rebuilds the current artifacts from its request. Built-in member changes
+and group revocation use bounded current evidence and atomically retain
+authenticated progress. The public `OrganizationGroupMutationReceipt` is that
+head acknowledgement; standalone complete-bundle utilities keep their own
+contracts. `addUserToGroup` and `removeUserFromGroup` return
+`OrganizationGroupMutationResult`: that receipt as `.receipt`, plus
+`.directoryAndGroups`, the read model reconciled after the commit (`undefined`
+when declined offline), which callers apply instead of reading it again. See
 [current mutations](../../../../docs/developer/principal-current-mutations.md).
 
 ### Policy history

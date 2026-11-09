@@ -3,7 +3,6 @@ import { principalPolicyCommits } from "@tearleads/api-shared/schema";
 import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "../organizations/access";
-import { principalHistoryHead } from "./principalHistoryRecords";
 import { lockPrincipalMutationInTransaction } from "./principalMutationLock";
 import type { PutPrincipalPolicyInput } from "./principalPolicyMutationAuthorization";
 import { principalPolicyOutcomeHash } from "./principalPolicyOutcomeHash";
@@ -72,7 +71,7 @@ export async function principalOrganizationPolicyOutcome(
         organizationId,
         groupId: null,
         requesterUserId: input.requesterUserId,
-        responseJson: JSON.stringify(principalHistoryHead(policy.currentState)),
+        responseJson: JSON.stringify(policy.head),
       });
     },
   };

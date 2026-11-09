@@ -111,7 +111,7 @@ test("a restarted SDK process recovers its exact disk journal after acknowledgem
         ...signing,
         version: 2,
         keyEpoch: 2,
-        prevStateHash: first.groupPolicy.currentState.stateHash,
+        prevStateHash: first.groupPolicy.head.stateHash,
       }),
     });
     const otherDevice = new ApiClient(server.url.origin);

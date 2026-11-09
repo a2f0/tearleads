@@ -11,6 +11,7 @@ import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
+  policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
@@ -86,11 +87,11 @@ test("a group share does not acknowledge a policy after its generation expires d
           );
           current = false;
           return {
-            groupPolicy: { ...groupPolicy, containerMutations },
-            organizationPolicy: {
-              ...organizationPolicy,
-              containerMutations: [],
-            },
+            groupPolicy: policyReceiptFromBundle({
+              ...groupPolicy,
+              containerMutations,
+            }),
+            organizationPolicy: policyReceiptFromBundle(organizationPolicy),
           };
         },
         getContainerWriterProjectionResult: async () => ({

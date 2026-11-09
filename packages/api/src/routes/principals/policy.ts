@@ -151,9 +151,9 @@ export function createPrincipalPolicyRoute({
           await publishPrincipalAccessChanges(
             publish,
             [
-              result.policy.groupPolicy.currentState,
+              result.policy.groupPolicy.head,
               ...(result.policy.memberPolicy
-                ? [result.policy.memberPolicy.currentState]
+                ? [result.policy.memberPolicy.head]
                 : []),
             ],
             result.sharedWithYouUserIds,

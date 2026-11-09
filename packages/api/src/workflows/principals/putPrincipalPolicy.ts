@@ -19,7 +19,6 @@ import {
   candidateContainerIdsForPrincipalState,
   persistPrincipalPolicyAccessLossTombstones,
 } from "./accessLossTombstones";
-import { getVerifiedPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
 import { assertGroupPolicyNamePreserved } from "./groupPolicyName";
 import {
   lockGroupPolicyRematerializationInTransaction,
@@ -35,6 +34,7 @@ import { applyPrincipalContainerRematerializations } from "./principalContainerR
 import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
 import { lockPrincipalMutationInTransaction } from "./principalMutationLock";
 import { principalOrganizationPolicyOutcome } from "./principalOrganizationPolicyOutcome";
+import { toPrincipalPolicyMutationResponse } from "./principalPolicyAcknowledgement";
 import { assertPolicyAuthorityConstraints } from "./principalPolicyAuthorityConstraints";
 import {
   isOrgAdminAuthorizedPrincipalPolicySigner,
@@ -304,11 +304,7 @@ async function applyPrincipalPolicyInTransaction(
   if (previousState?.stateHash === nextState.stateHash) {
     const containerMutations = await applyRematerializations();
     return {
-      policy: {
-        ...(await getVerifiedPrincipalPolicyForStateWithExecutor(tx, nextState))
-          .bundle,
-        containerMutations,
-      },
+      policy: toPrincipalPolicyMutationResponse(nextState, containerMutations),
       sharedWithYouUserIds: [],
     };
   }
@@ -326,11 +322,7 @@ async function applyPrincipalPolicyInTransaction(
   });
   const containerMutations = await applyRematerializations();
   return {
-    policy: {
-      ...(await getVerifiedPrincipalPolicyForStateWithExecutor(tx, nextState))
-        .bundle,
-      containerMutations,
-    },
+    policy: toPrincipalPolicyMutationResponse(nextState, containerMutations),
     sharedWithYouUserIds,
   };
 }

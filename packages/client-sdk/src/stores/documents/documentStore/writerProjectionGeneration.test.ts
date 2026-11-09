@@ -214,13 +214,14 @@ test("an attachment upload settled after a hint leaves the projection empty", as
       request: {
         body: {},
         contentKeyBundle: { targetHash: "target-hash", targets: [] },
-        event: {},
+        event: { organizationId: "organization-1" },
         stagedBlob: { stageId: "stage-1", writeHeader: {} },
       },
       response: {
         bindingId: "binding-1",
+        blobAccessManifestHash: "blob-access-manifest-hash",
         blobId: "blob-1",
-        blobKekTargets: {},
+        blobKeyTargetHash: "target-hash",
         contentKeyEpoch: 1,
         documentManifestHash: "manifest-1",
         eventHash: "event-hash",

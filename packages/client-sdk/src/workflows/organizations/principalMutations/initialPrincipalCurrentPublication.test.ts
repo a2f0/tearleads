@@ -69,7 +69,7 @@ test.each([
       if (!group || !directory) throw new Error("Missing coupled publication");
       const before = await f.db.select().from(principalHistoryPrefixes);
       if (mode === "directoryReceipt")
-        directory.response.currentState.signature = "invalid";
+        directory.response.head.stateHash = "0".repeat(64);
       if (mode === "notGenesis") group.request.state.version = 2;
       if (mode === "missingDirectory") f.publication.entries.pop();
       if (mode === "strictMode")

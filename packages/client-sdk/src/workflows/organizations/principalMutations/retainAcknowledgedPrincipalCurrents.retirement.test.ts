@@ -3,6 +3,7 @@ import { currentPolicyPublicationFixture } from "../../../../test/helpers/curren
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import {
   policyBundleAfterMutation,
+  policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
@@ -24,10 +25,12 @@ test("a retirement persists a grant present only in the acknowledged predecessor
       f.publication,
     );
     const [group, directory] = f.publication.entries;
+    const groupBundle = f.response;
+    const directoryBundle = f.organizationBundle;
     const identity = await history.resolveTrustedUserIdentity(
       history.signerUserId,
     );
-    const containerId = group?.response.currentGrants[0]?.containerId;
+    const containerId = groupBundle.currentGrants[0]?.containerId;
     if (
       !verifiedCurrentPolicy ||
       !group ||
@@ -43,7 +46,7 @@ test("a retirement persists a grant present only in the acknowledged predecessor
     };
     const request = await buildGroupAccessSetShrinkPolicyRequest({
       ...signer,
-      currentPolicy: group.response,
+      currentPolicy: groupBundle,
       verifiedCurrentPolicy,
       localPolicyCheckpoint: verifiedCurrentPolicy.checkpoint,
       currentOrgAdminUserIds: [history.signerUserId],
@@ -54,14 +57,14 @@ test("a retirement persists a grant present only in the acknowledged predecessor
     });
     expect(request.grants).toEqual([]);
     const descriptor = parseOrganizationAuthorityDescriptor(
-      directory.response.currentPayload.ciphertext,
+      directoryBundle.currentPayload.ciphertext,
     );
     const organizationRequest =
       await buildOrganizationGroupDirectoryPolicyRequest({
         ...signer,
         adminProjection: history.admin.currentProjection,
         adminUsers: [identity],
-        currentPolicy: directory.response,
+        currentPolicy: directoryBundle,
         descriptor,
         groupHeads: replaceOrganizationGroupHead({
           descriptor,
@@ -69,7 +72,7 @@ test("a retirement persists a grant present only in the acknowledged predecessor
         }),
       });
     const response = await policyBundleAfterMutation({
-      previous: group.response,
+      previous: groupBundle,
       mutation: request,
     });
     await retainAcknowledgedPrincipalCurrents({
@@ -78,29 +81,31 @@ test("a retirement persists a grant present only in the acknowledged predecessor
         {
           predecessor: await captureAcknowledgedPrincipalPredecessor({
             ...group.recovery,
-            expectedHead: principalPolicyHead(group.response),
+            expectedHead: principalPolicyHead(groupBundle),
           }),
           recovery: {
             ...group.recovery,
-            expectedHead: principalPolicyHead(group.response),
+            expectedHead: principalPolicyHead(groupBundle),
           },
           request,
-          response,
+          response: policyReceiptFromBundle(response),
         },
         {
           predecessor: await captureAcknowledgedPrincipalPredecessor({
             ...directory.recovery,
-            expectedHead: principalPolicyHead(directory.response),
+            expectedHead: principalPolicyHead(directoryBundle),
           }),
           recovery: {
             ...directory.recovery,
-            expectedHead: principalPolicyHead(directory.response),
+            expectedHead: principalPolicyHead(directoryBundle),
           },
           request: organizationRequest,
-          response: await policyBundleAfterMutation({
-            previous: directory.response,
-            mutation: organizationRequest,
-          }),
+          response: policyReceiptFromBundle(
+            await policyBundleAfterMutation({
+              previous: directoryBundle,
+              mutation: organizationRequest,
+            }),
+          ),
         },
       ],
       retirements: [

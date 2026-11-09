@@ -182,8 +182,7 @@ test("SDK decrypts a historical binding after ancestor head changes and document
       expectedBindingId: null,
       slotId: "preview",
     });
-    if (!uploaded?.response.blobKekTargets)
-      throw new Error("Expected encrypted attachment");
+    if (!uploaded?.response) throw new Error("Expected encrypted attachment");
     const encrypted = await apiClient.getBlobBytes(uploaded.blobId);
     if (!encrypted) throw new Error("Expected stored encrypted blob bytes");
     const encryptedBytes = new Uint8Array(

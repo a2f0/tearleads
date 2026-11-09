@@ -210,21 +210,11 @@ test("blobs uploaded after a revoking KEK rotation wrap only the rotated KEK", a
           const writeHeaderHash = await computeWriteHeaderHash(
             request.stagedBlob.writeHeader as unknown as WriteHeader,
           );
-          const blobKekTargets = {
-            blobId,
-            organizationId: parent.projection.organizationId,
-            activeBindingIds: [bindingId],
-            documentManifestHashes: [createdDocument.plan.manifestHash],
-            linkedContainerManifestHashes,
-            linkedContainerKeyEpochIds,
-            targets: targets.map((target) => ({ ...target })),
-            blobKeyTargetHash: request.contentKeyBundle.targetHash,
-            blobAccessManifestHash,
-          };
           return {
             bindingId,
+            blobAccessManifestHash,
             blobId,
-            blobKekTargets,
+            blobKeyTargetHash: request.contentKeyBundle.targetHash,
             contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
             documentId: createdDocument.plan.documentId,
             documentManifestHash: createdDocument.plan.manifestHash,

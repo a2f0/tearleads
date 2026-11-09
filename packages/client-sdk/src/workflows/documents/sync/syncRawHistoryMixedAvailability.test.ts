@@ -101,7 +101,7 @@ test("decryptable poison outranks an unavailable raw-history sibling", async () 
 
     const error = await unwrapDocumentSyncResponseContentKeys({
       currentContentKey: materializedPlan.contentKey,
-      currentContentKeyEpoch: materializedPlan.plan.contentKeyEpoch,
+      currentContentKeyBundle: materializedPlan.plan.sourceContentKeyBundle,
       execSql,
       historyMode: "raw",
       onRawHistoryUnavailable: ({ contentKeysByEpoch, updates }) =>
@@ -218,7 +218,7 @@ test("an unrelated unresolved update outranks raw-history availability", async (
 
     const error = await unwrapDocumentSyncResponseContentKeys({
       currentContentKey: materializedPlan.contentKey,
-      currentContentKeyEpoch: materializedPlan.plan.contentKeyEpoch,
+      currentContentKeyBundle: materializedPlan.plan.sourceContentKeyBundle,
       execSql,
       historyMode: "raw",
       onRawHistoryUnavailable: ({ contentKeysByEpoch, updates }) =>

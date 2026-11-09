@@ -106,18 +106,21 @@ export async function createCurrentOrganizationGroup(input: {
   );
   assertProjectionVerificationCurrent(context.stillCurrent);
   if (!stored) throw new Error("Group could not be created");
-  // Genesis really has one signed state. Reconstruct only the exact authored
-  // artifacts whose commitments match the summary, then verify them privately.
-  const { bundle } = await acknowledgeInitialGroupPolicy({
+  // Genesis really has one signed state. Its acknowledgement is the summary;
+  // the retained current is rebuilt from the exact authored request.
+  await acknowledgeInitialGroupPolicy({
     organizationId: input.organizationId,
     request,
     response: stored.group,
     stateHash: head.stateHash,
   });
-  const { previousStates: _previousStates, ...current } = bundle;
   await context.retainCreatedGroup({
     request: request.initialGroupPolicy,
-    response: { ...current, containerMutations: [] },
+    response: {
+      head,
+      createdAt: stored.group.createdAt,
+      containerMutations: [],
+    },
     organizationRequest,
     organizationResponse: stored.organizationPolicy,
   });

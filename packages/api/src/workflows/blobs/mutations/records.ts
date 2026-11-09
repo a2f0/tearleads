@@ -228,8 +228,9 @@ export function toBindResponse(input: {
 }): BlobAttachmentBindResponse {
   return {
     bindingId: input.binding.bindingId,
+    blobAccessManifestHash: input.currentTargets.blobAccessManifestHash,
     blobId: input.blobId,
-    blobKekTargets: toBlobKekTargetsResponse(input.currentTargets),
+    blobKeyTargetHash: input.currentTargets.blobKeyTargetHash,
     contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
     documentId: input.binding.documentId,
     documentManifestHash: input.binding.documentManifestHash,

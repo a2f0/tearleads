@@ -45,43 +45,13 @@ function createSyncRequest() {
     supportsPullPagination: true,
   };
 }
-function createContentKeyBundleResponse() {
-  return {
-    contentKeyEpoch: 1,
-    documentId: "document-1",
-    linkSetManifestHash: "document-link-set-hash",
-    targetHash: "target-hash",
-    targets: [
-      {
-        containerId: "container-1",
-        containerKeyEpoch: 1,
-        containerKeyEpochId: "container-key-epoch-id",
-        containerManifestHash: "container-manifest-hash",
-        ...contentKeyEnvelopeFixture("document"),
-      },
-    ],
-  };
-}
-function createKekTargetsResponse() {
-  return {
-    documentId: "document-1",
-    documentKeyTargetHash: "document-key-target-hash",
-    linkedContainerKeyEpochIds: ["container-key-epoch-id"],
-    linkedContainerManifestHashes: ["container-manifest-hash"],
-    linkSetManifestHash: "document-link-set-hash",
-    targets: [{ containerId: "container-1" }],
-  };
-}
-
 function createSyncResponse() {
   return {
     acceptedOutgoingUpdateIds: [UPDATE_ID],
     commitLsn: null,
     commitLsnMode: "tracked",
-    contentKeyBundle: createContentKeyBundleResponse(),
     contentKeyBundles: [],
     documentId: "document-1",
-    documentKekTargets: createKekTargetsResponse(),
     pullPage: { hasMore: false, nextCursor: null },
     updates: [
       {

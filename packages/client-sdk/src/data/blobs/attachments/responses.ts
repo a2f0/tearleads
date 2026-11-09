@@ -9,16 +9,8 @@ import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
 } from "@tearleads/validators/response";
-import {
-  serializeCanonical,
-  uniqueSortedStrings,
-} from "../../documents/shared/readers";
-import {
-  contentKeyTargetReference,
-  readBlobKekTarget,
-  sortBlobTargets,
-} from "./readers";
-import type { BlobContentKeyTarget, DocumentManifestIdentity } from "./types";
+import { contentKeyTargetReference } from "./readers";
+import type { DocumentManifestIdentity } from "./types";
 
 export async function assertBlobContentKeyBundleTargetHash(
   bundle: BlobContentKeyBundleRequest,
@@ -31,86 +23,14 @@ export async function assertBlobContentKeyBundleTargetHash(
   }
 }
 
-function assertStringSetsEqual(input: {
-  actual: readonly string[];
-  expected: readonly string[];
-  message: string;
-}): void {
-  const actual = uniqueSortedStrings(input.actual);
-  const expected = uniqueSortedStrings(input.expected);
-  if (
-    actual.length !== expected.length ||
-    actual.some((value, index) => value !== expected[index])
-  ) {
-    throw new Error(input.message);
-  }
-}
-
-async function assertBlobAttachmentBindResponseTargets(input: {
-  bindingId: string;
-  blobId: string;
-  manifestIdentity: DocumentManifestIdentity;
-  response: BlobAttachmentBindResponse;
-  targetHash: string;
-  targets: readonly BlobContentKeyTarget[];
-}): Promise<void> {
-  const responseTargets = sortBlobTargets(
-    input.response.blobKekTargets.targets.map((target, index) =>
-      readBlobKekTarget(
-        target,
-        `Blob attachment bind response KEK target[${index}]`,
-      ),
-    ),
-  );
-  const expectedTargets = sortBlobTargets(input.targets);
-  if (
-    serializeCanonical(
-      responseTargets,
-      "Blob attachment bind response KEK targets",
-    ) !==
-    serializeCanonical(
-      expectedTargets,
-      "Blob attachment bind request KEK targets",
-    )
-  ) {
-    throw new Error("Blob attachment bind response KEK targets mismatch");
-  }
-
-  if (
-    input.response.blobKekTargets.blobId !== input.blobId ||
-    input.response.blobKekTargets.organizationId !==
-      input.manifestIdentity.organizationId ||
-    input.response.blobKekTargets.blobKeyTargetHash !== input.targetHash
-  ) {
-    throw new Error("Blob attachment bind response KEK summary mismatch");
-  }
-  assertStringSetsEqual({
-    actual: input.response.blobKekTargets.activeBindingIds,
-    expected: [input.bindingId],
-    message: "Blob attachment bind response active bindings mismatch",
-  });
-  assertStringSetsEqual({
-    actual: input.response.blobKekTargets.documentManifestHashes,
-    expected: [input.manifestIdentity.manifestHash],
-    message: "Blob attachment bind response document manifests mismatch",
-  });
-  assertStringSetsEqual({
-    actual: input.response.blobKekTargets.linkedContainerManifestHashes,
-    expected: expectedTargets.map((target) => target.containerManifestHash),
-    message: "Blob attachment bind response container manifests mismatch",
-  });
-  assertStringSetsEqual({
-    actual: input.response.blobKekTargets.linkedContainerKeyEpochIds,
-    expected: expectedTargets.map((target) => target.containerKeyEpochId),
-    message: "Blob attachment bind response container KEKs mismatch",
-  });
-}
-
 /**
  * The bind acknowledges by hash: the binding event's hash, the content-key
- * epoch, and the write header's hash must be those of what this client
- * signed, and the server-resolved KEK targets must be exactly the target set
- * its content key was wrapped to.
+ * epoch, the write header's hash, and the hashes of the server-resolved KEK
+ * target set and blob access manifest must be those of what this client
+ * signed. The access manifest hash commits to the blob's organization, active
+ * bindings, document manifests, and linked container manifests and KEKs, so
+ * matching it proves the server resolved exactly the set this client wrapped
+ * its content key to.
  */
 export async function assertBlobAttachmentBindResponse(input: {
   bindingId: string;
@@ -124,7 +44,6 @@ export async function assertBlobAttachmentBindResponse(input: {
   response: BlobAttachmentBindResponse;
   slotId: string;
   targetHash: string;
-  targets: readonly BlobContentKeyTarget[];
   writeHeaderHash: string;
 }): Promise<void> {
   // This boundary is used only by the staged upload workflow: those bytes were
@@ -141,14 +60,12 @@ export async function assertBlobAttachmentBindResponse(input: {
     input.response.bindingId !== input.bindingId ||
     input.response.documentId !== input.documentId ||
     input.response.slotId !== input.slotId ||
-    input.response.blobKekTargets.blobAccessManifestHash !==
-      input.blobAccessManifestHash ||
+    input.response.blobAccessManifestHash !== input.blobAccessManifestHash ||
+    input.response.blobKeyTargetHash !== input.targetHash ||
     input.response.writeHeaderHash !== input.writeHeaderHash
   ) {
     throw new Error("Blob attachment bind response did not match request");
   }
-
-  await assertBlobAttachmentBindResponseTargets(input);
 }
 
 export function assertBlobAttachmentDetachResponse(input: {

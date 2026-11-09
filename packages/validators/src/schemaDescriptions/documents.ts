@@ -170,7 +170,7 @@ describeSchema(
 
 describeSchema(
   DocumentSyncResponseSchema,
-  "The result of a sync: which uploads were accepted, one page of missing updates, and the key material to decrypt them.",
+  "The result of a sync: which uploads were accepted, one page of missing updates, and the older-epoch key material to decrypt them. The current epoch's bundle and the key targets are the ones the request named, so they are not echoed.",
   {
     acceptedOutgoingUpdateIds:
       "Ids of uploaded updates that are now committed.",
@@ -178,10 +178,8 @@ describeSchema(
       "Commit LSN after the request; pass it as `minLsn` to read your own writes from a replica.",
     commitLsnMode:
       "`tracked` for a durable backend position; `untracked` with the `0/0` sentinel when the backend cannot report one.",
-    contentKeyBundle: "Content-key bundle of the current epoch.",
     contentKeyBundles:
-      "Bundles of older epochs that this page's updates were written at; never the current epoch.",
-    documentKekTargets: "The document's current key targets.",
+      "Bundles of older epochs that this page's updates were written at; never the epoch the request synced against.",
     updates: "Encrypted updates the client's version vector does not cover.",
   },
 );

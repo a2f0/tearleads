@@ -26,6 +26,7 @@ import {
 } from "../../../test/helpers/blobMutationFixtures";
 import { createSignedAccessEvent } from "../../../test/helpers/keyingWriterProjectionKit";
 import { createFailingRuntime } from "../../../test/helpers/serviceRuntime";
+import { resolveCurrentBlobKekTargets } from "../../access/read/blobKekTargets";
 import {
   BlobMutationError,
   bindBlobAttachment,
@@ -185,7 +186,9 @@ test("attachment writes tolerate publish failures", async () => {
   });
   expect(firstResponse.bindingId).toBe(firstBind.verifiedBinding.bindingId);
   expect(firstResponse.writeHeaderHash).toMatch(/^[0-9a-f]{64}$/);
-  expect(firstResponse.blobKekTargets.activeBindingIds).toEqual([
+  const firstTargets = await resolveCurrentBlobKekTargets(firstBlobId, db);
+  expect(firstResponse.blobKeyTargetHash).toBe(firstTargets.blobKeyTargetHash);
+  expect(firstTargets.activeBindingIds).toEqual([
     firstBind.verifiedBinding.bindingId,
   ]);
   const afterBindTimestamps = await loadDocumentAndContainerUpdatedAt({
@@ -379,11 +382,15 @@ test("bind rejects stale slots and targets outside its binding", async () => {
     sessionId: "test-session",
     userId: owner.userId,
   });
-  expect(sharedResponse.blobKekTargets.activeBindingIds.sort()).toEqual(
+  const sharedTargets = await resolveCurrentBlobKekTargets(blobId, db);
+  expect(sharedResponse.blobKeyTargetHash).toBe(
+    sharedTargets.blobKeyTargetHash,
+  );
+  expect([...sharedTargets.activeBindingIds].sort()).toEqual(
     [
       firstBind.verifiedBinding.bindingId,
       sharedBind.verifiedBinding.bindingId,
     ].sort(),
   );
-  expect(sharedResponse.blobKekTargets.targets).toHaveLength(2);
+  expect(sharedTargets.targets).toHaveLength(2);
 });

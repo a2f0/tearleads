@@ -8,7 +8,10 @@ import {
   echoMutation as echo,
   mutationObjectIds,
 } from "../../../../test/helpers/groupRemovalCarryFixture";
-import { policyBundleAfterMutation } from "../../../../test/helpers/principalPolicyFixtures";
+import {
+  policyBundleAfterMutation,
+  policyReceiptFromBundle,
+} from "../../../../test/helpers/principalPolicyFixtures";
 import { removeOrganizationGroupUser } from "./index";
 
 // #2340 finding 1. A group membership change rematerializes the group's
@@ -69,13 +72,13 @@ test("a refused group commit is retried once carrying the named rekeys", async (
         fixture.setOrganizationPolicy(nextOrganization);
         return {
           data: {
-            groupPolicy: {
+            groupPolicy: policyReceiptFromBundle({
               ...nextGroup,
               containerMutations: (await Promise.all(
                 (input.groupPolicy.containerMutations ?? []).map(echo),
               )) as never,
-            },
-            organizationPolicy: { ...nextOrganization, containerMutations: [] },
+            }),
+            organizationPolicy: policyReceiptFromBundle(nextOrganization),
           },
           ok: true,
         };

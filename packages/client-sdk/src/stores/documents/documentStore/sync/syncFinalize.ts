@@ -47,15 +47,15 @@ function documentWriterProjectionMatchesSyncResponse(
 ): boolean {
   return (
     writerProjection.contentKeyBundle.contentKeyEpoch ===
-      synced.response.contentKeyBundle.contentKeyEpoch &&
+      synced.plan.sourceContentKeyBundle.contentKeyEpoch &&
     writerProjection.contentKeyBundle.linkSetManifestHash ===
-      synced.response.contentKeyBundle.linkSetManifestHash &&
+      synced.plan.sourceContentKeyBundle.linkSetManifestHash &&
     writerProjection.contentKeyBundle.targetHash ===
-      synced.response.contentKeyBundle.targetHash &&
+      synced.plan.sourceContentKeyBundle.targetHash &&
     writerProjection.documentKekTargets.linkSetManifestHash ===
-      synced.response.documentKekTargets.linkSetManifestHash &&
+      synced.plan.documentKekTargets.linkSetManifestHash &&
     writerProjection.documentKekTargets.documentKeyTargetHash ===
-      synced.response.documentKekTargets.documentKeyTargetHash
+      synced.plan.documentKekTargets.documentKeyTargetHash
   );
 }
 

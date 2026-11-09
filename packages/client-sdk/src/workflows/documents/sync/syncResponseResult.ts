@@ -127,7 +127,7 @@ async function resolveVerifiedResponseState(
   }
   const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: input.materializedPlan.contentKey,
-    currentContentKeyEpoch: plan.contentKeyEpoch,
+    currentContentKeyBundle: plan.sourceContentKeyBundle,
     execSql: input.execSql,
     historyMode: plan.request.historyMode,
     onRawHistoryUnavailable: async ({ contentKeysByEpoch, updates }) =>

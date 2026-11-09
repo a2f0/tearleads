@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { ContainerMutationRequestSchema } from "@tearleads/validators/request";
 import { createMutationResponseFromRequest } from "../../../../../test/helpers/containerFixtures";
 import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/currentShareMetadata";
-import { policyBundleAfterMutation } from "../../../../../test/helpers/principalPolicyFixtures";
+import {
+  policyBundleAfterMutation,
+  policyReceiptFromBundle,
+} from "../../../../../test/helpers/principalPolicyFixtures";
 import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { principalPolicyBundles } from "../../../../data/sqlite/schema/principalPolicySchema";
 import { shareRemoteContainerWithGroup } from "../remote";
@@ -25,7 +28,7 @@ async function fixture() {
       true,
     );
     return {
-      groupPolicy: {
+      groupPolicy: policyReceiptFromBundle({
         ...(await policyBundleAfterMutation({
           previous: f.group,
           mutation: request.groupPolicy,
@@ -35,11 +38,13 @@ async function fixture() {
             createMutationResponseFromRequest(mutation),
           ),
         ),
-      },
-      organizationPolicy: await policyBundleAfterMutation({
-        previous: f.directory,
-        mutation: request.organizationPolicy,
       }),
+      organizationPolicy: policyReceiptFromBundle(
+        await policyBundleAfterMutation({
+          previous: f.directory,
+          mutation: request.organizationPolicy,
+        }),
+      ),
     };
   };
   f.options.apiClient.shareContainer = async (_containerId, request) => {
@@ -154,12 +159,12 @@ test("Current share rejects a substituted policy receipt without advancing its g
   f.options.apiClient.commitOrganizationGroupPolicy = async (...args) => {
     const response = await commit(...args);
     if (!response) throw new Error("Missing fixture receipt");
-    response.groupPolicy.currentState.stateHash = "f".repeat(64);
+    response.groupPolicy.head.stateHash = "f".repeat(64);
     return response;
   };
   try {
     await expect(shareRemoteContainerWithGroup(f.input)).rejects.toThrow(
-      "Principal mutation receipt state differs from the authored request",
+      "Principal policy acknowledgement names another head",
     );
     expect(f.compoundCalls()).toBe(1);
     expect(

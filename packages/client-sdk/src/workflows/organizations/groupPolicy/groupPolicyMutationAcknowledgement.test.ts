@@ -24,12 +24,13 @@ import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMe
 import {
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
+  policyReceiptFromBundle,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import {
+  acknowledgeGroupPolicyBundle,
   acknowledgeGroupPolicyState,
   assertGroupPolicyEnvelopesMatchAcknowledgement,
-  buildAcknowledgedGroupPolicyBundle,
 } from "./groupPolicyMutationAcknowledgement";
 import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";
 
@@ -105,45 +106,34 @@ test("group policy acknowledgements accept only the exact authored successor", a
     request: fixture.mutation,
     response: fixture.state,
   });
-  const { previousStates, ...receipt } = await policyBundleAfterMutation({
-    mutation: fixture.mutation,
-    previous: fixture.currentPolicy,
-  });
-  const bundle = {
-    ...receipt,
-    currentMemberEnvelopes: fixture.envelopes,
-  };
-  const reconstructed = await buildAcknowledgedGroupPolicyBundle({
+  const { containerMutations: _containerMutations, ...authored } =
+    await policyBundleAfterMutation({
+      mutation: fixture.mutation,
+      previous: fixture.currentPolicy,
+    });
+  const receipt = policyReceiptFromBundle(authored);
+  const acknowledged = await acknowledgeGroupPolicyBundle({
     currentPolicy: fixture.currentPolicy,
     expectedHead: fixture.expectedHead,
     request: fixture.mutation,
-    response: bundle,
+    response: receipt,
   });
-  expect(bundle).not.toHaveProperty("previousStates");
-  expect(reconstructed.previousStates).toEqual(previousStates);
-  const substituted = {
-    ...bundle,
-    previousStates: [
-      {
-        state: {
-          ...fixture.currentPolicy.currentState,
-          stateHash: "0".repeat(64),
-        },
-        projection: [],
-        grants: [],
-      },
-    ],
-  };
-  expect(
-    (
-      await buildAcknowledgedGroupPolicyBundle({
+  expect(acknowledged.bundle).toEqual(authored);
+  expect(acknowledged.policy.checkpoint).toEqual(policy.checkpoint);
+  for (const head of [
+    { ...receipt.head, stateHash: "0".repeat(64) },
+    { ...receipt.head, version: receipt.head.version + 1 },
+    { ...receipt.head, principalId: crypto.randomUUID() },
+  ]) {
+    await expect(
+      acknowledgeGroupPolicyBundle({
         currentPolicy: fixture.currentPolicy,
         expectedHead: fixture.expectedHead,
         request: fixture.mutation,
-        response: substituted,
-      })
-    ).previousStates,
-  ).toEqual(previousStates);
+        response: { ...receipt, head },
+      }),
+    ).rejects.toThrow("Principal policy acknowledgement names another head");
+  }
 
   expect(policy.checkpoint).toEqual({
     principalType: "group",
@@ -151,10 +141,7 @@ test("group policy acknowledgements accept only the exact authored successor", a
     version: fixture.expectedHead.version,
     stateHash: fixture.expectedHead.stateHash,
   });
-  expect(bundle.currentState).toEqual(fixture.state);
-  expect(bundle.currentMemberEnvelopes.envelopes).toEqual(
-    fixture.envelopes.envelopes,
-  );
+  expect(authored.currentState).toEqual(fixture.state);
 });
 
 test("group policy state acknowledgement rejects a version gap", async () => {
@@ -207,24 +194,6 @@ test("group policy acknowledgements reject altered projection and envelopes", as
     }),
   ).rejects.toThrow("Authored group policy commitments are invalid");
 
-  const bundle = await policyBundleAfterMutation({
-    mutation: fixture.mutation,
-    previous: fixture.currentPolicy,
-  });
-  await expect(
-    buildAcknowledgedGroupPolicyBundle({
-      currentPolicy: fixture.currentPolicy,
-      expectedHead: fixture.expectedHead,
-      request: fixture.mutation,
-      response: {
-        ...bundle,
-        currentMemberEnvelopes: {
-          ...fixture.envelopes,
-          envelopes: fixture.envelopes.envelopes.slice(1),
-        },
-      },
-    }),
-  ).rejects.toThrow("Group member envelopes changed after acknowledgement");
   expect(() =>
     assertGroupPolicyEnvelopesMatchAcknowledgement(fixture.envelopes, {
       ...fixture.envelopes,
@@ -245,11 +214,11 @@ test("group policy acknowledgements reject an omitted container result", async (
   };
 
   await expect(
-    buildAcknowledgedGroupPolicyBundle({
+    acknowledgeGroupPolicyBundle({
       currentPolicy: fixture.currentPolicy,
       expectedHead: fixture.expectedHead,
       request,
-      response: bundle,
+      response: policyReceiptFromBundle(bundle),
     }),
   ).rejects.toThrow(
     "Group policy container acknowledgement batch is incomplete",
@@ -346,11 +315,14 @@ test("group policy acknowledgements match container commitments by hash", async 
     containerMutations: [containerResponse],
   };
   const acknowledge = (response: ContainerMutationResponse) =>
-    buildAcknowledgedGroupPolicyBundle({
+    acknowledgeGroupPolicyBundle({
       currentPolicy: fixture.currentPolicy,
       expectedHead: fixture.expectedHead,
       request,
-      response: { ...bundle, containerMutations: [response] },
+      response: policyReceiptFromBundle({
+        ...bundle,
+        containerMutations: [response],
+      }),
     });
 
   await expect(acknowledge(containerResponse)).resolves.toBeDefined();
@@ -361,11 +333,11 @@ test("group policy acknowledgements match container commitments by hash", async 
     body: { eventType: "container.grant" },
   } as unknown as ContainerMutationRequest;
   await expect(
-    buildAcknowledgedGroupPolicyBundle({
+    acknowledgeGroupPolicyBundle({
       currentPolicy: fixture.currentPolicy,
       expectedHead: fixture.expectedHead,
       request: { ...request, containerMutations: [grant] },
-      response: bundle,
+      response: policyReceiptFromBundle(bundle),
     }),
   ).resolves.toBeDefined();
   for (const tampered of [

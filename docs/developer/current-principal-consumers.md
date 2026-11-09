@@ -203,32 +203,38 @@ for the add itself), with a ceiling of 43 for the add; a later addition measures
 requests, with at most
 11 and 3 public history reads. First addition permits 10 organization-policy and
 3 group-policy reads. Creation may also receive one validated rollback
-preparation response with identical request bytes.
+preparation response with identical request bytes. Policy writes acknowledge
+heads rather than echoing policies, so a group create receives about 0.8 KB
+(17–18 KB before) and a group policy commit 0.7–1.9 KB (36–60 KB before): the
+first creation/addition pair receives 372 KB (452 KB before) and a later pair
+37 KB (90 KB before).
 
 The Admins enrollment fixture in
 [`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)
 measures 48 completed requests; its ceiling is 51, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 10,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
-160,000 request bytes and 730,000 response bytes (0.66 MB measured, including
+160,000 request bytes and 635,000 response bytes (0.58 MB measured, including
 the roster profile projection read that bootstrap no longer makes). The root
 attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
 measures 48 requests and permits 56, with body ceilings of 128,000 request
-bytes and 460,000 response bytes (0.41 MB measured). Container mutation
-acknowledgements carry hashes rather than echoes, which keeps the policy commit
-at about 73 KB. Container mutations cite stored
+bytes and 440,000 response bytes (0.40 MB measured). Container mutation
+acknowledgements carry hashes and policy acknowledgements carry heads rather
+than echoes, which keeps the Admins policy commit at about 3.5 KB (73 KB with
+echoed policies). Container mutations cite stored
 [manifests](../glossary/access.md#access-manifest) by
 `{containerId, manifestHash}` and principal policies by head rather than echoing
 path bundles or policies.
 
 [`ExplorerUploadRequestVolume.test.tsx`](../../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx)
-measures 5 calls and 28.9 KB received for a small Explorer upload and permits 6
-calls and 32,500 response bytes; its
+measures 5 calls and 2.1 KB received for a small Explorer upload and permits 6
+calls and 2,300 response bytes; its
 [blob stage](../glossary/content.md#blob-stage) costs three calls (initiate with
 the first part's upload source, the part bytes, and the
 [attachment bind](../glossary/content.md#attachment-binding) that completes the
-stage and carries the document's first content update).
+stage, carries the document's first content update, and acknowledges its KEK
+targets by hash).
 
 [`FolderMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx)
 sets these ceilings, which include private current-policy reads:

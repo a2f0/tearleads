@@ -1701,8 +1701,11 @@ export type components = {
         /** @description Acknowledges a bind by hash, so the client can compare it with what it signed. */
         BlobAttachmentBindResponse: {
             bindingId: string;
+            /** @description Access manifest hash of the blob after the bind, from the targets the API resolved. */
+            blobAccessManifestHash: string;
             blobId: string;
-            blobKekTargets: components["schemas"]["BlobKekTargetsResponse"];
+            /** @description Hash of the KEK target set the API resolved for the blob after the bind. */
+            blobKeyTargetHash: string;
             /** @description Content-key epoch the API stored for the blob. */
             contentKeyEpoch: number;
             documentId: string;
@@ -1918,7 +1921,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description Acknowledges a group policy commit with every policy it advanced. */
+        /** @description Acknowledges a group policy commit with the head of every policy it advanced. */
         CommitOrganizationGroupPolicyResponse: {
             groupPolicy: components["schemas"]["PrincipalPolicyMutationResponse"];
             memberPolicy?: components["schemas"]["PrincipalPolicyMutationResponse"];
@@ -2860,7 +2863,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description The result of a sync: which uploads were accepted, one page of missing updates, and the key material to decrypt them. */
+        /** @description The result of a sync: which uploads were accepted, one page of missing updates, and the older-epoch key material to decrypt them. The current epoch's bundle and the key targets are the ones the request named, so they are not echoed. */
         DocumentSyncResponse: {
             /** @description Ids of uploaded updates that are now committed. */
             acceptedOutgoingUpdateIds: string[];
@@ -2868,13 +2871,9 @@ export type components = {
             commitLsn: string | null;
             /** @description `tracked` for a durable backend position; `untracked` with the `0/0` sentinel when the backend cannot report one. */
             commitLsnMode: "tracked" | "untracked";
-            /** @description Content-key bundle of the current epoch. */
-            contentKeyBundle: components["schemas"]["DocumentContentKeyBundleResponse"];
-            /** @description Bundles of older epochs that this page's updates were written at; never the current epoch. */
+            /** @description Bundles of older epochs that this page's updates were written at; never the epoch the request synced against. */
             contentKeyBundles: components["schemas"]["DocumentContentKeyBundleResponse"][];
             documentId: string;
-            /** @description The document's current key targets. */
-            documentKekTargets: components["schemas"]["DocumentKekTargetsResponse"];
             pullPage: components["schemas"]["DocumentSyncPullPageResponse"];
             /** @description Encrypted updates the client's version vector does not cover. */
             updates: components["schemas"]["DocumentSyncUpdateResponse"][];
@@ -3790,14 +3789,14 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A principal's current policy after a write, with acknowledgements of the container mutations committed with it. */
+        /** @description Acknowledges a principal policy write by the head it committed rather than an echo of the signed request. The caller rebuilds the acknowledged state and artifacts from its own request. */
         PrincipalPolicyMutationResponse: {
+            /** @description Hash-form acknowledgements of the container mutations committed with the policy, in request order. */
             containerMutations: components["schemas"]["ContainerMutationResponse"][];
-            currentGrants: components["schemas"]["PrincipalContainerGrantResponse"][];
-            currentMemberEnvelopes: components["schemas"]["CurrentPrincipalMemberEnvelopesResponse"];
-            currentPayload: components["schemas"]["PrincipalStatePayloadResponse"];
-            currentProjection: components["schemas"]["PrincipalProjectionMemberResponse"][];
-            currentState: components["schemas"]["PrincipalStateResponse"];
+            /** @description Server-assigned insertion time of the stored state and its payload; the only acknowledged field the request does not carry. */
+            createdAt: string;
+            /** @description The committed head; it must equal the head the caller computes from its own signed state. */
+            head: components["schemas"]["ReferencedPrincipalStateResponse"];
         } & {
             [key: string]: unknown;
         };

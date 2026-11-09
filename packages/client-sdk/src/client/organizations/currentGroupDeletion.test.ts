@@ -5,7 +5,10 @@ import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
-import { policyBundleAfterMutation } from "../../../test/helpers/principalPolicyFixtures";
+import {
+  policyBundleAfterMutation,
+  policyReceiptFromBundle,
+} from "../../../test/helpers/principalPolicyFixtures";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
@@ -30,6 +33,7 @@ async function fixture(custody = true) {
     fullReads: 0,
     recovered: false,
     pendingFailure: false,
+    ciphertext: "",
   };
   f.apiClient.getCurrentPrincipalPolicy = async (_kind, id) => {
     state.fullReads += 1;
@@ -46,8 +50,9 @@ async function fixture(custody = true) {
       previous: history.directory,
       mutation: request.organizationPolicy,
     });
-    const { previousStates: _previousStates, ...organizationPolicy } = bundle;
-    if (state.corrupt) organizationPolicy.currentProjection = [];
+    state.ciphertext = request.organizationPolicy.encryptedPayload.ciphertext;
+    const organizationPolicy = policyReceiptFromBundle(bundle);
+    if (state.corrupt) organizationPolicy.head.stateHash = "0".repeat(64);
     if (state.expire) state.current = false;
     if (state.expireCaller) state.callerCurrent = false;
     return {
@@ -114,11 +119,11 @@ test("group deletion uses private bounded custody", async () => {
   try {
     const result = await deleteGroupForOrganization(f.input);
     expect(result.groupId).toBe(f.input.groupId);
-    expect(result.organizationPolicy.currentState.version).toBe(67);
+    expect(result.organizationPolicy.head.version).toBe(67);
     expect(
-      parseOrganizationAuthorityDescriptor(
-        result.organizationPolicy.currentPayload.ciphertext,
-      ).groupHeads.some((head) => head.principalId === f.input.groupId),
+      parseOrganizationAuthorityDescriptor(f.state.ciphertext).groupHeads.some(
+        (head) => head.principalId === f.input.groupId,
+      ),
     ).toBe(false);
     expect(f.state.writes).toBe(1);
     expect(f.state.fullReads).toBe(0);
@@ -146,7 +151,7 @@ test.each(["corrupt", "expire", "expireCaller"] as const)(
     try {
       await expect(deleteGroupForOrganization(f.input)).rejects.toThrow(
         mode === "corrupt"
-          ? "bundle acknowledgement mismatch"
+          ? "acknowledgement names another head"
           : "generation expired",
       );
       expect(f.state.writes).toBe(1);

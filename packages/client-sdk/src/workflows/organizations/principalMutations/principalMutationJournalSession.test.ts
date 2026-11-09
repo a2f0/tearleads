@@ -186,7 +186,7 @@ test.each(["unknown", "refused", "malformed", "expired"] as const)(
           if (outcome === "refused") return refusal("http", 409);
           const response = structuredClone(fixture.response);
           if (outcome === "malformed")
-            response.groupPolicy.currentState.signature += "A";
+            response.groupPolicy.head.stateHash += "A";
           if (outcome === "expired") current = false;
           return { ok: true as const, data: response };
         },

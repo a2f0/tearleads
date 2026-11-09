@@ -1,5 +1,5 @@
+import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
 import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
@@ -8,7 +8,7 @@ import {
 /** Couple supplied group receipts to the directory acknowledged in the same batch. */
 export function assertAcknowledgedDirectoryBindings(
   organizationId: string,
-  receipts: readonly PrincipalPolicyMutationResponse[],
+  receipts: readonly PrincipalPolicyPageCurrent[],
 ) {
   const directories = receipts.filter(
     (receipt) => receipt.currentState.principalType === "organization",

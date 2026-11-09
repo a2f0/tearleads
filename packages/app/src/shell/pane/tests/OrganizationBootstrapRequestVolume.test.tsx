@@ -73,11 +73,13 @@ test(
         // either, 31 before that).
         total: 27,
         // Provisioned containers and documents are acknowledged by hash, not
-        // echoed, and seeded roles skip three destination projections: 70 KB
-        // received (157 KB before; register 118 KB -> 63 KB). Keys and the
-        // login signature travel as base64 and child containers cite their
-        // parent KEK state: 291 KB sent (322 KB before).
-        bodyBytes: { request: 320_000, response: 76_000 },
+        // echoed, seeded roles skip three destination projections, and syncs
+        // no longer echo the bundle and KEK targets the request named: 61 KB
+        // received (70 KB before the sync echo went, 157 KB before seeded
+        // roles; register 118 KB -> 63 KB). Keys and the login signature
+        // travel as base64 and child containers cite their parent KEK state:
+        // 291 KB sent (322 KB before).
+        bodyBytes: { request: 320_000, response: 67_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 5,
           "GET /principals/group/:groupId/policy": 0,
@@ -149,9 +151,11 @@ test(
         // provisioning primed its founding heads, leaving one discovery read.
         total: 6,
         // Provisioned containers and documents are acknowledged by hash, not
-        // echoed: 19 KB received (132 KB before). Child containers cite their
-        // parent KEK state: 223 KB sent (230 KB before).
-        bodyBytes: { request: 245_000, response: 25_000 },
+        // echoed, nor does the sync echo its bundle and KEK targets: 17.9 KB
+        // received (19.4 KB before; 132 KB before hash acknowledgements).
+        // Child containers cite their parent KEK state: 223 KB sent (230 KB
+        // before).
+        bodyBytes: { request: 245_000, response: 20_000 },
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 1,
           "GET /principals/group/:groupId/policy": 0,

@@ -35,7 +35,7 @@ import type {
   RemoveOrganizationGroupUserInput,
 } from "./principalMutations";
 
-/** Exact current artifacts and container receipts; no historical prefix. */
+/** The verified head the group policy committed at, its server-assigned time, and container receipts. */
 export type OrganizationGroupMutationReceipt = PrincipalPolicyMutationResponse;
 
 /**

@@ -151,27 +151,34 @@ request, including writes.
 
 ## Mutation acknowledgements
 
-Successful principal writes return the exact accepted state, its current signed
-artifacts, and the container mutation results. They do not return
-`previousStates`. The server verifies the current artifacts against its
-authenticated history progress, including on exact replay, without collecting or
-serializing the whole prefix inside the write transaction. Final authorization
-and head checks remain in that transaction. Response size therefore depends on
-the current policy and container batch, rather than the number of retained
-policy versions.
+Successful principal writes acknowledge each policy the caller authored by the
+head it committed (`principalType`, `principalId`, `version`, `keyEpoch`,
+`stateHash`, `keyFingerprint`), the server-assigned `createdAt` of the stored
+state and payload, and the container mutation results. They echo neither the
+signed state nor its payload, projection, [grants](./glossary/access.md#grant)
+or [envelopes](./glossary/keys.md#member-envelope), and never `previousStates`:
+the author already holds every one of those bytes. The write transaction still
+stores and verifies the state against its authenticated history progress, and
+final authorization and head checks remain in it. An exact replay re-reads only
+the stored state its receipt names, so response size depends on the container
+batch alone, not on the policy or the number of retained versions. Echoed
+policies were 154,584 of the 168,763 response bytes of the three group policy
+commits the request-volume canaries measured before this contract.
 
-The SDK compares the accepted state, payload, [grants](./glossary/access.md#grant),
-membership, [envelopes](./glossary/keys.md#member-envelope), and container results
-with the request it authored; container results carry only the hashes of what
-committed (see the
+The SDK computes the head its own signed state commits to and refuses an
+acknowledgement naming any other head. It then rebuilds the acknowledged
+current from its request plus `createdAt`; container results carry only the
+hashes of what committed (see the
 [protocol specification's](./protocol-specification/container-access.md#container-access-and-kek-protocol)
 container mutation acknowledgements), which the SDK recomputes from its request.
-After those checks, it appends one accepted state to its authenticated durable
-prefix and index, without rebuilding a complete bundle. A server-provided
-history array cannot replace that prefix. This contract covers standalone policy
-writes, compound group and organization commits, and group creation/deletion.
-Container and document [projections](./glossary/sync.md#writer-projection) carry
-scoped paged public-history sources. See
+After those checks, it verifies the signature and successor rule on those same
+bytes and appends one accepted state to its authenticated durable prefix and
+index, without rebuilding a complete bundle. A server-provided history array
+cannot replace that prefix. This contract covers standalone policy writes,
+compound group and organization commits, and group creation/deletion; a new
+group's own acknowledgement is its group summary. Container and document
+[projections](./glossary/sync.md#writer-projection) carry scoped paged
+public-history sources. See
 [compound commit outcomes](developer/principal-policy-outcomes.md) for recovery
 after a committed response is lost.
 

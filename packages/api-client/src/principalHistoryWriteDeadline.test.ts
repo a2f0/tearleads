@@ -11,6 +11,7 @@ import {
   server as mockServer,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
+import { principalPolicyAcknowledgementFor } from "../test/helpers/principalPolicyPage";
 import { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
 
@@ -23,10 +24,9 @@ for (const compound of [false, true]) {
           http.all(/^http:\/\/127\.0\.0\.1:\d+\//, () => passthrough()),
         );
         const controller = new AbortController();
-        const policy = {
-          ...createPrincipalPolicyBundleResponse(),
-          containerMutations: [],
-        };
+        const policy = principalPolicyAcknowledgementFor(
+          createPrincipalPolicyBundleResponse(),
+        );
         const acknowledgement = compound
           ? { groupPolicy: policy, organizationPolicy: policy }
           : policy;

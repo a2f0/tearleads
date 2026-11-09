@@ -125,10 +125,12 @@ to acknowledged policies.
 
 `Organizations.addUserToGroup` and `removeUserFromGroup` return
 `OrganizationGroupMutationReceipt`; the group result of `revokeGrant` uses the
-same type. It includes exact current artifacts and container receipts, with no
-`previousStates`. Built-in group sharing uses the same verified-current and
-durable-receipt flow. Explicit standalone full-bundle utilities retain their
-complete-bundle contracts; the runtime never selects them as a fallback.
+same type. It carries the committed head, its server-assigned `createdAt` and
+container receipts; the SDK rebuilt and retained the current artifacts from its
+authored request after the head matched. Built-in group sharing uses the same
+verified-current and durable-receipt flow. Explicit standalone full-bundle
+utilities retain their complete-bundle contracts; the runtime never selects
+them as a fallback.
 
 Mutation builders clear their owned signing-key copies on success and failure;
 member addition also clears its temporary encapsulation secret. Caller-owned

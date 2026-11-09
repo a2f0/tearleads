@@ -30,9 +30,8 @@ import type {
 } from "../principalPolicy/principalPolicyApi";
 import { requireSignerCanManageGroup } from "./groupMutationAuthorization";
 import {
-  acknowledgeGroupPolicyState,
+  acknowledgeGroupPolicyBundle,
   assertGroupPolicyEnvelopesMatchAcknowledgement,
-  buildAcknowledgedGroupPolicyBundle,
 } from "./groupPolicyMutationAcknowledgement";
 import type { FullGroupMembershipMutationInput } from "./groupPolicyMutationEvidence";
 import {
@@ -53,6 +52,10 @@ export type {
   PrincipalPolicyReadWriteApi,
 } from "../principalPolicy/principalPolicyApi";
 export { submitGroupPolicyCommit } from "./submitGroupPolicyCommit";
+
+/** A retained acknowledged bundle and the container receipts committed with it. */
+export type AcknowledgedGroupPolicyBundle = PrincipalPolicyBundleResponse &
+  Pick<PrincipalPolicyMutationResponse, "containerMutations">;
 
 interface LoadedGroupPolicyMutationContext
   extends FullGroupMembershipMutationInput {
@@ -238,36 +241,20 @@ export async function commitGroupPolicyMutation(input: {
     | undefined;
   readonly request: PutPrincipalPolicyRequest;
   readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse> {
+}): Promise<AcknowledgedGroupPolicyBundle> {
   const stored = await submitGroupPolicyCommit(input);
   if (!stored) {
     throw new Error("Group policy update failed");
   }
-  const storedPolicy = stored.groupPolicy;
-  const acknowledgedPolicy = await acknowledgeGroupPolicyState({
+  const group = await acknowledgeGroupPolicyBundle({
     currentPolicy: input.currentPolicy,
     expectedHead: input.expectedHead,
     request: input.request,
-    response: storedPolicy.currentState,
+    response: stored.groupPolicy,
   });
-  const groupBundle = await buildAcknowledgedGroupPolicyBundle({
-    currentPolicy: input.currentPolicy,
-    expectedHead: input.expectedHead,
-    request: input.request,
-    response: storedPolicy,
-  });
-  const organizationHead = await groupPolicyMutationHead(
-    input.organizationRequest,
-  );
-  const acknowledgedOrganization = await acknowledgeGroupPolicyState({
+  const organization = await acknowledgeGroupPolicyBundle({
     currentPolicy: input.organizationPolicy,
-    expectedHead: organizationHead,
-    request: input.organizationRequest,
-    response: stored.organizationPolicy.currentState,
-  });
-  const organizationBundle = await buildAcknowledgedGroupPolicyBundle({
-    currentPolicy: input.organizationPolicy,
-    expectedHead: organizationHead,
+    expectedHead: await groupPolicyMutationHead(input.organizationRequest),
     request: input.organizationRequest,
     response: stored.organizationPolicy,
   });
@@ -275,19 +262,16 @@ export async function commitGroupPolicyMutation(input: {
     retiredContainers: {
       containerIds: input.retiredContainerIds?.() ?? [],
       organizationId: input.organizationId,
-      policy: acknowledgedPolicy,
+      policy: group.policy,
     },
-    entries: [
-      { bundle: groupBundle, policy: acknowledgedPolicy },
-      {
-        bundle: organizationBundle,
-        policy: acknowledgedOrganization,
-      },
-    ],
+    entries: [group, organization],
     execSql: input.execSql,
     organizationId: input.organizationId,
     stillCurrent: input.stillCurrent,
     updatedAt: new Date().toISOString(),
   });
-  return groupBundle;
+  return {
+    ...group.bundle,
+    containerMutations: stored.groupPolicy.containerMutations,
+  };
 }

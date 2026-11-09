@@ -204,10 +204,10 @@ test("group policy commits atomically advance the signed organization directory"
     isCommitOrganizationGroupPolicyResponse(body),
     "expected compound policy response",
   );
-  expect(body.groupPolicy.currentState.stateHash).toBe(
+  expect(body.groupPolicy.head.stateHash).toBe(
     prepared.nextGroupHead.stateHash,
   );
-  expect(body.organizationPolicy.currentState.version).toBe(
+  expect(body.organizationPolicy.head.version).toBe(
     prepared.organizationPolicy.state.version,
   );
 });
