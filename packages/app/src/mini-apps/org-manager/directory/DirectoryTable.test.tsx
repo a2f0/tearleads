@@ -375,13 +375,15 @@ test("org manager directory kebab keeps keyboard activation off the row", () => 
   expect(selectedUserIds).toEqual([]);
 });
 
-test("an unfetched roster reads as loading rather than unavailable", () => {
+test("an unfetched roster covers the panel with a syncing status rather than unavailable", () => {
   // Before the first directory pass settles there is no projection to show.
   // Reporting that as "unavailable" told the user the roster was missing when
   // it had simply not been fetched yet.
   const view = render(<DirectoryTable directory={null} pending={true} />);
 
-  expect(view.getByText(ORG_MANAGER_LABELS.loadingDirectory)).toBeTruthy();
+  expect(view.getByRole("status").textContent).toBe(
+    ORG_MANAGER_LABELS.syncingDirectory,
+  );
   expect(view.queryByText(ORG_MANAGER_LABELS.directoryUnavailable)).toBeNull();
 });
 

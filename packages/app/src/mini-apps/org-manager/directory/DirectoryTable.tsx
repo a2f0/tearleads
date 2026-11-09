@@ -3,7 +3,10 @@ import type {
   OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
+import {
+  MiniAppStatePanel,
+  MiniAppStatus,
+} from "../../../components/mini-app/MiniAppLayout";
 import {
   type MiniAppColumnMenuOption,
   MiniAppCompactTableCell,
@@ -290,11 +293,11 @@ export function DirectoryTable({
   );
 
   if (!directory) {
-    return (
+    return pending ? (
+      <MiniAppStatePanel busy title={ORG_MANAGER_LABELS.syncingDirectory} />
+    ) : (
       <MiniAppStatus className="org-manager-hint">
-        {pending
-          ? ORG_MANAGER_LABELS.loadingDirectory
-          : ORG_MANAGER_LABELS.directoryUnavailable}
+        {ORG_MANAGER_LABELS.directoryUnavailable}
       </MiniAppStatus>
     );
   }

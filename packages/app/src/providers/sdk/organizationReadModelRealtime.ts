@@ -14,6 +14,7 @@ import {
   type ProjectionListener,
   type ProjectionSubscription,
   raisePendingReadModelHint,
+  settleAwaitedCatchUps,
   stateFor,
 } from "./organizationReadModelRealtimeState";
 import {
@@ -69,6 +70,7 @@ function scheduleDisconnectedReconciliationFallback(
       hasOpenOrganizationReadModelSocket(state) ||
       !isSameOrganizationReadModelScope(scope, currentScope)
     ) {
+      settleAwaitedCatchUps(state, scope.organizationId);
       return;
     }
     void scheduleOrganizationReadModelReconciliationAfterActivePass(
@@ -154,6 +156,9 @@ export function subscribeOrganizationReadModelRealtime(
   listener: ProjectionListener,
   options: {
     readonly isMutationActive?: (() => boolean) | undefined;
+    /** Runs once this subscription's initial catch-up has settled, whether it
+     * reconciled, declined, failed, or was not needed. */
+    readonly onCatchUpSettled?: (() => void) | undefined;
   } = {},
 ): () => void {
   const state = stateFor(tearleads);
@@ -168,6 +173,7 @@ export function subscribeOrganizationReadModelRealtime(
   );
   const subscription: ProjectionSubscription = {
     active: true,
+    awaitingCatchUp: options.onCatchUpSettled ?? null,
     isMutationActive: options.isMutationActive ?? (() => false),
     listener,
     scope,
@@ -205,6 +211,9 @@ export function subscribeOrganizationReadModelRealtime(
     // if it opens later, its fresh pass closes the disconnected mutation gap.
     scheduleDisconnectedReconciliationFallback(tearleads, state, scope);
   }
+  // An exact scope already caught up, or demand that cannot read at all,
+  // owes this subscription no pass.
+  settleAwaitedCatchUps(state, organizationId);
 
   return () => {
     if (!subscription.active) {
@@ -252,6 +261,7 @@ export function attachOrganizationReadModelSocket(
   const demandScope = activeDemandScope(tearleads, state);
   if (demandScope) {
     clearDisconnectedReconciliationFallback(state, demandScope.organizationId);
+    settleAwaitedCatchUps(state, demandScope.organizationId);
   }
 
   return () => {
@@ -303,6 +313,9 @@ export function handleOrganizationReadModelInterestAcknowledgement(
       tearleads,
       organizationId,
     );
+  }
+  if (organizationId) {
+    settleAwaitedCatchUps(state, organizationId);
   }
 }
 
