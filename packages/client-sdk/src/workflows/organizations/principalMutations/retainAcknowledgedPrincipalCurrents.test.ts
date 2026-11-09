@@ -150,8 +150,8 @@ test.each(["stage", "prefix"] as const)(
 test("current publication captures the authored request and receipt before asynchronous restoration", async () => {
   const f = await currentPolicyPublicationFixture(history);
   try {
-    const first = f.publication.entries[0];
-    if (!first) throw new Error("Missing group receipt");
+    const [first, second] = f.publication.entries;
+    if (!first || !second) throw new Error("Missing compound receipts");
     const signature = first.request.state.signature;
     const resigned = await signPrincipalState(
       first.request.state,
@@ -160,8 +160,13 @@ test("current publication captures the authored request and receipt before async
     const pending = retainAcknowledgedPrincipalCurrents(f.publication);
     first.request.state.signature = resigned.signature;
     first.response.head.stateHash = "0".repeat(64);
+    // A later receipt is captured before the first asynchronous check too.
+    second.response.head.stateHash = "0".repeat(64);
+    second.request.state.version += 1;
+    second.recovery.protection.localKey.fill(0);
     const policies = await pending;
     expect(policies[0]?.state.signature).toBe(signature);
+    expect(policies).toHaveLength(2);
   } finally {
     f.close();
   }

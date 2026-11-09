@@ -165,6 +165,46 @@ async function reconcilePublications(
   return reconciled;
 }
 
+interface OwnedAcknowledgementEntry {
+  readonly initialGroup: boolean;
+  readonly request: PutPrincipalPolicyRequest;
+  readonly response: PrincipalPolicyMutationResponse;
+  readonly options: RecoverPrincipalPolicyHistoryOptions;
+  readonly predecessor: AcknowledgedPrincipalPredecessor | null;
+}
+
+/** Rebuild each acknowledged current from its owned request, then prepare it. */
+async function preparePublications(
+  entries: readonly OwnedAcknowledgementEntry[],
+  checks: PrincipalAcknowledgementChecks,
+) {
+  const currents: PrincipalPolicyPageCurrent[] = [];
+  for (const entry of entries)
+    currents.push(
+      await checks.acknowledgedCurrent({
+        request: entry.request,
+        response: entry.response,
+      }),
+    );
+  const publications: AcknowledgedPrincipalCurrentPublication[] = [];
+  for (const [index, entry] of entries.entries()) {
+    const current = currents[index];
+    if (!current) throw new Error("Missing acknowledgement entry");
+    publications.push(
+      await (entry.initialGroup
+        ? prepareInitialGroupCurrentPublication
+        : preparePublication)(
+        entry.options,
+        entry.request,
+        current,
+        entry.predecessor,
+        checks,
+      ),
+    );
+  }
+  return { currents, publications };
+}
+
 /**
  * Extend authenticated local progress and retain exact acknowledged artifacts
  * atomically with pins, once `checks` accept each acknowledgement.
@@ -179,25 +219,17 @@ export async function recordAcknowledgedPrincipalCurrents(
   const organizationId = input.organizationId;
   const stillCurrent = input.stillCurrent;
   const retirements = structuredClone(input.retirements ?? []);
-  const entries: {
-    initialGroup: boolean;
-    request: PutPrincipalPolicyRequest;
-    current: PrincipalPolicyPageCurrent;
-    options: RecoverPrincipalPolicyHistoryOptions;
-    predecessor: AcknowledgedPrincipalPredecessor | null;
-  }[] = [];
+  const entries: OwnedAcknowledgementEntry[] = [];
   try {
     assertProjectionVerificationCurrent(stillCurrent);
-    for (const entry of input.entries) {
-      const request = structuredClone(entry.request);
+    // Own every entry and protection key before the first await, so a caller
+    // mutating a later receipt cannot change what this batch checks.
+    for (const entry of input.entries)
       entries.push({
         initialGroup: entry.initialGroup === true,
         predecessor: structuredClone(entry.predecessor),
-        request,
-        current: await checks.acknowledgedCurrent({
-          request,
-          response: structuredClone(entry.response),
-        }),
+        request: structuredClone(entry.request),
+        response: structuredClone(entry.response),
         options: {
           ...entry.recovery,
           expectedHead: structuredClone(entry.recovery.expectedHead),
@@ -207,24 +239,11 @@ export async function recordAcknowledgedPrincipalCurrents(
           stillCurrent,
         },
       });
-    }
-    const publications: AcknowledgedPrincipalCurrentPublication[] = [];
-    for (const entry of entries)
-      publications.push(
-        await (entry.initialGroup
-          ? prepareInitialGroupCurrentPublication
-          : preparePublication)(
-          entry.options,
-          entry.request,
-          entry.current,
-          entry.predecessor,
-          checks,
-        ),
-      );
-    checks.assertDirectoryBindings(
-      organizationId,
-      entries.map(({ current }) => current),
+    const { currents, publications } = await preparePublications(
+      entries,
+      checks,
     );
+    checks.assertDirectoryBindings(organizationId, currents);
     for (let attempt = 0; ; attempt += 1) {
       const reconciled = await reconcilePublications(entries, publications);
       try {

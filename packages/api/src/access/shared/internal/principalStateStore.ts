@@ -132,8 +132,13 @@ async function ensureStoredPrincipalStateMatches(
   return storedState;
 }
 
+/**
+ * The payload shares its state's insertion time: a write acknowledges both by
+ * one `createdAt`, and some backends evaluate each column default separately.
+ */
 async function insertPrincipalStatePayloadRow(
   input: PrincipalStateWriteContext,
+  createdAt: Date,
 ): Promise<StoredPrincipalStatePayload | null> {
   const [inserted] = await input.executor
     .insert(principalStatePayloads)
@@ -144,6 +149,7 @@ async function insertPrincipalStatePayloadRow(
       cipherSuite: input.normalizedInput.encryptedPayload.cipherSuite,
       ciphertext: input.normalizedInput.encryptedPayload.ciphertext,
       ciphertextHash: input.normalizedInput.encryptedPayload.ciphertextHash,
+      createdAt,
     })
     .onConflictDoNothing({
       target: [
@@ -308,7 +314,7 @@ export async function storeVerifiedPrincipalStateInTransaction(
   );
   await ensureStoredPrincipalPayloadMatches(
     writeContext,
-    await insertPrincipalStatePayloadRow(writeContext),
+    await insertPrincipalStatePayloadRow(writeContext, storedState.createdAt),
   );
   await insertPrincipalProjectionRows(writeContext);
   await ensureStoredPrincipalProjectionMatches(writeContext);
