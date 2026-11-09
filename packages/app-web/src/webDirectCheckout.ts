@@ -13,6 +13,12 @@ import {
   type DirectCheckoutConfirmation,
   type DirectCheckoutSession,
 } from "@tearleads/client-sdk";
+import {
+  INITIAL_STRIPE_FORM_LOAD,
+  type StripeFormElement,
+  type StripeFormLoadEvent,
+  transitionStripeFormLoad,
+} from "./stripeFormLoadState";
 
 /**
  * Stripe-backed {@link DirectCheckoutCapability} for the web shell (issue
@@ -226,25 +232,7 @@ function mountElements(
   host.append(emailHost, paymentHost);
   const wrappers = [emailHost, paymentHost];
 
-  // Each frame loads on its own: the form is ready once both have rendered,
-  // and failed as soon as either cannot load.
-  const loading = new Set(["contactDetails", "payment"]);
-  let failed = false;
-  const markReady = (type: string) => () => {
-    if (!failed && loading.delete(type) && loading.size === 0) {
-      callbacks.onReady();
-    }
-  };
-  // Stripe reports a plain object; an Error carries it to diagnostics.
-  const markFailed = (event: { error: unknown }) => {
-    if (failed) return;
-    failed = true;
-    callbacks.onLoadError(
-      new Error("The payment form could not be loaded.", {
-        cause: event.error,
-      }),
-    );
-  };
+  const load = trackFormLoad(callbacks);
   let billingEmail: string | null = null;
   try {
     const contact = elements.create("contactDetails");
@@ -253,16 +241,16 @@ function mountElements(
       billingEmail = event.complete && email.length > 0 ? email : null;
       callbacks.onBillingEmailChange(billingEmail);
     });
-    contact.on("ready", markReady("contactDetails"));
-    contact.on("loaderror", markFailed);
+    contact.on("ready", load.ready("contactDetails"));
+    contact.on("loaderror", load.failed);
     contact.mount(emailHost);
     // The email belongs to the Contact Details element above, not the card
     // form; `never` here obliges confirm to send it explicitly.
     const payment = elements.create("payment", {
       fields: { billingDetails: { email: "never" } },
     });
-    payment.on("ready", markReady("payment"));
-    payment.on("loaderror", markFailed);
+    payment.on("ready", load.ready("payment"));
+    payment.on("loaderror", load.failed);
     payment.mount(paymentHost);
   } catch (mountError) {
     // No session exists to unmount a half-built form; a retry would stack a
@@ -271,6 +259,38 @@ function mountElements(
     throw mountError;
   }
   return { billingEmail: () => billingEmail, wrappers };
+}
+
+/**
+ * Runs the form-load machine (`stripeFormLoadState.ts`) and its entry
+ * effects: the host hears `onReady` once, or `onLoadError` once.
+ */
+function trackFormLoad(callbacks: MountCallbacks): {
+  readonly ready: (element: StripeFormElement) => () => void;
+  readonly failed: (event: { readonly error: unknown }) => void;
+} {
+  let state = INITIAL_STRIPE_FORM_LOAD;
+  const send = (event: StripeFormLoadEvent) => {
+    const next = transitionStripeFormLoad(state, event);
+    if (next === state) {
+      return;
+    }
+    state = next;
+    if (next.status === "ready") {
+      callbacks.onReady();
+    } else if (event.type === "element-failed") {
+      // Stripe reports a plain object; an Error carries it to diagnostics.
+      callbacks.onLoadError(
+        new Error("The payment form could not be loaded.", {
+          cause: event.error,
+        }),
+      );
+    }
+  };
+  return {
+    ready: (element) => () => send({ type: "element-ready", element }),
+    failed: (event) => send({ type: "element-failed", error: event.error }),
+  };
 }
 
 function createSession(
