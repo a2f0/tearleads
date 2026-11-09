@@ -19,10 +19,8 @@ The window core (`@tearleads/windowing`) is app-agnostic: it stores a window's
 the mini-apps from a definition: [`registry.ts`](registry.ts) gives it
 `MINI_APP_LAUNCHER`,
 every mini-app's definition (title, icon, component, sidebar default) with the
-menu order and Explorer as the routed shell's home, the empty desktop's
-default window, and the desktop's one icon (`desktopAppIds`, which
-`PaneDesktopIcons` narrows to the apps the session may see). The package opens
-them in windows (`MiniAppWindow`,
+menu order and Explorer as both the routed shell's home and the empty
+desktop's default window. The package opens them in windows (`MiniAppWindow`,
 whose `AppBoundary` slot takes `LauncherMiniAppBoundary` from
 [`../components/mini-app/MiniAppBoundary.tsx`][file-2]) or shows one at a time
 in its

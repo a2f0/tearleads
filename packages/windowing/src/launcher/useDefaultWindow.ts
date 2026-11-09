@@ -1,8 +1,5 @@
 import { useEffect, useRef } from "react";
-import {
-  type LauncherDefinition,
-  resolveLauncherAppIds,
-} from "./launcherDefinition";
+import { isLauncherAppId, type LauncherDefinition } from "./launcherDefinition";
 import type { NavigationMode } from "./navigationMode";
 
 /**
@@ -33,11 +30,10 @@ export function useDefaultWindow({
     // Record the entry before opening, including across StrictMode effects.
     handledWindowedEntry.current = true;
     if (windowCount > 0) return;
-    for (const appId of resolveLauncherAppIds(
-      definition,
-      definition.defaultWindowAppIds,
-    )) {
-      openMiniApp({ appId });
+    // Each app once: the launcher's open requests within this pass cannot see
+    // the windows the earlier ones created.
+    for (const appId of new Set(definition.defaultWindowAppIds)) {
+      if (isLauncherAppId(definition, appId)) openMiniApp({ appId });
     }
   }, [definition, enabled, mode, openMiniApp, windowCount]);
 }

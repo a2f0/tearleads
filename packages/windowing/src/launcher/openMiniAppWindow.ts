@@ -1,6 +1,5 @@
 import {
   findTopWindow,
-  type WindowPosition,
   type WindowSize,
   type WindowStateActions,
   type WindowStateData,
@@ -27,8 +26,11 @@ export interface MiniAppWindowPlacement {
    * `create`'s `fitToContent` does.
    */
   fitToContent?: boolean | undefined;
-  /** Where the window opens. Defaults to the request's position. */
-  position?: WindowPosition | undefined;
+  /**
+   * Where the window opens, in viewport pixels like a request's `position`.
+   * Defaults to the request's position.
+   */
+  position?: { x: number; y: number } | undefined;
   /** The window's size. Defaults to the app's `windowSize`. */
   size?: WindowSize | undefined;
 }

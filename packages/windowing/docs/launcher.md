@@ -39,8 +39,8 @@ and a `close` callback. Tearleads' footer does this in
 A launcher application is a set of mini-apps, defined once and shown either in
 windows on a desktop or one at a time in the routed shell. A
 `LauncherDefinition` lists the apps by id, the order the launchers show them in,
-the apps the windowed desktop shows as icons and opens on entry, and the app
-the routed shell shows at the root route:
+the windows the desktop opens on entry, and the app the routed shell shows at
+the root route:
 
 ```tsx
 import type { LauncherDefinition } from "@tearleads/windowing";
@@ -60,7 +60,6 @@ const LAUNCHER: LauncherDefinition<"notes" | "contacts"> = {
     },
   },
   defaultWindowAppIds: ["contacts", "notes"],
-  desktopAppIds: ["notes"],
   homeAppId: "notes",
   order: ["notes", "contacts"],
 };
@@ -85,10 +84,10 @@ the routed home.
 A new window opens at the request's `position`, or `DEFAULT_MINI_APP_POSITION`,
 at the app's `windowSize`. A host that places its apps itself passes the
 provider a `placeWindow` callback. It receives each request that opens a new
-window and returns a `MiniAppWindowPlacement`: the window's `position`, its
-`size`, and `fitToContent` to open it fitted (see
-[Geometry and input](./windows.md#geometry-and-input)). A field it leaves out
-keeps the default. Default windows, desktop icons, and every other
+window and returns a `MiniAppWindowPlacement`: the window's `position`, in
+viewport pixels like the request's, its `size`, and `fitToContent` to open it
+fitted (see [Geometry and input](./windows.md#geometry-and-input)). A field it
+leaves out keeps the default. Default windows, desktop icons, and every other
 `openMiniApp` call open through it:
 
 ```tsx
@@ -123,15 +122,14 @@ pointer, and not an iPad. Pass the mode to
 ## Desktop icons
 
 `DesktopIcons` shows launcher apps as icons on the windowed desktop, beneath
-its windows: the definition's `desktopAppIds`, or the `appIds` it is given, such
-as those the session may see. Render it inside `LauncherNavigationProvider`, as
-the first child of the positioned surface the windows lay out on:
+its windows. Render it inside `LauncherNavigationProvider`, as the first child
+of the positioned surface the windows lay out on, and name the apps it shows:
 
 ```tsx
 const storage = createOpfsDesktopStateStorage({ fileName: "desktop.json" });
 
 <div className="desktop-surface">
-  <DesktopIcons storage={storage} />
+  <DesktopIcons appIds={["notes", "contacts"]} storage={storage} />
   {windows.map((entry) => (
     <MiniAppWindow key={entry.id} windowId={entry.id} />
   ))}

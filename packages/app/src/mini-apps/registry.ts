@@ -79,12 +79,10 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
   },
 };
 
-// Explorer is the routed home, the empty desktop's default window, and the
-// desktop's one icon.
+// Explorer is both the routed home and the default for an empty desktop.
 export const MINI_APP_LAUNCHER: LauncherDefinition<MiniAppId> = {
   apps: MINI_APPS,
   defaultWindowAppIds: [HOME_MINI_APP_ID],
-  desktopAppIds: ["explorer"],
   homeAppId: HOME_MINI_APP_ID,
   order: MINI_APP_ORDER,
 };
