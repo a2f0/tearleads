@@ -82,7 +82,9 @@ test("persisted raw history preserves availability when refresh returns null", a
       syncRemoteDocument({
         apiClient: readOnlySyncApi({
           fixture,
-          onProjectionFetch: () => (projectionFetches += 1),
+          onProjectionFetch: () => {
+            projectionFetches += 1;
+          },
           projectionAfterEviction: null,
         }),
         author: fixture.author,

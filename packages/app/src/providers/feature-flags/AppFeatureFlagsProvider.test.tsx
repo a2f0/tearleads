@@ -35,7 +35,13 @@ function captured(value: AppFeatureFlagsValue | null): AppFeatureFlagsValue {
 
 test("the no-provider value keeps every feature disabled", () => {
   let value: AppFeatureFlagsValue | null = null;
-  render(<FeatureFlagProbe capture={(next) => (value = next)} />);
+  render(
+    <FeatureFlagProbe
+      capture={(next) => {
+        value = next;
+      }}
+    />,
+  );
 
   for (const flag of APP_FEATURE_FLAG_IDS) {
     expect(captured(value).isEnabled(flag)).toBe(false);
@@ -59,9 +65,17 @@ test("nested providers share one persistent feature-flag value", () => {
   let inner: AppFeatureFlagsValue | null = null;
   render(
     <AppFeatureFlagsProvider>
-      <FeatureFlagProbe capture={(value) => (outer = value)} />
+      <FeatureFlagProbe
+        capture={(value) => {
+          outer = value;
+        }}
+      />
       <AppFeatureFlagsProvider>
-        <FeatureFlagProbe capture={(value) => (inner = value)} />
+        <FeatureFlagProbe
+          capture={(value) => {
+            inner = value;
+          }}
+        />
       </AppFeatureFlagsProvider>
     </AppFeatureFlagsProvider>,
   );

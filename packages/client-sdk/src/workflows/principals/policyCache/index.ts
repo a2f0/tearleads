@@ -298,9 +298,11 @@ async function runPrincipalPolicyCache<Item, Result>(input: {
             return input.cacheItem(
               item,
               fresh
-                ? () =>
-                    (reloadedAuthority ??=
-                      loadOrganizationExternalAdminPolicy(input))
+                ? () => {
+                    reloadedAuthority ??=
+                      loadOrganizationExternalAdminPolicy(input);
+                    return reloadedAuthority;
+                  }
                 : loadExternalAdminPolicy,
               fresh ? () => reloadDirectory(true) : loadDirectory,
               fresh,

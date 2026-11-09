@@ -346,17 +346,16 @@ async function settleMetadataStructuralIntents(
   ) {
     throw new ContainerCreateIntentSupersededError();
   }
-  if (input.moveIntentSettlement) {
-    if (
-      !(await deleteContainerMoveIntentRevision({
-        ...input.moveIntentSettlement,
-        tx,
-      }))
-    ) {
-      throw new Error(
-        "Container move intent was superseded before local settlement",
-      );
-    }
+  if (
+    input.moveIntentSettlement &&
+    !(await deleteContainerMoveIntentRevision({
+      ...input.moveIntentSettlement,
+      tx,
+    }))
+  ) {
+    throw new Error(
+      "Container move intent was superseded before local settlement",
+    );
   }
 }
 

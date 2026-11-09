@@ -243,10 +243,7 @@ test("a transient ready-database append failure retries buffered evidence", asyn
     }
     return execSql(sql, bind, options);
   }
-  let markDelivered: (() => void) | undefined;
-  const delivered = new Promise<void>((resolve) => {
-    markDelivered = resolve;
-  });
+  const delivered = Promise.withResolvers<void>();
   const logMessages: Array<string | Error> = [];
   const service = createSecurityIncidentService({
     database: new Database({
@@ -254,10 +251,9 @@ test("a transient ready-database append failure retries buffered evidence", asyn
       status: "ready",
     }),
     logError: (message) => logMessages.push(message),
-    onIncident: () => markDelivered?.(),
+    onIncident: () => delivered.resolve(),
     trustDomain: null,
   });
-  let deliveryTimeout: ReturnType<typeof setTimeout> | undefined;
 
   try {
     await service.report(
@@ -268,16 +264,7 @@ test("a transient ready-database append failure retries buffered evidence", asyn
         operation: "principal.policy.verify",
       },
     );
-    await Promise.race([
-      delivered,
-      new Promise<never>(
-        (_, reject) =>
-          (deliveryTimeout = setTimeout(
-            () => reject(new Error("Timed out waiting for incident retry")),
-            2_000,
-          )),
-      ),
-    ]);
+    await delivered.promise;
 
     expect(await service.incidents.list()).toEqual([
       expect.objectContaining({ objectId: "principal-retry" }),
@@ -287,7 +274,6 @@ test("a transient ready-database append failure retries buffered evidence", asyn
       "Buffered security incident could not be persisted",
     ]);
   } finally {
-    clearTimeout(deliveryTimeout);
     service.dispose();
     await close();
   }

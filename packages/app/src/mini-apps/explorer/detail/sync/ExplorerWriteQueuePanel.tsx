@@ -11,7 +11,7 @@ import {
   requestContainerContentsDocumentPriming,
 } from "@tearleads/client-sdk";
 import { useCurrentWindow, useRoutedLayoutTier } from "@tearleads/windowing";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -86,11 +86,12 @@ function WriteQueueDiscardConfirmDialog(params: {
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const titleId = useId();
   return (
     <MiniAppModalBackdrop role="presentation">
       <MiniAppModalPanel
         role="dialog"
-        aria-labelledby="write-queue-discard-title"
+        aria-labelledby={titleId}
         aria-modal="true"
       >
         <MiniAppModalForm
@@ -99,9 +100,7 @@ function WriteQueueDiscardConfirmDialog(params: {
             params.onConfirm();
           }}
         >
-          <h2 id="write-queue-discard-title">
-            {EXPLORER_LABELS.writeQueueDiscardConfirmTitle}
-          </h2>
+          <h2 id={titleId}>{EXPLORER_LABELS.writeQueueDiscardConfirmTitle}</h2>
           <MiniAppStatus>
             <strong>{getWriteQueueItemName(params.item)}</strong>
             {" — "}
