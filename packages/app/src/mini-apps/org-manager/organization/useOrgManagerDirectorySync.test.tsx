@@ -90,3 +90,72 @@ test("loads locally offline and establishes reconciliation demand when online", 
   });
   detach();
 });
+
+test("an online roster reads as catching up until its catch-up settles, even when declined", async () => {
+  // Offline there is no catch-up to wait for, so an empty roster is final; a
+  // declined catch-up must also end the wait instead of spinning forever.
+  const domainScope = {};
+  let runtimeOnline = false;
+  const loadDirectoryAndGroups = mock(async () => undefined);
+  const tearleads = {
+    organizations: {
+      loadDirectoryAndGroups,
+      loadDirectoryAndGroupsAfterMutation: loadDirectoryAndGroups,
+    },
+    runtime: {
+      input: () => ({
+        auth: {
+          isAuthenticated: true,
+          organizationId: ORGANIZATION_ID,
+          userId: USER_ID,
+        },
+        infra: { dbStatus: "idle" },
+        state: { domainScope, online: runtimeOnline },
+      }),
+    },
+  } as unknown as Tearleads;
+  const sent: string[] = [];
+  const socket = {
+    readyState: WebSocket.OPEN,
+    send: (message: string) => sent.push(message),
+  } as unknown as WebSocket;
+  const detach = attachOrganizationReadModelSocket(tearleads, socket);
+  const view = renderHook(
+    ({ online }: { readonly online: boolean }) => {
+      runtimeOnline = online;
+      return useOrgManagerDirectorySync({
+        canLoadAuthenticatedOrgData: true,
+        mutating: false,
+        online,
+        organizationId: ORGANIZATION_ID,
+        refreshDirectoryAndGroups: async () => ({
+          didLoad: false as const,
+          groupId: null,
+        }),
+        scopeKey: "scope-a",
+        tearleads,
+      });
+    },
+    { initialProps: { online: false } },
+  );
+  expect(view.result.current).toBe(false);
+
+  view.rerender({ online: true });
+  expect(view.result.current).toBe(true);
+
+  const declaration = JSON.parse(sent.at(-1) ?? "null") as {
+    declarationId: string;
+  };
+  handleOrganizationReadModelInterestAcknowledgement(
+    tearleads,
+    socket,
+    declaration.declarationId,
+    ORGANIZATION_ID,
+    true,
+  );
+  await waitFor(() => {
+    expect(view.result.current).toBe(false);
+  });
+  expect(loadDirectoryAndGroups).toHaveBeenCalledTimes(1);
+  detach();
+});

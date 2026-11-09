@@ -300,7 +300,7 @@ export function useOrgManagerModel() {
     scopeKey: orgManagerScopeKey,
     view,
   });
-  useOrgManagerDirectorySync({
+  const rosterCatchingUp = useOrgManagerDirectorySync({
     canLoadAuthenticatedOrgData,
     mutating,
     online: appData.state.online,
@@ -442,7 +442,8 @@ export function useOrgManagerModel() {
     isImportUserDialogOpen,
     isAuthenticated: appData.auth.isAuthenticated,
     isOrgAdmin: activeDirectory?.currentUser.isOrgAdmin ?? false,
-    dataPending,
+    // An empty roster is not an answer while its first catch-up is in flight.
+    dataPending: dataPending || rosterCatchingUp,
     dataUsagePending,
     grantsPending,
     groupDetailsPending,

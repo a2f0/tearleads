@@ -9,6 +9,10 @@ export type ProjectionListener = () => unknown | Promise<unknown>;
 
 export interface ProjectionSubscription {
   active: boolean;
+  /** Runs once the catch-up owed at subscription has nothing left to report,
+   * after any reconciled pass has repainted `listener`; null once it ran, or
+   * when the consumer did not ask. */
+  awaitingCatchUp: (() => void) | null;
   readonly isMutationActive: () => boolean;
   readonly listener: ProjectionListener;
   readonly scope: OrganizationReadModelScope | null;
@@ -106,6 +110,40 @@ export function hasActiveOrganizationMutation(
       isSameOrganizationReadModelScope(subscription.scope, scope) &&
       subscription.isMutationActive(),
   );
+}
+
+/** A pass for this organization is running, or will start once its interest
+ * declaration is acknowledged or the disconnected fallback fires. */
+function organizationPassOwed(
+  state: OrganizationRealtimeState,
+  organizationId: string,
+): boolean {
+  return (
+    state.reconciliationsByOrganizationId.has(organizationId) ||
+    state.disconnectedFallbackByOrganizationId.has(organizationId) ||
+    state.pendingDeclaration?.organizationId === organizationId
+  );
+}
+
+/** Release every subscription still awaiting its catch-up once nothing is
+ * running or owed for the organization: the projection it reads is all a
+ * catch-up will produce. Call wherever an owed pass can stop being owed. */
+export function settleAwaitedCatchUps(
+  state: OrganizationRealtimeState,
+  organizationId: string,
+): void {
+  if (organizationPassOwed(state, organizationId)) {
+    return;
+  }
+  for (const subscription of state.listenersByOrganizationId.get(
+    organizationId,
+  ) ?? []) {
+    const settled = subscription.awaitingCatchUp;
+    subscription.awaitingCatchUp = null;
+    if (settled && subscription.active) {
+      settled();
+    }
+  }
 }
 
 export function currentOrganizationReadModelScope(

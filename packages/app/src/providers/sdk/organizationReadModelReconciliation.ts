@@ -13,6 +13,7 @@ import {
   type OrganizationRealtimeState,
   type PendingReadModelHint,
   type ReconciliationState,
+  settleAwaitedCatchUps,
   stateFor,
 } from "./organizationReadModelRealtimeState";
 import {
@@ -315,6 +316,7 @@ function scheduleOrganizationReadModelReconciliationPass(
         },
       );
     }
+    settleAwaitedCatchUps(state, organizationId);
   });
   state.reconciliationsByOrganizationId.set(organizationId, reconciliation);
   return reconciliation.promise;
