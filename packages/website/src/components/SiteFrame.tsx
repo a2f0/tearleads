@@ -14,8 +14,6 @@ interface SiteFrameProps {
 interface FooterLink {
   readonly href: string;
   readonly label: string;
-  /** Visually hidden destination for external links, e.g. "GitHub". */
-  readonly external?: string;
 }
 
 interface FooterGroup {
@@ -32,11 +30,7 @@ function footerGroups(appUrl: string): readonly FooterGroup[] {
         { href: "/security/", label: "Security" },
         { href: "/pricing/", label: "Pricing" },
         { href: "/screenshots/", label: "Screenshots" },
-        {
-          href: "https://github.com/a2f0/tearleads/tree/main/docs",
-          label: "Technical documents",
-          external: "GitHub",
-        },
+        { href: "/docs/", label: "Technical documents" },
       ],
     },
     {
@@ -75,14 +69,6 @@ function SiteFooter({ appUrl }: { readonly appUrl: string }) {
                 <li key={link.href}>
                   <a className="site-footer-link" href={link.href}>
                     {link.label}
-                    {link.external && (
-                      <>
-                        <span aria-hidden="true"> ↗</span>
-                        <span className="visually-hidden">
-                          {` (${link.external})`}
-                        </span>
-                      </>
-                    )}
                   </a>
                 </li>
               ))}
