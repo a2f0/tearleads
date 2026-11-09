@@ -339,11 +339,9 @@ async function runProbe(
     }
 
     state.requestedCount += batch.requestedCount;
-    if (!batch.done) {
-      if (batch.nextCursor !== null) {
-        state.cursor = batch.nextCursor;
-        return;
-      }
+    if (!batch.done && batch.nextCursor !== null) {
+      state.cursor = batch.nextCursor;
+      return;
     }
     for (const containerId of candidateContainerIds) {
       state.probedContainerIds.add(containerId);

@@ -33,6 +33,7 @@ export function CreateGroupDialog({
   setGroupNameDraft: (groupName: string) => void;
 }) {
   const inputId = useId();
+  const titleId = useId();
 
   if (!isOpen) {
     return null;
@@ -51,13 +52,11 @@ export function CreateGroupDialog({
     <MiniAppModalBackdrop role="presentation">
       <MiniAppModalPanel
         role="dialog"
-        aria-labelledby="org-manager-new-group-title"
+        aria-labelledby={titleId}
         aria-modal="true"
       >
         <MiniAppModalForm onSubmit={handleSubmit}>
-          <h2 id="org-manager-new-group-title">
-            {ORG_MANAGER_LABELS.newGroupAction}
-          </h2>
+          <h2 id={titleId}>{ORG_MANAGER_LABELS.newGroupAction}</h2>
           {error && (
             <MiniAppStatus className="org-manager-error" tone="error">
               {error}

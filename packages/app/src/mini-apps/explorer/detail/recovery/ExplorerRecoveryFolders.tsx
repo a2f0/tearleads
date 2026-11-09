@@ -3,7 +3,7 @@ import type {
   ContainerNode,
   RecoveryFolder,
 } from "@tearleads/client-sdk";
-import { type MouseEvent, useEffect, useState } from "react";
+import { type MouseEvent, useEffect, useId, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -155,6 +155,7 @@ export function ExplorerRecoveryFolders(params: RecoveryFoldersProps) {
     discard,
     setRevision,
   } = useRecoveryFolders(params);
+  const titleId = useId();
   return (
     <section aria-label="Retained folders">
       <MiniAppStatus>
@@ -199,7 +200,7 @@ export function ExplorerRecoveryFolders(params: RecoveryFoldersProps) {
           <MiniAppModalPanel
             role="dialog"
             aria-modal="true"
-            aria-labelledby="folder-discard-title"
+            aria-labelledby={titleId}
           >
             <MiniAppModalForm
               onSubmit={(event) => {
@@ -207,7 +208,7 @@ export function ExplorerRecoveryFolders(params: RecoveryFoldersProps) {
                 void discard();
               }}
             >
-              <h2 id="folder-discard-title">Discard local folder copy?</h2>
+              <h2 id={titleId}>Discard local folder copy?</h2>
               <MiniAppStatus>
                 This permanently removes saved metadata and queued edits for{" "}
                 <strong>{confirm.name}</strong>, and cancels pending links to

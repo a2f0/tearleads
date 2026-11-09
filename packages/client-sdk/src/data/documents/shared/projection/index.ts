@@ -140,19 +140,18 @@ async function assertProjectionContentKeyBundleConsistent(
   staleContentKeyBundle: boolean,
 ): Promise<void> {
   const { manifestHash } = writerProjection.documentManifest;
-  if (writerProjection.contentKeyBundle.linkSetManifestHash !== manifestHash) {
-    // A stale bundle may lag the link-set head, but it must still descend
-    // from this document's manifest chain.
-    if (
-      !staleContentKeyBundle ||
+  // A stale bundle may lag the link-set head, but it must still descend from
+  // this document's manifest chain.
+  if (
+    writerProjection.contentKeyBundle.linkSetManifestHash !== manifestHash &&
+    (!staleContentKeyBundle ||
       !writerProjection.documentManifestHistory.some(
         (bundle) =>
           bundle.manifestHash ===
           writerProjection.contentKeyBundle.linkSetManifestHash,
-      )
-    ) {
-      throw new Error("Document writer projection link manifest mismatch");
-    }
+      ))
+  ) {
+    throw new Error("Document writer projection link manifest mismatch");
   }
 
   if (!staleContentKeyBundle) {

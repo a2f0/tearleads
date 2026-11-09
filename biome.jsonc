@@ -41,7 +41,23 @@
             "skipBlankLines": true,
             "skipIifes": true
           }
-        }
+        },
+        "noExcessiveNestedTestSuites": "error",
+        "noUselessReturn": "error"
+      },
+      // React rules are listed explicitly: Biome's react domain does not detect
+      // React from the root manifest, so none of them run otherwise.
+      "correctness": {
+        "noChildrenProp": "error",
+        "noGlobalDirnameFilename": "error",
+        "noReactPropAssignments": "error",
+        "noRenderReturnValue": "error",
+        "useJsxKeyInIterable": "error",
+        "useUniqueElementIds": "error"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "error",
+        "noDangerouslySetInnerHtmlWithChildren": "error"
       },
       "suspicious": {
         // dependency-cruiser's no-circular covers package source only; this
@@ -50,12 +66,36 @@
         "noImportCycles": {
           "level": "error",
           "options": { "ignoreTypes": false }
-        }
+        },
+        // Catches operands that never change the result, such as `false || x`,
+        // before esbuild only warns about them during a Worker deploy.
+        "noConstantBinaryExpressions": "error",
+        "noAlert": "error",
+        "noDuplicateDependencies": "error",
+        "noDuplicatedSpreadProps": "error",
+        "noDuplicateTestHooks": "error",
+        "noEmptySource": "error",
+        "noExportsInTest": "error",
+        "noReactForwardRef": "error",
+        "noReturnAssign": "error",
+        "noSkippedTests": "error",
+        "noUnassignedVariables": "error",
+        "noUnknownAttribute": "error",
+        "noUnusedExpressions": "error",
+        "noVar": "error",
+        "useGuardForIn": "error",
+        "useNumberToFixedDigitsArgument": "error"
       },
       "style": {
         // Component variants intentionally group selectors by behavior; preserve
         // their cascade instead of adopting Biome 2.5 specificity ordering.
         "noDescendingSpecificity": "off",
+        "noUselessElse": "error",
+        "useCollapsedIf": "error",
+        "useDefaultParameterLast": "error",
+        "useReactFunctionComponents": "error",
+        "useThrowNewError": "error",
+        "useThrowOnlyError": "error",
         "noRestrictedImports": {
           "level": "error",
           "options": {
@@ -117,6 +157,18 @@
             "noExcessiveCognitiveComplexity": "off",
             "noExcessiveLinesPerFunction": "off"
           }
+        }
+      }
+    },
+    {
+      // Outside test files noFocusedTests mistakes helpers named `fit` for
+      // Jasmine's focused `it`. An isolated test render owns the whole
+      // document, so fixed element IDs cannot collide there.
+      "includes": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts"],
+      "linter": {
+        "rules": {
+          "correctness": { "useUniqueElementIds": "off" },
+          "suspicious": { "noFocusedTests": "error" }
         }
       }
     },

@@ -20,6 +20,7 @@ import { useMobileSheetDrag } from "./useMobileSheetDrag";
 import "./RoutedPaneNav.css";
 
 export const ROUTED_PANE_NAV_PANEL_ID = "routed-pane-nav-panel";
+export const ROUTED_PANE_SHEET_ID = "routed-pane-sheet";
 
 interface RoutedPaneNavItem {
   appId: string;
@@ -342,7 +343,7 @@ export function RoutedPaneNav({
         ref={sheetRef}
         data-dragging={mobileSheetDrag.dragging ? "true" : "false"}
         data-open={drawerOpen ? "true" : "false"}
-        id="routed-pane-sheet"
+        id={ROUTED_PANE_SHEET_ID}
         style={
           drawerOpen && mobileSheetDrag.dragOffset > 0
             ? { transform: `translateY(${mobileSheetDrag.dragOffset}px)` }

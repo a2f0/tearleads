@@ -33,7 +33,7 @@ function captureQuietly(
   try {
     reporter.captureError(error, source);
   } catch {
-    return;
+    // A failed report is dropped rather than becoming a second crash.
   }
 }
 

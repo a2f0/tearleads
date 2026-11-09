@@ -61,9 +61,9 @@ async function waitForPurgeOutcome(): Promise<string> {
   let outcome = "";
   await waitFor(
     () => {
-      const status = document.querySelector(
-        '[aria-labelledby="explorer-purge-progress-title"]',
-      )?.textContent;
+      const status = document
+        .querySelector(".explorer-purge-progress")
+        ?.closest('[role="dialog"]')?.textContent;
       if (status?.includes("Done.")) outcome = "done";
       else if (status?.includes("could not")) outcome = status;
       else if (status?.includes("Couldn't")) outcome = status;

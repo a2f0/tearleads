@@ -31,6 +31,7 @@ export function CreateOrganizationDialog({
   const [organizationNameDraft, setOrganizationNameDraft] = useState("");
   const [mounted, setMounted] = useState(false);
   const inputId = useId();
+  const titleId = useId();
 
   useEffect(() => {
     setMounted(true);
@@ -63,13 +64,11 @@ export function CreateOrganizationDialog({
     >
       <MiniAppModalPanel
         role="dialog"
-        aria-labelledby="org-manager-new-organization-title"
+        aria-labelledby={titleId}
         aria-modal="true"
       >
         <MiniAppModalForm onSubmit={handleSubmit}>
-          <h2 id="org-manager-new-organization-title">
-            {ORG_MANAGER_LABELS.newOrganizationAction}
-          </h2>
+          <h2 id={titleId}>{ORG_MANAGER_LABELS.newOrganizationAction}</h2>
           {error && (
             <MiniAppStatus className="org-manager-error" tone="error">
               {error}

@@ -105,7 +105,7 @@ export interface OperationResponseRequestFn {
     path: string,
     method: HttpMethod,
     body: RequestBody | undefined,
-    options: RequestResultOptions | undefined,
+    options: RequestResultOptions,
     additionalSuccessStatuses: readonly number[],
     failureOperation: HttpOperation,
   ): Promise<RequestResult<Response>>;
