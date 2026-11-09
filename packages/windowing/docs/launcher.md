@@ -39,7 +39,8 @@ and a `close` callback. Tearleads' footer does this in
 A launcher application is a set of mini-apps, defined once and shown either in
 windows on a desktop or one at a time in the routed shell. A
 `LauncherDefinition` lists the apps by id, the order the launchers show them in,
-and the app the routed shell shows at the root route:
+the windows the desktop opens on entry, and the app the routed shell shows at
+the root route:
 
 ```tsx
 import type { LauncherDefinition } from "@tearleads/windowing";
@@ -58,7 +59,7 @@ const LAUNCHER: LauncherDefinition<"notes" | "contacts"> = {
       title: "Notes",
     },
   },
-  defaultWindowAppId: "notes",
+  defaultWindowAppIds: ["contacts", "notes"],
   homeAppId: "notes",
   order: ["notes", "contacts"],
 };
@@ -72,12 +73,34 @@ or raises the one already open; in `routed` mode it pushes the app's route,
 each window with `MiniAppWindow`, whose `AppBoundary` slot wraps the app (for
 example in an error boundary).
 
-Optional `defaultWindowAppId` opens on entering an empty windowed desktop,
-including mount. Minimized windows count as open. Closing the last window
-leaves it empty until the next mode entry. The provider's `defaultWindowEnabled`
-defers that entry while false (e.g. hidden workspaces). Hiding and showing an
-already initialized desktop preserves it, even if empty. Omit the app id to
-manage startup yourself; `homeAppId` only sets the routed home.
+Optional `defaultWindowAppIds` open, in order, on entering an empty windowed
+desktop, including mount, so the last opens in front. Minimized windows count
+as open. Closing the last window leaves it empty until the next mode entry. The
+provider's `defaultWindowEnabled` defers that entry while false (e.g. hidden
+workspaces). Hiding and showing an already initialized desktop preserves it,
+even if empty. Omit the list to manage startup yourself; `homeAppId` only sets
+the routed home.
+
+A new window opens at the request's `position`, or `DEFAULT_MINI_APP_POSITION`,
+at the app's `windowSize`. A host that places its apps itself passes the
+provider a `placeWindow` callback. It receives each request that opens a new
+window and returns a `MiniAppWindowPlacement`: the window's `position`, in
+viewport pixels like the request's, its `size`, and `fitToContent` to open it
+fitted (see [Geometry and input](./windows.md#geometry-and-input)). A field it
+leaves out keeps the default. Default windows, desktop icons, and every other
+`openMiniApp` call open through it:
+
+```tsx
+<LauncherNavigationProvider
+  definition={LAUNCHER}
+  mode={mode}
+  placeWindow={({ appId }) =>
+    appId === "notes"
+      ? { fitToContent: true, position: { x: 120, y: 40 } }
+      : {}
+  }
+>
+```
 
 A mini-app reads and sets its own route with `useMiniAppRouteSegments(appId)`,
 or `useMiniAppRouteState` for a parsed route: the browser route in the routed

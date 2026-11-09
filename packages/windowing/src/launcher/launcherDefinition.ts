@@ -27,16 +27,18 @@ export interface MiniAppDefinition {
 
 /**
  * A launcher application: the mini-apps it can open, the order its launchers
- * list them in, and the one the routed shell shows at the root route.
+ * list them in, the ones the windowed desktop opens on entry, and the one the
+ * routed shell shows at the root route.
  */
 export interface LauncherDefinition<AppId extends string = string> {
   apps: Readonly<Record<AppId, MiniAppDefinition>>;
   /**
-   * Opens when entering windowed mode with no windows, including on mount.
-   * Closing the last window leaves the desktop empty until the next entry.
-   * Omit to leave window startup to the host. Unknown app ids are ignored.
+   * Open, in this order, when entering windowed mode with no windows,
+   * including on mount, so the last opens in front. Closing the last window
+   * leaves the desktop empty until the next entry. Omit to leave window
+   * startup to the host. Unknown app ids are skipped.
    */
-  defaultWindowAppId?: AppId | undefined;
+  defaultWindowAppIds?: ReadonlyArray<AppId> | undefined;
   /** Shown at the root route. Defaults to the first app in `order`. */
   homeAppId?: AppId | undefined;
   /**

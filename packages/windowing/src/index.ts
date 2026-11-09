@@ -37,11 +37,9 @@ export {
   WINDOWED_LAYOUT_MIN_WIDTH_PX,
 } from "./launcher/breakpoints";
 export {
-  DEFAULT_MINI_APP_POSITION,
   type LauncherNavigationActions,
   LauncherNavigationProvider,
   type LauncherNavigationState,
-  type OpenMiniAppRequest,
   useLauncherNavigationActions,
   useLauncherNavigationState,
   useMiniAppRouteSegments,
@@ -72,6 +70,12 @@ export {
   readNavigationEnvironment,
   resolveNavigationMode,
 } from "./launcher/navigationMode";
+export {
+  DEFAULT_MINI_APP_POSITION,
+  type MiniAppWindowPlacement,
+  type OpenMiniAppRequest,
+  type PlaceMiniAppWindow,
+} from "./launcher/openMiniAppWindow";
 export {
   buildMiniAppPath,
   type LauncherRoute,

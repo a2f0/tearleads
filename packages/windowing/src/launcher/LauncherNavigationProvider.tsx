@@ -9,7 +9,6 @@ import {
 } from "react";
 import { createRequiredContext } from "../createRequiredContext";
 import {
-  findTopWindow,
   useWindowActions,
   useWindowStateData,
   type WindowStateActions,
@@ -26,6 +25,11 @@ import {
 } from "./navigationHistory";
 import type { NavigationMode } from "./navigationMode";
 import {
+  type OpenMiniAppRequest,
+  openMiniAppWindow,
+  type PlaceMiniAppWindow,
+} from "./openMiniAppWindow";
+import {
   replaceWindowHistoryCursor,
   useRoutedPathNavigator,
 } from "./routedPathNavigator";
@@ -36,19 +40,6 @@ import {
   parseLauncherRoute,
 } from "./routePaths";
 import { useDefaultWindow } from "./useDefaultWindow";
-
-/** Where a new window opens when a request names no position. */
-export const DEFAULT_MINI_APP_POSITION = { x: 200, y: 160 };
-
-/** A request to show an app: in a window, or as the routed shell's page. */
-export interface OpenMiniAppRequest<AppId extends string = string> {
-  appId: AppId;
-  pathSegments?: ReadonlyArray<string> | undefined;
-  /** Where a new window opens. */
-  position?: { x: number; y: number } | undefined;
-  /** Raise the app's open window instead of opening another. Defaults to true. */
-  reuseExisting?: boolean | undefined;
-}
 
 export interface LauncherNavigationActions<AppId extends string = string> {
   getMiniAppHref: (
@@ -76,10 +67,15 @@ export interface LauncherNavigationState<AppId extends string = string> {
 }
 
 interface LauncherNavigationProviderProps extends PropsWithChildren {
-  /** Defers the default window while false, for example in a hidden workspace. */
+  /** Defers the default windows while false, for example in a hidden workspace. */
   defaultWindowEnabled?: boolean | undefined;
   definition: LauncherDefinition;
   mode: NavigationMode;
+  /**
+   * Places each new window, for a host that opens its apps at their own
+   * positions or sizes. Read when a window opens.
+   */
+  placeWindow?: PlaceMiniAppWindow | undefined;
 }
 
 interface LauncherNavigationRuntime {
@@ -89,6 +85,7 @@ interface LauncherNavigationRuntime {
   >;
   definition: LauncherDefinition;
   mode: NavigationMode;
+  placeWindow: PlaceMiniAppWindow | undefined;
   windows: WindowStateData["windows"];
 }
 
@@ -127,12 +124,14 @@ function LauncherNavigationWindowRuntimeBridge({
   definition,
   mode,
   openMiniApp,
+  placeWindow,
   runtimeRef,
 }: {
   defaultWindowEnabled: boolean;
   definition: LauncherDefinition;
   mode: NavigationMode;
   openMiniApp: LauncherNavigationActions["openMiniApp"];
+  placeWindow: PlaceMiniAppWindow | undefined;
   runtimeRef: MutableRefObject<LauncherNavigationRuntime>;
 }) {
   const { bringToFront, create, restore, updateRoute } = useWindowActions();
@@ -143,6 +142,7 @@ function LauncherNavigationWindowRuntimeBridge({
       actions: { bringToFront, create, restore, updateRoute },
       definition,
       mode,
+      placeWindow,
       windows,
     };
   }, [
@@ -150,6 +150,7 @@ function LauncherNavigationWindowRuntimeBridge({
     create,
     definition,
     mode,
+    placeWindow,
     restore,
     runtimeRef,
     updateRoute,
@@ -283,54 +284,21 @@ function useLauncherNavigationActionValue(
   navigateMiniAppRoute: LauncherNavigationActions["navigateMiniAppRoute"],
 ): LauncherNavigationActions {
   const openMiniApp = useCallback(
-    ({
-      appId,
-      pathSegments,
-      position = DEFAULT_MINI_APP_POSITION,
-      reuseExisting = true,
-    }: OpenMiniAppRequest) => {
-      const {
-        actions,
-        definition,
-        mode: currentMode,
-        windows: currentWindows,
-      } = runtimeRef.current;
-
-      if (currentMode === "routed") {
+    (request: OpenMiniAppRequest) => {
+      const { actions, definition, mode, placeWindow, windows } =
+        runtimeRef.current;
+      if (mode === "routed") {
+        const { appId, pathSegments } = request;
         navigateMiniAppRoute({ appId, pathSegments });
         return null;
       }
-
-      const existingWindow = reuseExisting
-        ? findTopWindow(currentWindows, (windowEntry) => {
-            return windowEntry.appId === appId;
-          })
-        : null;
-      if (existingWindow) {
-        actions.restore(existingWindow.id);
-        actions.bringToFront(existingWindow.id);
-        if (pathSegments) {
-          actions.updateRoute(existingWindow.id, pathSegments);
-        }
-        return existingWindow.id;
-      }
-
-      const app = definition.apps[appId];
-      if (!app) {
-        throw new Error(`Unknown mini-app: ${appId}`);
-      }
-      return actions.create(
-        app.title,
-        position.x,
-        position.y,
-        app.createComponent(),
-        {
-          appId,
-          initialShowSidebar: app.initialShowSidebar,
-          ...(pathSegments ? { pathSegments } : {}),
-          ...(app.windowSize ? { size: app.windowSize } : {}),
-        },
-      );
+      return openMiniAppWindow({
+        actions,
+        definition,
+        placeWindow,
+        request,
+        windows,
+      });
     },
     [navigateMiniAppRoute, runtimeRef],
   );
@@ -366,6 +334,7 @@ export function LauncherNavigationProvider({
   defaultWindowEnabled = true,
   definition,
   mode,
+  placeWindow,
 }: LauncherNavigationProviderProps) {
   const runtimeRef = useRef<LauncherNavigationRuntime>({
     actions: {
@@ -376,6 +345,7 @@ export function LauncherNavigationProvider({
     },
     definition,
     mode,
+    placeWindow,
     windows: [],
   });
   const {
@@ -410,6 +380,7 @@ export function LauncherNavigationProvider({
           definition={definition}
           mode={mode}
           openMiniApp={actions.openMiniApp}
+          placeWindow={placeWindow}
           runtimeRef={runtimeRef}
         />
         {children}
