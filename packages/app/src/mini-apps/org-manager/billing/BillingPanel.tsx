@@ -18,6 +18,7 @@ import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingCancelSubscription } from "./BillingCancelSubscription";
 import {
   BillingDirectCheckout,
+  isCheckoutLoading,
   isCheckoutScreenOpen,
 } from "./BillingDirectCheckout";
 import { OptionalBillingHistory } from "./BillingHistory";
@@ -172,6 +173,11 @@ function useDirectCheckoutWiring(input: {
     checkout,
     checkoutActive,
     checkoutEnabled,
+    // The checkout's loading panel fills the panel, like other loading screens.
+    panelClassName:
+      checkoutScreenOpen && isCheckoutLoading(checkout)
+        ? "org-manager-billing--checkout-loading"
+        : undefined,
     checkoutScreenOpen,
     managementUrl: input.managementUrl,
     showInlineCancel,
@@ -458,7 +464,7 @@ export function BillingPanel({
   const subscriptionManagement = useOpenSubscriptionManagement(handleRefresh);
 
   return (
-    <div>
+    <div className={direct.panelClassName}>
       {direct.checkoutScreenOpen ? null : (
         <BillingRecoveryStatus {...recovery} onRetry={recovery.retry} />
       )}

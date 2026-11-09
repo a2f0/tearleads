@@ -341,8 +341,8 @@ cancellation. Provider-neutral purchase errors live in
 [`client/billing/purchaseErrors.ts`](../client/billing/purchaseErrors.ts),
 outside the organization workflow facade;
 callers can distinguish retryable identity races from provider stalls that
-require an app restart. Direct checkout's provider form reports the billing
-email to `mount`'s `onBillingEmailChange`.
+require an app restart. Direct checkout's provider form reports its billing
+email, readiness, and load failure through `mount`'s callbacks.
 
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through

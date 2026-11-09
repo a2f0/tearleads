@@ -6,15 +6,19 @@
 
 export const ENV_KEY = "BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY";
 
+type Handler = (event: unknown) => void;
+
 interface FakeElement {
   mount(host: unknown): void;
   destroy(): void;
-  on(event: string, handler: (event: unknown) => void): FakeElement;
+  on(event: string, handler: Handler): FakeElement;
 }
 
 /**
  * A fake Stripe whose Contact Details element reports `email` as soon as the
  * capability subscribes to it (`null` reports an incomplete, empty field).
+ * `emit(type, event, payload)` fires any other subscribed element event, such
+ * as `ready` or `loaderror`.
  */
 export function fakeStripe(options?: {
   confirmError?: { type?: string; message?: string };
@@ -30,6 +34,7 @@ export function fakeStripe(options?: {
   const created: { type: string; opts: unknown }[] = [];
   const email =
     options?.email === undefined ? "buyer@example.com" : options.email;
+  const handlers: { type: string; event: string; handler: Handler }[] = [];
   const makeElement = (group: number, type: string): FakeElement => {
     const element: FakeElement = {
       mount: () => undefined,
@@ -41,10 +46,18 @@ export function fakeStripe(options?: {
         if (type === "contactDetails" && event === "change") {
           handler({ complete: email !== null, value: { email: email ?? "" } });
         }
+        handlers.push({ type, event, handler });
         return element;
       },
     };
     return element;
+  };
+  const emit = (type: string, event: string, payload: unknown = {}) => {
+    for (const subscription of handlers) {
+      if (subscription.type === type && subscription.event === event) {
+        subscription.handler(payload);
+      }
+    }
   };
   const elementsOptions: unknown[] = [];
   const stripe = {
@@ -76,6 +89,7 @@ export function fakeStripe(options?: {
     confirmInputs,
     created,
     elementsOptions,
+    emit,
     stripe,
     destroyed,
     destroyedByGroup,

@@ -35,6 +35,7 @@ import { readCheckoutAppearance } from "./checkoutAppearance";
 /** Where the flow currently is; drives what the panel renders. */
 export type DirectCheckoutPhase =
   | { readonly kind: "idle" }
+  /** The server checkout or the provider form is still loading. */
   | { readonly kind: "starting" }
   | { readonly kind: "collecting" }
   | { readonly kind: "confirming" };
@@ -274,6 +275,14 @@ function useBeginCheckout(
               complete: email !== null,
             });
           },
+          onReady: () => {
+            machine.send({ type: "form-ready", attempt });
+          },
+          // Leaving the session's state unmounts it, so a retry starts clean.
+          onLoadError: (loadError) => {
+            deps.logError("The direct checkout form failed to load", loadError);
+            machine.send({ type: "load-failed", attempt, error: unavailable });
+          },
         });
         // The panel may have unmounted (or the flow been cancelled) while the
         // provider script loaded; keeping this session would strand its
@@ -347,13 +356,23 @@ function useConfirmCheckout(
   }, [logError, machine, onPaid]);
 }
 
-const PHASES: Record<DirectCheckoutMachineState["kind"], DirectCheckoutPhase> =
-  {
-    idle: { kind: "idle" },
-    starting: { kind: "starting" },
-    collecting: { kind: "collecting" },
-    confirming: { kind: "confirming" },
-  };
+const IDLE: DirectCheckoutPhase = { kind: "idle" };
+const STARTING: DirectCheckoutPhase = { kind: "starting" };
+const COLLECTING: DirectCheckoutPhase = { kind: "collecting" };
+const CONFIRMING: DirectCheckoutPhase = { kind: "confirming" };
+
+function phaseOf(state: DirectCheckoutMachineState): DirectCheckoutPhase {
+  switch (state.kind) {
+    case "collecting":
+      return state.formReady ? COLLECTING : STARTING;
+    case "confirming":
+      return CONFIRMING;
+    case "starting":
+      return STARTING;
+    default:
+      return IDLE;
+  }
+}
 
 function panelError(state: DirectCheckoutMachineState): string | null {
   return state.kind === "idle" || state.kind === "collecting"
@@ -418,7 +437,7 @@ export function useDirectCheckoutFlow(input: {
     available,
     option: checkoutOption.option,
     organizationId: input.organizationId,
-    phase: PHASES[state.kind],
+    phase: phaseOf(state),
     error: panelError(state) ?? checkoutOption.error,
     hostRef: machine.hostRef,
     billingEmailComplete: state.kind !== "idle" && state.emailComplete,

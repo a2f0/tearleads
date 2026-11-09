@@ -56,7 +56,15 @@ export function stubTearleads(overrides?: {
   return organizations;
 }
 
-export function capabilityWith(session: Partial<DirectCheckoutSession>): {
+/**
+ * A capability whose form reports itself ready inside `mount`, before the
+ * session resolves, unless `formReady` is false; a test then drives
+ * `onReady`/`onLoadError` through `mounted`.
+ */
+export function capabilityWith(
+  session: Partial<DirectCheckoutSession>,
+  { formReady = true }: { readonly formReady?: boolean } = {},
+): {
   capability: DirectCheckoutCapability;
   mounted: MountInput[];
 } {
@@ -65,6 +73,9 @@ export function capabilityWith(session: Partial<DirectCheckoutSession>): {
     isAvailable: true,
     mount: mock((input: MountInput) => {
       mounted.push(input);
+      if (formReady) {
+        input.onReady();
+      }
       return Promise.resolve({
         confirm:
           session.confirm ?? (() => Promise.resolve({ kind: "succeeded" })),

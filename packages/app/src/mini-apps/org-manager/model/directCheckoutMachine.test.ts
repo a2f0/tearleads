@@ -18,13 +18,20 @@ const starting: DirectCheckoutMachineState = {
   kind: "starting",
   attempt: 1,
   emailComplete: false,
+  formReady: false,
 };
 const collecting: DirectCheckoutMachineState = {
   kind: "collecting",
   attempt: 1,
   emailComplete: true,
+  formReady: true,
   session,
   error: null,
+};
+const loadingForm: DirectCheckoutMachineState = {
+  ...collecting,
+  emailComplete: false,
+  formReady: false,
 };
 const confirming: DirectCheckoutMachineState = {
   kind: "confirming",
@@ -46,6 +53,15 @@ const mounted = (attempt: number): DirectCheckoutEvent => ({
 });
 const startFailed = (attempt: number): DirectCheckoutEvent => ({
   type: "start-failed",
+  attempt,
+  error: "unavailable",
+});
+const formReady = (attempt: number): DirectCheckoutEvent => ({
+  type: "form-ready",
+  attempt,
+});
+const loadFailed = (attempt: number): DirectCheckoutEvent => ({
+  type: "load-failed",
   attempt,
   error: "unavailable",
 });
@@ -84,6 +100,36 @@ test.each<[string, DirectCheckoutMachineState, DirectCheckoutEvent, unknown]>([
   ],
   ["starting tears down", starting, teardown, IDLE_DIRECT_CHECKOUT],
   [
+    "starting records a form ready before the mount resolves",
+    starting,
+    formReady(1),
+    { ...starting, formReady: true },
+  ],
+  [
+    "a form ready before the mount stays ready once mounted",
+    { ...starting, formReady: true },
+    mounted(1),
+    { ...loadingForm, formReady: true, session: other },
+  ],
+  [
+    "starting load fails",
+    starting,
+    loadFailed(1),
+    { kind: "idle", error: "unavailable" },
+  ],
+  [
+    "a mounted form becomes ready",
+    loadingForm,
+    formReady(1),
+    { ...loadingForm, formReady: true },
+  ],
+  [
+    "a mounted form fails to load",
+    loadingForm,
+    loadFailed(1),
+    { kind: "idle", error: "unavailable" },
+  ],
+  [
     "collecting tracks email",
     collecting,
     email(1, false),
@@ -114,6 +160,8 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
     IDLE_DIRECT_CHECKOUT,
     [
       email(1),
+      formReady(1),
+      loadFailed(1),
       mounted(1),
       startFailed(1),
       confirm,
@@ -129,6 +177,8 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       email(2),
       email(1, false),
       mounted(2),
+      formReady(2),
+      loadFailed(2),
       startFailed(2),
       confirm,
       confirmFailed(1),
@@ -141,18 +191,24 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       begin,
       email(2),
       email(1),
+      formReady(1),
+      formReady(2),
+      loadFailed(2),
       mounted(1),
       startFailed(1),
       confirmFailed(1),
       confirmed(1),
     ],
   ],
+  [loadingForm, [confirm, formReady(2), loadFailed(2)]],
   [
     confirming,
     [
       begin,
       email(2),
       mounted(1),
+      formReady(1),
+      loadFailed(1),
       startFailed(1),
       confirm,
       confirmFailed(2),
@@ -173,10 +229,12 @@ test("a superseded attempt cannot finish its replacement", () => {
   const events: DirectCheckoutEvent[] = [
     { type: "begin", attempt: 1 },
     mounted(1),
+    formReady(1),
     confirm,
     teardown,
     begin,
     mounted(2),
+    formReady(2),
     confirm,
     confirmFailed(1),
     confirmed(1),

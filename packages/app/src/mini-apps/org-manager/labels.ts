@@ -39,7 +39,8 @@ export const ORG_MANAGER_LABELS = {
     "This organization has more than 10 active members. Reduce the roster to 10 before choosing a subscription.",
   billingCheckoutPay: "Pay and subscribe",
   billingCheckoutPaying: "Processing payment...",
-  billingCheckoutStarting: "Preparing checkout...",
+  billingCheckoutStarting: "Preparing checkout",
+  billingCheckoutStartingDescription: "Loading the secure payment form.",
   billingCheckoutTitle: "Checkout",
   billingCheckoutUnavailable:
     "The payment form could not be started. Try again in a moment.",

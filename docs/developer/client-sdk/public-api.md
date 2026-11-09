@@ -251,7 +251,9 @@ Org sync billing exposes two provider-neutral capabilities:
 
 Both have unavailable stubs. Web loads no RevenueCat SDK and purchases only
 through direct checkout, whose provider form collects the billing email above
-the card fields and reports it through `mount`'s `onBillingEmailChange`.
+the card fields and reports it through `mount`'s `onBillingEmailChange`. The
+form keeps loading after `mount` resolves: `onReady` reports it usable and
+`onLoadError` reports a form that never loads.
 Native purchases are personal-org only. Handle
 `PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`: verify the
 receipt, prepare a fresh org outside the claim deadline, claim it, then publish

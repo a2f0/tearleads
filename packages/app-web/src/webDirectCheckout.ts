@@ -199,15 +199,21 @@ function releaseElements(
   }
 }
 
+type MountCallbacks = Pick<
+  Parameters<DirectCheckoutCapability["mount"]>[0],
+  "onBillingEmailChange" | "onLoadError" | "onReady"
+>;
+
 /**
  * The two Stripe elements share one Elements group and one host: the Contact
  * Details element (Stripe's own email field) above the Payment Element, so
  * the email reads as part of Stripe's form rather than an app field on top.
+ * Each element's frame loads on its own; the form is ready once both are.
  */
 function mountElements(
   elements: StripeElements,
   host: HTMLElement,
-  onBillingEmailChange: (email: string | null) => void,
+  callbacks: MountCallbacks,
 ): {
   readonly billingEmail: () => string | null;
   readonly wrappers: readonly HTMLElement[];
@@ -221,19 +227,35 @@ function mountElements(
   host.append(emailHost, paymentHost);
   const wrappers = [emailHost, paymentHost];
 
+  const loading = new Set(["contactDetails", "payment"]);
+  const markReady = (type: string) => () => {
+    if (loading.delete(type) && loading.size === 0) {
+      callbacks.onReady();
+    }
+  };
   let billingEmail: string | null = null;
   try {
     const contact = elements.create("contactDetails");
     contact.on("change", (event) => {
       const email = event.value.email.trim();
       billingEmail = event.complete && email.length > 0 ? email : null;
-      onBillingEmailChange(billingEmail);
+      callbacks.onBillingEmailChange(billingEmail);
     });
+    contact.on("ready", markReady("contactDetails"));
     contact.mount(emailHost);
     // The email belongs to the Contact Details element above, not the card
     // form; `never` here obliges confirm to send it explicitly.
     const payment = elements.create("payment", {
       fields: { billingDetails: { email: "never" } },
+    });
+    payment.on("ready", markReady("payment"));
+    // Stripe reports a plain object; an Error carries it to diagnostics.
+    payment.on("loaderror", (event) => {
+      callbacks.onLoadError(
+        new Error("The payment form could not be loaded.", {
+          cause: event.error,
+        }),
+      );
     });
     payment.mount(paymentHost);
   } catch (mountError) {
@@ -321,7 +343,7 @@ export function createWebDirectCheckout(
 
   return {
     isAvailable: true,
-    async mount({ host, clientSecret, appearance, onBillingEmailChange }) {
+    async mount({ host, clientSecret, appearance, ...callbacks }) {
       stripePromise = stripePromise ?? loadStripeImpl(publishableKey);
       // `loadStripe` REJECTS when the script cannot be fetched (blocked by an
       // extension, offline) and resolves null only where there is no `window`.
@@ -347,7 +369,7 @@ export function createWebDirectCheckout(
         clientSecret,
         appearance: toStripeAppearance(appearance),
       });
-      const mounted = mountElements(elements, host, onBillingEmailChange);
+      const mounted = mountElements(elements, host, callbacks);
       return createSession(stripe, elements, mounted);
     },
   };
