@@ -15,7 +15,7 @@ import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity"
 import { validateUserIdentityKeys } from "../../data/trustedUserIdentity";
 import { buildOrganizationProvisioningArtifacts } from "./organizationProvisioning";
 import { persistOrganizationProvisioningState } from "./organizationProvisioningPersistence";
-import type { ProvisionedPrincipalHistoryPrimer } from "./provisionedPrincipalHistory";
+import type { ProvisionedStatePrimer } from "./provisionedStatePrimer";
 import type { ProvisionedSystemContainerSpec } from "./provisioningBootstrapBuilders";
 
 export interface RegistrationApi {
@@ -63,8 +63,8 @@ export interface RegisterIdentityInput {
     userId: string,
     candidate: LocalUserIdentityCandidate,
   ) => Promise<void>;
-  /** Seeds verified recovery progress for the founding policy heads. */
-  primePrincipalHistory?: ProvisionedPrincipalHistoryPrimer | undefined;
+  /** Seeds what the committed bootstrap already proves. */
+  primeProvisionedState?: ProvisionedStatePrimer | undefined;
   /**
    * App-owned system containers to provision atomically with the personal
    * organization (e.g. a trash bin). See {@link ProvisionedSystemContainerSpec}.
@@ -160,7 +160,7 @@ export async function registerIdentity(
     log: input.log,
     logError: input.logError,
     organizationMetadataBootstrap: artifacts.organizationMetadataBootstrap,
-    primePrincipalHistory: input.primePrincipalHistory,
+    primeProvisionedState: input.primeProvisionedState,
     response,
     rootContainer: artifacts.rootContainer,
     rootMetadataDocument: artifacts.rootMetadataDocument,

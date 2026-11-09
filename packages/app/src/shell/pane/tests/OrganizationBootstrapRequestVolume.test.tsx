@@ -52,33 +52,39 @@ test(
       ],
       budget: {
         // Root acknowledgement and verified adoption can each schedule a
-        // root-lane pass; signed destination reads remain bounded at four.
-        // Measured 30 calls: private metadata-root authority adds one directory
+        // root-lane pass. Provisioning seeds the destination roles of the
+        // containers it created, so hydration reads no projection for them;
+        // the one signed destination read is the root's, for the Contacts
+        // create. Private metadata-root authority adds one directory
         // discovery read per operation. Provisioning primes the founding
         // policy heads, so their first recovery reads no group history.
         // Batched discovery lists the four lanes queued at startup in one
         // request and a later-surfaced lane in a second.
         // Login returns the first websocket ticket, so no ticket request. The
-        // self contact's create carries its queued content as its seed, so no
-        // content sync (and its discovery read) follows.
-        // A hydration pass discovers the directory once (measured 30, 31
-        // before); a discovery naming the held head receives that head alone.
-        total: 31,
+        // self contact's create carries its queued content as its seed, and
+        // the Contacts create carries its first metadata update, so neither
+        // is followed by a content sync.
+        // A hydration pass discovers the directory once; a discovery naming
+        // the held head receives that head alone. Measured 24 calls (30
+        // before seeded roles and the seeded Contacts create).
+        total: 25,
         // Provisioned containers and documents are acknowledged by hash, not
-        // echoed: 157 KB received (305 KB before; register 118 KB -> 63 KB).
-        // Keys and the login signature travel as base64 and child containers
-        // cite their parent KEK state: 291 KB sent (322 KB before).
-        bodyBytes: { request: 320_000, response: 175_000 },
+        // echoed, and seeded roles skip three destination projections: 68 KB
+        // received (157 KB before; register 118 KB -> 63 KB). Keys and the
+        // login signature travel as base64 and child containers cite their
+        // parent KEK state: 291 KB sent (322 KB before).
+        bodyBytes: { request: 320_000, response: 76_000 },
         byRequest: {
-          "GET /principals/organization/:organizationId/policy": 5,
+          "GET /principals/organization/:organizationId/policy": 4,
           "GET /principals/group/:groupId/policy": 0,
           // Compact projections read each new public head once; completed
           // stages need no confirmation read.
-          "GET /principals/history": 3,
+          "GET /principals/history": 2,
           "POST /containers/documents/query": 2,
+          // Measured 6; a second root-lane pass can sync the root again.
           "POST /documents/:documentId/sync": 7,
           "POST /containers/parent-lanes/query": 5,
-          "GET /containers/:containerId/writer-projection": 4,
+          "GET /containers/:containerId/writer-projection": 1,
           // Provisioning commits the root's metadata, so no device-first copy
           // is replayed through a document projection. Discovery reuses the
           // signed heads of the seeded profile documents.

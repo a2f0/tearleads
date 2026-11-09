@@ -102,6 +102,7 @@ export const containerContentsSurface = [
   `${sdk}/workflows/container-contents/metadata/containerMetadataDocument.ts`,
   `${sdk}/workflows/container-contents/projectionView.ts`,
   `${sdk}/workflows/container-contents/recovery/accessRestoration.ts`,
+  `${sdk}/workflows/container-contents/remoteHydration/destination/destinationRoleCache.ts`,
   `${sdk}/workflows/container-contents/remoteReset/containerRemoteReset.ts`,
   `${sdk}/workflows/container-contents/syncLane.ts`,
 ];
@@ -175,7 +176,7 @@ export const principalPolicySurface = [
 export const registrationSurface = [
   `${sdk}/workflows/registration/index.ts`,
   `${sdk}/workflows/registration/organizationProvisioning.ts`,
-  `${sdk}/workflows/registration/provisionedPrincipalHistory.ts`,
+  `${sdk}/workflows/registration/provisionedStatePrimer.ts`,
 ];
 
 export const syncEngineSurface = [

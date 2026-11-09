@@ -68,9 +68,11 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // operation (one per pass for hydration, discovery and move workflows) and
   // the first read of each new head. Batched discovery lists each
   // reconciliation pass's lanes in one request. Measured completed calls are
-  // 55 (56 before pass-scoped discovery, 70–73 before #2537); allow three more
-  // bounded reads. Preparation continuations are counted below.
-  total: 58,
+  // 56 (55 before provisioning seeded the roster profile container's role,
+  // which moved the founder's first read of its projection and Admins history
+  // here from bootstrap; 70–73 before #2537); allow three more bounded reads.
+  // Preparation continuations are counted below.
+  total: 59,
   // Container mutations cite stored manifests by hash and principal policies
   // by head: 134 KB sent with one descendant recitation (193 KB when they
   // carried each ~9.8 KB policy, 389.5 KB when they also echoed path
@@ -83,8 +85,9 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Prefetches of unstored folders cite their listed parent's held bundles
   // and projections cite held KEK levels by digest: 0.80 MB received.
   // Container acknowledgements carry hashes, not echoes (the policy commit
-  // 192 KB -> 73 KB): 0.67 MB received; keep about 10% headroom.
-  bodyBytes: { request: 160_000, response: 740_000 },
+  // 192 KB -> 73 KB): 0.70 MB received with the roster profile projection
+  // read here instead of at bootstrap; keep about 10% headroom.
+  bodyBytes: { request: 160_000, response: 770_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,

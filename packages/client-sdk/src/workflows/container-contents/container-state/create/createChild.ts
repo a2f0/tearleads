@@ -17,6 +17,7 @@ import type {
   ContainerWorkflowRuntime,
   CreatedChildContainerState,
 } from "../types";
+import { withRegisteredMetadataSeed } from "./createIntentSeed";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 
 const SYSTEM_CONTAINER_ID_NAMESPACE_BYTES = new Uint8Array([
@@ -57,12 +58,19 @@ async function buildRemoteContainerContentsChildContainerState(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   doc: ContainerMetadataDocumentState;
   initialRecord: DocumentRecord;
+  /** Present when the first metadata update should commit with the create. */
+  initialUpdate: Uint8Array | null;
+  locallyAcceptedMetadataUpdateIds?: Set<string> | undefined;
   parentState: ContainerState;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
   trimmedName: string;
-}): Promise<ContainerState | null> {
+}): Promise<{
+  readonly containerState: ContainerState;
+  /** The acknowledged create time, when the create committed the seed. */
+  readonly seedCommittedAt: string | null;
+} | null> {
   const {
     childId,
     icon,
@@ -83,15 +91,29 @@ async function buildRemoteContainerContentsChildContainerState(input: {
     return null;
   }
 
-  const created = await createRemoteContainer({
-    systemSlot,
-    containerId: childId,
-    parentContainerId: parentState.container.id,
-    parentProjection,
-    resolveProjectionUserKey,
-    runtime,
-    stillCurrent,
-  });
+  // The create carries the whole first metadata update, as a replayed create
+  // intent does, so no metadata sync follows an accepted seed.
+  const seedFields = input.initialUpdate
+    ? createPendingUpdateFields(input.initialUpdate)
+    : null;
+  const metadataSeedUpdate = seedFields
+    ? { ...seedFields, id: crypto.randomUUID() }
+    : null;
+  const created = await withRegisteredMetadataSeed(
+    input.locallyAcceptedMetadataUpdateIds,
+    metadataSeedUpdate,
+    () =>
+      createRemoteContainer({
+        systemSlot,
+        containerId: childId,
+        ...(metadataSeedUpdate ? { metadataSeedUpdate } : {}),
+        parentContainerId: parentState.container.id,
+        parentProjection,
+        resolveProjectionUserKey,
+        runtime,
+        stillCurrent,
+      }),
+  );
 
   if (!created || created === CONTAINER_ALREADY_COMMITTED) {
     // A benign manifest-exists conflict means the container is already committed
@@ -102,28 +124,33 @@ async function buildRemoteContainerContentsChildContainerState(input: {
   }
 
   return {
-    container: {
-      id: created.containerId,
-      // The creator owns a newly-created container until the server reconciles.
-      effectiveAccessLevel: "admin",
-      organizationId: created.organizationId,
-      parentId: created.parentId,
-      metadataDocumentId: created.metadataDocumentId,
-      systemSlot: created.systemSlot,
-      name: trimmedName,
-      icon,
-      createdAt: created.createdAt,
-      serverCreatedAt: created.createdAt,
-      serverUpdatedAt: created.updatedAt,
-      updatedAt: created.updatedAt,
+    containerState: {
+      container: {
+        id: created.containerId,
+        // The creator owns a newly-created container until the server reconciles.
+        effectiveAccessLevel: "admin",
+        organizationId: created.organizationId,
+        parentId: created.parentId,
+        metadataDocumentId: created.metadataDocumentId,
+        systemSlot: created.systemSlot,
+        name: trimmedName,
+        icon,
+        createdAt: created.createdAt,
+        serverCreatedAt: created.createdAt,
+        serverUpdatedAt: created.updatedAt,
+        updatedAt: created.updatedAt,
+      },
+      doc,
+      record: {
+        ...initialRecord,
+        accessEpoch: 1,
+        accessStateHash: created.accessManifestHash,
+        // A committed seed stands in for the first metadata sync.
+        lastCommitLsn: created.metadataSeed?.commitLsn ?? null,
+        ...created.persistedMetadataState,
+      },
     },
-    doc,
-    record: {
-      ...initialRecord,
-      accessEpoch: 1,
-      accessStateHash: created.accessManifestHash,
-      ...created.persistedMetadataState,
-    },
+    seedCommittedAt: created.metadataSeed ? created.updatedAt : null,
   };
 }
 
@@ -198,15 +225,34 @@ function resolveAtomicChildContainerSave(
   return inheritedSqlAtomicSave ? null : saveContainerWithPendingUpdate;
 }
 
+function childContainerSaveOptions(input: {
+  createIntent: { parentContainerId: string } | undefined;
+  localUpdatedAt: string | null;
+  stillCurrent?: (() => boolean) | undefined;
+}) {
+  const { createIntent, localUpdatedAt, stillCurrent } = input;
+  return createIntent || localUpdatedAt || stillCurrent
+    ? {
+        ...(createIntent ? { createIntent } : {}),
+        ...(localUpdatedAt ? { localUpdatedAt } : {}),
+        stillCurrent,
+      }
+    : undefined;
+}
+
 async function persistCreatedChildContainer(input: {
   containerState: ContainerState;
   initialUpdate: Uint8Array;
+  /** Set once the create committed the initial update as its seed. */
+  localUpdatedAt: string | null;
   persistence: ContainerContentsPersistence;
   queueRemoteSync: boolean;
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<boolean | null> {
-  const { containerState, persistence, queueRemoteSync, runtime } = input;
+  const { containerState, localUpdatedAt, persistence, queueRemoteSync } =
+    input;
+  const { runtime } = input;
   const createIntent =
     queueRemoteSync &&
     !containerState.record.documentId &&
@@ -217,13 +263,11 @@ async function persistCreatedChildContainer(input: {
     queueRemoteSync &&
     (!containerState.record.documentId ||
       Boolean(containerState.record.contentKeyBundle));
-  const saveOptions =
-    createIntent || input.stillCurrent
-      ? {
-          ...(createIntent ? { createIntent } : {}),
-          stillCurrent: input.stillCurrent,
-        }
-      : undefined;
+  const saveOptions = childContainerSaveOptions({
+    createIntent,
+    localUpdatedAt,
+    stillCurrent: input.stillCurrent,
+  });
   const pendingUpdate = shouldRequestSync
     ? createPendingUpdateFields(input.initialUpdate)
     : null;
@@ -252,6 +296,7 @@ export async function createChildContainerState(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   createRemote: boolean;
   icon?: string | null | undefined;
+  locallyAcceptedMetadataUpdateIds?: Set<string> | undefined;
   name: string;
   parentState: ContainerState;
   persistence: ContainerContentsPersistence;
@@ -298,13 +343,16 @@ export async function createChildContainerState(input: {
     return null;
   }
 
-  const remoteChildState = createRemote
+  const remoteChild = createRemote
     ? await buildRemoteContainerContentsChildContainerState({
         childId,
         icon,
         systemSlot,
         doc,
         initialRecord,
+        initialUpdate: queueRemoteSync ? initialUpdate : null,
+        locallyAcceptedMetadataUpdateIds:
+          input.locallyAcceptedMetadataUpdateIds,
         parentState,
         resolveProjectionUserKey,
         runtime,
@@ -313,7 +361,7 @@ export async function createChildContainerState(input: {
       })
     : null;
   const containerState =
-    remoteChildState ??
+    remoteChild?.containerState ??
     buildLocalContainerContentsChildContainerState({
       childId,
       icon,
@@ -326,8 +374,11 @@ export async function createChildContainerState(input: {
   const shouldRequestSync = await persistCreatedChildContainer({
     containerState,
     initialUpdate,
+    // A committed seed leaves nothing to queue or sync: nothing local is
+    // newer than the acknowledged create.
+    localUpdatedAt: remoteChild?.seedCommittedAt ?? null,
     persistence,
-    queueRemoteSync,
+    queueRemoteSync: queueRemoteSync && !remoteChild?.seedCommittedAt,
     runtime,
     stillCurrent: input.stillCurrent,
   });

@@ -349,7 +349,8 @@ Ordinary container write:
 
 A device-first document or folder whose whole content is one queued update
 sends it with its create ([create seed](../document-link-and-sync-protocol.md)).
-Eager system-container creates are not seeded.
+An eager system-container create sends its first metadata update the same way;
+once the seed commits, nothing is queued and no metadata sync follows.
 
 ## Scope boundaries
 

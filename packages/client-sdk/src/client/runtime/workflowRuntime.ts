@@ -15,9 +15,9 @@ import {
 } from "../../data/trustedUserIdentity";
 import type { ContainerContentsRootAdopter } from "../../workflows/container-contents";
 import {
-  createProvisionedPrincipalHistoryPrimer,
-  type ProvisionedPrincipalHistoryPrimer,
-} from "../../workflows/registration/provisionedPrincipalHistory";
+  createProvisionedStatePrimer,
+  type ProvisionedStatePrimer,
+} from "../../workflows/registration/provisionedStatePrimer";
 import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
@@ -91,7 +91,7 @@ export interface InternalRuntime {
     userId: string,
     candidate: LocalUserIdentityCandidate,
   ): Promise<void>;
-  readonly primeProvisionedPrincipalHistory: ProvisionedPrincipalHistoryPrimer;
+  readonly primeProvisionedState: ProvisionedStatePrimer;
   workflowInput(
     containerId?: string | null | undefined,
   ): InternalWorkflowRuntimeInput;
@@ -167,8 +167,8 @@ function createRuntimeProvisioningPrimer(
   dependencies: WorkflowRuntimeDependencies,
   bindLease: () => PrincipalHistoryProtectionLease | undefined,
   readyExecSql: () => ExecSql | null,
-): ProvisionedPrincipalHistoryPrimer {
-  return createProvisionedPrincipalHistoryPrimer({
+): ProvisionedStatePrimer {
+  return createProvisionedStatePrimer({
     bindLease,
     execSqlFor: (database) =>
       dependencies.database.client === database ? readyExecSql() : null,
@@ -262,7 +262,7 @@ export function createRuntime(
         () => trustedUserIdentityService.pinLocal(userId, candidate),
       );
     },
-    primeProvisionedPrincipalHistory: createRuntimeProvisioningPrimer(
+    primeProvisionedState: createRuntimeProvisioningPrimer(
       dependencies,
       historyProtection.bind,
       readyExecSql,
