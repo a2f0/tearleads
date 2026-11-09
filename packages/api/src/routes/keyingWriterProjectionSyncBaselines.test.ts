@@ -237,9 +237,6 @@ test("POST /documents/:documentId/sync redirects historical updates to the atomi
   expect(
     synced.updates.map((update: { id: string }) => update.id),
   ).not.toContain(updateId);
-  // The baseline is at the current epoch, whose bundle is contentKeyBundle.
-  expect(synced.contentKeyBundle.contentKeyEpoch).toBe(
-    unlinkedDocument.contentKeyEpoch,
-  );
+  // The baseline is at the current epoch, whose bundle the response omits.
   expect(synced.contentKeyBundles).toEqual([]);
 });

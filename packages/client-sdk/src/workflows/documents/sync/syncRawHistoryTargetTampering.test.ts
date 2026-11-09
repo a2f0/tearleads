@@ -68,7 +68,7 @@ test("tampered unavailable targets remain poison instead of availability", async
 
   const error = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: materializedPlan.contentKey,
-    currentContentKeyEpoch: materializedPlan.plan.contentKeyEpoch,
+    currentContentKeyBundle: materializedPlan.plan.sourceContentKeyBundle,
     historyMode: "raw",
     response,
     targetSecretKey: fixture.secretKey,
@@ -156,7 +156,7 @@ for (const mismatchedField of ["targetHash", "linkSetManifestHash"] as const) {
 
     const error = await unwrapDocumentSyncResponseContentKeys({
       currentContentKey: materializedPlan.contentKey,
-      currentContentKeyEpoch: materializedPlan.plan.contentKeyEpoch,
+      currentContentKeyBundle: materializedPlan.plan.sourceContentKeyBundle,
       historyMode: "raw",
       response,
       targetSecretKey: fixture.secretKey,
@@ -230,7 +230,7 @@ test("malformed unavailable encrypted records remain poison", async () => {
 
   const error = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: materializedPlan.contentKey,
-    currentContentKeyEpoch: materializedPlan.plan.contentKeyEpoch,
+    currentContentKeyBundle: materializedPlan.plan.sourceContentKeyBundle,
     historyMode: "raw",
     response,
     targetSecretKey: fixture.secretKey,

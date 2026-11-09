@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import type {
+  DocumentContentKeyBundleResponse,
+  DocumentSyncResponse,
+} from "@tearleads/validators/response";
 import { sealNextContentKeyEpoch } from "../../../../test/helpers/contentKeyBundleSealing";
 import {
   createMaterializedSyncFixture,
@@ -13,6 +16,8 @@ import { unwrapDocumentSyncResponseContentKeys } from "../syncPlan/syncContentKe
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 
 const REPEATED_EPOCH = "Document sync response repeats a content-key epoch";
+const EPOCH_MISMATCH =
+  "Document sync response content-key bundle epoch mismatch";
 
 async function rotatedHistoricalPull() {
   const fixture = await createMaterializedSyncFixture();
@@ -52,13 +57,14 @@ async function rotatedHistoricalPull() {
 
 function malformedResponses(
   response: DocumentSyncResponse,
-  historicalBundle: DocumentSyncResponse["contentKeyBundle"],
+  historicalBundle: DocumentContentKeyBundleResponse,
+  currentBundle: DocumentContentKeyBundleResponse,
 ): readonly DocumentSyncResponse[] {
   return [
-    // An identical copy of the current bundle is no longer tolerated.
+    // The current bundle is already the client's; the response may not repeat it.
     {
       ...response,
-      contentKeyBundles: [historicalBundle, response.contentKeyBundle],
+      contentKeyBundles: [historicalBundle, currentBundle],
     },
     { ...response, contentKeyBundles: [historicalBundle, historicalBundle] },
   ];
@@ -87,9 +93,10 @@ test("sync response verification rejects a repeated content-key epoch", async ()
     ),
   ).resolves.toMatchObject({ documentId: materializedPlan.plan.documentId });
 
+  const currentBundle = materializedPlan.plan.sourceContentKeyBundle;
   for (const malformed of [
-    ...malformedResponses(response, historicalBundle),
-    { ...emptyProbe, contentKeyBundles: [emptyProbe.contentKeyBundle] },
+    ...malformedResponses(response, historicalBundle, currentBundle),
+    { ...emptyProbe, contentKeyBundles: [currentBundle] },
   ]) {
     await expect(
       persistedDocumentSyncStateFromResponse(
@@ -99,6 +106,33 @@ test("sync response verification rejects a repeated content-key epoch", async ()
       ),
     ).rejects.toThrow(REPEATED_EPOCH);
   }
+});
+
+test("sync response verification rejects a content-key bundle newer than the planned epoch", async () => {
+  const { fixture, materializedPlan, response } = await rotatedHistoricalPull();
+  const currentBundle = materializedPlan.plan.sourceContentKeyBundle;
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      materializedPlan.plan,
+      {
+        ...response,
+        contentKeyBundles: [
+          {
+            ...currentBundle,
+            contentKeyEpoch: currentBundle.contentKeyEpoch + 1,
+          },
+        ],
+        updates: [],
+      },
+      {
+        resolveWriterPublicKey: writerKeyResolver({
+          author: fixture.author,
+          signingPublicKey: fixture.signingPublicKey,
+        }),
+      },
+    ),
+  ).rejects.toThrow(EPOCH_MISMATCH);
 });
 
 test("historical key recovery rejects a repeated content-key epoch", async () => {
@@ -112,7 +146,7 @@ test("historical key recovery rejects a repeated content-key epoch", async () =>
   const unwrap = (candidate: DocumentSyncResponse) =>
     unwrapDocumentSyncResponseContentKeys({
       currentContentKey: materializedPlan.contentKey,
-      currentContentKeyEpoch: materializedPlan.plan.contentKeyEpoch,
+      currentContentKeyBundle: materializedPlan.plan.sourceContentKeyBundle,
       response: candidate,
       targetSecretKey: fixture.secretKey,
       trustedLocalProjection: true,
@@ -125,7 +159,11 @@ test("historical key recovery rejects a repeated content-key epoch", async () =>
     materializedPlan.plan.contentKeyEpoch,
   ]);
 
-  for (const malformed of malformedResponses(response, historicalBundle)) {
+  for (const malformed of malformedResponses(
+    response,
+    historicalBundle,
+    materializedPlan.plan.sourceContentKeyBundle,
+  )) {
     const error = await unwrap(malformed).then(
       () => null,
       (thrown: unknown) => thrown,

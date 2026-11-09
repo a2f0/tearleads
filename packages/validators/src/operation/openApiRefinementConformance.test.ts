@@ -14,6 +14,7 @@ import { DocumentSyncResponseSchema } from "../response";
 import { documentSyncOperation } from "./documentSync";
 import { openApiDocument } from "./openApi";
 import {
+  createContentKeyBundleResponse,
   createSyncRequest,
   createSyncResponse,
   jsonRoundTrip,
@@ -160,11 +161,10 @@ const witnesses = {
   },
   [documentSyncResponseHistoricalBundlesRefinement.id]: {
     createInput: () => {
-      const response = createSyncResponse();
-      return { ...response, contentKeyBundles: [response.contentKeyBundle] };
+      const bundle = createContentKeyBundleResponse();
+      return { ...createSyncResponse(), contentKeyBundles: [bundle, bundle] };
     },
-    expectedMessage:
-      "content-key bundles must be distinct epochs older than contentKeyBundle",
+    expectedMessage: "content-key bundles must be distinct epochs",
     kind: "response",
   },
 } satisfies Record<RuntimeRefinementId, RefinementWitness>;

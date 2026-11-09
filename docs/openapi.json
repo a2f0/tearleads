@@ -136,11 +136,18 @@
           "bindingId": {
             "type": "string"
           },
+          "blobAccessManifestHash": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Access manifest hash of the blob after the bind, from the targets the API resolved."
+          },
           "blobId": {
             "type": "string"
           },
-          "blobKekTargets": {
-            "$ref": "#/components/schemas/BlobKekTargetsResponse"
+          "blobKeyTargetHash": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Hash of the KEK target set the API resolved for the blob after the bind."
           },
           "contentKeyEpoch": {
             "exclusiveMinimum": 0,
@@ -223,8 +230,9 @@
         },
         "required": [
           "bindingId",
+          "blobAccessManifestHash",
           "blobId",
-          "blobKekTargets",
+          "blobKeyTargetHash",
           "contentKeyEpoch",
           "documentId",
           "documentManifestHash",
@@ -3857,23 +3865,15 @@
             ],
             "description": "`tracked` for a durable backend position; `untracked` with the `0/0` sentinel when the backend cannot report one."
           },
-          "contentKeyBundle": {
-            "$ref": "#/components/schemas/DocumentContentKeyBundleResponse",
-            "description": "Content-key bundle of the current epoch."
-          },
           "contentKeyBundles": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DocumentContentKeyBundleResponse"
             },
-            "description": "Bundles of older epochs that this page's updates were written at; never the current epoch."
+            "description": "Bundles of older epochs that this page's updates were written at; never the epoch the request synced against."
           },
           "documentId": {
             "type": "string"
-          },
-          "documentKekTargets": {
-            "$ref": "#/components/schemas/DocumentKekTargetsResponse",
-            "description": "The document's current key targets."
           },
           "pullPage": {
             "$ref": "#/components/schemas/DocumentSyncPullPageResponse"
@@ -3891,15 +3891,13 @@
           "acceptedOutgoingUpdateIds",
           "commitLsn",
           "commitLsnMode",
-          "contentKeyBundle",
           "contentKeyBundles",
           "documentId",
-          "documentKekTargets",
           "pullPage",
           "updates"
         ],
         "additionalProperties": {},
-        "description": "The result of a sync: which uploads were accepted, one page of missing updates, and the key material to decrypt them."
+        "description": "The result of a sync: which uploads were accepted, one page of missing updates, and the older-epoch key material to decrypt them. The current epoch's bundle and the key targets are the ones the request named, so they are not echoed."
       },
       "DocumentSyncUpdateResponse": {
         "type": "object",
@@ -16550,7 +16548,7 @@
             "id": "response.pull-page-continuation"
           },
           {
-            "description": "contentKeyBundles carries each content-key epoch at most once, and only epochs older than contentKeyBundle.contentKeyEpoch",
+            "description": "contentKeyBundles carries each content-key epoch at most once",
             "id": "response.historical-content-key-bundles"
           }
         ]

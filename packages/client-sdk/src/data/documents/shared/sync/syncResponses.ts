@@ -10,6 +10,7 @@ import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObj
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentContentKeyBundleResponse,
   type DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import { parseWalLsn } from "@tearleads/validators/util";
@@ -18,7 +19,6 @@ import {
   readRecordPositiveInteger,
   readRecordString,
   readWriteHeader,
-  serializeCanonical,
   serializedPersistedDocumentState,
 } from "../readers";
 
@@ -66,7 +66,7 @@ function assertAcceptedOutgoingUpdateIdsMatchPlan(
 async function assertDocumentSyncResponseUpdateMatchesPlan(input: {
   contentKeyBundlesByEpoch: ReadonlyMap<
     number,
-    DocumentSyncResponse["contentKeyBundle"]
+    DocumentContentKeyBundleResponse
   >;
   plan: DocumentSyncPlan;
   update: DocumentSyncResponse["updates"][number];
@@ -100,11 +100,11 @@ async function assertDocumentSyncResponseUpdateMatchesPlan(input: {
 function assertDocumentSyncResponseUpdateContentKeyBundle(input: {
   contentKeyBundlesByEpoch: ReadonlyMap<
     number,
-    DocumentSyncResponse["contentKeyBundle"]
+    DocumentContentKeyBundleResponse
   >;
   header: WriteHeader;
   plan: DocumentSyncPlan;
-}): DocumentSyncResponse["contentKeyBundle"] {
+}): DocumentContentKeyBundleResponse {
   const { header, plan } = input;
   if (header.contentKeyEpoch > plan.contentKeyEpoch) {
     throw new DocumentSyncResponseUpdateContentKeyError(
@@ -217,7 +217,7 @@ async function assertDocumentSyncResponseNonceDomain(input: {
 }
 
 async function assertDocumentSyncResponseWriteHeaderSignature(input: {
-  contentKeyBundle: DocumentSyncResponse["contentKeyBundle"];
+  contentKeyBundle: DocumentContentKeyBundleResponse;
   header: WriteHeader;
   plan: DocumentSyncPlan;
   resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
@@ -334,30 +334,21 @@ function assertDocumentSyncAccessEpochsNotInFuture(
   }
 }
 
-function contentKeyBundleCanonical(
-  bundle: DocumentSyncResponse["contentKeyBundle"],
-): string {
-  return serializeCanonical(bundle, "content-key bundle");
-}
+type DocumentSyncContentKeyBundle =
+  DocumentSyncResponse["contentKeyBundles"][number];
 
 function documentSyncContentKeyBundlesByEpoch(
   plan: DocumentSyncPlan,
   response: DocumentSyncResponse,
-): ReadonlyMap<number, DocumentSyncResponse["contentKeyBundle"]> {
-  if (
-    contentKeyBundleCanonical(response.contentKeyBundle) !==
-    contentKeyBundleCanonical(plan.sourceContentKeyBundle)
-  ) {
-    throw new Error("Document sync response content-key bundle mismatch");
-  }
+): ReadonlyMap<number, DocumentSyncContentKeyBundle> {
+  const currentBundle = plan.sourceContentKeyBundle;
+  const bundleByEpoch = new Map<number, DocumentSyncContentKeyBundle>([
+    [currentBundle.contentKeyEpoch, currentBundle],
+  ]);
 
-  const bundleByEpoch = new Map<
-    number,
-    DocumentSyncResponse["contentKeyBundle"]
-  >();
-  const bundles = [response.contentKeyBundle, ...response.contentKeyBundles];
-
-  for (const bundle of bundles) {
+  // The client already holds the current epoch's bundle; the response
+  // carries each older epoch its updates cite, once.
+  for (const bundle of response.contentKeyBundles) {
     if (bundle.documentId !== plan.documentId) {
       throw new Error(
         "Document sync response content-key bundle document mismatch",
@@ -365,15 +356,13 @@ function documentSyncContentKeyBundlesByEpoch(
     }
     if (
       !Number.isInteger(bundle.contentKeyEpoch) ||
-      bundle.contentKeyEpoch <= 0
+      bundle.contentKeyEpoch <= 0 ||
+      bundle.contentKeyEpoch > currentBundle.contentKeyEpoch
     ) {
       throw new Error(
         "Document sync response content-key bundle epoch mismatch",
       );
     }
-
-    // The current epoch travels only as contentKeyBundle; the array carries
-    // each older epoch once.
     if (bundleByEpoch.has(bundle.contentKeyEpoch)) {
       throw new Error("Document sync response repeats a content-key epoch");
     }
@@ -397,12 +386,8 @@ async function persistedDocumentSyncStateFromResponseInternal(
     plan,
     response,
   );
-  if (
-    serializeCanonical(response.documentKekTargets, "KEK targets") !==
-    serializeCanonical(plan.documentKekTargets, "KEK targets")
-  ) {
-    throw new Error("Document sync response KEK target mismatch");
-  }
+  // The request names the planned bundle and targets as its expectations and
+  // the server refuses any other pair, so the plan's copies are what it served.
   assertAcceptedOutgoingUpdateIdsMatchPlan(plan, response);
   assertDocumentSyncCommitCheckpointMatchesPlan(plan, response);
   assertDocumentSyncAccessEpochsNotInFuture(plan, response);
@@ -419,9 +404,9 @@ async function persistedDocumentSyncStateFromResponseInternal(
   );
 
   return serializedPersistedDocumentState({
-    contentKeyBundle: response.contentKeyBundle,
+    contentKeyBundle: plan.sourceContentKeyBundle,
     documentId: plan.documentId,
-    documentKekTargets: response.documentKekTargets,
+    documentKekTargets: plan.documentKekTargets,
     documentManifestBundle: plan.documentManifest,
   });
 }

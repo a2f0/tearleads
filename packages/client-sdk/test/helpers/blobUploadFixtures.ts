@@ -256,6 +256,8 @@ export async function createBlobAttachmentBindResponse(input: {
       eventHash,
     },
     bindingId,
+    blobAccessManifestHash,
+    blobKeyTargetHash: input.request.contentKeyBundle.targetHash,
     contentKeyEpoch: input.request.contentKeyBundle.contentKeyEpoch,
     eventHash,
     blobId: input.blobId,

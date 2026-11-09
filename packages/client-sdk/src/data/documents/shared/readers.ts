@@ -15,7 +15,7 @@ import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObj
 import type {
   ContainerWriterProjectionResponse,
   DocumentContentKeyBundleResponse,
-  DocumentSyncResponse,
+  DocumentKekTargetsResponse,
 } from "@tearleads/validators/response";
 import { readCanonicalRecord } from "../../keying/canonicalJson";
 import {
@@ -246,7 +246,7 @@ function readDocumentTarget(
 }
 
 export function normalizeDocumentKekTargetResponse(
-  targets: DocumentSyncResponse["documentKekTargets"],
+  targets: DocumentKekTargetsResponse,
 ): DocumentContentKeyTarget[] {
   return sortDocumentTargets(
     targets.targets.map((target, index) => {

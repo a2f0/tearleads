@@ -305,8 +305,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // hydration pass's pages share one directory discovery (measured 11).
       total: 11,
       // The move cites the destination parent's KEK state instead of carrying
-      // it: 16.6 KB sent (34.3 KB before) and 44.3 KB received.
-      bodyBytes: { request: 18_500, response: 49_000 },
+      // it: 16.6 KB sent (34.3 KB before). Syncs no longer echo the bundle and
+      // KEK targets the request named: 42.7 KB received (44.3 KB before).
+      bodyBytes: { request: 18_500, response: 47_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 4,
         "GET /principals/group/:groupId/policy": 0,
@@ -340,10 +341,11 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // slot, alongside the moved folder and destination root. No duplicate
       // reads; a hydration pass discovers the directory once (measured 12).
       total: 12,
-      // Projection reads cite the KEK levels the device holds by digest:
-      // 100.4 KB received (120.7 KB before); keep about 10% headroom. The
-      // move cites its parent KEK state: 16.8 KB sent (20.6 KB before).
-      bodyBytes: { request: 18_500, response: 110_000 },
+      // Projection reads cite the KEK levels the device holds by digest, and
+      // syncs no longer echo the bundle and KEK targets the request named:
+      // 55.1 KB received (56.7 KB before); keep about 10% headroom. The move
+      // cites its parent KEK state: 16.8 KB sent (20.6 KB before).
+      bodyBytes: { request: 18_500, response: 61_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 3,
         "GET /principals/group/:groupId/policy": 0,

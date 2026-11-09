@@ -194,8 +194,9 @@ function createBlobKekTargetsResponse(overrides = {}) {
 test("isBlobAttachmentBindResponse", () => {
   const validResponse = {
     bindingId: "550e8400-e29b-41d4-a716-446655440002",
+    blobAccessManifestHash: "blob-access-manifest-hash",
     blobId: "550e8400-e29b-41d4-a716-446655440001",
-    blobKekTargets: createBlobKekTargetsResponse(),
+    blobKeyTargetHash: "target-hash",
     contentKeyEpoch: 1,
     documentId: "550e8400-e29b-41d4-a716-446655440003",
     documentManifestHash: "document-manifest-hash",
@@ -218,12 +219,7 @@ test("isBlobAttachmentBindResponse", () => {
     expect(isBlobAttachmentBindResponse(missingEvidence)).toBe(false);
   }
   expect(
-    isBlobAttachmentBindResponse({
-      ...validResponse,
-      blobKekTargets: createBlobKekTargetsResponse({
-        activeBindingIds: [123],
-      }),
-    }),
+    isBlobAttachmentBindResponse({ ...validResponse, blobKeyTargetHash: "" }),
   ).toBe(false);
   expect(
     isBlobAttachmentBindResponse({ ...validResponse, contentKeyEpoch: 0 }),

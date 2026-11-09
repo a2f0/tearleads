@@ -200,11 +200,11 @@ The Admins enrollment fixture in
 measures 55 completed requests; its ceiling is 58, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 17,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
-160,000 request bytes and 740,000 response bytes (0.67 MB measured). The root
+160,000 request bytes and 725,000 response bytes (0.66 MB measured). The root
 attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
-measures 59 requests and permits 66, with body ceilings of 130,000 request bytes
-and 560,000 response bytes (0.51 MB measured). Container mutation
+measures 59 requests and permits 66, with body ceilings of 128,000 request bytes
+and 500,000 response bytes (0.455 MB measured). Container mutation
 acknowledgements carry hashes rather than echoes, which keeps the policy commit
 at about 73 KB. Container mutations cite stored
 [manifests](../glossary/access.md#access-manifest) by
@@ -212,12 +212,13 @@ at about 73 KB. Container mutations cite stored
 path bundles or policies.
 
 [`ExplorerUploadRequestVolume.test.tsx`](../../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx)
-measures 6 calls and 29 KB received for a small Explorer upload and permits 7
-calls and 32,500 response bytes; its
+measures 6 calls and 2.4 KB received for a small Explorer upload and permits 7
+calls and 2,700 response bytes; its
 [blob stage](../glossary/content.md#blob-stage) costs three calls (initiate with
 the first part's upload source, the part bytes, and the
 [attachment bind](../glossary/content.md#attachment-binding) that completes the
-stage and carries the document's first content update).
+stage, carries the document's first content update, and acknowledges its KEK
+targets by hash).
 
 [`FolderMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx)
 sets these ceilings, which include private current-policy reads:

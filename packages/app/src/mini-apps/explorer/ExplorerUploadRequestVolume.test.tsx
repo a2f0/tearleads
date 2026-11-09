@@ -45,9 +45,11 @@ const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // (measured 8 before, 6 after). Keep one request of scheduling headroom.
   total: 7,
   // Each discovery read names the held directory head and receives that head
-  // alone. The carried update moves the sync's 9.7 KB into the bind request:
-  // measured 34.8 KB sent and 29.2 KB received; keep about 10% headroom.
-  bodyBytes: { request: 38_000, response: 32_500 },
+  // alone. The carried update moves the sync's 9.7 KB into the bind request.
+  // The bind acknowledges its KEK targets by hash instead of echoing them
+  // (1,730 -> 814 B): measured 34.8 KB sent and 3.3 -> 2.4 KB received, with
+  // no writer-projection read; keep about 10% headroom.
+  bodyBytes: { request: 38_000, response: 2_700 },
   byRequest: {
     // Completed public stages of the cited heads need no confirmation read.
     "GET /principals/history": 0,

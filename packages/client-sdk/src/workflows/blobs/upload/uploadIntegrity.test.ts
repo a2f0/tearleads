@@ -77,21 +77,15 @@ const bindAcknowledgementTampers: readonly {
   },
   {
     label: "KEK target hash",
-    message: "Blob attachment bind response KEK summary mismatch",
-    tamper: (response) => ({
-      ...response,
-      blobKekTargets: {
-        ...response.blobKekTargets,
-        blobKeyTargetHash: "0".repeat(64),
-      },
-    }),
+    message: "Blob attachment bind response did not match request",
+    tamper: (response) => ({ ...response, blobKeyTargetHash: "0".repeat(64) }),
   },
   {
-    label: "KEK targets",
-    message: "Blob attachment bind response KEK targets mismatch",
+    label: "blob access manifest hash",
+    message: "Blob attachment bind response did not match request",
     tamper: (response) => ({
       ...response,
-      blobKekTargets: { ...response.blobKekTargets, targets: [] },
+      blobAccessManifestHash: "0".repeat(64),
     }),
   },
 ];

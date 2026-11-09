@@ -209,11 +209,15 @@ every provisioning document) and link-set mutations acknowledge the same way:
 `id`, the signed `eventHash`, the committed `manifestHash`, the stored
 `contentKeyEpoch`, the resolved KEK `targetHash`, and, for a create,
 `createdAt` and the seed's `initialSync`. The client records the manifest,
-content-key bundle, and KEK targets from its plan. An attachment bind returns
-the binding identity, `eventHash`, `contentKeyEpoch`, `writeHeaderHash`, and
-the resolved `blobKekTargets`; it no longer echoes the event, wraps, write
-header, or write authorization, which a staged upload's bind stores as exactly
-those targets.
+content-key bundle, and KEK targets from its plan. A document sync likewise
+returns no current content-key bundle or KEK targets: the client persists the
+bundle and targets its request named. An attachment bind returns the binding
+identity, `eventHash`, `contentKeyEpoch`, `writeHeaderHash`, and the hashes of
+the resolved KEK targets, `blobKeyTargetHash`, and blob access manifest,
+`blobAccessManifestHash`; the client compares both with what it signed. It no
+longer echoes the event, wraps, write header, KEK targets, or write
+authorization, which a staged upload's bind stores as exactly the targets its
+bundle wraps to.
 
 Behavior-bearing container mutation conflicts use stable tags. A stale parent
 or concurrent mutation returns `409 container_mutation_state_stale`; a

@@ -11,7 +11,7 @@ import {
 import type {
   AccessManifestBundleWireResponse,
   DocumentContentKeyBundleResponse,
-  DocumentSyncResponse,
+  DocumentKekTargetsResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { documentKekTargetsFromContentKeyBundle } from "@tearleads/validators/response";
@@ -153,7 +153,7 @@ function assertRecoveryBaselineCoversCheckpoints(
 interface ResolvedSyncPlanContentMaterial {
   contentKey: Uint8Array;
   contentKeyBundle: DocumentContentKeyBundleResponse;
-  documentKekTargets: DocumentSyncResponse["documentKekTargets"];
+  documentKekTargets: DocumentKekTargetsResponse;
   documentManifest: AccessManifestBundleWireResponse;
   healedStaleContentKeyBundle: boolean;
   heldBackPendingUpdateIds: readonly string[];

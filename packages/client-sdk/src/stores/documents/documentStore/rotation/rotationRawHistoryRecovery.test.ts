@@ -343,12 +343,12 @@ test("a malformed historical bundle is poison-isolated instead of reported unava
       writerProjection: fixture.writerProjection,
     });
     const [historicalTarget, ...otherHistoricalTargets] =
-      fixture.response.contentKeyBundle.targets;
+      fixture.writerProjection.contentKeyBundle.targets;
     if (!historicalTarget) {
       throw new Error("Expected historical content-key target");
     }
     const malformedHistoricalBundle = {
-      ...fixture.response.contentKeyBundle,
+      ...fixture.writerProjection.contentKeyBundle,
       targets: [
         {
           ...historicalTarget,
@@ -361,7 +361,6 @@ test("a malformed historical bundle is poison-isolated instead of reported unava
       ...fixture,
       response: {
         ...fixture.response,
-        contentKeyBundle: currentContentKeyBundle,
         contentKeyBundles: [malformedHistoricalBundle],
       },
       writerProjection: {

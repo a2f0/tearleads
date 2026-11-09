@@ -107,8 +107,8 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
     }),
   ).resolves.toEqual({
     documentId: plan.documentId,
-    contentKeyBundle: JSON.stringify(response.contentKeyBundle),
-    documentKekTargets: JSON.stringify(response.documentKekTargets),
+    contentKeyBundle: JSON.stringify(plan.sourceContentKeyBundle),
+    documentKekTargets: JSON.stringify(plan.documentKekTargets),
     documentManifestBundle: JSON.stringify(plan.documentManifest),
   });
 
@@ -353,8 +353,8 @@ test("persistedDocumentSyncStateFromResponse validates sync checkpoints", async 
     }),
   ).resolves.toEqual({
     documentId: plan.documentId,
-    contentKeyBundle: JSON.stringify(response.contentKeyBundle),
-    documentKekTargets: JSON.stringify(response.documentKekTargets),
+    contentKeyBundle: JSON.stringify(plan.sourceContentKeyBundle),
+    documentKekTargets: JSON.stringify(plan.documentKekTargets),
     documentManifestBundle: JSON.stringify(plan.documentManifest),
   });
 
@@ -370,8 +370,8 @@ test("persistedDocumentSyncStateFromResponse validates sync checkpoints", async 
     ),
   ).resolves.toEqual({
     documentId: plan.documentId,
-    contentKeyBundle: JSON.stringify(response.contentKeyBundle),
-    documentKekTargets: JSON.stringify(response.documentKekTargets),
+    contentKeyBundle: JSON.stringify(plan.sourceContentKeyBundle),
+    documentKekTargets: JSON.stringify(plan.documentKekTargets),
     documentManifestBundle: JSON.stringify(plan.documentManifest),
   });
 
