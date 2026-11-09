@@ -1,12 +1,11 @@
-import type { DomainScope, Tearleads } from "@tearleads/client-sdk";
+import type { Tearleads } from "@tearleads/client-sdk";
+import type { ReconciliationPassState } from "./organizationReadModelPassMachine";
+import {
+  isSameOrganizationReadModelScope,
+  type OrganizationReadModelScope,
+} from "./organizationReadModelScope";
 
 export type ProjectionListener = () => unknown | Promise<unknown>;
-
-export interface OrganizationReadModelScope {
-  readonly domainScope: DomainScope;
-  readonly organizationId: string;
-  readonly userId: string;
-}
 
 export interface ProjectionSubscription {
   active: boolean;
@@ -15,16 +14,11 @@ export interface ProjectionSubscription {
   readonly scope: OrganizationReadModelScope | null;
 }
 
-/** One pass owner per organization. `demanded` owes an unconditional pass;
- * a pass owed only to a hint reads only when the pending hint is ahead of the
- * applied cursor. `phase` is where the current pass is: queued before its
- * first iteration, checking a hint against the applied cursor, or reading. */
+/** One pass owner per organization: its explicit machine state
+ * (`organizationReadModelPassMachine.ts`) and the promise of its loop. */
 export interface ReconciliationState {
-  demanded: boolean;
-  phase: "checking" | "queued" | "reading";
+  pass: ReconciliationPassState;
   promise: Promise<void>;
-  requiresSdkBarrier: boolean;
-  scope: OrganizationReadModelScope;
 }
 
 /** The highest committed cursor position realtime hints named for one scope
@@ -83,19 +77,6 @@ export function hasOpenOrganizationReadModelSocket(
   state: OrganizationRealtimeState,
 ): boolean {
   return state.socket?.readyState === WebSocket.OPEN;
-}
-
-export function isSameOrganizationReadModelScope(
-  left: OrganizationReadModelScope | null,
-  right: OrganizationReadModelScope | null,
-): boolean {
-  return (
-    left !== null &&
-    right !== null &&
-    left.domainScope === right.domainScope &&
-    left.organizationId === right.organizationId &&
-    left.userId === right.userId
-  );
 }
 
 /** A hint only raises the pending position for its scope; a pending hint

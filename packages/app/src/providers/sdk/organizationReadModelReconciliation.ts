@@ -1,16 +1,24 @@
 import type { Tearleads } from "@tearleads/client-sdk";
 import { organizationReadModelCursorPosition } from "@tearleads/validators/organizationReadModelCursor";
 import {
+  initialReconciliationPass,
+  type ReconciliationPassEvent,
+  type ReconciliationPassState,
+  transitionReconciliationPass,
+} from "./organizationReadModelPassMachine";
+import {
   activeDemandScope,
   hasActiveOrganizationMutation,
   hasOpenOrganizationReadModelSocket,
-  isSameOrganizationReadModelScope,
-  type OrganizationReadModelScope,
   type OrganizationRealtimeState,
   type PendingReadModelHint,
   type ReconciliationState,
   stateFor,
 } from "./organizationReadModelRealtimeState";
+import {
+  isSameOrganizationReadModelScope,
+  type OrganizationReadModelScope,
+} from "./organizationReadModelScope";
 
 async function notifyProjectionListeners(
   state: OrganizationRealtimeState,
@@ -107,40 +115,74 @@ async function appliedCursorCovers(
   return appliedPosition !== null && appliedPosition >= hint.position;
 }
 
-/** Start one pass iteration: consume the demand bit and any released hint.
- * A pass owed only to a hint whose cursor is already applied repaints
- * consumers from the local projection instead of reading. */
+function dispatchPass(
+  reconciliation: ReconciliationState,
+  event: ReconciliationPassEvent,
+): ReconciliationPassState {
+  reconciliation.pass = transitionReconciliationPass(
+    reconciliation.pass,
+    event,
+  );
+  return reconciliation.pass;
+}
+
+/** Whether the pass scope is still the demanded scope after async work.
+ * When an identity or domain transition overtook the work, the work neither
+ * repaints nor reads for the stale scope; the current scope, if any, owes its
+ * own catch-up. */
+function passScopeStillCurrent(
+  tearleads: Tearleads,
+  state: OrganizationRealtimeState,
+  reconciliation: ReconciliationState,
+  iteration: number,
+  passScope: OrganizationReadModelScope,
+): boolean {
+  const currentScope = activeDemandScope(
+    tearleads,
+    state,
+    passScope.organizationId,
+  );
+  if (isSameOrganizationReadModelScope(passScope, currentScope)) {
+    return true;
+  }
+  dispatchPass(reconciliation, {
+    type: "scopeOvertaken",
+    currentScopeExists: currentScope !== null,
+    iteration,
+  });
+  return false;
+}
+
+/** Effect of entering `checking`: consume any released hint. A pass owed
+ * only to a hint whose cursor is already applied repaints consumers from the
+ * local projection instead of reading. */
 async function passNeedsRead(
   tearleads: Tearleads,
   state: OrganizationRealtimeState,
   reconciliation: ReconciliationState,
-  passScope: OrganizationReadModelScope,
+  checking: Extract<ReconciliationPassState, { status: "checking" }>,
 ): Promise<boolean> {
-  reconciliation.phase = "checking";
-  reconciliation.scope = passScope;
-  const demanded = reconciliation.demanded;
-  reconciliation.demanded = false;
+  const passScope = checking.scope;
   const hint = releasedHint(state, passScope);
   if (hint) {
     state.pendingHintByOrganizationId.delete(passScope.organizationId);
   }
-  if (demanded) {
+  if (checking.owesRead) {
     return true;
   }
   if (!hint) {
     return false;
   }
   const covered = await appliedCursorCovers(tearleads, hint);
-  // The check is tagged with its scope: an identity or domain transition
-  // during the await must neither repaint nor read for the stale scope. The
-  // current scope, if any, owes its own catch-up.
-  const currentScope = activeDemandScope(
-    tearleads,
-    state,
-    passScope.organizationId,
-  );
-  if (!isSameOrganizationReadModelScope(passScope, currentScope)) {
-    reconciliation.demanded ||= currentScope !== null;
+  if (
+    !passScopeStillCurrent(
+      tearleads,
+      state,
+      reconciliation,
+      checking.iteration,
+      passScope,
+    )
+  ) {
     return false;
   }
   if (!covered) {
@@ -152,33 +194,30 @@ async function passNeedsRead(
   return false;
 }
 
+/** Effect of entering `reading`. */
 async function readPass(
   tearleads: Tearleads,
   state: OrganizationRealtimeState,
   reconciliation: ReconciliationState,
-  passScope: OrganizationReadModelScope,
+  reading: Extract<ReconciliationPassState, { status: "reading" }>,
 ): Promise<void> {
-  reconciliation.phase = "reading";
-  const useSdkBarrier = reconciliation.requiresSdkBarrier;
-  reconciliation.requiresSdkBarrier = false;
   let reconciled = false;
   try {
-    reconciled = await reconcileFeed(tearleads, useSdkBarrier);
+    reconciled = await reconcileFeed(tearleads, reading.useSdkBarrier);
   } catch {
     // The durable projection stays last-known-good. Another hint,
     // reconnect, or explicit Org Manager refresh retries the feed.
   }
-  const currentScope = activeDemandScope(
-    tearleads,
-    state,
-    passScope.organizationId,
-  );
-  if (!isSameOrganizationReadModelScope(passScope, currentScope)) {
-    // An identity transition cannot consume or repaint from the stale pass.
-    // One dirty bit catches up the current exact scope sequentially.
-    reconciliation.demanded ||= currentScope !== null;
-  } else {
-    await settleSameScopePass(state, passScope, reconciled);
+  if (
+    passScopeStillCurrent(
+      tearleads,
+      state,
+      reconciliation,
+      reading.iteration,
+      reading.scope,
+    )
+  ) {
+    await settleSameScopePass(state, reading.scope, reconciled);
   }
 }
 
@@ -208,31 +247,26 @@ function scheduleOrganizationReadModelReconciliationPass(
 
   const active = state.reconciliationsByOrganizationId.get(organizationId);
   if (active) {
-    active.requiresSdkBarrier ||= request.requiresSdkBarrier;
-    active.demanded ||= request.demanded;
-    if (
-      active.phase === "queued" &&
-      !isSameOrganizationReadModelScope(active.scope, requestedScope)
-    ) {
-      active.scope = requestedScope;
-    }
+    dispatchPass(active, {
+      type: "requested",
+      ...request,
+      scope: requestedScope,
+    });
     return active.promise;
   }
 
   const reconciliation: ReconciliationState = {
-    demanded: request.demanded,
+    pass: initialReconciliationPass({ ...request, scope: requestedScope }),
     promise: Promise.resolve(),
-    requiresSdkBarrier: request.requiresSdkBarrier,
-    scope: requestedScope,
-    phase: "queued",
   };
   const followUpOwed = (): boolean => {
     const scope = activeDemandScope(tearleads, state, organizationId);
     return (
       scope !== null &&
-      (reconciliation.demanded || releasedHint(state, scope) !== null)
+      (reconciliation.pass.demanded || releasedHint(state, scope) !== null)
     );
   };
+  // The worker loop runs each state's effect on entering it.
   const run = async (): Promise<void> => {
     // Let a synchronous websocket burst collapse before the first request.
     await Promise.resolve();
@@ -241,8 +275,21 @@ function scheduleOrganizationReadModelReconciliationPass(
       if (!passScope) {
         return;
       }
-      if (await passNeedsRead(tearleads, state, reconciliation, passScope)) {
-        await readPass(tearleads, state, reconciliation, passScope);
+      const checking = dispatchPass(reconciliation, {
+        type: "iterationStarted",
+        scope: passScope,
+      });
+      if (
+        checking.status === "checking" &&
+        (await passNeedsRead(tearleads, state, reconciliation, checking))
+      ) {
+        const reading = dispatchPass(reconciliation, {
+          type: "readStarted",
+          iteration: checking.iteration,
+        });
+        if (reading.status === "reading") {
+          await readPass(tearleads, state, reconciliation, reading);
+        }
       }
     } while (followUpOwed());
   };
@@ -263,8 +310,8 @@ function scheduleOrganizationReadModelReconciliationPass(
         tearleads,
         organizationId,
         {
-          demanded: reconciliation.demanded,
-          requiresSdkBarrier: reconciliation.requiresSdkBarrier,
+          demanded: reconciliation.pass.demanded,
+          requiresSdkBarrier: reconciliation.pass.requiresSdkBarrier,
         },
       );
     }
@@ -323,15 +370,20 @@ export function ensureOrganizationReadModelReconciliation(
   if (
     !requestedScope ||
     !active ||
-    !isSameOrganizationReadModelScope(active.scope, requestedScope)
+    !isSameOrganizationReadModelScope(active.pass.scope, requestedScope)
   ) {
     return scheduleOrganizationReadModelReconciliation(
       tearleads,
       organizationId,
     );
   }
-  if (active.phase !== "reading") {
-    active.demanded = true;
+  if (active.pass.status !== "reading") {
+    dispatchPass(active, {
+      type: "requested",
+      demanded: true,
+      requiresSdkBarrier: false,
+      scope: requestedScope,
+    });
   }
   return active.promise;
 }

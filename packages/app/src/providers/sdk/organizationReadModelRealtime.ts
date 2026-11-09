@@ -10,8 +10,6 @@ import {
   currentOrganizationReadModelScope,
   hasActiveOrganizationMutation,
   hasOpenOrganizationReadModelSocket,
-  isSameOrganizationReadModelScope,
-  type OrganizationReadModelScope,
   type OrganizationRealtimeState,
   type ProjectionListener,
   type ProjectionSubscription,
@@ -24,6 +22,10 @@ import {
   scheduleOrganizationReadModelReconciliation,
   scheduleOrganizationReadModelReconciliationAfterActivePass,
 } from "./organizationReadModelReconciliation";
+import {
+  isSameOrganizationReadModelScope,
+  type OrganizationReadModelScope,
+} from "./organizationReadModelScope";
 
 export {
   ensureOrganizationReadModelReconciliation,
