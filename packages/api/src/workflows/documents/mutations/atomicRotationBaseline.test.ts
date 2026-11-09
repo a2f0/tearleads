@@ -148,6 +148,7 @@ test("baseline-less unlink is allowed only for an empty committed frontier", asy
   await expect(
     assertBaselinelessUnlinkHasEmptyCommittedFrontier(db, { documentId }),
   ).rejects.toMatchObject({
+    code: DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
     message:
       "Document unlink requires a rotation baseline covering committed updates",
     status: 409,

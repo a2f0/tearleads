@@ -108,9 +108,12 @@ export async function assertBaselinelessUnlinkHasEmptyCommittedFrontier(
   input: { readonly documentId: string },
 ): Promise<void> {
   if (await hasCommittedDocumentUpdate(executor, input.documentId)) {
+    // Same refusal as a stale baseline: the client's empty-history proof no
+    // longer covers the committed frontier, so it proves again and retries.
     throw new DocumentMutationError(
       "Document unlink requires a rotation baseline covering committed updates",
       409,
+      DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
     );
   }
 }
