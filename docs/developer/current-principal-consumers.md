@@ -175,7 +175,7 @@ below, together with per-route limits and mutation-count assertions. They are
 local fixed-cardinality measurements, not production benchmarks.
 
 [`OrganizationBootstrapRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/OrganizationBootstrapRequestVolume.test.tsx)
-measures 24 requests for personal bootstrap with a ceiling of 25, and caps
+measures 26 requests for personal bootstrap with a ceiling of 27, and caps
 creating and activating another organization at 6. Provisioning seeds discovery
 evidence for the profile documents it signed, the destination roles of the
 containers it created, and recovery of the founding policy heads, so neither

@@ -65,6 +65,39 @@ test("an explicit foreign root keeps its own system-write invalidation scope", (
   expect(findSystemContainerStateForRoot(state, slot, root)).toBe(system);
 });
 
+for (const synced of [false, true]) {
+  test(`an organization root ${synced ? "skips a remote" : "keeps its device-first"} system container without an organization`, () => {
+    const runtime = createContainerContentsTestRuntime({
+      domainScope: createDomainScope(),
+      execSql: async () => [],
+      rootContainerId: "root",
+      organizationId: "org-1",
+    });
+    const state = createContainerContentsStoreState(
+      runtime,
+      defaultContainerContentsPersistence,
+    );
+    // The root gained its organization after the slot was created locally.
+    const root = createTestContainerState({
+      id: "root",
+      organizationId: "org-1",
+      parentId: null,
+    });
+    const system = createTestContainerState({
+      id: "system",
+      organizationId: "",
+      parentId: root.container.id,
+      synced,
+    });
+    system.container.systemSlot = slot;
+    state.containersById.set(root.container.id, root);
+    state.containersById.set(system.container.id, system);
+    expect(findSystemContainerStateForRoot(state, slot, root)).toBe(
+      synced ? null : system,
+    );
+  });
+}
+
 test("root selection excludes organization metadata even when it is the only root", () => {
   const runtime = createContainerContentsTestRuntime({
     domainScope: createDomainScope(),

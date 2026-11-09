@@ -63,20 +63,23 @@ test(
         // Login returns the first websocket ticket, so no ticket request. The
         // self contact's create carries its queued content as its seed, and
         // the Contacts create carries its first metadata update, so neither
-        // is followed by a content sync.
+        // is followed by a content sync. Contacts is made device-first, so
+        // its create replays its own intent in a sync pass (one more root-lane
+        // query and policy read) instead of an eager create racing it.
         // A hydration pass discovers the directory once, and a coordinator
         // drain's syncs share one operation; a discovery naming the held head
-        // receives that head alone. Measured 24 calls (29 with drain-scoped
-        // operations alone, 30 before either, 31 before that).
-        total: 25,
+        // receives that head alone. Measured 26 calls (24 with the racing
+        // eager create, 29 with drain-scoped operations alone, 30 before
+        // either, 31 before that).
+        total: 27,
         // Provisioned containers and documents are acknowledged by hash, not
-        // echoed, and seeded roles skip three destination projections: 68 KB
+        // echoed, and seeded roles skip three destination projections: 70 KB
         // received (157 KB before; register 118 KB -> 63 KB). Keys and the
         // login signature travel as base64 and child containers cite their
         // parent KEK state: 291 KB sent (322 KB before).
         bodyBytes: { request: 320_000, response: 76_000 },
         byRequest: {
-          "GET /principals/organization/:organizationId/policy": 4,
+          "GET /principals/organization/:organizationId/policy": 5,
           "GET /principals/group/:groupId/policy": 0,
           // Compact projections read each new public head once; completed
           // stages need no confirmation read.
