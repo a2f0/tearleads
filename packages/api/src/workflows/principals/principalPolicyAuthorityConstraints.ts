@@ -44,7 +44,7 @@ async function assertReservedAdminsPolicyShape(
   }
   if (
     input.projection.length === 0 ||
-    input.projection.some((member) => false || member.role !== "admin")
+    input.projection.some((member) => member.role !== "admin")
   ) {
     throw new PrincipalPolicyError(
       "Reserved Admins policy must contain only direct admin users",
