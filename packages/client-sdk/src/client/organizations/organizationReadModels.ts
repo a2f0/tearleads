@@ -1,6 +1,7 @@
 import type { DomainScope } from "../../data/shared/domainScope";
 import { recoverOrganizationAccess } from "../../workflows/container-contents/recovery/accessRestoration";
 import {
+  loadAppliedOrganizationReadModelCursor,
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationDirectoryAndGroups,
   loadLocalOrganizationGroupContainers,
@@ -109,6 +110,10 @@ export interface OrganizationReadModelCoordinator {
   reconcileAfterMutation(
     organizationId?: string | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
+  /** The applied cursor once this scope's in-flight reconcile settles. */
+  loadAppliedCursor(
+    organizationId?: string | undefined,
+  ): Promise<string | null>;
 }
 
 class OrganizationReadModelCoordinatorImpl
@@ -360,13 +365,32 @@ class OrganizationReadModelCoordinatorImpl
     if (!active?.runtime.state.online) {
       return undefined;
     }
-    const existing = this.reconciliationMap(active).get(
-      organizationAccessScopeKey(active.organizationId, active.userId),
-    );
-    if (existing) {
-      await existing.catch(() => null);
-    }
+    await this.settleInFlightReconcile(active);
     return this.reconcile(active.organizationId);
+  }
+
+  async loadAppliedCursor(organizationId?: string): Promise<string | null> {
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
+    if (!active) {
+      return null;
+    }
+    await this.settleInFlightReconcile(active);
+    return loadAppliedOrganizationReadModelCursor({
+      execSql: active.runtime.infra.execSql,
+      organizationId: active.organizationId,
+      requesterUserId: active.userId,
+    });
+  }
+
+  private async settleInFlightReconcile(
+    active: ActiveOrganizationDataRuntime,
+  ): Promise<void> {
+    await this.reconciliationMap(active)
+      .get(organizationAccessScopeKey(active.organizationId, active.userId))
+      ?.catch(() => null);
   }
 }
 

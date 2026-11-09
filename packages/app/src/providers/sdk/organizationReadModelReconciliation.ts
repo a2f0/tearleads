@@ -1,10 +1,13 @@
 import type { Tearleads } from "@tearleads/client-sdk";
+import { organizationReadModelCursorPosition } from "@tearleads/validators/organizationReadModelCursor";
 import {
   activeDemandScope,
+  hasActiveOrganizationMutation,
   hasOpenOrganizationReadModelSocket,
   isSameOrganizationReadModelScope,
   type OrganizationReadModelScope,
   type OrganizationRealtimeState,
+  type PendingReadModelHint,
   type ReconciliationState,
   stateFor,
 } from "./organizationReadModelRealtimeState";
@@ -64,14 +67,125 @@ async function reconcileFeed(
 }
 
 /**
- * Reconcile one demanded organization projection at a time. Hints that arrive
- * in the same task coalesce before I/O starts; hints that arrive during I/O set
- * one dirty bit, producing a sequential catch-up pass without parallel GETs.
+ * The pending hint a pass may consume. An Org Manager mutation in the same
+ * scope holds it: the mutation ends with its own post-commit read, after which
+ * the hint usually names a cursor already applied. A hint from a previous
+ * scope is dropped; the new scope runs its own catch-up.
+ */
+function releasedHint(
+  state: OrganizationRealtimeState,
+  scope: OrganizationReadModelScope,
+): PendingReadModelHint | null {
+  const pending = state.pendingHintByOrganizationId.get(scope.organizationId);
+  if (!pending) {
+    return null;
+  }
+  if (!isSameOrganizationReadModelScope(pending.scope, scope)) {
+    state.pendingHintByOrganizationId.delete(scope.organizationId);
+    return null;
+  }
+  return hasActiveOrganizationMutation(state, scope) ? null : pending;
+}
+
+/** Whether the applied projection already reaches the hint's committed
+ * cursor, compared by the server's monotone cursor position. An unreadable or
+ * absent applied cursor proves nothing, so the pass reads. */
+async function appliedCursorCovers(
+  tearleads: Tearleads,
+  hint: PendingReadModelHint,
+): Promise<boolean> {
+  let applied: string | null;
+  try {
+    applied = await tearleads.organizations.loadAppliedReadModelCursor();
+  } catch {
+    return false;
+  }
+  const appliedPosition =
+    applied === null
+      ? null
+      : organizationReadModelCursorPosition(applied, hint.scope.organizationId);
+  return appliedPosition !== null && appliedPosition >= hint.position;
+}
+
+/** Start one pass iteration: consume the demand bit and any released hint.
+ * A pass owed only to a hint whose cursor is already applied repaints
+ * consumers from the local projection instead of reading. */
+async function passNeedsRead(
+  tearleads: Tearleads,
+  state: OrganizationRealtimeState,
+  reconciliation: ReconciliationState,
+  passScope: OrganizationReadModelScope,
+): Promise<boolean> {
+  reconciliation.phase = "checking";
+  reconciliation.scope = passScope;
+  const demanded = reconciliation.demanded;
+  reconciliation.demanded = false;
+  const hint = releasedHint(state, passScope);
+  if (hint) {
+    state.pendingHintByOrganizationId.delete(passScope.organizationId);
+  }
+  if (demanded) {
+    return true;
+  }
+  if (!hint) {
+    return false;
+  }
+  if (!(await appliedCursorCovers(tearleads, hint))) {
+    return true;
+  }
+  // The hint names a cursor already applied, possibly by a read this pass
+  // did not own.
+  await notifyProjectionListeners(state, passScope);
+  return false;
+}
+
+async function readPass(
+  tearleads: Tearleads,
+  state: OrganizationRealtimeState,
+  reconciliation: ReconciliationState,
+  passScope: OrganizationReadModelScope,
+): Promise<void> {
+  reconciliation.phase = "reading";
+  const useSdkBarrier = reconciliation.requiresSdkBarrier;
+  reconciliation.requiresSdkBarrier = false;
+  let reconciled = false;
+  try {
+    reconciled = await reconcileFeed(tearleads, useSdkBarrier);
+  } catch {
+    // The durable projection stays last-known-good. Another hint,
+    // reconnect, or explicit Org Manager refresh retries the feed.
+  }
+  const currentScope = activeDemandScope(
+    tearleads,
+    state,
+    passScope.organizationId,
+  );
+  if (!isSameOrganizationReadModelScope(passScope, currentScope)) {
+    // An identity transition cannot consume or repaint from the stale pass.
+    // One dirty bit catches up the current exact scope sequentially.
+    reconciliation.demanded ||= currentScope !== null;
+  } else {
+    await settleSameScopePass(state, passScope, reconciled);
+  }
+}
+
+interface ReconciliationRequest {
+  /** Owe an unconditional pass rather than one gated on a pending hint. */
+  readonly demanded: boolean;
+  readonly requiresSdkBarrier: boolean;
+}
+
+/**
+ * Reconcile one demanded organization projection at a time. Requests that
+ * arrive in the same task coalesce before I/O starts; requests that arrive
+ * during I/O set one dirty bit, and hints raise one pending cursor, producing
+ * at most one sequential follow-up pass without parallel GETs. A pass owed
+ * only to a hint reads only when the hint is ahead of the applied cursor.
  */
 function scheduleOrganizationReadModelReconciliationPass(
   tearleads: Tearleads,
   organizationId: string,
-  requiresSdkBarrier: boolean,
+  request: ReconciliationRequest,
 ): Promise<void> {
   const state = stateFor(tearleads);
   const requestedScope = activeDemandScope(tearleads, state, organizationId);
@@ -81,10 +195,10 @@ function scheduleOrganizationReadModelReconciliationPass(
 
   const active = state.reconciliationsByOrganizationId.get(organizationId);
   if (active) {
-    active.requiresSdkBarrier ||= requiresSdkBarrier;
-    if (active.started) {
-      active.pending = true;
-    } else if (
+    active.requiresSdkBarrier ||= request.requiresSdkBarrier;
+    active.demanded ||= request.demanded;
+    if (
+      active.phase === "queued" &&
       !isSameOrganizationReadModelScope(active.scope, requestedScope)
     ) {
       active.scope = requestedScope;
@@ -93,41 +207,31 @@ function scheduleOrganizationReadModelReconciliationPass(
   }
 
   const reconciliation: ReconciliationState = {
-    pending: false,
+    demanded: request.demanded,
     promise: Promise.resolve(),
-    requiresSdkBarrier,
+    requiresSdkBarrier: request.requiresSdkBarrier,
     scope: requestedScope,
-    started: false,
+    phase: "queued",
+  };
+  const followUpOwed = (): boolean => {
+    const scope = activeDemandScope(tearleads, state, organizationId);
+    return (
+      scope !== null &&
+      (reconciliation.demanded || releasedHint(state, scope) !== null)
+    );
   };
   const run = async (): Promise<void> => {
     // Let a synchronous websocket burst collapse before the first request.
     await Promise.resolve();
-    reconciliation.started = true;
     do {
-      reconciliation.pending = false;
       const passScope = activeDemandScope(tearleads, state, organizationId);
       if (!passScope) {
         return;
       }
-      reconciliation.scope = passScope;
-      const useSdkBarrier = reconciliation.requiresSdkBarrier;
-      reconciliation.requiresSdkBarrier = false;
-      let reconciled = false;
-      try {
-        reconciled = await reconcileFeed(tearleads, useSdkBarrier);
-      } catch {
-        // The durable projection stays last-known-good. Another hint,
-        // reconnect, or explicit Org Manager refresh retries the feed.
+      if (await passNeedsRead(tearleads, state, reconciliation, passScope)) {
+        await readPass(tearleads, state, reconciliation, passScope);
       }
-      const currentScope = activeDemandScope(tearleads, state, organizationId);
-      if (!isSameOrganizationReadModelScope(passScope, currentScope)) {
-        // An identity transition cannot consume or repaint from the stale pass.
-        // One dirty bit catches up the current exact scope sequentially.
-        reconciliation.pending ||= currentScope !== null;
-      } else {
-        await settleSameScopePass(state, passScope, reconciled);
-      }
-    } while (reconciliation.pending);
+    } while (followUpOwed());
   };
   reconciliation.promise = run().finally(async () => {
     if (
@@ -138,17 +242,17 @@ function scheduleOrganizationReadModelReconciliationPass(
     }
     state.reconciliationsByOrganizationId.delete(organizationId);
     // A subscription or hint can land after run() has chosen to return but
-    // before this finalizer removes the active state. Hand that captured dirty
-    // bit to a new state instead of letting the already-settled promise absorb
-    // the request.
-    if (
-      reconciliation.pending &&
-      activeDemandScope(tearleads, state, organizationId)
-    ) {
+    // before this finalizer removes the active state. Hand that captured
+    // request to a new state instead of letting the already-settled promise
+    // absorb it.
+    if (followUpOwed()) {
       await scheduleOrganizationReadModelReconciliationPass(
         tearleads,
         organizationId,
-        reconciliation.requiresSdkBarrier,
+        {
+          demanded: reconciliation.demanded,
+          requiresSdkBarrier: reconciliation.requiresSdkBarrier,
+        },
       );
     }
   });
@@ -163,7 +267,7 @@ export function scheduleOrganizationReadModelReconciliation(
   return scheduleOrganizationReadModelReconciliationPass(
     tearleads,
     organizationId,
-    false,
+    { demanded: true, requiresSdkBarrier: false },
   );
 }
 
@@ -176,12 +280,26 @@ export function scheduleOrganizationReadModelReconciliationAfterActivePass(
   return scheduleOrganizationReadModelReconciliationPass(
     tearleads,
     organizationId,
-    true,
+    { demanded: true, requiresSdkBarrier: true },
   );
 }
 
-/** Ensure initial consumer catch-up without turning an already-running pass
- * into a dirty hint that schedules a second request. */
+/** Queue a pass for the pending hint cursor. It reads only when that cursor
+ * is ahead of the applied one, once any in-flight SDK read settles. */
+export function scheduleOrganizationReadModelHintReconciliation(
+  tearleads: Tearleads,
+  organizationId: string,
+): Promise<void> {
+  return scheduleOrganizationReadModelReconciliationPass(
+    tearleads,
+    organizationId,
+    { demanded: false, requiresSdkBarrier: true },
+  );
+}
+
+/** Ensure initial consumer catch-up without turning an already-reading pass
+ * into a dirty bit that schedules a second request. A pass still queued or
+ * checking a hint is made to read instead. */
 export function ensureOrganizationReadModelReconciliation(
   tearleads: Tearleads,
   organizationId: string,
@@ -189,9 +307,18 @@ export function ensureOrganizationReadModelReconciliation(
   const state = stateFor(tearleads);
   const requestedScope = activeDemandScope(tearleads, state, organizationId);
   const active = state.reconciliationsByOrganizationId.get(organizationId);
-  return requestedScope &&
-    active &&
-    isSameOrganizationReadModelScope(active.scope, requestedScope)
-    ? active.promise
-    : scheduleOrganizationReadModelReconciliation(tearleads, organizationId);
+  if (
+    !requestedScope ||
+    !active ||
+    !isSameOrganizationReadModelScope(active.scope, requestedScope)
+  ) {
+    return scheduleOrganizationReadModelReconciliation(
+      tearleads,
+      organizationId,
+    );
+  }
+  if (active.phase !== "reading") {
+    active.demanded = true;
+  }
+  return active.promise;
 }

@@ -104,9 +104,8 @@ function createReadModelHintMiddleware(
     if (observedChanges.length === 0) {
       return;
     }
-    const session = c.get("session");
-    if (!session) {
-      // Unauthenticated provisioning has no connected authoring session yet.
+    if (!c.get("session")) {
+      // Unauthenticated provisioning has no connected session to wake yet.
       return;
     }
     let committedChanges: Awaited<
@@ -128,13 +127,8 @@ function createReadModelHintMiddleware(
       return;
     }
     await Promise.all(
-      committedChanges.map(({ organizationId, recipientUserIds }) =>
-        publishOrganizationReadModelChanged({
-          organizationId,
-          origin: { sessionId: session.id, userId: session.userId },
-          publish,
-          recipientUserIds,
-        }),
+      committedChanges.map((change) =>
+        publishOrganizationReadModelChanged({ change, publish }),
       ),
     );
   };

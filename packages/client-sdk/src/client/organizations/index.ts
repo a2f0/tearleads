@@ -305,6 +305,10 @@ class OrganizationsService implements Organizations {
     });
   }
 
+  loadAppliedReadModelCursor() {
+    return this.readModelCoordinator.loadAppliedCursor();
+  }
+
   loadDirectoryAndGroups() {
     const runtime = this.runtimeService.workflowInput();
     return runWithSecurityIncidentReporting(

@@ -1,10 +1,38 @@
+import { Buffer } from "node:buffer";
 import type { Tearleads } from "@tearleads/client-sdk";
 import { handleOrganizationReadModelInterestAcknowledgement } from "../organizationReadModelRealtime";
+import { stateFor } from "../organizationReadModelRealtimeState";
 
 export const ORGANIZATION_A = "00000000-0000-4000-8000-00000000000a";
 export const ORGANIZATION_B = "00000000-0000-4000-8000-00000000000b";
 const USER_A = "00000000-0000-4000-8000-00000000001a";
 export const USER_B = "00000000-0000-4000-8000-00000000001b";
+
+/** The server's opaque cursor encoding for one organization position. */
+export function readModelCursor(
+  position: number,
+  organizationId = ORGANIZATION_A,
+): string {
+  return Buffer.from(
+    JSON.stringify({ version: 6, organizationId, cursor: String(position) }),
+    "utf8",
+  ).toString("base64url");
+}
+
+/** Wait for the organization's current pass owner, including follow-ups. */
+export async function settleReconciliation(
+  tearleads: Tearleads,
+  organizationId = ORGANIZATION_A,
+): Promise<void> {
+  for (;;) {
+    const active =
+      stateFor(tearleads).reconciliationsByOrganizationId.get(organizationId);
+    if (!active) {
+      return;
+    }
+    await active.promise;
+  }
+}
 
 export function createRuntimeHarness(input?: {
   readonly execSql?: (sql: string) => Promise<unknown[]>;
@@ -20,6 +48,8 @@ export function createRuntimeHarness(input?: {
   let containerCalls = 0;
   let documentCalls = 0;
   let reconcileCalls = 0;
+  // The applied cursor starts unknown, so a hint reads until a test sets it.
+  let appliedCursor: string | null = null;
   // A defined default models a reconcile that reached the feed; passes that
   // resolve undefined are declines and must not mark the scope caught up.
   const loadDirectoryAndGroups = async () => {
@@ -40,6 +70,7 @@ export function createRuntimeHarness(input?: {
       },
     },
     organizations: {
+      loadAppliedReadModelCursor: async () => appliedCursor,
       loadDirectoryAndGroups,
       loadDirectoryAndGroupsAfterMutation: loadDirectoryAndGroups,
     },
@@ -65,6 +96,9 @@ export function createRuntimeHarness(input?: {
     },
     get reconcileCalls() {
       return reconcileCalls;
+    },
+    setAppliedCursor(cursor: string | null) {
+      appliedCursor = cursor;
     },
     setOrganizationId(organizationId: string | null) {
       auth = { ...auth, organizationId };

@@ -3,7 +3,7 @@ import {
   attachOrganizationReadModelSocket,
   ensureOrganizationReadModelReconciliation,
   handleOrganizationReadModelHint,
-  releaseDeferredOrganizationReadModelHint,
+  releaseHeldOrganizationReadModelHint,
   subscribeOrganizationReadModelRealtime,
 } from "./organizationReadModelRealtime";
 import {
@@ -11,9 +11,11 @@ import {
   createRuntimeHarness,
   fakeOpenSocket,
   ORGANIZATION_A,
+  readModelCursor,
+  settleReconciliation,
 } from "./test/organizationReadModelRealtimeHarness";
 
-test("a released deferred author hint reconciles the feed", async () => {
+test("a hint held during a mutation reads only if ahead of the applied cursor", async () => {
   const runtime = createRuntimeHarness();
   let mutating = false;
   let projectionUpdates = 0;
@@ -36,22 +38,95 @@ test("a released deferred author hint reconciles the feed", async () => {
   expect(projectionUpdates).toBe(1);
 
   mutating = true;
-  handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, true);
-  await Promise.resolve();
-  expect(runtime.reconcileCalls).toBe(1);
-
-  // A session-scoped origin flag cannot prove the deferred change was this
-  // client's own echo (a sibling client shares the login session), so the
-  // release must reconcile the feed instead of repainting from local rows.
-  mutating = false;
-  releaseDeferredOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A);
-  await ensureOrganizationReadModelReconciliation(
+  handleOrganizationReadModelHint(
     runtime.tearleads,
     ORGANIZATION_A,
+    readModelCursor(6),
   );
+  await settleReconciliation(runtime.tearleads);
+  expect(runtime.reconcileCalls).toBe(1);
 
-  expect(runtime.reconcileCalls).toBe(2);
+  // The mutation's own post-commit read applied the hinted cursor.
+  runtime.setAppliedCursor(readModelCursor(6));
+  mutating = false;
+  releaseHeldOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A);
+  await settleReconciliation(runtime.tearleads);
+  expect(runtime.reconcileCalls).toBe(1);
   expect(projectionUpdates).toBe(2);
+
+  // A later change (a sibling client or another member) is still read.
+  handleOrganizationReadModelHint(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    readModelCursor(7),
+  );
+  await settleReconciliation(runtime.tearleads);
+  expect(runtime.reconcileCalls).toBe(2);
+  expect(projectionUpdates).toBe(3);
+});
+
+test("hints during an in-flight read run one follow-up only if still ahead", async () => {
+  let started = Promise.withResolvers<void>();
+  const reads: PromiseWithResolvers<string>[] = [];
+  const runtime = createRuntimeHarness({
+    loadDirectoryAndGroups: async () => {
+      const read = Promise.withResolvers<string>();
+      reads.push(read);
+      started.resolve();
+      runtime.setAppliedCursor(await read.promise);
+      return {};
+    },
+  });
+  subscribeOrganizationReadModelRealtime(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    () => undefined,
+  );
+  const hint = (position: number) =>
+    handleOrganizationReadModelHint(
+      runtime.tearleads,
+      ORGANIZATION_A,
+      readModelCursor(position),
+    );
+
+  hint(2);
+  await started.promise;
+  hint(3);
+  hint(5);
+  reads[0]?.resolve(readModelCursor(5));
+  await settleReconciliation(runtime.tearleads);
+  // The returned cursor covers the highest pending hint: no follow-up.
+  expect(runtime.reconcileCalls).toBe(1);
+
+  started = Promise.withResolvers<void>();
+  hint(6);
+  await started.promise;
+  hint(7);
+  hint(8);
+  started = Promise.withResolvers<void>();
+  reads[1]?.resolve(readModelCursor(6));
+  await started.promise;
+  reads[2]?.resolve(readModelCursor(8));
+  await settleReconciliation(runtime.tearleads);
+  // The returned cursor is behind the pending maximum: exactly one follow-up.
+  expect(runtime.reconcileCalls).toBe(3);
+});
+
+test("a hint whose cursor cannot be compared reads", async () => {
+  const runtime = createRuntimeHarness();
+  runtime.setAppliedCursor(readModelCursor(9));
+  subscribeOrganizationReadModelRealtime(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    () => undefined,
+  );
+  handleOrganizationReadModelHint(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    readModelCursor(1, "00000000-0000-4000-8000-00000000000b"),
+  );
+  await settleReconciliation(runtime.tearleads);
+  expect(runtime.reconcileCalls).toBe(1);
 });
 
 test("an authoritative null reconcile still repaints mounted consumers", async () => {
@@ -103,7 +178,11 @@ test("a declined pass clears a previously caught-up scope", async () => {
   // A hint consumed by a declined pass (database temporarily not ready) means
   // the scope is no longer provably caught up.
   result = undefined;
-  handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, false);
+  handleOrganizationReadModelHint(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    readModelCursor(1),
+  );
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(runtime.reconcileCalls).toBe(2);
 

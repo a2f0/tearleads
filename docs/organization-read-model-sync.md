@@ -154,10 +154,15 @@ projected policy heads, membership, and group metadata never become
 cryptographic inputs.
 
 Grant `updatedAt` is access-head time, not the container content timestamp.
-Container access-manifest advancement, structural moves, and deletion replace
-the grants lane; ordinary [document](./glossary/content.md#document) or
-[blob](./glossary/content.md#blob) content writes do not invalidate it. This avoids
-turning content sync into organization-wide grant fanout.
+The grants lane lists a container only while its current manifest head has
+direct grants, so a container mutation stamps the lane only when it can change
+a listed row: the previous or the new manifest of the mutated container grants
+directly, or a move carries a descendant whose current manifest grants
+directly (moves rewrite descendant depth). Re-citing, moving, or deleting an
+ungranted container with no granted descendant leaves the lane unstamped and
+publishes no hint. Ordinary [document](./glossary/content.md#document) or
+[blob](./glossary/content.md#blob) content writes do not invalidate it. This
+avoids turning content sync into organization-wide grant fanout.
 
 `directory`, `groups`, `grants`, and `organizationPolicy` deltas replace the
 whole lane. A `groupMemberships` delta replaces each changed group's
@@ -261,9 +266,11 @@ The gateway authorizes every organization declaration against direct current
 access before indexing the socket. Each internal
 `organization_read_model_changed` event also carries the authoritative active
 roster audience resolved after commit. The process-local router intersects that
-audience with declared interest and reconstructs a minimal client frame;
-recipient IDs and the authoring-session origin never cross the websocket
-boundary. A malformed event or one without an audience fails closed. When a
+audience with declared interest and reconstructs a minimal client frame naming
+the organization and the committed opaque cursor. Recipient IDs and the
+authoring session never cross the websocket boundary; the cursor is the value
+every recipient already reads as `nextCursor` over HTTP. A malformed event or
+one without an audience or cursor fails closed. When a
 previously authorized interested user leaves the audience, the socket receives
 one `organization_read_model_access_revoked` control and no subsequent mutation
 timing while access is absent. HTTP reconciliation then purges the local
@@ -283,22 +290,30 @@ Every HTTP request that observes one or more read-model cursor advances
 retains the highest observed cursor per organization. After the handler
 finishes, one batched head and active-roster read verifies which observations
 actually committed and resolves their audiences. Each committed organization
-publishes at most one hint, even if a later post-commit step changed the HTTP
-status. Rolled-back transactions, no-op writes, and exact policy replays
-publish none. Verification and publication are best-effort: a database or
-broker failure cannot turn a committed mutation into a retrying HTTP failure.
+publishes at most one hint, carrying that committed cursor, even if a later
+post-commit step changed the HTTP status. Rolled-back transactions, no-op
+writes, and exact policy replays publish none. Verification and publication are
+best-effort: a database or broker failure cannot turn a committed mutation into
+a retrying HTTP failure.
 
 Author sockets receive the hint because one auth session can own multiple client
-instances and session-wide suppression would strand siblings. The minimal frame
-marks whether it came from that socket's session without exposing the session
-identifier. While Org Manager itself is mutating, its own hints are held and
-released when the mutation ends. A session-scoped origin flag cannot prove a
-held hint is this client's own echo, because a sibling client of the same
-session sets the same flag, so the release reconciles the feed again even though
-the explicit post-mutation reconciliation has just run. Other active clients
-reconcile immediately. A synchronous burst collapses before I/O, and a hint
-arriving during I/O sets one dirty bit for a sequential catch-up pass; parallel
-organization feed requests are never started for one SDK scope.
+instances and session-wide suppression would strand siblings. The client
+compares the hint's cursor with the cursor its projection has applied, by the
+cursor's monotone position rather than its encoding, and reads only when the
+hint is ahead; a cursor it cannot decode reads. An author's echo of a change its
+post-mutation read already applied therefore costs no request, while a sibling
+client of the same session, whose projection has not applied it, still reads.
+A forged low cursor could only suppress a read, which withholding the hint
+already can; a lost hint is recovered as before.
+
+While Org Manager itself is mutating, hints for its scope are held and released
+when the mutation ends, after its explicit post-mutation reconciliation; the
+release reads only if the held cursor is still ahead. A synchronous burst
+collapses before I/O. Hints arriving during I/O raise one pending maximum
+cursor, and the pass runs one sequential follow-up only if that cursor is ahead
+of the cursor the read returned. Parallel organization feed requests are never
+started for one SDK scope. `organization_read_model_access_revoked` carries no
+cursor and always reconciles.
 
 Socket closure or error enters a cancellable exponential-backoff loop with
 jitter. The first connection after login uses the one-time websocket ticket

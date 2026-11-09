@@ -21,8 +21,9 @@ export function routeIncomingWsMessage(
     ) => void;
     onOrganizationReadModelChanged: (
       organizationId: string,
-      originatedFromSession: boolean,
+      cursor: string,
     ) => void;
+    onOrganizationReadModelAccessRevoked: (organizationId: string) => void;
     onOrganizationMembershipsChanged: () => void;
     onResyncRequired: (containerIds: readonly string[]) => void;
     onSharedWithYou: () => void;
@@ -54,11 +55,11 @@ export function routeIncomingWsMessage(
     case "organization_read_model_changed":
       handlers.onOrganizationReadModelChanged(
         message.organizationId,
-        message.originatedFromSession,
+        message.cursor,
       );
       return;
     case "organization_read_model_access_revoked":
-      handlers.onOrganizationReadModelChanged(message.organizationId, false);
+      handlers.onOrganizationReadModelAccessRevoked(message.organizationId);
       return;
     // The share carries no container id (the recipient does not know the
     // container yet, so it is routed by user, not interest); the client reacts
