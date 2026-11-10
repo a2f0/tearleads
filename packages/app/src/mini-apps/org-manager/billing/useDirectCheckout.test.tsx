@@ -249,6 +249,32 @@ test("switching plans re-prices the open form, and Pay starts the new plan", asy
   );
 });
 
+test("a late answer from Stripe's page for an abandoned form spares its replacement", async () => {
+  const organizations = stubTearleads();
+  const { capability } = capabilityWith({});
+  const { result } = renderFlow(capability);
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+  const { handOffToStripe, planUnavailable } = result.current;
+
+  act(() => result.current.cancel());
+  await act(async () => result.current.begin(OPTION));
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+  act(() => {
+    planUnavailable();
+    handOffToStripe();
+  });
+
+  expect(result.current.phase.kind).toBe("collecting");
+  expect(result.current.error).toBeNull();
+  expect(organizations.loadStripeCheckoutOptions).toHaveBeenCalledTimes(1);
+
+  // The open form's own callbacks still act on it.
+  act(() => result.current.handOffToStripe());
+  expect(result.current.phase.kind).toBe("idle");
+});
+
 test("a thrown confirm keeps the element mounted and is reported", async () => {
   stubTearleads();
   const failure = new Error("network dropped");

@@ -170,3 +170,41 @@ test("a hosted session for a plan no longer offered closes the form quietly", as
   expect(view.queryByText(CHECKOUT_LABELS.payOnStripeUnavailable)).toBeNull();
   expect(logged).toEqual([]);
 });
+
+test("Stripe's page is not offered while an inline payment is running", () => {
+  stubTearleads();
+  const view = renderWithHostedLink(
+    <BillingDirectCheckout
+      checkout={checkoutState({ phase: { kind: "confirming" } })}
+      disabled={false}
+    />,
+  );
+  expect(
+    view.getByText(CHECKOUT_LABELS.payOnStripe).closest("button")?.disabled,
+  ).toBe(true);
+});
+
+test("Pay waits while Stripe's page opens, and the form hands off to it", async () => {
+  const minted = Promise.withResolvers<{ url: string | null }>();
+  stubTearleads(() => minted.promise);
+  stubOpen(() => fakeTab());
+  const handOffToStripe = mock(() => undefined);
+  const view = renderWithHostedLink(
+    <BillingDirectCheckout
+      checkout={checkoutState({
+        billingEmailComplete: true,
+        handOffToStripe,
+        phase: { kind: "collecting" },
+      })}
+      disabled={false}
+    />,
+  );
+  const pay = () => view.getByText(CHECKOUT_LABELS.pay).closest("button");
+  expect(pay()?.disabled).toBe(false);
+
+  fireEvent.click(view.getByText(CHECKOUT_LABELS.payOnStripe));
+
+  expect(pay()?.disabled).toBe(true);
+  minted.resolve({ url: "https://checkout.stripe.com/pay/x" });
+  await waitFor(() => expect(handOffToStripe).toHaveBeenCalledTimes(1));
+});

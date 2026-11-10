@@ -21,7 +21,7 @@ import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPurchaseOption } from "./BillingPlanSwitcher";
 import { CHECKOUT_LABELS } from "./checkoutCopy";
 import type { DirectCheckoutState } from "./useDirectCheckout";
-import { useHostedCheckout } from "./useHostedCheckout";
+import { type HostedCheckout, useHostedCheckout } from "./useHostedCheckout";
 import "./BillingCheckout.css";
 
 /**
@@ -45,19 +45,12 @@ function priceLabelOf(option: StripeSyncOptionResponse): string {
  * into our inline form: Stripe's page for the plan the form shows.
  */
 function HostedCheckoutLink({
-  checkout,
   disabled,
-  plan,
+  hosted,
 }: {
-  readonly checkout: DirectCheckoutState;
   readonly disabled: boolean;
-  readonly plan: StripeSyncOptionResponse;
+  readonly hosted: HostedCheckout;
 }) {
-  const hosted = useHostedCheckout({
-    onPlanUnavailable: checkout.planUnavailable,
-    organizationId: checkout.organizationId,
-    priceId: plan.priceId,
-  });
   return (
     <>
       <MiniAppActions>
@@ -229,9 +222,53 @@ function CheckoutIdleOffer({
 }
 
 /**
- * The header, provider host, email hint, and actions. Always mounted while
- * the flow is live so the element has a stable host to attach to; while the
- * form loads it stays laid out but invisible behind the loading panel.
+ * Under the form: the email hint, Cancel and Pay, and Stripe's own page for
+ * the same plan. Both ways to pay share one state so only one can run: Stripe's
+ * page is offered only while the form is collecting, Pay waits while that page
+ * is being opened, and the form closes once the buyer is on Stripe's page.
+ */
+function CheckoutScreenFooter({
+  checkout,
+  disabled,
+  plan,
+}: {
+  readonly checkout: DirectCheckoutState;
+  readonly disabled: boolean;
+  readonly plan: StripeSyncOptionResponse;
+}) {
+  const { isEnabled } = useAppFeatureFlags();
+  const hosted = useHostedCheckout({
+    onOpened: checkout.handOffToStripe,
+    onPlanUnavailable: checkout.planUnavailable,
+    organizationId: checkout.organizationId,
+    priceId: plan.priceId,
+  });
+  return (
+    <>
+      {/* Stripe's form above asks for the email; this says why. */}
+      <MiniAppStatus className="org-manager-hint">
+        {CHECKOUT_LABELS.emailHint}
+      </MiniAppStatus>
+      <CheckoutScreenActions
+        checkout={checkout}
+        disabled={disabled || hosted.busy}
+      />
+      {/* Stripe's own page for the same plan; behind a feature flag (off by
+          default) while the inline form is the only advertised path. */}
+      {isEnabled("stripe-hosted-checkout") ? (
+        <HostedCheckoutLink
+          disabled={disabled || checkout.phase.kind !== "collecting"}
+          hosted={hosted}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * The header, provider host, and footer. Always mounted while the flow is
+ * live so the element has a stable host to attach to; while the form loads
+ * it stays laid out but invisible behind the loading panel.
  */
 function CheckoutScreen({
   checkout,
@@ -240,7 +277,6 @@ function CheckoutScreen({
   readonly checkout: DirectCheckoutState;
   readonly disabled: boolean;
 }) {
-  const { isEnabled } = useAppFeatureFlags();
   const idle = checkout.phase.kind === "idle";
   const loading = isCheckoutLoading(checkout);
   const plan = idle || loading ? null : checkout.chosen;
@@ -263,19 +299,8 @@ function CheckoutScreen({
         // into a display:none node yields a collapsed or unsized form.
         hidden={idle}
       />
-      {/* Stripe's form above asks for the email; this says why. */}
       {plan ? (
-        <MiniAppStatus className="org-manager-hint">
-          {CHECKOUT_LABELS.emailHint}
-        </MiniAppStatus>
-      ) : null}
-      {plan ? (
-        <CheckoutScreenActions checkout={checkout} disabled={disabled} />
-      ) : null}
-      {/* Stripe's own page for the same plan; behind a feature flag (off by
-          default) while the inline form is the only advertised path. */}
-      {plan && isEnabled("stripe-hosted-checkout") ? (
-        <HostedCheckoutLink
+        <CheckoutScreenFooter
           checkout={checkout}
           disabled={disabled}
           plan={plan}

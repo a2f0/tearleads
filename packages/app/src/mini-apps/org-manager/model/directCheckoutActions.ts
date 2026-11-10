@@ -212,7 +212,7 @@ export interface ConfirmCheckoutDeps {
  * charged: close the form, which shows a plan that no longer applies, and
  * reload the offer at the current plans.
  */
-export function closeUnavailablePlan(
+function closeUnavailablePlan(
   machine: CheckoutMachine,
   attempt: number,
   reloadOptions: () => void,
@@ -225,6 +225,33 @@ export function closeUnavailablePlan(
   if (closed) {
     reloadOptions();
   }
+}
+
+/**
+ * Callbacks for work that outlives a click (Stripe's hosted page), bound to
+ * the form open when they were made: once that form is gone they do nothing,
+ * so a late answer cannot close the form that replaced it.
+ */
+export function useOpenFormActions(
+  machine: CheckoutMachine,
+  attempt: number | null,
+  reloadOptions: () => void,
+): {
+  readonly handOffToStripe: () => void;
+  readonly planUnavailable: () => void;
+} {
+  const planUnavailable = useCallback(() => {
+    if (attempt !== null) {
+      closeUnavailablePlan(machine, attempt, reloadOptions);
+    }
+  }, [attempt, machine, reloadOptions]);
+  const handOffToStripe = useCallback(() => {
+    const current = machine.current();
+    if (current.kind !== "idle" && current.attempt === attempt) {
+      machine.send({ type: "teardown" });
+    }
+  }, [attempt, machine]);
+  return { handOffToStripe, planUnavailable };
 }
 
 /** Settles a Pay that threw: the server refused it, or the provider failed. */

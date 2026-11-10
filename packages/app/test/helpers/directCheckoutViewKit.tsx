@@ -108,6 +108,7 @@ export function checkoutState(
     begin: () => undefined,
     changePlan: () => undefined,
     planUnavailable: () => undefined,
+    handOffToStripe: () => undefined,
     confirm: () => undefined,
     cancel: () => undefined,
     ...overrides,

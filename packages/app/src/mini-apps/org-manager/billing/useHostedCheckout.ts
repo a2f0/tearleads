@@ -9,6 +9,13 @@ import {
   transitionHostedCheckout,
 } from "./hostedCheckoutState";
 
+/** The "Pay on Stripe" link's state and action. */
+export interface HostedCheckout {
+  readonly open: () => void;
+  readonly busy: boolean;
+  readonly unavailable: boolean;
+}
+
 /**
  * The off-site alternative to the inline form: mints a hosted Stripe Checkout
  * session for the chosen plan and opens it in a NEW tab, so the buyer keeps
@@ -26,20 +33,23 @@ import {
  * out, or an unconfigured integration — so it moves to `unavailable`, which
  * shows a brief notice until the next click. A plan the server no longer
  * offers goes to `onPlanUnavailable` instead, which reloads the offer.
+ *
+ * Each click keeps the callbacks of the render it happened in. The checkout
+ * binds them to its form, so a late answer for an abandoned form cannot close
+ * the form that replaced it.
  */
 export function useHostedCheckout({
+  onOpened,
   onPlanUnavailable,
   organizationId,
   priceId,
 }: {
+  /** The buyer is on Stripe's page now. */
+  readonly onOpened: () => void;
   readonly onPlanUnavailable: () => void;
   readonly organizationId: string;
   readonly priceId: string;
-}): {
-  readonly open: () => void;
-  readonly busy: boolean;
-  readonly unavailable: boolean;
-} {
+}): HostedCheckout {
   const tearleads = useTearleads();
   const { logError } = useLog();
   // The ref is the machine; the state copy renders it. A second click that
@@ -80,6 +90,7 @@ export function useHostedCheckout({
             globalThis.location?.assign(result.url);
           }
           send({ type: "opened" });
+          onOpened();
           return;
         }
         // Unconfigured, or no organization signed in.
@@ -98,7 +109,15 @@ export function useHostedCheckout({
         send({ type: "declined" });
       }
     })();
-  }, [logError, onPlanUnavailable, organizationId, priceId, send, tearleads]);
+  }, [
+    logError,
+    onOpened,
+    onPlanUnavailable,
+    organizationId,
+    priceId,
+    send,
+    tearleads,
+  ]);
   return {
     open,
     busy: state.status === "opening",

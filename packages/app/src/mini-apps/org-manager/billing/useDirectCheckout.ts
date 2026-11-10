@@ -14,11 +14,11 @@ import {
   type BeginCheckoutDeps,
   type CheckoutMachine,
   type ConfirmCheckoutDeps,
-  closeUnavailablePlan,
   useBeginCheckout,
   useChangePlan,
   useConfirmCheckout,
   useMountOnStart,
+  useOpenFormActions,
 } from "../model/directCheckoutActions";
 import {
   type DirectCheckoutMachineState,
@@ -77,10 +77,16 @@ export interface DirectCheckoutState {
   /** Switches the open form to another of `options`; ignored while paying. */
   readonly changePlan: (option: StripeSyncOptionResponse) => void;
   /**
-   * The server refused the chosen plan outside Pay (Stripe's page): close
-   * the form and reload the offer, as a refused Pay does.
+   * The server refused the open form's plan outside Pay (Stripe's page):
+   * close that form and reload the offer, as a refused Pay does. Bound to the
+   * form open at render, so it does nothing once that form is gone.
    */
   readonly planUnavailable: () => void;
+  /**
+   * The buyer is on Stripe's page for the open form's plan: close that form,
+   * so only one way to pay is running. Bound like `planUnavailable`.
+   */
+  readonly handOffToStripe: () => void;
   readonly confirm: () => void;
   readonly cancel: () => void;
 }
@@ -337,12 +343,11 @@ export function useDirectCheckoutFlow(input: {
   const deps = useActionDeps(input, available, options, reload);
   const begin = useBeginCheckout(machine, deps.begin);
   const changePlan = useChangePlan(machine, options);
-  const planUnavailable = useCallback(() => {
-    const current = machine.current();
-    if (current.kind !== "idle") {
-      closeUnavailablePlan(machine, current.attempt, reload);
-    }
-  }, [machine, reload]);
+  const { handOffToStripe, planUnavailable } = useOpenFormActions(
+    machine,
+    state.kind === "idle" ? null : state.attempt,
+    reload,
+  );
   useMountOnStart(machine, state, { capability, logError });
   const confirm = useConfirmCheckout(machine, deps.confirm);
 
@@ -359,6 +364,7 @@ export function useDirectCheckoutFlow(input: {
     begin,
     changePlan,
     planUnavailable,
+    handOffToStripe,
     confirm,
     cancel,
   };

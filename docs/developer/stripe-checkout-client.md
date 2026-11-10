@@ -66,8 +66,12 @@ feature flag) sits under the open form and creates a hosted Checkout Session
 for the plan the form shows, opening it in a new tab, with same-tab navigation
 when a popup is blocked. It uses the same admin gate, plan check against the
 authoritative [Members](../glossary/principals.md#organization-members-group)
-count, customer, metadata, and `invoice.paid` association path. A plan the
-server no longer offers closes the form and reloads the plans, as at Pay.
+count, customer, metadata, and `invoice.paid` association path. Only one way
+to pay runs at a time: the link is offered only while the form is collecting,
+Pay waits while Stripe's page is opening, and the form closes once the buyer
+is on Stripe's page. A plan the server no longer offers closes the form and
+reloads the plans, as at Pay. Both callbacks are bound to the form that
+started the request, so a late answer cannot close a form opened after it.
 Return URLs share the portal route's origin validation.
 
 ## Subscription management

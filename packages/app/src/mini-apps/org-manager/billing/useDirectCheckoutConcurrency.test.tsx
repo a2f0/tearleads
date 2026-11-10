@@ -286,6 +286,7 @@ test("two hosted-checkout clicks before a re-render mint one session", async () 
   stubOpen(openTab);
   const { result } = renderHook(() =>
     useHostedCheckout({
+      onOpened: () => undefined,
       onPlanUnavailable: () => undefined,
       organizationId: "org-1",
       priceId: OPTION.priceId,

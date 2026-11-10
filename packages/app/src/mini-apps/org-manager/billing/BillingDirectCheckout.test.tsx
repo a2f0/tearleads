@@ -1,4 +1,4 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { fireEvent, render } from "@testing-library/react";
 import {
   OPTION,
@@ -14,6 +14,10 @@ import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingDirectCheckout } from "./BillingDirectCheckout";
 import { CHECKOUT_LABELS } from "./checkoutCopy";
 
+// The open form's footer reads the SDK facade and the log actions.
+beforeEach(() => {
+  stubTearleads();
+});
 afterEach(restoreDirectCheckoutViewStubs);
 
 /** An open form for the default plan. */
@@ -82,7 +86,6 @@ test("surfaces an option-loading failure", () => {
 });
 
 test("idle offers the priced subscription and hides the element host", () => {
-  stubTearleads();
   const view = render(
     <BillingDirectCheckout checkout={state({})} disabled={false} />,
   );
@@ -93,7 +96,6 @@ test("idle offers the priced subscription and hides the element host", () => {
 });
 
 test("Subscribe opens the inline form without asking for an email first", () => {
-  stubTearleads();
   let begun = 0;
   const view = render(
     <BillingDirectCheckout
@@ -132,7 +134,6 @@ test("Pay waits for the email in Stripe's form, with the hint under it", () => {
 });
 
 test("the Pay on Stripe link stays hidden while its feature flag is off", () => {
-  stubTearleads();
   const view = render(
     <AppFeatureFlagsProvider>
       <BillingDirectCheckout checkout={collecting} disabled={false} />
@@ -143,7 +144,6 @@ test("the Pay on Stripe link stays hidden while its feature flag is off", () => 
 });
 
 test("idle offers one Subscribe per plan, each opening that plan's form", () => {
-  stubTearleads();
   const begun: unknown[] = [];
   const view = renderWithHostedLink(
     <BillingDirectCheckout
