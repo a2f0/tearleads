@@ -10,7 +10,6 @@ import {
 } from "@tearleads/api-shared/schema";
 import {
   BILLING_ERROR_CODES,
-  getSyncBillingTierForNativeProduct,
   getSyncBillingTierForSeatCount,
   type SyncBillingTier,
 } from "@tearleads/validators/billing";
@@ -19,7 +18,6 @@ import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { OrganizationManagerError } from "../organizations/errors";
 import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
-import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { hasActiveStripeBinding } from "./stripeBindingPolicy";
 
 /**
@@ -46,7 +44,7 @@ import { hasActiveStripeBinding } from "./stripeBindingPolicy";
 const PLAN_LEASE_PREFIX = "plan:";
 const PLAN_LEASE_MS = 5 * 60 * 1_000;
 
-type StripeSeatRow = typeof organizationBillingStripeSeats.$inferSelect;
+export type StripeSeatRow = typeof organizationBillingStripeSeats.$inferSelect;
 
 export type BegunStripePlanChange =
   | { readonly kind: "kept" | "scheduled" }
@@ -75,13 +73,14 @@ export function stripePlanChangeUnavailable(
 }
 
 /** Locks the billing row, as every Stripe seat-row writer does first. */
-async function lockActiveBilling(
+export async function lockActiveBilling(
   executor: DatabaseSession,
   organizationId: string,
 ) {
   const [billing] = await lockRowForUpdate(
     executor
       .select({
+        currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
         providerProductId: organizationBilling.providerProductId,
         seatCount: organizationBilling.seatCount,
         status: organizationBilling.status,
@@ -99,7 +98,7 @@ async function lockActiveBilling(
 }
 
 /** The outbox row; callers hold the billing row lock its writers take. */
-async function readStripeSeats(
+export async function readStripeSeats(
   executor: DatabaseSession,
   organizationId: string,
 ): Promise<StripeSeatRow | undefined> {
@@ -356,123 +355,6 @@ export async function runReadStripePlanSubscriptionWorkflow(
 ): Promise<string | null> {
   const seats = await readStripeSeats(db, organizationId);
   return hasActiveStripeBinding(seats) ? (seats?.subscriptionId ?? null) : null;
-}
-
-/**
- * Grants a paid upgrade: the paid capacity rises (with its seat event) so
- * members waiting for a seat get one, because the charge already went
- * through. Only while it still holds its lease does the upgrade also record
- * the larger Price as the renewal plan and the observed Price: once the
- * lease lapsed, a newer choice or the worker owns them, and the worker
- * reconciles them from Stripe. A subscription the organization no longer
- * binds, or one that renewed into a new period meanwhile (whose renewal
- * invoice already charged the larger Price), changes nothing here.
- */
-export async function runFinishStripePlanUpgradeWorkflow(
-  db: ApiDatabase,
-  input: {
-    readonly leaseId: string;
-    readonly now?: Date;
-    readonly organizationId: string;
-    /** The period the upgrade's prorated charge paid for. */
-    readonly paidPeriodEndsAt: Date | null;
-    readonly plan: SyncBillingTier;
-    readonly priceId: string;
-    readonly subscriptionId: string;
-  },
-): Promise<void> {
-  const now = input.now ?? new Date();
-  const target = input.plan.seatLimit;
-  await db.transaction(async (tx) => {
-    const billing = await lockActiveBilling(tx, input.organizationId);
-    const seats = await readStripeSeats(tx, input.organizationId);
-    if (
-      !seats ||
-      seats.subscriptionId !== input.subscriptionId ||
-      seats.billingPeriodEndsAt?.getTime() !== input.paidPeriodEndsAt?.getTime()
-    ) {
-      console.error(
-        `Stripe plan upgrade for organization ${input.organizationId} finished after its subscription or period changed`,
-      );
-      return;
-    }
-    const leased = seats.leaseId === input.leaseId;
-    await tx
-      .update(organizationBillingStripeSeats)
-      .set({
-        appliedPaidCapacity: Math.max(seats.appliedPaidCapacity, target),
-        desiredPaidCapacity: Math.max(seats.desiredPaidCapacity, target),
-        desiredRevision: seats.desiredRevision + 1,
-        nextAttemptAt: now,
-        updatedAt: now,
-        ...(leased
-          ? {
-              desiredRenewalQuantity: target,
-              leaseExpiresAt: null,
-              leaseId: null,
-              observedQuantity: target,
-              priceId: input.priceId,
-            }
-          : {}),
-      })
-      .where(eq(organizationBillingStripeSeats.id, seats.id));
-    // A Stripe-store grant records its Stripe Price as the product, which a
-    // later lifecycle event matches against the bound Price.
-    if (
-      leased &&
-      !getSyncBillingTierForNativeProduct(billing.providerProductId)
-    ) {
-      await tx
-        .update(organizationBilling)
-        .set({ providerProductId: input.priceId, updatedAt: now })
-        .where(eq(organizationBilling.organizationId, input.organizationId));
-    }
-    await reconcileOrganizationBillingSeats({
-      executor: tx,
-      licensedSeatCount: Math.max(billing.seatCount, target),
-      now,
-      organizationId: input.organizationId,
-      source: { sourceId: input.leaseId, sourceType: "billing_transition" },
-    });
-  });
-}
-
-/**
- * Releases an upgrade that was not paid. Its renewal plan was never
- * recorded, so only the lease is released, and the worker is due again to
- * restore a Price a scheduled smaller plan had lowered.
- */
-export async function runAbandonStripePlanUpgradeWorkflow(
-  db: ApiDatabase,
-  input: {
-    readonly leaseId: string;
-    readonly now?: Date;
-    readonly organizationId: string;
-  },
-): Promise<void> {
-  const now = input.now ?? new Date();
-  await db.transaction(async (tx) => {
-    await lockRowForUpdate(
-      tx
-        .select({ id: organizationBilling.organizationId })
-        .from(organizationBilling)
-        .where(eq(organizationBilling.organizationId, input.organizationId))
-        .limit(1),
-    );
-    const seats = await readStripeSeats(tx, input.organizationId);
-    if (seats?.leaseId !== input.leaseId) {
-      return;
-    }
-    await tx
-      .update(organizationBillingStripeSeats)
-      .set({
-        leaseExpiresAt: null,
-        leaseId: null,
-        nextAttemptAt: now,
-        updatedAt: now,
-      })
-      .where(eq(organizationBillingStripeSeats.id, seats.id));
-  });
 }
 
 /**

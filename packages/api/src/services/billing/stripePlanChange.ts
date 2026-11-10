@@ -19,12 +19,14 @@ import {
 import { runResolveOrgSubscriptionForAdminWorkflow } from "../../workflows/billing/stripeCheckout";
 import {
   type BegunStripePlanChange,
-  runAbandonStripePlanUpgradeWorkflow,
   runBeginStripePlanChangeWorkflow,
-  runFinishStripePlanUpgradeWorkflow,
   runReadStripePlanSubscriptionWorkflow,
   stripePlanChangeUnavailable,
 } from "../../workflows/billing/stripePlanChange";
+import {
+  runAbandonStripePlanUpgradeWorkflow,
+  runFinishStripePlanUpgradeWorkflow,
+} from "../../workflows/billing/stripePlanUpgradeSettlement";
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 import type { StripeCheckoutServiceDeps } from "./stripeCheckoutConfiguration";
@@ -154,6 +156,7 @@ async function upgrade(input: UpgradeInput): Promise<void> {
     leaseId: input.begun.leaseId,
     organizationId: input.organizationId,
     paidPeriodEndsAt: input.begun.paidPeriodEndsAt,
+    paidPeriodStartsAt: input.begun.paidPeriodStartsAt,
     plan: input.plan,
     priceId: input.priceId,
     subscriptionId: input.begun.subscriptionId,

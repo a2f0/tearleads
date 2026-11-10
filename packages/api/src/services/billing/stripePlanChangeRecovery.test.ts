@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizationBillingStripeSeats } from "@tearleads/api-shared/schema";
+import {
+  organizationBilling,
+  organizationBillingStripeSeats,
+} from "@tearleads/api-shared/schema";
 import { getSyncBillingTier } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
 import {
@@ -10,10 +13,8 @@ import {
   subscribedOrganization,
 } from "../../../test/helpers/stripePlanChangeFixtures";
 import { STRIPE_WEBHOOK_ENV as STRIPE_ENV } from "../../../test/helpers/stripeWebhook";
-import {
-  runBeginStripePlanChangeWorkflow,
-  runFinishStripePlanUpgradeWorkflow,
-} from "../../workflows/billing/stripePlanChange";
+import { runBeginStripePlanChangeWorkflow } from "../../workflows/billing/stripePlanChange";
+import { runFinishStripePlanUpgradeWorkflow } from "../../workflows/billing/stripePlanUpgradeSettlement";
 import { runBindOrganizationStripeSeatsWorkflow } from "../../workflows/billing/stripeSeatState";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import { runStripeSeatSynchronization } from "./stripeSeatSync";
@@ -189,6 +190,7 @@ test("an upgrade finishing after its lease lapsed keeps a newer renewal choice",
     now: later(7),
     organizationId,
     paidPeriodEndsAt: upgrade.paidPeriodEndsAt,
+    paidPeriodStartsAt: upgrade.paidPeriodStartsAt,
     plan: TEAM_10,
     priceId: "price_team_10",
     subscriptionId: upgrade.subscriptionId,
@@ -225,6 +227,7 @@ test("an upgrade finishing after a renewal grants nothing to the new period", as
     leaseId: upgrade.leaseId,
     organizationId,
     paidPeriodEndsAt: upgrade.paidPeriodEndsAt,
+    paidPeriodStartsAt: upgrade.paidPeriodStartsAt,
     plan: TEAM_10,
     priceId: "price_team_10",
     subscriptionId: upgrade.subscriptionId,
@@ -233,6 +236,38 @@ test("an upgrade finishing after a renewal grants nothing to the new period", as
   expect(await readState(organizationId)).toMatchObject({
     billing: { seatCount: 5 },
     seats: { appliedPaidCapacity: 5, priceId: "price_team_5" },
+  });
+});
+
+test("an upgrade finishing after a RevenueCat renewal grants nothing to it", async () => {
+  const { admin, organizationId } = await subscribedOrganization({
+    seatCount: 5,
+  });
+  const upgrade = await beginTeam10Upgrade(organizationId, admin.userId);
+  // RevenueCat delivered the renewal into a smaller scheduled plan before
+  // Stripe's webhooks bound it: the seat row still holds the paid period.
+  await db
+    .update(organizationBilling)
+    .set({
+      currentPeriodEndsAt: new Date(PERIOD_END.getTime() + 30 * 86_400_000),
+      currentPeriodStartsAt: PERIOD_END,
+      seatCount: 1,
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  await runFinishStripePlanUpgradeWorkflow(db, {
+    leaseId: upgrade.leaseId,
+    organizationId,
+    paidPeriodEndsAt: upgrade.paidPeriodEndsAt,
+    paidPeriodStartsAt: upgrade.paidPeriodStartsAt,
+    plan: TEAM_10,
+    priceId: "price_team_10",
+    subscriptionId: upgrade.subscriptionId,
+  });
+
+  expect(await readState(organizationId)).toMatchObject({
+    billing: { seatCount: 1 },
+    seats: { appliedPaidCapacity: 5 },
   });
 });
 

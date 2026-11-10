@@ -391,7 +391,9 @@ An administrator changes the plan on every platform under the same rules:
   renewal choice, and another plan would be priced from capacity not yet
   granted. An upgrade that finishes after the subscription renewed grants
   nothing to the new period, whose renewal invoice already charged the Price
-  it renews at.
+  it renews at. That holds whichever provider reports the renewal first: a
+  RevenueCat renewal whose period starts in the paid period's second half or
+  later counts, even before Stripe's webhooks bind it.
 - Only a Stripe subscription that owns the organization's capacity (a priced
   binding, not one retained under native ownership) can change plan, and
   every change waits with 409 `billing_plan_change_unavailable` while Stripe
