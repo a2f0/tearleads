@@ -364,7 +364,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.59",
+      "version": "0.1.60",
       "dependencies": {
         "@a2f0/agent-tool": "0.1.51",
         "@a2f0/ct-client": "0.1.6",
