@@ -1100,7 +1100,7 @@ export type paths = {
         put?: never;
         /**
          * Change the Stripe plan
-         * @description Changes the organization's active Stripe subscription to the plan with `priceId`. A larger plan is charged the prorated difference for the rest of the period immediately and its capacity applies only once that payment succeeds (`upgraded`); a declined or authentication-requiring payment voids its invoice, changes nothing, and returns 409 `billing_plan_change_payment_failed`. A smaller plan takes effect at renewal with no credit, keeping the current capacity until then (`scheduled`). Choosing the current plan cancels a scheduled change (`kept`). A plan that does not cover the `Members` roster or is not offered, an organization without an active Stripe subscription, or another plan change still being applied returns 409 `billing_plan_change_unavailable`. Only organization administrators may call it; 502 means Stripe could not be reached and 503 that Stripe is not configured.
+         * @description Changes the organization's active Stripe subscription from the plan at `currentSeatCount` (the one the administrator saw) to the plan with `priceId`. A larger plan is charged the prorated difference for the rest of the period immediately and its capacity applies only once that payment succeeds (`upgraded`); a declined or authentication-requiring payment voids its invoice, changes nothing, and returns 409 `billing_plan_change_payment_failed`. A smaller plan takes effect at renewal with no credit, keeping the current capacity until then (`scheduled`). Choosing the current plan cancels a scheduled change (`kept`). A current plan other than `currentSeatCount`, a plan that does not cover the `Members` roster or is not offered, an organization without a Stripe subscription that owns its capacity, a subscription that renewed into a period not yet bound, or another plan change still being applied returns 409 `billing_plan_change_unavailable`. Only organization administrators may call it; 502 means Stripe could not be reached and 503 that Stripe is not configured.
          */
         post: operations["organizations.billing.stripe.plan.change"];
         delete?: never;
@@ -4701,6 +4701,8 @@ export type components = {
         };
         /** @description The plan an administrator chose for the organization's active Stripe subscription. */
         StripePlanChangeRequest: {
+            /** @description Seat count of the plan the administrator saw when choosing. A different current plan (it renewed or changed meanwhile) gets 409 `billing_plan_change_unavailable`, so the choice is never charged differently than shown. */
+            currentSeatCount: number;
             /** @description Stripe Price id of the chosen plan, from the checkout options. It must cover the `Members` roster. */
             priceId: string;
         } & {

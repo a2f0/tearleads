@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
-import { loosePlainObject, nonEmptyStringSchema } from "../schema";
+import {
+  boundedPositiveIntegerSchema,
+  loosePlainObject,
+  nonEmptyStringSchema,
+} from "../schema";
 import { stripeReturnUrlOriginRefinement } from "../stripeCheckoutRefinements";
 
 /** The Stripe Price of the plan the buyer chose, from the checkout options. */
@@ -26,8 +30,12 @@ export function isStripeCheckoutRequest(
 /**
  * Change an active Stripe subscription to another plan. A larger plan is
  * charged its prorated difference now; a smaller one takes effect at renewal.
+ * `currentSeatCount` is the capacity the admin saw, so a change confirmed
+ * after the plan changed (a renewal, another admin) is refused, never turned
+ * into a different charge.
  */
 export const StripePlanChangeRequestSchema = loosePlainObject({
+  currentSeatCount: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
   priceId: chosenPriceIdSchema,
 });
 

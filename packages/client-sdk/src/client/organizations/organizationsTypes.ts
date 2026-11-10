@@ -106,15 +106,18 @@ export interface Organizations {
   ) => Promise<StripeCheckoutSessionResponse | null>;
   cancelStripeSubscription: () => ReturnType<typeof cancelStripeSubscription>;
   /**
-   * Changes the active Stripe subscription to the plan with `priceId`: a
+   * Changes the active Stripe subscription from the plan at
+   * `currentSeatCount` (the one the admin saw) to the plan with `priceId`: a
    * larger plan is charged its prorated difference now and applies once paid
    * (`upgraded`); a smaller one takes effect at renewal (`scheduled`); the
    * current plan cancels a scheduled change (`kept`). Null when Stripe is
-   * unconfigured or no organization is signed in. A refusal throws an
-   * `Error` with the server's billing `code`.
+   * unconfigured or no organization is signed in. A refusal, including a
+   * current plan that changed meanwhile, throws an `Error` with the server's
+   * billing `code`.
    */
   changeStripePlan: (
     priceId: string,
+    currentSeatCount: number,
     organizationId?: string,
   ) => Promise<StripePlanChange | null>;
   claimNativeSubscription: (

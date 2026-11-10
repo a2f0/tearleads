@@ -85,7 +85,8 @@ export const stripeSubscriptionCancel = {
 const stripePlanChange = {
   body: (
     priceId: StripePlanChangeRequest["priceId"],
-  ): StripePlanChangeRequest => ({ priceId }),
+    currentSeatCount: StripePlanChangeRequest["currentSeatCount"],
+  ): StripePlanChangeRequest => ({ currentSeatCount, priceId }),
   isRequest: isChangeStripePlanOperationRequest,
   isResponse: isChangeStripePlanOperationResponse,
   method: changeStripePlanOperation.method,

@@ -30,6 +30,7 @@ const SOLO: StripeSyncOptionResponse = {
 const confirming: StripePlanChangeState = {
   kind: "confirming",
   direction: "upgrade",
+  fromSeatCount: 1,
   option: TEAM,
 };
 const changing: StripePlanChangeState = { ...confirming, kind: "changing" };
@@ -41,6 +42,7 @@ const failedIdle: StripePlanChangeState = {
 const choose = (option = TEAM): StripePlanChangeEvent => ({
   type: "choose",
   direction: option === TEAM ? "upgrade" : "downgrade",
+  fromSeatCount: option === TEAM ? 1 : 5,
   option,
 });
 const changed: StripePlanChangeEvent = { type: "changed", change: "upgraded" };
@@ -63,7 +65,12 @@ test.each<[string, StripePlanChangeState, StripePlanChangeEvent, unknown]>([
     "another choice replaces the one being confirmed",
     confirming,
     choose(SOLO),
-    { kind: "confirming", direction: "downgrade", option: SOLO },
+    {
+      kind: "confirming",
+      direction: "downgrade",
+      fromSeatCount: 5,
+      option: SOLO,
+    },
   ],
   [
     "dismissing returns to idle",

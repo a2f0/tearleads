@@ -104,10 +104,13 @@ while a smaller one is scheduled. Every choice is confirmed first: an upgrade
 as a charge of the prorated difference now that applies once paid, a
 downgrade as a change at renewal on the period's end date with no credit, and
 Keep plan as cancelling the scheduled change. The switcher's state machine
-(`model/stripePlanChangeMachine.ts`) runs one change at a time and refreshes
-the billing snapshot after it. A declined upgrade says nothing changed and
-points to Manage billing for a new card; a plan the server no longer offers
-shows the server's reason and reloads the plans. The
+(`model/stripePlanChangeMachine.ts`) runs one change at a time, starting it
+only on the confirmation that enters `changing`, and refreshes the billing
+snapshot after it. Each request names the capacity the plans were shown
+against, so a plan that changed meanwhile is refused rather than charged
+differently than shown. A declined upgrade says nothing changed and points to
+Manage billing for a new card; a plan the server refuses shows its reason and
+reloads the plans and the billing snapshot. The
 [server rules](revenuecat-billing.md#changing-plans) cover every platform.
 
 Lost-key cancellation uses Stripe's shareable no-code portal login from the

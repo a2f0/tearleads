@@ -269,10 +269,14 @@ class OrganizationsService implements Organizations {
     return runForOrganization(this.runtimeService, cancelStripeSubscription);
   }
 
-  changeStripePlan(priceId: string, organizationId?: string) {
+  changeStripePlan(
+    priceId: string,
+    currentSeatCount: number,
+    organizationId?: string,
+  ) {
     return runForOrganization(
       this.runtimeService,
-      (input) => changeStripePlan({ ...input, priceId }),
+      (input) => changeStripePlan({ ...input, currentSeatCount, priceId }),
       organizationId,
     );
   }

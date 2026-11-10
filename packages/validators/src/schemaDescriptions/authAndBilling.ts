@@ -365,6 +365,8 @@ describeSchema(
   StripePlanChangeRequestSchema,
   "The plan an administrator chose for the organization's active Stripe subscription.",
   {
+    currentSeatCount:
+      "Seat count of the plan the administrator saw when choosing. A different current plan (it renewed or changed meanwhile) gets 409 `billing_plan_change_unavailable`, so the choice is never charged differently than shown.",
     priceId:
       "Stripe Price id of the chosen plan, from the checkout options. It must cover the `Members` roster.",
   },

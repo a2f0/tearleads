@@ -88,6 +88,8 @@ async function resolveDurableStripeStoreOrganizationId(
     .select({
       appliedPaidCapacity: organizationBillingStripeSeats.appliedPaidCapacity,
       billingPeriodEndsAt: organizationBillingStripeSeats.billingPeriodEndsAt,
+      billingPeriodStartsAt:
+        organizationBillingStripeSeats.billingPeriodStartsAt,
       organizationId: organizationBillingStripeSeats.organizationId,
       priceId: organizationBillingStripeSeats.priceId,
       subscriptionId: organizationBillingStripeSeats.subscriptionId,
@@ -125,15 +127,18 @@ async function resolveDurableStripeStoreOrganizationId(
 /**
  * The capacity a grant for the bound subscription licenses. The bound Price
  * is what the subscription renews at, which a scheduled smaller plan lowers
- * before renewal (workflows/billing/stripePlanChange.ts); an event for the
- * period already paid keeps the capacity paid for it, so a mid-period
- * lifecycle event never takes seats away before the renewal.
+ * before renewal (workflows/billing/stripePlanChange.ts). Only an event that
+ * starts a later period than the one bound (a renewal) grants that Price's
+ * capacity alone; any event within the paid period, including an extension
+ * that moves its end, keeps the capacity paid for it, so seats are never
+ * taken away before the renewal.
  */
 function durableSeatCount(
   event: RevenueCatWebhookEvent,
   binding: {
     readonly appliedPaidCapacity: number;
     readonly billingPeriodEndsAt: Date | null;
+    readonly billingPeriodStartsAt: Date | null;
     readonly priceId: string | null;
   },
   deps: StripeApiDeps,
@@ -142,14 +147,27 @@ function durableSeatCount(
   if (!tier) {
     return null;
   }
-  const paidPeriod =
-    event.expiration_at_ms != null &&
-    binding.billingPeriodEndsAt !== null &&
-    event.expiration_at_ms <= binding.billingPeriodEndsAt.getTime();
   const paid = getSyncBillingTierForSeatCount(binding.appliedPaidCapacity);
-  return paidPeriod && paid
+  return paid && eventInPaidPeriod(event, binding)
     ? Math.max(tier.seatLimit, paid.seatLimit)
     : tier.seatLimit;
+}
+
+function eventInPaidPeriod(
+  event: RevenueCatWebhookEvent,
+  binding: {
+    readonly billingPeriodEndsAt: Date | null;
+    readonly billingPeriodStartsAt: Date | null;
+  },
+): boolean {
+  if (event.purchased_at_ms != null && binding.billingPeriodStartsAt !== null) {
+    return event.purchased_at_ms <= binding.billingPeriodStartsAt.getTime();
+  }
+  return (
+    event.expiration_at_ms != null &&
+    binding.billingPeriodEndsAt !== null &&
+    event.expiration_at_ms <= binding.billingPeriodEndsAt.getTime()
+  );
 }
 
 /** Resolves an immutable candidate; locked database validation happens later. */

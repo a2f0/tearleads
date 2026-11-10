@@ -52,7 +52,10 @@ const TEAM_10: StripeSyncOptionResponse = {
 
 function stubSdk(changeStripePlan: (priceId: string) => Promise<unknown>) {
   const organizations = {
-    changeStripePlan: mock(changeStripePlan),
+    changeStripePlan: mock(
+      (priceId: string, _currentSeatCount: number, _organizationId: string) =>
+        changeStripePlan(priceId),
+    ),
     loadStripeCheckoutOptions: mock(() =>
       Promise.resolve({ options: [SOLO, TEAM_5, TEAM_10] }),
     ),
@@ -121,8 +124,11 @@ test("an upgrade is confirmed as a charge now, then applied", async () => {
     ui.getByText(PLAN_CHANGE_LABELS.confirmUpgrade).click(),
   );
 
+  // Sent with the plan the admin saw, so a plan that changed meanwhile is
+  // refused rather than charged differently.
   expect(organizations.changeStripePlan).toHaveBeenCalledWith(
     "price_team_10",
+    5,
     "org-1",
   );
   await waitFor(() =>
@@ -224,6 +230,7 @@ test("a scheduled downgrade can be kept from, but not chosen again", async () =>
 
   expect(organizations.changeStripePlan).toHaveBeenCalledWith(
     "price_team_5",
+    5,
     "org-1",
   );
 });

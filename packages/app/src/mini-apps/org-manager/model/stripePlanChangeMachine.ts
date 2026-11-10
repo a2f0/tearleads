@@ -26,9 +26,10 @@ export type StripePlanChangeOutcome =
 
 interface StripePlanChoice {
   readonly direction: StripePlanDirection;
+  /** The capacity the admin saw when choosing, which the server checks. */
+  readonly fromSeatCount: number;
   readonly option: StripeSyncOptionResponse;
 }
-
 export type StripePlanChangeState =
   | {
       readonly kind: "idle";
@@ -60,6 +61,7 @@ export function transitionStripePlanChange(
         : {
             kind: "confirming",
             direction: event.direction,
+            fromSeatCount: event.fromSeatCount,
             option: event.option,
           };
     case "dismiss":

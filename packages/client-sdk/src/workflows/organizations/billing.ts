@@ -92,6 +92,7 @@ interface OrganizationBillingApi {
   readonly changeStripePlan: (
     organizationId: string,
     priceId: string,
+    currentSeatCount: number,
     options?: RequestResultOptions,
   ) => Promise<RequestResult<StripePlanChangeResponse>>;
 }
@@ -254,12 +255,14 @@ export async function cancelStripeSubscription(input: {
  */
 export async function changeStripePlan(input: {
   readonly apiClient: Pick<OrganizationBillingApi, "changeStripePlan">;
+  readonly currentSeatCount: number;
   readonly organizationId: string;
   readonly priceId: string;
 }): Promise<StripePlanChange | null> {
   const result = await input.apiClient.changeStripePlan(
     input.organizationId,
     input.priceId,
+    input.currentSeatCount,
     { reportErrors: false },
   );
   if (result.ok) {

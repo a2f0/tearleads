@@ -40,19 +40,21 @@ interface UpgradeInput {
 }
 
 /**
- * Changes an organization's active Stripe subscription to the plan with
- * `priceId` (workflows/billing/stripePlanChange.ts has the rules). A larger
- * plan is charged its prorated difference now and granted only once paid; a
- * smaller one is scheduled for renewal; the current plan cancels a scheduled
- * change. Null when Stripe is unconfigured.
+ * Changes an organization's active Stripe subscription from the plan at
+ * `currentSeatCount` (the one the admin saw) to the plan with `priceId`
+ * (workflows/billing/stripePlanChange.ts has the rules). A larger plan is
+ * charged its prorated difference now and granted only once paid; a smaller
+ * one is scheduled for renewal; the current plan cancels a scheduled change.
+ * Null when Stripe is unconfigured.
  */
 export async function changeStripePlan(
   runtime: ApiServiceRuntime,
   organizationId: string,
   sessionUserId: string,
-  priceId: string,
+  request: { readonly currentSeatCount: number; readonly priceId: string },
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<StripePlanChange | null> {
+  const { priceId } = request;
   // Authorize before Stripe is contacted for the plan's Price.
   await runResolveOrgSubscriptionForAdminWorkflow(
     runtime.db,
@@ -71,7 +73,7 @@ export async function changeStripePlan(
     runtime.db,
     organizationId,
     sessionUserId,
-    { plan },
+    { currentSeatCount: request.currentSeatCount, plan },
   );
   if (begun.kind !== "upgrade") {
     return begun.kind;
@@ -115,6 +117,7 @@ async function upgrade(input: UpgradeInput): Promise<void> {
   await runFinishStripePlanUpgradeWorkflow(input.runtime.db, {
     leaseId: input.begun.leaseId,
     organizationId: input.organizationId,
+    paidPeriodEndsAt: input.begun.paidPeriodEndsAt,
     plan: input.plan,
     priceId: input.priceId,
     subscriptionId: input.begun.subscriptionId,

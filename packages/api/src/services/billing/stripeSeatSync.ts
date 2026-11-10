@@ -11,6 +11,7 @@ import {
   type StripeSubscriptionBinding,
 } from "../../billing/stripeSubscriptionBinding";
 import { reportBackgroundFailure } from "../../diagnostics/reportBackgroundFailure";
+import { runGrantPaidStripeCapacityWorkflow } from "../../workflows/billing/stripePlanChange";
 import { runBindOrganizationStripeSeatsWorkflow } from "../../workflows/billing/stripeSeatState";
 import {
   claimOrganizationStripeSeatSync,
@@ -302,6 +303,14 @@ export async function runStripeSeatSynchronization(
         claim,
         executor: runtime.db,
         now,
+      });
+      // A paid upgrade whose request never finished is granted here.
+      await runGrantPaidStripeCapacityWorkflow(runtime.db, {
+        appliedPaidCapacity: result.appliedPaidCapacity,
+        billingPeriodEndsAt: result.billingPeriodEndsAt,
+        now,
+        organizationId: claim.organizationId,
+        sourceId: `stripe-seat-sync:${claim.leaseId}`,
       });
       synced += 1;
     } catch (error) {

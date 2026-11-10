@@ -373,12 +373,24 @@ An administrator changes the plan on every platform under the same rules:
   until it ends. An upgrade that stalls past its lease still grants the
   capacity it was charged for when it finishes, but a renewal plan chosen
   after the lease lapsed stands, and the worker reconciles the Price from
-  Stripe.
+  Stripe. If the request never finishes (a lost response, a failed final
+  transaction), the worker revisits the row once the lease lapses and grants
+  the capacity Stripe was paid for in the period the organization's billing
+  tracks. An upgrade that finishes after the subscription renewed grants
+  nothing to the new period, whose renewal invoice already charged the
+  Price it renews at.
 - Only a Stripe subscription that owns the organization's capacity (a priced
   binding, not one retained under native ownership) can change plan, and an
   upgrade waits with 409 `billing_plan_change_unavailable` while Stripe has
   renewed into a period its webhooks have not bound yet, so the charge is
   always counted from the period actually paid for.
+- Every request names the capacity the admin chose against
+  (`currentSeatCount`). If the plan changed meanwhile (a renewal, another
+  admin), the request gets 409 `billing_plan_change_unavailable`, so a choice
+  shown as a change at renewal is never charged as an upgrade.
+- A RevenueCat event within the paid period, including an extension that
+  moves the period's end, keeps the paid capacity; only an event that starts
+  a later period grants the smaller renewal plan alone.
 - A web plan change is offered only where web checkout runs, never inside a
   store app.
 

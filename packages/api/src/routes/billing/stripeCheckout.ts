@@ -262,9 +262,9 @@ function registerStripePlanChangeRoute(
     ),
     (c) => {
       const { organizationId } = c.req.valid("param");
-      const { priceId } = c.req.valid("json");
+      const request = c.req.valid("json");
       return respondForOrganization(c, organizationId, async (id, userId) => {
-        const change = await changeStripePlan(runtime, id, userId, priceId);
+        const change = await changeStripePlan(runtime, id, userId, request);
         if (!change) {
           return c.json({ error: "Stripe is not configured" }, 503);
         }

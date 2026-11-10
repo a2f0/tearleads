@@ -220,13 +220,18 @@ async function leaseUpgrade(
       "The subscription is being updated; try again shortly",
     );
   }
+  const leaseExpiresAt = new Date(now.getTime() + PLAN_LEASE_MS);
   await executor
     .update(organizationBillingStripeSeats)
     .set({
       desiredRenewalQuantity: input.plan.seatLimit,
       desiredRevision: seats.desiredRevision + 1,
-      leaseExpiresAt: new Date(now.getTime() + PLAN_LEASE_MS),
+      leaseExpiresAt,
       leaseId: input.leaseId,
+      // If this request never finishes (a lost response, a failed final
+      // transaction), the seat-sync worker revisits the row once the lease
+      // lapses and grants an upgrade Stripe was paid for.
+      nextAttemptAt: leaseExpiresAt,
       updatedAt: now,
     })
     .where(eq(organizationBillingStripeSeats.id, seats.id));
@@ -253,6 +258,8 @@ export async function runBeginStripePlanChangeWorkflow(
   sessionUserId: string,
   options: {
     readonly createLeaseId?: () => string;
+    /** The paid capacity the admin chose against. */
+    readonly currentSeatCount: number;
     readonly now?: Date;
     readonly plan: SyncBillingTier;
   },
@@ -264,6 +271,13 @@ export async function runBeginStripePlanChangeWorkflow(
     { organizationId, userId: sessionUserId },
     async (tx) => {
       const billing = await lockActiveBilling(tx, organizationId);
+      // A renewal or another admin changed the plan since this choice was
+      // shown: what it would do now (charge or not) may differ.
+      if (billing.seatCount !== options.currentSeatCount) {
+        throw stripePlanChangeUnavailable(
+          "Your plan changed since you chose; review the plans and choose again",
+        );
+      }
       const seats = await requireChangeableSeats(tx, organizationId, now);
       await requirePlanCoversRoster(tx, organizationId, plan);
       if (plan.seatLimit > billing.seatCount) {
@@ -289,7 +303,8 @@ export async function runBeginStripePlanChangeWorkflow(
  * the larger Price as the renewal plan and the observed Price: once the
  * lease lapsed, a newer choice or the worker owns them, and the worker
  * reconciles them from Stripe. A subscription the organization no longer
- * binds changes nothing here.
+ * binds, or one that renewed into a new period meanwhile (whose renewal
+ * invoice already charged the larger Price), changes nothing here.
  */
 export async function runFinishStripePlanUpgradeWorkflow(
   db: ApiDatabase,
@@ -297,6 +312,8 @@ export async function runFinishStripePlanUpgradeWorkflow(
     readonly leaseId: string;
     readonly now?: Date;
     readonly organizationId: string;
+    /** The period the upgrade's prorated charge paid for. */
+    readonly paidPeriodEndsAt: Date | null;
     readonly plan: SyncBillingTier;
     readonly priceId: string;
     readonly subscriptionId: string;
@@ -307,9 +324,13 @@ export async function runFinishStripePlanUpgradeWorkflow(
   await db.transaction(async (tx) => {
     const billing = await lockActiveBilling(tx, input.organizationId);
     const seats = await readStripeSeats(tx, input.organizationId);
-    if (!seats || seats.subscriptionId !== input.subscriptionId) {
+    if (
+      !seats ||
+      seats.subscriptionId !== input.subscriptionId ||
+      seats.billingPeriodEndsAt?.getTime() !== input.paidPeriodEndsAt?.getTime()
+    ) {
       console.error(
-        `Stripe plan upgrade for organization ${input.organizationId} was paid on a subscription it no longer binds`,
+        `Stripe plan upgrade for organization ${input.organizationId} finished after its subscription or period changed`,
       );
       return;
     }
@@ -350,6 +371,58 @@ export async function runFinishStripePlanUpgradeWorkflow(
       now,
       organizationId: input.organizationId,
       source: { sourceId: input.leaseId, sourceType: "billing_transition" },
+    });
+  });
+}
+
+/**
+ * Grants capacity Stripe was paid for in the period the organization's
+ * billing tracks but that it does not license yet: an upgrade whose request
+ * never finished (a lost response, a failed final transaction). The
+ * seat-sync worker calls this after reconciling the row from Stripe, so a
+ * paid upgrade applies without depending on the request that started it.
+ */
+export async function runGrantPaidStripeCapacityWorkflow(
+  db: ApiDatabase,
+  input: {
+    readonly appliedPaidCapacity: number;
+    readonly billingPeriodEndsAt: Date | null;
+    readonly now: Date;
+    readonly organizationId: string;
+    readonly sourceId: string;
+  },
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [billing] = await lockRowForUpdate(
+      tx
+        .select({
+          currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
+          seatCount: organizationBilling.seatCount,
+          status: organizationBilling.status,
+        })
+        .from(organizationBilling)
+        .where(eq(organizationBilling.organizationId, input.organizationId))
+        .limit(1),
+    );
+    const seats = await readStripeSeats(tx, input.organizationId);
+    const samePeriod =
+      billing?.currentPeriodEndsAt != null &&
+      input.billingPeriodEndsAt?.getTime() ===
+        billing.currentPeriodEndsAt.getTime();
+    if (
+      billing?.status !== "active" ||
+      !samePeriod ||
+      billing.seatCount >= input.appliedPaidCapacity ||
+      !hasActiveStripeBinding(seats)
+    ) {
+      return;
+    }
+    await reconcileOrganizationBillingSeats({
+      executor: tx,
+      licensedSeatCount: input.appliedPaidCapacity,
+      now: input.now,
+      organizationId: input.organizationId,
+      source: { sourceId: input.sourceId, sourceType: "billing_transition" },
     });
   });
 }

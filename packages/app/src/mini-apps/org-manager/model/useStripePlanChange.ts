@@ -13,7 +13,7 @@ import {
   IDLE_STRIPE_PLAN_CHANGE,
   type StripePlanChangeEvent,
   type StripePlanChangeState,
-  type StripePlanDirection,
+  stripePlanDirection,
   transitionStripePlanChange,
 } from "./stripePlanChangeMachine";
 
@@ -22,10 +22,7 @@ export interface StripePlanChangeFlow {
   /** The plans that cover the roster, as for checkout. */
   readonly offer: CheckoutOptionState;
   readonly state: StripePlanChangeState;
-  readonly choose: (
-    option: StripeSyncOptionResponse,
-    direction: StripePlanDirection,
-  ) => void;
+  readonly choose: (option: StripeSyncOptionResponse) => void;
   readonly confirm: () => void;
   readonly dismiss: () => void;
   readonly retryOptions: () => void;
@@ -47,6 +44,8 @@ function errorCode(error: unknown): unknown {
 export function useStripePlanChange(input: {
   readonly organizationId: string;
   readonly refresh: () => Promise<void>;
+  /** The paid capacity the switcher shows the plans against. */
+  readonly seatCount: number;
 }): StripePlanChangeFlow {
   const tearleads = useTearleads();
   const { logError } = useLog();
@@ -65,16 +64,21 @@ export function useStripePlanChange(input: {
     setState(next);
     return next;
   }, []);
+  const { organizationId, refresh, seatCount } = input;
   const choose = useCallback(
-    (option: StripeSyncOptionResponse, direction: StripePlanDirection) => {
-      send({ type: "choose", direction, option });
+    (option: StripeSyncOptionResponse) => {
+      send({
+        type: "choose",
+        direction: stripePlanDirection(option, seatCount),
+        fromSeatCount: seatCount,
+        option,
+      });
     },
-    [send],
+    [send, seatCount],
   );
   const dismiss = useCallback(() => {
     send({ type: "dismiss" });
   }, [send]);
-  const { organizationId, refresh } = input;
   const confirm = useCallback(() => {
     const before = machine.current;
     const changing = send({ type: "confirm" });
@@ -87,6 +91,7 @@ export function useStripePlanChange(input: {
       try {
         const change = await tearleads.organizations.changeStripePlan(
           changing.option.priceId,
+          changing.fromSeatCount,
           organizationId,
         );
         if (!change) {
@@ -98,7 +103,9 @@ export function useStripePlanChange(input: {
       } catch (error) {
         const code = errorCode(error);
         if (code === BILLING_ERROR_CODES.planChangeUnavailable) {
+          // The plans or the current plan changed: show them again.
           reload();
+          void refresh();
         } else if (code !== BILLING_ERROR_CODES.planChangePaymentFailed) {
           logError("Failed to change the Stripe plan", error);
         }

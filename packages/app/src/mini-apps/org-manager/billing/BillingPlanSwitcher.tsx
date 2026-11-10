@@ -325,7 +325,7 @@ function StripePlanRows({
         }
         key={option.priceId}
         name={option.productName}
-        onSelect={() => flow.choose(option, action.direction)}
+        onSelect={() => flow.choose(option)}
         priceLabel={stripePriceLabel(option)}
       />
     );
@@ -392,7 +392,7 @@ function StripePlanSwitcher({
   renewsAtMs,
   seatCount,
 }: StripePlanSwitcherProps) {
-  const flow = useStripePlanChange({ organizationId, refresh });
+  const flow = useStripePlanChange({ organizationId, refresh, seatCount });
   const { offer } = flow;
   if (offer.status === "off" || offer.status === "loading") {
     return (

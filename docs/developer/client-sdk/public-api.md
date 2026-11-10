@@ -265,10 +265,13 @@ roster, and `organizations.createStripeCheckout(priceId)` is the usual
 returnUrl)` opens Stripe's hosted page for it instead. A refusal throws with
 the server's billing `code`, and `billing_checkout_plan_unavailable` means the
 plans must be reloaded. For a subscribed organization the same options list
-the plans it can change to, and `organizations.changeStripePlan(priceId)`
-returns `upgraded` (charged now and applied), `scheduled` (at renewal), or
-`kept`; it throws `billing_plan_change_payment_failed` for a declined upgrade
-and `billing_plan_change_unavailable` for a plan it cannot change to now.
+the plans it can change to, and
+`organizations.changeStripePlan(priceId, currentSeatCount)` (the capacity the
+admin chose against) returns `upgraded` (charged now and applied),
+`scheduled` (at renewal), or `kept`; it throws
+`billing_plan_change_payment_failed` for a declined upgrade and
+`billing_plan_change_unavailable` for a plan it cannot change to now,
+including when the current plan changed meanwhile.
 Native purchases are personal-org only. Handle
 `PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`: verify the
 receipt, prepare a fresh org outside the claim deadline, claim it, then publish

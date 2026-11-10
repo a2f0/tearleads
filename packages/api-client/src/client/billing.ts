@@ -147,20 +147,23 @@ export class BillingArea {
   }
 
   /**
-   * Changes the active Stripe subscription's plan: a larger plan is charged
-   * now, a smaller one is scheduled for renewal. A refused change is a 409
-   * with a billing code; an unconfigured integration is a 503.
+   * Changes the active Stripe subscription's plan from the one at
+   * `currentSeatCount`: a larger plan is charged now, a smaller one is
+   * scheduled for renewal. A refused change, including one whose current plan
+   * changed meanwhile, is a 409 with a billing code; an unconfigured
+   * integration is a 503.
    */
   changeStripePlan(
     organizationId: string,
     priceId: string,
+    currentSeatCount: number,
     options: RequestResultOptions = {},
   ) {
     return this.context.sendResult(
       checkout.plan,
       checkout.plan.path(organizationId),
       changeStripePlanOperation,
-      checkout.plan.body(priceId),
+      checkout.plan.body(priceId, currentSeatCount),
       options,
     );
   }
