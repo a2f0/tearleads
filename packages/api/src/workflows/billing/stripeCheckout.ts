@@ -21,12 +21,30 @@ import { listUsersReachableFromCurrentGroup } from "../organizations/principalRe
 
 type StripeCheckoutMode = "hosted" | "inline";
 
-interface StripeCheckoutAttempt {
+export interface StripeCheckoutAttempt {
   readonly attemptId: string;
   readonly expiresAt: Date;
   readonly providerExpiresAt: Date | null;
   readonly seatQuantity: number;
 }
+
+/** What reserving the organization's one unpaid checkout attempt found. */
+export type StripeCheckoutAttemptAcquisition =
+  | { readonly kind: "acquired"; readonly attempt: StripeCheckoutAttempt }
+  /**
+   * The same buyer's unexpired attempt in this mode reserved a seat count the
+   * roster no longer has. It stays reserved until the caller retires its
+   * provider checkout and replaces it.
+   */
+  | { readonly kind: "stale"; readonly staleAttemptId: string };
+
+/** An unexpired attempt as it relates to a new request. */
+type ActiveStripeCheckoutAttempt =
+  | { readonly kind: "none" }
+  | { readonly kind: "matching"; readonly attempt: StripeCheckoutAttempt }
+  | { readonly kind: "stale"; readonly attemptId: string };
+
+const NO_ACTIVE_ATTEMPT: ActiveStripeCheckoutAttempt = { kind: "none" };
 
 interface StripeCheckoutBillingState {
   readonly attemptExpiresAt: Date | null;
@@ -42,7 +60,7 @@ const HOSTED_ATTEMPT_MS = 50 * 60 * 1_000;
 const HOSTED_EXPIRY_SAFETY_MS = 5 * 60 * 1_000;
 const HOSTED_MIN_PROVIDER_REMAINING_MS = 30 * 60 * 1_000;
 
-function checkoutInProgress(): OrganizationManagerError {
+export function stripeCheckoutInProgress(): OrganizationManagerError {
   return new OrganizationManagerError(
     "A checkout is already in progress for this organization",
     409,
@@ -138,21 +156,23 @@ function resolveActiveStripeCheckoutAttempt(input: {
   readonly now: Date;
   readonly seatQuantity: number;
   readonly sessionUserId: string;
-}): StripeCheckoutAttempt | null {
+}): ActiveStripeCheckoutAttempt {
   const { attemptExpiresAt, attemptId } = input.billing;
   if (!attemptExpiresAt || attemptExpiresAt <= input.now) {
     if (attemptId !== null && attemptExpiresAt === null) {
-      throw checkoutInProgress();
+      throw stripeCheckoutInProgress();
     }
-    return null;
+    return NO_ACTIVE_ATTEMPT;
   }
   if (
     attemptId === null ||
     input.billing.attemptMode !== input.mode ||
-    input.billing.attemptUserId !== input.sessionUserId ||
-    input.billing.attemptSeatQuantity !== input.seatQuantity
+    input.billing.attemptUserId !== input.sessionUserId
   ) {
-    throw checkoutInProgress();
+    throw stripeCheckoutInProgress();
+  }
+  if (input.billing.attemptSeatQuantity !== input.seatQuantity) {
+    return { kind: "stale", attemptId };
   }
   const providerExpiry = providerExpiresAt(input.mode, attemptExpiresAt);
   if (
@@ -160,13 +180,16 @@ function resolveActiveStripeCheckoutAttempt(input: {
     providerExpiry.getTime() <=
       input.now.getTime() + HOSTED_MIN_PROVIDER_REMAINING_MS
   ) {
-    throw checkoutInProgress();
+    throw stripeCheckoutInProgress();
   }
   return {
-    attemptId,
-    expiresAt: attemptExpiresAt,
-    providerExpiresAt: providerExpiry,
-    seatQuantity: input.seatQuantity,
+    kind: "matching",
+    attempt: {
+      attemptId,
+      expiresAt: attemptExpiresAt,
+      providerExpiresAt: providerExpiry,
+      seatQuantity: input.seatQuantity,
+    },
   };
 }
 
@@ -300,12 +323,65 @@ export async function runRequireCheckoutEligibleWorkflow(
   );
 }
 
+interface AcquireStripeCheckoutAttemptInput {
+  readonly createAttemptId: () => string;
+  readonly mode: StripeCheckoutMode;
+  readonly now: Date;
+  readonly organizationId: string;
+  /** The stale attempt the caller retired, which may now rotate. */
+  readonly replacing: string | null;
+  readonly sessionUserId: string;
+}
+
+function acquireStripeCheckoutAttempt(
+  db: ApiDatabase,
+  input: AcquireStripeCheckoutAttemptInput,
+): Promise<StripeCheckoutAttemptAcquisition> {
+  const { organizationId, sessionUserId } = input;
+  return withOrganizationAdminTransaction(
+    db,
+    { organizationId, userId: sessionUserId },
+    async (tx) => {
+      const billing = await lockStripeCheckoutBilling(tx, organizationId);
+      const seatQuantity = await requireStripeCheckoutSeatQuantity(
+        tx,
+        organizationId,
+      );
+      const active = resolveActiveStripeCheckoutAttempt({
+        billing,
+        mode: input.mode,
+        now: input.now,
+        seatQuantity,
+        sessionUserId,
+      });
+      if (active.kind === "matching") {
+        return { kind: "acquired", attempt: active.attempt };
+      }
+      if (active.kind === "stale" && active.attemptId !== input.replacing) {
+        return { kind: "stale", staleAttemptId: active.attemptId };
+      }
+      const attempt = await createStripeCheckoutAttempt({
+        createAttemptId: input.createAttemptId,
+        executor: tx,
+        mode: input.mode,
+        now: input.now,
+        organizationId,
+        seatQuantity,
+        sessionUserId,
+      });
+      return { kind: "acquired", attempt };
+    },
+  );
+}
+
 /**
  * Atomically reserves the organization's one unpaid Stripe checkout. Both UI
  * modes call this before touching Stripe, so an inline subscription create and
  * a hosted Session create cannot pass independent provider searches and race.
  * A byte-for-byte retry by the same buyer reuses the durable token and seat
- * snapshot; changed terms or the other UI mode conflict until expiry.
+ * snapshot. Another buyer or the other UI mode conflicts until expiry; the
+ * same buyer's attempt for a roster that has since changed comes back
+ * `stale`.
  *
  * PostgreSQL serializes contenders with a billing-row lock. The SQLite adapter
  * runs transactions through one `BEGIN IMMEDIATE` queue, so it provides the
@@ -318,35 +394,37 @@ export async function runAcquireStripeCheckoutAttemptWorkflow(
   mode: StripeCheckoutMode,
   now: Date = new Date(),
   createAttemptId: () => string = randomUUID,
-): Promise<StripeCheckoutAttempt> {
-  return withOrganizationAdminTransaction(
-    db,
-    { organizationId, userId: sessionUserId },
-    async (tx) => {
-      const billing = await lockStripeCheckoutBilling(tx, organizationId);
-      const seatQuantity = await requireStripeCheckoutSeatQuantity(
-        tx,
-        organizationId,
-      );
-      const activeAttempt = resolveActiveStripeCheckoutAttempt({
-        billing,
-        mode,
-        now,
-        seatQuantity,
-        sessionUserId,
-      });
-      return (
-        activeAttempt ??
-        createStripeCheckoutAttempt({
-          createAttemptId,
-          executor: tx,
-          mode,
-          now,
-          organizationId,
-          seatQuantity,
-          sessionUserId,
-        })
-      );
-    },
-  );
+): Promise<StripeCheckoutAttemptAcquisition> {
+  return acquireStripeCheckoutAttempt(db, {
+    createAttemptId,
+    mode,
+    now,
+    organizationId,
+    replacing: null,
+    sessionUserId,
+  });
+}
+
+/**
+ * Rotates the stale inline attempt `staleAttemptId` to the current seat count
+ * once the caller has voided its unpaid Stripe checkout. A concurrent request
+ * that already replaced it is reused; an attempt that went stale since is
+ * reported `stale` again rather than replaced unretired.
+ */
+export async function runReplaceStaleInlineCheckoutAttemptWorkflow(
+  db: ApiDatabase,
+  organizationId: string,
+  sessionUserId: string,
+  staleAttemptId: string,
+  now: Date = new Date(),
+  createAttemptId: () => string = randomUUID,
+): Promise<StripeCheckoutAttemptAcquisition> {
+  return acquireStripeCheckoutAttempt(db, {
+    createAttemptId,
+    mode: "inline",
+    now,
+    organizationId,
+    replacing: staleAttemptId,
+    sessionUserId,
+  });
 }
