@@ -46,12 +46,12 @@ function resolveBindingState(
     sameSubscription && current?.appliedSeatPeriodKey === bindingPeriodKey;
   const sameDesiredPeriod =
     sameSubscription && current?.desiredSeatPeriodKey === bindingPeriodKey;
-  const preserveInFlight = sameAppliedPeriod && sameDesiredPeriod;
   // An extension moves the paid period's end but not its start, so the
   // capacity paid for it stays even though the bound Price may already be a
-  // scheduled smaller plan's.
+  // scheduled smaller plan's, and a change in flight keeps its lease.
   const extended = sameSubscription && isExtendedPeriod(current, binding);
   const samePaidPeriod = sameAppliedPeriod || extended;
+  const preserveInFlight = (sameAppliedPeriod && sameDesiredPeriod) || extended;
   return {
     appliedPaidCapacity: samePaidPeriod
       ? Math.max(current?.appliedPaidCapacity ?? 0, bindingQuantity)

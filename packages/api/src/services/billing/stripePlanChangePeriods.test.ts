@@ -16,7 +16,10 @@ import { STRIPE_WEBHOOK_ENV as STRIPE_ENV } from "../../../test/helpers/stripeWe
 import { organizationSeatPeriodKey } from "../../billing/organizationBilling";
 import { runBeginStripePlanChangeWorkflow } from "../../workflows/billing/stripePlanChange";
 import { runFinishStripePlanUpgradeWorkflow } from "../../workflows/billing/stripePlanUpgradeSettlement";
-import { requestOrganizationStripeSeatSync } from "../../workflows/billing/stripeSeatState";
+import {
+  requestOrganizationStripeSeatSync,
+  runBindOrganizationStripeSeatsWorkflow,
+} from "../../workflows/billing/stripeSeatState";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import { runStripeSeatSynchronization } from "./stripeSeatSync";
 
@@ -25,6 +28,30 @@ import { runStripeSeatSynchronization } from "./stripeSeatSync";
  * trail Stripe's slightly, and an extension moves only a period's end; plan
  * changes treat each as the same period.
  */
+
+async function beginTeam10(
+  organizationId: string,
+  userId: string,
+  now = new Date(),
+) {
+  const upgrade = await runBeginStripePlanChangeWorkflow(
+    db,
+    organizationId,
+    userId,
+    {
+      currentSeatCount: 5,
+      now,
+      observed: {
+        billingPeriodStartsAt: PERIOD_START,
+        seatCount: 5,
+        subscriptionId: `sub_${organizationId}`,
+      },
+      plan: getSyncBillingTier("team_10"),
+    },
+  );
+  if (upgrade.kind !== "upgrade") throw new Error("expected an upgrade");
+  return upgrade;
+}
 
 const TRAIL_MS = 5_000;
 
@@ -119,21 +146,7 @@ test("an extension bound while an upgrade is paid keeps the upgrade", async () =
   const { admin, organizationId } = await subscribedOrganization({
     seatCount: 5,
   });
-  const upgrade = await runBeginStripePlanChangeWorkflow(
-    db,
-    organizationId,
-    admin.userId,
-    {
-      currentSeatCount: 5,
-      observed: {
-        billingPeriodStartsAt: PERIOD_START,
-        seatCount: 5,
-        subscriptionId: `sub_${organizationId}`,
-      },
-      plan: getSyncBillingTier("team_10"),
-    },
-  );
-  if (upgrade.kind !== "upgrade") throw new Error("expected an upgrade");
+  const upgrade = await beginTeam10(organizationId, admin.userId);
   // An extension's webhook moves the bound period's end, not its start.
   await db
     .update(organizationBillingStripeSeats)
@@ -153,5 +166,45 @@ test("an extension bound while an upgrade is paid keeps the upgrade", async () =
   expect(await readPlanState(organizationId)).toMatchObject({
     billing: { seatCount: 10 },
     seats: { appliedPaidCapacity: 10, desiredRenewalQuantity: 10 },
+  });
+});
+
+test("an extension bound during an upgrade keeps the upgrade's lease", async () => {
+  const { admin, organizationId } = await subscribedOrganization({
+    seatCount: 5,
+  });
+  const upgrade = await beginTeam10(organizationId, admin.userId);
+
+  await runBindOrganizationStripeSeatsWorkflow(db, {
+    billingPeriodEndsAt: new Date(PERIOD_END.getTime() + 86_400_000),
+    billingPeriodStartsAt: PERIOD_START,
+    customerId: "cus_plan",
+    organizationId,
+    priceId: "price_team_5",
+    seatQuantity: 5,
+    subscriptionId: `sub_${organizationId}`,
+    subscriptionItemId: `si_${organizationId}`,
+  });
+
+  // The worker still cannot write the Price while the upgrade is paid.
+  expect(await readPlanState(organizationId)).toMatchObject({
+    seats: { leaseId: upgrade.leaseId },
+  });
+});
+
+test("an upgrade waits when the subscription renews within a lease", async () => {
+  const { admin, organizationId } = await subscribedOrganization({
+    seatCount: 5,
+  });
+
+  await expect(
+    beginTeam10(
+      organizationId,
+      admin.userId,
+      new Date(PERIOD_END.getTime() - 2 * 60_000),
+    ),
+  ).rejects.toMatchObject({ code: "billing_plan_change_unavailable" });
+  expect(await readPlanState(organizationId)).toMatchObject({
+    seats: { leaseId: null },
   });
 });

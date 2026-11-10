@@ -370,10 +370,13 @@ An administrator changes the plan on every platform under the same rules:
   its capacity have no seat.
 - One web plan change runs at a time: an upgrade leases the Stripe seat row
   for five minutes while it is paid for, so the worker cannot write the Price
-  meanwhile, and another change gets 409 `billing_plan_change_unavailable`
-  until it ends. Stripe is charged only while at least half the lease
-  remains; an upgrade that took longer is released unpaid with the same 409,
-  so once a lease lapses the outcome in Stripe is final. The larger renewal
+  meanwhile (an extension bound during it keeps the lease), and another
+  change gets 409 `billing_plan_change_unavailable` until it ends. Stripe is
+  charged only while at least half the lease remains; an upgrade that took
+  longer is released unpaid with the same 409, so once a lease lapses the
+  outcome in Stripe is final. Stripe renews only at the period's end, so an
+  upgrade within five minutes of it waits with the same 409 until the
+  renewal, keeping the whole charge inside the paid period. The larger renewal
   plan is recorded only once the upgrade is paid, so an upgrade that fails
   or never reaches Stripe leaves a scheduled smaller plan as it was. An
   upgrade that stalls past its lease still grants the capacity it was charged

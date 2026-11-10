@@ -216,6 +216,17 @@ async function leaseUpgrade(
   },
 ): Promise<BegunStripePlanChange> {
   const { now } = input;
+  // Stripe renews only at the period's end. Starting no later than a lease
+  // before it, and charging only within the lease's first half, keeps the
+  // baseline restore and the prorated charge inside the paid period.
+  if (
+    seats.billingPeriodEndsAt === null ||
+    seats.billingPeriodEndsAt.getTime() - now.getTime() < PLAN_LEASE_MS
+  ) {
+    throw stripePlanChangeUnavailable(
+      "The subscription renews in a few minutes; upgrade after it renews",
+    );
+  }
   const leaseExpiresAt = new Date(now.getTime() + PLAN_LEASE_MS);
   await executor
     .update(organizationBillingStripeSeats)
