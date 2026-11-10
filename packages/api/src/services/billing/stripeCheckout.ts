@@ -70,14 +70,17 @@ export async function createStripeCheckout(
     );
     return null;
   }
+  const stripe = deps.stripe ?? {};
   const attempt = await runAcquireStripeCheckoutAttemptWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
     "inline",
+    {
+      requireSeatQuantity: (seatQuantity) =>
+        requireShownPrice({ priceId, seatQuantity, stripe }),
+    },
   );
-  const stripe = deps.stripe ?? {};
-  requireShownPrice({ priceId, seatQuantity: attempt.seatQuantity, stripe });
   const customerId = await findOrCreateCustomer(
     { userId: sessionUserId, organizationId },
     stripe,

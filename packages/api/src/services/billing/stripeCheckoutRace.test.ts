@@ -92,6 +92,45 @@ test("concurrent inline and hosted services issue one provider create", async ()
   expect(creates).toHaveLength(1);
 });
 
+test("a Pay at a Price the roster no longer maps to reserves nothing", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
+  const creates: Request[] = [];
+  const serviceDeps = deps(checkoutFetch(creates));
+
+  // One member is Solo; a form still showing Team 5 must not hold the
+  // organization's one checkout reservation once it is refused.
+  await expect(
+    createStripeCheckout(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+      "price_team_5",
+      serviceDeps,
+    ),
+  ).rejects.toMatchObject({
+    code: "billing_checkout_price_changed",
+    status: 409,
+  });
+  const [billing] = await db
+    .select({ attemptId: organizationBilling.checkoutAttemptId })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(billing?.attemptId).toBeNull();
+
+  // Another mode is not locked out by the refused Pay.
+  expect(
+    await createStripeCheckoutSession(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+      "https://app.example/billing",
+      serviceDeps,
+    ),
+  ).toBe("https://checkout.stripe.com/pay/cs_org");
+  expect(creates).toHaveLength(1);
+});
+
 test("hosted retries reuse a provider key and expired attempts rotate it", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticateWithOrganization(admin);

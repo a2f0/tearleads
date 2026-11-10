@@ -19,9 +19,10 @@ import { OrganizationManagerError } from "../../workflows/organizations/errors";
  * The inline form shows a Price before any subscription exists, and Stripe
  * charges whatever the subscription says, not what the form showed. Pay
  * therefore names the Price the buyer saw, and the checkout proceeds only
- * when the attempt's own seat count (the one the subscription is created
- * for) still maps to it. A roster change since the form opened gets a 409
- * the client answers by reloading the options.
+ * when the seat count its attempt reserves (the one the subscription is
+ * created for) still maps to it. It runs inside the reservation, so a refused
+ * Pay reserves nothing. A roster change since the form opened gets a 409 the
+ * client answers by reloading the options.
  */
 export function requireShownPrice(input: {
   readonly priceId: string;

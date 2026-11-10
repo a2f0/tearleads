@@ -81,6 +81,20 @@ test("a refused start rejects with the server's error and confirms nothing", asy
   expect(confirmInputs).toEqual([]);
 });
 
+test("leaving while the form validates starts nothing on the server", async () => {
+  const { confirmInputs, stripe } = fakeStripe();
+  const session = await mountWith(stripe);
+  const startPayment = mock(() => Promise.resolve("pi_started"));
+  // `confirm` is now awaiting `elements.submit()`.
+  const outcome = session.confirm(startPayment);
+
+  session.unmount();
+
+  expect(await outcome).toEqual({ kind: "cancelled" });
+  expect(startPayment).not.toHaveBeenCalled();
+  expect(confirmInputs).toEqual([]);
+});
+
 test("leaving while the server starts the payment confirms nothing", async () => {
   const { confirmInputs, stripe } = fakeStripe();
   const session = await mountWith(stripe);

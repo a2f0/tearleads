@@ -309,6 +309,16 @@ export async function runRequireCheckoutEligibleWorkflow(
   );
 }
 
+export interface AcquireStripeCheckoutAttemptOptions {
+  readonly createAttemptId?: () => string;
+  readonly now?: Date;
+  /**
+   * Throws to refuse the seat count the roster now needs, inside the
+   * reservation transaction: a refused checkout reserves and rotates nothing.
+   */
+  readonly requireSeatQuantity?: (seatQuantity: number) => void;
+}
+
 /**
  * Atomically reserves the organization's one unpaid Stripe checkout. Both UI
  * modes call this before touching Stripe, so an inline subscription create and
@@ -327,8 +337,11 @@ export async function runAcquireStripeCheckoutAttemptWorkflow(
   organizationId: string,
   sessionUserId: string,
   mode: StripeCheckoutMode,
-  now: Date = new Date(),
-  createAttemptId: () => string = randomUUID,
+  {
+    createAttemptId = randomUUID,
+    now = new Date(),
+    requireSeatQuantity,
+  }: AcquireStripeCheckoutAttemptOptions = {},
 ): Promise<StripeCheckoutAttempt> {
   return withOrganizationAdminTransaction(
     db,
@@ -346,6 +359,9 @@ export async function runAcquireStripeCheckoutAttemptWorkflow(
         seatQuantity,
         sessionUserId,
       });
+      // The attempt always carries the current seat count, so this checks
+      // exactly what it would reserve.
+      requireSeatQuantity?.(seatQuantity);
       return (
         activeAttempt ??
         createStripeCheckoutAttempt({

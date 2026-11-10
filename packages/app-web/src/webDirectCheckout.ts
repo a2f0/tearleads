@@ -342,8 +342,12 @@ function createSession(
       // Stripe validates the form before anything starts on the server, so
       // an incomplete card never creates a subscription.
       const { error: invalid } = await elements.submit();
+      // A buyer who walked away during validation must not start one either.
+      if (unmounted) {
+        return CANCELLED;
+      }
       if (invalid) {
-        return unmounted ? CANCELLED : toConfirmation(invalid);
+        return toConfirmation(invalid);
       }
       const clientSecret = await startPayment();
       // A buyer who walked away while the server started the subscription
