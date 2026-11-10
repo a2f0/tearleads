@@ -81,10 +81,10 @@ Measurement: canary logs with the profile recorder on are in
 <MEASUREMENT_DIR>; read the per-endpoint tables, do not re-run the whole
 suite. To re-measure one scenario, run from packages/app:
 `DUAL_PANE_REQUEST_PROFILE=1 DUAL_PANE_REQUEST_PROFILE_DETAIL=1 bun test
-<file>` through `<REPO_ROOT>/node_modules/.bin/agent-tool run --`. When you
-need the whole log in your scratch directory, redirect `bun test` output to
-a file there instead and read it with targeted searches; never print a
-whole test log. Statement counts come from
+<file>` through `<REPO_ROOT>/node_modules/.bin/agent-tool run --`. Its
+receipt names the complete log: copy that file into your scratch directory
+when you need to keep it, and read it with targeted searches. Never run
+`bun test` bare or print a whole test log. Statement counts come from
 `withDatabaseStatementCounter` in
 packages/api-shared/src/adapters/databaseStatementCounter.ts, used from a
 probe that drives the real route with API_DATABASE=memory. Probes import

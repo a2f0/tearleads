@@ -123,8 +123,8 @@ session the user asked for the report. It changes nothing in a draft except
 the receipt rows it reconciles and text GitHub would mislink.
 
 - **Title:** `Efficiency audit (database and protocol): <n> proposals (<k>
-  High impact)`, with the `Partial` prefix when either audit has a partial
-  slice.
+  High impact)`, with the `Partial` prefix when any requested slice of
+  either audit is partial, pending, or blocked.
 - **Body:** what ran and at which revision; how to read the ids and labels;
   both coverage tables; one summary table of every ranked proposal built
   from the two `proposals.json` files; the decisions needed (rulings and
