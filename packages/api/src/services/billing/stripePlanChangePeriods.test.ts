@@ -20,6 +20,10 @@ import {
   requestOrganizationStripeSeatSync,
   runBindOrganizationStripeSeatsWorkflow,
 } from "../../workflows/billing/stripeSeatState";
+import {
+  claimOrganizationStripeSeatSync,
+  runCompleteOrganizationStripeSeatSyncWorkflow,
+} from "../../workflows/billing/stripeSeatSyncClaim";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import { runStripeSeatSynchronization } from "./stripeSeatSync";
 
@@ -230,4 +234,47 @@ test("every plan change waits while billing's period is unknown", async () => {
     code: "billing_plan_change_unavailable",
   });
   expect(fake.writes).toEqual([]);
+});
+
+test("a late upgrade settled during a worker claim keeps its paid capacity", async () => {
+  const { admin, organizationId } = await subscribedOrganization({
+    seatCount: 5,
+  });
+  const upgrade = await beginTeam10(organizationId, admin.userId);
+  // The upgrade's lease lapsed; the worker claimed the row and read Team 5.
+  const lapsed = new Date("2000-01-01T00:00:00.000Z");
+  await makeDue(organizationId, { leaseExpiresAt: lapsed });
+  const claim = await claimOrganizationStripeSeatSync(db, new Date());
+  if (claim?.organizationId !== organizationId) {
+    throw new Error("expected this organization's claim");
+  }
+  // The paid upgrade settles late, without its lease.
+  await runFinishStripePlanUpgradeWorkflow(db, {
+    leaseId: upgrade.leaseId,
+    organizationId,
+    paidPeriodEndsAt: upgrade.paidPeriodEndsAt,
+    paidPeriodStartsAt: upgrade.paidPeriodStartsAt,
+    plan: getSyncBillingTier("team_10"),
+    priceId: "price_team_10",
+    subscriptionId: upgrade.subscriptionId,
+  });
+
+  await runCompleteOrganizationStripeSeatSyncWorkflow(db, {
+    appliedPaidCapacity: 5,
+    billingPeriodEndsAt: PERIOD_END,
+    billingPeriodStartsAt: PERIOD_START,
+    claim,
+    desiredRenewalQuantity: null,
+    now: new Date(),
+    observedQuantity: 5,
+    priceId: "price_team_5",
+    subscriptionItemId: `si_${organizationId}`,
+  });
+
+  // Recording what the claim saw never takes back the capacity paid for,
+  // so no later claim prorates for it again.
+  expect(await readPlanState(organizationId)).toMatchObject({
+    billing: { seatCount: 10 },
+    seats: { appliedPaidCapacity: 10 },
+  });
 });

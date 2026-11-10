@@ -354,7 +354,7 @@ deploy step.
 - Adding members never changes the tier on any platform: members beyond the
   licensed capacity get no seat until the admin upgrades (through the store
   for a native subscription, or the billing panel for a Stripe one) or removes
-  members ([plan changes](./revenuecat-billing.md#changing-plans)).
+  members ([plan changes](./billing-plan-changes.md)).
 - Native option filtering uses the active-member count returned with the server
   billing snapshot, not a local directory projection, so a tier below the
   roster is never offered; the stores cannot refuse one server-side. If the

@@ -114,7 +114,7 @@ refuses shows its reason and reloads the plans and the billing snapshot. The
 plans are also read again when the roster changes elsewhere, since they must
 cover it. An answer that arrives after the switcher closed or moved to
 another organization is dropped. The
-[server rules](revenuecat-billing.md#changing-plans) cover every platform.
+[server rules](billing-plan-changes.md) cover every platform.
 
 Lost-key cancellation uses Stripe's shareable no-code portal login from the
 public website's **Manage subscription** footer link. Stripe emails a secure

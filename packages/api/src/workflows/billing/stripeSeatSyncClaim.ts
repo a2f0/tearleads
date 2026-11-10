@@ -242,11 +242,14 @@ interface LockedSeatSyncBilling {
   readonly status: string;
 }
 
-/** Records the claim's result; false when the claim lost its lease. */
+/**
+ * Records the claim's result and returns the paid capacity recorded; null
+ * when the claim lost its lease.
+ */
 async function completeOrganizationStripeSeatSync(
   executor: DatabaseSession,
   input: CompleteStripeSeatSyncInput,
-): Promise<boolean> {
+): Promise<number | null> {
   const [current] = await executor
     .select()
     .from(organizationBillingStripeSeats)
@@ -261,27 +264,36 @@ async function completeOrganizationStripeSeatSync(
     )
     .limit(1);
   if (!current) {
-    return false;
+    return null;
   }
   // A renewal choice waits while this claim holds the row
   // (workflows/billing/stripePlanChange.ts), and roster writes keep the
   // renewal plan, so a plan recovered from Stripe replaces no newer choice.
   const renewalQuantity =
     input.desiredRenewalQuantity ?? current.desiredRenewalQuantity;
+  // Paid capacity only rises within a period: an upgrade that settled while
+  // this claim read Stripe already recorded more than the claim saw.
+  const samePeriod =
+    current.billingPeriodStartsAt !== null &&
+    current.billingPeriodStartsAt.getTime() ===
+      input.billingPeriodStartsAt?.getTime();
+  const appliedPaidCapacity = samePeriod
+    ? Math.max(current.appliedPaidCapacity, input.appliedPaidCapacity)
+    : input.appliedPaidCapacity;
   // The worker never writes a renewal Price above the capacity paid for, so
   // a larger renewal plan still being paid for is not a drift to retry.
   const expectedQuantity = Math.min(
     normalizeStripeSeatQuantity(renewalQuantity),
-    input.appliedPaidCapacity,
+    appliedPaidCapacity,
   );
   const fullyApplied =
     current.desiredRevision === input.claim.desiredRevision &&
-    current.desiredPaidCapacity <= input.appliedPaidCapacity &&
+    current.desiredPaidCapacity <= appliedPaidCapacity &&
     expectedQuantity === input.observedQuantity;
   await executor
     .update(organizationBillingStripeSeats)
     .set({
-      appliedPaidCapacity: input.appliedPaidCapacity,
+      appliedPaidCapacity,
       appliedRevision: fullyApplied
         ? current.desiredRevision
         : current.appliedRevision,
@@ -310,7 +322,7 @@ async function completeOrganizationStripeSeatSync(
         eq(organizationBillingStripeSeats.leaseId, input.claim.leaseId),
       ),
     );
-  return true;
+  return appliedPaidCapacity;
 }
 
 /**
@@ -386,8 +398,15 @@ export async function runCompleteOrganizationStripeSeatSyncWorkflow(
         )
         .limit(1),
     );
-    if (await completeOrganizationStripeSeatSync(tx, input)) {
-      await grantPaidStripeCapacity(tx, billing, input);
+    const appliedPaidCapacity = await completeOrganizationStripeSeatSync(
+      tx,
+      input,
+    );
+    if (appliedPaidCapacity !== null) {
+      await grantPaidStripeCapacity(tx, billing, {
+        ...input,
+        appliedPaidCapacity,
+      });
     }
   });
 }
