@@ -37,10 +37,12 @@ export type MountInput = Parameters<DirectCheckoutCapability["mount"]>[0];
 
 export function stubTearleads(overrides?: {
   createStripeCheckout?: () => Promise<unknown>;
+  loadStripeCheckoutOptions?: () => Promise<unknown>;
 }) {
   const organizations = {
-    loadStripeCheckoutOptions: mock(() =>
-      Promise.resolve({ options: [OPTION] }),
+    loadStripeCheckoutOptions: mock(
+      overrides?.loadStripeCheckoutOptions ??
+        (() => Promise.resolve({ options: [OPTION] })),
     ),
     createStripeCheckout:
       overrides?.createStripeCheckout ??

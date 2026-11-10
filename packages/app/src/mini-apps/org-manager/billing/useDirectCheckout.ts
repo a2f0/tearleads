@@ -4,6 +4,12 @@ import { useDirectCheckout as useDirectCheckoutCapability } from "../../../provi
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import {
+  CHECKOUT_OPTION_OFF,
+  type CheckoutOptionEvent,
+  type CheckoutOptionState,
+  transitionCheckoutOption,
+} from "../model/checkoutOptionMachine";
+import {
   type BeginCheckoutDeps,
   type CheckoutMachine,
   type ConfirmCheckoutDeps,
@@ -90,10 +96,10 @@ function useCheckoutLifecycle(scopeKey: string, teardown: () => void): void {
 }
 
 /**
- * Loads the single purchasable sync option once the platform can actually buy.
- * Split out so the flow hook below stays within the per-function budget.
- * `reload` fetches it again, for a Pay refused because the roster changed
- * the plan.
+ * Loads the single purchasable sync option once the platform can actually buy
+ * (`model/checkoutOptionMachine.ts`). Split out so the flow hook below stays
+ * within the per-function budget. `reload` fetches it again, for a Pay refused
+ * because the roster changed the plan; the offer is withdrawn until it lands.
  */
 function useCheckoutOption(
   available: boolean,
@@ -102,15 +108,11 @@ function useCheckoutOption(
   enabled: boolean,
   organizationId: string,
   tearleads: ReturnType<typeof useTearleads>,
-): {
-  readonly error: string | null;
-  readonly option: StripeSyncOptionResponse | null;
-  readonly reload: () => void;
-} {
-  const [state, setState] = useState<{
-    readonly error: string | null;
-    readonly option: StripeSyncOptionResponse | null;
-  }>({ error: null, option: null });
+): { readonly offer: CheckoutOptionState; readonly reload: () => void } {
+  const [offer, setOffer] = useState(CHECKOUT_OPTION_OFF);
+  const send = useCallback((event: CheckoutOptionEvent) => {
+    setOffer((current) => transitionCheckoutOption(current, event));
+  }, []);
   const [loads, setLoads] = useState(0);
   const reload = useCallback(() => setLoads((count) => count + 1), []);
   useEffect(() => {
@@ -119,10 +121,11 @@ function useCheckoutOption(
     // `enabled` too: an admin of an already-syncing org would otherwise fire
     // this request on every billing-panel mount for an option they cannot buy.
     if (!available || !canSubscribe || !enabled) {
-      setState({ error: null, option: null });
+      send({ type: "off" });
       return;
     }
     let cancelled = false;
+    send({ type: "load" });
     void (async () => {
       try {
         const result =
@@ -130,22 +133,18 @@ function useCheckoutOption(
             organizationId,
           );
         if (!cancelled) {
-          const option = result?.options[0] ?? null;
-          setState({
-            // An empty list means the server integration is intentionally not
-            // configured. A rejected request is an actionable load failure.
-            error: null,
-            option,
-          });
+          // An empty list means the server integration is intentionally not
+          // configured. A rejected request is an actionable load failure.
+          send({ type: "loaded", option: result?.options[0] ?? null });
         }
       } catch (loadError) {
         // A misconfigured integration is otherwise invisible here — the panel
         // just renders nothing.
         console.warn("Failed to load Stripe checkout options:", loadError);
         if (!cancelled) {
-          setState({
+          send({
+            type: "load-failed",
             error: checkoutOptionErrorMessage(loadError),
-            option: null,
           });
         }
       }
@@ -153,8 +152,16 @@ function useCheckoutOption(
     return () => {
       cancelled = true;
     };
-  }, [available, canSubscribe, enabled, organizationId, tearleads, loads]);
-  return { ...state, reload };
+  }, [
+    available,
+    canSubscribe,
+    enabled,
+    organizationId,
+    send,
+    tearleads,
+    loads,
+  ]);
+  return { offer, reload };
 }
 
 function useCheckoutOptionForFlow(
@@ -257,6 +264,11 @@ export function useDirectCheckoutFlow(input: {
 
   useCheckoutLifecycle(`${input.organizationId}:${input.enabled}`, cancel);
 
+  const offer = checkoutOption.offer;
+  // Only a settled offer can be bought; none exists while it (re)loads.
+  const option = offer.status === "ready" ? offer.option : null;
+  const optionError = offer.status === "failed" ? offer.error : null;
+
   // Memoized: these are `useCallback` dependencies, so rebuilding them each
   // render would give `begin`/`confirm` a new identity every time and defeat
   // the memoization their consumers rely on.
@@ -265,9 +277,9 @@ export function useDirectCheckoutFlow(input: {
       available,
       canSubscribe: input.canSubscribe,
       enabled: input.enabled,
-      option: checkoutOption.option,
+      option,
     }),
-    [available, checkoutOption.option, input.canSubscribe, input.enabled],
+    [available, option, input.canSubscribe, input.enabled],
   );
   const confirmDeps = useMemo<ConfirmCheckoutDeps>(
     () => ({
@@ -292,10 +304,10 @@ export function useDirectCheckoutFlow(input: {
 
   return {
     available,
-    option: checkoutOption.option,
+    option,
     organizationId: input.organizationId,
     phase: phaseOf(state),
-    error: panelError(state) ?? checkoutOption.error,
+    error: panelError(state) ?? optionError,
     hostRef: machine.hostRef,
     billingEmailComplete: state.kind !== "idle" && state.emailComplete,
     begin,

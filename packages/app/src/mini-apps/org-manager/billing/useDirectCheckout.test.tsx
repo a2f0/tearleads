@@ -177,7 +177,10 @@ test("the form opens for the offer, and only Pay starts the subscription", async
   );
 });
 
-test("a Pay the roster repriced closes the form and reloads the offer", async () => {
+test("a Pay the roster repriced closes the form and offers the new plan", async () => {
+  const team = { ...OPTION, priceId: "price_team_5", unitAmount: 1000 };
+  const reloaded = Promise.withResolvers<{ options: (typeof OPTION)[] }>();
+  let loads = 0;
   const organizations = stubTearleads({
     createStripeCheckout: () =>
       Promise.reject(
@@ -185,9 +188,15 @@ test("a Pay the roster repriced closes the form and reloads the offer", async ()
           code: "billing_checkout_price_changed",
         }),
       ),
+    loadStripeCheckoutOptions: () => {
+      loads += 1;
+      return loads === 1
+        ? Promise.resolve({ options: [OPTION] })
+        : reloaded.promise;
+    },
   });
   const unmount = mock(() => undefined);
-  const { capability } = capabilityWith({ unmount });
+  const { capability, mounted } = capabilityWith({ unmount });
   const { captured, diagnostics } = createCapturingDiagnostics();
   const { result } = renderFlow(capability, undefined, "org-1", diagnostics);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
@@ -202,6 +211,17 @@ test("a Pay the roster repriced closes the form and reloads the offer", async ()
   await waitFor(() =>
     expect(organizations.loadStripeCheckoutOptions).toHaveBeenCalledTimes(2),
   );
+  // While the new plan loads there is no offer, so the rejected one cannot
+  // be opened again.
+  expect(result.current.option).toBeNull();
+  await act(async () => result.current.begin());
+  expect(mounted).toHaveLength(1);
+
+  await act(async () => reloaded.resolve({ options: [team] }));
+  await waitFor(() => expect(result.current.option).toEqual(team));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(mounted).toHaveLength(2));
+  expect(mounted[1]?.price).toEqual({ amount: 1000, currency: "usd" });
   // An expected outcome, not a failure to report.
   expect(captured).toEqual([]);
 });
