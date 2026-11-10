@@ -15,8 +15,9 @@ import {
 
 /**
  * Every plan whose capacity covers the current roster, smallest first, for
- * the buyer to choose from. A plan whose Stripe Price is unusable is left
- * out. No options when the provider integration is unconfigured.
+ * the buyer to choose from, or for a subscribed organization to change its
+ * plan to. A plan whose Stripe Price is unusable is left out. No options when
+ * the provider integration is unconfigured.
  */
 export async function getStripeCheckoutOptions(
   runtime: ApiServiceRuntime,
@@ -38,6 +39,7 @@ export async function getStripeCheckoutOptions(
     runtime.db,
     organizationId,
     sessionUserId,
+    "plans",
   );
   const options = await Promise.all(
     SYNC_BILLING_TIERS.filter((tier) => tier.seatLimit >= rosterSeatCount).map(

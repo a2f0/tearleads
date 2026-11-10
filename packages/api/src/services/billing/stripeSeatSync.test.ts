@@ -400,6 +400,8 @@ test("a provider period rollover rebinds before any Stripe update", async () => 
     leaseId: null,
   });
 
+  // A larger renewal plan is never paid capacity: only a paid upgrade
+  // (services/billing/stripePlanChange.ts) raises the Price mid-period.
   const retryRequests: StripeRequest[] = [];
   expect(
     await runOne({
@@ -408,9 +410,20 @@ test("a provider period rollover rebinds before any Stripe update", async () => 
       requests: retryRequests,
     }),
   ).toEqual({ attempted: 1, failed: 0, synced: 1 });
-  expect(retryRequests.map((request) => request.body)).toContain(
-    "price=price_team_5&quantity=1&proration_behavior=create_prorations",
+  expect(retryRequests.some((request) => request.body.includes("price="))).toBe(
+    false,
   );
+  const [renewed] = await db
+    .select()
+    .from(organizationBillingStripeSeats)
+    .where(
+      eq(organizationBillingStripeSeats.organizationId, state.organizationId),
+    );
+  expect(renewed).toMatchObject({
+    appliedPaidCapacity: 1,
+    priceId: "price_sync",
+  });
+  expect(renewed?.nextAttemptAt?.getTime()).toBeGreaterThan(NOW.getTime());
 });
 
 test("disabled billing rows cannot be claimed for Stripe updates", async () => {

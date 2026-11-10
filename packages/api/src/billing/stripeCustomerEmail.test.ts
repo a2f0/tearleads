@@ -19,6 +19,7 @@ function binding(
     intervalCount: null,
     organizationId: null,
     paymentMethodBillingEmail: null,
+    pendingInvoiceId: null,
     priceId: null,
     seatQuantity: null,
     status: null,

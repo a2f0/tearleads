@@ -7,9 +7,13 @@ import {
   organizationBilling,
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
-import { and, asc, eq, isNotNull, isNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, lte, notLike, or } from "drizzle-orm";
 import { normalizeStripeSeatQuantity } from "../../billing/stripeSeatQuantity";
-import { isSqliteApiDatabase } from "../../utils/sqlDialect";
+import { isSqliteApiDatabase, lockRowForUpdate } from "../../utils/sqlDialect";
+import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+import { hasActiveStripeBinding } from "./stripeBindingPolicy";
+import { isSameBillingPeriod } from "./stripePeriodMatch";
+import { PLAN_LEASE_PREFIX, PLAN_SETTLE_MS } from "./stripePlanChange";
 
 const LEASE_MS = 5 * 60 * 1000;
 const DRIFT_AUDIT_MS = 24 * 60 * 60 * 1000;
@@ -44,10 +48,21 @@ function nextRetryAt(now: Date, attemptCount: number): Date {
   return new Date(now.getTime() + delayMs);
 }
 
+/**
+ * A lease the worker may take over: none, a lapsed worker lease, or a plan
+ * change's lease once it has also settled, so no Stripe write that change
+ * sent can still apply (workflows/billing/stripePlanChange.ts). A roster
+ * write that makes the row due sooner does not shorten that wait.
+ */
 function availableSeatLease(now: Date) {
+  const { leaseExpiresAt, leaseId } = organizationBillingStripeSeats;
   return or(
-    isNull(organizationBillingStripeSeats.leaseExpiresAt),
-    lte(organizationBillingStripeSeats.leaseExpiresAt, now),
+    isNull(leaseExpiresAt),
+    and(
+      lte(leaseExpiresAt, now),
+      or(isNull(leaseId), notLike(leaseId, `${PLAN_LEASE_PREFIX}%`)),
+    ),
+    lte(leaseExpiresAt, new Date(now.getTime() - PLAN_SETTLE_MS)),
   );
 }
 
@@ -220,18 +235,34 @@ export async function claimOrganizationStripeSeatSync(
   });
 }
 
-export async function completeOrganizationStripeSeatSync(input: {
+interface CompleteStripeSeatSyncInput {
   readonly appliedPaidCapacity: number;
   readonly billingPeriodEndsAt: Date | null;
   readonly billingPeriodStartsAt: Date | null;
   readonly claim: StripeSeatSyncClaim;
-  readonly executor: DatabaseSession;
+  /** A renewal plan found in Stripe (a recovered paid upgrade), or null. */
+  readonly desiredRenewalQuantity: number | null;
   readonly now: Date;
   readonly observedQuantity: number;
   readonly priceId: string;
   readonly subscriptionItemId: string;
-}): Promise<void> {
-  const [current] = await input.executor
+}
+
+interface LockedSeatSyncBilling {
+  readonly currentPeriodStartsAt: Date | null;
+  readonly seatCount: number;
+  readonly status: string;
+}
+
+/**
+ * Records the claim's result and returns the paid capacity recorded; null
+ * when the claim lost its lease.
+ */
+async function completeOrganizationStripeSeatSync(
+  executor: DatabaseSession,
+  input: CompleteStripeSeatSyncInput,
+): Promise<number | null> {
+  const [current] = await executor
     .select()
     .from(organizationBillingStripeSeats)
     .where(
@@ -245,25 +276,43 @@ export async function completeOrganizationStripeSeatSync(input: {
     )
     .limit(1);
   if (!current) {
-    return;
+    return null;
   }
-  const expectedQuantity = normalizeStripeSeatQuantity(
-    current.desiredRenewalQuantity,
+  // A renewal choice waits while this claim holds the row
+  // (workflows/billing/stripePlanChange.ts), and roster writes keep the
+  // renewal plan, so a plan recovered from Stripe replaces no newer choice.
+  const renewalQuantity =
+    input.desiredRenewalQuantity ?? current.desiredRenewalQuantity;
+  // Paid capacity only rises within a period: an upgrade that settled while
+  // this claim read Stripe already recorded more than the claim saw.
+  const samePeriod =
+    current.billingPeriodStartsAt !== null &&
+    current.billingPeriodStartsAt.getTime() ===
+      input.billingPeriodStartsAt?.getTime();
+  const appliedPaidCapacity = samePeriod
+    ? Math.max(current.appliedPaidCapacity, input.appliedPaidCapacity)
+    : input.appliedPaidCapacity;
+  // The worker never writes a renewal Price above the capacity paid for, so
+  // a larger renewal plan still being paid for is not a drift to retry.
+  const expectedQuantity = Math.min(
+    normalizeStripeSeatQuantity(renewalQuantity),
+    appliedPaidCapacity,
   );
   const fullyApplied =
     current.desiredRevision === input.claim.desiredRevision &&
-    current.desiredPaidCapacity <= input.appliedPaidCapacity &&
+    current.desiredPaidCapacity <= appliedPaidCapacity &&
     expectedQuantity === input.observedQuantity;
-  await input.executor
+  await executor
     .update(organizationBillingStripeSeats)
     .set({
-      appliedPaidCapacity: input.appliedPaidCapacity,
+      appliedPaidCapacity,
       appliedRevision: fullyApplied
         ? current.desiredRevision
         : current.appliedRevision,
       attemptCount: 0,
       billingPeriodEndsAt: input.billingPeriodEndsAt,
       billingPeriodStartsAt: input.billingPeriodStartsAt,
+      desiredRenewalQuantity: renewalQuantity,
       inFlightOperationId: null,
       inFlightTargetCapacity: null,
       lastError: null,
@@ -285,6 +334,93 @@ export async function completeOrganizationStripeSeatSync(input: {
         eq(organizationBillingStripeSeats.leaseId, input.claim.leaseId),
       ),
     );
+  return appliedPaidCapacity;
+}
+
+/**
+ * Grants capacity Stripe was paid for in the period the organization's
+ * billing tracks but that it does not license yet: an upgrade whose request
+ * never finished (a lost response, a failed final transaction), so a paid
+ * upgrade applies without depending on the request that started it.
+ */
+async function grantPaidStripeCapacity(
+  executor: DatabaseSession,
+  billing: LockedSeatSyncBilling | undefined,
+  input: CompleteStripeSeatSyncInput,
+): Promise<void> {
+  const [seats] = await executor
+    .select()
+    .from(organizationBillingStripeSeats)
+    .where(
+      eq(
+        organizationBillingStripeSeats.organizationId,
+        input.claim.organizationId,
+      ),
+    )
+    .limit(1);
+  // RevenueCat's timestamps for the period can differ slightly from Stripe's.
+  const samePeriod =
+    billing?.currentPeriodStartsAt != null &&
+    input.billingPeriodStartsAt !== null &&
+    isSameBillingPeriod(billing.currentPeriodStartsAt, {
+      endsAt: input.billingPeriodEndsAt,
+      startsAt: input.billingPeriodStartsAt,
+    });
+  if (
+    billing?.status !== "active" ||
+    !samePeriod ||
+    billing.seatCount >= input.appliedPaidCapacity ||
+    !hasActiveStripeBinding(seats)
+  ) {
+    return;
+  }
+  await reconcileOrganizationBillingSeats({
+    executor,
+    licensedSeatCount: input.appliedPaidCapacity,
+    now: input.now,
+    organizationId: input.claim.organizationId,
+    source: {
+      sourceId: `stripe-seat-sync:${input.claim.leaseId}`,
+      sourceType: "billing_transition",
+    },
+  });
+}
+
+/**
+ * Records a synchronized claim and grants the paid capacity it found in one
+ * transaction, under the billing row lock every seat-row writer takes first.
+ * If either fails, the claim keeps its lease for failure handling to retry
+ * soon, rather than being scheduled as a day-later audit.
+ */
+export async function runCompleteOrganizationStripeSeatSyncWorkflow(
+  db: ApiDatabase,
+  input: CompleteStripeSeatSyncInput,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [billing] = await lockRowForUpdate(
+      tx
+        .select({
+          currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
+          seatCount: organizationBilling.seatCount,
+          status: organizationBilling.status,
+        })
+        .from(organizationBilling)
+        .where(
+          eq(organizationBilling.organizationId, input.claim.organizationId),
+        )
+        .limit(1),
+    );
+    const appliedPaidCapacity = await completeOrganizationStripeSeatSync(
+      tx,
+      input,
+    );
+    if (appliedPaidCapacity !== null) {
+      await grantPaidStripeCapacity(tx, billing, {
+        ...input,
+        appliedPaidCapacity,
+      });
+    }
+  });
 }
 
 export async function failOrganizationStripeSeatSync(input: {
