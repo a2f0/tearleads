@@ -198,10 +198,14 @@ two organization-policy reads and one public history read.
 [`PaneReconnectRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx)
 measures and caps an unchanged reconnect at 22 requests (three organization-policy
 reads) and discovery of one peer-created folder at 30 (five organization-policy
-reads). Both reconnects retain one memberships read and one WebSocket ticket
-request, with no public history or group-policy reads. These fixtures contain
-two user folders and two notes, exclude pending mutations and await the real
-acknowledged reconnect sweep. See the
+reads). Both reconnects measured one memberships read and one WebSocket ticket
+request, with no public history or group-policy reads; these are upper bounds,
+not required minimum counts. All three fixtures contain two user folders and
+two notes and exclude pending mutations. Only the reconnect slices await the
+real acknowledged reconnect sweep; restart uses the initial connection and
+checks for late requests after network quiet. The unchanged and peer-create
+reconnects use different host profiles, so their totals are not an incremental
+cost comparison. See the
 [per-route budgets and persistence boundary](../request-budgets.md#restart-and-reconnect).
 
 [`GroupMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx)

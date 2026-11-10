@@ -100,6 +100,12 @@ root. They measure completed HTTP calls, not WebSocket frames or a real socket
 server's CPU: the app uses the suite's MSW interest/acknowledgement transport
 twin and the real proxied test API.
 
+The restart and unchanged reconnect use one pane with the `app` host profile
+and shared runtime policy. The peer-create case uses two panes with the `demo`
+profile, isolated runtimes and peer-sharing features enabled, but no demo
+identity seeding. These are distinct fixtures: the difference between 22 and
+30 is not a measured incremental cost of creating one folder.
+
 The restart closes the SQLite connection, terminates its worker and disposes
 the SDK before mounting another instance with the persisted identity/session
 and the same SQLite backing file. A local-only SQL sentinel proves the database
@@ -117,7 +123,9 @@ while the observer is disconnected. The create and peer convergence are outside
 the measured window; every request inside it belongs to the observer, which
 must discover the previously absent folder.
 
-Measured counts and enforced per-route ceilings are:
+The measured baseline counts below are also the enforced per-route ceilings.
+They are upper bounds, not equality assertions: a reduction passes and should
+be remeasured and documented when an optimization changes the baseline.
 
 | Method and route | Restart | Reconnect unchanged | Reconnect after peer create |
 | --- | ---: | ---: | ---: |

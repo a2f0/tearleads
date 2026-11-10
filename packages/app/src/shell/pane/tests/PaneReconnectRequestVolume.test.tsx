@@ -150,6 +150,7 @@ test("reconnect discovers one folder created by a peer while disconnected", asyn
     ).toHaveLength(1);
   });
   await waitForPaneRuntimeToSettle();
+  await expectNoLateLifecycleRequests();
   expect(
     getExplorerSidebarItemsByName(observer, "Created during disconnect"),
   ).toHaveLength(0);
