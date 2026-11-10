@@ -35,6 +35,11 @@ run ID, add a batch ID, and never sum cumulative snapshots.
   auditor per slice with unchecked paths, briefed with those paths and the
   coordinator's measurements (pane attribution, field echo). On 2026-10-30
   the second pass found more than the first.
+- In `full` mode, after the follow-up passes, run one closing wave: up to
+  three auditors that each take named leftovers across slices (requests
+  without an issuer, read sites not opened, claims not checked) and return
+  a Confirmed or Refuted verdict for each. On 2026-11-10 four closers
+  settled more than a third pass over each slice would have.
 - Launch auditors as foreground Agent calls, up to three in one message.
   In a headless `claude -p` run, background subagents and shell tasks stop
   shortly after the coordinator's turn ends, leaving their slices partial.
@@ -61,6 +66,11 @@ unavailable tooling or user input. Preserve the blocker and unfinished
 coverage instead of looping until quota runs out.
 
 Examples:
+
+A [combined run](../../../../docs/developer/combined-efficiency-audits.md)
+with the database audit adds two bounded arguments: `draft-only` ends at the
+drafts, and `reconcile <other-audit-directory>` is one batch on the other
+audit's hand-off under the same run ID.
 
 ```text
 /protocol-efficiency-audit
@@ -142,4 +152,7 @@ Workers return the full report, under 1,200 words, as their final message,
 opening with proposal ids with impact, coverage status, and next step. Claude
 Code refuses a subagent's report-file write, so the coordinator saves the
 message as `report.md` before verifying, then reads only the linked evidence
-needed for verification and ranking.
+needed for verification and ranking. In a headless run the final messages
+and per-message usage are in the harness's subagent transcripts for the
+session: one script can save every `report.md` verbatim and fill the
+receipt's auditor rows.

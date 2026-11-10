@@ -72,6 +72,11 @@ it.
 - Reads that run inside a transaction but do not need its snapshot or locks
   and could run before it, shortening lock hold time; prove the isolation
   argument.
+- Lock holds: for each row, head, and advisory lock, the statements issued
+  while it is held and what queues behind it (a link holds the container
+  row lock; a read-model GET waits on the writer's head lock). With three
+  users, lock waits led production total time on 2026-11-10; check the
+  Insights patterns sorted by total time for them.
 
 ## `api-listings-and-sync-reads`
 

@@ -53,6 +53,9 @@ an API transaction, or an SDK operation), database round trips on the
 critical path, rows read per row returned, indexes maintained per write, and
 worker round trips on the client. Fewer requests over HTTP are not this
 skill's unit; a proposal whose main saving is a request is a protocol lead.
+The [hand-off rule](../../../docs/developer/combined-efficiency-audits.md#hand-off-rule)
+settles the border: a cache, a lock scope, or a batch message inside one
+process stays here, because it changes no field, route, or stored content.
 
 The completed audit delivers a report of ranked, independently verified
 proposals and a GitHub issue. Each batch delivers a coverage checkpoint and
@@ -80,6 +83,10 @@ Every published report includes it, even when counters are unavailable.
   `full`, stop after the batch even if work remains.
 - `snapshot <directory>`: reuse a saved PlanetScale snapshot instead of
   capturing one. `no-planetscale`: audit from the checkout alone.
+- `draft-only`: write the report drafts and never publish.
+  `reconcile <other-audit-directory>`: one batch that answers the protocol
+  audit's hand-off. Both belong to a
+  [combined run](../../../docs/developer/combined-efficiency-audits.md).
 - Optional extra exclusions and an optional revision. A new audit defaults
   to committed `HEAD`; resume uses the checkpoint's revision.
 
@@ -125,17 +132,19 @@ and inspect bounded excerpts with `bun run agent:logs <path>`.
    `docs/principal-history-transport.md`, the table and index decisions in
    #2522 and its PRs (#2524 to #2541, including its declined items 7, 22,
    27, 35, 36, and 37), project memory, and earlier database audit issues
-   (#2544, with its comments, and what #2546 shipped from it). A
-   disposition is context for an auditor, not a reason to skip a
-   candidate.
+   (#2544 and what #2546 shipped from it, #2699, and the database half of
+   #2888), each with its comments: the per-proposal disposition table is a
+   comment, not the body. A disposition is context for an auditor, not a
+   reason to skip a candidate.
 
 ## 2. Collect PlanetScale evidence
 
 Follow [`references/planetscale.md`](references/planetscale.md). In short:
 read each tier's service token from `.secrets/<tier>/planetscale.env` (`prod`
 or `staging`); snapshot schema recommendations, Query Insights patterns, and
-`pg_stat_*` views for `tearleads-prod` and `tearleads-staging` into a
-timestamped snapshot directory; delete the temporary read-only role at once;
+`pg_stat_*` views for each deployed tier's database (`tearleads-prod`,
+`tearleads-staging`) into a timestamped snapshot directory; delete the
+temporary read-only role at once;
 and record which revision the databases were deployed from (from the deploy
 record or the session that ran it; otherwise infer it from the deployed table
 set).
@@ -168,6 +177,15 @@ Do not launch all slices, spawn nested auditors, or repeat the auditor's
 searches. In `full` mode the coordinator may run up to three auditors
 concurrently; it still verifies candidates one at a time.
 
+The auditor returns its report as its final message, because the harness
+refuses a subagent's report-file write; save it as `report.md` in its
+work-item directory before verifying. In a headless run, take every report
+and each auditor's usage from the session's subagent transcripts with one
+script, as the
+[receipt guide](../../../docs/developer/audit-usage-receipts.md#evidence-and-accounting)
+describes. Each resumed invocation writes its own stream log, so the script
+reads all of them.
+
 ## 4. Verify every proposal
 
 Auditors over-count savings and under-count what a change must preserve.
@@ -196,6 +214,12 @@ most two distinct proposals per default batch; keep the rest pending.
   and merge proposals that reshape the same query.
 - Drop proposals that only move work: a statement removed here that becomes
   an equal statement elsewhere in the same operation.
+- Check an auditor's "no site anywhere" or "never" claim with one search
+  before it reaches the report, and check a lead's premise before its fix:
+  on 2026-11-10 four of 27 handed-over leads were wrong on the facts.
+- Confirm production reaches the path. The in-process test API runs PGlite
+  and the in-memory object store, so a canary can show statements that
+  production never issues.
 
 Label each surviving proposal:
 
@@ -274,6 +298,8 @@ issue and receipt URLs in the checkpoint or durable notes.
    audit directory. Only the coordinator publishes: after confirmation, or
    if the user asked for an issue, create it with
    `gh issue create --label enhancement --title "<title>" --body-file <path>`.
+   With `draft-only`, write the drafts the combined run defines instead and
+   leave publication to its publisher.
    A request to publish before coverage and verification are complete
    produces an interim issue; follow the template's `Partial` rule.
 3. State that nothing was implemented and no PlanetScale state was changed

@@ -125,6 +125,15 @@ jq -r 'select(.label == "<label>") | .sql | gsub("\\s+"; " ")' <file> \
   | sort | uniq -c | sort -rn | head -20
 ```
 
+Group by request before counting repeats. A scratch copy of the preload can
+set `API_REQUEST_COST_LOG=true`, which makes the API print one
+`api.request.cost` line per request with its route and statement count (see
+`docs/developer/api-request-cost.md`), and tag each statement with the
+request scope it ran in. Grouped by request and bind hash, a capture shows
+one key read twice inside a request, which a per-phase total hides. On
+2026-11-10 the first auditor to build this found the single-walk and
+listing-lane repeats, and the others reused its preload.
+
 `jq -r` prints multi-line SQL across several lines, so `jq -r ... | wc -l`
 over-counts; count records with `jq -c` or `jq -s length`. Agent shells may
 be zsh, which does not split an unquoted variable into words: run a file
@@ -150,7 +159,9 @@ capture file per run. When the protocol audit runs at the same revision,
 run the canaries once for both: set `DUAL_PANE_REQUEST_PROFILE=1` and
 `DUAL_PANE_REQUEST_PROFILE_DETAIL=1` beside the capture preload, so one log
 holds the request profile and one file the statements (about two minutes
-for all eight on 2026-10-30).
+for all eight on 2026-10-30). Set `SQL_CAPTURE_PARAM_HASH=1` on that shared
+pass: without the hashes neither audit can split a repeated statement into
+same-key and different-key reads afterwards.
 
 - The eight request-volume canaries listed in the `protocol-efficiency-audit`
   measurement reference (upload, organization bootstrap, folder and group
@@ -181,7 +192,10 @@ SQLite wasm database from `createTestExecSql` in
 `packages/test-utils/src/createTestExecSql.ts` and records every call, as
 `packages/client-sdk/src/data/persistence/principalHistory/principalHistoryStageRetention.plan.test.ts`
 does. Use a fresh executor per measurement: executors are cached per client,
-and the first call on a connection also runs the schema ensure. Because
+and the first call on a connection also runs the schema ensure. A preload
+that wraps the executor for a whole test run needs a recursion guard (its
+own writes must not be captured) and a line cap: an unguarded one wrote a
+34 GB file on 2026-11-10. Because
 the app canaries have no client hook, how often an SDK operation runs in a
 real flow is not measured; report client savings per operation and list
 the frequency under Not measured.
@@ -234,10 +248,13 @@ as `drizzle-orm` (`<REPO_ROOT>/packages/api-shared/node_modules/drizzle-orm/inde
 because a bare specifier does not resolve from outside the checkout. Run
 them with `<REPO_ROOT>/node_modules/.bin/agent-tool run -- bun test <absolute path>`
 from the owning package directory with the package's preloads. Never change
-constants, ceilings, or schema in the checkout to measure. A probe reads its
-output path and scratch database name from environment variables rather
-than hard-coding them, so a verification re-run writes beside the
-auditor's evidence instead of over it. Give every run, re-runs included, a
+constants, ceilings, or schema in the checkout to measure. A probe reads
+every path it uses from environment variables rather than hard-coding them:
+its output path, its scratch database name, and its inputs (a schema dump,
+fixture ids resolved from a database). A verification re-run then writes
+beside the auditor's evidence instead of over it, and a copied probe does
+not fail on a path that existed only in the auditor's directory. Give every
+run, re-runs included, a
 fresh scratch database: rows left by another probe skew counts and buffers
 and can fail a purge test that passes on a fresh database. Remove scratch
 files with a guarded path (`rm -rf -- "${PROBE_DIR:?}"`), never a bare

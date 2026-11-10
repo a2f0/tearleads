@@ -14,6 +14,8 @@ asks whether it does more work than its guarantees require. The
 `database-efficiency-audit` skill owns the physical layer beneath it: query
 shape, statement batching, transaction scope, and indexes. A finding that
 changes only those, with no table, route, or response change, belongs there.
+The [hand-off rule](../../../docs/developer/combined-efficiency-audits.md#hand-off-rule)
+settles the border cases.
 
 Three rules frame every proposal:
 
@@ -58,6 +60,10 @@ Every published report includes it, even when counters are unavailable.
 - `resume [checkpoint-path]`: continue the saved audit at its pinned revision.
 - `full`: process the whole requested scope in this invocation. Without
   `full`, stop after the batch even if work remains.
+- `draft-only`: write the report drafts and never publish.
+  `reconcile <other-audit-directory>`: one batch that answers the database
+  audit's hand-off. Both belong to a
+  [combined run](../../../docs/developer/combined-efficiency-audits.md).
 - Optional extra exclusions, such as issue numbers, slices, or tables.
 - Optional revision. A new audit defaults to committed `HEAD`; resume uses the
   checkpoint's revision.
@@ -127,10 +133,11 @@ inspect bounded excerpts with `bun run agent:logs <path>`.
 6. Build a compact known-dispositions index from project memory, the design
    decisions in `docs/request-budgets.md` (the September closeout document is
    gone; its decisions live there), the issues behind them (#1281, #1512,
-   #1672, #2203, #2512, #2521), each earlier efficiency audit (#2522 and
-   #2697: implemented proposals and the ones declined with evidence), plus
-   the security audit issues above. A disposition is context for an
-   auditor, not a reason to skip a candidate.
+   #1672, #2203, #2512, #2521), each earlier efficiency audit (#2522,
+   #2697, #2864, and the protocol half of #2888: implemented proposals and
+   the ones declined with evidence, read from each issue's comments as well
+   as its body), plus the security audit issues above. A disposition is
+   context for an auditor, not a reason to skip a candidate.
 7. Size the surface with non-test TypeScript line counts per directory so
    slices stay balanced. Queue smaller parts of an oversized slice for later
    batches rather than creating more auditors in this invocation.
@@ -149,8 +156,12 @@ searches. In `full` mode the coordinator may run up to three auditors
 concurrently because slices are independent and read-only; it still verifies
 candidates one at a time. The auditor saves probes and logs to disk and
 returns its report as its final message; save that as `report.md` in its
-work-item directory before verifying. Verify candidates within the remaining
-batch budget (step 3), then checkpoint and stop.
+work-item directory before verifying. In a headless run, take every report
+and each auditor's usage from the session's subagent transcripts with one
+script, as the
+[receipt guide](../../../docs/developer/audit-usage-receipts.md#evidence-and-accounting)
+describes. Verify candidates within the remaining batch budget (step 3),
+then checkpoint and stop.
 
 ## 3. Verify every proposal
 
@@ -179,6 +190,11 @@ most two distinct proposals per default batch; preserve the rest as pending.
   different slices that retire the same mechanism.
 - Drop proposals that only move work (a request becomes an equal statement
   count on another route) unless they also remove a round trip or a table.
+- Check an auditor's "no site anywhere" or "never" claim with one search
+  before it reaches the report.
+- Confirm production reaches the path. The canaries run the in-process test
+  API with PGlite and the in-memory object store: on 2026-11-10 a double
+  blob authorization existed only with that store.
 
 Label each surviving proposal:
 
@@ -234,7 +250,9 @@ issue and receipt URLs in the checkpoint or durable notes.
    or if the user asked for an issue, create it with
    `gh issue create --label enhancement --title "<title>" --body-file <path>`.
    An explicitly
-   requested interim issue must identify its incomplete coverage.
+   requested interim issue must identify its incomplete coverage. With
+   `draft-only`, write the drafts the combined run defines instead and
+   leave publication to its publisher.
 3. State that nothing was implemented as part of the audit.
 4. Save a project memory with the audited revision, checkpoint path, coverage
    status, issue number if any, and the top proposals with their labels. The
