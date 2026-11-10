@@ -17,17 +17,47 @@ const rtl = await import("@testing-library/react");
 const root = document.documentElement;
 const originalMatchMedia = window.matchMedia;
 
+// A controllable OS preference: matchMedia answers the dark-scheme query and
+// notifies its listeners when a test flips it.
+let osDark = false;
+const schemeListeners = new Set<EventListenerOrEventListenerObject>();
+
 function setOsScheme(scheme: "light" | "dark"): void {
+  osDark = scheme === "dark";
   window.matchMedia = (query: string): MediaQueryList => ({
-    addEventListener: () => {},
+    addEventListener: (
+      _type: string,
+      listener: EventListenerOrEventListenerObject,
+    ) => {
+      schemeListeners.add(listener);
+    },
     addListener: () => {},
     dispatchEvent: () => false,
-    matches: scheme === "dark" && query === "(prefers-color-scheme: dark)",
+    get matches() {
+      return osDark && query === "(prefers-color-scheme: dark)";
+    },
     media: query,
     onchange: null,
-    removeEventListener: () => {},
+    removeEventListener: (
+      _type: string,
+      listener: EventListenerOrEventListenerObject,
+    ) => {
+      schemeListeners.delete(listener);
+    },
     removeListener: () => {},
   });
+}
+
+function changeOsScheme(scheme: "light" | "dark"): void {
+  osDark = scheme === "dark";
+  const event = new Event("change");
+  for (const listener of schemeListeners) {
+    if (typeof listener === "function") {
+      listener(event);
+    } else {
+      listener.handleEvent(event);
+    }
+  }
 }
 
 // The head script in Layout.astro, with the site's themes.
@@ -48,6 +78,7 @@ afterEach(() => {
   root.removeAttribute("data-theme");
   root.removeAttribute("data-theme-scheme");
   window.matchMedia = originalMatchMedia;
+  schemeListeners.clear();
 });
 
 afterAll(async () => {
@@ -70,6 +101,17 @@ test("before paint, no pick or one the site no longer offers follows the OS", ()
   localStorage.setItem(SITE_THEME_STORAGE_KEY, "dark");
   stampBeforePaint();
   expect(stamped()).toEqual({ scheme: "light", theme: "site-light" });
+});
+
+test("before the switch mounts, the stamp follows OS changes but keeps a pick", () => {
+  setOsScheme("light");
+  stampBeforePaint();
+  changeOsScheme("dark");
+  expect(stamped()).toEqual({ scheme: "dark", theme: "site-dark" });
+
+  localStorage.setItem(SITE_THEME_STORAGE_KEY, "site-dark");
+  changeOsScheme("light");
+  expect(stamped()).toEqual({ scheme: "dark", theme: "site-dark" });
 });
 
 test("the hydrated switch keeps the stamp and persists a pick", () => {

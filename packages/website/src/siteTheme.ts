@@ -23,8 +23,11 @@ export const SITE_DEFAULT_THEME: Readonly<Record<ThemeScheme, SiteThemeId>> = {
 export const SITE_THEME_STORAGE_KEY = "tearleads.website.theme";
 
 /**
- * Stamps the theme SiteThemeSwitch's ThemeProvider will show: the stored theme
- * the site offers, else the one for the OS scheme. Layout.astro inlines this
+ * Stamps the theme SiteThemeSwitch's ThemeProvider will show, the stored theme
+ * the site offers, else the one for the OS scheme, and stamps it again when
+ * the OS scheme changes. The provider mounts only once the footer nears the
+ * viewport, and until then this keeps an automatic light/dark schedule
+ * working; afterwards both compute the same theme. Layout.astro inlines this
  * function's source into `<head>` so it runs before first paint, so it must
  * stay self-contained: no imports or outer references.
  */
@@ -34,21 +37,24 @@ export function stampSiteTheme(
   themes: readonly ThemeDefinition[],
   defaultTheme: Readonly<Record<ThemeScheme, string>>,
 ): void {
-  let stored: string | null = null;
-  try {
-    stored = localStorage.getItem(storageKey);
-  } catch {
-    // Storage can be disabled; the OS scheme decides.
+  const darkScheme = matchMedia("(prefers-color-scheme: dark)");
+  function stamp(): void {
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(storageKey);
+    } catch {
+      // Storage can be disabled; the OS scheme decides.
+    }
+    const osScheme = darkScheme.matches ? "dark" : "light";
+    const theme =
+      themes.find((candidate) => candidate.id === stored) ??
+      themes.find((candidate) => candidate.id === defaultTheme[osScheme]) ??
+      themes[0];
+    if (theme) {
+      root.setAttribute("data-theme", theme.id);
+      root.setAttribute("data-theme-scheme", theme.scheme);
+    }
   }
-  const osScheme = matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-  const theme =
-    themes.find((candidate) => candidate.id === stored) ??
-    themes.find((candidate) => candidate.id === defaultTheme[osScheme]) ??
-    themes[0];
-  if (theme) {
-    root.setAttribute("data-theme", theme.id);
-    root.setAttribute("data-theme-scheme", theme.scheme);
-  }
+  stamp();
+  darkScheme.addEventListener("change", stamp);
 }
