@@ -417,7 +417,9 @@ An administrator changes the plan on every platform under the same rules:
   Price changed is retried.
 - An extension that moves the paid period's end but not its start keeps the
   capacity paid for it when Stripe's webhook binds the new end, even though
-  the bound Price is already a scheduled smaller plan's.
+  the bound Price is already a scheduled smaller plan's. A period is
+  identified by its start, so an upgrade paid while an extension is bound
+  still applies.
 - A web plan change is offered only where web checkout runs, never inside a
   store app.
 

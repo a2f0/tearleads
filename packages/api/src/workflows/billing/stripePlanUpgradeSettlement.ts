@@ -25,9 +25,9 @@ import {
 
 /**
  * Whether the upgrade still applies to the period it paid for: the
- * organization binds the same subscription in that period, and its billing
- * has not renewed past it (RevenueCat can deliver a renewal before Stripe's
- * webhooks).
+ * organization binds the same subscription in a period with the same start
+ * (an extension moves only its end), and its billing has not renewed past it
+ * (RevenueCat can deliver a renewal before Stripe's webhooks).
  */
 function upgradeAppliesToPaidPeriod(
   billing: { readonly currentPeriodStartsAt: Date | null },
@@ -37,8 +37,8 @@ function upgradeAppliesToPaidPeriod(
   return (
     seats !== undefined &&
     seats.subscriptionId === input.subscriptionId &&
-    seats.billingPeriodEndsAt?.getTime() ===
-      input.paidPeriodEndsAt?.getTime() &&
+    seats.billingPeriodStartsAt?.getTime() ===
+      input.paidPeriodStartsAt?.getTime() &&
     isSameBillingPeriod(billing.currentPeriodStartsAt, {
       endsAt: input.paidPeriodEndsAt,
       startsAt: input.paidPeriodStartsAt,

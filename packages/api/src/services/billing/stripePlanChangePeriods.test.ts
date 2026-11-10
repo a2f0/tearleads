@@ -4,6 +4,7 @@ import {
   organizationBilling,
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
+import { getSyncBillingTier } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
 import {
   PERIOD_END,
@@ -13,13 +14,16 @@ import {
 } from "../../../test/helpers/stripePlanChangeFixtures";
 import { STRIPE_WEBHOOK_ENV as STRIPE_ENV } from "../../../test/helpers/stripeWebhook";
 import { organizationSeatPeriodKey } from "../../billing/organizationBilling";
+import { runBeginStripePlanChangeWorkflow } from "../../workflows/billing/stripePlanChange";
+import { runFinishStripePlanUpgradeWorkflow } from "../../workflows/billing/stripePlanUpgradeSettlement";
 import { requestOrganizationStripeSeatSync } from "../../workflows/billing/stripeSeatState";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import { runStripeSeatSynchronization } from "./stripeSeatSync";
 
 /**
  * RevenueCat reports a Stripe subscription's period with timestamps that can
- * trail Stripe's slightly; plan changes treat both as the same period.
+ * trail Stripe's slightly, and an extension moves only a period's end; plan
+ * changes treat each as the same period.
  */
 
 const TRAIL_MS = 5_000;
@@ -104,6 +108,47 @@ test("a recovered upgrade is granted when RevenueCat's period trails Stripe's", 
   });
 
   await synchronize(stripe().fetchImpl);
+
+  expect(await readPlanState(organizationId)).toMatchObject({
+    billing: { seatCount: 10 },
+    seats: { appliedPaidCapacity: 10, desiredRenewalQuantity: 10 },
+  });
+});
+
+test("an extension bound while an upgrade is paid keeps the upgrade", async () => {
+  const { admin, organizationId } = await subscribedOrganization({
+    seatCount: 5,
+  });
+  const upgrade = await runBeginStripePlanChangeWorkflow(
+    db,
+    organizationId,
+    admin.userId,
+    {
+      currentSeatCount: 5,
+      observed: {
+        billingPeriodStartsAt: PERIOD_START,
+        seatCount: 5,
+        subscriptionId: `sub_${organizationId}`,
+      },
+      plan: getSyncBillingTier("team_10"),
+    },
+  );
+  if (upgrade.kind !== "upgrade") throw new Error("expected an upgrade");
+  // An extension's webhook moves the bound period's end, not its start.
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({ billingPeriodEndsAt: new Date(PERIOD_END.getTime() + 86_400_000) })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+
+  await runFinishStripePlanUpgradeWorkflow(db, {
+    leaseId: upgrade.leaseId,
+    organizationId,
+    paidPeriodEndsAt: upgrade.paidPeriodEndsAt,
+    paidPeriodStartsAt: upgrade.paidPeriodStartsAt,
+    plan: getSyncBillingTier("team_10"),
+    priceId: "price_team_10",
+    subscriptionId: upgrade.subscriptionId,
+  });
 
   expect(await readPlanState(organizationId)).toMatchObject({
     billing: { seatCount: 10 },

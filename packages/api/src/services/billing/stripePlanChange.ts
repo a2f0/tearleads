@@ -165,9 +165,10 @@ async function upgrade(input: UpgradeInput): Promise<void> {
 
 /**
  * Whether Stripe's subscription is still the one the upgrade began for, in
- * the period its capacity was paid for. After a renewal Stripe has already
- * charged a new period whose webhooks may not have arrived; charging from
- * the old period's capacity would then misprice the upgrade.
+ * the period its capacity was paid for (an extension moves only the end).
+ * After a renewal Stripe has already charged a new period whose webhooks may
+ * not have arrived; charging from the old period's capacity would then
+ * misprice the upgrade.
  */
 function bindingMatchesBegun(
   input: UpgradeInput,
@@ -180,10 +181,8 @@ function bindingMatchesBegun(
     binding.subscriptionItemId === begun.subscriptionItemId &&
     binding.status === "active" &&
     begun.paidPeriodStartsAt !== null &&
-    begun.paidPeriodEndsAt !== null &&
     binding.billingPeriodStartsAt?.getTime() ===
-      begun.paidPeriodStartsAt.getTime() &&
-    binding.billingPeriodEndsAt?.getTime() === begun.paidPeriodEndsAt.getTime()
+      begun.paidPeriodStartsAt.getTime()
   );
 }
 
