@@ -240,29 +240,6 @@
   }
 }
 
-/* Section numbers (/security only): part of the heading line, never an
-   eyebrow. */
-.site-index {
-  margin-right: 0.75em;
-  color: var(--site-ink-3);
-  font: 500 var(--site-text-mono-sm) / 1 var(--site-font-mono);
-  vertical-align: 0.3em;
-}
-
-/* In a section heading the title wraps as its own column, so a second line
-   starts under the title, not under the number. A flex item ignores
-   vertical-align, so a relative offset keeps the number raised. */
-.site-section-header h2:has(> .site-index) {
-  display: flex;
-  align-items: baseline;
-}
-
-.site-section-header h2 > .site-index {
-  position: relative;
-  top: -0.3em;
-  flex: none;
-}
-
 /* --- Notes --- */
 
 .site-note {

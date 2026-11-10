@@ -8,19 +8,15 @@ interface Props {
   readonly titleId: string;
   readonly title: string;
   readonly lede?: string | undefined;
-  /** "01" etc.: /security only. */
-  readonly index?: string | undefined;
 }
 
-const { titleId, title, lede, index } = Astro.props;
+const { titleId, title, lede } = Astro.props;
 const hasAction = Astro.slots.has("action");
 ---
 
 <div class="site-section-header">
   <div>
-    <h2 id={titleId}>
-      {index && <span class="site-index" aria-hidden="true">{index}</span>}{title}
-    </h2>
+    <h2 id={titleId}>{title}</h2>
     {lede && <p class="site-section-lede">{lede}</p>}
   </div>
   {hasAction && <div class="site-section-action"><slot name="action" /></div>}
