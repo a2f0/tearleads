@@ -1,6 +1,7 @@
 import { WallpaperProvider as WindowingWallpaperProvider } from "@tearleads/windowing";
 import type { PropsWithChildren } from "react";
 import { APP_WALLPAPERS, DEFAULT_WALLPAPER } from "./wallpapers";
+import "./wallpapers.css";
 
 // Like the theme, the wallpaper is a display preference rather than
 // per-identity data, so it persists once for the app, and every pane's desktop
