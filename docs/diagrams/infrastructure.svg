@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="600" height="1462" viewBox="0 0 600 1462" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="986" viewBox="0 0 600 986" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
   <title>Tearleads infrastructure</title>
   <defs>
     <marker id="infrastructure-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -10,7 +10,6 @@
       .lane { font-size: 15px; font-weight: 600; fill: #111827; }
       .lanesub { font-size: 12px; fill: #6b7280; }
       .box { fill: #ffffff; stroke: #4b5563; stroke-width: 1.25; }
-      .kbox { fill: #ffffff; stroke: #b45309; stroke-width: 1.25; stroke-dasharray: 5 3; }
       .name { font-size: 14px; font-weight: 600; fill: #111827; }
       .meta { font-size: 12px; fill: #4b5563; }
       .mono { font-size: 12px; fill: #374151; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
@@ -25,21 +24,17 @@
     </style>
   </defs>
 
-  <rect x="0" y="0" width="600" height="1462" class="canvas"/>
+  <rect x="0" y="0" width="600" height="986" class="canvas"/>
 
   <!-- Lane bands: each lane is named at its top left -->
   <rect x="0" y="36" width="600" height="170" class="band"/>
   <rect x="0" y="206" width="600" height="316" class="canvas"/>
   <rect x="0" y="522" width="600" height="182" class="band"/>
-  <rect x="0" y="704" width="600" height="220" class="canvas"/>
-  <rect x="0" y="924" width="600" height="256" class="band"/>
   <g class="rule">
     <line x1="0" y1="36" x2="600" y2="36"/>
     <line x1="0" y1="206" x2="600" y2="206"/>
     <line x1="0" y1="522" x2="600" y2="522"/>
     <line x1="0" y1="704" x2="600" y2="704"/>
-    <line x1="0" y1="924" x2="600" y2="924"/>
-    <line x1="0" y1="1180" x2="600" y2="1180"/>
   </g>
 
   <!-- Heading -->
@@ -55,10 +50,6 @@
   <text x="16" y="544" class="lane">Storage</text>
   <text x="16" y="562" class="lanesub">Cloudflare R2</text>
   <text x="16" y="577" class="lanesub">and PlanetScale</text>
-  <text x="16" y="726" class="lane">Services</text>
-  <text x="16" y="744" class="lanesub">third parties</text>
-  <text x="16" y="946" class="lane">Operations</text>
-  <text x="16" y="964" class="lanesub">deploy and CI</text>
 
   <!-- ============ CLIENTS ============ -->
   <rect x="16" y="88" width="172" height="80" rx="4" class="box"/>
@@ -146,61 +137,20 @@
   <text x="416" y="646" class="meta">encrypted attachment bytes</text>
   <text x="416" y="662" class="meta">S3 API, presigned URLs</text>
 
-  <!-- ============ SERVICES ============ -->
-  <rect x="16" y="760" width="276" height="68" rx="4" class="kbox"/>
-  <text x="28" y="780" class="name">Stripe</text>
-  <text x="28" y="798" class="meta">web checkout and the billing portal;</text>
-  <text x="28" y="814" class="meta">webhooks to the API</text>
-
-  <rect x="308" y="760" width="276" height="68" rx="4" class="kbox"/>
-  <text x="320" y="780" class="name">RevenueCat</text>
-  <text x="320" y="798" class="meta">App Store and Google Play purchases,</text>
-  <text x="320" y="814" class="meta">sync entitlement; webhooks to the API</text>
-
-  <rect x="16" y="840" width="276" height="68" rx="4" class="kbox"/>
-  <text x="28" y="860" class="name">Sentry</text>
-  <text x="28" y="878" class="meta">error reports from the</text>
-  <text x="28" y="894" class="meta">apps and the API</text>
-
-  <rect x="308" y="840" width="276" height="68" rx="4" class="kbox"/>
-  <text x="320" y="860" class="name">Healthchecks</text>
-  <text x="320" y="878" class="meta">pings around each hourly</text>
-  <text x="320" y="894" class="meta">blob cleanup run</text>
-
-  <!-- ============ OPERATIONS ============ -->
-  <rect x="16" y="980" width="276" height="86" rx="4" class="box"/>
-  <text x="28" y="1000" class="name">Deploy scripts</text>
-  <text x="28" y="1018" class="mono">scripts/deploy</text>
-  <text x="28" y="1034" class="meta">Wrangler publishes the Workers;</text>
-  <text x="28" y="1050" class="meta">Terraform applies each stack</text>
-
-  <rect x="308" y="980" width="276" height="86" rx="4" class="box"/>
-  <text x="320" y="1000" class="name">Terraform state</text>
-  <text x="320" y="1018" class="mono">tearleads-terraform-state</text>
-  <text x="320" y="1034" class="meta">R2, one state per tier and stack</text>
-
-  <rect x="16" y="1078" width="276" height="86" rx="4" class="box"/>
-  <text x="28" y="1098" class="name">GitHub Actions</text>
-  <text x="28" y="1116" class="meta">checks every pull request;</text>
-  <text x="28" y="1132" class="meta">publishes the client SDK and</text>
-  <text x="28" y="1148" class="meta">windowing packages to npm</text>
-
   <!-- ============ FOOTER ============ -->
-  <text x="16" y="1212" class="foothead">Notes</text>
+  <text x="16" y="736" class="foothead">Notes</text>
   <g class="foot">
-    <text x="16" y="1236">Workers, Durable Objects, Postgres, and R2 hold ciphertext, wrapped keys, signed</text>
-    <text x="16" y="1254">records, and service-visible metadata.</text>
-    <text x="16" y="1278">Blob bytes move between clients and R2 directly; the API signs short-lived upload</text>
-    <text x="16" y="1296">and download URLs instead of relaying them.</text>
-    <text x="16" y="1320">Terraform owns the buckets, Postgres, Hyperdrive, and custom domains; Wrangler</text>
-    <text x="16" y="1338">owns the Workers and their assets.</text>
+    <text x="16" y="760">Workers, Durable Objects, Postgres, and R2 hold ciphertext, wrapped keys, signed</text>
+    <text x="16" y="778">records, and service-visible metadata.</text>
+    <text x="16" y="802">Blob bytes move between clients and R2 directly; the API signs short-lived upload</text>
+    <text x="16" y="820">and download URLs instead of relaying them.</text>
+    <text x="16" y="844">Terraform owns the buckets, Postgres, Hyperdrive, and custom domains; Wrangler</text>
+    <text x="16" y="862">owns the Workers and their assets.</text>
   </g>
 
-  <text x="16" y="1378" class="foothead">Legend</text>
-  <rect x="16" y="1392" width="44" height="20" rx="3" class="box"/>
-  <text x="72" y="1406" class="foot">run in Tearleads' Cloudflare and PlanetScale accounts</text>
-  <rect x="16" y="1424" width="44" height="20" rx="3" class="kbox"/>
-  <text x="72" y="1438" class="foot">third-party service</text>
-  <path d="M260,1434 H308" class="edge" marker-end="url(#infrastructure-arrow)"/>
-  <text x="320" y="1438" class="foot">request direction</text>
+  <text x="16" y="902" class="foothead">Legend</text>
+  <rect x="16" y="916" width="44" height="20" rx="3" class="box"/>
+  <text x="72" y="930" class="foot">run in Tearleads' Cloudflare and PlanetScale accounts</text>
+  <path d="M16,958 H60" class="edge" marker-end="url(#infrastructure-arrow)"/>
+  <text x="72" y="962" class="foot">request direction</text>
 </svg>

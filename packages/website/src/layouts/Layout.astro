@@ -9,6 +9,12 @@ import {
   siteName,
   socialImage,
 } from "../seo";
+import {
+  SITE_DEFAULT_THEME,
+  SITE_THEME_STORAGE_KEY,
+  SITE_THEMES,
+  stampSiteTheme,
+} from "../siteTheme";
 // SiteFrame brings in the @tearleads/ui CSS; site rules that override it are
 // scoped (.site-frame, html body) to win whatever the order. Astro can also emit
 // a page's own stylesheet before these shared sheets (it orders CSS by import
@@ -39,6 +45,8 @@ const canonical = robots === null ? canonicalUrl(Astro.url.pathname) : null;
 const rawPathname = Astro.url.pathname;
 const pathname =
   rawPathname.length > 1 ? rawPathname.replace(/\/$/, "") : rawPathname;
+// The same function the tests run, called with the site's themes.
+const themeScript = `(${stampSiteTheme})(document.documentElement, ${JSON.stringify(SITE_THEME_STORAGE_KEY)}, ${JSON.stringify(SITE_THEMES)}, ${JSON.stringify(SITE_DEFAULT_THEME)});`;
 ---
 
 <!doctype html>
@@ -46,9 +54,14 @@ const pathname =
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Stamps the theme before first paint, choosing as SiteThemeSwitch's
+         ThemeProvider does (stampSiteTheme in siteTheme.ts). Without
+         scripting tokens.css stays light. -->
+    <script is:inline set:html={themeScript} />
     <meta name="description" content={description} />
     <meta name="color-scheme" content="light dark" />
-    <!-- Matches the header band: --site-chrome in tokens.css. -->
+    <!-- Matches the header band: --site-chrome in tokens.css. colorSchemeMedia
+         rewrites both queries for the theme the switch picks. -->
     <meta name="theme-color" content="#333333" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)" />
     <!-- Same reason as the app shells: keep iOS data detectors from rewriting
@@ -80,11 +93,13 @@ const pathname =
   <body>
     <script>
       import { initializeClickTracking } from "../clickTracking";
+      import { followColorSchemeMedia } from "../colorSchemeMedia";
       initializeClickTracking(import.meta.env.PROD);
+      followColorSchemeMedia(document);
     </script>
     <a class="skip-link" href="#main">Skip to content</a>
     <SiteFrame appUrl={appUrl}>
-      <SiteNav client:media="(max-width: 700px)" pathname={pathname} slot="nav" />
+      <SiteNav client:load pathname={pathname} slot="nav" />
       <main id="main" tabindex="-1" class="website-main">
         <slot />
       </main>

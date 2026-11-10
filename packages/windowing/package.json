@@ -1,11 +1,12 @@
 {
   "name": "@tearleads/windowing",
-  "version": "0.2.35",
+  "version": "0.2.36",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./theme": "./src/theme/index.ts",
     "./*.css": "./src/*.css"
   },
   "scripts": {

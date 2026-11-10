@@ -43,8 +43,9 @@ export interface DocsDiagramTheme {
 
 /**
  * The site's grayscale palette. Every role reads a tokens.css variable, so
- * the diagram follows prefers-color-scheme and print like the rest of the
- * site. Lookup and key paths differ by line style and weight, not hue.
+ * the diagram follows the site's light and dark themes and print like the
+ * rest of the site. Lookup and key paths differ by line style and weight, not
+ * hue.
  */
 export const siteDocsDiagramTheme: DocsDiagramTheme = {
   canvas: "var(--site-surface)",
