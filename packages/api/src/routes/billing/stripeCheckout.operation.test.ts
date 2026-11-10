@@ -74,7 +74,10 @@ test("Stripe checkout routes reject invalid organization ids", async () => {
     }),
     ...["checkout-session", "portal"].map((suffix) =>
       route.request(`/organizations/invalid/billing/stripe/${suffix}`, {
-        body: JSON.stringify({ returnUrl: "https://app.example/billing" }),
+        body: JSON.stringify({
+          priceId: "price_1",
+          returnUrl: "https://app.example/billing",
+        }),
         method: "POST",
       }),
     ),
@@ -106,11 +109,18 @@ test("hosted Stripe routes preserve body validation responses and order", async 
   }
 });
 
-test("the checkout route requires the Price the buyer was shown", async () => {
+test("both checkout routes require the chosen plan's Price", async () => {
   const route = createTestRoute((_c, next) => next());
-  for (const body of ["{}", JSON.stringify({ priceId: "" }), "{"]) {
+  const returnUrl = "https://app.example/billing";
+  for (const [suffix, body] of [
+    ["checkout", "{}"],
+    ["checkout", JSON.stringify({ priceId: "" })],
+    ["checkout", "{"],
+    ["checkout-session", JSON.stringify({ returnUrl })],
+    ["checkout-session", JSON.stringify({ priceId: "", returnUrl })],
+  ] as const) {
     const response = await route.request(
-      `/organizations/${organizationId}/billing/stripe/checkout`,
+      `/organizations/${organizationId}/billing/stripe/${suffix}`,
       { body, headers: { "Content-Type": "application/json" }, method: "POST" },
     );
     expect(response.status).toBe(400);

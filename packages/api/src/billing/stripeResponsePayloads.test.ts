@@ -98,19 +98,39 @@ describe("single-field responses", () => {
     ).toBe(url);
   });
 
-  test.each(urlCases)("checkout response %j reads %p", async (body, url) => {
-    const { fetchImpl } = queuedFetch([PRICE, body]);
-    expect(
-      await createCheckoutSession(
+  const sessionCases: ReadonlyArray<
+    readonly [unknown, { id: string; url: string } | null]
+  > = [
+    [
+      { url: "https://stripe.test/x", id: "cs_1" },
+      { id: "cs_1", url: "https://stripe.test/x" },
+    ],
+    // Without its id the Session could not be expired if its attempt is
+    // replaced, so it is not handed out.
+    [{ url: "https://stripe.test/x" }, null],
+    [{ url: "", id: "cs_1" }, null],
+    [{ url: 5, id: "cs_1" }, null],
+    [{}, null],
+    [null, null],
+  ];
+
+  test.each(sessionCases)(
+    "checkout response %j reads %p",
+    async (body, read) => {
+      const { fetchImpl } = queuedFetch([PRICE, body]);
+      const session = await createCheckoutSession(
         {
           ...CHECKOUT,
           expiresAt: new Date("2030-01-01T00:00:00Z"),
           returnUrl: "https://app.test/billing",
         },
         { env: ENV, fetchImpl },
-      ),
-    ).toBe(url);
-  });
+      );
+      expect(session ? { id: session.id, url: session.url } : null).toEqual(
+        read,
+      );
+    },
+  );
 });
 
 describe("configured price responses", () => {

@@ -8,6 +8,7 @@ import {
   RevenueCatWebhookEventSchema,
   RevenueCatWebhookRequestSchema,
   StripeCheckoutRequestSchema,
+  StripeCheckoutSessionRequestSchema,
   StripeReturnUrlRequestSchema,
   VerifyRequestSchema,
 } from "../request";
@@ -310,7 +311,7 @@ describeSchema(
 
 describeSchema(
   StripeCheckoutOptionsResponseSchema,
-  "The Stripe plans offered for the organization's current roster size.",
+  "Every Stripe plan whose capacity covers the organization's current roster, smallest first.",
 );
 
 describeSchema(
@@ -324,20 +325,16 @@ describeSchema(
 
 describeSchema(
   StripeCheckoutRequestSchema,
-  "The plan the buyer was shown when they pressed Pay.",
+  "The plan the buyer chose when they pressed Pay.",
   {
     priceId:
-      "Stripe Price id from the checkout options. The server charges only this Price and returns 409 `billing_checkout_price_changed` when the roster now needs another.",
+      "Stripe Price id of the chosen plan, from the checkout options. The server charges only this Price and returns 409 `billing_checkout_plan_unavailable` when the roster has outgrown it.",
   },
 );
 
-describeSchema(
-  StripeCheckoutErrorResponseSchema,
-  "A refused inline checkout.",
-  {
-    code: "Machine-readable reason: an empty roster, a roster larger than any plan, or `billing_checkout_price_changed` when the Price the buyer saw no longer covers the roster.",
-  },
-);
+describeSchema(StripeCheckoutErrorResponseSchema, "A refused checkout.", {
+  code: "Machine-readable reason: an empty roster, a roster larger than any plan, or `billing_checkout_plan_unavailable` when the chosen plan is no longer offered.",
+});
 
 describeSchema(
   StripeCheckoutSessionResponseSchema,
@@ -365,6 +362,17 @@ describeSchema(
   StripeReturnUrlRequestSchema,
   "Where Stripe sends the browser back after a hosted flow.",
   {
+    returnUrl:
+      "Absolute HTTP(S) URL on one of the app origins the server allows.",
+  },
+);
+
+describeSchema(
+  StripeCheckoutSessionRequestSchema,
+  "The plan the buyer chose for the hosted fallback, and where Stripe sends the browser back.",
+  {
+    priceId:
+      "Stripe Price id of the chosen plan, from the checkout options. A plan the roster has outgrown gets 409 `billing_checkout_plan_unavailable`.",
     returnUrl:
       "Absolute HTTP(S) URL on one of the app origins the server allows.",
   },

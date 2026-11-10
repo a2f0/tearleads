@@ -122,6 +122,10 @@ function fakeStripe(options: FakeStripeOptions = {}): FakeStripe {
         ? createSubscription(request)
         : Response.json({ data: subscriptions, has_more: false });
     }
+    if (path === "/v1/checkout/sessions" && request.method === "GET") {
+      // These tests open no hosted page.
+      return Response.json({ data: [], has_more: false });
+    }
     const invoice = /^\/v1\/invoices\/(in_\d+)(\/void)?$/.exec(path);
     if (invoice?.[1]) {
       return invoiceResponse(invoice[1], invoice[2] !== undefined);
@@ -185,7 +189,7 @@ function statuses(stripe: FakeStripe): string[][] {
   return stripe.subscriptions.map(({ id, status }) => [id, status]);
 }
 
-test("the buyer's unpaid checkout for an old roster is replaced at the new tier", async () => {
+test("the buyer's unpaid checkout for an outgrown plan is replaced at the new one", async () => {
   const stripe = fakeStripe();
   const { addMember, checkout } = await organizationBuyingThrough(stripe);
   await checkout();
@@ -205,7 +209,7 @@ test("the buyer's unpaid checkout for an old roster is replaced at the new tier"
   ]);
 });
 
-test("a Pay at the plan from before the roster change charges nothing", async () => {
+test("a Pay at a plan the roster has outgrown charges nothing", async () => {
   const stripe = fakeStripe();
   const { addMember, checkout } = await organizationBuyingThrough(stripe);
   await checkout();
@@ -214,7 +218,7 @@ test("a Pay at the plan from before the roster change charges nothing", async ()
   // The form still shows Solo; Stripe would charge whatever the server
   // started, so the server refuses instead of starting Team 5 behind it.
   await expect(checkout(SOLO)).rejects.toMatchObject({
-    code: "billing_checkout_price_changed",
+    code: "billing_checkout_plan_unavailable",
     status: 409,
   });
   expect(stripe.subscriptions).toHaveLength(1);

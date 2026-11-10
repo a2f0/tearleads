@@ -17,6 +17,7 @@ import {
   wrapper,
 } from "../../test/helpers/billingPanelTestKit";
 import { BillingPanel } from "../mini-apps/org-manager/billing/BillingPanel";
+import { CHECKOUT_LABELS } from "../mini-apps/org-manager/billing/checkoutCopy";
 import { ORG_MANAGER_LABELS } from "../mini-apps/org-manager/labels";
 
 afterEach(() => {
@@ -121,7 +122,7 @@ test("the toolbar Refresh waits while a checkout is in flight", async () => {
     }),
   );
   await view.findByRole("button", {
-    name: ORG_MANAGER_LABELS.billingCancelCheckout,
+    name: CHECKOUT_LABELS.cancel,
   });
 
   expect(toolbarRefresh(view).disabled).toBe(true);

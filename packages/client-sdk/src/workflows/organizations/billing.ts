@@ -1,4 +1,5 @@
 import type {
+  RequestFailure,
   RequestResult,
   RequestResultOptions,
 } from "@tearleads/api-client";
@@ -79,8 +80,10 @@ interface OrganizationBillingApi {
   ) => Promise<RequestResult<StripeCheckoutIntentResponse>>;
   readonly createStripeCheckoutSession: (
     organizationId: string,
+    priceId: string,
     returnUrl: string,
-  ) => Promise<StripeCheckoutSessionResponse | null>;
+    options?: RequestResultOptions,
+  ) => Promise<RequestResult<StripeCheckoutSessionResponse>>;
   readonly cancelStripeSubscription: (
     organizationId: string,
   ) => Promise<StripeCancelResponse | null>;
@@ -173,10 +176,24 @@ export async function loadStripeCheckoutOptions(input: {
 }
 
 /**
- * Starts the subscription when the buyer presses Pay, at the Price the form
- * showed. A refusal throws an `Error` carrying the server's billing `code`;
- * `billing_checkout_price_changed` is an expected outcome (the caller reloads
- * the options), so only other failures are reported to diagnostics.
+ * Throws a refused checkout as an `Error` carrying the server's billing
+ * `code`. `billing_checkout_plan_unavailable` is an expected outcome (the
+ * caller reloads the options), so only other failures are reported to
+ * diagnostics.
+ */
+function throwCheckoutRefusal(result: RequestFailure): never {
+  if (result.code !== BILLING_ERROR_CODES.checkoutPlanUnavailable) {
+    result.report();
+  }
+  throw Object.assign(new Error(result.message), {
+    ...(result.code === undefined ? {} : { code: result.code }),
+  });
+}
+
+/**
+ * Starts the subscription when the buyer presses Pay, at the plan they chose.
+ * A refusal throws with the server's billing `code` (see
+ * {@link throwCheckoutRefusal}).
  */
 export async function createStripeCheckout(input: {
   readonly apiClient: Pick<OrganizationBillingApi, "createStripeCheckout">;
@@ -188,29 +205,30 @@ export async function createStripeCheckout(input: {
     input.priceId,
     { reportErrors: false },
   );
-  if (result.ok) {
-    return result.data;
-  }
-  if (result.code !== BILLING_ERROR_CODES.checkoutPriceChanged) {
-    result.report();
-  }
-  throw Object.assign(new Error(result.message), {
-    ...(result.code === undefined ? {} : { code: result.code }),
-  });
+  return result.ok ? result.data : throwCheckoutRefusal(result);
 }
 
+/**
+ * Opens the hosted fallback for the plan the buyer chose. A null URL means
+ * the integration is unconfigured; a refusal throws with the server's billing
+ * `code`.
+ */
 export async function createStripeCheckoutSession(input: {
   readonly apiClient: Pick<
     OrganizationBillingApi,
     "createStripeCheckoutSession"
   >;
   readonly organizationId: string;
+  readonly priceId: string;
   readonly returnUrl: string;
-}): Promise<StripeCheckoutSessionResponse | null> {
-  return input.apiClient.createStripeCheckoutSession(
+}): Promise<StripeCheckoutSessionResponse> {
+  const result = await input.apiClient.createStripeCheckoutSession(
     input.organizationId,
+    input.priceId,
     input.returnUrl,
+    { reportErrors: false },
   );
+  return result.ok ? result.data : throwCheckoutRefusal(result);
 }
 
 export async function cancelStripeSubscription(input: {

@@ -11,7 +11,7 @@ import {
 import {
   BILLING_ERROR_CODES,
   getSyncBillingTierForSeatCount,
-  type SyncBillingTierId,
+  type SyncBillingTier,
 } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
 import { lockRowForUpdate } from "../../utils/sqlDialect";
@@ -25,6 +25,7 @@ interface StripeCheckoutAttempt {
   readonly attemptId: string;
   readonly expiresAt: Date;
   readonly providerExpiresAt: Date | null;
+  /** The chosen plan's capacity, which the subscription is created at. */
   readonly seatQuantity: number;
 }
 
@@ -148,28 +149,30 @@ function resolveActiveStripeCheckoutAttempt(input: {
   }
   if (
     attemptId === null ||
-    input.billing.attemptMode !== input.mode ||
     input.billing.attemptUserId !== input.sessionUserId
   ) {
     throw stripeCheckoutInProgress();
   }
-  if (input.billing.attemptSeatQuantity !== input.seatQuantity) {
-    // The same buyer's inline attempt for an old roster rotates: before the
-    // new attempt is offered, the inline service voids every other attempt's
-    // unpaid checkout. A hosted Checkout Session cannot be voided that way
-    // and can still complete at its old Price, so it conflicts until expiry.
-    if (input.mode === "hosted") {
-      throw stripeCheckoutInProgress();
-    }
+  // The same buyer choosing another plan or the other way to pay rotates the
+  // attempt: before the new checkout is offered, the service retires every
+  // other attempt's unpaid checkout in Stripe, voiding an inline
+  // subscription's first invoice or expiring a hosted Session, and a payment
+  // that already went through keeps the 409.
+  if (
+    input.billing.attemptMode !== input.mode ||
+    input.billing.attemptSeatQuantity !== input.seatQuantity
+  ) {
     return null;
   }
   const providerExpiry = providerExpiresAt(input.mode, attemptExpiresAt);
+  // A hosted Session too close to its expiry to finish paying on is replaced
+  // the same way.
   if (
     providerExpiry !== null &&
     providerExpiry.getTime() <=
       input.now.getTime() + HOSTED_MIN_PROVIDER_REMAINING_MS
   ) {
-    throw stripeCheckoutInProgress();
+    return null;
   }
   return {
     attemptId,
@@ -248,8 +251,8 @@ export async function runResolveOrgSubscriptionForAdminWorkflow(
 }
 
 /**
- * The admin gate plus a duplicate-purchase guard and authoritative initial seat
- * count. An org whose billing row is already `active` must not start another
+ * The admin gate plus a duplicate-purchase guard and authoritative roster
+ * size. An org whose billing row is already `active` must not start another
  * checkout — each confirmed checkout creates a NEW Stripe subscription, so
  * allowing it would double-bill the org. The raw stored status is deliberate:
  * only a provider revoke event clears `active`, and until then a second
@@ -259,7 +262,7 @@ export async function runRequireCheckoutEligibleWorkflow(
   db: ApiDatabase,
   organizationId: string,
   sessionUserId: string,
-): Promise<{ seatQuantity: number; tierId: SyncBillingTierId }> {
+): Promise<{ readonly rosterSeatCount: number }> {
   return withOrganizationAdminTransaction(
     db,
     { organizationId, userId: sessionUserId },
@@ -288,9 +291,9 @@ export async function runRequireCheckoutEligibleWorkflow(
 
       // Access validation above already establishes that the organization exists.
       // Count the signed Members-group projection in this same transaction so the
-      // quantity sent to Stripe is server-authoritative and belongs to the exact
-      // roster state that passed the checkout gate. The stored licensed seat count
-      // is intentionally not used: before a first subscription it can still be 0.
+      // plans offered are server-authoritative and belong to the exact roster
+      // state that passed the checkout gate. The stored licensed seat count is
+      // intentionally not used: before a first subscription it can still be 0.
       const activeUserIds = await listUsersReachableFromCurrentGroup({
         executor: tx,
         groupId: row.memberGroupId,
@@ -303,8 +306,8 @@ export async function runRequireCheckoutEligibleWorkflow(
         );
       }
 
-      const tier = requireAvailableTier(activeUserIds.length);
-      return { seatQuantity: activeUserIds.length, tierId: tier.id };
+      requireAvailableTier(activeUserIds.length);
+      return { rosterSeatCount: activeUserIds.length };
     },
   );
 }
@@ -312,21 +315,30 @@ export async function runRequireCheckoutEligibleWorkflow(
 export interface AcquireStripeCheckoutAttemptOptions {
   readonly createAttemptId?: () => string;
   readonly now?: Date;
-  /**
-   * Throws to refuse the seat count the roster now needs, inside the
-   * reservation transaction: a refused checkout reserves and rotates nothing.
-   */
-  readonly requireSeatQuantity?: (seatQuantity: number) => void;
+  /** The plan the buyer chose; the attempt reserves its capacity. */
+  readonly plan: SyncBillingTier;
+}
+
+/** The chosen plan is not offered to the organization now. */
+export function stripeCheckoutPlanUnavailable(): OrganizationManagerError {
+  return new OrganizationManagerError(
+    "The chosen plan no longer fits the organization; choose a plan again",
+    409,
+    BILLING_ERROR_CODES.checkoutPlanUnavailable,
+  );
 }
 
 /**
- * Atomically reserves the organization's one unpaid Stripe checkout. Both UI
- * modes call this before touching Stripe, so an inline subscription create and
- * a hosted Session create cannot pass independent provider searches and race.
- * A byte-for-byte retry by the same buyer reuses the durable token and seat
- * snapshot. Another buyer or the other UI mode conflicts until expiry, as
- * does the same buyer's hosted attempt for a roster that has since changed;
- * the same buyer's inline attempt for an old roster rotates instead.
+ * Atomically reserves the organization's one unpaid Stripe checkout for the
+ * chosen plan. Both UI modes call this before touching Stripe, so an inline
+ * subscription create and a hosted Session create cannot pass independent
+ * provider searches and race. A byte-for-byte retry by the same buyer for the
+ * same plan and way to pay reuses the durable token. Another buyer conflicts
+ * until expiry; the same buyer's attempt for another plan or the other way to
+ * pay rotates instead, as does a hosted attempt too close to its Session's
+ * expiry, and the service retires the replaced checkout before offering the
+ * new one. A plan smaller than the roster counted in this transaction is
+ * refused here, so a refused checkout reserves and rotates nothing.
  *
  * PostgreSQL serializes contenders with a billing-row lock. The SQLite adapter
  * runs transactions through one `BEGIN IMMEDIATE` queue, so it provides the
@@ -340,18 +352,21 @@ export async function runAcquireStripeCheckoutAttemptWorkflow(
   {
     createAttemptId = randomUUID,
     now = new Date(),
-    requireSeatQuantity,
-  }: AcquireStripeCheckoutAttemptOptions = {},
+    plan,
+  }: AcquireStripeCheckoutAttemptOptions,
 ): Promise<StripeCheckoutAttempt> {
   return withOrganizationAdminTransaction(
     db,
     { organizationId, userId: sessionUserId },
     async (tx) => {
       const billing = await lockStripeCheckoutBilling(tx, organizationId);
-      const seatQuantity = await requireStripeCheckoutSeatQuantity(
+      const rosterSeatCount = await requireStripeCheckoutSeatQuantity(
         tx,
         organizationId,
       );
+      // The attempt reserves the chosen plan's capacity: that is what Stripe
+      // charges for, and what a retry must match.
+      const seatQuantity = plan.seatLimit;
       const activeAttempt = resolveActiveStripeCheckoutAttempt({
         billing,
         mode,
@@ -359,9 +374,9 @@ export async function runAcquireStripeCheckoutAttemptWorkflow(
         seatQuantity,
         sessionUserId,
       });
-      // The attempt always carries the current seat count, so this checks
-      // exactly what it would reserve.
-      requireSeatQuantity?.(seatQuantity);
+      if (plan.seatLimit < rosterSeatCount) {
+        throw stripeCheckoutPlanUnavailable();
+      }
       return (
         activeAttempt ??
         createStripeCheckoutAttempt({

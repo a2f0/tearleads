@@ -1,72 +1,74 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import type { SyncBillingTier } from "@tearleads/validators/billing";
 import {
-  BILLING_ERROR_CODES,
-  getSyncBillingTierForSeatCount,
-} from "@tearleads/validators/billing";
-import type { StripeApiDeps } from "../../billing/stripeApi";
+  getStripeSyncOption,
+  type StripeApiDeps,
+} from "../../billing/stripeApi";
 import {
+  expireCheckoutSession,
+  expireStaleCheckoutSessions,
   voidReplacedCheckout,
   voidStaleInlineCheckouts,
 } from "../../billing/stripeCheckoutVoid";
-import { getStripePriceIdForTier } from "../../billing/stripeHttp";
+import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
 import {
   readStripeCheckoutAttemptId,
   stripeCheckoutInProgress,
+  stripeCheckoutPlanUnavailable,
 } from "../../workflows/billing/stripeCheckout";
-import { OrganizationManagerError } from "../../workflows/organizations/errors";
 
 /**
- * The inline form shows a Price before any subscription exists, and Stripe
- * charges whatever the subscription says, not what the form showed. Pay
- * therefore names the Price the buyer saw, and the checkout proceeds only
- * when the seat count its attempt reserves (the one the subscription is
- * created for) still maps to it. It runs inside the reservation, so a refused
- * Pay reserves nothing. A roster change since the form opened gets a 409 the
- * client answers by reloading the options.
+ * The plan the buyer chose, from the Price they saw. Stripe charges whatever
+ * the subscription says, not what the form showed, so checkout starts only a
+ * configured plan whose Price Stripe still offers, checked before anything is
+ * reserved; the reservation then refuses a plan the roster has outgrown.
+ * Either refusal gets the same 409, which the client answers by reloading
+ * the options. Callers authorize first (`runRequireCheckoutEligibleWorkflow`),
+ * so an ineligible caller never reaches Stripe; the reservation repeats that
+ * check atomically.
  */
-export function requireShownPrice(input: {
-  readonly priceId: string;
-  readonly seatQuantity: number;
-  readonly stripe: StripeApiDeps;
-}): void {
-  const tier = getSyncBillingTierForSeatCount(input.seatQuantity);
-  const priceId = tier ? getStripePriceIdForTier(tier.id, input.stripe) : null;
-  if (priceId !== input.priceId) {
-    throw new OrganizationManagerError(
-      "The organization's plan changed; review the new price",
-      409,
-      BILLING_ERROR_CODES.checkoutPriceChanged,
-    );
+export async function requireOfferedPlan(
+  priceId: string,
+  stripe: StripeApiDeps,
+): Promise<SyncBillingTier> {
+  const plan = getSyncBillingTierForStripePrice(priceId, stripe);
+  if (!plan || !(await getStripeSyncOption(plan.id, stripe))) {
+    throw stripeCheckoutPlanUnavailable();
   }
+  return plan;
 }
 
 /**
- * An inline attempt rotates when the roster changes under the buyer's unpaid
- * checkout, and the old form would still charge the old tier. Every inline
- * checkout therefore voids the buyer's unpaid checkouts from other attempts
- * before offering its own: any concurrent retry, or a retry after a failed
- * void, retires them again. A request whose own attempt was replaced
- * meanwhile voids nothing. A payment that already went through keeps the
- * 409.
+ * The attempt rotates when the buyer chooses another plan or the other way to
+ * pay, and the abandoned checkout could still charge them: an inline form's
+ * subscription, or a hosted Session they left or never reached. Every
+ * checkout therefore retires the buyer's unpaid checkouts from other attempts
+ * before offering its own, voiding inline invoices and expiring hosted
+ * Sessions: any concurrent retry, or a retry after a failed retirement,
+ * retires them again. A request whose own attempt was replaced meanwhile
+ * retires nothing. A payment that already went through keeps the 409.
  */
-export async function voidOtherInlineCheckouts(input: {
+export async function retireOtherCheckouts(input: {
   readonly attemptId: string;
   readonly customerId: string;
   readonly db: ApiDatabase;
   readonly organizationId: string;
   readonly stripe: StripeApiDeps;
 }): Promise<void> {
-  const voided = await voidStaleInlineCheckouts(
-    {
-      customerId: input.customerId,
-      currentAttemptId: input.attemptId,
-      stillReserved: async () =>
-        (await readStripeCheckoutAttemptId(input.db, input.organizationId)) ===
-        input.attemptId,
-    },
-    input.stripe,
-  );
-  if (!voided) {
+  const stale = {
+    customerId: input.customerId,
+    currentAttemptId: input.attemptId,
+    stillReserved: async () =>
+      (await readStripeCheckoutAttemptId(input.db, input.organizationId)) ===
+      input.attemptId,
+  };
+  const retired =
+    (await voidStaleInlineCheckouts(stale, input.stripe)) &&
+    (await expireStaleCheckoutSessions(
+      { ...stale, now: new Date() },
+      input.stripe,
+    ));
+  if (!retired) {
     throw stripeCheckoutInProgress();
   }
 }
@@ -92,6 +94,29 @@ export async function requireCurrentInlineAttempt(input: {
   );
   if (current !== input.attemptId) {
     await voidReplacedCheckout(input.subscriptionId, input.stripe);
+    throw stripeCheckoutInProgress();
+  }
+}
+
+/**
+ * Hands out a hosted Session only while its attempt is still the reserved
+ * one, as {@link requireCurrentInlineAttempt} does for the inline form: a
+ * Session created after its attempt was replaced is expired before its URL
+ * leaves the server.
+ */
+export async function requireCurrentHostedAttempt(input: {
+  readonly attemptId: string;
+  readonly db: ApiDatabase;
+  readonly organizationId: string;
+  readonly sessionId: string;
+  readonly stripe: StripeApiDeps;
+}): Promise<void> {
+  const current = await readStripeCheckoutAttemptId(
+    input.db,
+    input.organizationId,
+  );
+  if (current !== input.attemptId) {
+    await expireCheckoutSession(input.sessionId, input.stripe);
     throw stripeCheckoutInProgress();
   }
 }

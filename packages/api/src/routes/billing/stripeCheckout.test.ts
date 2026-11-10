@@ -193,7 +193,10 @@ test("checkout-session wraps the service result in a 200 { url } body", async ()
     {
       method: "POST",
       headers: { ...authHeader(admin), "Content-Type": "application/json" },
-      body: JSON.stringify({ returnUrl: "https://app.example/billing" }),
+      body: JSON.stringify({
+        priceId: "price_sync",
+        returnUrl: "https://app.example/billing",
+      }),
     },
   );
   // Unconfigured in this env, so the URL is null — but the route still wraps it
@@ -218,7 +221,10 @@ test("checkout-session 409s for an already-active organization", async () => {
     {
       method: "POST",
       headers: { ...authHeader(admin), "Content-Type": "application/json" },
-      body: JSON.stringify({ returnUrl: "https://app.example/billing" }),
+      body: JSON.stringify({
+        priceId: "price_sync",
+        returnUrl: "https://app.example/billing",
+      }),
     },
   );
   expect(response.status).toBe(409);

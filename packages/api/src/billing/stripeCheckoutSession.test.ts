@@ -10,10 +10,10 @@ import { createCheckoutSession } from "./stripeCheckoutSession";
 test("createCheckoutSession stamps org metadata onto the subscription", async () => {
   const { fetchImpl, requests } = fakeFetch([
     { body: VALID_TEAM_5_PRICE },
-    { body: { url: "https://checkout.stripe.com/pay/cs_1" } },
+    { body: { id: "cs_1", url: "https://checkout.stripe.com/pay/cs_1" } },
   ]);
 
-  const url = await createCheckoutSession(
+  const session = await createCheckoutSession(
     {
       checkoutAttemptId: "attempt-hosted-1",
       customerId: "cus_1",
@@ -26,7 +26,10 @@ test("createCheckoutSession stamps org metadata onto the subscription", async ()
     { env: ENV, fetchImpl },
   );
 
-  expect(url).toBe("https://checkout.stripe.com/pay/cs_1");
+  expect(session).toMatchObject({
+    id: "cs_1",
+    url: "https://checkout.stripe.com/pay/cs_1",
+  });
   const body = requests[1]?.body ?? "";
   expect(requests[1]?.url).toContain("/v1/checkout/sessions");
   // Purely org-scoped: an org's attempts collapse onto one session.
@@ -48,6 +51,11 @@ test("createCheckoutSession stamps org metadata onto the subscription", async ()
   );
   expect(body).toContain(
     `${encodeURIComponent("subscription_data[metadata][userId]")}=user-1`,
+  );
+  // The Session itself names its attempt, so a later attempt can tell which
+  // Sessions it must expire.
+  expect(body).toContain(
+    `${encodeURIComponent("metadata[checkoutAttemptId]")}=attempt-hosted-1`,
   );
 });
 
@@ -74,9 +82,8 @@ test("createCheckoutSession is null without price/secret config", async () => {
 test("createCheckoutSession passes an unparseable return url through unchanged", async () => {
   const { fetchImpl, requests } = fakeFetch([
     { body: activeStripePrice("price_solo", 500) },
-    { body: { url: "https://checkout.stripe.com/pay/cs_2" } },
+    { body: { id: "cs_2", url: "https://checkout.stripe.com/pay/cs_2" } },
   ]);
-
   await createCheckoutSession(
     {
       checkoutAttemptId: "attempt-hosted-2",

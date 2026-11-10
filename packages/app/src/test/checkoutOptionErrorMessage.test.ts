@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { BILLING_ERROR_CODES } from "@tearleads/validators/billing";
-import { checkoutOptionErrorMessage } from "../mini-apps/org-manager/billing/billingCheckoutErrors";
+import {
+  CHECKOUT_LABELS,
+  checkoutOptionErrorMessage,
+} from "../mini-apps/org-manager/billing/checkoutCopy";
 import { ORG_MANAGER_LABELS } from "../mini-apps/org-manager/labels";
 
 test("an oversized roster gets actionable checkout guidance", () => {
@@ -25,6 +28,6 @@ test("an empty roster gets actionable checkout guidance", () => {
 
 test("an unknown checkout failure keeps the retry guidance", () => {
   expect(checkoutOptionErrorMessage(new Error("network failed"))).toBe(
-    ORG_MANAGER_LABELS.billingCheckoutUnavailable,
+    CHECKOUT_LABELS.unavailable,
   );
 });

@@ -1,10 +1,11 @@
 import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 
 /**
- * The inline checkout's offer (`billing/useDirectCheckout.ts`). Subscribe can
- * open a form only from `ready`: while a load is in flight, including the
- * reload after a Pay the roster repriced, there is no offer, so the buyer
- * cannot open a form for a plan that is being replaced.
+ * The inline checkout's offer (`billing/useDirectCheckout.ts`): every plan
+ * that covers the roster. Subscribe can open a form only from `ready`: while a
+ * load is in flight, including the reload after a Pay whose plan is no longer
+ * offered, there is no offer, so the buyer cannot open a form for a plan that
+ * is being replaced.
  *
  * | state   | off | load    | loaded | load-failed |
  * | ------- | --- | ------- | ------ | ----------- |
@@ -21,8 +22,8 @@ export type CheckoutOptionState =
   | { readonly status: "loading" }
   | {
       readonly status: "ready";
-      /** Null when the server integration is intentionally not configured. */
-      readonly option: StripeSyncOptionResponse | null;
+      /** Smallest first; empty when the server integration is not configured. */
+      readonly options: readonly StripeSyncOptionResponse[];
     }
   | { readonly status: "failed"; readonly error: string };
 
@@ -32,7 +33,7 @@ export type CheckoutOptionEvent =
   | { readonly type: "load" }
   | {
       readonly type: "loaded";
-      readonly option: StripeSyncOptionResponse | null;
+      readonly options: readonly StripeSyncOptionResponse[];
     }
   | { readonly type: "load-failed"; readonly error: string };
 
@@ -50,7 +51,7 @@ export function transitionCheckoutOption(
       return state.status === "loading" ? state : LOADING;
     case "loaded":
       return state.status === "loading"
-        ? { status: "ready", option: event.option }
+        ? { status: "ready", options: event.options }
         : state;
     case "load-failed":
       return state.status === "loading"

@@ -1,0 +1,9 @@
+# feat/checkout-plan-choice (greenfield flag day): the buyer chooses among the
+# plans that cover the roster, so the hosted fallback now names the chosen
+# plan's Price, and a plan the roster has outgrown (or a retired Price) is
+# refused with a 409 the client answers by reloading the options. App and API
+# ship together; no released client calls the old shape. Remove these exact
+# diagnostics as soon as main contains the new contract.
+POST /organizations/{organizationId}/billing/stripe/checkout added the new `billing_checkout_plan_unavailable` enum value to the `code` response property for the response status `409`
+POST /organizations/{organizationId}/billing/stripe/checkout-session added the new required request property `priceId`
+POST /organizations/{organizationId}/billing/stripe/checkout-session added the new `billing_checkout_plan_unavailable` enum value to the `code` response property for the response status `409`

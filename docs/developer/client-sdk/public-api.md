@@ -253,13 +253,18 @@ Both have unavailable stubs. Web loads no RevenueCat SDK and purchases only
 through direct checkout. `mount` takes the price the form shows, not a client
 secret: nothing exists on the server until `session.confirm(startPayment)`,
 which validates the form, calls `startPayment` for the client secret of the
-subscription the server starts at Pay, and confirms it. The provider form
-collects the billing email above the card fields and reports it through
-`mount`'s `onBillingEmailChange`. The form keeps loading after `mount`
-resolves: `onReady` reports it usable and `onLoadError` reports a form that
-never loads. `organizations.createStripeCheckout(priceId)` is the usual
-`startPayment`; a refusal throws with the server's billing `code`, and
-`billing_checkout_price_changed` means the offer must be reloaded.
+subscription the server starts at Pay, and confirms it.
+`session.updatePrice(price)` re-prices the open form when the buyer switches
+plans; `startPayment` must then start that plan. The provider form collects
+the billing email above the card fields and reports it through `mount`'s
+`onBillingEmailChange`. The form keeps loading after `mount` resolves:
+`onReady` reports it usable and `onLoadError` reports a form that never loads.
+`organizations.loadStripeCheckoutOptions()` lists every plan that covers the
+roster, and `organizations.createStripeCheckout(priceId)` is the usual
+`startPayment` for the chosen one; `createStripeCheckoutSession(priceId,
+returnUrl)` opens Stripe's hosted page for it instead. A refusal throws with
+the server's billing `code`, and `billing_checkout_plan_unavailable` means the
+plans must be reloaded.
 Native purchases are personal-org only. Handle
 `PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`: verify the
 receipt, prepare a fresh org outside the claim deadline, claim it, then publish

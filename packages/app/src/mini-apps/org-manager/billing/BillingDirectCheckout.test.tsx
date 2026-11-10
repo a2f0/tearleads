@@ -1,94 +1,78 @@
-import { afterEach, expect, mock, spyOn, test } from "bun:test";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { createRef, type ReactElement } from "react";
-import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
+import { afterEach, expect, mock, test } from "bun:test";
+import { fireEvent, render } from "@testing-library/react";
 import {
-  appFeatureFlagStorageKey,
-  saveAppFeatureFlag,
-} from "../../../providers/feature-flags/appFeatureFlags";
-import * as LogProvider from "../../../providers/logging/LogProvider";
-import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
+  OPTION,
+  renderWithHostedLink,
+  restoreDirectCheckoutView,
+  checkoutState as state,
+  TEAM,
+} from "../../../../test/helpers/directCheckoutViewKit";
+import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
 import { formatPrice } from "../../shared/billingFormatters";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingDirectCheckout } from "./BillingDirectCheckout";
-import type { DirectCheckoutState } from "./useDirectCheckout";
+import { CHECKOUT_LABELS } from "./checkoutCopy";
 
-const spies: { mockRestore: () => void }[] = [];
+afterEach(restoreDirectCheckoutView);
 
-const HOSTED_FLAG_KEY = appFeatureFlagStorageKey("stripe-hosted-checkout");
+/** An open form for the default plan. */
+const collecting = state({ phase: { kind: "collecting" } });
 
-afterEach(() => {
-  cleanup();
-  localStorage.removeItem(HOSTED_FLAG_KEY);
-  document.documentElement.removeAttribute("data-navigation-mode");
-  while (spies.length > 0) {
-    spies.pop()?.mockRestore();
-  }
+test("Stripe's page is offered only while the form is collecting", () => {
+  const openStripePage = mock(() => undefined);
+  const view = renderWithHostedLink(
+    <BillingDirectCheckout
+      checkout={state({ phase: { kind: "collecting" }, openStripePage })}
+      disabled={false}
+    />,
+  );
+  fireEvent.click(view.getByText(CHECKOUT_LABELS.payOnStripe));
+  expect(openStripePage).toHaveBeenCalledTimes(1);
+
+  view.rerender(
+    <AppFeatureFlagsProvider>
+      <BillingDirectCheckout
+        checkout={state({ phase: { kind: "confirming" } })}
+        disabled={false}
+      />
+    </AppFeatureFlagsProvider>,
+  );
+  expect(
+    view.getByText(CHECKOUT_LABELS.payOnStripe).closest("button")?.disabled,
+  ).toBe(true);
 });
 
-/** The idle checkout renders the hosted-link, which reads the SDK facade and the log actions. */
-function stubTearleads(
-  createStripeCheckoutSession: (
-    returnUrl: string,
-    organizationId?: string,
-  ) => Promise<{
-    url: string | null;
-  } | null> = () => Promise.resolve({ url: null }),
-) {
-  spies.push(
-    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
-      organizations: { createStripeCheckoutSession },
-    } as never),
+test("while Stripe's page opens, Pay and the plan picker wait", () => {
+  const view = renderWithHostedLink(
+    <BillingDirectCheckout
+      checkout={state({
+        billingEmailComplete: true,
+        options: [OPTION, TEAM],
+        phase: { kind: "opening-stripe" },
+      })}
+      disabled={false}
+    />,
   );
-  return stubLog();
-}
-
-/** Stubs the log actions and records every `logError` call. */
-function stubLog() {
-  const logged: [string | Error, unknown][] = [];
-  spies.push(
-    spyOn(LogProvider, "useLog").mockReturnValue({
-      log: () => undefined,
-      logError: (message, cause) => {
-        logged.push([message, cause]);
-      },
-    }),
+  expect(
+    view.getByText(CHECKOUT_LABELS.payOnStripeStarting).closest("button")
+      ?.disabled,
+  ).toBe(true);
+  expect(view.getByText(CHECKOUT_LABELS.pay).closest("button")?.disabled).toBe(
+    true,
   );
-  return logged;
-}
+  expect(
+    view
+      .getByRole("combobox", { name: CHECKOUT_LABELS.plan })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+});
 
-const OPTION = {
-  tierId: "solo" as const,
-  seatLimit: 1,
-  priceId: "price_1",
-  productName: "Sync",
-  currency: "usd",
-  unitAmount: 99,
-  interval: "month",
-  intervalCount: 1,
-};
-
-/** Renders with the "Pay on Stripe" link's feature flag switched on. */
-function renderWithHostedLink(ui: ReactElement) {
-  saveAppFeatureFlag(HOSTED_FLAG_KEY, "enabled");
-  return render(<AppFeatureFlagsProvider>{ui}</AppFeatureFlagsProvider>);
-}
-
-function state(overrides: Partial<DirectCheckoutState>): DirectCheckoutState {
-  return {
-    available: true,
-    option: OPTION,
-    organizationId: "org-1",
-    phase: { kind: "idle" },
-    error: null,
-    hostRef: createRef<HTMLDivElement>(),
-    billingEmailComplete: false,
-    begin: () => undefined,
-    confirm: () => undefined,
-    cancel: () => undefined,
-    ...overrides,
-  };
-}
+test("the hosted-checkout link is not offered before a plan is chosen", () => {
+  const view = renderWithHostedLink(
+    <BillingDirectCheckout checkout={state({})} disabled={false} />,
+  );
+  expect(view.queryByText(CHECKOUT_LABELS.payOnStripe)).toBeNull();
+});
 
 /**
  * The minor-unit conversion is the one piece of real logic in the component:
@@ -143,19 +127,16 @@ test("surfaces an option-loading failure", () => {
   const view = render(
     <BillingDirectCheckout
       checkout={state({
-        option: null,
-        error: ORG_MANAGER_LABELS.billingCheckoutUnavailable,
+        options: [],
+        error: CHECKOUT_LABELS.unavailable,
       })}
       disabled={false}
     />,
   );
-  expect(
-    view.getByText(ORG_MANAGER_LABELS.billingCheckoutUnavailable),
-  ).toBeDefined();
+  expect(view.getByText(CHECKOUT_LABELS.unavailable)).toBeDefined();
 });
 
 test("idle offers the priced subscription and hides the element host", () => {
-  stubTearleads();
   const view = render(
     <BillingDirectCheckout checkout={state({})} disabled={false} />,
   );
@@ -166,7 +147,6 @@ test("idle offers the priced subscription and hides the element host", () => {
 });
 
 test("Subscribe opens the inline form without asking for an email first", () => {
-  stubTearleads();
   let begun = 0;
   const view = render(
     <BillingDirectCheckout
@@ -178,7 +158,7 @@ test("Subscribe opens the inline form without asking for an email first", () => 
       disabled={false}
     />,
   );
-  expect(view.queryByText(ORG_MANAGER_LABELS.billingEmailHint)).toBeNull();
+  expect(view.queryByText(CHECKOUT_LABELS.emailHint)).toBeNull();
 
   fireEvent.click(
     view.getByRole("button", { name: ORG_MANAGER_LABELS.billingSubscribe }),
@@ -193,9 +173,8 @@ test("Pay waits for the email in Stripe's form, with the hint under it", () => {
   const view = render(
     <BillingDirectCheckout checkout={checkout(false)} disabled={false} />,
   );
-  const pay = () =>
-    view.getByRole("button", { name: ORG_MANAGER_LABELS.billingCheckoutPay });
-  expect(view.getByText(ORG_MANAGER_LABELS.billingEmailHint)).toBeDefined();
+  const pay = () => view.getByRole("button", { name: CHECKOUT_LABELS.pay });
+  expect(view.getByText(CHECKOUT_LABELS.emailHint)).toBeDefined();
   expect(pay().hasAttribute("disabled")).toBe(true);
 
   view.rerender(
@@ -206,27 +185,89 @@ test("Pay waits for the email in Stripe's form, with the hint under it", () => {
 });
 
 test("the Pay on Stripe link stays hidden while its feature flag is off", () => {
-  stubTearleads();
   const view = render(
     <AppFeatureFlagsProvider>
-      <BillingDirectCheckout checkout={state({})} disabled={false} />
+      <BillingDirectCheckout checkout={collecting} disabled={false} />
     </AppFeatureFlagsProvider>,
   );
-  expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined();
-  expect(view.queryByText(ORG_MANAGER_LABELS.billingPayOnStripe)).toBeNull();
+  expect(view.getByText(CHECKOUT_LABELS.pay)).toBeDefined();
+  expect(view.queryByText(CHECKOUT_LABELS.payOnStripe)).toBeNull();
 });
 
-test("idle checkout actions use the standard button styling", () => {
-  stubTearleads();
+test("idle offers one Subscribe per plan, each opening that plan's form", () => {
+  const begun: unknown[] = [];
   const view = renderWithHostedLink(
-    <BillingDirectCheckout checkout={state({})} disabled={false} />,
+    <BillingDirectCheckout
+      checkout={state({
+        options: [OPTION, TEAM],
+        begin: (option) => {
+          begun.push(option);
+        },
+      })}
+      disabled={false}
+    />,
   );
 
-  expect(view.getAllByRole("button")).toHaveLength(2);
-  for (const button of view.getAllByRole("button")) {
+  const subscribes = view.getAllByRole("button", {
+    name: ORG_MANAGER_LABELS.billingSubscribe,
+  });
+  expect(subscribes).toHaveLength(2);
+  for (const button of subscribes) {
     expect(button.classList.contains("mini-app-button")).toBe(true);
     expect(button.classList.contains("mini-app-row--button")).toBe(false);
   }
+  expect(view.getByText("Team (up to 5)")).toBeDefined();
+  fireEvent.click(subscribes[1] as HTMLElement);
+  expect(begun).toEqual([TEAM]);
+});
+
+test("the open form switches between the offered plans", () => {
+  const changed: unknown[] = [];
+  const view = render(
+    <BillingDirectCheckout
+      checkout={state({
+        options: [OPTION, TEAM],
+        phase: { kind: "collecting" },
+        changePlan: (option) => {
+          changed.push(option);
+        },
+      })}
+      disabled={false}
+    />,
+  );
+
+  fireEvent.click(view.getByRole("combobox", { name: CHECKOUT_LABELS.plan }));
+  fireEvent.click(view.getByRole("option", { name: /Team \(up to 5\)/ }));
+
+  expect(changed).toEqual([TEAM]);
+});
+
+test("a single plan is restated rather than offered as a choice", () => {
+  const view = render(
+    <BillingDirectCheckout
+      checkout={state({ phase: { kind: "collecting" } })}
+      disabled={false}
+    />,
+  );
+  expect(view.getByText("Sync")).toBeDefined();
+  expect(view.queryByRole("combobox")).toBeNull();
+});
+
+test("the plan cannot change while a payment is running", () => {
+  const view = render(
+    <BillingDirectCheckout
+      checkout={state({
+        options: [OPTION, TEAM],
+        phase: { kind: "confirming" },
+      })}
+      disabled={false}
+    />,
+  );
+  expect(
+    view
+      .getByRole("combobox", { name: CHECKOUT_LABELS.plan })
+      .hasAttribute("disabled"),
+  ).toBe(true);
 });
 
 test("collecting shows Pay and Cancel over a visible element host", () => {
@@ -250,8 +291,8 @@ test("collecting shows Pay and Cancel over a visible element host", () => {
   const host = view.container.querySelector(".org-manager-direct-checkout");
   expect(host?.hasAttribute("hidden")).toBe(false);
 
-  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingCheckoutPay));
-  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingCancelCheckout));
+  fireEvent.click(view.getByText(CHECKOUT_LABELS.pay));
+  fireEvent.click(view.getByText(CHECKOUT_LABELS.cancel));
   expect(paid).toBe(1);
   expect(cancelled).toBe(1);
 });
@@ -272,10 +313,10 @@ test.each(["windowed", "tablet", "mobile"])(
 
     const actions = view.container.querySelector(".mini-app-actions");
     const pay = view.getByRole("button", {
-      name: ORG_MANAGER_LABELS.billingCheckoutPay,
+      name: CHECKOUT_LABELS.pay,
     });
     const cancel = view.getByRole("button", {
-      name: ORG_MANAGER_LABELS.billingCancelCheckout,
+      name: CHECKOUT_LABELS.cancel,
     });
 
     expect(actions).not.toBeNull();
@@ -292,12 +333,8 @@ test("confirming locks both actions so a payment cannot be double-submitted", ()
       disabled={false}
     />,
   );
-  const pay = view
-    .getByText(ORG_MANAGER_LABELS.billingCheckoutPaying)
-    .closest("button");
-  const cancel = view
-    .getByText(ORG_MANAGER_LABELS.billingCancelCheckout)
-    .closest("button");
+  const pay = view.getByText(CHECKOUT_LABELS.paying).closest("button");
+  const cancel = view.getByText(CHECKOUT_LABELS.cancel).closest("button");
   expect(pay?.disabled).toBe(true);
   expect(cancel?.disabled).toBe(true);
 });
@@ -315,162 +352,6 @@ test("an error renders in the error tone", () => {
   expect(view.getByText("Card declined.")).toBeDefined();
 });
 
-function fakeTab() {
-  return {
-    opener: {} as unknown,
-    location: { href: "" },
-    close: mock(() => undefined),
-  };
-}
-
-/**
- * Stubs `globalThis.open` through a configurable property rather than `spyOn`,
- * which tears down the happy-dom window binding and strips `document` /
- * `location` from every later test. Restored in `afterEach` via `spies`.
- */
-function stubOpen(impl: () => unknown) {
-  const previous = Object.getOwnPropertyDescriptor(globalThis, "open");
-  Object.defineProperty(globalThis, "open", {
-    configurable: true,
-    writable: true,
-    value: impl,
-  });
-  spies.push({
-    mockRestore: () => {
-      if (previous) {
-        Object.defineProperty(globalThis, "open", previous);
-      } else {
-        Reflect.deleteProperty(globalThis, "open");
-      }
-    },
-  });
-}
-
-test("the hosted-checkout link opens the Stripe session in a new tab", async () => {
-  const createStripeCheckoutSession = mock(
-    (_returnUrl: string, _organizationId?: string) =>
-      Promise.resolve({ url: "https://checkout.stripe.com/pay/x" }),
-  );
-  stubTearleads(createStripeCheckoutSession);
-  const tab = fakeTab();
-  const openMock = mock(() => tab);
-  stubOpen(openMock);
-
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout checkout={state({})} disabled={false} />,
-  );
-  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
-
-  await waitFor(() =>
-    expect(createStripeCheckoutSession).toHaveBeenCalledTimes(1),
-  );
-  expect(createStripeCheckoutSession.mock.calls[0]?.[1]).toBe("org-1");
-  // Opened synchronously on the click (before the await), then pointed at the
-  // minted URL once it resolves.
-  expect(openMock).toHaveBeenCalledWith("about:blank", "_blank");
-  await waitFor(() =>
-    expect(tab.location.href).toBe("https://checkout.stripe.com/pay/x"),
-  );
-  // The child's back-reference is severed to prevent reverse tabnabbing.
-  expect(tab.opener).toBeNull();
-});
-
-test("a blocked pop-up falls back to same-tab navigation", async () => {
-  // No tab handle means the pop-up was blocked; navigate the current tab rather
-  // than leave the click dead.
-  const createStripeCheckoutSession = mock(() =>
-    Promise.resolve({ url: "https://checkout.stripe.com/pay/x" }),
-  );
-  stubTearleads(createStripeCheckoutSession);
-  stubOpen(() => null);
-  const assign = spyOn(globalThis.location, "assign").mockImplementation(
-    () => undefined,
-  );
-  spies.push(assign);
-
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout checkout={state({})} disabled={false} />,
-  );
-  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
-
-  await waitFor(() =>
-    expect(assign).toHaveBeenCalledWith("https://checkout.stripe.com/pay/x"),
-  );
-});
-
-test("a null hosted session closes the tab and leaves the buyer on the page", async () => {
-  // Unconfigured / not eligible: the blank tab is closed, and the link becomes
-  // usable again rather than stranding the buyer on a spinner.
-  const createStripeCheckoutSession = mock(() =>
-    Promise.resolve({ url: null }),
-  );
-  stubTearleads(createStripeCheckoutSession);
-  const tab = fakeTab();
-  stubOpen(() => tab);
-  const assign = spyOn(globalThis.location, "assign").mockImplementation(
-    () => undefined,
-  );
-  spies.push(assign);
-
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout checkout={state({})} disabled={false} />,
-  );
-  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
-
-  await waitFor(() =>
-    expect(createStripeCheckoutSession).toHaveBeenCalledTimes(1),
-  );
-  expect(assign).not.toHaveBeenCalled();
-  expect(tab.close).toHaveBeenCalledTimes(1);
-  expect(
-    view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe).closest("button")
-      ?.disabled,
-  ).toBe(false);
-  // A null result surfaces a notice rather than a silent dead click.
-  await waitFor(() =>
-    expect(
-      view.getByText(ORG_MANAGER_LABELS.billingPayOnStripeUnavailable),
-    ).toBeDefined(),
-  );
-});
-
-test("a thrown hosted session closes the tab and surfaces the notice", async () => {
-  // A rejected mint must not strand the blank tab; it is closed and the notice
-  // shown, mirroring the null-result path.
-  const failure = new Error("boom");
-  const createStripeCheckoutSession = mock(() => Promise.reject(failure));
-  const logged = stubTearleads(createStripeCheckoutSession);
-  const tab = fakeTab();
-  stubOpen(() => tab);
-
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout checkout={state({})} disabled={false} />,
-  );
-  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
-
-  await waitFor(() => expect(tab.close).toHaveBeenCalledTimes(1));
-  await waitFor(() =>
-    expect(
-      view.getByText(ORG_MANAGER_LABELS.billingPayOnStripeUnavailable),
-    ).toBeDefined(),
-  );
-  // The original Error reaches diagnostics, not just the notice.
-  expect(logged).toEqual([
-    ["Failed to open the hosted Stripe checkout", failure],
-  ]);
-});
-
-test("the hosted-checkout link is not offered once the inline flow starts", () => {
-  stubTearleads();
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout
-      checkout={state({ phase: { kind: "collecting" } })}
-      disabled={false}
-    />,
-  );
-  expect(view.queryByText(ORG_MANAGER_LABELS.billingPayOnStripe)).toBeNull();
-});
-
 test("a loading checkout shows a busy panel that can be left before the form appears", () => {
   const cancel = mock(() => undefined);
   const checkout = state({ phase: { kind: "starting" }, cancel });
@@ -478,11 +359,11 @@ test("a loading checkout shows a busy panel that can be left before the form app
     <BillingDirectCheckout checkout={checkout} disabled={false} />,
   );
   const cancelButton = view.getByRole("button", {
-    name: ORG_MANAGER_LABELS.billingCancelCheckout,
+    name: CHECKOUT_LABELS.cancel,
   });
 
   expect(view.getByRole("status").textContent).toContain(
-    ORG_MANAGER_LABELS.billingCheckoutStarting,
+    CHECKOUT_LABELS.starting,
   );
   expect(document.activeElement).toBe(cancelButton);
   // The form stays laid out for the provider to size, but nothing of the

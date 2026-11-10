@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { StripeReturnUrlRequestSchema } from "../request";
+import {
+  StripeCheckoutSessionRequestSchema,
+  StripeReturnUrlRequestSchema,
+} from "../request";
 import {
   BillingErrorResponseSchema,
   StripeCancelResponseSchema,
@@ -33,7 +36,7 @@ test("Stripe checkout operations own their wire contracts", () => {
     StripeCheckoutIntentResponseSchema,
   );
   expect(createStripeCheckoutSessionOperation).toMatchObject({
-    body: StripeReturnUrlRequestSchema,
+    body: StripeCheckoutSessionRequestSchema,
     responses: { 200: StripeCheckoutSessionResponseSchema },
   });
   expect(createStripePortalOperation).toMatchObject({
@@ -61,15 +64,17 @@ test("Stripe checkout operations document handler failures", () => {
   expect(cancelStripeSubscriptionOperation.failureStatuses).toEqual([
     400, 401, 403, 404, 500, 502, 503,
   ]);
+  expect(getStripeCheckoutOptionsOperation.failureResponses[409]).toBe(
+    BillingErrorResponseSchema,
+  );
   for (const operation of [
-    getStripeCheckoutOptionsOperation,
+    createStripeCheckoutOperation,
     createStripeCheckoutSessionOperation,
   ]) {
-    expect(operation.failureResponses[409]).toBe(BillingErrorResponseSchema);
+    expect(operation.failureResponses[409]).toBe(
+      StripeCheckoutErrorResponseSchema,
+    );
   }
-  expect(createStripeCheckoutOperation.failureResponses[409]).toBe(
-    StripeCheckoutErrorResponseSchema,
-  );
 });
 
 test("Stripe checkout operations share canonical organization paths", () => {

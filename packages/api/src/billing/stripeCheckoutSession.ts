@@ -3,7 +3,7 @@
 import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import { readProviderField } from "./providerPayloadSchema";
 import type { StripeSubscriptionCheckoutInput } from "./stripeApi";
-import { hostedUrlSchema } from "./stripeApiSchema";
+import { hostedCheckoutSessionSchema } from "./stripeApiSchema";
 import { resolveDeps, type StripeApiDeps, stripeRequest } from "./stripeHttp";
 import { getStripeSyncOption } from "./stripePrice";
 
@@ -25,14 +25,19 @@ function canonicalizeReturnUrl(returnUrl: string): string {
   }
 }
 
+export interface HostedCheckoutSession {
+  readonly id: string;
+  readonly url: string;
+}
+
 /**
  * Creates a hosted Stripe Checkout Session for the sync subscription and
- * returns its URL. This is the off-site alternative to the inline Payment
- * Element: same product, same customer, and the SAME `orgId`/`userId` stamped
- * onto the resulting subscription (via `subscription_data[metadata]`) so the
- * `invoice.paid` webhook associates it with RevenueCat and the cancel/portal
- * resolver (`findLiveOrgSubscription`) can later find it — exactly like the
- * inline flow. Returns null when Stripe is unconfigured.
+ * returns its id and URL. This is the off-site alternative to the inline
+ * Payment Element: same product, same customer, and the SAME `orgId`/`userId`
+ * stamped onto the resulting subscription (via `subscription_data[metadata]`)
+ * so the `invoice.paid` webhook associates it with RevenueCat and the
+ * cancel/portal resolver (`findLiveOrgSubscription`) can later find it —
+ * exactly like the inline flow. Returns null when Stripe is unconfigured.
  *
  * The durable database attempt token scopes idempotency and rotates after the
  * Session expires. Return URLs are canonicalized so same-attempt retries keep
@@ -44,7 +49,7 @@ export async function createCheckoutSession(
     returnUrl: string;
   },
   deps: StripeApiDeps = {},
-): Promise<string | null> {
+): Promise<HostedCheckoutSession | null> {
   const tier = getSyncBillingTierForSeatCount(input.seatQuantity);
   if (!tier) {
     throw new RangeError("Stripe checkout seat count has no available tier");
@@ -78,6 +83,9 @@ export async function createCheckoutSession(
     "subscription_data[metadata][checkoutAttemptId]",
     input.checkoutAttemptId,
   );
+  // On the Session too, so a later attempt can tell its own Session from the
+  // ones it must expire (stripeCheckoutVoid.ts).
+  form.set("metadata[checkoutAttemptId]", input.checkoutAttemptId);
   const body = await stripeRequest({
     fetchImpl,
     secretKey,
@@ -87,5 +95,5 @@ export async function createCheckoutSession(
     form,
     idempotencyKey: `checkout-session:${input.organizationId}:${input.checkoutAttemptId}`,
   });
-  return readProviderField(hostedUrlSchema, body)?.url ?? null;
+  return readProviderField(hostedCheckoutSessionSchema, body) ?? null;
 }
