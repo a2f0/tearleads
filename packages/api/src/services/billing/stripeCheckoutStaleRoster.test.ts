@@ -33,6 +33,8 @@ interface FakeSubscription {
 interface FakeStripeOptions {
   /** Answer voids as Stripe does once the payment succeeded. */
   readonly refuseVoids?: boolean;
+  /** Fail the first void as a provider outage would. */
+  readonly failFirstVoid?: boolean;
   /** Hold the first subscription create until `release` settles. */
   readonly holdFirstCreate?: {
     readonly reached: () => void;
@@ -41,19 +43,19 @@ interface FakeStripeOptions {
 }
 
 interface FakeStripe {
-  readonly creates: URLSearchParams[];
   readonly fetchImpl: typeof fetch;
   readonly subscriptions: FakeSubscription[];
   readonly voids: string[];
 }
 
 /**
- * A Stripe account holding the buyer's subscriptions: creates record their
- * attempt and Price, and voiding a first invoice expires its subscription.
+ * A Stripe account holding the buyer's subscriptions. Creates honor their
+ * idempotency key and record attempt and Price; voiding a first invoice
+ * expires its subscription, and voiding it again is refused.
  */
 function fakeStripe(options: FakeStripeOptions = {}): FakeStripe {
   const subscriptions: FakeSubscription[] = [];
-  const creates: URLSearchParams[] = [];
+  const byIdempotencyKey = new Map<string, FakeSubscription>();
   const voids: string[] = [];
   let createCalls = 0;
   const createSubscription = async (request: Request) => {
@@ -62,8 +64,10 @@ function fakeStripe(options: FakeStripeOptions = {}): FakeStripe {
       options.holdFirstCreate.reached();
       await options.holdFirstCreate.release;
     }
+    const key = request.headers.get("Idempotency-Key") ?? "";
+    const replayed = byIdempotencyKey.get(key);
+    if (replayed) return Response.json(expanded(replayed));
     const form = new URLSearchParams(await request.text());
-    creates.push(form);
     const n = subscriptions.length + 1;
     const subscription: FakeSubscription = {
       id: `sub_${n}`,
@@ -80,7 +84,25 @@ function fakeStripe(options: FakeStripeOptions = {}): FakeStripe {
       latest_invoice: `in_${n}`,
     };
     subscriptions.push(subscription);
+    byIdempotencyKey.set(key, subscription);
     return Response.json(expanded(subscription));
+  };
+  const invoiceResponse = (invoice: string, isVoid: boolean) => {
+    const owner = subscriptions.find((s) => s.latest_invoice === invoice);
+    const voided = owner?.status === "incomplete_expired";
+    if (!isVoid) {
+      const status = options.refuseVoids ? "paid" : voided ? "void" : "open";
+      return Response.json({ id: invoice, status });
+    }
+    voids.push(invoice);
+    if (options.failFirstVoid && voids.length === 1) {
+      return Response.json({ error: {} }, { status: 500 });
+    }
+    if (options.refuseVoids || voided || !owner) {
+      return Response.json({ error: {} }, { status: 400 });
+    }
+    owner.status = "incomplete_expired";
+    return Response.json({ id: invoice, status: "void" });
   };
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
@@ -97,24 +119,9 @@ function fakeStripe(options: FakeStripeOptions = {}): FakeStripe {
         ? createSubscription(request)
         : Response.json({ data: subscriptions, has_more: false });
     }
-    const [, invoice, action] =
-      /^\/v1\/invoices\/(in_\d+)(\/void)?$/.exec(path) ?? [];
-    const owner = subscriptions.find((s) => s.latest_invoice === invoice);
-    if (invoice && action) {
-      voids.push(invoice);
-      if (options.refuseVoids) {
-        return Response.json({ error: {} }, { status: 400 });
-      }
-      if (owner) owner.status = "incomplete_expired";
-      return Response.json({ id: invoice, status: "void" });
-    }
-    if (invoice) {
-      const status = options.refuseVoids
-        ? "paid"
-        : owner?.status === "incomplete_expired"
-          ? "void"
-          : "open";
-      return Response.json({ id: invoice, status });
+    const invoice = /^\/v1\/invoices\/(in_\d+)(\/void)?$/.exec(path);
+    if (invoice?.[1]) {
+      return invoiceResponse(invoice[1], invoice[2] !== undefined);
     }
     const subscription = subscriptions.find(
       (s) => path === `/v1/subscriptions/${s.id}`,
@@ -122,7 +129,7 @@ function fakeStripe(options: FakeStripeOptions = {}): FakeStripe {
     if (subscription) return Response.json(expanded(subscription));
     throw new Error(`Unexpected Stripe request: ${request.method} ${path}`);
   }) as typeof fetch;
-  return { creates, fetchImpl, subscriptions, voids };
+  return { fetchImpl, subscriptions, voids };
 }
 
 /** The subscription with its first invoice's PaymentIntent expanded. */
@@ -165,30 +172,61 @@ async function organizationBuyingThrough(stripe: FakeStripe) {
   };
 }
 
+const SECOND_CHECKOUT = { subscriptionId: "sub_2", clientSecret: "pi_2" };
+
+function statuses(stripe: FakeStripe): string[][] {
+  return stripe.subscriptions.map(({ id, status }) => [id, status]);
+}
+
 test("the buyer's unpaid checkout for an old roster is replaced at the new tier", async () => {
   const stripe = fakeStripe();
   const { addMember, checkout } = await organizationBuyingThrough(stripe);
-  expect(await checkout()).toEqual({
-    subscriptionId: "sub_1",
-    clientSecret: "pi_1",
-  });
+  await checkout();
   await addMember();
 
-  expect(await checkout()).toEqual({
-    subscriptionId: "sub_2",
-    clientSecret: "pi_2",
-  });
+  expect(await checkout()).toEqual(SECOND_CHECKOUT);
   expect(stripe.voids).toEqual(["in_1"]);
-  expect(stripe.creates.map((form) => form.get("items[0][price]"))).toEqual([
+  expect(stripe.subscriptions.map((s) => s.items.data[0].price.id)).toEqual([
     "price_sync",
     "price_team_5",
   ]);
   // The replacement is now the reserved attempt: a retry resumes it.
-  expect(await checkout()).toEqual({
-    subscriptionId: "sub_2",
-    clientSecret: "pi_2",
-  });
-  expect(stripe.creates).toHaveLength(2);
+  expect(await checkout()).toEqual(SECOND_CHECKOUT);
+  expect(statuses(stripe)).toEqual([
+    ["sub_1", "incomplete_expired"],
+    ["sub_2", "incomplete"],
+  ]);
+});
+
+test("concurrent retries after a roster change share one replacement", async () => {
+  const stripe = fakeStripe();
+  const { addMember, checkout } = await organizationBuyingThrough(stripe);
+  await checkout();
+  await addMember();
+
+  expect(await Promise.all([checkout(), checkout()])).toEqual([
+    SECOND_CHECKOUT,
+    SECOND_CHECKOUT,
+  ]);
+  expect(statuses(stripe)).toEqual([
+    ["sub_1", "incomplete_expired"],
+    ["sub_2", "incomplete"],
+  ]);
+});
+
+test("a retry after a failed void still voids the old checkout", async () => {
+  const stripe = fakeStripe({ failFirstVoid: true });
+  const { addMember, checkout } = await organizationBuyingThrough(stripe);
+  await checkout();
+  await addMember();
+
+  await expect(checkout()).rejects.toMatchObject({ status: 500 });
+  expect(statuses(stripe)).toEqual([["sub_1", "incomplete"]]);
+  expect(await checkout()).toEqual(SECOND_CHECKOUT);
+  expect(statuses(stripe)).toEqual([
+    ["sub_1", "incomplete_expired"],
+    ["sub_2", "incomplete"],
+  ]);
 });
 
 test("a stale checkout whose payment won keeps the conflict", async () => {
@@ -199,7 +237,7 @@ test("a stale checkout whose payment won keeps the conflict", async () => {
 
   await expect(checkout()).rejects.toMatchObject({ status: 409 });
   expect(stripe.voids).toEqual(["in_1"]);
-  expect(stripe.creates).toHaveLength(1);
+  expect(stripe.subscriptions).toHaveLength(1);
 });
 
 test("a create that lands after its attempt was replaced voids itself", async () => {
@@ -222,7 +260,7 @@ test("a create that lands after its attempt was replaced voids itself", async ()
 
   await expect(stale).rejects.toMatchObject({ status: 409 });
   expect(stripe.voids).toEqual(["in_2"]);
-  expect(stripe.subscriptions.map(({ id, status }) => [id, status])).toEqual([
+  expect(statuses(stripe)).toEqual([
     ["sub_1", "incomplete"],
     ["sub_2", "incomplete_expired"],
   ]);

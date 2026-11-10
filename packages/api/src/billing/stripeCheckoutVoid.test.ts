@@ -3,13 +3,19 @@ import {
   STRIPE_PAYLOAD_ENV as ENV,
   recordingStripeFetch,
 } from "../../test/helpers/stripePayloadFetch";
-import { voidStaleInlineCheckout } from "./stripeCheckoutVoid";
+import { voidStaleInlineCheckouts } from "./stripeCheckoutVoid";
 
 const STALE = {
   id: "sub_stale",
   status: "incomplete",
   metadata: { checkoutAttemptId: "attempt-old", orgId: "org-1" },
   latest_invoice: "in_stale",
+};
+const CURRENT = {
+  id: "sub_current",
+  status: "incomplete",
+  metadata: { checkoutAttemptId: "attempt-current", orgId: "org-1" },
+  latest_invoice: "in_current",
 };
 const EXPIRED = {
   id: "sub_expired",
@@ -27,16 +33,16 @@ function voidWith(
     { body: { data: subscriptions, has_more: hasMore } },
     ...extra,
   ]);
-  const voided = voidStaleInlineCheckout(
-    { customerId: "cus_1", checkoutAttemptId: "attempt-old" },
+  const voided = voidStaleInlineCheckouts(
+    { customerId: "cus_1", currentAttemptId: "attempt-current" },
     { env: ENV, fetchImpl },
   );
   return { requests, voided };
 }
 
-test("voids the stale attempt's first invoice, skipping terminal ones", async () => {
+test("voids other attempts' unpaid checkouts and keeps the current one", async () => {
   const { requests, voided } = voidWith(
-    [EXPIRED, STALE],
+    [EXPIRED, CURRENT, STALE],
     [{ body: { id: "in_stale", status: "void" } }],
   );
 
@@ -50,20 +56,15 @@ test("voids the stale attempt's first invoice, skipping terminal ones", async ()
   ]);
 });
 
-test("nothing payable left for the attempt needs no void", async () => {
-  const { requests, voided } = voidWith([EXPIRED]);
+test("nothing stale needs no void", async () => {
+  const { requests, voided } = voidWith([EXPIRED, CURRENT]);
 
   expect(await voided).toBe(true);
   expect(requests).toHaveLength(1);
 });
 
 test.each<[string, unknown[], boolean]>([
-  ["a live subscription", [{ ...STALE, status: "active" }], false],
-  [
-    "another attempt's incomplete checkout",
-    [{ ...STALE, metadata: { checkoutAttemptId: "attempt-other" } }],
-    false,
-  ],
+  ["a live subscription", [STALE, { ...CURRENT, status: "active" }], false],
   ["an unreadable invoice", [{ ...STALE, latest_invoice: null }], false],
   ["a second page of subscriptions", [STALE], true],
 ])("%s voids nothing and refuses", async (_, subscriptions, hasMore) => {

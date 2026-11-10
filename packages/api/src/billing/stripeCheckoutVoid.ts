@@ -1,10 +1,11 @@
 /**
- * Voids unpaid inline checkouts whose attempt was replaced after the roster
- * changed (services/billing/stripeCheckoutAttempt.ts). Voiding a
- * subscription's first invoice cancels the PaymentIntent a stale form may
- * still hold and moves the subscription to `incomplete_expired`; Stripe
- * refuses to void an invoice once its payment has succeeded, so a payment
- * racing the replacement wins instead of being undone.
+ * Voids a buyer's unpaid inline checkouts that no longer belong to the
+ * organization's reserved attempt, which rotates when the roster changes
+ * (services/billing/stripeCheckoutAttempt.ts). Voiding a subscription's
+ * first invoice cancels the PaymentIntent a stale form may still hold and
+ * moves the subscription to `incomplete_expired`; Stripe refuses to void an
+ * invoice once its payment has succeeded, so a payment racing the
+ * replacement wins instead of being undone.
  */
 
 import { z } from "zod";
@@ -39,20 +40,21 @@ const latestInvoiceSchema = z.looseObject({
 });
 
 /**
- * Voids the customer's incomplete subscription for the retired
- * `checkoutAttemptId`.
+ * Voids every incomplete subscription of the buyer's customer except the
+ * current attempt's own, which stays resumable. The organization reserves
+ * one attempt at a time, so any other attempt's unpaid checkout is stale.
  *
  * Lists the customer's subscriptions rather than searching them: the list is
  * read-after-write consistent, and the search index can lag a subscription
  * created moments ago.
  *
- * Returns true when nothing payable remains for the attempt. Returns false,
- * voiding nothing, when the customer has a live subscription or another
- * attempt's incomplete one, or when the subscriptions cannot be read; and
- * false when Stripe refuses the void.
+ * Returns true when nothing but the current attempt's checkout remains
+ * payable. Returns false, voiding nothing, when the customer has a live
+ * subscription or the subscriptions cannot be read; and false when Stripe
+ * refuses a void.
  */
-export async function voidStaleInlineCheckout(
-  input: { readonly customerId: string; readonly checkoutAttemptId: string },
+export async function voidStaleInlineCheckouts(
+  input: { readonly customerId: string; readonly currentAttemptId: string },
   deps: StripeApiDeps = {},
 ): Promise<boolean> {
   const { fetchImpl, secretKey } = resolveDeps(deps);
@@ -72,7 +74,7 @@ export async function voidStaleInlineCheckout(
     }),
   );
   const invoiceIds = page
-    ? staleCheckoutInvoiceIds(page.data, input.checkoutAttemptId)
+    ? staleCheckoutInvoiceIds(page.data, input.currentAttemptId)
     : null;
   if (!invoiceIds) {
     return false;
@@ -86,13 +88,13 @@ export async function voidStaleInlineCheckout(
 }
 
 /**
- * The first invoices of the attempt's incomplete subscriptions, or null when
- * anything else could still bill this customer or a subscription is
- * unreadable. Terminal subscriptions are skipped.
+ * The first invoices of every other attempt's incomplete subscription, or
+ * null when a live subscription could already bill this customer or a
+ * subscription is unreadable. Terminal subscriptions are skipped.
  */
 function staleCheckoutInvoiceIds(
   subscriptions: readonly unknown[],
-  checkoutAttemptId: string,
+  currentAttemptId: string,
 ): string[] | null {
   const invoiceIds: string[] = [];
   for (const value of subscriptions) {
@@ -103,13 +105,16 @@ function staleCheckoutInvoiceIds(
     if (!status || LIVE_SUBSCRIPTION_STATUSES.has(status)) {
       return null;
     }
-    if (status !== "incomplete") {
+    if (
+      status !== "incomplete" ||
+      readCheckoutAttemptId(value) === currentAttemptId
+    ) {
       continue;
     }
     const invoiceId = readStripeReferenceId(
       readProviderField(latestInvoiceSchema, value)?.latest_invoice,
     );
-    if (readCheckoutAttemptId(value) !== checkoutAttemptId || !invoiceId) {
+    if (!invoiceId) {
       return null;
     }
     invoiceIds.push(invoiceId);

@@ -84,13 +84,9 @@ test("same-mode concurrent retries reuse one durable token", async () => {
       () => "second-token",
     ),
   ]);
-  expect(first.attempt.attemptId).toBe(second.attempt.attemptId);
-  expect(first.attempt.seatQuantity).toBe(1);
-  expect(second.attempt.seatQuantity).toBe(1);
-  expect([first.retiredAttemptId, second.retiredAttemptId]).toEqual([
-    null,
-    null,
-  ]);
+  expect(first.attemptId).toBe(second.attemptId);
+  expect(first.seatQuantity).toBe(1);
+  expect(second.seatQuantity).toBe(1);
 });
 
 test("a changed roster rotates the buyer's inline attempt once", async () => {
@@ -116,18 +112,14 @@ test("a changed roster rotates the buyer's inline attempt once", async () => {
       () => token,
     );
 
-  expect(first.attempt.seatQuantity).toBe(1);
+  expect(first.seatQuantity).toBe(1);
   const [left, right] = await Promise.all([
     acquire("left-token"),
     acquire("right-token"),
   ]);
-  // Exactly one request retires the old attempt; the other reuses the new one.
-  const retired = [left.retiredAttemptId, right.retiredAttemptId];
-  expect(retired).toContain("one-seat-token");
-  expect(retired).toContain(null);
-  expect(left.attempt).toEqual(right.attempt);
-  expect(left.attempt.seatQuantity).toBe(2);
-  expect(["left-token", "right-token"]).toContain(left.attempt.attemptId);
+  expect(left).toEqual(right);
+  expect(left.seatQuantity).toBe(2);
+  expect(["left-token", "right-token"]).toContain(left.attemptId);
 });
 
 test("a hosted attempt for an old roster is never replaced", async () => {
@@ -184,7 +176,7 @@ test("checkout rejects an effective roster above the largest tier", async () => 
 test("hosted retries stop before Stripe's minimum expiry and later rotate", async () => {
   const admin = createTestUser();
   const organizationId = await registerAdmin(admin);
-  const { attempt: first } = await runAcquireStripeCheckoutAttemptWorkflow(
+  const first = await runAcquireStripeCheckoutAttemptWorkflow(
     db,
     organizationId,
     admin.userId,
@@ -192,7 +184,7 @@ test("hosted retries stop before Stripe's minimum expiry and later rotate", asyn
     START,
     () => "hosted-first",
   );
-  const { attempt: retry } = await runAcquireStripeCheckoutAttemptWorkflow(
+  const retry = await runAcquireStripeCheckoutAttemptWorkflow(
     db,
     organizationId,
     admin.userId,
@@ -214,7 +206,7 @@ test("hosted retries stop before Stripe's minimum expiry and later rotate", asyn
     ),
   ).rejects.toMatchObject({ status: 409 });
 
-  const { attempt: rotated } = await runAcquireStripeCheckoutAttemptWorkflow(
+  const rotated = await runAcquireStripeCheckoutAttemptWorkflow(
     db,
     organizationId,
     admin.userId,

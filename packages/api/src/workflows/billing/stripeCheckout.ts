@@ -21,31 +21,12 @@ import { listUsersReachableFromCurrentGroup } from "../organizations/principalRe
 
 type StripeCheckoutMode = "hosted" | "inline";
 
-export interface StripeCheckoutAttempt {
+interface StripeCheckoutAttempt {
   readonly attemptId: string;
   readonly expiresAt: Date;
   readonly providerExpiresAt: Date | null;
   readonly seatQuantity: number;
 }
-
-/** The organization's reserved unpaid checkout attempt. */
-export interface StripeCheckoutAttemptAcquisition {
-  readonly attempt: StripeCheckoutAttempt;
-  /**
-   * The same buyer's unexpired inline attempt that `attempt` replaced because
-   * the roster changed under it. Its Stripe checkout is still payable until
-   * the caller voids it, which must happen before `attempt` is offered.
-   */
-  readonly retiredAttemptId: string | null;
-}
-
-/** An unexpired attempt as it relates to a new request. */
-type ActiveStripeCheckoutAttempt =
-  | { readonly kind: "none" }
-  | { readonly kind: "matching"; readonly attempt: StripeCheckoutAttempt }
-  | { readonly kind: "stale"; readonly attemptId: string };
-
-const NO_ACTIVE_ATTEMPT: ActiveStripeCheckoutAttempt = { kind: "none" };
 
 interface StripeCheckoutBillingState {
   readonly attemptExpiresAt: Date | null;
@@ -157,13 +138,13 @@ function resolveActiveStripeCheckoutAttempt(input: {
   readonly now: Date;
   readonly seatQuantity: number;
   readonly sessionUserId: string;
-}): ActiveStripeCheckoutAttempt {
+}): StripeCheckoutAttempt | null {
   const { attemptExpiresAt, attemptId } = input.billing;
   if (!attemptExpiresAt || attemptExpiresAt <= input.now) {
     if (attemptId !== null && attemptExpiresAt === null) {
       throw stripeCheckoutInProgress();
     }
-    return NO_ACTIVE_ATTEMPT;
+    return null;
   }
   if (
     attemptId === null ||
@@ -173,12 +154,14 @@ function resolveActiveStripeCheckoutAttempt(input: {
     throw stripeCheckoutInProgress();
   }
   if (input.billing.attemptSeatQuantity !== input.seatQuantity) {
-    // A hosted Checkout Session can still complete at its old Price until it
-    // expires; only an inline checkout can be voided and replaced.
+    // The same buyer's inline attempt for an old roster rotates: before the
+    // new attempt is offered, the inline service voids every other attempt's
+    // unpaid checkout. A hosted Checkout Session cannot be voided that way
+    // and can still complete at its old Price, so it conflicts until expiry.
     if (input.mode === "hosted") {
       throw stripeCheckoutInProgress();
     }
-    return { kind: "stale", attemptId };
+    return null;
   }
   const providerExpiry = providerExpiresAt(input.mode, attemptExpiresAt);
   if (
@@ -189,13 +172,10 @@ function resolveActiveStripeCheckoutAttempt(input: {
     throw stripeCheckoutInProgress();
   }
   return {
-    kind: "matching",
-    attempt: {
-      attemptId,
-      expiresAt: attemptExpiresAt,
-      providerExpiresAt: providerExpiry,
-      seatQuantity: input.seatQuantity,
-    },
+    attemptId,
+    expiresAt: attemptExpiresAt,
+    providerExpiresAt: providerExpiry,
+    seatQuantity: input.seatQuantity,
   };
 }
 
@@ -335,9 +315,8 @@ export async function runRequireCheckoutEligibleWorkflow(
  * a hosted Session create cannot pass independent provider searches and race.
  * A byte-for-byte retry by the same buyer reuses the durable token and seat
  * snapshot. Another buyer or the other UI mode conflicts until expiry, as
- * does the same buyer's hosted attempt for a roster that has since changed.
- * The same buyer's inline attempt for an old roster rotates here, in the
- * same transaction that saw it stale, and comes back as `retiredAttemptId`.
+ * does the same buyer's hosted attempt for a roster that has since changed;
+ * the same buyer's inline attempt for an old roster rotates instead.
  *
  * PostgreSQL serializes contenders with a billing-row lock. The SQLite adapter
  * runs transactions through one `BEGIN IMMEDIATE` queue, so it provides the
@@ -350,7 +329,7 @@ export async function runAcquireStripeCheckoutAttemptWorkflow(
   mode: StripeCheckoutMode,
   now: Date = new Date(),
   createAttemptId: () => string = randomUUID,
-): Promise<StripeCheckoutAttemptAcquisition> {
+): Promise<StripeCheckoutAttempt> {
   return withOrganizationAdminTransaction(
     db,
     { organizationId, userId: sessionUserId },
@@ -360,29 +339,25 @@ export async function runAcquireStripeCheckoutAttemptWorkflow(
         tx,
         organizationId,
       );
-      const active = resolveActiveStripeCheckoutAttempt({
+      const activeAttempt = resolveActiveStripeCheckoutAttempt({
         billing,
         mode,
         now,
         seatQuantity,
         sessionUserId,
       });
-      if (active.kind === "matching") {
-        return { attempt: active.attempt, retiredAttemptId: null };
-      }
-      const attempt = await createStripeCheckoutAttempt({
-        createAttemptId,
-        executor: tx,
-        mode,
-        now,
-        organizationId,
-        seatQuantity,
-        sessionUserId,
-      });
-      return {
-        attempt,
-        retiredAttemptId: active.kind === "stale" ? active.attemptId : null,
-      };
+      return (
+        activeAttempt ??
+        createStripeCheckoutAttempt({
+          createAttemptId,
+          executor: tx,
+          mode,
+          now,
+          organizationId,
+          seatQuantity,
+          sessionUserId,
+        })
+      );
     },
   );
 }

@@ -35,7 +35,7 @@ import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   requireCurrentInlineAttempt,
-  voidRetiredInlineCheckout,
+  voidOtherInlineCheckouts,
 } from "./stripeCheckoutAttempt";
 import {
   isDirectCheckoutFullyConfigured,
@@ -67,13 +67,12 @@ export async function createStripeCheckout(
     );
     return null;
   }
-  const { attempt, retiredAttemptId } =
-    await runAcquireStripeCheckoutAttemptWorkflow(
-      runtime.db,
-      organizationId,
-      sessionUserId,
-      "inline",
-    );
+  const attempt = await runAcquireStripeCheckoutAttemptWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+    "inline",
+  );
   const stripe = deps.stripe ?? {};
   const customerId = await findOrCreateCustomer(
     { userId: sessionUserId, organizationId },
@@ -82,9 +81,11 @@ export async function createStripeCheckout(
   if (!customerId) {
     return null;
   }
-  if (retiredAttemptId !== null) {
-    await voidRetiredInlineCheckout({ customerId, retiredAttemptId, stripe });
-  }
+  await voidOtherInlineCheckouts({
+    attemptId: attempt.attemptId,
+    customerId,
+    stripe,
+  });
   const outcome = await createSyncSubscription(
     {
       checkoutAttemptId: attempt.attemptId,
@@ -141,7 +142,7 @@ export async function createStripeCheckoutSession(
     );
     return null;
   }
-  const { attempt } = await runAcquireStripeCheckoutAttemptWorkflow(
+  const attempt = await runAcquireStripeCheckoutAttemptWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
