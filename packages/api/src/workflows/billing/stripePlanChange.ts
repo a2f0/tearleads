@@ -262,8 +262,9 @@ interface ObservedStripePlan {
 /**
  * Stripe holds a larger plan than the capacity recorded for the period: an
  * upgrade that was paid but whose request died before recording it. The
- * seat-sync worker records it as the renewal plan once its lease lapses, so
- * a renewal choice made before then would be overwritten; it waits instead.
+ * seat-sync worker grants it and records it as the renewal plan once its
+ * lease lapses. Any change waits until then: a renewal choice would be
+ * overwritten, and another plan would be priced from capacity not recorded.
  */
 function upgradeAwaitingRecovery(
   seats: BoundStripeSeats,
@@ -313,17 +314,17 @@ export async function runBeginStripePlanChangeWorkflow(
       }
       const seats = await requireChangeableSeats(tx, organizationId, now);
       await requirePlanCoversRoster(tx, organizationId, plan);
+      if (upgradeAwaitingRecovery(seats, options.observed)) {
+        throw stripePlanChangeUnavailable(
+          "A previous upgrade is still being applied; try again in a minute",
+        );
+      }
       if (plan.seatLimit > billing.seatCount) {
         return leaseUpgrade(tx, seats, {
           leaseId: `${PLAN_LEASE_PREFIX}${(options.createLeaseId ?? randomUUID)()}`,
           now,
           paidCapacity: billing.seatCount,
         });
-      }
-      if (upgradeAwaitingRecovery(seats, options.observed)) {
-        throw stripePlanChangeUnavailable(
-          "A previous upgrade is still being applied; try again in a minute",
-        );
       }
       await setRenewalPlan(tx, seats, plan, now);
       return {

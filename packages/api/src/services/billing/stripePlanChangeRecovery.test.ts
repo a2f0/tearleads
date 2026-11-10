@@ -68,20 +68,27 @@ test("an upgrade waits while Stripe has renewed into a period not yet bound", as
   });
 });
 
-test("a renewal choice waits while a paid upgrade is not yet recorded", async () => {
-  // Stripe charged an upgrade to Team 10 whose request died before
-  // recording it; the worker records it once the lease lapses.
-  const { change, organizationId } = await subscribedOrganization({
+test("every plan change waits while a paid upgrade is not yet recorded", async () => {
+  // Stripe charged a Solo → Team 10 upgrade whose request died before
+  // recording it; the worker grants and records it once the lease lapses.
+  const { change, organizationId, stripe } = await subscribedOrganization({
     itemSeatCount: 10,
-    seatCount: 5,
+    seatCount: 1,
   });
+  const fake = stripe();
 
-  await expect(change("price_sync")).rejects.toMatchObject({
-    code: "billing_plan_change_unavailable",
-    status: 409,
-  });
+  // Team 5 is still an upgrade from the recorded Solo, but would be charged
+  // as a downgrade from the Team 10 already paid for.
+  for (const priceId of ["price_team_5", "price_sync"]) {
+    await expect(change(priceId, fake)).rejects.toMatchObject({
+      code: "billing_plan_change_unavailable",
+      status: 409,
+    });
+  }
+  expect(fake.writes).toEqual([]);
   expect(await readState(organizationId)).toMatchObject({
-    seats: { desiredRenewalQuantity: 5 },
+    billing: { seatCount: 1 },
+    seats: { desiredRenewalQuantity: 1, leaseId: null },
   });
 });
 
