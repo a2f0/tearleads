@@ -175,6 +175,19 @@ export async function expireCheckoutSession(
   return secretKey ? expireSession(sessionId, { fetchImpl, secretKey }) : false;
 }
 
+/**
+ * Voids an unpaid invoice so it can never be charged, for an upgrade whose
+ * prorated charge did not go through. True once it is void; false when
+ * Stripe refuses because it was paid meanwhile.
+ */
+export async function voidUnpaidInvoice(
+  invoiceId: string,
+  deps: StripeApiDeps = {},
+): Promise<boolean> {
+  const { fetchImpl, secretKey } = resolveDeps(deps);
+  return secretKey ? voidInvoice(invoiceId, { fetchImpl, secretKey }) : false;
+}
+
 /** Every listed object of the customer, or null when a page is unreadable. */
 async function listCustomerObjects(
   path: string,

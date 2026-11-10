@@ -112,6 +112,7 @@ import {
 } from "./rootSuspension";
 import {
   cancelStripeSubscriptionOperation,
+  changeStripePlanOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,
   createStripePortalOperation,
@@ -178,6 +179,7 @@ export const protocolOperations: readonly [
   typeof createStripeCheckoutSessionOperation,
   typeof createStripePortalOperation,
   typeof cancelStripeSubscriptionOperation,
+  typeof changeStripePlanOperation,
   typeof getOrganizationDataUsageOperation,
   typeof getOrganizationReadModelOperation,
   typeof getOrganizationPolicyHistoryOperation,
@@ -264,6 +266,7 @@ export const protocolOperations: readonly [
   createStripeCheckoutSessionOperation,
   createStripePortalOperation,
   cancelStripeSubscriptionOperation,
+  changeStripePlanOperation,
   getOrganizationDataUsageOperation,
   getOrganizationReadModelOperation,
   getOrganizationPolicyHistoryOperation,
