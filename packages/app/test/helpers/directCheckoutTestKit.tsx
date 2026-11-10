@@ -37,6 +37,11 @@ export type MountInput = Parameters<DirectCheckoutCapability["mount"]>[0];
 
 export function stubTearleads(overrides?: {
   createStripeCheckout?: () => Promise<unknown>;
+  createStripeCheckoutSession?: (
+    priceId: string,
+    returnUrl: string,
+    organizationId?: string,
+  ) => Promise<unknown>;
   loadStripeCheckoutOptions?: () => Promise<unknown>;
 }) {
   const organizations = {
@@ -49,6 +54,10 @@ export function stubTearleads(overrides?: {
       mock(() =>
         Promise.resolve({ subscriptionId: "sub_1", clientSecret: "pi_secret" }),
       ),
+    createStripeCheckoutSession: mock(
+      overrides?.createStripeCheckoutSession ??
+        (() => Promise.resolve({ url: null })),
+    ),
   };
   spies.push(
     spyOn(TearleadsProvider, "useTearleads").mockReturnValue({

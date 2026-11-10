@@ -18,7 +18,7 @@ import {
   useChangePlan,
   useConfirmCheckout,
   useMountOnStart,
-  useOpenFormActions,
+  useOpenStripePage,
 } from "../model/directCheckoutActions";
 import {
   type DirectCheckoutMachineState,
@@ -53,7 +53,9 @@ export type DirectCheckoutPhase =
   /** The provider form is still loading. */
   | { readonly kind: "starting" }
   | { readonly kind: "collecting" }
-  | { readonly kind: "confirming" };
+  | { readonly kind: "confirming" }
+  /** Stripe's hosted page for the form's plan is being opened. */
+  | { readonly kind: "opening-stripe" };
 
 export interface DirectCheckoutState {
   /** Whether this platform can run the in-app form at all. */
@@ -77,16 +79,10 @@ export interface DirectCheckoutState {
   /** Switches the open form to another of `options`; ignored while paying. */
   readonly changePlan: (option: StripeSyncOptionResponse) => void;
   /**
-   * The server refused the open form's plan outside Pay (Stripe's page):
-   * close that form and reload the offer, as a refused Pay does. Bound to the
-   * form open at render, so it does nothing once that form is gone.
+   * Pay on Stripe's hosted page instead, for the form's plan; the form closes
+   * once the buyer is there. Only one way to pay runs at a time.
    */
-  readonly planUnavailable: () => void;
-  /**
-   * The buyer is on Stripe's page for the open form's plan: close that form,
-   * so only one way to pay is running. Bound like `planUnavailable`.
-   */
-  readonly handOffToStripe: () => void;
+  readonly openStripePage: () => void;
   readonly confirm: () => void;
   readonly cancel: () => void;
 }
@@ -237,6 +233,7 @@ const IDLE: DirectCheckoutPhase = { kind: "idle" };
 const STARTING: DirectCheckoutPhase = { kind: "starting" };
 const COLLECTING: DirectCheckoutPhase = { kind: "collecting" };
 const CONFIRMING: DirectCheckoutPhase = { kind: "confirming" };
+const OPENING_STRIPE: DirectCheckoutPhase = { kind: "opening-stripe" };
 
 function phaseOf(state: DirectCheckoutMachineState): DirectCheckoutPhase {
   switch (state.kind) {
@@ -244,6 +241,8 @@ function phaseOf(state: DirectCheckoutMachineState): DirectCheckoutPhase {
       return state.formReady ? COLLECTING : STARTING;
     case "confirming":
       return CONFIRMING;
+    case "opening-stripe":
+      return OPENING_STRIPE;
     case "starting":
       return STARTING;
     default:
@@ -343,11 +342,7 @@ export function useDirectCheckoutFlow(input: {
   const deps = useActionDeps(input, available, options, reload);
   const begin = useBeginCheckout(machine, deps.begin);
   const changePlan = useChangePlan(machine, options);
-  const { handOffToStripe, planUnavailable } = useOpenFormActions(
-    machine,
-    state.kind === "idle" ? null : state.attempt,
-    reload,
-  );
+  const openStripePage = useOpenStripePage(machine, deps.confirm);
   useMountOnStart(machine, state, { capability, logError });
   const confirm = useConfirmCheckout(machine, deps.confirm);
 
@@ -363,8 +358,7 @@ export function useDirectCheckoutFlow(input: {
     billingEmailComplete: state.kind !== "idle" && state.emailComplete,
     begin,
     changePlan,
-    planUnavailable,
-    handOffToStripe,
+    openStripePage,
     confirm,
     cancel,
   };

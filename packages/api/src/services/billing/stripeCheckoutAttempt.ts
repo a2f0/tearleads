@@ -1,6 +1,9 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { SyncBillingTier } from "@tearleads/validators/billing";
-import type { StripeApiDeps } from "../../billing/stripeApi";
+import {
+  getStripeSyncOption,
+  type StripeApiDeps,
+} from "../../billing/stripeApi";
 import {
   voidReplacedCheckout,
   voidStaleInlineCheckouts,
@@ -15,16 +18,19 @@ import {
 /**
  * The plan the buyer chose, from the Price they saw. Stripe charges whatever
  * the subscription says, not what the form showed, so checkout starts only a
- * configured plan's Price; the reservation then refuses a plan the roster has
- * outgrown. Either refusal gets the same 409, which the client answers by
- * reloading the options.
+ * configured plan whose Price Stripe still offers, checked before anything is
+ * reserved; the reservation then refuses a plan the roster has outgrown.
+ * Either refusal gets the same 409, which the client answers by reloading
+ * the options. Callers authorize first (`runRequireCheckoutEligibleWorkflow`),
+ * so an ineligible caller never reaches Stripe; the reservation repeats that
+ * check atomically.
  */
-export function requireOfferedPlan(
+export async function requireOfferedPlan(
   priceId: string,
   stripe: StripeApiDeps,
-): SyncBillingTier {
+): Promise<SyncBillingTier> {
   const plan = getSyncBillingTierForStripePrice(priceId, stripe);
-  if (!plan) {
+  if (!plan || !(await getStripeSyncOption(plan.id, stripe))) {
     throw stripeCheckoutPlanUnavailable();
   }
   return plan;

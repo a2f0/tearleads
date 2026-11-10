@@ -54,6 +54,13 @@ const confirming: DirectCheckoutMachineState = {
   emailComplete: true,
   session,
 };
+const openingStripe: DirectCheckoutMachineState = {
+  kind: "opening-stripe",
+  attempt: 1,
+  plan,
+  emailComplete: true,
+  session,
+};
 
 const begin: DirectCheckoutEvent = { type: "begin", attempt: 2, plan };
 const email = (attempt: number, complete = true): DirectCheckoutEvent => ({
@@ -98,6 +105,16 @@ const planUnavailable = (attempt: number): DirectCheckoutEvent => ({
   type: "plan-unavailable",
   attempt,
   error: "plan unavailable",
+});
+const openStripe: DirectCheckoutEvent = { type: "open-stripe" };
+const stripeOpened = (attempt: number): DirectCheckoutEvent => ({
+  type: "stripe-opened",
+  attempt,
+});
+const stripeRefused = (attempt: number): DirectCheckoutEvent => ({
+  type: "stripe-refused",
+  attempt,
+  error: "refused",
 });
 const teardown: DirectCheckoutEvent = { type: "teardown" };
 
@@ -199,6 +216,37 @@ test.each<[string, DirectCheckoutMachineState, DirectCheckoutEvent, unknown]>([
     { kind: "idle", error: "plan unavailable" },
   ],
   ["confirming tears down", confirming, teardown, IDLE_DIRECT_CHECKOUT],
+  ["collecting opens Stripe's page", collecting, openStripe, openingStripe],
+  [
+    "opening Stripe's page tracks email",
+    openingStripe,
+    email(1, false),
+    { ...openingStripe, emailComplete: false },
+  ],
+  [
+    "Stripe's page took over, so the form closes",
+    openingStripe,
+    stripeOpened(1),
+    IDLE_DIRECT_CHECKOUT,
+  ],
+  [
+    "a refused Stripe page returns to the form with its error",
+    openingStripe,
+    stripeRefused(1),
+    { ...collecting, error: "refused" },
+  ],
+  [
+    "a plan no longer offered closes the form while Stripe's page opens",
+    openingStripe,
+    planUnavailable(1),
+    { kind: "idle", error: "plan unavailable" },
+  ],
+  [
+    "opening Stripe's page tears down",
+    openingStripe,
+    teardown,
+    IDLE_DIRECT_CHECKOUT,
+  ],
 ])("%s", (_name, state, event, next) => {
   expect(transitionDirectCheckout(state, event)).toEqual(next as never);
 });
@@ -217,6 +265,9 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       planChanged(1, team),
       planUnavailable(1),
       confirmed(1),
+      openStripe,
+      stripeOpened(1),
+      stripeRefused(1),
       teardown,
     ],
   ],
@@ -235,6 +286,8 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       planChanged(1, team),
       planUnavailable(1),
       confirmed(1),
+      openStripe,
+      stripeOpened(1),
     ],
   ],
   [
@@ -253,9 +306,11 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       confirmFailed(1),
       planUnavailable(2),
       confirmed(1),
+      stripeOpened(1),
+      stripeRefused(1),
     ],
   ],
-  [loadingForm, [confirm, formReady(2), loadFailed(2)]],
+  [loadingForm, [confirm, openStripe, formReady(2), loadFailed(2)]],
   [
     confirming,
     [
@@ -267,9 +322,30 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       startFailed(1),
       planChanged(1, team),
       confirm,
+      openStripe,
       confirmFailed(2),
       planUnavailable(2),
       confirmed(2),
+      stripeOpened(1),
+      stripeRefused(1),
+    ],
+  ],
+  [
+    openingStripe,
+    [
+      begin,
+      email(2),
+      mounted(1),
+      formReady(1),
+      loadFailed(1),
+      planChanged(1, team),
+      confirm,
+      openStripe,
+      confirmFailed(1),
+      confirmed(1),
+      planUnavailable(2),
+      stripeOpened(2),
+      stripeRefused(2),
     ],
   ],
 ];

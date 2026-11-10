@@ -1,4 +1,3 @@
-import { mock, spyOn } from "bun:test";
 import { cleanup, type RenderResult, render } from "@testing-library/react";
 import { createRef, type ReactElement } from "react";
 import type { DirectCheckoutState } from "../../src/mini-apps/org-manager/billing/useDirectCheckout";
@@ -7,64 +6,19 @@ import {
   appFeatureFlagStorageKey,
   saveAppFeatureFlag,
 } from "../../src/providers/feature-flags/appFeatureFlags";
-import * as LogProvider from "../../src/providers/logging/LogProvider";
-import * as TearleadsProvider from "../../src/providers/sdk/TearleadsProvider";
 
 /**
  * Fixtures for rendering `BillingDirectCheckout` from a hand-built
- * `DirectCheckoutState`. Every stub registers its restore here; call
- * {@link restoreDirectCheckoutViewStubs} after each test, since bun runs every
- * test file in one process.
+ * `DirectCheckoutState`. Call {@link restoreDirectCheckoutView} after each
+ * test, since bun runs every test file in one process.
  */
-
-const spies: { mockRestore: () => void }[] = [];
 
 const HOSTED_FLAG_KEY = appFeatureFlagStorageKey("stripe-hosted-checkout");
 
-export function restoreDirectCheckoutViewStubs(): void {
+export function restoreDirectCheckoutView(): void {
   cleanup();
   localStorage.removeItem(HOSTED_FLAG_KEY);
   document.documentElement.removeAttribute("data-navigation-mode");
-  while (spies.length > 0) {
-    spies.pop()?.mockRestore();
-  }
-}
-
-/** Stubs the log actions and records every `logError` call. */
-function stubLog(): [string | Error, unknown][] {
-  const logged: [string | Error, unknown][] = [];
-  spies.push(
-    spyOn(LogProvider, "useLog").mockReturnValue({
-      log: () => undefined,
-      logError: (message, cause) => {
-        logged.push([message, cause]);
-      },
-    }),
-  );
-  return logged;
-}
-
-/** The checkout screen renders the hosted link, which reads the SDK facade and the log actions. */
-export function stubTearleads(
-  createStripeCheckoutSession: (
-    priceId: string,
-    returnUrl: string,
-    organizationId?: string,
-  ) => Promise<{
-    url: string | null;
-  } | null> = () => Promise.resolve({ url: null }),
-): [string | Error, unknown][] {
-  spies.push(
-    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
-      organizations: { createStripeCheckoutSession },
-    } as never),
-  );
-  return stubLog();
-}
-
-/** Registers a spy made elsewhere for restoration after the test. */
-export function trackSpy(spy: { mockRestore: () => void }): void {
-  spies.push(spy);
 }
 
 export const OPTION = {
@@ -107,41 +61,9 @@ export function checkoutState(
     billingEmailComplete: false,
     begin: () => undefined,
     changePlan: () => undefined,
-    planUnavailable: () => undefined,
-    handOffToStripe: () => undefined,
+    openStripePage: () => undefined,
     confirm: () => undefined,
     cancel: () => undefined,
     ...overrides,
   };
-}
-
-export function fakeTab() {
-  return {
-    opener: {} as unknown,
-    location: { href: "" },
-    close: mock(() => undefined),
-  };
-}
-
-/**
- * Stubs `globalThis.open` through a configurable property rather than `spyOn`,
- * which tears down the happy-dom window binding and strips `document` /
- * `location` from every later test.
- */
-export function stubOpen(impl: () => unknown): void {
-  const previous = Object.getOwnPropertyDescriptor(globalThis, "open");
-  Object.defineProperty(globalThis, "open", {
-    configurable: true,
-    writable: true,
-    value: impl,
-  });
-  spies.push({
-    mockRestore: () => {
-      if (previous) {
-        Object.defineProperty(globalThis, "open", previous);
-      } else {
-        Reflect.deleteProperty(globalThis, "open");
-      }
-    },
-  });
 }

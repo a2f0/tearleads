@@ -1,210 +1,216 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
-import { fireEvent, waitFor } from "@testing-library/react";
+import { act, waitFor } from "@testing-library/react";
 import {
-  checkoutState,
-  fakeTab,
+  capabilityWith,
+  createCapturingDiagnostics,
   OPTION,
-  renderWithHostedLink,
-  restoreDirectCheckoutViewStubs,
-  stubOpen,
+  renderFlow,
+  restoreDirectCheckoutSpies,
   stubTearleads,
-  trackSpy,
-} from "../../test/helpers/directCheckoutViewKit";
-import { BillingDirectCheckout } from "../mini-apps/org-manager/billing/BillingDirectCheckout";
+} from "../../test/helpers/directCheckoutTestKit";
 import { CHECKOUT_LABELS } from "../mini-apps/org-manager/billing/checkoutCopy";
 
-/** The "Pay on Stripe instead" link under the open form, for its plan. */
+/**
+ * "Pay on Stripe instead": Stripe's hosted page for the plan the open form
+ * shows, run by the checkout's own state so only one way to pay runs at once.
+ */
 
-afterEach(restoreDirectCheckoutViewStubs);
+const restores: (() => void)[] = [];
 
-/** An open form for the default plan, where the hosted link lives. */
-const collecting = checkoutState({ phase: { kind: "collecting" } });
+afterEach(() => {
+  restoreDirectCheckoutSpies();
+  for (const restore of restores.splice(0)) {
+    restore();
+  }
+});
 
-test("the hosted-checkout link opens Stripe's page for the plan the form shows", async () => {
-  const createStripeCheckoutSession = mock(
-    (_priceId: string, _returnUrl: string, _organizationId?: string) =>
-      Promise.resolve({ url: "https://checkout.stripe.com/pay/x" }),
+function fakeTab() {
+  return {
+    opener: {} as unknown,
+    location: { href: "" },
+    close: mock(() => undefined),
+  };
+}
+
+/**
+ * Stubs `globalThis.open` through a configurable property rather than `spyOn`,
+ * which tears down the happy-dom window binding and strips `document` /
+ * `location` from every later test.
+ */
+function stubOpen(impl: () => unknown) {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "open");
+  Object.defineProperty(globalThis, "open", {
+    configurable: true,
+    writable: true,
+    value: impl,
+  });
+  restores.push(() => {
+    if (previous) {
+      Object.defineProperty(globalThis, "open", previous);
+    } else {
+      Reflect.deleteProperty(globalThis, "open");
+    }
+  });
+}
+
+function stubAssign() {
+  const assign = spyOn(globalThis.location, "assign").mockImplementation(
+    () => undefined,
   );
-  stubTearleads(createStripeCheckoutSession);
-  const tab = fakeTab();
-  const openMock = mock(() => tab);
-  stubOpen(openMock);
+  restores.push(() => assign.mockRestore());
+  return assign;
+}
 
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout checkout={collecting} disabled={false} />,
-  );
-  fireEvent.click(view.getByText(CHECKOUT_LABELS.payOnStripe));
-
+/** A flow with the default plan's form open and ready. */
+async function openForm(
+  createStripeCheckoutSession: (
+    priceId: string,
+    returnUrl: string,
+    organizationId?: string,
+  ) => Promise<unknown>,
+) {
+  const organizations = stubTearleads({ createStripeCheckoutSession });
+  const unmount = mock(() => undefined);
+  const { capability, mounted } = capabilityWith({ unmount });
+  const { captured, diagnostics } = createCapturingDiagnostics();
+  const flow = renderFlow(capability, undefined, "org-1", diagnostics);
+  await waitFor(() => expect(flow.result.current.options).toEqual([OPTION]));
+  await act(async () => flow.result.current.begin(OPTION));
   await waitFor(() =>
-    expect(createStripeCheckoutSession).toHaveBeenCalledTimes(1),
+    expect(flow.result.current.phase.kind).toBe("collecting"),
   );
+  return { ...flow, captured, mounted, organizations, unmount };
+}
+
+test("Stripe's page opens for the form's plan in a new tab, and the form closes", async () => {
+  const tab = fakeTab();
+  const openTab = mock(() => tab);
+  stubOpen(openTab);
+  const { organizations, result, unmount } = await openForm(() =>
+    Promise.resolve({ url: "https://checkout.stripe.com/pay/x" }),
+  );
+
+  await act(async () => result.current.openStripePage());
+
+  // Opened synchronously on the click (before the await), so pop-up blockers
+  // allow it, then pointed at the minted URL.
+  expect(openTab).toHaveBeenCalledWith("about:blank", "_blank");
   const [priceId, , organizationId] =
-    createStripeCheckoutSession.mock.calls[0] ?? [];
+    organizations.createStripeCheckoutSession.mock.calls[0] ?? [];
   expect(priceId).toBe(OPTION.priceId);
   expect(organizationId).toBe("org-1");
-  // Opened synchronously on the click (before the await), then pointed at the
-  // minted URL once it resolves.
-  expect(openMock).toHaveBeenCalledWith("about:blank", "_blank");
   await waitFor(() =>
     expect(tab.location.href).toBe("https://checkout.stripe.com/pay/x"),
   );
   // The child's back-reference is severed to prevent reverse tabnabbing.
   expect(tab.opener).toBeNull();
+  expect(result.current.phase.kind).toBe("idle");
+  expect(unmount).toHaveBeenCalledTimes(1);
 });
 
 test("a blocked pop-up falls back to same-tab navigation", async () => {
-  // No tab handle means the pop-up was blocked; navigate the current tab rather
-  // than leave the click dead.
-  const createStripeCheckoutSession = mock(() =>
+  stubOpen(() => null);
+  const assign = stubAssign();
+  const { result } = await openForm(() =>
     Promise.resolve({ url: "https://checkout.stripe.com/pay/x" }),
   );
-  stubTearleads(createStripeCheckoutSession);
-  stubOpen(() => null);
-  const assign = spyOn(globalThis.location, "assign").mockImplementation(
-    () => undefined,
-  );
-  trackSpy(assign);
 
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout checkout={collecting} disabled={false} />,
-  );
-  fireEvent.click(view.getByText(CHECKOUT_LABELS.payOnStripe));
+  await act(async () => result.current.openStripePage());
 
   await waitFor(() =>
     expect(assign).toHaveBeenCalledWith("https://checkout.stripe.com/pay/x"),
   );
 });
 
-test("a null hosted session closes the tab and leaves the buyer on the page", async () => {
-  // Unconfigured: the blank tab is closed, and the link becomes usable again
-  // rather than stranding the buyer on a spinner.
-  const createStripeCheckoutSession = mock(() =>
+test("while Stripe's page opens, neither Pay nor the plan can change", async () => {
+  stubOpen(() => fakeTab());
+  const minted = Promise.withResolvers<{ url: string | null }>();
+  const { organizations, result } = await openForm(() => minted.promise);
+  const team = { ...OPTION, priceId: "price_team_5", unitAmount: 1000 };
+
+  act(() => {
+    result.current.openStripePage();
+    result.current.openStripePage();
+  });
+  expect(result.current.phase.kind).toBe("opening-stripe");
+  act(() => {
+    result.current.confirm();
+    result.current.changePlan(team);
+  });
+
+  expect(result.current.phase.kind).toBe("opening-stripe");
+  expect(organizations.createStripeCheckoutSession).toHaveBeenCalledTimes(1);
+  expect(organizations.createStripeCheckout).not.toHaveBeenCalled();
+  await act(async () => minted.resolve({ url: null }));
+});
+
+test("an unavailable page returns to the form with a notice", async () => {
+  const tab = fakeTab();
+  stubOpen(() => tab);
+  const { captured, result } = await openForm(() =>
     Promise.resolve({ url: null }),
   );
-  stubTearleads(createStripeCheckoutSession);
-  const tab = fakeTab();
-  stubOpen(() => tab);
-  const assign = spyOn(globalThis.location, "assign").mockImplementation(
-    () => undefined,
-  );
-  trackSpy(assign);
 
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout checkout={collecting} disabled={false} />,
-  );
-  fireEvent.click(view.getByText(CHECKOUT_LABELS.payOnStripe));
+  await act(async () => result.current.openStripePage());
 
-  await waitFor(() =>
-    expect(createStripeCheckoutSession).toHaveBeenCalledTimes(1),
-  );
-  expect(assign).not.toHaveBeenCalled();
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+  expect(result.current.error).toBe(CHECKOUT_LABELS.payOnStripeUnavailable);
   expect(tab.close).toHaveBeenCalledTimes(1);
-  expect(
-    view.getByText(CHECKOUT_LABELS.payOnStripe).closest("button")?.disabled,
-  ).toBe(false);
-  // A null result surfaces a notice rather than a silent dead click.
-  await waitFor(() =>
-    expect(
-      view.getByText(CHECKOUT_LABELS.payOnStripeUnavailable),
-    ).toBeDefined(),
-  );
+  expect(captured).toEqual([]);
 });
 
-test("a refused hosted session closes the tab and surfaces the notice", async () => {
-  // A rejected mint must not strand the blank tab; it is closed and the notice
-  // shown, mirroring the null-result path.
+test("a refused page returns to the form, and the failure is reported", async () => {
+  const tab = fakeTab();
+  stubOpen(() => tab);
   const failure = new Error("boom");
-  const createStripeCheckoutSession = mock(() => Promise.reject(failure));
-  const logged = stubTearleads(createStripeCheckoutSession);
-  const tab = fakeTab();
-  stubOpen(() => tab);
+  const { captured, result } = await openForm(() => Promise.reject(failure));
 
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout checkout={collecting} disabled={false} />,
-  );
-  fireEvent.click(view.getByText(CHECKOUT_LABELS.payOnStripe));
+  await act(async () => result.current.openStripePage());
 
-  await waitFor(() => expect(tab.close).toHaveBeenCalledTimes(1));
-  await waitFor(() =>
-    expect(
-      view.getByText(CHECKOUT_LABELS.payOnStripeUnavailable),
-    ).toBeDefined(),
-  );
-  // The original Error reaches diagnostics, not just the notice.
-  expect(logged).toEqual([
-    ["Failed to open the hosted Stripe checkout", failure],
-  ]);
-});
-
-test("the hosted-checkout link is not offered before a plan is chosen", () => {
-  stubTearleads();
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout checkout={checkoutState({})} disabled={false} />,
-  );
-  expect(view.queryByText(CHECKOUT_LABELS.payOnStripe)).toBeNull();
-});
-
-test("a hosted session for a plan no longer offered closes the form quietly", async () => {
-  const refusal = Object.assign(new Error("plan unavailable"), {
-    code: "billing_checkout_plan_unavailable",
-  });
-  const logged = stubTearleads(() => Promise.reject(refusal));
-  const tab = fakeTab();
-  stubOpen(() => tab);
-  const planUnavailable = mock(() => undefined);
-
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout
-      checkout={checkoutState({
-        phase: { kind: "collecting" },
-        planUnavailable,
-      })}
-      disabled={false}
-    />,
-  );
-  fireEvent.click(view.getByText(CHECKOUT_LABELS.payOnStripe));
-
-  await waitFor(() => expect(planUnavailable).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+  expect(result.current.error).toBe(CHECKOUT_LABELS.payOnStripeUnavailable);
   expect(tab.close).toHaveBeenCalledTimes(1);
-  // Expected, so neither the notice nor diagnostics hear about it.
-  expect(view.queryByText(CHECKOUT_LABELS.payOnStripeUnavailable)).toBeNull();
-  expect(logged).toEqual([]);
+  expect(captured).toEqual([failure]);
 });
 
-test("Stripe's page is not offered while an inline payment is running", () => {
-  stubTearleads();
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout
-      checkout={checkoutState({ phase: { kind: "confirming" } })}
-      disabled={false}
-    />,
+test("a plan no longer offered closes the form quietly and reloads the plans", async () => {
+  const tab = fakeTab();
+  stubOpen(() => tab);
+  const { captured, organizations, result } = await openForm(() =>
+    Promise.reject(
+      Object.assign(new Error("plan unavailable"), {
+        code: "billing_checkout_plan_unavailable",
+      }),
+    ),
   );
-  expect(
-    view.getByText(CHECKOUT_LABELS.payOnStripe).closest("button")?.disabled,
-  ).toBe(true);
+
+  await act(async () => result.current.openStripePage());
+
+  await waitFor(() => expect(result.current.phase.kind).toBe("idle"));
+  expect(result.current.error).toBe(CHECKOUT_LABELS.planUnavailable);
+  expect(tab.close).toHaveBeenCalledTimes(1);
+  await waitFor(() =>
+    expect(organizations.loadStripeCheckoutOptions).toHaveBeenCalledTimes(2),
+  );
+  expect(captured).toEqual([]);
 });
 
-test("Pay waits while Stripe's page opens, and the form hands off to it", async () => {
+test("a late answer for a cancelled form neither navigates nor closes its replacement", async () => {
+  stubOpen(() => null);
+  const assign = stubAssign();
   const minted = Promise.withResolvers<{ url: string | null }>();
-  stubTearleads(() => minted.promise);
-  stubOpen(() => fakeTab());
-  const handOffToStripe = mock(() => undefined);
-  const view = renderWithHostedLink(
-    <BillingDirectCheckout
-      checkout={checkoutState({
-        billingEmailComplete: true,
-        handOffToStripe,
-        phase: { kind: "collecting" },
-      })}
-      disabled={false}
-    />,
+  const { mounted, result } = await openForm(() => minted.promise);
+
+  act(() => result.current.openStripePage());
+  act(() => result.current.cancel());
+  await act(async () => result.current.begin(OPTION));
+  await waitFor(() => expect(mounted).toHaveLength(2));
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+
+  await act(async () =>
+    minted.resolve({ url: "https://checkout.stripe.com/pay/x" }),
   );
-  const pay = () => view.getByText(CHECKOUT_LABELS.pay).closest("button");
-  expect(pay()?.disabled).toBe(false);
 
-  fireEvent.click(view.getByText(CHECKOUT_LABELS.payOnStripe));
-
-  expect(pay()?.disabled).toBe(true);
-  minted.resolve({ url: "https://checkout.stripe.com/pay/x" });
-  await waitFor(() => expect(handOffToStripe).toHaveBeenCalledTimes(1));
+  expect(assign).not.toHaveBeenCalled();
+  expect(result.current.phase.kind).toBe("collecting");
 });

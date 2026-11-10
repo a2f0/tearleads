@@ -227,31 +227,83 @@ function closeUnavailablePlan(
   }
 }
 
+/** Points the blank tab at Stripe's page, or this tab when it was blocked. */
+function navigateToStripe(tab: Window | null | undefined, url: string): void {
+  if (tab) {
+    // Sever the child's back-reference before it navigates cross-origin, so
+    // the Stripe page cannot reach into this window (reverse tabnabbing); the
+    // blank tab is still same-origin here.
+    tab.opener = null;
+    tab.location.href = url;
+  } else {
+    // The pop-up was blocked: fall back to same-tab navigation rather than
+    // leaving the click dead.
+    globalThis.location?.assign(url);
+  }
+}
+
 /**
- * Callbacks for work that outlives a click (Stripe's hosted page), bound to
- * the form open when they were made: once that form is gone they do nothing,
- * so a late answer cannot close the form that replaced it.
+ * Pay on Stripe's hosted page instead, for the form's plan. The tab is opened
+ * SYNCHRONOUSLY on the click — before the `await` — because a `window.open`
+ * issued after an await is treated as programmatic and blocked by pop-up
+ * blockers; the blank tab holds the user gesture and is pointed at the minted
+ * URL once it resolves.
+ *
+ * The machine runs one way to pay at a time, and every answer names its
+ * attempt: only the form that asked navigates (this tab included, when the
+ * pop-up was blocked) and closes, so a late answer for a cancelled or
+ * replaced form changes nothing. A refusal returns to the form with a notice;
+ * a plan no longer offered closes it and reloads the plans, as at Pay.
  */
-export function useOpenFormActions(
+export function useOpenStripePage(
   machine: CheckoutMachine,
-  attempt: number | null,
-  reloadOptions: () => void,
-): {
-  readonly handOffToStripe: () => void;
-  readonly planUnavailable: () => void;
-} {
-  const planUnavailable = useCallback(() => {
-    if (attempt !== null) {
-      closeUnavailablePlan(machine, attempt, reloadOptions);
+  deps: ConfirmCheckoutDeps,
+): () => void {
+  return useCallback(() => {
+    const opening = machine.send({ type: "open-stripe" });
+    if (opening?.kind !== "opening-stripe") {
+      return;
     }
-  }, [attempt, machine, reloadOptions]);
-  const handOffToStripe = useCallback(() => {
-    const current = machine.current();
-    if (current.kind !== "idle" && current.attempt === attempt) {
-      machine.send({ type: "teardown" });
-    }
-  }, [attempt, machine]);
-  return { handOffToStripe, planUnavailable };
+    const { attempt, plan } = opening;
+    const tab = globalThis.open?.("about:blank", "_blank");
+    const refuse = () => {
+      tab?.close();
+      machine.send({
+        type: "stripe-refused",
+        attempt,
+        error: CHECKOUT_LABELS.payOnStripeUnavailable,
+      });
+    };
+    void (async () => {
+      try {
+        const session =
+          await deps.tearleads.organizations.createStripeCheckoutSession(
+            plan.priceId,
+            globalThis.location?.href ?? "",
+            deps.organizationId,
+          );
+        // Unconfigured, or no organization signed in.
+        if (!session?.url) {
+          refuse();
+          return;
+        }
+        if (!machine.send({ type: "stripe-opened", attempt })) {
+          tab?.close();
+          return;
+        }
+        navigateToStripe(tab, session.url);
+      } catch (error) {
+        if (isCheckoutPlanUnavailable(error)) {
+          tab?.close();
+          closeUnavailablePlan(machine, attempt, deps.reloadOptions);
+          return;
+        }
+        // Not eligible, a checkout already in progress, or a failure.
+        deps.logError("Failed to open the hosted Stripe checkout", error);
+        refuse();
+      }
+    })();
+  }, [deps, machine]);
 }
 
 /** Settles a Pay that threw: the server refused it, or the provider failed. */

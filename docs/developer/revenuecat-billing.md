@@ -221,10 +221,10 @@ mirroring the resulting entitlement lifecycle:
   roster needs; both inline and hosted checkout send the chosen Price with
   subscription-item quantity `1`. Stripe does not check the inline form's
   amount against the PaymentIntent, so checkout starts only a configured
-  plan's Price, and only while it covers the roster counted inside the
-  reservation; otherwise it returns 409 `billing_checkout_plan_unavailable`
-  before calling Stripe and reserves nothing, and the client reloads the
-  options.
+  plan whose Stripe Price is still active, and only while it covers the
+  roster counted inside the reservation; otherwise it returns 409
+  `billing_checkout_plan_unavailable` before reserving anything, and the
+  client reloads the options.
 - Inline and hosted checkout share one durable, organization-scoped unpaid
   attempt, capturing buyer, mode, and the chosen plan's capacity before Stripe
   is called. Identical retries reuse its idempotency token; another buyer or

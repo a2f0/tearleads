@@ -1,11 +1,10 @@
-import { afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 import { fireEvent, render } from "@testing-library/react";
 import {
   OPTION,
   renderWithHostedLink,
-  restoreDirectCheckoutViewStubs,
+  restoreDirectCheckoutView,
   checkoutState as state,
-  stubTearleads,
   TEAM,
 } from "../../../../test/helpers/directCheckoutViewKit";
 import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
@@ -14,14 +13,66 @@ import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingDirectCheckout } from "./BillingDirectCheckout";
 import { CHECKOUT_LABELS } from "./checkoutCopy";
 
-// The open form's footer reads the SDK facade and the log actions.
-beforeEach(() => {
-  stubTearleads();
-});
-afterEach(restoreDirectCheckoutViewStubs);
+afterEach(restoreDirectCheckoutView);
 
 /** An open form for the default plan. */
 const collecting = state({ phase: { kind: "collecting" } });
+
+test("Stripe's page is offered only while the form is collecting", () => {
+  const openStripePage = mock(() => undefined);
+  const view = renderWithHostedLink(
+    <BillingDirectCheckout
+      checkout={state({ phase: { kind: "collecting" }, openStripePage })}
+      disabled={false}
+    />,
+  );
+  fireEvent.click(view.getByText(CHECKOUT_LABELS.payOnStripe));
+  expect(openStripePage).toHaveBeenCalledTimes(1);
+
+  view.rerender(
+    <AppFeatureFlagsProvider>
+      <BillingDirectCheckout
+        checkout={state({ phase: { kind: "confirming" } })}
+        disabled={false}
+      />
+    </AppFeatureFlagsProvider>,
+  );
+  expect(
+    view.getByText(CHECKOUT_LABELS.payOnStripe).closest("button")?.disabled,
+  ).toBe(true);
+});
+
+test("while Stripe's page opens, Pay and the plan picker wait", () => {
+  const view = renderWithHostedLink(
+    <BillingDirectCheckout
+      checkout={state({
+        billingEmailComplete: true,
+        options: [OPTION, TEAM],
+        phase: { kind: "opening-stripe" },
+      })}
+      disabled={false}
+    />,
+  );
+  expect(
+    view.getByText(CHECKOUT_LABELS.payOnStripeStarting).closest("button")
+      ?.disabled,
+  ).toBe(true);
+  expect(view.getByText(CHECKOUT_LABELS.pay).closest("button")?.disabled).toBe(
+    true,
+  );
+  expect(
+    view
+      .getByRole("combobox", { name: CHECKOUT_LABELS.plan })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+});
+
+test("the hosted-checkout link is not offered before a plan is chosen", () => {
+  const view = renderWithHostedLink(
+    <BillingDirectCheckout checkout={state({})} disabled={false} />,
+  );
+  expect(view.queryByText(CHECKOUT_LABELS.payOnStripe)).toBeNull();
+});
 
 /**
  * The minor-unit conversion is the one piece of real logic in the component:

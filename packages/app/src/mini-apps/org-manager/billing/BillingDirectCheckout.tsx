@@ -21,7 +21,6 @@ import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPurchaseOption } from "./BillingPlanSwitcher";
 import { CHECKOUT_LABELS } from "./checkoutCopy";
 import type { DirectCheckoutState } from "./useDirectCheckout";
-import { type HostedCheckout, useHostedCheckout } from "./useHostedCheckout";
 import "./BillingCheckout.css";
 
 /**
@@ -42,30 +41,28 @@ function priceLabelOf(option: StripeSyncOptionResponse): string {
 
 /**
  * The hosted-page escape hatch, for buyers who prefer not to type their card
- * into our inline form: Stripe's page for the plan the form shows.
+ * into our inline form: Stripe's page for the plan the form shows. Offered
+ * only while the form is collecting; Pay waits while it opens.
  */
 function HostedCheckoutLink({
+  checkout,
   disabled,
-  hosted,
 }: {
+  readonly checkout: DirectCheckoutState;
   readonly disabled: boolean;
-  readonly hosted: HostedCheckout;
 }) {
+  const opening = checkout.phase.kind === "opening-stripe";
   return (
-    <>
-      <MiniAppActions>
-        <MiniAppButton disabled={disabled || hosted.busy} onClick={hosted.open}>
-          {hosted.busy
-            ? CHECKOUT_LABELS.payOnStripeStarting
-            : CHECKOUT_LABELS.payOnStripe}
-        </MiniAppButton>
-      </MiniAppActions>
-      {hosted.unavailable ? (
-        <MiniAppStatus className="org-manager-hint">
-          {CHECKOUT_LABELS.payOnStripeUnavailable}
-        </MiniAppStatus>
-      ) : null}
-    </>
+    <MiniAppActions>
+      <MiniAppButton
+        disabled={disabled || checkout.phase.kind !== "collecting"}
+        onClick={checkout.openStripePage}
+      >
+        {opening
+          ? CHECKOUT_LABELS.payOnStripeStarting
+          : CHECKOUT_LABELS.payOnStripe}
+      </MiniAppButton>
+    </MiniAppActions>
   );
 }
 
@@ -223,43 +220,28 @@ function CheckoutIdleOffer({
 
 /**
  * Under the form: the email hint, Cancel and Pay, and Stripe's own page for
- * the same plan. Both ways to pay share one state so only one can run: Stripe's
- * page is offered only while the form is collecting, Pay waits while that page
- * is being opened, and the form closes once the buyer is on Stripe's page.
+ * the same plan. The checkout runs one way to pay at a time, so each control
+ * here waits while the other is running.
  */
 function CheckoutScreenFooter({
   checkout,
   disabled,
-  plan,
 }: {
   readonly checkout: DirectCheckoutState;
   readonly disabled: boolean;
-  readonly plan: StripeSyncOptionResponse;
 }) {
   const { isEnabled } = useAppFeatureFlags();
-  const hosted = useHostedCheckout({
-    onOpened: checkout.handOffToStripe,
-    onPlanUnavailable: checkout.planUnavailable,
-    organizationId: checkout.organizationId,
-    priceId: plan.priceId,
-  });
   return (
     <>
       {/* Stripe's form above asks for the email; this says why. */}
       <MiniAppStatus className="org-manager-hint">
         {CHECKOUT_LABELS.emailHint}
       </MiniAppStatus>
-      <CheckoutScreenActions
-        checkout={checkout}
-        disabled={disabled || hosted.busy}
-      />
+      <CheckoutScreenActions checkout={checkout} disabled={disabled} />
       {/* Stripe's own page for the same plan; behind a feature flag (off by
           default) while the inline form is the only advertised path. */}
       {isEnabled("stripe-hosted-checkout") ? (
-        <HostedCheckoutLink
-          disabled={disabled || checkout.phase.kind !== "collecting"}
-          hosted={hosted}
-        />
+        <HostedCheckoutLink checkout={checkout} disabled={disabled} />
       ) : null}
     </>
   );
@@ -300,11 +282,7 @@ function CheckoutScreen({
         hidden={idle}
       />
       {plan ? (
-        <CheckoutScreenFooter
-          checkout={checkout}
-          disabled={disabled}
-          plan={plan}
-        />
+        <CheckoutScreenFooter checkout={checkout} disabled={disabled} />
       ) : null}
     </div>
   );

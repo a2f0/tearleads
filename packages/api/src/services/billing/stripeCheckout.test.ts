@@ -34,6 +34,7 @@ test("the hosted checkout session returns the Stripe page URL", async () => {
         env: STRIPE_ENV,
         fetchImpl: respondingFetch(
           [
+            { body: STRIPE_SOLO_PRICE }, // the plan is still offered
             { body: { data: [], has_more: false } }, // no Stripe duplicate
             { body: { data: [] } }, // no existing customer
             { body: { id: "cus_new" } }, // customer create
@@ -69,6 +70,7 @@ test("the hosted checkout 409s when Stripe already holds a live subscription", a
           env: STRIPE_ENV,
           fetchImpl: respondingFetch(
             [
+              { body: STRIPE_SOLO_PRICE }, // the plan is still offered
               {
                 body: {
                   data: [
@@ -89,7 +91,10 @@ test("the hosted checkout 409s when Stripe already holds a live subscription", a
         revenueCat: { env: REVENUECAT_ENV },
       },
     ),
-  ).rejects.toMatchObject({ status: 409 });
+  ).rejects.toMatchObject({
+    message: "The organization already has an active subscription",
+    status: 409,
+  });
   expect(urls.some((u) => u.includes("/v1/checkout/sessions"))).toBe(false);
 });
 
@@ -132,6 +137,7 @@ test("a Stripe-side live subscription makes checkout a 409", async () => {
     REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp",
   };
   const responses = [
+    STRIPE_SOLO_PRICE, // the plan is still offered
     { data: [{ id: "cus_1" }] },
     // The buyer's own subscriptions: nothing from another attempt to void.
     { data: [], has_more: false },
@@ -154,5 +160,8 @@ test("a Stripe-side live subscription makes checkout a 409", async () => {
         revenueCat: { env: fullEnv },
       },
     ),
-  ).rejects.toMatchObject({ status: 409 });
+  ).rejects.toMatchObject({
+    message: "The organization already has an active subscription",
+    status: 409,
+  });
 });

@@ -131,6 +131,44 @@ test("a Pay for a plan that is no longer offered reserves nothing", async () => 
   expect(creates).toHaveLength(1);
 });
 
+test("a Pay for a Price Stripe no longer offers reserves nothing", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
+  const creates: Request[] = [];
+  const offered = checkoutFetch(creates);
+  // Team 5 is still configured here, but its Price was archived in Stripe.
+  const archivedTeam = (async (input: RequestInfo | URL, init?: RequestInit) =>
+    new URL(String(input)).pathname.endsWith("/prices/price_team_5")
+      ? Response.json({
+          active: false,
+          currency: "usd",
+          id: "price_team_5",
+          product: { active: true, id: "prod_team_5" },
+          recurring: { interval: "month", interval_count: 1 },
+          unit_amount: 1_000,
+        })
+      : offered(input, init)) as typeof fetch;
+
+  await expect(
+    createStripeCheckout(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+      "price_team_5",
+      deps(archivedTeam),
+    ),
+  ).rejects.toMatchObject({
+    code: "billing_checkout_plan_unavailable",
+    status: 409,
+  });
+  const [billing] = await db
+    .select({ attemptId: organizationBilling.checkoutAttemptId })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(billing?.attemptId).toBeNull();
+  expect(creates).toHaveLength(0);
+});
+
 test("hosted retries reuse a provider key and expired attempts rotate it", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticateWithOrganization(admin);

@@ -62,12 +62,12 @@ export async function createStripeCheckout(
   priceId: string,
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<StripeCheckoutIntent | null> {
+  await runRequireCheckoutEligibleWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+  );
   if (!isDirectCheckoutFullyConfigured(deps)) {
-    await runRequireCheckoutEligibleWorkflow(
-      runtime.db,
-      organizationId,
-      sessionUserId,
-    );
     return null;
   }
   const stripe = deps.stripe ?? {};
@@ -76,7 +76,7 @@ export async function createStripeCheckout(
     organizationId,
     sessionUserId,
     "inline",
-    { plan: requireOfferedPlan(priceId, stripe) },
+    { plan: await requireOfferedPlan(priceId, stripe) },
   );
   const customerId = await findOrCreateCustomer(
     { userId: sessionUserId, organizationId },
@@ -140,12 +140,12 @@ export async function createStripeCheckoutSession(
   request: { readonly priceId: string; readonly returnUrl: string },
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<string | null> {
+  await runRequireCheckoutEligibleWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+  );
   if (!isDirectCheckoutFullyConfigured(deps)) {
-    await runRequireCheckoutEligibleWorkflow(
-      runtime.db,
-      organizationId,
-      sessionUserId,
-    );
     return null;
   }
   const attempt = await runAcquireStripeCheckoutAttemptWorkflow(
@@ -153,7 +153,7 @@ export async function createStripeCheckoutSession(
     organizationId,
     sessionUserId,
     "hosted",
-    { plan: requireOfferedPlan(request.priceId, deps.stripe ?? {}) },
+    { plan: await requireOfferedPlan(request.priceId, deps.stripe ?? {}) },
   );
   // Stripe-side duplicate guard, mirroring the inline flow. The local billing
   // status the eligibility workflow reads can lag Stripe (e.g. a webhook

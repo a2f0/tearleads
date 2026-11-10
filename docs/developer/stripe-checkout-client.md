@@ -38,8 +38,9 @@ Stripe, RevenueCat, and the
 [Tearleads webhook](revenuecat-billing.md#direct-stripe-checkout-server-side).
 
 Stripe does not check the form's amount against the PaymentIntent it
-confirms, so the server starts only a configured plan's Price, and only while
-that plan covers the roster. If the roster has outgrown the chosen plan since
+confirms, so the server starts only a configured plan whose Stripe Price is
+still offered, and only while that plan covers the roster. If the roster has
+outgrown the chosen plan since
 the plans loaded, or its Price was retired, Pay gets a 409
 `billing_checkout_plan_unavailable`: nothing is charged, the form closes, and
 the panel reloads the plans, offering none until they arrive. Switching plans
@@ -66,12 +67,15 @@ feature flag) sits under the open form and creates a hosted Checkout Session
 for the plan the form shows, opening it in a new tab, with same-tab navigation
 when a popup is blocked. It uses the same admin gate, plan check against the
 authoritative [Members](../glossary/principals.md#organization-members-group)
-count, customer, metadata, and `invoice.paid` association path. Only one way
-to pay runs at a time: the link is offered only while the form is collecting,
-Pay waits while Stripe's page is opening, and the form closes once the buyer
-is on Stripe's page. A plan the server no longer offers closes the form and
-reloads the plans, as at Pay. Both callbacks are bound to the form that
-started the request, so a late answer cannot close a form opened after it.
+count, customer, metadata, and `invoice.paid` association path. The checkout
+state runs one way to pay at a time: Stripe's page can be opened only while
+the form is collecting, while it opens Pay and the plan picker wait, and the
+form closes once the buyer is on Stripe's page. Every answer names the form
+that asked: only that form navigates (this tab included, when a pop-up
+blocker forces same-tab navigation) and closes, so a late answer for a
+cancelled or replaced form changes nothing. A refusal returns to the form
+with a notice; a plan the server no longer offers closes the form and
+reloads the plans, as at Pay.
 Return URLs share the portal route's origin validation.
 
 ## Subscription management
