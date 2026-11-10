@@ -101,10 +101,8 @@ test("tombstone apply runs in a fixed number of statements", async () => {
         })),
       ),
     );
-    // BEGIN, the intent and epoch reads, the placement, unlinked-row, and hold
-    // deletes, the local id, link, and projection reads, one projection update
-    // per repointed row, the summary read, COMMIT (was 5 + 7N = 61 at N = 8).
-    expect(count).toBe(11 + tombstoned.length);
+    // One set update replaces the per-projection writes (was 11 + N).
+    expect(count).toBe(12);
   } finally {
     f.close();
   }

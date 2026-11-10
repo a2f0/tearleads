@@ -152,20 +152,11 @@ export async function writeVerifiedManifestBundlesInTransaction(
   verifiedAt: string,
 ): Promise<void> {
   if (rows.length === 0) return;
-  const stored = await storedDigests(
+  const stored = await touchStoredDigests(
     tx,
     rows.map((row) => row.manifestHash),
+    verifiedAt,
   );
-  // An identical stored row only needs its recency refreshed.
-  const unchanged = rows.filter(
-    (row) => stored.get(row.manifestHash) === row.bundleDigest,
-  );
-  for (const batch of batches(unchanged.map((row) => row.manifestHash)))
-    await tx
-      .update(bundles)
-      .set({ verifiedAt })
-      .where(inArray(bundles.manifestHash, batch))
-      .run();
   // A repeated hash keeps its last changed row, as sequential upserts would.
   const changed = new Map(
     rows
@@ -189,8 +180,12 @@ export async function writeVerifiedManifestBundlesInTransaction(
         },
       })
       .run();
-  await dropSupersededKekLevels(tx, rows);
-  await pruneInTransaction(tx);
+  // An unchanged level already removed its superseded siblings when written.
+  await dropSupersededKekLevels(tx, [...changed.values()]);
+  // Replacing or touching existing rows cannot grow the bounded cache.
+  if (rows.some((row) => !stored.has(row.manifestHash))) {
+    await pruneInTransaction(tx);
+  }
 }
 
 /**
@@ -221,19 +216,21 @@ async function dropSupersededKekLevels(
       .run();
 }
 
-async function storedDigests(
+async function touchStoredDigests(
   tx: ClientSQLiteTransactionScope,
   manifestHashes: readonly string[],
+  verifiedAt: string,
 ): Promise<Map<string, string>> {
   const digests = new Map<string, string>();
   for (const batch of batches(manifestHashes)) {
     const rows = await tx
-      .select({
+      .update(bundles)
+      .set({ verifiedAt })
+      .where(inArray(bundles.manifestHash, batch))
+      .returning({
         bundleDigest: bundles.bundleDigest,
         manifestHash: bundles.manifestHash,
-      })
-      .from(bundles)
-      .where(inArray(bundles.manifestHash, batch));
+      });
     for (const row of rows) digests.set(row.manifestHash, row.bundleDigest);
   }
   return digests;

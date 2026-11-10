@@ -12,12 +12,14 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import { assertContainerNotRetired } from "../principalKeys/principalGrantRetirementPersistence";
+import { loadContainerRetirementCheck } from "../principalKeys/principalGrantRetirementPersistence";
 import {
   accessManifestObjectKey,
-  loadStoredAccessManifestCheckpoint,
-  loadStoredPrincipalPolicyCheckpoint,
-  upsertAccessManifestCheckpointInTransaction,
+  loadAccessManifestCheckpointRows,
+  loadPrincipalPolicyCheckpointRows,
+  principalPolicyKey,
+  storedPrincipalPolicyPin,
+  upsertAccessManifestCheckpointsInTransaction,
 } from "./keyingCheckpointPersistence";
 
 export interface LocallyAcknowledgedAccessManifestHead {
@@ -65,10 +67,15 @@ function validateAcknowledgedHead(
 async function validateAcknowledgedHeads(
   tx: ClientSQLiteTransactionScope,
   heads: readonly LocallyAcknowledgedAccessManifestHead[],
+  stored: Awaited<ReturnType<typeof loadAccessManifestCheckpointRows>>,
 ): Promise<Map<string, AccessManifestCheckpoint>> {
   const pending = new Map<string, AccessManifestCheckpoint>();
+  const assertNotRetired = await loadContainerRetirementCheck(
+    tx,
+    heads.map((head) => head.checkpoint),
+  );
   for (const head of heads) {
-    await assertContainerNotRetired(tx, head.checkpoint);
+    assertNotRetired(head.checkpoint);
     const key = accessManifestObjectKey(head.checkpoint);
     if (pending.has(key)) {
       throw new KeyingVerificationError(
@@ -76,27 +83,11 @@ async function validateAcknowledgedHeads(
         `locally acknowledged batch contains multiple heads for ${key}`,
       );
     }
-    validateAcknowledgedHead(
-      head,
-      await loadStoredAccessManifestCheckpoint(tx, head.checkpoint),
-    );
+    const row = stored.get(key);
+    validateAcknowledgedHead(head, row ? { ...head.checkpoint, ...row } : null);
     pending.set(key, head.checkpoint);
   }
   return pending;
-}
-
-async function writeAcknowledgedHeads(
-  tx: ClientSQLiteTransactionScope,
-  pending: ReadonlyMap<string, AccessManifestCheckpoint>,
-  updatedAt: string,
-): Promise<void> {
-  for (const checkpoint of pending.values()) {
-    await upsertAccessManifestCheckpointInTransaction(
-      tx,
-      checkpoint,
-      updatedAt,
-    );
-  }
 }
 
 /**
@@ -116,9 +107,15 @@ export async function advanceLocallyAcknowledgedAccessManifestHeadsAtomically(in
   await ensureSqlTables(input.execSql, keyingCheckpointTables);
   const updatedAt = new Date().toISOString();
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
+  const expectedAccess = input.expectedAccessManifestCheckpoints ?? [];
+  const expectedPolicies = input.expectedPrincipalPolicyCheckpoints ?? [];
   const acknowledge = async (tx: ClientSQLiteTransactionScope) => {
-    for (const expected of input.expectedAccessManifestCheckpoints ?? []) {
-      const current = await loadStoredAccessManifestCheckpoint(tx, expected);
+    const stored = await loadAccessManifestCheckpointRows(tx, [
+      ...input.heads.map((head) => head.checkpoint),
+      ...expectedAccess,
+    ]);
+    for (const expected of expectedAccess) {
+      const current = stored.get(accessManifestObjectKey(expected));
       if (
         current?.epoch !== expected.epoch ||
         current.manifestHash !== expected.manifestHash
@@ -129,8 +126,14 @@ export async function advanceLocallyAcknowledgedAccessManifestHeadsAtomically(in
         );
       }
     }
-    for (const expected of input.expectedPrincipalPolicyCheckpoints ?? []) {
-      const current = await loadStoredPrincipalPolicyCheckpoint(tx, expected);
+    const policies = await loadPrincipalPolicyCheckpointRows(
+      tx,
+      expectedPolicies,
+    );
+    for (const expected of expectedPolicies) {
+      const current = storedPrincipalPolicyPin(
+        policies.get(principalPolicyKey(expected)),
+      );
       if (
         current?.version !== expected.version ||
         current.stateHash !== expected.stateHash
@@ -141,8 +144,12 @@ export async function advanceLocallyAcknowledgedAccessManifestHeadsAtomically(in
         );
       }
     }
-    const pending = await validateAcknowledgedHeads(tx, input.heads);
-    await writeAcknowledgedHeads(tx, pending, updatedAt);
+    const pending = await validateAcknowledgedHeads(tx, input.heads, stored);
+    await upsertAccessManifestCheckpointsInTransaction(
+      tx,
+      [...pending.values()],
+      updatedAt,
+    );
   };
   if (input.stillCurrent) {
     return (

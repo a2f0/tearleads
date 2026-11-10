@@ -13,9 +13,10 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import {
-  loadStoredPrincipalPolicyCheckpoint,
+  loadPrincipalPolicyCheckpointRows,
   principalPolicyKey,
-  upsertPrincipalPolicyCheckpointInTransaction,
+  storedPrincipalPolicyPin,
+  upsertPrincipalPolicyCheckpointsInTransaction,
 } from "../keyingCheckpoints/keyingCheckpointPersistence";
 import {
   type AcknowledgedPrincipalGrantRetirements,
@@ -92,10 +93,17 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
   ]);
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   const store = async (tx: ClientSQLiteTransactionScope) => {
+    const stored = await loadPrincipalPolicyCheckpointRows(
+      tx,
+      input.entries.map(({ policy }) => policy),
+    );
     for (const { policy } of input.entries) {
+      const pin = storedPrincipalPolicyPin(
+        stored.get(principalPolicyKey(policy)),
+      );
       validateAcknowledgedPolicy(
         policy,
-        await loadStoredPrincipalPolicyCheckpoint(tx, policy),
+        pin ? { ...policy.checkpoint, ...pin } : null,
       );
     }
     if (input.retiredContainers)
@@ -122,14 +130,12 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
         );
       }
     }
-    for (const { policy } of input.entries) {
-      await upsertPrincipalPolicyCheckpointInTransaction(
-        tx,
-        policy.checkpoint,
-        input.updatedAt,
-        input.organizationId,
-      );
-    }
+    await upsertPrincipalPolicyCheckpointsInTransaction(
+      tx,
+      input.entries.map(({ policy }) => policy.checkpoint),
+      input.updatedAt,
+      input.organizationId,
+    );
   };
   if (input.stillCurrent) {
     await runtime.guardedTransaction(store, input.stillCurrent, {

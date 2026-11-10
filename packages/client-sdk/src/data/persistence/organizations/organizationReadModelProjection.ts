@@ -333,6 +333,7 @@ export async function loadOrganizationReadModelProjectionInTransaction(input: {
   const [state] = await input.tx
     .select({
       cursor: organizationReadModelState.cursor,
+      requesterIsOrgAdmin: organizationReadModelRequesters.isOrgAdmin,
       memberGroupId: organizationReadModelState.memberGroupId,
       organizationKeyEpoch: organizationReadModelState.organizationKeyEpoch,
       organizationKeyFingerprint:
@@ -346,24 +347,21 @@ export async function loadOrganizationReadModelProjectionInTransaction(input: {
       updatedAt: organizationReadModelState.updatedAt,
     })
     .from(organizationReadModelState)
+    .leftJoin(
+      organizationReadModelRequesters,
+      and(
+        eq(
+          organizationReadModelRequesters.organizationId,
+          organizationReadModelState.organizationId,
+        ),
+        eq(organizationReadModelRequesters.userId, input.currentUserId),
+      ),
+    )
     .where(eq(organizationReadModelState.organizationId, input.organizationId))
     .limit(1);
   if (!state) {
     return null;
   }
-  const [requester] = await input.tx
-    .select({ isOrgAdmin: organizationReadModelRequesters.isOrgAdmin })
-    .from(organizationReadModelRequesters)
-    .where(
-      and(
-        eq(
-          organizationReadModelRequesters.organizationId,
-          input.organizationId,
-        ),
-        eq(organizationReadModelRequesters.userId, input.currentUserId),
-      ),
-    )
-    .limit(1);
   const directoryRows = await loadDirectoryRows(input.tx, input.organizationId);
   const groupRows = await loadGroupRows(input.tx, input.organizationId);
   const grants = await loadOrganizationReadModelGrantsInTransaction(input);
@@ -410,7 +408,10 @@ export async function loadOrganizationReadModelProjectionInTransaction(input: {
     organizationId: input.organizationId,
     policyHeads,
     protocolVersion: ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
-    requester: requester ? { isOrgAdmin: requester.isOrgAdmin } : null,
+    requester:
+      state.requesterIsOrgAdmin === null
+        ? null
+        : { isOrgAdmin: state.requesterIsOrgAdmin },
     updatedAt: state.updatedAt,
   };
 }

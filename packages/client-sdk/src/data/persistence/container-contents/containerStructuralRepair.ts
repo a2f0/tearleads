@@ -20,6 +20,7 @@ import type {
   LocalRootDescendantReparentInput,
 } from "./containerContentsPersistenceTypes";
 import { saveContainerCreateIntent } from "./containerIntentPersistence";
+import { containerRemovalBatches } from "./containerRemovalBatches";
 import { deleteContainerWatermarksInTransaction } from "./containerSyncWatermarkPersistence";
 import { deleteContainerMetadataDocumentRowsInTransaction } from "./dormantContainerMetadata";
 
@@ -94,6 +95,40 @@ async function loadFirstRemainingContainerIdByDocumentId(
   return firstRemainingContainerIdByDocumentId;
 }
 
+async function loadRemovalProjection(
+  tx: ClientSQLiteTransactionScope,
+  containerIds: ReadonlyArray<string>,
+) {
+  const selectedRows: Array<{
+    containerId: string | null;
+    documentId: string | null;
+    localId: string | null;
+    updatedAt: string;
+  }> = [];
+  const organizationIdByContainerId = new Map<string, string>();
+  for (const batch of containerRemovalBatches(containerIds)) {
+    selectedRows.push(
+      ...(await tx
+        .select({
+          containerId: documentProjection.containerId,
+          documentId: documentProjection.documentId,
+          localId: documentProjection.localId,
+          updatedAt: documentProjection.updatedAt,
+        })
+        .from(documentProjection)
+        .where(inArray(documentProjection.containerId, batch))),
+    );
+
+    for (const [id, organizationId] of await loadOrganizationIdsForContainers(
+      tx,
+      batch,
+    )) {
+      organizationIdByContainerId.set(id, organizationId);
+    }
+  }
+  return { selectedRows, organizationIdByContainerId };
+}
+
 export async function repairDocumentsForRemovedContainersInTransaction(input: {
   removals: ReadonlyArray<ContainerRemoval>;
   tx: ClientSQLiteTransactionScope;
@@ -108,26 +143,15 @@ export async function repairDocumentsForRemovedContainersInTransaction(input: {
   }
 
   {
-    const selectedRows = await tx
-      .select({
-        containerId: documentProjection.containerId,
-        documentId: documentProjection.documentId,
-        localId: documentProjection.localId,
-        updatedAt: documentProjection.updatedAt,
-      })
-      .from(documentProjection)
-      .where(inArray(documentProjection.containerId, containerIds));
-
-    const organizationIdByContainerId = await loadOrganizationIdsForContainers(
-      tx,
-      containerIds,
-    );
-
-    await tx
-      .delete(documentContainerProjection)
-      .where(inArray(documentContainerProjection.containerId, containerIds))
-      .run();
-    await deleteContainerDocumentTombstoneHoldsForContainers(tx, containerIds);
+    const { selectedRows, organizationIdByContainerId } =
+      await loadRemovalProjection(tx, containerIds);
+    for (const batch of containerRemovalBatches(containerIds)) {
+      await tx
+        .delete(documentContainerProjection)
+        .where(inArray(documentContainerProjection.containerId, batch))
+        .run();
+      await deleteContainerDocumentTombstoneHoldsForContainers(tx, batch);
+    }
 
     const documentIds = Array.from(
       new Set(

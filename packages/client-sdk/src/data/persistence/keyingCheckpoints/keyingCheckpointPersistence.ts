@@ -24,6 +24,25 @@ import { excludedValue } from "../../sqlite/sqliteUpsert";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { writePrincipalPolicyCheckpointRowsInTransaction } from "./principalPolicyOrganizationPersistence";
 
+/** Ownership alone is not a pin; a half-written pin is always refused. */
+export function storedPrincipalPolicyPin(
+  row:
+    | {
+        readonly version: number | null;
+        readonly stateHash: string | null;
+      }
+    | undefined,
+): Pick<PrincipalPolicyCheckpoint, "version" | "stateHash"> | null {
+  if (!row) return null;
+  if (row.version === null && row.stateHash === null) return null;
+  if (row.version === null || row.stateHash === null)
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "principal policy checkpoint is malformed",
+    );
+  return { version: row.version, stateHash: row.stateHash };
+}
+
 type CheckpointHandle = ClientSQLiteDatabase | ClientSQLiteTransactionScope;
 
 type AccessManifestCheckpointIdentity = Pick<
@@ -72,23 +91,6 @@ async function loadAccessManifestCheckpointRow(
     )
     .limit(1);
   return rows[0] ?? null;
-}
-
-/**
- * The pin a stored row carries: an owned-but-unpinned row is no checkpoint,
- * and a half-written pin is refused rather than read as either.
- */
-function storedPrincipalPolicyPin(row: {
-  readonly version: number | null;
-  readonly stateHash: string | null;
-}): Pick<PrincipalPolicyCheckpoint, "version" | "stateHash"> | null {
-  if (row.version === null && row.stateHash === null) return null;
-  if (row.version === null || row.stateHash === null)
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      "principal policy checkpoint is malformed",
-    );
-  return { version: row.version, stateHash: row.stateHash };
 }
 
 async function loadPrincipalPolicyCheckpointRow(
@@ -183,16 +185,18 @@ export async function loadAccessManifestCheckpointRows(
   return stored;
 }
 
-/**
- * Every stored policy checkpoint for `identities`, keyed by
- * `principalPolicyKey`: one read per principal type. Owned principals without
- * a pin are absent.
- */
-export async function loadStoredPrincipalPolicyCheckpoints(
+/** Load without interpreting pins, so callers retain ordered guard failures. */
+export async function loadPrincipalPolicyCheckpointRows(
   handle: CheckpointHandle,
   identities: readonly PrincipalPolicyCheckpointIdentity[],
-): Promise<Map<string, PrincipalPolicyCheckpoint>> {
-  const stored = new Map<string, PrincipalPolicyCheckpoint>();
+) {
+  const stored = new Map<
+    string,
+    PrincipalPolicyCheckpointIdentity & {
+      version: number | null;
+      stateHash: string | null;
+    }
+  >();
   const groups = groupIds(
     identities,
     (identity) => identity.principalType,
@@ -214,16 +218,26 @@ export async function loadStoredPrincipalPolicyCheckpoints(
           ),
         );
       for (const row of rows) {
-        const pin = storedPrincipalPolicyPin(row);
-        if (!pin) continue;
-        const checkpoint = {
-          principalType: first.principalType,
-          principalId: row.principalId,
-          ...pin,
-        };
+        const checkpoint = { principalType: first.principalType, ...row };
         stored.set(principalPolicyKey(checkpoint), checkpoint);
       }
     }
+  return stored;
+}
+
+/** Stored pins per principal type, omitting ownership-only rows. */
+export async function loadStoredPrincipalPolicyCheckpoints(
+  handle: CheckpointHandle,
+  identities: readonly PrincipalPolicyCheckpointIdentity[],
+): Promise<Map<string, PrincipalPolicyCheckpoint>> {
+  const stored = new Map<string, PrincipalPolicyCheckpoint>();
+  for (const [key, row] of await loadPrincipalPolicyCheckpointRows(
+    handle,
+    identities,
+  )) {
+    const pin = storedPrincipalPolicyPin(row);
+    if (pin) stored.set(key, { ...row, ...pin });
+  }
   return stored;
 }
 

@@ -24,6 +24,7 @@ import {
   documentSummarySelection,
   mapDocumentSummary,
 } from "./documentProjectionRows";
+import { repointTombstonedDocumentProjections } from "./tombstoneProjectionRepoint";
 
 function dedupeContainerDocumentTombstones(
   tombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
@@ -221,16 +222,14 @@ async function loadTombstoneRepairReads(
   };
 }
 
-async function updateSelectedContainersForDocumentTombstones(input: {
+function selectedContainerRepointsForDocumentTombstones(input: {
   documentId: string;
   reads: TombstoneRepairReads;
   removedContainerIds: ReadonlySet<string>;
   tombstoneUpdatedAt: string | undefined;
-  tx: ClientSQLiteTransactionScope;
   verifiedLinkedContainerIds: ReadonlySet<string>;
-}): Promise<string[]> {
-  const { documentId, reads, removedContainerIds, tombstoneUpdatedAt, tx } =
-    input;
+}) {
+  const { documentId, reads, removedContainerIds, tombstoneUpdatedAt } = input;
   // A server document can own more than one local projection row: identity
   // recovery legitimately rematerializes a second projection for the same
   // documentId before semantic convergence completes. The link delete above is
@@ -261,20 +260,11 @@ async function updateSelectedContainersForDocumentTombstones(input: {
     input.verifiedLinkedContainerIds,
   );
 
-  const changedLocalIds: string[] = [];
-  for (const row of rowsAtRemovedContainer) {
-    await tx
-      .update(documentProjection)
-      .set({
-        containerId: nextContainerId,
-        updatedAt: getLatestTimestamp(row.updatedAt, tombstoneUpdatedAt),
-      })
-      .where(eq(documentProjection.localId, row.localId))
-      .run();
-    changedLocalIds.push(row.localId);
-  }
-
-  return changedLocalIds;
+  return rowsAtRemovedContainer.map((row) => ({
+    localId: row.localId,
+    containerId: nextContainerId,
+    updatedAt: getLatestTimestamp(row.updatedAt, tombstoneUpdatedAt),
+  }));
 }
 
 export async function applyContainerDocumentTombstonesWithExec(
@@ -319,23 +309,24 @@ export async function applyContainerDocumentTombstonesWithExec(
     const reads = await loadTombstoneRepairReads(tx, [
       ...removedContainerIdsByDocumentId.keys(),
     ]);
-    const changedLocalIds: string[] = [];
+    const repoints = [];
     for (const [
       documentId,
       removedContainerIds,
     ] of removedContainerIdsByDocumentId) {
-      changedLocalIds.push(
-        ...(await updateSelectedContainersForDocumentTombstones({
+      repoints.push(
+        ...selectedContainerRepointsForDocumentTombstones({
           documentId,
           reads,
           removedContainerIds,
           tombstoneUpdatedAt: tombstoneUpdatedAtByDocumentId.get(documentId),
-          tx,
           verifiedLinkedContainerIds:
             verifiedLinkedContainerIdsByDocumentId.get(documentId) ?? new Set(),
-        })),
+        }),
       );
     }
+    await repointTombstonedDocumentProjections(tx, repoints);
+    const changedLocalIds = repoints.map((row) => row.localId);
 
     if (changedLocalIds.length === 0) {
       return [];

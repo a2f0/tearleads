@@ -163,22 +163,19 @@ export async function loadOrganizationReadModelGroupMembers(
           memberGroupStateHash: organizationReadModelState.memberGroupStateHash,
         })
         .from(organizationReadModelState)
-        .where(eq(organizationReadModelState.organizationId, organizationId))
-        .limit(1);
-      if (!state) {
-        return null;
-      }
-      const [requester] = await tx
-        .select({ userId: organizationReadModelRequesters.userId })
-        .from(organizationReadModelRequesters)
-        .where(
+        .innerJoin(
+          organizationReadModelRequesters,
           and(
-            eq(organizationReadModelRequesters.organizationId, organizationId),
+            eq(
+              organizationReadModelRequesters.organizationId,
+              organizationReadModelState.organizationId,
+            ),
             eq(organizationReadModelRequesters.userId, currentUserId),
           ),
         )
+        .where(eq(organizationReadModelState.organizationId, organizationId))
         .limit(1);
-      if (!requester) {
+      if (!state) {
         return null;
       }
       return loadOrganizationReadModelGroupMembersInTransaction({

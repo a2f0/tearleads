@@ -7,6 +7,7 @@ import {
 import { documentIntentLinkTargets } from "../../sqlite/schema/documentPlacementIntentSchema";
 import { documentContainerProjection } from "../../sqlite/schema/documentProjectionSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
+import { containerRemovalBatches } from "./containerRemovalBatches";
 import {
   DOCUMENT_LINK_INTENT_TYPE,
   DOCUMENT_MOVE_INTENT_TYPE,
@@ -14,40 +15,43 @@ import {
 
 const placementLane = inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement);
 
-function loadAffectedIntents(
+async function loadAffectedIntents(
   tx: ClientSQLiteTransactionScope,
   containerIds: ReadonlyArray<string>,
   includePrimaryMoves: boolean,
 ) {
-  return tx
-    .select()
-    .from(localIntents)
-    .where(
-      and(
-        placementLane,
-        inArray(localIntents.intentType, [
-          DOCUMENT_LINK_INTENT_TYPE,
-          DOCUMENT_MOVE_INTENT_TYPE,
-        ]),
-        or(
-          and(
-            includePrimaryMoves
-              ? undefined
-              : eq(localIntents.intentType, DOCUMENT_LINK_INTENT_TYPE),
-            inArray(localIntents.targetContainerId, containerIds),
-          ),
-          inArray(
-            localIntents.id,
-            tx
-              .select({ id: documentIntentLinkTargets.intentId })
-              .from(documentIntentLinkTargets)
-              .where(
-                inArray(documentIntentLinkTargets.containerId, containerIds),
-              ),
+  const rows = new Map<string | null, typeof localIntents.$inferSelect>();
+  for (const batch of containerRemovalBatches(containerIds)) {
+    for (const row of await tx
+      .select()
+      .from(localIntents)
+      .where(
+        and(
+          placementLane,
+          inArray(localIntents.intentType, [
+            DOCUMENT_LINK_INTENT_TYPE,
+            DOCUMENT_MOVE_INTENT_TYPE,
+          ]),
+          or(
+            and(
+              includePrimaryMoves
+                ? undefined
+                : eq(localIntents.intentType, DOCUMENT_LINK_INTENT_TYPE),
+              inArray(localIntents.targetContainerId, batch),
+            ),
+            inArray(
+              localIntents.id,
+              tx
+                .select({ id: documentIntentLinkTargets.intentId })
+                .from(documentIntentLinkTargets)
+                .where(inArray(documentIntentLinkTargets.containerId, batch)),
+            ),
           ),
         ),
-      ),
-    );
+      ))
+      rows.set(row.id, row);
+  }
+  return [...rows.values()];
 }
 
 async function survivingIntentTarget(input: {
