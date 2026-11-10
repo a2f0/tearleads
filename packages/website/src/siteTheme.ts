@@ -23,13 +23,19 @@ export const SITE_DEFAULT_THEME: Readonly<Record<ThemeScheme, SiteThemeId>> = {
 export const SITE_THEME_STORAGE_KEY = "tearleads.website.theme";
 
 /**
+ * Dispatched on `<html>` once SiteThemeSwitch's ThemeProvider has mounted and
+ * owns the theme, so the head script stops following the OS itself.
+ */
+export const SITE_THEME_PROVIDER_MOUNTED_EVENT = "tearleads:theme-provider";
+
+/**
  * Stamps the theme SiteThemeSwitch's ThemeProvider will show, the stored theme
  * the site offers, else the one for the OS scheme, and stamps it again when
  * the OS scheme changes. The provider mounts only once the footer nears the
  * viewport, and until then this keeps an automatic light/dark schedule
- * working. Once something else stamps a different theme (a pick in the
- * provider, which may not reach storage), it stops and leaves the theme to
- * that owner. Layout.astro inlines this function's source into `<head>` so it
+ * working; when it mounts it dispatches `providerMountedEvent` on `root`, and
+ * this stops, leaving the theme to the provider, whose pick may never reach
+ * storage. Layout.astro inlines this function's source into `<head>` so it
  * runs before first paint, so it must stay self-contained: no imports or
  * outer references.
  */
@@ -38,14 +44,10 @@ export function stampSiteTheme(
   storageKey: string,
   themes: readonly ThemeDefinition[],
   defaultTheme: Readonly<Record<ThemeScheme, string>>,
+  providerMountedEvent: string,
 ): void {
   const darkScheme = matchMedia("(prefers-color-scheme: dark)");
-  let stampedId: string | null = null;
   function stamp(): void {
-    if (stampedId !== null && root.getAttribute("data-theme") !== stampedId) {
-      darkScheme.removeEventListener("change", stamp);
-      return;
-    }
     let stored: string | null = null;
     try {
       stored = localStorage.getItem(storageKey);
@@ -60,9 +62,13 @@ export function stampSiteTheme(
     if (theme) {
       root.setAttribute("data-theme", theme.id);
       root.setAttribute("data-theme-scheme", theme.scheme);
-      stampedId = theme.id;
     }
   }
   stamp();
   darkScheme.addEventListener("change", stamp);
+  root.addEventListener(
+    providerMountedEvent,
+    () => darkScheme.removeEventListener("change", stamp),
+    { once: true },
+  );
 }

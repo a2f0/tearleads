@@ -2,6 +2,7 @@ import { afterAll, afterEach, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import {
   SITE_DEFAULT_THEME,
+  SITE_THEME_PROVIDER_MOUNTED_EVENT,
   SITE_THEME_STORAGE_KEY,
   SITE_THEMES,
   stampSiteTheme,
@@ -62,7 +63,13 @@ function changeOsScheme(scheme: "light" | "dark"): void {
 
 // The head script in Layout.astro, with the site's themes.
 function stampBeforePaint(): void {
-  stampSiteTheme(root, SITE_THEME_STORAGE_KEY, SITE_THEMES, SITE_DEFAULT_THEME);
+  stampSiteTheme(
+    root,
+    SITE_THEME_STORAGE_KEY,
+    SITE_THEMES,
+    SITE_DEFAULT_THEME,
+    SITE_THEME_PROVIDER_MOUNTED_EVENT,
+  );
 }
 
 function stamped() {
@@ -114,16 +121,18 @@ test("before the switch mounts, the stamp follows OS changes but keeps a pick", 
   expect(stamped()).toEqual({ scheme: "dark", theme: "site-dark" });
 });
 
-test("once another owner stamps a theme, OS changes leave it", () => {
+test("once the switch mounts, OS changes leave its pick alone", () => {
   setOsScheme("light");
   stampBeforePaint();
+  const view = rtl.render(<SiteThemeSwitch />);
+  const toggle = view.getByRole("button", { name: "Switch to Dark theme" });
+  rtl.fireEvent.click(toggle);
+  rtl.fireEvent.click(toggle);
   // A pick the provider could not store, as with storage disabled.
-  root.setAttribute("data-theme", "site-dark");
-  root.setAttribute("data-theme-scheme", "dark");
+  localStorage.clear();
 
-  changeOsScheme("dark");
-  changeOsScheme("light");
-  expect(stamped()).toEqual({ scheme: "dark", theme: "site-dark" });
+  rtl.act(() => changeOsScheme("dark"));
+  expect(stamped()).toEqual({ scheme: "light", theme: "site-light" });
 });
 
 test("the hydrated switch keeps the stamp and persists a pick", () => {
