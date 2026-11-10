@@ -5,7 +5,7 @@ import {
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
 import { getSyncBillingTier } from "@tearleads/validators/billing";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   PERIOD_END,
   PERIOD_START,
@@ -15,7 +15,10 @@ import {
 import { STRIPE_WEBHOOK_ENV as STRIPE_ENV } from "../../../test/helpers/stripeWebhook";
 import { runBeginStripePlanChangeWorkflow } from "../../workflows/billing/stripePlanChange";
 import { runFinishStripePlanUpgradeWorkflow } from "../../workflows/billing/stripePlanUpgradeSettlement";
-import { runBindOrganizationStripeSeatsWorkflow } from "../../workflows/billing/stripeSeatState";
+import {
+  requestOrganizationStripeSeatSync,
+  runBindOrganizationStripeSeatsWorkflow,
+} from "../../workflows/billing/stripeSeatState";
 import {
   claimOrganizationStripeSeatSync,
   runCompleteOrganizationStripeSeatSyncWorkflow,
@@ -330,7 +333,14 @@ test("a paid upgrade whose request never finished is granted by the seat-sync wo
   });
 });
 
-test("a renewal choice made while the worker recovers an upgrade stands", async () => {
+/**
+ * The worker claims a row whose Stripe item a lost upgrade raised to Team
+ * 10, `meanwhile` runs while it reads Stripe, and the claim then completes
+ * with Team 10 recovered as the renewal plan.
+ */
+async function recoverUpgradeWhile(
+  meanwhile: (organizationId: string) => Promise<void>,
+) {
   const { organizationId } = await subscribedOrganization({
     itemSeatCount: 10,
     seatCount: 5,
@@ -343,16 +353,7 @@ test("a renewal choice made while the worker recovers an upgrade stands", async 
   if (claim?.organizationId !== organizationId) {
     throw new Error("expected this organization's claim");
   }
-  // While the worker read Team 10 from Stripe, the interrupted upgrade
-  // settled and the admin then chose Solo for renewal.
-  await db
-    .update(organizationBillingStripeSeats)
-    .set({
-      desiredRenewalQuantity: 1,
-      desiredRevision: claim.desiredRevision + 1,
-    })
-    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
-
+  await meanwhile(organizationId);
   await runCompleteOrganizationStripeSeatSyncWorkflow(db, {
     appliedPaidCapacity: 10,
     billingPeriodEndsAt: PERIOD_END,
@@ -364,10 +365,35 @@ test("a renewal choice made while the worker recovers an upgrade stands", async 
     priceId: "price_team_10",
     subscriptionItemId: `si_${organizationId}`,
   });
+  return (await readState(organizationId)).seats;
+}
 
-  expect(await readState(organizationId)).toMatchObject({
-    seats: { desiredRenewalQuantity: 1 },
+test("a renewal choice made while the worker recovers an upgrade stands", async () => {
+  // The interrupted upgrade settled, and the admin then chose Solo.
+  const seats = await recoverUpgradeWhile(async (organizationId) => {
+    await db
+      .update(organizationBillingStripeSeats)
+      .set({
+        desiredRenewalQuantity: 1,
+        desiredRevision: sql`${organizationBillingStripeSeats.desiredRevision} + 1`,
+      })
+      .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
   });
+  expect(seats).toMatchObject({ desiredRenewalQuantity: 1 });
+});
+
+test("a roster change while the worker recovers an upgrade keeps its plan", async () => {
+  const seats = await recoverUpgradeWhile((organizationId) =>
+    requestOrganizationStripeSeatSync({
+      desiredPaidCapacity: 5,
+      desiredSeatPeriodKey: "plan-test-period",
+      executor: db,
+      licensedSeatCount: 5,
+      now: new Date(),
+      organizationId,
+    }),
+  );
+  expect(seats).toMatchObject({ desiredRenewalQuantity: 10 });
 });
 
 test("an upgrade that never reached Stripe keeps the scheduled smaller plan", async () => {

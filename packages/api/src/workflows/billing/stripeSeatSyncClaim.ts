@@ -263,11 +263,12 @@ async function completeOrganizationStripeSeatSync(
   if (!current) {
     return false;
   }
-  // A renewal plan recovered from Stripe yields to any choice recorded since
-  // the claim began; the next claim writes that choice's Price.
+  // A renewal plan recovered from Stripe yields to a renewal choice recorded
+  // since the claim began (roster writes keep the renewal plan, so they do
+  // not count); the next claim writes that choice's Price.
   const renewalQuantity =
     input.desiredRenewalQuantity !== null &&
-    current.desiredRevision === input.claim.desiredRevision
+    current.desiredRenewalQuantity === input.claim.desiredRenewalQuantity
       ? input.desiredRenewalQuantity
       : current.desiredRenewalQuantity;
   // The worker never writes a renewal Price above the capacity paid for, so
