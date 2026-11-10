@@ -222,11 +222,13 @@ async function voidInvoice(
     });
     return true;
   } catch (error) {
-    // A 4xx is Stripe refusing the void; anything else is a provider failure.
+    // A 4xx is Stripe refusing the void. A rate limit and anything else is a
+    // provider failure, not a refusal.
     if (
       !(error instanceof StripeApiError) ||
       error.status < 400 ||
-      error.status >= 500
+      error.status >= 500 ||
+      error.status === 429
     ) {
       throw error;
     }

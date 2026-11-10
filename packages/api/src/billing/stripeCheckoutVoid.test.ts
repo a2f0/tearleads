@@ -118,11 +118,14 @@ test.each<[string, string, boolean]>([
   );
 });
 
-test("a provider failure during the void is not mistaken for a refusal", async () => {
-  const { voided } = voidWith([STALE], [{ status: 500, body: {} }]);
+test.each([500, 429])(
+  "a %i during the void is a provider failure, not a refusal",
+  async (status) => {
+    const { voided } = voidWith([STALE], [{ status, body: {} }]);
 
-  await expect(voided).rejects.toMatchObject({
-    name: "StripeApiError",
-    status: 500,
-  });
-});
+    await expect(voided).rejects.toMatchObject({
+      name: "StripeApiError",
+      status,
+    });
+  },
+);
