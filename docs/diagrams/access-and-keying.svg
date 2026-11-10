@@ -159,7 +159,7 @@
   <text x="374" y="870" class="key">signed write header</text>
 
   <path d="M129,800 V784 H437 V800" class="edge"/>
-  <path d="M283,784 V686" class="edge" marker-end="url(#access-keying-arrow)"/>
+  <path d="M283,800 V686" class="edge" marker-end="url(#access-keying-arrow)"/>
   <text x="293" y="772" class="elabel">update of</text>
 
   <!-- Blobs -->
