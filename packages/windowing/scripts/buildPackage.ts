@@ -124,6 +124,7 @@ async function publishManifest() {
     types: "./index.d.ts",
     exports: {
       ".": { types: "./index.d.ts", default: "./index.js" },
+      "./theme": { types: "./theme/index.d.ts", default: "./theme/index.js" },
       "./*.css": "./*.css",
     },
     sideEffects: ["*.css", "./index.js"],

@@ -364,7 +364,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.56",
+      "version": "0.1.57",
       "dependencies": {
         "@a2f0/agent-tool": "0.1.51",
         "@a2f0/ct-client": "0.1.6",
@@ -373,6 +373,7 @@
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/ui": "workspace:*",
         "@tearleads/validators": "workspace:*",
+        "@tearleads/windowing": "workspace:*",
         "astro": "7.4.5",
         "github-slugger": "2.0.0",
         "react": "catalog:react",
@@ -389,7 +390,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.35",
+      "version": "0.2.36",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",

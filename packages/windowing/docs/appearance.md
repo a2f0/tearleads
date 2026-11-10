@@ -49,6 +49,11 @@ the browser paints and removes them on unmount; under a dark scheme,
 [`tokens.css`][tokens] sets `color-scheme: dark`. Tearleads sets its themes per
 host profile in [`packages/app/src/host/AppHostConfig.ts`][host-profile].
 
+A host with no windows, such as a static site, can import `ThemeProvider`,
+`ThemeSwitch`, the theme hooks, their types, and the switch's
+`ThemeInvertIcon` from `@tearleads/windowing/theme`. That entry leaves out the
+window chrome and its stylesheets, which the package entry imports.
+
 ## Wallpapers and Display Properties
 
 A host offers its own desktop wallpapers. A `WallpaperDefinition` is

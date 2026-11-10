@@ -113,6 +113,24 @@ build. `bun run lint:doc-links` validates the links in the source Markdown; see
 [documentation
 links](../../docs/developer/static-analysis.md#documentation-links).
 
+## Light and dark themes
+
+The primary nav ends with a theme switch
+([`src/components/SiteThemeSwitch.tsx`](src/components/SiteThemeSwitch.tsx)):
+an icon in the header row, a labelled row in the phone menu. It owns
+`ThemeProvider` from `@tearleads/windowing/theme`, the provider the app uses,
+with the site's two themes from [`src/siteTheme.ts`](src/siteTheme.ts), and
+mounts only after the nav island hydrates. Until a visitor picks one, the site
+follows the OS scheme; a pick persists in `localStorage`. An inline script in
+[`src/layouts/Layout.astro`](src/layouts/Layout.astro) stamps
+`<html data-theme-scheme>` before first paint, and
+[`src/styles/tokens.css`](src/styles/tokens.css) selects its dark tokens on it.
+Dark screenshots and the browser `theme-color` still declare
+`(prefers-color-scheme: dark)`;
+[`src/colorSchemeMedia.ts`](src/colorSchemeMedia.ts) rewrites those queries
+for the stamped scheme. Without scripting the page stays light, though a
+dark-scheme device still gets the dark screenshots.
+
 ## Search and link previews
 
 Every page carries Open Graph and Twitter card tags and the `og-image.png`
