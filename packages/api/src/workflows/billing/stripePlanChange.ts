@@ -48,6 +48,11 @@ const PLAN_LEASE_PREFIX = "plan:";
 const PLAN_LEASE_MS = 5 * 60 * 1_000;
 /** No change starts this close to the paid period's end. */
 const RENEWAL_FREEZE_MS = 60 * 60 * 1_000;
+/**
+ * How long past a lapsed lease the worker waits before reconciling it: far
+ * longer than Stripe takes to apply a request already sent.
+ */
+const PLAN_SETTLE_MS = 10 * 60 * 1_000;
 
 export type StripeSeatRow = typeof organizationBillingStripeSeats.$inferSelect;
 
@@ -177,6 +182,14 @@ async function requireChangeableSeats(
       "The subscription is being updated; try again shortly",
     );
   }
+  // A plan change that never finished leaves its lapsed lease behind. Until
+  // the worker reconciles it from Stripe, no newer choice is made against a
+  // Price that change may still be moving.
+  if (seats.leaseId?.startsWith(PLAN_LEASE_PREFIX) === true) {
+    throw stripePlanChangeUnavailable(
+      "A previous plan change is still settling; try again in a few minutes",
+    );
+  }
   return {
     ...seats,
     subscriptionId: seats.subscriptionId,
@@ -215,10 +228,12 @@ async function leaseChange(
       leaseExpiresAt,
       leaseId: input.leaseId,
       // If this request never finishes (a lost response, a failed final
-      // transaction), the seat-sync worker revisits the row once the lease
-      // lapses: it grants an upgrade Stripe was paid for, and otherwise
-      // writes back the Price of the recorded renewal plan.
-      nextAttemptAt: leaseExpiresAt,
+      // transaction, a Stripe write of unknown outcome), the lease is left
+      // behind and fences the row until the seat-sync worker reconciles it,
+      // which waits a settling time past the lapse so no write this request
+      // sent can still apply in Stripe. The worker then grants an upgrade
+      // Stripe was paid for, or writes back the recorded renewal plan's Price.
+      nextAttemptAt: new Date(leaseExpiresAt.getTime() + PLAN_SETTLE_MS),
       updatedAt: now,
     })
     .where(eq(organizationBillingStripeSeats.id, seats.id));

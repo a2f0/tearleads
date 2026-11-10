@@ -363,8 +363,9 @@ creating another charge. The item's Price is the plan the subscription renews
 at (`desired_renewal_quantity`, which an administrator's
 [plan change](#changing-plans) sets after writing it to Stripe), written
 without proration and never above the capacity paid for the current period.
-A row leased by a plan change is not claimed until the change ends or its
-five-minute lease lapses. A claim never lowers the capacity recorded as paid
+A row leased by a plan change is not claimed until the change ends, or ten
+minutes after its five-minute lease lapses, so any Stripe write that change
+sent has applied. A claim never lowers the capacity recorded as paid
 within a period, so an upgrade that settled while it read Stripe keeps its
 capacity and is not prorated again.
 A claim that finds a plan upgrade's open invoice (a `pending_update` the

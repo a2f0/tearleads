@@ -14,10 +14,7 @@ import {
 } from "../../../test/helpers/stripePlanChangeFixtures";
 import { STRIPE_WEBHOOK_ENV as STRIPE_ENV } from "../../../test/helpers/stripeWebhook";
 import { runBeginStripePlanChangeWorkflow } from "../../workflows/billing/stripePlanChange";
-import {
-  runFinishStripePlanUpgradeWorkflow,
-  runFinishStripeRenewalChangeWorkflow,
-} from "../../workflows/billing/stripePlanUpgradeSettlement";
+import { runFinishStripePlanUpgradeWorkflow } from "../../workflows/billing/stripePlanUpgradeSettlement";
 import {
   requestOrganizationStripeSeatSync,
   runBindOrganizationStripeSeatsWorkflow,
@@ -195,7 +192,7 @@ test("the worker voids the open invoice an interrupted declined upgrade left", a
   });
 });
 
-test("an upgrade finishing after its lease lapsed keeps a newer renewal choice", async () => {
+test("a stalled upgrade fences newer choices until it settles", async () => {
   const { admin, organizationId } = await subscribedOrganization({
     seatCount: 5,
   });
@@ -207,13 +204,10 @@ test("an upgrade finishing after its lease lapsed keeps a newer renewal choice",
     admin.userId,
     started,
   );
-  // The upgrade stalled past its lease, Stripe still at Team 5; the admin
-  // then scheduled Solo, which Stripe confirmed.
-  const renewal = await runBeginStripePlanChangeWorkflow(
-    db,
-    organizationId,
-    admin.userId,
-    {
+  // The upgrade stalled past its lease with Stripe still at Team 5: its
+  // charge may yet apply, so a newer choice waits for it to settle.
+  await expect(
+    runBeginStripePlanChangeWorkflow(db, organizationId, admin.userId, {
       currentSeatCount: 5,
       now: later(6),
       observed: {
@@ -222,19 +216,11 @@ test("an upgrade finishing after its lease lapsed keeps a newer renewal choice",
         subscriptionId: upgrade.subscriptionId,
       },
       plan: getSyncBillingTier("solo"),
-    },
-  );
-  expect(renewal).toMatchObject({ direction: "scheduled", kind: "renewal" });
-  expect(
-    await runFinishStripeRenewalChangeWorkflow(db, {
-      leaseId: renewal.leaseId,
-      now: later(6),
-      organizationId,
-      priceId: "price_sync",
-      renewalSeatCount: 1,
     }),
-  ).toBe(true);
+  ).rejects.toMatchObject({ code: "billing_plan_change_unavailable" });
 
+  // The paid upgrade then finishes, still holding the row, so it records
+  // both its capacity and its plan.
   await runFinishStripePlanUpgradeWorkflow(db, {
     leaseId: upgrade.leaseId,
     now: later(7),
@@ -245,15 +231,13 @@ test("an upgrade finishing after its lease lapsed keeps a newer renewal choice",
     priceId: "price_team_10",
     subscriptionId: upgrade.subscriptionId,
   });
-
-  // The charge went through, so its capacity applies; the newer choice of
-  // renewal plan stands, and the worker reconciles the Price from Stripe.
   expect(await readState(organizationId)).toMatchObject({
     billing: { seatCount: 10 },
     seats: {
       appliedPaidCapacity: 10,
-      desiredRenewalQuantity: 1,
-      priceId: "price_sync",
+      desiredRenewalQuantity: 10,
+      leaseId: null,
+      priceId: "price_team_10",
     },
   });
 });

@@ -39,8 +39,8 @@ An administrator changes the plan on every platform under the same rules:
   returns `scheduled`, so the answer means Stripe will renew at it: the
   renewal invoice charges the smaller Price and the current capacity stays
   until then. A Stripe write that fails or comes too late records nothing; a
-  failed write may still apply in Stripe, so its lease is held until it
-  lapses (other changes wait), and the worker then writes back the recorded
+  failed write may still apply in Stripe, so its lease stays behind and
+  fences the row (see below), and the worker then writes back the recorded
   renewal plan's Price. A RevenueCat lifecycle event for the period already
   paid keeps that paid capacity even though the bound Price is the smaller
   one. Choosing the current plan again returns `kept` once its Price is
@@ -70,25 +70,29 @@ An administrator changes the plan on every platform under the same rules:
   A declined upgrade that first restored the paid Price over a scheduled
   smaller plan's writes the smaller Price back before answering. The larger
   renewal plan is recorded only once the upgrade is paid, so an upgrade that
-  fails or never reaches Stripe leaves a scheduled smaller plan as it was. An
-  upgrade that stalls past its lease still grants the capacity it was charged
-  for when it finishes, but a renewal plan chosen after the lease lapsed
-  stands, and the worker reconciles the Price from Stripe. If the request
-  never finishes (a lost response, a failed final transaction), the worker
-  revisits the row once the lease lapses: finding Stripe at a larger Price
-  than the capacity recorded for the period, it grants that capacity in the
-  period the organization's billing tracks and records the larger plan as the
-  renewal plan. Every plan change also waits with 409 while the worker holds
-  the row, so no renewal choice interleaves with that record. A Stripe
-  webhook that binds the larger Price within the paid period first (the
-  upgrade's own update, or an extension) records it as the renewal plan the
-  same way. Until the capacity is recorded and granted,
-  every plan change, which reads Stripe first, gets 409
-  `billing_plan_change_unavailable`: the worker would overwrite a newer
-  renewal choice, and another plan would be priced from capacity not yet
-  granted. An upgrade that finishes after the subscription renewed grants
-  nothing to the new period, whose renewal invoice already charged the Price
-  it renews at. That holds whichever provider reports the renewal first.
+  fails or never reaches Stripe leaves a scheduled smaller plan as it was.
+- A change that never finished (a lost response, a failed final transaction,
+  a Stripe write of unknown outcome) leaves its lapsed lease behind, and the
+  lease fences the row: every newer change waits with 409 until the worker
+  reconciles it from Stripe, ten minutes after the lease lapses, far longer
+  than Stripe takes to apply a request already sent. So no choice is made
+  against a Price that change may still be moving. A stalled upgrade that
+  finishes meanwhile still holds the row and records its capacity and plan.
+  When the worker reconciles it, finding Stripe at a larger Price than the
+  capacity recorded for the period, it grants that capacity in the period
+  the organization's billing tracks and records the larger plan as the
+  renewal plan; otherwise it writes back the recorded renewal plan's Price.
+  Every plan change also waits with 409 while the worker holds the row, so
+  no renewal choice interleaves with that record. A Stripe webhook that binds
+  the larger Price within the paid period first (the upgrade's own update,
+  or an extension) records it as the renewal plan the same way. Until the
+  capacity is recorded and granted, every plan change, which reads Stripe
+  first, gets 409 `billing_plan_change_unavailable`: the worker would
+  overwrite a newer renewal choice, and another plan would be priced from
+  capacity not yet granted. An upgrade that finishes after the subscription
+  renewed grants nothing to the new period, whose renewal invoice already
+  charged the Price it renews at. That holds whichever provider reports the
+  renewal first.
 - Only a Stripe subscription that owns the organization's capacity (a priced
   binding, not one retained under native ownership) can change plan. Every
   change waits with 409 `billing_plan_change_unavailable` while Stripe has
