@@ -46,8 +46,13 @@ function resolveBindingState(
   const sameDesiredPeriod =
     sameSubscription && current?.desiredSeatPeriodKey === bindingPeriodKey;
   const preserveInFlight = sameAppliedPeriod && sameDesiredPeriod;
+  // The plan the subscription renews at is an administrator's choice for that
+  // subscription; a replacement subscription renews at its own Price. It is
+  // never paid capacity: an upgrade is charged before it is granted.
   const desiredRenewalQuantity = normalizeStripeSeatQuantity(
-    current?.desiredRenewalQuantity ?? bindingQuantity,
+    sameSubscription && current
+      ? current.desiredRenewalQuantity
+      : bindingQuantity,
   );
   return {
     appliedPaidCapacity: sameAppliedPeriod
@@ -57,7 +62,6 @@ function resolveBindingState(
     bindingQuantity,
     desiredPaidCapacity: Math.max(
       bindingQuantity,
-      desiredRenewalQuantity,
       sameDesiredPeriod ? (current?.desiredPaidCapacity ?? 0) : 0,
       billing.seatPeriodKey === bindingPeriodKey ? billing.seatCount : 0,
     ),
@@ -123,20 +127,24 @@ function seatPeriodIsOlder(candidate: string, reference: string): boolean {
   return false;
 }
 
-/** Coalesces roster changes into one absolute desired Stripe state. */
+/**
+ * Coalesces roster changes into one absolute desired Stripe state. The
+ * licensed seat count seeds a new row's renewal quantity; an existing row
+ * keeps the plan its subscription renews at.
+ */
 export async function requestOrganizationStripeSeatSync(input: {
   readonly desiredPaidCapacity: number;
-  readonly desiredRenewalQuantity: number;
   readonly desiredSeatPeriodKey: string;
   readonly executor: DatabaseSession;
+  readonly licensedSeatCount: number;
   readonly now: Date;
   readonly organizationId: string;
 }): Promise<void> {
   const desiredPaidCapacity = normalizeStripeSeatQuantity(
     input.desiredPaidCapacity,
   );
-  const desiredRenewalQuantity = normalizeStripeSeatQuantity(
-    input.desiredRenewalQuantity,
+  const licensedSeatCount = normalizeStripeSeatQuantity(
+    input.licensedSeatCount,
   );
   const [current] = await input.executor
     .select()
@@ -156,7 +164,7 @@ export async function requestOrganizationStripeSeatSync(input: {
   const periodPaidCapacity = providerPeriodIsNewer
     ? Math.max(
         current.appliedPaidCapacity,
-        desiredRenewalQuantity,
+        licensedSeatCount,
         current.desiredSeatPeriodKey === current.appliedSeatPeriodKey
           ? current.desiredPaidCapacity
           : 0,
@@ -166,7 +174,7 @@ export async function requestOrganizationStripeSeatSync(input: {
     .insert(organizationBillingStripeSeats)
     .values({
       desiredPaidCapacity: periodPaidCapacity,
-      desiredRenewalQuantity,
+      desiredRenewalQuantity: licensedSeatCount,
       desiredSeatPeriodKey,
       desiredRevision: 1,
       nextAttemptAt: input.now,
@@ -175,9 +183,12 @@ export async function requestOrganizationStripeSeatSync(input: {
     })
     .onConflictDoUpdate({
       target: organizationBillingStripeSeats.organizationId,
+      // The renewal quantity is the plan an administrator chose to renew at
+      // (workflows/billing/stripePlanChange.ts); roster changes keep it, and
+      // only seed it while it is unset.
       set: {
         desiredPaidCapacity: periodPaidCapacity,
-        desiredRenewalQuantity,
+        desiredRenewalQuantity: sql`case when ${organizationBillingStripeSeats.desiredRenewalQuantity} < 1 then ${licensedSeatCount} else ${organizationBillingStripeSeats.desiredRenewalQuantity} end`,
         desiredSeatPeriodKey,
         desiredRevision: sql`${organizationBillingStripeSeats.desiredRevision} + 1`,
         nextAttemptAt: input.now,

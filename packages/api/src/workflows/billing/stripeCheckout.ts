@@ -256,12 +256,15 @@ export async function runResolveOrgSubscriptionForAdminWorkflow(
  * checkout — each confirmed checkout creates a NEW Stripe subscription, so
  * allowing it would double-bill the org. The raw stored status is deliberate:
  * only a provider revoke event clears `active`, and until then a second
- * subscription can only duplicate the one the provider still reports.
+ * subscription can only duplicate the one the provider still reports. Listing
+ * the plans (`purpose: "plans"`) admits an active org too, which changes its
+ * plan rather than buying another.
  */
 export async function runRequireCheckoutEligibleWorkflow(
   db: ApiDatabase,
   organizationId: string,
   sessionUserId: string,
+  purpose: "checkout" | "plans" = "checkout",
 ): Promise<{ readonly rosterSeatCount: number }> {
   return withOrganizationAdminTransaction(
     db,
@@ -282,7 +285,7 @@ export async function runRequireCheckoutEligibleWorkflow(
       if (!row) {
         throw new OrganizationManagerError("Organization not found", 404);
       }
-      if (row.status === "active") {
+      if (row.status === "active" && purpose === "checkout") {
         throw new OrganizationManagerError(
           "The organization already has an active subscription",
           409,

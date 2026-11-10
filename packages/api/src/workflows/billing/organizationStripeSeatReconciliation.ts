@@ -20,9 +20,9 @@ export async function reconcileOrganizationStripeSeatState(input: {
   }
   await requestOrganizationStripeSeatSync({
     desiredPaidCapacity: input.licensedSeatCount,
-    desiredRenewalQuantity: input.licensedSeatCount,
     desiredSeatPeriodKey: input.seatPeriodKey,
     executor: input.executor,
+    licensedSeatCount: input.licensedSeatCount,
     now: input.now,
     organizationId: input.organizationId,
   });

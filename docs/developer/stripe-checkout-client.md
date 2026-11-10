@@ -95,6 +95,21 @@ lookup does not hide Stripe cancel. Members can read the
 [organization-level](../glossary/principals.md#organization) cancellation flag;
 the cancellation endpoint requires an administrator.
 
+An administrator of an organization with an active Stripe subscription changes
+its plan in the billing panel, wherever web checkout runs (never inside a
+store app, which allows only the store's own purchases). The panel lists every
+plan that covers the roster from the checkout options, marked Upgrade,
+Downgrade, Current plan, or Scheduled, with Keep plan on the current plan
+while a smaller one is scheduled. Every choice is confirmed first: an upgrade
+as a charge of the prorated difference now that applies once paid, a
+downgrade as a change at renewal on the period's end date with no credit, and
+Keep plan as cancelling the scheduled change. The switcher's state machine
+(`model/stripePlanChangeMachine.ts`) runs one change at a time and refreshes
+the billing snapshot after it. A declined upgrade says nothing changed and
+points to Manage billing for a new card; a plan the server no longer offers
+shows the server's reason and reloads the plans. The
+[server rules](revenuecat-billing.md#changing-plans) cover every platform.
+
 Lost-key cancellation uses Stripe's shareable no-code portal login from the
 public website's **Manage subscription** footer link. Stripe emails a secure
 login link to the Customer address, so this path does not require Tearleads

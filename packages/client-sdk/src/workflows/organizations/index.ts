@@ -11,6 +11,7 @@ export type {
 export { UnreadablePrincipalMutationError } from "../../data/principals/principalMutationJournalRecord";
 export {
   cancelStripeSubscription,
+  changeStripePlan,
   checkNativePurchaseEligibility,
   claimNativeOrganizationSubscription,
   createStripeCheckout,

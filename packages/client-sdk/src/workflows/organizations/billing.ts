@@ -18,6 +18,8 @@ import type {
   StripeCheckoutIntentResponse,
   StripeCheckoutOptionsResponse,
   StripeCheckoutSessionResponse,
+  StripePlanChange,
+  StripePlanChangeResponse,
 } from "@tearleads/validators/response";
 
 /** Per-organization sync-billing snapshot (the server wire shape). */
@@ -87,6 +89,11 @@ interface OrganizationBillingApi {
   readonly cancelStripeSubscription: (
     organizationId: string,
   ) => Promise<StripeCancelResponse | null>;
+  readonly changeStripePlan: (
+    organizationId: string,
+    priceId: string,
+    options?: RequestResultOptions,
+  ) => Promise<RequestResult<StripePlanChangeResponse>>;
 }
 
 export async function loadOrganizationBilling(input: {
@@ -238,6 +245,40 @@ export async function cancelStripeSubscription(input: {
   return input.apiClient.cancelStripeSubscription(input.organizationId);
 }
 
+/**
+ * Changes the active Stripe subscription to the plan with `priceId`: the
+ * server charges a larger plan's prorated difference now and schedules a
+ * smaller one for renewal. Null when Stripe is unconfigured. A refusal throws
+ * with the server's billing `code`; a declined upgrade or a plan that cannot
+ * be changed to now is an expected outcome and is not reported.
+ */
+export async function changeStripePlan(input: {
+  readonly apiClient: Pick<OrganizationBillingApi, "changeStripePlan">;
+  readonly organizationId: string;
+  readonly priceId: string;
+}): Promise<StripePlanChange | null> {
+  const result = await input.apiClient.changeStripePlan(
+    input.organizationId,
+    input.priceId,
+    { reportErrors: false },
+  );
+  if (result.ok) {
+    return result.data.change;
+  }
+  if (result.status === 503) {
+    return null;
+  }
+  if (
+    result.code !== BILLING_ERROR_CODES.planChangePaymentFailed &&
+    result.code !== BILLING_ERROR_CODES.planChangeUnavailable
+  ) {
+    result.report();
+  }
+  throw Object.assign(new Error(result.message), {
+    ...(result.code === undefined ? {} : { code: result.code }),
+  });
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Client-side projection of a billing snapshot for display and gating. */
@@ -261,7 +302,7 @@ export interface OrganizationBillingView {
   readonly currentUserHasSyncSeat: boolean;
   /** The organization is entitled to sync, but this identity has no assigned seat. */
   readonly syncSeatUnavailable: boolean;
-  /** Native destination tier announced by the store but not effective yet. */
+  /** Scheduled tier not effective yet: a native store change, or the smaller plan a Stripe subscription renews at. */
   readonly pendingSeatCount: number | null;
   /** A retained Stripe subscription can be cancelled, including during native ownership. */
   readonly canCancelDirectly: boolean;

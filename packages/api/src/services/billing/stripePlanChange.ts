@@ -1,0 +1,168 @@
+import {
+  BILLING_ERROR_CODES,
+  type SyncBillingTier,
+} from "@tearleads/validators/billing";
+import type { StripePlanChange } from "@tearleads/validators/response";
+import {
+  getStripeSyncOption,
+  isStripeCheckoutConfigured,
+  type StripeApiDeps,
+  StripeApiError,
+} from "../../billing/stripeApi";
+import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
+import { upgradeSubscriptionPlan } from "../../billing/stripePlanUpgrade";
+import { updateSubscriptionItemQuantity } from "../../billing/stripeSeatQuantity";
+import { getSubscriptionBinding } from "../../billing/stripeSubscriptionBinding";
+import { runResolveOrgSubscriptionForAdminWorkflow } from "../../workflows/billing/stripeCheckout";
+import {
+  type BegunStripePlanChange,
+  runAbandonStripePlanUpgradeWorkflow,
+  runBeginStripePlanChangeWorkflow,
+  runFinishStripePlanUpgradeWorkflow,
+  stripePlanChangeUnavailable,
+} from "../../workflows/billing/stripePlanChange";
+import { OrganizationManagerError } from "../../workflows/organizations/errors";
+import type { ApiServiceRuntime } from "../runtime";
+import type { StripeCheckoutServiceDeps } from "./stripeCheckoutConfiguration";
+
+type BegunUpgrade = Extract<BegunStripePlanChange, { kind: "upgrade" }>;
+
+interface UpgradeInput {
+  readonly begun: BegunUpgrade;
+  readonly organizationId: string;
+  readonly plan: SyncBillingTier;
+  readonly priceId: string;
+  readonly runtime: ApiServiceRuntime;
+  readonly stripe: StripeApiDeps;
+}
+
+/**
+ * Changes an organization's active Stripe subscription to the plan with
+ * `priceId` (workflows/billing/stripePlanChange.ts has the rules). A larger
+ * plan is charged its prorated difference now and granted only once paid; a
+ * smaller one is scheduled for renewal; the current plan cancels a scheduled
+ * change. Null when Stripe is unconfigured.
+ */
+export async function changeStripePlan(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  sessionUserId: string,
+  priceId: string,
+  deps: StripeCheckoutServiceDeps = {},
+): Promise<StripePlanChange | null> {
+  // Authorize before Stripe is contacted for the plan's Price.
+  await runResolveOrgSubscriptionForAdminWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+  );
+  const stripe = deps.stripe ?? {};
+  if (!isStripeCheckoutConfigured(stripe)) {
+    return null;
+  }
+  const plan = getSyncBillingTierForStripePrice(priceId, stripe);
+  if (!plan || !(await getStripeSyncOption(plan.id, stripe))) {
+    throw stripePlanChangeUnavailable("The plan is not offered");
+  }
+  const begun = await runBeginStripePlanChangeWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+    { plan },
+  );
+  if (begun.kind !== "upgrade") {
+    return begun.kind;
+  }
+  await upgrade({ begun, organizationId, plan, priceId, runtime, stripe });
+  return "upgraded";
+}
+
+/**
+ * Pays for the upgrade, then grants it. A payment that did not go through
+ * releases the change. A provider failure whose outcome is unknown keeps the
+ * lease until it lapses rather than releasing it: Stripe may have applied the
+ * upgrade, and a retry once the lease lapses finds it applied and grants it.
+ */
+async function upgrade(input: UpgradeInput): Promise<void> {
+  // Nothing was written to Stripe before this read, so a failed read
+  // releases the change.
+  const binding = await getSubscriptionBinding(
+    input.begun.subscriptionId,
+    input.stripe,
+  ).catch(async (error: unknown) => {
+    await abandon(input);
+    throw error;
+  });
+  if (
+    !binding?.seatQuantity ||
+    binding.organizationId !== input.organizationId ||
+    binding.subscriptionItemId !== input.begun.subscriptionItemId ||
+    binding.status !== "active"
+  ) {
+    await abandon(input);
+    throw stripePlanChangeUnavailable(
+      "The Stripe subscription cannot be changed now",
+    );
+  }
+  // A retried upgrade whose payment settled after its first answer.
+  const applied = binding.seatQuantity === input.plan.seatLimit;
+  if (!applied && !(await charge(input, binding.seatQuantity))) {
+    await abandon(input);
+    throw new OrganizationManagerError(
+      "The payment for the larger plan did not go through; nothing changed",
+      409,
+      BILLING_ERROR_CODES.planChangePaymentFailed,
+    );
+  }
+  await runFinishStripePlanUpgradeWorkflow(input.runtime.db, {
+    leaseId: input.begun.leaseId,
+    organizationId: input.organizationId,
+    plan: input.plan,
+    priceId: input.priceId,
+  });
+}
+
+/**
+ * Charges the prorated difference from the capacity paid this period. A
+ * scheduled smaller plan already lowered the item's Price, which Stripe would
+ * prorate from, so the paid Price is restored first, without proration.
+ */
+async function charge(
+  input: UpgradeInput,
+  itemSeatQuantity: number,
+): Promise<boolean> {
+  const { begun, organizationId, stripe } = input;
+  if (itemSeatQuantity < begun.paidCapacity) {
+    await updateSubscriptionItemQuantity(
+      {
+        idempotencyKey: `plan-baseline:${organizationId}:${begun.leaseId}`,
+        prorationBehavior: "none",
+        seatQuantity: begun.paidCapacity,
+        subscriptionItemId: begun.subscriptionItemId,
+      },
+      stripe,
+    );
+  }
+  const outcome = await upgradeSubscriptionPlan(
+    {
+      idempotencyKey: `plan-upgrade:${organizationId}:${begun.leaseId}`,
+      priceId: input.priceId,
+      subscriptionId: begun.subscriptionId,
+      subscriptionItemId: begun.subscriptionItemId,
+    },
+    stripe,
+  );
+  if (outcome === null) {
+    throw new StripeApiError("subscription plan upgrade (unconfigured)", 502);
+  }
+  return outcome === "paid";
+}
+
+function abandon(input: UpgradeInput): Promise<void> {
+  return runAbandonStripePlanUpgradeWorkflow(input.runtime.db, {
+    leaseId: input.begun.leaseId,
+    organizationId: input.organizationId,
+    plan: input.plan,
+    previousRenewalQuantity: input.begun.previousRenewalQuantity,
+  });
+}

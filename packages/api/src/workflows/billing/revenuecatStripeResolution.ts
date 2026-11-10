@@ -7,6 +7,7 @@ import {
   type OrganizationBillingStatus,
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
+import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq, inArray, or } from "drizzle-orm";
 import {
@@ -85,6 +86,8 @@ async function resolveDurableStripeStoreOrganizationId(
   }
   const rows = await db
     .select({
+      appliedPaidCapacity: organizationBillingStripeSeats.appliedPaidCapacity,
+      billingPeriodEndsAt: organizationBillingStripeSeats.billingPeriodEndsAt,
       organizationId: organizationBillingStripeSeats.organizationId,
       priceId: organizationBillingStripeSeats.priceId,
       subscriptionId: organizationBillingStripeSeats.subscriptionId,
@@ -109,15 +112,44 @@ async function resolveDurableStripeStoreOrganizationId(
   ) {
     return { kind: "error" };
   }
-  const tier = getSyncBillingTierForStripePrice(binding.priceId, deps);
   return {
     identifiers,
     kind: "resolved",
     organizationId: binding.organizationId,
     priceId: binding.priceId,
-    seatCount: tier?.seatLimit ?? null,
+    seatCount: durableSeatCount(event, binding, deps),
     source: "durable",
   };
+}
+
+/**
+ * The capacity a grant for the bound subscription licenses. The bound Price
+ * is what the subscription renews at, which a scheduled smaller plan lowers
+ * before renewal (workflows/billing/stripePlanChange.ts); an event for the
+ * period already paid keeps the capacity paid for it, so a mid-period
+ * lifecycle event never takes seats away before the renewal.
+ */
+function durableSeatCount(
+  event: RevenueCatWebhookEvent,
+  binding: {
+    readonly appliedPaidCapacity: number;
+    readonly billingPeriodEndsAt: Date | null;
+    readonly priceId: string | null;
+  },
+  deps: StripeApiDeps,
+): number | null {
+  const tier = getSyncBillingTierForStripePrice(binding.priceId, deps);
+  if (!tier) {
+    return null;
+  }
+  const paidPeriod =
+    event.expiration_at_ms != null &&
+    binding.billingPeriodEndsAt !== null &&
+    event.expiration_at_ms <= binding.billingPeriodEndsAt.getTime();
+  const paid = getSyncBillingTierForSeatCount(binding.appliedPaidCapacity);
+  return paidPeriod && paid
+    ? Math.max(tier.seatLimit, paid.seatLimit)
+    : tier.seatLimit;
 }
 
 /** Resolves an immutable candidate; locked database validation happens later. */

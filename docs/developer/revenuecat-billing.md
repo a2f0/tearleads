@@ -205,13 +205,16 @@ charges the one the buyer chooses, and leaves RevenueCat responsible for
 mirroring the resulting entitlement lifecycle:
 
 - `GET /organizations/:id/billing/stripe/options` (every covering plan,
-  smallest first), `POST /organizations/:id/billing/stripe/checkout`
+  smallest first, also for a subscribed organization choosing a new plan),
+  `POST /organizations/:id/billing/stripe/checkout`
   (admin-gated; called at Pay with the chosen plan's `priceId`, it starts the
   subscription and returns the PaymentIntent client secret the deferred-mode
   Payment Element confirms), `POST
   /organizations/:id/billing/stripe/checkout-session` (hosted fallback, also
-  given the chosen `priceId`), `POST /organizations/:id/billing/stripe/cancel`,
-  and `POST /organizations/:id/billing/stripe/portal` live in
+  given the chosen `priceId`), `POST /organizations/:id/billing/stripe/plan`
+  ([plan changes](#changing-plans)), `POST
+  /organizations/:id/billing/stripe/cancel`, and `POST
+  /organizations/:id/billing/stripe/portal` live in
   [`stripeCheckout.ts`](../../packages/api/src/routes/billing/stripeCheckout.ts).
 - The client does not supply a seat count. The checkout eligibility workflow
   counts unique users reachable through the organization's current `Members`
@@ -307,32 +310,77 @@ accounts consume the fixed capacity stored in `organization_billing.seat_count`.
 - **Initial web enrollment:** the buyer chooses any tier whose capacity covers
   the current roster, including more than the roster needs. Checkout rejects an
   empty roster, any roster above 10, and a chosen tier the roster outgrows.
-- **Web growth across a boundary:** moving from 1→2 members switches Solo to
-  Team 5; moving from 5→6 switches Team 5 to Team 10. The worker changes the
-  Stripe Price at quantity `1` with `proration_behavior=create_prorations`.
-- **Web shrinkage:** a lower renewal tier is selected without a current-period
-  credit (`proration_behavior=none`). Already-paid capacity remains available
-  through the period.
-- **Growth within a tier:** no provider change is needed. Released assignments
-  can be reused by replacement members while the organization stays under its
-  capacity.
-- **Native growth:** Apple and Google do not expose Stripe-style quantity.
-  Adding a member above the purchased product's capacity is rejected until the
-  admin completes the corresponding store product upgrade. The billing snapshot
-  carries the server-authoritative active-member count, so native clients hide
-  tiers that cannot cover the signed Members projection before opening a store
-  sheet.
+- **Roster growth never changes the plan:** adding members charges nothing and
+  never switches the tier on any platform. Members beyond the licensed
+  capacity get no seat until an administrator upgrades or removes members.
+  Released assignments can be reused by replacement members while the
+  organization stays under its capacity.
 - **Renewal:** the renewed Stripe Price or native product re-establishes the
   tier capacity for the new billing period.
+
+### Changing plans
+
+An administrator changes the plan on every platform under the same rules:
+
+| Change | Web (Stripe) | iOS (App Store) | Android (Play) |
+| --- | --- | --- | --- |
+| Upgrade | Prorated difference charged now; applies once paid | Prorated now; applies at once | Prorated now; applies at once |
+| Billing date | Unchanged | Resets to the upgrade day | Unchanged |
+| Downgrade | At renewal, no credit | At renewal, no credit | At renewal, no credit |
+| Below the roster | Refused by the server (409) | Not offered | Not offered |
+| Undo a scheduled downgrade | Choose the current plan | Store subscription settings | Store subscription settings |
+
+- **Upgrade, web:** `POST /organizations/:id/billing/stripe/plan` switches the
+  subscription item to the larger Price with
+  `proration_behavior=always_invoice` and
+  `payment_behavior=pending_if_incomplete`, so Stripe applies the new Price
+  only once the prorated invoice is paid. Capacity, the seat event, and seats
+  for waiting members follow only that payment. A declined card, or one
+  needing authentication, leaves a `pending_update` whose open invoice is
+  voided at once: nothing is charged later and the request returns 409
+  `billing_plan_change_payment_failed`, so the admin updates the card in the
+  Billing Portal and retries. An upgrade from a period whose smaller renewal
+  plan was already written to Stripe first restores the paid Price without
+  proration, so the charge covers only the difference from the plan paid for.
+- **Upgrade, native:** StoreKit moves to a higher service level at once and
+  prorates the old subscription; Play replaces the purchase with
+  `CHARGE_PRORATED_PRICE`. Capacity follows the store's effective event
+  ([native stores](./revenuecat-native-stores.md#product-and-organization-policy)),
+  never the informational `PRODUCT_CHANGE`.
+- **Downgrade, web:** the endpoint records the smaller plan as the renewal
+  quantity (`desired_renewal_quantity`) and returns `scheduled`; the seat-sync
+  worker lowers the item's Price with `proration_behavior=none`, so the
+  renewal invoice charges the smaller Price and the current capacity stays
+  until then. A RevenueCat lifecycle event for the period already paid keeps
+  that paid capacity even though the bound Price is the smaller one.
+  Choosing the current plan again returns `kept` and restores the renewal
+  Price, also without proration.
+- **Downgrade, native:** App Store and Play (`DEFERRED`) both apply it at the
+  next renewal.
+- **Below the roster:** a plan smaller than the effective `Members` roster is
+  refused until members are removed. On web the server refuses it with 409
+  `billing_plan_change_unavailable`; the stores cannot be refused server-side,
+  so native clients hide every tier below the active-member count in the
+  billing snapshot.
+- **Scheduled changes:** the billing snapshot's `pendingSeatCount` reports a
+  scheduled smaller plan from either source, and the panel marks it
+  Scheduled. If the roster grows past it, the scheduled plan stays as chosen
+  and the panel says it cannot cover the roster; at renewal, members beyond
+  its capacity have no seat.
+- One web plan change runs at a time: an upgrade leases the Stripe seat row
+  while it is paid for, so the worker cannot write the Price meanwhile, and
+  another change gets 409 `billing_plan_change_unavailable` until it ends.
+  A web plan change is offered only where web checkout runs, never inside a
+  store app.
 
 An active Stripe subscription stays on at least Solo if its roster becomes
 empty; cancel it rather than expecting a zero-price renewal. Trials grant the
 largest canonical tier (10 licensed seats) for their full duration.
 
 Roster writes only enqueue an absolute desired state in
-`organization_billing_stripe_seats`; they do not call Stripe while holding the
-roster transaction open, so access changes stay durable while Stripe is
-unavailable.
+`organization_billing_stripe_seats`, keeping the renewal plan an administrator
+chose; they do not call Stripe while holding the roster transaction open, so
+access changes stay durable while Stripe is unavailable.
 
 ## Billing maintenance worker
 
@@ -350,7 +398,11 @@ rebinds that authoritative period and retries as a fresh claim, so an old-period
 high-water can never be applied after renewal. Only locally `active` billing
 rows are claimed, and capacity growth is prorated only while Stripe reports the
 subscription `active` or `trialing`; a `past_due` subscription backs off without
-creating another charge.
+creating another charge. The item's Price is the plan the subscription renews
+at (`desired_renewal_quantity`, which an administrator's
+[plan change](#changing-plans) sets), written without proration and never
+above the capacity paid for the current period. A row leased by a plan
+upgrade is not claimed until the upgrade ends or its five-minute lease lapses.
 
 The API Worker's per-minute Cron Trigger (`* * * * *` in
 [`packages/api/wrangler.jsonc`](../../packages/api/wrangler.jsonc)) runs these

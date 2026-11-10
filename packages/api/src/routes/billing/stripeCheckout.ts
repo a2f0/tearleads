@@ -1,5 +1,6 @@
 import {
   cancelStripeSubscriptionOperation,
+  changeStripePlanOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,
   createStripePortalOperation,
@@ -17,6 +18,7 @@ import {
 } from "../../services/billing/stripeCheckout";
 import { getStripeCheckoutOptions } from "../../services/billing/stripeCheckoutOptions";
 import { createStripeCheckoutSession } from "../../services/billing/stripeHostedCheckout";
+import { changeStripePlan } from "../../services/billing/stripePlanChange";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { RequestBodyTooLargeError } from "../../validators/requestBodyTooLarge";
@@ -245,6 +247,33 @@ function registerStripeCancelRoute(
   );
 }
 
+function registerStripePlanChangeRoute(
+  route: Hono<SessionEnv>,
+  { requireAuth, runtime }: OrganizationsRouterDeps,
+) {
+  route.on(
+    changeStripePlanOperation.method,
+    operationRoutePath(changeStripePlanOperation),
+    requireAuth,
+    jsonRequestValidator(changeStripePlanOperation.body),
+    pathParamsValidator(
+      changeStripePlanOperation.params,
+      "Invalid organizationId",
+    ),
+    (c) => {
+      const { organizationId } = c.req.valid("param");
+      const { priceId } = c.req.valid("json");
+      return respondForOrganization(c, organizationId, async (id, userId) => {
+        const change = await changeStripePlan(runtime, id, userId, priceId);
+        if (!change) {
+          return c.json({ error: "Stripe is not configured" }, 503);
+        }
+        return c.json({ change });
+      });
+    },
+  );
+}
+
 export function createStripeCheckoutRoute(deps: OrganizationsRouterDeps) {
   const route = new Hono<SessionEnv>();
   const allowedOrigins =
@@ -254,5 +283,6 @@ export function createStripeCheckoutRoute(deps: OrganizationsRouterDeps) {
   registerStripePortalRoute(route, deps, allowedOrigins);
   registerStripeCheckoutSessionRoute(route, deps, allowedOrigins);
   registerStripeCancelRoute(route, deps);
+  registerStripePlanChangeRoute(route, deps);
   return route;
 }

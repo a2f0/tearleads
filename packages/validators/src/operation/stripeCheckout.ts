@@ -2,9 +2,11 @@ import type { z } from "zod";
 import {
   isStripeCheckoutRequest,
   isStripeCheckoutSessionRequest,
+  isStripePlanChangeRequest,
   isStripeReturnUrlRequest,
   StripeCheckoutRequestSchema,
   StripeCheckoutSessionRequestSchema,
+  StripePlanChangeRequestSchema,
   StripeReturnUrlRequestSchema,
 } from "../request";
 import {
@@ -14,6 +16,7 @@ import {
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
   isStripeCheckoutSessionResponse,
+  isStripePlanChangeResponse,
   isStripePortalResponse,
   SessionFailureResponseSchema,
   StripeCancelResponseSchema,
@@ -21,6 +24,8 @@ import {
   StripeCheckoutIntentResponseSchema,
   StripeCheckoutOptionsResponseSchema,
   StripeCheckoutSessionResponseSchema,
+  StripePlanChangeErrorResponseSchema,
+  StripePlanChangeResponseSchema,
   StripePortalResponseSchema,
 } from "../response";
 import { stripeReturnUrlOriginRefinement } from "../stripeCheckoutRefinements";
@@ -52,7 +57,7 @@ export const getStripeCheckoutOptionsOperation = defineJsonOperation({
   id: "organizations.billing.stripe.options.get",
   summary: "Get Stripe checkout options",
   description:
-    "Returns every Stripe plan whose capacity covers the organization's current `Members` roster, smallest first; the buyer chooses one. Only organization administrators may call it; 502 means Stripe could not be reached.",
+    "Returns every Stripe plan whose capacity covers the organization's current `Members` roster, smallest first: the plans a buyer chooses from at checkout, or a subscribed organization can change to. Only organization administrators may call it; 502 means Stripe could not be reached.",
   method: "GET",
   params: StripeCheckoutPathParamsSchema,
   path: "/organizations/{organizationId}/billing/stripe/options",
@@ -127,6 +132,25 @@ export const cancelStripeSubscriptionOperation = defineJsonOperation({
   responses: { 200: StripeCancelResponseSchema },
 });
 
+export const changeStripePlanOperation = defineJsonOperation({
+  auth: "session",
+  body: StripePlanChangeRequestSchema,
+  failureResponses: {
+    ...baseFailureResponses,
+    409: StripePlanChangeErrorResponseSchema,
+    503: ErrorResponseSchema,
+  },
+  failureStatuses: [400, 401, 403, 404, 409, 500, 502, 503],
+  id: "organizations.billing.stripe.plan.change",
+  summary: "Change the Stripe plan",
+  description:
+    "Changes the organization's active Stripe subscription to the plan with `priceId`. A larger plan is charged the prorated difference for the rest of the period immediately and its capacity applies only once that payment succeeds (`upgraded`); a declined or authentication-requiring payment voids its invoice, changes nothing, and returns 409 `billing_plan_change_payment_failed`. A smaller plan takes effect at renewal with no credit, keeping the current capacity until then (`scheduled`). Choosing the current plan cancels a scheduled change (`kept`). A plan that does not cover the `Members` roster or is not offered, an organization without an active Stripe subscription, or another plan change still being applied returns 409 `billing_plan_change_unavailable`. Only organization administrators may call it; 502 means Stripe could not be reached and 503 that Stripe is not configured.",
+  method: "POST",
+  params: StripeCheckoutPathParamsSchema,
+  path: "/organizations/{organizationId}/billing/stripe/plan",
+  responses: { 200: StripePlanChangeResponseSchema },
+});
+
 export const isGetStripeCheckoutOptionsOperationResponse =
   isStripeCheckoutOptionsResponse;
 export const isCreateStripeCheckoutOperationRequest = isStripeCheckoutRequest;
@@ -140,3 +164,5 @@ export const isCreateStripePortalOperationRequest = isStripeReturnUrlRequest;
 export const isCreateStripePortalOperationResponse = isStripePortalResponse;
 export const isCancelStripeSubscriptionOperationResponse =
   isStripeCancelResponse;
+export const isChangeStripePlanOperationRequest = isStripePlanChangeRequest;
+export const isChangeStripePlanOperationResponse = isStripePlanChangeResponse;

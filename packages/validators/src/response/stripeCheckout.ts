@@ -74,6 +74,44 @@ export const StripeCancelResponseSchema = loosePlainObject({
 
 export type StripeCancelResponse = z.infer<typeof StripeCancelResponseSchema>;
 
+/**
+ * How a plan change took effect: `upgraded` was paid and applies now,
+ * `scheduled` applies at renewal, and `kept` keeps the current plan,
+ * cancelling any scheduled change.
+ */
+const StripePlanChangeSchema = z.literal(["upgraded", "scheduled", "kept"]);
+
+export type StripePlanChange = z.infer<typeof StripePlanChangeSchema>;
+
+export const StripePlanChangeResponseSchema = loosePlainObject({
+  change: StripePlanChangeSchema,
+});
+
+export type StripePlanChangeResponse = z.infer<
+  typeof StripePlanChangeResponseSchema
+>;
+
+/** Why the plan was not changed. */
+const StripePlanChangeErrorCodeSchema = z.literal([
+  BILLING_ERROR_CODES.planChangePaymentFailed,
+  BILLING_ERROR_CODES.planChangeUnavailable,
+]);
+
+export const StripePlanChangeErrorResponseSchema = loosePlainObject({
+  code: StripePlanChangeErrorCodeSchema.optional(),
+  error: z.string(),
+});
+
+export type StripePlanChangeErrorResponse = z.infer<
+  typeof StripePlanChangeErrorResponseSchema
+>;
+
+export function isStripePlanChangeResponse(
+  value: unknown,
+): value is StripePlanChangeResponse {
+  return StripePlanChangeResponseSchema.safeParse(value).success;
+}
+
 /** Hosted Stripe Checkout URL, or null when unavailable or ineligible. */
 export const StripeCheckoutSessionResponseSchema = loosePlainObject({
   url: z.string().nullable(),

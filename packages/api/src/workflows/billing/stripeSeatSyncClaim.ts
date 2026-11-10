@@ -247,8 +247,11 @@ export async function completeOrganizationStripeSeatSync(input: {
   if (!current) {
     return;
   }
-  const expectedQuantity = normalizeStripeSeatQuantity(
-    current.desiredRenewalQuantity,
+  // The worker never writes a renewal Price above the capacity paid for, so
+  // a larger renewal plan still being paid for is not a drift to retry.
+  const expectedQuantity = Math.min(
+    normalizeStripeSeatQuantity(current.desiredRenewalQuantity),
+    input.appliedPaidCapacity,
   );
   const fullyApplied =
     current.desiredRevision === input.claim.desiredRevision &&

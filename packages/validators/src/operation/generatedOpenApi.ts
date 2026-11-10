@@ -1078,11 +1078,31 @@ export type paths = {
         };
         /**
          * Get Stripe checkout options
-         * @description Returns every Stripe plan whose capacity covers the organization's current `Members` roster, smallest first; the buyer chooses one. Only organization administrators may call it; 502 means Stripe could not be reached.
+         * @description Returns every Stripe plan whose capacity covers the organization's current `Members` roster, smallest first: the plans a buyer chooses from at checkout, or a subscribed organization can change to. Only organization administrators may call it; 502 means Stripe could not be reached.
          */
         get: operations["organizations.billing.stripe.options.get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organizationId}/billing/stripe/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the Stripe plan
+         * @description Changes the organization's active Stripe subscription to the plan with `priceId`. A larger plan is charged the prorated difference for the rest of the period immediately and its capacity applies only once that payment succeeds (`upgraded`); a declined or authentication-requiring payment voids its invoice, changes nothing, and returns 409 `billing_plan_change_payment_failed`. A smaller plan takes effect at renewal with no credit, keeping the current capacity until then (`scheduled`). Choosing the current plan cancels a scheduled change (`kept`). A plan that does not cover the `Members` roster or is not offered, an organization without an active Stripe subscription, or another plan change still being applied returns 409 `billing_plan_change_unavailable`. Only organization administrators may call it; 502 means Stripe could not be reached and 503 that Stripe is not configured.
+         */
+        post: operations["organizations.billing.stripe.plan.change"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3246,7 +3266,7 @@ export type components = {
             /** @description When sync stopped because billing lapsed. */
             disabledAt: string | null;
             organizationId: string;
-            /** @description Seat count of a native plan change the store scheduled but has not applied yet. */
+            /** @description Seat count of a scheduled plan change that has not applied yet: a native change the store scheduled, or the smaller plan a Stripe subscription renews at. */
             pendingSeatCount: number | null;
             provider: "revenuecat" | null;
             /** @description When a disabled organization's synced data becomes eligible for purge. */
@@ -4665,6 +4685,34 @@ export type components = {
         StripeCheckoutSessionResponse: {
             /** @description Checkout URL, or null when Stripe checkout is not configured. */
             url: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A refused plan change. */
+        StripePlanChangeErrorResponse: {
+            /**
+             * @description Machine-readable reason: `billing_plan_change_payment_failed` when the upgrade's charge did not go through, or `billing_plan_change_unavailable` when the plan cannot be changed to now.
+             * @enum {string}
+             */
+            code?: "billing_plan_change_payment_failed" | "billing_plan_change_unavailable";
+            error: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description The plan an administrator chose for the organization's active Stripe subscription. */
+        StripePlanChangeRequest: {
+            /** @description Stripe Price id of the chosen plan, from the checkout options. It must cover the `Members` roster. */
+            priceId: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A plan change that took effect. */
+        StripePlanChangeResponse: {
+            /**
+             * @description `upgraded` when the prorated difference was paid and the larger capacity applies now, `scheduled` when the smaller plan takes effect at renewal, or `kept` when the current plan stays, cancelling any scheduled change.
+             * @enum {string}
+             */
+            change: "upgraded" | "scheduled" | "kept";
         } & {
             [key: string]: unknown;
         };
@@ -9506,6 +9554,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BillingErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "organizations.billing.stripe.plan.change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StripePlanChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StripePlanChangeResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StripePlanChangeErrorResponse"];
                 };
             };
             /** @description Internal Server Error */

@@ -405,9 +405,9 @@ test("a delayed local period cannot roll provider seat state backward", async ()
 
   await requestOrganizationStripeSeatSync({
     desiredPaidCapacity: 1,
-    desiredRenewalQuantity: 5,
     desiredSeatPeriodKey: trialPeriodKey(),
     executor: db,
+    licensedSeatCount: 5,
     now: NOW,
     organizationId,
   });

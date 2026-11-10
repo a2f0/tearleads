@@ -23,6 +23,24 @@ export function isStripeCheckoutRequest(
   return StripeCheckoutRequestSchema.safeParse(value).success;
 }
 
+/**
+ * Change an active Stripe subscription to another plan. A larger plan is
+ * charged its prorated difference now; a smaller one takes effect at renewal.
+ */
+export const StripePlanChangeRequestSchema = loosePlainObject({
+  priceId: chosenPriceIdSchema,
+});
+
+export type StripePlanChangeRequest = z.infer<
+  typeof StripePlanChangeRequestSchema
+>;
+
+export function isStripePlanChangeRequest(
+  value: unknown,
+): value is StripePlanChangeRequest {
+  return StripePlanChangeRequestSchema.safeParse(value).success;
+}
+
 /** Caller-selected app URL used after a hosted Stripe flow completes. */
 export const StripeReturnUrlRequestSchema =
   registerJsonSchemaRuntimeRefinements(
