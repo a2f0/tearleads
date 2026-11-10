@@ -16,6 +16,10 @@ import { STRIPE_WEBHOOK_ENV as STRIPE_ENV } from "../../../test/helpers/stripeWe
 import { runBeginStripePlanChangeWorkflow } from "../../workflows/billing/stripePlanChange";
 import { runFinishStripePlanUpgradeWorkflow } from "../../workflows/billing/stripePlanUpgradeSettlement";
 import { runBindOrganizationStripeSeatsWorkflow } from "../../workflows/billing/stripeSeatState";
+import {
+  claimOrganizationStripeSeatSync,
+  runCompleteOrganizationStripeSeatSyncWorkflow,
+} from "../../workflows/billing/stripeSeatSyncClaim";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import { runStripeSeatSynchronization } from "./stripeSeatSync";
 
@@ -108,6 +112,33 @@ test("a paid upgrade bound by a webhook before it is recorded renews at its plan
   await expect(change("price_sync")).rejects.toMatchObject({
     code: "billing_plan_change_unavailable",
   });
+});
+
+test("every plan change waits while billing still tracks the previous period", async () => {
+  // Stripe's webhooks bound the renewal into Solo before RevenueCat moved
+  // billing on from the previous period's Team 5.
+  const { change, organizationId, stripe } = await subscribedOrganization({
+    itemSeatCount: 1,
+    seatCount: 5,
+  });
+  await db
+    .update(organizationBilling)
+    .set({
+      currentPeriodEndsAt: PERIOD_START,
+      currentPeriodStartsAt: new Date(PERIOD_START.getTime() - 30 * 86_400_000),
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({ appliedPaidCapacity: 1, desiredRenewalQuantity: 1 })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  const fake = stripe();
+
+  // Team 10 would be charged from the Team 5 capacity of the old period.
+  await expect(change("price_team_10", fake)).rejects.toMatchObject({
+    code: "billing_plan_change_unavailable",
+  });
+  expect(fake.writes).toEqual([]);
 });
 
 test("every plan change waits while a paid upgrade is not yet recorded", async () => {
@@ -296,6 +327,46 @@ test("a paid upgrade whose request never finished is granted by the seat-sync wo
   expect(await readState(organizationId)).toMatchObject({
     billing: { seatCount: 10 },
     seats: { appliedPaidCapacity: 10, priceId: "price_team_10" },
+  });
+});
+
+test("a renewal choice made while the worker recovers an upgrade stands", async () => {
+  const { organizationId } = await subscribedOrganization({
+    itemSeatCount: 10,
+    seatCount: 5,
+  });
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({ nextAttemptAt: new Date("2000-01-01T00:00:00.000Z") })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  const claim = await claimOrganizationStripeSeatSync(db, new Date());
+  if (claim?.organizationId !== organizationId) {
+    throw new Error("expected this organization's claim");
+  }
+  // While the worker read Team 10 from Stripe, the interrupted upgrade
+  // settled and the admin then chose Solo for renewal.
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({
+      desiredRenewalQuantity: 1,
+      desiredRevision: claim.desiredRevision + 1,
+    })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+
+  await runCompleteOrganizationStripeSeatSyncWorkflow(db, {
+    appliedPaidCapacity: 10,
+    billingPeriodEndsAt: PERIOD_END,
+    billingPeriodStartsAt: PERIOD_START,
+    claim,
+    desiredRenewalQuantity: 10,
+    now: new Date(),
+    observedQuantity: 10,
+    priceId: "price_team_10",
+    subscriptionItemId: `si_${organizationId}`,
+  });
+
+  expect(await readState(organizationId)).toMatchObject({
+    seats: { desiredRenewalQuantity: 1 },
   });
 });
 

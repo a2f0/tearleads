@@ -383,7 +383,8 @@ An administrator changes the plan on every platform under the same rules:
   revisits the row once the lease lapses: finding Stripe at a larger Price
   than the capacity recorded for the period, it grants that capacity in the
   period the organization's billing tracks and records the larger plan as the
-  renewal plan. A Stripe webhook that binds the larger Price within the paid
+  renewal plan, unless a newer renewal choice was recorded while it read
+  Stripe. A Stripe webhook that binds the larger Price within the paid
   period first (the upgrade's own update, or an extension) records it as the
   renewal plan the same way. Until the capacity is recorded and granted,
   every plan change, which reads Stripe first, gets 409
@@ -391,15 +392,16 @@ An administrator changes the plan on every platform under the same rules:
   renewal choice, and another plan would be priced from capacity not yet
   granted. An upgrade that finishes after the subscription renewed grants
   nothing to the new period, whose renewal invoice already charged the Price
-  it renews at. That holds whichever provider reports the renewal first: a
-  RevenueCat renewal whose period starts in the paid period's second half or
-  later counts, even before Stripe's webhooks bind it.
+  it renews at. That holds whichever provider reports the renewal first.
 - Only a Stripe subscription that owns the organization's capacity (a priced
-  binding, not one retained under native ownership) can change plan, and
-  every change waits with 409 `billing_plan_change_unavailable` while Stripe
-  has renewed into a period its webhooks have not bound yet, so an upgrade is
-  always charged from, and a downgrade scheduled against, the period actually
-  paid for.
+  binding, not one retained under native ownership) can change plan. Every
+  change waits with 409 `billing_plan_change_unavailable` while Stripe has
+  renewed into a period its webhooks have not bound yet, or while the
+  organization's billing tracks another period than the one bound (one
+  provider reported a renewal before the other), so an upgrade is always
+  charged from, and a downgrade scheduled against, the period actually paid
+  for. Two reports of a period are the same period when their starts differ
+  by less than half its length.
 - Every request names the capacity the admin chose against
   (`currentSeatCount`). If the plan changed meanwhile (a renewal, another
   admin), the request gets 409 `billing_plan_change_unavailable`, so a choice

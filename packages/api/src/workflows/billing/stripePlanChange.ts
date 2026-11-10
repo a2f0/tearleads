@@ -259,12 +259,38 @@ interface ObservedStripePlan {
 }
 
 /**
+ * Whether the organization's billing tracks the Stripe period from
+ * `startsAt` to `endsAt`. RevenueCat and Stripe each report the period, and
+ * either can arrive first after a renewal; a billing period that starts half
+ * a period or more away is another period, while the two providers'
+ * timestamps for one period never differ by that much. Unknown periods are
+ * not compared.
+ */
+export function billingTracksPeriod(
+  billingStartsAt: Date | null,
+  period: { readonly endsAt: Date | null; readonly startsAt: Date | null },
+): boolean {
+  if (
+    billingStartsAt === null ||
+    period.startsAt === null ||
+    period.endsAt === null
+  ) {
+    return true;
+  }
+  const halfPeriod = (period.endsAt.getTime() - period.startsAt.getTime()) / 2;
+  return (
+    Math.abs(billingStartsAt.getTime() - period.startsAt.getTime()) < halfPeriod
+  );
+}
+
+/**
  * Every change is made against the subscription as Stripe reports it, which
  * must match what the organization has recorded:
  *
  * - Stripe in a later period than the one bound has renewed, and its
- *   webhooks have not arrived: a choice now would be scheduled or charged
- *   against the previous period's plan.
+ *   webhooks have not arrived; billing in another period than the one bound
+ *   has renewed through one provider before the other. A choice now would
+ *   be scheduled or charged against another period's plan.
  * - Stripe holding a larger plan than the capacity recorded or granted for
  *   the period is a paid upgrade whose request died before recording it.
  *   The seat-sync worker grants it and records it as the renewal plan once
@@ -272,15 +298,22 @@ interface ObservedStripePlan {
  *   another plan would be priced from capacity not recorded.
  */
 function requireStripeAtGrantedPlan(
+  billing: {
+    readonly currentPeriodStartsAt: Date | null;
+    readonly seatCount: number;
+  },
   seats: BoundStripeSeats,
-  grantedSeatCount: number,
   observed: ObservedStripePlan | null,
 ): void {
   if (
     observed?.subscriptionId !== seats.subscriptionId ||
     observed.billingPeriodStartsAt === null ||
     observed.billingPeriodStartsAt.getTime() !==
-      seats.billingPeriodStartsAt?.getTime()
+      seats.billingPeriodStartsAt?.getTime() ||
+    !billingTracksPeriod(billing.currentPeriodStartsAt, {
+      endsAt: seats.billingPeriodEndsAt,
+      startsAt: seats.billingPeriodStartsAt,
+    })
   ) {
     throw stripePlanChangeUnavailable(
       "The subscription is renewing; try again in a moment",
@@ -289,7 +322,7 @@ function requireStripeAtGrantedPlan(
   const observedSeatCount = observed.seatCount ?? 0;
   if (
     observedSeatCount > seats.appliedPaidCapacity ||
-    observedSeatCount > grantedSeatCount
+    observedSeatCount > billing.seatCount
   ) {
     throw stripePlanChangeUnavailable(
       "A previous upgrade is still being applied; try again in a minute",
@@ -332,7 +365,7 @@ export async function runBeginStripePlanChangeWorkflow(
       }
       const seats = await requireChangeableSeats(tx, organizationId, now);
       await requirePlanCoversRoster(tx, organizationId, plan);
-      requireStripeAtGrantedPlan(seats, billing.seatCount, options.observed);
+      requireStripeAtGrantedPlan(billing, seats, options.observed);
       if (plan.seatLimit > billing.seatCount) {
         return leaseUpgrade(tx, seats, {
           leaseId: `${PLAN_LEASE_PREFIX}${(options.createLeaseId ?? randomUUID)()}`,

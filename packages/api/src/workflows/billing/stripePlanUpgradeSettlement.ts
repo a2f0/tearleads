@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import {
+  billingTracksPeriod,
   lockActiveBilling,
   readStripeSeats,
   type StripeSeatRow,
@@ -25,34 +26,24 @@ import {
 /**
  * Whether the upgrade still applies to the period it paid for: the
  * organization binds the same subscription in that period, and its billing
- * has not renewed past it. RevenueCat can deliver a renewal before Stripe's
- * webhooks; its period then starts in the paid period's second half or
- * later, so the two providers' timestamps for one period never differ by
- * that much.
+ * has not renewed past it (RevenueCat can deliver a renewal before Stripe's
+ * webhooks).
  */
 function upgradeAppliesToPaidPeriod(
   billing: { readonly currentPeriodStartsAt: Date | null },
   seats: StripeSeatRow | undefined,
   input: FinishStripePlanUpgradeInput,
 ): seats is StripeSeatRow {
-  if (
-    !seats ||
-    seats.subscriptionId !== input.subscriptionId ||
-    seats.billingPeriodEndsAt?.getTime() !== input.paidPeriodEndsAt?.getTime()
-  ) {
-    return false;
-  }
-  const { paidPeriodEndsAt, paidPeriodStartsAt } = input;
-  if (
-    billing.currentPeriodStartsAt === null ||
-    paidPeriodEndsAt === null ||
-    paidPeriodStartsAt === null
-  ) {
-    return true;
-  }
-  const midpoint =
-    (paidPeriodStartsAt.getTime() + paidPeriodEndsAt.getTime()) / 2;
-  return billing.currentPeriodStartsAt.getTime() < midpoint;
+  return (
+    seats !== undefined &&
+    seats.subscriptionId === input.subscriptionId &&
+    seats.billingPeriodEndsAt?.getTime() ===
+      input.paidPeriodEndsAt?.getTime() &&
+    billingTracksPeriod(billing.currentPeriodStartsAt, {
+      endsAt: input.paidPeriodEndsAt,
+      startsAt: input.paidPeriodStartsAt,
+    })
+  );
 }
 
 interface FinishStripePlanUpgradeInput {
