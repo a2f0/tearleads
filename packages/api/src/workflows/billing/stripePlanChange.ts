@@ -111,14 +111,6 @@ export async function readStripeSeats(
   return seats;
 }
 
-function planChangeInFlight(seats: StripeSeatRow, now: Date): boolean {
-  return (
-    seats.leaseId?.startsWith(PLAN_LEASE_PREFIX) === true &&
-    seats.leaseExpiresAt !== null &&
-    seats.leaseExpiresAt > now
-  );
-}
-
 async function requirePlanCoversRoster(
   executor: DatabaseSession,
   organizationId: string,
@@ -164,9 +156,13 @@ async function requireChangeableSeats(
       "The organization has no Stripe subscription to change",
     );
   }
-  if (planChangeInFlight(seats, now)) {
+  // A held lease means another plan change, or the seat-sync worker, is
+  // writing the subscription. Every change waits for it, so a renewal choice
+  // never interleaves with a worker claim that may record a recovered
+  // upgrade (stripeSeatSyncClaim.ts).
+  if (seats.leaseExpiresAt !== null && seats.leaseExpiresAt > now) {
     throw stripePlanChangeUnavailable(
-      "Another plan change is still being applied",
+      "The subscription is being updated; try again shortly",
     );
   }
   return {
@@ -220,11 +216,6 @@ async function leaseUpgrade(
   },
 ): Promise<BegunStripePlanChange> {
   const { now } = input;
-  if (seats.leaseExpiresAt !== null && seats.leaseExpiresAt > now) {
-    throw stripePlanChangeUnavailable(
-      "The subscription is being updated; try again shortly",
-    );
-  }
   const leaseExpiresAt = new Date(now.getTime() + PLAN_LEASE_MS);
   await executor
     .update(organizationBillingStripeSeats)

@@ -383,10 +383,11 @@ An administrator changes the plan on every platform under the same rules:
   revisits the row once the lease lapses: finding Stripe at a larger Price
   than the capacity recorded for the period, it grants that capacity in the
   period the organization's billing tracks and records the larger plan as the
-  renewal plan, unless a newer renewal choice was recorded while it read
-  Stripe. A Stripe webhook that binds the larger Price within the paid
-  period first (the upgrade's own update, or an extension) records it as the
-  renewal plan the same way. Until the capacity is recorded and granted,
+  renewal plan. Every plan change also waits with 409 while the worker holds
+  the row, so no renewal choice interleaves with that record. A Stripe
+  webhook that binds the larger Price within the paid period first (the
+  upgrade's own update, or an extension) records it as the renewal plan the
+  same way. Until the capacity is recorded and granted,
   every plan change, which reads Stripe first, gets 409
   `billing_plan_change_unavailable`: the worker would overwrite a newer
   renewal choice, and another plan would be priced from capacity not yet
