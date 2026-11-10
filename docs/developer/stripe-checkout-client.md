@@ -17,16 +17,29 @@ flow and can style it from its theme tokens.
   is no [RevenueCat](revenuecat-billing.md) web-purchase fallback.
 - Stripe loads from `@stripe/stripe-js/pure`, deferring Stripe.js and its fraud
   signals from startup until someone opens checkout.
-- The server pins the subscription to `card`. Redirect-based methods are not
-  compatible with the client's `redirect: "if_required"` confirmation flow.
+- The server pins the subscription to `card`, and the form offers only `card`
+  (`allowedPaymentMethodTypes`). Redirect-based methods are not compatible
+  with the client's `redirect: "if_required"` confirmation flow.
 
 ## Purchase flow
 
-`useDirectCheckoutFlow` loads the server-selected option, creates checkout,
-mounts the Payment Element, confirms, and hands off to activation polling. The
-entitlement arrives asynchronously through Stripe, RevenueCat, and the
-[Tearleads webhook](revenuecat-billing.md#direct-stripe-checkout-server-side). A
-decline leaves the element mounted for correction; cancel unmounts it.
+Nothing exists on the server until the buyer pays.
+`useDirectCheckoutFlow` loads the server-selected option and, on Subscribe,
+mounts the Payment Element in Stripe's deferred mode (`mode: "subscription"`)
+for that option's amount and currency. On Pay, the session validates the form
+(`elements.submit()`), then asks the server to start the subscription at the
+option's `priceId` and confirms the returned PaymentIntent. Success hands off
+to activation polling; the entitlement arrives asynchronously through Stripe,
+RevenueCat, and the
+[Tearleads webhook](revenuecat-billing.md#direct-stripe-checkout-server-side).
+
+Stripe does not check the form's amount against the PaymentIntent it
+confirms, so the server starts only the Price the buyer was shown. If the
+roster has moved the organization to another plan since the form opened, Pay
+gets a 409 `billing_checkout_price_changed`: nothing is charged, the form
+closes, and the panel reloads the offer at the new price. A decline leaves the
+element mounted for correction, and the next Pay resumes the same
+subscription; cancel unmounts it.
 
 The surrounding Tearleads form requires a billing email before inline checkout.
 Confirmation sends it as the PaymentMethod billing email while the embedded

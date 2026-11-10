@@ -2,7 +2,10 @@ import type {
   RequestResult,
   RequestResultOptions,
 } from "@tearleads/api-client";
-import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+import {
+  BILLING_ERROR_CODES,
+  type NativeSubscriptionStore,
+} from "@tearleads/validators/billing";
 import type {
   OrganizationBillingHistoryResponse,
   OrganizationBillingManagementUrlResponse,
@@ -37,7 +40,10 @@ export type OrganizationNativePurchaseEligibility =
 /** Purchasable sync options for the direct Stripe checkout (the wire shape). */
 export type StripeCheckoutOptions = StripeCheckoutOptionsResponse;
 
-/** What the Payment Element needs to confirm a purchase (the wire shape). */
+/**
+ * The subscription started when the buyer pressed Pay, and the client secret
+ * that confirms its first payment (the wire shape).
+ */
 export type StripeCheckoutIntent = StripeCheckoutIntentResponse;
 
 /** The billing methods these workflows need from the api client. */
@@ -68,7 +74,9 @@ interface OrganizationBillingApi {
   ) => Promise<RequestResult<StripeCheckoutOptionsResponse>>;
   readonly createStripeCheckout: (
     organizationId: string,
-  ) => Promise<StripeCheckoutIntentResponse | null>;
+    priceId: string,
+    options?: RequestResultOptions,
+  ) => Promise<RequestResult<StripeCheckoutIntentResponse>>;
   readonly createStripeCheckoutSession: (
     organizationId: string,
     returnUrl: string,
@@ -164,11 +172,31 @@ export async function loadStripeCheckoutOptions(input: {
   return result.data;
 }
 
+/**
+ * Starts the subscription when the buyer presses Pay, at the Price the form
+ * showed. A refusal throws an `Error` carrying the server's billing `code`;
+ * `billing_checkout_price_changed` is an expected outcome (the caller reloads
+ * the options), so only other failures are reported to diagnostics.
+ */
 export async function createStripeCheckout(input: {
   readonly apiClient: Pick<OrganizationBillingApi, "createStripeCheckout">;
   readonly organizationId: string;
-}): Promise<StripeCheckoutIntent | null> {
-  return input.apiClient.createStripeCheckout(input.organizationId);
+  readonly priceId: string;
+}): Promise<StripeCheckoutIntent> {
+  const result = await input.apiClient.createStripeCheckout(
+    input.organizationId,
+    input.priceId,
+    { reportErrors: false },
+  );
+  if (result.ok) {
+    return result.data;
+  }
+  if (result.code !== BILLING_ERROR_CODES.checkoutPriceChanged) {
+    result.report();
+  }
+  throw Object.assign(new Error(result.message), {
+    ...(result.code === undefined ? {} : { code: result.code }),
+  });
 }
 
 export async function createStripeCheckoutSession(input: {

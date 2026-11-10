@@ -65,6 +65,8 @@ test("Stripe checkout routes reject invalid organization ids", async () => {
   const requests = [
     route.request("/organizations/invalid/billing/stripe/options"),
     route.request("/organizations/invalid/billing/stripe/checkout", {
+      body: JSON.stringify({ priceId: "price_1" }),
+      headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
     route.request("/organizations/invalid/billing/stripe/cancel", {
@@ -101,5 +103,17 @@ test("hosted Stripe routes preserve body validation responses and order", async 
     );
     expect(await malformed.json()).toEqual({ error: "Invalid JSON body" });
     expect(malformed.status).toBe(400);
+  }
+});
+
+test("the checkout route requires the Price the buyer was shown", async () => {
+  const route = createTestRoute((_c, next) => next());
+  for (const body of ["{}", JSON.stringify({ priceId: "" }), "{"]) {
+    const response = await route.request(
+      `/organizations/${organizationId}/billing/stripe/checkout`,
+      { body, headers: { "Content-Type": "application/json" }, method: "POST" },
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid request" });
   }
 });

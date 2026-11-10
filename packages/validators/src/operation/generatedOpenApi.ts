@@ -1039,8 +1039,8 @@ export type paths = {
         get?: never;
         put?: never;
         /**
-         * Create a Stripe checkout
-         * @description Starts or resumes an inline Stripe checkout and returns the client secret for Stripe's Payment Element. Only organization administrators may call it, and the seat count comes from the roster, not the client. Identical retries reuse the same attempt; a different buyer, mode, or seat count while one is open returns 409.
+         * Start a Stripe subscription at Pay
+         * @description Called when the buyer presses Pay in the inline form: starts (or, for the same buyer and Price, resumes) the organization's subscription at `priceId` and returns the client secret Stripe's Payment Element confirms. Only organization administrators may call it, and the seat count comes from the roster, not the client. When the roster now needs a different Price than `priceId`, it returns 409 with code `billing_checkout_price_changed` and the client reloads the options. A different buyer or the hosted mode with an unpaid checkout open returns 409.
          */
         post: operations["organizations.billing.stripe.checkout.create"];
         delete?: never;
@@ -4620,7 +4620,18 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description What Stripe's Payment Element needs to confirm one subscription purchase. */
+        /** @description A refused inline checkout. */
+        StripeCheckoutErrorResponse: {
+            /**
+             * @description Machine-readable reason: an empty roster, a roster larger than any plan, or `billing_checkout_price_changed` when the Price the buyer saw no longer covers the roster.
+             * @enum {string}
+             */
+            code?: "billing_checkout_no_active_members" | "billing_checkout_price_changed" | "billing_roster_over_capacity";
+            error: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description The subscription started when the buyer pressed Pay, and what Stripe's Payment Element needs to confirm its first payment. */
         StripeCheckoutIntentResponse: {
             /** @description Stripe PaymentIntent client secret; pass it only to Stripe.js. */
             clientSecret: string;
@@ -4631,6 +4642,13 @@ export type components = {
         /** @description The Stripe plans offered for the organization's current roster size. */
         StripeCheckoutOptionsResponse: {
             options: components["schemas"]["StripeSyncOptionResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description The plan the buyer was shown when they pressed Pay. */
+        StripeCheckoutRequest: {
+            /** @description Stripe Price id from the checkout options. The server charges only this Price and returns 409 `billing_checkout_price_changed` when the roster now needs another. */
+            priceId: string;
         } & {
             [key: string]: unknown;
         };
@@ -9229,7 +9247,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StripeCheckoutRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -9282,7 +9304,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BillingErrorResponse"];
+                    "application/json": components["schemas"]["StripeCheckoutErrorResponse"];
                 };
             };
             /** @description Internal Server Error */

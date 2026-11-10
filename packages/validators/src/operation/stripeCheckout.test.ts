@@ -3,6 +3,7 @@ import { StripeReturnUrlRequestSchema } from "../request";
 import {
   BillingErrorResponseSchema,
   StripeCancelResponseSchema,
+  StripeCheckoutErrorResponseSchema,
   StripeCheckoutIntentResponseSchema,
   StripeCheckoutOptionsResponseSchema,
   StripeCheckoutSessionResponseSchema,
@@ -62,11 +63,13 @@ test("Stripe checkout operations document handler failures", () => {
   ]);
   for (const operation of [
     getStripeCheckoutOptionsOperation,
-    createStripeCheckoutOperation,
     createStripeCheckoutSessionOperation,
   ]) {
     expect(operation.failureResponses[409]).toBe(BillingErrorResponseSchema);
   }
+  expect(createStripeCheckoutOperation.failureResponses[409]).toBe(
+    StripeCheckoutErrorResponseSchema,
+  );
 });
 
 test("Stripe checkout operations share canonical organization paths", () => {

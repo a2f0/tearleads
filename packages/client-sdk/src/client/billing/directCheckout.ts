@@ -47,10 +47,20 @@ export type DirectCheckoutConfirmation =
 /** A mounted checkout element; always `unmount()` when done. */
 export interface DirectCheckoutSession {
   /**
-   * Confirms the payment. Resolves rather than throwing for buyer-facing
-   * outcomes so callers need not distinguish exceptions from declines.
+   * Pays: validates the form, then calls `startPayment`, which starts the
+   * purchase on the server and returns the provider client secret that
+   * confirms it, then confirms that payment. Nothing exists server-side until
+   * the buyer pays, so a form that is opened and abandoned costs nothing.
+   *
+   * Resolves rather than throwing for buyer-facing outcomes (a declined card,
+   * failed validation) so callers need not distinguish exceptions from
+   * declines; a declined payment can be retried with another `confirm`.
+   * Rejects with `startPayment`'s error when the server refuses, and with a
+   * provider error otherwise.
    */
-  confirm(): Promise<DirectCheckoutConfirmation>;
+  confirm(
+    startPayment: () => Promise<string>,
+  ): Promise<DirectCheckoutConfirmation>;
   /** Tears the element down and releases provider resources. */
   unmount(): void;
 }
@@ -60,15 +70,25 @@ export interface DirectCheckoutCapability {
   readonly isAvailable: boolean;
   /**
    * Mounts the provider's billing-email and payment elements into `host`
-   * for the given client secret. Resolves once the elements are attached;
-   * the provider form may still be loading, which `onReady` and
-   * `onLoadError` report.
+   * for a recurring purchase of `price`, before anything exists on the
+   * server. Resolves once the elements are attached; the provider form may
+   * still be loading, which `onReady` and `onLoadError` report.
    * Rejects with {@link DirectCheckoutUnavailableError} on the stub, and with
    * an ordinary error when the provider script cannot load.
    */
   mount(input: {
     readonly host: HTMLElement;
-    readonly clientSecret: string;
+    /**
+     * What the form shows and the first payment charges. The provider does
+     * not check it against what the server starts, so `startPayment` must
+     * start exactly this price.
+     */
+    readonly price: {
+      /** Amount in the currency's minor unit, e.g. 500 for $5.00. */
+      readonly amount: number;
+      /** ISO 4217 code as the provider reports it, e.g. "usd". */
+      readonly currency: string;
+    };
     readonly appearance: DirectCheckoutAppearance;
     /**
      * The provider form collects the billing email (the customer recovery

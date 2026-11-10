@@ -244,10 +244,10 @@ class OrganizationsService implements Organizations {
     );
   }
 
-  createStripeCheckout(organizationId?: string) {
+  createStripeCheckout(priceId: string, organizationId?: string) {
     return runForOrganization(
       this.runtimeService,
-      createStripeCheckout,
+      (input) => createStripeCheckout({ ...input, priceId }),
       organizationId,
     );
   }

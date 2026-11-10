@@ -71,6 +71,7 @@ test("concurrent inline and hosted services issue one provider create", async ()
       getDefaultApiServiceRuntime(),
       organizationId,
       admin.userId,
+      "price_sync",
       serviceDeps,
     ),
     createStripeCheckoutSession(
@@ -137,6 +138,7 @@ test("incomplete provider configuration does not reserve an attempt", async () =
       getDefaultApiServiceRuntime(),
       organizationId,
       admin.userId,
+      "price_sync",
       { stripe: { env: {} }, revenueCat: { env: {} } },
     ),
   ).toBeNull();

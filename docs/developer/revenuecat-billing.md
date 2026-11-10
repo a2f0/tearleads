@@ -203,8 +203,9 @@ selects the smallest fixed Price that covers the authoritative roster, and
 leaves RevenueCat responsible for mirroring the resulting entitlement lifecycle:
 
 - `GET /organizations/:id/billing/stripe/options`, `POST
-  /organizations/:id/billing/stripe/checkout` (admin-gated; returns the
-  PaymentIntent client secret for a Payment Element), `POST
+  /organizations/:id/billing/stripe/checkout` (admin-gated; called at Pay with
+  the `priceId` the form showed, it starts the subscription and returns the
+  PaymentIntent client secret the deferred-mode Payment Element confirms), `POST
   /organizations/:id/billing/stripe/checkout-session` (hosted fallback), `POST
   /organizations/:id/billing/stripe/cancel`, and `POST
   /organizations/:id/billing/stripe/portal` live in
@@ -215,6 +216,11 @@ leaves RevenueCat responsible for mirroring the resulting entitlement lifecycle:
   checks. Checkout rejects an empty effective roster and sends the resulting
   positive count to choose Solo, Team 5, or Team 10. Both inline and hosted
   checkout send the selected Price with subscription-item quantity `1`.
+  Stripe does not check the inline form's amount against the PaymentIntent, so
+  inline checkout proceeds only when its attempt's seat count still maps to the
+  `priceId` the buyer saw; otherwise it returns 409
+  `billing_checkout_price_changed` before calling Stripe, and the client
+  reloads the options.
 - Inline and hosted checkout share one durable, organization-scoped unpaid
   attempt, capturing buyer, mode, and seat quantity before Stripe is called.
   Identical retries reuse its idempotency token; another buyer or mode gets

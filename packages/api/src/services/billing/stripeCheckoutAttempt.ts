@@ -1,13 +1,43 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import {
+  BILLING_ERROR_CODES,
+  getSyncBillingTierForSeatCount,
+} from "@tearleads/validators/billing";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import {
   voidReplacedCheckout,
   voidStaleInlineCheckouts,
 } from "../../billing/stripeCheckoutVoid";
+import { getStripePriceIdForTier } from "../../billing/stripeHttp";
 import {
   readStripeCheckoutAttemptId,
   stripeCheckoutInProgress,
 } from "../../workflows/billing/stripeCheckout";
+import { OrganizationManagerError } from "../../workflows/organizations/errors";
+
+/**
+ * The inline form shows a Price before any subscription exists, and Stripe
+ * charges whatever the subscription says, not what the form showed. Pay
+ * therefore names the Price the buyer saw, and the checkout proceeds only
+ * when the attempt's own seat count (the one the subscription is created
+ * for) still maps to it. A roster change since the form opened gets a 409
+ * the client answers by reloading the options.
+ */
+export function requireShownPrice(input: {
+  readonly priceId: string;
+  readonly seatQuantity: number;
+  readonly stripe: StripeApiDeps;
+}): void {
+  const tier = getSyncBillingTierForSeatCount(input.seatQuantity);
+  const priceId = tier ? getStripePriceIdForTier(tier.id, input.stripe) : null;
+  if (priceId !== input.priceId) {
+    throw new OrganizationManagerError(
+      "The organization's plan changed; review the new price",
+      409,
+      BILLING_ERROR_CODES.checkoutPriceChanged,
+    );
+  }
+}
 
 /**
  * An inline attempt rotates when the roster changes under the buyer's unpaid

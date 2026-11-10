@@ -127,6 +127,7 @@ test("inline checkout selects the current membership tier at quantity one", asyn
     getDefaultApiServiceRuntime(),
     organizationId,
     admin.userId,
+    "price_team_5",
     {
       stripe: { env: STRIPE_ENV, fetchImpl },
       revenueCat: { env: REVENUECAT_ENV },
@@ -222,6 +223,7 @@ test("checkout rejects a tampered Members policy before contacting Stripe", asyn
       getDefaultApiServiceRuntime(),
       organizationId,
       admin.userId,
+      "price_sync",
       {
         stripe: { env: STRIPE_ENV, fetchImpl },
         revenueCat: { env: REVENUECAT_ENV },

@@ -148,6 +148,7 @@ test("a Stripe-side live subscription makes checkout a 409", async () => {
       getDefaultApiServiceRuntime(),
       organizationId,
       admin.userId,
+      "price_sync",
       {
         stripe: { env: fullEnv, fetchImpl: conflictFetch },
         revenueCat: { env: fullEnv },

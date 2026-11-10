@@ -1,6 +1,8 @@
 import type { z } from "zod";
 import {
+  isStripeCheckoutRequest,
   isStripeReturnUrlRequest,
+  StripeCheckoutRequestSchema,
   StripeReturnUrlRequestSchema,
 } from "../request";
 import {
@@ -13,6 +15,7 @@ import {
   isStripePortalResponse,
   SessionFailureResponseSchema,
   StripeCancelResponseSchema,
+  StripeCheckoutErrorResponseSchema,
   StripeCheckoutIntentResponseSchema,
   StripeCheckoutOptionsResponseSchema,
   StripeCheckoutSessionResponseSchema,
@@ -56,16 +59,17 @@ export const getStripeCheckoutOptionsOperation = defineJsonOperation({
 
 export const createStripeCheckoutOperation = defineJsonOperation({
   auth: "session",
+  body: StripeCheckoutRequestSchema,
   failureResponses: {
     ...baseFailureResponses,
-    409: BillingErrorResponseSchema,
+    409: StripeCheckoutErrorResponseSchema,
     503: ErrorResponseSchema,
   },
   failureStatuses: [400, 401, 403, 404, 409, 500, 502, 503],
   id: "organizations.billing.stripe.checkout.create",
-  summary: "Create a Stripe checkout",
+  summary: "Start a Stripe subscription at Pay",
   description:
-    "Starts or resumes an inline Stripe checkout and returns the client secret for Stripe's Payment Element. Only organization administrators may call it, and the seat count comes from the roster, not the client. Identical retries reuse the same attempt; a different buyer, mode, or seat count while one is open returns 409.",
+    "Called when the buyer presses Pay in the inline form: starts (or, for the same buyer and Price, resumes) the organization's subscription at `priceId` and returns the client secret Stripe's Payment Element confirms. Only organization administrators may call it, and the seat count comes from the roster, not the client. When the roster now needs a different Price than `priceId`, it returns 409 with code `billing_checkout_price_changed` and the client reloads the options. A different buyer or the hosted mode with an unpaid checkout open returns 409.",
   method: "POST",
   params: StripeCheckoutPathParamsSchema,
   path: "/organizations/{organizationId}/billing/stripe/checkout",
@@ -123,6 +127,7 @@ export const cancelStripeSubscriptionOperation = defineJsonOperation({
 
 export const isGetStripeCheckoutOptionsOperationResponse =
   isStripeCheckoutOptionsResponse;
+export const isCreateStripeCheckoutOperationRequest = isStripeCheckoutRequest;
 export const isCreateStripeCheckoutOperationResponse =
   isStripeCheckoutIntentResponse;
 export const isCreateStripeCheckoutSessionOperationRequest =

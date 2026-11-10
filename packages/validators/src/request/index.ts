@@ -157,7 +157,10 @@ export {
   RevenueCatWebhookRequestSchema,
 } from "./revenuecatWebhook";
 export {
+  isStripeCheckoutRequest,
   isStripeReturnUrlRequest,
+  type StripeCheckoutRequest,
+  StripeCheckoutRequestSchema,
   type StripeReturnUrlRequest,
   StripeReturnUrlRequestSchema,
 } from "./stripeCheckout";

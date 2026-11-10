@@ -17,6 +17,7 @@ import {
   createStripePortalUrl,
 } from "../../services/billing/stripeCheckout";
 import { getStripeCheckoutOptions } from "../../services/billing/stripeCheckoutOptions";
+import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { RequestBodyTooLargeError } from "../../validators/requestBodyTooLarge";
 import type { SafeParseSchema } from "../../validators/schema";
@@ -133,14 +134,16 @@ function registerStripeOptionsAndIntentRoutes(
     createStripeCheckoutOperation.method,
     operationRoutePath(createStripeCheckoutOperation),
     requireAuth,
+    jsonRequestValidator(createStripeCheckoutOperation.body),
     pathParamsValidator(
       createStripeCheckoutOperation.params,
       "Invalid organizationId",
     ),
     (c) => {
       const { organizationId } = c.req.valid("param");
+      const { priceId } = c.req.valid("json");
       return respondForOrganization(c, organizationId, async (id, userId) => {
-        const intent = await createStripeCheckout(runtime, id, userId);
+        const intent = await createStripeCheckout(runtime, id, userId, priceId);
         if (!intent) {
           return c.json({ error: "Stripe checkout is not configured" }, 503);
         }

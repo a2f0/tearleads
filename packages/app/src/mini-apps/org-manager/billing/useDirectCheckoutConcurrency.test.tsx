@@ -1,7 +1,12 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
+import type {
+  DirectCheckoutCapability,
+  DirectCheckoutSession,
+} from "@tearleads/client-sdk";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
   capabilityWith,
+  type MountInput,
   OPTION,
   renderFlow,
   restoreDirectCheckoutSpies,
@@ -41,37 +46,46 @@ test("begin is a no-op while a session is already mounted", async () => {
   expect(mounted).toHaveLength(1);
 });
 
+/**
+ * A capability whose mounts each wait for the test to settle them, so a test
+ * can order a stale attempt's failure after its replacement mounted.
+ */
+function heldMountCapability(unmount: () => void = () => undefined) {
+  const mounts: PromiseWithResolvers<DirectCheckoutSession>[] = [];
+  const session: DirectCheckoutSession = {
+    confirm: () => Promise.resolve({ kind: "succeeded" }),
+    unmount,
+  };
+  const capability: DirectCheckoutCapability = {
+    isAvailable: true,
+    mount: (input: MountInput) => {
+      const mount = Promise.withResolvers<DirectCheckoutSession>();
+      mounts.push(mount);
+      input.onReady();
+      return mount.promise;
+    },
+  };
+  return { capability, mounts, session };
+}
+
 test("a begin that fails after a newer one started does not disturb it", async () => {
   // The losing attempt must neither write its error onto the panel nor call
   // the shared teardown, which would cancel the attempt that replaced it.
-  let rejectFirst: ((error: Error) => void) | undefined;
-  let calls = 0;
-  stubTearleads({
-    createStripeCheckout: mock(() => {
-      calls += 1;
-      return calls === 1
-        ? new Promise((_resolve, reject) => {
-            rejectFirst = reject;
-          })
-        : Promise.resolve({
-            subscriptionId: "sub_2",
-            clientSecret: "pi_2",
-          });
-    }),
-  });
-  const unmount = mock(() => undefined);
-  const { capability } = capabilityWith({ unmount });
+  stubTearleads();
+  const { capability, mounts, session } = heldMountCapability();
   const { result } = renderFlow(capability);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
 
   await act(async () => result.current.begin());
-  // Cancel bumps the token, then a fresh attempt succeeds.
+  // Cancel ends the first attempt, then a fresh attempt mounts.
   act(() => result.current.cancel());
   await act(async () => result.current.begin());
+  await waitFor(() => expect(mounts).toHaveLength(2));
+  await act(async () => mounts[1]?.resolve(session));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   await act(async () => {
-    rejectFirst?.(new Error("stale failure"));
+    mounts[0]?.reject(new Error("stale failure"));
   });
 
   // The new checkout survives the stale rejection.
@@ -166,20 +180,11 @@ test("a cancelled confirmation releases the session so begin works again", async
   expect(mounted).toHaveLength(2);
 });
 
-test("a double-clicked Subscribe starts exactly one checkout", async () => {
-  // The `starting` window is before any re-render, so only a ref can stop the
-  // second click from reaching the server and bumping the start token.
-  let starts = 0;
-  let release: ((intent: unknown) => void) | undefined;
-  stubTearleads({
-    createStripeCheckout: mock(() => {
-      starts += 1;
-      return new Promise((resolve) => {
-        release = resolve;
-      });
-    }),
-  });
-  const { capability, mounted } = capabilityWith({});
+test("a double-clicked Subscribe mounts exactly one checkout", async () => {
+  // The `starting` window is before any re-render, so only the machine's ref
+  // can stop the second click from opening a second form.
+  stubTearleads();
+  const { capability, mounts, session } = heldMountCapability();
   const { result } = renderFlow(capability);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
 
@@ -187,28 +192,18 @@ test("a double-clicked Subscribe starts exactly one checkout", async () => {
     result.current.begin();
     result.current.begin();
   });
-  expect(starts).toBe(1);
+  await waitFor(() => expect(mounts).toHaveLength(1));
 
-  await act(async () => {
-    release?.({ subscriptionId: "sub_1", clientSecret: "pi_1" });
-  });
+  await act(async () => mounts[0]?.resolve(session));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
-  expect(mounted).toHaveLength(1);
+  expect(mounts).toHaveLength(1);
 });
 
-test("a failed start releases the guard so the buyer can retry", async () => {
-  // Without clearing `startingRef` on the failure path, the Subscribe row
-  // would come back but do nothing.
-  let attempts = 0;
-  stubTearleads({
-    createStripeCheckout: mock(() => {
-      attempts += 1;
-      return attempts === 1
-        ? Promise.reject(new Error("500"))
-        : Promise.resolve({ subscriptionId: "sub_1", clientSecret: "pi_1" });
-    }),
-  });
-  const { capability } = capabilityWith({});
+test("a failed mount releases the guard so the buyer can retry", async () => {
+  // Without leaving `starting` on the failure path, the Subscribe row would
+  // come back but do nothing.
+  stubTearleads();
+  const { capability, mounted } = capabilityWith({}, { failMounts: 1 });
   const { result } = renderFlow(capability);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
 
@@ -217,7 +212,7 @@ test("a failed start releases the guard so the buyer can retry", async () => {
 
   await act(async () => result.current.begin());
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
-  expect(attempts).toBe(2);
+  expect(mounted).toHaveLength(2);
 });
 
 const OPENING: HostedCheckoutState = { status: "opening" };

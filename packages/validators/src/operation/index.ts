@@ -322,6 +322,7 @@ export {
   createStripePortalOperation,
   getStripeCheckoutOptionsOperation,
   isCancelStripeSubscriptionOperationResponse,
+  isCreateStripeCheckoutOperationRequest,
   isCreateStripeCheckoutOperationResponse,
   isCreateStripeCheckoutSessionOperationRequest,
   isCreateStripeCheckoutSessionOperationResponse,

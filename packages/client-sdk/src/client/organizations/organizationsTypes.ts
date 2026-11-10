@@ -5,7 +5,6 @@ import type {
   checkNativePurchaseEligibility,
   claimNativeOrganizationSubscription,
   createOrganizationGroup,
-  createStripeCheckout,
   createStripeCheckoutSession,
   LocalOrganizationSummary,
   loadOrganizationBilling,
@@ -14,6 +13,7 @@ import type {
   loadStripeCheckoutOptions,
   OrganizationDeviceDataUsage,
   revokeOrganizationContainerGrant,
+  StripeCheckoutIntent,
   startOrganizationTrial,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
@@ -78,13 +78,19 @@ export interface Organizations {
   loadBillingManagementUrl: () => ReturnType<
     typeof loadOrganizationBillingManagementUrl
   >;
-  /** Direct Stripe checkout (issue #1654): options, start, and cancel. */
+  /** Direct Stripe checkout (issue #1654): options, start at Pay, and cancel. */
   loadStripeCheckoutOptions: (
     organizationId?: string,
   ) => ReturnType<typeof loadStripeCheckoutOptions>;
+  /**
+   * Starts the subscription at Pay, at the `priceId` the buyer was shown;
+   * null without an authenticated organization. A refusal throws an `Error`
+   * with the server's billing `code`.
+   */
   createStripeCheckout: (
+    priceId: string,
     organizationId?: string,
-  ) => ReturnType<typeof createStripeCheckout>;
+  ) => Promise<StripeCheckoutIntent | null>;
   createStripeCheckoutSession: (
     returnUrl: string,
     organizationId?: string,
