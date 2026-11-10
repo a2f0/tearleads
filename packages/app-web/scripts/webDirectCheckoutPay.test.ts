@@ -98,8 +98,14 @@ test("leaving while the form validates starts nothing on the server", async () =
 test("leaving while the server starts the payment confirms nothing", async () => {
   const { confirmInputs, stripe } = fakeStripe();
   const session = await mountWith(stripe);
+  const entered = Promise.withResolvers<void>();
   const started = Promise.withResolvers<string>();
-  const outcome = session.confirm(() => started.promise);
+  const outcome = session.confirm(() => {
+    entered.resolve();
+    return started.promise;
+  });
+  // The form validated and the server is starting the subscription.
+  await entered.promise;
 
   session.unmount();
   started.resolve("pi_started");
