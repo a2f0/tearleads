@@ -1,0 +1,12 @@
+/*
+ * Under the Light and Dark themes the desktop is greyscale: every wallpaper,
+ * its Display Properties swatch included, renders without colour, whatever
+ * tint its own palette carries (the designed wallpapers mix in a hue, and
+ * Light's background leans green). Dusk keeps the tints. Light is also the
+ * default before ThemeProvider stamps `<html data-theme>`.
+ */
+:root:not([data-theme]) .wallpaper-pattern,
+:root[data-theme="light"] .wallpaper-pattern,
+:root[data-theme="dark"] .wallpaper-pattern {
+  filter: grayscale(1);
+}
