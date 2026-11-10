@@ -99,10 +99,17 @@ new batch ID.
    with the other audit`, and `Changes to this report`, and update the
    drafts, the checkpoint, and the receipt.
 
-The two batches run at the same time, so a lead one audit returns arrives
-after the other's batch has closed. The publisher lists returned leads as
-open between the audits; a later `resume` of the receiving audit picks them
-up.
+The two batches run at the same time, so each sees the other's first-pass
+drafts, not what the other batch adds. Two things follow for the publisher:
+
+- A lead one audit returns arrives after the other's batch has closed. List
+  returned leads as open between the audits; a later `resume` of the
+  receiving audit picks them up.
+- Proposals both batches rank are new to each other. Before publishing,
+  compare each batch's added proposals with the other's additions and record
+  any `overlap`, `shrinks`, `order`, or `conflict` between them in the merged
+  interaction table, with the evidence each proposal already carries. A pair
+  that needs a new measurement stays open instead.
 
 ## One unified issue
 
