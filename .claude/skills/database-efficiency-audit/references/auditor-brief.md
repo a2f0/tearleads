@@ -85,7 +85,12 @@ maintainers prefer builder implementations; name a raw-statement edit
 plainly.
 
 Measurement: follow the statement-capture, plan, and probe instructions in
-<MEASUREMENT_REFERENCE>. The capture preload is at <CAPTURE_PRELOAD>. Probe
+<MEASUREMENT_REFERENCE>. The capture preload is at <CAPTURE_PRELOAD>. Group
+a canary capture by request and bind hash before counting repeats: a
+per-phase total hides the same key read twice in one request. A probe reads
+every path it uses from the environment, inputs and fixture ids included,
+so the coordinator can re-run a copy of it. A capture that wraps an
+executor guards against recursion and stops at a line cap. Probe
 at most two candidates, with one harness-repair attempt each. The
 coordinator has checked packages/client-sdk/dist at this revision: do not
 rebuild it or run bun install.
@@ -93,7 +98,9 @@ rebuild it or run bun install.
 Save probes, captures, and extracts under your scratch directory. Return
 the report itself as your final message, under 1,200 words, linking longer
 evidence files; the coordinator saves it as report.md in your scratch
-directory. For each proposal give: a title; the slice; what it removes
+directory. Do not write the report file yourself: if a file write is
+refused, carry that content in the final message. For each proposal give: a
+title; the slice; what it removes
 (statements per operation, round trips, rows read, indexes) with numbers
 and their source (Measured, Observed, Traced, or Estimated); file:line
 evidence for the current behavior; the proposed query, statement, index, or
@@ -103,7 +110,8 @@ risk (Low, Medium, High) using the coordinator's definitions; how each
 rule is preserved; the statement budget tests, plan tests, concurrency
 tests, docs, and formal models that would change; and prerequisites among
 your proposals. End with short lists
-of checked paths, refuted candidates with reasons, protocol leads, unchecked
+of checked paths, refuted candidates with reasons, protocol leads (one claim
+each, with its file:line and its claimed saving and unit), unchecked
 paths, and next steps. Begin the message with at most 100 words naming the
 proposal ids with impact, coverage status, and next step.
 ```
@@ -139,6 +147,10 @@ Append this list to every brief.
 - **Transaction scope wider than needed.** Reads inside a transaction that
   need neither its snapshot nor its locks, and CPU work (verification,
   hashing) done while holding row locks.
+- **Lock holds.** A row, head, or advisory lock taken earlier or held for
+  more statements than the guarded write needs, and readers that queue
+  behind a writer's lock for data they could read from a snapshot. Count
+  the statements issued under each lock and name what waits behind it.
 - **Per-request fixed cost.** Statements every authenticated request pays
   (session, user, signer, activity) that a single joined read or the
   request's existing state could serve.

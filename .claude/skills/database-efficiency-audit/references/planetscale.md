@@ -6,6 +6,11 @@ one production branch, `main`. PlanetScale observes every query the API
 runs there. Its telemetry ranks where to look; the audit still proves each
 saving on the audited revision.
 
+A tier may not be deployed. Read `database.json` for each tier first: when a
+database returns not found (`tearleads-staging` did on 2026-11-10), record
+that in the snapshot `README.md`, create no role for it, and take the
+snapshot from the tiers that exist.
+
 ## Access and safety
 
 The service token in each tier's `.secrets/<tier>/planetscale.env`

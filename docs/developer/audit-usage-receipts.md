@@ -81,6 +81,35 @@ them privately in its ledger as they arrive; publish them only as separate
 rows that state these semantics, and leave any main-loop total to the
 launcher's usage file.
 
+For an already authorized outer launcher of a headless Claude Code
+coordinator (`claude -p --output-format stream-json --verbose`), the stream's
+final `result` event is the run's usage source. As observed on Claude Code
+2.1.322 and re-checked by the identity below on each run:
+
+- `modelUsage` is keyed by model and is cumulative for the session, across
+  `--resume` invocations too: each invocation ends with its own `result`
+  event, so use the last one and never sum them. It **includes** the
+  Agent-tool subagents. Its `inputTokens` excludes `cacheReadInputTokens` and
+  `cacheCreationInputTokens`.
+- Top-level `usage` covers the last turn only and is not a run total.
+  `num_turns` and `duration_ms` are per invocation.
+- The session transcript and each `subagents/agent-<id>.jsonl` beside it,
+  under the harness's project directory for the checkout, carry per-message
+  `usage`. Deduplicate by message id, keeping the last record for an id.
+  Per-message counters in the live stream are start-of-stream snapshots; do
+  not use them for output tokens.
+- Identity: the main-loop transcript sum plus the subagent transcript sums
+  equals `modelUsage` for input, output, cache read, and cache write. When it
+  holds, publish one rollup row and the component rows, and state that the
+  rollup contains them. When it fails, publish the rollup alone and mark the
+  components unavailable.
+
+A coordinator inside that run cannot read its own final event. It records
+the auditor counters it can read and marks its own row unavailable; the
+launcher replaces the rows after exit, with the exit as the cutoff. A
+[combined report](combined-efficiency-audits.md) carries one receipt section
+per audit run, each inside its own run markers.
+
 The following **local inspection**, not a public payload or total calculator,
 preserves null/missing counters. `USAGE_FILE` names that private JSON file.
 Validate the file's run identity and completion flags separately; never publish

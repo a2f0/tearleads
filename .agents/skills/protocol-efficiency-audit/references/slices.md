@@ -39,9 +39,9 @@ SDK `principal_policy_bundles` (current head flag and retained bundles),
 and prefixes own their proof roots), `principal_mutation_journal`,
 `principal_grant_retirements`.
 
-- One small Explorer upload measures 8 requests, 3 of them
-  organization-policy discovery reads, one per workflow operation
-  (`ExplorerUploadRequestVolume.test.tsx`). The operation-scoped principal
+- One small Explorer upload measures 5 requests at 0954367a3, one of them
+  an organization-policy discovery read (8 and 3 at #2697;
+  `ExplorerUploadRequestVolume.test.tsx`). The operation-scoped principal
   recovery memo (#2529) already removed re-reads within one operation. Trace
   each remaining read to the verifier or resolver that demanded it. Which
   repeat a head another operation of the same session already verified
@@ -85,10 +85,10 @@ carries the last sync failure, #2539), `document_history_checkpoints`,
 `document_orphan_blob_reclaims`.
 
 - One small file costs create, stage (which returns the first parts' upload
-  sources), the part upload, bind (which completes the stage), one content
-  sync, and three policy reads: 8 requests at 6f3193489 (#2697). Could bind
-  carry the first content update while keeping the signed write header, the
-  staged SHA-256 check, and lost-response adoption? A stage created by its
+  sources), the part upload, bind (which completes the stage), and one
+  policy read: 5 requests at 0954367a3 (8 at #2697, with a content sync and
+  two more policy reads). What does each of the five still carry that the
+  server derives or the client holds? A stage created by its
   bytes was declined: production uploads go to R2 through presigned URLs,
   not through the API.
 - Writer projections carry each manifest bundle once and omit bundles the
@@ -143,6 +143,11 @@ name and icon since #2539).
   four local records of listing position. Which reads need which?
 - Startup arms a probe per opened document and priming opens stores. Count
   the probes for the bootstrap fixture and say which a listing could answer.
+- A parent-lanes request is capped at 4 lanes on the client and the server;
+  the documents route allows 32. Count crawl requests against both caps.
+- No canary restarts or reconnects a pane, so restart cost stays Traced and
+  this slice stayed partial in two audits. Measure it with a preload-driven
+  restart scenario outside the checkout, or report it as not measured.
 
 ## `projections-and-keying`
 
@@ -231,8 +236,9 @@ group-membership head tables in #2532),
 
 ## `bootstrap-and-session`
 
-- Personal bootstrap measures 31 requests at 6f3193489 (93 at #2522), with 7
-  document syncs, 6 policy reads, and 4 writer projections. Attribute each
+- Personal bootstrap measures 26 requests at 0954367a3 (31 at #2697, 93 at
+  #2522), with 6 document syncs (5 of them empty), 5 organization-policy
+  reads, 4 parent-lanes requests, and 2 history reads. Attribute each
   class per endpoint and per pane, and name the mechanism that adds it.
 - Registration commits in one transaction, and provisioning primes the
   discovery heads and policy stages the client just signed (#2531). What does
@@ -260,6 +266,10 @@ group-membership head tables in #2532),
   index on the artifact table could serve it at the fixture sizes.
 - Flag tables with one writer and one reader, tables with no reader, and
   tables whose non-key columns duplicate a sibling.
+- Census columns as well as tables: run the reader census per column and
+  compare each response field with what its call site consumes. On
+  2026-11-10 no table was left to retire, and the column pass found 18
+  unread API columns.
 - Propose a target table list with a count, and the proposals it depends on.
 
 ## `local-schema`
@@ -271,4 +281,6 @@ group-membership head tables in #2532),
   trade is explicit.
 - Flag tables keyed by the same id with one row each, tables only ever read
   with another table in the same query, and tables no production query reads.
+- Census columns as well as tables: a column no production query reads is
+  storage and write cost on every row (4 unread SDK columns on 2026-11-10).
 - Propose a target table list with a count, and the proposals it depends on.

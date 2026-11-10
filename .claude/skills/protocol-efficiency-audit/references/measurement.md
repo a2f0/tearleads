@@ -53,6 +53,10 @@ them with `DUAL_PANE_REQUEST_PROFILE=1` and
 `DUAL_PANE_REQUEST_PROFILE_DETAIL=1`. Measure several runs for byte claims; the
 sharing and Admins fixtures also assert body-byte ceilings.
 
+Record request bytes beside response bytes in the baseline. On 2026-11-10
+request bodies were larger than responses in every write scenario, and they
+were signatures (about 6.2 KB each), not repeated fields.
+
 ## Pane and field attribution
 
 The recorder already keeps every proxied request with its URL, method,
@@ -91,6 +95,27 @@ On 2026-10-30 this made three proposals Measured, settled which repeats were
 per pane, and refuted a candidate cheaply. Keep the dumps in the audit
 directory: they hold request bodies, so the issue carries only sizes and
 counts.
+
+The redelivery measure sees strings a pane received, not strings it sent.
+Bytes a pane uploads in one request and downloads again later (its own
+bundles and KEK levels) need the dump to record request bodies per pane as
+well, and the `x-known-manifests` header, which the recorder does not keep.
+
+## Issuer stacks and suppression
+
+Pin the issuer of a request with a stack, not by its position in the log. A
+preload that wraps `globalThis.fetch` and appends the filtered call stack of
+each matching request to a file corrected three attributions that had been
+inferred from ordering on 2026-11-10. Install the wrapper again in a
+`beforeEach`, because test setup replaces `fetch`, and raise
+`Error.stackTraceLimit`.
+
+Measure a removal by suppression where an existing option cannot disable
+the request class: a preload that drops one class of realtime frame, or
+answers one request class from what the pane already holds, and re-runs the
+canary gives a before and after (folder to Trash 10 to 5) where a trace
+gives an estimate. The canary's own assertions must still pass: a
+suppression that breaks convergence measured nothing.
 
 ## Statements per request
 
@@ -164,3 +189,7 @@ never change constants or ceilings in the checkout to measure.
 - A fixture size is not production size. State the fixture size beside
   every count and say how the count scales with organization, tree, or
   history size when the code makes that clear.
+- A canary path is not always a production path. The in-process test API
+  uses PGlite and the in-memory object store; before counting a request or
+  statement the canary shows, confirm the production configuration reaches
+  it.
