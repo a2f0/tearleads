@@ -1,6 +1,7 @@
 ---
 import { SiteFrame } from "../components/SiteFrame";
 import { SiteNav } from "../components/SiteNav";
+import { SiteThemeSwitch } from "../components/SiteThemeSwitch";
 import { appUrl, isStaging } from "../config";
 import {
   canonicalUrl,
@@ -11,6 +12,7 @@ import {
 } from "../seo";
 import {
   SITE_DEFAULT_THEME,
+  SITE_THEME_PROVIDER_MOUNTED_EVENT,
   SITE_THEME_STORAGE_KEY,
   SITE_THEMES,
   stampSiteTheme,
@@ -46,7 +48,7 @@ const rawPathname = Astro.url.pathname;
 const pathname =
   rawPathname.length > 1 ? rawPathname.replace(/\/$/, "") : rawPathname;
 // The same function the tests run, called with the site's themes.
-const themeScript = `(${stampSiteTheme})(document.documentElement, ${JSON.stringify(SITE_THEME_STORAGE_KEY)}, ${JSON.stringify(SITE_THEMES)}, ${JSON.stringify(SITE_DEFAULT_THEME)});`;
+const themeScript = `(${stampSiteTheme})(document.documentElement, ${JSON.stringify(SITE_THEME_STORAGE_KEY)}, ${JSON.stringify(SITE_THEMES)}, ${JSON.stringify(SITE_DEFAULT_THEME)}, ${JSON.stringify(SITE_THEME_PROVIDER_MOUNTED_EVENT)});`;
 ---
 
 <!doctype html>
@@ -99,7 +101,8 @@ const themeScript = `(${stampSiteTheme})(document.documentElement, ${JSON.string
     </script>
     <a class="skip-link" href="#main">Skip to content</a>
     <SiteFrame appUrl={appUrl}>
-      <SiteNav client:load pathname={pathname} slot="nav" />
+      <SiteNav client:media="(max-width: 700px)" pathname={pathname} slot="nav" />
+      <SiteThemeSwitch client:visible={{ rootMargin: "200px" }} slot="themeSwitch" />
       <main id="main" tabindex="-1" class="website-main">
         <slot />
       </main>

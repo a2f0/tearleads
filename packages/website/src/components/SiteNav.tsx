@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { SiteThemeSwitch } from "./SiteThemeSwitch";
 
 /** Id of the footer navigation, the pre-hydration target of the menu toggle. */
 export const FOOTER_NAV_ID = "footer-navigation";
@@ -120,20 +119,16 @@ function useDismissableMenu(
 /**
  * The single primary navigation landmark. Wide viewports show the list inline;
  * at 700px and below (see the .site-nav rules in styles/frame.css) a toggle
- * shows the same list as a panel under the header. The list ends with the
- * theme switch.
+ * shows the same list as a panel under the header.
  *
- * The layout hydrates this as its own island (slot="nav" with client:load), so
- * the toggle, Escape-to-close, closing on an outside press or on focus leaving
- * the nav, and the theme switch work while the rest of the page stays static.
- * A same-sized toggle is part of the static HTML, so the header keeps its size
+ * The layout hydrates this as its own island (slot="nav" with client:media), so
+ * the toggle, Escape-to-close, and closing on an outside press or on focus
+ * leaving the nav work on phones while the rest of the page stays static. A
+ * same-sized toggle is part of the static HTML, so the header keeps its size
  * while the island hydrates. Until hydration it is a link to the footer
- * navigation, which lists the same pages, so the menu still works if the
- * island script never loads; hydration swaps in the button. The theme switch
- * names the theme it moves to, which the server cannot know, and its provider
- * must not hydrate (see SiteThemeSwitch), so an empty box of its size holds
- * its place until then. With scripting disabled, CSS hides the toggle and the
- * theme item and shows the inline list instead.
+ * navigation, which lists the same pages, so the menu still works if the island
+ * script never loads; hydration swaps in the button. With scripting disabled,
+ * CSS hides the toggle and shows the inline list instead.
  */
 export function SiteNav({ pathname = "" }: SiteNavProps) {
   const [open, setOpen] = useState(false);
@@ -186,13 +181,6 @@ export function SiteNav({ pathname = "" }: SiteNavProps) {
             </a>
           </li>
         ))}
-        <li className="site-nav-theme">
-          {hydrated ? (
-            <SiteThemeSwitch />
-          ) : (
-            <span aria-hidden="true" className="site-theme-switch" />
-          )}
-        </li>
       </ul>
     </nav>
   );

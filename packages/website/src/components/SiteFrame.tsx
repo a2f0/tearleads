@@ -5,10 +5,12 @@ import { FOOTER_NAV_ID } from "./SiteNav";
 
 interface SiteFrameProps {
   readonly appUrl: string;
-  // The primary nav, supplied by the layout as its own hydrated island (an
-  // Astro slot="nav"), so only the nav ships client JS and the frame (header,
-  // footer, and slotted page content) stays fully static.
+  // The primary nav and the theme switch, each supplied by the layout as its
+  // own hydrated island (Astro slot="nav" and slot="themeSwitch"), so only they
+  // ship client JS and the frame (header, footer, and slotted page content)
+  // stays fully static.
   readonly nav?: ReactNode;
+  readonly themeSwitch?: ReactNode;
 }
 
 interface FooterLink {
@@ -51,7 +53,13 @@ function footerGroups(appUrl: string): readonly FooterGroup[] {
   ];
 }
 
-function SiteFooter({ appUrl }: { readonly appUrl: string }) {
+function SiteFooter({
+  appUrl,
+  themeSwitch,
+}: {
+  readonly appUrl: string;
+  readonly themeSwitch: ReactNode;
+}) {
   // Build time, like the rest of the static page.
   const year = new Date().getUTCFullYear();
   return (
@@ -80,6 +88,7 @@ function SiteFooter({ appUrl }: { readonly appUrl: string }) {
         <p>
           © {year} <span className="site-nowrap">{legalDetails.operator}</span>
         </p>
+        {themeSwitch}
       </div>
     </div>
   );
@@ -89,13 +98,14 @@ export function SiteFrame({
   appUrl,
   children,
   nav,
+  themeSwitch,
 }: PropsWithChildren<SiteFrameProps>) {
   return (
     <TearleadsFrame
       brandHref="/"
       brandLogo={<TearleadsLogo />}
       className="site-frame"
-      footerStart={<SiteFooter appUrl={appUrl} />}
+      footerStart={<SiteFooter appUrl={appUrl} themeSwitch={themeSwitch} />}
       headerActions={
         <>
           {nav}
