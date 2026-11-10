@@ -1,6 +1,10 @@
 /**
- * Retires a buyer's unpaid inline checkout so a replacement can be started
- * (services/billing/stripeCheckoutAttempt.ts).
+ * Voids unpaid inline checkouts whose attempt was replaced after the roster
+ * changed (services/billing/stripeCheckoutAttempt.ts). Voiding a
+ * subscription's first invoice cancels the PaymentIntent a stale form may
+ * still hold and moves the subscription to `incomplete_expired`; Stripe
+ * refuses to void an invoice once its payment has succeeded, so a payment
+ * racing the replacement wins instead of being undone.
  */
 
 import { z } from "zod";
@@ -13,6 +17,7 @@ import { LIVE_SUBSCRIPTION_STATUSES } from "./stripeApi";
 import {
   readCheckoutAttemptId,
   subscriptionSearchItemSchema,
+  subscriptionStatusSchema,
 } from "./stripeApiSchema";
 import {
   resolveDeps,
@@ -34,12 +39,8 @@ const latestInvoiceSchema = z.looseObject({
 });
 
 /**
- * Makes the customer's incomplete subscription for `checkoutAttemptId`
- * unpayable by voiding its first invoice, which cancels the PaymentIntent a
- * stale form may still hold and moves the subscription to
- * `incomplete_expired`. Stripe refuses to void an invoice once its payment
- * has succeeded, so a payment racing the replacement wins instead of being
- * undone.
+ * Voids the customer's incomplete subscription for the retired
+ * `checkoutAttemptId`.
  *
  * Lists the customer's subscriptions rather than searching them: the list is
  * read-after-write consistent, and the search index can lag a subscription
@@ -116,28 +117,72 @@ function staleCheckoutInvoiceIds(
   return invoiceIds;
 }
 
+/**
+ * Voids the incomplete subscription a checkout created or resumed for an
+ * attempt that was replaced meanwhile, before its client secret reaches the
+ * buyer. A subscription that is no longer incomplete is left alone.
+ */
+export async function voidReplacedCheckout(
+  subscriptionId: string,
+  deps: StripeApiDeps = {},
+): Promise<void> {
+  const { fetchImpl, secretKey } = resolveDeps(deps);
+  if (!secretKey) {
+    return;
+  }
+  const request = { fetchImpl, secretKey };
+  const subscription = await stripeRequest({
+    ...request,
+    method: "GET",
+    path: `/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
+    operation: "replaced checkout inspect",
+  });
+  const status = readProviderField(
+    subscriptionSearchItemSchema,
+    subscription,
+  )?.status;
+  const invoiceId = readStripeReferenceId(
+    readProviderField(latestInvoiceSchema, subscription)?.latest_invoice,
+  );
+  if (status === "incomplete" && invoiceId) {
+    await voidInvoice(invoiceId, request);
+  }
+}
+
+/**
+ * True once the invoice is void, including when a concurrent request voided
+ * it first; false when Stripe refuses because the payment won.
+ */
 async function voidInvoice(
   invoiceId: string,
   request: { fetchImpl: typeof fetch; secretKey: string },
 ): Promise<boolean> {
+  const path = `/v1/invoices/${encodeURIComponent(invoiceId)}`;
   try {
     await stripeRequest({
       ...request,
       method: "POST",
-      path: `/v1/invoices/${encodeURIComponent(invoiceId)}/void`,
+      path: `${path}/void`,
       operation: "checkout invoice void",
     });
     return true;
   } catch (error) {
-    // A 4xx is Stripe refusing the void: the payment already succeeded or is
-    // otherwise settled. Anything else is a provider failure.
+    // A 4xx is Stripe refusing the void; anything else is a provider failure.
     if (
-      error instanceof StripeApiError &&
-      error.status >= 400 &&
-      error.status < 500
+      !(error instanceof StripeApiError) ||
+      error.status < 400 ||
+      error.status >= 500
     ) {
-      return false;
+      throw error;
     }
-    throw error;
   }
+  const invoice = await stripeRequest({
+    ...request,
+    method: "GET",
+    path,
+    operation: "checkout invoice inspect",
+  });
+  return (
+    readProviderField(subscriptionStatusSchema, invoice)?.status === "void"
+  );
 }

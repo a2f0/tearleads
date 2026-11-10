@@ -10,12 +10,7 @@ import {
   addEffectiveOrganizationMember,
   addSyntheticEffectiveOrganizationMembers,
 } from "../../../test/helpers/revenuecatWebhook";
-import {
-  runAcquireStripeCheckoutAttemptWorkflow,
-  runReplaceStaleInlineCheckoutAttemptWorkflow,
-  type StripeCheckoutAttempt,
-  type StripeCheckoutAttemptAcquisition,
-} from "./stripeCheckout";
+import { runAcquireStripeCheckoutAttemptWorkflow } from "./stripeCheckout";
 
 const START = new Date("2030-01-01T00:00:00.000Z");
 
@@ -30,11 +25,14 @@ async function registerAdmin(user: TestUser): Promise<string> {
   return row.organizationId;
 }
 
-function acquired(
-  acquisition: StripeCheckoutAttemptAcquisition,
-): StripeCheckoutAttempt {
-  invariant(acquisition.kind === "acquired", "expected an acquired attempt");
-  return acquisition.attempt;
+async function addMember(admin: TestUser, organizationId: string) {
+  const member = createTestUser();
+  await registerUser(member);
+  await addEffectiveOrganizationMember({
+    actor: admin,
+    organizationId,
+    userId: member.userId,
+  });
 }
 
 test("inline and hosted checkout have exactly one concurrent winner", async () => {
@@ -68,117 +66,89 @@ test("inline and hosted checkout have exactly one concurrent winner", async () =
 test("same-mode concurrent retries reuse one durable token", async () => {
   const admin = createTestUser();
   const organizationId = await registerAdmin(admin);
-  const [first, second] = (
-    await Promise.all([
-      runAcquireStripeCheckoutAttemptWorkflow(
-        db,
-        organizationId,
-        admin.userId,
-        "inline",
-        START,
-        () => "first-token",
-      ),
-      runAcquireStripeCheckoutAttemptWorkflow(
-        db,
-        organizationId,
-        admin.userId,
-        "inline",
-        START,
-        () => "second-token",
-      ),
-    ])
-  ).map(acquired);
-  expect(first?.attemptId).toBe(second?.attemptId);
-  expect(first?.seatQuantity).toBe(1);
-  expect(second?.seatQuantity).toBe(1);
-});
-
-test("a changed roster keeps the buyer's attempt until it is replaced", async () => {
-  const admin = createTestUser();
-  const organizationId = await registerAdmin(admin);
-  const first = acquired(
-    await runAcquireStripeCheckoutAttemptWorkflow(
+  const [first, second] = await Promise.all([
+    runAcquireStripeCheckoutAttemptWorkflow(
       db,
       organizationId,
       admin.userId,
       "inline",
       START,
-      () => "one-seat-token",
+      () => "first-token",
     ),
-  );
-  const member = createTestUser();
-  await registerUser(member);
-  await addEffectiveOrganizationMember({
-    actor: admin,
-    organizationId,
-    userId: member.userId,
-  });
-  const later = new Date("2030-01-01T00:01:00.000Z");
+    runAcquireStripeCheckoutAttemptWorkflow(
+      db,
+      organizationId,
+      admin.userId,
+      "inline",
+      START,
+      () => "second-token",
+    ),
+  ]);
+  expect(first.attempt.attemptId).toBe(second.attempt.attemptId);
+  expect(first.attempt.seatQuantity).toBe(1);
+  expect(second.attempt.seatQuantity).toBe(1);
+  expect([first.retiredAttemptId, second.retiredAttemptId]).toEqual([
+    null,
+    null,
+  ]);
+});
 
-  expect(first.seatQuantity).toBe(1);
-  // Only the caller that retired the provider checkout may rotate it.
-  expect(
-    await runAcquireStripeCheckoutAttemptWorkflow(
+test("a changed roster rotates the buyer's inline attempt once", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAdmin(admin);
+  const first = await runAcquireStripeCheckoutAttemptWorkflow(
+    db,
+    organizationId,
+    admin.userId,
+    "inline",
+    START,
+    () => "one-seat-token",
+  );
+  await addMember(admin, organizationId);
+  const later = new Date("2030-01-01T00:01:00.000Z");
+  const acquire = (token: string) =>
+    runAcquireStripeCheckoutAttemptWorkflow(
       db,
       organizationId,
       admin.userId,
       "inline",
       later,
-      () => "unused",
-    ),
-  ).toEqual({ kind: "stale", staleAttemptId: "one-seat-token" });
-  const replaced = acquired(
-    await runReplaceStaleInlineCheckoutAttemptWorkflow(
-      db,
-      organizationId,
-      admin.userId,
-      "one-seat-token",
-      later,
-      () => "two-seat-token",
-    ),
-  );
-  expect(replaced.attemptId).toBe("two-seat-token");
-  expect(replaced.seatQuantity).toBe(2);
-  // A concurrent replacement of the same stale attempt reuses the rotation.
-  expect(
-    await runReplaceStaleInlineCheckoutAttemptWorkflow(
-      db,
-      organizationId,
-      admin.userId,
-      "one-seat-token",
-      later,
-      () => "duplicate-token",
-    ),
-  ).toEqual({ kind: "acquired", attempt: replaced });
+      () => token,
+    );
+
+  expect(first.attempt.seatQuantity).toBe(1);
+  const [left, right] = await Promise.all([
+    acquire("left-token"),
+    acquire("right-token"),
+  ]);
+  // Exactly one request retires the old attempt; the other reuses the new one.
+  const retired = [left.retiredAttemptId, right.retiredAttemptId];
+  expect(retired).toContain("one-seat-token");
+  expect(retired).toContain(null);
+  expect(left.attempt).toEqual(right.attempt);
+  expect(left.attempt.seatQuantity).toBe(2);
+  expect(["left-token", "right-token"]).toContain(left.attempt.attemptId);
 });
 
-test("an inline replacement never rotates a hosted attempt", async () => {
+test("a hosted attempt for an old roster is never replaced", async () => {
   const admin = createTestUser();
   const organizationId = await registerAdmin(admin);
-  acquired(
-    await runAcquireStripeCheckoutAttemptWorkflow(
+  await runAcquireStripeCheckoutAttemptWorkflow(
+    db,
+    organizationId,
+    admin.userId,
+    "hosted",
+    START,
+    () => "hosted-one-seat",
+  );
+  await addMember(admin, organizationId);
+
+  await expect(
+    runAcquireStripeCheckoutAttemptWorkflow(
       db,
       organizationId,
       admin.userId,
       "hosted",
-      START,
-      () => "hosted-one-seat",
-    ),
-  );
-  const member = createTestUser();
-  await registerUser(member);
-  await addEffectiveOrganizationMember({
-    actor: admin,
-    organizationId,
-    userId: member.userId,
-  });
-
-  await expect(
-    runReplaceStaleInlineCheckoutAttemptWorkflow(
-      db,
-      organizationId,
-      admin.userId,
-      "hosted-one-seat",
       new Date("2030-01-01T00:01:00.000Z"),
       () => "unused",
     ),
@@ -214,25 +184,21 @@ test("checkout rejects an effective roster above the largest tier", async () => 
 test("hosted retries stop before Stripe's minimum expiry and later rotate", async () => {
   const admin = createTestUser();
   const organizationId = await registerAdmin(admin);
-  const first = acquired(
-    await runAcquireStripeCheckoutAttemptWorkflow(
-      db,
-      organizationId,
-      admin.userId,
-      "hosted",
-      START,
-      () => "hosted-first",
-    ),
+  const { attempt: first } = await runAcquireStripeCheckoutAttemptWorkflow(
+    db,
+    organizationId,
+    admin.userId,
+    "hosted",
+    START,
+    () => "hosted-first",
   );
-  const retry = acquired(
-    await runAcquireStripeCheckoutAttemptWorkflow(
-      db,
-      organizationId,
-      admin.userId,
-      "hosted",
-      new Date("2030-01-01T00:14:59.000Z"),
-      () => "unused",
-    ),
+  const { attempt: retry } = await runAcquireStripeCheckoutAttemptWorkflow(
+    db,
+    organizationId,
+    admin.userId,
+    "hosted",
+    new Date("2030-01-01T00:14:59.000Z"),
+    () => "unused",
   );
   expect(retry.attemptId).toBe(first.attemptId);
   expect(retry.providerExpiresAt).toEqual(new Date("2030-01-01T00:45:00.000Z"));
@@ -248,15 +214,13 @@ test("hosted retries stop before Stripe's minimum expiry and later rotate", asyn
     ),
   ).rejects.toMatchObject({ status: 409 });
 
-  const rotated = acquired(
-    await runAcquireStripeCheckoutAttemptWorkflow(
-      db,
-      organizationId,
-      admin.userId,
-      "hosted",
-      new Date("2030-01-01T00:51:00.000Z"),
-      () => "hosted-next",
-    ),
+  const { attempt: rotated } = await runAcquireStripeCheckoutAttemptWorkflow(
+    db,
+    organizationId,
+    admin.userId,
+    "hosted",
+    new Date("2030-01-01T00:51:00.000Z"),
+    () => "hosted-next",
   );
   expect(rotated.attemptId).toBe("hosted-next");
   expect(rotated.providerExpiresAt).toEqual(

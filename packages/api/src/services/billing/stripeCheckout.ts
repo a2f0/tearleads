@@ -34,8 +34,8 @@ import {
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 import {
-  replaceStaleInlineCheckoutAttempt,
-  requireAcquiredCheckoutAttempt,
+  requireCurrentInlineAttempt,
+  voidRetiredInlineCheckout,
 } from "./stripeCheckoutAttempt";
 import {
   isDirectCheckoutFullyConfigured,
@@ -67,30 +67,24 @@ export async function createStripeCheckout(
     );
     return null;
   }
-  const acquisition = await runAcquireStripeCheckoutAttemptWorkflow(
-    runtime.db,
-    organizationId,
-    sessionUserId,
-    "inline",
-  );
+  const { attempt, retiredAttemptId } =
+    await runAcquireStripeCheckoutAttemptWorkflow(
+      runtime.db,
+      organizationId,
+      sessionUserId,
+      "inline",
+    );
+  const stripe = deps.stripe ?? {};
   const customerId = await findOrCreateCustomer(
     { userId: sessionUserId, organizationId },
-    deps.stripe ?? {},
+    stripe,
   );
   if (!customerId) {
     return null;
   }
-  const attempt =
-    acquisition.kind === "acquired"
-      ? acquisition.attempt
-      : await replaceStaleInlineCheckoutAttempt({
-          customerId,
-          db: runtime.db,
-          organizationId,
-          sessionUserId,
-          staleAttemptId: acquisition.staleAttemptId,
-          stripe: deps.stripe ?? {},
-        });
+  if (retiredAttemptId !== null) {
+    await voidRetiredInlineCheckout({ customerId, retiredAttemptId, stripe });
+  }
   const outcome = await createSyncSubscription(
     {
       checkoutAttemptId: attempt.attemptId,
@@ -99,7 +93,7 @@ export async function createStripeCheckout(
       organizationId,
       seatQuantity: attempt.seatQuantity,
     },
-    deps.stripe ?? {},
+    stripe,
   );
   if (outcome?.kind === "conflict") {
     // Stripe already holds a live (or unreadable pending) subscription for
@@ -110,7 +104,17 @@ export async function createStripeCheckout(
       409,
     );
   }
-  return outcome ? outcome.intent : null;
+  if (!outcome) {
+    return null;
+  }
+  await requireCurrentInlineAttempt({
+    attemptId: attempt.attemptId,
+    db: runtime.db,
+    organizationId,
+    stripe,
+    subscriptionId: outcome.intent.subscriptionId,
+  });
+  return outcome.intent;
 }
 
 /**
@@ -137,13 +141,11 @@ export async function createStripeCheckoutSession(
     );
     return null;
   }
-  const attempt = requireAcquiredCheckoutAttempt(
-    await runAcquireStripeCheckoutAttemptWorkflow(
-      runtime.db,
-      organizationId,
-      sessionUserId,
-      "hosted",
-    ),
+  const { attempt } = await runAcquireStripeCheckoutAttemptWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+    "hosted",
   );
   // Stripe-side duplicate guard, mirroring the inline flow. The local billing
   // status the eligibility workflow reads can lag Stripe (e.g. a webhook

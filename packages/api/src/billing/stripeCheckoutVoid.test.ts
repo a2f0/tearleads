@@ -73,13 +73,19 @@ test.each<[string, unknown[], boolean]>([
   expect(requests).toHaveLength(1);
 });
 
-test("a void Stripe refuses because the payment won is a refusal", async () => {
-  const { voided } = voidWith(
+test.each<[string, string, boolean]>([
+  ["a payment that won refuses the void", "paid", false],
+  ["an invoice a concurrent request voided counts as voided", "void", true],
+])("%s", async (_, invoiceStatus, expected) => {
+  const { requests, voided } = voidWith(
     [STALE],
-    [{ status: 400, body: { error: { message: "already paid" } } }],
+    [{ status: 400, body: { error: {} } }, { body: { status: invoiceStatus } }],
   );
 
-  expect(await voided).toBe(false);
+  expect(await voided).toBe(expected);
+  expect(requests.at(-1)?.url).toBe(
+    "https://api.stripe.com/v1/invoices/in_stale",
+  );
 });
 
 test("a provider failure during the void is not mistaken for a refusal", async () => {

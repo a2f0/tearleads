@@ -1,58 +1,58 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { StripeApiDeps } from "../../billing/stripeApi";
-import { voidStaleInlineCheckout } from "../../billing/stripeCheckoutVoid";
 import {
-  runReplaceStaleInlineCheckoutAttemptWorkflow,
-  type StripeCheckoutAttempt,
-  type StripeCheckoutAttemptAcquisition,
+  voidReplacedCheckout,
+  voidStaleInlineCheckout,
+} from "../../billing/stripeCheckoutVoid";
+import {
+  readStripeCheckoutAttemptId,
   stripeCheckoutInProgress,
 } from "../../workflows/billing/stripeCheckout";
 
 /**
- * The reserved attempt, or a 409 while a stale one stays reserved. A hosted
- * attempt is never replaced before it expires: its Checkout Session can
- * still complete.
+ * Inline checkout after the roster changed under the buyer's own unpaid
+ * attempt. Acquisition already rotated that attempt; its old form would
+ * charge the old tier, so its checkout is voided before the replacement is
+ * offered. A payment that already went through keeps the 409.
+ *
+ * A request still creating a subscription for the retired attempt is covered
+ * from the other side: {@link requireCurrentInlineAttempt} runs after its
+ * create, so whichever of the two sees the other's write voids the old
+ * checkout.
  */
-export function requireAcquiredCheckoutAttempt(
-  acquisition: StripeCheckoutAttemptAcquisition,
-): StripeCheckoutAttempt {
-  if (acquisition.kind !== "acquired") {
-    throw stripeCheckoutInProgress();
-  }
-  return acquisition.attempt;
-}
-
-/**
- * Replaces the buyer's own unpaid inline attempt that was reserved before the
- * roster changed, since its form would charge the old tier: void that
- * checkout, then rotate the attempt to the current seat count. A payment
- * that already went through keeps the 409. The caller has already passed the
- * admin gate the acquisition ran, and resolved this buyer's customer.
- */
-export async function replaceStaleInlineCheckoutAttempt(input: {
+export async function voidRetiredInlineCheckout(input: {
   readonly customerId: string;
-  readonly db: ApiDatabase;
-  readonly organizationId: string;
-  readonly sessionUserId: string;
-  readonly staleAttemptId: string;
+  readonly retiredAttemptId: string;
   readonly stripe: StripeApiDeps;
-}): Promise<StripeCheckoutAttempt> {
+}): Promise<void> {
   const voided = await voidStaleInlineCheckout(
-    {
-      customerId: input.customerId,
-      checkoutAttemptId: input.staleAttemptId,
-    },
+    { customerId: input.customerId, checkoutAttemptId: input.retiredAttemptId },
     input.stripe,
   );
   if (!voided) {
     throw stripeCheckoutInProgress();
   }
-  return requireAcquiredCheckoutAttempt(
-    await runReplaceStaleInlineCheckoutAttemptWorkflow(
-      input.db,
-      input.organizationId,
-      input.sessionUserId,
-      input.staleAttemptId,
-    ),
+}
+
+/**
+ * Hands out an inline checkout only while its attempt is still the reserved
+ * one. A replacement may have rotated the attempt while this request was
+ * creating the subscription; the replacement's void could not see it then,
+ * so it is voided here before its client secret leaves the server.
+ */
+export async function requireCurrentInlineAttempt(input: {
+  readonly attemptId: string;
+  readonly db: ApiDatabase;
+  readonly organizationId: string;
+  readonly stripe: StripeApiDeps;
+  readonly subscriptionId: string;
+}): Promise<void> {
+  const current = await readStripeCheckoutAttemptId(
+    input.db,
+    input.organizationId,
   );
+  if (current !== input.attemptId) {
+    await voidReplacedCheckout(input.subscriptionId, input.stripe);
+    throw stripeCheckoutInProgress();
+  }
 }
