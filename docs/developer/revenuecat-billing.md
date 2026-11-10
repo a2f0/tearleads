@@ -348,14 +348,16 @@ An administrator changes the plan on every platform under the same rules:
   `CHARGE_PRORATED_PRICE`. Capacity follows the store's effective event
   ([native stores](./revenuecat-native-stores.md#product-and-organization-policy)),
   never the informational `PRODUCT_CHANGE`.
-- **Downgrade, web:** the endpoint records the smaller plan as the renewal
-  quantity (`desired_renewal_quantity`) and returns `scheduled`; the seat-sync
-  worker lowers the item's Price with `proration_behavior=none`, so the
+- **Downgrade, web:** the endpoint leases the Stripe seat row, lowers the
+  item's Price with `proration_behavior=none`, and only then records the
+  smaller plan as the renewal quantity (`desired_renewal_quantity`) and
+  returns `scheduled`, so the answer means Stripe will renew at it: the
   renewal invoice charges the smaller Price and the current capacity stays
-  until then. A RevenueCat lifecycle event for the period already paid keeps
-  that paid capacity even though the bound Price is the smaller one.
-  Choosing the current plan again returns `kept` and restores the renewal
-  Price, also without proration.
+  until then. A Stripe write that fails or comes too late records nothing,
+  and the worker writes back the recorded renewal plan's Price. A RevenueCat
+  lifecycle event for the period already paid keeps that paid capacity even
+  though the bound Price is the smaller one. Choosing the current plan again
+  returns `kept` once its Price is restored, also without proration.
 - **Downgrade, native:** App Store and Play (`DEFERRED`) both apply it at the
   next renewal.
 - **Below the roster:** a plan smaller than the effective `Members` roster is
@@ -461,9 +463,10 @@ rows are claimed, and capacity growth is prorated only while Stripe reports the
 subscription `active` or `trialing`; a `past_due` subscription backs off without
 creating another charge. The item's Price is the plan the subscription renews
 at (`desired_renewal_quantity`, which an administrator's
-[plan change](#changing-plans) sets), written without proration and never
-above the capacity paid for the current period. A row leased by a plan
-upgrade is not claimed until the upgrade ends or its five-minute lease lapses.
+[plan change](#changing-plans) sets after writing it to Stripe), written
+without proration and never above the capacity paid for the current period.
+A row leased by a plan change is not claimed until the change ends or its
+five-minute lease lapses.
 A claim that finds a plan upgrade's open invoice (a `pending_update` the
 request died before voiding) voids it, so it is never charged later. The
 claim's result and any capacity it grants are recorded in one transaction,

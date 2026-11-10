@@ -24,14 +24,16 @@ import {
   stripePlanChangeUnavailable,
 } from "../../workflows/billing/stripePlanChange";
 import {
-  runAbandonStripePlanUpgradeWorkflow,
+  runAbandonStripePlanChangeWorkflow,
   runFinishStripePlanUpgradeWorkflow,
+  runFinishStripeRenewalChangeWorkflow,
 } from "../../workflows/billing/stripePlanUpgradeSettlement";
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 import type { StripeCheckoutServiceDeps } from "./stripeCheckoutConfiguration";
 
 type BegunUpgrade = Extract<BegunStripePlanChange, { kind: "upgrade" }>;
+type BegunRenewal = Extract<BegunStripePlanChange, { kind: "renewal" }>;
 
 interface UpgradeInput {
   readonly begun: BegunUpgrade;
@@ -82,11 +84,58 @@ export async function changeStripePlan(
       plan,
     },
   );
-  if (begun.kind !== "upgrade") {
-    return begun.kind;
+  const change = { organizationId, plan, priceId, runtime, stripe };
+  if (begun.kind === "renewal") {
+    await changeRenewal({ ...change, begun });
+    return begun.direction;
   }
-  await upgrade({ begun, organizationId, plan, priceId, runtime, stripe });
+  await upgrade({ ...change, begun });
   return "upgraded";
+}
+
+/**
+ * Writes the renewal plan's Price to Stripe without proration, then records
+ * it, so `scheduled` or `kept` is answered only once Stripe will renew at
+ * it. A write that failed or came too late releases the change unrecorded.
+ */
+async function changeRenewal(
+  input: Omit<UpgradeInput, "begun"> & { readonly begun: BegunRenewal },
+): Promise<void> {
+  const { begun } = input;
+  if (new Date() > begun.chargeBy) {
+    await abandon(input);
+    throw stripePlanChangeUnavailable(
+      "The plan change took too long to start; try again",
+    );
+  }
+  try {
+    await updateSubscriptionItemQuantity(
+      {
+        idempotencyKey: `plan-renewal:${input.organizationId}:${begun.leaseId}`,
+        prorationBehavior: "none",
+        seatQuantity: begun.renewalSeatCount,
+        subscriptionItemId: begun.subscriptionItemId,
+      },
+      input.stripe,
+    );
+  } catch (error) {
+    await abandon(input);
+    throw error;
+  }
+  const recorded = await runFinishStripeRenewalChangeWorkflow(
+    input.runtime.db,
+    {
+      leaseId: begun.leaseId,
+      organizationId: input.organizationId,
+      priceId: input.priceId,
+      renewalSeatCount: begun.renewalSeatCount,
+    },
+  );
+  if (!recorded) {
+    throw stripePlanChangeUnavailable(
+      "The subscription changed meanwhile; review the plans and choose again",
+    );
+  }
 }
 
 /**
@@ -222,8 +271,12 @@ async function charge(
   return outcome === "paid";
 }
 
-function abandon(input: UpgradeInput): Promise<void> {
-  return runAbandonStripePlanUpgradeWorkflow(input.runtime.db, {
+function abandon(input: {
+  readonly begun: { readonly leaseId: string };
+  readonly organizationId: string;
+  readonly runtime: ApiServiceRuntime;
+}): Promise<void> {
+  return runAbandonStripePlanChangeWorkflow(input.runtime.db, {
     leaseId: input.begun.leaseId,
     organizationId: input.organizationId,
   });

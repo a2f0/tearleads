@@ -14,7 +14,10 @@ import {
 } from "../../../test/helpers/stripePlanChangeFixtures";
 import { STRIPE_WEBHOOK_ENV as STRIPE_ENV } from "../../../test/helpers/stripeWebhook";
 import { runBeginStripePlanChangeWorkflow } from "../../workflows/billing/stripePlanChange";
-import { runFinishStripePlanUpgradeWorkflow } from "../../workflows/billing/stripePlanUpgradeSettlement";
+import {
+  runFinishStripePlanUpgradeWorkflow,
+  runFinishStripeRenewalChangeWorkflow,
+} from "../../workflows/billing/stripePlanUpgradeSettlement";
 import {
   requestOrganizationStripeSeatSync,
   runBindOrganizationStripeSeatsWorkflow,
@@ -205,9 +208,12 @@ test("an upgrade finishing after its lease lapsed keeps a newer renewal choice",
     started,
   );
   // The upgrade stalled past its lease, Stripe still at Team 5; the admin
-  // then chose a smaller plan.
-  expect(
-    await runBeginStripePlanChangeWorkflow(db, organizationId, admin.userId, {
+  // then scheduled Solo, which Stripe confirmed.
+  const renewal = await runBeginStripePlanChangeWorkflow(
+    db,
+    organizationId,
+    admin.userId,
+    {
       currentSeatCount: 5,
       now: later(6),
       observed: {
@@ -216,8 +222,18 @@ test("an upgrade finishing after its lease lapsed keeps a newer renewal choice",
         subscriptionId: upgrade.subscriptionId,
       },
       plan: getSyncBillingTier("solo"),
+    },
+  );
+  expect(renewal).toMatchObject({ direction: "scheduled", kind: "renewal" });
+  expect(
+    await runFinishStripeRenewalChangeWorkflow(db, {
+      leaseId: renewal.leaseId,
+      now: later(6),
+      organizationId,
+      priceId: "price_sync",
+      renewalSeatCount: 1,
     }),
-  ).toEqual({ kind: "scheduled" });
+  ).toBe(true);
 
   await runFinishStripePlanUpgradeWorkflow(db, {
     leaseId: upgrade.leaseId,
@@ -237,7 +253,7 @@ test("an upgrade finishing after its lease lapsed keeps a newer renewal choice",
     seats: {
       appliedPaidCapacity: 10,
       desiredRenewalQuantity: 1,
-      priceId: "price_team_5",
+      priceId: "price_sync",
     },
   });
 });

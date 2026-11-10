@@ -71,12 +71,25 @@ test("a downgrade is scheduled for renewal and keeps the paid capacity", async (
 
   expect(await change("price_sync", fake)).toBe("scheduled");
 
-  // Nothing is charged or credited now; the seat-sync worker lowers the
-  // Price Stripe renews at.
-  expect(fake.writes).toEqual([]);
+  // Answered only once Stripe renews at Solo: its Price is written without
+  // proration, so nothing is charged or credited now.
+  const writes = () =>
+    fake.writes.map(({ form, path }) => [
+      path,
+      form.get("price"),
+      form.get("proration_behavior"),
+    ]);
+  expect(writes()).toEqual([
+    ["/v1/subscription_items/si_plan", "price_sync", "none"],
+  ]);
   expect(await readState(organizationId)).toMatchObject({
     billing: { seatCount: 5 },
-    seats: { appliedPaidCapacity: 5, desiredRenewalQuantity: 1 },
+    seats: {
+      appliedPaidCapacity: 5,
+      desiredRenewalQuantity: 1,
+      leaseId: null,
+      priceId: "price_sync",
+    },
   });
   expect(
     await resolvePendingStripeSeatCount(db, organizationId, {
@@ -87,8 +100,31 @@ test("a downgrade is scheduled for renewal and keeps the paid capacity", async (
 
   // Choosing the current plan again cancels the scheduled change.
   expect(await change("price_team_5", fake)).toBe("kept");
+  expect(writes().at(-1)).toEqual([
+    "/v1/subscription_items/si_plan",
+    "price_team_5",
+    "none",
+  ]);
   expect(await readState(organizationId)).toMatchObject({
-    seats: { desiredRenewalQuantity: 5 },
+    seats: { desiredRenewalQuantity: 5, priceId: "price_team_5" },
+  });
+});
+
+test("a downgrade Stripe refuses is not scheduled", async () => {
+  const { change, organizationId, stripe } = await subscribedOrganization({
+    seatCount: 5,
+  });
+  const fake = stripe();
+  const failing = (async (request: RequestInfo | URL, init?: RequestInit) =>
+    String(request).includes("/v1/subscription_items/")
+      ? new Response("unavailable", { status: 500 })
+      : fake.fetchImpl(request, init)) as typeof fetch;
+
+  await expect(
+    change("price_sync", { ...fake, fetchImpl: failing }),
+  ).rejects.toThrow();
+  expect(await readState(organizationId)).toMatchObject({
+    seats: { desiredRenewalQuantity: 5, leaseId: null },
   });
 });
 

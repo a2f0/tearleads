@@ -29,10 +29,12 @@ import { isSameBillingPeriod } from "./stripePeriodMatch";
  * (services/billing/stripeSeatSync.ts) writes to Stripe without proration and
  * never above the paid capacity.
  *
- * - A smaller plan is scheduled: it only lowers the renewal quantity, so the
- *   current capacity stays until the renewal invoice, which Stripe charges at
- *   the smaller Price. No credit is given.
- * - Choosing the current plan keeps it, cancelling a scheduled change.
+ * - A smaller plan is scheduled: the service writes its Price to Stripe
+ *   without proration and only then records it as the renewal quantity, so
+ *   the current capacity stays until the renewal invoice, which Stripe
+ *   charges at the smaller Price. No credit is given.
+ * - Choosing the current plan keeps it, cancelling a scheduled change, the
+ *   same way.
  * - A larger plan is an upgrade the service pays for in Stripe first. It
  *   leases the outbox row, so the worker cannot write the Price meanwhile,
  *   and grants capacity and the larger renewal plan only after the prorated
@@ -47,21 +49,29 @@ const PLAN_LEASE_MS = 5 * 60 * 1_000;
 
 export type StripeSeatRow = typeof organizationBillingStripeSeats.$inferSelect;
 
+interface LeasedStripePlanChange {
+  /** Stripe must not be written after this; the change is abandoned. */
+  readonly chargeBy: Date;
+  readonly leaseId: string;
+  readonly subscriptionId: string;
+  readonly subscriptionItemId: string;
+}
+
 export type BegunStripePlanChange =
-  | { readonly kind: "kept" | "scheduled" }
-  | {
-      /** Stripe must not be charged after this; the change is abandoned. */
-      readonly chargeBy: Date;
+  | (LeasedStripePlanChange & {
+      /** A smaller plan for renewal, or keeping the current one. */
+      readonly direction: "kept" | "scheduled";
+      readonly kind: "renewal";
+      readonly renewalSeatCount: number;
+    })
+  | (LeasedStripePlanChange & {
       readonly kind: "upgrade";
-      readonly leaseId: string;
       /** The capacity paid for this period, before the upgrade. */
       readonly paidCapacity: number;
       /** The period that capacity was paid for, as last bound from Stripe. */
       readonly paidPeriodEndsAt: Date | null;
       readonly paidPeriodStartsAt: Date | null;
-      readonly subscriptionId: string;
-      readonly subscriptionItemId: string;
-    };
+    });
 
 export function stripePlanChangeUnavailable(
   message: string,
@@ -173,58 +183,26 @@ async function requireChangeableSeats(
 }
 
 /**
- * Renews at `plan`, or keeps renewing at the current one. A lapsed lease is
- * retired with it, so an upgrade that stalled past its lease cannot later
- * overwrite this newer choice when it finishes.
+ * Leases the outbox row for a change the service writes to Stripe, so the
+ * worker cannot write the Price meanwhile. Nothing is recorded until Stripe
+ * confirms it: an upgrade's renewal plan once it is paid, a renewal choice
+ * once its Price is written.
  */
-async function setRenewalPlan(
-  executor: DatabaseSession,
-  seats: StripeSeatRow,
-  plan: SyncBillingTier,
-  now: Date,
-): Promise<void> {
-  const lapsedLease =
-    seats.leaseId !== null &&
-    (seats.leaseExpiresAt === null || seats.leaseExpiresAt <= now);
-  if (seats.desiredRenewalQuantity === plan.seatLimit && !lapsedLease) {
-    return;
-  }
-  await executor
-    .update(organizationBillingStripeSeats)
-    .set({
-      desiredRenewalQuantity: plan.seatLimit,
-      desiredRevision: seats.desiredRevision + 1,
-      nextAttemptAt: now,
-      updatedAt: now,
-      ...(lapsedLease ? { leaseExpiresAt: null, leaseId: null } : {}),
-    })
-    .where(eq(organizationBillingStripeSeats.id, seats.id));
-}
-
-/**
- * Leases the outbox row for an upgrade. The renewal plan stays the admin's
- * previous choice until the upgrade is paid, so an upgrade that never
- * reaches Stripe leaves it exactly as it was.
- */
-async function leaseUpgrade(
+async function leaseChange(
   executor: DatabaseSession,
   seats: BoundStripeSeats,
-  input: {
-    readonly leaseId: string;
-    readonly now: Date;
-    readonly paidCapacity: number;
-  },
-): Promise<BegunStripePlanChange> {
+  input: { readonly leaseId: string; readonly now: Date },
+): Promise<LeasedStripePlanChange> {
   const { now } = input;
   // Stripe renews only at the period's end. Starting no later than a lease
-  // before it, and charging only within the lease's first half, keeps the
-  // baseline restore and the prorated charge inside the paid period.
+  // before it, and writing Stripe only within the lease's first half, keeps
+  // every write inside the paid period, before the renewal invoice.
   if (
     seats.billingPeriodEndsAt === null ||
     seats.billingPeriodEndsAt.getTime() - now.getTime() < PLAN_LEASE_MS
   ) {
     throw stripePlanChangeUnavailable(
-      "The subscription renews in a few minutes; upgrade after it renews",
+      "The subscription renews in a few minutes; change the plan after it renews",
     );
   }
   const leaseExpiresAt = new Date(now.getTime() + PLAN_LEASE_MS);
@@ -235,20 +213,17 @@ async function leaseUpgrade(
       leaseId: input.leaseId,
       // If this request never finishes (a lost response, a failed final
       // transaction), the seat-sync worker revisits the row once the lease
-      // lapses and grants an upgrade Stripe was paid for.
+      // lapses: it grants an upgrade Stripe was paid for, and otherwise
+      // writes back the Price of the recorded renewal plan.
       nextAttemptAt: leaseExpiresAt,
       updatedAt: now,
     })
     .where(eq(organizationBillingStripeSeats.id, seats.id));
   return {
-    // Stripe is charged only while at least half the lease remains, so once
+    // Stripe is written only while at least half the lease remains, so once
     // it lapses the outcome in Stripe is final for the worker to find.
     chargeBy: new Date(now.getTime() + PLAN_LEASE_MS / 2),
-    kind: "upgrade",
     leaseId: input.leaseId,
-    paidCapacity: input.paidCapacity,
-    paidPeriodEndsAt: seats.billingPeriodEndsAt,
-    paidPeriodStartsAt: seats.billingPeriodStartsAt,
     subscriptionId: seats.subscriptionId,
     subscriptionItemId: seats.subscriptionItemId,
   };
@@ -344,16 +319,24 @@ export async function runBeginStripePlanChangeWorkflow(
       const seats = await requireChangeableSeats(tx, organizationId, now);
       await requirePlanCoversRoster(tx, organizationId, plan);
       requireStripeAtGrantedPlan(billing, seats, options.observed);
+      const lease = await leaseChange(tx, seats, {
+        leaseId: `${PLAN_LEASE_PREFIX}${(options.createLeaseId ?? randomUUID)()}`,
+        now,
+      });
       if (plan.seatLimit > billing.seatCount) {
-        return leaseUpgrade(tx, seats, {
-          leaseId: `${PLAN_LEASE_PREFIX}${(options.createLeaseId ?? randomUUID)()}`,
-          now,
+        return {
+          ...lease,
+          kind: "upgrade",
           paidCapacity: billing.seatCount,
-        });
+          paidPeriodEndsAt: seats.billingPeriodEndsAt,
+          paidPeriodStartsAt: seats.billingPeriodStartsAt,
+        };
       }
-      await setRenewalPlan(tx, seats, plan, now);
       return {
-        kind: plan.seatLimit < billing.seatCount ? "scheduled" : "kept",
+        ...lease,
+        direction: plan.seatLimit < billing.seatCount ? "scheduled" : "kept",
+        kind: "renewal",
+        renewalSeatCount: plan.seatLimit,
       };
     },
   );

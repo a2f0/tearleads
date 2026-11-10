@@ -18,9 +18,10 @@ import {
 } from "./stripePlanChange";
 
 /**
- * Settles an upgrade begun by `runBeginStripePlanChangeWorkflow`
- * (stripePlanChange.ts has the rules): grants it once Stripe was paid, or
- * releases it when the payment did not go through.
+ * Settles a change begun by `runBeginStripePlanChangeWorkflow`
+ * (stripePlanChange.ts has the rules) once the service wrote it to Stripe:
+ * records it once Stripe confirmed it, or releases it when it did not go
+ * through.
  */
 
 /**
@@ -126,11 +127,52 @@ export async function runFinishStripePlanUpgradeWorkflow(
 }
 
 /**
- * Releases an upgrade that was not paid. Its renewal plan was never
- * recorded, so only the lease is released, and the worker is due again to
- * restore a Price a scheduled smaller plan had lowered.
+ * Records a renewal choice whose Price the service wrote to Stripe while it
+ * held the lease: the subscription renews at `renewalSeatCount`, and the
+ * worker is due to audit it. False when the lease was lost meanwhile (it
+ * lapsed and another change took the row), so nothing is recorded and the
+ * worker writes back the Price of the recorded renewal plan.
  */
-export async function runAbandonStripePlanUpgradeWorkflow(
+export async function runFinishStripeRenewalChangeWorkflow(
+  db: ApiDatabase,
+  input: {
+    readonly leaseId: string;
+    readonly now?: Date;
+    readonly organizationId: string;
+    readonly priceId: string;
+    readonly renewalSeatCount: number;
+  },
+): Promise<boolean> {
+  const now = input.now ?? new Date();
+  return db.transaction(async (tx) => {
+    await lockActiveBilling(tx, input.organizationId);
+    const seats = await readStripeSeats(tx, input.organizationId);
+    if (seats?.leaseId !== input.leaseId) {
+      return false;
+    }
+    await tx
+      .update(organizationBillingStripeSeats)
+      .set({
+        desiredRenewalQuantity: input.renewalSeatCount,
+        desiredRevision: seats.desiredRevision + 1,
+        leaseExpiresAt: null,
+        leaseId: null,
+        nextAttemptAt: now,
+        observedQuantity: input.renewalSeatCount,
+        priceId: input.priceId,
+        updatedAt: now,
+      })
+      .where(eq(organizationBillingStripeSeats.id, seats.id));
+    return true;
+  });
+}
+
+/**
+ * Releases a change that did not go through. Nothing was recorded, so only
+ * the lease is released, and the worker is due again to write back the
+ * Price of the recorded renewal plan.
+ */
+export async function runAbandonStripePlanChangeWorkflow(
   db: ApiDatabase,
   input: {
     readonly leaseId: string;
