@@ -22,6 +22,7 @@ import {
   runAbandonStripePlanUpgradeWorkflow,
   runBeginStripePlanChangeWorkflow,
   runFinishStripePlanUpgradeWorkflow,
+  runReadStripePlanSubscriptionWorkflow,
   stripePlanChangeUnavailable,
 } from "../../workflows/billing/stripePlanChange";
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
@@ -73,13 +74,42 @@ export async function changeStripePlan(
     runtime.db,
     organizationId,
     sessionUserId,
-    { currentSeatCount: request.currentSeatCount, plan },
+    {
+      currentSeatCount: request.currentSeatCount,
+      observed: await observeStripePlan(runtime, organizationId, stripe),
+      plan,
+    },
   );
   if (begun.kind !== "upgrade") {
     return begun.kind;
   }
   await upgrade({ begun, organizationId, plan, priceId, runtime, stripe });
   return "upgraded";
+}
+
+/**
+ * The bound subscription's plan in Stripe, read before the change so a paid
+ * upgrade not yet recorded is seen (the workflow's rules say why).
+ */
+async function observeStripePlan(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  stripe: StripeApiDeps,
+) {
+  const subscriptionId = await runReadStripePlanSubscriptionWorkflow(
+    runtime.db,
+    organizationId,
+  );
+  const binding = subscriptionId
+    ? await getSubscriptionBinding(subscriptionId, stripe)
+    : null;
+  return subscriptionId && binding
+    ? {
+        billingPeriodStartsAt: binding.billingPeriodStartsAt,
+        seatCount: binding.seatQuantity,
+        subscriptionId,
+      }
+    : null;
 }
 
 /**
@@ -106,6 +136,12 @@ async function upgrade(input: UpgradeInput): Promise<void> {
   }
   // A retried upgrade whose payment settled after its first answer.
   const applied = binding.seatQuantity === input.plan.seatLimit;
+  if (!applied && new Date() > input.begun.chargeBy) {
+    await abandon(input);
+    throw stripePlanChangeUnavailable(
+      "The plan change took too long to start; try again",
+    );
+  }
   if (!applied && !(await charge(input, binding.seatQuantity ?? 0))) {
     await abandon(input);
     throw new OrganizationManagerError(

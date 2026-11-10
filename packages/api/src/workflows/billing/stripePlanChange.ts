@@ -38,8 +38,9 @@ import { hasActiveStripeBinding } from "./stripeBindingPolicy";
  *   leases the outbox row, so the worker cannot write the Price meanwhile,
  *   and grants capacity and the larger renewal plan only after the prorated
  *   charge succeeded. If the request never finishes, the worker finds the
- *   paid Price in Stripe and grants it; an upgrade that never reached Stripe
- *   leaves the renewal plan as it was.
+ *   paid Price in Stripe and grants it, and a renewal choice waits until it
+ *   has; an upgrade that never reached Stripe leaves the renewal plan as it
+ *   was.
  */
 
 const PLAN_LEASE_PREFIX = "plan:";
@@ -50,6 +51,8 @@ type StripeSeatRow = typeof organizationBillingStripeSeats.$inferSelect;
 export type BegunStripePlanChange =
   | { readonly kind: "kept" | "scheduled" }
   | {
+      /** Stripe must not be charged after this; the change is abandoned. */
+      readonly chargeBy: Date;
       readonly kind: "upgrade";
       readonly leaseId: string;
       /** The capacity paid for this period, before the upgrade. */
@@ -236,6 +239,9 @@ async function leaseUpgrade(
     })
     .where(eq(organizationBillingStripeSeats.id, seats.id));
   return {
+    // Stripe is charged only while at least half the lease remains, so once
+    // it lapses the outcome in Stripe is final for the worker to find.
+    chargeBy: new Date(now.getTime() + PLAN_LEASE_MS / 2),
     kind: "upgrade",
     leaseId: input.leaseId,
     paidCapacity: input.paidCapacity,
@@ -244,6 +250,32 @@ async function leaseUpgrade(
     subscriptionId: seats.subscriptionId,
     subscriptionItemId: seats.subscriptionItemId,
   };
+}
+
+/** The subscription's plan as read from Stripe before a change begins. */
+interface ObservedStripePlan {
+  readonly billingPeriodStartsAt: Date | null;
+  readonly seatCount: number | null;
+  readonly subscriptionId: string;
+}
+
+/**
+ * Stripe holds a larger plan than the capacity recorded for the period: an
+ * upgrade that was paid but whose request died before recording it. The
+ * seat-sync worker records it as the renewal plan once its lease lapses, so
+ * a renewal choice made before then would be overwritten; it waits instead.
+ */
+function upgradeAwaitingRecovery(
+  seats: BoundStripeSeats,
+  observed: ObservedStripePlan | null,
+): boolean {
+  return (
+    observed?.subscriptionId === seats.subscriptionId &&
+    observed.billingPeriodStartsAt !== null &&
+    observed.billingPeriodStartsAt.getTime() ===
+      seats.billingPeriodStartsAt?.getTime() &&
+    (observed.seatCount ?? 0) > seats.appliedPaidCapacity
+  );
 }
 
 /**
@@ -260,6 +292,8 @@ export async function runBeginStripePlanChangeWorkflow(
     /** The paid capacity the admin chose against. */
     readonly currentSeatCount: number;
     readonly now?: Date;
+    /** The subscription as Stripe reported it just before, if read. */
+    readonly observed: ObservedStripePlan | null;
     readonly plan: SyncBillingTier;
   },
 ): Promise<BegunStripePlanChange> {
@@ -286,12 +320,26 @@ export async function runBeginStripePlanChangeWorkflow(
           paidCapacity: billing.seatCount,
         });
       }
+      if (upgradeAwaitingRecovery(seats, options.observed)) {
+        throw stripePlanChangeUnavailable(
+          "A previous upgrade is still being applied; try again in a minute",
+        );
+      }
       await setRenewalPlan(tx, seats, plan, now);
       return {
         kind: plan.seatLimit < billing.seatCount ? "scheduled" : "kept",
       };
     },
   );
+}
+
+/** The organization's bound Stripe subscription, read before a change. */
+export async function runReadStripePlanSubscriptionWorkflow(
+  db: ApiDatabase,
+  organizationId: string,
+): Promise<string | null> {
+  const seats = await readStripeSeats(db, organizationId);
+  return hasActiveStripeBinding(seats) ? (seats?.subscriptionId ?? null) : null;
 }
 
 /**
@@ -369,58 +417,6 @@ export async function runFinishStripePlanUpgradeWorkflow(
       now,
       organizationId: input.organizationId,
       source: { sourceId: input.leaseId, sourceType: "billing_transition" },
-    });
-  });
-}
-
-/**
- * Grants capacity Stripe was paid for in the period the organization's
- * billing tracks but that it does not license yet: an upgrade whose request
- * never finished (a lost response, a failed final transaction). The
- * seat-sync worker calls this after reconciling the row from Stripe, so a
- * paid upgrade applies without depending on the request that started it.
- */
-export async function runGrantPaidStripeCapacityWorkflow(
-  db: ApiDatabase,
-  input: {
-    readonly appliedPaidCapacity: number;
-    readonly billingPeriodEndsAt: Date | null;
-    readonly now: Date;
-    readonly organizationId: string;
-    readonly sourceId: string;
-  },
-): Promise<void> {
-  await db.transaction(async (tx) => {
-    const [billing] = await lockRowForUpdate(
-      tx
-        .select({
-          currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
-          seatCount: organizationBilling.seatCount,
-          status: organizationBilling.status,
-        })
-        .from(organizationBilling)
-        .where(eq(organizationBilling.organizationId, input.organizationId))
-        .limit(1),
-    );
-    const seats = await readStripeSeats(tx, input.organizationId);
-    const samePeriod =
-      billing?.currentPeriodEndsAt != null &&
-      input.billingPeriodEndsAt?.getTime() ===
-        billing.currentPeriodEndsAt.getTime();
-    if (
-      billing?.status !== "active" ||
-      !samePeriod ||
-      billing.seatCount >= input.appliedPaidCapacity ||
-      !hasActiveStripeBinding(seats)
-    ) {
-      return;
-    }
-    await reconcileOrganizationBillingSeats({
-      executor: tx,
-      licensedSeatCount: input.appliedPaidCapacity,
-      now: input.now,
-      organizationId: input.organizationId,
-      source: { sourceId: input.sourceId, sourceType: "billing_transition" },
     });
   });
 }

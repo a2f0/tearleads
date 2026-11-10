@@ -301,7 +301,10 @@ export async function runRequireCheckoutEligibleWorkflow(
         executor: tx,
         groupId: row.memberGroupId,
       });
-      if (activeUserIds.length === 0) {
+      // A subscribed organization changes plans even with an empty roster
+      // (it stays on at least Solo); buying one needs a member to license.
+      const changingPlan = purpose === "plans" && row.status === "active";
+      if (activeUserIds.length === 0 && !changingPlan) {
         throw new OrganizationManagerError(
           "The organization has no active members",
           409,

@@ -39,11 +39,14 @@ const TIER_PRICES: Readonly<Record<number, string>> = {
 /**
  * One active Stripe subscription whose sync item's Price the fake keeps, so
  * a test sees what Stripe would charge at renewal. `decline` makes the
- * upgrade's prorated charge fail as a declined card does.
+ * upgrade's prorated charge fail as a declined card does, leaving a pending
+ * update with an open invoice until it is voided; `pendingInvoice` starts
+ * with one, as an upgrade whose request died before voiding it leaves.
  */
 function fakeStripeSubscription(input: {
   readonly decline?: boolean;
   readonly organizationId: string;
+  pendingInvoice?: boolean;
   priceId: string;
 }) {
   const writes: { readonly form: URLSearchParams; readonly path: string }[] =
@@ -55,7 +58,9 @@ function fakeStripeSubscription(input: {
     current_period_start: Math.floor(PERIOD_START.getTime() / 1_000),
     current_period_end: Math.floor(PERIOD_END.getTime() / 1_000),
     customer: "cus_plan",
+    latest_invoice: "in_upgrade",
     metadata: { orgId: input.organizationId, userId: "user-plan" },
+    pending_update: input.pendingInvoice ? { subscription_items: [] } : null,
     items: {
       data: [
         {
@@ -81,18 +86,11 @@ function fakeStripeSubscription(input: {
     }
     if (pathname === "/v1/subscriptions/sub_plan" && init?.method === "POST") {
       if (input.decline) {
-        return Response.json({
-          ...subscription(),
-          latest_invoice: "in_upgrade",
-          pending_update: { subscription_items: [] },
-        });
+        input.pendingInvoice = true;
+      } else {
+        input.priceId = form.get("items[0][price]") ?? input.priceId;
       }
-      input.priceId = form.get("items[0][price]") ?? input.priceId;
-      return Response.json({
-        ...subscription(),
-        latest_invoice: "in_upgrade",
-        pending_update: null,
-      });
+      return Response.json(subscription());
     }
     if (pathname === "/v1/subscriptions/sub_plan") {
       return Response.json(subscription());
@@ -102,6 +100,7 @@ function fakeStripeSubscription(input: {
       return Response.json({ id: "si_plan" });
     }
     if (pathname === "/v1/invoices/in_upgrade/void") {
+      input.pendingInvoice = false;
       voids.push("in_upgrade");
       return Response.json({ id: "in_upgrade", status: "void" });
     }
@@ -156,10 +155,11 @@ export async function subscribedOrganization(input: {
       target: organizationBillingStripeSeats.organizationId,
       set: seats,
     });
-  const stripe = (decline = false) =>
+  const stripe = (decline = false, pendingInvoice = false) =>
     fakeStripeSubscription({
       decline,
       organizationId,
+      pendingInvoice,
       priceId: TIER_PRICES[input.itemSeatCount ?? input.seatCount] ?? priceId,
     });
   const change = (

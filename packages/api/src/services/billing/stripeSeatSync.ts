@@ -1,5 +1,6 @@
 import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import type { StripeApiDeps } from "../../billing/stripeApi";
+import { voidUnpaidInvoice } from "../../billing/stripeCheckoutVoid";
 import { getStripePriceIdForTier } from "../../billing/stripeHttp";
 import {
   normalizeStripeSeatQuantity,
@@ -11,13 +12,12 @@ import {
   type StripeSubscriptionBinding,
 } from "../../billing/stripeSubscriptionBinding";
 import { reportBackgroundFailure } from "../../diagnostics/reportBackgroundFailure";
-import { runGrantPaidStripeCapacityWorkflow } from "../../workflows/billing/stripePlanChange";
 import { runBindOrganizationStripeSeatsWorkflow } from "../../workflows/billing/stripeSeatState";
 import {
   claimOrganizationStripeSeatSync,
-  completeOrganizationStripeSeatSync,
   failOrganizationStripeSeatSync,
   releaseOrganizationStripeSeatSyncClaim,
+  runCompleteOrganizationStripeSeatSyncWorkflow,
   type StripeSeatSyncClaim,
 } from "../../workflows/billing/stripeSeatSyncClaim";
 import type { ApiServiceRuntime } from "../runtime";
@@ -126,6 +126,24 @@ async function rebindAdvancedPeriod(
     now,
   });
   throw new StripeSeatPeriodRebound();
+}
+
+/**
+ * Voids the open invoice of a plan upgrade whose payment did not go through
+ * when its request died before voiding it (billing/stripePlanUpgrade.ts), so
+ * it is never charged later. One paid meanwhile lets Stripe apply the
+ * upgrade, which the claim's retry then reads and grants.
+ */
+async function voidAbandonedUpgradeInvoice(
+  binding: StripeSubscriptionBinding | null,
+  deps: StripeSeatSyncDeps,
+): Promise<void> {
+  if (
+    binding?.pendingInvoiceId &&
+    !(await voidUnpaidInvoice(binding.pendingInvoiceId, deps.stripe ?? {}))
+  ) {
+    throw new Error("A pending Stripe plan upgrade was paid; retrying");
+  }
 }
 
 function requireProrationEligibleStatus(
@@ -243,10 +261,12 @@ async function synchronizeClaim(
   readonly priceId: string;
   readonly subscriptionItemId: string;
 }> {
-  const binding = validateSeatBinding(
-    claim,
-    await getSubscriptionBinding(claim.subscriptionId, deps.stripe ?? {}),
+  const subscription = await getSubscriptionBinding(
+    claim.subscriptionId,
+    deps.stripe ?? {},
   );
+  await voidAbandonedUpgradeInvoice(subscription, deps);
+  const binding = validateSeatBinding(claim, subscription);
   if (!bindingMatchesClaimPeriod(claim, binding)) {
     await rebindAdvancedPeriod(runtime, claim, binding, now);
   }
@@ -345,19 +365,10 @@ export async function runStripeSeatSynchronization(
     attempted += 1;
     try {
       const result = await synchronizeClaim(runtime, claim, deps, now);
-      await completeOrganizationStripeSeatSync({
+      await runCompleteOrganizationStripeSeatSyncWorkflow(runtime.db, {
         ...result,
         claim,
-        executor: runtime.db,
         now,
-      });
-      // A paid upgrade whose request never finished is granted here.
-      await runGrantPaidStripeCapacityWorkflow(runtime.db, {
-        appliedPaidCapacity: result.appliedPaidCapacity,
-        billingPeriodEndsAt: result.billingPeriodEndsAt,
-        now,
-        organizationId: claim.organizationId,
-        sourceId: `stripe-seat-sync:${claim.leaseId}`,
       });
       synced += 1;
     } catch (error) {

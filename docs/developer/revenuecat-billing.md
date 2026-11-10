@@ -371,18 +371,23 @@ An administrator changes the plan on every platform under the same rules:
 - One web plan change runs at a time: an upgrade leases the Stripe seat row
   for five minutes while it is paid for, so the worker cannot write the Price
   meanwhile, and another change gets 409 `billing_plan_change_unavailable`
-  until it ends. The larger renewal plan is recorded only once the upgrade is
-  paid, so an upgrade that fails or never reaches Stripe leaves a scheduled
-  smaller plan as it was. An upgrade that stalls past its lease still grants
-  the capacity it was charged for when it finishes, but a renewal plan chosen
-  after the lease lapsed stands, and the worker reconciles the Price from
-  Stripe. If the request never finishes (a lost response, a failed final
-  transaction), the worker revisits the row once the lease lapses: finding
-  Stripe at a larger Price than the capacity recorded for the period, it
-  grants that capacity in the period the organization's billing tracks and
-  records the larger plan as the renewal plan. An upgrade that finishes after
-  the subscription renewed grants nothing to the new period, whose renewal
-  invoice already charged the Price it renews at.
+  until it ends. Stripe is charged only while at least half the lease
+  remains; an upgrade that took longer is released unpaid with the same 409,
+  so once a lease lapses the outcome in Stripe is final. The larger renewal
+  plan is recorded only once the upgrade is paid, so an upgrade that fails
+  or never reaches Stripe leaves a scheduled smaller plan as it was. An
+  upgrade that stalls past its lease still grants the capacity it was charged
+  for when it finishes, but a renewal plan chosen after the lease lapsed
+  stands, and the worker reconciles the Price from Stripe. If the request
+  never finishes (a lost response, a failed final transaction), the worker
+  revisits the row once the lease lapses: finding Stripe at a larger Price
+  than the capacity recorded for the period, it grants that capacity in the
+  period the organization's billing tracks and records the larger plan as the
+  renewal plan. Until then a downgrade or Keep plan, which reads Stripe
+  first, gets 409 `billing_plan_change_unavailable`, so the worker cannot
+  overwrite a newer choice. An upgrade that finishes after the subscription
+  renewed grants nothing to the new period, whose renewal invoice already
+  charged the Price it renews at.
 - Only a Stripe subscription that owns the organization's capacity (a priced
   binding, not one retained under native ownership) can change plan, and an
   upgrade waits with 409 `billing_plan_change_unavailable` while Stripe has
@@ -404,8 +409,9 @@ An administrator changes the plan on every platform under the same rules:
   store app.
 
 An active Stripe subscription stays on at least Solo if its roster becomes
-empty; cancel it rather than expecting a zero-price renewal. Trials grant the
-largest canonical tier (10 licensed seats) for their full duration.
+empty, and its plans can still be listed and changed; cancel it rather than
+expecting a zero-price renewal. Trials grant the largest canonical tier (10
+licensed seats) for their full duration.
 
 Roster writes only enqueue an absolute desired state in
 `organization_billing_stripe_seats`, keeping the renewal plan an administrator
@@ -433,6 +439,10 @@ at (`desired_renewal_quantity`, which an administrator's
 [plan change](#changing-plans) sets), written without proration and never
 above the capacity paid for the current period. A row leased by a plan
 upgrade is not claimed until the upgrade ends or its five-minute lease lapses.
+A claim that finds a plan upgrade's open invoice (a `pending_update` the
+request died before voiding) voids it, so it is never charged later. The
+claim's result and any capacity it grants are recorded in one transaction,
+so a failed grant leaves the claim to retry within minutes.
 
 The API Worker's per-minute Cron Trigger (`* * * * *` in
 [`packages/api/wrangler.jsonc`](../../packages/api/wrangler.jsonc)) runs these

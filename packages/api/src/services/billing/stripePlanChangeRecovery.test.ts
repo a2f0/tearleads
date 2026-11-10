@@ -34,7 +34,7 @@ async function beginTeam10Upgrade(
     db,
     organizationId,
     userId,
-    { currentSeatCount: 5, now, plan: TEAM_10 },
+    { currentSeatCount: 5, now, observed: null, plan: TEAM_10 },
   );
   if (upgrade.kind !== "upgrade") throw new Error("expected an upgrade");
   return upgrade;
@@ -68,6 +68,47 @@ test("an upgrade waits while Stripe has renewed into a period not yet bound", as
   });
 });
 
+test("a renewal choice waits while a paid upgrade is not yet recorded", async () => {
+  // Stripe charged an upgrade to Team 10 whose request died before
+  // recording it; the worker records it once the lease lapses.
+  const { change, organizationId } = await subscribedOrganization({
+    itemSeatCount: 10,
+    seatCount: 5,
+  });
+
+  await expect(change("price_sync")).rejects.toMatchObject({
+    code: "billing_plan_change_unavailable",
+    status: 409,
+  });
+  expect(await readState(organizationId)).toMatchObject({
+    seats: { desiredRenewalQuantity: 5 },
+  });
+});
+
+test("the worker voids the open invoice an interrupted declined upgrade left", async () => {
+  const { organizationId, stripe } = await subscribedOrganization({
+    seatCount: 5,
+  });
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({ nextAttemptAt: new Date("2020-01-01T00:00:00.000Z") })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  const fake = stripe(false, true);
+
+  expect(
+    await runStripeSeatSynchronization(
+      getDefaultApiServiceRuntime(),
+      { limit: 1 },
+      { stripe: { env: STRIPE_ENV, fetchImpl: fake.fetchImpl } },
+    ),
+  ).toMatchObject({ synced: 1 });
+  expect(fake.voids).toEqual(["in_upgrade"]);
+  expect(await readState(organizationId)).toMatchObject({
+    billing: { seatCount: 5 },
+    seats: { appliedPaidCapacity: 5, priceId: "price_team_5" },
+  });
+});
+
 test("an upgrade finishing after its lease lapsed keeps a newer renewal choice", async () => {
   const { admin, organizationId } = await subscribedOrganization({
     seatCount: 5,
@@ -80,11 +121,17 @@ test("an upgrade finishing after its lease lapsed keeps a newer renewal choice",
     admin.userId,
     started,
   );
-  // The upgrade stalled past its lease; the admin then chose a smaller plan.
+  // The upgrade stalled past its lease, Stripe still at Team 5; the admin
+  // then chose a smaller plan.
   expect(
     await runBeginStripePlanChangeWorkflow(db, organizationId, admin.userId, {
       currentSeatCount: 5,
       now: later(6),
+      observed: {
+        billingPeriodStartsAt: PERIOD_START,
+        seatCount: 5,
+        subscriptionId: upgrade.subscriptionId,
+      },
       plan: getSyncBillingTier("solo"),
     }),
   ).toEqual({ kind: "scheduled" });
