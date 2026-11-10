@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import invariant from "invariant";
+import type { ReactNode } from "react";
 import type { AppHostConfig } from "../../src/host/AppHostConfig";
 import {
   saveSystemMonitorMode,
@@ -92,9 +93,11 @@ export function createDelayedLoadLocalKeyringFactory(
 }
 
 export function renderPane({
+  children,
   hostConfig = createTestHostConfig(),
   pinSystemMonitor = true,
 }: {
+  readonly children?: ReactNode;
   readonly hostConfig?: AppHostConfig | undefined;
   readonly pinSystemMonitor?: boolean | undefined;
 } = {}): RenderResult {
@@ -110,6 +113,7 @@ export function renderPane({
         <PaneSideProvider side="left">
           <PaneProvider hostConfig={hostConfig}>
             <AppTestRuntimeScopeProbe />
+            {children}
             <Pane className="pane" />
           </PaneProvider>
         </PaneSideProvider>
