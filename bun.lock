@@ -27,7 +27,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.131",
+      "version": "0.1.132",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1161.0",
         "@aws-sdk/s3-request-presigner": "3.1161.0",
@@ -67,7 +67,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.55",
+      "version": "0.1.56",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -98,7 +98,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.171",
+      "version": "0.1.172",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -190,7 +190,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.39",
+      "version": "0.1.40",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -236,7 +236,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.176",
+      "version": "0.1.177",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -352,7 +352,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.59",
+      "version": "0.1.60",
       "dependencies": {
         "zod": "catalog:",
       },
@@ -364,7 +364,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.57",
+      "version": "0.1.58",
       "dependencies": {
         "@a2f0/agent-tool": "0.1.51",
         "@a2f0/ct-client": "0.1.6",
