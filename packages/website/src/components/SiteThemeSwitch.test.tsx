@@ -114,6 +114,18 @@ test("before the switch mounts, the stamp follows OS changes but keeps a pick", 
   expect(stamped()).toEqual({ scheme: "dark", theme: "site-dark" });
 });
 
+test("once another owner stamps a theme, OS changes leave it", () => {
+  setOsScheme("light");
+  stampBeforePaint();
+  // A pick the provider could not store, as with storage disabled.
+  root.setAttribute("data-theme", "site-dark");
+  root.setAttribute("data-theme-scheme", "dark");
+
+  changeOsScheme("dark");
+  changeOsScheme("light");
+  expect(stamped()).toEqual({ scheme: "dark", theme: "site-dark" });
+});
+
 test("the hydrated switch keeps the stamp and persists a pick", () => {
   setOsScheme("dark");
   stampBeforePaint();

@@ -27,9 +27,11 @@ export const SITE_THEME_STORAGE_KEY = "tearleads.website.theme";
  * the site offers, else the one for the OS scheme, and stamps it again when
  * the OS scheme changes. The provider mounts only once the footer nears the
  * viewport, and until then this keeps an automatic light/dark schedule
- * working; afterwards both compute the same theme. Layout.astro inlines this
- * function's source into `<head>` so it runs before first paint, so it must
- * stay self-contained: no imports or outer references.
+ * working. Once something else stamps a different theme (a pick in the
+ * provider, which may not reach storage), it stops and leaves the theme to
+ * that owner. Layout.astro inlines this function's source into `<head>` so it
+ * runs before first paint, so it must stay self-contained: no imports or
+ * outer references.
  */
 export function stampSiteTheme(
   root: HTMLElement,
@@ -38,7 +40,12 @@ export function stampSiteTheme(
   defaultTheme: Readonly<Record<ThemeScheme, string>>,
 ): void {
   const darkScheme = matchMedia("(prefers-color-scheme: dark)");
+  let stampedId: string | null = null;
   function stamp(): void {
+    if (stampedId !== null && root.getAttribute("data-theme") !== stampedId) {
+      darkScheme.removeEventListener("change", stamp);
+      return;
+    }
     let stored: string | null = null;
     try {
       stored = localStorage.getItem(storageKey);
@@ -53,6 +60,7 @@ export function stampSiteTheme(
     if (theme) {
       root.setAttribute("data-theme", theme.id);
       root.setAttribute("data-theme-scheme", theme.scheme);
+      stampedId = theme.id;
     }
   }
   stamp();
