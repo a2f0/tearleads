@@ -13,6 +13,7 @@ import {
   SITE_DEFAULT_THEME,
   SITE_THEME_STORAGE_KEY,
   SITE_THEMES,
+  stampSiteTheme,
 } from "../siteTheme";
 // SiteFrame brings in the @tearleads/ui CSS; site rules that override it are
 // scoped (.site-frame, html body) to win whatever the order. Astro can also emit
@@ -44,6 +45,8 @@ const canonical = robots === null ? canonicalUrl(Astro.url.pathname) : null;
 const rawPathname = Astro.url.pathname;
 const pathname =
   rawPathname.length > 1 ? rawPathname.replace(/\/$/, "") : rawPathname;
+// The same function the tests run, called with the site's themes.
+const themeScript = `(${stampSiteTheme})(document.documentElement, ${JSON.stringify(SITE_THEME_STORAGE_KEY)}, ${JSON.stringify(SITE_THEMES)}, ${JSON.stringify(SITE_DEFAULT_THEME)});`;
 ---
 
 <!doctype html>
@@ -52,32 +55,9 @@ const pathname =
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- Stamps the theme before first paint, choosing as SiteThemeSwitch's
-         ThemeProvider does: the stored theme the site offers, else the one for
-         the OS scheme. Without scripting tokens.css stays light. -->
-    <script
-      is:inline
-      define:vars={{
-        defaultTheme: SITE_DEFAULT_THEME,
-        storageKey: SITE_THEME_STORAGE_KEY,
-        themes: SITE_THEMES,
-      }}
-    >
-      let stored = null;
-      try {
-        stored = localStorage.getItem(storageKey);
-      } catch {
-        // Storage can be disabled; the OS scheme decides.
-      }
-      const osScheme = matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-      const theme =
-        themes.find((candidate) => candidate.id === stored) ??
-        themes.find((candidate) => candidate.id === defaultTheme[osScheme]) ??
-        themes[0];
-      document.documentElement.setAttribute("data-theme", theme.id);
-      document.documentElement.setAttribute("data-theme-scheme", theme.scheme);
-    </script>
+         ThemeProvider does (stampSiteTheme in siteTheme.ts). Without
+         scripting tokens.css stays light. -->
+    <script is:inline set:html={themeScript} />
     <meta name="description" content={description} />
     <meta name="color-scheme" content="light dark" />
     <!-- Matches the header band: --site-chrome in tokens.css. colorSchemeMedia
