@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const BILLING_ERROR_CODES = {
   checkoutNoActiveMembers: "billing_checkout_no_active_members",
+  /** The plan the buyer saw no longer covers the roster; reload the options. */
+  checkoutPriceChanged: "billing_checkout_price_changed",
   rosterOverCapacity: "billing_roster_over_capacity",
 } as const;
 

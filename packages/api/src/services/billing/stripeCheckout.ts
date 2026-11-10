@@ -35,6 +35,7 @@ import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   requireCurrentInlineAttempt,
+  requireShownPrice,
   voidOtherInlineCheckouts,
 } from "./stripeCheckoutAttempt";
 import {
@@ -49,14 +50,16 @@ import {
 /** Direct Stripe checkout services; user-facing calls enforce org-admin access. */
 
 /**
- * Creates the incomplete subscription for the org and returns what the
- * Payment Element needs. Null when the integration is unconfigured (route:
- * 503) — a Stripe failure throws `StripeApiError` (route: 502).
+ * Starts the org's subscription when the buyer presses Pay, at the Price the
+ * form showed them, and returns what the Payment Element confirms. Null when
+ * the integration is unconfigured (route: 503) — a Stripe failure throws
+ * `StripeApiError` (route: 502).
  */
 export async function createStripeCheckout(
   runtime: ApiServiceRuntime,
   organizationId: string,
   sessionUserId: string,
+  priceId: string,
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<StripeCheckoutIntent | null> {
   if (!isDirectCheckoutFullyConfigured(deps)) {
@@ -67,13 +70,17 @@ export async function createStripeCheckout(
     );
     return null;
   }
+  const stripe = deps.stripe ?? {};
   const attempt = await runAcquireStripeCheckoutAttemptWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
     "inline",
+    {
+      requireSeatQuantity: (seatQuantity) =>
+        requireShownPrice({ priceId, seatQuantity, stripe }),
+    },
   );
-  const stripe = deps.stripe ?? {};
   const customerId = await findOrCreateCustomer(
     { userId: sessionUserId, organizationId },
     stripe,

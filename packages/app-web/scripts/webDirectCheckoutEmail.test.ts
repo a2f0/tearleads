@@ -5,6 +5,8 @@ import {
   type FakeHost,
   fakeStripe,
   host,
+  PRICE,
+  startPayment,
   withKey,
 } from "./webDirectCheckout.testUtils";
 
@@ -24,14 +26,14 @@ test("Stripe's email element sits above the card form and its email is sent", as
   const target = host();
   const session = await capability.mount({
     host: target,
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: (email) => reported.push(email),
     onReady: () => undefined,
     onLoadError: () => undefined,
     appearance: APPEARANCE,
   });
 
-  await session.confirm();
+  await session.confirm(startPayment);
 
   expect(created).toEqual([
     { type: "contactDetails", opts: undefined },
@@ -62,14 +64,14 @@ test("confirm without a complete email declines without calling Stripe", async (
   const reported: (string | null)[] = [];
   const session = await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: (email) => reported.push(email),
     onReady: () => undefined,
     onLoadError: () => undefined,
     appearance: APPEARANCE,
   });
 
-  expect(await session.confirm()).toEqual({
+  expect(await session.confirm(startPayment)).toEqual({
     kind: "declined",
     message: "Enter a billing email.",
   });
@@ -85,7 +87,7 @@ test("unmount destroys both elements and clears only the wrappers it added", asy
   const target = host();
   const session = await capability.mount({
     host: target,
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
@@ -110,7 +112,7 @@ test("an abandoned mount's unmount leaves its replacement's form in place", asyn
   const target = host();
   const input = {
     host: target,
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
@@ -143,7 +145,7 @@ test("a failed card element releases the email element and its wrappers", async 
   await expect(
     capability.mount({
       host: target,
-      clientSecret: "pi_secret",
+      price: PRICE,
       onBillingEmailChange: () => undefined,
       onReady: () => undefined,
       onLoadError: () => undefined,

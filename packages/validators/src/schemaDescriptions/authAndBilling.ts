@@ -7,6 +7,7 @@ import {
   RevenueCatTransferWebhookEventSchema,
   RevenueCatWebhookEventSchema,
   RevenueCatWebhookRequestSchema,
+  StripeCheckoutRequestSchema,
   StripeReturnUrlRequestSchema,
   VerifyRequestSchema,
 } from "../request";
@@ -27,6 +28,7 @@ import {
   RevenueCatWebhookResponseSchema,
   SessionFailureResponseSchema,
   StripeCancelResponseSchema,
+  StripeCheckoutErrorResponseSchema,
   StripeCheckoutIntentResponseSchema,
   StripeCheckoutOptionsResponseSchema,
   StripeCheckoutSessionResponseSchema,
@@ -313,10 +315,27 @@ describeSchema(
 
 describeSchema(
   StripeCheckoutIntentResponseSchema,
-  "What Stripe's Payment Element needs to confirm one subscription purchase.",
+  "The subscription started when the buyer pressed Pay, and what Stripe's Payment Element needs to confirm its first payment.",
   {
     clientSecret:
       "Stripe PaymentIntent client secret; pass it only to Stripe.js.",
+  },
+);
+
+describeSchema(
+  StripeCheckoutRequestSchema,
+  "The plan the buyer was shown when they pressed Pay.",
+  {
+    priceId:
+      "Stripe Price id from the checkout options. The server charges only this Price and returns 409 `billing_checkout_price_changed` when the roster now needs another.",
+  },
+);
+
+describeSchema(
+  StripeCheckoutErrorResponseSchema,
+  "A refused inline checkout.",
+  {
+    code: "Machine-readable reason: an empty roster, a roster larger than any plan, or `billing_checkout_price_changed` when the Price the buyer saw no longer covers the roster.",
   },
 );
 

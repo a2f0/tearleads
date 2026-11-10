@@ -5,6 +5,8 @@ import {
   ENV_KEY,
   fakeStripe,
   host,
+  PRICE,
+  startPayment,
   withKey,
 } from "./webDirectCheckout.testUtils";
 
@@ -33,7 +35,7 @@ test("a card error is a decline the buyer can correct, not a throw", async () =>
   const session = await withKey(() =>
     createWebDirectCheckout((() => Promise.resolve(stripe)) as never).mount({
       host: host(),
-      clientSecret: "pi_secret",
+      price: PRICE,
       onBillingEmailChange: () => undefined,
       onReady: () => undefined,
       onLoadError: () => undefined,
@@ -41,7 +43,7 @@ test("a card error is a decline the buyer can correct, not a throw", async () =>
     }),
   );
 
-  expect(await session.confirm()).toEqual({
+  expect(await session.confirm(startPayment)).toEqual({
     kind: "declined",
     message: "Your card was declined.",
   });
@@ -54,7 +56,7 @@ test("a non-buyer error throws so the caller surfaces a real failure", async () 
   const session = await withKey(() =>
     createWebDirectCheckout((() => Promise.resolve(stripe)) as never).mount({
       host: host(),
-      clientSecret: "pi_secret",
+      price: PRICE,
       onBillingEmailChange: () => undefined,
       onReady: () => undefined,
       onLoadError: () => undefined,
@@ -62,7 +64,9 @@ test("a non-buyer error throws so the caller surfaces a real failure", async () 
     }),
   );
 
-  await expect(session.confirm()).rejects.toThrow("Provider unavailable.");
+  await expect(session.confirm(startPayment)).rejects.toThrow(
+    "Provider unavailable.",
+  );
 });
 
 test("confirming after unmount reports cancelled, never a live success", async () => {
@@ -75,7 +79,7 @@ test("confirming after unmount reports cancelled, never a live success", async (
   const session = await withKey(() =>
     createWebDirectCheckout((() => Promise.resolve(stripe)) as never).mount({
       host: host(),
-      clientSecret: "pi_secret",
+      price: PRICE,
       onBillingEmailChange: () => undefined,
       onReady: () => undefined,
       onLoadError: () => undefined,
@@ -86,7 +90,7 @@ test("confirming after unmount reports cancelled, never a live success", async (
   session.unmount();
   expect(destroyed).toEqual(["contactDetails", "payment"]);
   // The element is gone; a confirm now must not be reported as a payment.
-  expect(await session.confirm()).toEqual({ kind: "cancelled" });
+  expect(await session.confirm(startPayment)).toEqual({ kind: "cancelled" });
   expect(confirmed).toBe(false);
 });
 
@@ -103,7 +107,7 @@ test("a rejected script load surfaces the buyer-facing failure", async () => {
   await expect(
     capability.mount({
       host: host(),
-      clientSecret: "pi_secret",
+      price: PRICE,
       onBillingEmailChange: () => undefined,
       onReady: () => undefined,
       onLoadError: () => undefined,
@@ -121,7 +125,7 @@ test("a null script load surfaces the same buyer-facing failure", async () => {
   await expect(
     capability.mount({
       host: host(),
-      clientSecret: "pi_secret",
+      price: PRICE,
       onBillingEmailChange: () => undefined,
       onReady: () => undefined,
       onLoadError: () => undefined,
@@ -141,7 +145,7 @@ test("confirm supplies a return url for a redirect-requiring 3-D Secure step", a
   );
   const session = await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
@@ -154,7 +158,7 @@ test("confirm supplies a return url for a redirect-requiring 3-D Secure step", a
     value: { href: "https://app.example/org/billing" },
   });
   try {
-    await session.confirm();
+    await session.confirm(startPayment);
   } finally {
     if (previous === undefined) {
       Reflect.deleteProperty(globalThis, "location");
@@ -184,14 +188,14 @@ test("confirm omits the return url where there is no page to return to", async (
   );
   const session = await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
     appearance: APPEARANCE,
   });
 
-  await session.confirm();
+  await session.confirm(startPayment);
 
   const [input] = confirmInputs as [{ confirmParams: object }];
   expect("return_url" in input.confirmParams).toBe(false);
@@ -200,23 +204,23 @@ test("confirm omits the return url where there is no page to return to", async (
 test("a charge that lands during an unmount is reported, not swallowed", async () => {
   // Reporting `cancelled` for a payment that actually succeeded would be a
   // lie about money; the caller decides what to do with a late success.
-  const { stripe } = fakeStripe();
+  let unmount: () => void = () => undefined;
+  const { stripe } = fakeStripe({ onConfirm: () => unmount() });
   const capability = withKey(() =>
     createWebDirectCheckout(() => Promise.resolve(stripe as never)),
   );
   const session = await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
     appearance: APPEARANCE,
   });
+  // The buyer leaves while Stripe is confirming the charge.
+  unmount = () => session.unmount();
 
-  const confirmed = session.confirm();
-  session.unmount();
-
-  expect(await confirmed).toEqual({ kind: "succeeded" });
+  expect(await session.confirm(startPayment)).toEqual({ kind: "succeeded" });
 });
 
 test("a dark surface mounts the Payment Element on the night base theme", async () => {
@@ -228,7 +232,7 @@ test("a dark surface mounts the Payment Element on the night base theme", async 
   );
   await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
@@ -246,7 +250,7 @@ test("a light surface mounts the Payment Element on the stripe base theme", asyn
   );
   await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
@@ -266,7 +270,7 @@ test("an unparseable surface color falls back to the light base theme", async ()
   );
   await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
@@ -284,7 +288,7 @@ test("a transparent surface (unresolved token) uses the light base theme", async
   );
   await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
@@ -302,7 +306,7 @@ test("a surface color with too few channels uses the light base theme", async ()
   );
   await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
@@ -323,7 +327,7 @@ test("a colour space we do not convert falls back to the light base theme", asyn
   );
   await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
@@ -344,7 +348,7 @@ test("an sRGB color() dark surface is normalized and classifies as night", async
   );
   await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
@@ -368,7 +372,7 @@ test("a color(srgb …) border is normalized to rgba for the input rule", async 
   );
   await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
@@ -395,7 +399,7 @@ test("the card icon colour is pinned to the text colour", async () => {
   );
   await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,
@@ -415,7 +419,7 @@ test("a partially-transparent dark surface still classifies as night", async () 
   );
   await capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => undefined,
     onLoadError: () => undefined,

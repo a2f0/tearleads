@@ -108,10 +108,6 @@ export function stubEnvironment(
             })),
         loadBillingHistory:
           overrides.loadBillingHistory ?? (() => Promise.resolve(null)),
-        // The wrapper's capability never finishes mounting, so a started
-        // checkout stays on its screen in `starting`.
-        createStripeCheckout: () =>
-          Promise.resolve({ subscriptionId: "sub_1", clientSecret: "pi_1" }),
         cancelStripeSubscription: () => Promise.resolve({ cancelAt: null }),
       },
     } as never),
@@ -164,6 +160,8 @@ export function wrapperWith(
       createDirectCheckout: () =>
         ({
           isAvailable: directCheckoutAvailable,
+          // Never finishes mounting, so a started checkout stays on its
+          // screen in `starting`; nothing reaches the server before Pay.
           mount: () => new Promise(() => undefined),
         }) as never,
       createPurchases: () => purchases(revenueCatAvailable),

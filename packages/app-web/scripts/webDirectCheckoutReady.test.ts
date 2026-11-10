@@ -4,6 +4,7 @@ import {
   APPEARANCE,
   fakeStripe,
   host,
+  PRICE,
   withKey,
 } from "./webDirectCheckout.testUtils";
 
@@ -20,7 +21,7 @@ function mountWith(stripe: unknown) {
   );
   const session = capability.mount({
     host: host(),
-    clientSecret: "pi_secret",
+    price: PRICE,
     onBillingEmailChange: () => undefined,
     onReady: () => reports.push("ready"),
     onLoadError: (error) => errors.push(error),

@@ -71,6 +71,7 @@ test("concurrent inline and hosted services issue one provider create", async ()
       getDefaultApiServiceRuntime(),
       organizationId,
       admin.userId,
+      "price_sync",
       serviceDeps,
     ),
     createStripeCheckoutSession(
@@ -88,6 +89,45 @@ test("concurrent inline and hosted services issue one provider create", async ()
   const rejected = results.filter((result) => result.status === "rejected");
   expect(rejected).toHaveLength(1);
   expect(rejected[0]?.reason).toMatchObject({ status: 409 });
+  expect(creates).toHaveLength(1);
+});
+
+test("a Pay at a Price the roster no longer maps to reserves nothing", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
+  const creates: Request[] = [];
+  const serviceDeps = deps(checkoutFetch(creates));
+
+  // One member is Solo; a form still showing Team 5 must not hold the
+  // organization's one checkout reservation once it is refused.
+  await expect(
+    createStripeCheckout(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+      "price_team_5",
+      serviceDeps,
+    ),
+  ).rejects.toMatchObject({
+    code: "billing_checkout_price_changed",
+    status: 409,
+  });
+  const [billing] = await db
+    .select({ attemptId: organizationBilling.checkoutAttemptId })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(billing?.attemptId).toBeNull();
+
+  // Another mode is not locked out by the refused Pay.
+  expect(
+    await createStripeCheckoutSession(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+      "https://app.example/billing",
+      serviceDeps,
+    ),
+  ).toBe("https://checkout.stripe.com/pay/cs_org");
   expect(creates).toHaveLength(1);
 });
 
@@ -137,6 +177,7 @@ test("incomplete provider configuration does not reserve an attempt", async () =
       getDefaultApiServiceRuntime(),
       organizationId,
       admin.userId,
+      "price_sync",
       { stripe: { env: {} }, revenueCat: { env: {} } },
     ),
   ).toBeNull();

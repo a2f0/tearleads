@@ -293,6 +293,35 @@ function trackFormLoad(callbacks: MountCallbacks): {
   };
 }
 
+const CANCELLED: DirectCheckoutConfirmation = { kind: "cancelled" };
+
+/** Confirms the server-started payment with what the buyer entered. */
+async function confirmStartedPayment(
+  stripe: Stripe,
+  elements: StripeElements,
+  clientSecret: string,
+  email: string,
+): Promise<{ type?: string; message?: string } | undefined> {
+  const returnUrl = currentReturnUrl();
+  const { error } = await stripe.confirmPayment({
+    elements,
+    clientSecret,
+    // Stay in the panel: only redirect for payment methods that require it,
+    // which a card does not — the server pins the subscription to card, so
+    // nothing redirect-based can be offered here.
+    redirect: "if_required",
+    // Stripe.js rejects the confirm outright if a redirect DOES become
+    // necessary and no return_url was given, which the buyer would see as a
+    // generic failure. Returning to the current page is right: the webhook
+    // has already recorded the outcome by the time they land.
+    confirmParams: {
+      payment_method_data: { billing_details: { email } },
+      ...(returnUrl ? { return_url: returnUrl } : {}),
+    },
+  });
+  return error;
+}
+
 function createSession(
   stripe: Stripe,
   elements: StripeElements,
@@ -300,9 +329,9 @@ function createSession(
 ): DirectCheckoutSession {
   let unmounted = false;
   return {
-    async confirm() {
+    async confirm(startPayment) {
       if (unmounted) {
-        return { kind: "cancelled" };
+        return CANCELLED;
       }
       // The host gates Pay on a complete email, but the session must not
       // trust that: Stripe would reject a confirm without one anyway.
@@ -310,23 +339,28 @@ function createSession(
       if (!email) {
         return { kind: "declined", message: MISSING_BILLING_EMAIL };
       }
-      const returnUrl = currentReturnUrl();
-      const confirmParams = {
-        payment_method_data: { billing_details: { email } },
-        ...(returnUrl ? { return_url: returnUrl } : {}),
-      };
-      const { error } = await stripe.confirmPayment({
+      // Stripe validates the form before anything starts on the server, so
+      // an incomplete card never creates a subscription.
+      const { error: invalid } = await elements.submit();
+      // A buyer who walked away during validation must not start one either.
+      if (unmounted) {
+        return CANCELLED;
+      }
+      if (invalid) {
+        return toConfirmation(invalid);
+      }
+      const clientSecret = await startPayment();
+      // A buyer who walked away while the server started the subscription
+      // leaves it unpaid; their next Pay resumes or replaces it.
+      if (unmounted) {
+        return CANCELLED;
+      }
+      const error = await confirmStartedPayment(
+        stripe,
         elements,
-        // Stay in the panel: only redirect for payment methods that require
-        // it, which a card does not — the server pins the subscription to
-        // card, so nothing redirect-based can be offered here.
-        redirect: "if_required",
-        // Stripe.js rejects the confirm outright if a redirect DOES become
-        // necessary and no return_url was given, which the buyer would see
-        // as a generic failure. Returning to the current page is right: the
-        // webhook has already recorded the outcome by the time they land.
-        confirmParams,
-      });
+        clientSecret,
+        email,
+      );
       // Check the unmount BEFORE mapping: `toConfirmation` throws for a
       // non-buyer error, which would reject instead of honoring the
       // cancelled-on-unmount contract. An unmount racing a confirm normally
@@ -337,7 +371,7 @@ function createSession(
       // which is safe because the webhook, not this return value, is what
       // grants the entitlement.
       if (unmounted && error) {
-        return { kind: "cancelled" };
+        return CANCELLED;
       }
       return toConfirmation(error);
     },
@@ -369,7 +403,7 @@ export function createWebDirectCheckout(
 
   return {
     isAvailable: true,
-    async mount({ host, clientSecret, appearance, ...callbacks }) {
+    async mount({ host, price, appearance, ...callbacks }) {
       stripePromise = stripePromise ?? loadStripeImpl(publishableKey);
       // `loadStripe` REJECTS when the script cannot be fetched (blocked by an
       // extension, offline) and resolves null only where there is no `window`.
@@ -391,8 +425,17 @@ export function createWebDirectCheckout(
         stripePromise = undefined;
         throw new Error("The payment form could not be loaded.");
       }
+      // Deferred mode: the form mounts for `price` before the server starts
+      // anything, and the PaymentIntent arrives at Pay. Stripe does not
+      // check this amount against that PaymentIntent; the server's Price
+      // check at Pay is what keeps them equal.
       const elements = stripe.elements({
-        clientSecret,
+        mode: "subscription",
+        amount: price.amount,
+        currency: price.currency,
+        // The server pins the subscription to card; any other method would
+        // fail at confirm.
+        allowedPaymentMethodTypes: ["card"],
         appearance: toStripeAppearance(appearance),
       });
       const mounted = mountElements(elements, host, callbacks);

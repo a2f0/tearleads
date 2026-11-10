@@ -23,6 +23,8 @@ interface FakeElement {
 export function fakeStripe(options?: {
   confirmError?: { type?: string; message?: string };
   onConfirm?: () => void;
+  /** What `elements.submit()` reports: Stripe's form validation. */
+  submitError?: { type?: string; message?: string };
   email?: string | null;
   /** Element types whose `create` throws, as a provider failure would. */
   failCreate?: readonly string[];
@@ -77,6 +79,8 @@ export function fakeStripe(options?: {
           return element;
         },
         getElement: (type: string) => byType.get(type) ?? null,
+        submit: async () =>
+          options?.submitError ? { error: options.submitError } : {},
       };
     },
     confirmPayment: async (input: unknown) => {
@@ -95,6 +99,12 @@ export function fakeStripe(options?: {
     destroyedByGroup,
   };
 }
+
+/** The Price the form shows, as the checkout options report it. */
+export const PRICE = { amount: 500, currency: "usd" };
+
+/** The server starting the subscription at Pay. */
+export const startPayment = () => Promise.resolve("pi_secret");
 
 export const APPEARANCE = {
   colorBackground: "#fff",

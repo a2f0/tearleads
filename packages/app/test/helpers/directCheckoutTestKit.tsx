@@ -33,14 +33,16 @@ export const OPTION = {
   interval: "month",
   intervalCount: 1,
 };
-type MountInput = Parameters<DirectCheckoutCapability["mount"]>[0];
+export type MountInput = Parameters<DirectCheckoutCapability["mount"]>[0];
 
 export function stubTearleads(overrides?: {
   createStripeCheckout?: () => Promise<unknown>;
+  loadStripeCheckoutOptions?: () => Promise<unknown>;
 }) {
   const organizations = {
-    loadStripeCheckoutOptions: mock(() =>
-      Promise.resolve({ options: [OPTION] }),
+    loadStripeCheckoutOptions: mock(
+      overrides?.loadStripeCheckoutOptions ??
+        (() => Promise.resolve({ options: [OPTION] })),
     ),
     createStripeCheckout:
       overrides?.createStripeCheckout ??
@@ -59,11 +61,21 @@ export function stubTearleads(overrides?: {
 /**
  * A capability whose form reports itself ready inside `mount`, before the
  * session resolves, unless `formReady` is false; a test then drives
- * `onReady`/`onLoadError` through `mounted`.
+ * `onReady`/`onLoadError` through `mounted`. The first `failMounts` mounts
+ * reject with `mountError`, as a provider that cannot load would. By default
+ * the session's Pay starts the payment and succeeds.
  */
 export function capabilityWith(
   session: Partial<DirectCheckoutSession>,
-  { formReady = true }: { readonly formReady?: boolean } = {},
+  {
+    failMounts = 0,
+    formReady = true,
+    mountError = new Error("The payment form could not be loaded."),
+  }: {
+    readonly failMounts?: number;
+    readonly formReady?: boolean;
+    readonly mountError?: Error;
+  } = {},
 ): {
   capability: DirectCheckoutCapability;
   mounted: MountInput[];
@@ -73,12 +85,19 @@ export function capabilityWith(
     isAvailable: true,
     mount: mock((input: MountInput) => {
       mounted.push(input);
+      if (mounted.length <= failMounts) {
+        return Promise.reject(mountError);
+      }
       if (formReady) {
         input.onReady();
       }
       return Promise.resolve({
         confirm:
-          session.confirm ?? (() => Promise.resolve({ kind: "succeeded" })),
+          session.confirm ??
+          (async (startPayment: () => Promise<string>) => {
+            await startPayment();
+            return { kind: "succeeded" };
+          }),
         unmount: session.unmount ?? (() => undefined),
       } as DirectCheckoutSession);
     }) as DirectCheckoutCapability["mount"],

@@ -14,6 +14,7 @@ import { DirectCheckoutProvider } from "../../../providers/direct-checkout/Direc
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
 import { LogProvider } from "../../../providers/logging/LogProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { CHECKOUT_LABELS } from "./billingCheckoutErrors";
 import { useDirectCheckoutFlow } from "./useDirectCheckout";
 
 afterEach(restoreDirectCheckoutSpies);
@@ -137,12 +138,13 @@ test("unmounting the panel tears the element down", async () => {
   expect(unmount).toHaveBeenCalledTimes(1);
 });
 
-test("a failed checkout start surfaces an error and stays idle", async () => {
-  const failure = new Error("500");
-  stubTearleads({
-    createStripeCheckout: () => Promise.reject(failure),
-  });
-  const { capability } = capabilityWith({});
+test("a form that cannot mount surfaces an error and stays idle", async () => {
+  stubTearleads();
+  const failure = new Error("The payment form could not be loaded.");
+  const { capability } = capabilityWith(
+    {},
+    { failMounts: 1, mountError: failure },
+  );
   const { captured, diagnostics } = createCapturingDiagnostics();
   const { result } = renderFlow(capability, undefined, "org-1", diagnostics);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
@@ -153,6 +155,75 @@ test("a failed checkout start surfaces an error and stays idle", async () => {
   expect(result.current.phase.kind).toBe("idle");
   // The original Error reaches diagnostics, not just the generic label.
   expect(captured).toEqual([failure]);
+});
+
+test("the form opens for the offer, and only Pay starts the subscription", async () => {
+  const organizations = stubTearleads();
+  const { capability, mounted } = capabilityWith({});
+  const { result } = renderFlow(capability);
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+  expect(mounted[0]?.price).toEqual({ amount: 99, currency: "usd" });
+  expect(organizations.createStripeCheckout).not.toHaveBeenCalled();
+
+  await act(async () => result.current.confirm());
+
+  await waitFor(() => expect(result.current.phase.kind).toBe("idle"));
+  expect(organizations.createStripeCheckout).toHaveBeenCalledWith(
+    OPTION.priceId,
+    "org-1",
+  );
+});
+
+test("a Pay the roster repriced closes the form and offers the new plan", async () => {
+  const team = { ...OPTION, priceId: "price_team_5", unitAmount: 1000 };
+  const reloaded = Promise.withResolvers<{ options: (typeof OPTION)[] }>();
+  let loads = 0;
+  const organizations = stubTearleads({
+    createStripeCheckout: () =>
+      Promise.reject(
+        Object.assign(new Error("plan changed"), {
+          code: "billing_checkout_price_changed",
+        }),
+      ),
+    loadStripeCheckoutOptions: () => {
+      loads += 1;
+      return loads === 1
+        ? Promise.resolve({ options: [OPTION] })
+        : reloaded.promise;
+    },
+  });
+  const unmount = mock(() => undefined);
+  const { capability, mounted } = capabilityWith({ unmount });
+  const { captured, diagnostics } = createCapturingDiagnostics();
+  const { result } = renderFlow(capability, undefined, "org-1", diagnostics);
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+
+  await act(async () => result.current.confirm());
+
+  await waitFor(() => expect(result.current.phase.kind).toBe("idle"));
+  expect(result.current.error).toBe(CHECKOUT_LABELS.priceChanged);
+  expect(unmount).toHaveBeenCalledTimes(1);
+  await waitFor(() =>
+    expect(organizations.loadStripeCheckoutOptions).toHaveBeenCalledTimes(2),
+  );
+  // While the new plan loads there is no offer, so the rejected one cannot
+  // be opened again.
+  expect(result.current.option).toBeNull();
+  await act(async () => result.current.begin());
+  expect(mounted).toHaveLength(1);
+
+  await act(async () => reloaded.resolve({ options: [team] }));
+  await waitFor(() => expect(result.current.option).toEqual(team));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(mounted).toHaveLength(2));
+  expect(mounted[1]?.price).toEqual({ amount: 1000, currency: "usd" });
+  // An expected outcome, not a failure to report.
+  expect(captured).toEqual([]);
 });
 
 test("a thrown confirm keeps the element mounted and is reported", async () => {
@@ -230,8 +301,8 @@ test("switching organizations tears down an in-flight checkout", async () => {
 
   rerender({ organizationId: "org-2" });
 
-  // The client secret belongs to org-1's subscription; confirming it after
-  // the switch would charge the wrong organization.
+  // The form shows org-1's plan; paying it after the switch would charge the
+  // wrong organization's offer.
   expect(unmount).toHaveBeenCalledTimes(1);
   expect(result.current.phase.kind).toBe("idle");
 });

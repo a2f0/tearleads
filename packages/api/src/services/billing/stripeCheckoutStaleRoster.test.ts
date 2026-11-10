@@ -156,11 +156,13 @@ async function organizationBuyingThrough(stripe: FakeStripe) {
     stripe: { env: STRIPE_ENV, fetchImpl: stripe.fetchImpl },
   };
   return {
-    checkout: () =>
+    /** Pay at `priceId`: Solo while the roster has one member. */
+    checkout: (priceId = SOLO) =>
       createStripeCheckout(
         getDefaultApiServiceRuntime(),
         organizationId,
         admin.userId,
+        priceId,
         deps,
       ),
     addMember: async () => {
@@ -175,6 +177,8 @@ async function organizationBuyingThrough(stripe: FakeStripe) {
   };
 }
 
+const SOLO = "price_sync";
+const TEAM_5 = "price_team_5";
 const SECOND_CHECKOUT = { subscriptionId: "sub_2", clientSecret: "pi_2" };
 
 function statuses(stripe: FakeStripe): string[][] {
@@ -187,18 +191,34 @@ test("the buyer's unpaid checkout for an old roster is replaced at the new tier"
   await checkout();
   await addMember();
 
-  expect(await checkout()).toEqual(SECOND_CHECKOUT);
+  expect(await checkout(TEAM_5)).toEqual(SECOND_CHECKOUT);
   expect(stripe.voids).toEqual(["in_1"]);
   expect(stripe.subscriptions.map((s) => s.items.data[0].price.id)).toEqual([
-    "price_sync",
-    "price_team_5",
+    SOLO,
+    TEAM_5,
   ]);
   // The replacement is now the reserved attempt: a retry resumes it.
-  expect(await checkout()).toEqual(SECOND_CHECKOUT);
+  expect(await checkout(TEAM_5)).toEqual(SECOND_CHECKOUT);
   expect(statuses(stripe)).toEqual([
     ["sub_1", "incomplete_expired"],
     ["sub_2", "incomplete"],
   ]);
+});
+
+test("a Pay at the plan from before the roster change charges nothing", async () => {
+  const stripe = fakeStripe();
+  const { addMember, checkout } = await organizationBuyingThrough(stripe);
+  await checkout();
+  await addMember();
+
+  // The form still shows Solo; Stripe would charge whatever the server
+  // started, so the server refuses instead of starting Team 5 behind it.
+  await expect(checkout(SOLO)).rejects.toMatchObject({
+    code: "billing_checkout_price_changed",
+    status: 409,
+  });
+  expect(stripe.subscriptions).toHaveLength(1);
+  expect(await checkout(TEAM_5)).toEqual(SECOND_CHECKOUT);
 });
 
 test("concurrent retries after a roster change share one replacement", async () => {
@@ -207,7 +227,7 @@ test("concurrent retries after a roster change share one replacement", async () 
   await checkout();
   await addMember();
 
-  expect(await Promise.all([checkout(), checkout()])).toEqual([
+  expect(await Promise.all([checkout(TEAM_5), checkout(TEAM_5)])).toEqual([
     SECOND_CHECKOUT,
     SECOND_CHECKOUT,
   ]);
@@ -223,9 +243,9 @@ test("a retry after a failed void still voids the old checkout", async () => {
   await checkout();
   await addMember();
 
-  await expect(checkout()).rejects.toMatchObject({ status: 500 });
+  await expect(checkout(TEAM_5)).rejects.toMatchObject({ status: 500 });
   expect(statuses(stripe)).toEqual([["sub_1", "incomplete"]]);
-  expect(await checkout()).toEqual(SECOND_CHECKOUT);
+  expect(await checkout(TEAM_5)).toEqual(SECOND_CHECKOUT);
   expect(statuses(stripe)).toEqual([
     ["sub_1", "incomplete_expired"],
     ["sub_2", "incomplete"],
@@ -238,7 +258,7 @@ test("a stale checkout whose payment won keeps the conflict", async () => {
   await checkout();
   await addMember();
 
-  await expect(checkout()).rejects.toMatchObject({ status: 409 });
+  await expect(checkout(TEAM_5)).rejects.toMatchObject({ status: 409 });
   expect(stripe.voids).toEqual(["in_1"]);
   expect(stripe.subscriptions).toHaveLength(1);
 });
@@ -257,7 +277,7 @@ async function replacedWhileHeldAt(method: string, path: string) {
   const stale = checkout();
   await reached.promise;
   await addMember();
-  const replacement = await checkout();
+  const replacement = await checkout(TEAM_5);
   release.resolve();
   return { replacement, stale, stripe };
 }

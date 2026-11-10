@@ -339,10 +339,10 @@ cancellation availability in the billing snapshot. The management URL read
 returns only the native store link; it does not gate inline Stripe
 cancellation. Provider-neutral purchase errors live in
 [`client/billing/purchaseErrors.ts`](../client/billing/purchaseErrors.ts),
-outside the organization workflow facade;
-callers can distinguish retryable identity races from provider stalls that
-require an app restart. Direct checkout's provider form reports its billing
-email, readiness, and load failure through `mount`'s callbacks.
+outside the organization workflow facade; callers can distinguish retryable
+identity races from provider stalls that require an app restart. Direct
+checkout's form reports billing email, readiness, and load failure through
+`mount`'s callbacks; its subscription starts at Pay via `session.confirm`.
 
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through

@@ -44,16 +44,14 @@ test("inline and hosted checkout have exactly one concurrent winner", async () =
       organizationId,
       admin.userId,
       "inline",
-      START,
-      () => "inline-token",
+      { createAttemptId: () => "inline-token", now: START },
     ),
     runAcquireStripeCheckoutAttemptWorkflow(
       db,
       organizationId,
       admin.userId,
       "hosted",
-      START,
-      () => "hosted-token",
+      { createAttemptId: () => "hosted-token", now: START },
     ),
   ]);
   const winners = attempts.filter((result) => result.status === "fulfilled");
@@ -72,16 +70,14 @@ test("same-mode concurrent retries reuse one durable token", async () => {
       organizationId,
       admin.userId,
       "inline",
-      START,
-      () => "first-token",
+      { createAttemptId: () => "first-token", now: START },
     ),
     runAcquireStripeCheckoutAttemptWorkflow(
       db,
       organizationId,
       admin.userId,
       "inline",
-      START,
-      () => "second-token",
+      { createAttemptId: () => "second-token", now: START },
     ),
   ]);
   expect(first.attemptId).toBe(second.attemptId);
@@ -97,8 +93,7 @@ test("a changed roster rotates the buyer's inline attempt once", async () => {
     organizationId,
     admin.userId,
     "inline",
-    START,
-    () => "one-seat-token",
+    { createAttemptId: () => "one-seat-token", now: START },
   );
   await addMember(admin, organizationId);
   const later = new Date("2030-01-01T00:01:00.000Z");
@@ -108,8 +103,7 @@ test("a changed roster rotates the buyer's inline attempt once", async () => {
       organizationId,
       admin.userId,
       "inline",
-      later,
-      () => token,
+      { createAttemptId: () => token, now: later },
     );
 
   expect(first.seatQuantity).toBe(1);
@@ -130,8 +124,7 @@ test("a hosted attempt for an old roster is never replaced", async () => {
     organizationId,
     admin.userId,
     "hosted",
-    START,
-    () => "hosted-one-seat",
+    { createAttemptId: () => "hosted-one-seat", now: START },
   );
   await addMember(admin, organizationId);
 
@@ -141,8 +134,10 @@ test("a hosted attempt for an old roster is never replaced", async () => {
       organizationId,
       admin.userId,
       "hosted",
-      new Date("2030-01-01T00:01:00.000Z"),
-      () => "unused",
+      {
+        createAttemptId: () => "unused",
+        now: new Date("2030-01-01T00:01:00.000Z"),
+      },
     ),
   ).rejects.toMatchObject({ status: 409 });
 });
@@ -162,8 +157,7 @@ test("checkout rejects an effective roster above the largest tier", async () => 
       organizationId,
       admin.userId,
       "inline",
-      START,
-      () => "oversized-roster-token",
+      { createAttemptId: () => "oversized-roster-token", now: START },
     ),
   ).rejects.toMatchObject({
     code: "billing_roster_over_capacity",
@@ -181,16 +175,17 @@ test("hosted retries stop before Stripe's minimum expiry and later rotate", asyn
     organizationId,
     admin.userId,
     "hosted",
-    START,
-    () => "hosted-first",
+    { createAttemptId: () => "hosted-first", now: START },
   );
   const retry = await runAcquireStripeCheckoutAttemptWorkflow(
     db,
     organizationId,
     admin.userId,
     "hosted",
-    new Date("2030-01-01T00:14:59.000Z"),
-    () => "unused",
+    {
+      createAttemptId: () => "unused",
+      now: new Date("2030-01-01T00:14:59.000Z"),
+    },
   );
   expect(retry.attemptId).toBe(first.attemptId);
   expect(retry.providerExpiresAt).toEqual(new Date("2030-01-01T00:45:00.000Z"));
@@ -201,8 +196,10 @@ test("hosted retries stop before Stripe's minimum expiry and later rotate", asyn
       organizationId,
       admin.userId,
       "hosted",
-      new Date("2030-01-01T00:15:00.000Z"),
-      () => "too-early",
+      {
+        createAttemptId: () => "too-early",
+        now: new Date("2030-01-01T00:15:00.000Z"),
+      },
     ),
   ).rejects.toMatchObject({ status: 409 });
 
@@ -211,8 +208,10 @@ test("hosted retries stop before Stripe's minimum expiry and later rotate", asyn
     organizationId,
     admin.userId,
     "hosted",
-    new Date("2030-01-01T00:51:00.000Z"),
-    () => "hosted-next",
+    {
+      createAttemptId: () => "hosted-next",
+      now: new Date("2030-01-01T00:51:00.000Z"),
+    },
   );
   expect(rotated.attemptId).toBe("hosted-next");
   expect(rotated.providerExpiresAt).toEqual(

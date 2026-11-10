@@ -5,6 +5,7 @@ import {
   createStripePortalOperation,
   getStripeCheckoutOptionsOperation,
   isCancelStripeSubscriptionOperationResponse,
+  isCreateStripeCheckoutOperationRequest,
   isCreateStripeCheckoutOperationResponse,
   isCreateStripeCheckoutSessionOperationRequest,
   isCreateStripeCheckoutSessionOperationResponse,
@@ -13,7 +14,10 @@ import {
   isGetStripeCheckoutOptionsOperationResponse,
   type StripeCheckoutPathParams,
 } from "@tearleads/validators/operation";
-import type { StripeReturnUrlRequest } from "@tearleads/validators/request";
+import type {
+  StripeCheckoutRequest,
+  StripeReturnUrlRequest,
+} from "@tearleads/validators/request";
 import { organizationBillingPath } from "./billing";
 
 type OrganizationId = StripeCheckoutPathParams["organizationId"];
@@ -32,6 +36,10 @@ export const stripeCheckoutOptionsGet = {
 };
 
 export const stripeCheckoutCreate = {
+  body: (priceId: StripeCheckoutRequest["priceId"]): StripeCheckoutRequest => ({
+    priceId,
+  }),
+  isRequest: isCreateStripeCheckoutOperationRequest,
   isResponse: isCreateStripeCheckoutOperationResponse,
   method: createStripeCheckoutOperation.method,
   path: (organizationId: OrganizationId) =>

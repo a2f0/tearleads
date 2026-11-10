@@ -3,6 +3,7 @@ import type { DirectCheckoutSession } from "@tearleads/client-sdk";
 import {
   type DirectCheckoutEvent,
   type DirectCheckoutMachineState,
+  type DirectCheckoutPlan,
   IDLE_DIRECT_CHECKOUT,
   transitionDirectCheckout,
 } from "./directCheckoutMachine";
@@ -12,17 +13,24 @@ const session: DirectCheckoutSession = {
   unmount: () => undefined,
 };
 const other: DirectCheckoutSession = { ...session };
+const plan: DirectCheckoutPlan = {
+  priceId: "price_solo",
+  amount: 500,
+  currency: "usd",
+};
 
 const failedIdle: DirectCheckoutMachineState = { kind: "idle", error: "x" };
 const starting: DirectCheckoutMachineState = {
   kind: "starting",
   attempt: 1,
+  plan,
   emailComplete: false,
   formReady: false,
 };
 const collecting: DirectCheckoutMachineState = {
   kind: "collecting",
   attempt: 1,
+  plan,
   emailComplete: true,
   formReady: true,
   session,
@@ -36,11 +44,12 @@ const loadingForm: DirectCheckoutMachineState = {
 const confirming: DirectCheckoutMachineState = {
   kind: "confirming",
   attempt: 1,
+  plan,
   emailComplete: true,
   session,
 };
 
-const begin: DirectCheckoutEvent = { type: "begin", attempt: 2 };
+const begin: DirectCheckoutEvent = { type: "begin", attempt: 2, plan };
 const email = (attempt: number, complete = true): DirectCheckoutEvent => ({
   type: "email-changed",
   attempt,
@@ -74,6 +83,11 @@ const confirmFailed = (attempt: number): DirectCheckoutEvent => ({
 const confirmed = (attempt: number): DirectCheckoutEvent => ({
   type: "confirmed",
   attempt,
+});
+const repriced = (attempt: number): DirectCheckoutEvent => ({
+  type: "repriced",
+  attempt,
+  error: "price changed",
 });
 const teardown: DirectCheckoutEvent = { type: "teardown" };
 
@@ -150,6 +164,12 @@ test.each<[string, DirectCheckoutMachineState, DirectCheckoutEvent, unknown]>([
     { ...collecting, error: "declined" },
   ],
   ["confirming finishes", confirming, confirmed(1), IDLE_DIRECT_CHECKOUT],
+  [
+    "confirming closes a form whose plan the roster changed",
+    confirming,
+    repriced(1),
+    { kind: "idle", error: "price changed" },
+  ],
   ["confirming tears down", confirming, teardown, IDLE_DIRECT_CHECKOUT],
 ])("%s", (_name, state, event, next) => {
   expect(transitionDirectCheckout(state, event)).toEqual(next as never);
@@ -166,6 +186,7 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       startFailed(1),
       confirm,
       confirmFailed(1),
+      repriced(1),
       confirmed(1),
       teardown,
     ],
@@ -182,6 +203,7 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       startFailed(2),
       confirm,
       confirmFailed(1),
+      repriced(1),
       confirmed(1),
     ],
   ],
@@ -197,6 +219,7 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       mounted(1),
       startFailed(1),
       confirmFailed(1),
+      repriced(1),
       confirmed(1),
     ],
   ],
@@ -212,6 +235,7 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       startFailed(1),
       confirm,
       confirmFailed(2),
+      repriced(2),
       confirmed(2),
     ],
   ],
@@ -227,7 +251,7 @@ test.each(
 
 test("a superseded attempt cannot finish its replacement", () => {
   const events: DirectCheckoutEvent[] = [
-    { type: "begin", attempt: 1 },
+    { type: "begin", attempt: 1, plan },
     mounted(1),
     formReady(1),
     confirm,

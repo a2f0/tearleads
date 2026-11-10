@@ -17,7 +17,10 @@ test("billing targets follow the current authenticated session", async () => {
   const apiClient = createMockApiClient({
     createStripeCheckout: async (organizationId) => {
       requests.push({ operation: "checkout", organizationId });
-      return null;
+      return {
+        data: { clientSecret: "pi_secret", subscriptionId: "sub_1" },
+        ok: true,
+      };
     },
     createStripeCheckoutSession: async (organizationId) => {
       requests.push({ operation: "hosted-checkout", organizationId });
@@ -48,7 +51,7 @@ test("billing targets follow the current authenticated session", async () => {
   async function runBilling(organizationId?: string) {
     return Promise.all([
       organizations.loadStripeCheckoutOptions(organizationId),
-      organizations.createStripeCheckout(organizationId),
+      organizations.createStripeCheckout("price_1", organizationId),
       organizations.createStripeCheckoutSession(
         "https://app.test/billing",
         organizationId,

@@ -1,23 +1,34 @@
-import type { DirectCheckoutCapability } from "@tearleads/client-sdk";
 import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDirectCheckout as useDirectCheckoutCapability } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import { ORG_MANAGER_LABELS } from "../labels";
 import {
-  type DirectCheckoutEvent,
+  CHECKOUT_OPTION_OFF,
+  type CheckoutOptionEvent,
+  type CheckoutOptionState,
+  transitionCheckoutOption,
+} from "../model/checkoutOptionMachine";
+import {
+  type BeginCheckoutDeps,
+  type CheckoutMachine,
+  type ConfirmCheckoutDeps,
+  useBeginCheckout,
+  useConfirmCheckout,
+  useMountOnStart,
+} from "../model/directCheckoutActions";
+import {
   type DirectCheckoutMachineState,
   IDLE_DIRECT_CHECKOUT,
   transitionDirectCheckout,
 } from "../model/directCheckoutMachine";
 import { checkoutOptionErrorMessage } from "./billingCheckoutErrors";
-import { readCheckoutAppearance } from "./checkoutAppearance";
 
 /**
- * Orchestrates the in-app card checkout (issue #1654): load the option, start
- * a checkout on the server, mount the payment element into the panel, confirm,
- * then hand off to the shared activation poll.
+ * Orchestrates the in-app card checkout (issue #1654): load the option, mount
+ * the payment element for its price, and on Pay have the server start the
+ * subscription at that price, confirm it, then hand off to the shared
+ * activation poll. Nothing exists on the server until Pay.
  *
  * The hand-off matters: a confirmed payment does NOT mean the org can sync
  * yet — the entitlement travels Stripe → RevenueCat → our webhook, which
@@ -35,7 +46,7 @@ import { readCheckoutAppearance } from "./checkoutAppearance";
 /** Where the flow currently is; drives what the panel renders. */
 export type DirectCheckoutPhase =
   | { readonly kind: "idle" }
-  /** The server checkout or the provider form is still loading. */
+  /** The provider form is still loading. */
   | { readonly kind: "starting" }
   | { readonly kind: "collecting" }
   | { readonly kind: "confirming" };
@@ -61,8 +72,8 @@ export interface DirectCheckoutState {
 
 /**
  * Ties the mounted element's lifetime to the panel AND to the organization it
- * was started for. The client secret is bound to one org's subscription, so
- * confirming it after an org switch would charge the previous organization
+ * was started for. The form shows one org's plan and Pay starts that plan, so
+ * paying after an org switch would charge the previous organization's offer
  * while the panel shows the new one — the same scope invalidation
  * `useBillingActions` performs for the provider-hosted flow.
  *
@@ -70,8 +81,8 @@ export interface DirectCheckoutState {
  * disagree: both read `appData.auth.organizationId` (OrgManager passes it
  * down; `createStripeCheckout` resolves it through `authenticatedOrganizationId`).
  * The scope key is still required — switching orgs changes that one value, and
- * this teardown is what stops a secret minted for the old org from being
- * confirmed under the new one.
+ * this teardown is what stops a form opened for the old org from paying under
+ * the new one.
  */
 function useCheckoutLifecycle(scopeKey: string, teardown: () => void): void {
   useEffect(() => {
@@ -85,8 +96,10 @@ function useCheckoutLifecycle(scopeKey: string, teardown: () => void): void {
 }
 
 /**
- * Loads the single purchasable sync option once the platform can actually buy.
- * Split out so the flow hook below stays within the per-function budget.
+ * Loads the single purchasable sync option once the platform can actually buy
+ * (`model/checkoutOptionMachine.ts`). Split out so the flow hook below stays
+ * within the per-function budget. `reload` fetches it again, for a Pay refused
+ * because the roster changed the plan; the offer is withdrawn until it lands.
  */
 function useCheckoutOption(
   available: boolean,
@@ -95,22 +108,24 @@ function useCheckoutOption(
   enabled: boolean,
   organizationId: string,
   tearleads: ReturnType<typeof useTearleads>,
-): {
-  readonly error: string | null;
-  readonly option: StripeSyncOptionResponse | null;
-} {
-  const [state, setState] = useState<{
-    readonly error: string | null;
-    readonly option: StripeSyncOptionResponse | null;
-  }>({ error: null, option: null });
+): { readonly offer: CheckoutOptionState; readonly reload: () => void } {
+  const [offer, setOffer] = useState(CHECKOUT_OPTION_OFF);
+  const send = useCallback((event: CheckoutOptionEvent) => {
+    setOffer((current) => transitionCheckoutOption(current, event));
+  }, []);
+  const [loads, setLoads] = useState(0);
+  const reload = useCallback(() => setLoads((count) => count + 1), []);
   useEffect(() => {
+    // `reload` bumps `loads` to fetch again after a refused Pay.
+    void loads;
     // `enabled` too: an admin of an already-syncing org would otherwise fire
     // this request on every billing-panel mount for an option they cannot buy.
     if (!available || !canSubscribe || !enabled) {
-      setState({ error: null, option: null });
+      send({ type: "off" });
       return;
     }
     let cancelled = false;
+    send({ type: "load" });
     void (async () => {
       try {
         const result =
@@ -118,22 +133,18 @@ function useCheckoutOption(
             organizationId,
           );
         if (!cancelled) {
-          const option = result?.options[0] ?? null;
-          setState({
-            // An empty list means the server integration is intentionally not
-            // configured. A rejected request is an actionable load failure.
-            error: null,
-            option,
-          });
+          // An empty list means the server integration is intentionally not
+          // configured. A rejected request is an actionable load failure.
+          send({ type: "loaded", option: result?.options[0] ?? null });
         }
       } catch (loadError) {
         // A misconfigured integration is otherwise invisible here — the panel
         // just renders nothing.
         console.warn("Failed to load Stripe checkout options:", loadError);
         if (!cancelled) {
-          setState({
+          send({
+            type: "load-failed",
             error: checkoutOptionErrorMessage(loadError),
-            option: null,
           });
         }
       }
@@ -141,8 +152,16 @@ function useCheckoutOption(
     return () => {
       cancelled = true;
     };
-  }, [available, canSubscribe, enabled, organizationId, tearleads]);
-  return state;
+  }, [
+    available,
+    canSubscribe,
+    enabled,
+    organizationId,
+    send,
+    tearleads,
+    loads,
+  ]);
+  return { offer, reload };
 }
 
 function useCheckoutOptionForFlow(
@@ -160,22 +179,6 @@ function useCheckoutOptionForFlow(
     input.organizationId,
     tearleads,
   );
-}
-
-/**
- * The flow's state machine (`model/directCheckoutMachine.ts`). The ref is
- * the machine and the state copy renders it: a second click that lands before
- * React re-renders reads the ref, so it can neither start a second checkout
- * nor charge the card twice.
- */
-interface CheckoutMachine {
-  readonly hostRef: React.RefObject<HTMLDivElement | null>;
-  readonly current: () => DirectCheckoutMachineState;
-  /** Applies `event`; returns the new state, or null when it was ignored. */
-  readonly send: (
-    event: DirectCheckoutEvent,
-  ) => DirectCheckoutMachineState | null;
-  readonly nextAttempt: () => number;
 }
 
 function useCheckoutMachine(): {
@@ -212,150 +215,6 @@ function useCheckoutMachine(): {
   );
   return { machine, state };
 }
-
-type LogError = (message: string | Error, cause?: unknown) => void;
-
-interface BeginCheckoutDeps {
-  readonly available: boolean;
-  readonly canSubscribe: boolean;
-  readonly enabled: boolean;
-  readonly organizationId: string;
-  readonly capability: DirectCheckoutCapability;
-  readonly logError: LogError;
-  readonly tearleads: ReturnType<typeof useTearleads>;
-}
-
-/**
- * Starts a checkout on the server and mounts the payment element into the
- * panel's host.
- */
-function useBeginCheckout(
-  machine: CheckoutMachine,
-  deps: BeginCheckoutDeps,
-): () => void {
-  return useCallback(() => {
-    if (!deps.available || !deps.canSubscribe || !deps.enabled) {
-      return;
-    }
-    // Ignored unless idle: a second begin would strand the previous
-    // element's iframe. The UI prevents this today; the hook must not depend
-    // on that.
-    const attempt = machine.nextAttempt();
-    if (!machine.send({ type: "begin", attempt })) {
-      return;
-    }
-    const unavailable = ORG_MANAGER_LABELS.billingCheckoutUnavailable;
-    void (async () => {
-      try {
-        const intent = await deps.tearleads.organizations.createStripeCheckout(
-          deps.organizationId,
-        );
-        // Teardown (cancel, org switch, disable, unmount) ends the attempt,
-        // and a losing attempt must neither mount onto the panel it no longer
-        // owns nor disturb the attempt that replaced it.
-        const now = machine.current();
-        if (now.kind !== "starting" || now.attempt !== attempt) {
-          return;
-        }
-        const host = machine.hostRef.current;
-        if (!intent || !host) {
-          machine.send({ type: "start-failed", attempt, error: unavailable });
-          return;
-        }
-        const session = await deps.capability.mount({
-          host,
-          clientSecret: intent.clientSecret,
-          appearance: readCheckoutAppearance(host),
-          // The machine ignores a late event from an abandoned element, so it
-          // cannot unlock Pay on the panel.
-          onBillingEmailChange: (email) => {
-            machine.send({
-              type: "email-changed",
-              attempt,
-              complete: email !== null,
-            });
-          },
-          onReady: () => {
-            machine.send({ type: "form-ready", attempt });
-          },
-          // Leaving the session's state unmounts it, so a retry starts clean.
-          onLoadError: (loadError) => {
-            deps.logError("The direct checkout form failed to load", loadError);
-            machine.send({ type: "load-failed", attempt, error: unavailable });
-          },
-        });
-        // The panel may have unmounted (or the flow been cancelled) while the
-        // provider script loaded; keeping this session would strand its
-        // iframe with nothing able to destroy it.
-        if (!machine.send({ type: "mounted", attempt, session })) {
-          session.unmount();
-        }
-      } catch (mountError) {
-        deps.logError("Failed to start the direct checkout", mountError);
-        machine.send({ type: "start-failed", attempt, error: unavailable });
-      }
-    })();
-  }, [deps, machine]);
-}
-
-/**
- * Confirms the mounted payment. Every continuation names its attempt:
- * teardown (cancel, org switch, disable, unmount) ends it, and writing state
- * for a checkout the user already left would resurrect a dead form.
- */
-function useConfirmCheckout(
-  machine: CheckoutMachine,
-  onPaid: () => void,
-  logError: LogError,
-): () => void {
-  return useCallback(() => {
-    // Ignored unless collecting. The Pay button disables itself while
-    // confirming, but only after a re-render; the hook must not depend on the
-    // UI to prevent a double charge.
-    const confirming = machine.send({ type: "confirm" });
-    if (confirming?.kind !== "confirming") {
-      return;
-    }
-    const { attempt, session } = confirming;
-    void (async () => {
-      try {
-        const outcome = await session.confirm();
-        // Do not trust the session to report `cancelled` after a teardown —
-        // the capability contract does not require it; the machine ignores
-        // an attempt the user has already left.
-        if (outcome.kind === "declined") {
-          // The element stays mounted so the buyer can correct their input.
-          machine.send({
-            type: "confirm-failed",
-            attempt,
-            error: outcome.message ?? ORG_MANAGER_LABELS.failedSubscribe,
-          });
-          return;
-        }
-        // Paid or cancelled, the session is spent: `confirmed` unmounts it
-        // and returns to idle, so a later begin works again. The web
-        // capability does not return `cancelled` today, but the contract
-        // permits it. Paid goes back to idle too, not a checkout-owned
-        // "activating" state: the entitlement arrives via Stripe →
-        // RevenueCat → our webhook, the shared billing view renders
-        // activation-pending from the flag `onPaid` sets, and a phase parked
-        // here would have no exit if that poll gave up.
-        const finished = machine.send({ type: "confirmed", attempt });
-        if (finished && outcome.kind !== "cancelled") {
-          onPaid();
-        }
-      } catch (confirmError) {
-        logError("Failed to confirm the direct checkout", confirmError);
-        machine.send({
-          type: "confirm-failed",
-          attempt,
-          error: ORG_MANAGER_LABELS.failedSubscribe,
-        });
-      }
-    })();
-  }, [logError, machine, onPaid]);
-}
-
 const IDLE: DirectCheckoutPhase = { kind: "idle" };
 const STARTING: DirectCheckoutPhase = { kind: "starting" };
 const COLLECTING: DirectCheckoutPhase = { kind: "collecting" };
@@ -405,40 +264,50 @@ export function useDirectCheckoutFlow(input: {
 
   useCheckoutLifecycle(`${input.organizationId}:${input.enabled}`, cancel);
 
+  const offer = checkoutOption.offer;
+  // Only a settled offer can be bought; none exists while it (re)loads.
+  const option = offer.status === "ready" ? offer.option : null;
+  const optionError = offer.status === "failed" ? offer.error : null;
+
   // Memoized: these are `useCallback` dependencies, so rebuilding them each
   // render would give `begin`/`confirm` a new identity every time and defeat
   // the memoization their consumers rely on.
-  const deps = useMemo<BeginCheckoutDeps>(
+  const beginDeps = useMemo<BeginCheckoutDeps>(
     () => ({
       available,
       canSubscribe: input.canSubscribe,
       enabled: input.enabled,
-      organizationId: input.organizationId,
-      capability,
+      option,
+    }),
+    [available, option, input.canSubscribe, input.enabled],
+  );
+  const confirmDeps = useMemo<ConfirmCheckoutDeps>(
+    () => ({
       logError,
+      onPaid: input.onPaid,
+      organizationId: input.organizationId,
+      reloadOption: checkoutOption.reload,
       tearleads,
     }),
     [
-      available,
-      capability,
-      input.canSubscribe,
-      input.enabled,
+      checkoutOption.reload,
+      input.onPaid,
       input.organizationId,
       logError,
       tearleads,
     ],
   );
 
-  const begin = useBeginCheckout(machine, deps);
-
-  const confirm = useConfirmCheckout(machine, input.onPaid, logError);
+  const begin = useBeginCheckout(machine, beginDeps);
+  useMountOnStart(machine, state, { capability, logError });
+  const confirm = useConfirmCheckout(machine, confirmDeps);
 
   return {
     available,
-    option: checkoutOption.option,
+    option,
     organizationId: input.organizationId,
     phase: phaseOf(state),
-    error: panelError(state) ?? checkoutOption.error,
+    error: panelError(state) ?? optionError,
     hostRef: machine.hostRef,
     billingEmailComplete: state.kind !== "idle" && state.emailComplete,
     begin,

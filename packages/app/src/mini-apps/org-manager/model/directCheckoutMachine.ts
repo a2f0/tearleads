@@ -1,18 +1,31 @@
 import type { DirectCheckoutSession } from "@tearleads/client-sdk";
 
 /**
+ * The plan an attempt's form shows. Pay starts the subscription at exactly
+ * this `priceId`, so a roster change since the form opened is refused rather
+ * than charging an amount the buyer never saw.
+ */
+export interface DirectCheckoutPlan {
+  readonly priceId: string;
+  /** In the currency's minor unit. */
+  readonly amount: number;
+  readonly currency: string;
+}
+
+/**
  * The Org Manager's inline card checkout (`billing/useDirectCheckout.ts`).
  * Each `begin` numbers an attempt; the attempt's continuations (mount, form
  * and email events, confirmation) name it, and only the current attempt may
  * move the flow. The mounted session lives only in the states that own it, so
- * the hook unmounts it on leaving them.
+ * the hook unmounts it on leaving them. Nothing exists on the server until
+ * `confirm`: the subscription starts at Pay.
  *
- * | state      | begin    | email | form-ready | load-failed  | mounted    | start-failed | confirm         | confirm-failed | confirmed | teardown |
- * | ---------- | -------- | ----- | ---------- | ------------ | ---------- | ------------ | --------------- | -------------- | --------- | -------- |
- * | idle       | starting | -     | -          | -            | -          | -            | -               | -              | -         | idle     |
- * | starting   | -        | same  | same       | idle (error) | collecting | idle (error) | -               | -              | -         | idle     |
- * | collecting | -        | same  | same       | idle (error) | -          | -            | confirming (*)  | -              | -         | idle     |
- * | confirming | -        | same  | -          | -            | -          | -            | -               | collecting     | idle      | idle     |
+ * | state      | begin    | email | form-ready | load-failed  | mounted    | start-failed | confirm        | confirm-failed | repriced     | confirmed | teardown |
+ * | ---------- | -------- | ----- | ---------- | ------------ | ---------- | ------------ | -------------- | -------------- | ------------ | --------- | -------- |
+ * | idle       | starting | -     | -          | -            | -          | -            | -              | -              | -            | -         | idle     |
+ * | starting   | -        | same  | same       | idle (error) | collecting | idle (error) | -              | -              | -            | -         | idle     |
+ * | collecting | -        | same  | same       | idle (error) | -          | -            | confirming (*) | -              | -            | -         | idle     |
+ * | confirming | -        | same  | -          | -            | -          | -            | -              | collecting     | idle (error) | idle      | idle     |
  *
  * `-` returns the same state, and so does any event naming another attempt.
  * `same` updates the state's own flag. `(*)` only once the form is ready.
@@ -23,6 +36,7 @@ export type DirectCheckoutMachineState =
   | {
       readonly kind: "starting";
       readonly attempt: number;
+      readonly plan: DirectCheckoutPlan;
       readonly emailComplete: boolean;
       /** The provider form rendered; it can report this before `mounted`. */
       readonly formReady: boolean;
@@ -30,6 +44,7 @@ export type DirectCheckoutMachineState =
   | {
       readonly kind: "collecting";
       readonly attempt: number;
+      readonly plan: DirectCheckoutPlan;
       readonly emailComplete: boolean;
       readonly formReady: boolean;
       readonly session: DirectCheckoutSession;
@@ -38,13 +53,18 @@ export type DirectCheckoutMachineState =
   | {
       readonly kind: "confirming";
       readonly attempt: number;
+      readonly plan: DirectCheckoutPlan;
       readonly emailComplete: boolean;
       readonly session: DirectCheckoutSession;
     };
 
 export type DirectCheckoutEvent =
-  /** Subscribe: start a checkout on the server. */
-  | { readonly type: "begin"; readonly attempt: number }
+  /** Subscribe: open the form for the offered plan. */
+  | {
+      readonly type: "begin";
+      readonly attempt: number;
+      readonly plan: DirectCheckoutPlan;
+    }
   /** The provider form's billing email became complete or incomplete. */
   | {
       readonly type: "email-changed";
@@ -65,7 +85,7 @@ export type DirectCheckoutEvent =
       readonly attempt: number;
       readonly session: DirectCheckoutSession;
     }
-  /** No checkout intent, no host, or the start threw. */
+  /** No host, or the provider form could not be mounted. */
   | {
       readonly type: "start-failed";
       readonly attempt: number;
@@ -76,6 +96,16 @@ export type DirectCheckoutEvent =
   /** Declined or thrown; the element stays mounted for corrections. */
   | {
       readonly type: "confirm-failed";
+      readonly attempt: number;
+      readonly error: string;
+    }
+  /**
+   * Pay was refused because the roster changed the plan since the form
+   * opened. Nothing was charged; the form shows a price that no longer
+   * applies, so it closes and the offer reloads.
+   */
+  | {
+      readonly type: "repriced";
       readonly attempt: number;
       readonly error: string;
     }
@@ -113,6 +143,7 @@ export function transitionDirectCheckout(
         ? {
             kind: "starting",
             attempt: event.attempt,
+            plan: event.plan,
             emailComplete: false,
             formReady: false,
           }
@@ -122,6 +153,7 @@ export function transitionDirectCheckout(
         ? {
             kind: "confirming",
             attempt: state.attempt,
+            plan: state.plan,
             emailComplete: state.emailComplete,
             session: state.session,
           }
@@ -159,6 +191,10 @@ function transitionAttempt(
       return inAttempt(state, attempt, "confirming")
         ? { ...state, kind: "collecting", formReady: true, error: event.error }
         : state;
+    case "repriced":
+      return inAttempt(state, attempt, "confirming")
+        ? { kind: "idle", error: event.error }
+        : state;
     case "confirmed":
       return inAttempt(state, attempt, "confirming")
         ? IDLE_DIRECT_CHECKOUT
@@ -168,7 +204,7 @@ function transitionAttempt(
   }
 }
 
-/** The server checkout, the element mount, and the provider form's load. */
+/** The element mount and the provider form's load. */
 type LoadEvent = Extract<
   AttemptEvent,
   { readonly type: "form-ready" | "load-failed" | "mounted" | "start-failed" }

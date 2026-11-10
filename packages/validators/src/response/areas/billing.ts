@@ -59,6 +59,8 @@ export {
   isStripePortalResponse,
   type StripeCancelResponse,
   StripeCancelResponseSchema,
+  type StripeCheckoutErrorResponse,
+  StripeCheckoutErrorResponseSchema,
   type StripeCheckoutIntentResponse,
   StripeCheckoutIntentResponseSchema,
   type StripeCheckoutOptionsResponse,

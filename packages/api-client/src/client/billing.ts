@@ -88,12 +88,22 @@ export class BillingArea {
     );
   }
 
-  /** Starts or resumes inline checkout; an existing subscription returns 409. */
-  createStripeCheckout(organizationId: string) {
-    return this.context.send(
+  /**
+   * Starts (or resumes) the inline subscription when the buyer presses Pay,
+   * at the Price they were shown. A changed Price or an existing
+   * subscription is a 409 with a billing code.
+   */
+  createStripeCheckout(
+    organizationId: string,
+    priceId: string,
+    options: RequestResultOptions = {},
+  ) {
+    return this.context.sendResult(
       checkout.checkout,
       checkout.checkout.path(organizationId),
       createStripeCheckoutOperation,
+      checkout.checkout.body(priceId),
+      options,
     );
   }
 

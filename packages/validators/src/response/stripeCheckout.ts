@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SyncBillingTierIdSchema } from "../billing";
+import { BILLING_ERROR_CODES, SyncBillingTierIdSchema } from "../billing";
 import {
   arraySchema,
   boundedPositiveIntegerSchema,
@@ -49,6 +49,22 @@ export const StripeCheckoutIntentResponseSchema = loosePlainObject({
 
 export type StripeCheckoutIntentResponse = z.infer<
   typeof StripeCheckoutIntentResponseSchema
+>;
+
+/** Why the inline checkout refused to start the subscription at Pay. */
+const StripeCheckoutErrorCodeSchema = z.literal([
+  BILLING_ERROR_CODES.checkoutNoActiveMembers,
+  BILLING_ERROR_CODES.checkoutPriceChanged,
+  BILLING_ERROR_CODES.rosterOverCapacity,
+]);
+
+export const StripeCheckoutErrorResponseSchema = loosePlainObject({
+  code: StripeCheckoutErrorCodeSchema.optional(),
+  error: z.string(),
+});
+
+export type StripeCheckoutErrorResponse = z.infer<
+  typeof StripeCheckoutErrorResponseSchema
 >;
 
 /** Unix seconds when sync ends, or null for an already-cancelling subscription. */

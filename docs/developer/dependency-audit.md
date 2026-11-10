@@ -89,10 +89,13 @@ Stripe.js 10 (`@stripe/stripe-js` 10.2.1 is locked) loads the Endive API
 version; see its
 [10.0 release notes](https://github.com/stripe/stripe-js/releases/tag/v10.0.0).
 The [checkout](./stripe-checkout-client.md) does not use the Payment Request
-Button or the Elements `paymentMethodTypes` option, both removed in 10.0.
+Button or the Elements `paymentMethodTypes` option, both removed in 10.0; it
+restricts the form to cards with `allowedPaymentMethodTypes`.
 [`packages/app-web/src/webDirectCheckout.ts`](../../packages/app-web/src/webDirectCheckout.ts)
-uses the pure loader, a Payment Element with a server-created client secret, and
-`confirmPayment`; it does not use Elements with Checkout Sessions. Email
+uses the pure loader, a Payment Element in deferred subscription mode,
+`elements.submit()`, and `confirmPayment` with the client secret of the
+subscription the server starts at Pay; it does not use Elements with Checkout
+Sessions. Email
 collection is disabled only when the checkout supplies that email in
 confirmation's `payment_method_data.billing_details`, which the checkout test
 covers. Review the [Endive changes](https://docs.stripe.com/changelog/endive)

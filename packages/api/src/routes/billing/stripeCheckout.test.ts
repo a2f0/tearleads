@@ -60,6 +60,15 @@ function authHeader(user: TestUser): { Authorization: string } {
   return { Authorization: `Bearer ${user.token}` };
 }
 
+/** Pay, naming the Price the form showed. */
+function payRequest(user: TestUser): RequestInit {
+  return {
+    body: JSON.stringify({ priceId: "price_sync" }),
+    headers: { ...authHeader(user), "Content-Type": "application/json" },
+    method: "POST",
+  };
+}
+
 test("checkout requires authentication", async () => {
   const response = await routeApp.request(
     "/organizations/11111111-1111-4111-8111-111111111111/billing/stripe/checkout",
@@ -76,7 +85,7 @@ test("checkout rejects a non-admin of the organization", async () => {
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/checkout`,
-    { method: "POST", headers: authHeader(outsider) },
+    payRequest(outsider),
   );
   expect([403, 404]).toContain(response.status);
 });
@@ -87,7 +96,7 @@ test("an unconfigured checkout answers 503 for an admin, not an empty body", asy
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/checkout`,
-    { method: "POST", headers: authHeader(admin) },
+    payRequest(admin),
   );
   expect(response.status).toBe(503);
 });
@@ -105,7 +114,7 @@ test("an already-active organization cannot start another checkout", async () =>
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/checkout`,
-    { method: "POST", headers: authHeader(admin) },
+    payRequest(admin),
   );
   expect(response.status).toBe(409);
 });
@@ -124,7 +133,7 @@ test("a trialing organization may start a checkout (pay before the trial ends)",
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/checkout`,
-    { method: "POST", headers: authHeader(admin) },
+    payRequest(admin),
   );
   expect(response.status).toBe(503);
 });
