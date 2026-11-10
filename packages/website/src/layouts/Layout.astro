@@ -1,6 +1,6 @@
 ---
 import { SiteFrame } from "../components/SiteFrame";
-import { SiteNav } from "../components/SiteNav";
+import { SiteHeaderNav } from "../components/SiteHeaderNav";
 import { appUrl, isStaging } from "../config";
 import {
   canonicalUrl,
@@ -9,6 +9,11 @@ import {
   siteName,
   socialImage,
 } from "../seo";
+import {
+  SITE_DEFAULT_THEME,
+  SITE_THEME_STORAGE_KEY,
+  SITE_THEMES,
+} from "../siteTheme";
 // SiteFrame brings in the @tearleads/ui CSS; site rules that override it are
 // scoped (.site-frame, html body) to win whatever the order. Astro can also emit
 // a page's own stylesheet before these shared sheets (it orders CSS by import
@@ -46,9 +51,37 @@ const pathname =
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Stamps the theme before first paint, choosing as SiteHeaderNav's
+         ThemeProvider does: the stored theme the site offers, else the one for
+         the OS scheme. Without scripting tokens.css stays light. -->
+    <script
+      is:inline
+      define:vars={{
+        defaultTheme: SITE_DEFAULT_THEME,
+        storageKey: SITE_THEME_STORAGE_KEY,
+        themes: SITE_THEMES,
+      }}
+    >
+      let stored = null;
+      try {
+        stored = localStorage.getItem(storageKey);
+      } catch {
+        // Storage can be disabled; the OS scheme decides.
+      }
+      const osScheme = matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light";
+      const theme =
+        themes.find((candidate) => candidate.id === stored) ??
+        themes.find((candidate) => candidate.id === defaultTheme[osScheme]) ??
+        themes[0];
+      document.documentElement.setAttribute("data-theme", theme.id);
+      document.documentElement.setAttribute("data-theme-scheme", theme.scheme);
+    </script>
     <meta name="description" content={description} />
     <meta name="color-scheme" content="light dark" />
-    <!-- Matches the header band: --site-chrome in tokens.css. -->
+    <!-- Matches the header band: --site-chrome in tokens.css. colorSchemeMedia
+         rewrites both queries for the theme the switch picks. -->
     <meta name="theme-color" content="#333333" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)" />
     <!-- Same reason as the app shells: keep iOS data detectors from rewriting
@@ -80,11 +113,13 @@ const pathname =
   <body>
     <script>
       import { initializeClickTracking } from "../clickTracking";
+      import { followColorSchemeMedia } from "../colorSchemeMedia";
       initializeClickTracking(import.meta.env.PROD);
+      followColorSchemeMedia(document);
     </script>
     <a class="skip-link" href="#main">Skip to content</a>
     <SiteFrame appUrl={appUrl}>
-      <SiteNav client:media="(max-width: 700px)" pathname={pathname} slot="nav" />
+      <SiteHeaderNav client:load pathname={pathname} slot="nav" />
       <main id="main" tabindex="-1" class="website-main">
         <slot />
       </main>

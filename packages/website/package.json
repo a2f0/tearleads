@@ -24,6 +24,7 @@
     "@phosphor-icons/react": "2.1.10",
     "@tearleads/ui": "workspace:*",
     "@tearleads/validators": "workspace:*",
+    "@tearleads/windowing": "workspace:*",
     "astro": "7.4.5",
     "github-slugger": "2.0.0",
     "react": "catalog:react",

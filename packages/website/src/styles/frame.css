@@ -126,6 +126,46 @@
   display: none;
 }
 
+/* --- Theme button (SiteThemeButton.tsx), the nav's last item --- */
+
+.site-nav-theme {
+  display: flex;
+  align-items: center;
+  margin-left: var(--site-space-1);
+}
+
+.site-theme-switch {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--site-target);
+  height: var(--site-target);
+  padding: 0;
+  border: 1px solid var(--site-chrome-ink-2);
+  border-radius: var(--site-radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The header row shows the glyph alone; the phone menu adds the label. */
+.site-theme-switch-text {
+  display: none;
+}
+
+/* Until hydration an empty span holds the button's place. */
+span.site-theme-switch {
+  visibility: hidden;
+}
+
+/* Without scripting the island never hydrates, and the site stays light. */
+@media (scripting: none) {
+  .site-nav-theme {
+    display: none;
+  }
+}
+
 @media (min-width: 701px) {
   .site-nav {
     margin-right: var(--site-space-3);
@@ -133,6 +173,11 @@
 }
 
 @media (hover: hover) {
+  .site-theme-switch:hover {
+    background: var(--tearleads-action-hover-surface);
+    color: var(--tearleads-action-hover-text);
+  }
+
   .site-app-button:hover {
     border-color: var(--site-chrome-ink-2);
     background: var(--site-chrome-ink-2);
@@ -145,6 +190,7 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .site-app-button,
+  .site-theme-switch,
   .site-nav-toggle,
   .site-nav-link {
     transition:
@@ -154,7 +200,7 @@
   }
 }
 
-/* Must match the island's client:media="(max-width: 700px)" in Layout.astro. */
+/* The phone layout: the nav collapses into a menu behind a toggle. */
 @media (max-width: 700px) {
   /* If the row ever runs out of room (large default fonts, or the inline list
      with scripting disabled), wrap instead of scrolling the page sideways. */
@@ -260,8 +306,25 @@
     font-size: 1rem;
   }
 
-  .site-nav[data-open="true"] li:last-child .site-nav-link {
-    border-bottom: 0;
+  /* The last row: the theme button, labelled, under the links. */
+  .site-nav[data-open="true"] .site-nav-theme {
+    margin-left: 0;
+  }
+
+  .site-nav[data-open="true"] .site-theme-switch {
+    justify-content: flex-start;
+    gap: var(--site-space-3);
+    width: 100%;
+    height: auto;
+    min-height: var(--site-target);
+    padding-inline: var(--site-space-2);
+    border: 0;
+    border-radius: 0;
+    font: 400 1rem / 1 var(--site-font-mono);
+  }
+
+  .site-nav[data-open="true"] .site-theme-switch-text {
+    display: inline;
   }
 }
 

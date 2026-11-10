@@ -2,12 +2,16 @@
  * Website design tokens: the only stylesheet that may contain hex colors.
  *
  * Dark values mirror the app's dark ramp in packages/ui/src/styles.css
- * (:root[data-theme="dark"]). The website never sets data-theme, so dark mode
- * follows prefers-color-scheme here instead. `html:root` (specificity 0,1,1)
- * outranks the `:root` block in @tearleads/ui regardless of bundle order.
+ * (:root[data-theme="dark"]). The site's dark block selects on
+ * `<html data-theme-scheme="dark">`, which the theme script in Layout.astro
+ * and SiteHeaderNav's ThemeProvider stamp from the visitor's choice or the OS
+ * scheme; without scripting the site stays light. The site's theme ids never
+ * match the app's, so the @tearleads/ui theme blocks stay inactive.
+ * `html:root` (specificity 0,1,1) outranks the `:root` block in @tearleads/ui
+ * regardless of bundle order.
  */
 html:root {
-  color-scheme: light dark;
+  color-scheme: light;
 
   /* --- Color: light (default) --- */
   --site-bg: #f5f5f3;
@@ -143,43 +147,45 @@ html:root {
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  html:root {
-    --site-bg: #1b1b1b;
-    --site-surface: #242424;
-    --site-surface-muted: #2e2e2e;
-    --site-ink: #e5e5e5;
-    --site-ink-hover: #ffffff;
-    --site-ink-2: #b0b0b0;
-    --site-ink-3: #9e9e9e;
-    --site-line: #363636;
-    --site-line-strong: #7a7a7a;
-    --site-chrome: #161616;
-    --site-chrome-ink: #e5e5e5;
-    --site-chrome-ink-2: #a8a8a8;
-    --site-chrome-line: rgb(255 255 255 / 12%);
-    --site-chrome-hover: rgb(255 255 255 / 9%);
-    --site-chrome-edge: rgb(255 255 255 / 8%);
-    --site-danger: #ec7a74;
-    --site-accent: #4fc282;
-    --site-accent-soft: rgb(79 194 130 / 16%);
-    --site-shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
-    --site-shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px -6px rgb(0 0 0 / 45%);
-    --site-shadow-lg:
-      0 2px 6px rgb(0 0 0 / 30%), 0 24px 48px -12px rgb(0 0 0 / 60%);
-    --site-bezel: #0b0b0b;
-    --site-bezel-edge: #4a4a4a;
-    /* Mirrors packages/ui dark: calm grey chips instead of near-white slabs. */
-    --tearleads-action-hover-surface: #3a3a3a;
-    --tearleads-action-hover-text: #f2f2f2;
-    --emphasis-surface: #3a3a3a;
-    --emphasis-text: #f2f2f2;
-  }
+html:root[data-theme-scheme="dark"] {
+  color-scheme: dark;
+
+  --site-bg: #1b1b1b;
+  --site-surface: #242424;
+  --site-surface-muted: #2e2e2e;
+  --site-ink: #e5e5e5;
+  --site-ink-hover: #ffffff;
+  --site-ink-2: #b0b0b0;
+  --site-ink-3: #9e9e9e;
+  --site-line: #363636;
+  --site-line-strong: #7a7a7a;
+  --site-chrome: #161616;
+  --site-chrome-ink: #e5e5e5;
+  --site-chrome-ink-2: #a8a8a8;
+  --site-chrome-line: rgb(255 255 255 / 12%);
+  --site-chrome-hover: rgb(255 255 255 / 9%);
+  --site-chrome-edge: rgb(255 255 255 / 8%);
+  --site-danger: #ec7a74;
+  --site-accent: #4fc282;
+  --site-accent-soft: rgb(79 194 130 / 16%);
+  --site-shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+  --site-shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px -6px rgb(0 0 0 / 45%);
+  --site-shadow-lg:
+    0 2px 6px rgb(0 0 0 / 30%), 0 24px 48px -12px rgb(0 0 0 / 60%);
+  --site-bezel: #0b0b0b;
+  --site-bezel-edge: #4a4a4a;
+  /* Mirrors packages/ui dark: calm grey chips instead of near-white slabs. */
+  --tearleads-action-hover-surface: #3a3a3a;
+  --tearleads-action-hover-text: #f2f2f2;
+  --emphasis-surface: #3a3a3a;
+  --emphasis-text: #f2f2f2;
 }
 
-/* Print is always black on white, whatever the screen color scheme. */
+/* Print is always black on white, whatever the screen theme. The second
+   selector matches the dark block's specificity, so this later rule wins. */
 @media print {
-  html:root {
+  html:root,
+  html:root[data-theme-scheme] {
     --site-bg: #ffffff;
     --site-surface: #ffffff;
     --site-surface-muted: #f0f0f0;
