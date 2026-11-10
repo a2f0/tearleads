@@ -74,9 +74,13 @@ checkpoint records `publication: pending` and who publishes.
 
 ## Reconciliation batch
 
-When both audits have drafted, each coordinator resumes for one batch with
-the `reconcile <other-audit-directory>` argument, under the same run ID and a
-new batch ID.
+When both audits have drafted, freeze the drafts: copy each audit's
+`issue.md`, `issue-title.txt`, `proposals.json`, and
+`leads-for-other-audit.md` to a snapshot directory. Each coordinator then
+resumes for one batch with the `reconcile <other-audit-directory>` argument,
+which names the other audit's snapshot, not its live directory, under the
+same run ID and a new batch ID. A batch rewrites its own drafts as it works,
+so a live directory would hand the other batch a half-updated report.
 
 1. Split the other audit's hand-off into numbered leads and check each
    lead's premise before its fix. Give each one disposition:
@@ -99,8 +103,9 @@ new batch ID.
    with the other audit`, and `Changes to this report`, and update the
    drafts, the checkpoint, and the receipt.
 
-The two batches run at the same time, so each sees the other's first-pass
-drafts, not what the other batch adds. Two things follow for the publisher:
+The two batches may run at the same time. Each reads the other's frozen
+first-pass drafts, not what the other batch adds, so two things follow for
+the publisher:
 
 - A lead one audit returns arrives after the other's batch has closed. List
   returned leads as open between the audits; a later `resume` of the
@@ -126,9 +131,11 @@ the receipt rows it reconciles and text GitHub would mislink.
   capability trades from both); the merged interaction table; the leads
   still open between the audits; cross-audit ordering and reset notes; and
   one receipt section per audit run, each inside its own run markers.
-- **Comments:** each report in template order, split at heading boundaries
-  into parts under GitHub's 65,536-character limit, then one comment with
-  both `cross-audit.md` files. The body links each comment.
+- **Comments:** each report in template order without its receipt section,
+  split at heading boundaries into parts under GitHub's 65,536-character
+  limit, then one comment with both `cross-audit.md` files. The body links
+  each comment. The receipts in the body are the only published copies, so
+  a later reconciliation edits one place.
 
 Publish and verify as the receipt guide's
 [publication steps](audit-usage-receipts.md#publish-and-reconcile) say:
