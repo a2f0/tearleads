@@ -15,7 +15,11 @@
   margin: var(--site-space-6) 0 0;
 }
 
+/* The sources are 600 units wide with labels of 12 units or more. The 45rem
+   (720px) cap keeps labels at 14.4px or less instead of growing with the
+   column. */
 .docs-diagram-scroll {
+  max-width: 45rem;
   overflow-x: auto;
   border: 1px solid var(--site-line);
   background: var(--docs-diagram-canvas);
@@ -27,13 +31,13 @@
   outline-offset: 2px;
 }
 
-/* The figure fills the page column (up to 75rem). The source is 1000 units
-   wide with labels of 12 units or more, so a 68rem (1088px) floor keeps every
-   label at or above the site's 13px text floor; narrower columns scroll. */
+/* A 40.625rem (650px) floor keeps every label at or above the site's 13px text
+   floor and still fits the reading column from 1024px; narrower columns
+   scroll. */
 .docs-diagram-svg {
   display: block;
   width: 100%;
-  min-width: 68rem;
+  min-width: 40.625rem;
   height: auto;
   font-family: var(--docs-diagram-font-sans);
 }

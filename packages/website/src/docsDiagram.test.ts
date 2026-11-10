@@ -42,11 +42,12 @@ function fontSizes(source: string, rule: RegExp): Record<string, number> {
 
 describe("inlineDocsDiagram", () => {
   test("strips the standalone style and size from the access diagram", async () => {
-    const markup = inlineDocsDiagram(await Bun.file(accessKeyingPath).text());
+    const source = await Bun.file(accessKeyingPath).text();
+    const markup = inlineDocsDiagram(source);
     expect(markup).not.toContain("<style");
     expect(markup).not.toMatch(/#[0-9a-f]{3,6}\b/i);
     const root = markup.match(/<svg\b[^>]*>/)?.[0] ?? "";
-    expect(root).toContain('viewBox="0 0 1000 1256"');
+    expect(root).toContain(source.match(/viewBox="[^"]+"/)?.[0] ?? "viewBox");
     expect(root).toContain('class="docs-diagram-svg"');
     expect(root).toContain('role="img"');
     expect(root).not.toMatch(/\s(?:width|height|font-family)=/);
@@ -58,11 +59,12 @@ describe("inlineDocsDiagram", () => {
   });
 
   test("strips the standalone style and size from the infrastructure diagram", async () => {
-    const markup = inlineDocsDiagram(await Bun.file(infrastructurePath).text());
+    const source = await Bun.file(infrastructurePath).text();
+    const markup = inlineDocsDiagram(source);
     expect(markup).not.toContain("<style");
     expect(markup).not.toMatch(/#[0-9a-f]{3,6}\b/i);
     const root = markup.match(/<svg\b[^>]*>/)?.[0] ?? "";
-    expect(root).toContain('viewBox="0 0 1000 1000"');
+    expect(root).toContain(source.match(/viewBox="[^"]+"/)?.[0] ?? "viewBox");
     expect(markup).toContain("<title>Tearleads infrastructure</title>");
     expect(markup).toContain('marker-end="url(#infrastructure-arrow)"');
     expect(markup).toContain('id="infrastructure-arrow"');
