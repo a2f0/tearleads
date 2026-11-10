@@ -208,3 +208,26 @@ test("an upgrade waits when the subscription renews within the hour", async () =
     seats: { leaseId: null },
   });
 });
+
+test("every plan change waits while billing's period is unknown", async () => {
+  // Stripe renewed Team 5 into Solo; billing has not placed its period yet.
+  const { change, organizationId, stripe } = await subscribedOrganization({
+    itemSeatCount: 1,
+    seatCount: 5,
+  });
+  await db
+    .update(organizationBilling)
+    .set({ currentPeriodStartsAt: null })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({ appliedPaidCapacity: 1, desiredRenewalQuantity: 1 })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  const fake = stripe();
+
+  // Team 10 would otherwise be charged from Team 5 never paid this period.
+  await expect(change("price_team_10", fake)).rejects.toMatchObject({
+    code: "billing_plan_change_unavailable",
+  });
+  expect(fake.writes).toEqual([]);
+});

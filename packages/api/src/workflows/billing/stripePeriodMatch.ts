@@ -17,18 +17,22 @@ function marginMs(period: BillingPeriod): number {
     : (period.endsAt.getTime() - period.startsAt.getTime()) / 2;
 }
 
-/** Whether a period starting at `startsAt` is `period`; true when unknown. */
+/**
+ * Whether a period starting at `startsAt` is `period`. An unknown start or
+ * end matches nothing: a change is never made against a period it cannot
+ * place.
+ */
 export function isSameBillingPeriod(
   startsAt: Date | null,
   period: { readonly endsAt: Date | null; readonly startsAt: Date | null },
 ): boolean {
-  const { startsAt: periodStartsAt } = period;
+  const { endsAt, startsAt: periodStartsAt } = period;
   return (
-    startsAt === null ||
-    periodStartsAt === null ||
-    period.endsAt === null ||
+    startsAt !== null &&
+    periodStartsAt !== null &&
+    endsAt !== null &&
     Math.abs(startsAt.getTime() - periodStartsAt.getTime()) <
-      marginMs({ endsAt: period.endsAt, startsAt: periodStartsAt })
+      marginMs({ endsAt, startsAt: periodStartsAt })
   );
 }
 

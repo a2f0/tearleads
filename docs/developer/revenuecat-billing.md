@@ -412,7 +412,8 @@ An administrator changes the plan on every platform under the same rules:
   provider reported a renewal before the other), so an upgrade is always
   charged from, and a downgrade scheduled against, the period actually paid
   for. Two reports of a period are the same period when their starts differ
-  by less than half its length.
+  by less than half its length; a billing period whose start is not known yet
+  matches none, so the change waits until it is.
 - Every request names the capacity the admin chose against
   (`currentSeatCount`). If the plan changed meanwhile (a renewal, another
   admin), the request gets 409 `billing_plan_change_unavailable`, so a choice
