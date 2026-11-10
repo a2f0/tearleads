@@ -189,8 +189,11 @@
     padding-inline: var(--site-space-2);
   }
 
+  /* One word per line. The reading column breaks overlong words, and
+     "Encrypted" is wider than 8ch, so keep it whole. */
   .security-bridge-label {
     max-width: 8ch;
+    overflow-wrap: normal;
   }
 
   .security-bridge svg {

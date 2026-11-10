@@ -1,6 +1,7 @@
 /*
- * /security page layout: header note, contents, comparison pairs, crypto
- * tables, limits, and technical documents. Fig. 1 and Fig. 4 live in
+ * /security page layout: header note, comparison pairs, crypto tables,
+ * limits, and documentation. The "On this page" contents and columns come
+ * from ReadingLayout.astro (readingLayout.css). Fig. 1 and Fig. 4 live in
  * docsDiagram.css, Fig. 2 and Fig. 3 in securityDiagrams.css. Colors come
  * from tokens.css only.
  *
@@ -15,15 +16,6 @@
   color: var(--site-ink-2);
   font-size: var(--site-text-small);
   line-height: 1.55;
-}
-
-.security-contents {
-  margin-top: var(--site-space-7);
-}
-
-/* The contents list already closes the header with a rule. */
-.site-section.security-section--first {
-  margin-top: var(--site-space-7);
 }
 
 .security-section h3[id] {
@@ -159,7 +151,7 @@
   }
 }
 
-/* --- Technical documents --- */
+/* --- Documentation --- */
 
 .security-documents {
   max-width: var(--site-wide);

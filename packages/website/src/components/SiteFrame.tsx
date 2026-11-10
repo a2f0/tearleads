@@ -30,7 +30,7 @@ function footerGroups(appUrl: string): readonly FooterGroup[] {
         { href: "/security/", label: "Security" },
         { href: "/pricing/", label: "Pricing" },
         { href: "/screenshots/", label: "Screenshots" },
-        { href: "/docs/", label: "Technical documents" },
+        { href: "/docs/", label: "Documentation" },
       ],
     },
     {

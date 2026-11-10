@@ -1,6 +1,6 @@
 /*
  * Reading layout (ReadingLayout.astro): the "On this page" contents beside a
- * long document's copy, on the legal and technical documents.
+ * long page's copy, on the legal documents, the documentation, and /security.
  */
 
 .site-reading-layout {
@@ -96,7 +96,7 @@
     align-items: start;
   }
 
-  /* Technical documents keep their wider column for tables and figures. */
+  /* Documentation and /security keep a wider column for tables and figures. */
   .site-reading-layout--wide {
     grid-template-columns: 15rem minmax(0, var(--site-wide));
   }
