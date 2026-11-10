@@ -195,10 +195,12 @@ export async function requestOrganizationStripeSeatSync(input: {
   const desiredSeatPeriodKey = providerPeriodIsNewer
     ? current.appliedSeatPeriodKey
     : input.desiredSeatPeriodKey;
+  // The licensed seat count belongs to the older local period, which may have
+  // paid for a larger plan than the renewal Stripe already bound; carrying it
+  // into the newer period would prorate the subscription back up.
   const periodPaidCapacity = providerPeriodIsNewer
     ? Math.max(
         current.appliedPaidCapacity,
-        licensedSeatCount,
         current.desiredSeatPeriodKey === current.appliedSeatPeriodKey
           ? current.desiredPaidCapacity
           : 0,

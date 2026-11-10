@@ -10,8 +10,8 @@ import {
 import { eq } from "drizzle-orm";
 import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+import { isSameBillingPeriod } from "./stripePeriodMatch";
 import {
-  billingTracksPeriod,
   lockActiveBilling,
   readStripeSeats,
   type StripeSeatRow,
@@ -39,7 +39,7 @@ function upgradeAppliesToPaidPeriod(
     seats.subscriptionId === input.subscriptionId &&
     seats.billingPeriodEndsAt?.getTime() ===
       input.paidPeriodEndsAt?.getTime() &&
-    billingTracksPeriod(billing.currentPeriodStartsAt, {
+    isSameBillingPeriod(billing.currentPeriodStartsAt, {
       endsAt: input.paidPeriodEndsAt,
       startsAt: input.paidPeriodStartsAt,
     })

@@ -19,6 +19,7 @@ import { OrganizationManagerError } from "../organizations/errors";
 import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import { hasActiveStripeBinding } from "./stripeBindingPolicy";
+import { isSameBillingPeriod } from "./stripePeriodMatch";
 
 /**
  * Plan changes for an organization's active Stripe subscription. The paid
@@ -259,31 +260,6 @@ interface ObservedStripePlan {
 }
 
 /**
- * Whether the organization's billing tracks the Stripe period from
- * `startsAt` to `endsAt`. RevenueCat and Stripe each report the period, and
- * either can arrive first after a renewal; a billing period that starts half
- * a period or more away is another period, while the two providers'
- * timestamps for one period never differ by that much. Unknown periods are
- * not compared.
- */
-export function billingTracksPeriod(
-  billingStartsAt: Date | null,
-  period: { readonly endsAt: Date | null; readonly startsAt: Date | null },
-): boolean {
-  if (
-    billingStartsAt === null ||
-    period.startsAt === null ||
-    period.endsAt === null
-  ) {
-    return true;
-  }
-  const halfPeriod = (period.endsAt.getTime() - period.startsAt.getTime()) / 2;
-  return (
-    Math.abs(billingStartsAt.getTime() - period.startsAt.getTime()) < halfPeriod
-  );
-}
-
-/**
  * Every change is made against the subscription as Stripe reports it, which
  * must match what the organization has recorded:
  *
@@ -310,7 +286,7 @@ function requireStripeAtGrantedPlan(
     observed.billingPeriodStartsAt === null ||
     observed.billingPeriodStartsAt.getTime() !==
       seats.billingPeriodStartsAt?.getTime() ||
-    !billingTracksPeriod(billing.currentPeriodStartsAt, {
+    !isSameBillingPeriod(billing.currentPeriodStartsAt, {
       endsAt: seats.billingPeriodEndsAt,
       startsAt: seats.billingPeriodStartsAt,
     })

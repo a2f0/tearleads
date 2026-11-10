@@ -69,6 +69,20 @@ test("a mid-period event keeps the capacity paid before a scheduled downgrade", 
   ).toMatchObject({ kind: "resolved", priceId: "price_sync", seatCount: 5 });
 });
 
+test("a same-period event reported moments after Stripe's start keeps the paid capacity", async () => {
+  const organizationId = await scheduledDowngrade();
+
+  // RevenueCat's timestamps for one period can trail Stripe's slightly.
+  expect(
+    await grantedSeats(
+      stripeEvent(organizationId, "UNCANCELLATION", {
+        endsAt: new Date(PERIOD_END.getTime() + 5_000),
+        startsAt: new Date(PERIOD_START.getTime() + 5_000),
+      }),
+    ),
+  ).toMatchObject({ kind: "resolved", seatCount: 5 });
+});
+
 test("an extension of the paid period keeps its capacity", async () => {
   const organizationId = await scheduledDowngrade();
 

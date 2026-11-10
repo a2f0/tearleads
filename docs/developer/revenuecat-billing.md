@@ -407,10 +407,13 @@ An administrator changes the plan on every platform under the same rules:
   admin), the request gets 409 `billing_plan_change_unavailable`, so a choice
   shown as a change at renewal is never charged as an upgrade.
 - A RevenueCat event within the paid period keeps the paid capacity; only an
-  event that starts a later period grants the smaller renewal plan alone. The
-  capacity is computed again under the billing lock before it is applied, so
-  an upgrade paid after the event was read is not overwritten, and an event
-  read before the bound Price changed is retried.
+  event that starts a later period grants the smaller renewal plan alone. An
+  event belongs to the paid period unless it starts, or else ends, at least
+  half a period after the bound start or end, so RevenueCat timestamps that
+  trail Stripe's slightly never count as a renewal. The capacity is computed
+  again under the billing lock before it is applied, so an upgrade paid after
+  the event was read is not overwritten, and an event read before the bound
+  Price changed is retried.
 - An extension that moves the paid period's end but not its start keeps the
   capacity paid for it when Stripe's webhook binds the new end, even though
   the bound Price is already a scheduled smaller plan's.
@@ -425,7 +428,10 @@ licensed seats) for their full duration.
 Roster writes only enqueue an absolute desired state in
 `organization_billing_stripe_seats`, keeping the renewal plan an administrator
 chose; they do not call Stripe while holding the roster transaction open, so
-access changes stay durable while Stripe is unavailable.
+access changes stay durable while Stripe is unavailable. A roster write made
+while billing still tracks an older period than Stripe has bound never
+carries that period's capacity into the newer one, so a renewal into a
+smaller plan is not prorated back up before RevenueCat reports it.
 
 ## Billing maintenance worker
 

@@ -419,6 +419,41 @@ test("a delayed local period cannot roll provider seat state backward", async ()
   });
 });
 
+test("a roster write from the previous period never raises a renewed smaller plan", async () => {
+  // Stripe renewed Team 5 into Solo; RevenueCat has not moved billing on, so
+  // the roster still reports the previous period's five licensed seats.
+  const organizationId = crypto.randomUUID();
+  const renewedKey = paidPeriodKey(NEW_START, NEW_END);
+  await db.insert(organizationBillingStripeSeats).values({
+    appliedPaidCapacity: 1,
+    appliedSeatPeriodKey: renewedKey,
+    desiredPaidCapacity: 1,
+    desiredRenewalQuantity: 1,
+    desiredRevision: 1,
+    desiredSeatPeriodKey: renewedKey,
+    nextAttemptAt: NOW,
+    organizationId,
+    priceId: "price_sync",
+    subscriptionId: `sub_${organizationId}`,
+    subscriptionItemId: `si_${organizationId}`,
+  });
+
+  await requestOrganizationStripeSeatSync({
+    desiredPaidCapacity: 5,
+    desiredSeatPeriodKey: paidPeriodKey(OLD_START, OLD_END),
+    executor: db,
+    licensedSeatCount: 5,
+    now: NOW,
+    organizationId,
+  });
+
+  expect(await readStripeSeats(organizationId)).toMatchObject({
+    desiredPaidCapacity: 1,
+    desiredRenewalQuantity: 1,
+    desiredSeatPeriodKey: renewedKey,
+  });
+});
+
 test("binding fails closed when Stripe omits its billing period", async () => {
   const organizationId = crypto.randomUUID();
   await db.insert(organizationBilling).values({

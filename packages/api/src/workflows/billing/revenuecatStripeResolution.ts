@@ -16,6 +16,10 @@ import {
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
+import {
+  endsLaterBillingPeriod,
+  startsLaterBillingPeriod,
+} from "./stripePeriodMatch";
 
 type StripeResolutionSource = "durable" | "provider";
 
@@ -197,6 +201,11 @@ export async function lockedDurableStripeSeatCount(input: {
   );
 }
 
+/**
+ * Whether the event belongs to the bound paid period (or an earlier one)
+ * rather than starting a later one, allowing for the small differences
+ * between RevenueCat's and Stripe's timestamps for one period.
+ */
 function eventInPaidPeriod(
   event: RevenueCatWebhookEvent,
   binding: {
@@ -204,13 +213,19 @@ function eventInPaidPeriod(
     readonly billingPeriodStartsAt: Date | null;
   },
 ): boolean {
-  if (event.purchased_at_ms != null && binding.billingPeriodStartsAt !== null) {
-    return event.purchased_at_ms <= binding.billingPeriodStartsAt.getTime();
+  const startsAt = binding.billingPeriodStartsAt;
+  const endsAt = binding.billingPeriodEndsAt;
+  if (event.purchased_at_ms != null && startsAt !== null) {
+    return !startsLaterBillingPeriod(event.purchased_at_ms, {
+      endsAt,
+      startsAt,
+    });
   }
   return (
     event.expiration_at_ms != null &&
-    binding.billingPeriodEndsAt !== null &&
-    event.expiration_at_ms <= binding.billingPeriodEndsAt.getTime()
+    startsAt !== null &&
+    endsAt !== null &&
+    !endsLaterBillingPeriod(event.expiration_at_ms, { endsAt, startsAt })
   );
 }
 
