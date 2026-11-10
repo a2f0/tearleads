@@ -201,6 +201,29 @@ test("a plan the server refuses shows its reason and reloads the plans", async (
   await waitFor(() => expect(ui.getByText(reason)).toBeTruthy());
   expect(logError).not.toHaveBeenCalled();
 });
+
+test("a roster changed elsewhere reads the plans again", async () => {
+  const { organizations } = stubSdk(() => Promise.resolve("scheduled"));
+  const { billing, view } = billingFixture(true, true, false);
+  const refresh = mock(() => Promise.resolve());
+  const switcher = (activeMemberCount: number) => (
+    <BillingStripePlanSwitcher
+      billing={{ billing: { ...billing, activeMemberCount }, refresh, view }}
+      disabled={false}
+      organizationId="org-1"
+    />
+  );
+  const ui = render(switcher(3));
+  await waitFor(() => expect(ui.getByText("Team 10")).toBeTruthy());
+
+  // Members were removed in another view: smaller plans may now cover it.
+  ui.rerender(switcher(1));
+
+  await waitFor(() =>
+    expect(organizations.loadStripeCheckoutOptions).toHaveBeenCalledTimes(2),
+  );
+});
+
 test("a downgrade is confirmed for renewal, and cancelling it changes nothing", async () => {
   const { organizations } = stubSdk(() => Promise.resolve("scheduled"));
   const { button, ui } = renderSwitcher();

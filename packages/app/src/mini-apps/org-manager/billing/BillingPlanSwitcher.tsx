@@ -392,7 +392,12 @@ function StripePlanSwitcher({
   renewsAtMs,
   seatCount,
 }: StripePlanSwitcherProps) {
-  const flow = useStripePlanChange({ organizationId, refresh, seatCount });
+  const flow = useStripePlanChange({
+    organizationId,
+    refresh,
+    rosterSeatCount: minimumSeatCount,
+    seatCount,
+  });
   const { offer } = flow;
   if (offer.status === "off" || offer.status === "loading") {
     return (

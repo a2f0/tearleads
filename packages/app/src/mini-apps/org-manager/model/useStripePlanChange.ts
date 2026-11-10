@@ -83,6 +83,8 @@ async function requestPlanChange(input: {
 export function useStripePlanChange(input: {
   readonly organizationId: string;
   readonly refresh: () => Promise<void>;
+  /** The active members the offered plans must cover, when known. */
+  readonly rosterSeatCount: number | null;
   /** The paid capacity the switcher shows the plans against. */
   readonly seatCount: number;
 }): StripePlanChangeFlow {
@@ -106,6 +108,15 @@ export function useStripePlanChange(input: {
       generation.current = opened + 1;
     };
   }, [input.organizationId]);
+  // The plans offered cover the roster; a roster that changed elsewhere
+  // offers a different set, so they are read again.
+  const shownRoster = useRef(input.rosterSeatCount);
+  useEffect(() => {
+    if (shownRoster.current !== input.rosterSeatCount) {
+      shownRoster.current = input.rosterSeatCount;
+      reload();
+    }
+  }, [input.rosterSeatCount, reload]);
   const send = useCallback((event: StripePlanChangeEvent) => {
     const next = transitionStripePlanChange(machine.current, event);
     machine.current = next;
