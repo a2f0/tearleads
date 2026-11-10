@@ -13,8 +13,7 @@ import { createAppHostConfig } from "../../../host/AppHostConfig";
 import { DirectCheckoutProvider } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
 import { LogProvider } from "../../../providers/logging/LogProvider";
-import { ORG_MANAGER_LABELS } from "../labels";
-import { CHECKOUT_LABELS } from "./billingCheckoutErrors";
+import { CHECKOUT_LABELS } from "./checkoutCopy";
 import { useDirectCheckoutFlow } from "./useDirectCheckout";
 
 afterEach(restoreDirectCheckoutSpies);
@@ -24,7 +23,7 @@ test("loads the purchasable option when the platform supports checkout", async (
   const { capability } = capabilityWith({});
   const { result } = renderFlow(capability);
 
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
   expect(result.current.available).toBe(true);
   expect(result.current.phase.kind).toBe("idle");
 });
@@ -33,9 +32,9 @@ test("begin mounts into the panel's host and tracks the form's email", async () 
   stubTearleads();
   const { capability, mounted } = capabilityWith({});
   const { result, host } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
-  await act(async () => result.current.begin());
+  await act(async () => result.current.begin(OPTION));
 
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
   expect(mounted[0]?.host).toBe(host);
@@ -52,12 +51,12 @@ test("an abandoned element's email event cannot unlock Pay", async () => {
   stubTearleads();
   const { capability, mounted } = capabilityWith({});
   const { result } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
   act(() => result.current.cancel());
 
-  await act(async () => result.current.begin());
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(mounted).toHaveLength(2));
   act(() => mounted[0]?.onBillingEmailChange("stale@example.com"));
 
@@ -73,8 +72,8 @@ test("a declined card keeps the element mounted so it can be corrected", async (
     unmount,
   });
   const { result } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   await act(async () => result.current.confirm());
@@ -93,8 +92,8 @@ test("a successful payment tears down and hands off to activation", async () => 
     unmount,
   });
   const { result } = renderFlow(capability, onActivated);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   await act(async () => result.current.confirm());
@@ -113,8 +112,8 @@ test("cancel unmounts the element and returns to idle", async () => {
   const unmount = mock(() => undefined);
   const { capability } = capabilityWith({ unmount });
   const { result } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   act(() => result.current.cancel());
@@ -129,8 +128,8 @@ test("unmounting the panel tears the element down", async () => {
   const unmount = mock(() => undefined);
   const { capability } = capabilityWith({ unmount });
   const { result, unmount: unmountHook } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   unmountHook();
@@ -147,9 +146,9 @@ test("a form that cannot mount surfaces an error and stays idle", async () => {
   );
   const { captured, diagnostics } = createCapturingDiagnostics();
   const { result } = renderFlow(capability, undefined, "org-1", diagnostics);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
-  await act(async () => result.current.begin());
+  await act(async () => result.current.begin(OPTION));
 
   await waitFor(() => expect(result.current.error).not.toBeNull());
   expect(result.current.phase.kind).toBe("idle");
@@ -161,9 +160,9 @@ test("the form opens for the offer, and only Pay starts the subscription", async
   const organizations = stubTearleads();
   const { capability, mounted } = capabilityWith({});
   const { result } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
-  await act(async () => result.current.begin());
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
   expect(mounted[0]?.price).toEqual({ amount: 99, currency: "usd" });
   expect(organizations.createStripeCheckout).not.toHaveBeenCalled();
@@ -177,15 +176,15 @@ test("the form opens for the offer, and only Pay starts the subscription", async
   );
 });
 
-test("a Pay the roster repriced closes the form and offers the new plan", async () => {
+test("a Pay for a plan no longer offered closes the form and offers the current plans", async () => {
   const team = { ...OPTION, priceId: "price_team_5", unitAmount: 1000 };
   const reloaded = Promise.withResolvers<{ options: (typeof OPTION)[] }>();
   let loads = 0;
   const organizations = stubTearleads({
     createStripeCheckout: () =>
       Promise.reject(
-        Object.assign(new Error("plan changed"), {
-          code: "billing_checkout_price_changed",
+        Object.assign(new Error("plan unavailable"), {
+          code: "billing_checkout_plan_unavailable",
         }),
       ),
     loadStripeCheckoutOptions: () => {
@@ -199,31 +198,55 @@ test("a Pay the roster repriced closes the form and offers the new plan", async 
   const { capability, mounted } = capabilityWith({ unmount });
   const { captured, diagnostics } = createCapturingDiagnostics();
   const { result } = renderFlow(capability, undefined, "org-1", diagnostics);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   await act(async () => result.current.confirm());
 
   await waitFor(() => expect(result.current.phase.kind).toBe("idle"));
-  expect(result.current.error).toBe(CHECKOUT_LABELS.priceChanged);
+  expect(result.current.error).toBe(CHECKOUT_LABELS.planUnavailable);
   expect(unmount).toHaveBeenCalledTimes(1);
   await waitFor(() =>
     expect(organizations.loadStripeCheckoutOptions).toHaveBeenCalledTimes(2),
   );
-  // While the new plan loads there is no offer, so the rejected one cannot
-  // be opened again.
-  expect(result.current.option).toBeNull();
-  await act(async () => result.current.begin());
+  // While the plans reload there is no offer, so the refused one cannot be
+  // opened again.
+  expect(result.current.options).toEqual([]);
+  await act(async () => result.current.begin(OPTION));
   expect(mounted).toHaveLength(1);
 
   await act(async () => reloaded.resolve({ options: [team] }));
-  await waitFor(() => expect(result.current.option).toEqual(team));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([team]));
+  await act(async () => result.current.begin(team));
   await waitFor(() => expect(mounted).toHaveLength(2));
   expect(mounted[1]?.price).toEqual({ amount: 1000, currency: "usd" });
   // An expected outcome, not a failure to report.
   expect(captured).toEqual([]);
+});
+
+test("switching plans re-prices the open form, and Pay starts the new plan", async () => {
+  const team = { ...OPTION, priceId: "price_team_5", unitAmount: 1000 };
+  const organizations = stubTearleads({
+    loadStripeCheckoutOptions: () =>
+      Promise.resolve({ options: [OPTION, team] }),
+  });
+  const { capability, prices } = capabilityWith({});
+  const { result } = renderFlow(capability);
+  await waitFor(() => expect(result.current.options).toEqual([OPTION, team]));
+  await act(async () => result.current.begin(OPTION));
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+
+  act(() => result.current.changePlan(team));
+
+  expect(result.current.chosen).toBe(team);
+  expect(prices).toEqual([{ amount: 1000, currency: "usd" }]);
+  await act(async () => result.current.confirm());
+  await waitFor(() => expect(result.current.phase.kind).toBe("idle"));
+  expect(organizations.createStripeCheckout).toHaveBeenCalledWith(
+    team.priceId,
+    "org-1",
+  );
 });
 
 test("a thrown confirm keeps the element mounted and is reported", async () => {
@@ -236,8 +259,8 @@ test("a thrown confirm keeps the element mounted and is reported", async () => {
   });
   const { captured, diagnostics } = createCapturingDiagnostics();
   const { result } = renderFlow(capability, undefined, "org-1", diagnostics);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   await act(async () => result.current.confirm());
@@ -255,8 +278,8 @@ test("a paid checkout marks activation pending rather than a lone refresh", asyn
     confirm: () => Promise.resolve({ kind: "succeeded" }),
   });
   const { result } = renderFlow(capability, onPaid);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   await act(async () => result.current.confirm());
@@ -295,8 +318,8 @@ test("switching organizations tears down an in-flight checkout", async () => {
   const host = document.createElement("div");
   document.body.appendChild(host);
   result.current.hostRef.current = host;
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   rerender({ organizationId: "org-2" });
@@ -336,8 +359,8 @@ test("disabling the checkout mid-flow tears the element down", async () => {
   const host = document.createElement("div");
   document.body.appendChild(host);
   result.current.hostRef.current = host;
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   // e.g. another admin's purchase lands and the org starts syncing: the panel
@@ -353,9 +376,9 @@ test("the checkout stays starting until the mounted form is ready", async () => 
   stubTearleads();
   const { capability, mounted } = capabilityWith({}, { formReady: false });
   const { result } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
-  await act(async () => result.current.begin());
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(mounted).toHaveLength(1));
   expect(result.current.phase.kind).toBe("starting");
 
@@ -372,17 +395,15 @@ test("a form that fails to load unmounts its session and reports why", async () 
   );
   const { captured, diagnostics } = createCapturingDiagnostics();
   const { result } = renderFlow(capability, undefined, "org-1", diagnostics);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(mounted).toHaveLength(1));
   const failure = new Error("The payment form could not be loaded.");
 
   act(() => mounted[0]?.onLoadError(failure));
 
   expect(result.current.phase.kind).toBe("idle");
-  expect(result.current.error).toBe(
-    ORG_MANAGER_LABELS.billingCheckoutUnavailable,
-  );
+  expect(result.current.error).toBe(CHECKOUT_LABELS.unavailable);
   expect(unmount).toHaveBeenCalledTimes(1);
   // The original Error reaches diagnostics, not just the generic label.
   expect(captured).toEqual([failure]);

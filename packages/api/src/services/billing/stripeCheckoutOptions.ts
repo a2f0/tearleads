@@ -1,3 +1,4 @@
+import { SYNC_BILLING_TIERS } from "@tearleads/validators/billing";
 import {
   getStripeSyncOption,
   type StripeSyncOption,
@@ -12,7 +13,11 @@ import {
   type StripeCheckoutServiceDeps,
 } from "./stripeCheckoutConfiguration";
 
-/** Returns no options when the provider integration is unconfigured. */
+/**
+ * Every plan whose capacity covers the current roster, smallest first, for
+ * the buyer to choose from. A plan whose Stripe Price is unusable is left
+ * out. No options when the provider integration is unconfigured.
+ */
 export async function getStripeCheckoutOptions(
   runtime: ApiServiceRuntime,
   organizationId: string,
@@ -29,11 +34,19 @@ export async function getStripeCheckoutOptions(
   if (!isDirectCheckoutFullyConfigured(deps)) {
     return { options: [] };
   }
-  const { tierId } = await runRequireCheckoutEligibleWorkflow(
+  const { rosterSeatCount } = await runRequireCheckoutEligibleWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
   );
-  const option = await getStripeSyncOption(tierId, deps.stripe ?? {});
-  return { options: option ? [option] : [] };
+  const options = await Promise.all(
+    SYNC_BILLING_TIERS.filter((tier) => tier.seatLimit >= rosterSeatCount).map(
+      (tier) => getStripeSyncOption(tier.id, deps.stripe ?? {}),
+    ),
+  );
+  return {
+    options: options.filter(
+      (option): option is StripeSyncOption => option !== null,
+    ),
+  };
 }

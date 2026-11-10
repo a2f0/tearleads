@@ -9,6 +9,7 @@ import {
 } from "../../../../test/helpers/billingPanelTestKit";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPanel } from "./BillingPanel";
+import { CHECKOUT_LABELS } from "./checkoutCopy";
 
 afterEach(() => {
   cleanup();
@@ -39,9 +40,7 @@ test("a checkout eligibility failure is visible instead of leaving a blank panel
   );
 
   await waitFor(() =>
-    expect(
-      view.getByText(ORG_MANAGER_LABELS.billingCheckoutUnavailable),
-    ).toBeDefined(),
+    expect(view.getByText(CHECKOUT_LABELS.unavailable)).toBeDefined(),
   );
 });
 
@@ -56,9 +55,7 @@ test("an unconfigured checkout stays absent without showing a failure", async ()
   );
 
   await waitFor(() => expect(view.queryByText("Sync")).toBeNull());
-  expect(
-    view.queryByText(ORG_MANAGER_LABELS.billingCheckoutUnavailable),
-  ).toBeNull();
+  expect(view.queryByText(CHECKOUT_LABELS.unavailable)).toBeNull();
 });
 
 test("the direct checkout does not surface the 'purchases unavailable' notice", async () => {
@@ -382,11 +379,11 @@ test("Subscribe moves the payment form to its own screen and Cancel returns", as
   // The wrapper's form never finishes loading, so the screen stays on its
   // loading panel, which keeps focus and the way back.
   const cancel = await view.findByRole("button", {
-    name: ORG_MANAGER_LABELS.billingCancelCheckout,
+    name: CHECKOUT_LABELS.cancel,
   });
   expect(document.activeElement).toBe(cancel);
   expect(view.getByRole("status").textContent).toContain(
-    ORG_MANAGER_LABELS.billingCheckoutStarting,
+    CHECKOUT_LABELS.starting,
   );
   expect(view.queryByText(ORG_MANAGER_LABELS.billingTitle)).toBeNull();
   expect(view.queryByText(ORG_MANAGER_LABELS.billingHistoryTitle)).toBeNull();
@@ -408,7 +405,7 @@ test("Subscribe moves the payment form to its own screen and Cancel returns", as
   );
   expect(
     view.queryByRole("button", {
-      name: ORG_MANAGER_LABELS.billingCancelCheckout,
+      name: CHECKOUT_LABELS.cancel,
     }),
   ).toBeNull();
   expect(

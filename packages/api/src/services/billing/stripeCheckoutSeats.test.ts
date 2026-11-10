@@ -19,10 +19,8 @@ import {
   STRIPE_WEBHOOK_ENV as STRIPE_ENV,
 } from "../../../test/helpers/stripeWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
-import {
-  createStripeCheckout,
-  createStripeCheckoutSession,
-} from "./stripeCheckout";
+import { createStripeCheckout } from "./stripeCheckout";
+import { createStripeCheckoutSession } from "./stripeHostedCheckout";
 
 async function loadCurrentMemberGroupState(organizationId: string): Promise<{
   readonly memberGroupId: string;
@@ -68,7 +66,7 @@ async function removeAllEffectiveMembers(
     );
 }
 
-test("inline checkout selects the current membership tier at quantity one", async () => {
+test("inline checkout charges the chosen plan at quantity one", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const member = createTestUser();
@@ -80,7 +78,8 @@ test("inline checkout selects the current membership tier at quantity one", asyn
   });
 
   // The pre-subscription ledger can be stale or uninitialized. Checkout must
-  // derive quantity from the signed Members group instead of trusting it.
+  // check the chosen plan against the signed Members group instead, and a
+  // buyer may choose more capacity than the two members need.
   await db
     .update(organizationBilling)
     .set({ seatCount: 99 })
@@ -89,14 +88,14 @@ test("inline checkout selects the current membership tier at quantity one", asyn
   let subscriptionBody: string | null = null;
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = new URL(String(input)).pathname;
-    if (path.endsWith("/prices/price_team_5")) {
+    if (path.endsWith("/prices/price_team_10")) {
       return Response.json({
         active: true,
         currency: "usd",
-        id: "price_team_5",
+        id: "price_team_10",
         product: { active: true, id: "prod_sync" },
         recurring: { interval: "month", interval_count: 1 },
-        unit_amount: 1_000,
+        unit_amount: 2_000,
       });
     }
     if (path.endsWith("/customers/search")) {
@@ -108,7 +107,11 @@ test("inline checkout selects the current membership tier at quantity one", asyn
     if (path.endsWith("/subscriptions/search")) {
       return Response.json({ data: [], has_more: false });
     }
-    if (path.endsWith("/subscriptions") && init?.method !== "POST") {
+    if (
+      (path.endsWith("/subscriptions") ||
+        path.endsWith("/checkout/sessions")) &&
+      init?.method !== "POST"
+    ) {
       return Response.json({ data: [], has_more: false });
     }
     if (path.endsWith("/subscriptions")) {
@@ -127,7 +130,7 @@ test("inline checkout selects the current membership tier at quantity one", asyn
     getDefaultApiServiceRuntime(),
     organizationId,
     admin.userId,
-    "price_team_5",
+    "price_team_10",
     {
       stripe: { env: STRIPE_ENV, fetchImpl },
       revenueCat: { env: REVENUECAT_ENV },
@@ -143,11 +146,11 @@ test("inline checkout selects the current membership tier at quantity one", asyn
     "1",
   );
   expect(new URLSearchParams(subscriptionBody).get("items[0][price]")).toBe(
-    "price_team_5",
+    "price_team_10",
   );
 });
 
-test("hosted checkout selects the current membership tier at quantity one", async () => {
+test("hosted checkout charges the chosen plan at quantity one", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const member = createTestUser();
@@ -180,9 +183,18 @@ test("hosted checkout selects the current membership tier at quantity one", asyn
     if (path.endsWith("/customers")) {
       return Response.json({ id: "cus_org" });
     }
-    if (path.endsWith("/checkout/sessions")) {
+    if (path.endsWith("/checkout/sessions") && init?.method === "POST") {
       checkoutBody = String(init?.body ?? "");
-      return Response.json({ url: "https://checkout.stripe.com/pay/cs_org" });
+      return Response.json({
+        id: "cs_org",
+        url: "https://checkout.stripe.com/pay/cs_org",
+      });
+    }
+    if (
+      path.endsWith("/checkout/sessions") ||
+      path.endsWith("/subscriptions")
+    ) {
+      return Response.json({ data: [], has_more: false });
     }
     throw new Error(`Unexpected Stripe request: ${path}`);
   }) as typeof fetch;
@@ -191,7 +203,7 @@ test("hosted checkout selects the current membership tier at quantity one", asyn
     getDefaultApiServiceRuntime(),
     organizationId,
     admin.userId,
-    "https://app.example/billing",
+    { priceId: "price_team_5", returnUrl: "https://app.example/billing" },
     {
       stripe: { env: STRIPE_ENV, fetchImpl },
       revenueCat: { env: REVENUECAT_ENV },

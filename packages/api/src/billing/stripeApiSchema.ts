@@ -79,3 +79,8 @@ export const subscriptionCancelSchema = z.looseObject({
 });
 
 export const hostedUrlSchema = z.looseObject({ url: providerStringSchema });
+
+export const hostedCheckoutSessionSchema = z.looseObject({
+  id: providerStringSchema,
+  url: providerStringSchema,
+});

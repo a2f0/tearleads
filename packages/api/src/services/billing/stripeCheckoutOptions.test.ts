@@ -29,7 +29,25 @@ test("options stay empty until the WHOLE flow is configured", async () => {
   expect(urls).toHaveLength(0);
 });
 
-test("options select Team 5 for a two-member effective roster", async () => {
+/** Answers each configured Price lookup; `inactive` Prices are retired. */
+function catalogFetch(inactive: readonly string[], urls: string[]) {
+  const amounts: Record<string, number> = {
+    price_sync: 500,
+    price_team_5: 1_000,
+    price_team_10: 2_000,
+  };
+  return (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    urls.push(url);
+    const priceId = new URL(url).pathname.split("/").at(-1) ?? "";
+    const price = activeStripePrice(priceId, amounts[priceId] ?? 0);
+    return Response.json(
+      inactive.includes(priceId) ? { ...price, active: false } : price,
+    );
+  }) as typeof fetch;
+}
+
+test("options offer every plan that covers the roster, smallest first", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticateWithOrganization(admin);
   await addSyntheticMember(admin, organizationId);
@@ -40,19 +58,38 @@ test("options select Team 5 for a two-member effective roster", async () => {
     organizationId,
     admin.userId,
     {
+      stripe: { env: STRIPE_ENV, fetchImpl: catalogFetch([], urls) },
+      revenueCat: { env: REVENUECAT_ENV },
+    },
+  );
+
+  // Two members outgrow Solo; Team 5 and Team 10 both cover them.
+  expect(result.options).toEqual([
+    expect.objectContaining({ tierId: "team_5", seatLimit: 5 }),
+    expect.objectContaining({ tierId: "team_10", seatLimit: 10 }),
+  ]);
+  expect(urls).toHaveLength(2);
+});
+
+test("a plan whose Stripe Price is unusable is left out", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticateWithOrganization(admin);
+
+  const result = await getStripeCheckoutOptions(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    {
       stripe: {
         env: STRIPE_ENV,
-        fetchImpl: respondingFetch(
-          [{ body: activeStripePrice("price_team_5", 1_000) }],
-          urls,
-        ),
+        fetchImpl: catalogFetch(["price_team_5"], []),
       },
       revenueCat: { env: REVENUECAT_ENV },
     },
   );
 
-  expect(result.options).toEqual([
-    expect.objectContaining({ tierId: "team_5", seatLimit: 5 }),
+  expect(result.options.map((option) => option.tierId)).toEqual([
+    "solo",
+    "team_10",
   ]);
-  expect(urls).toHaveLength(1);
 });

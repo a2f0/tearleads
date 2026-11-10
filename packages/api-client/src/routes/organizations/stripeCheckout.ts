@@ -16,6 +16,7 @@ import {
 } from "@tearleads/validators/operation";
 import type {
   StripeCheckoutRequest,
+  StripeCheckoutSessionRequest,
   StripeReturnUrlRequest,
 } from "@tearleads/validators/request";
 import { organizationBillingPath } from "./billing";
@@ -47,7 +48,10 @@ export const stripeCheckoutCreate = {
 };
 
 export const stripeCheckoutSessionCreate = {
-  body: returnUrlBody,
+  body: (
+    priceId: StripeCheckoutSessionRequest["priceId"],
+    returnUrl: StripeCheckoutSessionRequest["returnUrl"],
+  ): StripeCheckoutSessionRequest => ({ priceId, returnUrl }),
   isRequest: isCreateStripeCheckoutSessionOperationRequest,
   isResponse: isCreateStripeCheckoutSessionOperationResponse,
   method: createStripeCheckoutSessionOperation.method,

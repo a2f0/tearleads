@@ -51,10 +51,10 @@ export type StripeCheckoutIntentResponse = z.infer<
   typeof StripeCheckoutIntentResponseSchema
 >;
 
-/** Why the inline checkout refused to start the subscription at Pay. */
+/** Why the checkout refused to start the subscription for the chosen plan. */
 const StripeCheckoutErrorCodeSchema = z.literal([
   BILLING_ERROR_CODES.checkoutNoActiveMembers,
-  BILLING_ERROR_CODES.checkoutPriceChanged,
+  BILLING_ERROR_CODES.checkoutPlanUnavailable,
   BILLING_ERROR_CODES.rosterOverCapacity,
 ]);
 

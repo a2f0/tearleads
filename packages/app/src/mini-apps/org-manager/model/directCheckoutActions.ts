@@ -4,12 +4,12 @@ import type {
 } from "@tearleads/client-sdk";
 import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 import { useCallback, useEffect, useRef } from "react";
+import { readCheckoutAppearance } from "../billing/checkoutAppearance";
 import {
   CHECKOUT_LABELS,
   checkoutPayErrorMessage,
-  isCheckoutPriceChanged,
-} from "../billing/billingCheckoutErrors";
-import { readCheckoutAppearance } from "../billing/checkoutAppearance";
+  isCheckoutPlanUnavailable,
+} from "../billing/checkoutCopy";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type {
   DirectCheckoutEvent,
@@ -44,39 +44,74 @@ export interface BeginCheckoutDeps {
   readonly available: boolean;
   readonly canSubscribe: boolean;
   readonly enabled: boolean;
-  /** The offer the buyer clicked Subscribe on. */
-  readonly option: StripeSyncOptionResponse | null;
+  /** The plans on offer; a form opens only for one of them. */
+  readonly options: readonly StripeSyncOptionResponse[];
 }
 
-/** Subscribe: opens the form for the offered plan. Nothing starts server-side. */
-export function useBeginCheckout(
-  machine: CheckoutMachine,
-  deps: BeginCheckoutDeps,
-): () => void {
-  return useCallback(() => {
-    const { option } = deps;
-    if (
-      !deps.available ||
-      !deps.canSubscribe ||
-      !deps.enabled ||
-      !option ||
-      option.unitAmount === null
-    ) {
-      return;
-    }
-    // Ignored unless idle: a second begin would strand the previous
-    // element's iframe. The UI prevents this today; the hook must not depend
-    // on that.
-    machine.send({
-      type: "begin",
-      attempt: machine.nextAttempt(),
-      plan: {
+/** The plan a form shows for an offered option; null without a Stripe price. */
+function planOf(
+  options: readonly StripeSyncOptionResponse[],
+  option: StripeSyncOptionResponse,
+): DirectCheckoutPlan | null {
+  return options.includes(option) && option.unitAmount !== null
+    ? {
         priceId: option.priceId,
         amount: option.unitAmount,
         currency: option.currency,
-      },
-    });
-  }, [deps, machine]);
+      }
+    : null;
+}
+
+/** Subscribe: opens the form for the chosen plan. Nothing starts server-side. */
+export function useBeginCheckout(
+  machine: CheckoutMachine,
+  deps: BeginCheckoutDeps,
+): (option: StripeSyncOptionResponse) => void {
+  return useCallback(
+    (option: StripeSyncOptionResponse) => {
+      const plan = planOf(deps.options, option);
+      if (!deps.available || !deps.canSubscribe || !deps.enabled || !plan) {
+        return;
+      }
+      // Ignored unless idle: a second begin would strand the previous
+      // element's iframe. The UI prevents this today; the hook must not
+      // depend on that.
+      machine.send({ type: "begin", attempt: machine.nextAttempt(), plan });
+    },
+    [deps, machine],
+  );
+}
+
+/**
+ * Switches the open form to another offered plan: the machine records it, so
+ * Pay starts that plan, and the form re-prices in place. Ignored while
+ * paying.
+ */
+export function useChangePlan(
+  machine: CheckoutMachine,
+  options: readonly StripeSyncOptionResponse[],
+): (option: StripeSyncOptionResponse) => void {
+  return useCallback(
+    (option: StripeSyncOptionResponse) => {
+      const current = machine.current();
+      const plan = planOf(options, option);
+      if (current.kind !== "collecting" || !plan) {
+        return;
+      }
+      const next = machine.send({
+        type: "plan-changed",
+        attempt: current.attempt,
+        plan,
+      });
+      if (next?.kind === "collecting") {
+        next.session.updatePrice({
+          amount: plan.amount,
+          currency: plan.currency,
+        });
+      }
+    },
+    [machine, options],
+  );
 }
 
 export interface MountCheckoutDeps {
@@ -90,7 +125,7 @@ async function mountCheckout(
   plan: DirectCheckoutPlan,
   deps: MountCheckoutDeps,
 ): Promise<void> {
-  const unavailable = ORG_MANAGER_LABELS.billingCheckoutUnavailable;
+  const unavailable = CHECKOUT_LABELS.unavailable;
   try {
     const host = machine.hostRef.current;
     if (!host) {
@@ -167,9 +202,108 @@ export interface ConfirmCheckoutDeps {
   /** Marks activation pending and starts the shared billing poll. */
   readonly onPaid: () => void;
   readonly organizationId: string;
-  /** Fetches the offer again after a Pay the roster change repriced. */
-  readonly reloadOption: () => void;
+  /** Fetches the offer again after the server refused the chosen plan. */
+  readonly reloadOptions: () => void;
   readonly tearleads: Tearleads;
+}
+
+/**
+ * The server refused the attempt's plan as no longer offered, so nothing was
+ * charged: close the form, which shows a plan that no longer applies, and
+ * reload the offer at the current plans.
+ */
+function closeUnavailablePlan(
+  machine: CheckoutMachine,
+  attempt: number,
+  reloadOptions: () => void,
+): void {
+  const closed = machine.send({
+    type: "plan-unavailable",
+    attempt,
+    error: CHECKOUT_LABELS.planUnavailable,
+  });
+  if (closed) {
+    reloadOptions();
+  }
+}
+
+/** Points the blank tab at Stripe's page, or this tab when it was blocked. */
+function navigateToStripe(tab: Window | null | undefined, url: string): void {
+  if (tab) {
+    // Sever the child's back-reference before it navigates cross-origin, so
+    // the Stripe page cannot reach into this window (reverse tabnabbing); the
+    // blank tab is still same-origin here.
+    tab.opener = null;
+    tab.location.href = url;
+  } else {
+    // The pop-up was blocked: fall back to same-tab navigation rather than
+    // leaving the click dead.
+    globalThis.location?.assign(url);
+  }
+}
+
+/**
+ * Pay on Stripe's hosted page instead, for the form's plan. The tab is opened
+ * SYNCHRONOUSLY on the click — before the `await` — because a `window.open`
+ * issued after an await is treated as programmatic and blocked by pop-up
+ * blockers; the blank tab holds the user gesture and is pointed at the minted
+ * URL once it resolves.
+ *
+ * The machine runs one way to pay at a time, and every answer names its
+ * attempt: only the form that asked navigates (this tab included, when the
+ * pop-up was blocked) and closes, so a late answer for a cancelled or
+ * replaced form changes nothing. A refusal returns to the form with a notice;
+ * a plan no longer offered closes it and reloads the plans, as at Pay.
+ */
+export function useOpenStripePage(
+  machine: CheckoutMachine,
+  deps: ConfirmCheckoutDeps,
+): () => void {
+  return useCallback(() => {
+    const opening = machine.send({ type: "open-stripe" });
+    if (opening?.kind !== "opening-stripe") {
+      return;
+    }
+    const { attempt, plan } = opening;
+    const tab = globalThis.open?.("about:blank", "_blank");
+    const refuse = () => {
+      tab?.close();
+      machine.send({
+        type: "stripe-refused",
+        attempt,
+        error: CHECKOUT_LABELS.payOnStripeUnavailable,
+      });
+    };
+    void (async () => {
+      try {
+        const session =
+          await deps.tearleads.organizations.createStripeCheckoutSession(
+            plan.priceId,
+            globalThis.location?.href ?? "",
+            deps.organizationId,
+          );
+        // Unconfigured, or no organization signed in.
+        if (!session?.url) {
+          refuse();
+          return;
+        }
+        if (!machine.send({ type: "stripe-opened", attempt })) {
+          tab?.close();
+          return;
+        }
+        navigateToStripe(tab, session.url);
+      } catch (error) {
+        if (isCheckoutPlanUnavailable(error)) {
+          tab?.close();
+          closeUnavailablePlan(machine, attempt, deps.reloadOptions);
+          return;
+        }
+        // Not eligible, a checkout already in progress, or a failure.
+        deps.logError("Failed to open the hosted Stripe checkout", error);
+        refuse();
+      }
+    })();
+  }, [deps, machine]);
 }
 
 /** Settles a Pay that threw: the server refused it, or the provider failed. */
@@ -179,17 +313,8 @@ function settleFailedPay(
   payError: unknown,
   deps: ConfirmCheckoutDeps,
 ): void {
-  if (isCheckoutPriceChanged(payError)) {
-    // Nothing was charged, and the form shows a price that no longer
-    // applies: close it and offer the current plan instead.
-    const repriced = machine.send({
-      type: "repriced",
-      attempt,
-      error: CHECKOUT_LABELS.priceChanged,
-    });
-    if (repriced) {
-      deps.reloadOption();
-    }
+  if (isCheckoutPlanUnavailable(payError)) {
+    closeUnavailablePlan(machine, attempt, deps.reloadOptions);
     return;
   }
   deps.logError("Failed to confirm the direct checkout", payError);

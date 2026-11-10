@@ -90,7 +90,7 @@ export class BillingArea {
 
   /**
    * Starts (or resumes) the inline subscription when the buyer presses Pay,
-   * at the Price they were shown. A changed Price or an existing
+   * at the plan they chose. A plan that is no longer offered or an existing
    * subscription is a 409 with a billing code.
    */
   createStripeCheckout(
@@ -107,13 +107,22 @@ export class BillingArea {
     );
   }
 
-  /** Opens hosted checkout; a null URL means unavailable or ineligible. */
-  createStripeCheckoutSession(organizationId: string, returnUrl: string) {
-    return this.context.send(
+  /**
+   * Opens hosted checkout for the chosen plan. A refused plan is a 409 with a
+   * billing code; an unconfigured integration is a null URL.
+   */
+  createStripeCheckoutSession(
+    organizationId: string,
+    priceId: string,
+    returnUrl: string,
+    options: RequestResultOptions = {},
+  ) {
+    return this.context.sendResult(
       checkout.checkoutSession,
       checkout.checkoutSession.path(organizationId),
       createStripeCheckoutSessionOperation,
-      checkout.checkoutSession.body(returnUrl),
+      checkout.checkoutSession.body(priceId, returnUrl),
+      options,
     );
   }
 

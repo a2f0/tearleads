@@ -62,6 +62,7 @@ export function fakeStripe(options?: {
     }
   };
   const elementsOptions: unknown[] = [];
+  const elementsUpdates: unknown[] = [];
   const stripe = {
     elements: (opts: unknown) => {
       elementsOptions.push(opts);
@@ -81,6 +82,9 @@ export function fakeStripe(options?: {
         getElement: (type: string) => byType.get(type) ?? null,
         submit: async () =>
           options?.submitError ? { error: options.submitError } : {},
+        update: (opts: unknown) => {
+          elementsUpdates.push(opts);
+        },
       };
     },
     confirmPayment: async (input: unknown) => {
@@ -93,6 +97,7 @@ export function fakeStripe(options?: {
     confirmInputs,
     created,
     elementsOptions,
+    elementsUpdates,
     emit,
     stripe,
     destroyed,

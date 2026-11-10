@@ -20,7 +20,6 @@ export const ORG_MANAGER_LABELS = {
     "We couldn't confirm the billing update yet. Refresh to check or choose another plan.",
   billingActive: "Active subscription",
   billingAdminOnly: "Only an organization admin can manage billing.",
-  billingCancelCheckout: "Cancel checkout",
   billingCancelFailed: "Could not cancel the subscription. Try again.",
   billingCancelScheduled:
     "Cancellation scheduled — sync stays active until the period ends.",
@@ -37,21 +36,12 @@ export const ORG_MANAGER_LABELS = {
     "Add an active organization member before choosing a subscription.",
   billingCheckoutOverCapacity:
     "This organization has more than 10 active members. Reduce the roster to 10 before choosing a subscription.",
-  billingCheckoutPay: "Pay and subscribe",
-  billingCheckoutPaying: "Processing payment...",
-  billingCheckoutStarting: "Preparing checkout",
-  billingCheckoutStartingDescription: "Loading the secure payment form.",
-  billingCheckoutTitle: "Checkout",
-  billingCheckoutUnavailable:
-    "The payment form could not be started. Try again in a moment.",
   billingCurrentPlan: "Current plan",
   billingCustomOrganizationWebOnly:
     "Custom organizations subscribe on the web. Open Tearleads in a browser to choose a plan.",
   billingDeleting: "Deleting remote data",
   billingDisabled: "Sync disabled",
   billingDowngradePlan: "Downgrade",
-  billingEmailHint:
-    "Stripe uses this email to let you manage or cancel your subscription if you lose your Tearleads keys.",
   billingHistoryActivityTab: "Activity",
   billingHistoryEmpty: "No billing events yet.",
   billingHistoryEventsTab: "Events",
@@ -88,10 +78,6 @@ export const ORG_MANAGER_LABELS = {
   billingPlanScheduledCapacityConflict:
     "The scheduled plan cannot cover the current roster. Use Manage subscription to change it.",
   billingPlanUpdating: "Updating…",
-  billingPayOnStripe: "Prefer Stripe's page? Pay on Stripe instead",
-  billingPayOnStripeStarting: "Opening Stripe...",
-  billingPayOnStripeUnavailable:
-    "Couldn't open Stripe checkout right now. Try again.",
   billingProviderStalled:
     "Billing stopped responding. Restart the app and try again.",
   billingPurchaseUnavailable: "To subscribe, open Tearleads in a web browser.",

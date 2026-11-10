@@ -24,7 +24,7 @@ test("billing targets follow the current authenticated session", async () => {
     },
     createStripeCheckoutSession: async (organizationId) => {
       requests.push({ operation: "hosted-checkout", organizationId });
-      return null;
+      return { data: { url: null }, ok: true };
     },
     getStripeCheckoutOptions: async (organizationId) => {
       requests.push({ operation: "options", organizationId });
@@ -53,6 +53,7 @@ test("billing targets follow the current authenticated session", async () => {
       organizations.loadStripeCheckoutOptions(organizationId),
       organizations.createStripeCheckout("price_1", organizationId),
       organizations.createStripeCheckoutSession(
+        "price_1",
         "https://app.test/billing",
         organizationId,
       ),

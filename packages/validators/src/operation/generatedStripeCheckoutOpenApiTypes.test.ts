@@ -1,5 +1,8 @@
 import { test } from "bun:test";
-import type { StripeReturnUrlRequest } from "../request";
+import type {
+  StripeCheckoutSessionRequest,
+  StripeReturnUrlRequest,
+} from "../request";
 import type {
   ErrorResponse,
   StripeCancelResponse,
@@ -94,7 +97,7 @@ test("generated OpenAPI types match Stripe checkout contracts", () => {
   assertType<
     IsEqual<
       NormalizeWireType<JsonRequest<SessionOperation>>,
-      NormalizeWireType<StripeReturnUrlRequest>
+      NormalizeWireType<StripeCheckoutSessionRequest>
     >
   >();
   assertType<

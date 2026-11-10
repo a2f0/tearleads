@@ -1,4 +1,6 @@
+import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 import { useEffect, useRef } from "react";
+import { MiniAppSelectMenu } from "../../../components/mini-app/controls/MiniAppSelectMenu";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -17,54 +19,99 @@ import { useAppFeatureFlags } from "../../../providers/feature-flags/AppFeatureF
 import { formatPrice } from "../../shared/billingFormatters";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPurchaseOption } from "./BillingPlanSwitcher";
+import { CHECKOUT_LABELS } from "./checkoutCopy";
 import type { DirectCheckoutState } from "./useDirectCheckout";
-import { useHostedCheckout } from "./useHostedCheckout";
 import "./BillingCheckout.css";
 
 /**
  * The in-app card checkout (issue #1654). Unlike the provider-hosted flow,
- * every control here is ours: the price row, the Pay button, and the Cancel
- * affordance are app components, and the payment fields mount into the host
- * div styled from the app's own theme tokens.
+ * every control here is ours: the plan rows, the plan picker, the Pay button,
+ * and the Cancel affordance are app components, and the payment fields mount
+ * into the host div styled from the app's own theme tokens.
  */
 
+function priceLabelOf(option: StripeSyncOptionResponse): string {
+  return formatPrice(
+    option.unitAmount,
+    option.currency,
+    option.interval,
+    option.intervalCount,
+  );
+}
+
+/**
+ * The hosted-page escape hatch, for buyers who prefer not to type their card
+ * into our inline form: Stripe's page for the plan the form shows. Offered
+ * only while the form is collecting; Pay waits while it opens.
+ */
 function HostedCheckoutLink({
+  checkout,
   disabled,
-  organizationId,
 }: {
+  readonly checkout: DirectCheckoutState;
   readonly disabled: boolean;
-  readonly organizationId: string;
 }) {
-  const hosted = useHostedCheckout(organizationId);
+  const opening = checkout.phase.kind === "opening-stripe";
   return (
-    <>
-      <MiniAppActions>
-        <MiniAppButton disabled={disabled || hosted.busy} onClick={hosted.open}>
-          {hosted.busy
-            ? ORG_MANAGER_LABELS.billingPayOnStripeStarting
-            : ORG_MANAGER_LABELS.billingPayOnStripe}
-        </MiniAppButton>
-      </MiniAppActions>
-      {hosted.unavailable ? (
-        <MiniAppStatus className="org-manager-hint">
-          {ORG_MANAGER_LABELS.billingPayOnStripeUnavailable}
-        </MiniAppStatus>
-      ) : null}
-    </>
+    <MiniAppActions>
+      <MiniAppButton
+        disabled={disabled || checkout.phase.kind !== "collecting"}
+        onClick={checkout.openStripePage}
+      >
+        {opening
+          ? CHECKOUT_LABELS.payOnStripeStarting
+          : CHECKOUT_LABELS.payOnStripe}
+      </MiniAppButton>
+    </MiniAppActions>
+  );
+}
+
+/**
+ * Switches the open form between the offered plans; the form re-prices in
+ * place and keeps what the buyer typed. Locked while a payment is running.
+ */
+function CheckoutPlanPicker({
+  checkout,
+  plan,
+}: {
+  readonly checkout: DirectCheckoutState;
+  readonly plan: StripeSyncOptionResponse;
+}) {
+  return (
+    <MiniAppSelectMenu
+      ariaLabel={CHECKOUT_LABELS.plan}
+      disabled={checkout.phase.kind !== "collecting"}
+      onChange={(priceId) => {
+        const option = checkout.options.find(
+          (candidate) => candidate.priceId === priceId,
+        );
+        if (option) {
+          checkout.changePlan(option);
+        }
+      }}
+      options={checkout.options.map((option) => ({
+        id: option.priceId,
+        label: option.productName,
+        secondaryLabel: priceLabelOf(option),
+        triggerLabel: `${option.productName} · ${priceLabelOf(option)}`,
+      }))}
+      value={plan.priceId}
+    />
   );
 }
 
 /**
  * The checkout screen's header: the billing panel hides everything else once
  * Subscribe is clicked, so this names the screen and restates what is being
- * bought. Focus moves to the heading on arrival, as on any new screen.
+ * bought, with a picker when another plan is on offer. Focus moves to the
+ * heading on arrival, as on any new screen.
  */
 function CheckoutScreenHeader({
-  name,
-  priceLabel,
+  checkout,
+  plan,
 }: {
-  readonly name: string;
-  readonly priceLabel: string;
+  readonly checkout: DirectCheckoutState;
+  readonly plan: StripeSyncOptionResponse;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -74,14 +121,18 @@ function CheckoutScreenHeader({
     <>
       <MiniAppSectionHeading>
         <h2 ref={headingRef} tabIndex={-1}>
-          {ORG_MANAGER_LABELS.billingCheckoutTitle}
+          {CHECKOUT_LABELS.title}
         </h2>
       </MiniAppSectionHeading>
       <MiniAppRow density="roomy" variant="framed">
-        <MiniAppRowStack>
-          <strong>{name}</strong>
-          <MiniAppRowText muted>{priceLabel}</MiniAppRowText>
-        </MiniAppRowStack>
+        {checkout.options.length > 1 ? (
+          <CheckoutPlanPicker checkout={checkout} plan={plan} />
+        ) : (
+          <MiniAppRowStack>
+            <strong>{plan.productName}</strong>
+            <MiniAppRowText muted>{priceLabelOf(plan)}</MiniAppRowText>
+          </MiniAppRowStack>
+        )}
       </MiniAppRow>
     </>
   );
@@ -100,25 +151,23 @@ function CheckoutScreenActions({
   return (
     <MiniAppActions>
       <MiniAppButton disabled={confirming} onClick={checkout.cancel}>
-        {ORG_MANAGER_LABELS.billingCancelCheckout}
+        {CHECKOUT_LABELS.cancel}
       </MiniAppButton>
       <MiniAppButton
         disabled={!collecting || disabled || !checkout.billingEmailComplete}
         onClick={checkout.confirm}
       >
-        {confirming
-          ? ORG_MANAGER_LABELS.billingCheckoutPaying
-          : ORG_MANAGER_LABELS.billingCheckoutPay}
+        {confirming ? CHECKOUT_LABELS.paying : CHECKOUT_LABELS.pay}
       </MiniAppButton>
     </MiniAppActions>
   );
 }
 
 /**
- * The checkout screen while the server checkout and the provider form load:
- * a whole-panel busy state, like the other mini-app loading screens. Cancel
- * stays offered, so the screen never traps the buyer; teardown discards a
- * mount that lands after it.
+ * The checkout screen while the provider form loads: a whole-panel busy
+ * state, like the other mini-app loading screens. Cancel stays offered, so
+ * the screen never traps the buyer; teardown discards a mount that lands
+ * after it.
  */
 function CheckoutLoadingPanel({ onCancel }: { readonly onCancel: () => void }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -129,11 +178,11 @@ function CheckoutLoadingPanel({ onCancel }: { readonly onCancel: () => void }) {
   return (
     <MiniAppStatePanel
       busy
-      description={ORG_MANAGER_LABELS.billingCheckoutStartingDescription}
-      title={ORG_MANAGER_LABELS.billingCheckoutStarting}
+      description={CHECKOUT_LABELS.startingDescription}
+      title={CHECKOUT_LABELS.starting}
     >
       <MiniAppButton onClick={onCancel} ref={cancelRef}>
-        {ORG_MANAGER_LABELS.billingCancelCheckout}
+        {CHECKOUT_LABELS.cancel}
       </MiniAppButton>
     </MiniAppStatePanel>
   );
@@ -149,59 +198,70 @@ export function isCheckoutLoading(checkout: DirectCheckoutState): boolean {
   return checkout.phase.kind === "starting";
 }
 
+/** One row per offered plan, smallest first; Subscribe opens its form. */
 function CheckoutIdleOffer({
   checkout,
   disabled,
-  name,
-  priceLabel,
 }: {
   readonly checkout: DirectCheckoutState;
   readonly disabled: boolean;
-  readonly name: string;
-  readonly priceLabel: string;
+}) {
+  return checkout.options.map((option) => (
+    <BillingPurchaseOption
+      actionLabel={ORG_MANAGER_LABELS.billingSubscribe}
+      disabled={disabled}
+      key={option.priceId}
+      name={option.productName}
+      onSelect={() => checkout.begin(option)}
+      priceLabel={priceLabelOf(option)}
+    />
+  ));
+}
+
+/**
+ * Under the form: the email hint, Cancel and Pay, and Stripe's own page for
+ * the same plan. The checkout runs one way to pay at a time, so each control
+ * here waits while the other is running.
+ */
+function CheckoutScreenFooter({
+  checkout,
+  disabled,
+}: {
+  readonly checkout: DirectCheckoutState;
+  readonly disabled: boolean;
 }) {
   const { isEnabled } = useAppFeatureFlags();
   return (
     <>
-      <BillingPurchaseOption
-        actionLabel={ORG_MANAGER_LABELS.billingSubscribe}
-        disabled={disabled}
-        name={name}
-        onSelect={checkout.begin}
-        priceLabel={priceLabel}
-      />
-      {/* The hosted-page escape hatch for buyers who prefer not to type
-          their card into our inline form; behind a feature flag (off by
+      {/* Stripe's form above asks for the email; this says why. */}
+      <MiniAppStatus className="org-manager-hint">
+        {CHECKOUT_LABELS.emailHint}
+      </MiniAppStatus>
+      <CheckoutScreenActions checkout={checkout} disabled={disabled} />
+      {/* Stripe's own page for the same plan; behind a feature flag (off by
           default) while the inline form is the only advertised path. */}
       {isEnabled("stripe-hosted-checkout") ? (
-        <HostedCheckoutLink
-          disabled={disabled}
-          organizationId={checkout.organizationId}
-        />
+        <HostedCheckoutLink checkout={checkout} disabled={disabled} />
       ) : null}
     </>
   );
 }
 
 /**
- * The header, provider host, email hint, and actions. Always mounted while
- * the flow is live so the element has a stable host to attach to; while the
- * form loads it stays laid out but invisible behind the loading panel.
+ * The header, provider host, and footer. Always mounted while the flow is
+ * live so the element has a stable host to attach to; while the form loads
+ * it stays laid out but invisible behind the loading panel.
  */
 function CheckoutScreen({
   checkout,
   disabled,
-  name,
-  priceLabel,
 }: {
   readonly checkout: DirectCheckoutState;
   readonly disabled: boolean;
-  readonly name: string;
-  readonly priceLabel: string;
 }) {
   const idle = checkout.phase.kind === "idle";
   const loading = isCheckoutLoading(checkout);
-  const shown = !idle && !loading;
+  const plan = idle || loading ? null : checkout.chosen;
   return (
     <div
       className={classNames(
@@ -210,9 +270,7 @@ function CheckoutScreen({
       )}
     >
       {/* Mounting on reveal moves focus to the heading. */}
-      {shown ? (
-        <CheckoutScreenHeader name={name} priceLabel={priceLabel} />
-      ) : null}
+      {plan ? <CheckoutScreenHeader checkout={checkout} plan={plan} /> : null}
       <div
         className="org-manager-direct-checkout"
         ref={checkout.hostRef}
@@ -223,14 +281,8 @@ function CheckoutScreen({
         // into a display:none node yields a collapsed or unsized form.
         hidden={idle}
       />
-      {/* Stripe's form above asks for the email; this says why. */}
-      {shown ? (
-        <MiniAppStatus className="org-manager-hint">
-          {ORG_MANAGER_LABELS.billingEmailHint}
-        </MiniAppStatus>
-      ) : null}
-      {shown ? (
-        <CheckoutScreenActions checkout={checkout} disabled={disabled} />
+      {plan ? (
+        <CheckoutScreenFooter checkout={checkout} disabled={disabled} />
       ) : null}
     </div>
   );
@@ -244,11 +296,10 @@ export function BillingDirectCheckout({
   /** Another billing action is in flight; do not start a competing one. */
   readonly disabled: boolean;
 }) {
-  const { option } = checkout;
   if (!checkout.available) {
     return null;
   }
-  if (!option) {
+  if (checkout.options.length === 0) {
     return checkout.error ? (
       <MiniAppSection>
         <MiniAppStatus tone="error">{checkout.error}</MiniAppStatus>
@@ -257,32 +308,16 @@ export function BillingDirectCheckout({
   }
   const idle = checkout.phase.kind === "idle";
   const loading = isCheckoutLoading(checkout);
-  const priceLabel = formatPrice(
-    option.unitAmount,
-    option.currency,
-    option.interval,
-    option.intervalCount,
-  );
 
   return (
     <MiniAppSection
       className={loading ? "org-manager-checkout--loading" : undefined}
     >
       {idle ? (
-        <CheckoutIdleOffer
-          checkout={checkout}
-          disabled={disabled}
-          name={option.productName}
-          priceLabel={priceLabel}
-        />
+        <CheckoutIdleOffer checkout={checkout} disabled={disabled} />
       ) : null}
       {loading ? <CheckoutLoadingPanel onCancel={checkout.cancel} /> : null}
-      <CheckoutScreen
-        checkout={checkout}
-        disabled={disabled}
-        name={option.productName}
-        priceLabel={priceLabel}
-      />
+      <CheckoutScreen checkout={checkout} disabled={disabled} />
       {checkout.error ? (
         <MiniAppStatus tone="error">{checkout.error}</MiniAppStatus>
       ) : null}

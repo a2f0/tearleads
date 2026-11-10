@@ -37,6 +37,11 @@ export type MountInput = Parameters<DirectCheckoutCapability["mount"]>[0];
 
 export function stubTearleads(overrides?: {
   createStripeCheckout?: () => Promise<unknown>;
+  createStripeCheckoutSession?: (
+    priceId: string,
+    returnUrl: string,
+    organizationId?: string,
+  ) => Promise<unknown>;
   loadStripeCheckoutOptions?: () => Promise<unknown>;
 }) {
   const organizations = {
@@ -49,6 +54,10 @@ export function stubTearleads(overrides?: {
       mock(() =>
         Promise.resolve({ subscriptionId: "sub_1", clientSecret: "pi_secret" }),
       ),
+    createStripeCheckoutSession: mock(
+      overrides?.createStripeCheckoutSession ??
+        (() => Promise.resolve({ url: null })),
+    ),
   };
   spies.push(
     spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
@@ -79,8 +88,11 @@ export function capabilityWith(
 ): {
   capability: DirectCheckoutCapability;
   mounted: MountInput[];
+  /** Every price an open form was switched to, in order. */
+  prices: MountInput["price"][];
 } {
   const mounted: MountInput[] = [];
+  const prices: MountInput["price"][] = [];
   const capability: DirectCheckoutCapability = {
     isAvailable: true,
     mount: mock((input: MountInput) => {
@@ -98,11 +110,14 @@ export function capabilityWith(
             await startPayment();
             return { kind: "succeeded" };
           }),
+        updatePrice: (price) => {
+          prices.push(price);
+        },
         unmount: session.unmount ?? (() => undefined),
-      } as DirectCheckoutSession);
+      } satisfies DirectCheckoutSession);
     }) as DirectCheckoutCapability["mount"],
   };
-  return { capability, mounted };
+  return { capability, mounted, prices };
 }
 
 /**

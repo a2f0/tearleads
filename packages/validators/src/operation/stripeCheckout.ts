@@ -1,8 +1,10 @@
 import type { z } from "zod";
 import {
   isStripeCheckoutRequest,
+  isStripeCheckoutSessionRequest,
   isStripeReturnUrlRequest,
   StripeCheckoutRequestSchema,
+  StripeCheckoutSessionRequestSchema,
   StripeReturnUrlRequestSchema,
 } from "../request";
 import {
@@ -50,7 +52,7 @@ export const getStripeCheckoutOptionsOperation = defineJsonOperation({
   id: "organizations.billing.stripe.options.get",
   summary: "Get Stripe checkout options",
   description:
-    "Returns the Stripe plans the organization can subscribe to, selected for its current `Members` roster size. Only organization administrators may call it; 502 means Stripe could not be reached.",
+    "Returns every Stripe plan whose capacity covers the organization's current `Members` roster, smallest first; the buyer chooses one. Only organization administrators may call it; 502 means Stripe could not be reached.",
   method: "GET",
   params: StripeCheckoutPathParamsSchema,
   path: "/organizations/{organizationId}/billing/stripe/options",
@@ -69,7 +71,7 @@ export const createStripeCheckoutOperation = defineJsonOperation({
   id: "organizations.billing.stripe.checkout.create",
   summary: "Start a Stripe subscription at Pay",
   description:
-    "Called when the buyer presses Pay in the inline form: starts (or, for the same buyer and Price, resumes) the organization's subscription at `priceId` and returns the client secret Stripe's Payment Element confirms. Only organization administrators may call it, and the seat count comes from the roster, not the client. When the roster now needs a different Price than `priceId`, it returns 409 with code `billing_checkout_price_changed` and the client reloads the options. A different buyer or the hosted mode with an unpaid checkout open returns 409.",
+    "Called when the buyer presses Pay in the inline form: starts (or, for the same buyer and plan, resumes) the organization's subscription at the chosen plan's `priceId` and returns the client secret Stripe's Payment Element confirms. Only organization administrators may call it. When that plan is no longer offered (the roster has outgrown it, or its Price is not configured or no longer active), it returns 409 with code `billing_checkout_plan_unavailable` and the client reloads the options. The same buyer's unpaid checkout for another plan or on the hosted page is retired first (its subscription's first invoice voided, or its session expired); a different buyer's unpaid checkout, or one that has already been paid, returns 409.",
   method: "POST",
   params: StripeCheckoutPathParamsSchema,
   path: "/organizations/{organizationId}/billing/stripe/checkout",
@@ -78,16 +80,16 @@ export const createStripeCheckoutOperation = defineJsonOperation({
 
 export const createStripeCheckoutSessionOperation = defineJsonOperation({
   auth: "session",
-  body: StripeReturnUrlRequestSchema,
+  body: StripeCheckoutSessionRequestSchema,
   failureResponses: {
     ...baseFailureResponses,
-    409: BillingErrorResponseSchema,
+    409: StripeCheckoutErrorResponseSchema,
   },
   failureStatuses: [400, 401, 403, 404, 409, 500, 502],
   id: "organizations.billing.stripe.checkoutSession.create",
   summary: "Create an embedded Stripe checkout session",
   description:
-    "Creates a Stripe-hosted checkout session as a fallback to the inline form and returns its URL, or null when Stripe checkout is not configured; an ineligible organization gets an error instead. Only organization administrators may call it, and `returnUrl` must be on an approved app origin. It shares the inline checkout's attempt, so identical retries are safe and conflicting ones return 409.",
+    "Creates a Stripe-hosted checkout session for the chosen plan's `priceId` as a fallback to the inline form and returns its URL, or null when Stripe checkout is not configured; an ineligible organization gets an error instead, and a plan that is no longer offered (the roster has outgrown it, or its Price is not configured or no longer active) gets 409 `billing_checkout_plan_unavailable`. Only organization administrators may call it, and `returnUrl` must be on an approved app origin. It shares the inline checkout's attempt, so identical retries are safe. The same buyer's unpaid checkout for another plan or the inline form is retired first (its subscription's first invoice voided, or its session expired); a different buyer's unpaid checkout, or one that has already been paid, returns 409.",
   method: "POST",
   params: StripeCheckoutPathParamsSchema,
   path: "/organizations/{organizationId}/billing/stripe/checkout-session",
@@ -131,7 +133,7 @@ export const isCreateStripeCheckoutOperationRequest = isStripeCheckoutRequest;
 export const isCreateStripeCheckoutOperationResponse =
   isStripeCheckoutIntentResponse;
 export const isCreateStripeCheckoutSessionOperationRequest =
-  isStripeReturnUrlRequest;
+  isStripeCheckoutSessionRequest;
 export const isCreateStripeCheckoutSessionOperationResponse =
   isStripeCheckoutSessionResponse;
 export const isCreateStripePortalOperationRequest = isStripeReturnUrlRequest;

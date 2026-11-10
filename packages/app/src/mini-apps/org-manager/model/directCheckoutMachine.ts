@@ -2,8 +2,7 @@ import type { DirectCheckoutSession } from "@tearleads/client-sdk";
 
 /**
  * The plan an attempt's form shows. Pay starts the subscription at exactly
- * this `priceId`, so a roster change since the form opened is refused rather
- * than charging an amount the buyer never saw.
+ * this `priceId`, so the charge is always the plan the buyer chose and saw.
  */
 export interface DirectCheckoutPlan {
   readonly priceId: string;
@@ -18,17 +17,21 @@ export interface DirectCheckoutPlan {
  * and email events, confirmation) name it, and only the current attempt may
  * move the flow. The mounted session lives only in the states that own it, so
  * the hook unmounts it on leaving them. Nothing exists on the server until
- * `confirm`: the subscription starts at Pay.
+ * `confirm`: the subscription starts at Pay, for the plan the state holds.
  *
- * | state      | begin    | email | form-ready | load-failed  | mounted    | start-failed | confirm        | confirm-failed | repriced     | confirmed | teardown |
- * | ---------- | -------- | ----- | ---------- | ------------ | ---------- | ------------ | -------------- | -------------- | ------------ | --------- | -------- |
- * | idle       | starting | -     | -          | -            | -          | -            | -              | -              | -            | -         | idle     |
- * | starting   | -        | same  | same       | idle (error) | collecting | idle (error) | -              | -              | -            | -         | idle     |
- * | collecting | -        | same  | same       | idle (error) | -          | -            | confirming (*) | -              | -            | -         | idle     |
- * | confirming | -        | same  | -          | -            | -          | -            | -              | collecting     | idle (error) | idle      | idle     |
+ * | state          | begin    | email | form-ready | load-failed  | mounted    | start-failed | plan-changed | confirm        | confirm-failed | open-stripe        | stripe-opened | stripe-refused | plan-unavailable | confirmed | teardown |
+ * | -------------- | -------- | ----- | ---------- | ------------ | ---------- | ------------ | ------------ | -------------- | -------------- | ------------------ | ------------- | -------------- | ---------------- | --------- | -------- |
+ * | idle           | starting | -     | -          | -            | -          | -            | -            | -              | -              | -                  | -             | -              | -                | -         | idle     |
+ * | starting       | -        | same  | same       | idle (error) | collecting | idle (error) | -            | -              | -              | -                  | -             | -              | -                | -         | idle     |
+ * | collecting     | -        | same  | same       | idle (error) | -          | -            | collecting   | confirming (*) | -              | opening-stripe (*) | -             | -              | idle (error)     | -         | idle     |
+ * | confirming     | -        | same  | -          | -            | -          | -            | -            | -              | collecting     | -                  | -             | -              | idle (error)     | idle      | idle     |
+ * | opening-stripe | -        | same  | -          | -            | -          | -            | -            | -              | -              | -                  | idle          | collecting     | idle (error)     | -         | idle     |
  *
  * `-` returns the same state, and so does any event naming another attempt.
  * `same` updates the state's own flag. `(*)` only once the form is ready.
+ * `plan-changed` clears the error and ignores the plan already chosen.
+ * `stripe-refused` returns with its error. Only one way to pay runs at a
+ * time: Pay and Stripe's page each start only from `collecting`.
  * `teardown` also clears an idle state's error.
  */
 export type DirectCheckoutMachineState =
@@ -56,10 +59,18 @@ export type DirectCheckoutMachineState =
       readonly plan: DirectCheckoutPlan;
       readonly emailComplete: boolean;
       readonly session: DirectCheckoutSession;
+    }
+  | {
+      /** Stripe's hosted page for the form's plan is being opened. */
+      readonly kind: "opening-stripe";
+      readonly attempt: number;
+      readonly plan: DirectCheckoutPlan;
+      readonly emailComplete: boolean;
+      readonly session: DirectCheckoutSession;
     };
 
 export type DirectCheckoutEvent =
-  /** Subscribe: open the form for the offered plan. */
+  /** Subscribe: open the form for the plan the buyer chose. */
   | {
       readonly type: "begin";
       readonly attempt: number;
@@ -99,18 +110,35 @@ export type DirectCheckoutEvent =
       readonly attempt: number;
       readonly error: string;
     }
+  /** The buyer chose another offered plan while the form is open. */
+  | {
+      readonly type: "plan-changed";
+      readonly attempt: number;
+      readonly plan: DirectCheckoutPlan;
+    }
   /**
-   * Pay was refused because the roster changed the plan since the form
-   * opened. Nothing was charged; the form shows a price that no longer
-   * applies, so it closes and the offer reloads.
+   * The server refused the chosen plan as no longer offered (the roster
+   * outgrew it, or its Price was retired), at Pay or when opening Stripe's
+   * page. Nothing was charged; the form shows a plan that no longer applies,
+   * so it closes and the offer reloads.
    */
   | {
-      readonly type: "repriced";
+      readonly type: "plan-unavailable";
       readonly attempt: number;
       readonly error: string;
     }
   /** Paid, or cancelled by the provider: the session is spent. */
   | { readonly type: "confirmed"; readonly attempt: number }
+  /** Pay on Stripe's hosted page instead, for the form's plan. */
+  | { readonly type: "open-stripe" }
+  /** The buyer is on Stripe's page; the inline form closes. */
+  | { readonly type: "stripe-opened"; readonly attempt: number }
+  /** Stripe's page could not be opened; the form stays for another try. */
+  | {
+      readonly type: "stripe-refused";
+      readonly attempt: number;
+      readonly error: string;
+    }
   /** Cancel, organization switch, disable, or unmount. */
   | { readonly type: "teardown" };
 
@@ -158,6 +186,16 @@ export function transitionDirectCheckout(
             session: state.session,
           }
         : state;
+    case "open-stripe":
+      return state.kind === "collecting" && state.formReady
+        ? {
+            kind: "opening-stripe",
+            attempt: state.attempt,
+            plan: state.plan,
+            emailComplete: state.emailComplete,
+            session: state.session,
+          }
+        : state;
     case "teardown":
       return state === IDLE_DIRECT_CHECKOUT ? state : IDLE_DIRECT_CHECKOUT;
     default:
@@ -168,7 +206,7 @@ export function transitionDirectCheckout(
 /** Events an attempt's own continuations send; another attempt's are ignored. */
 type AttemptEvent = Exclude<
   DirectCheckoutEvent,
-  { readonly type: "begin" | "confirm" | "teardown" }
+  { readonly type: "begin" | "confirm" | "open-stripe" | "teardown" }
 >;
 
 function transitionAttempt(
@@ -184,6 +222,7 @@ function transitionAttempt(
         "starting",
         "collecting",
         "confirming",
+        "opening-stripe",
       ) && state.emailComplete !== event.complete
         ? { ...state, emailComplete: event.complete }
         : state;
@@ -191,17 +230,47 @@ function transitionAttempt(
       return inAttempt(state, attempt, "confirming")
         ? { ...state, kind: "collecting", formReady: true, error: event.error }
         : state;
-    case "repriced":
-      return inAttempt(state, attempt, "confirming")
+    case "plan-changed":
+      return inAttempt(state, attempt, "collecting") &&
+        state.plan.priceId !== event.plan.priceId
+        ? { ...state, plan: event.plan, error: null }
+        : state;
+    case "plan-unavailable":
+      return inAttempt(
+        state,
+        attempt,
+        "collecting",
+        "confirming",
+        "opening-stripe",
+      )
         ? { kind: "idle", error: event.error }
         : state;
     case "confirmed":
       return inAttempt(state, attempt, "confirming")
         ? IDLE_DIRECT_CHECKOUT
         : state;
+    case "stripe-opened":
+    case "stripe-refused":
+      return transitionStripePage(state, event);
     default:
       return transitionLoad(state, event);
   }
+}
+
+/** Answers to opening Stripe's hosted page for the form's plan. */
+function transitionStripePage(
+  state: DirectCheckoutMachineState,
+  event: Extract<
+    AttemptEvent,
+    { readonly type: "stripe-opened" | "stripe-refused" }
+  >,
+): DirectCheckoutMachineState {
+  if (!inAttempt(state, event.attempt, "opening-stripe")) {
+    return state;
+  }
+  return event.type === "stripe-opened"
+    ? IDLE_DIRECT_CHECKOUT
+    : { ...state, kind: "collecting", formReady: true, error: event.error };
 }
 
 /** The element mount and the provider form's load. */

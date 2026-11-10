@@ -93,6 +93,7 @@ Button or the Elements `paymentMethodTypes` option, both removed in 10.0; it
 restricts the form to cards with `allowedPaymentMethodTypes`.
 [`packages/app-web/src/webDirectCheckout.ts`](../../packages/app-web/src/webDirectCheckout.ts)
 uses the pure loader, a Payment Element in deferred subscription mode,
+`elements.update` to re-price it when the buyer switches plans,
 `elements.submit()`, and `confirmPayment` with the client secret of the
 subscription the server starts at Pay; it does not use Elements with Checkout
 Sessions. Email
