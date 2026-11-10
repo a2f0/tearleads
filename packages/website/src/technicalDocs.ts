@@ -61,7 +61,7 @@ export const technicalDocs: readonly TechnicalDoc[] = [
     slug: "glossary",
     source: "docs/glossary.md",
     title: "Glossary",
-    summary: "Shared protocol terms used across the technical documents.",
+    summary: "Shared protocol terms used across the documentation.",
   },
 ];
 

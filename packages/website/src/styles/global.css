@@ -256,8 +256,7 @@ html body {
       .skip-link,
       .site-actions,
       .site-cta,
-      .site-shot,
-      .site-contents
+      .site-shot
     ) {
     display: none;
   }

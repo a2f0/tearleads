@@ -43,7 +43,7 @@ const brief = page.responses.filter((response) => !detailed.includes(response));
     <PageHeader title={`${method} ${operation.path}`}>
       <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
         <ol role="list">
-          <li><a href="/docs/">Technical documents</a></li>
+          <li><a href="/docs/">Documentation</a></li>
           <li><a href={referencePath}>API reference</a></li>
           <li><a href={`${referencePath}#${apiReference.tagAnchors.get(operation.tag)}`}>{operation.tag}</a></li>
         </ol>

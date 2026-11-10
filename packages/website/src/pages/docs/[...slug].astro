@@ -6,7 +6,6 @@ import Layout from "../../layouts/Layout.astro";
 import {
   docForSlug,
   docPath,
-  sourceUrl,
   type TechnicalDoc,
   technicalDocPages,
 } from "../../technicalDocs";
@@ -56,17 +55,11 @@ const forwardsAnchors = Object.keys(forwards).length > 0;
       <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
         <ol role="list">
           <li><a href="/security/">Security</a></li>
-          <li><a href="/docs/">Technical documents</a></li>
+          <li><a href="/docs/">Documentation</a></li>
           {parent && <li><a href={docPath(parent)}>{parent.title}</a></li>}
           <li aria-current="page">{doc.title}</li>
         </ol>
       </nav>
-      <p class="docs-source">
-        Published from{" "}
-        <a class="site-link" href={sourceUrl(doc.source)}>
-          {doc.source}<span aria-hidden="true"> ↗</span><span class="visually-hidden"> (GitHub)</span>
-        </a>
-      </p>
     </PageHeader>
     {contents.length > 2 ? (
       <ReadingLayout class="site-prose docs-prose" contents={contents} wide>

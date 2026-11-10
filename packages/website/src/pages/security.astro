@@ -3,6 +3,7 @@ import accessKeyingSvg from "../../../../docs/diagrams/access-and-keying.svg?raw
 import infrastructureSvg from "../../../../docs/diagrams/infrastructure.svg?raw";
 import DocsDiagram from "../components/DocsDiagram.astro";
 import PageHeader from "../components/PageHeader.astro";
+import ReadingLayout from "../components/ReadingLayout.astro";
 import SectionHeader from "../components/SectionHeader.astro";
 import SecurityArchitectureDiagram from "../components/SecurityArchitectureDiagram.astro";
 import SecurityCryptography from "../components/SecurityCryptography.astro";
@@ -27,7 +28,7 @@ const contents = [
   { href: "#cryptography", label: "Cryptography" },
   { href: "#infrastructure", label: "Infrastructure" },
   { href: "#trust-boundaries", label: "Scope" },
-  { href: "#documents", label: "Technical documents" },
+  { href: "#documents", label: "Documentation" },
 ];
 
 const zanzibarPaperUrl =
@@ -45,206 +46,196 @@ const zanzibarPaperUrl =
     >
       <p class="security-header-note">
         This page summarizes the implementation.
-        The <a href="#documents">technical documents</a> define the rules and
-        known gaps in detail.
+        The <a href="#documents">documentation</a> defines the rules and known
+        gaps in detail.
       </p>
     </PageHeader>
 
-    <nav class="site-contents security-contents" aria-label="On this page">
-      <ol role="list">
-        {contents.map((item, index) => (
-          <li>
-            <a href={item.href}>
-              <span class="site-index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>{item.label}
-            </a>
-          </li>
-        ))}
-      </ol>
-    </nav>
-
-    <section class="site-section security-section security-section--first" id="threat-model" aria-labelledby="threat-model-title">
-      <SectionHeader index="01" titleId="threat-model-title" title="Assumptions" />
-      <p class="site-prose">
-        These properties assume an honest, uncompromised client that runs its
-        validation checks, uncompromised user private keys, authentic identity
-        keys, and working cryptographic primitives. The API and its storage may
-        be compromised. What falls outside these guarantees is listed
-        under <a href="#trust-boundaries">Scope</a>.
-      </p>
-    </section>
-
-    <section class="site-section security-section" id="access-keying" aria-labelledby="access-keying-title">
-      <SectionHeader
-        index="02"
-        titleId="access-keying-title"
-        title="Access lookup and keying"
-        lede="Authority comes from signed manifests. Access is looked up from a resource up to the people it is shared with; keys unwrap the other way, from a user key down to the content."
-      />
-      <div class="site-prose">
-        <p>
-          The permission structure draws on Google's <a href={zanzibarPaperUrl}>Zanzibar</a>:
-          access is recorded as relationships, and a check starts at the resource and
-          walks upward. A file is reachable through the documents it is attached
-          to, a document through every container (a folder in Explorer) it is
-          linked into, and a container through its parents up to the root. So
-          one document can be shared through grants at different depths of the
-          container hierarchy, and those grants add up.
+    <ReadingLayout contents={contents} wide>
+      <section class="site-section security-section" id="threat-model" aria-labelledby="threat-model-title">
+        <SectionHeader index="01" titleId="threat-model-title" title="Assumptions" />
+        <p class="site-prose">
+          These properties assume an honest, uncompromised client that runs its
+          validation checks, uncompromised user private keys, authentic identity
+          keys, and working cryptographic primitives. The API and its storage may
+          be compromised. What falls outside these guarantees is listed
+          under <a href="#trust-boundaries">Scope</a>.
         </p>
-        <p>
-          Unlike Zanzibar, clients do not take the server's answer on trust. The
-          API enforces access, but each relationship is also a signed record
-          that every client verifies for itself before it reads or encrypts,
-          and Tearleads uses a fixed set of relationships rather than
-          Zanzibar's configurable rewrite rules. Keys follow the same paths in
-          reverse: a container's key opens the keys of the containers,
-          documents, and files beneath it.
-        </p>
-      </div>
-      <DocsDiagram svg={accessKeyingSvg} label="Access lookup and keying diagram" captionId="access-keying-caption">
-        <span class="security-figure-label">Fig. 1</span> Bob can read Blob B because it is
-        bound to Doc D, which links Inbox (C3), where Bob holds a direct write grant.
-        Solid lines are signed lookup relationships; dashed lines are key unwraps.
-        The <a class="site-link" href={sourceUrl("docs/access-plane.md")}>access plane document</a>
-        describes each rule.
-      </DocsDiagram>
-    </section>
+      </section>
 
-    <section class="site-section security-section" id="device-boundary" aria-labelledby="device-title">
-      <SectionHeader
-        index="03"
-        titleId="device-title"
-        title="Your device and the sync service"
-        lede="Local encryption protects data stored on your device. End-to-end content encryption lets the service sync documents and files without the keys needed to read them."
-      />
-      <SecurityArchitectureDiagram />
-      <div class="security-pair">
-        <div>
-          <h3>Encrypted</h3>
-          <ul class="security-inventory" role="list">
-            <li>Document and file contents</li>
-            <li>Encrypted metadata, such as folder names</li>
-            <li>Organization names and custom group names</li>
-            <li>The keys wrapped for recipients</li>
-          </ul>
+      <section class="site-section security-section" id="access-keying" aria-labelledby="access-keying-title">
+        <SectionHeader
+          index="02"
+          titleId="access-keying-title"
+          title="Access lookup and keying"
+          lede="Authority comes from signed manifests. Access is looked up from a resource up to the people it is shared with; keys unwrap the other way, from a user key down to the content."
+        />
+        <div class="site-prose">
           <p>
-            Decrypting them requires the matching private keys or unwrapped
-            content keys.
+            The permission structure draws on Google's <a href={zanzibarPaperUrl}>Zanzibar</a>:
+            access is recorded as relationships, and a check starts at the resource and
+            walks upward. A file is reachable through the documents it is attached
+            to, a document through every container (a folder in Explorer) it is
+            linked into, and a container through its parents up to the root. So
+            one document can be shared through grants at different depths of the
+            container hierarchy, and those grants add up.
+          </p>
+          <p>
+            Unlike Zanzibar, clients do not take the server's answer on trust. The
+            API enforces access, but each relationship is also a signed record
+            that every client verifies for itself before it reads or encrypts,
+            and Tearleads uses a fixed set of relationships rather than
+            Zanzibar's configurable rewrite rules. Keys follow the same paths in
+            reverse: a container's key opens the keys of the containers,
+            documents, and files beneath it.
           </p>
         </div>
-        <div>
-          <h3>Visible to the service</h3>
-          <ul class="security-inventory" role="list">
-            <li>Built-in group roles, such as Admins and Members</li>
-            <li>Roster and group membership</li>
-            <li>
-              The structure of folders, documents, and files, including which
-              attachments belong to which documents
-            </li>
-            <li>Identifiers and public keys</li>
-            <li>Access-policy and grant relationships</li>
-            <li>
-              Which user and device signed each access change and write, with
-              its signed timestamp
-            </li>
-            <li>The metadata that orders document updates</li>
-            <li>Ciphertext sizes and storage usage</li>
-            <li>
-              IP addresses, session and activity times, and the IP address
-              recorded when your identity is registered
-            </li>
-            <li>
-              Subscription and billing records, including the billing email for
-              a web subscription
-            </li>
-          </ul>
-          <p>
-            Encryption does not hide this information or traffic patterns such
-            as request timing and size.
-          </p>
+        <DocsDiagram svg={accessKeyingSvg} label="Access lookup and keying diagram" captionId="access-keying-caption">
+          <span class="security-figure-label">Fig. 1</span> Bob can read Blob B because it is
+          bound to Doc D, which links Inbox (C3), where Bob holds a direct write grant.
+          Solid lines are signed lookup relationships; dashed lines are key unwraps.
+          The <a class="site-link" href={sourceUrl("docs/access-plane.md")}>access plane document</a>
+          describes each rule.
+        </DocsDiagram>
+      </section>
+
+      <section class="site-section security-section" id="device-boundary" aria-labelledby="device-title">
+        <SectionHeader
+          index="03"
+          titleId="device-title"
+          title="Your device and the sync service"
+          lede="Local encryption protects data stored on your device. End-to-end content encryption lets the service sync documents and files without the keys needed to read them."
+        />
+        <SecurityArchitectureDiagram />
+        <div class="security-pair">
+          <div>
+            <h3>Encrypted</h3>
+            <ul class="security-inventory" role="list">
+              <li>Document and file contents</li>
+              <li>Encrypted metadata, such as folder names</li>
+              <li>Organization names and custom group names</li>
+              <li>The keys wrapped for recipients</li>
+            </ul>
+            <p>
+              Decrypting them requires the matching private keys or unwrapped
+              content keys.
+            </p>
+          </div>
+          <div>
+            <h3>Visible to the service</h3>
+            <ul class="security-inventory" role="list">
+              <li>Built-in group roles, such as Admins and Members</li>
+              <li>Roster and group membership</li>
+              <li>
+                The structure of folders, documents, and files, including which
+                attachments belong to which documents
+              </li>
+              <li>Identifiers and public keys</li>
+              <li>Access-policy and grant relationships</li>
+              <li>
+                Which user and device signed each access change and write, with
+                its signed timestamp
+              </li>
+              <li>The metadata that orders document updates</li>
+              <li>Ciphertext sizes and storage usage</li>
+              <li>
+                IP addresses, session and activity times, and the IP address
+                recorded when your identity is registered
+              </li>
+              <li>
+                Subscription and billing records, including the billing email for
+                a web subscription
+              </li>
+            </ul>
+            <p>
+              Encryption does not hide this information or traffic patterns such
+              as request timing and size.
+            </p>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="site-section security-section" id="verified-sharing" aria-labelledby="sharing-title">
-      <SectionHeader
-        index="04"
-        titleId="sharing-title"
-        title="Verified sharing"
-        lede="A container (a folder in Explorer) groups content and its access rules. Clients derive who can receive its keys from verified access manifests and signed group policies. Editing a server-side membership row is not enough to grant access."
-      />
-      <SecuritySharingDiagram />
-      <div class="security-pair">
-        <div>
-          <h3>Signed history and checkpoints</h3>
-          <p>
-            Signatures and hash chains bind policies and access changes to their
-            authors and predecessors. Clients remember identity keys and policy
-            and access checkpoints, and reject later substitutions, conflicting
-            versions of the same history, and rollbacks below the state they
-            have seen.
-          </p>
+      <section class="site-section security-section" id="verified-sharing" aria-labelledby="sharing-title">
+        <SectionHeader
+          index="04"
+          titleId="sharing-title"
+          title="Verified sharing"
+          lede="A container (a folder in Explorer) groups content and its access rules. Clients derive who can receive its keys from verified access manifests and signed group policies. Editing a server-side membership row is not enough to grant access."
+        />
+        <SecuritySharingDiagram />
+        <div class="security-pair">
+          <div>
+            <h3>Signed history and checkpoints</h3>
+            <p>
+              Signatures and hash chains bind policies and access changes to their
+              authors and predecessors. Clients remember identity keys and policy
+              and access checkpoints, and reject later substitutions, conflicting
+              versions of the same history, and rollbacks below the state they
+              have seen.
+            </p>
+          </div>
+          <div>
+            <h3>Revocation applies going forward</h3>
+            <p>
+              Removing group members rotates the group key and the affected
+              container keys in one atomic update. Removing access cannot erase
+              content or keys someone already received. Nested containers and
+              retained history are covered under <a href="#trust-boundaries">Scope</a>.
+            </p>
+          </div>
         </div>
-        <div>
-          <h3>Revocation applies going forward</h3>
-          <p>
-            Removing group members rotates the group key and the affected
-            container keys in one atomic update. Removing access cannot erase
-            content or keys someone already received. Nested containers and
-            retained history are covered under <a href="#trust-boundaries">Scope</a>.
-          </p>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <SecurityCryptography />
+      <SecurityCryptography />
 
-    <section class="site-section security-section" id="infrastructure" aria-labelledby="infrastructure-title">
-      <SectionHeader
-        index="06"
-        titleId="infrastructure-title"
-        title="Infrastructure"
-        lede="The sync service runs on Cloudflare Workers with PlanetScale Postgres and Cloudflare R2 storage. Every part of it sits on the service side of the boundary in Fig. 2."
-      />
-      <DocsDiagram svg={infrastructureSvg} label="Infrastructure diagram" captionId="infrastructure-caption">
-        <span class="security-figure-label">Fig. 4</span> The production tier. Clients
-        talk to the API Worker and fetch encrypted blob bytes from R2 through
-        short-lived presigned URLs. Dashed boxes are third-party services. The
-        <a class="site-link" href={sourceUrl("docs/developer/infrastructure.md")}>infrastructure guide</a>
-        describes each stack and deployment step.
-      </DocsDiagram>
-    </section>
+      <section class="site-section security-section" id="infrastructure" aria-labelledby="infrastructure-title">
+        <SectionHeader
+          index="06"
+          titleId="infrastructure-title"
+          title="Infrastructure"
+          lede="The sync service runs on Cloudflare Workers with PlanetScale Postgres and Cloudflare R2 storage. Every part of it sits on the service side of the boundary in Fig. 2."
+        />
+        <DocsDiagram svg={infrastructureSvg} label="Infrastructure diagram" captionId="infrastructure-caption">
+          <span class="security-figure-label">Fig. 4</span> The production tier. Clients
+          talk to the API Worker and fetch encrypted blob bytes from R2 through
+          short-lived presigned URLs. Dashed boxes are third-party services. The
+          <a class="site-link" href={sourceUrl("docs/developer/infrastructure.md")}>infrastructure guide</a>
+          describes each stack and deployment step.
+        </DocsDiagram>
+      </section>
 
-    <SecurityLimits />
+      <SecurityLimits />
 
-    <section class="site-section security-section" id="documents" aria-labelledby="documents-title">
-      <SectionHeader
-        index="08"
-        titleId="documents-title"
-        title="Technical documents"
-        lede="These documents, published from the public Tearleads repository on GitHub, define the verification rules, assumptions, and remaining gaps in more detail."
-      />
-      <dl class="site-spec site-spec--wide-key security-documents">
-        {technicalDocs.map((doc) => (
+      <section class="site-section security-section" id="documents" aria-labelledby="documents-title">
+        <SectionHeader
+          index="08"
+          titleId="documents-title"
+          title="Documentation"
+          lede="These documents, published from the public Tearleads repository on GitHub, define the verification rules, assumptions, and remaining gaps in more detail."
+        />
+        <dl class="site-spec site-spec--wide-key security-documents">
+          {technicalDocs.map((doc) => (
+            <div>
+              <dt>
+                <a class="site-link" href={docPath(doc)}>{doc.title}</a>
+              </dt>
+              <dd>
+                {doc.summary}
+                <span class="security-documents-path">{doc.source}</span>
+              </dd>
+            </div>
+          ))}
           <div>
             <dt>
-              <a class="site-link" href={docPath(doc)}>{doc.title}</a>
+              <a class="site-link" href={apiReferenceListing.path}>{apiReferenceListing.title}</a>
             </dt>
             <dd>
-              {doc.summary}
-              <span class="security-documents-path">{doc.source}</span>
+              {apiReferenceListing.summary}
+              <span class="security-documents-path">{apiReferenceListing.source}</span>
             </dd>
           </div>
-        ))}
-        <div>
-          <dt>
-            <a class="site-link" href={apiReferenceListing.path}>{apiReferenceListing.title}</a>
-          </dt>
-          <dd>
-            {apiReferenceListing.summary}
-            <span class="security-documents-path">{apiReferenceListing.source}</span>
-          </dd>
-        </div>
-      </dl>
-    </section>
+        </dl>
+      </section>
+    </ReadingLayout>
   </div>
 </Layout>
