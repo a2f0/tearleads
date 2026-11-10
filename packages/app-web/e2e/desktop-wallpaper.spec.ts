@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { wallpaperPixels } from "./wallpaperPixels";
 import {
   openWindowedDesktop,
@@ -100,6 +100,74 @@ for (const [label, id] of [
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dusk");
   });
 }
+
+// The largest channel spread among the painted pixels, filters included,
+// which computed colors (and wallpaperPixels) cannot show.
+async function renderedChroma(page: Page, target: Locator): Promise<number> {
+  const png = (await target.screenshot()).toString("base64");
+  return page.evaluate(async (data) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${data}`;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) {
+      throw new Error("Cannot inspect the screenshot pixels");
+    }
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let chroma = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      const rgb = [pixels[index], pixels[index + 1], pixels[index + 2]].map(
+        (value) => value ?? 0,
+      );
+      chroma = Math.max(chroma, Math.max(...rgb) - Math.min(...rgb));
+    }
+    return chroma;
+  }, png);
+}
+
+test("the desktop and its swatches render grayscale in Light and Dark, tinted in Dusk", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await openWindowedDesktop(page);
+  const display = await openDisplayProperties(page);
+  const wallpaper = page
+    .locator(".pane:not(.pane-hidden) .desktop-wallpaper")
+    .first();
+  await expect(wallpaper).toHaveAttribute("data-wallpaper", "tidal");
+  const swatch = display
+    .locator("label")
+    .filter({ has: page.getByRole("radio", { name: "Tidal", exact: true }) })
+    .locator(".display-properties-swatch");
+  for (const theme of ["Light", "Dark", "Dusk"]) {
+    await display.getByText(theme, { exact: true }).click();
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-theme",
+      theme.toLowerCase(),
+    );
+    // Leave only the wallpaper painted on the desktop.
+    const bareDesktop = await page.addStyleTag({
+      content:
+        ".pane-main > :not(.desktop-wallpaper) { visibility: hidden !important; }",
+    });
+    const desktopChroma = await renderedChroma(page, wallpaper);
+    await bareDesktop.evaluate((element) =>
+      element.parentNode?.removeChild(element),
+    );
+    const swatchChroma = await renderedChroma(page, swatch);
+    if (theme === "Dusk") {
+      expect(desktopChroma).toBeGreaterThan(8);
+      expect(swatchChroma).toBeGreaterThan(8);
+    } else {
+      expect(desktopChroma).toBeLessThanOrEqual(1);
+      expect(swatchChroma).toBeLessThanOrEqual(1);
+    }
+  }
+});
 
 for (const id of ["blocks", "honeycomb", "triangles", "plain"]) {
   test(`an existing ${id} preference is not replaced by the new default`, async ({
