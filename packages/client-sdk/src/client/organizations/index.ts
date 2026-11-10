@@ -3,6 +3,7 @@ import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVer
 import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import {
   cancelStripeSubscription,
+  changeStripePlan,
   checkNativePurchaseEligibility,
   claimNativeOrganizationSubscription,
   createStripeCheckout,
@@ -266,6 +267,18 @@ class OrganizationsService implements Organizations {
 
   cancelStripeSubscription() {
     return runForOrganization(this.runtimeService, cancelStripeSubscription);
+  }
+
+  changeStripePlan(
+    priceId: string,
+    currentSeatCount: number,
+    organizationId?: string,
+  ) {
+    return runForOrganization(
+      this.runtimeService,
+      (input) => changeStripePlan({ ...input, currentSeatCount, priceId }),
+      organizationId,
+    );
   }
 
   claimNativeSubscription(

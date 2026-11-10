@@ -22,6 +22,7 @@ import {
   isCheckoutScreenOpen,
 } from "./BillingDirectCheckout";
 import { OptionalBillingHistory } from "./BillingHistory";
+import { BillingStripePlanSwitcher } from "./BillingPlanSwitcher";
 import { BillingRecoveryStatus, BillingView } from "./BillingView";
 import { useBillingHistory } from "./useBillingHistory";
 import {
@@ -274,6 +275,13 @@ function BillingPanelSubscriptionControls(input: BillingPanelControlsInput) {
         <BillingCancelSubscription
           cancel={direct.cancel}
           disabled={actions.busy !== null}
+        />
+      ) : null}
+      {direct.showInlineCancel && direct.checkout.available && !screen ? (
+        <BillingStripePlanSwitcher
+          billing={input.billing}
+          disabled={actions.busy !== null}
+          organizationId={input.organizationId}
         />
       ) : null}
     </>

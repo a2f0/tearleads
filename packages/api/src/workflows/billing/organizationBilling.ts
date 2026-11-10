@@ -41,6 +41,7 @@ import {
   hasActiveStripeBinding,
   hasStripeBindingIdentity,
 } from "./stripeBindingPolicy";
+import { resolvePendingStripeSeatCount } from "./stripePlanChange";
 
 /**
  * Starts an organization's free sync trial. Admin-only. A `local` organization
@@ -180,11 +181,6 @@ export async function runGetOrganizationBillingWorkflow(
       organizationId,
       knownMemberGroupId,
     );
-    const pendingSeatCount = await resolvePendingNativeSeatCount(
-      tx,
-      organizationId,
-      billing,
-    );
     const seatUsage = await loadOrganizationBillingSeatUsage({
       executor: tx,
       organizationId,
@@ -197,6 +193,12 @@ export async function runGetOrganizationBillingWorkflow(
         persisted,
         ...(deps.stripe ? { stripe: deps.stripe } : {}),
       });
+    // A store schedules a native change; a Stripe subscription renews at the
+    // plan an administrator chose.
+    const pendingSeatCount =
+      ownership.subscriptionSource === "stripe"
+        ? await resolvePendingStripeSeatCount(tx, organizationId, billing)
+        : await resolvePendingNativeSeatCount(tx, organizationId, billing);
     return {
       activeMemberCount,
       billing,
