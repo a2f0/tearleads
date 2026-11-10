@@ -2,12 +2,10 @@ import { isUuidV4String } from "@tearleads/validators/util";
 import { associateStripeSubscription } from "../../billing/revenueCatStripeAssociation";
 import {
   createSyncSubscription,
-  hasOpenOrgSubscription,
   isStripeCheckoutConfigured,
   StripeApiError,
   type StripeCheckoutIntent,
 } from "../../billing/stripeApi";
-import { createCheckoutSession } from "../../billing/stripeCheckoutSession";
 import { findOrCreateCustomer } from "../../billing/stripeCustomer";
 import { promoteCustomerEmail } from "../../billing/stripeCustomerEmail";
 import { getSubscriptionBinding } from "../../billing/stripeSubscriptionBinding";
@@ -36,7 +34,7 @@ import type { ApiServiceRuntime } from "../runtime";
 import {
   requireCurrentInlineAttempt,
   requireOfferedPlan,
-  voidOtherInlineCheckouts,
+  retireOtherCheckouts,
 } from "./stripeCheckoutAttempt";
 import {
   isDirectCheckoutFullyConfigured,
@@ -85,7 +83,7 @@ export async function createStripeCheckout(
   if (!customerId) {
     return null;
   }
-  await voidOtherInlineCheckouts({
+  await retireOtherCheckouts({
     attemptId: attempt.attemptId,
     customerId,
     db: runtime.db,
@@ -122,78 +120,6 @@ export async function createStripeCheckout(
     subscriptionId: outcome.intent.subscriptionId,
   });
   return outcome.intent;
-}
-
-/**
- * The off-site alternative to {@link createStripeCheckout}: returns a hosted
- * Stripe Checkout page URL for a buyer who does not want the inline form. Same
- * admin gate, same local-status eligibility guard, and the same Stripe-side
- * duplicate guard (an already-subscribed org is a 409), same full-configuration
- * requirement (the resulting subscription flows through the same webhook →
- * RevenueCat association), and the same per-(user, org) customer. Null when
- * unconfigured.
- */
-export async function createStripeCheckoutSession(
-  runtime: ApiServiceRuntime,
-  organizationId: string,
-  sessionUserId: string,
-  request: { readonly priceId: string; readonly returnUrl: string },
-  deps: StripeCheckoutServiceDeps = {},
-): Promise<string | null> {
-  await runRequireCheckoutEligibleWorkflow(
-    runtime.db,
-    organizationId,
-    sessionUserId,
-  );
-  if (!isDirectCheckoutFullyConfigured(deps)) {
-    return null;
-  }
-  const attempt = await runAcquireStripeCheckoutAttemptWorkflow(
-    runtime.db,
-    organizationId,
-    sessionUserId,
-    "hosted",
-    { plan: await requireOfferedPlan(request.priceId, deps.stripe ?? {}) },
-  );
-  // Stripe-side duplicate guard, mirroring the inline flow. The local billing
-  // status the eligibility workflow reads can lag Stripe (e.g. a webhook
-  // outage), so a session minted here could complete into a SECOND billing
-  // subscription and double-bill. `createSyncSubscription` closes this window
-  // for inline checkout via its own search; check explicitly here before
-  // minting a hosted Session. A still-incomplete inline subscription blocks as
-  // well because its payment could complete while the hosted page is open.
-  const existing = await hasOpenOrgSubscription(
-    organizationId,
-    deps.stripe ?? {},
-  );
-  if (existing) {
-    throw new OrganizationManagerError(
-      "The organization already has an active subscription",
-      409,
-    );
-  }
-  const customerId = await findOrCreateCustomer(
-    { userId: sessionUserId, organizationId },
-    deps.stripe ?? {},
-  );
-  if (!customerId) {
-    return null;
-  }
-  // One origin-validated URL for both outcomes: the buyer lands back on the
-  // billing panel whether they paid or backed out, and a paid return reads as
-  // activation-pending until the webhook grants the entitlement.
-  return createCheckoutSession(
-    {
-      checkoutAttemptId: attempt.attemptId,
-      customerId,
-      expiresAt: attempt.providerExpiresAt ?? attempt.expiresAt,
-      userId: sessionUserId,
-      organizationId,
-      returnUrl: request.returnUrl,
-      seatQuantity: attempt.seatQuantity,
-    },
-    deps.stripe ?? {},
-  );
 }
 
 /**

@@ -5,6 +5,8 @@ import {
   type StripeApiDeps,
 } from "../../billing/stripeApi";
 import {
+  expireCheckoutSession,
+  expireStaleCheckoutSessions,
   voidReplacedCheckout,
   voidStaleInlineCheckouts,
 } from "../../billing/stripeCheckoutVoid";
@@ -37,32 +39,36 @@ export async function requireOfferedPlan(
 }
 
 /**
- * An inline attempt rotates when the buyer chooses another plan, and the
- * abandoned form's subscription would still charge the old one. Every inline
- * checkout therefore voids the buyer's unpaid checkouts from other attempts
- * before offering its own: any concurrent retry, or a retry after a failed
- * void, retires them again. A request whose own attempt was replaced
- * meanwhile voids nothing. A payment that already went through keeps the
- * 409.
+ * The attempt rotates when the buyer chooses another plan or the other way to
+ * pay, and the abandoned checkout could still charge them: an inline form's
+ * subscription, or a hosted Session they left or never reached. Every
+ * checkout therefore retires the buyer's unpaid checkouts from other attempts
+ * before offering its own, voiding inline invoices and expiring hosted
+ * Sessions: any concurrent retry, or a retry after a failed retirement,
+ * retires them again. A request whose own attempt was replaced meanwhile
+ * retires nothing. A payment that already went through keeps the 409.
  */
-export async function voidOtherInlineCheckouts(input: {
+export async function retireOtherCheckouts(input: {
   readonly attemptId: string;
   readonly customerId: string;
   readonly db: ApiDatabase;
   readonly organizationId: string;
   readonly stripe: StripeApiDeps;
 }): Promise<void> {
-  const voided = await voidStaleInlineCheckouts(
-    {
-      customerId: input.customerId,
-      currentAttemptId: input.attemptId,
-      stillReserved: async () =>
-        (await readStripeCheckoutAttemptId(input.db, input.organizationId)) ===
-        input.attemptId,
-    },
-    input.stripe,
-  );
-  if (!voided) {
+  const stale = {
+    customerId: input.customerId,
+    currentAttemptId: input.attemptId,
+    stillReserved: async () =>
+      (await readStripeCheckoutAttemptId(input.db, input.organizationId)) ===
+      input.attemptId,
+  };
+  const retired =
+    (await voidStaleInlineCheckouts(stale, input.stripe)) &&
+    (await expireStaleCheckoutSessions(
+      { ...stale, now: new Date() },
+      input.stripe,
+    ));
+  if (!retired) {
     throw stripeCheckoutInProgress();
   }
 }
@@ -88,6 +94,29 @@ export async function requireCurrentInlineAttempt(input: {
   );
   if (current !== input.attemptId) {
     await voidReplacedCheckout(input.subscriptionId, input.stripe);
+    throw stripeCheckoutInProgress();
+  }
+}
+
+/**
+ * Hands out a hosted Session only while its attempt is still the reserved
+ * one, as {@link requireCurrentInlineAttempt} does for the inline form: a
+ * Session created after its attempt was replaced is expired before its URL
+ * leaves the server.
+ */
+export async function requireCurrentHostedAttempt(input: {
+  readonly attemptId: string;
+  readonly db: ApiDatabase;
+  readonly organizationId: string;
+  readonly sessionId: string;
+  readonly stripe: StripeApiDeps;
+}): Promise<void> {
+  const current = await readStripeCheckoutAttemptId(
+    input.db,
+    input.organizationId,
+  );
+  if (current !== input.attemptId) {
+    await expireCheckoutSession(input.sessionId, input.stripe);
     throw stripeCheckoutInProgress();
   }
 }

@@ -4,55 +4,14 @@ import { organizationBilling } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { registerAndAuthenticateWithOrganization } from "../../../test/helpers/registerUser";
+import { fakeStripeCheckout } from "../../../test/helpers/stripeCheckoutFake";
 import {
   REVENUECAT_WEBHOOK_ENV as REVENUECAT_ENV,
   STRIPE_WEBHOOK_ENV as STRIPE_ENV,
 } from "../../../test/helpers/stripeWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
-import {
-  createStripeCheckout,
-  createStripeCheckoutSession,
-} from "./stripeCheckout";
-
-function checkoutFetch(recordedCreates: Request[]): typeof fetch {
-  return (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const request = new Request(input, init);
-    const path = new URL(request.url).pathname;
-    if (path.endsWith("/prices/price_sync")) {
-      return Response.json({
-        active: true,
-        currency: "usd",
-        id: "price_sync",
-        product: { active: true, id: "prod_sync" },
-        recurring: { interval: "month", interval_count: 1 },
-        unit_amount: 500,
-      });
-    }
-    if (path.endsWith("/subscriptions/search")) {
-      return Response.json({ data: [], has_more: false });
-    }
-    if (path.endsWith("/customers/search")) {
-      return Response.json({ data: [{ id: "cus_org" }] });
-    }
-    if (path.endsWith("/subscriptions") && request.method !== "POST") {
-      return Response.json({ data: [], has_more: false });
-    }
-    if (path.endsWith("/subscriptions")) {
-      recordedCreates.push(request);
-      return Response.json({
-        id: "sub_org",
-        latest_invoice: {
-          payment_intent: { client_secret: "pi_secret" },
-        },
-      });
-    }
-    if (path.endsWith("/checkout/sessions")) {
-      recordedCreates.push(request);
-      return Response.json({ url: "https://checkout.stripe.com/pay/cs_org" });
-    }
-    throw new Error(`Unexpected Stripe request: ${path}`);
-  }) as typeof fetch;
-}
+import { createStripeCheckout } from "./stripeCheckout";
+import { createStripeCheckoutSession } from "./stripeHostedCheckout";
 
 function deps(fetchImpl: typeof fetch) {
   return {
@@ -61,81 +20,148 @@ function deps(fetchImpl: typeof fetch) {
   };
 }
 
-test("concurrent inline and hosted services issue one provider create", async () => {
+async function buyerWithStripe() {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticateWithOrganization(admin);
-  const creates: Request[] = [];
-  const serviceDeps = deps(checkoutFetch(creates));
-  const results = await Promise.allSettled([
-    createStripeCheckout(
-      getDefaultApiServiceRuntime(),
-      organizationId,
-      admin.userId,
-      "price_sync",
-      serviceDeps,
-    ),
-    createStripeCheckoutSession(
-      getDefaultApiServiceRuntime(),
-      organizationId,
-      admin.userId,
-      { priceId: "price_sync", returnUrl: "https://app.example/billing" },
-      serviceDeps,
-    ),
-  ]);
+  const stripe = fakeStripeCheckout(organizationId, admin.userId);
+  const serviceDeps = deps(stripe.fetchImpl);
+  return {
+    organizationId,
+    stripe,
+    payInline: (priceId = "price_sync", serviceDepsOverride = serviceDeps) =>
+      createStripeCheckout(
+        getDefaultApiServiceRuntime(),
+        organizationId,
+        admin.userId,
+        priceId,
+        serviceDepsOverride,
+      ),
+    payOnStripe: (
+      priceId = "price_sync",
+      serviceDepsOverride = serviceDeps,
+      returnUrl = "https://app.example/billing",
+    ) =>
+      createStripeCheckoutSession(
+        getDefaultApiServiceRuntime(),
+        organizationId,
+        admin.userId,
+        { priceId, returnUrl },
+        serviceDepsOverride,
+      ),
+  };
+}
 
-  expect(
-    results.filter((result) => result.status === "fulfilled"),
-  ).toHaveLength(1);
-  const rejected = results.filter((result) => result.status === "rejected");
-  expect(rejected).toHaveLength(1);
-  expect(rejected[0]?.reason).toMatchObject({ status: 409 });
-  expect(creates).toHaveLength(1);
-});
-
-test("a Pay for a plan that is no longer offered reserves nothing", async () => {
-  const admin = createTestUser();
-  const organizationId = await registerAndAuthenticateWithOrganization(admin);
-  const creates: Request[] = [];
-  const serviceDeps = deps(checkoutFetch(creates));
-
-  // A form loaded before a Price was retired must not hold the organization's
-  // one checkout reservation once it is refused.
-  await expect(
-    createStripeCheckout(
-      getDefaultApiServiceRuntime(),
-      organizationId,
-      admin.userId,
-      "price_retired",
-      serviceDeps,
-    ),
-  ).rejects.toMatchObject({
-    code: "billing_checkout_plan_unavailable",
-    status: 409,
-  });
+async function reservedAttemptId(organizationId: string) {
   const [billing] = await db
     .select({ attemptId: organizationBilling.checkoutAttemptId })
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId));
-  expect(billing?.attemptId).toBeNull();
+  return billing?.attemptId ?? null;
+}
+
+test("concurrent inline and hosted checkouts leave one payable checkout", async () => {
+  const { organizationId, payInline, payOnStripe, stripe } =
+    await buyerWithStripe();
+  const results = await Promise.allSettled([payInline(), payOnStripe()]);
+
+  // Whichever reserved last wins; the other is refused or retired, so the
+  // buyer can never pay twice.
+  const rejected = results.filter((result) => result.status === "rejected");
+  expect(rejected).toHaveLength(1);
+  expect(rejected[0]?.reason).toMatchObject({ status: 409 });
+  expect(stripe.payable()).toHaveLength(1);
+  expect(stripe.payable()[0]?.attemptId).toBe(
+    (await reservedAttemptId(organizationId)) ?? "",
+  );
+});
+
+test("leaving Stripe's page does not hold the buyer's inline Pay", async () => {
+  const { payInline, payOnStripe, stripe } = await buyerWithStripe();
+  // The buyer opens Stripe's page, then cancels or closes it without paying.
+  expect(await payOnStripe()).toBe("https://checkout.stripe.com/pay/cs_1");
+
+  const intent = await payInline();
+
+  expect(intent?.subscriptionId).toBe("sub_1");
+  // The abandoned page can no longer be paid; only the form can.
+  expect(stripe.sessions.map(({ status }) => status)).toEqual(["expired"]);
+  expect(stripe.payable().map(({ id }) => id)).toEqual(["sub_1"]);
+});
+
+test("Stripe's page for the open form's plan retires the form's checkout", async () => {
+  const { payInline, payOnStripe, stripe } = await buyerWithStripe();
+  await payInline("price_team_5");
+
+  expect(await payOnStripe("price_team_5")).toBe(
+    "https://checkout.stripe.com/pay/cs_1",
+  );
+  expect(stripe.subscriptions.map(({ status }) => status)).toEqual([
+    "incomplete_expired",
+  ]);
+  expect(stripe.payable().map(({ id }) => id)).toEqual(["cs_1"]);
+});
+
+test("a completed Stripe page keeps the buyer's other checkouts refused", async () => {
+  const { payInline, payOnStripe, stripe } = await buyerWithStripe();
+  await payOnStripe();
+  // Paid on Stripe's page; its subscription may still be settling.
+  const [session] = stripe.sessions;
+  if (session) session.status = "complete";
+
+  await expect(payInline()).rejects.toMatchObject({
+    message: "A checkout is already in progress for this organization",
+    status: 409,
+  });
+  expect(stripe.subscriptions).toHaveLength(0);
+});
+
+test("a Stripe page minted after its attempt was replaced is expired", async () => {
+  const { organizationId, payInline, payOnStripe, stripe } =
+    await buyerWithStripe();
+  let inline: Promise<unknown> | undefined;
+  // The buyer cancels the page while it is being created and pays inline:
+  // the inline checkout replaces the attempt before the Session exists.
+  const racing = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = new Request(input, init);
+    if (
+      request.method === "POST" &&
+      new URL(request.url).pathname === "/v1/checkout/sessions" &&
+      !inline
+    ) {
+      inline = payInline();
+      await inline;
+    }
+    return stripe.fetchImpl(request);
+  }) as typeof fetch;
+
+  await expect(payOnStripe("price_sync", deps(racing))).rejects.toMatchObject({
+    status: 409,
+  });
+  expect(stripe.sessions.map(({ status }) => status)).toEqual(["expired"]);
+  expect(stripe.payable().map(({ attemptId }) => attemptId)).toEqual([
+    (await reservedAttemptId(organizationId)) ?? "",
+  ]);
+});
+
+test("a Pay for a plan that is no longer offered reserves nothing", async () => {
+  const { organizationId, payInline, payOnStripe, stripe } =
+    await buyerWithStripe();
+
+  // A form loaded before a Price was retired must not hold the organization's
+  // one checkout reservation once it is refused.
+  await expect(payInline("price_retired")).rejects.toMatchObject({
+    code: "billing_checkout_plan_unavailable",
+    status: 409,
+  });
+  expect(await reservedAttemptId(organizationId)).toBeNull();
 
   // Another mode is not locked out by the refused Pay.
-  expect(
-    await createStripeCheckoutSession(
-      getDefaultApiServiceRuntime(),
-      organizationId,
-      admin.userId,
-      { priceId: "price_sync", returnUrl: "https://app.example/billing" },
-      serviceDeps,
-    ),
-  ).toBe("https://checkout.stripe.com/pay/cs_org");
-  expect(creates).toHaveLength(1);
+  expect(await payOnStripe()).toBe("https://checkout.stripe.com/pay/cs_1");
+  expect(stripe.creates).toHaveLength(1);
 });
 
 test("a Pay for a Price Stripe no longer offers reserves nothing", async () => {
-  const admin = createTestUser();
-  const organizationId = await registerAndAuthenticateWithOrganization(admin);
-  const creates: Request[] = [];
-  const offered = checkoutFetch(creates);
+  const { organizationId, payInline, stripe } = await buyerWithStripe();
   // Team 5 is still configured here, but its Price was archived in Stripe.
   const archivedTeam = (async (input: RequestInfo | URL, init?: RequestInit) =>
     new URL(String(input)).pathname.endsWith("/prices/price_team_5")
@@ -147,67 +173,49 @@ test("a Pay for a Price Stripe no longer offers reserves nothing", async () => {
           recurring: { interval: "month", interval_count: 1 },
           unit_amount: 1_000,
         })
-      : offered(input, init)) as typeof fetch;
+      : stripe.fetchImpl(input, init)) as typeof fetch;
 
   await expect(
-    createStripeCheckout(
-      getDefaultApiServiceRuntime(),
-      organizationId,
-      admin.userId,
-      "price_team_5",
-      deps(archivedTeam),
-    ),
+    payInline("price_team_5", deps(archivedTeam)),
   ).rejects.toMatchObject({
     code: "billing_checkout_plan_unavailable",
     status: 409,
   });
-  const [billing] = await db
-    .select({ attemptId: organizationBilling.checkoutAttemptId })
-    .from(organizationBilling)
-    .where(eq(organizationBilling.organizationId, organizationId));
-  expect(billing?.attemptId).toBeNull();
-  expect(creates).toHaveLength(0);
+  expect(await reservedAttemptId(organizationId)).toBeNull();
+  expect(stripe.creates).toHaveLength(0);
 });
 
 test("hosted retries reuse a provider key and expired attempts rotate it", async () => {
-  const admin = createTestUser();
-  const organizationId = await registerAndAuthenticateWithOrganization(admin);
-  const creates: Request[] = [];
-  const serviceDeps = deps(checkoutFetch(creates));
+  const { organizationId, payOnStripe, stripe } = await buyerWithStripe();
   const create = () =>
-    createStripeCheckoutSession(
-      getDefaultApiServiceRuntime(),
-      organizationId,
-      admin.userId,
-      {
-        priceId: "price_sync",
-        returnUrl: "https://app.example/billing?transient=1",
-      },
-      serviceDeps,
+    payOnStripe(
+      "price_sync",
+      undefined,
+      "https://app.example/billing?transient=1",
     );
 
-  expect(await create()).toBe("https://checkout.stripe.com/pay/cs_org");
-  expect(await create()).toBe("https://checkout.stripe.com/pay/cs_org");
-  expect(creates).toHaveLength(2);
-  expect(creates[0]?.headers.get("Idempotency-Key")).toBe(
-    creates[1]?.headers.get("Idempotency-Key"),
+  expect(await create()).toBe("https://checkout.stripe.com/pay/cs_1");
+  expect(await create()).toBe("https://checkout.stripe.com/pay/cs_1");
+  const [first, second] = stripe.creates;
+  expect(first?.idempotencyKey).toBe(second?.idempotencyKey ?? "");
+  expect(first?.form.get("expires_at")).toBe(
+    second?.form.get("expires_at") ?? null,
   );
-  const firstBody = new URLSearchParams(await creates[0]?.text());
-  const secondBody = new URLSearchParams(await creates[1]?.text());
-  expect(firstBody.get("expires_at")).toBe(secondBody.get("expires_at"));
-  expect(firstBody.get("subscription_data[metadata][checkoutAttemptId]")).toBe(
-    creates[0]?.headers.get("Idempotency-Key")?.split(":").at(-1) ?? null,
-  );
+  expect(
+    first?.form.get("subscription_data[metadata][checkoutAttemptId]"),
+  ).toBe(first?.idempotencyKey.split(":").at(-1) ?? null);
 
   await db
     .update(organizationBilling)
     .set({ checkoutAttemptExpiresAt: new Date(0) })
     .where(eq(organizationBilling.organizationId, organizationId));
-  expect(await create()).toBe("https://checkout.stripe.com/pay/cs_org");
-  expect(creates).toHaveLength(3);
-  expect(creates[2]?.headers.get("Idempotency-Key")).not.toBe(
-    creates[0]?.headers.get("Idempotency-Key"),
-  );
+  expect(await create()).toBe("https://checkout.stripe.com/pay/cs_2");
+  expect(stripe.creates[2]?.idempotencyKey).not.toBe(first?.idempotencyKey);
+  // The lapsed attempt's page is retired before the new one is offered.
+  expect(stripe.sessions.map(({ status }) => status)).toEqual([
+    "expired",
+    "open",
+  ]);
 });
 
 test("incomplete provider configuration does not reserve an attempt", async () => {
@@ -222,10 +230,5 @@ test("incomplete provider configuration does not reserve an attempt", async () =
       { stripe: { env: {} }, revenueCat: { env: {} } },
     ),
   ).toBeNull();
-
-  const [billing] = await db
-    .select({ attemptId: organizationBilling.checkoutAttemptId })
-    .from(organizationBilling)
-    .where(eq(organizationBilling.organizationId, organizationId));
-  expect(billing?.attemptId).toBeNull();
+  expect(await reservedAttemptId(organizationId)).toBeNull();
 });

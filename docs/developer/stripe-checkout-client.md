@@ -73,9 +73,13 @@ the form is collecting, while it opens Pay and the plan picker wait, and the
 form closes once the buyer is on Stripe's page. Every answer names the form
 that asked: only that form navigates (this tab included, when a pop-up
 blocker forces same-tab navigation) and closes, so a late answer for a
-cancelled or replaced form changes nothing. A refusal returns to the form
-with a notice; a plan the server no longer offers closes the form and
-reloads the plans, as at Pay.
+cancelled or replaced form changes nothing. On the server, opening Stripe's
+page retires the form's unpaid subscription, and the next Pay or plan after
+the buyer leaves Stripe's page, or cancels before it opens, expires that
+Session, so neither can be paid alongside the other
+([attempt rules](revenuecat-billing.md#direct-stripe-checkout-server-side)).
+A refusal returns to the form with a notice; a plan the server no longer
+offers closes the form and reloads the plans, as at Pay.
 Return URLs share the portal route's origin validation.
 
 ## Subscription management

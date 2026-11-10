@@ -122,6 +122,10 @@ function fakeStripe(options: FakeStripeOptions = {}): FakeStripe {
         ? createSubscription(request)
         : Response.json({ data: subscriptions, has_more: false });
     }
+    if (path === "/v1/checkout/sessions" && request.method === "GET") {
+      // These tests open no hosted page.
+      return Response.json({ data: [], has_more: false });
+    }
     const invoice = /^\/v1\/invoices\/(in_\d+)(\/void)?$/.exec(path);
     if (invoice?.[1]) {
       return invoiceResponse(invoice[1], invoice[2] !== undefined);

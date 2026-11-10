@@ -19,10 +19,8 @@ import {
   STRIPE_WEBHOOK_ENV as STRIPE_ENV,
 } from "../../../test/helpers/stripeWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
-import {
-  createStripeCheckout,
-  createStripeCheckoutSession,
-} from "./stripeCheckout";
+import { createStripeCheckout } from "./stripeCheckout";
+import { createStripeCheckoutSession } from "./stripeHostedCheckout";
 
 async function loadCurrentMemberGroupState(organizationId: string): Promise<{
   readonly memberGroupId: string;
@@ -109,7 +107,11 @@ test("inline checkout charges the chosen plan at quantity one", async () => {
     if (path.endsWith("/subscriptions/search")) {
       return Response.json({ data: [], has_more: false });
     }
-    if (path.endsWith("/subscriptions") && init?.method !== "POST") {
+    if (
+      (path.endsWith("/subscriptions") ||
+        path.endsWith("/checkout/sessions")) &&
+      init?.method !== "POST"
+    ) {
       return Response.json({ data: [], has_more: false });
     }
     if (path.endsWith("/subscriptions")) {
@@ -181,9 +183,18 @@ test("hosted checkout charges the chosen plan at quantity one", async () => {
     if (path.endsWith("/customers")) {
       return Response.json({ id: "cus_org" });
     }
-    if (path.endsWith("/checkout/sessions")) {
+    if (path.endsWith("/checkout/sessions") && init?.method === "POST") {
       checkoutBody = String(init?.body ?? "");
-      return Response.json({ url: "https://checkout.stripe.com/pay/cs_org" });
+      return Response.json({
+        id: "cs_org",
+        url: "https://checkout.stripe.com/pay/cs_org",
+      });
+    }
+    if (
+      path.endsWith("/checkout/sessions") ||
+      path.endsWith("/subscriptions")
+    ) {
+      return Response.json({ data: [], has_more: false });
     }
     throw new Error(`Unexpected Stripe request: ${path}`);
   }) as typeof fetch;

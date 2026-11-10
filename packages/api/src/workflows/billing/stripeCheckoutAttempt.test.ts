@@ -6,6 +6,7 @@ import { getSyncBillingTier } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
   addEffectiveOrganizationMember,
@@ -38,30 +39,59 @@ async function addMember(admin: TestUser, organizationId: string) {
   });
 }
 
-test("inline and hosted checkout have exactly one concurrent winner", async () => {
+test("another buyer's checkout conflicts, and one of two racing buyers wins", async () => {
   const admin = createTestUser();
   const organizationId = await registerAdmin(admin);
+  const peer = createTestUser();
+  await registerUser(peer);
+  // Admins are Members too, so the roster is two.
+  await addUserToAdminGroup({ actor: admin, member: peer, organizationId });
   const attempts = await Promise.allSettled([
     runAcquireStripeCheckoutAttemptWorkflow(
       db,
       organizationId,
       admin.userId,
       "inline",
-      { createAttemptId: () => "inline-token", now: START, plan: SOLO },
+      { createAttemptId: () => "inline-token", now: START, plan: TEAM_5 },
     ),
     runAcquireStripeCheckoutAttemptWorkflow(
       db,
       organizationId,
-      admin.userId,
+      peer.userId,
       "hosted",
-      { createAttemptId: () => "hosted-token", now: START, plan: SOLO },
+      { createAttemptId: () => "hosted-token", now: START, plan: TEAM_5 },
     ),
   ]);
   const winners = attempts.filter((result) => result.status === "fulfilled");
   const conflicts = attempts.filter((result) => result.status === "rejected");
   expect(winners).toHaveLength(1);
   expect(conflicts).toHaveLength(1);
-  expect(conflicts[0]?.reason).toMatchObject({ status: 409 });
+  expect(conflicts[0]?.reason).toMatchObject({
+    message: "A checkout is already in progress for this organization",
+    status: 409,
+  });
+});
+
+test("the same buyer's other way to pay rotates the attempt", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAdmin(admin);
+  const acquire = (mode: "hosted" | "inline", token: string) =>
+    runAcquireStripeCheckoutAttemptWorkflow(
+      db,
+      organizationId,
+      admin.userId,
+      mode,
+      {
+        createAttemptId: () => token,
+        now: START,
+        plan: SOLO,
+      },
+    );
+
+  // The buyer leaves the form for Stripe's page, then comes back to it.
+  expect((await acquire("inline", "inline-1")).attemptId).toBe("inline-1");
+  expect((await acquire("hosted", "hosted-1")).attemptId).toBe("hosted-1");
+  expect((await acquire("inline", "inline-2")).attemptId).toBe("inline-2");
 });
 
 test("same-mode concurrent retries reuse one durable token", async () => {
@@ -144,7 +174,7 @@ test("a roster that grows within the chosen plan keeps the attempt", async () =>
   expect(retry.attemptId).toBe(first.attemptId);
 });
 
-test("a hosted attempt for another plan is never replaced", async () => {
+test("a hosted attempt for another plan rotates", async () => {
   const admin = createTestUser();
   const organizationId = await registerAdmin(admin);
   await runAcquireStripeCheckoutAttemptWorkflow(
@@ -155,19 +185,18 @@ test("a hosted attempt for another plan is never replaced", async () => {
     { createAttemptId: () => "hosted-solo", now: START, plan: SOLO },
   );
 
-  await expect(
-    runAcquireStripeCheckoutAttemptWorkflow(
-      db,
-      organizationId,
-      admin.userId,
-      "hosted",
-      {
-        createAttemptId: () => "unused",
-        now: new Date("2030-01-01T00:01:00.000Z"),
-        plan: TEAM_5,
-      },
-    ),
-  ).rejects.toMatchObject({ status: 409 });
+  const rotated = await runAcquireStripeCheckoutAttemptWorkflow(
+    db,
+    organizationId,
+    admin.userId,
+    "hosted",
+    {
+      createAttemptId: () => "hosted-team",
+      now: new Date("2030-01-01T00:01:00.000Z"),
+      plan: TEAM_5,
+    },
+  );
+  expect(rotated).toMatchObject({ attemptId: "hosted-team", seatQuantity: 5 });
 });
 
 test("a plan the roster has outgrown is refused and reserves nothing", async () => {
@@ -223,7 +252,7 @@ test("checkout rejects an effective roster above the largest tier", async () => 
   });
 });
 
-test("hosted retries stop before Stripe's minimum expiry and later rotate", async () => {
+test("hosted retries reuse the Session until Stripe's minimum expiry, then rotate", async () => {
   const admin = createTestUser();
   const organizationId = await registerAdmin(admin);
   const first = await runAcquireStripeCheckoutAttemptWorkflow(
@@ -247,20 +276,7 @@ test("hosted retries stop before Stripe's minimum expiry and later rotate", asyn
   expect(retry.attemptId).toBe(first.attemptId);
   expect(retry.providerExpiresAt).toEqual(new Date("2030-01-01T00:45:00.000Z"));
 
-  await expect(
-    runAcquireStripeCheckoutAttemptWorkflow(
-      db,
-      organizationId,
-      admin.userId,
-      "hosted",
-      {
-        createAttemptId: () => "too-early",
-        now: new Date("2030-01-01T00:15:00.000Z"),
-        plan: SOLO,
-      },
-    ),
-  ).rejects.toMatchObject({ status: 409 });
-
+  // Too little of the Session is left to finish paying on: a new one.
   const rotated = await runAcquireStripeCheckoutAttemptWorkflow(
     db,
     organizationId,
@@ -268,12 +284,12 @@ test("hosted retries stop before Stripe's minimum expiry and later rotate", asyn
     "hosted",
     {
       createAttemptId: () => "hosted-next",
-      now: new Date("2030-01-01T00:51:00.000Z"),
+      now: new Date("2030-01-01T00:15:00.000Z"),
       plan: SOLO,
     },
   );
   expect(rotated.attemptId).toBe("hosted-next");
   expect(rotated.providerExpiresAt).toEqual(
-    new Date("2030-01-01T01:36:00.000Z"),
+    new Date("2030-01-01T01:00:00.000Z"),
   );
 });

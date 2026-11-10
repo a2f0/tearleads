@@ -149,28 +149,30 @@ function resolveActiveStripeCheckoutAttempt(input: {
   }
   if (
     attemptId === null ||
-    input.billing.attemptMode !== input.mode ||
     input.billing.attemptUserId !== input.sessionUserId
   ) {
     throw stripeCheckoutInProgress();
   }
-  if (input.billing.attemptSeatQuantity !== input.seatQuantity) {
-    // The same buyer's inline attempt for another plan rotates: before the
-    // new attempt is offered, the inline service voids every other attempt's
-    // unpaid checkout. A hosted Checkout Session cannot be voided that way
-    // and can still complete at its old Price, so it conflicts until expiry.
-    if (input.mode === "hosted") {
-      throw stripeCheckoutInProgress();
-    }
+  // The same buyer choosing another plan or the other way to pay rotates the
+  // attempt: before the new checkout is offered, the service retires every
+  // other attempt's unpaid checkout in Stripe, voiding an inline
+  // subscription's first invoice or expiring a hosted Session, and a payment
+  // that already went through keeps the 409.
+  if (
+    input.billing.attemptMode !== input.mode ||
+    input.billing.attemptSeatQuantity !== input.seatQuantity
+  ) {
     return null;
   }
   const providerExpiry = providerExpiresAt(input.mode, attemptExpiresAt);
+  // A hosted Session too close to its expiry to finish paying on is replaced
+  // the same way.
   if (
     providerExpiry !== null &&
     providerExpiry.getTime() <=
       input.now.getTime() + HOSTED_MIN_PROVIDER_REMAINING_MS
   ) {
-    throw stripeCheckoutInProgress();
+    return null;
   }
   return {
     attemptId,
@@ -331,11 +333,12 @@ export function stripeCheckoutPlanUnavailable(): OrganizationManagerError {
  * chosen plan. Both UI modes call this before touching Stripe, so an inline
  * subscription create and a hosted Session create cannot pass independent
  * provider searches and race. A byte-for-byte retry by the same buyer for the
- * same plan reuses the durable token. Another buyer or the other UI mode
- * conflicts until expiry, as does the same buyer's hosted attempt for another
- * plan; the same buyer's inline attempt for another plan rotates instead.
- * A plan smaller than the roster counted in this transaction is refused here,
- * so a refused checkout reserves and rotates nothing.
+ * same plan and way to pay reuses the durable token. Another buyer conflicts
+ * until expiry; the same buyer's attempt for another plan or the other way to
+ * pay rotates instead, as does a hosted attempt too close to its Session's
+ * expiry, and the service retires the replaced checkout before offering the
+ * new one. A plan smaller than the roster counted in this transaction is
+ * refused here, so a refused checkout reserves and rotates nothing.
  *
  * PostgreSQL serializes contenders with a billing-row lock. The SQLite adapter
  * runs transactions through one `BEGIN IMMEDIATE` queue, so it provides the

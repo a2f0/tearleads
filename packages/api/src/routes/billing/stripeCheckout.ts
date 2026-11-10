@@ -13,10 +13,10 @@ import type { SessionEnv } from "../../middleware/session";
 import {
   cancelStripeSubscription,
   createStripeCheckout,
-  createStripeCheckoutSession,
   createStripePortalUrl,
 } from "../../services/billing/stripeCheckout";
 import { getStripeCheckoutOptions } from "../../services/billing/stripeCheckoutOptions";
+import { createStripeCheckoutSession } from "../../services/billing/stripeHostedCheckout";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { RequestBodyTooLargeError } from "../../validators/requestBodyTooLarge";

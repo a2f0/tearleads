@@ -227,23 +227,29 @@ mirroring the resulting entitlement lifecycle:
   client reloads the options.
 - Inline and hosted checkout share one durable, organization-scoped unpaid
   attempt, capturing buyer, mode, and the chosen plan's capacity before Stripe
-  is called. Identical retries reuse its idempotency token; another buyer or
-  mode gets a 409. When the same buyer chooses another plan for an unpaid
-  inline attempt, the next inline checkout rotates the attempt to that plan; a
-  roster change that the chosen plan still covers keeps the attempt.
-  Before offering its form, every inline checkout voids the first invoice of
-  the buyer's incomplete subscriptions from other attempts, found through the
-  consistent subscription list rather than search, and only after confirming
-  that its own attempt is still the reserved one. Voiding cancels the old
-  PaymentIntent and expires its subscription; Stripe refuses once the payment
-  has succeeded, and that refusal stays a 409. A request whose attempt was
-  replaced meanwhile voids nothing and gets a 409, voiding its own subscription
-  if it had already created one. A hosted attempt for another plan stays a 409
-  until it expires. Inline attempts rotate after 24 hours. Hosted
-  Sessions expire after 45 minutes with a five-minute overlap guard; retries
-  stop before Stripe's 30-minute `expires_at` minimum. Existing incomplete
-  subscriptions also block hosted checkout, preventing a late inline payment
-  from coexisting.
+  is called. Identical retries reuse its idempotency token; another buyer gets
+  a 409 until the attempt expires. When the same buyer chooses another plan or
+  the other way to pay, the next checkout rotates the attempt; a roster change
+  that the chosen plan still covers keeps the attempt.
+  Before offering its own checkout, every checkout retires the buyer's unpaid
+  checkouts from other attempts, and only after confirming that its own
+  attempt is still the reserved one: it voids the first invoice of their
+  incomplete subscriptions, found through the consistent subscription list
+  rather than search, and expires their open hosted Sessions, found through
+  the customer's Session list and each Session's `checkoutAttemptId`
+  metadata. Voiding cancels the old PaymentIntent and expires its
+  subscription; an expired Session can no longer be paid. Stripe refuses once
+  the payment has succeeded or the Session has completed, and that refusal
+  stays a 409, as does another attempt's Session completed within the last 50
+  minutes, whose payment may still be settling. A request whose attempt was
+  replaced meanwhile retires nothing and gets a 409, voiding the subscription
+  or expiring the Session it had already created. So a buyer who leaves
+  Stripe's page, or cancels before it opens, can pay in the form at once.
+  Inline attempts rotate after 24 hours. Hosted Sessions expire after 45
+  minutes with a five-minute overlap guard; a hosted retry with less than
+  Stripe's 30-minute `expires_at` minimum left rotates to a new Session.
+  Another buyer's incomplete subscription also blocks hosted checkout,
+  preventing a late inline payment from coexisting.
 - `POST /billing/stripe/webhook` verifies Stripe's signature over the raw
   body and consumes `invoice.paid` for both `subscription_create` and
   `subscription_cycle`. It always fetches the subscription from Stripe and

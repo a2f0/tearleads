@@ -1,15 +1,21 @@
 /**
- * Voids a buyer's unpaid inline checkouts that no longer belong to the
- * organization's reserved attempt, which rotates when the roster changes
- * (services/billing/stripeCheckoutAttempt.ts). Voiding a subscription's
- * first invoice cancels the PaymentIntent a stale form may still hold and
- * moves the subscription to `incomplete_expired`; Stripe refuses to void an
- * invoice once its payment has succeeded, so a payment racing the
- * replacement wins instead of being undone.
+ * Retires a buyer's unpaid checkouts that no longer belong to the
+ * organization's reserved attempt, which rotates when the buyer chooses
+ * another plan or another way to pay (services/billing/stripeCheckoutAttempt.ts).
+ *
+ * - Inline: voiding a subscription's first invoice cancels the PaymentIntent
+ *   a stale form may still hold and moves the subscription to
+ *   `incomplete_expired`; Stripe refuses to void an invoice once its payment
+ *   has succeeded.
+ * - Hosted: an expired Checkout Session can no longer be paid; Stripe refuses
+ *   to expire one that has completed.
+ *
+ * Either way a payment racing the replacement wins instead of being undone.
  */
 
 import { z } from "zod";
 import {
+  providerStringSchema,
   readProviderField,
   readStripeReferenceId,
   stripeReferenceSchema,
@@ -33,11 +39,16 @@ interface StripeRequestAuth {
   readonly secretKey: string;
 }
 
-const SUBSCRIPTION_PAGE_SIZE = 100;
-/** Bound provider work while covering up to 10,000 subscriptions. */
-const MAX_SUBSCRIPTION_PAGES = 100;
+const PAGE_SIZE = 100;
+/** Bound provider work while covering up to 10,000 objects. */
+const MAX_PAGES = 100;
+/**
+ * A Session completed this recently may still be settling its payment, so it
+ * holds a replacement off: the hosted attempt's lifetime.
+ */
+const SETTLING_SESSION_MS = 50 * 60 * 1_000;
 
-const subscriptionPageSchema = z.looseObject({
+const pageSchema = z.looseObject({
   data: z.array(z.unknown()),
   has_more: z.boolean(),
 });
@@ -45,6 +56,18 @@ const subscriptionPageSchema = z.looseObject({
 const latestInvoiceSchema = z.looseObject({
   latest_invoice: stripeReferenceSchema,
 });
+
+const checkoutSessionSchema = z.looseObject({
+  created: z.number(),
+  id: providerStringSchema,
+  status: providerStringSchema,
+});
+
+interface StaleCheckoutInput {
+  readonly customerId: string;
+  readonly currentAttemptId: string;
+  readonly stillReserved: () => Promise<boolean>;
+}
 
 /**
  * Voids every incomplete subscription of the buyer's customer except the
@@ -64,11 +87,7 @@ const latestInvoiceSchema = z.looseObject({
  * longer reserved; and false when Stripe refuses a void.
  */
 export async function voidStaleInlineCheckouts(
-  input: {
-    readonly customerId: string;
-    readonly currentAttemptId: string;
-    readonly stillReserved: () => Promise<boolean>;
-  },
+  input: StaleCheckoutInput,
   deps: StripeApiDeps = {},
 ): Promise<boolean> {
   const { fetchImpl, secretKey } = resolveDeps(deps);
@@ -76,8 +95,9 @@ export async function voidStaleInlineCheckouts(
     return false;
   }
   const request = { fetchImpl, secretKey };
-  const subscriptions = await listCustomerSubscriptions(
-    input.customerId,
+  const subscriptions = await listCustomerObjects(
+    `/v1/subscriptions?customer=${encodeURIComponent(input.customerId)}&status=all`,
+    "subscription list",
     request,
   );
   const invoiceIds = subscriptions
@@ -99,31 +119,86 @@ export async function voidStaleInlineCheckouts(
   return true;
 }
 
-/** Every subscription of the customer, or null when a page is unreadable. */
-async function listCustomerSubscriptions(
-  customerId: string,
+/**
+ * Expires every open hosted Checkout Session of the buyer's customer except
+ * the current attempt's own (its `metadata.checkoutAttemptId`), under the
+ * same `stillReserved` rule as {@link voidStaleInlineCheckouts}: a buyer who
+ * left Stripe's page, or abandoned it before it opened, can then pay another
+ * way or for another plan without waiting for the Session to lapse.
+ *
+ * Returns true when no other attempt's Session remains payable. Returns
+ * false, expiring nothing, when the Sessions cannot be read, another
+ * attempt's Session completed recently enough that its payment may still be
+ * settling, or the attempt is no longer reserved; and false when Stripe
+ * refuses an expiry because that Session completed meanwhile.
+ */
+export async function expireStaleCheckoutSessions(
+  input: StaleCheckoutInput & { readonly now: Date },
+  deps: StripeApiDeps = {},
+): Promise<boolean> {
+  const { fetchImpl, secretKey } = resolveDeps(deps);
+  if (!secretKey) {
+    return false;
+  }
+  const request = { fetchImpl, secretKey };
+  const sessions = await listCustomerObjects(
+    `/v1/checkout/sessions?customer=${encodeURIComponent(input.customerId)}`,
+    "checkout session list",
+    request,
+  );
+  const sessionIds = sessions
+    ? staleOpenSessionIds(sessions, input.currentAttemptId, input.now)
+    : null;
+  if (!sessionIds) {
+    return false;
+  }
+  if (sessionIds.length > 0 && !(await input.stillReserved())) {
+    return false;
+  }
+  for (const sessionId of sessionIds) {
+    if (!(await expireSession(sessionId, request))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Expires one hosted Checkout Session, for a request whose attempt was
+ * replaced while it was creating the Session. True once it is expired.
+ */
+export async function expireCheckoutSession(
+  sessionId: string,
+  deps: StripeApiDeps = {},
+): Promise<boolean> {
+  const { fetchImpl, secretKey } = resolveDeps(deps);
+  return secretKey ? expireSession(sessionId, { fetchImpl, secretKey }) : false;
+}
+
+/** Every listed object of the customer, or null when a page is unreadable. */
+async function listCustomerObjects(
+  path: string,
+  operation: string,
   request: StripeRequestAuth,
 ): Promise<unknown[] | null> {
-  const subscriptions: unknown[] = [];
+  const objects: unknown[] = [];
   let cursor = "";
-  for (let page = 0; page < MAX_SUBSCRIPTION_PAGES; page += 1) {
+  for (let page = 0; page < MAX_PAGES; page += 1) {
     const body = readProviderField(
-      subscriptionPageSchema,
+      pageSchema,
       await stripeRequest({
         ...request,
         method: "GET",
-        path:
-          `/v1/subscriptions?customer=${encodeURIComponent(customerId)}` +
-          `&status=all&limit=${SUBSCRIPTION_PAGE_SIZE}${cursor}`,
-        operation: "subscription list",
+        path: `${path}&limit=${PAGE_SIZE}${cursor}`,
+        operation,
       }),
     );
     if (!body) {
       return null;
     }
-    subscriptions.push(...body.data);
+    objects.push(...body.data);
     if (!body.has_more) {
-      return subscriptions;
+      return objects;
     }
     const lastId = readProviderField(
       stripeObjectIdSchema,
@@ -173,6 +248,37 @@ function staleCheckoutInvoiceIds(
 }
 
 /**
+ * Every other attempt's open Session, or null when a Session is unreadable
+ * or another attempt's Session completed within the settling window.
+ * Expired and long-settled Sessions are skipped.
+ */
+function staleOpenSessionIds(
+  sessions: readonly unknown[],
+  currentAttemptId: string,
+  now: Date,
+): string[] | null {
+  const sessionIds: string[] = [];
+  for (const value of sessions) {
+    const session = readProviderField(checkoutSessionSchema, value);
+    if (!session) {
+      return null;
+    }
+    if (readCheckoutAttemptId(value) === currentAttemptId) {
+      continue;
+    }
+    if (session.status === "open") {
+      sessionIds.push(session.id);
+    } else if (
+      session.status === "complete" &&
+      now.getTime() - session.created * 1_000 < SETTLING_SESSION_MS
+    ) {
+      return null;
+    }
+  }
+  return sessionIds;
+}
+
+/**
  * Voids the incomplete subscription a checkout created or resumed for an
  * attempt that was replaced meanwhile, before its client secret reaches the
  * buyer. A subscription that is no longer incomplete is left alone.
@@ -208,22 +314,65 @@ export async function voidReplacedCheckout(
  * True once the invoice is void, including when a concurrent request voided
  * it first; false when Stripe refuses because the payment won.
  */
-async function voidInvoice(
+function voidInvoice(
   invoiceId: string,
   request: StripeRequestAuth,
 ): Promise<boolean> {
-  const path = `/v1/invoices/${encodeURIComponent(invoiceId)}`;
+  return retire(
+    {
+      path: `/v1/invoices/${encodeURIComponent(invoiceId)}`,
+      action: "void",
+      operation: "checkout invoice",
+      retired: "void",
+    },
+    request,
+  );
+}
+
+/**
+ * True once the Session is expired, including when a concurrent request
+ * expired it first; false when Stripe refuses because it completed.
+ */
+function expireSession(
+  sessionId: string,
+  request: StripeRequestAuth,
+): Promise<boolean> {
+  return retire(
+    {
+      path: `/v1/checkout/sessions/${encodeURIComponent(sessionId)}`,
+      action: "expire",
+      operation: "checkout session",
+      retired: "expired",
+    },
+    request,
+  );
+}
+
+/**
+ * Posts the retiring action, and after a refusal reads the object back: it
+ * is retired when its status is `retired`, as when a concurrent request
+ * retired it first.
+ */
+async function retire(
+  target: {
+    readonly action: string;
+    readonly operation: string;
+    readonly path: string;
+    readonly retired: string;
+  },
+  request: StripeRequestAuth,
+): Promise<boolean> {
   try {
     await stripeRequest({
       ...request,
       method: "POST",
-      path: `${path}/void`,
-      operation: "checkout invoice void",
+      path: `${target.path}/${target.action}`,
+      operation: `${target.operation} ${target.action}`,
     });
     return true;
   } catch (error) {
-    // A 4xx is Stripe refusing the void. A rate limit and anything else is a
-    // provider failure, not a refusal.
+    // A 4xx is Stripe refusing the action. A rate limit and anything else is
+    // a provider failure, not a refusal.
     if (
       !(error instanceof StripeApiError) ||
       error.status < 400 ||
@@ -233,13 +382,14 @@ async function voidInvoice(
       throw error;
     }
   }
-  const invoice = await stripeRequest({
+  const current = await stripeRequest({
     ...request,
     method: "GET",
-    path,
-    operation: "checkout invoice inspect",
+    path: target.path,
+    operation: `${target.operation} inspect`,
   });
   return (
-    readProviderField(subscriptionStatusSchema, invoice)?.status === "void"
+    readProviderField(subscriptionStatusSchema, current)?.status ===
+    target.retired
   );
 }

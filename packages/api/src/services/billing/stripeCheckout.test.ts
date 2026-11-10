@@ -12,10 +12,8 @@ import {
   STRIPE_WEBHOOK_ENV as STRIPE_ENV,
 } from "../../../test/helpers/stripeWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
-import {
-  createStripeCheckout,
-  createStripeCheckoutSession,
-} from "./stripeCheckout";
+import { createStripeCheckout } from "./stripeCheckout";
+import { createStripeCheckoutSession } from "./stripeHostedCheckout";
 
 const STRIPE_SOLO_PRICE = activeStripePrice("price_sync", 500);
 
@@ -35,11 +33,18 @@ test("the hosted checkout session returns the Stripe page URL", async () => {
         fetchImpl: respondingFetch(
           [
             { body: STRIPE_SOLO_PRICE }, // the plan is still offered
-            { body: { data: [], has_more: false } }, // no Stripe duplicate
             { body: { data: [] } }, // no existing customer
             { body: { id: "cus_new" } }, // customer create
+            { body: { data: [], has_more: false } }, // no stale checkout
+            { body: { data: [], has_more: false } }, // no stale page
+            { body: { data: [], has_more: false } }, // no Stripe duplicate
             { body: STRIPE_SOLO_PRICE },
-            { body: { url: "https://checkout.stripe.com/pay/cs_1" } },
+            {
+              body: {
+                id: "cs_1",
+                url: "https://checkout.stripe.com/pay/cs_1",
+              },
+            },
           ],
           urls,
         ),
@@ -49,7 +54,7 @@ test("the hosted checkout session returns the Stripe page URL", async () => {
   );
 
   expect(url).toBe("https://checkout.stripe.com/pay/cs_1");
-  expect(urls.some((u) => u.includes("/v1/checkout/sessions"))).toBe(true);
+  expect(urls.at(-1)).toBe("POST https://api.stripe.com/v1/checkout/sessions");
 });
 
 test("the hosted checkout 409s when Stripe already holds a live subscription", async () => {
@@ -71,6 +76,10 @@ test("the hosted checkout 409s when Stripe already holds a live subscription", a
           fetchImpl: respondingFetch(
             [
               { body: STRIPE_SOLO_PRICE }, // the plan is still offered
+              { body: { data: [{ id: "cus_1" }] } },
+              // Nothing of the buyer's from another attempt to retire.
+              { body: { data: [], has_more: false } },
+              { body: { data: [], has_more: false } },
               {
                 body: {
                   data: [
@@ -95,7 +104,8 @@ test("the hosted checkout 409s when Stripe already holds a live subscription", a
     message: "The organization already has an active subscription",
     status: 409,
   });
-  expect(urls.some((u) => u.includes("/v1/checkout/sessions"))).toBe(false);
+  // Refused at the duplicate guard: no Session was created after it.
+  expect(urls.at(-1)).toContain("/v1/subscriptions/search");
 });
 
 test("the hosted checkout refuses an already-active organization", async () => {
@@ -139,7 +149,9 @@ test("a Stripe-side live subscription makes checkout a 409", async () => {
   const responses = [
     STRIPE_SOLO_PRICE, // the plan is still offered
     { data: [{ id: "cus_1" }] },
-    // The buyer's own subscriptions: nothing from another attempt to void.
+    // The buyer's own subscriptions and pages: nothing from another attempt
+    // to retire.
+    { data: [], has_more: false },
     { data: [], has_more: false },
     STRIPE_SOLO_PRICE,
     { data: [{ id: "sub_live", status: "active" }], has_more: false },
