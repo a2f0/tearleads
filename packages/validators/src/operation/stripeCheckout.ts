@@ -71,7 +71,7 @@ export const createStripeCheckoutOperation = defineJsonOperation({
   id: "organizations.billing.stripe.checkout.create",
   summary: "Start a Stripe subscription at Pay",
   description:
-    "Called when the buyer presses Pay in the inline form: starts (or, for the same buyer and plan, resumes) the organization's subscription at the chosen plan's `priceId` and returns the client secret Stripe's Payment Element confirms. Only organization administrators may call it. When that plan is no longer offered (the roster has outgrown it, or its Price is not configured), it returns 409 with code `billing_checkout_plan_unavailable` and the client reloads the options. Choosing another plan replaces the buyer's unpaid checkout; a different buyer or the hosted mode with an unpaid checkout open returns 409.",
+    "Called when the buyer presses Pay in the inline form: starts (or, for the same buyer and plan, resumes) the organization's subscription at the chosen plan's `priceId` and returns the client secret Stripe's Payment Element confirms. Only organization administrators may call it. When that plan is no longer offered (the roster has outgrown it, or its Price is not configured or no longer active), it returns 409 with code `billing_checkout_plan_unavailable` and the client reloads the options. The same buyer's unpaid checkout for another plan or on the hosted page is retired first (its subscription's first invoice voided, or its session expired); a different buyer's unpaid checkout, or one that has already been paid, returns 409.",
   method: "POST",
   params: StripeCheckoutPathParamsSchema,
   path: "/organizations/{organizationId}/billing/stripe/checkout",
@@ -89,7 +89,7 @@ export const createStripeCheckoutSessionOperation = defineJsonOperation({
   id: "organizations.billing.stripe.checkoutSession.create",
   summary: "Create an embedded Stripe checkout session",
   description:
-    "Creates a Stripe-hosted checkout session for the chosen plan's `priceId` as a fallback to the inline form and returns its URL, or null when Stripe checkout is not configured; an ineligible organization gets an error instead, and a plan that is no longer offered gets 409 `billing_checkout_plan_unavailable`. Only organization administrators may call it, and `returnUrl` must be on an approved app origin. It shares the inline checkout's attempt, so identical retries are safe and conflicting ones, including another plan while a hosted session is open, return 409.",
+    "Creates a Stripe-hosted checkout session for the chosen plan's `priceId` as a fallback to the inline form and returns its URL, or null when Stripe checkout is not configured; an ineligible organization gets an error instead, and a plan that is no longer offered (the roster has outgrown it, or its Price is not configured or no longer active) gets 409 `billing_checkout_plan_unavailable`. Only organization administrators may call it, and `returnUrl` must be on an approved app origin. It shares the inline checkout's attempt, so identical retries are safe. The same buyer's unpaid checkout for another plan or the inline form is retired first (its subscription's first invoice voided, or its session expired); a different buyer's unpaid checkout, or one that has already been paid, returns 409.",
   method: "POST",
   params: StripeCheckoutPathParamsSchema,
   path: "/organizations/{organizationId}/billing/stripe/checkout-session",
