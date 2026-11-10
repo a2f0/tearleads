@@ -198,6 +198,9 @@ export async function createOrganization(
 
   const response = await input.apiClient.createOrganization(request);
   if (!response) {
+    // Even a later 4xx cannot disprove a prior committed request whose response
+    // was lost. Retain the exact artifacts until local acknowledgement; neither
+    // elapsed time nor discovering this root turns a retry into a fresh create.
     return null;
   }
 

@@ -81,6 +81,39 @@ test("ordinary replay validates the current signer before reading a stored succe
   }
 });
 
+test("ordinary create refuses a registration organization without a replay binding", async () => {
+  const user = await actor();
+  const [registered] = await db
+    .select({ organizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, user.userId));
+  if (!registered?.organizationId)
+    throw new Error("expected registered organization");
+  const body = await createOrganizationRequestBody(user, {
+    organizationId: registered.organizationId,
+    rootContainerId: user.rootContainerId,
+  });
+  const [before] = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.id, registered.organizationId));
+  if (!before) throw new Error("expected registered organization row");
+  expect(before.provisioningUserId).toBeNull();
+  expect(before?.provisioningRequestSha256).toBeNull();
+  expect(before?.provisioningResponse).toBeNull();
+  const response = await submitCreateOrganization(user, body);
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Stored organization provisioning attempt is inconsistent",
+  });
+  expect(
+    await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, registered.organizationId)),
+  ).toEqual([before]);
+});
+
 for (const binding of ["user", "hash"] as const) {
   test(`ordinary replay refuses an inconsistent stored ${binding} binding`, async () => {
     const user = await actor();

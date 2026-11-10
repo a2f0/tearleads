@@ -3,6 +3,7 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
@@ -14,6 +15,7 @@ import {
   type SqlArrayRow,
   type SqlRow,
 } from "../../../data/sqlite/sqlSchema";
+import { createInitializedContainerMetadataDocument } from "../../container-contents/metadata/containerMetadataDocument";
 import { createOrganization } from "./createOrganization";
 
 function identity() {
@@ -156,6 +158,140 @@ test("pending ordinary attempts are scoped by the whole creation intent and user
         "SELECT organization_id FROM organization_provisioning_attempts",
       ),
     ).toHaveLength(3);
+  } finally {
+    connection.close();
+  }
+});
+
+test("ordinary adoption preserves later metadata and fills only missing bootstrap state", async () => {
+  const connection = await openConnection(`/${crypto.randomUUID()}.db`);
+  const requests: CreateOrganizationRequest[] = [];
+  const input = {
+    ...identity(),
+    dbClient: connection.dbClient,
+    apiClient: {
+      createOrganization: async (request: CreateOrganizationRequest) => {
+        requests.push(request);
+        return requests.length === 1
+          ? null
+          : respondToOrganizationProvisioning(request);
+      },
+    },
+    provisionedSystemContainers: [
+      {
+        icon: "trash",
+        name: "Trash",
+        slotDefinition: {
+          namespace: "tearleads.explorer",
+          projectorId: "explorer",
+          slotId: "trash",
+          version: 1,
+        },
+      },
+    ],
+  };
+  try {
+    expect(await createOrganization(input)).toBeNull();
+    const first = requests[0];
+    if (!first) throw new Error("expected initial request");
+    const response = await respondToOrganizationProvisioning(first);
+    const system = response.systemContainers[0];
+    if (!system) throw new Error("expected system container");
+    const existingContainers = [
+      {
+        id: response.rootContainerId,
+        documentId: response.rootMetadataDocumentId,
+      },
+      {
+        id: system.container.containerId,
+        documentId: system.metadataDocument.id,
+      },
+    ];
+    await sqlContainerContentsPersistence.ensureSchema(connection.execSql);
+    for (const existing of existingContainers) {
+      const metadata = await createInitializedContainerMetadataDocument(
+        existing.id,
+        { name: "Later synced name", icon: "star" },
+      );
+      await sqlContainerContentsPersistence.saveContainer(
+        connection.execSql,
+        {
+          id: existing.id,
+          organizationId: response.organizationId,
+          parentId: null,
+          metadataDocumentId: existing.documentId,
+          name: "Later synced name",
+          icon: "star",
+          effectiveAccessLevel: "read",
+        },
+        {
+          id: existing.id,
+          documentId: existing.documentId,
+          accessEpoch: 1,
+          lastCommitLsn: "42",
+          metadataUpdates: bytesToBase64(metadata.initialUpdate),
+          snapshotEndVersion: "",
+        },
+        {
+          localUpdatedAt: "2026-11-10T00:00:00.000Z",
+          serverTimestamps: { updatedAt: "2026-11-10T00:00:00.000Z" },
+        },
+      );
+    }
+    const roster = response.rosterProfileContainer;
+    if (!roster) throw new Error("expected roster container");
+    // Discovery may have only the structural row, not its metadata. Preserve
+    // that row's access/timestamps while installing the missing genesis body.
+    await sqlContainerContentsPersistence.saveContainer(
+      connection.execSql,
+      {
+        id: roster.container.containerId,
+        organizationId: response.organizationId,
+        parentId: response.rootContainerId,
+        metadataDocumentId: roster.metadataDocument.id,
+        name: "Discovered roster",
+        icon: null,
+        effectiveAccessLevel: "read",
+      },
+      null,
+    );
+    const before = await sqlContainerContentsPersistence.loadContainers(
+      connection.execSql,
+    );
+    expect(before).toHaveLength(3);
+    expect(await createOrganization(input)).toEqual(response);
+    expect(requests).toEqual([first, first]);
+    for (const existing of before.filter((state) => state.record)) {
+      const after =
+        await sqlContainerContentsPersistence.loadContainerMetadataState(
+          connection.execSql,
+          existing.container.id,
+        );
+      expect(after?.record).toEqual(existing.record);
+      expect(after?.container).toEqual(existing.container);
+    }
+    const rosterAfter =
+      await sqlContainerContentsPersistence.loadContainerMetadataState(
+        connection.execSql,
+        roster.container.containerId,
+      );
+    expect(rosterAfter?.container).toEqual(
+      before.find(
+        (state) => state.container.id === roster.container.containerId,
+      )?.container,
+    );
+    expect(rosterAfter?.record?.metadataUpdates.length).toBeGreaterThan(0);
+    expect(
+      await sqlContainerContentsPersistence.containerExists(
+        connection.execSql,
+        response.organizationMetadataContainer.container.containerId,
+      ),
+    ).toBe(true);
+    expect(
+      await connection.execSql(
+        "SELECT organization_id FROM organization_provisioning_attempts",
+      ),
+    ).toEqual([]);
   } finally {
     connection.close();
   }

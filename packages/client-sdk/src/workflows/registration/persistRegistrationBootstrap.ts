@@ -127,6 +127,36 @@ export interface RegistrationBootstrapInput {
   organizationId: string;
   userId: string;
 }
+/** Seed missing metadata without replacing state discovered or edited meanwhile.
+ * Runs inside the guarded bootstrap transaction, so discovery cannot interleave
+ * the existence check and write. Even a discovery-only row owns its timestamps,
+ * access level and topology; the bootstrap only fills its missing metadata.
+ */
+async function persistMissingContainerBootstrap(
+  ...[execSql, container, record, options]: Parameters<
+    typeof sqlContainerContentsPersistence.saveContainer
+  >
+): Promise<void> {
+  const existing =
+    await sqlContainerContentsPersistence.loadContainerMetadataState(
+      execSql,
+      container.id,
+    );
+  if (existing?.record) return;
+  await sqlContainerContentsPersistence.saveContainer(
+    execSql,
+    existing?.container ?? container,
+    record,
+    existing
+      ? {
+          ...(existing.container.localUpdatedAt
+            ? { localUpdatedAt: existing.container.localUpdatedAt }
+            : {}),
+        }
+      : options,
+  );
+}
+
 async function persistProvisionedContainerBootstrap(
   execSql: ExecSql,
   input: {
@@ -151,7 +181,7 @@ async function persistProvisionedContainerBootstrap(
     documentKekTargets: metadataState.documentKekTargets ?? null,
     documentManifestBundle: metadataState.documentManifestBundle ?? null,
   };
-  await sqlContainerContentsPersistence.saveContainer(
+  await persistMissingContainerBootstrap(
     execSql,
     {
       id: container.containerId,
@@ -191,7 +221,7 @@ async function persistRootContainerBootstrap(
     documentManifestBundle:
       input.rootMetadataState.documentManifestBundle ?? null,
   };
-  await sqlContainerContentsPersistence.saveContainer(
+  await persistMissingContainerBootstrap(
     execSql,
     {
       id: input.containerId,

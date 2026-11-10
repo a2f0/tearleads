@@ -33,7 +33,12 @@ export const organizationProvisioningAttempts = sqliteTable(
 );
 
 export const organizationProvisioningAttemptTables: ReadonlyArray<SqlTableSchema> =
-  [defineSqlTableSchema(organizationProvisioningAttempts)];
+  [
+    {
+      ...defineSqlTableSchema(organizationProvisioningAttempts),
+      requiredColumns: ["creation_intent"],
+    },
+  ];
 
 export const organizationProvisioningAttemptSQLiteSchema = {
   organizationProvisioningAttempts,
