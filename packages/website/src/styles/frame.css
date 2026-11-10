@@ -317,9 +317,8 @@
   flex: 1;
 }
 
-/* Links wrap in rows under each heading at every width. Touch screens keep
-   the 44px target; a mouse or trackpad gets 32px rows (above WCAG's 24px
-   minimum), which is most of what keeps the footer short on desktops. */
+/* Touch screens keep the 44px target; a mouse or trackpad gets 28px rows
+   (above WCAG's 24px minimum), which keeps the stacked link columns short. */
 .site-footer {
   --site-footer-target: var(--site-target);
   display: grid;
@@ -330,7 +329,7 @@
 
 @media (hover: hover) and (pointer: fine) {
   .site-footer {
-    --site-footer-target: 2rem;
+    --site-footer-target: 1.75rem;
   }
 }
 
@@ -348,8 +347,8 @@
 
 .site-footer-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--site-space-5);
+  flex-direction: column;
+  align-items: flex-start;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -450,5 +449,13 @@ span.site-theme-switch {
 @media (max-width: 699px) {
   .site-footer-groups {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Rows of links that wrap keep every target at 44px without turning the
+     footer into a full screen of single-link rows. */
+  .site-footer-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0 var(--site-space-5);
   }
 }
