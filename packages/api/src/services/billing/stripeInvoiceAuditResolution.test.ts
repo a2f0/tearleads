@@ -13,6 +13,7 @@ const BINDING: StripeSubscriptionBinding = {
   intervalCount: 1,
   organizationId: "org-1",
   paymentMethodBillingEmail: "buyer@example.com",
+  pendingInvoiceId: null,
   priceId: "price_sync",
   seatQuantity: 5,
   status: "active",

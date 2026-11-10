@@ -205,13 +205,16 @@ charges the one the buyer chooses, and leaves RevenueCat responsible for
 mirroring the resulting entitlement lifecycle:
 
 - `GET /organizations/:id/billing/stripe/options` (every covering plan,
-  smallest first), `POST /organizations/:id/billing/stripe/checkout`
+  smallest first, also for a subscribed organization choosing a new plan),
+  `POST /organizations/:id/billing/stripe/checkout`
   (admin-gated; called at Pay with the chosen plan's `priceId`, it starts the
   subscription and returns the PaymentIntent client secret the deferred-mode
   Payment Element confirms), `POST
   /organizations/:id/billing/stripe/checkout-session` (hosted fallback, also
-  given the chosen `priceId`), `POST /organizations/:id/billing/stripe/cancel`,
-  and `POST /organizations/:id/billing/stripe/portal` live in
+  given the chosen `priceId`), `POST /organizations/:id/billing/stripe/plan`
+  ([plan changes](#changing-plans)), `POST
+  /organizations/:id/billing/stripe/cancel`, and `POST
+  /organizations/:id/billing/stripe/portal` live in
   [`stripeCheckout.ts`](../../packages/api/src/routes/billing/stripeCheckout.ts).
 - The client does not supply a seat count. The checkout eligibility workflow
   counts unique users reachable through the organization's current `Members`
@@ -307,32 +310,38 @@ accounts consume the fixed capacity stored in `organization_billing.seat_count`.
 - **Initial web enrollment:** the buyer chooses any tier whose capacity covers
   the current roster, including more than the roster needs. Checkout rejects an
   empty roster, any roster above 10, and a chosen tier the roster outgrows.
-- **Web growth across a boundary:** moving from 1→2 members switches Solo to
-  Team 5; moving from 5→6 switches Team 5 to Team 10. The worker changes the
-  Stripe Price at quantity `1` with `proration_behavior=create_prorations`.
-- **Web shrinkage:** a lower renewal tier is selected without a current-period
-  credit (`proration_behavior=none`). Already-paid capacity remains available
-  through the period.
-- **Growth within a tier:** no provider change is needed. Released assignments
-  can be reused by replacement members while the organization stays under its
-  capacity.
-- **Native growth:** Apple and Google do not expose Stripe-style quantity.
-  Adding a member above the purchased product's capacity is rejected until the
-  admin completes the corresponding store product upgrade. The billing snapshot
-  carries the server-authoritative active-member count, so native clients hide
-  tiers that cannot cover the signed Members projection before opening a store
-  sheet.
+- **Roster growth never changes the plan:** adding members charges nothing and
+  never switches the tier on any platform. Members beyond the licensed
+  capacity get no seat until an administrator upgrades or removes members.
+  Released assignments can be reused by replacement members while the
+  organization stays under its capacity.
 - **Renewal:** the renewed Stripe Price or native product re-establishes the
   tier capacity for the new billing period.
 
+### Changing plans
+
+Administrators change plans on every platform under the same rules: upgrades
+are charged the prorated difference now and apply once paid, downgrades take
+effect at renewal with no credit, and a plan below the roster is refused.
+[Changing plans](billing-plan-changes.md) covers each platform, the web
+endpoint, and every safeguard.
+
 An active Stripe subscription stays on at least Solo if its roster becomes
-empty; cancel it rather than expecting a zero-price renewal. Trials grant the
-largest canonical tier (10 licensed seats) for their full duration.
+empty, and its plans can still be listed and changed; cancel it rather than
+expecting a zero-price renewal. Trials grant the largest canonical tier (10
+licensed seats) for their full duration.
 
 Roster writes only enqueue an absolute desired state in
-`organization_billing_stripe_seats`; they do not call Stripe while holding the
-roster transaction open, so access changes stay durable while Stripe is
-unavailable.
+`organization_billing_stripe_seats`, keeping the renewal plan an administrator
+chose; they do not call Stripe while holding the roster transaction open, so
+access changes stay durable while Stripe is unavailable. Billing's period
+comes from RevenueCat and the bound period from Stripe; a roster write for
+the same period (starts less than half a period apart) keeps Stripe's key, so
+the worker never mistakes capacity already paid for as unpaid. A roster write
+made while billing still tracks an older period than Stripe has bound never
+carries that period's capacity into the newer one, so a renewal into a
+smaller plan is not prorated back up before RevenueCat reports it. The
+worker's grant of a recovered upgrade matches periods the same way.
 
 ## Billing maintenance worker
 
@@ -350,7 +359,20 @@ rebinds that authoritative period and retries as a fresh claim, so an old-period
 high-water can never be applied after renewal. Only locally `active` billing
 rows are claimed, and capacity growth is prorated only while Stripe reports the
 subscription `active` or `trialing`; a `past_due` subscription backs off without
-creating another charge.
+creating another charge. The item's Price is the plan the subscription renews
+at (`desired_renewal_quantity`, which an administrator's
+[plan change](#changing-plans) sets after writing it to Stripe), written
+without proration and never above the capacity paid for the current period.
+A row leased by a plan change is not claimed until the change ends, or ten
+minutes after its five-minute lease lapses (however soon a roster write
+makes the row due), so any Stripe write that change sent has applied. A
+claim never lowers the capacity recorded as paid
+within a period, so an upgrade that settled while it read Stripe keeps its
+capacity and is not prorated again.
+A claim that finds a plan upgrade's open invoice (a `pending_update` the
+request died before voiding) voids it, so it is never charged later. The
+claim's result and any capacity it grants are recorded in one transaction,
+so a failed grant leaves the claim to retry within minutes.
 
 The API Worker's per-minute Cron Trigger (`* * * * *` in
 [`packages/api/wrangler.jsonc`](../../packages/api/wrangler.jsonc)) runs these

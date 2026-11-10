@@ -1,10 +1,13 @@
 import {
   cancelStripeSubscriptionOperation,
+  changeStripePlanOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,
   createStripePortalOperation,
   getStripeCheckoutOptionsOperation,
   isCancelStripeSubscriptionOperationResponse,
+  isChangeStripePlanOperationRequest,
+  isChangeStripePlanOperationResponse,
   isCreateStripeCheckoutOperationRequest,
   isCreateStripeCheckoutOperationResponse,
   isCreateStripeCheckoutSessionOperationRequest,
@@ -17,6 +20,7 @@ import {
 import type {
   StripeCheckoutRequest,
   StripeCheckoutSessionRequest,
+  StripePlanChangeRequest,
   StripeReturnUrlRequest,
 } from "@tearleads/validators/request";
 import { organizationBillingPath } from "./billing";
@@ -78,10 +82,23 @@ export const stripeSubscriptionCancel = {
     organizationBillingPath(cancelStripeSubscriptionOperation, organizationId),
 };
 
+const stripePlanChange = {
+  body: (
+    priceId: StripePlanChangeRequest["priceId"],
+    currentSeatCount: StripePlanChangeRequest["currentSeatCount"],
+  ): StripePlanChangeRequest => ({ currentSeatCount, priceId }),
+  isRequest: isChangeStripePlanOperationRequest,
+  isResponse: isChangeStripePlanOperationResponse,
+  method: changeStripePlanOperation.method,
+  path: (organizationId: OrganizationId) =>
+    organizationBillingPath(changeStripePlanOperation, organizationId),
+};
+
 export const organizationStripeCheckout = {
   cancel: stripeSubscriptionCancel,
   checkout: stripeCheckoutCreate,
   checkoutSession: stripeCheckoutSessionCreate,
   options: stripeCheckoutOptionsGet,
+  plan: stripePlanChange,
   portal: stripePortalCreate,
 } as const;

@@ -78,7 +78,7 @@ export const OrganizationBillingResponseSchema =
       currentPeriodStartsAt: z.string().nullable(),
       currentPeriodEndsAt: z.string().nullable(),
       seatCount: safeNonNegativeIntegerSchema,
-      /** Destination native tier while the store has scheduled but not effected a change. */
+      /** Scheduled tier not effective yet: a native store change, or the smaller plan a Stripe subscription renews at. */
       pendingSeatCount: boundedPositiveIntegerSchema(
         Number.MAX_SAFE_INTEGER,
       ).nullable(),

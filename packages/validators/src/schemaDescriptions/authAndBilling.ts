@@ -9,6 +9,7 @@ import {
   RevenueCatWebhookRequestSchema,
   StripeCheckoutRequestSchema,
   StripeCheckoutSessionRequestSchema,
+  StripePlanChangeRequestSchema,
   StripeReturnUrlRequestSchema,
   VerifyRequestSchema,
 } from "../request";
@@ -33,6 +34,8 @@ import {
   StripeCheckoutIntentResponseSchema,
   StripeCheckoutOptionsResponseSchema,
   StripeCheckoutSessionResponseSchema,
+  StripePlanChangeErrorResponseSchema,
+  StripePlanChangeResponseSchema,
   StripePortalResponseSchema,
   StripeSyncOptionResponseSchema,
   StripeWebhookResponseSchema,
@@ -246,7 +249,7 @@ describeSchema(
       "Store of record for the current or lapsed subscription, or null when nothing would conflict with a new purchase.",
     seatCount: "Licensed seats in the current paid period.",
     pendingSeatCount:
-      "Seat count of a native plan change the store scheduled but has not applied yet.",
+      "Seat count of a scheduled plan change that has not applied yet: a native change the store scheduled, or the smaller plan a Stripe subscription renews at.",
     disabledAt: "When sync stopped because billing lapsed.",
     purgeAfter:
       "When a disabled organization's synced data becomes eligible for purge.",
@@ -357,6 +360,30 @@ describeSchema(
       "Unix time in seconds when sync ends, or null when the subscription was already cancelling.",
   },
 );
+
+describeSchema(
+  StripePlanChangeRequestSchema,
+  "The plan an administrator chose for the organization's active Stripe subscription.",
+  {
+    currentSeatCount:
+      "Seat count of the plan the administrator saw when choosing. A different current plan (it renewed or changed meanwhile) gets 409 `billing_plan_change_unavailable`, so the choice is never charged differently than shown.",
+    priceId:
+      "Stripe Price id of the chosen plan, from the checkout options. It must cover the `Members` roster.",
+  },
+);
+
+describeSchema(
+  StripePlanChangeResponseSchema,
+  "A plan change that took effect.",
+  {
+    change:
+      "`upgraded` when the prorated difference was paid and the larger capacity applies now, `scheduled` when the smaller plan takes effect at renewal, or `kept` when the current plan stays, cancelling any scheduled change.",
+  },
+);
+
+describeSchema(StripePlanChangeErrorResponseSchema, "A refused plan change.", {
+  code: "Machine-readable reason: `billing_plan_change_payment_failed` when the upgrade's charge did not go through, or `billing_plan_change_unavailable` when the plan cannot be changed to now.",
+});
 
 describeSchema(
   StripeReturnUrlRequestSchema,

@@ -113,12 +113,13 @@ function useCheckoutLifecycle(scopeKey: string, teardown: () => void): void {
 }
 
 /**
- * Loads the single purchasable sync option once the platform can actually buy
- * (`model/checkoutOptionMachine.ts`). Split out so the flow hook below stays
- * within the per-function budget. `reload` fetches them again, for a plan the
- * server refused as no longer offered; the offer is withdrawn until it lands.
+ * Loads the plans that cover the roster once the platform can actually buy
+ * (`model/checkoutOptionMachine.ts`), for checkout and for changing an active
+ * Stripe plan. Split out so the flow hook below stays within the per-function
+ * budget. `reload` fetches them again, for a plan the server refused as no
+ * longer offered; the offer is withdrawn until it lands.
  */
-function useCheckoutOption(
+export function useCheckoutOption(
   available: boolean,
   canSubscribe: boolean,
   /** The panel is offering the checkout; false for an org that already syncs. */

@@ -351,14 +351,15 @@ deploy step.
 - A native grant is applied only to the buyer's personal organization. A grant
   aimed at a custom organization is recorded as ignored, even when the buyer is
   its admin.
-- Adding members beyond a native product's capacity returns a conflict until
-  the admin upgrades through the store. Stripe-backed custom organizations
-  change Price automatically when their
-  [roster](../glossary/principals.md#organization-roster-entry) crosses 1/5/10 boundaries.
+- Adding members never changes the tier on any platform: members beyond the
+  licensed capacity get no seat until the admin upgrades (through the store
+  for a native subscription, or the billing panel for a Stripe one) or removes
+  members ([plan changes](./billing-plan-changes.md)).
 - Native option filtering uses the active-member count returned with the server
-  billing snapshot, not a local directory projection. If the roster still races
-  a completed store purchase, the paid tier is activated and alerted rather
-  than silently dropped; further growth stays blocked until capacity catches up.
+  billing snapshot, not a local directory projection, so a tier below the
+  roster is never offered; the stores cannot refuse one server-side. If the
+  roster still races a completed store purchase, the paid tier is activated
+  and alerted rather than silently dropped.
 - Store cancellation remains provider-managed. On web or native, the panel
   opens RevenueCat's exact management URL for the subscription. On iOS, the
   native shell presents StoreKit's management sheet; other provider URLs keep

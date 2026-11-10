@@ -51,6 +51,7 @@ test("subscription binding reads the licensed sync item and recovery email", asy
     intervalCount: 3,
     organizationId: "org-1",
     paymentMethodBillingEmail: "card@example.com",
+    pendingInvoiceId: null,
     priceId: "price_sync",
     seatQuantity: 1,
     status: "active",
