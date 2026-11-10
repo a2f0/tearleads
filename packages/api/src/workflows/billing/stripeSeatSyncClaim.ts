@@ -7,12 +7,13 @@ import {
   organizationBilling,
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
-import { and, asc, eq, isNotNull, isNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, lte, notLike, or } from "drizzle-orm";
 import { normalizeStripeSeatQuantity } from "../../billing/stripeSeatQuantity";
 import { isSqliteApiDatabase, lockRowForUpdate } from "../../utils/sqlDialect";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { hasActiveStripeBinding } from "./stripeBindingPolicy";
 import { isSameBillingPeriod } from "./stripePeriodMatch";
+import { PLAN_LEASE_PREFIX, PLAN_SETTLE_MS } from "./stripePlanChange";
 
 const LEASE_MS = 5 * 60 * 1000;
 const DRIFT_AUDIT_MS = 24 * 60 * 60 * 1000;
@@ -47,10 +48,21 @@ function nextRetryAt(now: Date, attemptCount: number): Date {
   return new Date(now.getTime() + delayMs);
 }
 
+/**
+ * A lease the worker may take over: none, a lapsed worker lease, or a plan
+ * change's lease once it has also settled, so no Stripe write that change
+ * sent can still apply (workflows/billing/stripePlanChange.ts). A roster
+ * write that makes the row due sooner does not shorten that wait.
+ */
 function availableSeatLease(now: Date) {
+  const { leaseExpiresAt, leaseId } = organizationBillingStripeSeats;
   return or(
-    isNull(organizationBillingStripeSeats.leaseExpiresAt),
-    lte(organizationBillingStripeSeats.leaseExpiresAt, now),
+    isNull(leaseExpiresAt),
+    and(
+      lte(leaseExpiresAt, now),
+      or(isNull(leaseId), notLike(leaseId, `${PLAN_LEASE_PREFIX}%`)),
+    ),
+    lte(leaseExpiresAt, new Date(now.getTime() - PLAN_SETTLE_MS)),
   );
 }
 

@@ -22,6 +22,7 @@ import {
 } from "../../workflows/billing/stripeSeatState";
 import {
   claimOrganizationStripeSeatSync,
+  releaseOrganizationStripeSeatSyncClaim,
   runCompleteOrganizationStripeSeatSyncWorkflow,
 } from "../../workflows/billing/stripeSeatSyncClaim";
 import { getDefaultApiServiceRuntime } from "../runtime";
@@ -276,5 +277,50 @@ test("a late upgrade settled during a worker claim keeps its paid capacity", asy
   expect(await readPlanState(organizationId)).toMatchObject({
     billing: { seatCount: 10 },
     seats: { appliedPaidCapacity: 10 },
+  });
+});
+
+test("a roster write while a plan change settles does not end the settling", async () => {
+  const { admin, organizationId } = await subscribedOrganization({
+    seatCount: 5,
+  });
+  const upgrade = await beginTeam10(organizationId, admin.userId);
+  // The upgrade's lease lapsed a minute ago; a roster write makes the row
+  // due at once (and earliest of all).
+  const lapsedAt = new Date(Date.now() - 60_000);
+  await requestOrganizationStripeSeatSync({
+    desiredPaidCapacity: 5,
+    desiredSeatPeriodKey: "plan-test-period",
+    executor: db,
+    licensedSeatCount: 5,
+    now: new Date(),
+    organizationId,
+  });
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({
+      leaseExpiresAt: lapsedAt,
+      nextAttemptAt: new Date("1999-01-01T00:00:00.000Z"),
+    })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+
+  // The worker leaves the row alone while the upgrade's writes may apply.
+  const early = await claimOrganizationStripeSeatSync(db, new Date());
+  if (early) {
+    await releaseOrganizationStripeSeatSyncClaim({
+      claim: early,
+      executor: db,
+      now: new Date(),
+    });
+  }
+  expect(early?.organizationId).not.toBe(organizationId);
+  expect(await readPlanState(organizationId)).toMatchObject({
+    seats: { leaseId: upgrade.leaseId },
+  });
+
+  // Once it settled, the worker reconciles it.
+  const settled = new Date(lapsedAt.getTime() + 11 * 60_000);
+  expect(await claimOrganizationStripeSeatSync(db, settled)).toMatchObject({
+    organizationId,
   });
 });

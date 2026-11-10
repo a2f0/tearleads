@@ -44,7 +44,7 @@ import { isSameBillingPeriod } from "./stripePeriodMatch";
  *   was.
  */
 
-const PLAN_LEASE_PREFIX = "plan:";
+export const PLAN_LEASE_PREFIX = "plan:";
 const PLAN_LEASE_MS = 5 * 60 * 1_000;
 /** No change starts this close to the paid period's end. */
 const RENEWAL_FREEZE_MS = 60 * 60 * 1_000;
@@ -52,7 +52,7 @@ const RENEWAL_FREEZE_MS = 60 * 60 * 1_000;
  * How long past a lapsed lease the worker waits before reconciling it: far
  * longer than Stripe takes to apply a request already sent.
  */
-const PLAN_SETTLE_MS = 10 * 60 * 1_000;
+export const PLAN_SETTLE_MS = 10 * 60 * 1_000;
 
 export type StripeSeatRow = typeof organizationBillingStripeSeats.$inferSelect;
 
