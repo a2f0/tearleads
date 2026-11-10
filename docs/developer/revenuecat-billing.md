@@ -368,9 +368,18 @@ An administrator changes the plan on every platform under the same rules:
   and the panel says it cannot cover the roster; at renewal, members beyond
   its capacity have no seat.
 - One web plan change runs at a time: an upgrade leases the Stripe seat row
-  while it is paid for, so the worker cannot write the Price meanwhile, and
-  another change gets 409 `billing_plan_change_unavailable` until it ends.
-  A web plan change is offered only where web checkout runs, never inside a
+  for five minutes while it is paid for, so the worker cannot write the Price
+  meanwhile, and another change gets 409 `billing_plan_change_unavailable`
+  until it ends. An upgrade that stalls past its lease still grants the
+  capacity it was charged for when it finishes, but a renewal plan chosen
+  after the lease lapsed stands, and the worker reconciles the Price from
+  Stripe.
+- Only a Stripe subscription that owns the organization's capacity (a priced
+  binding, not one retained under native ownership) can change plan, and an
+  upgrade waits with 409 `billing_plan_change_unavailable` while Stripe has
+  renewed into a period its webhooks have not bound yet, so the charge is
+  always counted from the period actually paid for.
+- A web plan change is offered only where web checkout runs, never inside a
   store app.
 
 An active Stripe subscription stays on at least Solo if its roster becomes

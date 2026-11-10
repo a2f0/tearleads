@@ -12,7 +12,10 @@ import {
 import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
 import { upgradeSubscriptionPlan } from "../../billing/stripePlanUpgrade";
 import { updateSubscriptionItemQuantity } from "../../billing/stripeSeatQuantity";
-import { getSubscriptionBinding } from "../../billing/stripeSubscriptionBinding";
+import {
+  getSubscriptionBinding,
+  type StripeSubscriptionBinding,
+} from "../../billing/stripeSubscriptionBinding";
 import { runResolveOrgSubscriptionForAdminWorkflow } from "../../workflows/billing/stripeCheckout";
 import {
   type BegunStripePlanChange,
@@ -93,20 +96,15 @@ async function upgrade(input: UpgradeInput): Promise<void> {
     await abandon(input);
     throw error;
   });
-  if (
-    !binding?.seatQuantity ||
-    binding.organizationId !== input.organizationId ||
-    binding.subscriptionItemId !== input.begun.subscriptionItemId ||
-    binding.status !== "active"
-  ) {
+  if (!binding || !bindingMatchesBegun(input, binding)) {
     await abandon(input);
     throw stripePlanChangeUnavailable(
-      "The Stripe subscription cannot be changed now",
+      "The Stripe subscription cannot be changed now; it may be renewing, so try again in a moment",
     );
   }
   // A retried upgrade whose payment settled after its first answer.
   const applied = binding.seatQuantity === input.plan.seatLimit;
-  if (!applied && !(await charge(input, binding.seatQuantity))) {
+  if (!applied && !(await charge(input, binding.seatQuantity ?? 0))) {
     await abandon(input);
     throw new OrganizationManagerError(
       "The payment for the larger plan did not go through; nothing changed",
@@ -119,7 +117,32 @@ async function upgrade(input: UpgradeInput): Promise<void> {
     organizationId: input.organizationId,
     plan: input.plan,
     priceId: input.priceId,
+    subscriptionId: input.begun.subscriptionId,
   });
+}
+
+/**
+ * Whether Stripe's subscription is still the one the upgrade began for, in
+ * the period its capacity was paid for. After a renewal Stripe has already
+ * charged a new period whose webhooks may not have arrived; charging from
+ * the old period's capacity would then misprice the upgrade.
+ */
+function bindingMatchesBegun(
+  input: UpgradeInput,
+  binding: StripeSubscriptionBinding,
+): boolean {
+  const { begun } = input;
+  return (
+    binding.seatQuantity !== null &&
+    binding.organizationId === input.organizationId &&
+    binding.subscriptionItemId === begun.subscriptionItemId &&
+    binding.status === "active" &&
+    begun.paidPeriodStartsAt !== null &&
+    begun.paidPeriodEndsAt !== null &&
+    binding.billingPeriodStartsAt?.getTime() ===
+      begun.paidPeriodStartsAt.getTime() &&
+    binding.billingPeriodEndsAt?.getTime() === begun.paidPeriodEndsAt.getTime()
+  );
 }
 
 /**

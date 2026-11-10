@@ -131,6 +131,23 @@ test("an upgrade is confirmed as a charge now, then applied", async () => {
   expect(refresh).toHaveBeenCalledTimes(1);
 });
 
+test("two confirmations before a re-render start one change", async () => {
+  const pending = Promise.withResolvers<string>();
+  const { organizations } = stubSdk(() => pending.promise);
+  const { button, ui } = renderSwitcher();
+  await waitFor(() => expect(ui.getByText("Team 10")).toBeTruthy());
+
+  act(() => button("Team 10").click());
+  const confirm = ui.getByText(PLAN_CHANGE_LABELS.confirmUpgrade);
+  act(() => {
+    confirm.click();
+    confirm.click();
+  });
+
+  expect(organizations.changeStripePlan).toHaveBeenCalledTimes(1);
+  await act(async () => pending.resolve("upgraded"));
+});
+
 test("a declined upgrade says nothing changed and is not reported", async () => {
   const { logError } = stubSdk(() =>
     Promise.reject(

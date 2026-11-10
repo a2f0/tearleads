@@ -76,8 +76,11 @@ export function useStripePlanChange(input: {
   }, [send]);
   const { organizationId, refresh } = input;
   const confirm = useCallback(() => {
+    const before = machine.current;
     const changing = send({ type: "confirm" });
-    if (changing.kind !== "changing") {
+    // Only the confirmation that entered `changing` starts the change; a
+    // second click before React re-renders finds it already changing.
+    if (before.kind !== "confirming" || changing.kind !== "changing") {
       return;
     }
     void (async () => {

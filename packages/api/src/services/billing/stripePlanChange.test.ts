@@ -6,6 +6,7 @@ import {
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
+import { getSyncBillingTier } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
 import {
   registerAndAuthenticateWithOrganization,
@@ -17,12 +18,18 @@ import {
   REVENUECAT_WEBHOOK_ENV as REVENUECAT_ENV,
   STRIPE_WEBHOOK_ENV as STRIPE_ENV,
 } from "../../../test/helpers/stripeWebhook";
-import { resolvePendingStripeSeatCount } from "../../workflows/billing/stripePlanChange";
+import {
+  resolvePendingStripeSeatCount,
+  runBeginStripePlanChangeWorkflow,
+  runFinishStripePlanUpgradeWorkflow,
+} from "../../workflows/billing/stripePlanChange";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import { changeStripePlan } from "./stripePlanChange";
 
-const PERIOD_START = new Date(Date.now() - 10 * 24 * 60 * 60 * 1_000);
-const PERIOD_END = new Date(Date.now() + 20 * 24 * 60 * 60 * 1_000);
+// Whole seconds, as Stripe reports periods.
+const wholeSeconds = (ms: number) => new Date(Math.floor(ms / 1_000) * 1_000);
+const PERIOD_START = wholeSeconds(Date.now() - 10 * 24 * 60 * 60 * 1_000);
+const PERIOD_END = wholeSeconds(Date.now() + 20 * 24 * 60 * 60 * 1_000);
 const PRICES: Readonly<Record<string, number>> = {
   price_sync: 500,
   price_team_5: 1_000,
@@ -334,5 +341,98 @@ test("a plan change still being applied refuses another", async () => {
   await expect(change("price_team_5")).rejects.toMatchObject({
     code: "billing_plan_change_unavailable",
     status: 409,
+  });
+});
+
+test("a Stripe subscription quarantined under native ownership cannot change", async () => {
+  const { change, organizationId, stripe } = await subscribedOrganization({
+    seatCount: 1,
+  });
+  // A native store took ownership; the retained Stripe identity lost its
+  // Price and owns no capacity.
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({ priceId: null })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  const fake = stripe();
+
+  await expect(change("price_team_5", fake)).rejects.toMatchObject({
+    code: "billing_plan_change_unavailable",
+    status: 409,
+  });
+  expect(fake.writes).toEqual([]);
+  expect(await readState(organizationId)).toMatchObject({
+    billing: { seatCount: 1 },
+  });
+});
+
+test("an upgrade waits while Stripe has renewed into a period not yet bound", async () => {
+  const { change, organizationId, stripe } = await subscribedOrganization({
+    seatCount: 5,
+  });
+  // Stripe already renewed (the fake reports the current period), but the
+  // renewal's webhooks have not arrived: the bound period is the last one.
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({
+      billingPeriodEndsAt: PERIOD_START,
+      billingPeriodStartsAt: new Date(
+        PERIOD_START.getTime() - 30 * 24 * 60 * 60 * 1_000,
+      ),
+    })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  const fake = stripe();
+
+  await expect(change("price_team_10", fake)).rejects.toMatchObject({
+    code: "billing_plan_change_unavailable",
+    status: 409,
+  });
+  expect(fake.writes).toEqual([]);
+  expect(await readState(organizationId)).toMatchObject({
+    billing: { seatCount: 5 },
+    seats: { desiredRenewalQuantity: 5, leaseId: null },
+  });
+});
+
+test("an upgrade finishing after its lease lapsed keeps a newer renewal choice", async () => {
+  const { admin, organizationId } = await subscribedOrganization({
+    seatCount: 5,
+  });
+  const started = new Date();
+  const later = (minutes: number) =>
+    new Date(started.getTime() + minutes * 60_000);
+  const upgrade = await runBeginStripePlanChangeWorkflow(
+    db,
+    organizationId,
+    admin.userId,
+    { now: started, plan: getSyncBillingTier("team_10") },
+  );
+  if (upgrade.kind !== "upgrade") throw new Error("expected an upgrade");
+  // The upgrade stalled past its lease; the admin then chose a smaller plan.
+  expect(
+    await runBeginStripePlanChangeWorkflow(db, organizationId, admin.userId, {
+      now: later(6),
+      plan: getSyncBillingTier("solo"),
+    }),
+  ).toEqual({ kind: "scheduled" });
+
+  await runFinishStripePlanUpgradeWorkflow(db, {
+    leaseId: upgrade.leaseId,
+    now: later(7),
+    organizationId,
+    plan: getSyncBillingTier("team_10"),
+    priceId: "price_team_10",
+    subscriptionId: upgrade.subscriptionId,
+  });
+
+  // The charge went through, so its capacity applies; the newer choice of
+  // renewal plan stands, and the worker reconciles the Price from Stripe.
+  expect(await readState(organizationId)).toMatchObject({
+    billing: { seatCount: 10 },
+    seats: {
+      appliedPaidCapacity: 10,
+      desiredRenewalQuantity: 1,
+      priceId: "price_team_5",
+    },
   });
 });
