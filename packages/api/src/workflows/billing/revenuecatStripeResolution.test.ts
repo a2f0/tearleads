@@ -2,8 +2,12 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationBillingStripeSeats } from "@tearleads/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+import { eq } from "drizzle-orm";
 import { STRIPE_WEBHOOK_ENV as STRIPE_ENV } from "../../../test/helpers/stripeWebhook";
-import { resolveImmutableStripeStoreOrganizationId } from "./revenuecatStripeResolution";
+import {
+  lockedDurableStripeSeatCount,
+  resolveImmutableStripeStoreOrganizationId,
+} from "./revenuecatStripeResolution";
 
 const PERIOD_START = new Date("2030-01-01T00:00:00.000Z");
 const PERIOD_END = new Date("2030-02-01T00:00:00.000Z");
@@ -90,4 +94,33 @@ test("the renewal into the next period grants the smaller plan", async () => {
       }),
     ),
   ).toMatchObject({ kind: "resolved", seatCount: 1 });
+});
+
+test("capacity recomputed under the lock reflects a plan change since the read", async () => {
+  const organizationId = await scheduledDowngrade();
+  const event = stripeEvent(organizationId, "UNCANCELLATION", {
+    endsAt: PERIOD_END,
+    startsAt: PERIOD_START,
+  });
+  const resolution = await grantedSeats(event);
+  if (resolution.kind !== "resolved") throw new Error("expected resolution");
+  expect(resolution.seatCount).toBe(5);
+
+  // More capacity was paid for this period after the event was read.
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({ appliedPaidCapacity: 10 })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  expect(
+    await lockedDurableStripeSeatCount({ event, executor: db, resolution }),
+  ).toBe(10);
+
+  // The bound Price itself changed (an upgrade): the event must be retried.
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({ priceId: "price_team_10" })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  expect(
+    await lockedDurableStripeSeatCount({ event, executor: db, resolution }),
+  ).toBeNull();
 });

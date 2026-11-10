@@ -188,7 +188,5 @@ function abandon(input: UpgradeInput): Promise<void> {
   return runAbandonStripePlanUpgradeWorkflow(input.runtime.db, {
     leaseId: input.begun.leaseId,
     organizationId: input.organizationId,
-    plan: input.plan,
-    previousRenewalQuantity: input.begun.previousRenewalQuantity,
   });
 }

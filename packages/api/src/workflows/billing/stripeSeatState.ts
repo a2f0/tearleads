@@ -46,6 +46,10 @@ function resolveBindingState(
   const sameDesiredPeriod =
     sameSubscription && current?.desiredSeatPeriodKey === bindingPeriodKey;
   const preserveInFlight = sameAppliedPeriod && sameDesiredPeriod;
+  // An extension moves the paid period's end but not its start, so the
+  // capacity paid for it stays even though the bound Price may already be a
+  // scheduled smaller plan's.
+  const extended = sameSubscription && isExtendedPeriod(current, binding);
   // The plan the subscription renews at is an administrator's choice for that
   // subscription; a replacement subscription renews at its own Price. It is
   // never paid capacity: an upgrade is charged before it is granted.
@@ -55,19 +59,32 @@ function resolveBindingState(
       : bindingQuantity,
   );
   return {
-    appliedPaidCapacity: sameAppliedPeriod
-      ? Math.max(current?.appliedPaidCapacity ?? 0, bindingQuantity)
-      : bindingQuantity,
+    appliedPaidCapacity:
+      sameAppliedPeriod || extended
+        ? Math.max(current?.appliedPaidCapacity ?? 0, bindingQuantity)
+        : bindingQuantity,
     bindingPeriodKey,
     bindingQuantity,
     desiredPaidCapacity: Math.max(
       bindingQuantity,
-      sameDesiredPeriod ? (current?.desiredPaidCapacity ?? 0) : 0,
+      sameDesiredPeriod || extended ? (current?.desiredPaidCapacity ?? 0) : 0,
       billing.seatPeriodKey === bindingPeriodKey ? billing.seatCount : 0,
     ),
     desiredRenewalQuantity,
     ...inFlightLease(preserveInFlight ? current : undefined),
   };
+}
+
+function isExtendedPeriod(
+  current: StripeSeatStateRow | undefined,
+  binding: StripeSeatBindingInput,
+): boolean {
+  return (
+    current?.billingPeriodStartsAt != null &&
+    binding.billingPeriodStartsAt !== null &&
+    current.billingPeriodStartsAt.getTime() ===
+      binding.billingPeriodStartsAt.getTime()
+  );
 }
 
 /** The in-flight operation and lease a binding keeps, or none. */

@@ -109,8 +109,10 @@ only on the confirmation that enters `changing`, and refreshes the billing
 snapshot after it. Each request names the capacity the plans were shown
 against, so a plan that changed meanwhile is refused rather than charged
 differently than shown. A declined upgrade says nothing changed and points to
-Manage billing for a new card; a plan the server refuses shows its reason and
-reloads the plans and the billing snapshot. The
+the website's **Manage subscription** page for a new card; a plan the server
+refuses shows its reason and reloads the plans and the billing snapshot. An
+answer that arrives after the switcher closed or moved to another
+organization is dropped. The
 [server rules](revenuecat-billing.md#changing-plans) cover every platform.
 
 Lost-key cancellation uses Stripe's shareable no-code portal login from the

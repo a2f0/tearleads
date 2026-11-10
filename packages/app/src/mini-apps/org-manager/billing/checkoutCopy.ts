@@ -84,7 +84,7 @@ export const PLAN_CHANGE_LABELS = {
     `Keep ${name}? The smaller plan scheduled for renewal is cancelled.`,
   keepPlan: "Keep plan",
   paymentFailed:
-    "The payment didn't go through, so nothing changed. Update your card with Manage billing, then try again.",
+    "The payment didn't go through, so nothing changed. Update your card on the Manage subscription page of the Tearleads website, then try again.",
   scheduledCapacityConflict:
     "The plan scheduled for renewal cannot cover the current roster. Keep your current plan or choose a larger one.",
   timing:

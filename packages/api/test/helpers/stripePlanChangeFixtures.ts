@@ -136,11 +136,14 @@ export async function subscribedOrganization(input: {
     .where(eq(organizationBilling.organizationId, organizationId));
   const seats = {
     appliedPaidCapacity: input.seatCount,
+    // Bound and requested for the same paid period, as after a binding.
+    appliedSeatPeriodKey: "plan-test-period",
     billingPeriodEndsAt: PERIOD_END,
     billingPeriodStartsAt: PERIOD_START,
     desiredPaidCapacity: input.seatCount,
     desiredRenewalQuantity: input.renewalSeatCount ?? input.seatCount,
     desiredRevision: 1,
+    desiredSeatPeriodKey: "plan-test-period",
     priceId,
     subscriptionId: `sub_${organizationId}`,
     subscriptionItemId: `si_${organizationId}`,

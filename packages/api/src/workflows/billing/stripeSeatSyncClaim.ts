@@ -225,6 +225,8 @@ export async function completeOrganizationStripeSeatSync(input: {
   readonly billingPeriodEndsAt: Date | null;
   readonly billingPeriodStartsAt: Date | null;
   readonly claim: StripeSeatSyncClaim;
+  /** A renewal plan found in Stripe (a recovered paid upgrade), or null. */
+  readonly desiredRenewalQuantity?: number | null;
   readonly executor: DatabaseSession;
   readonly now: Date;
   readonly observedQuantity: number;
@@ -247,10 +249,12 @@ export async function completeOrganizationStripeSeatSync(input: {
   if (!current) {
     return;
   }
+  const renewalQuantity =
+    input.desiredRenewalQuantity ?? current.desiredRenewalQuantity;
   // The worker never writes a renewal Price above the capacity paid for, so
   // a larger renewal plan still being paid for is not a drift to retry.
   const expectedQuantity = Math.min(
-    normalizeStripeSeatQuantity(current.desiredRenewalQuantity),
+    normalizeStripeSeatQuantity(renewalQuantity),
     input.appliedPaidCapacity,
   );
   const fullyApplied =
@@ -267,6 +271,7 @@ export async function completeOrganizationStripeSeatSync(input: {
       attemptCount: 0,
       billingPeriodEndsAt: input.billingPeriodEndsAt,
       billingPeriodStartsAt: input.billingPeriodStartsAt,
+      desiredRenewalQuantity: renewalQuantity,
       inFlightOperationId: null,
       inFlightTargetCapacity: null,
       lastError: null,

@@ -25,6 +25,8 @@ export type ImmutableStripeStoreOrgResolution =
       identifiers: readonly string[];
       organizationId: string;
       priceId: string | null;
+      /** Capacity of the bound Price alone. */
+      priceSeatCount: number | null;
       seatCount: number | null;
       source: StripeResolutionSource;
     }
@@ -114,12 +116,15 @@ async function resolveDurableStripeStoreOrganizationId(
   ) {
     return { kind: "error" };
   }
+  const priceSeatCount =
+    getSyncBillingTierForStripePrice(binding.priceId, deps)?.seatLimit ?? null;
   return {
     identifiers,
     kind: "resolved",
     organizationId: binding.organizationId,
     priceId: binding.priceId,
-    seatCount: durableSeatCount(event, binding, deps),
+    priceSeatCount,
+    seatCount: durableSeatCount(event, binding, priceSeatCount),
     source: "durable",
   };
 }
@@ -139,18 +144,57 @@ function durableSeatCount(
     readonly appliedPaidCapacity: number;
     readonly billingPeriodEndsAt: Date | null;
     readonly billingPeriodStartsAt: Date | null;
-    readonly priceId: string | null;
   },
-  deps: StripeApiDeps,
+  priceSeatCount: number | null,
 ): number | null {
-  const tier = getSyncBillingTierForStripePrice(binding.priceId, deps);
-  if (!tier) {
+  if (priceSeatCount === null) {
     return null;
   }
   const paid = getSyncBillingTierForSeatCount(binding.appliedPaidCapacity);
   return paid && eventInPaidPeriod(event, binding)
-    ? Math.max(tier.seatLimit, paid.seatLimit)
-    : tier.seatLimit;
+    ? Math.max(priceSeatCount, paid.seatLimit)
+    : priceSeatCount;
+}
+
+/**
+ * Recomputes a durable resolution's capacity from the seat row as it is now,
+ * under the billing lock its writers take: a plan change that landed after
+ * the event was resolved (an upgrade's paid capacity) must not be overwritten
+ * by the earlier read. Null when the bound Price changed since, which the
+ * caller retries.
+ */
+export async function lockedDurableStripeSeatCount(input: {
+  readonly event: RevenueCatWebhookEvent;
+  readonly executor: DatabaseSession;
+  readonly resolution: Extract<
+    ImmutableStripeStoreOrgResolution,
+    { kind: "resolved" }
+  >;
+}): Promise<number | null> {
+  const [binding] = await input.executor
+    .select({
+      appliedPaidCapacity: organizationBillingStripeSeats.appliedPaidCapacity,
+      billingPeriodEndsAt: organizationBillingStripeSeats.billingPeriodEndsAt,
+      billingPeriodStartsAt:
+        organizationBillingStripeSeats.billingPeriodStartsAt,
+      priceId: organizationBillingStripeSeats.priceId,
+    })
+    .from(organizationBillingStripeSeats)
+    .where(
+      eq(
+        organizationBillingStripeSeats.organizationId,
+        input.resolution.organizationId,
+      ),
+    )
+    .limit(1);
+  if (!binding || binding.priceId !== input.resolution.priceId) {
+    return null;
+  }
+  return durableSeatCount(
+    input.event,
+    binding,
+    input.resolution.priceSeatCount,
+  );
 }
 
 function eventInPaidPeriod(
@@ -210,6 +254,7 @@ export async function resolveImmutableStripeStoreOrganizationId(
     kind: "resolved",
     organizationId: providerResolution.organizationId,
     priceId: providerResolution.priceId,
+    priceSeatCount: providerResolution.seatCount,
     seatCount: providerResolution.seatCount,
     source: "provider",
   };

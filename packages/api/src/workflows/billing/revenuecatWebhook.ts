@@ -29,6 +29,7 @@ import type { VerifiedPlayReplacement } from "./revenuecatPlayReplacement";
 import {
   type ImmutableStripeStoreOrgResolution,
   type LockedBillingIdentity,
+  lockedDurableStripeSeatCount,
   validateLockedStripeStoreOrganizationId,
 } from "./revenuecatStripeResolution";
 import { applyRevenueCatTransition } from "./revenuecatWebhookApplication";
@@ -119,6 +120,34 @@ async function stripeBindingChanged(
     : false;
 }
 
+/**
+ * A durable Stripe grant's capacity, recomputed under the billing lock so a
+ * plan change that landed after the event was resolved is not overwritten.
+ * Null when the bound Price changed meanwhile.
+ */
+async function withLockedStripeCapacity(
+  input: RevenueCatPreclaimInput,
+  transition: RevenueCatBillingTransition,
+): Promise<RevenueCatBillingTransition | null> {
+  const resolution = input.stripeResolution;
+  if (
+    transition.kind !== "grant" ||
+    resolution.kind !== "resolved" ||
+    resolution.source !== "durable" ||
+    resolution.seatCount === null
+  ) {
+    return transition;
+  }
+  const seatCount = await lockedDurableStripeSeatCount({
+    event: input.event,
+    executor: input.executor,
+    resolution,
+  });
+  return seatCount === null
+    ? null
+    : { ...transition, fields: { ...transition.fields, seatCount } };
+}
+
 function ignoredPreclaimDisposition(
   ignoredReason: string,
   transition: RevenueCatBillingTransition,
@@ -197,6 +226,14 @@ async function resolvePreclaimDisposition(
       reason: "Stripe binding changed before RevenueCat event application",
     };
   }
+  const locked = await withLockedStripeCapacity(input, transition);
+  if (!locked) {
+    return {
+      kind: "retry",
+      reason: "Stripe binding changed before RevenueCat event application",
+    };
+  }
+  transition = locked;
   if (isStripeEventSupersededByNative(billing, input.stripeResolution)) {
     return {
       deleteStripeBinding: transition.kind === "revoke",

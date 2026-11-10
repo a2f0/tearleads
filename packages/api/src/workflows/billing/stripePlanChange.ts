@@ -35,10 +35,11 @@ import { hasActiveStripeBinding } from "./stripeBindingPolicy";
  *   the smaller Price. No credit is given.
  * - Choosing the current plan keeps it, cancelling a scheduled change.
  * - A larger plan is an upgrade the service pays for in Stripe first. It
- *   leases the outbox row (so the worker cannot write the Price meanwhile)
- *   and records the larger renewal quantity before calling Stripe, so a crash
- *   after Stripe applied the upgrade never lets the worker undo it; capacity
- *   is granted only after the prorated charge succeeded.
+ *   leases the outbox row, so the worker cannot write the Price meanwhile,
+ *   and grants capacity and the larger renewal plan only after the prorated
+ *   charge succeeded. If the request never finishes, the worker finds the
+ *   paid Price in Stripe and grants it; an upgrade that never reached Stripe
+ *   leaves the renewal plan as it was.
  */
 
 const PLAN_LEASE_PREFIX = "plan:";
@@ -56,8 +57,6 @@ export type BegunStripePlanChange =
       /** The period that capacity was paid for, as last bound from Stripe. */
       readonly paidPeriodEndsAt: Date | null;
       readonly paidPeriodStartsAt: Date | null;
-      /** The renewal quantity to restore if the upgrade is not paid. */
-      readonly previousRenewalQuantity: number;
       readonly subscriptionId: string;
       readonly subscriptionItemId: string;
     };
@@ -203,7 +202,11 @@ async function setRenewalPlan(
     .where(eq(organizationBillingStripeSeats.id, seats.id));
 }
 
-/** Leases the outbox row for an upgrade and records its renewal plan. */
+/**
+ * Leases the outbox row for an upgrade. The renewal plan stays the admin's
+ * previous choice until the upgrade is paid, so an upgrade that never
+ * reaches Stripe leaves it exactly as it was.
+ */
 async function leaseUpgrade(
   executor: DatabaseSession,
   seats: BoundStripeSeats,
@@ -211,7 +214,6 @@ async function leaseUpgrade(
     readonly leaseId: string;
     readonly now: Date;
     readonly paidCapacity: number;
-    readonly plan: SyncBillingTier;
   },
 ): Promise<BegunStripePlanChange> {
   const { now } = input;
@@ -224,8 +226,6 @@ async function leaseUpgrade(
   await executor
     .update(organizationBillingStripeSeats)
     .set({
-      desiredRenewalQuantity: input.plan.seatLimit,
-      desiredRevision: seats.desiredRevision + 1,
       leaseExpiresAt,
       leaseId: input.leaseId,
       // If this request never finishes (a lost response, a failed final
@@ -241,7 +241,6 @@ async function leaseUpgrade(
     paidCapacity: input.paidCapacity,
     paidPeriodEndsAt: seats.billingPeriodEndsAt,
     paidPeriodStartsAt: seats.billingPeriodStartsAt,
-    previousRenewalQuantity: seats.desiredRenewalQuantity,
     subscriptionId: seats.subscriptionId,
     subscriptionItemId: seats.subscriptionItemId,
   };
@@ -285,7 +284,6 @@ export async function runBeginStripePlanChangeWorkflow(
           leaseId: `${PLAN_LEASE_PREFIX}${(options.createLeaseId ?? randomUUID)()}`,
           now,
           paidCapacity: billing.seatCount,
-          plan,
         });
       }
       await setRenewalPlan(tx, seats, plan, now);
@@ -428,8 +426,9 @@ export async function runGrantPaidStripeCapacityWorkflow(
 }
 
 /**
- * Releases an upgrade that was not paid: the renewal quantity it recorded
- * returns to what it was, unless another change replaced it meanwhile.
+ * Releases an upgrade that was not paid. Its renewal plan was never
+ * recorded, so only the lease is released, and the worker is due again to
+ * restore a Price a scheduled smaller plan had lowered.
  */
 export async function runAbandonStripePlanUpgradeWorkflow(
   db: ApiDatabase,
@@ -437,8 +436,6 @@ export async function runAbandonStripePlanUpgradeWorkflow(
     readonly leaseId: string;
     readonly now?: Date;
     readonly organizationId: string;
-    readonly plan: SyncBillingTier;
-    readonly previousRenewalQuantity: number;
   },
 ): Promise<void> {
   const now = input.now ?? new Date();
@@ -457,11 +454,6 @@ export async function runAbandonStripePlanUpgradeWorkflow(
     await tx
       .update(organizationBillingStripeSeats)
       .set({
-        desiredRenewalQuantity:
-          seats.desiredRenewalQuantity === input.plan.seatLimit
-            ? input.previousRenewalQuantity
-            : seats.desiredRenewalQuantity,
-        desiredRevision: seats.desiredRevision + 1,
         leaseExpiresAt: null,
         leaseId: null,
         nextAttemptAt: now,

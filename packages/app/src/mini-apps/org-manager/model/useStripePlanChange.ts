@@ -1,6 +1,6 @@
 import { BILLING_ERROR_CODES } from "@tearleads/validators/billing";
 import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import {
@@ -35,6 +35,45 @@ function errorCode(error: unknown): unknown {
 }
 
 /**
+ * Asks the server for the change. Returns the machine's answer and whether
+ * the plans must be shown again: a refused change means the plans or the
+ * current plan changed.
+ */
+async function requestPlanChange(input: {
+  readonly changing: Extract<StripePlanChangeState, { kind: "changing" }>;
+  readonly logError: (message: string, error: unknown) => void;
+  readonly organizationId: string;
+  readonly tearleads: ReturnType<typeof useTearleads>;
+}): Promise<{
+  readonly event: StripePlanChangeEvent;
+  readonly reloadPlans: boolean;
+}> {
+  try {
+    const change = await input.tearleads.organizations.changeStripePlan(
+      input.changing.option.priceId,
+      input.changing.fromSeatCount,
+      input.organizationId,
+    );
+    return {
+      event: change
+        ? { type: "changed", change }
+        : { type: "failed", error: PLAN_CHANGE_LABELS.failed },
+      reloadPlans: false,
+    };
+  } catch (error) {
+    const code = errorCode(error);
+    const unavailable = code === BILLING_ERROR_CODES.planChangeUnavailable;
+    if (!unavailable && code !== BILLING_ERROR_CODES.planChangePaymentFailed) {
+      input.logError("Failed to change the Stripe plan", error);
+    }
+    return {
+      event: { type: "failed", error: planChangeErrorMessage(error) },
+      reloadPlans: unavailable,
+    };
+  }
+}
+
+/**
  * Runs `model/stripePlanChangeMachine.ts`: the admin chooses a plan, confirms
  * it, and the server charges an upgrade now or schedules a downgrade for
  * renewal. The ref is the machine, so a second Confirm before React
@@ -58,6 +97,15 @@ export function useStripePlanChange(input: {
   );
   const [state, setState] = useState(IDLE_STRIPE_PLAN_CHANGE);
   const machine = useRef(state);
+  // A change's answer applies only to the switcher that asked: one for
+  // another organization, or after it closed, is dropped.
+  const generation = useRef(0);
+  useEffect(() => {
+    const opened = generation.current;
+    return () => {
+      generation.current = opened + 1;
+    };
+  }, [input.organizationId]);
   const send = useCallback((event: StripePlanChangeEvent) => {
     const next = transitionStripePlanChange(machine.current, event);
     machine.current = next;
@@ -87,31 +135,24 @@ export function useStripePlanChange(input: {
     if (before.kind !== "confirming" || changing.kind !== "changing") {
       return;
     }
-    void (async () => {
-      try {
-        const change = await tearleads.organizations.changeStripePlan(
-          changing.option.priceId,
-          changing.fromSeatCount,
-          organizationId,
-        );
-        if (!change) {
-          send({ type: "failed", error: PLAN_CHANGE_LABELS.failed });
+    const request = generation.current;
+    void requestPlanChange({ changing, logError, organizationId, tearleads })
+      .then(async ({ event, reloadPlans }) => {
+        // Dropped once the switcher closed or moved to another organization.
+        if (generation.current !== request) {
           return;
         }
-        send({ type: "changed", change });
-        await refresh();
-      } catch (error) {
-        const code = errorCode(error);
-        if (code === BILLING_ERROR_CODES.planChangeUnavailable) {
-          // The plans or the current plan changed: show them again.
+        if (reloadPlans) {
           reload();
-          void refresh();
-        } else if (code !== BILLING_ERROR_CODES.planChangePaymentFailed) {
-          logError("Failed to change the Stripe plan", error);
         }
-        send({ type: "failed", error: planChangeErrorMessage(error) });
-      }
-    })();
+        send(event);
+        if (event.type === "changed" || reloadPlans) {
+          await refresh();
+        }
+      })
+      .catch((error: unknown) => {
+        logError("Failed to refresh billing after a plan change", error);
+      });
   }, [logError, organizationId, refresh, reload, send, tearleads]);
   return { choose, confirm, dismiss, offer, retryOptions: reload, state };
 }

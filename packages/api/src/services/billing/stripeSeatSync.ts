@@ -168,33 +168,22 @@ async function setQuantity(input: {
   }
 }
 
-async function synchronizeClaim(
-  runtime: ApiServiceRuntime,
-  claim: StripeSeatSyncClaim,
-  deps: StripeSeatSyncDeps,
-  now: Date,
-): Promise<{
-  readonly appliedPaidCapacity: number;
-  readonly billingPeriodEndsAt: Date | null;
-  readonly billingPeriodStartsAt: Date | null;
+/**
+ * Runs the claim's in-flight capacity operation: restores the paid baseline
+ * and prorates up to its target. Returns the capacity paid for and the
+ * quantity Stripe now holds.
+ */
+async function applyCapacityOperation(input: {
+  readonly binding: ValidSeatBinding;
+  readonly claim: StripeSeatSyncClaim;
+  readonly deps: StripeSeatSyncDeps;
+  readonly paidCapacity: number;
+}): Promise<{
   readonly observedQuantity: number;
-  readonly priceId: string;
-  readonly subscriptionItemId: string;
+  readonly paidCapacity: number;
 }> {
-  const binding = validateSeatBinding(
-    claim,
-    await getSubscriptionBinding(claim.subscriptionId, deps.stripe ?? {}),
-  );
-  if (!bindingMatchesClaimPeriod(claim, binding)) {
-    await rebindAdvancedPeriod(runtime, claim, binding, now);
-  }
-
-  const samePeriod = claim.desiredSeatPeriodKey === claim.appliedSeatPeriodKey;
-  let paidCapacity = normalizeStripeSeatQuantity(
-    samePeriod
-      ? Math.max(claim.appliedPaidCapacity, binding.seatQuantity)
-      : binding.seatQuantity,
-  );
+  const { binding, claim, deps } = input;
+  let { paidCapacity } = input;
   let observedQuantity = binding.seatQuantity;
   const operationId = claim.inFlightOperationId;
   const operationTarget =
@@ -207,7 +196,6 @@ async function synchronizeClaim(
     operationTarget,
     paidCapacity,
   );
-
   if (operationId && operationTarget && operationTarget > paidCapacity) {
     if (observedQuantity < paidCapacity) {
       await setQuantity({
@@ -237,12 +225,54 @@ async function synchronizeClaim(
   } else if (operationTarget) {
     paidCapacity = Math.max(paidCapacity, operationTarget);
   }
+  return { observedQuantity, paidCapacity };
+}
+
+async function synchronizeClaim(
+  runtime: ApiServiceRuntime,
+  claim: StripeSeatSyncClaim,
+  deps: StripeSeatSyncDeps,
+  now: Date,
+): Promise<{
+  readonly appliedPaidCapacity: number;
+  readonly billingPeriodEndsAt: Date | null;
+  readonly billingPeriodStartsAt: Date | null;
+  /** A renewal plan to record, from a paid upgrade found in Stripe. */
+  readonly desiredRenewalQuantity: number | null;
+  readonly observedQuantity: number;
+  readonly priceId: string;
+  readonly subscriptionItemId: string;
+}> {
+  const binding = validateSeatBinding(
+    claim,
+    await getSubscriptionBinding(claim.subscriptionId, deps.stripe ?? {}),
+  );
+  if (!bindingMatchesClaimPeriod(claim, binding)) {
+    await rebindAdvancedPeriod(runtime, claim, binding, now);
+  }
+
+  const samePeriod = claim.desiredSeatPeriodKey === claim.appliedSeatPeriodKey;
+  const capacity = await applyCapacityOperation({
+    binding,
+    claim,
+    deps,
+    paidCapacity: normalizeStripeSeatQuantity(
+      samePeriod
+        ? Math.max(claim.appliedPaidCapacity, binding.seatQuantity)
+        : binding.seatQuantity,
+    ),
+  });
+  const { paidCapacity } = capacity;
+  let { observedQuantity } = capacity;
 
   // A sticky capacity operation can lag a newer coalesced roster target. Never
   // let the no-proration renewal update jump past the capacity this claim has
   // actually paid for; the next claim will prorate the remaining increase.
+  const recoveredRenewal = recoveredUpgradeQuantity(claim, binding, samePeriod);
   const desiredQuantity = Math.min(
-    normalizeStripeSeatQuantity(claim.desiredRenewalQuantity),
+    normalizeStripeSeatQuantity(
+      recoveredRenewal ?? claim.desiredRenewalQuantity,
+    ),
     paidCapacity,
   );
   const desiredTier = getSyncBillingTierForSeatCount(desiredQuantity);
@@ -270,12 +300,29 @@ async function synchronizeClaim(
     appliedPaidCapacity: paidCapacity,
     billingPeriodEndsAt: binding.billingPeriodEndsAt,
     billingPeriodStartsAt: binding.billingPeriodStartsAt,
+    desiredRenewalQuantity: recoveredRenewal,
     observedQuantity,
     priceId:
       getStripePriceIdForTier(desiredTier.id, deps.stripe ?? {}) ??
       binding.priceId,
     subscriptionItemId: binding.subscriptionItemId,
   };
+}
+
+/**
+ * Stripe holds a larger Price than the capacity recorded for this period
+ * only after a paid upgrade whose request never finished
+ * (services/billing/stripePlanChange.ts): its plan is now the renewal plan,
+ * which completion records. Null otherwise.
+ */
+function recoveredUpgradeQuantity(
+  claim: StripeSeatSyncClaim,
+  binding: ValidSeatBinding,
+  samePeriod: boolean,
+): number | null {
+  return samePeriod && binding.seatQuantity > claim.appliedPaidCapacity
+    ? normalizeStripeSeatQuantity(binding.seatQuantity)
+    : null;
 }
 
 /** Drains durable absolute seat targets without holding DB locks over HTTP. */

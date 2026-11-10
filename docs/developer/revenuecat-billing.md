@@ -338,10 +338,11 @@ An administrator changes the plan on every platform under the same rules:
   for waiting members follow only that payment. A declined card, or one
   needing authentication, leaves a `pending_update` whose open invoice is
   voided at once: nothing is charged later and the request returns 409
-  `billing_plan_change_payment_failed`, so the admin updates the card in the
-  Billing Portal and retries. An upgrade from a period whose smaller renewal
-  plan was already written to Stripe first restores the paid Price without
-  proration, so the charge covers only the difference from the plan paid for.
+  `billing_plan_change_payment_failed`, so the admin updates the card from the
+  website's Manage subscription page (the Stripe Billing Portal) and retries.
+  An upgrade from a period whose smaller renewal plan was already written to
+  Stripe first restores the paid Price without proration, so the charge
+  covers only the difference from the plan paid for.
 - **Upgrade, native:** StoreKit moves to a higher service level at once and
   prorates the old subscription; Play replaces the purchase with
   `CHARGE_PRORATED_PRICE`. Capacity follows the store's effective event
@@ -370,15 +371,18 @@ An administrator changes the plan on every platform under the same rules:
 - One web plan change runs at a time: an upgrade leases the Stripe seat row
   for five minutes while it is paid for, so the worker cannot write the Price
   meanwhile, and another change gets 409 `billing_plan_change_unavailable`
-  until it ends. An upgrade that stalls past its lease still grants the
-  capacity it was charged for when it finishes, but a renewal plan chosen
+  until it ends. The larger renewal plan is recorded only once the upgrade is
+  paid, so an upgrade that fails or never reaches Stripe leaves a scheduled
+  smaller plan as it was. An upgrade that stalls past its lease still grants
+  the capacity it was charged for when it finishes, but a renewal plan chosen
   after the lease lapsed stands, and the worker reconciles the Price from
   Stripe. If the request never finishes (a lost response, a failed final
-  transaction), the worker revisits the row once the lease lapses and grants
-  the capacity Stripe was paid for in the period the organization's billing
-  tracks. An upgrade that finishes after the subscription renewed grants
-  nothing to the new period, whose renewal invoice already charged the
-  Price it renews at.
+  transaction), the worker revisits the row once the lease lapses: finding
+  Stripe at a larger Price than the capacity recorded for the period, it
+  grants that capacity in the period the organization's billing tracks and
+  records the larger plan as the renewal plan. An upgrade that finishes after
+  the subscription renewed grants nothing to the new period, whose renewal
+  invoice already charged the Price it renews at.
 - Only a Stripe subscription that owns the organization's capacity (a priced
   binding, not one retained under native ownership) can change plan, and an
   upgrade waits with 409 `billing_plan_change_unavailable` while Stripe has
@@ -388,9 +392,14 @@ An administrator changes the plan on every platform under the same rules:
   (`currentSeatCount`). If the plan changed meanwhile (a renewal, another
   admin), the request gets 409 `billing_plan_change_unavailable`, so a choice
   shown as a change at renewal is never charged as an upgrade.
-- A RevenueCat event within the paid period, including an extension that
-  moves the period's end, keeps the paid capacity; only an event that starts
-  a later period grants the smaller renewal plan alone.
+- A RevenueCat event within the paid period keeps the paid capacity; only an
+  event that starts a later period grants the smaller renewal plan alone. The
+  capacity is computed again under the billing lock before it is applied, so
+  an upgrade paid after the event was read is not overwritten, and an event
+  read before the bound Price changed is retried.
+- An extension that moves the paid period's end but not its start keeps the
+  capacity paid for it when Stripe's webhook binds the new end, even though
+  the bound Price is already a scheduled smaller plan's.
 - A web plan change is offered only where web checkout runs, never inside a
   store app.
 

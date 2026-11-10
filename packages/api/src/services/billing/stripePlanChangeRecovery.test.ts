@@ -14,6 +14,7 @@ import {
   runBeginStripePlanChangeWorkflow,
   runFinishStripePlanUpgradeWorkflow,
 } from "../../workflows/billing/stripePlanChange";
+import { runBindOrganizationStripeSeatsWorkflow } from "../../workflows/billing/stripeSeatState";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import { runStripeSeatSynchronization } from "./stripeSeatSync";
 
@@ -165,5 +166,62 @@ test("a paid upgrade whose request never finished is granted by the seat-sync wo
   expect(await readState(organizationId)).toMatchObject({
     billing: { seatCount: 10 },
     seats: { appliedPaidCapacity: 10, priceId: "price_team_10" },
+  });
+});
+
+test("an upgrade that never reached Stripe keeps the scheduled smaller plan", async () => {
+  // Team 5 renews at Solo (the worker already lowered the item); an upgrade
+  // began but its request died before Stripe was charged.
+  const { admin, organizationId, stripe } = await subscribedOrganization({
+    itemSeatCount: 1,
+    renewalSeatCount: 1,
+    seatCount: 5,
+  });
+  await beginTeam10Upgrade(organizationId, admin.userId);
+  const lapsed = new Date("2020-01-01T00:00:00.000Z");
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({ leaseExpiresAt: lapsed, nextAttemptAt: lapsed })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  const fake = stripe();
+
+  expect(
+    await runStripeSeatSynchronization(
+      getDefaultApiServiceRuntime(),
+      { limit: 1 },
+      { stripe: { env: STRIPE_ENV, fetchImpl: fake.fetchImpl } },
+    ),
+  ).toMatchObject({ synced: 1 });
+  expect(fake.writes).toEqual([]);
+  expect(await readState(organizationId)).toMatchObject({
+    billing: { seatCount: 5 },
+    seats: { appliedPaidCapacity: 5, desiredRenewalQuantity: 1 },
+  });
+});
+
+test("extending the paid period keeps its capacity after a scheduled downgrade", async () => {
+  const { organizationId } = await subscribedOrganization({
+    itemSeatCount: 1,
+    renewalSeatCount: 1,
+    seatCount: 5,
+  });
+
+  // Same subscription and start, a later end, and the bound Price already
+  // the scheduled Solo plan's.
+  expect(
+    await runBindOrganizationStripeSeatsWorkflow(db, {
+      billingPeriodEndsAt: new Date(PERIOD_END.getTime() + 7 * 86_400_000),
+      billingPeriodStartsAt: PERIOD_START,
+      customerId: "cus_plan",
+      organizationId,
+      priceId: "price_sync",
+      seatQuantity: 1,
+      subscriptionId: `sub_${organizationId}`,
+      subscriptionItemId: `si_${organizationId}`,
+    }),
+  ).toEqual({ status: "accepted" });
+
+  expect(await readState(organizationId)).toMatchObject({
+    seats: { appliedPaidCapacity: 5, desiredRenewalQuantity: 1 },
   });
 });
