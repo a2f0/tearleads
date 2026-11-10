@@ -44,6 +44,14 @@ export type DirectCheckoutConfirmation =
   /** The flow was cancelled locally; nothing was charged. */
   | { readonly kind: "cancelled" };
 
+/** A recurring price the provider form shows and the first payment charges. */
+interface DirectCheckoutPrice {
+  /** Amount in the currency's minor unit, e.g. 500 for $5.00. */
+  readonly amount: number;
+  /** ISO 4217 code as the provider reports it, e.g. "usd". */
+  readonly currency: string;
+}
+
 /** A mounted checkout element; always `unmount()` when done. */
 export interface DirectCheckoutSession {
   /**
@@ -61,6 +69,12 @@ export interface DirectCheckoutSession {
   confirm(
     startPayment: () => Promise<string>,
   ): Promise<DirectCheckoutConfirmation>;
+  /**
+   * Shows `price` instead, for a buyer who chose another plan while the form
+   * is open; the buyer's input stays. `startPayment` must then start this
+   * price. Ignored once unmounted.
+   */
+  updatePrice(price: DirectCheckoutPrice): void;
   /** Tears the element down and releases provider resources. */
   unmount(): void;
 }
@@ -83,12 +97,7 @@ export interface DirectCheckoutCapability {
      * not check it against what the server starts, so `startPayment` must
      * start exactly this price.
      */
-    readonly price: {
-      /** Amount in the currency's minor unit, e.g. 500 for $5.00. */
-      readonly amount: number;
-      /** ISO 4217 code as the provider reports it, e.g. "usd". */
-      readonly currency: string;
-    };
+    readonly price: DirectCheckoutPrice;
     readonly appearance: DirectCheckoutAppearance;
     /**
      * The provider form collects the billing email (the customer recovery

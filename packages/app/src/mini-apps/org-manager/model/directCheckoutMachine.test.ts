@@ -10,12 +10,18 @@ import {
 
 const session: DirectCheckoutSession = {
   confirm: () => Promise.resolve({ kind: "succeeded" }),
+  updatePrice: () => undefined,
   unmount: () => undefined,
 };
 const other: DirectCheckoutSession = { ...session };
 const plan: DirectCheckoutPlan = {
   priceId: "price_solo",
   amount: 500,
+  currency: "usd",
+};
+const team: DirectCheckoutPlan = {
+  priceId: "price_team_5",
+  amount: 1_000,
   currency: "usd",
 };
 
@@ -84,10 +90,14 @@ const confirmed = (attempt: number): DirectCheckoutEvent => ({
   type: "confirmed",
   attempt,
 });
-const repriced = (attempt: number): DirectCheckoutEvent => ({
-  type: "repriced",
+const planChanged = (
+  attempt: number,
+  next: DirectCheckoutPlan,
+): DirectCheckoutEvent => ({ type: "plan-changed", attempt, plan: next });
+const planUnavailable = (attempt: number): DirectCheckoutEvent => ({
+  type: "plan-unavailable",
   attempt,
-  error: "price changed",
+  error: "plan unavailable",
 });
 const teardown: DirectCheckoutEvent = { type: "teardown" };
 
@@ -152,6 +162,24 @@ test.each<[string, DirectCheckoutMachineState, DirectCheckoutEvent, unknown]>([
   ["collecting confirms", collecting, confirm, confirming],
   ["collecting tears down", collecting, teardown, IDLE_DIRECT_CHECKOUT],
   [
+    "collecting switches to another plan and clears its error",
+    { ...collecting, error: "declined" },
+    planChanged(1, team),
+    { ...collecting, plan: team },
+  ],
+  [
+    "a form still loading can switch plans",
+    loadingForm,
+    planChanged(1, team),
+    { ...loadingForm, plan: team },
+  ],
+  [
+    "collecting closes a form whose plan is no longer offered",
+    collecting,
+    planUnavailable(1),
+    { kind: "idle", error: "plan unavailable" },
+  ],
+  [
     "confirming tracks email",
     confirming,
     email(1, false),
@@ -165,10 +193,10 @@ test.each<[string, DirectCheckoutMachineState, DirectCheckoutEvent, unknown]>([
   ],
   ["confirming finishes", confirming, confirmed(1), IDLE_DIRECT_CHECKOUT],
   [
-    "confirming closes a form whose plan the roster changed",
+    "confirming closes a form whose plan is no longer offered",
     confirming,
-    repriced(1),
-    { kind: "idle", error: "price changed" },
+    planUnavailable(1),
+    { kind: "idle", error: "plan unavailable" },
   ],
   ["confirming tears down", confirming, teardown, IDLE_DIRECT_CHECKOUT],
 ])("%s", (_name, state, event, next) => {
@@ -186,7 +214,8 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       startFailed(1),
       confirm,
       confirmFailed(1),
-      repriced(1),
+      planChanged(1, team),
+      planUnavailable(1),
       confirmed(1),
       teardown,
     ],
@@ -203,7 +232,8 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       startFailed(2),
       confirm,
       confirmFailed(1),
-      repriced(1),
+      planChanged(1, team),
+      planUnavailable(1),
       confirmed(1),
     ],
   ],
@@ -218,8 +248,10 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       loadFailed(2),
       mounted(1),
       startFailed(1),
+      planChanged(1, plan),
+      planChanged(2, team),
       confirmFailed(1),
-      repriced(1),
+      planUnavailable(2),
       confirmed(1),
     ],
   ],
@@ -233,9 +265,10 @@ const ignored: [DirectCheckoutMachineState, DirectCheckoutEvent[]][] = [
       formReady(1),
       loadFailed(1),
       startFailed(1),
+      planChanged(1, team),
       confirm,
       confirmFailed(2),
-      repriced(2),
+      planUnavailable(2),
       confirmed(2),
     ],
   ],

@@ -35,13 +35,13 @@ test("begin is a no-op while a session is already mounted", async () => {
   stubTearleads();
   const { capability, mounted } = capabilityWith({});
   const { result } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   // A second begin would otherwise overwrite sessionRef and strand the first
   // element's iframe.
-  await act(async () => result.current.begin());
+  await act(async () => result.current.begin(OPTION));
 
   expect(mounted).toHaveLength(1);
 });
@@ -54,6 +54,7 @@ function heldMountCapability(unmount: () => void = () => undefined) {
   const mounts: PromiseWithResolvers<DirectCheckoutSession>[] = [];
   const session: DirectCheckoutSession = {
     confirm: () => Promise.resolve({ kind: "succeeded" }),
+    updatePrice: () => undefined,
     unmount,
   };
   const capability: DirectCheckoutCapability = {
@@ -74,12 +75,12 @@ test("a begin that fails after a newer one started does not disturb it", async (
   stubTearleads();
   const { capability, mounts, session } = heldMountCapability();
   const { result } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
-  await act(async () => result.current.begin());
+  await act(async () => result.current.begin(OPTION));
   // Cancel ends the first attempt, then a fresh attempt mounts.
   act(() => result.current.cancel());
-  await act(async () => result.current.begin());
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(mounts).toHaveLength(2));
   await act(async () => mounts[1]?.resolve(session));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
@@ -108,8 +109,8 @@ test("a double-clicked Pay confirms exactly once", async () => {
     },
   });
   const { result } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   act(() => {
@@ -138,12 +139,12 @@ test("an abandoned confirmation's failure cannot unlock a second Pay", async () 
     },
   });
   const { result } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
   act(() => result.current.confirm());
   act(() => result.current.cancel());
-  await act(async () => result.current.begin());
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
   act(() => result.current.confirm());
   expect(pending).toHaveLength(2);
@@ -167,15 +168,15 @@ test("a cancelled confirmation releases the session so begin works again", async
     unmount,
   });
   const { result } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
-  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
 
   await act(async () => result.current.confirm());
   await waitFor(() => expect(result.current.phase.kind).toBe("idle"));
   expect(unmount).toHaveBeenCalledTimes(1);
 
-  await act(async () => result.current.begin());
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
   expect(mounted).toHaveLength(2);
 });
@@ -186,11 +187,11 @@ test("a double-clicked Subscribe mounts exactly one checkout", async () => {
   stubTearleads();
   const { capability, mounts, session } = heldMountCapability();
   const { result } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
   act(() => {
-    result.current.begin();
-    result.current.begin();
+    result.current.begin(OPTION);
+    result.current.begin(OPTION);
   });
   await waitFor(() => expect(mounts).toHaveLength(1));
 
@@ -205,12 +206,12 @@ test("a failed mount releases the guard so the buyer can retry", async () => {
   stubTearleads();
   const { capability, mounted } = capabilityWith({}, { failMounts: 1 });
   const { result } = renderFlow(capability);
-  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
-  await act(async () => result.current.begin());
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.error).not.toBeNull());
 
-  await act(async () => result.current.begin());
+  await act(async () => result.current.begin(OPTION));
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
   expect(mounted).toHaveLength(2);
 });
@@ -223,6 +224,7 @@ test.each<[HostedCheckoutState, HostedCheckoutEvent, HostedCheckoutState]>([
   [UNAVAILABLE, { type: "open" }, OPENING],
   [OPENING, { type: "opened" }, IDLE_HOSTED_CHECKOUT],
   [OPENING, { type: "declined" }, UNAVAILABLE],
+  [OPENING, { type: "plan-unavailable" }, IDLE_HOSTED_CHECKOUT],
 ])("hosted checkout %o + %o -> %o", (state, event, next) => {
   expect(transitionHostedCheckout(state, event)).toEqual(next);
 });
@@ -233,6 +235,8 @@ test.each<[HostedCheckoutState, HostedCheckoutEvent]>([
   [IDLE_HOSTED_CHECKOUT, { type: "declined" }],
   [UNAVAILABLE, { type: "opened" }],
   [UNAVAILABLE, { type: "declined" }],
+  [IDLE_HOSTED_CHECKOUT, { type: "plan-unavailable" }],
+  [UNAVAILABLE, { type: "plan-unavailable" }],
 ])("hosted checkout ignores %o + %o", (state, event) => {
   // The same reference, so React skips the re-render.
   expect(transitionHostedCheckout(state, event)).toBe(state);
@@ -280,7 +284,13 @@ test("two hosted-checkout clicks before a re-render mint one session", async () 
   const tab = { opener: {} as unknown, location: { href: "" }, close: mock() };
   const openTab = mock(() => tab);
   stubOpen(openTab);
-  const { result } = renderHook(() => useHostedCheckout("org-1"));
+  const { result } = renderHook(() =>
+    useHostedCheckout({
+      onPlanUnavailable: () => undefined,
+      organizationId: "org-1",
+      priceId: OPTION.priceId,
+    }),
+  );
 
   act(() => {
     result.current.open();

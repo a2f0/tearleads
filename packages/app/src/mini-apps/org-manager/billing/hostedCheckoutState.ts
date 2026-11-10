@@ -3,11 +3,11 @@
  * (`opening`), or the last attempt came back without a URL (`unavailable`,
  * which shows a notice until the next click), or neither (`idle`).
  *
- * | state       | open    | opened | declined    |
- * | ----------- | ------- | ------ | ----------- |
- * | idle        | opening | -      | -           |
- * | opening     | -       | idle   | unavailable |
- * | unavailable | opening | -      | -           |
+ * | state       | open    | opened | declined    | plan-unavailable |
+ * | ----------- | ------- | ------ | ----------- | ---------------- |
+ * | idle        | opening | -      | -           | -                |
+ * | opening     | -       | idle   | unavailable | idle             |
+ * | unavailable | opening | -      | -           | -                |
  *
  * `-` returns the same state, so a second click while a session is minting
  * starts nothing.
@@ -23,7 +23,12 @@ export type HostedCheckoutEvent =
   /** The minted URL was handed to the new tab (or this one). */
   | { readonly type: "opened" }
   /** No URL: unconfigured, not eligible, already checking out, or failed. */
-  | { readonly type: "declined" };
+  | { readonly type: "declined" }
+  /**
+   * The chosen plan is no longer offered; the checkout closes its form and
+   * reloads the offer, which carries the notice.
+   */
+  | { readonly type: "plan-unavailable" };
 
 export const IDLE_HOSTED_CHECKOUT: HostedCheckoutState = { status: "idle" };
 const OPENING: HostedCheckoutState = { status: "opening" };
@@ -37,6 +42,7 @@ export function transitionHostedCheckout(
     case "open":
       return state.status === "opening" ? state : OPENING;
     case "opened":
+    case "plan-unavailable":
       return state.status === "opening" ? IDLE_HOSTED_CHECKOUT : state;
     case "declined":
       return state.status === "opening" ? UNAVAILABLE : state;

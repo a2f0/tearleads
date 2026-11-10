@@ -1040,7 +1040,7 @@ export type paths = {
         put?: never;
         /**
          * Start a Stripe subscription at Pay
-         * @description Called when the buyer presses Pay in the inline form: starts (or, for the same buyer and Price, resumes) the organization's subscription at `priceId` and returns the client secret Stripe's Payment Element confirms. Only organization administrators may call it, and the seat count comes from the roster, not the client. When the roster now needs a different Price than `priceId`, it returns 409 with code `billing_checkout_price_changed` and the client reloads the options. A different buyer or the hosted mode with an unpaid checkout open returns 409.
+         * @description Called when the buyer presses Pay in the inline form: starts (or, for the same buyer and plan, resumes) the organization's subscription at the chosen plan's `priceId` and returns the client secret Stripe's Payment Element confirms. Only organization administrators may call it. When that plan is no longer offered (the roster has outgrown it, or its Price is not configured), it returns 409 with code `billing_checkout_plan_unavailable` and the client reloads the options. Choosing another plan replaces the buyer's unpaid checkout; a different buyer or the hosted mode with an unpaid checkout open returns 409.
          */
         post: operations["organizations.billing.stripe.checkout.create"];
         delete?: never;
@@ -1060,7 +1060,7 @@ export type paths = {
         put?: never;
         /**
          * Create an embedded Stripe checkout session
-         * @description Creates a Stripe-hosted checkout session as a fallback to the inline form and returns its URL, or null when Stripe checkout is not configured; an ineligible organization gets an error instead. Only organization administrators may call it, and `returnUrl` must be on an approved app origin. It shares the inline checkout's attempt, so identical retries are safe and conflicting ones return 409.
+         * @description Creates a Stripe-hosted checkout session for the chosen plan's `priceId` as a fallback to the inline form and returns its URL, or null when Stripe checkout is not configured; an ineligible organization gets an error instead, and a plan that is no longer offered gets 409 `billing_checkout_plan_unavailable`. Only organization administrators may call it, and `returnUrl` must be on an approved app origin. It shares the inline checkout's attempt, so identical retries are safe and conflicting ones, including another plan while a hosted session is open, return 409.
          */
         post: operations["organizations.billing.stripe.checkoutSession.create"];
         delete?: never;
@@ -1078,7 +1078,7 @@ export type paths = {
         };
         /**
          * Get Stripe checkout options
-         * @description Returns the Stripe plans the organization can subscribe to, selected for its current `Members` roster size. Only organization administrators may call it; 502 means Stripe could not be reached.
+         * @description Returns every Stripe plan whose capacity covers the organization's current `Members` roster, smallest first; the buyer chooses one. Only organization administrators may call it; 502 means Stripe could not be reached.
          */
         get: operations["organizations.billing.stripe.options.get"];
         put?: never;
@@ -4620,13 +4620,13 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A refused inline checkout. */
+        /** @description A refused checkout. */
         StripeCheckoutErrorResponse: {
             /**
-             * @description Machine-readable reason: an empty roster, a roster larger than any plan, or `billing_checkout_price_changed` when the Price the buyer saw no longer covers the roster.
+             * @description Machine-readable reason: an empty roster, a roster larger than any plan, or `billing_checkout_plan_unavailable` when the chosen plan is no longer offered.
              * @enum {string}
              */
-            code?: "billing_checkout_no_active_members" | "billing_checkout_price_changed" | "billing_roster_over_capacity";
+            code?: "billing_checkout_no_active_members" | "billing_checkout_plan_unavailable" | "billing_roster_over_capacity";
             error: string;
         } & {
             [key: string]: unknown;
@@ -4639,16 +4639,25 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description The Stripe plans offered for the organization's current roster size. */
+        /** @description Every Stripe plan whose capacity covers the organization's current roster, smallest first. */
         StripeCheckoutOptionsResponse: {
             options: components["schemas"]["StripeSyncOptionResponse"][];
         } & {
             [key: string]: unknown;
         };
-        /** @description The plan the buyer was shown when they pressed Pay. */
+        /** @description The plan the buyer chose when they pressed Pay. */
         StripeCheckoutRequest: {
-            /** @description Stripe Price id from the checkout options. The server charges only this Price and returns 409 `billing_checkout_price_changed` when the roster now needs another. */
+            /** @description Stripe Price id of the chosen plan, from the checkout options. The server charges only this Price and returns 409 `billing_checkout_plan_unavailable` when the roster has outgrown it. */
             priceId: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description The plan the buyer chose for the hosted fallback, and where Stripe sends the browser back. */
+        StripeCheckoutSessionRequest: {
+            /** @description Stripe Price id of the chosen plan, from the checkout options. A plan the roster has outgrown gets 409 `billing_checkout_plan_unavailable`. */
+            priceId: string;
+            /** @description Absolute HTTP(S) URL on one of the app origins the server allows. */
+            returnUrl: string;
         } & {
             [key: string]: unknown;
         };
@@ -9347,7 +9356,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["StripeReturnUrlRequest"];
+                "application/json": components["schemas"]["StripeCheckoutSessionRequest"];
             };
         };
         responses: {
@@ -9402,7 +9411,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BillingErrorResponse"];
+                    "application/json": components["schemas"]["StripeCheckoutErrorResponse"];
                 };
             };
             /** @description Internal Server Error */

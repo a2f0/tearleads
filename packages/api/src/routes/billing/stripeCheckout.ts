@@ -58,7 +58,8 @@ function parseReturnUrl(
 /**
  * Wraps a route that takes an origin-validated `returnUrl` body (the portal and
  * the hosted checkout session): parse the body, reject a missing/foreign URL
- * with 400, then run the org-admin-gated handler.
+ * with 400, then any other invalid field, then run the org-admin-gated
+ * handler.
  */
 function returnUrlRequestValidator<Output extends { returnUrl: string }>(
   schema: SafeParseSchema<Output>,
@@ -74,13 +75,19 @@ function returnUrlRequestValidator<Output extends { returnUrl: string }>(
       }
       return c.json({ error: "Invalid JSON body" }, 400);
     }
-    const result = schema.safeParse(body);
-    if (!result.success) {
-      return c.json({ error: "Invalid returnUrl" }, 400);
-    }
-    const returnUrl = parseReturnUrl(result.data.returnUrl, allowedOrigins);
+    const returnUrl =
+      typeof body === "object" &&
+      body !== null &&
+      "returnUrl" in body &&
+      typeof body.returnUrl === "string"
+        ? parseReturnUrl(body.returnUrl, allowedOrigins)
+        : null;
     if (!returnUrl) {
       return c.json({ error: "Invalid returnUrl" }, 400);
+    }
+    const result = schema.safeParse(body);
+    if (!result.success) {
+      return c.json({ error: "Invalid request" }, 400);
     }
     c.req.addValidatedData("json", { ...result.data, returnUrl });
     return next();
@@ -197,13 +204,13 @@ function registerStripeCheckoutSessionRoute(
     ),
     (c) => {
       const { organizationId } = c.req.valid("param");
-      const { returnUrl } = c.req.valid("json");
+      const request = c.req.valid("json");
       return respondForOrganization(c, organizationId, async (id, userId) => {
         const url = await createStripeCheckoutSession(
           runtime,
           id,
           userId,
-          returnUrl,
+          request,
         );
         return c.json({ url });
       });

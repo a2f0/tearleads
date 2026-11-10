@@ -1,48 +1,38 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
-import {
-  BILLING_ERROR_CODES,
-  getSyncBillingTierForSeatCount,
-} from "@tearleads/validators/billing";
+import type { SyncBillingTier } from "@tearleads/validators/billing";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import {
   voidReplacedCheckout,
   voidStaleInlineCheckouts,
 } from "../../billing/stripeCheckoutVoid";
-import { getStripePriceIdForTier } from "../../billing/stripeHttp";
+import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
 import {
   readStripeCheckoutAttemptId,
   stripeCheckoutInProgress,
+  stripeCheckoutPlanUnavailable,
 } from "../../workflows/billing/stripeCheckout";
-import { OrganizationManagerError } from "../../workflows/organizations/errors";
 
 /**
- * The inline form shows a Price before any subscription exists, and Stripe
- * charges whatever the subscription says, not what the form showed. Pay
- * therefore names the Price the buyer saw, and the checkout proceeds only
- * when the seat count its attempt reserves (the one the subscription is
- * created for) still maps to it. It runs inside the reservation, so a refused
- * Pay reserves nothing. A roster change since the form opened gets a 409 the
- * client answers by reloading the options.
+ * The plan the buyer chose, from the Price they saw. Stripe charges whatever
+ * the subscription says, not what the form showed, so checkout starts only a
+ * configured plan's Price; the reservation then refuses a plan the roster has
+ * outgrown. Either refusal gets the same 409, which the client answers by
+ * reloading the options.
  */
-export function requireShownPrice(input: {
-  readonly priceId: string;
-  readonly seatQuantity: number;
-  readonly stripe: StripeApiDeps;
-}): void {
-  const tier = getSyncBillingTierForSeatCount(input.seatQuantity);
-  const priceId = tier ? getStripePriceIdForTier(tier.id, input.stripe) : null;
-  if (priceId !== input.priceId) {
-    throw new OrganizationManagerError(
-      "The organization's plan changed; review the new price",
-      409,
-      BILLING_ERROR_CODES.checkoutPriceChanged,
-    );
+export function requireOfferedPlan(
+  priceId: string,
+  stripe: StripeApiDeps,
+): SyncBillingTier {
+  const plan = getSyncBillingTierForStripePrice(priceId, stripe);
+  if (!plan) {
+    throw stripeCheckoutPlanUnavailable();
   }
+  return plan;
 }
 
 /**
- * An inline attempt rotates when the roster changes under the buyer's unpaid
- * checkout, and the old form would still charge the old tier. Every inline
+ * An inline attempt rotates when the buyer chooses another plan, and the
+ * abandoned form's subscription would still charge the old one. Every inline
  * checkout therefore voids the buyer's unpaid checkouts from other attempts
  * before offering its own: any concurrent retry, or a retry after a failed
  * void, retires them again. A request whose own attempt was replaced

@@ -28,7 +28,7 @@ test("the hosted checkout session returns the Stripe page URL", async () => {
     getDefaultApiServiceRuntime(),
     organizationId,
     admin.userId,
-    "https://app.example/billing",
+    { priceId: "price_sync", returnUrl: "https://app.example/billing" },
     {
       stripe: {
         env: STRIPE_ENV,
@@ -63,7 +63,7 @@ test("the hosted checkout 409s when Stripe already holds a live subscription", a
       getDefaultApiServiceRuntime(),
       organizationId,
       admin.userId,
-      "https://app.example/billing",
+      { priceId: "price_sync", returnUrl: "https://app.example/billing" },
       {
         stripe: {
           env: STRIPE_ENV,
@@ -108,7 +108,7 @@ test("the hosted checkout refuses an already-active organization", async () => {
       getDefaultApiServiceRuntime(),
       organizationId,
       admin.userId,
-      "https://app.example/billing",
+      { priceId: "price_sync", returnUrl: "https://app.example/billing" },
       {
         stripe: { env: STRIPE_ENV, fetchImpl: respondingFetch([], []) },
         revenueCat: { env: REVENUECAT_ENV },

@@ -1,5 +1,9 @@
 import { expect, mock, test } from "bun:test";
-import { createStripeCheckout, loadStripeCheckoutOptions } from "./billing";
+import {
+  createStripeCheckout,
+  createStripeCheckoutSession,
+  loadStripeCheckoutOptions,
+} from "./billing";
 
 test("checkout options return the detailed API result data", async () => {
   const result = await loadStripeCheckoutOptions({
@@ -55,7 +59,7 @@ function refusal(code: string | undefined, report: () => void) {
   };
 }
 
-test("Pay starts the organization's subscription at the shown Price", async () => {
+test("Pay starts the organization's subscription at the chosen plan", async () => {
   const createStripeCheckoutApi = mock(
     async (_organizationId: string, _priceId: string) => ({
       data: { clientSecret: "pi_secret", subscriptionId: "sub_1" },
@@ -79,19 +83,19 @@ test("Pay starts the organization's subscription at the shown Price", async () =
   ]);
 });
 
-test("a repriced Pay keeps its code and is not reported as a failure", async () => {
+test("a Pay for a plan no longer offered keeps its code and is not reported", async () => {
   const report = mock(() => undefined);
 
   await expect(
     createStripeCheckout({
       apiClient: {
         createStripeCheckout: async () =>
-          refusal("billing_checkout_price_changed", report),
+          refusal("billing_checkout_plan_unavailable", report),
       },
       organizationId: "org-1",
       priceId: "price_sync",
     }),
-  ).rejects.toMatchObject({ code: "billing_checkout_price_changed" });
+  ).rejects.toMatchObject({ code: "billing_checkout_plan_unavailable" });
   expect(report).not.toHaveBeenCalled();
 });
 
@@ -111,4 +115,44 @@ test("any other refused Pay keeps its code and is reported", async () => {
     expect(failureCode).toBe(code);
     expect(report).toHaveBeenCalledTimes(1);
   }
+});
+
+test("the hosted fallback opens for the chosen plan", async () => {
+  const createStripeCheckoutSessionApi = mock(
+    async (_organizationId: string, _priceId: string, _returnUrl: string) => ({
+      data: { url: "https://checkout.stripe.com/pay/cs_1" },
+      ok: true as const,
+    }),
+  );
+
+  const session = await createStripeCheckoutSession({
+    apiClient: { createStripeCheckoutSession: createStripeCheckoutSessionApi },
+    organizationId: "org-1",
+    priceId: "price_team_5",
+    returnUrl: "https://app.example/billing",
+  });
+
+  expect(session).toEqual({ url: "https://checkout.stripe.com/pay/cs_1" });
+  expect(createStripeCheckoutSessionApi.mock.calls[0]?.slice(0, 3)).toEqual([
+    "org-1",
+    "price_team_5",
+    "https://app.example/billing",
+  ]);
+});
+
+test("a hosted session for a plan no longer offered is refused quietly", async () => {
+  const report = mock(() => undefined);
+
+  await expect(
+    createStripeCheckoutSession({
+      apiClient: {
+        createStripeCheckoutSession: async () =>
+          refusal("billing_checkout_plan_unavailable", report),
+      },
+      organizationId: "org-1",
+      priceId: "price_sync",
+      returnUrl: "https://app.example/billing",
+    }),
+  ).rejects.toMatchObject({ code: "billing_checkout_plan_unavailable" });
+  expect(report).not.toHaveBeenCalled();
 });

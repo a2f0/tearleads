@@ -79,8 +79,11 @@ export function capabilityWith(
 ): {
   capability: DirectCheckoutCapability;
   mounted: MountInput[];
+  /** Every price an open form was switched to, in order. */
+  prices: MountInput["price"][];
 } {
   const mounted: MountInput[] = [];
+  const prices: MountInput["price"][] = [];
   const capability: DirectCheckoutCapability = {
     isAvailable: true,
     mount: mock((input: MountInput) => {
@@ -98,11 +101,14 @@ export function capabilityWith(
             await startPayment();
             return { kind: "succeeded" };
           }),
+        updatePrice: (price) => {
+          prices.push(price);
+        },
         unmount: session.unmount ?? (() => undefined),
-      } as DirectCheckoutSession);
+      } satisfies DirectCheckoutSession);
     }) as DirectCheckoutCapability["mount"],
   };
-  return { capability, mounted };
+  return { capability, mounted, prices };
 }
 
 /**

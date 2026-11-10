@@ -24,22 +24,28 @@ flow and can style it from its theme tokens.
 ## Purchase flow
 
 Nothing exists on the server until the buyer pays.
-`useDirectCheckoutFlow` loads the server-selected option and, on Subscribe,
-mounts the Payment Element in Stripe's deferred mode (`mode: "subscription"`)
-for that option's amount and currency. On Pay, the session validates the form
+`useDirectCheckoutFlow` loads every plan whose capacity covers the
+organization's roster, smallest first, and the panel lists each with its own
+Subscribe. Subscribe mounts the Payment Element in Stripe's deferred mode
+(`mode: "subscription"`) for that plan's amount and currency. While the form
+is open, a plan picker switches to another offered plan: the session
+re-prices the form in place (`elements.update`), keeping what the buyer typed,
+and Pay then starts the new plan. On Pay, the session validates the form
 (`elements.submit()`), then asks the server to start the subscription at the
-option's `priceId` and confirms the returned PaymentIntent. Success hands off
-to activation polling; the entitlement arrives asynchronously through Stripe,
-RevenueCat, and the
+chosen plan's `priceId` and confirms the returned PaymentIntent. Success hands
+off to activation polling; the entitlement arrives asynchronously through
+Stripe, RevenueCat, and the
 [Tearleads webhook](revenuecat-billing.md#direct-stripe-checkout-server-side).
 
 Stripe does not check the form's amount against the PaymentIntent it
-confirms, so the server starts only the Price the buyer was shown. If the
-roster has moved the organization to another plan since the form opened, Pay
-gets a 409 `billing_checkout_price_changed`: nothing is charged, the form
-closes, and the panel reloads the offer at the new price. A decline leaves the
-element mounted for correction, and the next Pay resumes the same
-subscription; cancel unmounts it.
+confirms, so the server starts only a configured plan's Price, and only while
+that plan covers the roster. If the roster has outgrown the chosen plan since
+the plans loaded, or its Price was retired, Pay gets a 409
+`billing_checkout_plan_unavailable`: nothing is charged, the form closes, and
+the panel reloads the plans, offering none until they arrive. Switching plans
+after a declined Pay replaces the unpaid subscription at the next Pay. A
+decline leaves the element mounted for correction, and the next Pay for the
+same plan resumes the same subscription; cancel unmounts it.
 
 The surrounding Tearleads form requires a billing email before inline checkout.
 Confirmation sends it as the PaymentMethod billing email while the embedded
@@ -55,12 +61,14 @@ feeds the Appearance API computed Tearleads theme values, resolving actual
 colors and sizes because an iframe cannot dereference app CSS variables. The
 Stripe base theme is `night` for dark surfaces and `stripe` for light surfaces.
 
-The "Pay on Stripe instead" fallback creates a hosted Checkout Session and opens
-it in a new tab, with same-tab navigation when a popup is blocked. It uses the
-same admin gate, authoritative
-[Members](../glossary/principals.md#organization-members-group) count, customer,
-metadata, and `invoice.paid` association path. Return URLs share the portal
-route's origin validation.
+The "Pay on Stripe instead" fallback (behind the `stripe-hosted-checkout`
+feature flag) sits under the open form and creates a hosted Checkout Session
+for the plan the form shows, opening it in a new tab, with same-tab navigation
+when a popup is blocked. It uses the same admin gate, plan check against the
+authoritative [Members](../glossary/principals.md#organization-members-group)
+count, customer, metadata, and `invoice.paid` association path. A plan the
+server no longer offers closes the form and reloads the plans, as at Pay.
+Return URLs share the portal route's origin validation.
 
 ## Subscription management
 

@@ -35,7 +35,7 @@ import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   requireCurrentInlineAttempt,
-  requireShownPrice,
+  requireOfferedPlan,
   voidOtherInlineCheckouts,
 } from "./stripeCheckoutAttempt";
 import {
@@ -50,9 +50,9 @@ import {
 /** Direct Stripe checkout services; user-facing calls enforce org-admin access. */
 
 /**
- * Starts the org's subscription when the buyer presses Pay, at the Price the
- * form showed them, and returns what the Payment Element confirms. Null when
- * the integration is unconfigured (route: 503) — a Stripe failure throws
+ * Starts the org's subscription when the buyer presses Pay, at the plan they
+ * chose, and returns what the Payment Element confirms. Null when the
+ * integration is unconfigured (route: 503) — a Stripe failure throws
  * `StripeApiError` (route: 502).
  */
 export async function createStripeCheckout(
@@ -76,10 +76,7 @@ export async function createStripeCheckout(
     organizationId,
     sessionUserId,
     "inline",
-    {
-      requireSeatQuantity: (seatQuantity) =>
-        requireShownPrice({ priceId, seatQuantity, stripe }),
-    },
+    { plan: requireOfferedPlan(priceId, stripe) },
   );
   const customerId = await findOrCreateCustomer(
     { userId: sessionUserId, organizationId },
@@ -140,7 +137,7 @@ export async function createStripeCheckoutSession(
   runtime: ApiServiceRuntime,
   organizationId: string,
   sessionUserId: string,
-  returnUrl: string,
+  request: { readonly priceId: string; readonly returnUrl: string },
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<string | null> {
   if (!isDirectCheckoutFullyConfigured(deps)) {
@@ -156,6 +153,7 @@ export async function createStripeCheckoutSession(
     organizationId,
     sessionUserId,
     "hosted",
+    { plan: requireOfferedPlan(request.priceId, deps.stripe ?? {}) },
   );
   // Stripe-side duplicate guard, mirroring the inline flow. The local billing
   // status the eligibility workflow reads can lag Stripe (e.g. a webhook
@@ -191,7 +189,7 @@ export async function createStripeCheckoutSession(
       expiresAt: attempt.providerExpiresAt ?? attempt.expiresAt,
       userId: sessionUserId,
       organizationId,
-      returnUrl,
+      returnUrl: request.returnUrl,
       seatQuantity: attempt.seatQuantity,
     },
     deps.stripe ?? {},

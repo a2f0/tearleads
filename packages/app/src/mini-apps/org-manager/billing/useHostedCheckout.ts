@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { isCheckoutPlanUnavailable } from "./checkoutCopy";
 import {
   type HostedCheckoutEvent,
   type HostedCheckoutState,
@@ -10,8 +11,9 @@ import {
 
 /**
  * The off-site alternative to the inline form: mints a hosted Stripe Checkout
- * session and opens it in a NEW tab, so the buyer keeps this billing panel open
- * behind it. The session's success/cancel URLs return to this page.
+ * session for the chosen plan and opens it in a NEW tab, so the buyer keeps
+ * this billing panel open behind it. The session's success/cancel URLs return
+ * to this page.
  *
  * The tab is opened SYNCHRONOUSLY on the click — before the `await` — because a
  * `window.open` issued after an await is treated as programmatic and blocked by
@@ -19,12 +21,21 @@ import {
  * minted URL once it resolves; if the pop-up was blocked (no handle), the
  * current tab navigates instead so the buyer is never stranded.
  *
- * A null/failed result would otherwise reset the link silently, leaving a
- * dead-feeling click — e.g. a co-admin whose org is already checking out, or
- * an unconfigured integration — so it moves to `unavailable`, which shows a
- * brief notice until the next click.
+ * A null URL or another refusal would otherwise reset the link silently,
+ * leaving a dead-feeling click — e.g. a co-admin whose org is already checking
+ * out, or an unconfigured integration — so it moves to `unavailable`, which
+ * shows a brief notice until the next click. A plan the server no longer
+ * offers goes to `onPlanUnavailable` instead, which reloads the offer.
  */
-export function useHostedCheckout(organizationId: string): {
+export function useHostedCheckout({
+  onPlanUnavailable,
+  organizationId,
+  priceId,
+}: {
+  readonly onPlanUnavailable: () => void;
+  readonly organizationId: string;
+  readonly priceId: string;
+}): {
   readonly open: () => void;
   readonly busy: boolean;
   readonly unavailable: boolean;
@@ -52,6 +63,7 @@ export function useHostedCheckout(organizationId: string): {
       try {
         const result =
           await tearleads.organizations.createStripeCheckoutSession(
+            priceId,
             globalThis.location?.href ?? "",
             organizationId,
           );
@@ -70,16 +82,23 @@ export function useHostedCheckout(organizationId: string): {
           send({ type: "opened" });
           return;
         }
-        // Unconfigured, not eligible, or a checkout already in progress.
+        // Unconfigured, or no organization signed in.
         tab?.close();
         send({ type: "declined" });
       } catch (error) {
-        logError("Failed to open the hosted Stripe checkout", error);
         tab?.close();
+        // Nothing was charged; the form closes and the offer reloads.
+        if (isCheckoutPlanUnavailable(error)) {
+          send({ type: "plan-unavailable" });
+          onPlanUnavailable();
+          return;
+        }
+        // Not eligible, a checkout already in progress, or a failure.
+        logError("Failed to open the hosted Stripe checkout", error);
         send({ type: "declined" });
       }
     })();
-  }, [logError, organizationId, send, tearleads]);
+  }, [logError, onPlanUnavailable, organizationId, priceId, send, tearleads]);
   return {
     open,
     busy: state.status === "opening",

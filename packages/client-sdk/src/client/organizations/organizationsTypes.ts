@@ -1,11 +1,13 @@
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
-import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
+import type {
+  PrincipalPolicyMutationResponse,
+  StripeCheckoutSessionResponse,
+} from "@tearleads/validators/response";
 import type {
   cancelStripeSubscription,
   checkNativePurchaseEligibility,
   claimNativeOrganizationSubscription,
   createOrganizationGroup,
-  createStripeCheckoutSession,
   LocalOrganizationSummary,
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
@@ -83,18 +85,24 @@ export interface Organizations {
     organizationId?: string,
   ) => ReturnType<typeof loadStripeCheckoutOptions>;
   /**
-   * Starts the subscription at Pay, at the `priceId` the buyer was shown;
-   * null without an authenticated organization. A refusal throws an `Error`
-   * with the server's billing `code`.
+   * Starts the subscription at Pay, at the `priceId` of the plan the buyer
+   * chose; null without an authenticated organization. A refusal throws an
+   * `Error` with the server's billing `code`.
    */
   createStripeCheckout: (
     priceId: string,
     organizationId?: string,
   ) => Promise<StripeCheckoutIntent | null>;
+  /**
+   * Opens Stripe's hosted checkout for the chosen plan's `priceId`; null
+   * without an authenticated organization, and a null `url` when Stripe
+   * checkout is unconfigured. A refusal throws like `createStripeCheckout`.
+   */
   createStripeCheckoutSession: (
+    priceId: string,
     returnUrl: string,
     organizationId?: string,
-  ) => ReturnType<typeof createStripeCheckoutSession>;
+  ) => Promise<StripeCheckoutSessionResponse | null>;
   cancelStripeSubscription: () => ReturnType<typeof cancelStripeSubscription>;
   claimNativeSubscription: (
     organizationId: string,

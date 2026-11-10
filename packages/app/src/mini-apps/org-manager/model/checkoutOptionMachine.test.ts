@@ -17,12 +17,12 @@ const option = {
   intervalCount: 1,
 };
 const loading: CheckoutOptionState = { status: "loading" };
-const ready: CheckoutOptionState = { status: "ready", option };
+const ready: CheckoutOptionState = { status: "ready", options: [option] };
 const failed: CheckoutOptionState = { status: "failed", error: "x" };
 
 const off: CheckoutOptionEvent = { type: "off" };
 const load: CheckoutOptionEvent = { type: "load" };
-const loaded: CheckoutOptionEvent = { type: "loaded", option };
+const loaded: CheckoutOptionEvent = { type: "loaded", options: [option] };
 const loadFailed: CheckoutOptionEvent = { type: "load-failed", error: "x" };
 
 test.each<[CheckoutOptionState, CheckoutOptionEvent, CheckoutOptionState]>([

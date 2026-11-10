@@ -18,7 +18,8 @@ and the external-account handoff live in
 | Concern | Authority |
 | --- | --- |
 | Which accounts consume seats | The server's signed effective `Members`-group reachability |
-| Tier selection and capacity enforcement | The server, from the effective Members roster |
+| Tier selection | The buyer, among the plans whose capacity covers the server's effective Members roster |
+| Capacity enforcement | The server: the purchased plan's capacity, assigned to roster members as seats |
 | Web tier changes, prorations, and invoices | Stripe Price IDs |
 | Native tier changes and receipts | App Store / Play products through RevenueCat |
 | Web payment UI | Direct Stripe Payment Element or the Stripe-hosted Checkout fallback |
@@ -199,33 +200,37 @@ returning an unbounded 503.
 
 This is the only supported path for a new web subscription. It processes the
 subscription on **our own Stripe account** (the one connected to RevenueCat),
-selects the smallest fixed Price that covers the authoritative roster, and
-leaves RevenueCat responsible for mirroring the resulting entitlement lifecycle:
+offers every fixed Price whose capacity covers the authoritative roster,
+charges the one the buyer chooses, and leaves RevenueCat responsible for
+mirroring the resulting entitlement lifecycle:
 
-- `GET /organizations/:id/billing/stripe/options`, `POST
-  /organizations/:id/billing/stripe/checkout` (admin-gated; called at Pay with
-  the `priceId` the form showed, it starts the subscription and returns the
-  PaymentIntent client secret the deferred-mode Payment Element confirms), `POST
-  /organizations/:id/billing/stripe/checkout-session` (hosted fallback), `POST
-  /organizations/:id/billing/stripe/cancel`, and `POST
-  /organizations/:id/billing/stripe/portal` live in
+- `GET /organizations/:id/billing/stripe/options` (every covering plan,
+  smallest first), `POST /organizations/:id/billing/stripe/checkout`
+  (admin-gated; called at Pay with the chosen plan's `priceId`, it starts the
+  subscription and returns the PaymentIntent client secret the deferred-mode
+  Payment Element confirms), `POST
+  /organizations/:id/billing/stripe/checkout-session` (hosted fallback, also
+  given the chosen `priceId`), `POST /organizations/:id/billing/stripe/cancel`,
+  and `POST /organizations/:id/billing/stripe/portal` live in
   [`stripeCheckout.ts`](../../packages/api/src/routes/billing/stripeCheckout.ts).
 - The client does not supply a seat count. The checkout eligibility workflow
   counts unique users reachable through the organization's current `Members`
   group in the same server transaction as the admin and duplicate-subscription
-  checks. Checkout rejects an empty effective roster and sends the resulting
-  positive count to choose Solo, Team 5, or Team 10. Both inline and hosted
-  checkout send the selected Price with subscription-item quantity `1`.
-  Stripe does not check the inline form's amount against the PaymentIntent, so
-  inline checkout proceeds only when its attempt's seat count still maps to the
-  `priceId` the buyer saw; otherwise it returns 409
-  `billing_checkout_price_changed` before calling Stripe, and the client
-  reloads the options.
+  checks, and rejects an empty roster or one above 10. The buyer may choose
+  any plan whose capacity covers that count, including more capacity than the
+  roster needs; both inline and hosted checkout send the chosen Price with
+  subscription-item quantity `1`. Stripe does not check the inline form's
+  amount against the PaymentIntent, so checkout starts only a configured
+  plan's Price, and only while it covers the roster counted inside the
+  reservation; otherwise it returns 409 `billing_checkout_plan_unavailable`
+  before calling Stripe and reserves nothing, and the client reloads the
+  options.
 - Inline and hosted checkout share one durable, organization-scoped unpaid
-  attempt, capturing buyer, mode, and seat quantity before Stripe is called.
-  Identical retries reuse its idempotency token; another buyer or mode gets
-  a 409. When the roster changes under the same buyer's unpaid inline attempt,
-  the next inline checkout rotates the attempt to the current seat count.
+  attempt, capturing buyer, mode, and the chosen plan's capacity before Stripe
+  is called. Identical retries reuse its idempotency token; another buyer or
+  mode gets a 409. When the same buyer chooses another plan for an unpaid
+  inline attempt, the next inline checkout rotates the attempt to that plan; a
+  roster change that the chosen plan still covers keeps the attempt.
   Before offering its form, every inline checkout voids the first invoice of
   the buyer's incomplete subscriptions from other attempts, found through the
   consistent subscription list rather than search, and only after confirming
@@ -233,8 +238,8 @@ leaves RevenueCat responsible for mirroring the resulting entitlement lifecycle:
   PaymentIntent and expires its subscription; Stripe refuses once the payment
   has succeeded, and that refusal stays a 409. A request whose attempt was
   replaced meanwhile voids nothing and gets a 409, voiding its own subscription
-  if it had already created one. A hosted attempt with a changed seat count
-  stays a 409 until it expires. Inline attempts rotate after 24 hours. Hosted
+  if it had already created one. A hosted attempt for another plan stays a 409
+  until it expires. Inline attempts rotate after 24 hours. Hosted
   Sessions expire after 45 minutes with a five-minute overlap guard; retries
   stop before Stripe's 30-minute `expires_at` minimum. Existing incomplete
   subscriptions also block hosted checkout, preventing a late inline payment
@@ -293,8 +298,9 @@ Seat accounting follows the effective Members roster, not client-supplied
 roster rows and not the RevenueCat subscriber count. Assignments identify which
 accounts consume the fixed capacity stored in `organization_billing.seat_count`.
 
-- **Initial web enrollment:** the server chooses the smallest tier covering the
-  current roster. Checkout rejects an empty roster and any roster above 10.
+- **Initial web enrollment:** the buyer chooses any tier whose capacity covers
+  the current roster, including more than the roster needs. Checkout rejects an
+  empty roster, any roster above 10, and a chosen tier the roster outgrows.
 - **Web growth across a boundary:** moving from 1→2 members switches Solo to
   Team 5; moving from 5→6 switches Team 5 to Team 10. The worker changes the
   Stripe Price at quantity `1` with `proration_behavior=create_prorations`.

@@ -375,6 +375,14 @@ function createSession(
       }
       return toConfirmation(error);
     },
+    updatePrice(price) {
+      if (unmounted) {
+        return;
+      }
+      // The deferred-mode amount is display and validation only; the
+      // buyer's entered card and email stay in place.
+      elements.update({ amount: price.amount, currency: price.currency });
+    },
     unmount() {
       unmounted = true;
       releaseElements(elements, mounted.wrappers);
@@ -427,8 +435,8 @@ export function createWebDirectCheckout(
       }
       // Deferred mode: the form mounts for `price` before the server starts
       // anything, and the PaymentIntent arrives at Pay. Stripe does not
-      // check this amount against that PaymentIntent; the server's Price
-      // check at Pay is what keeps them equal.
+      // check this amount against that PaymentIntent; the server starts only
+      // the chosen plan's Price, which the host keeps this amount equal to.
       const elements = stripe.elements({
         mode: "subscription",
         amount: price.amount,

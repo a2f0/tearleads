@@ -39,11 +39,15 @@ test("Stripe client metadata derives from shared operations", () => {
 });
 
 test("hosted Stripe client metadata derives request bodies and guards", () => {
-  const request = { returnUrl: "https://app.example/billing" };
-  expect(stripeCheckoutSessionCreate.body(request.returnUrl)).toEqual(request);
-  expect(stripeCheckoutSessionCreate.isRequest(request)).toBe(true);
-  expect(stripePortalCreate.body(request.returnUrl)).toEqual(request);
-  expect(stripePortalCreate.isRequest(request)).toBe(true);
+  const returnUrl = "https://app.example/billing";
+  const session = { priceId: "price_1", returnUrl };
+  expect(stripeCheckoutSessionCreate.body("price_1", returnUrl)).toEqual(
+    session,
+  );
+  expect(stripeCheckoutSessionCreate.isRequest(session)).toBe(true);
+  expect(stripeCheckoutSessionCreate.isRequest({ returnUrl })).toBe(false);
+  expect(stripePortalCreate.body(returnUrl)).toEqual({ returnUrl });
+  expect(stripePortalCreate.isRequest({ returnUrl })).toBe(true);
 });
 
 test("Stripe client paths preserve legacy organization id encoding", () => {

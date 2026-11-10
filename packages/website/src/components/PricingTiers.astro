@@ -2,10 +2,11 @@
 import type { PricingTier } from "../pricing";
 
 /**
- * The plan cards on /pricing. They have no per-plan buttons: web checkout picks
- * the plan from the organization's roster, so the page offers one action
- * below the cards instead. Both lists drop their markers in pricing.css, so they
- * carry role="list" to keep list semantics in Safari.
+ * The plan cards on /pricing. They have no per-plan buttons: the plan is
+ * chosen in the app's checkout, which offers only plans that cover the
+ * organization's roster, so the page offers one action below the cards
+ * instead. Both lists drop their markers in pricing.css, so they carry
+ * role="list" to keep list semantics in Safari.
  */
 interface Props {
   readonly tiers: readonly PricingTier[];

@@ -78,7 +78,7 @@ test("concurrent inline and hosted services issue one provider create", async ()
       getDefaultApiServiceRuntime(),
       organizationId,
       admin.userId,
-      "https://app.example/billing",
+      { priceId: "price_sync", returnUrl: "https://app.example/billing" },
       serviceDeps,
     ),
   ]);
@@ -92,24 +92,24 @@ test("concurrent inline and hosted services issue one provider create", async ()
   expect(creates).toHaveLength(1);
 });
 
-test("a Pay at a Price the roster no longer maps to reserves nothing", async () => {
+test("a Pay for a plan that is no longer offered reserves nothing", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticateWithOrganization(admin);
   const creates: Request[] = [];
   const serviceDeps = deps(checkoutFetch(creates));
 
-  // One member is Solo; a form still showing Team 5 must not hold the
-  // organization's one checkout reservation once it is refused.
+  // A form loaded before a Price was retired must not hold the organization's
+  // one checkout reservation once it is refused.
   await expect(
     createStripeCheckout(
       getDefaultApiServiceRuntime(),
       organizationId,
       admin.userId,
-      "price_team_5",
+      "price_retired",
       serviceDeps,
     ),
   ).rejects.toMatchObject({
-    code: "billing_checkout_price_changed",
+    code: "billing_checkout_plan_unavailable",
     status: 409,
   });
   const [billing] = await db
@@ -124,7 +124,7 @@ test("a Pay at a Price the roster no longer maps to reserves nothing", async () 
       getDefaultApiServiceRuntime(),
       organizationId,
       admin.userId,
-      "https://app.example/billing",
+      { priceId: "price_sync", returnUrl: "https://app.example/billing" },
       serviceDeps,
     ),
   ).toBe("https://checkout.stripe.com/pay/cs_org");
@@ -141,7 +141,10 @@ test("hosted retries reuse a provider key and expired attempts rotate it", async
       getDefaultApiServiceRuntime(),
       organizationId,
       admin.userId,
-      "https://app.example/billing?transient=1",
+      {
+        priceId: "price_sync",
+        returnUrl: "https://app.example/billing?transient=1",
+      },
       serviceDeps,
     );
 

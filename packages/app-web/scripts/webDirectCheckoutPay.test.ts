@@ -50,6 +50,24 @@ test("Pay confirms the payment the server started, after the form validates", as
   expect(confirmInputs).toMatchObject([{ clientSecret: "pi_started" }]);
 });
 
+test("switching plans re-prices the open form, and Pay confirms the new start", async () => {
+  const { confirmInputs, elementsUpdates, stripe } = fakeStripe();
+  const session = await mountWith(stripe);
+
+  session.updatePrice({ amount: 1_000, currency: "usd" });
+
+  expect(elementsUpdates).toEqual([{ amount: 1_000, currency: "usd" }]);
+  expect(await session.confirm(() => Promise.resolve("pi_team"))).toEqual({
+    kind: "succeeded",
+  });
+  expect(confirmInputs).toMatchObject([{ clientSecret: "pi_team" }]);
+
+  // A form the buyer left cannot be re-priced.
+  session.unmount();
+  session.updatePrice({ amount: 2_000, currency: "usd" });
+  expect(elementsUpdates).toHaveLength(1);
+});
+
 test("an invalid form is a decline and starts nothing on the server", async () => {
   const { confirmInputs, stripe } = fakeStripe({
     submitError: {
