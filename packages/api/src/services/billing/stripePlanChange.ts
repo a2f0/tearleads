@@ -193,13 +193,9 @@ async function upgrade(input: UpgradeInput): Promise<void> {
       "The plan change took too long to start; try again",
     );
   }
-  if (!applied && !(await charge(input, binding.seatQuantity ?? 0))) {
-    await abandon(input);
-    throw new OrganizationManagerError(
-      "The payment for the larger plan did not go through; nothing changed",
-      409,
-      BILLING_ERROR_CODES.planChangePaymentFailed,
-    );
+  const itemSeatCount = binding.seatQuantity ?? 0;
+  if (!applied && !(await charge(input, itemSeatCount))) {
+    throw await declined(input, itemSeatCount);
   }
   await runFinishStripePlanUpgradeWorkflow(input.runtime.db, {
     leaseId: input.begun.leaseId,
@@ -212,6 +208,34 @@ async function upgrade(input: UpgradeInput): Promise<void> {
   });
 }
 
+/**
+ * Releases an upgrade whose payment did not go through. If the charge first
+ * restored the paid Price over a scheduled smaller plan's, the smaller Price
+ * is written back before answering, so nothing changed in Stripe either.
+ */
+async function declined(
+  input: UpgradeInput,
+  itemSeatCount: number,
+): Promise<OrganizationManagerError> {
+  const { begun, organizationId } = input;
+  if (itemSeatCount < begun.paidCapacity) {
+    await updateSubscriptionItemQuantity(
+      {
+        idempotencyKey: `plan-baseline-undo:${organizationId}:${begun.leaseId}`,
+        prorationBehavior: "none",
+        seatQuantity: itemSeatCount,
+        subscriptionItemId: begun.subscriptionItemId,
+      },
+      input.stripe,
+    );
+  }
+  await abandon(input);
+  return new OrganizationManagerError(
+    "The payment for the larger plan did not go through; nothing changed",
+    409,
+    BILLING_ERROR_CODES.planChangePaymentFailed,
+  );
+}
 /**
  * Whether Stripe's subscription is still the one the upgrade began for, in
  * the period its capacity was paid for (an extension moves only the end).

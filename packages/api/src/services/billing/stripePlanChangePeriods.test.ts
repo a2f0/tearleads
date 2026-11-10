@@ -192,7 +192,7 @@ test("an extension bound during an upgrade keeps the upgrade's lease", async () 
   });
 });
 
-test("an upgrade waits when the subscription renews within a lease", async () => {
+test("an upgrade waits when the subscription renews within the hour", async () => {
   const { admin, organizationId } = await subscribedOrganization({
     seatCount: 5,
   });

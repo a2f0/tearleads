@@ -63,6 +63,35 @@ test("a declined upgrade voids its invoice and changes nothing", async () => {
   });
 });
 
+test("a declined upgrade after a scheduled downgrade leaves Stripe at the smaller plan", async () => {
+  // Team 5 renews at Solo, and Stripe's item is already at Solo.
+  const { change, stripe } = await subscribedOrganization({
+    itemSeatCount: 1,
+    renewalSeatCount: 1,
+    seatCount: 5,
+  });
+  const fake = stripe(true);
+
+  await expect(change("price_team_10", fake)).rejects.toMatchObject({
+    code: "billing_plan_change_payment_failed",
+  });
+
+  // The paid Price restored for the charge is written back to Solo before
+  // the answer, so the renewal invoice still charges Solo.
+  expect(
+    fake.writes.map(({ form, path }) => [
+      path,
+      form.get("price") ?? form.get("items[0][price]"),
+      form.get("proration_behavior"),
+    ]),
+  ).toEqual([
+    ["/v1/subscription_items/si_plan", "price_team_5", "none"],
+    ["/v1/subscriptions/sub_plan", "price_team_10", "always_invoice"],
+    ["/v1/invoices/in_upgrade/void", null, null],
+    ["/v1/subscription_items/si_plan", "price_sync", "none"],
+  ]);
+});
+
 test("a downgrade is scheduled for renewal and keeps the paid capacity", async () => {
   const { change, organizationId, stripe } = await subscribedOrganization({
     seatCount: 5,

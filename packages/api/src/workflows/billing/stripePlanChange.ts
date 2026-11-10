@@ -46,6 +46,8 @@ import { isSameBillingPeriod } from "./stripePeriodMatch";
 
 const PLAN_LEASE_PREFIX = "plan:";
 const PLAN_LEASE_MS = 5 * 60 * 1_000;
+/** No change starts this close to the paid period's end. */
+const RENEWAL_FREEZE_MS = 60 * 60 * 1_000;
 
 export type StripeSeatRow = typeof organizationBillingStripeSeats.$inferSelect;
 
@@ -194,15 +196,16 @@ async function leaseChange(
   input: { readonly leaseId: string; readonly now: Date },
 ): Promise<LeasedStripePlanChange> {
   const { now } = input;
-  // Stripe renews only at the period's end. Starting no later than a lease
-  // before it, and writing Stripe only within the lease's first half, keeps
-  // every write inside the paid period, before the renewal invoice.
+  // Stripe renews only at the period's end. Writing Stripe only within the
+  // lease's first half, and starting no later than an hour before the end,
+  // keeps every write inside the paid period, and leaves the worker time to
+  // write back the recorded renewal plan's Price after a lease lapses.
   if (
     seats.billingPeriodEndsAt === null ||
-    seats.billingPeriodEndsAt.getTime() - now.getTime() < PLAN_LEASE_MS
+    seats.billingPeriodEndsAt.getTime() - now.getTime() < RENEWAL_FREEZE_MS
   ) {
     throw stripePlanChangeUnavailable(
-      "The subscription renews in a few minutes; change the plan after it renews",
+      "The subscription renews within the hour; change the plan after it renews",
     );
   }
   const leaseExpiresAt = new Date(now.getTime() + PLAN_LEASE_MS);

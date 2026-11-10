@@ -376,11 +376,14 @@ An administrator changes the plan on every platform under the same rules:
   change gets 409 `billing_plan_change_unavailable` until it ends. Stripe is
   charged only while at least half the lease remains; an upgrade that took
   longer is released unpaid with the same 409, so once a lease lapses the
-  outcome in Stripe is final. Stripe renews only at the period's end, so an
-  upgrade within five minutes of it waits with the same 409 until the
-  renewal, keeping the whole charge inside the paid period. The larger renewal
-  plan is recorded only once the upgrade is paid, so an upgrade that fails
-  or never reaches Stripe leaves a scheduled smaller plan as it was. An
+  outcome in Stripe is final. Stripe renews only at the period's end, so any
+  change within an hour of it waits with the same 409 until the renewal,
+  keeping every Stripe write inside the paid period and leaving the worker
+  time to write back the recorded renewal plan's Price after a lease lapses.
+  A declined upgrade that first restored the paid Price over a scheduled
+  smaller plan's writes the smaller Price back before answering. The larger
+  renewal plan is recorded only once the upgrade is paid, so an upgrade that
+  fails or never reaches Stripe leaves a scheduled smaller plan as it was. An
   upgrade that stalls past its lease still grants the capacity it was charged
   for when it finishes, but a renewal plan chosen after the lease lapsed
   stands, and the worker reconciles the Price from Stripe. If the request
