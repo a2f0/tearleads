@@ -50,19 +50,11 @@ function resolveBindingState(
   // capacity paid for it stays even though the bound Price may already be a
   // scheduled smaller plan's.
   const extended = sameSubscription && isExtendedPeriod(current, binding);
-  // The plan the subscription renews at is an administrator's choice for that
-  // subscription; a replacement subscription renews at its own Price. It is
-  // never paid capacity: an upgrade is charged before it is granted.
-  const desiredRenewalQuantity = normalizeStripeSeatQuantity(
-    sameSubscription && current
-      ? current.desiredRenewalQuantity
-      : bindingQuantity,
-  );
+  const samePaidPeriod = sameAppliedPeriod || extended;
   return {
-    appliedPaidCapacity:
-      sameAppliedPeriod || extended
-        ? Math.max(current?.appliedPaidCapacity ?? 0, bindingQuantity)
-        : bindingQuantity,
+    appliedPaidCapacity: samePaidPeriod
+      ? Math.max(current?.appliedPaidCapacity ?? 0, bindingQuantity)
+      : bindingQuantity,
     bindingPeriodKey,
     bindingQuantity,
     desiredPaidCapacity: Math.max(
@@ -70,9 +62,34 @@ function resolveBindingState(
       sameDesiredPeriod || extended ? (current?.desiredPaidCapacity ?? 0) : 0,
       billing.seatPeriodKey === bindingPeriodKey ? billing.seatCount : 0,
     ),
-    desiredRenewalQuantity,
+    desiredRenewalQuantity: bindingRenewalQuantity(
+      sameSubscription ? current : undefined,
+      bindingQuantity,
+      samePaidPeriod,
+    ),
     ...inFlightLease(preserveInFlight ? current : undefined),
   };
+}
+
+/**
+ * The plan the subscription renews at: an administrator's choice for that
+ * subscription (`current`), while a replacement subscription renews at its
+ * own Price. It is never paid capacity, since an upgrade is charged before it
+ * is granted. A Price raised within the paid period is such a paid upgrade
+ * (its webhook arrived first, or its request died before recording it), so
+ * the subscription renews at it.
+ */
+function bindingRenewalQuantity(
+  current: StripeSeatStateRow | undefined,
+  bindingQuantity: number,
+  samePaidPeriod: boolean,
+): number {
+  if (!current) {
+    return bindingQuantity;
+  }
+  return samePaidPeriod && bindingQuantity > current.appliedPaidCapacity
+    ? bindingQuantity
+    : normalizeStripeSeatQuantity(current.desiredRenewalQuantity);
 }
 
 function isExtendedPeriod(

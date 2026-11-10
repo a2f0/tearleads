@@ -383,17 +383,21 @@ An administrator changes the plan on every platform under the same rules:
   revisits the row once the lease lapses: finding Stripe at a larger Price
   than the capacity recorded for the period, it grants that capacity in the
   period the organization's billing tracks and records the larger plan as the
-  renewal plan. Until then every plan change, which reads Stripe first, gets
-  409 `billing_plan_change_unavailable`: the worker would overwrite a newer
+  renewal plan. A Stripe webhook that binds the larger Price within the paid
+  period first (the upgrade's own update, or an extension) records it as the
+  renewal plan the same way. Until the capacity is recorded and granted,
+  every plan change, which reads Stripe first, gets 409
+  `billing_plan_change_unavailable`: the worker would overwrite a newer
   renewal choice, and another plan would be priced from capacity not yet
-  recorded. An upgrade that finishes after the subscription renewed grants
+  granted. An upgrade that finishes after the subscription renewed grants
   nothing to the new period, whose renewal invoice already charged the Price
   it renews at.
 - Only a Stripe subscription that owns the organization's capacity (a priced
-  binding, not one retained under native ownership) can change plan, and an
-  upgrade waits with 409 `billing_plan_change_unavailable` while Stripe has
-  renewed into a period its webhooks have not bound yet, so the charge is
-  always counted from the period actually paid for.
+  binding, not one retained under native ownership) can change plan, and
+  every change waits with 409 `billing_plan_change_unavailable` while Stripe
+  has renewed into a period its webhooks have not bound yet, so an upgrade is
+  always charged from, and a downgrade scheduled against, the period actually
+  paid for.
 - Every request names the capacity the admin chose against
   (`currentSeatCount`). If the plan changed meanwhile (a renewal, another
   admin), the request gets 409 `billing_plan_change_unavailable`, so a choice

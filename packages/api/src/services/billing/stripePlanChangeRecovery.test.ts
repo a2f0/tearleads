@@ -34,13 +34,22 @@ async function beginTeam10Upgrade(
     db,
     organizationId,
     userId,
-    { currentSeatCount: 5, now, observed: null, plan: TEAM_10 },
+    {
+      currentSeatCount: 5,
+      now,
+      observed: {
+        billingPeriodStartsAt: PERIOD_START,
+        seatCount: 5,
+        subscriptionId: `sub_${organizationId}`,
+      },
+      plan: TEAM_10,
+    },
   );
   if (upgrade.kind !== "upgrade") throw new Error("expected an upgrade");
   return upgrade;
 }
 
-test("an upgrade waits while Stripe has renewed into a period not yet bound", async () => {
+test("every plan change waits while Stripe has renewed into a period not yet bound", async () => {
   const { change, organizationId, stripe } = await subscribedOrganization({
     seatCount: 5,
   });
@@ -57,14 +66,46 @@ test("an upgrade waits while Stripe has renewed into a period not yet bound", as
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
   const fake = stripe();
 
-  await expect(change("price_team_10", fake)).rejects.toMatchObject({
-    code: "billing_plan_change_unavailable",
-    status: 409,
-  });
+  // An upgrade would be charged from, and a downgrade scheduled against,
+  // the previous period's plan.
+  for (const priceId of ["price_team_10", "price_sync"]) {
+    await expect(change(priceId, fake)).rejects.toMatchObject({
+      code: "billing_plan_change_unavailable",
+      status: 409,
+    });
+  }
   expect(fake.writes).toEqual([]);
   expect(await readState(organizationId)).toMatchObject({
     billing: { seatCount: 5 },
     seats: { desiredRenewalQuantity: 5, leaseId: null },
+  });
+});
+
+test("a paid upgrade bound by a webhook before it is recorded renews at its plan", async () => {
+  // Stripe charged a Team 5 → Team 10 upgrade whose request died; an
+  // extension's webhook binds the Team 10 Price before the worker runs.
+  const { change, organizationId } = await subscribedOrganization({
+    itemSeatCount: 10,
+    seatCount: 5,
+  });
+  await runBindOrganizationStripeSeatsWorkflow(db, {
+    billingPeriodEndsAt: new Date(PERIOD_END.getTime() + 7 * 86_400_000),
+    billingPeriodStartsAt: PERIOD_START,
+    customerId: "cus_plan",
+    organizationId,
+    priceId: "price_team_10",
+    seatQuantity: 10,
+    subscriptionId: `sub_${organizationId}`,
+    subscriptionItemId: `si_${organizationId}`,
+  });
+
+  // The worker keeps the Team 10 Price rather than restoring Team 5.
+  expect(await readState(organizationId)).toMatchObject({
+    seats: { appliedPaidCapacity: 10, desiredRenewalQuantity: 10 },
+  });
+  // Until the worker grants it, a renewal choice waits.
+  await expect(change("price_sync")).rejects.toMatchObject({
+    code: "billing_plan_change_unavailable",
   });
 });
 

@@ -260,23 +260,42 @@ interface ObservedStripePlan {
 }
 
 /**
- * Stripe holds a larger plan than the capacity recorded for the period: an
- * upgrade that was paid but whose request died before recording it. The
- * seat-sync worker grants it and records it as the renewal plan once its
- * lease lapses. Any change waits until then: a renewal choice would be
- * overwritten, and another plan would be priced from capacity not recorded.
+ * Every change is made against the subscription as Stripe reports it, which
+ * must match what the organization has recorded:
+ *
+ * - Stripe in a later period than the one bound has renewed, and its
+ *   webhooks have not arrived: a choice now would be scheduled or charged
+ *   against the previous period's plan.
+ * - Stripe holding a larger plan than the capacity recorded or granted for
+ *   the period is a paid upgrade whose request died before recording it.
+ *   The seat-sync worker grants it and records it as the renewal plan once
+ *   its lease lapses; until then a renewal choice would be overwritten, and
+ *   another plan would be priced from capacity not recorded.
  */
-function upgradeAwaitingRecovery(
+function requireStripeAtGrantedPlan(
   seats: BoundStripeSeats,
+  grantedSeatCount: number,
   observed: ObservedStripePlan | null,
-): boolean {
-  return (
-    observed?.subscriptionId === seats.subscriptionId &&
-    observed.billingPeriodStartsAt !== null &&
-    observed.billingPeriodStartsAt.getTime() ===
-      seats.billingPeriodStartsAt?.getTime() &&
-    (observed.seatCount ?? 0) > seats.appliedPaidCapacity
-  );
+): void {
+  if (
+    observed?.subscriptionId !== seats.subscriptionId ||
+    observed.billingPeriodStartsAt === null ||
+    observed.billingPeriodStartsAt.getTime() !==
+      seats.billingPeriodStartsAt?.getTime()
+  ) {
+    throw stripePlanChangeUnavailable(
+      "The subscription is renewing; try again in a moment",
+    );
+  }
+  const observedSeatCount = observed.seatCount ?? 0;
+  if (
+    observedSeatCount > seats.appliedPaidCapacity ||
+    observedSeatCount > grantedSeatCount
+  ) {
+    throw stripePlanChangeUnavailable(
+      "A previous upgrade is still being applied; try again in a minute",
+    );
+  }
 }
 
 /**
@@ -314,11 +333,7 @@ export async function runBeginStripePlanChangeWorkflow(
       }
       const seats = await requireChangeableSeats(tx, organizationId, now);
       await requirePlanCoversRoster(tx, organizationId, plan);
-      if (upgradeAwaitingRecovery(seats, options.observed)) {
-        throw stripePlanChangeUnavailable(
-          "A previous upgrade is still being applied; try again in a minute",
-        );
-      }
+      requireStripeAtGrantedPlan(seats, billing.seatCount, options.observed);
       if (plan.seatLimit > billing.seatCount) {
         return leaseUpgrade(tx, seats, {
           leaseId: `${PLAN_LEASE_PREFIX}${(options.createLeaseId ?? randomUUID)()}`,

@@ -312,7 +312,8 @@ export async function runRequireCheckoutEligibleWorkflow(
         );
       }
 
-      requireAvailableTier(activeUserIds.length);
+      // An empty subscribed roster still renews at least Solo.
+      requireAvailableTier(Math.max(1, activeUserIds.length));
       return { rosterSeatCount: activeUserIds.length };
     },
   );
