@@ -34,6 +34,10 @@ import {
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 import {
+  requireCurrentInlineAttempt,
+  voidOtherInlineCheckouts,
+} from "./stripeCheckoutAttempt";
+import {
   isDirectCheckoutFullyConfigured,
   type StripeCheckoutServiceDeps,
 } from "./stripeCheckoutConfiguration";
@@ -69,13 +73,21 @@ export async function createStripeCheckout(
     sessionUserId,
     "inline",
   );
+  const stripe = deps.stripe ?? {};
   const customerId = await findOrCreateCustomer(
     { userId: sessionUserId, organizationId },
-    deps.stripe ?? {},
+    stripe,
   );
   if (!customerId) {
     return null;
   }
+  await voidOtherInlineCheckouts({
+    attemptId: attempt.attemptId,
+    customerId,
+    db: runtime.db,
+    organizationId,
+    stripe,
+  });
   const outcome = await createSyncSubscription(
     {
       checkoutAttemptId: attempt.attemptId,
@@ -84,7 +96,7 @@ export async function createStripeCheckout(
       organizationId,
       seatQuantity: attempt.seatQuantity,
     },
-    deps.stripe ?? {},
+    stripe,
   );
   if (outcome?.kind === "conflict") {
     // Stripe already holds a live (or unreadable pending) subscription for
@@ -95,7 +107,17 @@ export async function createStripeCheckout(
       409,
     );
   }
-  return outcome ? outcome.intent : null;
+  if (!outcome) {
+    return null;
+  }
+  await requireCurrentInlineAttempt({
+    attemptId: attempt.attemptId,
+    db: runtime.db,
+    organizationId,
+    stripe,
+    subscriptionId: outcome.intent.subscriptionId,
+  });
+  return outcome.intent;
 }
 
 /**

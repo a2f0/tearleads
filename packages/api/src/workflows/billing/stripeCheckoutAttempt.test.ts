@@ -25,6 +25,16 @@ async function registerAdmin(user: TestUser): Promise<string> {
   return row.organizationId;
 }
 
+async function addMember(admin: TestUser, organizationId: string) {
+  const member = createTestUser();
+  await registerUser(member);
+  await addEffectiveOrganizationMember({
+    actor: admin,
+    organizationId,
+    userId: member.userId,
+  });
+}
+
 test("inline and hosted checkout have exactly one concurrent winner", async () => {
   const admin = createTestUser();
   const organizationId = await registerAdmin(admin);
@@ -79,7 +89,7 @@ test("same-mode concurrent retries reuse one durable token", async () => {
   expect(second.seatQuantity).toBe(1);
 });
 
-test("changed seat terms cannot replace an active attempt snapshot", async () => {
+test("a changed roster rotates the buyer's inline attempt once", async () => {
   const admin = createTestUser();
   const organizationId = await registerAdmin(admin);
   const first = await runAcquireStripeCheckoutAttemptWorkflow(
@@ -90,23 +100,49 @@ test("changed seat terms cannot replace an active attempt snapshot", async () =>
     START,
     () => "one-seat-token",
   );
-  const member = createTestUser();
-  await registerUser(member);
-  await addEffectiveOrganizationMember({
-    actor: admin,
-    organizationId,
-    userId: member.userId,
-  });
-
-  expect(first.seatQuantity).toBe(1);
-  await expect(
+  await addMember(admin, organizationId);
+  const later = new Date("2030-01-01T00:01:00.000Z");
+  const acquire = (token: string) =>
     runAcquireStripeCheckoutAttemptWorkflow(
       db,
       organizationId,
       admin.userId,
       "inline",
+      later,
+      () => token,
+    );
+
+  expect(first.seatQuantity).toBe(1);
+  const [left, right] = await Promise.all([
+    acquire("left-token"),
+    acquire("right-token"),
+  ]);
+  expect(left).toEqual(right);
+  expect(left.seatQuantity).toBe(2);
+  expect(["left-token", "right-token"]).toContain(left.attemptId);
+});
+
+test("a hosted attempt for an old roster is never replaced", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAdmin(admin);
+  await runAcquireStripeCheckoutAttemptWorkflow(
+    db,
+    organizationId,
+    admin.userId,
+    "hosted",
+    START,
+    () => "hosted-one-seat",
+  );
+  await addMember(admin, organizationId);
+
+  await expect(
+    runAcquireStripeCheckoutAttemptWorkflow(
+      db,
+      organizationId,
+      admin.userId,
+      "hosted",
       new Date("2030-01-01T00:01:00.000Z"),
-      () => "two-seat-token",
+      () => "unused",
     ),
   ).rejects.toMatchObject({ status: 409 });
 });
