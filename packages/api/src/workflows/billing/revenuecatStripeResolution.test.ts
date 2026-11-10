@@ -97,6 +97,19 @@ test("an extension of the paid period keeps its capacity", async () => {
   ).toMatchObject({ kind: "resolved", seatCount: 5 });
 });
 
+test("an extension that reports no start keeps the paid capacity", async () => {
+  const organizationId = await scheduledDowngrade();
+  const event = stripeEvent(organizationId, "SUBSCRIPTION_EXTENDED", {
+    endsAt: NEXT_PERIOD_END,
+    startsAt: PERIOD_START,
+  });
+
+  // Only a later end: it cannot be told from a renewal, so seats stay.
+  expect(await grantedSeats({ ...event, purchased_at_ms: null })).toMatchObject(
+    { kind: "resolved", seatCount: 5 },
+  );
+});
+
 test("the renewal into the next period grants the smaller plan", async () => {
   const organizationId = await scheduledDowngrade();
 

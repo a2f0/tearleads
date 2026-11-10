@@ -112,8 +112,9 @@ differently than shown. A declined upgrade says nothing changed and points to
 the website's **Manage subscription** page for a new card; a plan the server
 refuses shows its reason and reloads the plans and the billing snapshot. The
 plans are also read again when the roster changes elsewhere, since they must
-cover it. An answer that arrives after the switcher closed or moved to
-another organization is dropped. The
+cover it. Switching organization starts a fresh switcher, so a pending
+choice or a change in flight never carries over, and an answer that arrives
+after the switcher closed or moved to another organization is dropped. The
 [server rules](billing-plan-changes.md) cover every platform.
 
 Lost-key cancellation uses Stripe's shareable no-code portal login from the

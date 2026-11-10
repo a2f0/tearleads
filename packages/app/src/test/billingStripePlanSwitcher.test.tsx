@@ -154,6 +154,43 @@ test("two confirmations before a re-render start one change", async () => {
   await act(async () => pending.resolve("upgraded"));
 });
 
+test("switching organization drops a pending choice and a change in flight", async () => {
+  const pending = Promise.withResolvers<string>();
+  const { organizations } = stubSdk(() => pending.promise);
+  const { billing, view } = billingFixture(true, true, false);
+  const refresh = mock(() => Promise.resolve());
+  const switcher = (organizationId: string) => (
+    <BillingStripePlanSwitcher
+      billing={{ billing, refresh, view }}
+      disabled={false}
+      organizationId={organizationId}
+    />
+  );
+  const ui = render(switcher("org-1"));
+  const button = (row: string) =>
+    ui
+      .getByText(row)
+      .closest(".mini-app-row")
+      ?.querySelector("button") as HTMLButtonElement;
+  await waitFor(() => expect(ui.getByText("Team 10")).toBeTruthy());
+
+  // A confirmation shown for one organization is gone for the next.
+  act(() => button("Solo").click());
+  ui.rerender(switcher("org-2"));
+  await waitFor(() => expect(ui.getByText("Team 10")).toBeTruthy());
+  expect(ui.queryByText(PLAN_CHANGE_LABELS.confirmDowngrade)).toBeNull();
+
+  // A change in flight for org-2 neither keeps org-3 busy nor reports to it.
+  act(() => button("Team 10").click());
+  act(() => ui.getByText(PLAN_CHANGE_LABELS.confirmUpgrade).click());
+  expect(organizations.changeStripePlan).toHaveBeenCalledTimes(1);
+  ui.rerender(switcher("org-3"));
+  await waitFor(() => expect(button("Team 10").disabled).toBe(false));
+  await act(async () => pending.resolve("upgraded"));
+  expect(ui.queryByText(PLAN_CHANGE_LABELS.changed.upgraded)).toBeNull();
+  expect(refresh).not.toHaveBeenCalled();
+});
+
 test("a declined upgrade says nothing changed and is not reported", async () => {
   const { logError } = stubSdk(() =>
     Promise.reject(

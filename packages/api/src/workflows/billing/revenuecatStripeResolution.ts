@@ -16,10 +16,7 @@ import {
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
-import {
-  endsLaterBillingPeriod,
-  startsLaterBillingPeriod,
-} from "./stripePeriodMatch";
+import { startsLaterBillingPeriod } from "./stripePeriodMatch";
 
 type StripeResolutionSource = "durable" | "provider";
 
@@ -202,9 +199,12 @@ export async function lockedDurableStripeSeatCount(input: {
 }
 
 /**
- * Whether the event belongs to the bound paid period (or an earlier one)
- * rather than starting a later one, allowing for the small differences
- * between RevenueCat's and Stripe's timestamps for one period.
+ * Whether the event belongs to the bound paid period (or an earlier one).
+ * Only an event that starts a later period, its purchase half a period or
+ * more after the bound start, is a renewal; RevenueCat's timestamps for one
+ * period trail Stripe's by far less. An event that shows no start cannot be
+ * told from an extension, which reports only a later end, so it keeps the
+ * paid period.
  */
 function eventInPaidPeriod(
   event: RevenueCatWebhookEvent,
@@ -214,18 +214,13 @@ function eventInPaidPeriod(
   },
 ): boolean {
   const startsAt = binding.billingPeriodStartsAt;
-  const endsAt = binding.billingPeriodEndsAt;
-  if (event.purchased_at_ms != null && startsAt !== null) {
-    return !startsLaterBillingPeriod(event.purchased_at_ms, {
-      endsAt,
-      startsAt,
-    });
-  }
   return (
-    event.expiration_at_ms != null &&
-    startsAt !== null &&
-    endsAt !== null &&
-    !endsLaterBillingPeriod(event.expiration_at_ms, { endsAt, startsAt })
+    event.purchased_at_ms == null ||
+    startsAt === null ||
+    !startsLaterBillingPeriod(event.purchased_at_ms, {
+      endsAt: binding.billingPeriodEndsAt,
+      startsAt,
+    })
   );
 }
 

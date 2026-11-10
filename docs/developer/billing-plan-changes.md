@@ -109,12 +109,14 @@ An administrator changes the plan on every platform under the same rules:
   shown as a change at renewal is never charged as an upgrade.
 - A RevenueCat event within the paid period keeps the paid capacity; only an
   event that starts a later period grants the smaller renewal plan alone. An
-  event belongs to the paid period unless it starts, or else ends, at least
-  half a period after the bound start or end, so RevenueCat timestamps that
-  trail Stripe's slightly never count as a renewal. The capacity is computed
-  again under the billing lock before it is applied, so an upgrade paid after
-  the event was read is not overwritten, and an event read before the bound
-  Price changed is retried.
+  event belongs to the paid period unless its purchase starts half a period
+  or more after the bound start, so RevenueCat timestamps that trail
+  Stripe's slightly never count as a renewal; an event that shows no start
+  cannot be told from an extension, which reports only a later end, so it
+  keeps the paid capacity too. The capacity is computed again under the
+  billing lock before it is applied, so an upgrade paid after the event was
+  read is not overwritten, and an event read before the bound Price changed
+  is retried.
 - An extension that moves the paid period's end but not its start keeps the
   capacity paid for it when Stripe's webhook binds the new end, even though
   the bound Price is already a scheduled smaller plan's. A period is

@@ -365,9 +365,12 @@ export function BillingStripePlanSwitcher({
   if (!view?.isActive || view.subscriptionSource !== "stripe") {
     return null;
   }
+  // Keyed by organization: a switch starts a fresh switcher, so a choice or
+  // change in progress for one organization never carries to another.
   return (
     <StripePlanSwitcher
       disabled={disabled}
+      key={organizationId}
       minimumSeatCount={billing.billing?.activeMemberCount ?? null}
       organizationId={organizationId}
       pendingSeatCount={view.pendingSeatCount}

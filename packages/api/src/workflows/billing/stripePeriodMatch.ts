@@ -43,11 +43,3 @@ export function startsLaterBillingPeriod(
 ): boolean {
   return startsAtMs > period.startsAt.getTime() + marginMs(period);
 }
-
-/** Whether a period ending at `endsAtMs` is later than `period`. */
-export function endsLaterBillingPeriod(
-  endsAtMs: number,
-  period: BillingPeriod & { readonly endsAt: Date },
-): boolean {
-  return endsAtMs > period.endsAt.getTime() + marginMs(period);
-}
