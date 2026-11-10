@@ -1,6 +1,6 @@
 ---
 import { SiteFrame } from "../components/SiteFrame";
-import { SiteHeaderNav } from "../components/SiteHeaderNav";
+import { SiteNav } from "../components/SiteNav";
 import { appUrl, isStaging } from "../config";
 import {
   canonicalUrl,
@@ -51,7 +51,7 @@ const pathname =
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Stamps the theme before first paint, choosing as SiteHeaderNav's
+    <!-- Stamps the theme before first paint, choosing as SiteThemeSwitch's
          ThemeProvider does: the stored theme the site offers, else the one for
          the OS scheme. Without scripting tokens.css stays light. -->
     <script
@@ -119,7 +119,7 @@ const pathname =
     </script>
     <a class="skip-link" href="#main">Skip to content</a>
     <SiteFrame appUrl={appUrl}>
-      <SiteHeaderNav client:load pathname={pathname} slot="nav" />
+      <SiteNav client:load pathname={pathname} slot="nav" />
       <main id="main" tabindex="-1" class="website-main">
         <slot />
       </main>

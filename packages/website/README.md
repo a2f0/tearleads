@@ -115,13 +115,12 @@ links](../../docs/developer/static-analysis.md#documentation-links).
 
 ## Light and dark themes
 
-The primary nav ends with a theme button
-([`src/components/SiteThemeButton.tsx`](src/components/SiteThemeButton.tsx)):
-an icon in the header row, a labelled row in the phone menu. The header island
-([`src/components/SiteHeaderNav.tsx`](src/components/SiteHeaderNav.tsx)) wraps
-the nav in `ThemeProvider` from `@tearleads/windowing/theme`, the provider the
-app uses, with the site's two themes from
-[`src/siteTheme.ts`](src/siteTheme.ts). Until a visitor picks one, the site
+The primary nav ends with a theme switch
+([`src/components/SiteThemeSwitch.tsx`](src/components/SiteThemeSwitch.tsx)):
+an icon in the header row, a labelled row in the phone menu. It owns
+`ThemeProvider` from `@tearleads/windowing/theme`, the provider the app uses,
+with the site's two themes from [`src/siteTheme.ts`](src/siteTheme.ts), and
+mounts only after the nav island hydrates. Until a visitor picks one, the site
 follows the OS scheme; a pick persists in `localStorage`. An inline script in
 [`src/layouts/Layout.astro`](src/layouts/Layout.astro) stamps
 `<html data-theme-scheme>` before first paint, and

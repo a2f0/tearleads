@@ -126,7 +126,7 @@
   display: none;
 }
 
-/* --- Theme button (SiteThemeButton.tsx), the nav's last item --- */
+/* --- Theme switch (SiteThemeSwitch.tsx), the nav's last item --- */
 
 .site-nav-theme {
   display: flex;

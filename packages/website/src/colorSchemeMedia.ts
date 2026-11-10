@@ -74,15 +74,15 @@ function rewriteWithin(root: Element, scheme: ColorScheme): void {
 /**
  * Syncs now, after every change to `<html data-theme-scheme>`, and for
  * elements added later, such as the slides agent-tool's `screenshot-carousel`
- * renders from its manifest.
+ * renders from its manifest. Returns a function that stops following.
  */
-export function followColorSchemeMedia(document: Document): void {
+export function followColorSchemeMedia(document: Document): () => void {
   const root = document.documentElement;
   const scheme = stampedScheme(root);
   if (scheme) {
     rewriteWithin(root, scheme);
   }
-  new MutationObserver((records) => {
+  const observer = new MutationObserver((records) => {
     const current = stampedScheme(root);
     if (!current) {
       return;
@@ -98,9 +98,11 @@ export function followColorSchemeMedia(document: Document): void {
         }
       }
     }
-  }).observe(root, {
+  });
+  observer.observe(root, {
     attributeFilter: [SCHEME_ATTRIBUTE],
     childList: true,
     subtree: true,
   });
+  return () => observer.disconnect();
 }

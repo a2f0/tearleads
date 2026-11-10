@@ -4,7 +4,7 @@
  * Dark values mirror the app's dark ramp in packages/ui/src/styles.css
  * (:root[data-theme="dark"]). The site's dark block selects on
  * `<html data-theme-scheme="dark">`, which the theme script in Layout.astro
- * and SiteHeaderNav's ThemeProvider stamp from the visitor's choice or the OS
+ * and SiteThemeSwitch's ThemeProvider stamp from the visitor's choice or the OS
  * scheme; without scripting the site stays light. The site's theme ids never
  * match the app's, so the @tearleads/ui theme blocks stay inactive.
  * `html:root` (specificity 0,1,1) outranks the `:root` block in @tearleads/ui
