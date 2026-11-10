@@ -6,7 +6,7 @@ import {
   SITE_THEMES,
   stampSiteTheme,
 } from "../siteTheme";
-import { SiteNav } from "./SiteNav";
+import { SiteThemeSwitch } from "./SiteThemeSwitch";
 
 // The DOM is registered for this file only, and before React DOM loads, since
 // react-dom detects the DOM when its module is first evaluated; a static
@@ -72,10 +72,10 @@ test("before paint, no pick or one the site no longer offers follows the OS", ()
   expect(stamped()).toEqual({ scheme: "light", theme: "site-light" });
 });
 
-test("the hydrated nav keeps the stamp, and its switch persists a pick", () => {
+test("the hydrated switch keeps the stamp and persists a pick", () => {
   setOsScheme("dark");
   stampBeforePaint();
-  const view = rtl.render(<SiteNav pathname="/" />);
+  const view = rtl.render(<SiteThemeSwitch />);
   expect(stamped()).toEqual({ scheme: "dark", theme: "site-dark" });
 
   const toggle = view.getByRole("button", { name: "Switch to Light theme" });

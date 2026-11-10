@@ -3,6 +3,7 @@ import {
   ThemeProvider,
   useTheme,
 } from "@tearleads/windowing/theme";
+import { useEffect, useState } from "react";
 import {
   SITE_DEFAULT_THEME,
   SITE_THEME_STORAGE_KEY,
@@ -21,25 +22,34 @@ function SiteThemeButton() {
       onClick={theme.toggleTheme}
     >
       <ThemeInvertIcon size={20} />
-      <span className="site-theme-switch-text">
-        {theme.nextTheme.label} theme
-      </span>
     </button>
   );
 }
 
 /**
- * The site's light/dark switch, the last item of the primary nav: an icon
- * button in the header row, a labelled row in the phone menu (frame.css).
- * Like the app's ThemeSwitch it moves to the next theme and names it.
+ * The site's light/dark switch in the footer's lower-right corner, hydrated as
+ * its own island (slot="themeSwitch" in Layout.astro) once the footer nears
+ * the viewport. Like the app's ThemeSwitch it moves to the next theme and
+ * names it.
  *
  * It owns the site's ThemeProvider, which persists a pick and otherwise
- * follows the OS live. SiteNav mounts it only after hydration: the theme
- * script in Layout.astro has already stamped `<html data-theme-scheme>`, and a
- * provider hydrated from server HTML would first read the OS scheme as light
- * and stamp that over a dark page.
+ * follows the OS live. Until it mounts, the theme script in Layout.astro's
+ * stamp stands. The provider mounts only after hydration: hydrated from server
+ * HTML, it would first read the OS scheme as light and stamp that over a dark
+ * page. The static HTML and the first client render therefore show the same
+ * glyph in an inert box, and the effect swaps in the labelled button.
  */
 export function SiteThemeSwitch() {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+
+  if (!hydrated) {
+    return (
+      <span aria-hidden="true" className="site-theme-switch">
+        <ThemeInvertIcon size={20} />
+      </span>
+    );
+  }
   return (
     <ThemeProvider
       defaultTheme={SITE_DEFAULT_THEME}
