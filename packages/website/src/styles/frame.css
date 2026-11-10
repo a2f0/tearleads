@@ -317,29 +317,39 @@
   flex: 1;
 }
 
+/* Links wrap in rows under each heading at every width. Touch screens keep
+   the 44px target; a mouse or trackpad gets 32px rows (above WCAG's 24px
+   minimum), which is most of what keeps the footer short on desktops. */
 .site-footer {
+  --site-footer-target: var(--site-target);
   display: grid;
-  gap: var(--site-space-6);
+  gap: var(--site-space-4);
   width: 100%;
-  padding-block: var(--site-space-7) var(--site-space-4);
+  padding-block: var(--site-space-5) var(--site-space-3);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .site-footer {
+    --site-footer-target: 2rem;
+  }
 }
 
 .site-footer-groups {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--site-space-5);
+  gap: var(--site-space-3) var(--site-space-5);
 }
 
 .site-footer-heading {
-  margin: 0 0 var(--site-space-1);
+  margin: 0;
   color: var(--site-chrome-ink);
   font: 600 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
 }
 
 .site-footer-list {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0 var(--site-space-5);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -348,7 +358,7 @@
 .site-footer-link {
   display: inline-flex;
   align-items: center;
-  min-height: var(--site-target);
+  min-height: var(--site-footer-target);
   color: var(--site-chrome-ink-2);
   font: 400 var(--site-text-mono) / 1.3 var(--site-font-mono);
   text-decoration: none;
@@ -366,7 +376,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--site-space-2) var(--site-space-5);
-  padding-top: var(--site-space-3);
+  padding-top: var(--site-space-2);
   border-top: 1px solid var(--site-chrome-line);
   color: var(--site-chrome-ink-2);
   font: 400 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
@@ -388,8 +398,8 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: var(--site-target);
-  height: var(--site-target);
+  width: var(--site-footer-target);
+  height: var(--site-footer-target);
   margin-left: auto;
   padding: 0;
   border: 1px solid var(--site-chrome-ink-2);
@@ -438,21 +448,7 @@ span.site-theme-switch {
 }
 
 @media (max-width: 699px) {
-  .site-footer {
-    gap: var(--site-space-5);
-    padding-top: var(--site-space-6);
-  }
-
   .site-footer-groups {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--site-space-4);
-  }
-
-  /* Rows of links that wrap keep every target at 44px without turning the
-     footer into a full screen of single-link rows. */
-  .site-footer-list {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0 var(--site-space-5);
   }
 }
