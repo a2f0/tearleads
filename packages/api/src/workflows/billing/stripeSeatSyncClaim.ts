@@ -12,6 +12,7 @@ import { normalizeStripeSeatQuantity } from "../../billing/stripeSeatQuantity";
 import { isSqliteApiDatabase, lockRowForUpdate } from "../../utils/sqlDialect";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { hasActiveStripeBinding } from "./stripeBindingPolicy";
+import { isSameBillingPeriod } from "./stripePeriodMatch";
 
 const LEASE_MS = 5 * 60 * 1000;
 const DRIFT_AUDIT_MS = 24 * 60 * 60 * 1000;
@@ -236,7 +237,7 @@ interface CompleteStripeSeatSyncInput {
 }
 
 interface LockedSeatSyncBilling {
-  readonly currentPeriodEndsAt: Date | null;
+  readonly currentPeriodStartsAt: Date | null;
   readonly seatCount: number;
   readonly status: string;
 }
@@ -335,10 +336,14 @@ async function grantPaidStripeCapacity(
       ),
     )
     .limit(1);
+  // RevenueCat's timestamps for the period can differ slightly from Stripe's.
   const samePeriod =
-    billing?.currentPeriodEndsAt != null &&
-    input.billingPeriodEndsAt?.getTime() ===
-      billing.currentPeriodEndsAt.getTime();
+    billing?.currentPeriodStartsAt != null &&
+    input.billingPeriodStartsAt !== null &&
+    isSameBillingPeriod(billing.currentPeriodStartsAt, {
+      endsAt: input.billingPeriodEndsAt,
+      startsAt: input.billingPeriodStartsAt,
+    });
   if (
     billing?.status !== "active" ||
     !samePeriod ||
@@ -373,7 +378,7 @@ export async function runCompleteOrganizationStripeSeatSyncWorkflow(
     const [billing] = await lockRowForUpdate(
       tx
         .select({
-          currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
+          currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
           seatCount: organizationBilling.seatCount,
           status: organizationBilling.status,
         })

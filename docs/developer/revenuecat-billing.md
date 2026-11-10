@@ -428,10 +428,14 @@ licensed seats) for their full duration.
 Roster writes only enqueue an absolute desired state in
 `organization_billing_stripe_seats`, keeping the renewal plan an administrator
 chose; they do not call Stripe while holding the roster transaction open, so
-access changes stay durable while Stripe is unavailable. A roster write made
-while billing still tracks an older period than Stripe has bound never
+access changes stay durable while Stripe is unavailable. Billing's period
+comes from RevenueCat and the bound period from Stripe; a roster write for
+the same period (starts less than half a period apart) keeps Stripe's key, so
+the worker never mistakes capacity already paid for as unpaid. A roster write
+made while billing still tracks an older period than Stripe has bound never
 carries that period's capacity into the newer one, so a renewal into a
-smaller plan is not prorated back up before RevenueCat reports it.
+smaller plan is not prorated back up before RevenueCat reports it. The
+worker's grant of a recovered upgrade matches periods the same way.
 
 ## Billing maintenance worker
 

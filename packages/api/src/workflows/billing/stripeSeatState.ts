@@ -10,6 +10,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { organizationSeatPeriodKey } from "../../billing/organizationBilling";
 import { normalizeStripeSeatQuantity } from "../../billing/stripeSeatQuantity";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
+import { isSameBillingPeriod } from "./stripePeriodMatch";
 import { resolveStripeSeatBindingOrder } from "./stripeSeatBindingOrder";
 
 export interface StripeSeatBindingInput {
@@ -147,6 +148,22 @@ function seatPeriodOrder(
     : null;
 }
 
+/**
+ * Whether two keys name the same period: RevenueCat's and Stripe's
+ * timestamps for one paid period can differ slightly (stripePeriodMatch.ts).
+ */
+function seatPeriodIsSame(candidate: string, reference: string): boolean {
+  const candidateOrder = seatPeriodOrder(candidate);
+  const referenceOrder = seatPeriodOrder(reference);
+  if (candidateOrder?.[0] !== 1 || referenceOrder?.[0] !== 1) {
+    return candidate === reference;
+  }
+  return isSameBillingPeriod(new Date(candidateOrder[1]), {
+    endsAt: new Date(referenceOrder[2]),
+    startsAt: new Date(referenceOrder[1]),
+  });
+}
+
 function seatPeriodIsOlder(candidate: string, reference: string): boolean {
   const candidateOrder = seatPeriodOrder(candidate);
   const referenceOrder = seatPeriodOrder(reference);
@@ -159,6 +176,34 @@ function seatPeriodIsOlder(candidate: string, reference: string): boolean {
     }
   }
   return false;
+}
+
+/**
+ * The period a roster write targets. The local period comes from billing;
+ * when Stripe has bound the same period (spelled with its own timestamps)
+ * or a newer one, the bound key is kept so the worker compares like with
+ * like.
+ */
+function resolveRosterPeriod(
+  current: StripeSeatStateRow | undefined,
+  localKey: string,
+): {
+  readonly desiredSeatPeriodKey: string;
+  readonly providerPeriodIsNewer: boolean;
+} {
+  const boundKey =
+    current?.subscriptionId != null ? current.appliedSeatPeriodKey : null;
+  if (boundKey === null) {
+    return { desiredSeatPeriodKey: localKey, providerPeriodIsNewer: false };
+  }
+  if (seatPeriodIsSame(localKey, boundKey)) {
+    return { desiredSeatPeriodKey: boundKey, providerPeriodIsNewer: false };
+  }
+  const providerPeriodIsNewer = seatPeriodIsOlder(localKey, boundKey);
+  return {
+    desiredSeatPeriodKey: providerPeriodIsNewer ? boundKey : localKey,
+    providerPeriodIsNewer,
+  };
 }
 
 /**
@@ -187,25 +232,22 @@ export async function requestOrganizationStripeSeatSync(input: {
       eq(organizationBillingStripeSeats.organizationId, input.organizationId),
     )
     .limit(1);
-  const providerPeriodIsNewer =
-    current !== undefined &&
-    current.subscriptionId !== null &&
-    current.appliedSeatPeriodKey !== null &&
-    seatPeriodIsOlder(input.desiredSeatPeriodKey, current.appliedSeatPeriodKey);
-  const desiredSeatPeriodKey = providerPeriodIsNewer
-    ? current.appliedSeatPeriodKey
-    : input.desiredSeatPeriodKey;
+  const { desiredSeatPeriodKey, providerPeriodIsNewer } = resolveRosterPeriod(
+    current,
+    input.desiredSeatPeriodKey,
+  );
   // The licensed seat count belongs to the older local period, which may have
   // paid for a larger plan than the renewal Stripe already bound; carrying it
   // into the newer period would prorate the subscription back up.
-  const periodPaidCapacity = providerPeriodIsNewer
-    ? Math.max(
-        current.appliedPaidCapacity,
-        current.desiredSeatPeriodKey === current.appliedSeatPeriodKey
-          ? current.desiredPaidCapacity
-          : 0,
-      )
-    : desiredPaidCapacity;
+  const periodPaidCapacity =
+    providerPeriodIsNewer && current
+      ? Math.max(
+          current.appliedPaidCapacity,
+          current.desiredSeatPeriodKey === current.appliedSeatPeriodKey
+            ? current.desiredPaidCapacity
+            : 0,
+        )
+      : desiredPaidCapacity;
   await input.executor
     .insert(organizationBillingStripeSeats)
     .values({
