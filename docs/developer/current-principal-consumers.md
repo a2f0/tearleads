@@ -184,6 +184,30 @@ containers through their projections, or reads group policy history for the
 founding heads. A provisioned container's projection is read on its first
 write instead.
 
+The November 10, 2026 lifecycle measurements separate startup and reconnect
+from provisioning and offline replay:
+
+- [`PaneRestartRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx)
+  measures 23 requests after disposing the SDK and reopening the same local
+  SQLite database: 2 organization-policy reads, 1 public history read, 2
+  parent-lane queries, 3 document listings, 3 container and 3 document
+  projections, 6 read-only syncs, and one ticket, membership and billing read.
+- [`PaneReconnectRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx)
+  measures 22 requests with nothing pending: 3 organization-policy reads, 4
+  parent-lane queries, 1 listing, 1 container and 3 document projections, 8
+  read-only syncs, one ticket and one membership read. Creating a folder from
+  another session while disconnected raises the resync to 30: respectively
+  5 policy reads, 6 parent-lane queries, 2 listings, 2 container and 4 document
+  projections, 9 read-only syncs, and the same ticket and membership reads.
+  Neither reconnect reads public history or group policies, nor replays writes.
+
+These are per-route ceilings as well as observed counts for two folders and two
+notes. The tests await the real socket acknowledgement and catch-up, not just
+network quiet, and verify durable queues and resulting data. See
+[the lifecycle budgets](../request-budgets.md#pane-lifecycle-budgets) for the
+complete route table, the extra-request negative control, and the distinction
+between SDK restart on retained test storage and a browser/process restart.
+
 A cold Org Manager open uses three requests: one read-model read, one
 organization-policy read and one Admins-policy read
 ([`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)).

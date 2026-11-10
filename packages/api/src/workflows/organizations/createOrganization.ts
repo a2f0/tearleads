@@ -6,6 +6,7 @@ import { organizationBilling, users } from "@tearleads/api-shared/schema";
 import {
   readKeyingCanonicalJson,
   serializeKeyingCanonicalJson,
+  verifySignedPrincipalState,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
@@ -21,6 +22,10 @@ import {
   OrganizationSyncDisabledError,
 } from "../billing/organizationSyncEligibility";
 import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
+import {
+  readOrganizationCreationReplay,
+  recordOrganizationCreationReplay,
+} from "./organizationCreationReplay";
 import { validateOrganizationReplacementAuthorization } from "./organizationReplacementAuthorization";
 import {
   type OrganizationProvisioningSigner,
@@ -291,14 +296,24 @@ export async function runCreateOrganizationWorkflow(
   }
   const signer = await readProvisioningSigner(db, input.userId);
   await validateOrganizationProvisioningInput(input, signer);
+  // Structural validation only compares claimed fingerprints. A replay must
+  // still prove its signer against the user's current stored public key.
+  if (
+    !(await verifySignedPrincipalState(
+      input.initialOrganizationPolicy.state,
+      signer.signingPublicKey,
+    ))
+  ) {
+    throw new OrganizationProvisioningError("Invalid provisioning signer", 400);
+  }
   await validateOrganizationReplacementAuthorization(
     input,
     signer.signingPublicKey,
   );
   try {
     return await db.transaction(async (tx) => {
-      if (input.nativeSubscriptionRestore) {
-        // Serialize identical restore requests before checking the response.
+      if (!input.replacesOrganizationId) {
+        // Serialize identical create requests before checking the response.
         // A concurrent winner records its replay payload while this request is
         // waiting on the same organization principal lock.
         await lockPrincipalMutationInTransaction(
@@ -309,6 +324,8 @@ export async function runCreateOrganizationWorkflow(
       }
       const nativeRestoreReplay = await readNativeRestoreReplay(tx, input);
       if (nativeRestoreReplay) return nativeRestoreReplay;
+      const creationReplay = await readOrganizationCreationReplay(tx, input);
+      if (creationReplay) return creationReplay;
       const existingReplacement = await assertReplacementReady(tx, input);
       if (existingReplacement) {
         await finalizeReplacementDefaultOrganization(
@@ -329,6 +346,7 @@ export async function runCreateOrganizationWorkflow(
         replacementAuthorization: input.replacementAuthorization ?? null,
       };
       await markNativeRestoreDestination(tx, input, response);
+      await recordOrganizationCreationReplay(tx, input, response);
       await linkReplacementOrganization(tx, input, response);
       await finalizeReplacementDefaultOrganization(tx, input, response);
       return response;

@@ -88,6 +88,66 @@ a [head](./glossary/sync.md#head) new to the device needs its first read. See
 and [principal-history acceptance](principal-history-acceptance.md) for that
 security tradeoff.
 
+## Pane lifecycle budgets
+
+Measured on November 10, 2026, with two child folders, one note in each, and
+personal bootstrap complete. These are current costs, not optimization targets.
+The lifecycle canaries use the same request recorder and
+`measureWorkflowRequests` as the operation tests:
+
+- [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx)
+  unmounts the whole pane, waits for SDK disposal and SQLite connection close,
+  mounts a fresh SDK and SQLite client on the same local database, and opens
+  Explorer at the root. A local-only SQL marker proves storage continuity;
+  changed SDK, tree-store and client identities rule out a warm UI-only remount.
+  The persisted session is restored, with no registration or login request.
+- [`PaneReconnectRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx)
+  forces the settled pane offline through System Monitor, proves the socket
+  disconnected without making HTTP requests, then restores automatic networking.
+  One case leaves the server unchanged. The other restores the same identity in
+  a second pane with its own database and session, then creates one folder there
+  while the reader is disconnected. That write settles before measurement; the
+  reader must discover the matching folder ID and name without a manual refresh.
+
+Both cases require an empty durable write queue before and after the lifecycle
+transition. Cached folder/note state is checked through local queries rather
+than additional navigation during measurement. Reconnect waits for the real
+interest acknowledgement and the production catch-up promise before coordinator
+and HTTP settlement: that catch-up runs outside coordinator lanes, so a quiet
+HTTP gap alone can end a measurement too early. The observer calls through and
+never starts an extra reconciliation or replaces networking.
+
+| Route | Restart | Reconnect | Remote folder |
+| --- | ---: | ---: | ---: |
+| `POST /auth/ws-ticket` | 1 | 1 | 1 |
+| `GET /organization-memberships` | 1 | 1 | 1 |
+| `GET /organizations/:organizationId/billing` | 1 | 0 | 0 |
+| `POST /containers/parent-lanes/query` | 2 | 4 | 6 |
+| `POST /containers/documents/query` | 3 | 1 | 2 |
+| `GET /principals/organization/:organizationId/policy` | 2 | 3 | 5 |
+| `GET /principals/history` | 1 | 0 | 0 |
+| `GET /containers/:containerId/writer-projection` | 3 | 1 | 2 |
+| `GET /documents/:documentId/writer-projection` | 3 | 3 | 4 |
+| `POST /documents/:documentId/sync` | 6 | 8 | 9 |
+| **Total** | **23** | **22** | **30** |
+
+Each value is both the observed count and the per-route ceiling. Unlisted routes
+are forbidden, every response must be 200, and every document sync must be
+read-only. Ticket and membership reads are also required exactly once, so a
+missing connection cannot masquerade as a cheaper reconnect. The remote writer
+stays mounted but idle; all measured requests must carry the reader's session.
+A negative control makes one real extra membership read after measurement and
+proves the membership ceiling rejects it even with spare total capacity.
+
+The restart uses the test worker's named SQLite wasm-VFS file and shared test
+keyring. Its physical worker is retained only to preserve that filename map;
+the database connection closes and reopens, and the SDK is disposed and rebuilt.
+This is not an OS-process, browser-storage, worker-asset or keyring-unlock
+benchmark. HTTP goes through the real test API; the existing MSW socket router
+handles tickets and interest acknowledgements. WebSocket frames and wire bytes
+remain outside these HTTP counts. No offline mutations are replayed in either
+reconnect budget; that is the separate offline-workflow fixture above.
+
 ## Design decisions
 
 These choices keep request counts above the minimum on purpose.

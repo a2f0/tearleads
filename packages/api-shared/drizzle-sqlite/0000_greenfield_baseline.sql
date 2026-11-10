@@ -599,6 +599,9 @@ CREATE TABLE `organizations` (
 	`member_group_id` text NOT NULL,
 	`root_container_id` text NOT NULL,
 	`profile_document_id` text,
+	`provisioning_user_id` text,
+	`provisioning_request_sha256` text,
+	`provisioning_response` text,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint

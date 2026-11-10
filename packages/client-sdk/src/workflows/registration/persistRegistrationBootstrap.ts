@@ -74,6 +74,10 @@ interface ProvisionedProfileDocumentBootstrapInput {
 }
 
 export interface RegistrationBootstrapInput {
+  /** @internal Completes the caller's journal inside the bootstrap transaction. */
+  completeProvisioningAttempt?:
+    | ((execSql: ExecSql) => Promise<void>)
+    | undefined;
   acknowledgedAccessHeads: readonly LocallyAcknowledgedAccessManifestHead[];
   /** Seeded documents' acknowledged signed heads; see the discovery cache. */
   authoredDiscoveryHeads: readonly AuthoredDiscoveryHead[];
@@ -417,6 +421,7 @@ export async function persistRegistrationBootstrapFromExecSql(
           lockedExecSql,
           input.authoredDiscoveryHeads,
         );
+        await input.completeProvisioningAttempt?.(lockedExecSql);
       },
       () => !input.canStartDurableMutation || input.canStartDurableMutation(),
     );

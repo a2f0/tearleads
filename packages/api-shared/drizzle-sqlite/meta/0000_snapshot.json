@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8a48a1d3-d92c-4b16-b067-04bc8a58f613",
+  "id": "23a9cbd6-01e2-4243-a18c-a25d6645141a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_events": {
@@ -3743,6 +3743,27 @@
         },
         "profile_document_id": {
           "name": "profile_document_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "provisioning_user_id": {
+          "name": "provisioning_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "provisioning_request_sha256": {
+          "name": "provisioning_request_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "provisioning_response": {
+          "name": "provisioning_response",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

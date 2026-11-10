@@ -341,22 +341,27 @@ test("createOrganization provisions configured system containers (Trash) atomica
 test("createOrganization returns null when the server rejects the request", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-
-  const response = await createOrganization({
-    apiClient: {
-      createOrganization: async () => null,
-    },
-    dbClient: {
-      exec: async () => {
-        throw new Error("Unexpected database access for a rejected request");
+  const { close, execSql } = await createTestExecSql("rejected-organization");
+  try {
+    const response = await createOrganization({
+      apiClient: {
+        createOrganization: async () => null,
       },
-    },
-    encapsulationKeyPair,
-    signingKeyPair,
-    userId: crypto.randomUUID(),
-  });
-
-  expect(response).toBeNull();
+      dbClient: execSqlClientFromExecSql(execSql),
+      encapsulationKeyPair,
+      signingKeyPair,
+      userId: crypto.randomUUID(),
+    });
+    expect(response).toBeNull();
+    // A null transport result is ambiguous: retain the signed attempt.
+    expect(
+      await execSql(
+        "SELECT organization_id FROM organization_provisioning_attempts",
+      ),
+    ).toHaveLength(1);
+  } finally {
+    close();
+  }
 });
 
 test("createOrganization submits nothing once the identity is stale", async () => {
@@ -403,10 +408,9 @@ test("createOrganization persists nothing when the identity goes stale in-flight
 
   try {
     const client = execSqlClientFromExecSql(execSql);
-    // Genuinely hold the mutation queue the bootstrap persist serializes on:
-    // the pre-create and pre-persist checks (probes 1 and 2) pass while the
-    // queue is busy, the identity is replaced while the persist waits, and
-    // only the in-mutex currency check sees it stale.
+    // Hold the bootstrap queue AFTER the durable attempt is saved. The
+    // identity changes while bootstrap persistence waits, not while saving
+    // the earlier retry journal.
     const workflowExecSql = createExecSql(client);
     const held = new Promise<void>((resolve) => {
       releaseHold = resolve;
@@ -415,11 +419,7 @@ test("createOrganization persists nothing when the identity goes stale in-flight
     const holdStarted = new Promise<void>((resolve) => {
       holdEntered = resolve;
     });
-    const holding = runSerializedSqlMutation(workflowExecSql, async () => {
-      holdEntered();
-      await held;
-    });
-    await holdStarted;
+    let holding = Promise.resolve();
 
     let identityCurrent = true;
     let persistQueued!: () => void;
@@ -430,6 +430,11 @@ test("createOrganization persists nothing when the identity goes stale in-flight
       apiClient: {
         createOrganization: async (request) => {
           captured = request;
+          holding = runSerializedSqlMutation(workflowExecSql, async () => {
+            holdEntered();
+            await held;
+          });
+          await holdStarted;
           return respondToOrganizationProvisioning(request);
         },
       },
@@ -449,12 +454,12 @@ test("createOrganization persists nothing when the identity goes stale in-flight
     // persist is deterministically waiting behind the held mutation — the
     // window the in-mutex guard exists for.
     await persistEntersQueue;
-    expect(identityProbes).toBe(2);
+    expect(identityProbes).toBe(3);
     identityCurrent = false;
     releaseHold();
     await holding;
     const response = await creation;
-    expect(identityProbes).toBe(3);
+    expect(identityProbes).toBe(4);
 
     // The remote organization exists, but no stale bootstrap row may reach
     // the local database the replacement identity now owns.

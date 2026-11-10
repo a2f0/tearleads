@@ -17,6 +17,10 @@ import {
 } from "../../registration/organizationProvisioning";
 import type { ProvisionedStatePrimer } from "../../registration/provisionedStatePrimer";
 import {
+  organizationCreationCompletion,
+  organizationCreationIntent,
+} from "./organizationCreationIntent";
+import {
   makeOrganizationProvisioningAttemptDurable,
   removeNativeSubscriptionRestoreProvisioningAttempt,
 } from "./organizationProvisioningAttempt";
@@ -165,6 +169,7 @@ export async function createOrganization(
 
   const durableAttempt = await makeOrganizationProvisioningAttemptDurable({
     artifacts: candidateArtifacts,
+    creationIntent: organizationCreationIntent(input),
     canStartDurableMutation: input.isIdentityCurrent,
     dbClient: input.dbClient,
     nativeSubscriptionRestore: input.nativeSubscriptionRestore,
@@ -226,25 +231,20 @@ export async function createOrganization(
 
   input.log?.(`Organization created (${response.organizationId})`);
   await persistOrganizationProvisioningState({
-    bootstrap: artifacts.bootstrap,
+    ...artifacts,
+    completeProvisioningAttempt: organizationCreationCompletion(
+      input,
+      artifacts.organizationId,
+    ),
     canStartDurableMutation: input.isIdentityCurrent,
     onPersistQueued: input.onPersistQueued,
     containerId: durableRootContainerId,
     dbClient: input.dbClient,
     documentProjectors: input.documentProjectors,
-    initialAdminGroup: artifacts.initialAdminGroup,
-    initialMemberGroup: artifacts.initialMemberGroup,
-    initialOrganizationPolicy: artifacts.initialOrganizationPolicy,
     log: input.log,
     logError: input.logError,
-    organizationMetadataBootstrap: artifacts.organizationMetadataBootstrap,
     primeProvisionedState: input.primeProvisionedState,
     response,
-    rootContainer: artifacts.rootContainer,
-    rootMetadataDocument: artifacts.rootMetadataDocument,
-    rootMetadataDocumentRequest: artifacts.rootMetadataDocumentRequest,
-    rosterProfileBootstrap: artifacts.rosterProfileBootstrap,
-    systemContainerBootstraps: artifacts.systemContainerBootstraps,
   });
 
   return response;

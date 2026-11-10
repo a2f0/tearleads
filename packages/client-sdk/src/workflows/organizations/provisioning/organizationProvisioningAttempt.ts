@@ -215,6 +215,7 @@ export async function makeOrganizationProvisioningAttemptDurable(input: {
   artifacts: OrganizationProvisioningArtifacts;
   canStartDurableMutation?: (() => boolean) | undefined;
   dbClient: ExecSqlClientLike;
+  creationIntent?: string | undefined;
   nativeSubscriptionRestore?: boolean | undefined;
   replacesOrganizationId?: string | undefined;
   rootContainerId: string;
@@ -224,14 +225,7 @@ export async function makeOrganizationProvisioningAttemptDurable(input: {
     input.replacesOrganizationId ??
     (input.nativeSubscriptionRestore
       ? `native-subscription-restore:${input.userId}`
-      : null);
-  if (!attemptKey) {
-    return {
-      artifacts: input.artifacts,
-      request: buildCreateOrganizationRequest(input),
-      rootContainerId: input.rootContainerId,
-    };
-  }
+      : input.artifacts.organizationId);
   const stored = await sqlOrganizationProvisioningAttemptPersistence.loadOrSave(
     createExecSql(input.dbClient),
     {
@@ -240,6 +234,7 @@ export async function makeOrganizationProvisioningAttemptDurable(input: {
       organizationId: input.artifacts.organizationId,
       rootContainerId: input.rootContainerId,
       serializedArtifacts: serializeArtifacts(input.artifacts),
+      creationIntent: input.creationIntent,
     },
     input.canStartDurableMutation,
   );

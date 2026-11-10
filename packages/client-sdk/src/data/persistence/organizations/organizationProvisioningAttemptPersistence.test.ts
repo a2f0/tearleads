@@ -3,6 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { organizationProvisioningAttempts } from "../../sqlite/schema/organizationProvisioningAttemptSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import { createExecSql } from "../../sqlite/sqlSchema";
 import { sqlOrganizationProvisioningAttemptPersistence } from "./organizationProvisioningAttemptPersistence";
 
 test("restore completion cannot delete a newer organization attempt", async () => {
@@ -33,6 +34,49 @@ test("restore completion cannot delete a newer organization attempt", async () =
         eq(organizationProvisioningAttempts.replacedOrganizationId, attemptKey),
       );
     expect(retained?.organizationId).toBe(newerOrganizationId);
+  } finally {
+    close();
+  }
+});
+
+test("independent clients claim one pending creation intent atomically", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "concurrent-ordinary-intent",
+  );
+  const connection = () =>
+    createExecSql({
+      exec: async ({ sql, bind, rowMode }) => ({
+        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
+      }),
+    });
+  const candidate = () => {
+    const organizationId = crypto.randomUUID();
+    return {
+      organizationId,
+      replacedOrganizationId: organizationId,
+      rootContainerId: crypto.randomUUID(),
+      serializedArtifacts: "candidate-artifacts",
+      userId: "creator",
+      creationIntent: "same-whole-input",
+    };
+  };
+  try {
+    const [left, right] = await Promise.all([
+      sqlOrganizationProvisioningAttemptPersistence.loadOrSave(
+        connection(),
+        candidate(),
+      ),
+      sqlOrganizationProvisioningAttemptPersistence.loadOrSave(
+        connection(),
+        candidate(),
+      ),
+    ]);
+    expect(left?.organizationId).toBe(right?.organizationId);
+    expect(
+      await execSql(
+        "SELECT organization_id FROM organization_provisioning_attempts",
+      ),
+    ).toHaveLength(1);
   } finally {
     close();
   }

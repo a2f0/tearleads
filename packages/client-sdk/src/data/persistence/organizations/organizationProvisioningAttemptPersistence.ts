@@ -49,7 +49,9 @@ export const sqlOrganizationProvisioningAttemptPersistence = {
 
   async loadOrSave(
     execSql: ExecSql,
-    candidate: OrganizationProvisioningAttemptRecord,
+    candidate: OrganizationProvisioningAttemptRecord & {
+      readonly creationIntent?: string | undefined;
+    },
     canSave?: (() => boolean) | undefined,
   ): Promise<OrganizationProvisioningAttemptRecord | null> {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
@@ -76,10 +78,18 @@ export const sqlOrganizationProvisioningAttemptPersistence = {
         })
         .from(organizationProvisioningAttempts)
         .where(
-          eq(
-            organizationProvisioningAttempts.replacedOrganizationId,
-            candidate.replacedOrganizationId,
-          ),
+          candidate.creationIntent
+            ? and(
+                eq(organizationProvisioningAttempts.userId, candidate.userId),
+                eq(
+                  organizationProvisioningAttempts.creationIntent,
+                  candidate.creationIntent,
+                ),
+              )
+            : eq(
+                organizationProvisioningAttempts.replacedOrganizationId,
+                candidate.replacedOrganizationId,
+              ),
         );
       if (!stored) {
         throw new Error("Organization provisioning attempt was not persisted");
