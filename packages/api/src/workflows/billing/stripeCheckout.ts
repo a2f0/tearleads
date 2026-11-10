@@ -42,7 +42,7 @@ const HOSTED_ATTEMPT_MS = 50 * 60 * 1_000;
 const HOSTED_EXPIRY_SAFETY_MS = 5 * 60 * 1_000;
 const HOSTED_MIN_PROVIDER_REMAINING_MS = 30 * 60 * 1_000;
 
-function checkoutInProgress(): OrganizationManagerError {
+export function stripeCheckoutInProgress(): OrganizationManagerError {
   return new OrganizationManagerError(
     "A checkout is already in progress for this organization",
     409,
@@ -142,17 +142,26 @@ function resolveActiveStripeCheckoutAttempt(input: {
   const { attemptExpiresAt, attemptId } = input.billing;
   if (!attemptExpiresAt || attemptExpiresAt <= input.now) {
     if (attemptId !== null && attemptExpiresAt === null) {
-      throw checkoutInProgress();
+      throw stripeCheckoutInProgress();
     }
     return null;
   }
   if (
     attemptId === null ||
     input.billing.attemptMode !== input.mode ||
-    input.billing.attemptUserId !== input.sessionUserId ||
-    input.billing.attemptSeatQuantity !== input.seatQuantity
+    input.billing.attemptUserId !== input.sessionUserId
   ) {
-    throw checkoutInProgress();
+    throw stripeCheckoutInProgress();
+  }
+  if (input.billing.attemptSeatQuantity !== input.seatQuantity) {
+    // The same buyer's inline attempt for an old roster rotates: before the
+    // new attempt is offered, the inline service voids every other attempt's
+    // unpaid checkout. A hosted Checkout Session cannot be voided that way
+    // and can still complete at its old Price, so it conflicts until expiry.
+    if (input.mode === "hosted") {
+      throw stripeCheckoutInProgress();
+    }
+    return null;
   }
   const providerExpiry = providerExpiresAt(input.mode, attemptExpiresAt);
   if (
@@ -160,7 +169,7 @@ function resolveActiveStripeCheckoutAttempt(input: {
     providerExpiry.getTime() <=
       input.now.getTime() + HOSTED_MIN_PROVIDER_REMAINING_MS
   ) {
-    throw checkoutInProgress();
+    throw stripeCheckoutInProgress();
   }
   return {
     attemptId,
@@ -305,7 +314,9 @@ export async function runRequireCheckoutEligibleWorkflow(
  * modes call this before touching Stripe, so an inline subscription create and
  * a hosted Session create cannot pass independent provider searches and race.
  * A byte-for-byte retry by the same buyer reuses the durable token and seat
- * snapshot; changed terms or the other UI mode conflict until expiry.
+ * snapshot. Another buyer or the other UI mode conflicts until expiry, as
+ * does the same buyer's hosted attempt for a roster that has since changed;
+ * the same buyer's inline attempt for an old roster rotates instead.
  *
  * PostgreSQL serializes contenders with a billing-row lock. The SQLite adapter
  * runs transactions through one `BEGIN IMMEDIATE` queue, so it provides the
@@ -349,4 +360,21 @@ export async function runAcquireStripeCheckoutAttemptWorkflow(
       );
     },
   );
+}
+
+/**
+ * The organization's reserved checkout attempt id right now. A checkout that
+ * finishes creating its Stripe subscription after its attempt was replaced
+ * reads this to learn it must void what it created.
+ */
+export async function readStripeCheckoutAttemptId(
+  db: ApiDatabase,
+  organizationId: string,
+): Promise<string | null> {
+  const [billing] = await db
+    .select({ attemptId: organizationBilling.checkoutAttemptId })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId))
+    .limit(1);
+  return billing?.attemptId ?? null;
 }

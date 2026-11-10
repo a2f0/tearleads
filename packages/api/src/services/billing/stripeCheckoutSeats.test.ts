@@ -108,6 +108,9 @@ test("inline checkout selects the current membership tier at quantity one", asyn
     if (path.endsWith("/subscriptions/search")) {
       return Response.json({ data: [], has_more: false });
     }
+    if (path.endsWith("/subscriptions") && init?.method !== "POST") {
+      return Response.json({ data: [], has_more: false });
+    }
     if (path.endsWith("/subscriptions")) {
       subscriptionBody = String(init?.body ?? "");
       return Response.json({

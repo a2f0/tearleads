@@ -76,7 +76,9 @@ export const LIVE_SUBSCRIPTION_STATUSES = new Set([
  * Resumes an incomplete checkout only for the same buyer, current price, and
  * requested seat quantity. A mismatch conflicts rather than risk paying a
  * removed admin's attempt, charging stale terms, or cancelling an in-flight
- * payment. The conflict clears when that attempt is paid or expires.
+ * payment. The conflict clears when that attempt is paid or expires, or when
+ * its own buyer voids it to start over at a new seat count
+ * (stripeCheckoutVoid.ts).
  */
 async function resumePendingSubscription(input: {
   checkoutAttemptId: string;

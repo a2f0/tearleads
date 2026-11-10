@@ -34,6 +34,9 @@ function checkoutFetch(recordedCreates: Request[]): typeof fetch {
     if (path.endsWith("/customers/search")) {
       return Response.json({ data: [{ id: "cus_org" }] });
     }
+    if (path.endsWith("/subscriptions") && request.method !== "POST") {
+      return Response.json({ data: [], has_more: false });
+    }
     if (path.endsWith("/subscriptions")) {
       recordedCreates.push(request);
       return Response.json({

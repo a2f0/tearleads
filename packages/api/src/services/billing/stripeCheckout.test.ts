@@ -133,6 +133,8 @@ test("a Stripe-side live subscription makes checkout a 409", async () => {
   };
   const responses = [
     { data: [{ id: "cus_1" }] },
+    // The buyer's own subscriptions: nothing from another attempt to void.
+    { data: [], has_more: false },
     STRIPE_SOLO_PRICE,
     { data: [{ id: "sub_live", status: "active" }], has_more: false },
   ];
