@@ -222,16 +222,17 @@ leaves RevenueCat responsible for mirroring the resulting entitlement lifecycle:
   the next inline checkout rotates the attempt to the current seat count.
   Before offering its form, every inline checkout voids the first invoice of
   the buyer's incomplete subscriptions from other attempts, found through the
-  consistent subscription list rather than search. Voiding cancels the old
+  consistent subscription list rather than search, and only after confirming
+  that its own attempt is still the reserved one. Voiding cancels the old
   PaymentIntent and expires its subscription; Stripe refuses once the payment
-  has succeeded, and that refusal stays a 409. A create still in flight for a
-  replaced attempt rechecks the attempt afterwards and voids its own
-  subscription. A hosted attempt with a changed seat count stays a 409 until
-  it expires. Inline attempts rotate after 24 hours. Hosted Sessions expire
-  after 45 minutes with a five-minute overlap guard; retries stop before
-  Stripe's 30-minute `expires_at` minimum. Existing incomplete subscriptions
-  also block hosted checkout, preventing a late inline payment from
-  coexisting.
+  has succeeded, and that refusal stays a 409. A request whose attempt was
+  replaced meanwhile voids nothing and gets a 409, voiding its own subscription
+  if it had already created one. A hosted attempt with a changed seat count
+  stays a 409 until it expires. Inline attempts rotate after 24 hours. Hosted
+  Sessions expire after 45 minutes with a five-minute overlap guard; retries
+  stop before Stripe's 30-minute `expires_at` minimum. Existing incomplete
+  subscriptions also block hosted checkout, preventing a late inline payment
+  from coexisting.
 - `POST /billing/stripe/webhook` verifies Stripe's signature over the raw
   body and consumes `invoice.paid` for both `subscription_create` and
   `subscription_cycle`. It always fetches the subscription from Stripe and

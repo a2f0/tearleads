@@ -35,8 +35,10 @@ interface FakeStripeOptions {
   readonly refuseVoids?: boolean;
   /** Fail the first void as a provider outage would. */
   readonly failFirstVoid?: boolean;
-  /** Hold the first subscription create until `release` settles. */
-  readonly holdFirstCreate?: {
+  /** Hold the first `method` request to `path` until `release` settles. */
+  readonly hold?: {
+    readonly method: string;
+    readonly path: string;
     readonly reached: () => void;
     readonly release: Promise<void>;
   };
@@ -57,13 +59,8 @@ function fakeStripe(options: FakeStripeOptions = {}): FakeStripe {
   const subscriptions: FakeSubscription[] = [];
   const byIdempotencyKey = new Map<string, FakeSubscription>();
   const voids: string[] = [];
-  let createCalls = 0;
+  let held = false;
   const createSubscription = async (request: Request) => {
-    createCalls += 1;
-    if (createCalls === 1 && options.holdFirstCreate) {
-      options.holdFirstCreate.reached();
-      await options.holdFirstCreate.release;
-    }
     const key = request.headers.get("Idempotency-Key") ?? "";
     const replayed = byIdempotencyKey.get(key);
     if (replayed) return Response.json(expanded(replayed));
@@ -107,6 +104,12 @@ function fakeStripe(options: FakeStripeOptions = {}): FakeStripe {
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
     const path = new URL(request.url).pathname;
+    const { hold } = options;
+    if (hold && !held && request.method === hold.method && path === hold.path) {
+      held = true;
+      hold.reached();
+      await hold.release;
+    }
     const price = /^\/v1\/prices\/(price_\w+)$/.exec(path)?.[1];
     if (price) {
       return Response.json(activeStripePrice(price, PRICE_CENTS[price] ?? 0));
@@ -240,28 +243,55 @@ test("a stale checkout whose payment won keeps the conflict", async () => {
   expect(stripe.subscriptions).toHaveLength(1);
 });
 
-test("a create that lands after its attempt was replaced voids itself", async () => {
+/**
+ * Starts a checkout held at its first `method` request to `path`, changes
+ * the roster, and completes a replacement checkout meanwhile.
+ */
+async function replacedWhileHeldAt(method: string, path: string) {
   const reached = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   const stripe = fakeStripe({
-    holdFirstCreate: { reached: reached.resolve, release: release.promise },
+    hold: { method, path, reached: reached.resolve, release: release.promise },
   });
   const { addMember, checkout } = await organizationBuyingThrough(stripe);
   const stale = checkout();
   await reached.promise;
   await addMember();
+  const replacement = await checkout();
+  release.resolve();
+  return { replacement, stale, stripe };
+}
 
-  // The replacement finds nothing to void yet: the stale create is in flight.
-  expect(await checkout()).toEqual({
+test("a create that lands after its attempt was replaced voids itself", async () => {
+  const { replacement, stale, stripe } = await replacedWhileHeldAt(
+    "POST",
+    "/v1/subscriptions",
+  );
+
+  // The replacement found nothing to void: the stale create was in flight.
+  expect(replacement).toEqual({
     subscriptionId: "sub_1",
     clientSecret: "pi_1",
   });
-  release.resolve();
-
   await expect(stale).rejects.toMatchObject({ status: 409 });
   expect(stripe.voids).toEqual(["in_2"]);
   expect(statuses(stripe)).toEqual([
     ["sub_1", "incomplete"],
     ["sub_2", "incomplete_expired"],
   ]);
+});
+
+test("a request for a replaced attempt never voids its replacement", async () => {
+  const { replacement, stale, stripe } = await replacedWhileHeldAt(
+    "GET",
+    "/v1/customers/search",
+  );
+
+  expect(replacement).toEqual({
+    subscriptionId: "sub_1",
+    clientSecret: "pi_1",
+  });
+  await expect(stale).rejects.toMatchObject({ status: 409 });
+  expect(stripe.voids).toEqual([]);
+  expect(statuses(stripe)).toEqual([["sub_1", "incomplete"]]);
 });

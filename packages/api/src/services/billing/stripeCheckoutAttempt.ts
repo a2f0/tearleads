@@ -14,16 +14,25 @@ import {
  * checkout, and the old form would still charge the old tier. Every inline
  * checkout therefore voids the buyer's unpaid checkouts from other attempts
  * before offering its own: any concurrent retry, or a retry after a failed
- * void, retires them again. A payment that already went through keeps the
+ * void, retires them again. A request whose own attempt was replaced
+ * meanwhile voids nothing. A payment that already went through keeps the
  * 409.
  */
 export async function voidOtherInlineCheckouts(input: {
   readonly attemptId: string;
   readonly customerId: string;
+  readonly db: ApiDatabase;
+  readonly organizationId: string;
   readonly stripe: StripeApiDeps;
 }): Promise<void> {
   const voided = await voidStaleInlineCheckouts(
-    { customerId: input.customerId, currentAttemptId: input.attemptId },
+    {
+      customerId: input.customerId,
+      currentAttemptId: input.attemptId,
+      stillReserved: async () =>
+        (await readStripeCheckoutAttemptId(input.db, input.organizationId)) ===
+        input.attemptId,
+    },
     input.stripe,
   );
   if (!voided) {

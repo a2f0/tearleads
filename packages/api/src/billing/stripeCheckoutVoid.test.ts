@@ -27,14 +27,18 @@ const EXPIRED = {
 function voidWith(
   subscriptions: unknown[],
   extra: Array<{ status?: number; body: unknown }> = [],
-  hasMore = false,
+  stillReserved = true,
 ) {
   const { fetchImpl, requests } = recordingStripeFetch([
-    { body: { data: subscriptions, has_more: hasMore } },
+    { body: { data: subscriptions, has_more: false } },
     ...extra,
   ]);
   const voided = voidStaleInlineCheckouts(
-    { customerId: "cus_1", currentAttemptId: "attempt-current" },
+    {
+      customerId: "cus_1",
+      currentAttemptId: "attempt-current",
+      stillReserved: async () => stillReserved,
+    },
     { env: ENV, fetchImpl },
   );
   return { requests, voided };
@@ -64,14 +68,39 @@ test("nothing stale needs no void", async () => {
 });
 
 test.each<[string, unknown[], boolean]>([
-  ["a live subscription", [STALE, { ...CURRENT, status: "active" }], false],
-  ["an unreadable invoice", [{ ...STALE, latest_invoice: null }], false],
-  ["a second page of subscriptions", [STALE], true],
-])("%s voids nothing and refuses", async (_, subscriptions, hasMore) => {
-  const { requests, voided } = voidWith(subscriptions, [], hasMore);
+  ["a live subscription", [STALE, { ...CURRENT, status: "active" }], true],
+  ["an unreadable invoice", [{ ...STALE, latest_invoice: null }], true],
+  ["an attempt replaced since it was acquired", [STALE], false],
+])("%s voids nothing and refuses", async (_, subscriptions, reserved) => {
+  const { requests, voided } = voidWith(subscriptions, [], reserved);
 
   expect(await voided).toBe(false);
   expect(requests).toHaveLength(1);
+});
+
+test("every page of the customer's subscriptions is read", async () => {
+  const { fetchImpl, requests } = recordingStripeFetch([
+    { body: { data: [EXPIRED, CURRENT], has_more: true } },
+    { body: { data: [STALE], has_more: false } },
+    { body: { id: "in_stale", status: "void" } },
+  ]);
+
+  expect(
+    await voidStaleInlineCheckouts(
+      {
+        customerId: "cus_1",
+        currentAttemptId: "attempt-current",
+        stillReserved: async () => true,
+      },
+      { env: ENV, fetchImpl },
+    ),
+  ).toBe(true);
+  expect(
+    new URL(requests[1]?.url ?? "").searchParams.get("starting_after"),
+  ).toBe("sub_current");
+  expect(requests[2]?.url).toBe(
+    "https://api.stripe.com/v1/invoices/in_stale/void",
+  );
 });
 
 test.each<[string, string, boolean]>([

@@ -84,6 +84,8 @@ export async function createStripeCheckout(
   await voidOtherInlineCheckouts({
     attemptId: attempt.attemptId,
     customerId,
+    db: runtime.db,
+    organizationId,
     stripe,
   });
   const outcome = await createSyncSubscription(
