@@ -139,7 +139,7 @@ test("a downgrade is scheduled for renewal and keeps the paid capacity", async (
   });
 });
 
-test("a downgrade Stripe refuses is not scheduled", async () => {
+test("a downgrade whose Stripe write failed is not scheduled and blocks a race", async () => {
   const { change, organizationId, stripe } = await subscribedOrganization({
     seatCount: 5,
   });
@@ -152,9 +152,15 @@ test("a downgrade Stripe refuses is not scheduled", async () => {
   await expect(
     change("price_sync", { ...fake, fetchImpl: failing }),
   ).rejects.toThrow();
+  // The write may still apply in Stripe, so its lease is held until it
+  // lapses: a newer choice waits rather than racing it.
   expect(await readState(organizationId)).toMatchObject({
-    seats: { desiredRenewalQuantity: 5, leaseId: null },
+    seats: { desiredRenewalQuantity: 5, leaseId: expect.any(String) },
   });
+  await expect(change("price_team_5", fake)).rejects.toMatchObject({
+    code: "billing_plan_change_unavailable",
+  });
+  expect(fake.writes).toEqual([]);
 });
 
 test("a plan smaller than the roster is refused until members are removed", async () => {

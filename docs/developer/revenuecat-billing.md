@@ -353,11 +353,13 @@ An administrator changes the plan on every platform under the same rules:
   smaller plan as the renewal quantity (`desired_renewal_quantity`) and
   returns `scheduled`, so the answer means Stripe will renew at it: the
   renewal invoice charges the smaller Price and the current capacity stays
-  until then. A Stripe write that fails or comes too late records nothing,
-  and the worker writes back the recorded renewal plan's Price. A RevenueCat
-  lifecycle event for the period already paid keeps that paid capacity even
-  though the bound Price is the smaller one. Choosing the current plan again
-  returns `kept` once its Price is restored, also without proration.
+  until then. A Stripe write that fails or comes too late records nothing; a
+  failed write may still apply in Stripe, so its lease is held until it
+  lapses (other changes wait), and the worker then writes back the recorded
+  renewal plan's Price. A RevenueCat lifecycle event for the period already
+  paid keeps that paid capacity even though the bound Price is the smaller
+  one. Choosing the current plan again returns `kept` once its Price is
+  restored, also without proration.
 - **Downgrade, native:** App Store and Play (`DEFERRED`) both apply it at the
   next renewal.
 - **Below the roster:** a plan smaller than the effective `Members` roster is

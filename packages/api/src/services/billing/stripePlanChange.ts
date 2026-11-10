@@ -96,7 +96,10 @@ export async function changeStripePlan(
 /**
  * Writes the renewal plan's Price to Stripe without proration, then records
  * it, so `scheduled` or `kept` is answered only once Stripe will renew at
- * it. A write that failed or came too late releases the change unrecorded.
+ * it. A change that came too late is released unwritten. A write that failed
+ * may still apply in Stripe, so it keeps the lease until it lapses: no newer
+ * change can race it, and the worker then writes back the recorded renewal
+ * plan's Price.
  */
 async function changeRenewal(
   input: Omit<UpgradeInput, "begun"> & { readonly begun: BegunRenewal },
@@ -108,20 +111,15 @@ async function changeRenewal(
       "The plan change took too long to start; try again",
     );
   }
-  try {
-    await updateSubscriptionItemQuantity(
-      {
-        idempotencyKey: `plan-renewal:${input.organizationId}:${begun.leaseId}`,
-        prorationBehavior: "none",
-        seatQuantity: begun.renewalSeatCount,
-        subscriptionItemId: begun.subscriptionItemId,
-      },
-      input.stripe,
-    );
-  } catch (error) {
-    await abandon(input);
-    throw error;
-  }
+  await updateSubscriptionItemQuantity(
+    {
+      idempotencyKey: `plan-renewal:${input.organizationId}:${begun.leaseId}`,
+      prorationBehavior: "none",
+      seatQuantity: begun.renewalSeatCount,
+      subscriptionItemId: begun.subscriptionItemId,
+    },
+    input.stripe,
+  );
   const recorded = await runFinishStripeRenewalChangeWorkflow(
     input.runtime.db,
     {
