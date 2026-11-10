@@ -81,8 +81,10 @@ Measurement: canary logs with the profile recorder on are in
 <MEASUREMENT_DIR>; read the per-endpoint tables, do not re-run the whole
 suite. To re-measure one scenario, run from packages/app:
 `DUAL_PANE_REQUEST_PROFILE=1 DUAL_PANE_REQUEST_PROFILE_DETAIL=1 bun test
-<file>` through `<REPO_ROOT>/node_modules/.bin/agent-tool run --`, logging
-to your scratch directory. Statement counts come from
+<file>` through `<REPO_ROOT>/node_modules/.bin/agent-tool run --`. Its
+receipt names the complete log: copy that file into your scratch directory
+when you need to keep it, and read it with targeted searches. Never run
+`bun test` bare or print a whole test log. Statement counts come from
 `withDatabaseStatementCounter` in
 packages/api-shared/src/adapters/databaseStatementCounter.ts, used from a
 probe that drives the real route with API_DATABASE=memory. Probes import
@@ -107,7 +109,10 @@ coordinator's definitions; a preserved-by line for each capability it
 touches, or the explicit capability trade; security findings it touches and
 why they stay fixed; docs, canary ceilings, and formal models that would
 change; and prerequisites among your proposals. End with short lists of
-checked paths and tables, refuted candidates with reasons, unchecked paths,
+checked paths and tables, refuted candidates with reasons, database leads
+(findings that change only query shape, statement batching, transaction
+scope, or an index: one claim each, with its file:line and its claimed
+saving and unit), unchecked paths,
 and next steps. Open the message with proposal ids with impact, coverage
 status, and the next step.
 ```

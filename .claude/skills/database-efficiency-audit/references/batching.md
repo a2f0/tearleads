@@ -30,7 +30,10 @@ run ID, add a batch ID, and never sum cumulative snapshots.
 - In `full` mode, after every slice's first pass, run one follow-up
   auditor per slice with unchecked paths, briefed with those paths and the
   coordinator's measurements. Without it every slice stays partial; the
-  follow-up pass on 2026-10-30 found more than some first passes.
+  follow-up pass on 2026-10-30 found more than some first passes. The
+  follow-up brief also names the first pass's claims to confirm or correct:
+  on 2026-11-10 a follow-up overturned a "no lock between the two checks"
+  claim that would otherwise have ranked.
 - Launch auditors as foreground Agent calls, up to three in one message.
   In a headless `claude -p` run, background subagents and shell tasks stop
   shortly after the coordinator's turn ends, leaving their slices partial.
@@ -50,6 +53,11 @@ run ID, add a batch ID, and never sum cumulative snapshots.
   progress or the remaining work needs unavailable tooling or user input.
 
 Examples:
+
+A [combined run](../../../../docs/developer/combined-efficiency-audits.md)
+with the protocol audit adds two bounded arguments: `draft-only` ends at the
+drafts, and `reconcile <other-audit-directory>` is one batch on the other
+audit's hand-off under the same run ID.
 
 ```text
 /database-efficiency-audit
@@ -90,7 +98,10 @@ and in the final response. A concise `checkpoint.md` indexes:
   maintains the shared index.
 
 Write the initial checkpoint before launching an auditor and update it after
-each report or verification. Link evidence instead of copying reports. A
+each report or verification. Link evidence instead of copying reports. In
+a headless run, every auditor's final message and per-message usage are in
+the harness's subagent transcripts for the session; extract reports and
+receipt rows from them with one script instead of copying by hand. A
 stopped or interrupted auditor leaves its work partial. When an auditor
 finishes, check that none of its shell commands are still running (a search
 with no path waits on stdin indefinitely) and stop any that are.

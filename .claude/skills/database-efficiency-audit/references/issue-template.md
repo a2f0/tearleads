@@ -15,7 +15,12 @@ publishes.
 
 The repository is public. The body carries normalized SQL, counts, plans,
 and index definitions only: no row data, bind values, credentials, role
-names, hostnames, or connection strings.
+names, hostnames, or connection strings. Write a request or row index as
+"request 68", never `#68`: GitHub links a bare `#` number to an issue.
+
+In a [combined run](../../../../docs/developer/combined-efficiency-audits.md)
+with `draft-only`, write this report unsplit as that guide's drafts, with
+`D`-prefixed ids, and do not create the issue.
 
 Include an **Audit usage receipt** in the body using the shared
 [receipt template](../../../../docs/developer/audit-usage-receipts.md#cutoff-and-public-template),

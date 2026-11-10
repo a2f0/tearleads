@@ -7,7 +7,12 @@ verification are complete. Each earlier batch updates its local checkpoint,
 not a new issue. If the user explicitly requests an interim issue, prefix the
 title with `Partial` and identify pending coverage and unverified proposals.
 Only the coordinator may publish an issue or comment; a slice auditor never
-publishes.
+publishes. Write a request or row index as "request 68", never `#68`:
+GitHub links a bare `#` number to an issue.
+
+In a [combined run](../../../../docs/developer/combined-efficiency-audits.md)
+with `draft-only`, write this report unsplit as that guide's drafts, with
+`P`-prefixed ids, and do not create the issue.
 
 Include an **Audit usage receipt** in the body using the shared
 [receipt template](../../../../docs/developer/audit-usage-receipts.md#cutoff-and-public-template),
