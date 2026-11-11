@@ -12,11 +12,17 @@ export interface MiniAppDefinition {
   /** The app's glyph in the launchers and the taskbar. */
   icon?: WindowingIcon | undefined;
   /**
+   * Label for desktop icons and launcher navigation. Defaults to `title`.
+   * Does not change window titles, routed headings, app ids, or routes.
+   */
+  iconLabel?: string | undefined;
+  /**
    * Whether the app's sidebar starts shown, in a new window and on the routed
    * shell's tablet tier. Defaults to shown. The phone tier always starts with
    * the sidebar hidden.
    */
   initialShowSidebar?: boolean | undefined;
+  /** The window title and routed content heading. */
   title: string;
   /**
    * The size a new window opens at, in CSS pixels. Defaults to the

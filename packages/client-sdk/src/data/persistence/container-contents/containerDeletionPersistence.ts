@@ -25,6 +25,7 @@ import {
   deleteContainerRowsInTransaction,
   ensureContainerTables,
 } from "./containerPersistence";
+import { containerRemovalBatches } from "./containerRemovalBatches";
 import { containerIdsWithRemovalWork } from "./containerRemovalWork";
 import { repairDocumentsForRemovedContainersInTransaction } from "./containerStructuralRepair";
 import {
@@ -108,10 +109,15 @@ async function canApplyContainerRemovals(input: {
   removals: ReadonlyArray<ContainerRemoval>;
   tx: ClientSQLiteTransactionScope;
 }): Promise<boolean> {
-  const currentRows = await loadGuardedContainerRows(
-    input.tx,
-    input.removals.map((removal) => removal.containerId),
-  );
+  const currentRows: GuardedContainerRow[] = [];
+  for (const batch of containerRemovalBatches(input.removals)) {
+    currentRows.push(
+      ...(await loadGuardedContainerRows(
+        input.tx,
+        batch.map((removal) => removal.containerId),
+      )),
+    );
+  }
   const currentRowById = new Map(
     currentRows.flatMap((row) => (row.id ? ([[row.id, row]] as const) : [])),
   );
@@ -170,11 +176,14 @@ async function applyContainerRemovals(input: {
     removals: input.removals,
     tx: input.tx,
   });
-  await retainRemovedContainerMetadata({
-    containerIds: input.retainedMetadataIds,
-    retainedAt: new Date().toISOString(),
-    tx: input.tx,
-  });
+  const retainedAt = new Date().toISOString();
+  for (const batch of containerRemovalBatches(input.retainedMetadataIds)) {
+    await retainRemovedContainerMetadata({
+      containerIds: batch,
+      retainedAt,
+      tx: input.tx,
+    });
+  }
   // Listing clocks are untrusted; they cannot advance local projection clocks.
   const localObservedAt = new Date().toISOString();
   await repairDocumentsForRemovedContainersInTransaction({
@@ -190,22 +199,24 @@ async function applyContainerRemovals(input: {
     await refreshPlacementIntentsAfterRemoval({ containerIds, tx: input.tx });
   } else {
     await repairLinkIntentsForRemovedContainers({ containerIds, tx: input.tx });
-    await input.tx
-      .delete(localIntents)
-      .where(
-        and(
-          inContainerIntentLanes(),
-          inArray(localIntents.subjectId, containerIds),
-        ),
-      )
-      .run();
+    for (const batch of containerRemovalBatches(containerIds)) {
+      await input.tx
+        .delete(localIntents)
+        .where(
+          and(inContainerIntentLanes(), inArray(localIntents.subjectId, batch)),
+        )
+        .run();
+    }
   }
-  await deleteContainerRowsInTransaction(input.tx, containerIds);
-  await deleteContainerMetadataDocumentRowsInTransaction(
-    input.tx,
-    input.metadataDeleteIds,
-  );
-  await deleteContainerWatermarksInTransaction(input.tx, containerIds);
+  for (const batch of containerRemovalBatches(containerIds)) {
+    await deleteContainerRowsInTransaction(input.tx, batch);
+  }
+  for (const batch of containerRemovalBatches(input.metadataDeleteIds)) {
+    await deleteContainerMetadataDocumentRowsInTransaction(input.tx, batch);
+  }
+  for (const batch of containerRemovalBatches(containerIds)) {
+    await deleteContainerWatermarksInTransaction(input.tx, batch);
+  }
   return containerIds;
 }
 
@@ -238,12 +249,17 @@ export async function deleteStoredContainers(
       ) {
         return [];
       }
-      const retainedMetadataIds = options?.discoveryOnly
-        ? await containerIdsWithRemovalWork(
-            tx,
-            uniqueRemovals.map((removal) => removal.containerId),
-          )
-        : [];
+      const retainedMetadataIds: string[] = [];
+      if (options?.discoveryOnly) {
+        for (const batch of containerRemovalBatches(uniqueRemovals)) {
+          retainedMetadataIds.push(
+            ...(await containerIdsWithRemovalWork(
+              tx,
+              batch.map((removal) => removal.containerId),
+            )),
+          );
+        }
+      }
       return applyContainerRemovals({
         discoveryOnly: options?.discoveryOnly,
         metadataDeleteIds: uniqueRemovals.flatMap((removal) =>

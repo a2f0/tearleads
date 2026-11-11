@@ -76,8 +76,9 @@ function createCoverageRuntime(
 export async function createCoverageFixture(
   name: string,
   queueUpdate: boolean,
+  suppliedDatabase?: Awaited<ReturnType<typeof createTestExecSql>>,
 ): Promise<CoverageFixture> {
-  const database = await createTestExecSql(name);
+  const database = suppliedDatabase ?? (await createTestExecSql(name));
   await sqlDocumentsPersistence.ensureSchema(database.execSql);
   await ensureContainerTables(database.execSql);
 

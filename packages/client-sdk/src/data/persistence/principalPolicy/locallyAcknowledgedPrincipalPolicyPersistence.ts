@@ -14,9 +14,10 @@ import {
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import {
   assertPrincipalPolicyCheckpointShape,
-  loadStoredPrincipalPolicyCheckpoint,
+  loadPrincipalPolicyCheckpointRows,
   principalPolicyKey,
-  upsertPrincipalPolicyCheckpointInTransaction,
+  storedPrincipalPolicyPin,
+  upsertPrincipalPolicyCheckpointsInTransaction,
 } from "../keyingCheckpoints/keyingCheckpointPersistence";
 import {
   type AcknowledgedPrincipalGrantRetirements,
@@ -86,6 +87,32 @@ function assertUniqueAcknowledgedPolicies(
   }
 }
 
+async function loadValidatedAcknowledgedCheckpoints(
+  tx: ClientSQLiteTransactionScope,
+  entries: readonly LocallyAcknowledgedPrincipalPolicyBundle[],
+  genesis: boolean,
+): Promise<PrincipalPolicyCheckpoint[]> {
+  const stored = await loadPrincipalPolicyCheckpointRows(
+    tx,
+    entries.map(({ policy }) => policy),
+  );
+  const checkpoints: PrincipalPolicyCheckpoint[] = [];
+  for (const { policy } of entries) {
+    const pin = storedPrincipalPolicyPin(
+      stored.get(principalPolicyKey(policy)),
+    );
+    if (
+      validateAcknowledgedPolicy(
+        policy,
+        pin ? { ...policy.checkpoint, ...pin } : null,
+        genesis,
+      )
+    )
+      checkpoints.push(policy.checkpoint);
+  }
+  return checkpoints;
+}
+
 async function storeAcknowledgedPrincipalPolicyBundles(input: {
   readonly retiredContainers?:
     | AcknowledgedPrincipalGrantRetirements
@@ -107,17 +134,11 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
   ]);
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   const store = async (tx: ClientSQLiteTransactionScope) => {
-    const checkpoints: PrincipalPolicyCheckpoint[] = [];
-    for (const { policy } of input.entries) {
-      if (
-        validateAcknowledgedPolicy(
-          policy,
-          await loadStoredPrincipalPolicyCheckpoint(tx, policy),
-          input.placement === "genesis",
-        )
-      )
-        checkpoints.push(policy.checkpoint);
-    }
+    const checkpoints = await loadValidatedAcknowledgedCheckpoints(
+      tx,
+      input.entries,
+      input.placement === "genesis",
+    );
     if (input.retiredContainers)
       await storePrincipalGrantRetirements(
         tx,
@@ -142,14 +163,12 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
         );
       }
     }
-    for (const checkpoint of checkpoints) {
-      await upsertPrincipalPolicyCheckpointInTransaction(
-        tx,
-        checkpoint,
-        input.updatedAt,
-        input.organizationId,
-      );
-    }
+    await upsertPrincipalPolicyCheckpointsInTransaction(
+      tx,
+      checkpoints,
+      input.updatedAt,
+      input.organizationId,
+    );
   };
   if (input.stillCurrent) {
     await runtime.guardedTransaction(store, input.stillCurrent, {

@@ -13,7 +13,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import { loadStoredPrincipalPolicyCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
+import { storedPrincipalPolicyPin } from "../keyingCheckpoints/keyingCheckpointPersistence";
 import {
   recordPrincipalPolicyBundleOrganizationInTransaction,
   recordPrincipalPolicyOrganizationInTransaction,
@@ -338,13 +338,15 @@ async function writePrincipalPolicyBundle(
   bundle: PrincipalPolicyBundleResponse,
   nextRow: PrincipalPolicyRow,
   incomingHead: StoredPrincipalPolicyHead,
+  durablePin: Awaited<
+    ReturnType<typeof recordPrincipalPolicyBundleOrganizationInTransaction>
+  >,
 ): Promise<void> {
   const { current: storedPolicy, retained: retainedPolicy } =
     await loadCurrentAndRetainedPolicyBundles(tx, nextRow);
-  const durableCheckpoint = await loadStoredPrincipalPolicyCheckpoint(
-    tx,
-    nextRow,
-  );
+  const durableCheckpoint = durablePin
+    ? storedPrincipalPolicyPin(durablePin)
+    : null;
   const storedHead = storedPolicy
     ? parseStoredPrincipalPolicyHead(storedPolicy.currentStateJson)
     : null;
@@ -396,16 +398,18 @@ export async function writePrincipalPolicyBundleInTransaction(
   updatedAt: string,
   organizationId?: string | undefined,
 ): Promise<void> {
-  await recordPrincipalPolicyBundleOrganizationInTransaction(
-    tx,
-    bundle,
-    organizationId,
-  );
+  const durableCheckpoint =
+    await recordPrincipalPolicyBundleOrganizationInTransaction(
+      tx,
+      bundle,
+      organizationId,
+    );
   await writePrincipalPolicyBundle(
     tx,
     bundle,
     policyBundleRow(bundle, updatedAt),
     bundle.currentState,
+    durableCheckpoint,
   );
 }
 

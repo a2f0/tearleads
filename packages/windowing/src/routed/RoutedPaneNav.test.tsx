@@ -1,9 +1,10 @@
 import { expect, test } from "bun:test";
-import { fireEvent } from "@testing-library/react";
+import { fireEvent, type RenderResult } from "@testing-library/react";
 import {
   forceMobileRoutedTier,
   forceTabletRoutedTier,
   renderRoutedPane,
+  TEST_LAUNCHER,
 } from "./routedPane.testUtils";
 
 test("tablet rail links leave modified clicks to the browser", () => {
@@ -75,3 +76,49 @@ test("mobile sheet tiles leave modified clicks to the browser", () => {
     restoreMatchMedia();
   }
 });
+
+for (const tier of ["tablet", "mobile"] as const) {
+  test(`${tier} launcher labels preserve routes and content titles`, () => {
+    const restoreMatchMedia =
+      tier === "tablet" ? forceTabletRoutedTier() : forceMobileRoutedTier();
+    let view: RenderResult | undefined;
+    const { contacts } = TEST_LAUNCHER.apps;
+    if (!contacts) throw new Error("Missing contacts fixture");
+    try {
+      view = renderRoutedPane(
+        {},
+        {
+          ...TEST_LAUNCHER,
+          apps: {
+            ...TEST_LAUNCHER.apps,
+            contacts: { ...contacts, iconLabel: "People" },
+          },
+        },
+      );
+      fireEvent.click(
+        view.getByRole("button", {
+          name: tier === "tablet" ? "Expand navigation rail" : "Menu",
+        }),
+      );
+      const link = view.getByRole("link", { name: "People" });
+      expect(link.textContent).toBe("People");
+      expect(link.getAttribute("href")).toBe("/app/contacts");
+      expect(view.getByRole("link", { name: "Notes" })).toBeTruthy();
+      fireEvent.click(link);
+      expect(
+        view.container
+          .querySelector('a[aria-current="page"]')
+          ?.getAttribute("href"),
+      ).toBe("/app/contacts");
+      expect(view.getByText("Contacts content")).toBeTruthy();
+      if (tier === "tablet") {
+        expect(
+          view.container.querySelector(".routed-pane-title")?.textContent,
+        ).toBe("Contacts");
+      }
+    } finally {
+      view?.unmount();
+      restoreMatchMedia();
+    }
+  });
+}

@@ -160,7 +160,7 @@ export function predecessorBundleFromSuccessor(
   };
 }
 
-export async function createPrincipalPolicyBundle() {
+export async function createPrincipalPolicyBundle(principalId = "group-1") {
   const principalKem = generateKemSeedAndKeyPair();
   const principalKeyFingerprint = await toFingerprint(principalKem.publicKey);
   const signerUserId = "signer-user-1";
@@ -189,7 +189,7 @@ export async function createPrincipalPolicyBundle() {
     projection: currentProjection,
     signing: {
       principalType: "group",
-      principalId: "group-1",
+      principalId,
       version: 1,
       prevStateHash: null,
       keyEpoch: 1,

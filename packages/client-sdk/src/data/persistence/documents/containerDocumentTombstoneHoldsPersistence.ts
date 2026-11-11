@@ -6,6 +6,7 @@ import {
   documents,
   documentTables,
 } from "../../sqlite/schema/documentRecordSchema";
+import { remoteResetBatches } from "../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
@@ -22,6 +23,7 @@ import {
   listContainerDocumentTombstoneHoldsInTransaction,
   listKnownContainerDocumentPlacementsInTransaction,
   partitionContainerDocumentTombstoneHolds,
+  placementPairsMatch,
 } from "./internal/containerDocumentTombstoneHolds";
 
 export {
@@ -86,20 +88,15 @@ export async function refuteContainerDocumentTombstoneHolds(
     await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
     const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
     await db.transaction(async (tx) => {
-      for (const placement of placements) {
+      for (const batch of remoteResetBatches(placements)) {
         await tx
           .update(containerDocumentTombstoneHolds)
           .set({ hidden: false })
           .where(
-            and(
-              eq(
-                containerDocumentTombstoneHolds.containerId,
-                placement.containerId,
-              ),
-              eq(
-                containerDocumentTombstoneHolds.documentId,
-                placement.documentId,
-              ),
+            placementPairsMatch(
+              batch,
+              containerDocumentTombstoneHolds.documentId,
+              containerDocumentTombstoneHolds.containerId,
             ),
           )
           .run();

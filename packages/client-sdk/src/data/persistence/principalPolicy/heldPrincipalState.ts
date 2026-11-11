@@ -3,7 +3,7 @@ import {
   isPrincipalStateResponse,
   type PrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { principalHeadMatchesReference } from "../../principals/organizationAuthorityDescriptor";
 import {
   principalPolicyBundleReferences,
@@ -91,7 +91,7 @@ async function bundleState(
   db: ClientSQLiteDatabase,
   head: ReferencedPrincipalHead,
 ): Promise<PrincipalStateResponse | null> {
-  const indexed = await db
+  const indexed = db
     .selectDistinct({
       bundleStateHash: principalPolicyBundleReferences.bundleStateHash,
     })
@@ -118,10 +118,10 @@ async function bundleState(
       and(
         eq(principalPolicyBundles.principalType, head.principalType),
         eq(principalPolicyBundles.principalId, head.principalId),
-        inArray(principalPolicyBundles.stateHash, [
-          head.stateHash,
-          ...indexed.map(({ bundleStateHash }) => bundleStateHash),
-        ]),
+        or(
+          eq(principalPolicyBundles.stateHash, head.stateHash),
+          inArray(principalPolicyBundles.stateHash, indexed),
+        ),
       ),
     );
   for (const row of rows) {

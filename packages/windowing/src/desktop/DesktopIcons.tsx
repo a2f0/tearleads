@@ -104,7 +104,7 @@ export function DesktopIcons<AppId extends string>({
             position={position}
             selected={selected === appId}
             tabbable={tabbableId === appId}
-            title={app.title}
+            title={app.iconLabel ?? app.title}
           />
         ) : null;
       })}

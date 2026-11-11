@@ -5,7 +5,10 @@ import {
   documentContainerProjection,
   documentProjection,
 } from "../../../sqlite/schema/documentProjectionSchema";
-import { remoteResetBatches } from "../../../sqlite/sqliteBindBudget";
+import {
+  remoteResetBatches,
+  sqliteRowsPerStatement,
+} from "../../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
 import { filterWritableDocumentPlacements } from "../../container-contents/documentPlacement";
 import type { ContainerDocumentTombstoneInput } from "../types";
@@ -166,6 +169,27 @@ export async function listKnownContainerDocumentPlacementsInTransaction(
   return placements.filter((placement) => known.has(placementKey(placement)));
 }
 
+// Preserve input order when one placement occurs in both attempt modes.
+// A deferred conflict changes only tombstonedAt, never recency or attempts.
+function* holdWriteBatches(
+  tombstones: ReadonlyArray<HeldContainerDocumentTombstone>,
+) {
+  const size = sqliteRowsPerStatement(6);
+  let batch: HeldContainerDocumentTombstone[] = [];
+  for (const tombstone of tombstones) {
+    if (
+      batch.length &&
+      (batch.length === size ||
+        Boolean(batch[0]?.deferred) !== Boolean(tombstone.deferred))
+    ) {
+      yield batch;
+      batch = [];
+    }
+    batch.push(tombstone);
+  }
+  if (batch.length) yield batch;
+}
+
 /**
  * Hold listing tombstones whose signed evidence is unavailable. A placement a
  * pending move intent owns is never held: the intent, not the listing, decides
@@ -187,32 +211,34 @@ export async function holdContainerDocumentTombstonesInTransaction(
       )
     ).map((input) => input.documentId),
   );
-  for (const tombstone of tombstones) {
-    if (!writable.has(tombstone.documentId)) continue;
-    const row = {
-      containerId: tombstone.containerId,
-      documentId: tombstone.documentId,
-      tombstonedAt: tombstone.updatedAt,
-      hidden: !tombstone.refuted,
-      updatedAt: now,
-    };
-    // A deferred hold was not attempted: it keeps its attempt count and its
-    // last-attempt time, so it stays due and is not starved by the cap.
+  const applicable = tombstones.filter((tombstone) =>
+    writable.has(tombstone.documentId),
+  );
+  for (const batch of holdWriteBatches(applicable)) {
+    const deferred = Boolean(batch[0]?.deferred);
     await tx
       .insert(containerDocumentTombstoneHolds)
-      .values({ ...row, attempts: tombstone.deferred ? 0 : 1 })
+      .values(
+        batch.map((tombstone) => ({
+          containerId: tombstone.containerId,
+          documentId: tombstone.documentId,
+          tombstonedAt: tombstone.updatedAt,
+          hidden: !tombstone.refuted,
+          updatedAt: now,
+          attempts: deferred ? 0 : 1,
+        })),
+      )
       .onConflictDoUpdate({
         target: [
           containerDocumentTombstoneHolds.documentId,
           containerDocumentTombstoneHolds.containerId,
         ],
-        set: tombstone.deferred
-          ? { tombstonedAt: row.tombstonedAt }
+        set: deferred
+          ? { tombstonedAt: sql`excluded.tombstoned_at` }
           : {
-              ...row,
-              hidden: tombstone.refuted
-                ? false
-                : containerDocumentTombstoneHolds.hidden,
+              tombstonedAt: sql`excluded.tombstoned_at`,
+              updatedAt: sql`excluded.updated_at`,
+              hidden: sql`min(${containerDocumentTombstoneHolds.hidden}, excluded.hidden)`,
               attempts: sql`${containerDocumentTombstoneHolds.attempts} + 1`,
             },
       })

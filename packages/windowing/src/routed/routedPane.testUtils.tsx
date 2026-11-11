@@ -55,12 +55,13 @@ export const TEST_LAUNCHER_APP_COUNT = Object.keys(TEST_LAUNCHER.apps).length;
 /** Renders the routed shell at the root route, which shows Explorer. */
 export function renderRoutedPane(
   props: Partial<RoutedPaneProps> = {},
+  definition = TEST_LAUNCHER,
 ): RenderResult {
   window.history.replaceState(null, "", "/");
 
   return render(
     <WindowStateProvider>
-      <LauncherNavigationProvider definition={TEST_LAUNCHER} mode="routed">
+      <LauncherNavigationProvider definition={definition} mode="routed">
         <RoutedPane menuIcon={<svg aria-hidden="true" />} {...props} />
       </LauncherNavigationProvider>
     </WindowStateProvider>,

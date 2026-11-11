@@ -59,8 +59,11 @@ function run(command: string[], cwd: string) {
 }
 
 const smokeTest = `import { expect, test } from "bun:test";
-import { fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import {
+  DesktopIcons,
+  LauncherNavigationProvider,
+  type MiniAppDefinition,
   useWindowActions,
   useWindowStateData,
   Window,
@@ -98,11 +101,39 @@ test("the published package renders a window", () => {
   const region = view.getByRole("region", { name: "Notes" });
   expect(region.textContent).toContain("notes body");
 });
+
+test("published launcher labels preserve window titles", async () => {
+  cleanup();
+  const notes: MiniAppDefinition = {
+    createComponent: () => Notes,
+    iconLabel: "Quick notes",
+    title: "Notes",
+  };
+  const view = render(
+    <WindowStateProvider>
+      <LauncherNavigationProvider definition={{ apps: { notes } }} mode="windowed">
+        <DesktopIcons appIds={["notes"]} />
+        <Desktop />
+      </LauncherNavigationProvider>
+    </WindowStateProvider>,
+  );
+  await act(async () => {});
+  fireEvent.doubleClick(view.getByRole("option", { name: "Quick notes" }));
+  expect(view.getByRole("region", { name: "Notes" }).textContent).toContain("notes body");
+});
 `;
 
 // TypeScript's defaults check declarations and side-effect imports, so a
 // consumer's typecheck reaches everything the package's .d.ts files import.
 const typecheckSource = `import { Window, WindowStateProvider } from "@tearleads/windowing";
+
+import type { MiniAppDefinition } from "@tearleads/windowing";
+
+export const notes: MiniAppDefinition = {
+  createComponent: () => () => null,
+  iconLabel: "Quick notes",
+  title: "Notes",
+};
 
 export const desktop = (
   <WindowStateProvider>

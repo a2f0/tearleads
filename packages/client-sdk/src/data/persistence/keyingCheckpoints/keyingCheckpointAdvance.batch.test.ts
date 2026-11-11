@@ -178,11 +178,9 @@ test("a checkpoint advance takes a constant number of statements at any batch si
       database.close();
     }
   }
-  // A warm repeat: BEGIN, the retirement, access and policy reads, the access
-  // upsert, the policy upsert that also checks and records its owner, the
-  // bundle digests, their recency refresh, the prune count and COMMIT. A
-  // separate owner read took 11; the per-row statements took 12, 25 and 69.
-  expect(counts).toEqual([10, 10, 10]);
+  // Repeat keeps every transactional guard and recency write, but neither
+  // rewrites an identical access pin nor counts rows when no bundle was added.
+  expect(counts).toEqual([7, 7, 7]);
 });
 
 test("set reads keep the per-row validation order", async () => {

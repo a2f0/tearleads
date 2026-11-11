@@ -15,7 +15,7 @@ import {
   writePrincipalPolicyCheckpoints,
 } from "../keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import {
-  loadStoredPrincipalPolicyCheckpoint,
+  loadStoredPrincipalPolicyCheckpoints,
   principalPolicyKey,
 } from "../keyingCheckpoints/keyingCheckpointPersistence";
 import {
@@ -81,8 +81,11 @@ export async function persistVerifiedPrincipalPolicyBundlesAtomically(input: {
       input.updatedAt,
       input.organizationId,
     );
+    const stored = await loadStoredPrincipalPolicyCheckpoints(tx, [
+      ...policies.values(),
+    ]);
     for (const policy of policies.values()) {
-      const checkpoint = await loadStoredPrincipalPolicyCheckpoint(tx, policy);
+      const checkpoint = stored.get(principalPolicyKey(policy));
       if (
         !checkpoint ||
         checkpoint.version !== policy.version ||

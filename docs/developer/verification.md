@@ -90,6 +90,13 @@ test-only change keeps the dependent's cache. `build` leaves tests out of its
 hash for the same reason. The nightly `Uncached tests` workflow catches a
 missed input.
 
+The SDK's native SQLite regression also runs Node/V8. CI installs the exact
+test/build version from [`.nvmrc`](../../.nvmrc) before the SDK shards and keys
+`CI_TOOLCHAIN` on the actual Bun and Node versions, OS, and architecture. The
+nightly workflow calls that same CI workflow with cache reads disabled. The
+Node pin is a global Turbo input; the SDK test task also hashes its CI and
+nightly workflow wiring.
+
 ## Multi-party scenarios
 
 [`packages/bob-and-alice`](../../packages/bob-and-alice/) checks
@@ -125,7 +132,8 @@ globally to work around a shell startup error.
 
 | Command | Prerequisites beyond the checkout |
 | --- | --- |
-| `check:package @tearleads/api` or `check:package @tearleads/client-sdk` | Pinned Bun, `bun install --frozen-lockfile`, and the SQLite download tools below. No Electrobun devkit, protocol-model, OpenAPI-compatibility, or Ruby lint gate runs in these focused checks. |
+| `check:package @tearleads/api` | Pinned Bun, `bun install --frozen-lockfile`, and the SQLite download tools below. No Electrobun devkit, protocol-model, OpenAPI-compatibility, or Ruby lint gate runs in this focused check. |
+| `check:package @tearleads/client-sdk` | The focused API prerequisites plus Node 24.22.2 from [`.nvmrc`](../../.nvmrc) on `PATH`, for the real V8/native SQLite regression. No desktop or static-gate toolchain is required. |
 | `check:fast` | Installed dependencies and pinned mise tools, including Java/TLA+, oasdiff, ShellCheck and Ruby; run `bundle install` in [`packages/app-capacitor`](../../packages/app-capacitor/) for Ruby lint dependencies. Prepares the Electrobun devkit and SDK declarations. |
 | `check`, `check:affected`, or pre-push | The static-gate prerequisites plus package builds, TypeScript, and the selected test suites; browser E2E also requires the Playwright browsers. |
 
@@ -139,6 +147,14 @@ packaging tests build and inspect local output without that install; with
 dependencies and SQLite artifacts cached, focused SDK tests need no npm access.
 Other workspaces can add their own test prerequisites; check their README and
 `test` script.
+
+Select the Node version in [`.nvmrc`](../../.nvmrc) with your Node manager (or
+an explicit installed binary directory) and verify `node --version` before
+running SDK tests, including individual files. This is a reproducible
+test/build prerequisite, not a change to the published SDK's supported
+consumer runtimes or its `engines` contract. The native regression must run;
+an older ambient Node is not a reason to skip it. Node uses this separate pin
+rather than changing the existing mise tool pins or generated lockfile.
 
 For a checkout whose mise configuration cannot be trusted, the
 [protocol](../../formal/README.md) and OpenAPI checks accept the explicit

@@ -63,6 +63,7 @@ interface KeyingCheckpointValidationInput {
 }
 
 interface PendingAccessCheckpoint {
+  readonly changed: boolean;
   readonly checkpoint: AccessManifestCheckpoint;
 }
 
@@ -104,6 +105,9 @@ function validateAccessAdvance(
   });
 
   return {
+    changed:
+      localCheckpoint?.epoch !== current.epoch ||
+      localCheckpoint.manifestHash !== current.manifestHash,
     checkpoint: advance.head.checkpoint,
   };
 }
@@ -233,7 +237,9 @@ async function writeAccessCheckpoints(
 ): Promise<void> {
   await upsertAccessManifestCheckpointsInTransaction(
     tx,
-    [...pending.values()].map(({ checkpoint }) => checkpoint),
+    [...pending.values()]
+      .filter(({ changed }) => changed)
+      .map(({ checkpoint }) => checkpoint),
     updatedAt,
   );
 }
