@@ -88,6 +88,21 @@ a [head](./glossary/sync.md#head) new to the device needs its first read. See
 and [principal-history acceptance](principal-history-acceptance.md) for that
 security tradeoff.
 
+## Organization creation retries
+
+An ordinary create persists its signed request before sending `POST /organizations`.
+After a lost response, identical user and creation inputs resume that request,
+including after SQLite reopens. A matching server receipt adopts the original
+organization instead of creating another. Local acknowledgement completes the
+attempt atomically with bootstrap; a later identical create is then a new operation.
+
+Discovery can expose the root before acknowledgement. That does not complete
+or abandon the attempt: the next identical create is still a retry and must
+preserve newer local state. A later HTTP rejection cannot disprove an earlier
+commit, so attempts do not expire automatically. Permanently unusable artifacts
+can remain pending; no public cancellation operation is provided. See the
+[lost-response regression](../packages/api/src/routes/organizations/createOrganization.lostResponse.test.ts).
+
 ## Pane lifecycle budgets
 
 Measured on November 10, 2026, with two child folders, one note in each, and
@@ -131,10 +146,11 @@ never starts an extra reconciliation or replaces networking.
 | `POST /documents/:documentId/sync` | 6 | 8 | 9 |
 | **Total** | **23** | **22** | **30** |
 
-Each value is both the observed count and the per-route ceiling. Unlisted routes
-are forbidden, every response must be 200, and every document sync must be
-read-only. Ticket and membership reads are also required exactly once, so a
-missing connection cannot masquerade as a cheaper reconnect. The remote writer
+The table records observed counts; tests enforce them as ceilings rather than
+exact counts, allowing future reductions. Unlisted routes are forbidden, every
+response must be 200, and every document sync must be read-only. Ticket and
+membership reads are required exactly once, so a missing connection cannot
+masquerade as a cheaper reconnect. The remote writer
 stays mounted but idle; all measured requests must carry the reader's session.
 A negative control makes one real extra membership read after measurement and
 proves the membership ceiling rejects it even with spare total capacity.

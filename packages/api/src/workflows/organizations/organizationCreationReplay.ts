@@ -1,5 +1,9 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { organizations } from "@tearleads/api-shared/schema";
+import {
+  organizationBilling,
+  organizationRosterEntries,
+  organizations,
+} from "@tearleads/api-shared/schema";
 import {
   readKeyingCanonicalJson,
   serializeKeyingCanonicalJson,
@@ -9,7 +13,7 @@ import {
   type CreateOrganizationResponse,
   isCreateOrganizationResponse,
 } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { sha256Hex } from "../../utils/sha256";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
 
@@ -36,8 +40,21 @@ export async function readOrganizationCreationReplay(
       userId: organizations.provisioningUserId,
       requestSha256: organizations.provisioningRequestSha256,
       response: organizations.provisioningResponse,
+      billingStatus: organizationBilling.status,
+      rosterStatus: organizationRosterEntries.status,
     })
     .from(organizations)
+    .leftJoin(
+      organizationBilling,
+      eq(organizationBilling.organizationId, organizations.id),
+    )
+    .leftJoin(
+      organizationRosterEntries,
+      and(
+        eq(organizationRosterEntries.organizationId, organizations.id),
+        eq(organizationRosterEntries.userId, input.userId),
+      ),
+    )
     .where(eq(organizations.id, input.organizationId));
   if (!stored) return null;
   if (
@@ -53,6 +70,17 @@ export async function readOrganizationCreationReplay(
       409,
     );
   }
+  if (
+    stored.rosterStatus !== "active" ||
+    stored.billingStatus === null ||
+    stored.billingStatus === "deleting" ||
+    stored.billingStatus === "purged"
+  ) {
+    throw new OrganizationProvisioningError(
+      "Organization is no longer available for provisioning replay",
+      409,
+    );
+  }
   return stored.response;
 }
 
@@ -62,12 +90,19 @@ export async function recordOrganizationCreationReplay(
   response: CreateOrganizationResponse,
 ): Promise<void> {
   if (!isOrdinaryCreate(input)) return;
-  await tx
+  const [stored] = await tx
     .update(organizations)
     .set({
       provisioningUserId: input.userId,
       provisioningRequestSha256: requestSha256(input),
       provisioningResponse: response,
     })
-    .where(eq(organizations.id, input.organizationId));
+    .where(eq(organizations.id, input.organizationId))
+    .returning({ id: organizations.id });
+  if (!stored) {
+    throw new OrganizationProvisioningError(
+      "Unable to persist organization provisioning response",
+      500,
+    );
+  }
 }

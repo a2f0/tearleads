@@ -1,9 +1,15 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizations, users } from "@tearleads/api-shared/schema";
+import {
+  organizationBilling,
+  organizationRosterEntries,
+  organizations,
+  users,
+} from "@tearleads/api-shared/schema";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestUser } from "@tearleads/test-utils";
+import { isCreateOrganizationResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
   createOrganizationRequestBody,
@@ -11,6 +17,7 @@ import {
 } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { recordOrganizationCreationReplay } from "../../workflows/organizations/organizationCreationReplay";
 
 async function actor() {
   const user = createTestUser();
@@ -112,6 +119,57 @@ test("ordinary create refuses a registration organization without a replay bindi
       .from(organizations)
       .where(eq(organizations.id, registered.organizationId)),
   ).toEqual([before]);
+});
+
+for (const state of ["deleting", "purged", "disabled", "removed"] as const) {
+  test(`ordinary replay refuses an organization whose lifecycle is ${state}`, async () => {
+    const user = await actor();
+    const body = await createOrganizationRequestBody(user);
+    expect((await submitCreateOrganization(user, body)).status).toBe(200);
+    if (state === "deleting" || state === "purged") {
+      await db
+        .update(organizationBilling)
+        .set({ status: state })
+        .where(eq(organizationBilling.organizationId, body.organizationId));
+    } else if (state === "disabled") {
+      await db
+        .update(organizationRosterEntries)
+        .set({ status: "disabled" })
+        .where(
+          eq(organizationRosterEntries.organizationId, body.organizationId),
+        );
+    } else {
+      await db
+        .delete(organizationRosterEntries)
+        .where(
+          eq(organizationRosterEntries.organizationId, body.organizationId),
+        );
+    }
+    const replay = await submitCreateOrganization(user, body);
+    expect(replay.status).toBe(409);
+    expect(await replay.json()).toEqual({
+      error: "Organization is no longer available for provisioning replay",
+    });
+  });
+}
+
+test("a missing organization cannot silently lose its provisioning receipt", async () => {
+  const user = await actor();
+  const body = await createOrganizationRequestBody(user);
+  const created = await submitCreateOrganization(user, body);
+  expect(created.status).toBe(200);
+  const response = await created.json();
+  if (!isCreateOrganizationResponse(response))
+    throw new Error("Invalid response");
+  await expect(
+    db.transaction((tx) =>
+      recordOrganizationCreationReplay(
+        tx,
+        { ...body, organizationId: crypto.randomUUID() },
+        response,
+      ),
+    ),
+  ).rejects.toThrow("Unable to persist organization provisioning response");
 });
 
 for (const binding of ["user", "hash"] as const) {

@@ -20,10 +20,7 @@ import {
   sqlDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
 import type { DocumentRecord } from "../../data/persistence/documents/records";
-import {
-  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
-  type LocallyAcknowledgedAccessManifestHead,
-} from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import type { LocallyAcknowledgedAccessManifestHead } from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { documentContainerProjectionTables } from "../../data/sqlite/schema/documentProjectionSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import {
@@ -41,6 +38,7 @@ import {
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
   ROSTER_PROFILE_DOCUMENT_KIND,
 } from "../organizations/rosterProfileContainer";
+import { seedRegistrationAccessHeads } from "./registrationAccessHeadPersistence";
 import { enqueueInitialContainerMetadataUpdate } from "./registrationBootstrapPendingUpdates";
 import { persistRegistrationPrincipalPolicies } from "./registrationPrincipalPolicyPersistence";
 
@@ -127,6 +125,9 @@ export interface RegistrationBootstrapInput {
   organizationId: string;
   userId: string;
 }
+type CurrentBootstrap = RegistrationBootstrapInput & {
+  canSeed: Awaited<ReturnType<typeof seedRegistrationAccessHeads>>;
+};
 /** Seed missing metadata without replacing state discovered or edited meanwhile.
  * Runs inside the guarded bootstrap transaction, so discovery cannot interleave
  * the existence check and write. Even a discovery-only row owns its timestamps,
@@ -206,8 +207,13 @@ async function persistProvisionedContainerBootstrap(
 
 async function persistRootContainerBootstrap(
   execSql: ExecSql,
-  input: RegistrationBootstrapInput,
+  input: CurrentBootstrap,
 ): Promise<void> {
+  if (
+    !input.canSeed("container", input.containerId) ||
+    !input.canSeed("document", input.rootMetadataDocumentId)
+  )
+    return;
   const rootRecord: ContainerMetadataRecord = {
     accessEpoch: input.rootMetadataAccessEpoch,
     accessStateHash: input.rootMetadataAccessStateHash,
@@ -253,11 +259,15 @@ async function persistRootContainerBootstrap(
 // inherit the personal root; shared organization metadata has an independent root.
 async function persistNamedChildContainerBootstrap(
   execSql: ExecSql,
-  input: RegistrationBootstrapInput,
+  input: CurrentBootstrap,
   container: RegistrationBootstrapInput["rosterProfileContainer"],
   name: string,
 ): Promise<void> {
-  if (!container) {
+  if (
+    !container ||
+    !input.canSeed("container", container.containerId) ||
+    !input.canSeed("document", container.metadataDocumentId)
+  ) {
     return;
   }
 
@@ -281,7 +291,7 @@ async function persistNamedChildContainerBootstrap(
 
 async function persistSystemContainersBootstrap(
   execSql: ExecSql,
-  input: RegistrationBootstrapInput,
+  input: CurrentBootstrap,
 ): Promise<void> {
   const systemContainers = input.systemContainers;
   if (!systemContainers) {
@@ -289,6 +299,11 @@ async function persistSystemContainersBootstrap(
   }
 
   for (const systemContainer of systemContainers) {
+    if (
+      !input.canSeed("container", systemContainer.containerId) ||
+      !input.canSeed("document", systemContainer.metadataDocumentId)
+    )
+      continue;
     await persistProvisionedContainerBootstrap(execSql, {
       container: systemContainer,
       icon: systemContainer.icon,
@@ -307,11 +322,15 @@ async function persistSystemContainersBootstrap(
 // fields, so only the document kind and the host's projectors join it.
 async function persistProfileDocumentBootstrap(
   execSql: ExecSql,
-  input: RegistrationBootstrapInput,
+  input: CurrentBootstrap,
   profileDocument: ProvisionedProfileDocumentBootstrapInput | undefined,
   documentKind: string,
 ): Promise<void> {
-  if (!profileDocument) {
+  if (
+    !profileDocument ||
+    !input.canSeed("document", profileDocument.documentId) ||
+    !input.canSeed("container", profileDocument.containerId)
+  ) {
     return;
   }
 
@@ -409,47 +428,51 @@ export async function persistRegistrationBootstrapFromExecSql(
       lockedExecSql,
     ).guardedTransaction(
       async () => {
-        await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+        const canSeed = await seedRegistrationAccessHeads({
           execSql: lockedExecSql,
           heads: input.acknowledgedAccessHeads,
+          organizationId: input.organizationId,
         });
+        const bootstrap = { ...input, canSeed };
         await persistRegistrationPrincipalPolicies({
           adminGroup: input.initialAdminGroupPolicy,
           execSql: lockedExecSql,
           memberGroup: input.initialMemberGroupPolicy,
           organization: input.initialOrganizationPolicy,
         });
-        await persistRootContainerBootstrap(lockedExecSql, input);
+        await persistRootContainerBootstrap(lockedExecSql, bootstrap);
         await persistNamedChildContainerBootstrap(
           lockedExecSql,
-          input,
+          bootstrap,
           input.rosterProfileContainer,
           ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
         );
         await persistProfileDocumentBootstrap(
           lockedExecSql,
-          input,
+          bootstrap,
           input.rosterProfileDocument,
           ROSTER_PROFILE_DOCUMENT_KIND,
         );
         await persistNamedChildContainerBootstrap(
           lockedExecSql,
-          input,
+          bootstrap,
           input.organizationMetadataContainer,
           ORGANIZATION_METADATA_CONTAINER_NAME,
         );
         await persistProfileDocumentBootstrap(
           lockedExecSql,
-          input,
+          bootstrap,
           input.organizationProfileDocument,
           ORGANIZATION_PROFILE_DOCUMENT_KIND,
         );
-        await persistSystemContainersBootstrap(lockedExecSql, input);
+        await persistSystemContainersBootstrap(lockedExecSql, bootstrap);
         // After the checkpoints above: discovery reuses a cached head only
         // while its access-manifest checkpoint still matches.
         await primeAuthoredDocumentDiscoveryHeads(
           lockedExecSql,
-          input.authoredDiscoveryHeads,
+          input.authoredDiscoveryHeads.filter((head) =>
+            canSeed("document", head.documentId),
+          ),
         );
         await input.completeProvisioningAttempt?.(lockedExecSql);
       },
