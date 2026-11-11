@@ -8,7 +8,7 @@ import type {
 } from "@tearleads/validators/response";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { type SQL, sql } from "drizzle-orm";
-import { textExpression } from "../../utils/sqlDialect";
+import { textExpression } from "../../utils/postgresSql";
 import {
   collectReferencedPrincipalsFromContainerAccess,
   KeyingReadAccessError,

@@ -19,15 +19,13 @@
   // docs/developer/api-request-cost.md.
   "observability": { "enabled": true },
   // Workers forbid compiling WebAssembly at runtime; the Loro alias target
-  // initializes its web build from the module Wrangler compiles. The other
-  // aliases stub the development-only database drivers the shared database
+  // initializes its web build from the module Wrangler compiles. The PGlite
+  // alias stubs the development-only database driver the shared database
   // module imports statically; the Worker only ever selects Postgres.
   "alias": {
     "loro-crdt": "./src/worker/loro/index.ts",
     "@aws-sdk/xml-builder": "./src/worker/stubs/awsXmlBuilder.ts",
-    "bun:sqlite": "./src/worker/stubs/bunSqlite.ts",
-    "@electric-sql/pglite": "./src/worker/stubs/pglite.ts",
-    "@libsql/client": "./src/worker/stubs/libsql.ts"
+    "@electric-sql/pglite": "./src/worker/stubs/pglite.ts"
   },
   "triggers": {
     // Billing maintenance every minute and blob garbage collection hourly.

@@ -14,7 +14,6 @@ import {
   organizationCanSync,
   organizationSeatPeriodKey,
 } from "../../billing/organizationBilling";
-import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import {
   licensedSeatCountChangeEventType,
@@ -118,9 +117,7 @@ async function loadBillingSeatState(input: {
     .where(eq(organizationBilling.organizationId, input.organizationId))
     .limit(1);
 
-  const [row] = isSqliteApiDatabase()
-    ? await query
-    : await query.for("update", { of: organizationBilling });
+  const [row] = await query.for("update", { of: organizationBilling });
   return row
     ? {
         ...row,

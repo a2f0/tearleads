@@ -14,7 +14,6 @@ import {
   type SyncBillingTier,
 } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
-import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { OrganizationManagerError } from "../organizations/errors";
 import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
@@ -95,18 +94,17 @@ export async function lockActiveBilling(
   executor: DatabaseSession,
   organizationId: string,
 ) {
-  const [billing] = await lockRowForUpdate(
-    executor
-      .select({
-        currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
-        providerProductId: organizationBilling.providerProductId,
-        seatCount: organizationBilling.seatCount,
-        status: organizationBilling.status,
-      })
-      .from(organizationBilling)
-      .where(eq(organizationBilling.organizationId, organizationId))
-      .limit(1),
-  );
+  const [billing] = await executor
+    .select({
+      currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
+      providerProductId: organizationBilling.providerProductId,
+      seatCount: organizationBilling.seatCount,
+      status: organizationBilling.status,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId))
+    .limit(1)
+    .for("update");
   if (billing?.status !== "active") {
     throw stripePlanChangeUnavailable(
       "The organization has no active subscription to change",

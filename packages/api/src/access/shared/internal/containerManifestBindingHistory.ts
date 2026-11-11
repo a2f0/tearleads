@@ -2,7 +2,7 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { accessManifests } from "@tearleads/api-shared/schema";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
-import { jsonTextProperty, uuidExpression } from "../../../utils/sqlDialect";
+import { jsonTextProperty, uuidExpression } from "../../../utils/postgresSql";
 import {
   ContainerKekTargetError,
   staleContainerKekEpochError,

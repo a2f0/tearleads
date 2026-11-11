@@ -14,7 +14,6 @@ import {
   type SyncBillingTier,
 } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
-import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { OrganizationManagerError } from "../organizations/errors";
 import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
@@ -87,7 +86,7 @@ async function lockStripeCheckoutBilling(
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId))
     .limit(1);
-  const [billing] = await lockRowForUpdate(query);
+  const [billing] = await query.for("update");
   if (!billing) {
     throw new Error("Organization billing not found during Stripe checkout");
   }
@@ -347,9 +346,7 @@ export function stripeCheckoutPlanUnavailable(): OrganizationManagerError {
  * new one. A plan smaller than the roster counted in this transaction is
  * refused here, so a refused checkout reserves and rotates nothing.
  *
- * PostgreSQL serializes contenders with a billing-row lock. The SQLite adapter
- * runs transactions through one `BEGIN IMMEDIATE` queue, so it provides the
- * same single-winner behavior without unsupported `FOR UPDATE` syntax.
+ * PostgreSQL serializes contenders with a billing-row lock.
  */
 export async function runAcquireStripeCheckoutAttemptWorkflow(
   db: ApiDatabase,

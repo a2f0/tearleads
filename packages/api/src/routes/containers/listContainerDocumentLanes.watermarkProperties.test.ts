@@ -13,10 +13,7 @@ import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { readContainerDocumentLaneResults } from "../../../test/helpers/containerDocumentLaneQuery";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
-import {
-  discoveryTimestamp,
-  discoveryTimestampValue,
-} from "../../../test/helpers/discoveryTimestamp";
+import { discoveryTimestampValue } from "../../../test/helpers/discoveryTimestamp";
 import { observeDatabaseSelects } from "../../../test/helpers/observeDatabaseQueries";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createRouteApp, routeApp } from "../../routeApp";
@@ -32,42 +29,42 @@ const CHANGES: readonly DocumentChangeFixture[] = [
   {
     id: "00000000-0000-4000-8000-000000000001",
     kind: "document",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000900Z"),
+    updatedAt: "2026-08-31T12:00:00.000900Z",
   },
   {
     id: "00000000-0000-4000-8000-000000000002",
     kind: "tombstone",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000100Z"),
+    updatedAt: "2026-08-31T12:00:00.000100Z",
   },
   {
     id: "00000000-0000-4000-8000-000000000003",
     kind: "document",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000100Z"),
+    updatedAt: "2026-08-31T12:00:00.000100Z",
   },
   {
     id: "00000000-0000-4000-8000-000000000004",
     kind: "tombstone",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000500Z"),
+    updatedAt: "2026-08-31T12:00:00.000500Z",
   },
   {
     id: "00000000-0000-4000-8000-000000000005",
     kind: "tombstone",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001900Z"),
+    updatedAt: "2026-08-31T12:00:00.001900Z",
   },
   {
     id: "00000000-0000-4000-8000-000000000006",
     kind: "document",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001100Z"),
+    updatedAt: "2026-08-31T12:00:00.001100Z",
   },
   {
     id: "00000000-0000-4000-8000-000000000007",
     kind: "tombstone",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001100Z"),
+    updatedAt: "2026-08-31T12:00:00.001100Z",
   },
   {
     id: "00000000-0000-4000-8000-000000000008",
     kind: "document",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001500Z"),
+    updatedAt: "2026-08-31T12:00:00.001500Z",
   },
 ];
 
@@ -196,7 +193,7 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
     token: owner.token,
     watermark: {
       id: "00000000-0000-4000-8000-000000000001",
-      updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000100Z"),
+      updatedAt: "2026-08-31T12:00:00.000100Z",
     },
   });
   expect(first.items).toHaveLength(0);

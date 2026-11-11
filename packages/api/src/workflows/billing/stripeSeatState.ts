@@ -9,7 +9,6 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import { organizationSeatPeriodKey } from "../../billing/organizationBilling";
 import { normalizeStripeSeatQuantity } from "../../billing/stripeSeatQuantity";
-import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { isSameBillingPeriod } from "./stripePeriodMatch";
 import { resolveStripeSeatBindingOrder } from "./stripeSeatBindingOrder";
 
@@ -290,9 +289,9 @@ async function bindOrganizationStripeSeatsInTransaction(
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, binding.organizationId))
     .limit(1);
-  const [billing] = isSqliteApiDatabase()
-    ? await billingQuery
-    : await billingQuery.for("update", { of: organizationBilling });
+  const [billing] = await billingQuery.for("update", {
+    of: organizationBilling,
+  });
   if (!billing) {
     throw new Error("Organization billing not found for Stripe subscription");
   }

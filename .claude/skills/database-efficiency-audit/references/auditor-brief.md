@@ -25,7 +25,7 @@ unresolved candidates, and the next concrete step. A partial slice is a
 valid result; never call it complete.
 
 Mission: find ways for the API (Postgres in production via PlanetScale and
-Hyperdrive; PGlite, SQLite, and Turso in tests) and the client SDK (SQLite
+Hyperdrive; PGlite and Postgres in tests) and the client SDK (SQLite
 wasm behind a worker) to issue fewer statements, fewer serial round trips,
 read fewer rows, and maintain fewer useless indexes, without changing
 behavior. Units: statements per operation, round trips on the critical path,
@@ -39,12 +39,11 @@ Four rules bound every proposal:
   A change to what the protocol stores or sends (retiring or folding a
   table, a route or response shape) is a protocol lead: list it separately
   and do not develop it.
-- Dialect parity: an API change works on Postgres, PGlite, SQLite, and
-  Turso and keeps packages/api-shared/src/schemaParity.test.ts green. A
+- Engine parity: an API change works on Postgres and PGlite. A
   client change respects the SQLite bind budget
   (packages/client-sdk/src/data/sqlite/sqliteBindBudget.ts).
 - Greenfield: schema changes edit the Drizzle definitions and regenerate
-  the baselines; no migrations, backfills, dual reads, or flags.
+  the baseline; no migrations, backfills, dual reads, or flags.
 - Measure before claiming: a saving is a statement capture, a plan, or a
   probe at this revision. PlanetScale telemetry is a lead, not proof.
 
@@ -79,7 +78,7 @@ Implementation path: say whether Drizzle's query builder can express each
 proposal (drizzle-orm 0.45 has joins, inArray, onConflictDoUpdate with
 setWhere and targetWhere, and returning on every dialect, but no recursive
 CTE builder and no tuple IN), whether it needs a short sql fragment such as
-excluded.<column> or a helper in packages/api/src/utils/sqlDialect.ts, or
+excluded.<column> or a helper in packages/api/src/utils/postgresSql.ts, or
 whether it edits an existing raw executor.execute(sql`...`) statement. The
 maintainers prefer builder implementations; name a raw-statement edit
 plainly.

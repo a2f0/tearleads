@@ -33,7 +33,6 @@ const baseConfig = {
       project: ["src/**/*.ts"],
     },
     "packages/api": {
-      // The package test script launches Bun from `scripts/testAllDatabases.ts`;
       // Knip's Bun plugin discovers `test/preload.ts` via `bunfig.toml`. The
       // Wrangler alias targets (Loro and the driver stubs), the deploy-time
       // define printer, and the standalone operator scripts are not package

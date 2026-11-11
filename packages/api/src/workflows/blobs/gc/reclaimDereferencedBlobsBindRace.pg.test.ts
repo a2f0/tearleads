@@ -25,7 +25,6 @@ import {
   waitForPostgresLockWait,
 } from "../../../../test/helpers/postgresConcurrency";
 import { registerUser } from "../../../../test/helpers/registerUser";
-import { lockRowForUpdate } from "../../../utils/sqlDialect";
 import { runReclaimDereferencedBlobsWorkflow } from "./reclaimDereferencedBlobs";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -87,7 +86,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         .from(documents)
         .where(eq(documents.id, fixture.document.id))
         .limit(1);
-      await lockRowForUpdate(query);
+      await query.for("update");
     });
 
     const bind = bindForTest({
@@ -155,7 +154,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         .from(blobAuditObjects)
         .where(eq(blobAuditObjects.blobId, fixture.blobId))
         .limit(1);
-      await lockRowForUpdate(query);
+      await query.for("update");
     });
 
     const reclaim = runReclaimDereferencedBlobsWorkflow(db, {

@@ -1,6 +1,6 @@
 ---
 name: database-efficiency-audit
-description: Audit Tearleads database work on the API (PlanetScale Postgres in production; PGlite, SQLite, and Turso in tests) and in the client SDK's SQLite for statement amplification, batchable round trips, and missing, redundant, or unused indexes, using PlanetScale Insights and schema recommendations as leads and measured statement captures and query plans as evidence, in small resumable batches that end in a GitHub issue of ranked proposals. Use for a requested database performance, indexing, or query-batching audit, not a single-diff review or a protocol redesign.
+description: Audit Tearleads database work on the API (PlanetScale Postgres in production; PGlite and Postgres in tests) and in the client SDK's SQLite for statement amplification, batchable round trips, and missing, redundant, or unused indexes, using PlanetScale Insights and schema recommendations as leads and measured statement captures and query plans as evidence, in small resumable batches that end in a GitHub issue of ranked proposals. Use for a requested database performance, indexing, or query-batching audit, not a single-diff review or a protocol redesign.
 ---
 
 # Database Efficiency Audit
@@ -9,9 +9,9 @@ Audit how Tearleads talks to its databases:
 
 - **API persistence** in `packages/api` and `packages/api-shared`. Production
   and staging run PlanetScale Postgres behind Cloudflare Hyperdrive; tests
-  and local development run PGlite (`API_DATABASE=memory`), Bun SQLite, or
-  Turso. The Drizzle schema in `packages/api-shared/src/schema` serves every
-  dialect.
+  and local development run PGlite (`API_DATABASE=memory`) or a local
+  Postgres. The Drizzle schema in `packages/api-shared/src/schema` is
+  Postgres-only.
 - **Client persistence** in `packages/client-sdk/src/data`, executed by
   SQLite wasm in `packages/sqlite-worker`, plus the app's client projection
   tables under `packages/app/src/document-projectors`.
@@ -32,13 +32,12 @@ Four rules frame every proposal:
   and every bound in `docs/limits.md` stay. A proposal that would change
   what the protocol stores or sends is a **protocol lead**: record it for
   `protocol-efficiency-audit` and never rank it here.
-- **Dialect parity.** An API index or query change must work on Postgres,
-  PGlite, SQLite, and Turso, and keep `packages/api-shared/src/schemaParity.test.ts`
-  green. #2536 declined a GIN index for this reason. Client changes must
-  respect the SQLite bind budget in
+- **Engine parity.** An API index or query change must work on Postgres and
+  on PGlite, which runs the API test suite. Client changes must respect the
+  SQLite bind budget in
   `packages/client-sdk/src/data/sqlite/sqliteBindBudget.ts`.
-- **Greenfield.** Change the Drizzle definitions and regenerate both API
-  baselines (`db:generate`, `db:generate:sqlite` in `packages/api-shared`);
+- **Greenfield.** Change the Drizzle definitions and regenerate the API
+  baseline (`db:generate` in `packages/api-shared`);
   client schema changes fail the local shape check and ship with the
   coordinated reset in `docs/developer/api-persistence.md`. No migrations,
   backfills, dual reads, or rollout flags. Any baseline change, an index
@@ -119,7 +118,7 @@ and inspect bounded excerpts with `bun run agent:logs <path>`.
    API tests import the SDK from `dist` and silently use a stale build.
 3. Build the inventories in
    [`references/measurement.md`](references/measurement.md): API tables and
-   indexes per dialect, client tables and indexes, and the existing
+   API indexes, client tables and indexes, and the existing
    statement-budget and query-plan tests with their ceilings. Record counts;
    the issue reports them.
 4. Capture the statement baseline once per audited revision: run the
@@ -201,9 +200,9 @@ most two distinct proposals per default batch; keep the rest pending.
 - Re-derive the saving with a statement capture of the operation before
   and after the change, made in the probe's own copy of the query or
   helper. For an index, show the plan on the audited schema with and
-  without it, on Postgres and on SQLite.
+  without it, on Postgres.
 - Check each rule: behavior (results, atomicity, isolation, lock order,
-  verification reads, commit guards), dialect parity, and bounds. A
+  verification reads, commit guards), engine parity, and bounds. A
   proposal that reorders statements inside a transaction names every lock
   it takes and the concurrency test that covers the order. A loop that
   loads one row at a time may be the memory bound behind a byte ceiling in
@@ -275,7 +274,7 @@ For each verified proposal:
    models; name the follow-up.
 4. Name the implementation path: Drizzle's query builder, the builder
    with a short `sql` fragment (`excluded.<column>` in a multi-row upsert,
-   or a helper from `packages/api/src/utils/sqlDialect.ts`), or an edit to
+   or a helper from `packages/api/src/utils/postgresSql.ts`), or an edit to
    an existing raw ``executor.execute(sql`...`)`` statement. The
    maintainers prefer builder implementations; flag a raw-statement edit
    so they can defer it.

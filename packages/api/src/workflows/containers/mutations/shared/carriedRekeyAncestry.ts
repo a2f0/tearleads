@@ -3,7 +3,7 @@ import { containers } from "@tearleads/api-shared/schema";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
-import { uuidValue } from "../../../../utils/sqlDialect";
+import { uuidValue } from "../../../../utils/postgresSql";
 import { ContainerMutationError } from "../errors";
 
 const ancestryStartRowSchema = z.object({ start_id: z.string() });

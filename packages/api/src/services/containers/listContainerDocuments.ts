@@ -14,7 +14,7 @@ import type {
 } from "@tearleads/validators/response";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
-import { textExpression } from "../../utils/sqlDialect";
+import { textExpression } from "../../utils/postgresSql";
 import type {
   ContainerAccessProjection,
   ContainerWriterProjectionContext,

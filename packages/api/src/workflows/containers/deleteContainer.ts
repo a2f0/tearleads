@@ -14,7 +14,7 @@ import {
   hasCurrentDocumentLink,
 } from "../../access/read/currentDocumentLinks";
 import { uniqueSortedStrings } from "../../utils/array";
-import { uuidValue } from "../../utils/sqlDialect";
+import { uuidValue } from "../../utils/postgresSql";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { lockDocumentLifecycleInTransaction } from "../documents/mutations/documentLifecycleLock";
 import { teardownContainerMetadataDocument } from "../documents/mutations/purgeDocument";

@@ -27,7 +27,7 @@ Trust is specific to the checkout path, so a new clone or evaluation workspace
 needs its own reviewed trust step. Existing clones follow the
 [one-time hook migration](docs/developer/static-analysis.md#ci-and-the-push-gate)
 instead of a fresh hook install. The API keeps its data in memory by default;
-`sh scripts/dev/runApi.sh --help` lists its Postgres, SQLite, and Turso modes.
+`sh scripts/dev/runApi.sh --help` lists its PGlite and Postgres modes.
 
 To invoke repository launchers and release shortcuts by name, source
 [`scripts/dev/session.sh`](scripts/dev/session.sh) from the checkout. For a

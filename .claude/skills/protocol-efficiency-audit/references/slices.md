@@ -168,8 +168,9 @@ marker is the `access_manifests.verification_mac` column (#2536). SDK
   checkpoints already hold verified, and could it cite them too?
 - For each `access_manifest_*_projection` table, name the route that reads
   it and the query it answers. Could an index on the canonical manifest serve
-  it? #2522 kept the principal-head projection (#27): SQLite and Turso have
-  no containment index, so the reverse lookup would become a `json_each` scan.
+  it? #2522 kept the principal-head projection (#27) while the API also ran on
+  SQLite and Turso, which have no containment index; with Postgres alone, a
+  GIN index on the canonical manifest is a candidate again.
 - `access_manifests.verification_mac` memoizes the server's own verification
   (#2383). What is its hit pattern, and does a stored-artifact verification on
   read remain necessary once commit-time verification is trusted? The API

@@ -1,8 +1,12 @@
 import { expect, test } from "bun:test";
-import { isSqliteSchemaDialect, readApiDatabaseKind } from "./dialect";
+import { readApiDatabaseKind } from "./dialect";
 
-test("Turso selects the SQLite schema dialect", () => {
-  const env = { API_DATABASE: " turso " };
-  expect(readApiDatabaseKind(env)).toBe("turso");
-  expect(isSqliteSchemaDialect(env)).toBe(true);
+test("API_DATABASE accepts only Postgres backends", () => {
+  expect(readApiDatabaseKind({ API_DATABASE: " PGlite " })).toBe("memory");
+  expect(readApiDatabaseKind({ API_DATABASE: "postgres" })).toBe("postgres");
+  for (const value of ["sqlite", "turso"]) {
+    expect(() => readApiDatabaseKind({ API_DATABASE: value })).toThrow(
+      `Unsupported API_DATABASE value: ${value}`,
+    );
+  }
 });

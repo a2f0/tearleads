@@ -206,9 +206,10 @@ normal
 rather than creating a busy loop.
 
 Tracked checkpoints are durable backend positions and must satisfy a requested
-`minLsn`. Every response declares its `commitLsnMode`. An untracked backend
-returns `commitLsnMode: "untracked"` with the `0/0` reset sentinel; the client
-replaces a previously tracked checkpoint with that explicit mode and sentinel.
+`minLsn`. Every response declares its `commitLsnMode`; the Postgres API always
+reports `"tracked"`. A backend without a portable WAL position would return
+`"untracked"` with the `0/0` reset sentinel, and the client replaces a
+previously tracked checkpoint with that explicit mode and sentinel.
 
 ## Document Sync Conflict Codes
 

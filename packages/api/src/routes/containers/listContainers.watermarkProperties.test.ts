@@ -14,10 +14,7 @@ import {
   readContainerParentLanePage,
   requestContainerParentLanes,
 } from "../../../test/helpers/containerParentLaneQuery";
-import {
-  discoveryTimestamp,
-  discoveryTimestampValue,
-} from "../../../test/helpers/discoveryTimestamp";
+import { discoveryTimestampValue } from "../../../test/helpers/discoveryTimestamp";
 import { registerUser } from "../../../test/helpers/registerUser";
 
 type ContainerChangeFixture = {
@@ -30,42 +27,42 @@ const CHANGES: readonly ContainerChangeFixture[] = [
   {
     id: "10000000-0000-4000-8000-000000000001",
     kind: "container",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000900Z"),
+    updatedAt: "2026-08-31T12:00:00.000900Z",
   },
   {
     id: "10000000-0000-4000-8000-000000000002",
     kind: "tombstone",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000100Z"),
+    updatedAt: "2026-08-31T12:00:00.000100Z",
   },
   {
     id: "10000000-0000-4000-8000-000000000003",
     kind: "container",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000100Z"),
+    updatedAt: "2026-08-31T12:00:00.000100Z",
   },
   {
     id: "10000000-0000-4000-8000-000000000004",
     kind: "tombstone",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000500Z"),
+    updatedAt: "2026-08-31T12:00:00.000500Z",
   },
   {
     id: "10000000-0000-4000-8000-000000000005",
     kind: "tombstone",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001900Z"),
+    updatedAt: "2026-08-31T12:00:00.001900Z",
   },
   {
     id: "10000000-0000-4000-8000-000000000006",
     kind: "container",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001100Z"),
+    updatedAt: "2026-08-31T12:00:00.001100Z",
   },
   {
     id: "10000000-0000-4000-8000-000000000007",
     kind: "tombstone",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001100Z"),
+    updatedAt: "2026-08-31T12:00:00.001100Z",
   },
   {
     id: "10000000-0000-4000-8000-000000000008",
     kind: "container",
-    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001500Z"),
+    updatedAt: "2026-08-31T12:00:00.001500Z",
   },
 ];
 

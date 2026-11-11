@@ -10,7 +10,6 @@ import {
   organizationRosterEntries,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, type SQL, sql } from "drizzle-orm";
-import { isSqliteApiDatabase, lockRowForUpdate } from "../../utils/sqlDialect";
 
 export interface ObservedOrganizationReadModelChange {
   readonly affectedUserIds: readonly string[];
@@ -242,9 +241,7 @@ export async function lockOrganizationReadModelHeadInTransaction(
     .from(organizationReadModelHeads)
     .where(eq(organizationReadModelHeads.organizationId, organizationId))
     .limit(1);
-  const [head] = isSqliteApiDatabase()
-    ? await lockQuery
-    : await lockQuery.for("share");
+  const [head] = await lockQuery.for("share");
   if (!head) {
     return null;
   }
@@ -267,7 +264,7 @@ export async function lockOrganizationReadModelHeadForUpdateInTransaction(
     .from(organizationReadModelHeads)
     .where(eq(organizationReadModelHeads.organizationId, organizationId))
     .limit(1);
-  const [head] = await lockRowForUpdate(lockQuery);
+  const [head] = await lockQuery.for("update");
   return head !== undefined;
 }
 

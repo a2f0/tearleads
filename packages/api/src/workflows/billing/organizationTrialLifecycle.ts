@@ -11,7 +11,6 @@ import {
 import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "../../billing/organizationBilling";
 import { reportBackgroundFailure } from "../../diagnostics/reportBackgroundFailure";
-import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import {
   normalizeTrialExpiryLimit,
   selectDueOrganizationTrials,
@@ -127,9 +126,7 @@ async function loadExpiringTrial(
       ),
     )
     .limit(1);
-  const [billing] = isSqliteApiDatabase()
-    ? await query
-    : await query.for("update", { of: organizationBilling });
+  const [billing] = await query.for("update", { of: organizationBilling });
   return billing?.trialEndsAt
     ? { seatCount: billing.seatCount, trialEndsAt: billing.trialEndsAt }
     : null;
@@ -363,9 +360,7 @@ async function deferFailedTrialExpiry(input: {
         ),
       )
       .limit(1);
-    const [current] = isSqliteApiDatabase()
-      ? await query
-      : await query.for("update", { of: organizationBilling });
+    const [current] = await query.for("update", { of: organizationBilling });
     if (!current?.trialEndsAt) {
       return null;
     }

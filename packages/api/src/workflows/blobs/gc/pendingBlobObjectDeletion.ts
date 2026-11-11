@@ -4,7 +4,7 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import { blobAuditObjects } from "@tearleads/api-shared/schema";
 import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
-import { wallClockNowExpression } from "../../../utils/sqlDialect";
+import { wallClockNowExpression } from "../../../utils/postgresSql";
 import { selectFairBlobWorkCandidates } from "./fairBlobWorkSelection";
 
 const DEFAULT_LIMIT = 100;

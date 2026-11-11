@@ -8,17 +8,13 @@ Use `API_DATABASE` to select the database adapter:
 
 - `memory` or unset outside production: in-memory PGlite with the API Drizzle
   migrations applied at startup.
-- `postgres`: node-postgres with the API Postgres Drizzle migrations applied by
-  the deployment migration command.
-- `sqlite`: Bun's native SQLite driver with the API SQLite Drizzle migrations
-  applied by the deployment migration command.
-- `turso`: remote-only libSQL with the API SQLite Drizzle migrations applied by
-  the deployment migration command.
+- `postgres`: node-postgres with the API Drizzle migrations applied by the
+  deployment migration command.
 
-Each dialect has one generated `0000_greenfield_baseline` migration
-([`packages/api-shared/drizzle/`](../../packages/api-shared/drizzle/) for
-Postgres, [`drizzle-sqlite/`](../../packages/api-shared/drizzle-sqlite/) for
-SQLite and Turso) with all current schema definitions. The deployment's
+PostgreSQL is the only API database dialect; PGlite runs the same schema in
+process. The schema has one generated `0000_greenfield_baseline` migration in
+[`packages/api-shared/drizzle/`](../../packages/api-shared/drizzle/) with all
+current schema definitions. The deployment's
 `migrate` command initializes an empty database from that baseline and records
 it in Drizzle's journal; repeating it on a current database is idempotent. There
 are no incremental schema upgrades, data backfills, or content scans.
@@ -27,7 +23,7 @@ Production and staging use PlanetScale PostgreSQL and independent Cloudflare R2
 buckets for encrypted [blobs](../glossary/content.md#blob). Runtime database
 roles and schema initialization credentials are separate.
 
-Schema changes update the Drizzle definitions, regenerate both baselines, and
+Schema changes update the Drizzle definitions, regenerate the baseline, and
 require fresh server and client databases. Local database startup checks
 the current table shape and refuses an obsolete one with a "reset the local
 database" error, and backup imports require format version 15. Request
@@ -132,67 +128,18 @@ sh scripts/postgres/reset.sh
 
 The reset script only drops `tearleads_development`.
 
-SQLite uses an in-memory database by default outside production. Set
-`API_SQLITE_PATH` or `SQLITE_PATH` to persist it to a file; one of them is
-required in production. Development startup applies SQLite migrations in the
-same process, so the in-memory default is initialized before the API serves:
-
-```sh
-API_DATABASE=sqlite API_SQLITE_PATH=.data/api.sqlite bun run --filter=@tearleads/api dev
-```
-
-Migrate the persistent database before starting the API:
-
-```sh
-API_DATABASE=sqlite API_SQLITE_PATH=.data/api.sqlite bun run --filter=@tearleads/api db:migrate
-```
-
-Turso requires a remote `libsql://` URL, auth token, and the UUID of the
-database's primary instance. Retrieve the instance list from Turso's Platform
-API and use the UUID of the entry whose `type` is `primary`. The adapter builds
-Turso's primary-instance hostname from that UUID; generic libSQL endpoints,
-local file URLs, and embedded replicas are rejected intentionally:
-
-```sh
-API_DATABASE=turso \
-TURSO_DATABASE_URL=libsql://database-name.turso.io \
-TURSO_AUTH_TOKEN=secret \
-TURSO_PRIMARY_INSTANCE_ID=0be90471-6906-11ee-8553-eaa7715aeaf2 \
-bun run --filter=@tearleads/api db:migrate
-```
-
-Start the API with the same variables after migration. Turso transactions are
-opened explicitly in write mode. The adapter rejects TLS opt-out URLs and
-enables and verifies SQLite foreign-key enforcement on every remote statement
-session before application SQL runs. Because this configuration always reads the
-remote primary, the API bypasses replica-watermark waiting and emits the `0/0`
-[LSN](../glossary/sync.md#commit-lsn) sentinel with `commitLsnMode: "untracked"`.
-Clients use that explicit mode to replace a checkpoint from a previous backend
-without weakening tracked-LSN validation when they later return to Postgres or
-SQLite.
-
-The opt-in integration lane runs the multi-connection sync races against a
-dedicated remote test database. It does not accept the production variable
-names, so it is harder to test against production by accident:
-
-```sh
-TURSO_TEST_DATABASE_URL=libsql://test-database.turso.io \
-TURSO_TEST_AUTH_TOKEN=secret \
-TURSO_TEST_PRIMARY_INSTANCE_ID=0be90471-6906-11ee-8553-eaa7715aeaf2 \
-bun run test:turso-concurrency
-```
-
-The lane applies migrations, checks lossless 64-bit read-model cursors, runs the
-multi-connection sync races, and retains randomized test rows. The target must
-be disposable or dedicated to integration tests.
-
-API package tests run against both in-memory PGlite and SQLite:
+API package tests run on in-memory PGlite:
 
 ```sh
 bun run --filter=@tearleads/api test
 ```
 
-The test runner prints elapsed time for each adapter.
+The multi-connection races (`*.pg.test.ts`) skip on PGlite; the Postgres
+concurrency lane runs them against a real server:
+
+```sh
+bun run test:postgres-concurrency
+```
 
 ## Blob Object Store
 

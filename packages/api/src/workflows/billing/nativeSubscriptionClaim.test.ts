@@ -452,8 +452,7 @@ for (const conflict of [
   });
 }
 
-/** The API package runs this concurrency case on memory and SQLite adapters. */
-test("the database matrix leaves one owner after concurrent claims", async () => {
+test("concurrent claims leave one owner", async () => {
   const first = await registerPersonalOrganization();
   const second = await registerPersonalOrganization();
   const nativeSubscription = subscription(`GPA.${crypto.randomUUID()}`);

@@ -1,4 +1,3 @@
-import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import type { TestUser } from "@tearleads/test-utils";
@@ -18,16 +17,8 @@ const isolatedKey = "PRINCIPAL_HISTORY_ISOLATED_SERVER";
 
 export function requirePrincipalHistoryProbeDatabase(): void {
   if (process.env[isolatedKey] !== "1") return;
-  const kind = getDefaultApiDatabaseKind();
-  const sqlitePathKey = "API_SQLITE_PATH";
-  const legacyPathKey = "SQLITE_PATH";
-  const path = [process.env[sqlitePathKey], process.env[legacyPathKey]]
-    .map((value) => value?.trim())
-    .find(Boolean);
-  if (kind !== "postgres" && !(kind === "sqlite" && path && isAbsolute(path))) {
-    throw new Error(
-      "Isolated history probes require PostgreSQL or an absolute SQLite file path",
-    );
+  if (getDefaultApiDatabaseKind() !== "postgres") {
+    throw new Error("Isolated history probes require PostgreSQL");
   }
 }
 

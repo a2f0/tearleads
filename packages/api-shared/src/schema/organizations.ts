@@ -7,7 +7,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "./columns";
+} from "drizzle-orm/pg-core";
 import type {
   OrganizationBillingProvider,
   OrganizationBillingSeatEventSourceType,

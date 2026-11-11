@@ -3,11 +3,7 @@ import { containers } from "@tearleads/api-shared/schema";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { eq, sql } from "drizzle-orm";
-import {
-  intExpression,
-  timestampValue,
-  uuidValue,
-} from "../../../../utils/sqlDialect";
+import { intExpression, uuidValue } from "../../../../utils/postgresSql";
 import {
   ContainerMutationError,
   containerManifestAlreadyExists,
@@ -228,7 +224,7 @@ export async function persistContainerStructure(
         from subtree
         where subtree.id = ${containers.id}
       ),
-      updated_at = ${timestampValue(updatedAt)}
+      updated_at = ${updatedAt}
     where ${containers.id} in (select id from subtree)
   `);
 

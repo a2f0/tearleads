@@ -28,7 +28,7 @@ test("API captures unexpected failures, preserves CORS/status, and ignores clien
   });
   app.get("/database", () => {
     throw Object.assign(new Error("SYNTHETIC_PRIVATE_SQL"), {
-      code: "STREAM_EXPIRED",
+      code: "PG_POOL_TIMEOUT",
     });
   });
   app.onError(createApiErrorHandler(capture));
@@ -50,7 +50,7 @@ test("API captures unexpected failures, preserves CORS/status, and ignores clien
     }
     expect(capture).toHaveBeenCalledTimes(3);
     expect(capture).toHaveBeenCalledWith(
-      expect.objectContaining({ code: "STREAM_EXPIRED" }),
+      expect.objectContaining({ code: "PG_POOL_TIMEOUT" }),
       "request-error",
       undefined,
       { route: "/database", method: "GET", status: 503 },

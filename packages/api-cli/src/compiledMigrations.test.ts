@@ -1,62 +1,87 @@
-import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
+import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { SQL } from "bun";
 
-test("the standalone CLI initializes its embedded baseline outside the checkout", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "tearleads-compiled-schema-"));
+// The executable cannot load PGlite's assets, so it migrates a real server: the
+// Postgres concurrency lane supplies DATABASE_URL, and this test creates and
+// drops its own database there.
+const { DATABASE_URL: serverUrl } = process.env;
+
+async function tableNames(databaseUrl: string): Promise<string[]> {
+  const client = new SQL(databaseUrl);
   try {
-    const executable = join(directory, "tearleads-api-cli");
-    const build = Bun.spawnSync(
-      [process.execPath, "scripts/buildApiCliExecutable.ts"],
-      {
-        cwd: fileURLToPath(new URL("..", import.meta.url)),
-        env: {
-          ...process.env,
-          BUN_COMPILE_TARGET: `bun-${process.platform}-${process.arch}`,
-          BUN_COMPILE_OUTFILE: executable,
-        },
-      },
+    const rows: { tablename: string }[] =
+      await client`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`;
+    const journal: unknown[] =
+      await client`SELECT id FROM drizzle.__drizzle_migrations`;
+    expect(journal).toHaveLength(1);
+    return rows.map(({ tablename }) => tablename);
+  } finally {
+    await client.close();
+  }
+}
+
+// Run from outside the checkout, the executable can only find the baseline it
+// embedded: the source tree's default migration folder does not exist there.
+test.skipIf(!serverUrl)(
+  "the standalone CLI initializes its embedded baseline outside the checkout",
+  async () => {
+    if (!serverUrl) throw new Error("DATABASE_URL is required");
+    const directory = await mkdtemp(
+      join(tmpdir(), "tearleads-compiled-schema-"),
     );
-    expect(build.stderr.toString()).toBe("");
-    expect(build.exitCode).toBe(0);
-    const databasePath = join(directory, "database.sqlite");
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const migration = Bun.spawnSync([executable, "migrate"], {
-        cwd: directory,
-        env: {
-          ...process.env,
-          NODE_ENV: "production",
-          API_DATABASE: "sqlite",
-          API_SQLITE_PATH: databasePath,
-        },
-      });
-      expect(migration.stderr.toString()).toBe("");
-      expect(migration.exitCode).toBe(0);
-    }
-    const database = new Database(databasePath, { readonly: true });
+    const databaseName = `tearleads_compiled_cli_${randomUUID().replaceAll("-", "")}`;
+    const databaseUrl = new URL(serverUrl);
+    databaseUrl.pathname = `/${databaseName}`;
+    const admin = new SQL(serverUrl);
     try {
-      const tables = database
-        .query<{ name: string }, []>(
-          "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations'",
-        )
-        .all();
+      await admin.unsafe(`CREATE DATABASE ${databaseName}`);
+      const executable = join(directory, "tearleads-api-cli");
+      const build = Bun.spawnSync(
+        [process.execPath, "scripts/buildApiCliExecutable.ts"],
+        {
+          cwd: fileURLToPath(new URL("..", import.meta.url)),
+          env: {
+            ...process.env,
+            BUN_COMPILE_TARGET: `bun-${process.platform}-${process.arch}`,
+            BUN_COMPILE_OUTFILE: executable,
+          },
+        },
+      );
+      expect(build.stderr.toString()).toBe("");
+      expect(build.exitCode).toBe(0);
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const migration = Bun.spawnSync([executable, "migrate"], {
+          cwd: directory,
+          env: {
+            ...process.env,
+            NODE_ENV: "production",
+            API_DATABASE: "postgres",
+            DATABASE_URL: databaseUrl.href,
+          },
+        });
+        expect(migration.stderr.toString()).toBe("");
+        expect(migration.exitCode).toBe(0);
+      }
+      const tables = await tableNames(databaseUrl.href);
       expect(tables).toHaveLength(50);
-      expect(tables.map(({ name }) => name)).toEqual(
+      expect(tables).toEqual(
         expect.arrayContaining([
           "principal_directory_bindings",
           "principal_policy_commits",
         ]),
       );
-      expect(
-        database.query("SELECT id FROM __drizzle_migrations").all(),
-      ).toHaveLength(1);
     } finally {
-      database.close();
+      await admin.unsafe(
+        `DROP DATABASE IF EXISTS ${databaseName} WITH (FORCE)`,
+      );
+      await admin.close();
+      await rm(directory, { recursive: true, force: true });
     }
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-}, 60_000);
+  },
+  60_000,
+);

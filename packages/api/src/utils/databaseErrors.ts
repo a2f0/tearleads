@@ -1,8 +1,7 @@
 /**
- * Cross-dialect database error classification. Drizzle and the underlying
- * drivers wrap failures in `cause` chains, so every predicate here walks the
- * chain (bounded) and matches driver `code` values for both Postgres SQLSTATE
- * and SQLite error names.
+ * Postgres error classification. Drizzle and the underlying drivers wrap
+ * failures in `cause` chains, so every predicate here walks the chain
+ * (bounded) and matches the driver's SQLSTATE `code`.
  */
 
 export function errorCauseChain(error: unknown): Error[] {
@@ -16,10 +15,7 @@ export function errorCauseChain(error: unknown): Error[] {
 }
 
 export function isUniqueViolationCode(code: unknown): boolean {
-  return (
-    code === "23505" ||
-    (typeof code === "string" && code.startsWith("SQLITE_CONSTRAINT"))
-  );
+  return code === "23505";
 }
 
 /** A unique-constraint violation anywhere in the cause chain. */
@@ -28,17 +24,6 @@ export function isUniqueViolation(error: unknown): boolean {
     isUniqueViolationCode(Reflect.get(candidate, "code")),
   );
 }
-
-const LIBSQL_TRANSACTION_CONTENTION_CODES = new Set([
-  "STREAM_EXPIRED",
-  "TRANSACTION_TIMEOUT",
-]);
-
-const LIBSQL_TRANSIENT_TRANSPORT_CODES = new Set([
-  "HRANA_CLOSED_ERROR",
-  "HRANA_PROTO_ERROR",
-  "HRANA_WEBSOCKET_ERROR",
-]);
 
 function hasDatabaseCode(
   error: unknown,
@@ -50,70 +35,21 @@ function hasDatabaseCode(
   });
 }
 
-function isTransientHttpStatus(status: unknown): boolean {
-  return (
-    typeof status === "number" &&
-    (status === 408 || status === 429 || (status >= 500 && status <= 599))
-  );
-}
-
-function isTransientLibsqlServerError(error: unknown): boolean {
-  return errorCauseChain(error).some((candidate) => {
-    if (Reflect.get(candidate, "code") !== "SERVER_ERROR") {
-      return false;
-    }
-    if (isTransientHttpStatus(Reflect.get(candidate, "status"))) {
-      return true;
-    }
-    return (
-      candidate.cause instanceof Error &&
-      isTransientHttpStatus(Reflect.get(candidate.cause, "status"))
-    );
-  });
-}
-
-/** A libSQL transaction lost its writer reservation and is safe to retry. */
-export function isLibsqlTransactionContention(error: unknown): boolean {
-  return hasDatabaseCode(error, (code) =>
-    LIBSQL_TRANSACTION_CONTENTION_CODES.has(code),
-  );
-}
-
 /**
  * Serialization failure or deadlock: the database rolled back the losing
  * transaction and a retry is expected to succeed.
  */
 export function isSerializationFailure(error: unknown): boolean {
-  return errorCauseChain(error).some((candidate) => {
-    const code = Reflect.get(candidate, "code");
-    return code === "40001" || code === "40P01";
-  });
+  return hasDatabaseCode(error, (code) => code === "40001" || code === "40P01");
 }
 
-/** SQLite busy/locked contention, the SQLite analog of a serialization race. */
-export function isLockContention(error: unknown): boolean {
+/** Database connection failures for which a later request may succeed. */
+export function isTransientDatabaseFailure(error: unknown): boolean {
   return hasDatabaseCode(
     error,
     (code) =>
-      code.startsWith("SQLITE_BUSY") || code.startsWith("SQLITE_LOCKED"),
-  );
-}
-
-/** Remote database transport failures for which a later request may succeed. */
-export function isTransientDatabaseFailure(error: unknown): boolean {
-  return (
-    hasDatabaseCode(
-      error,
-      (code) =>
-        code === "PG_CONNECT_TIMEOUT" ||
-        code === "PG_POOL_TIMEOUT" ||
-        code === "PG_CONNECTION_UNAVAILABLE",
-    ) ||
-    isLibsqlTransactionContention(error) ||
-    isLockContention(error) ||
-    hasDatabaseCode(error, (code) =>
-      LIBSQL_TRANSIENT_TRANSPORT_CODES.has(code),
-    ) ||
-    isTransientLibsqlServerError(error)
+      code === "PG_CONNECT_TIMEOUT" ||
+      code === "PG_POOL_TIMEOUT" ||
+      code === "PG_CONNECTION_UNAVAILABLE",
   );
 }

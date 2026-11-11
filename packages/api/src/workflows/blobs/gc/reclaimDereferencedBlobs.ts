@@ -21,10 +21,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import {
-  lockRowForUpdate,
-  wallClockNowExpression,
-} from "../../../utils/sqlDialect";
+import { wallClockNowExpression } from "../../../utils/postgresSql";
 import { assertBlobStorageKeyOrganization } from "../storageKeys";
 import { selectFairBlobWorkCandidates } from "./fairBlobWorkSelection";
 
@@ -197,7 +194,7 @@ async function reclaimOneBlob(
         ),
       )
       .limit(1);
-    const [blob] = await lockRowForUpdate(lockQuery);
+    const [blob] = await lockQuery.for("update");
     if (!blob) {
       // Revived or already reclaimed since selection.
       return { kind: "skipped" };

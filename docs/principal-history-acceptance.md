@@ -34,21 +34,19 @@ replace private runtime recovery.
 ## Reproduction
 
 [Build the SDK](./developer/client-sdk/public-api.md#package-contract) before
-API tests. From [`packages/api`](../packages/api/), use a dedicated fixture
-database and run:
+API tests. Initialize a dedicated PostgreSQL database with
+[`packages/api-shared/drizzle/0000_greenfield_baseline.sql`](../packages/api-shared/drizzle/0000_greenfield_baseline.sql),
+then from [`packages/api`](../packages/api/) run:
 
 ```sh
-API_DATABASE=sqlite API_SQLITE_PATH=/tmp/history-acceptance.sqlite \
+API_DATABASE=postgres DATABASE_URL=postgres://localhost:5432/<fixture-db> \
   PRINCIPAL_HISTORY_ISOLATED_SERVER=1 \
   bun test test/slow/principalHistoryAvailability.test.ts
 ```
 
-For networked PostgreSQL, initialize a dedicated database with
-[`packages/api-shared/drizzle/0000_greenfield_baseline.sql`](../packages/api-shared/drizzle/0000_greenfield_baseline.sql),
-set `API_DATABASE=postgres` and `DATABASE_URL`, and run the same test. Omit
-`PRINCIPAL_HISTORY_THROUGH_VERSION` to exercise 16,384 signed predecessors; a
-smaller value is a short diagnostic, not boundary acceptance. The regular API
-suite runs a 64-version isolated SQLite case in
+Omit `PRINCIPAL_HISTORY_THROUGH_VERSION` to exercise 16,384 signed
+predecessors; a smaller value is a short diagnostic, not boundary acceptance.
+The Postgres concurrency lane runs a 64-version isolated case in
 [`principalHistoryProcessRecovery.test.ts`](../packages/api/src/routes/principals/principalHistoryProcessRecovery.test.ts).
 
 The log records wall time, HTTP latency and bytes, SQL statements and isolated

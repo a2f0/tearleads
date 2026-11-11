@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, pgTable, timestamp, uuid } from "./columns";
+import { bigint, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * Transactional cursor heads and lane stamps for organization-scoped

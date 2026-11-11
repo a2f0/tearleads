@@ -33,6 +33,10 @@ if [ -z "${DATABASE_URL:-}${POSTGRES_URL:-}${POSTGRES_HOST:-}${POSTGRES_PORT:-}$
   fi
 fi
 
+# The compiled operations CLI migrates a real server, which only this lane has;
+# it creates and drops its own database.
+(cd packages/api-cli && bun test src/compiledMigrations.test.ts)
+
 # Workspace packages must already be built (bun run build:packages); the lane
 # itself only runs the multi-connection concurrency tests.
 cd packages/api
@@ -46,6 +50,7 @@ exec bun test \
   src/routes/containers/rotationConcurrency.pg.test.ts \
   src/routes/containers/deleteScopeConcurrency.pg.test.ts \
   src/routes/principals/policyCommitEnrollmentConcurrency.pg.test.ts \
+  src/routes/principals/principalHistoryProcessRecovery.test.ts \
   src/routes/documents/accessMutationConcurrency.pg.test.ts \
   src/routes/documents/deleteCreateConcurrency.pg.test.ts \
   src/routes/documents/linkBlobRewrapConcurrency.pg.test.ts \

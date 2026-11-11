@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, index, pgTable, timestamp, uuid } from "./columns";
+import { bigint, index, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * Basic group catalog rows.

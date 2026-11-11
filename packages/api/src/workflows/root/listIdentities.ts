@@ -52,8 +52,7 @@ export async function listRootIdentities(
   }
   if (input.rootOnly) {
     // The bare column repeats the partial index predicate of
-    // `users_root_created_at_id_idx` exactly. SQLite matches partial index
-    // predicates syntactically, so `is_root = ?` would not select it.
+    // `users_root_created_at_id_idx` exactly.
     conditions.push(sql`${users.isRoot}`);
   }
   if (input.afterUserId !== undefined) {

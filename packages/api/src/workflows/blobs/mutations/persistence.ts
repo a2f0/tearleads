@@ -6,12 +6,8 @@ import {
   blobs,
 } from "@tearleads/api-shared/schema";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
-import {
-  lockRowForUpdate,
-  nowExpression,
-  wallClockNowExpression,
-} from "../../../utils/sqlDialect";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { wallClockNowExpression } from "../../../utils/postgresSql";
 import { loadOwnedActiveBlobStage } from "../stageAccess";
 import { assertStoredBlobOrganizationMatches } from "./authorization";
 import {
@@ -101,7 +97,7 @@ async function ensureBlobExists(input: {
     .from(blobs)
     .where(eq(blobs.id, input.blobId))
     .limit(1);
-  const [blob] = await lockRowForUpdate(lockQuery);
+  const [blob] = await lockQuery.for("update");
   if (!blob) {
     throw new BlobMutationError("Blob not found", 404);
   }
@@ -243,7 +239,7 @@ export async function markBlobDereferencedIfInactive(input: {
     .from(blobs)
     .where(eq(blobs.id, input.blobId))
     .limit(1);
-  const [blob] = await lockRowForUpdate(lockQuery);
+  const [blob] = await lockQuery.for("update");
   if (!blob) {
     throw new BlobMutationError("Blob not found", 404);
   }
@@ -281,6 +277,6 @@ export async function detachActiveSlotBinding(input: {
 
   await input.executor
     .update(attachmentBindings)
-    .set({ detachedAt: nowExpression() })
+    .set({ detachedAt: sql`now()` })
     .where(eq(attachmentBindings.id, input.activeBinding.id));
 }

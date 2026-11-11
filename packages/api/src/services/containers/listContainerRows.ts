@@ -14,7 +14,7 @@ import {
   readDateValue,
   textExpression,
   uuidValue,
-} from "../../utils/sqlDialect";
+} from "../../utils/postgresSql";
 import { currentPrincipalStateHashSql } from "../../workflows/principals/currentPrincipalStateSql";
 import type { ApiServiceRuntime } from "../runtime";
 import { watermarkPredicate } from "./syncPaging";
@@ -143,8 +143,7 @@ export async function listAccessibleContainersForUser(input: {
         h.epoch,
         h.manifest_hash,
         m.state
-      -- CROSS JOIN keeps each step at one parent lookup; SQLite otherwise
-      -- starts from every container head.
+      -- CROSS JOIN keeps each step at one parent lookup.
       from target_parent_path child
       cross join ${containers} parent
       cross join ${accessManifestHeads} h
@@ -178,8 +177,7 @@ export async function listAccessibleContainersForUser(input: {
         h.epoch,
         h.manifest_hash
       -- From the parent's children via its (parent_id, updated_at, id) index,
-      -- starting at the watermark; CROSS JOIN stops SQLite from starting at
-      -- every container head. A root listing shows only directly granted
+      -- starting at the watermark. A root listing shows only directly granted
       -- containers, so it needs no parent lane at all. The manifest state is
       -- read only for the children the listing shows.
       from ${containers} c
@@ -219,9 +217,7 @@ export async function listAccessibleContainersForUser(input: {
           m.state,
           row_number() over (partition by c.id order by h.epoch desc) as rn
         -- The root lane, driven from this user's grant subjects through the
-        -- subject index. CROSS JOIN fixes SQLite's join order; it otherwise
-        -- starts from every container or head. Postgres treats these as
-        -- inner joins.
+        -- subject index. Postgres treats these CROSS JOINs as inner joins.
         from grant_subjects subject
         cross join ${accessManifestContainerGrantProjection} grant_projection
         cross join ${accessManifestHeads} h

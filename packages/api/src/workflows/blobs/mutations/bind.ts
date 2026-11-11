@@ -15,10 +15,7 @@ import {
   storeBlobContentKeyBundleInTransaction,
   storeBlobContentWriteHeader,
 } from "../../../access/write/blobContentKeyStore";
-import {
-  readCommitLsnMode,
-  readCurrentCommitLsn,
-} from "../../../documents/commitLsn";
+import { readCurrentCommitLsn } from "../../../documents/commitLsn";
 import { appendAttachmentBindDocumentSync } from "../../documents/mutations";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
@@ -452,7 +449,7 @@ export async function runBindBlobAttachmentWorkflow(
         documentSync: {
           acceptedOutgoingUpdateIds: [...acceptedOutgoingUpdateIds],
           commitLsn: await readCurrentCommitLsn(db),
-          commitLsnMode: readCommitLsnMode(),
+          commitLsnMode: "tracked",
         },
       },
     };

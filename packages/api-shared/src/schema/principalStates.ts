@@ -18,7 +18,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "./columns";
+} from "drizzle-orm/pg-core";
 
 /**
  * Signed state history for managed recipient principals.
@@ -86,7 +86,6 @@ import {
  * - `(principalType, principalId, stateHash)` is unique because state hashes are
  *   the content-addressed references used by the rest of the access system.
  */
-// Epoch casts also reject fractional values in SQLite's dynamically typed INTEGERs.
 export const principalStates = pgTable(
   "principal_states",
   {
