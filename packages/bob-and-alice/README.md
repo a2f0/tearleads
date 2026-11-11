@@ -78,7 +78,37 @@ fixed; convert it into an ordinary scenario then, as the scenarios above did
 for [#2646](https://github.com/a2f0/tearleads/issues/2646),
 [#2647](https://github.com/a2f0/tearleads/issues/2647),
 [#2648](https://github.com/a2f0/tearleads/issues/2648), and
-[#2651](https://github.com/a2f0/tearleads/issues/2651). No issue is pinned now.
+[#2651](https://github.com/a2f0/tearleads/issues/2651).
+
+### Lost organization-create response
+
+[#2893](https://github.com/a2f0/tearleads/issues/2893) is pinned with retries in
+the same runtime and after `Device.restart()`. The real `POST /organizations`
+commits before the proxy withholds its response and returns a transport 503.
+The SDK returns `null` and has not persisted the new root. Opening the tree
+and refreshing its root lane discovers that original organization and root;
+the same-input retry nevertheless creates a second identity. Both survive a
+subsequent runtime restart. An exact resend of the original signed request
+instead receives 409, not a replayed success. These failures were reproduced
+on both the memory and SQLite API backends before marking them `test.failing`.
+
+Ordinary companion tests check commit, discovery, server membership IDs, local
+root IDs, and retention. Setup runs outside the expected-failure callbacks so
+a failed registration or discovery cannot satisfy the canary. Server counts
+come from this user's membership endpoint, not a global database row count.
+Root discovery is not proof of profile/document hydration. Runtime restart
+retains the SQLite connection; it does not simulate a database close/reopen
+or process crash. Realtime delivery and response-loss frequency are untested.
+
+The exact-resend canary characterizes a replay limitation, not a required fix
+design. Revisit or remove it when #2893 is resolved: retry keys or client-side
+adoption need not make an exact plain resend succeed.
+
+No production fix is included: ordinary attempts have no stable retry key or
+whole-request server receipt. Native-restore and replacement replay are tied
+to different billing/recovery semantics; reusing those flags would change
+behavior. Durable ordinary intent and exact-request replay need a separately
+coordinated persistence design, not a blanket retry or weakened 409 guard.
 
 ## Limits
 

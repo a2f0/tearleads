@@ -192,6 +192,22 @@ requests and no container or document fanout; its unchanged Admins stage needs
 no read
 ([`DualPaneProvider.activePeerRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx)).
 
+[`PaneRestartRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx)
+measures and caps a persisted-database pane restart at 23 requests, including
+two organization-policy reads and one public history read.
+[`PaneReconnectRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx)
+measures and caps an unchanged reconnect at 22 requests (three organization-policy
+reads) and discovery of one peer-created folder at 30 (five organization-policy
+reads). Both reconnects measured one memberships read and one WebSocket ticket
+request, with no public history or group-policy reads; these are upper bounds,
+not required minimum counts. All three fixtures contain two user folders and
+two notes and exclude pending mutations. Only the reconnect slices await the
+real acknowledged reconnect sweep; restart uses the initial connection and
+checks for late requests after network quiet. The unchanged and peer-create
+reconnects use different host profiles, so their totals are not an incremental
+cost comparison. See the
+[per-route budgets and persistence boundary](../request-budgets.md#restart-and-reconnect).
+
 [`GroupMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx)
 measures 8 requests for creating the first group and 5 for a later one (one
 read-model read each; the hint naming the post-mutation cursor costs none),

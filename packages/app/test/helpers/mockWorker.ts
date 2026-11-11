@@ -173,10 +173,15 @@ export class MockWorker extends EventTarget {
   ]);
   private readonly databaseEntries = new Map<string, MockDatabaseEntry>();
   private readonly databaseOpenings = new Map<string, MockDatabaseOpening>();
-  private readonly databasePaths = new Map<string, string>();
   terminated = false;
 
-  constructor(_scriptURL?: string | URL, _options?: WorkerOptions) {
+  constructor(
+    _scriptURL?: string | URL,
+    _options?: WorkerOptions,
+    // Share only backing-file names across workers for restart tests. Database
+    // handles, connections and SDK caches still belong to each fresh runtime.
+    private readonly databasePaths = new Map<string, string>(),
+  ) {
     super();
   }
 
