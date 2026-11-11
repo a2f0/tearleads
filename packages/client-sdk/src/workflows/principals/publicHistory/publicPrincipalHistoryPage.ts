@@ -7,6 +7,7 @@ import { assertProjectionVerificationCurrent } from "../../../data/keyingProject
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { savePrincipalHistoryStage } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
 import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
+import { publishAcceptedPageIdentities } from "../../../data/principals/principalIdentityCommitments";
 import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
 import {
   loadPublicHistoryAuthority,
@@ -93,6 +94,11 @@ export async function appendPublicPrincipalHistoryPage(
       throw new PublicPrincipalHistoryPrefixDisconnectedError(appended.error);
     throw appended.error;
   }
+  await publishAcceptedPageIdentities(
+    entries,
+    input.resolveTrustedUserIdentity,
+  );
+  assertProjectionVerificationCurrent(stillCurrent);
   const row = {
     id: progress.id,
     organizationId: input.organizationId,

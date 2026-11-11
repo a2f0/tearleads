@@ -97,6 +97,26 @@ export function assertSelectedPolicyCommitments(
   });
 }
 
+/**
+ * Pin the members of a history page the chain verifier just accepted. The
+ * next page's first signer is authorized only by user ID against this page's
+ * last projection, and a member it removes is not rechecked for continuity,
+ * so that signer must resolve to the identity this page authenticated rather
+ * than to a fresh, possibly substituted, endpoint answer.
+ */
+export function publishAcceptedPageIdentities(
+  entries: readonly {
+    readonly projection: readonly PrincipalProjectionMember[];
+  }[],
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
+): Promise<void> {
+  return assertPrincipalIdentityCommitments({
+    authenticated: true,
+    projections: entries.map((entry) => entry.projection),
+    resolveTrustedUserIdentity,
+  });
+}
+
 async function compareCommitments(
   projections: readonly (readonly PrincipalProjectionMember[])[],
   resolve: StagedUserIdentityResolver,

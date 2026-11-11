@@ -287,7 +287,12 @@ or the honest identity link. The external-authority refusal classifier
 likewise resolves signers without pinning them. Any answer a scope
 did not publish, even one its check accepted, is evicted from the endpoint
 cache, because the caller's signature check may still refuse it: a retry or a
-later signer lookup reads the endpoint again. Public and private
+later signer lookup reads the endpoint again. Each history page the chain
+verifier accepts pins its members at once: the next page's first signer is
+authorized only by user ID against that page's last projection, and a member
+it removes is not rechecked for continuity, so it must resolve to the identity
+the earlier page authenticated, not to a fresh, possibly substituted, endpoint
+answer. Public and private
 history selections recheck every projection they return, from fresh pages and
 restored prefixes alike, and publish there: a restored prefix reads no page,
 so a member substituted after it was verified cannot act under its cached

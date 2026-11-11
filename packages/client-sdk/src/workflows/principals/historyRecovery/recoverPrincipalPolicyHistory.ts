@@ -19,7 +19,7 @@ import {
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
 import { assertSelectedPolicyCommitments } from "../../../data/principals/principalIdentityCommitments";
-import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
+import { appendVerifiedHistoryPage } from "./principalHistoryPageAppend";
 import { validatePrincipalHistoryRecoveryAuthority } from "./principalHistoryRecoveryAuthority";
 import { publishReusablePrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";
 import {
@@ -130,35 +130,24 @@ async function acceptPage(
       grants: current.currentGrants,
     });
   assertPrincipalHistoryVerificationMode(input, entries);
-  const keys = await collectPrincipalPolicySignerPublicKeys({
+  const verified = await appendVerifiedHistoryPage({
+    options: input,
+    stage,
     bundle: { ...current, previousStates: page.previousStates },
-    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-  });
-  if ("error" in keys)
-    throw new KeyingVerificationError(
-      keys.error === "not-found" ? "missing_dependency" : "signer_mismatch",
-      "Principal history signer identity could not be authenticated",
-    );
-  const externalAuthority = await input.loadExternalAuthority?.(
-    entries.flatMap(({ state }) =>
-      state.externalAuthority ? [state.externalAuthority] : [],
-    ),
-  );
-  const appended = await stage.verifier.append({
     entries,
-    signerPublicKeys: keys.signerPublicKeys,
-    ...(externalAuthority ? { externalAuthority } : {}),
   });
-  if (!appended.ok) {
-    if (appended.error.code === "stale_predecessor")
-      throw new PrincipalHistoryPrefixDisconnectedError(appended.error);
-    throw appended.error;
+  if (!verified.ok) {
+    if (verified.error.code === "stale_predecessor")
+      throw new PrincipalHistoryPrefixDisconnectedError(verified.error);
+    throw verified.error;
   }
+  assertCurrent(input);
+  const appended = verified.value;
   const next = {
     id: stage.id,
     organizationId: input.organizationId,
     currentJson: JSON.stringify(current),
-    afterVersion: appended.value.throughVersion - (complete ? 1 : 0),
+    afterVersion: appended.throughVersion - (complete ? 1 : 0),
     complete,
   };
   const protectedProgress = await stage.verifier.exportProgress(
@@ -174,11 +163,11 @@ async function acceptPage(
     execSql: input.execSql,
     stage: saved,
     evidence: await preparePrincipalHistoryEvidencePage({
-      indexRootHash: appended.value.indexRootHash,
+      indexRootHash: appended.indexRootHash,
       scopeId: stage.scopeId,
       organizationId: input.organizationId,
       entries,
-      nodes: appended.value.indexNodes,
+      nodes: appended.indexNodes,
     }),
     previousProgress: stage.saved?.progress ?? null,
     stillCurrent: () => recoveryIsCurrent(input),
