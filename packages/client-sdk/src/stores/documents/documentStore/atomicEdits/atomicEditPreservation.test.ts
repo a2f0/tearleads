@@ -9,6 +9,7 @@ import {
 } from "@tearleads/loro";
 import {
   createAtomicEditFixture,
+  ensureAtomicEditStoreReady,
   prepareAtomicCoverage,
 } from "../../../../../test/helpers/atomicEditCoverage";
 import { openFileBackedSql } from "../../../../../test/helpers/fileBackedSql";
@@ -17,7 +18,6 @@ import { createPendingUpdateFields } from "../../../../data/documents/documentSy
 import { sqlDocumentsPersistence as documents } from "../../../../data/persistence/documents/documentsPersistence";
 import { createExecSql } from "../../../../data/sqlite/sqlSchema";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
-import { ensureDocumentStoreReady } from "../initialization";
 import { setDocumentStructuredFields, setDocumentText } from "../mutations";
 import { pendingDeltaSinceBase, persistDocument } from "../persistence";
 import { createDocumentStoreState } from "../state";
@@ -33,6 +33,10 @@ test.each(["document_history_updates", "document_projection"])(
         `CREATE TEMP TRIGGER fail_edit BEFORE INSERT ON ${table} BEGIN SELECT RAISE(ABORT, 'injected edit failure'); END`,
       );
       await setDocumentText(f.state, () => {}, "failed edit");
+      expect(f.writeErrors).toHaveLength(1);
+      expect(f.writeErrors[0]).toMatchObject({
+        cause: { message: "injected edit failure" },
+      });
       expect(f.state.unsavedLocalEdits).toBe(true);
       expect(f.state.pendingBaseVersion).toBe(f.version);
       expect(await documents.loadDocument(f.execSql, f.localId)).toEqual(
@@ -160,7 +164,7 @@ test("coverage reconciles a foreign queued edit even when this tab's marker is c
       noopDocumentStorePersistenceEffects,
       "document-1",
     );
-    expect(await ensureDocumentStoreReady(second, () => {})).toBe(true);
+    expect(await ensureAtomicEditStoreReady(second)).toBe(true);
     await setDocumentStructuredFields(second, () => {}, "contact", {
       firstName: "second runtime",
     });
@@ -169,6 +173,7 @@ test("coverage reconciles a foreign queued edit even when this tab's marker is c
     ).not.toMatchObject({ firstName: "second runtime" });
     const prepared = await prepareAtomicCoverage(f.state);
     expect(prepared.pendingUpdates).toHaveLength(2);
+    expect(f.writeErrors).toEqual([]);
     expect(readStoredDocumentState(f.document).structuredFields).toMatchObject({
       firstName: "second runtime",
     });
@@ -197,11 +202,12 @@ test("a stale tab merges the other connection's covered frontier and projection"
       noopDocumentStorePersistenceEffects,
       "document-1",
     );
-    expect(await ensureDocumentStoreReady(second, () => {})).toBe(true);
+    expect(await ensureAtomicEditStoreReady(second)).toBe(true);
     await setDocumentStructuredFields(second, () => {}, "contact", {
       firstName: "other tab",
     });
     await setDocumentText(f.state, () => {}, "stale tab edit");
+    expect(f.writeErrors).toEqual([]);
     expect(f.state.record?.pendingBaseVersion).toBe(
       encodeVersionVector(f.document),
     );
