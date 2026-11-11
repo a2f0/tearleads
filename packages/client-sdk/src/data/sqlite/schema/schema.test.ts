@@ -100,6 +100,7 @@ test("client sqlite schema creates tables and indexes", async () => {
       "documents_app_document_idx",
       "dormant_container_metadata_organization_idx",
       "local_intents_lane_status_created_idx",
+      "organization_provisioning_creation_intent_idx",
       "principal_history_entries_organization_idx",
       "principal_history_entries_state_hash_idx",
       "principal_history_nodes_organization_idx",
@@ -119,6 +120,24 @@ test("client sqlite schema creates tables and indexes", async () => {
       "verified_access_manifest_bundles_object_idx",
       "verified_access_manifest_bundles_organization_recent_idx",
     ]);
+    const provisioningTable = "organization_provisioning_attempts";
+    const creationIntentIndex = "organization_provisioning_creation_intent_idx";
+    expect(
+      readRecordValue(
+        await readIndexList(execSql, provisioningTable),
+        creationIntentIndex,
+      ),
+    ).toEqual({ partial: 0, unique: 1 });
+    expect(await readIndexColumns(execSql, creationIntentIndex)).toEqual([
+      "user_id",
+      "creation_intent",
+    ]);
+    expect(
+      readRecordValue(
+        await readTableColumns(execSql, provisioningTable),
+        "creation_intent",
+      ),
+    ).toEqual({ defaultValue: null, notNull: 0, pk: 0, type: "TEXT" });
     const documents = await readTableColumns(execSql, "documents");
     expect(readRecordValue(documents, "app_kind")).toEqual({
       defaultValue: null,
