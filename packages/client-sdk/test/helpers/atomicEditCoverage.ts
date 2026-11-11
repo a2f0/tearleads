@@ -6,6 +6,7 @@ import {
 import { sqlDocumentsPersistence as documents } from "../../src/data/persistence/documents/documentsPersistence";
 import { noopDocumentStorePersistenceEffects } from "../../src/stores/documents/documentStore/documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "../../src/stores/documents/documentStore/initialization";
+import { runDocumentOrphanMaintenance } from "../../src/stores/documents/documentStore/orphanMaintenance";
 import { createDocumentStoreState } from "../../src/stores/documents/documentStore/state";
 import { captureDocumentStoreSyncGeneration } from "../../src/stores/documents/documentStore/sync/syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "../../src/stores/documents/documentStore/sync/syncOutgoingCoverage";
@@ -15,6 +16,14 @@ import { createCoverageFixture } from "./syncOutgoingCoverage";
 export async function createAtomicEditFixture(name: string) {
   const db = await createFileBackedSql();
   const f = await createCoverageFixture(name, false, db);
+  const writeErrors: unknown[] = [];
+  f.state.runtime = {
+    ...f.state.runtime,
+    util: {
+      ...f.state.runtime.util,
+      logError: (_message, error) => writeErrors.push(error),
+    },
+  };
   if (!f.state.record) throw new Error("Missing seeded record");
   const version = encodeVersionVector(f.document);
   await documents.saveDocument(db.execSql, {
@@ -31,7 +40,18 @@ export async function createAtomicEditFixture(name: string) {
   });
   f.state.record = await documents.loadDocument(db.execSql, f.localId);
   f.state.pendingBaseVersion = version;
-  return { ...f, db, version };
+  return { ...f, db, version, writeErrors };
+}
+
+export async function ensureAtomicEditStoreReady(
+  state: ReturnType<typeof createDocumentStoreState>,
+): Promise<boolean> {
+  const ready = await ensureDocumentStoreReady(state, () => {});
+  // Production startup deliberately detaches maintenance. These sequential
+  // multi-connection fixtures must drain it before another connection writes:
+  // even an empty native SQLite sweep can hold a read lock across that COMMIT.
+  if (ready) await runDocumentOrphanMaintenance(state);
+  return ready;
 }
 
 export async function reopenAtomicEdit(
@@ -50,7 +70,7 @@ export async function reopenAtomicEdit(
     noopDocumentStorePersistenceEffects,
     "document-1",
   );
-  if (!(await ensureDocumentStoreReady(state, () => {})))
+  if (!(await ensureAtomicEditStoreReady(state)))
     throw new Error("Reopen failed");
   if (!state.doc) throw new Error("Missing reopened document");
   return { db, state, document: state.doc };
