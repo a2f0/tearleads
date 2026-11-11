@@ -12,8 +12,10 @@ export async function runContainerRemovalBounds(
   rawExecSql: ExecSql,
   count: number,
 ) {
-  const readRows = async (sql: string) =>
-    (await rawExecSql(sql)).map((row) => ({ ...row }));
+  // Assert every selected value in column order without copying native
+  // SQLite's null-prototype object rows into a second set of objects.
+  const readRows = (sql: string) =>
+    rawExecSql(sql, undefined, { rowMode: "array" });
   let measured = false;
   let statements = 0;
   let selected = 0;
@@ -91,13 +93,13 @@ export async function runContainerRemovalBounds(
     measured = false;
     // Preserve the real failing path and its rollback, not a spread-only probe.
     assert.deepEqual(await readRows("SELECT id FROM containers"), [
-      { id: "removed" },
+      ["removed"],
     ]);
     assert.deepEqual(
       await readRows(
         "SELECT count(*) AS n FROM document_projection WHERE container_id = 'removed'",
       ),
-      [{ n: count }],
+      [[count]],
     );
     assert.deepEqual(
       await persistence.loadContainerHydrationTombstones(execSql),
@@ -112,25 +114,25 @@ export async function runContainerRemovalBounds(
   assert.equal(selected, count);
   assert.deepEqual(
     updatedIds,
-    expectedOrder.map(({ local_id }) => local_id),
+    expectedOrder.map(([localId]) => localId),
   );
   assert.deepEqual(
     await readRows(
       "SELECT local_id, container_id, organization_id, updated_at FROM document_projection ORDER BY local_id",
     ),
-    Array.from({ length: count }, (_, index) => ({
-      local_id: `local-${String(index).padStart(6, "0")}`,
-      container_id: index < 2 ? "a-survivor" : null,
-      organization_id: "organization",
-      updated_at: index === 1 ? newer : removedAt,
-    })),
+    Array.from({ length: count }, (_, index) => [
+      `local-${String(index).padStart(6, "0")}`,
+      index < 2 ? "a-survivor" : null,
+      "organization",
+      index === 1 ? newer : removedAt,
+    ]),
   );
   const expectedLinks = ["document-000000", "document-000001"].flatMap(
     (documentId) =>
-      ["a-survivor", "z-survivor"].map((containerId) => ({
-        document_id: documentId,
-        container_id: containerId,
-      })),
+      ["a-survivor", "z-survivor"].map((containerId) => [
+        documentId,
+        containerId,
+      ]),
   );
   assert.deepEqual(
     await readRows(
@@ -146,7 +148,7 @@ export async function runContainerRemovalBounds(
   );
   assert.deepEqual(await readRows("SELECT id FROM containers"), []);
   assert.deepEqual(await readRows("SELECT count(*) AS n FROM documents"), [
-    { n: count },
+    [count],
   ]);
   assert.deepEqual(
     await persistence.loadContainerHydrationTombstones(execSql),

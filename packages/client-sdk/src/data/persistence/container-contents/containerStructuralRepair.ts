@@ -13,7 +13,7 @@ import {
 import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { deleteContainerDocumentTombstoneHoldsForContainers } from "../documents/containerDocumentTombstoneHoldsPersistence";
-import { setDocumentProjectionContainerInTransaction } from "../documents/documentProjectionContainers";
+import { createDocumentProjectionContainerUpdater } from "../documents/documentProjectionContainers";
 import { getLatestTimestamp } from "../latestTimestamp";
 import type {
   ContainerRemoval,
@@ -162,6 +162,7 @@ export async function repairDocumentsForRemovedContainersInTransaction(input: {
     const firstRemainingContainerIdByDocumentId =
       await loadFirstRemainingContainerIdByDocumentId(tx, documentIds);
 
+    const setProjectionContainer = createDocumentProjectionContainerUpdater(tx);
     for (const row of selectedRows) {
       if (!row.localId) {
         continue;
@@ -170,7 +171,7 @@ export async function repairDocumentsForRemovedContainersInTransaction(input: {
       const removedOrganizationId = row.containerId
         ? organizationIdByContainerId.get(row.containerId)
         : undefined;
-      await setDocumentProjectionContainerInTransaction(tx, row.localId, {
+      await setProjectionContainer(row.localId, {
         containerId: row.documentId
           ? (firstRemainingContainerIdByDocumentId.get(row.documentId) ?? null)
           : null,
