@@ -1,4 +1,4 @@
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { replaceDocumentLinksInTransaction } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   type DocumentMoveIntentRecord,
   sqlDocumentMoveIntentPersistence,
@@ -7,6 +7,7 @@ import { loadDocumentMovePlacement } from "../../../data/persistence/container-c
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
+/** Called inside the relink commit; a refusal must roll that entire commit back. */
 export async function settleDocumentMoveIntent(input: {
   execSql: ExecSql;
   intent: DocumentMoveIntentRecord;
@@ -41,7 +42,7 @@ export async function settleDocumentMoveIntent(input: {
       "Document move intent was superseded before local settlement",
     );
   }
-  await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+  await replaceDocumentLinksInTransaction(
     input.execSql,
     input.intent.documentId,
     input.linkedContainerIds,

@@ -1,6 +1,7 @@
 import {
   encodeVersionVector,
   exportUpdatesSince,
+  mergeVersionVectors,
   satisfiesVersionVector,
 } from "@tearleads/loro";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
@@ -89,6 +90,25 @@ function toPersistedDocumentRecord(
   };
 }
 
+function pendingBaseVersionForSave(
+  state: DocumentStoreState,
+  options: SaveDocumentRecordOptions,
+): string | null {
+  let pendingBaseVersion =
+    options.pendingBaseVersionOverride === undefined
+      ? state.pendingBaseVersion
+      : options.pendingBaseVersionOverride;
+  if (options.pendingUpdate) {
+    // This exact delta and the marker commit together. Use its captured end,
+    // not the live doc (which may already contain a later, unqueued edit).
+    pendingBaseVersion = mergeVersionVectors([
+      ...(pendingBaseVersion === null ? [] : [pendingBaseVersion]),
+      options.pendingUpdate.partialEndVersionVector,
+    ]);
+  }
+  return pendingBaseVersion;
+}
+
 // Nullable without a generation too: an update-persist refuses (returns
 // null) when the durable row was deleted while the persist was queued — the
 // resurrect guard in persistDocumentState — so callers must stop follow-up
@@ -107,10 +127,7 @@ export async function saveDocumentRecord(
     options.stillCurrent?.() !== false;
   const createsPlacement = state.record === null;
   const previousDocumentId = state.record?.documentId ?? null;
-  const pendingBaseVersion =
-    options.pendingBaseVersionOverride === undefined
-      ? state.pendingBaseVersion
-      : options.pendingBaseVersionOverride;
+  const pendingBaseVersion = pendingBaseVersionForSave(state, options);
   const persistenceInput = {
     acceptedPendingUpdateIds: options.acceptedPendingUpdateIds,
     attachmentRemoval: options.attachmentRemoval,
@@ -131,7 +148,7 @@ export async function saveDocumentRecord(
     // Persist the durable outgoing-delta marker with every snapshot write so a
     // restart restores it (see initializeDocumentStore). A device-first
     // deferRemoteSync write leaves it BEHIND the snapshot version on purpose;
-    // capturing state.pendingBaseVersion here is what lets the next edit
+    // retaining state.pendingBaseVersion without a pendingUpdate lets an edit
     // re-derive that deferred op after a restart instead of dropping it.
     patch: { ...patch, pendingBaseVersion },
     persistence: state.persistence,

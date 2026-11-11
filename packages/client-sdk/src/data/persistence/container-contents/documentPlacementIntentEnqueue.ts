@@ -12,7 +12,10 @@ import {
   documentContainerProjection,
   documentContainerProjectionTables,
 } from "../../sqlite/schema/documentProjectionSchema";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import {
+  type ClientSQLiteTransactionScope,
+  getClientSQLitePersistenceRuntime,
+} from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   ensureSqlTables,
@@ -30,11 +33,11 @@ interface PlacementIntentInput {
 }
 
 async function loadDocumentIntentLinkTargets(
-  execSql: ExecSql,
+  tx: ClientSQLiteTransactionScope,
   intentId: string,
 ) {
-  return getClientSQLitePersistenceRuntime(execSql)
-    .db.select({
+  return tx
+    .select({
       containerId: documentIntentLinkTargets.containerId,
       operation: documentIntentLinkTargets.operation,
     })
@@ -45,12 +48,12 @@ async function loadDocumentIntentLinkTargets(
 type LinkTarget = { containerId: string; operation: "link" | "unlink" };
 
 async function loadSurvivingMoveTarget(
-  execSql: ExecSql,
+  tx: ClientSQLiteTransactionScope,
   previous: typeof localIntents.$inferSelect | undefined,
 ): Promise<string | null> {
   if (previous?.intentType !== "document.move") return null;
-  const [link] = await getClientSQLitePersistenceRuntime(execSql)
-    .db.select({ containerId: documentContainerProjection.containerId })
+  const [link] = await tx
+    .select({ containerId: documentContainerProjection.containerId })
     .from(documentContainerProjection)
     .where(
       and(
@@ -154,73 +157,96 @@ function resolvePlacement(
   };
 }
 
+async function ensurePlacementIntentSchema(execSql: ExecSql): Promise<void> {
+  await ensureSqlTables(execSql, documentPlacementIntentTables);
+  await ensureSqlTables(execSql, documentContainerProjectionTables);
+}
+
+async function enqueuePlacementIntentRows(
+  tx: ClientSQLiteTransactionScope,
+  input: PlacementIntentInput,
+  operation: "move" | "link" | "unlink",
+): Promise<void> {
+  const [previous] = await tx
+    .select()
+    .from(localIntents)
+    .where(
+      and(
+        inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+        eq(localIntents.subjectId, input.documentId),
+      ),
+    )
+    .limit(1);
+  const previousTargets = previous?.id
+    ? await loadDocumentIntentLinkTargets(tx, previous.id)
+    : [];
+  const targets = resolveTargets(
+    input,
+    previousTargets,
+    operation,
+    operation === "move" ? await loadSurvivingMoveTarget(tx, previous) : null,
+  );
+  const id = input.id ?? crypto.randomUUID();
+  const updatedAt = new Date().toISOString();
+  // An additive intent retains the active placement and any pending move.
+  // Its targets are separate from the discovery projection: only explicit
+  // user additions may be replayed, never stale server-discovered links.
+  const next = {
+    id,
+    lane: LOCAL_INTENT_LANES.documentPlacement,
+    subjectId: input.documentId,
+    localId: input.localId,
+    intentType: placementIntentType(operation, previous),
+    lastAttemptedAt: null,
+    lastError: null,
+    syncStatus: "pending",
+    updatedAt,
+    ...resolvePlacement(input, previous, operation),
+  };
+  await tx
+    .insert(localIntents)
+    .values({ ...next, createdAt: updatedAt })
+    .onConflictDoUpdate({
+      target: LOCAL_INTENT_SUBJECT,
+      set: next,
+    })
+    .run();
+  if (previous?.id)
+    await tx
+      .delete(documentIntentLinkTargets)
+      .where(eq(documentIntentLinkTargets.intentId, previous.id))
+      .run();
+  if (targets.length)
+    await tx
+      .insert(documentIntentLinkTargets)
+      .values(targets.map((target) => ({ intentId: id, ...target })))
+      .run();
+}
+
+/** Only for a document commit side effect: failures must escape its transaction. */
+export async function enqueueDocumentPlacementIntentInTransaction(
+  transactionExecSql: ExecSql,
+  input: PlacementIntentInput,
+  operation: "move" | "link" | "unlink",
+): Promise<void> {
+  await ensurePlacementIntentSchema(transactionExecSql);
+  await enqueuePlacementIntentRows(
+    getClientSQLitePersistenceRuntime(transactionExecSql).db,
+    input,
+    operation,
+  );
+}
+
 async function enqueuePlacementIntent(
   execSql: ExecSql,
   input: PlacementIntentInput,
   operation: "move" | "link" | "unlink",
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    await ensureSqlTables(lockedExecSql, documentPlacementIntentTables);
-    await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
-    const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
-    await runtime.transaction(async (tx) => {
-      const [previous] = await tx
-        .select()
-        .from(localIntents)
-        .where(
-          and(
-            inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
-            eq(localIntents.subjectId, input.documentId),
-          ),
-        )
-        .limit(1);
-      const previousTargets = previous?.id
-        ? await loadDocumentIntentLinkTargets(lockedExecSql, previous.id)
-        : [];
-      const targets = resolveTargets(
-        input,
-        previousTargets,
-        operation,
-        operation === "move"
-          ? await loadSurvivingMoveTarget(lockedExecSql, previous)
-          : null,
-      );
-      const id = input.id ?? crypto.randomUUID();
-      const updatedAt = new Date().toISOString();
-      // An additive intent retains the active placement and any pending move.
-      // Its targets are separate from the discovery projection: only explicit
-      // user additions may be replayed, never stale server-discovered links.
-      const next = {
-        id,
-        lane: LOCAL_INTENT_LANES.documentPlacement,
-        subjectId: input.documentId,
-        localId: input.localId,
-        intentType: placementIntentType(operation, previous),
-        lastAttemptedAt: null,
-        lastError: null,
-        syncStatus: "pending",
-        updatedAt,
-        ...resolvePlacement(input, previous, operation),
-      };
-      await tx
-        .insert(localIntents)
-        .values({ ...next, createdAt: updatedAt })
-        .onConflictDoUpdate({
-          target: LOCAL_INTENT_SUBJECT,
-          set: next,
-        })
-        .run();
-      if (previous?.id)
-        await tx
-          .delete(documentIntentLinkTargets)
-          .where(eq(documentIntentLinkTargets.intentId, previous.id))
-          .run();
-      if (targets.length)
-        await tx
-          .insert(documentIntentLinkTargets)
-          .values(targets.map((target) => ({ intentId: id, ...target })))
-          .run();
-    });
+    await ensurePlacementIntentSchema(lockedExecSql);
+    await getClientSQLitePersistenceRuntime(lockedExecSql).transaction((tx) =>
+      enqueuePlacementIntentRows(tx, input, operation),
+    );
   });
 }
 

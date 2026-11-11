@@ -1,8 +1,8 @@
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../../data/documents/documentConstants";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { replaceDocumentLinksInTransaction } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { enqueueDocumentPlacementIntentInTransaction } from "../../../data/persistence/container-contents/documentPlacementIntentEnqueue";
 import { defaultDocumentsPersistence } from "../../documents";
 import { listDocumentLinkedContainerIds } from "../documentLinks";
 import { relinkContainerDocumentLocally } from "../documentLinks/documentLocalRelink";
@@ -103,15 +103,19 @@ export async function moveRemoteDocumentLinkLocally<TRuntime>(params: {
     host,
     note,
     commitSideEffect: async (execSql) => {
-      await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
-        id: intentId,
-        documentId: note.documentId,
-        localId: note.id,
-        replaceLinkedContainers,
-        sourceContainerId: note.containerId,
-        targetContainerId,
-      });
-      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+      await enqueueDocumentPlacementIntentInTransaction(
+        execSql,
+        {
+          id: intentId,
+          documentId: note.documentId,
+          localId: note.id,
+          replaceLinkedContainers,
+          sourceContainerId: note.containerId,
+          targetContainerId,
+        },
+        "move",
+      );
+      await replaceDocumentLinksInTransaction(
         execSql,
         note.documentId,
         linkedContainerIds,

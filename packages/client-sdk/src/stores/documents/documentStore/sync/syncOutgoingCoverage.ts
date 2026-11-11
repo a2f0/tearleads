@@ -35,6 +35,22 @@ function requirePendingBase(version: string | null, message: string): string {
   return version;
 }
 
+function queuedHistoryBelongsToDocument(
+  documentVersion: string,
+  pendingUpdates: readonly PendingUpdateRecord[],
+): boolean {
+  return pendingUpdates.every((update) => {
+    try {
+      return satisfiesVersionVector(
+        documentVersion,
+        update.partialEndVersionVector,
+      );
+    } catch {
+      return false;
+    }
+  });
+}
+
 /**
  * Rebuild the durable outgoing frontier before a sync can clean-skip or delete
  * accepted queue rows. Existing rows promote the marker only through connected
@@ -105,7 +121,13 @@ export async function prepareDocumentOutgoingCoverage(input: {
   if (!liveRecord) {
     throw new Error("Document sync lost its persisted record");
   }
-  if (liveRecord.pendingBaseVersion === nextBaseVersion) {
+  // Another runtime may have queued durable history this live doc lacks.
+  // Keep the existing reconciliation persist in that case: queue merging
+  // must prove those rows against the refreshed document, not send them twice.
+  if (
+    liveRecord.pendingBaseVersion === nextBaseVersion &&
+    queuedHistoryBelongsToDocument(documentVersion, pendingUpdates)
+  ) {
     state.pendingBaseVersion = nextBaseVersion;
     clearCoveredUnsavedLocalEdits(state);
     return { pendingUpdates, record: liveRecord };
