@@ -279,7 +279,11 @@ candidates are evicted so a retry reads the endpoint again. Public and private
 history selections recheck every projection they return, from fresh pages and
 restored prefixes alike, and publish there: a restored prefix reads no page,
 so a member substituted after it was verified cannot act under its cached
-membership. The current user
+membership. Cached and freshly verified keying policies likewise recheck
+their history's projections, not only the current one. A resolver wrapper,
+such as the projection key cache, must forward `withPinnedIdentities`:
+without it, a check before signatures falls back to ordinary resolution and
+pins an unsigned member on first sight. The current user
 always rechecks authoritative local keys. Database, account, or
 runtime-generation changes invalidate the operation. The callback's resolver
 is not a persistent cache.

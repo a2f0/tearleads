@@ -22,7 +22,10 @@ import {
   verifyOrganizationAdminPolicy,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../../principals/principalPolicyAdminSigners";
-import type { PrincipalPolicyCurrentEvidence } from "../../principals/principalPolicyEvidence";
+import {
+  type PrincipalPolicyCurrentEvidence,
+  principalPolicyEvidenceEntries,
+} from "../../principals/principalPolicyEvidence";
 import { principalPolicyBundleStates } from "../../principals/principalPolicyStates";
 import {
   observePrincipalPolicy,
@@ -317,14 +320,19 @@ async function loadOrganizationExternalAuthority(
   }
 }
 
-/** A policy recovered or verified earlier: its first sights may be pinned. */
+/** Fresh or reused: check every projection, history included; pin first sights. */
 function assertVerifiedPolicyCommitments(
-  policy: Pick<VerifiedPrincipalPolicy, "projection">,
+  policy: PrincipalPolicyCurrentEvidence,
   resolveUserKey: ProjectionUserKeyResolver,
 ): Promise<void> {
   return assertPrincipalIdentityCommitments({
     authenticated: true,
-    projections: [policy.projection],
+    projections: [
+      policy.projection,
+      ...principalPolicyEvidenceEntries(policy).map(
+        (entry) => entry.projection,
+      ),
+    ],
     resolveTrustedUserIdentity: resolveUserKey,
   });
 }
@@ -420,6 +428,7 @@ async function verifyReferencedPrincipalPolicy(input: {
   if (!verified.ok) {
     throw verified.error;
   }
+  await assertVerifiedPolicyCommitments(verified.value, input.resolveUserKey);
 
   observePrincipalPolicy(
     input.checkpointContext,

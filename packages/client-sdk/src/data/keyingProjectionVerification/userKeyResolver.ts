@@ -16,7 +16,7 @@ export function createProjectionUserKeyResolver(
   );
   const cache = new Map<string, Promise<ProjectionUserKey | null>>();
 
-  return async (userId) => {
+  const resolve: ProjectionUserKeyResolver = async (userId) => {
     let cached = cache.get(userId);
     if (!cached) {
       cached = resolveTrustedUserIdentity(userId).catch((error: unknown) => {
@@ -28,4 +28,10 @@ export function createProjectionUserKeyResolver(
 
     return cached;
   };
+  // Commitment checks stage first sights through this capability. Without it
+  // they fall back to `resolve`, which pins unsigned members on first sight.
+  const { withPinnedIdentities } = resolveTrustedUserIdentity;
+  return withPinnedIdentities
+    ? Object.assign(resolve, { withPinnedIdentities })
+    : resolve;
 }

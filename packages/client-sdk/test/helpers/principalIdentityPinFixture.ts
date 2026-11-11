@@ -32,7 +32,15 @@ import {
   fixtureProjectionMember,
 } from "./trustedUserIdentity";
 
-export async function principalIdentityPinFixture(memberCount = 8) {
+/**
+ * One verified group policy over real identities. `removeLastMember` signs a
+ * rotated version 2 without the last member, who then appears only in the
+ * policy's history.
+ */
+export async function principalIdentityPinFixture(
+  memberCount = 8,
+  options: { readonly removeLastMember?: boolean } = {},
+) {
   const signing = generateSigningSeedAndKeyPair();
   const members = await Promise.all(
     Array.from({ length: memberCount }, (_, index) =>
@@ -45,18 +53,19 @@ export async function principalIdentityPinFixture(memberCount = 8) {
   const signer = members[0];
   if (!signer) throw new Error("Expected a signer");
   const kem = generateKemSeedAndKeyPair();
-  const bundle = await signedPrincipalPolicyBundle({
+  const memberEnvelope = (member: (typeof members)[number]) => ({
+    userId: member.response.userId,
+    memberKeyFingerprint: member.response.encapsulationKeyFingerprint,
+    kemCipherText: bytesToBase64(new Uint8Array(ML_KEM1024_CIPHERTEXT_BYTES)),
+    wrappedKey: bytesToBase64(
+      new Uint8Array(ML_KEM1024_SECRET_KEY_BYTES + AES_GCM_TAG_BYTES),
+    ),
+  });
+  const genesis = await signedPrincipalPolicyBundle({
     projection: members.map((member, index) =>
       fixtureProjectionMember(member, index === 0 ? "admin" : "member"),
     ),
-    memberEnvelopes: members.map(({ response }) => ({
-      userId: response.userId,
-      memberKeyFingerprint: response.encapsulationKeyFingerprint,
-      kemCipherText: bytesToBase64(new Uint8Array(ML_KEM1024_CIPHERTEXT_BYTES)),
-      wrappedKey: bytesToBase64(
-        new Uint8Array(ML_KEM1024_SECRET_KEY_BYTES + AES_GCM_TAG_BYTES),
-      ),
-    })),
+    memberEnvelopes: members.map(memberEnvelope),
     payloadCiphertext: "identity-pin-policy",
     signing: {
       principalType: "group",
@@ -73,6 +82,30 @@ export async function principalIdentityPinFixture(memberCount = 8) {
     },
     signingPrivateKey: signing.signingPrivateKey,
   });
+  const rotated = generateKemSeedAndKeyPair();
+  const bundle = options.removeLastMember
+    ? await signedPrincipalPolicyBundle({
+        projection: genesis.currentProjection.slice(0, -1),
+        memberEnvelopes: members.slice(0, -1).map(memberEnvelope),
+        payloadCiphertext: "identity-pin-policy",
+        previousStates: [
+          {
+            state: genesis.currentState,
+            projection: genesis.currentProjection,
+            grants: genesis.currentGrants,
+          },
+        ],
+        signing: {
+          ...genesis.currentState,
+          version: 2,
+          prevStateHash: genesis.currentState.stateHash,
+          keyEpoch: 2,
+          encapsulationPublicKey: bytesToBase64(rotated.publicKey),
+          keyFingerprint: await toFingerprint(rotated.publicKey),
+        },
+        signingPrivateKey: signing.signingPrivateKey,
+      })
+    : genesis;
   const verified = await verifyPrincipalPolicyBundle({
     bundle,
     signerPublicKeys: [signer.identity],
