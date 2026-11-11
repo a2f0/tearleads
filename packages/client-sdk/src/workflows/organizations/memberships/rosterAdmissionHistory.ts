@@ -1,37 +1,11 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import type { PrincipalPolicyStateChainEntryResponse } from "@tearleads/validators/response";
 import type { RecoveredPrincipalHistoryPage } from "../../principals/historyRecovery/loadRecoveredPrincipalHistoryPage";
-
-const MAX_HISTORY_PAGES = 64;
-const MAX_PAGE_ENTRIES = 32;
-
-function matchesCursor(
-  state: PrincipalPolicyStateChainEntryResponse["state"],
-  head: ReferencedPrincipalHead,
-  version: number,
-  hash: string | null,
-): boolean {
-  return (
-    state.principalType === head.principalType &&
-    state.principalId === head.principalId &&
-    state.version === version &&
-    state.stateHash === hash
-  );
-}
-
-function extendCursor(
-  batch: readonly PrincipalPolicyStateChainEntryResponse[],
-  head: ReferencedPrincipalHead,
-  version: number,
-  hash: string | null,
-): { version: number; hash: string | null } | null {
-  for (const { state } of batch) {
-    if (!matchesCursor(state, head, version, hash)) return null;
-    version -= 1;
-    hash = state.prevStateHash;
-  }
-  return { version, hash };
-}
+import {
+  initialRosterAdmissionScan,
+  nextRosterAdmissionPage,
+  transitionRosterAdmissionScan,
+} from "./rosterAdmissionScanMachine";
 
 async function membershipStart(
   entryAt: (
@@ -64,43 +38,18 @@ export function createRosterAdmissionHistory(
     beforeVersion: number | undefined,
   ) => Promise<RecoveredPrincipalHistoryPage>,
 ) {
-  const entries: PrincipalPolicyStateChainEntryResponse[] = [];
-  let beforeVersion: number | undefined;
-  let expectedVersion = head.version;
-  let expectedHash: string | null = head.stateHash;
-  let pages = 0;
-  let exhausted = false;
+  // Admission links look up memberships one at a time, so one page at most
+  // is ever in flight.
+  let scan = initialRosterAdmissionScan(head);
 
   async function entryAt(index: number) {
-    if (index < entries.length) return entries[index];
-    if (exhausted || pages >= MAX_HISTORY_PAGES) return undefined;
-    pages += 1;
-    const page = await loadPage(head, beforeVersion);
-    if (page.entries.length === 0 || page.entries.length > MAX_PAGE_ENTRIES) {
-      exhausted = true;
-      return undefined;
-    }
-    const batch = [...page.entries].reverse();
-    const cursor = extendCursor(batch, head, expectedVersion, expectedHash);
-    if (!cursor) {
-      exhausted = true;
-      return undefined;
-    }
-    if (
-      cursor.version !== 0 &&
-      page.nextBeforeVersion !== null &&
-      page.nextBeforeVersion !== cursor.version + 1
-    ) {
-      exhausted = true;
-      return undefined;
-    }
-    // Publish only a fully accepted page to subsequent membership lookups.
-    expectedVersion = cursor.version;
-    expectedHash = cursor.hash;
-    entries.push(...batch);
-    exhausted = expectedVersion === 0 || page.nextBeforeVersion === null;
-    beforeVersion = page.nextBeforeVersion ?? undefined;
-    return entries[index];
+    if (index < scan.entries.length) return scan.entries[index];
+    const next = nextRosterAdmissionPage(scan);
+    if (!next) return undefined;
+    scan = transitionRosterAdmissionScan(scan, { type: "pageRequested" });
+    const page = await loadPage(head, next.beforeVersion);
+    scan = transitionRosterAdmissionScan(scan, { type: "pageLoaded", page });
+    return scan.entries[index];
   }
 
   return {
