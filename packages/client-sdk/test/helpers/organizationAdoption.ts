@@ -1,11 +1,11 @@
 import {
-  type AccessManifest,
   computeAccessManifestHash,
   makeVerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { readAccessManifest } from "../../src/data/keyingProjectionVerification/readers";
 import { locallyAuthoredAccessManifestHead } from "../../src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { persistLocallyAcknowledgedPrincipalPolicyBundle } from "../../src/data/persistence/principalPolicy/locallyAcknowledgedPrincipalPolicyPersistence";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
@@ -135,8 +135,10 @@ export async function adoptionAccessHeads(request: CreateOrganizationRequest) {
   ].filter((create) => create !== undefined);
   return Promise.all(
     creates.map(async (create) => {
-      // These are production-built requests; hashing below also validates shape.
-      const manifest = create.manifest as unknown as AccessManifest;
+      const manifest = readAccessManifest(
+        create.manifest,
+        "Organization adoption manifest",
+      );
       const manifestHash = await computeAccessManifestHash(manifest);
       return locallyAuthoredAccessManifestHead({ manifest, manifestHash });
     }),

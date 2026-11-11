@@ -73,8 +73,8 @@ request the API refuses with its error body.
 | `concurrentGroupShareAndRevoke` | A direct share racing a group revocation succeeds in both orderings. The stale group-policy commit rebuilds its container batch once, preserves the new grant, and excludes old and fresh revoked readers. |
 | `shareAfterGroupShare` | A user share right after a group share above it lands, though this device's own background re-citation advances the shared folder's head meanwhile. |
 
-Pin a reproducible open issue in `src/scenarios/knownIssues.test.ts` as a
-`test.failing` case. It passes while the bug stands and fails once it is
+Pin a reproducible open issue in a scenario file as a `test.failing` case.
+It passes while the bug stands and fails once it is
 fixed; convert it into an ordinary scenario then, as the scenarios above did
 for [#2646](https://github.com/a2f0/tearleads/issues/2646),
 [#2647](https://github.com/a2f0/tearleads/issues/2647),

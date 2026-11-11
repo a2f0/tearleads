@@ -40,6 +40,7 @@ import {
 } from "../organizations/rosterProfileContainer";
 import { seedRegistrationAccessHeads } from "./registrationAccessHeadPersistence";
 import { enqueueInitialContainerMetadataUpdate } from "./registrationBootstrapPendingUpdates";
+import { persistMissingContainerBootstrap } from "./registrationContainerBootstrap";
 import { persistRegistrationPrincipalPolicies } from "./registrationPrincipalPolicyPersistence";
 
 interface ProvisionedContainerBootstrapInput {
@@ -128,43 +129,6 @@ export interface RegistrationBootstrapInput {
 type CurrentBootstrap = RegistrationBootstrapInput & {
   canSeed: Awaited<ReturnType<typeof seedRegistrationAccessHeads>>;
 };
-/** Seed missing metadata without replacing state discovered or edited meanwhile.
- * Runs inside the guarded bootstrap transaction, so discovery cannot interleave
- * the existence check and write. Even a discovery-only row owns its timestamps,
- * access level and topology; the bootstrap only fills its missing metadata.
- */
-async function persistMissingContainerBootstrap(
-  ...[execSql, container, record, options]: Parameters<
-    typeof sqlContainerContentsPersistence.saveContainer
-  >
-): Promise<void> {
-  let existing =
-    await sqlContainerContentsPersistence.loadContainerMetadataState(
-      execSql,
-      container.id,
-    );
-  // An unbound device-first placeholder is not discovered organization state.
-  if (
-    existing?.container.organizationId === "" &&
-    existing.container.metadataDocumentId === null &&
-    !existing.record
-  )
-    existing = null;
-  if (existing?.record) return;
-  await sqlContainerContentsPersistence.saveContainer(
-    execSql,
-    existing?.container ?? container,
-    record,
-    existing
-      ? {
-          ...(existing.container.localUpdatedAt
-            ? { localUpdatedAt: existing.container.localUpdatedAt }
-            : {}),
-        }
-      : options,
-  );
-}
-
 async function persistProvisionedContainerBootstrap(
   execSql: ExecSql,
   input: {
@@ -174,7 +138,7 @@ async function persistProvisionedContainerBootstrap(
     organizationId: string;
     parentId: string | null;
   },
-): Promise<void> {
+): Promise<boolean> {
   const { container } = input;
   const metadataState = container.metadataState;
   const record: ContainerMetadataRecord = {
@@ -189,7 +153,7 @@ async function persistProvisionedContainerBootstrap(
     documentKekTargets: metadataState.documentKekTargets ?? null,
     documentManifestBundle: metadataState.documentManifestBundle ?? null,
   };
-  await persistMissingContainerBootstrap(
+  return persistMissingContainerBootstrap(
     execSql,
     {
       id: container.containerId,
@@ -234,7 +198,7 @@ async function persistRootContainerBootstrap(
     documentManifestBundle:
       input.rootMetadataState.documentManifestBundle ?? null,
   };
-  await persistMissingContainerBootstrap(
+  const seeded = await persistMissingContainerBootstrap(
     execSql,
     {
       id: input.containerId,
@@ -254,6 +218,7 @@ async function persistRootContainerBootstrap(
       },
     },
   );
+  if (!seeded) return;
   await enqueueInitialContainerMetadataUpdate(
     execSql,
     input.containerId,
@@ -278,7 +243,7 @@ async function persistNamedChildContainerBootstrap(
     return;
   }
 
-  await persistProvisionedContainerBootstrap(execSql, {
+  const seeded = await persistProvisionedContainerBootstrap(execSql, {
     container,
     icon: null,
     name,
@@ -288,6 +253,7 @@ async function persistNamedChildContainerBootstrap(
         ? null
         : input.containerId,
   });
+  if (!seeded) return;
   await enqueueInitialContainerMetadataUpdate(
     execSql,
     container.containerId,
