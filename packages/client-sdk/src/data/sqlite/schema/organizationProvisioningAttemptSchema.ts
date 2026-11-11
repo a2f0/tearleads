@@ -1,13 +1,17 @@
-import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
 
 /**
- * Durable client-side handoff for a purged personal organization replacement.
+ * Durable client-side provisioning handoff, keyed by the replacement source,
+ * native-restore scope, or (for ordinary creates) the generated organization id.
  *
  * The replacement request is intentionally retained until both remote
  * provisioning and the organization-scoped local reset commit. A lost HTTP
  * response or a failed local reset can therefore replay the exact signed
- * artifacts instead of minting an incompatible second organization.
+ * artifacts instead of minting an incompatible second organization. Ordinary
+ * creates retain a user-and-input-scoped intent only until the local bootstrap
+ * commits, allowing a subsequent deliberate create with identical inputs.
+ * Greenfield storage: prechange attempts are not migrated.
  */
 export const organizationProvisioningAttempts = sqliteTable(
   "organization_provisioning_attempts",
@@ -17,12 +21,24 @@ export const organizationProvisioningAttempts = sqliteTable(
     organizationId: text("organization_id").notNull(),
     rootContainerId: text("root_container_id").notNull(),
     serializedArtifacts: text("serialized_artifacts").notNull(),
+    creationIntent: text("creation_intent"),
     createdAt: text("created_at").notNull(),
   },
+  (table) => [
+    uniqueIndex("organization_provisioning_creation_intent_idx").on(
+      table.userId,
+      table.creationIntent,
+    ),
+  ],
 );
 
 export const organizationProvisioningAttemptTables: ReadonlyArray<SqlTableSchema> =
-  [defineSqlTableSchema(organizationProvisioningAttempts)];
+  [
+    {
+      ...defineSqlTableSchema(organizationProvisioningAttempts),
+      requiredColumns: ["creation_intent"],
+    },
+  ];
 
 export const organizationProvisioningAttemptSQLiteSchema = {
   organizationProvisioningAttempts,

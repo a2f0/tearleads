@@ -44,6 +44,12 @@ test("an empty password cannot silently disable backup encryption", async () => 
   );
 });
 
+test("rejects v15 backups predating durable ordinary creation intents", async () => {
+  await expect(
+    decodeBackupFile({ text: JSON.stringify({ ...payload, version: 15 }) }),
+  ).rejects.toThrow("Backup payload version is not supported.");
+});
+
 test("password detection rejects unsupported backup formats", () => {
   expect(() => backupFileRequiresPassword('{"format":"unknown"}')).toThrow(
     "Backup file format is not supported.",

@@ -13,6 +13,7 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import {
+  assertPrincipalPolicyCheckpointShape,
   loadPrincipalPolicyCheckpointRows,
   principalPolicyKey,
   storedPrincipalPolicyPin,
@@ -31,7 +32,20 @@ import { assertBundleMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyBund
 function validateAcknowledgedPolicy(
   policy: VerifiedPrincipalPolicy,
   checkpoint: PrincipalPolicyCheckpoint | null,
-): void {
+  genesis: boolean,
+): boolean {
+  if (genesis) {
+    if (policy.version !== 1 || policy.state.prevStateHash !== null) {
+      throw new KeyingVerificationError(
+        "invalid_shape",
+        "registration policy must begin at version 1",
+      );
+    }
+    if (checkpoint) assertPrincipalPolicyCheckpointShape(checkpoint, policy);
+    // Adoption never advances a newer pin back to genesis. Equal versions
+    // still pass through the normal fork check below.
+    if (checkpoint && checkpoint.version > policy.version) return false;
+  }
   verifyPrincipalPolicyCheckpoint({
     chain: policy.history ?? [],
     currentState: policy.state,
@@ -49,6 +63,7 @@ function validateAcknowledgedPolicy(
       "locally acknowledged principal policy does not directly extend the durable checkpoint",
     );
   }
+  return true;
 }
 
 interface LocallyAcknowledgedPrincipalPolicyBundle {
@@ -72,6 +87,32 @@ function assertUniqueAcknowledgedPolicies(
   }
 }
 
+async function loadValidatedAcknowledgedCheckpoints(
+  tx: ClientSQLiteTransactionScope,
+  entries: readonly LocallyAcknowledgedPrincipalPolicyBundle[],
+  genesis: boolean,
+): Promise<PrincipalPolicyCheckpoint[]> {
+  const stored = await loadPrincipalPolicyCheckpointRows(
+    tx,
+    entries.map(({ policy }) => policy),
+  );
+  const checkpoints: PrincipalPolicyCheckpoint[] = [];
+  for (const { policy } of entries) {
+    const pin = storedPrincipalPolicyPin(
+      stored.get(principalPolicyKey(policy)),
+    );
+    if (
+      validateAcknowledgedPolicy(
+        policy,
+        pin ? { ...policy.checkpoint, ...pin } : null,
+        genesis,
+      )
+    )
+      checkpoints.push(policy.checkpoint);
+  }
+  return checkpoints;
+}
+
 async function storeAcknowledgedPrincipalPolicyBundles(input: {
   readonly retiredContainers?:
     | AcknowledgedPrincipalGrantRetirements
@@ -79,7 +120,7 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
   readonly entries: readonly LocallyAcknowledgedPrincipalPolicyBundle[];
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
-  readonly placement: "current" | "history";
+  readonly placement: "current" | "history" | "genesis";
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly updatedAt: string;
 }): Promise<void> {
@@ -93,19 +134,11 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
   ]);
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   const store = async (tx: ClientSQLiteTransactionScope) => {
-    const stored = await loadPrincipalPolicyCheckpointRows(
+    const checkpoints = await loadValidatedAcknowledgedCheckpoints(
       tx,
-      input.entries.map(({ policy }) => policy),
+      input.entries,
+      input.placement === "genesis",
     );
-    for (const { policy } of input.entries) {
-      const pin = storedPrincipalPolicyPin(
-        stored.get(principalPolicyKey(policy)),
-      );
-      validateAcknowledgedPolicy(
-        policy,
-        pin ? { ...policy.checkpoint, ...pin } : null,
-      );
-    }
     if (input.retiredContainers)
       await storePrincipalGrantRetirements(
         tx,
@@ -114,7 +147,7 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
         input.organizationId,
       );
     for (const entry of input.entries) {
-      if (input.placement === "current") {
+      if (input.placement !== "history") {
         await writePrincipalPolicyBundleInTransaction(
           tx,
           entry.bundle,
@@ -132,7 +165,7 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
     }
     await upsertPrincipalPolicyCheckpointsInTransaction(
       tx,
-      input.entries.map(({ policy }) => policy.checkpoint),
+      checkpoints,
       input.updatedAt,
       input.organizationId,
     );
@@ -174,6 +207,20 @@ export function persistLocallyAcknowledgedPrincipalPolicyBundle(
     organizationId: input.organizationId,
     stillCurrent: input.stillCurrent,
     updatedAt: input.updatedAt,
+  });
+}
+
+/**
+ * Seed a provisioning acknowledgement without making genesis current again.
+ * The cache writer still checks ownership, equal-version forks and retained
+ * same-hash bundle integrity, and preserves any newer cached policy head.
+ */
+export function seedLocallyAcknowledgedPrincipalPolicyBundles(
+  input: Parameters<typeof persistLocallyAcknowledgedPrincipalPolicyBundles>[0],
+): Promise<void> {
+  return storeAcknowledgedPrincipalPolicyBundles({
+    ...input,
+    placement: "genesis",
   });
 }
 

@@ -55,6 +55,7 @@ export class ApiClient extends ApiClientAreas {
 
   // Organizations: read model, roster, profile, and memberships.
   createOrganization = this.organizations.createOrganization;
+  createOrganizationResult = this.organizations.createOrganizationResult;
   getOrganizationReadModelResult =
     this.organizations.getOrganizationReadModelResult;
   getOrganizationDataUsageResult =

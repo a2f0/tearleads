@@ -17,18 +17,19 @@ import {
 } from "../../registration/organizationProvisioning";
 import type { ProvisionedStatePrimer } from "../../registration/provisionedStatePrimer";
 import {
+  type CreateOrganizationApi,
+  organizationCreationCompletion,
+  organizationCreationIntent,
+  requestOrganizationCreation,
+} from "./organizationCreationIntent";
+import {
   makeOrganizationProvisioningAttemptDurable,
   removeNativeSubscriptionRestoreProvisioningAttempt,
 } from "./organizationProvisioningAttempt";
 import { pinOrganizationReplacementResponse } from "./organizationReplacementVerification";
 
+export type { CreateOrganizationApi } from "./organizationCreationIntent";
 export { removeNativeSubscriptionRestoreProvisioningAttempt };
-
-export interface CreateOrganizationApi {
-  createOrganization(
-    request: CreateOrganizationRequest,
-  ): Promise<CreateOrganizationResponse | null>;
-}
 
 export interface CreateOrganizationInput {
   apiClient: CreateOrganizationApi;
@@ -165,6 +166,7 @@ export async function createOrganization(
 
   const durableAttempt = await makeOrganizationProvisioningAttemptDurable({
     artifacts: candidateArtifacts,
+    creationIntent: organizationCreationIntent(input),
     canStartDurableMutation: input.isIdentityCurrent,
     dbClient: input.dbClient,
     nativeSubscriptionRestore: input.nativeSubscriptionRestore,
@@ -191,10 +193,8 @@ export async function createOrganization(
     return null;
   }
 
-  const response = await input.apiClient.createOrganization(request);
-  if (!response) {
-    return null;
-  }
+  const response = await requestOrganizationCreation(input, request);
+  if (!response) return null;
 
   if (input.isIdentityCurrent && !input.isIdentityCurrent()) {
     input.log?.(
@@ -226,25 +226,20 @@ export async function createOrganization(
 
   input.log?.(`Organization created (${response.organizationId})`);
   await persistOrganizationProvisioningState({
-    bootstrap: artifacts.bootstrap,
+    ...artifacts,
+    completeProvisioningAttempt: organizationCreationCompletion(
+      input,
+      artifacts.organizationId,
+    ),
     canStartDurableMutation: input.isIdentityCurrent,
     onPersistQueued: input.onPersistQueued,
     containerId: durableRootContainerId,
     dbClient: input.dbClient,
     documentProjectors: input.documentProjectors,
-    initialAdminGroup: artifacts.initialAdminGroup,
-    initialMemberGroup: artifacts.initialMemberGroup,
-    initialOrganizationPolicy: artifacts.initialOrganizationPolicy,
     log: input.log,
     logError: input.logError,
-    organizationMetadataBootstrap: artifacts.organizationMetadataBootstrap,
     primeProvisionedState: input.primeProvisionedState,
     response,
-    rootContainer: artifacts.rootContainer,
-    rootMetadataDocument: artifacts.rootMetadataDocument,
-    rootMetadataDocumentRequest: artifacts.rootMetadataDocumentRequest,
-    rosterProfileBootstrap: artifacts.rosterProfileBootstrap,
-    systemContainerBootstraps: artifacts.systemContainerBootstraps,
   });
 
   return response;

@@ -65,6 +65,7 @@ request the API refuses with its error body.
 | `heldPathRehydration` | Writers whose devices held a path from before a revoke, a group shrink, and a second revoke all write afterwards, each repairing what it may. |
 | `manyRotations` | Eight rounds of a group gaining and losing a member rotate the folder sixteen times, with a confidentiality check after every removal; an idle direct grantee then writes, and a reader admitted last reads. An organization admin who is not one of the group's own admins mints a new group key on every add, and the API re-keys every container granted to a group whose key epoch advances. |
 | `retryAfterRestart` | A committed edit whose response is lost survives a restart of the same database, replays its persisted update IDs, drains the outbox, and converges without duplicate content. |
+| `organizationCreationRetry` | A lost committed organization-create response is discovered and adopted by an identical retry, in the same runtime or after restart. Exact signed replay returns the original organization. |
 | `leaveRequestMembership` | A leave request survives another member's removal, which Alice's device confirms by walking verified Members history to the head the request cites. A dishonest server that serves the request again after its member was removed and added back cannot make Alice's device show it. |
 | `offlineRevocation` | An offline outbox survives restart without publishing a revoked writer's edit or disclosing later content; the original database writes again after a regrant. |
 | `concurrentFirstWriters` | Two writers race the first content-key repair after revocation. One gets a stale-write refusal, retries, and preserves both edits while the revoked reader stays excluded. |
@@ -72,8 +73,8 @@ request the API refuses with its error body.
 | `concurrentGroupShareAndRevoke` | A direct share racing a group revocation succeeds in both orderings. The stale group-policy commit rebuilds its container batch once, preserves the new grant, and excludes old and fresh revoked readers. |
 | `shareAfterGroupShare` | A user share right after a group share above it lands, though this device's own background re-citation advances the shared folder's head meanwhile. |
 
-Pin a reproducible open issue in `src/scenarios/knownIssues.test.ts` as a
-`test.failing` case. It passes while the bug stands and fails once it is
+Pin a reproducible open issue in a scenario file as a `test.failing` case.
+It passes while the bug stands and fails once it is
 fixed; convert it into an ordinary scenario then, as the scenarios above did
 for [#2646](https://github.com/a2f0/tearleads/issues/2646),
 [#2647](https://github.com/a2f0/tearleads/issues/2647),
@@ -82,33 +83,27 @@ for [#2646](https://github.com/a2f0/tearleads/issues/2646),
 
 ### Lost organization-create response
 
-[#2893](https://github.com/a2f0/tearleads/issues/2893) is pinned with retries in
-the same runtime and after `Device.restart()`. The real `POST /organizations`
-commits before the proxy withholds its response and returns a transport 503.
-The SDK returns `null` and has not persisted the new root. Opening the tree
-and refreshing its root lane discovers that original organization and root;
-the same-input retry nevertheless creates a second identity. Both survive a
-subsequent runtime restart. An exact resend of the original signed request
-instead receives 409, not a replayed success. These failures were reproduced
-on both the memory and SQLite API backends before marking them `test.failing`.
+[#2893](https://github.com/a2f0/tearleads/issues/2893) is covered by
+[`organizationCreationRetry.test.ts`](src/scenarios/organizationCreationRetry.test.ts),
+with retries in the same runtime and after `Device.restart()`. The real
+`POST /organizations` commits before the proxy withholds its response and
+returns a transport 503. The SDK returns `null` and has not persisted the new
+root. Opening the tree and refreshing its root lane discovers that original
+organization and root; the same-input retry adopts it without creating another.
+An exact resend of the original signed request returns the same successful
+receipt. The former expected-failure canaries are now ordinary regressions.
 
-Ordinary companion tests check commit, discovery, server membership IDs, local
-root IDs, and retention. Setup runs outside the expected-failure callbacks so
-a failed registration or discovery cannot satisfy the canary. Server counts
+Companion tests check commit, discovery, server membership IDs, local root IDs,
+and retention. Setup failures fail the scenario. Server counts
 come from this user's membership endpoint, not a global database row count.
 Root discovery is not proof of profile/document hydration. Runtime restart
 retains the SQLite connection; it does not simulate a database close/reopen
 or process crash. Realtime delivery and response-loss frequency are untested.
 
-The exact-resend canary characterizes a replay limitation, not a required fix
-design. Revisit or remove it when #2893 is resolved: retry keys or client-side
-adoption need not make an exact plain resend succeed.
-
-No production fix is included: ordinary attempts have no stable retry key or
-whole-request server receipt. Native-restore and replacement replay are tied
-to different billing/recovery semantics; reusing those flags would change
-behavior. Durable ordinary intent and exact-request replay need a separately
-coordinated persistence design, not a blanket retry or weakened 409 guard.
+Ordinary creation has its own durable intent/completion lifecycle and a
+user/full-request-bound server receipt; it does not reuse native-restore or
+replacement billing flags. See [retry semantics](../../docs/request-budgets.md#organization-creation-retries)
+for irreversible purge refusal, preserved newer local state and storage limits.
 
 ## Limits
 

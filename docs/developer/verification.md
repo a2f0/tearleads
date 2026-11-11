@@ -114,8 +114,9 @@ sharing, group membership, revocation, moves, links,
 them with `bun run check:package @tearleads/bob-and-alice`. The package's Turbo
 test task depends on `@tearleads/api#runtime-sources`, so an API source change
 misses its cache and an API test-only change does not.
-Pin a reproducible open bug in `knownIssues.test.ts` as `test.failing`. See
-the [package README](../../packages/bob-and-alice/README.md).
+Pin a reproducible open bug in a scenario file as `test.failing`; convert it
+to an ordinary regression after its fix. See the
+[package README](../../packages/bob-and-alice/README.md).
 
 ## Prerequisites
 

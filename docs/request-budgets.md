@@ -90,6 +90,38 @@ a [head](./glossary/sync.md#head) new to the device needs its first read. See
 and [principal-history acceptance](principal-history-acceptance.md) for that
 security tradeoff.
 
+## Organization creation retries
+
+An ordinary create persists its signed request before sending `POST /organizations`.
+After a lost response, identical user and creation inputs resume that request,
+including after SQLite reopens. A matching server receipt adopts the original
+organization instead of creating another. Local acknowledgement completes the
+attempt atomically with bootstrap; a later identical create is then a new operation.
+
+Discovery can expose the root before acknowledgement. That does not complete
+or abandon the attempt: the next identical create is still a retry and must
+preserve newer local state. A later HTTP rejection cannot disprove an earlier
+commit, so attempts do not expire automatically. Generic 400/409 failures,
+disabled or removed membership, missing billing and scheduled deletion retain
+the attempt: those states do not prove irreversible loss.
+
+Only a validated `410 organization_creation_purged` releases the exact pending
+attempt. The server first verifies the current signer and the stored user and
+full-request hash, then certifies irreversible purge. The SDK returns failure
+without sending another POST; the next deliberate create can start a fresh
+operation. Purge discards the retained bootstrap response, keeping its binding
+metadata for that refusal. See the
+[terminal-replay regression](../packages/api/src/routes/organizations/createOrganization.terminalReplay.test.ts).
+
+The intent includes identity keys, names and system-container specifications.
+Changed inputs start a different intent, not a retry; a host upgrade changing
+those inputs can leave the previous attempt pending. Other permanently unusable
+artifacts can also remain pending; no public cancellation or expiry is provided.
+Prechange local tables and API databases require the greenfield reset; backup
+format 16 rejects backups that can restore the obsolete provisioning table.
+See the
+[lost-response regression](../packages/api/src/routes/organizations/createOrganization.lostResponse.test.ts).
+
 ## Restart and reconnect
 
 These fixtures start with one personal organization, two user folders and one

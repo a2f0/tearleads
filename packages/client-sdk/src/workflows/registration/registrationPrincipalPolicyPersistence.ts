@@ -9,7 +9,7 @@ import type {
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/principalPolicy/locallyAcknowledgedPrincipalPolicyPersistence";
+import { seedLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/principalPolicy/locallyAcknowledgedPrincipalPolicyPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 async function principalPolicyBundleFromInitialRequest(
@@ -105,7 +105,7 @@ export async function persistRegistrationPrincipalPolicies(input: {
   readonly memberGroup: PrincipalPolicyBundleResponse;
   readonly organization: PrincipalPolicyBundleResponse;
 }): Promise<void> {
-  await persistLocallyAcknowledgedPrincipalPolicyBundles({
+  await seedLocallyAcknowledgedPrincipalPolicyBundles({
     entries: [input.adminGroup, input.memberGroup, input.organization].map(
       (bundle) => ({
         bundle,

@@ -49,6 +49,13 @@ export class OrganizationArea {
     });
   }
 
+  createOrganizationResult(request: CreateOrganizationRequest) {
+    return this.context.transport.requestResult(createOrganizationOperation, {
+      body: request,
+      params: {},
+    });
+  }
+
   getOrganizationReadModelResult(
     organizationId: string,
     cursor?: string,

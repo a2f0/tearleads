@@ -511,6 +511,9 @@ CREATE TABLE "organizations" (
 	"member_group_id" uuid NOT NULL,
 	"root_container_id" uuid NOT NULL,
 	"profile_document_id" uuid,
+	"provisioning_user_id" uuid,
+	"provisioning_request_sha256" text,
+	"provisioning_response" jsonb,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
