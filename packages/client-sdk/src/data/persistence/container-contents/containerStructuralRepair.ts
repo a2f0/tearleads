@@ -107,17 +107,18 @@ async function loadRemovalProjection(
   }> = [];
   const organizationIdByContainerId = new Map<string, string>();
   for (const batch of containerRemovalBatches(containerIds)) {
-    selectedRows.push(
-      ...(await tx
-        .select({
-          containerId: documentProjection.containerId,
-          documentId: documentProjection.documentId,
-          localId: documentProjection.localId,
-          updatedAt: documentProjection.updatedAt,
-        })
-        .from(documentProjection)
-        .where(inArray(documentProjection.containerId, batch))),
-    );
+    // A bounded container batch can still select unbounded document rows.
+    for (const row of await tx
+      .select({
+        containerId: documentProjection.containerId,
+        documentId: documentProjection.documentId,
+        localId: documentProjection.localId,
+        updatedAt: documentProjection.updatedAt,
+      })
+      .from(documentProjection)
+      .where(inArray(documentProjection.containerId, batch))) {
+      selectedRows.push(row);
+    }
 
     for (const [id, organizationId] of await loadOrganizationIdsForContainers(
       tx,

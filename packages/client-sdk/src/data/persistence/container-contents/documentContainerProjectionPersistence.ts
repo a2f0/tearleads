@@ -289,15 +289,24 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
         } else {
           await deleteContainerDocumentTombstoneHoldRowsForLinks(tx, writable);
         }
-        await tx
-          .delete(documentContainerProjection)
-          .where(
-            inArray(
-              documentContainerProjection.documentId,
-              writable.map((input) => input.documentId),
-            ),
-          )
-          .run();
+        // Each document binds once; finish every deletion before inserting.
+        for (
+          let index = 0;
+          index < writable.length;
+          index += SQLITE_BOUND_VARIABLE_BUDGET
+        ) {
+          await tx
+            .delete(documentContainerProjection)
+            .where(
+              inArray(
+                documentContainerProjection.documentId,
+                writable
+                  .slice(index, index + SQLITE_BOUND_VARIABLE_BUDGET)
+                  .map((input) => input.documentId),
+              ),
+            )
+            .run();
+        }
         const updatedAt = new Date().toISOString();
         const rows = writable.flatMap((input) =>
           Array.from(new Set(input.containerIds))
