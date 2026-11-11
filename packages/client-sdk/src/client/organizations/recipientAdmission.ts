@@ -47,10 +47,13 @@ async function stagedPin(
 }
 
 /**
- * Admit against the server's first answer without pinning it: the answer is
- * staged, and pinned as observed only once the signed roster vouches for that
- * exact identity bundle. A substituted answer leaves no pin, so a corrected
- * retry or the honest identity link still succeeds.
+ * Admit against the server's first answers without pinning them: the
+ * recipient's answer, and that of any historical signer the chain needs but
+ * this device has not pinned (a departed admin seen only in older Members
+ * states), are staged. Each is checked against its committed Members bundle,
+ * and all are pinned as observed only once the signed roster vouches for the
+ * recipient's exact identity bundle. A substituted answer leaves no pin, so a
+ * corrected retry or the honest identity link still succeeds.
  */
 async function isStagedRosterVouchedRecipient(
   userId: string,
@@ -69,9 +72,12 @@ async function isStagedRosterVouchedRecipient(
           candidate !== null &&
           (await isRosterVouchedRecipient(userId, {
             ...evidence,
-            loadPin: async (id) =>
-              (await evidence.loadPin(id)) ??
-              (id === userId ? stagedPin(candidate) : null),
+            loadPin: async (id) => {
+              const pin = await evidence.loadPin(id);
+              if (pin) return pin;
+              const staged = id === userId ? candidate : await resolve(id);
+              return staged ? stagedPin(staged) : null;
+            },
           }));
         if (!vouched) throw new RecipientNotVouched();
         return true;

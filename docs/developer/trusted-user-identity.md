@@ -316,7 +316,11 @@ first accepts a direct `self`/`link` pin. Otherwise it asks the
 to authenticate the target's full bundle. Without a pin, it checks the
 identity endpoint's answer staged in memory, and pins it as `observed` only
 once the chain authenticates that exact bundle, so a substituted answer leaves
-no pin and a corrected retry or the honest link still succeeds. The verifier
+no pin and a corrected retry or the honest link still succeeds. A historical
+signer the chain needs but this device never pinned, such as a departed admin
+seen only in older Members states, is staged the same way: its answer is
+checked against its committed Members bundle and pinned only with the vouched
+recipient. The verifier
 checks:
 
 1. The verified current Members projection must contain the target's exact
