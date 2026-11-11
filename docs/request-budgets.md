@@ -76,6 +76,8 @@ unless noted.
 | [`packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx`](../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx) | Upload one small image from Explorer | 6 | One document create, one multipart stage, one part upload, one attachment binding that carries the first content update and acknowledges its KEK targets by hash, no sync; one organization-policy read shared by the create and the bind's sync drain; no per-part authorization or stage-completion request; 38,000 request and 2,300 response bytes, plus the bytes of the one allowed root projection read when it happens |
 | [`DualPaneProvider.activePeerRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx) | An active peer reconciles an ungranted custom-group change | Exactly 4 | One read-model read, two organization-policy reads and one group-policy read; no container or document request and no Admins-policy read |
 | [`DeviceFirstOfflineRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DeviceFirstOfflineRequestVolume.test.tsx) | Offline folder create, cached note edit, and move to Trash | 0 each | After reconnect the queued create, link and unlink commit |
+| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged | 23 | Two user folders and two notes; fresh SDK and SQLite worker; no replayed writes |
+| [`PaneReconnectRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx) | Reconnect without pending work / after one peer folder create | 22 / 30 | Disconnect costs zero; one WebSocket ticket and one memberships read each; no write-bearing syncs |
 
 [`DualPaneProvider.sidebarReloadBudget.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.sidebarReloadBudget.test.tsx)
 budgets local sidebar reload passes during cold bootstrap, not HTTP requests.
@@ -87,6 +89,62 @@ a [head](./glossary/sync.md#head) new to the device needs its first read. See
 [current-policy request costs](developer/current-principal-consumers.md#request-costs)
 and [principal-history acceptance](principal-history-acceptance.md) for that
 security tradeoff.
+
+## Restart and reconnect
+
+These fixtures start with one personal organization, two user folders and one
+note in each, in addition to its system containers and self contact. Setup and
+all writes finish before measurement. The restart slice mounts a new pane and
+opens Explorer at the root; the reconnect slices keep Explorer mounted at the
+root. They measure completed HTTP calls, not WebSocket frames or a real socket
+server's CPU: the app uses the suite's MSW interest/acknowledgement transport
+twin and the real proxied test API.
+
+The restart and unchanged reconnect use one pane with the `app` host profile
+and shared runtime policy. The peer-create case uses two panes with the `demo`
+profile, isolated runtimes and peer-sharing features enabled, but no demo
+identity seeding. These are distinct fixtures: the difference between 22 and
+30 is not a measured incremental cost of creating one folder.
+
+The restart closes the SQLite connection, terminates its worker and disposes
+the SDK before mounting another instance with the persisted identity/session
+and the same SQLite backing file. A local-only SQL sentinel proves the database
+was reopened, not rebuilt from server responses. The backing file is in the
+test SQLite WASM VFS, not browser OPFS: this covers a pane/runtime restart, not
+an operating-system process restart or browser persistence durability.
+
+Reconnect uses Force Offline then Automatic Network, with no offline intents.
+It waits for a new acknowledged connection generation and the actual
+reconciliation promise started by that acknowledgement; it never calls an
+extra refresh to make the test converge. A network-quiet interval alone can end
+between the sweep's requests. The peer case creates one folder in another pane
+using a distinct session of the same identity and an independent local database
+while the observer is disconnected. The create and peer convergence are outside
+the measured window; every request inside it belongs to the observer, which
+must discover the previously absent folder.
+
+The measured baseline counts below are also the enforced per-route ceilings.
+They are upper bounds, not equality assertions: a reduction passes and should
+be remeasured and documented when an optimization changes the baseline.
+
+| Method and route | Restart | Reconnect unchanged | Reconnect after peer create |
+| --- | ---: | ---: | ---: |
+| `POST /auth/ws-ticket` | 1 | 1 | 1 |
+| `GET /organization-memberships` | 1 | 1 | 1 |
+| `GET /organizations/:organizationId/billing` | 1 | 0 | 0 |
+| `POST /containers/parent-lanes/query` | 2 | 4 | 6 |
+| `POST /containers/documents/query` | 3 | 1 | 2 |
+| `GET /principals/organization/:organizationId/policy` | 2 | 3 | 5 |
+| `GET /principals/group/:groupId/policy` | 0 | 0 | 0 |
+| `GET /principals/history` | 1 | 0 | 0 |
+| `GET /containers/:containerId/writer-projection` | 3 | 1 | 2 |
+| `GET /documents/:documentId/writer-projection` | 3 | 3 | 4 |
+| `POST /documents/:documentId/sync` (all read-only) | 6 | 8 | 9 |
+| **Total** | **23** | **22** | **30** |
+
+Each canary also rejects data mutations and non-200 responses, checks for
+delayed follow-up traffic before other UI actions, and tears down the pane.
+These are baselines, not claimed optimizations or outage/retry limits.
 
 ## Design decisions
 
