@@ -66,6 +66,7 @@ export async function verifyGroupPolicy(input: {
   readonly localPolicyCheckpoint: PrincipalPolicyCheckpoint | null;
   /** When given, pin the verified policy's signers and members. */
   readonly resolveTrustedUserIdentity?: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
 }): Promise<VerifiedPrincipalPolicy> {
   const verified = await verifyPrincipalPolicyBundle({
@@ -88,6 +89,7 @@ export async function verifyGroupPolicy(input: {
     await publishVerifiedPrincipalPolicy({
       bundle: input.currentPolicy,
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+      stillCurrent: input.stillCurrent,
     });
 
   return verified.value;
@@ -99,6 +101,7 @@ export async function verifyGroupPolicyWithExternalOrganizationAdmins(input: {
   readonly localPolicyCheckpoint: PrincipalPolicyCheckpoint | null;
   /** When given, pin the verified policy's signers and members. */
   readonly resolveTrustedUserIdentity?: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
 }): Promise<VerifiedPrincipalPolicy> {
   const verified: KeyingVerificationResult<VerifiedPrincipalPolicy> =
@@ -119,6 +122,7 @@ export async function verifyGroupPolicyWithExternalOrganizationAdmins(input: {
     await publishVerifiedPrincipalPolicy({
       bundle: input.currentPolicy,
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+      stillCurrent: input.stillCurrent,
     });
   return verified.value;
 }

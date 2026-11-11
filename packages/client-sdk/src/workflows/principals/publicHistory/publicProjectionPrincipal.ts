@@ -58,6 +58,7 @@ export async function selectPublicProjectionPrincipal(
   await assertSelectedPolicyCommitments(
     policies,
     options.resolveTrustedUserIdentity,
+    () => assertProjectionVerificationCurrent(current),
   );
   assertProjectionVerificationCurrent(current);
   return policies;

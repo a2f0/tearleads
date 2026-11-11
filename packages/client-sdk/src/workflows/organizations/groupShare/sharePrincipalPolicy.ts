@@ -331,6 +331,7 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   await publishVerifiedPrincipalPolicy({
     bundle,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
   assertGroupMetadataBinding(bundle, organizationAdminPolicy.descriptor);
   if (input.expectedGroupName !== undefined) {

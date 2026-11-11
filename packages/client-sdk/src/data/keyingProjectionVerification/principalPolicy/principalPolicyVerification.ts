@@ -273,12 +273,23 @@ async function loadOrganizationExternalAuthority(
   }
 }
 
-/** Fresh or reused: check every projection, history included; pin first sights. */
-function assertVerifiedPolicyCommitments(
+/**
+ * Fresh or reused: check every projection, history included; pin first
+ * sights within the verification's lifetime. A freshly verified `bundle` also
+ * pins its signers.
+ */
+async function assertVerifiedPolicyCommitments(
   policy: PrincipalPolicyCurrentEvidence,
-  resolveUserKey: ProjectionUserKeyResolver,
+  scope: {
+    readonly resolveUserKey: ProjectionUserKeyResolver;
+    readonly stillCurrent?: (() => boolean) | undefined;
+  },
+  bundle?: PrincipalPolicyBundleResponse,
 ): Promise<void> {
-  return assertPrincipalIdentityCommitments({
+  const assertCurrent = () =>
+    assertProjectionVerificationCurrent(scope.stillCurrent);
+  await assertPrincipalIdentityCommitments({
+    assertCurrent,
     authenticated: true,
     projections: [
       policy.projection,
@@ -286,8 +297,14 @@ function assertVerifiedPolicyCommitments(
         (entry) => entry.projection,
       ),
     ],
-    resolveTrustedUserIdentity: resolveUserKey,
+    resolveTrustedUserIdentity: scope.resolveUserKey,
   });
+  if (bundle)
+    await publishVerifiedPolicyBundle(
+      bundle,
+      scope.resolveUserKey,
+      assertCurrent,
+    );
 }
 
 async function verifyReferencedPrincipalPolicy(input: {
@@ -303,7 +320,7 @@ async function verifyReferencedPrincipalPolicy(input: {
   // A bare policy cache entry cannot replace those bindings.
   const recovered = await resolveReferencedPrincipalPolicy(input);
   if (recovered) {
-    await assertVerifiedPolicyCommitments(recovered, input.resolveUserKey);
+    await assertVerifiedPolicyCommitments(recovered, input);
     return recovered;
   }
   const cacheKey = referencedPrincipalPolicyKey(input.reference);
@@ -324,7 +341,7 @@ async function verifyReferencedPrincipalPolicy(input: {
       );
     }
     if (verifiedPrincipalPolicyMeetsCheckpoint(cachedPolicy, localCheckpoint)) {
-      await assertVerifiedPolicyCommitments(cachedPolicy, input.resolveUserKey);
+      await assertVerifiedPolicyCommitments(cachedPolicy, input);
       observePrincipalPolicy(
         input.checkpointContext,
         cachedPolicy,
@@ -381,8 +398,7 @@ async function verifyReferencedPrincipalPolicy(input: {
   if (!verified.ok) {
     throw verified.error;
   }
-  await assertVerifiedPolicyCommitments(verified.value, input.resolveUserKey);
-  await publishVerifiedPolicyBundle(bundle, input.resolveUserKey);
+  await assertVerifiedPolicyCommitments(verified.value, input, bundle);
 
   observePrincipalPolicy(
     input.checkpointContext,

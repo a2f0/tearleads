@@ -128,11 +128,17 @@ export function publishVerifiedPrincipalPolicy(input: {
   >;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly assertCurrent?: (() => void) | undefined;
+  /** The operation's lifetime, checked inside every pin write. */
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
+  const { stillCurrent } = input;
   return publishVerifiedPolicyBundle(
     input.bundle,
     requireTrustedUserIdentityResolver(input.resolveTrustedUserIdentity),
-    input.assertCurrent,
+    input.assertCurrent ??
+      (stillCurrent
+        ? () => assertProjectionVerificationCurrent(stillCurrent)
+        : undefined),
   );
 }
 

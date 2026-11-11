@@ -208,6 +208,7 @@ async function finishRecovery(
   await assertSelectedPolicyCommitments(
     [current.value],
     input.resolveTrustedUserIdentity,
+    () => assertCurrent(input),
   );
   verifyPrincipalPolicyCheckpoint({
     chain: current.value.retainedHistory,

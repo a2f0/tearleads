@@ -90,6 +90,7 @@ async function verifyOrganizationPolicy(input: {
   readonly execSql: ExecSql;
   readonly organizationId: string;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<VerifiedPrincipalPolicy | null> {
   const localCheckpoint = await loadPrincipalPolicyCheckpoint(
     input.execSql,
@@ -156,6 +157,7 @@ async function loadVerifiedAdminsPolicy(input: {
   readonly execSql: ExecSql;
   readonly currentPolicyReader: CurrentPrincipalPolicyReader;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<{
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly policy: VerifiedPrincipalPolicy;
@@ -218,6 +220,7 @@ async function loadVerifiedAdminsPolicy(input: {
   await publishVerifiedPrincipalPolicy({
     bundle,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
   return { bundle, policy: verified.value };
 }
@@ -247,6 +250,7 @@ async function loadExternalAdminPolicyOnce(
     execSql: input.execSql,
     organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
   if (!policy) {
     return null;
@@ -262,6 +266,7 @@ async function loadExternalAdminPolicyOnce(
     execSql: input.execSql,
     currentPolicyReader: input.currentPolicyReader,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
   if (!admin) {
     return null;

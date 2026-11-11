@@ -21,6 +21,8 @@ export async function assertPrincipalIdentityCommitments(input: {
   readonly authenticated: boolean;
   readonly projections: readonly (readonly PrincipalProjectionMember[])[];
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  /** The calling operation's lifetime, checked inside every pin write. */
+  readonly assertCurrent?: (() => void) | undefined;
 }): Promise<void> {
   const resolver = input.resolveTrustedUserIdentity;
   if (!resolver.withPinnedIdentities)
@@ -34,7 +36,7 @@ export async function assertPrincipalIdentityCommitments(input: {
       ),
     ],
     (resolve) => compareCommitments(input.projections, resolve),
-    { publish: input.authenticated },
+    { publish: input.authenticated, assertCurrent: input.assertCurrent },
   );
 }
 
@@ -143,8 +145,10 @@ export function assertSelectedPolicyCommitments(
     }[];
   }[],
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
+  assertCurrent: () => void,
 ): Promise<void> {
   return assertPrincipalIdentityCommitments({
+    assertCurrent,
     authenticated: true,
     projections: policies.flatMap((policy) => [
       policy.projection,

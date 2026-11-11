@@ -59,6 +59,7 @@ async function isStagedRosterVouchedRecipient(
   userId: string,
   evidence: RosterAdmissionEvidence,
   resolver: TrustedUserIdentityResolver,
+  assertCurrent: (() => void) | undefined,
 ): Promise<boolean> {
   // Without staging, admit only a durable pin: never pin before the roster.
   if (!resolver.withPinnedIdentities)
@@ -82,7 +83,7 @@ async function isStagedRosterVouchedRecipient(
         if (!vouched) throw new RecipientNotVouched();
         return true;
       },
-      { publish: true },
+      { publish: true, assertCurrent },
     );
   } catch (error) {
     if (error instanceof RecipientNotVouched) return false;
@@ -102,6 +103,8 @@ export function isReportedRosterVouchedRecipient(input: {
   readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly userId: string;
+  /** The admission's lifetime, checked inside every pin write. */
+  readonly assertCurrent?: (() => void) | undefined;
 }): Promise<boolean> {
   const { evidence, userId } = input;
   return runWithSecurityIncidentReporting(
@@ -117,6 +120,7 @@ export function isReportedRosterVouchedRecipient(input: {
         userId,
         evidence,
         input.resolveTrustedUserIdentity,
+        input.assertCurrent,
       ),
   );
 }
@@ -146,6 +150,7 @@ async function requireOrganizationRecipient(
     if (!evidence) throw error;
     let head: ReferencedPrincipalHead | undefined;
     const vouched = await isReportedRosterVouchedRecipient({
+      assertCurrent: admissionLifetime(service, admittingExecSql),
       evidence: {
         ...evidence,
         async loadCurrentMembers() {

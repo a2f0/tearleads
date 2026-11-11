@@ -102,6 +102,7 @@ export async function cacheGroupPolicy(input: {
     localPolicyCheckpoint: input.localPolicyCheckpoint ?? null,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     signerPublicKeys,
+    stillCurrent: input.stillCurrent,
   });
   if (input.expectedCurrentHead) {
     assertPrincipalPolicyCurrentStateMatchesHead(
