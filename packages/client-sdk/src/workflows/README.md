@@ -321,8 +321,8 @@ never raw API identities; `@tearleads/client-sdk/testing` is test-only.
 Public founding-policy builders, `createOrganizationGroup`, and
 `registerIdentity` require canonical `identityTrustDomain`; runtime services
 supply it. [Identity contracts](../../../../docs/developer/client-sdk/public-api.md#principal-identity-contracts)
-define full projection commitments, continuing-identity immutability, bounded
-admission, and separately authorized reset-only deployment. Helpers stay private.
+define full commitments, scoped pin reads (never admission), bounded vouching,
+and reset-only deployment. Helpers stay private; signer resolution is unchanged.
 
 Trust-boundary failures are terminal and feed the client-owned
 `tearleads.securityIncidents` ledger. Workflow runtimes receive only its

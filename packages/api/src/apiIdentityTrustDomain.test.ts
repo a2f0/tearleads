@@ -12,6 +12,15 @@ test("identity trust domain preserves a canonical configured API base path", () 
   ).toBe("https://api.example.test/v1");
 });
 
+test("identity trust domains preserve long internal slash runs in bounded time", () => {
+  const domain = `https://api.example.test/${"/".repeat(100_000)}x`;
+  const startedAt = performance.now();
+  expect(
+    readApiIdentityTrustDomain({ API_IDENTITY_TRUST_DOMAIN: `${domain}///` }),
+  ).toBe(domain);
+  expect(performance.now() - startedAt).toBeLessThan(1_000);
+});
+
 test("identity trust domain defaults to configured public origin", () => {
   expect(
     readApiIdentityTrustDomain({

@@ -1,8 +1,7 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   compareOrInsertTrustedUserIdentityPin,
-  loadTrustedUserIdentityPin,
   loadTrustedUserIdForSigningKey,
   TrustedUserIdentityPinCorruptError,
   TrustedUserIdentityPinMismatchError,
@@ -17,6 +16,8 @@ import {
   createIdentityLink,
   parseIdentityLink,
 } from "./identityLink";
+import { loadPin, loadPinnedUserIdentity } from "./pinnedIdentity";
+import { withPinnedIdentityResolution } from "./pinnedResolution";
 import {
   brandTrustedUserIdentity,
   TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,
@@ -31,7 +32,6 @@ import {
   assertTrustedUserIdentityUserId,
   validateLocalUserIdentity,
   validateRemoteUserIdentity,
-  validateUserIdentityKeys,
 } from "./validation";
 
 function requireTrustDomain(
@@ -193,49 +193,6 @@ async function pinIdentity(input: {
   return brandTrustedUserIdentity(input.identity);
 }
 
-/**
- * Read-only: the identity this trust store already pins for `userId` and how
- * it was established, or null. The stored keys must still match their stored
- * fingerprints. Never inserts, compares against or replaces a pin.
- */
-async function loadPin(input: {
-  readonly execSql: ExecSql;
-  readonly identityTrustDomain: string;
-  readonly userId: string;
-}): Promise<{
-  readonly identity: TrustedUserIdentity;
-  readonly provenance: TrustedUserIdentityPinProvenance;
-} | null> {
-  assertTrustedUserIdentityUserId(input.userId);
-  const pin = await loadTrustedUserIdentityPin(input);
-  if (!pin) return null;
-  const keys = await validateUserIdentityKeys({
-    candidate: {
-      encapsulationPublicKey: base64ToBytes(pin.encapsulationPublicKey),
-      signingKeyFingerprint: pin.signingKeyFingerprint,
-      signingPublicKey: base64ToBytes(pin.signingPublicKey),
-    },
-    encapsulationKeyFingerprint: pin.encapsulationKeyFingerprint,
-  });
-  return {
-    identity: brandTrustedUserIdentity({
-      ...keys,
-      identityTrustDomain: input.identityTrustDomain,
-      userId: input.userId,
-    }),
-    provenance: pin.provenance,
-  };
-}
-
-/** Read-only: the pinned identity for `userId` of any provenance, or null. */
-export async function loadPinnedUserIdentity(input: {
-  readonly execSql: ExecSql;
-  readonly identityTrustDomain: string;
-  readonly userId: string;
-}): Promise<TrustedUserIdentity | null> {
-  return (await loadPin(input))?.identity ?? null;
-}
-
 /** Compares an independently received link before pinning it as `link`. */
 async function verifyIdentityLink(
   dependencies: TrustedUserIdentityServiceDependencies,
@@ -389,7 +346,7 @@ export function createTrustedUserIdentityService(
         provenance: "self",
       });
     },
-    async resolve(userId) {
+    resolve: withPinnedIdentityResolution(dependencies, async (userId) => {
       assertTrustedUserIdentityUserId(userId);
       const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
       const localUserId = dependencies.getLocalUserId();
@@ -417,6 +374,6 @@ export function createTrustedUserIdentityService(
         dependencies.remoteSource.invalidate(userId);
         throw error;
       }
-    },
+    }),
   };
 }

@@ -1,48 +1,9 @@
-import { KeyingVerificationError } from "@tearleads/crypto";
+import { canonicalIdentityTrustDomain } from "@tearleads/crypto";
 
 interface IdentityTrustDomainInput {
   readonly apiBaseUrl: string | null | undefined;
   readonly ambientHref?: string | null | undefined;
   readonly identityTrustDomain?: string | null | undefined;
-}
-
-function invalidTrustDomain(message: string): never {
-  throw new KeyingVerificationError("invalid_domain", message);
-}
-
-function canonicalHttpUrl(value: string, base?: string): string {
-  let url: URL;
-  try {
-    url = base ? new URL(value, base) : new URL(value);
-  } catch {
-    return invalidTrustDomain(
-      "Identity trust domain must resolve to an absolute HTTP(S) URL",
-    );
-  }
-
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    return invalidTrustDomain(
-      "Identity trust domain must use the HTTP or HTTPS protocol",
-    );
-  }
-  if (url.username || url.password) {
-    return invalidTrustDomain(
-      "Identity trust domain must not contain URL credentials",
-    );
-  }
-  if (url.search || url.hash) {
-    return invalidTrustDomain(
-      "Identity trust domain must not contain a query or fragment",
-    );
-  }
-
-  // This uses the API base URL too; avoid backtracking over internal slash runs.
-  const pathname = url.pathname;
-  let end = pathname.length;
-  while (end > 0 && pathname[end - 1] === "/") {
-    end -= 1;
-  }
-  return `${url.origin}${pathname.slice(0, end)}`;
 }
 
 function readAmbientHref(): string | null {
@@ -72,16 +33,16 @@ export function resolveIdentityTrustDomain(
 ): string | null {
   const override = input.identityTrustDomain?.trim();
   if (override) {
-    return canonicalHttpUrl(override);
+    return canonicalIdentityTrustDomain(override);
   }
 
   const apiBaseUrl = (input.apiBaseUrl ?? "").trim();
   const ambientHref = input.ambientHref ?? readAmbientHref();
   if (/^https?:\/\//iu.test(apiBaseUrl)) {
-    return canonicalHttpUrl(apiBaseUrl);
+    return canonicalIdentityTrustDomain(apiBaseUrl);
   }
   if (!ambientHref || !isHttpUrl(ambientHref)) {
     return null;
   }
-  return canonicalHttpUrl(apiBaseUrl || "/", ambientHref);
+  return canonicalIdentityTrustDomain(apiBaseUrl || "/", ambientHref);
 }

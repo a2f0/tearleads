@@ -4,6 +4,7 @@ import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
 } from "../../../test/helpers/internalRuntimeFixtures";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import { UnverifiedUserIdentityError } from "../../data/trustedUserIdentity";
 import {
@@ -69,6 +70,7 @@ async function fixtureRuntime() {
     fixture,
     runtime,
     service,
+    served,
     restore: () => {
       resolver.mockRestore();
       create.mockRestore();
@@ -106,7 +108,7 @@ test("an existing roster member passes group-add admission without a direct link
         groupId: "other-group",
         expectedGroupName: "Other",
       }),
-    ).rejects.not.toBeInstanceOf(UnverifiedUserIdentityError);
+    ).rejects.toEqual(new Error("Organization signing context is unavailable"));
   } finally {
     restore();
   }
@@ -196,7 +198,7 @@ test("a roster proof cannot outlive its runtime identity trust domain", async ()
   }
 });
 
-test("a roster group-add proof refuses removal/re-addition and demands a link at fresh enrollment", async () => {
+test("a roster group-add proof expires at another head and demands a link at fresh enrollment", async () => {
   const { fixture, runtime, service, restore } = await fixtureRuntime();
   try {
     const admission = await requireGroupMemberAdmission(
@@ -217,11 +219,91 @@ test("a roster group-add proof refuses removal/re-addition and demands a link at
         currentState: { ...current.state, stateHash: "changed-head" },
         currentProjection: current.projection,
       }),
-    ).rejects.toBeInstanceOf(UnverifiedUserIdentityError);
+    ).rejects.toBeInstanceOf(ProjectionDependencyUnavailableError);
     await expect(
       admission({ currentState: current.state, currentProjection: [] }),
     ).rejects.toBeInstanceOf(UnverifiedUserIdentityError);
   } finally {
+    restore();
+  }
+});
+
+test("Members advancing between proof and mutation is retryable without a new identity link", async () => {
+  const { fixture, runtime, service, served, restore } = await fixtureRuntime();
+  const resumeMutation = Promise.withResolvers<void>();
+  const enteredMutation = Promise.withResolvers<void>();
+  const membersRead = spyOn(served, "loadCurrentMembers");
+  const historyRead = spyOn(served, "loadHistoryPage");
+  let writes = 0;
+  let mutation: Promise<unknown> | undefined;
+  try {
+    const admission = await requireGroupMemberAdmission(
+      service,
+      runtime.infra.execSql,
+      "carol",
+    );
+    const previous = fixture.entries.at(-1);
+    if (!previous) throw new Error("Missing fixture head");
+    let selected = previous;
+    mutation = (async () => {
+      enteredMutation.resolve();
+      await resumeMutation.promise;
+      await admission({
+        currentState: selected.state,
+        currentProjection: selected.projection,
+      });
+      writes += 1;
+    })().catch((error: unknown) => error);
+    await enteredMutation.promise;
+    // Another writer advances Members after the proof, retaining the exact
+    // recipient identity, before this mutation selects its Members policy.
+    const advanced = await membersHistory([
+      { members: { "admin-a": "c".repeat(64) }, signer: "admin-a" },
+      ...Array.from({ length: 2 }, () => ({
+        members: { "admin-a": "c".repeat(64), carol: GOOD_KEY },
+        signer: "admin-a",
+      })),
+    ]);
+    const next = advanced.entries.at(-1);
+    if (!next) throw new Error("Missing advanced fixture head");
+    expect(next.state.prevStateHash).toBe(previous.state.stateHash);
+    expect(next.projection).toEqual(previous.projection);
+    selected = next;
+    expect(writes).toBe(0);
+    resumeMutation.resolve();
+    const refusal = await mutation;
+    expect(writes).toBe(0);
+    expect(refusal).toBeInstanceOf(ProjectionDependencyUnavailableError);
+    expect(refusal).toMatchObject({
+      message: "Members changed while admitting this user. Try again.",
+    });
+    expect(membersRead).toHaveBeenCalledTimes(1);
+    expect(historyRead).toHaveBeenCalledTimes(1);
+
+    // A caller retry proves the new head, without promoting the observed pin.
+    membersRead.mockRestore();
+    historyRead.mockRestore();
+    Object.assign(
+      served,
+      evidence(advanced, {
+        ...VERIFIED_ADMIN_A,
+        carol: await pin("carol", false),
+      }),
+    );
+    const retry = await requireGroupMemberAdmission(
+      service,
+      runtime.infra.execSql,
+      "carol",
+    );
+    await expect(
+      retry({ currentState: next.state, currentProjection: next.projection }),
+    ).resolves.toBeUndefined();
+    expect(await served.loadPin("carol")).toMatchObject({ verified: false });
+  } finally {
+    resumeMutation.resolve();
+    await mutation;
+    membersRead.mockRestore();
+    historyRead.mockRestore();
     restore();
   }
 });

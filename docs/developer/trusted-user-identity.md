@@ -92,11 +92,21 @@ and SDK domains must match exactly, including a deployment base path. Set the
 explicit API domain for path-prefixed deployments: the public origin has no
 path. Behind a reverse proxy, configure the client-visible URL, not an internal
 listener or a forwarded request header. An SDK `identityTrustDomain` override
-must name that same stable domain. Both canonicalizers remove trailing slashes
-and reject credentials, queries, and fragments. The API requires HTTPS in
-production; only
-non-production composition may fall back to a request URL's origin when no
-domain is configured. Never use that fallback as a deployment trust anchor.
+must name that same stable domain. Both use the shared
+[`canonicalIdentityTrustDomain`](../../packages/crypto/src/identityTrustDomain.ts)
+to remove trailing slashes and reject credentials, queries, and fragments.
+The API requires HTTPS in production; only non-production composition may fall
+back to a request URL's origin when no domain is configured. Never use that
+fallback as a deployment trust anchor.
+
+Local web and native clients sharing one API database must also use the same
+canonical domain. The Android development default `http://10.0.2.2:3001`
+differs from the web default `http://localhost:3001`; these are not interchangeable
+identity scopes. For cross-device development, set both clients'
+`VITE_API_BASE_URL` and the API's `API_IDENTITY_TRUST_DOMAIN` to one URL reachable
+from both, before creating identities or policies. Changing only the API's
+domain does not change a client's identity scope. Existing commitments are not
+rewritten when configuration changes.
 
 ## Scope And Lifecycle
 
@@ -190,6 +200,11 @@ retry finds the user absent, automatic enrollment rechecks direct `self`/`link`
 admission. The demo's dual panes publish each pane's identity link and verify
 the peer's when available.
 
+If Members advances after a roster proof but before its mutation, the SDK
+refuses with retryable `ProjectionDependencyUnavailableError`, not a demand
+for another identity link. A new caller attempt must prove admission against
+the new head; the SDK does not silently reuse the stale proof.
+
 The v1 URL is `/app/contacts/import/<token>`. The token is unpadded canonical
 base64url of the UTF-8 JSON array `[1, identityTrustDomain, userId, fingerprint]`.
 The fingerprint is lowercase SHA-256 of this UTF-8 `JSON.stringify` result:
@@ -248,6 +263,17 @@ key fingerprints. The SDK [checks commitments](../../packages/client-sdk/src/dat
 against gateway-resolved bundles during policy verification. These structural
 checks do not themselves authenticate an `observed` identity; admission still
 needs an independent anchor or the chain below.
+
+Structural verification can use the gateway's scoped
+`withPinnedIdentities(ids, verify)` capability. It reads existing immutable pins
+in one transaction, chunking SQL within the bind budget, and revalidates their
+key material and fingerprints before checking every projection commitment.
+Only missing pins use ordinary resolution; the current user always rechecks
+authoritative local keys. Database, account, or runtime-generation changes
+invalidate the operation. The callback's resolver is not a persistent cache.
+Ordinary resolution and signer resolution still fetch and compare candidates
+with durable pins; this optimization neither changes that conflict detection
+nor promotes an `observed` pin to an admission anchor.
 
 This is a [reset-only format change](greenfield-reset.md#identity-bound-principal-format),
 not a migration or fingerprint backfill. Accepting it does not authorize

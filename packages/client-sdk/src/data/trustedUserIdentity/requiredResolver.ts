@@ -37,6 +37,18 @@ export function requireTrustedUserIdentityResolver(
     }
     return identity;
   };
+  if (resolver.withPinnedIdentities) {
+    const withPinnedIdentities = resolver.withPinnedIdentities;
+    Object.assign(adapter, {
+      withPinnedIdentities: <T>(
+        userIds: readonly string[],
+        verify: (resolve: TrustedUserIdentityResolver) => Promise<T>,
+      ) =>
+        withPinnedIdentities(userIds, (pinned) =>
+          verify(requireTrustedUserIdentityResolver(pinned)),
+        ),
+    });
+  }
   resolverAdaptersByResolver.set(resolver, adapter);
   resolverAdaptersByResolver.set(adapter, adapter);
   return adapter;

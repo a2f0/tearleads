@@ -3,6 +3,7 @@ import type {
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
@@ -150,7 +151,9 @@ export async function requireGroupMemberAdmission(
       admission.status === "roster" &&
       !principalHeadMatchesReference(members.currentState, admission.head)
     ) {
-      throw new UnverifiedUserIdentityError(userId);
+      throw new ProjectionDependencyUnavailableError(
+        "Members changed while admitting this user. Try again.",
+      );
     }
     assertCurrent();
   };

@@ -86,14 +86,19 @@ export function createRosterAdmissionHistory(
       exhausted = true;
       return undefined;
     }
+    if (
+      cursor.version !== 0 &&
+      page.nextBeforeVersion !== null &&
+      page.nextBeforeVersion !== cursor.version + 1
+    ) {
+      exhausted = true;
+      return undefined;
+    }
+    // Publish only a fully accepted page to subsequent membership lookups.
     expectedVersion = cursor.version;
     expectedHash = cursor.hash;
     entries.push(...batch);
     exhausted = expectedVersion === 0 || page.nextBeforeVersion === null;
-    if (!exhausted && page.nextBeforeVersion !== expectedVersion + 1) {
-      exhausted = true;
-      return undefined;
-    }
     beforeVersion = page.nextBeforeVersion ?? undefined;
     return entries[index];
   }

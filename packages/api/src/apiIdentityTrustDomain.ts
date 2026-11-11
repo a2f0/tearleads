@@ -1,3 +1,4 @@
+import { canonicalIdentityTrustDomain } from "@tearleads/crypto";
 import { readApiPublicOrigin } from "./apiPublicOrigin";
 
 interface ApiIdentityTrustDomainEnv {
@@ -12,26 +13,21 @@ export function readApiIdentityTrustDomain(
 ): string | null {
   const configured = env.API_IDENTITY_TRUST_DOMAIN?.trim();
   if (!configured) return readApiPublicOrigin(env);
-  let url: URL;
+  let domain: string;
   try {
-    url = new URL(configured);
-  } catch {
-    throw new Error("API_IDENTITY_TRUST_DOMAIN must be an absolute URL");
-  }
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new Error("API_IDENTITY_TRUST_DOMAIN must use http or https");
-  }
-  if (url.username || url.password || url.search || url.hash) {
+    domain = canonicalIdentityTrustDomain(configured);
+  } catch (error) {
     throw new Error(
-      "API_IDENTITY_TRUST_DOMAIN must not include credentials, query or fragment",
+      `API_IDENTITY_TRUST_DOMAIN: ${error instanceof Error ? error.message : "invalid URL"}`,
+      { cause: error },
     );
   }
-  if (env.NODE_ENV?.trim() === "production" && url.protocol !== "https:") {
+  if (env.NODE_ENV?.trim() === "production" && !domain.startsWith("https:")) {
     throw new Error(
       "API_IDENTITY_TRUST_DOMAIN must use https when NODE_ENV=production",
     );
   }
-  return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
+  return domain;
 }
 
 /** A null configured scope is permitted only by non-production composition. */

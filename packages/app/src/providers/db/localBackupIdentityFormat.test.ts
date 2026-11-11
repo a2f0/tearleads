@@ -43,14 +43,17 @@ test("export refuses to relabel an obsolete source as a current backup", async (
   try {
     await source.execSql((await obsoleteTable()).sql);
     const before = await readBackupDatabase({ execSql: source.execSql });
-    await expect(
-      createBackupPayload({
-        blobStore: createMemoryBlobStore(),
-        execSql: source.execSql,
-        databaseId: null,
-        signingFingerprint: null,
-      }),
-    ).rejects.toThrow("obsolete principal identity format");
+    const error = await createBackupPayload({
+      blobStore: createMemoryBlobStore(),
+      execSql: source.execSql,
+      databaseId: null,
+      signingFingerprint: null,
+    }).catch((cause: unknown) => cause);
+    expect(error).toBeInstanceOf(Error);
+    expect(String(error)).toContain("obsolete principal identity format");
+    expect(String(error)).toContain("cannot be migrated");
+    expect(String(error)).toContain("Preserve the source database");
+    expect(String(error)).not.toContain("reset");
     expect(await readBackupDatabase({ execSql: source.execSql })).toEqual(
       before,
     );
@@ -191,7 +194,9 @@ for (const boundary of ["database", "payload"] as const) {
                 },
               });
         await expect(result).rejects.toThrow(
-          "obsolete principal identity format",
+          corruption === "old-schema"
+            ? "obsolete principal identity format"
+            : "invalid principal identity data",
         );
         expect(write).not.toHaveBeenCalled();
         expect(sql).not.toHaveBeenCalled();

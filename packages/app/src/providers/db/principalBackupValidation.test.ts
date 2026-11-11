@@ -21,7 +21,7 @@ test.each([undefined, "A".repeat(64), "a".repeat(63)])(
     });
     expect(() =>
       validateBackupSchema({ tables: [table], indexes: [] }),
-    ).toThrow("obsolete principal identity format");
+    ).toThrow("invalid principal identity data");
   },
 );
 
@@ -70,7 +70,7 @@ test.each([
     });
     expect(() =>
       validateBackupSchema({ tables: [table], indexes: [] }),
-    ).toThrow("obsolete principal identity format");
+    ).toThrow("invalid principal identity data");
   },
 );
 
@@ -98,7 +98,7 @@ for (const name of [
     });
     expect(() =>
       validateBackupSchema({ tables: [table], indexes: [] }),
-    ).toThrow("obsolete principal identity format");
+    ).toThrow("invalid principal identity data");
   });
 }
 
@@ -117,7 +117,7 @@ test("backup rejects duplicate case-folded SQL declarations before restore", asy
       ],
       indexes: [],
     }),
-  ).toThrow("obsolete principal identity format");
+  ).toThrow("invalid principal identity data");
 });
 
 test.each([

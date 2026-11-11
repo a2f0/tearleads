@@ -104,6 +104,8 @@ export function createCurrentPrincipalMutation(
             (entry) => entry.userId === mutation.targetUserId,
           )
         ) {
+          // Preparation awaited identities/metadata; recheck direct self/link
+          // admission at fresh enrollment even though the Members view is reused.
           await mutation.admission(members.currentPolicy);
           member = await prepareChange(members, {
             ...mutation,

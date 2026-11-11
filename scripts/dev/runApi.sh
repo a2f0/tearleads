@@ -12,6 +12,9 @@ Modes:
   turso                        Run against a remote Turso database.
 
 You can also set API_DATABASE instead of passing a mode argument.
+For clients sharing this database, set API_IDENTITY_TRUST_DOMAIN and every
+client's VITE_API_BASE_URL to the same canonical, reachable URL. Android's
+10.0.2.2 and the web's localhost defaults are different identity scopes.
 EOF
 }
 

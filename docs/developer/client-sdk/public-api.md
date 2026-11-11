@@ -246,6 +246,16 @@ admission. Shared provisioning orchestration, signer collection,
 identity-commitment helpers, and roster-admission evidence remain
 package-private; this change adds no root export or deep-import entry point.
 
+The existing callable `TrustedUserIdentityResolver` may expose
+`withPinnedIdentities(ids, verify)` for structural commitment checks. The
+built-in gateway batch-reads immutable pins, revalidates both keys and their
+fingerprints, and passes a scoped resolver to `verify`; missing pins and self
+identity retain ordinary resolution. The callback must not retain its resolver
+for later work. Plain callable resolvers remain valid and use the ordinary
+per-user path. This capability does not admit recipients, raise provenance, or
+change direct resolution and signer-refetch conflict checks. A changed
+database, account, or runtime generation invalidates the scoped operation.
+
 ### Recipient admission
 
 `organizations.addUserToGroup` and a container store's `shareWithUser` first
@@ -267,7 +277,9 @@ bounds, self-admission, cycles, and forward-only chains cannot establish trust.
 
 An otherwise valid but unauthenticated target raises
 `UnverifiedUserIdentityError` before the mutation; availability errors propagate
-separately. Bundle and current or signed-root-verified historical envelope
+separately. Members advancing between proof and mutation raises retryable
+`ProjectionDependencyUnavailableError`; the caller must retry against the new
+head. Bundle and current or signed-root-verified historical envelope
 contradictions raise `hash_mismatch`. Signer-pin conflicts remain hard
 verification failures; policy verification may reject them earlier as
 `signer_mismatch`. Chain admission never promotes a pin to `self` or `link`:

@@ -81,6 +81,7 @@ export {
   normalizeIdentitySeedPhrase,
   validateIdentitySeedPhrase,
 } from "./identitySeedPhrase";
+export { canonicalIdentityTrustDomain } from "./identityTrustDomain";
 export {
   createIncrementalSha256,
   type IncrementalSha256,

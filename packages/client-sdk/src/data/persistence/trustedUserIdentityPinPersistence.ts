@@ -251,7 +251,7 @@ function assertCandidatePin(pin: TrustedUserIdentityPin): void {
   }
 }
 
-function parseStoredPin(
+export function parseStoredPin(
   value: unknown,
   scope: PinScope,
 ): TrustedUserIdentityPin {

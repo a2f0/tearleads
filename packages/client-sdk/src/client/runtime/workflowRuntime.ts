@@ -6,8 +6,6 @@ import type { DomainScope } from "../../data/shared/domainScope";
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import { type ExecSql, unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import {
-  createApiUserIdentitySource,
-  createTrustedUserIdentityService,
   type LocalUserIdentityCandidate,
   loadPinnedUserIdentity,
   type TrustedUserIdentityResolver,
@@ -43,6 +41,7 @@ import {
   type PrincipalMutationApi,
 } from "./principalMutationApi";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
+import { createRuntimeIdentityResolution } from "./runtimeIdentityResolution";
 import { reuseIfShallowEqual } from "./runtimeInputReuse";
 import type { SyncBillingGate } from "./syncBillingGate";
 
@@ -152,18 +151,6 @@ function createRuntimeMutationApi(
   });
 }
 
-function localIdentityCandidate(
-  identity: Identity,
-): LocalUserIdentityCandidate | null {
-  const { encapsulationKeyPair, signingKeyPair } = identity;
-  if (!encapsulationKeyPair || !signingKeyPair) return null;
-  return {
-    encapsulationPublicKey: encapsulationKeyPair.publicKey,
-    signingKeyFingerprint: identity.signingFingerprint,
-    signingPublicKey: signingKeyPair.signingPublicKey,
-  };
-}
-
 /** Priming reads the runtime's database, identity and trust pins; it pins nothing. */
 function createRuntimeProvisioningPrimer(
   dependencies: WorkflowRuntimeDependencies,
@@ -194,25 +181,13 @@ export function createRuntime(
     dependencies.database.status === "ready"
       ? dependencies.database.requireExecSql("trusted user identity")
       : null;
-  const trustedUserIdentityService = createTrustedUserIdentityService({
-    getExecSql: readyExecSql,
-    getLocalIdentity: () => localIdentityCandidate(dependencies.identity),
-    getLocalUserId: () => dependencies.session.userId,
-    identityTrustDomain: dependencies.identityTrustDomain,
-    remoteSource: createApiUserIdentitySource(dependencies.api),
-  });
-  const resolveTrustedUserIdentity: TrustedUserIdentityResolver = (userId) =>
-    runWithSecurityIncidentReporting(
-      dependencies.reportSecurityIncident,
-      {
-        objectId: userId,
-        objectKind: "user",
-        operation: "user.identity.resolve",
-        organizationId: dependencies.session.organizationId,
-      },
-      () => trustedUserIdentityService.resolve(userId),
-    );
   const runtimeSubscription = createRuntimeSubscription(dependencies);
+  const { trustedUserIdentityService, resolveTrustedUserIdentity } =
+    createRuntimeIdentityResolution(
+      dependencies,
+      readyExecSql,
+      () => runtimeSubscription.recoveryGeneration,
+    );
   const historyProtection = createPrincipalHistoryProtectionCustody({
     keyProvider: dependencies.principalHistoryKeyProvider,
     readScope: () => {

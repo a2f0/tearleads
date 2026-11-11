@@ -104,13 +104,25 @@ export interface TrustedUserIdentityService {
     candidate: LocalUserIdentityCandidate,
   ): Promise<TrustedUserIdentity>;
   /** Pins on first sight as `observed`; for users signed state references. */
-  resolve(userId: string): Promise<TrustedUserIdentity | null>;
+  resolve: TrustedUserIdentityResolver;
 }
 
-export type TrustedUserIdentityResolver = TrustedUserIdentityService["resolve"];
+/** Callable resolution always compares the candidate with durable pins.
+ * Structural commitment verification may reuse validated immutable pins for
+ * one scoped operation; this capability never admits users or promotes pins.
+ */
+export type TrustedUserIdentityResolver = ((
+  userId: string,
+) => Promise<TrustedUserIdentity | null>) & {
+  readonly withPinnedIdentities?: <T>(
+    userIds: readonly string[],
+    verify: (resolve: TrustedUserIdentityResolver) => Promise<T>,
+  ) => Promise<T>;
+};
 
 export interface TrustedUserIdentityServiceDependencies {
   readonly getExecSql: () => ExecSql | null;
+  readonly getScopeGeneration?: (() => unknown) | undefined;
   readonly getLocalIdentity: (
     userId: string,
   ) => LocalUserIdentityCandidate | null;

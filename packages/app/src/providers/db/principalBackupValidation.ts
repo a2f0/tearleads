@@ -10,13 +10,19 @@ const PRINCIPAL_IDENTITY_TABLES = new Set([
   "organization_provisioning_attempts",
 ]);
 
-export function isPrincipalIdentityBackupTable(name: string): boolean {
+function isPrincipalIdentityBackupTable(name: string): boolean {
   return PRINCIPAL_IDENTITY_TABLES.has(name.toLowerCase());
 }
 
-export function obsoletePrincipalBackup(): never {
+function obsoletePrincipalBackup(): never {
   throw new Error(
-    "Backup contains obsolete principal identity format; reset the source local database before creating a new backup.",
+    "Backup contains obsolete principal identity format and cannot be migrated. Preserve the source database; restoring this format is not supported.",
+  );
+}
+
+function invalidPrincipalBackup(tableName: string): never {
+  throw new Error(
+    `Backup contains invalid principal identity data in ${tableName}. Preserve the source database and investigate the damaged data or use an intact backup.`,
   );
 }
 
@@ -29,11 +35,13 @@ export function validatePrincipalIdentityBackupTable(
   const metadata = new Set(folded);
   const declaredNames = declaredColumns().map((column) => column.toLowerCase());
   const declared = new Set(declaredNames);
-  if (declared.size !== declaredNames.length) obsoletePrincipalBackup();
-  if (metadata.size !== table.columns.length) obsoletePrincipalBackup();
-  if (metadata.size !== declared.size) obsoletePrincipalBackup();
+  if (declared.size !== declaredNames.length)
+    invalidPrincipalBackup(table.name);
+  if (metadata.size !== table.columns.length)
+    invalidPrincipalBackup(table.name);
+  if (metadata.size !== declared.size) invalidPrincipalBackup(table.name);
   if ([...metadata].some((column) => !declared.has(column)))
-    obsoletePrincipalBackup();
+    invalidPrincipalBackup(table.name);
   if (!metadata.has("identity_bundle_format")) obsoletePrincipalBackup();
   for (const row of table.rows) {
     const normalized = Object.fromEntries(
@@ -47,7 +55,7 @@ export function validatePrincipalIdentityBackupTable(
     try {
       validatePrincipalBackupJson(table.name.toLowerCase(), normalized);
     } catch {
-      obsoletePrincipalBackup();
+      invalidPrincipalBackup(table.name);
     }
   }
 }

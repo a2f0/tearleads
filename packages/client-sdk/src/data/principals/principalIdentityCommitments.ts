@@ -11,6 +11,22 @@ export async function assertPrincipalIdentityCommitments(input: {
   readonly projections: readonly (readonly PrincipalProjectionMember[])[];
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<void> {
+  if (input.resolveTrustedUserIdentity.withPinnedIdentities) {
+    return input.resolveTrustedUserIdentity.withPinnedIdentities(
+      [
+        ...new Set(
+          input.projections.flatMap((projection) =>
+            projection.map((member) => member.userId),
+          ),
+        ),
+      ],
+      (resolveTrustedUserIdentity) =>
+        assertPrincipalIdentityCommitments({
+          ...input,
+          resolveTrustedUserIdentity,
+        }),
+    );
+  }
   const identities = new Map<string, Promise<string>>();
   for (const projection of input.projections) {
     for (const member of projection) {
