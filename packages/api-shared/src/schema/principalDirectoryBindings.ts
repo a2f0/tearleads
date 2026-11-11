@@ -1,4 +1,11 @@
-import { bigint, index, pgTable, text, uniqueIndex, uuid } from "./columns";
+import {
+  bigint,
+  index,
+  pgTable,
+  text,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 /** First signed directory citation of each group head, retained after group deletion. */
 export const principalDirectoryBindings = pgTable(

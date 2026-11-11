@@ -1,4 +1,4 @@
-export type ApiDatabaseKind = "memory" | "postgres" | "sqlite" | "turso";
+export type ApiDatabaseKind = "memory" | "postgres";
 
 interface ApiDatabaseKindEnv {
   readonly API_DATABASE?: string | undefined;
@@ -22,16 +22,9 @@ export function readApiDatabaseKind(
   if (value === "memory" || value === "pglite") {
     return "memory";
   }
-  if (value === "postgres" || value === "sqlite" || value === "turso") {
+  if (value === "postgres") {
     return value;
   }
 
   throw new Error(`Unsupported API_DATABASE value: ${value}`);
-}
-
-export function isSqliteSchemaDialect(
-  env: ApiDatabaseKindEnv = process.env,
-): boolean {
-  const kind = readApiDatabaseKind(env);
-  return kind === "sqlite" || kind === "turso";
 }

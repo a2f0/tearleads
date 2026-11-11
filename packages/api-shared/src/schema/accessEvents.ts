@@ -12,7 +12,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "./columns";
+} from "drizzle-orm/pg-core";
 
 /**
  * Signed access events that drive access manifest history.

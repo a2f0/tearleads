@@ -13,9 +13,9 @@ CI runs the API, app, and client SDK suites in their own `Test (...)` jobs; see
 [CI and merge requirements](ci-merge-gate.md). The app and API suites are the
 longest, so SDK savings alone rarely shorten CI. The app suite runs its files
 in two workers, each running one test at a time (`--max-concurrency=1`), so its
-case sums approximate twice its elapsed time. The API suite runs its PGlite
-(`API_DATABASE=memory`) and SQLite backends concurrently, each in two workers;
-adding their durations does not predict CI time saved.
+case sums approximate twice its elapsed time. The API suite runs on PGlite
+(`API_DATABASE=memory`) in two workers; adding its durations does not predict
+CI time saved.
 
 Bun's case sums omit hooks and any case without a parsed duration, so they
 identify leads, not elapsed time. The known expensive files are:
@@ -105,28 +105,23 @@ Some of that cost is deliberate:
 
 - **Run the client SDK, app, and API files in two workers.** `bun test`
   otherwise runs a package's files one after another in a single process. All
-  three suites pass `--parallel=2 --no-isolate` (the API passes it to each
-  backend in
-  [`packages/api/scripts/testAllDatabases.ts`](../../packages/api/scripts/testAllDatabases.ts)):
+  three suites pass `--parallel=2 --no-isolate` in their package `test` scripts:
   each worker keeps one global across the files it runs, as the serial run did,
   so CPU time stays the same while wall time halves (SDK 528 s to 257 s locally,
   3,996 tests either way; app 890 s to 402 s back to back on a shared host,
-  2,838 tests either way; API 996 s to 510 s, 2,191 tests per backend either
-  way). Plain `--parallel` implies `--isolate` and cost about 2.4 times the CPU
-  for the SDK, 1.5 times for the app, and 2 times for the API (880 s wall). CI's
-  4-vCPU runner fits the API's two backends times two workers.
-- **Split the long suites across CI runners.** On CI, the API runs one backend
-  per runner (`--database=` in
-  [`testAllDatabases.ts`](../../packages/api/scripts/testAllDatabases.ts)) in
-  three Bun shards, and the app, client SDK, and bob-and-alice suites in two
-  each, so no job carries a whole suite. API shards keep two workers: with
-  `--parallel=4`, four PGlite workers on one 4-vCPU runner pushed a test that
-  takes 3.3 s of its 5 s budget on main past the limit. Local runs keep both
-  backends and two workers. The bob-and-alice scenarios run in four isolated
-  workers (each boots its own in-process API): 35 tests took 167 s locally,
-  where the serial CI run of 34 took 850 s. A new shard layout regroups files
-  inside `--no-isolate` workers, so it can expose a test that leaks module state
-  (see the mouse-release fix in
+  2,838 tests either way; API 996 s to 510 s per database backend, 2,191 tests
+  either way, measured while the API also ran on SQLite). Plain `--parallel`
+  implies `--isolate` and cost about 2.4 times the CPU for the SDK, 1.5 times
+  for the app, and 2 times for the API (880 s wall).
+- **Split the long suites across CI runners.** On CI, the API runs in three Bun
+  shards, and the app, client SDK, and bob-and-alice suites in two each, so no
+  job carries a whole suite. API shards keep two workers: with `--parallel=4`,
+  four PGlite workers on one 4-vCPU runner pushed a test that takes 3.3 s of its
+  5 s budget on main past the limit. The bob-and-alice scenarios run in four
+  isolated workers (each boots its own in-process API): 35 tests took 167 s
+  locally, where the serial CI run of 34 took 850 s. A new shard layout regroups
+  files inside `--no-isolate` workers, so it can expose a test that leaks module
+  state (see the mouse-release fix in
   [`MiniAppControls.test.tsx`](../../packages/app/src/components/mini-app/controls/MiniAppControls.test.tsx)).
 - **Keep worker-safe preload hooks.** In a `--parallel` run Bun calls a
   preload's `afterAll` after every file, not once per run, while
@@ -187,19 +182,19 @@ bug the test correctly detected.
 
 ## API test timeout
 
-[`testAllDatabases.ts`](../../packages/api/scripts/testAllDatabases.ts)
-passes `--timeout=15000` to both backends, replacing Bun's 5 s default for
-every test and hook that sets no timeout of its own (a per-test argument still
-wins). Under load, push gates lost lone 5 s timeouts in route tests that take
-1-2.5 s alone (`syncPagination`, `policy`, `organizations`,
+The API package's `test` script passes `--timeout=15000`, replacing Bun's 5 s
+default for every test and hook that sets no timeout of its own (a per-test
+argument still wins). Under load, push gates lost lone 5 s timeouts in route
+tests that take 1-2.5 s alone (`syncPagination`, `policy`, `organizations`,
 `deletedContainerDirectGrant`, and others). The time is real work, not hooks:
 registering and signing in one user costs about 0.4 s (0.23 s building the
 signed registration body, 0.14-0.21 s for the route), and most route tests
-register one to three users and then sign manifests and policies. It scales
-with free CPU, so the 5 s default left no room under contention.
+register one to three users and then sign manifests and policies. It scales with
+free CPU, so the 5 s default left no room under contention.
 
-The budget comes from JUnit reports of the full suite (both backends, two
-workers each), counting only tests without their own timeout:
+The budget comes from JUnit reports of the full suite, measured when it still
+also ran on a SQLite backend (two workers each), counting only tests without
+their own timeout:
 
 | Run (memory / sqlite) | p99 | p99.9 | Failures |
 | --- | --- | --- | --- |
@@ -236,8 +231,8 @@ rather than raising the lane budget.
 - Compare wall time with user CPU. Wall time well above CPU, or elapsed times
   that alternate between two values with similar CPU, mean a test is waiting
   out a timeout, usually after a race.
-- Measure API candidates on both backends, sequentially, with the same flags
-  and host load. Local Bun output omits passing cases; add
+- Measure API candidates sequentially, with the same flags and host load. Local
+  Bun output omits passing cases; add
   `--reporter=junit --reporter-outfile=<path>` for case durations.
 - Keep raw logs and probe variants under
   `git rev-parse --git-path test-optimization`; they are not tracked.

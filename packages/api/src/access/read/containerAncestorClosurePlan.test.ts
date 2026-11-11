@@ -4,9 +4,8 @@ import {
   accessManifestHeads,
   accessManifests,
 } from "@tearleads/api-shared/schema";
-import { type SQL, sql } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { listCurrentContainerKekTargetClosureIdsMapped } from "./containerKekTargets";
 
 const organizationId = crypto.randomUUID();
@@ -100,38 +99,13 @@ async function capturedClosureQuery(): Promise<SQL> {
   return captured;
 }
 
-// Each recursive level must be one index lookup. SQLite otherwise drove the step
-// from every container head, so the walk grew with the whole table: with 8,000
-// unrelated heads, closing 101 seeds took 23 s and stalled CI past its timeout.
-test.skipIf(!isSqliteApiDatabase())(
-  "each ancestor level is one head index lookup on SQLite",
-  async () => {
-    const plan = await db.execute(
-      sql`explain query plan ${await capturedClosureQuery()}`,
-    );
-    const details = plan.rows.map(({ detail }) => String(detail));
-    const stepStart = details.indexOf("RECURSIVE STEP");
-    expect(stepStart).toBeGreaterThan(0);
-    const recursiveStep = details.slice(stepStart);
-    expect(recursiveStep).toContain(
-      "SEARCH h USING INDEX access_manifest_heads_object_idx (object_kind=? AND object_id=?)",
-    );
-    expect(recursiveStep).not.toContain(
-      "SEARCH h USING INDEX access_manifest_heads_object_idx (object_kind=?)",
-    );
-  },
-);
-
 // Postgres can use the head index only while the recursive step compares the
 // uuid column in its own type; casting it to text, as before, rules the index
 // out. The planner's choice on these tiny tables says nothing at scale, so this
 // checks the comparison the query actually sends.
-test.skipIf(isSqliteApiDatabase())(
-  "each ancestor level compares the head id as a uuid on Postgres",
-  async () => {
-    const query = await capturedClosureQuery();
-    const { sql: text } = new PgDialect().sqlToQuery(query);
-    expect(text).toContain("h.object_id = case when");
-    expect(text).not.toContain("h.object_id::text = ");
-  },
-);
+test("each ancestor level compares the head id as a uuid on Postgres", async () => {
+  const query = await capturedClosureQuery();
+  const { sql: text } = new PgDialect().sqlToQuery(query);
+  expect(text).toContain("h.object_id = case when");
+  expect(text).not.toContain("h.object_id::text = ");
+});

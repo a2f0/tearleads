@@ -1,9 +1,5 @@
 import { Buffer } from "node:buffer";
-import {
-  type ApiDatabaseKind,
-  type DatabaseSession,
-  getDefaultApiDatabaseKind,
-} from "@tearleads/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   documentUpdateSpans,
   documentUpdates,
@@ -13,11 +9,7 @@ import type { DocumentUpdateRecord } from "@tearleads/loro/server";
 import { parseWalLsn } from "@tearleads/validators/util";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import {
-  isSqliteApiDatabase,
-  textExpression,
-  uuidValue,
-} from "../utils/sqlDialect";
+import { textExpression, uuidValue } from "../utils/postgresSql";
 import { readCurrentCommitLsn } from "./commitLsn";
 import {
   listDocumentUpdateResponseByteFloors,
@@ -98,14 +90,6 @@ function buildClientFrontierJson(localVersionVector: string | null): string {
 }
 
 function buildFrontierRecordset(clientFrontierJson: string) {
-  if (isSqliteApiDatabase()) {
-    return {
-      counter: sql`json_extract(frontier.value, '$.counter')`,
-      peerId: sql`json_extract(frontier.value, '$.peer_id')`,
-      recordset: sql`json_each(${clientFrontierJson}) as frontier`,
-    };
-  }
-
   return {
     counter: sql`frontier.counter`,
     peerId: sql`frontier.peer_id`,
@@ -116,14 +100,8 @@ function buildFrontierRecordset(clientFrontierJson: string) {
 export async function assertMinLsnSatisfied(
   executor: DatabaseSession,
   minLsn: string | undefined,
-  databaseKind: ApiDatabaseKind = getDefaultApiDatabaseKind(),
 ): Promise<void> {
   if (!minLsn) {
-    return;
-  }
-  // Turso is configured as a remote primary only. With no read replica in the
-  // request path, every successful read has already reached the current store.
-  if (databaseKind === "turso") {
     return;
   }
 

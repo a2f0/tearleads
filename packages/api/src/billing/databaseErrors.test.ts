@@ -4,21 +4,15 @@ import {
   isProviderSubscriptionOwnershipConflict,
 } from "./databaseErrors";
 
-test("recognizes the provider-subscription unique index across database drivers", () => {
+test("recognizes the provider-subscription unique index", () => {
   const postgres = Object.assign(new Error("duplicate key"), {
     code: "23505",
     constraint: "organization_billing_provider_subscription_idx",
   });
-  const sqlite = Object.assign(
-    new Error(
-      "UNIQUE constraint failed: organization_billing.provider_subscription_id",
-    ),
-    { code: "SQLITE_CONSTRAINT_UNIQUE" },
-  );
   expect(isProviderSubscriptionOwnershipConflict(postgres)).toBe(true);
   expect(
     isProviderSubscriptionOwnershipConflict(
-      new Error("wrapped", { cause: sqlite }),
+      new Error("wrapped", { cause: postgres }),
     ),
   ).toBe(true);
   expect(
@@ -36,12 +30,10 @@ test("classifies a PostgreSQL deadlock as a retriable native move conflict", () 
   expect(isProviderSubscriptionOwnershipConflict(deadlock)).toBe(false);
 });
 
-test("classifies serialization and SQLite lock races as retriable", () => {
-  for (const code of ["40001", "SQLITE_BUSY", "SQLITE_LOCKED_SHAREDCACHE"]) {
-    expect(
-      isNativeSubscriptionMoveConflict(
-        Object.assign(new Error("concurrent write"), { code }),
-      ),
-    ).toBe(true);
-  }
+test("classifies serialization races as retriable", () => {
+  expect(
+    isNativeSubscriptionMoveConflict(
+      Object.assign(new Error("concurrent write"), { code: "40001" }),
+    ),
+  ).toBe(true);
 });

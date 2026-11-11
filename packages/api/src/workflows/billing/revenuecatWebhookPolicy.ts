@@ -13,7 +13,6 @@ import {
   classifyRevenueCatEvent,
   type RevenueCatBillingTransition,
 } from "../../billing/revenuecatWebhook";
-import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { resolveRevenueCatBuyerIgnoredReason } from "./revenuecatBuyerPolicy";
 import type { VerifiedPlayReplacement } from "./revenuecatPlayReplacement";
 import type {
@@ -56,7 +55,7 @@ export async function lockRevenueCatBillingIdentity(
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId))
     .limit(1);
-  const [row] = await lockRowForUpdate(query);
+  const [row] = await query.for("update");
   return row;
 }
 

@@ -22,7 +22,6 @@ import {
   waitForPostgresLockWait,
 } from "../../../test/helpers/postgresConcurrency";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { runDocumentLinkSetMutationWorkflow } from "../documents/mutations/mutateDocumentLinkSet";
 import { runUpdateOrganizationRosterEntryWorkflow } from "./rosterMutation";
 
@@ -101,7 +100,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
             eq(organizationRosterEntries.userId, fixture.owner.userId),
           ),
         );
-      await lockRowForUpdate(query);
+      await query.for("update");
     });
 
     const bind = runUpdateOrganizationRosterEntryWorkflow(

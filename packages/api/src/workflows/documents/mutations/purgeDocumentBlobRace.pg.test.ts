@@ -24,7 +24,6 @@ import {
   waitForPostgresLockWait,
 } from "../../../../test/helpers/postgresConcurrency";
 import { registerUser } from "../../../../test/helpers/registerUser";
-import { lockRowForUpdate } from "../../../utils/sqlDialect";
 import { runPurgeDocumentWorkflow } from "./purgeDocument";
 
 async function createPurgeBindRaceFixture() {
@@ -79,7 +78,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         .select({ id: blobContentKeyEpochs.id })
         .from(blobContentKeyEpochs)
         .where(eq(blobContentKeyEpochs.blobId, fixture.blobId));
-      await lockRowForUpdate(query);
+      await query.for("update");
     });
 
     const bind = bindForTest({
@@ -149,7 +148,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         .select({ id: documents.id })
         .from(documents)
         .where(eq(documents.id, fixture.sourceDocument.id));
-      await lockRowForUpdate(query);
+      await query.for("update");
     });
 
     const purge = runPurgeDocumentWorkflow(db, {

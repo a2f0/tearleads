@@ -19,7 +19,6 @@ import {
   waitForPostgresLockWait,
 } from "../../../test/helpers/postgresConcurrency";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { runDocumentLinkSetMutationWorkflow } from "../documents/mutations/mutateDocumentLinkSet";
 import { runUpdateOrganizationProfileWorkflow } from "./profileMutation";
 
@@ -108,12 +107,11 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     // Stall the bind after it takes the organization lock, at its pointer
     // write.
     const organizationRowLock = await holdPostgresLock(async (tx) => {
-      await lockRowForUpdate(
-        tx
-          .select({ id: organizations.id })
-          .from(organizations)
-          .where(eq(organizations.id, fixture.organizationId)),
-      );
+      await tx
+        .select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.id, fixture.organizationId))
+        .for("update");
     });
 
     const bind = runBind(fixture);

@@ -112,8 +112,9 @@ dependency must be published too.
 ## Validate and report
 
 - Run the component's focused tests and the full client SDK suite. For API
-  callers, rebuild the SDK and run the affected API files with
-  `API_DATABASE=memory` and `API_DATABASE=sqlite`.
+  callers, rebuild the SDK and run the affected API files (PGlite by
+  default; `*.pg.test.ts` files need `API_DATABASE=postgres` and a
+  `DATABASE_URL`).
 - Run `bun run lint:architecture`, `bun run lint:source-shape -- --staged`,
   and `bun run check:fast`. Run `bun run lint:formal-maps` when a renamed or
   removed function appears in a `formal/` abstraction map, and update the map

@@ -141,10 +141,10 @@ full document history into application memory. Sync responses include a
 `commitLsn`: accepted current-epoch writes return the append LSN, and read-only
 syncs return the current WAL LSN observed after the missing-update read. Sync
 requests may include `minLsn` as a consistency hook for replica-safe
-read-after-write. Every response declares its mode. A remote-primary backend
-without a portable WAL position returns `commitLsnMode: "untracked"` and the
-`0/0` reset sentinel. Tracked mode retains the normal `commitLsn >= minLsn`
-requirement.
+read-after-write. Every response declares its mode. The Postgres API always
+reports `commitLsnMode: "tracked"`, which retains the normal
+`commitLsn >= minLsn` requirement; the protocol's `"untracked"` mode, with the
+`0/0` reset sentinel, is for a backend without a portable WAL position.
 
 The sync response carries no [rewrap](./glossary/keys.md#rewrap) or
 [rotate](./glossary/keys.md#rotate) directive. Clients derive that decision from
@@ -495,6 +495,5 @@ The client then replans against the new manifest and key targets.
 Loro causal metadata does not, by itself, solve database replication lag.
 Document sync carries a consistency token: the client sends its last recorded
 `commitLsn` as `minLsn`, and the server refuses (`503`) a read whose database
-position has not reached it. A remote-primary backend has no replica in the
-request path and reports `commitLsnMode: "untracked"`. Attachment metadata
+position has not reached it. Attachment metadata
 routes carry no consistency token.

@@ -4,7 +4,6 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import { blobStages, organizations } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
-import { lockRowForUpdate } from "../../utils/sqlDialect";
 import {
   assertOrganizationSyncEndpointAvailable,
   OrganizationSyncDisabledError,
@@ -49,13 +48,12 @@ export async function persistBlobStageInOrganization(
   await db.transaction(async (tx) => {
     // Purge updates this same row before expiring stages and removing policies.
     // The stage either commits before that sweep or observes the purge here.
-    await lockRowForUpdate(
-      tx
-        .select({ id: organizations.id })
-        .from(organizations)
-        .where(eq(organizations.id, stage.organizationId))
-        .limit(1),
-    );
+    await tx
+      .select({ id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.id, stage.organizationId))
+      .limit(1)
+      .for("update");
     await requireBlobStageOrganizationAccess(
       tx,
       {

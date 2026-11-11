@@ -1,6 +1,5 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { sql } from "drizzle-orm";
-import { isSqliteApiDatabase } from "../../../utils/sqlDialect";
 import {
   acquireTransactionLock,
   advisoryLockKey,
@@ -19,14 +18,12 @@ export async function deriveDocumentLifecycleLockKeys(
 
 /**
  * Serialize create and terminal purge even while no document row or manifest
- * head exists. SQLite write transactions already serialize globally;
- * PostgreSQL needs a transaction-scoped lock whose identity survives deletion.
+ * head exists, with a transaction-scoped lock whose identity survives deletion.
  */
 export async function lockDocumentLifecycleInTransaction(
   tx: DatabaseTransaction,
   documentId: string,
 ): Promise<void> {
-  if (isSqliteApiDatabase()) return;
   const keys = await deriveDocumentLifecycleLockKeys(documentId);
   const [firstKey, secondKey] = keys;
   await acquireTransactionLock(tx, advisoryLockKey(keys), "exclusive", () =>

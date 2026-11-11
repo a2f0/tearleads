@@ -6,7 +6,6 @@ import { createDefaultManagedApiDatabase } from "./postgres";
 const databaseUrlKey = "DATABASE_URL";
 const postgresUrl = process.env[databaseUrlKey];
 const backends = [
-  { API_DATABASE: "sqlite", API_SQLITE_PATH: ":memory:" },
   { API_DATABASE: "memory" },
   ...(postgresUrl
     ? [{ API_DATABASE: "postgres", DATABASE_URL: postgresUrl }]

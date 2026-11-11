@@ -3,7 +3,6 @@ import { accessManifestHeads } from "@tearleads/api-shared/schema";
 import type { AccessObjectKind } from "@tearleads/crypto";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
-import { isSqliteApiDatabase } from "../../../utils/sqlDialect";
 import {
   type HeldLockMode,
   recordTransactionLock,
@@ -68,9 +67,7 @@ async function lockAccessManifestHeadRows(
     // plans cannot take the same manifest heads in opposite orders.
     .orderBy(asc(accessManifestHeads.objectId));
 
-  const rows = isSqliteApiDatabase()
-    ? await lockQuery
-    : await lockQuery.for(mode);
+  const rows = await lockQuery.for(mode);
   for (const row of rows) {
     recordTransactionLock(
       executor,

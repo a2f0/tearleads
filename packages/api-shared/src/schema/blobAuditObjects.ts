@@ -7,7 +7,7 @@ import {
   text,
   timestamp,
   uuid,
-} from "./columns";
+} from "drizzle-orm/pg-core";
 import type { BlobAuditRetentionMode } from "./shared";
 
 /**

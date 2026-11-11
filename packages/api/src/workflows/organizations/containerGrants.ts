@@ -12,7 +12,7 @@ import {
   type OrganizationGroupContainerResponse,
 } from "@tearleads/validators/response";
 import { and, asc, eq, or, sql } from "drizzle-orm";
-import { booleanExpression, jsonTextProperty } from "../../utils/sqlDialect";
+import { booleanExpression, jsonTextProperty } from "../../utils/postgresSql";
 
 export interface OrganizationContainerGrantRow {
   accessLevel: string;

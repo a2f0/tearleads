@@ -82,7 +82,11 @@
       "outputs": []
     },
     "//#test:postgres-concurrency": {
-      "dependsOn": ["@tearleads/api#sources", "@tearleads/client-sdk#build"],
+      "dependsOn": [
+        "@tearleads/api#sources",
+        "@tearleads/api-cli#sources",
+        "@tearleads/client-sdk#build"
+      ],
       "inputs": [
         "scripts/checks/testPostgresConcurrency.sh",
         ".github/workflows/ci.yml"

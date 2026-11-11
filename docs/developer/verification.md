@@ -49,8 +49,8 @@ For `@tearleads/api` and `@tearleads/client-sdk`, this command runs
 script. Other selections run `build:packages`, which also prepares the
 Electrobun devkit. The focused API and SDK suites need no desktop toolchain.
 Additional arguments go to that script as separate arguments, including patterns
-with spaces. The API script tests both
-[database backends](api-persistence.md#database) (`memory` and `sqlite`).
+with spaces. The API script tests on in-memory PGlite (see
+[database backends](api-persistence.md#database)).
 Package mode does not run TypeScript, static checks, or browser E2E tests; use
 `check:affected` or `check` for a handoff. Dependencies must already be
 installed; the runner does not install tools or change the lockfile.
@@ -59,8 +59,7 @@ installed; the runner does not install tools or change the lockfile.
 `runVerifiedTurbo.ts test` with a workspace filter; Turbo builds their
 dependencies first. Prefer `check:package` locally for its source-fingerprinted
 report and forwarded test arguments. To narrow API tests, use
-`--test-name-pattern`; its runner always selects `src` and runs both backends,
-regardless of an outer `API_DATABASE` value.
+`--test-name-pattern`; its script always selects `src`.
 
 Each run prints the path to a JSON report under the checkout's Git directory:
 `git rev-parse --git-path verification` locates the report directory, including

@@ -15,8 +15,7 @@ never import each other. It stays below them and depends only on
 | `@tearleads/api-shared/postgres-transport` | The Workers Postgres transport, without initializing a database |
 | `@tearleads/api-shared/schema` | Drizzle table definitions |
 
-[`src/adapters`](src/adapters/) holds the PGlite (memory), Postgres, SQLite, and
-Turso
+[`src/adapters`](src/adapters/) holds the PGlite (memory) and Postgres
 adapters, request-scoped transactions, and the statement counters behind the
 API's request-cost reporting. [API persistence](../../docs/developer/api-persistence.md)
 describes each adapter, its environment variables, and the stored-shape
@@ -24,14 +23,11 @@ invariants.
 
 ## Schema changes
 
-Each dialect has one generated `0000_greenfield_baseline` migration:
-[`drizzle/`](drizzle/)
-for Postgres and [`drizzle-sqlite/`](drizzle-sqlite/) for SQLite and Turso.
-There are no
-incremental upgrades. After editing [`src/schema`](src/schema/), replace both
-baselines
-rather than generating a second migration beside them: remove each migration
-directory, metadata included, and generate it again under the baseline name.
+The Postgres schema has one generated `0000_greenfield_baseline` migration in
+[`drizzle/`](drizzle/). There are no incremental upgrades. After editing
+[`src/schema`](src/schema/), replace the baseline rather than generating a
+second migration beside it: remove the migration directory, metadata included,
+and generate it again under the baseline name.
 Update the table-count pins in
 [`src/schemaBootstrap.test.ts`](src/schemaBootstrap.test.ts) and
 [`packages/api-cli/src/compiledMigrations.test.ts`][file-1] when tables are
@@ -40,9 +36,8 @@ removed.
 
 ```sh
 cd packages/api-shared
-rm -rf drizzle drizzle-sqlite
+rm -rf drizzle
 bun run db:generate --name greenfield_baseline
-bun run db:generate:sqlite --name greenfield_baseline
 ```
 
 A schema change requires fresh server and client databases. The

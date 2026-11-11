@@ -6,4 +6,3 @@ export {
   documentUpdateSpans,
   documentUpdates,
 } from "./schema";
-export { loroSql } from "./sql";

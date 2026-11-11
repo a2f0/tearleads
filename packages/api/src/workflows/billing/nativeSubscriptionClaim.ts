@@ -16,7 +16,6 @@ import {
   organizationSeatPeriodKey,
 } from "../../billing/organizationBilling";
 import type { ActiveNativeSubscription } from "../../billing/revenueCatApi";
-import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
@@ -42,7 +41,7 @@ async function lockBilling(executor: DatabaseSession, organizationId: string) {
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId))
     .limit(1);
-  const [billing] = await lockRowForUpdate(query);
+  const [billing] = await query.for("update");
   if (!billing) {
     throw new OrganizationManagerError("Organization billing not found", 404);
   }
@@ -68,7 +67,7 @@ async function findCurrentOwner(input: {
       ),
     )
     .limit(1);
-  const [owner] = await lockRowForUpdate(query);
+  const [owner] = await query.for("update");
   return owner ?? null;
 }
 

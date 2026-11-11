@@ -7,7 +7,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "./columns";
+} from "drizzle-orm/pg-core";
 
 export type OrganizationBillingInvoiceReason =
   | "automatic_pending_invoice_item_invoice"

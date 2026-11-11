@@ -1,4 +1,10 @@
-import { index, pgTable, timestamp, uniqueIndex, uuid } from "./columns";
+import {
+  index,
+  pgTable,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 /**
  * Per-container document unlink tombstones for differential document discovery.

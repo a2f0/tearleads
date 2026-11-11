@@ -12,11 +12,9 @@ Take these once per revision:
 - **API tables and indexes per dialect:** `CREATE TABLE` statements,
   the indexes their `PRIMARY KEY` and `UNIQUE` constraints create, and
   `CREATE [UNIQUE] INDEX` statements in
-  `packages/api-shared/drizzle/0000_greenfield_baseline.sql` (Postgres) and
-  `packages/api-shared/drizzle-sqlite/0000_greenfield_baseline.sql`
-  (SQLite and Turso). Constraint indexes count: they can cover a narrower
-  index or serve a query. Record each index's table, columns, uniqueness, and
-  partial predicate, and flag any index present in one dialect only.
+  `packages/api-shared/drizzle/0000_greenfield_baseline.sql`. Constraint
+  indexes count: they can cover a narrower index or serve a query. Record
+  each index's table, columns, uniqueness, and partial predicate.
 - **Client tables and indexes:** `sqliteTable(`, `index(`, and
   `uniqueIndex(` under `packages/client-sdk/src/data/sqlite` and
   `packages/app/src/document-projectors`, excluding tests. DDL is rendered
@@ -115,7 +113,7 @@ never recorded. With `SQL_CAPTURE_PARAM_HASH=1` each entry also carries a
 short hash of its values, which proves that a repeated statement reads the
 same key rather than a different one; keep the hashes in the scratch
 directory, never in the issue. Transaction controls reach the logger only on
-`API_DATABASE=sqlite` and `postgres`: PGlite's native transaction method
+`API_DATABASE=postgres`: PGlite's native transaction method
 bypasses it, so a PGlite capture (including every canary) has no
 transaction count. Summarize with `jq`, for example the most repeated
 statements for one label:
@@ -144,12 +142,12 @@ The counter alone, `withDatabaseStatementCounter(counter, work)`, counts
 without text. Its scope must contain the awaited work: pass an `async`
 function that awaits the query. A bare Drizzle builder returned from the
 callback executes after the scope has closed and counts zero. Like the
-capture, it sees transaction controls on SQLite but not on PGlite, so a
-SQLite count runs higher by each transaction's control statements (one per
+capture, it sees transaction controls on Postgres but not on PGlite, so a
+Postgres count runs higher by each transaction's control statements (one per
 request in the document budget below). To assert an exact count for work
 inside one transaction, open the counter inside the transaction callback,
 as `packages/api/src/workflows/signerPublicKey.test.ts` does. Whole-request
-ceilings, with PGlite and SQLite measurements in a comment, are in
+ceilings, with their measurements in a comment, are in
 `packages/api/src/workflows/documents/mutations/documentStatementBudget.test.ts`.
 
 ## Scenario set
@@ -175,7 +173,7 @@ same-key and different-key reads afterwards.
 
 Record per scenario: total statements, statements per request where the
 phase gives a request count, and the top repeated normalized statements.
-Count transactions only from a SQLite or local Postgres capture of the same
+Count transactions only from a local Postgres capture of the same
 test, and mark the count unavailable for PGlite; an unexplained count is a
 transaction-scope lead. Compare the canary top ten with the PlanetScale
 Insights top ten; agreement confirms the canaries exercise the production
@@ -215,11 +213,10 @@ proves whether it **does**.
   fixture through the API's own helpers in a loop, `ANALYZE`, and run
   `EXPLAIN (ANALYZE, BUFFERS)` on reads only. Drop the scratch database
   afterwards. Never point a probe at a database you did not create.
-- **API PGlite and SQLite.** Run `explain` (PGlite, `API_DATABASE=memory`)
-  or `explain query plan` (`API_DATABASE=sqlite`) over the captured
-  statement with `db.execute`, as
-  `packages/api/src/services/containers/listContainerRowsPlan.test.ts` does.
-  An index proposal shows both dialects.
+- **API PGlite.** Run `explain` (`API_DATABASE=memory`) over the captured
+  statement with `db.execute`. PGlite's plans on tiny tables say little about
+  scale, so plan tests check the statement shape the index depends on, as
+  `packages/api/src/access/read/currentPrincipalHeadsPlan.test.ts` does.
 - **Client SQLite.** `EXPLAIN QUERY PLAN` through `createTestExecSql`. A
   `SCAN` of a growing table or `USE TEMP B-TREE` for an `ORDER BY` marks a
   missing or mis-ordered index.
@@ -235,8 +232,8 @@ For an index drop or addition, record:
 - every production query that filters, joins, or orders by those columns
   (`rg` for the Drizzle column symbols and for raw SQL naming the table),
   excluding tests and fixtures;
-- the plan for each such query with and without the index, on both API
-  dialects or on client SQLite;
+- the plan for each such query with and without the index, on Postgres or
+  on client SQLite;
 - the write paths that maintain it, since every index costs each insert and
   any update of its columns.
 

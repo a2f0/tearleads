@@ -13,7 +13,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "./columns";
+} from "drizzle-orm/pg-core";
 
 export interface BlobWriteAuthorization {
   readonly activeBindingIds: readonly string[];

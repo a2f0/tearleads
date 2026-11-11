@@ -11,7 +11,7 @@ import {
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getCurrentContainerKeyEpochPins } from "../../../../access/read/containerKekStore";
-import { uuidValue } from "../../../../utils/sqlDialect";
+import { uuidValue } from "../../../../utils/postgresSql";
 import { ContainerMutationError, descendantRekeysRequired } from "../errors";
 import { assertDescendantRekeysWritable } from "./descendantRekeyAccess";
 

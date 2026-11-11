@@ -6,7 +6,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
-import { uuidValue } from "../../../../utils/sqlDialect";
+import { uuidValue } from "../../../../utils/postgresSql";
 
 /**
  * The organization grants listing (`organizations/containerGrants.ts`) shows a

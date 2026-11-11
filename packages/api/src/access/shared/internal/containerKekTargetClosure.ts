@@ -8,14 +8,12 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { uniqueSortedStrings } from "../../../utils/array";
 import {
-  isSqlBooleanValue,
   jsonTextProperty,
-  readSqlBoolean,
   uuidColumnEqualsJsonText,
   visitedPathAppend,
   visitedPathContains,
   visitedPathStart,
-} from "../../../utils/sqlDialect";
+} from "../../../utils/postgresSql";
 import {
   ContainerKekTargetError,
   type ContainerKekTargetStatus,
@@ -27,7 +25,7 @@ import {
 } from "./containerManifestTargetState";
 
 const containerAncestorClosureRowSchema = z.object({
-  cycleDetected: z.custom<boolean | 0 | 1>(isSqlBooleanValue),
+  cycleDetected: z.boolean(),
   depth: sqlSafeInteger,
   id: z.string(),
   manifestHash: z.string(),
@@ -76,7 +74,6 @@ export async function loadCurrentContainerManifestTargetClosure(input: {
           sql`h.object_id`,
         )} as cycle_detected,
         ap.depth + 1
-      -- CROSS JOIN pins SQLite to one head lookup per level.
       from ancestor_path ap
       cross join ${accessManifestHeads} h
       inner join ${accessManifests} m on m.manifest_hash = h.manifest_hash
@@ -111,8 +108,7 @@ export async function loadCurrentContainerManifestTargetClosure(input: {
       );
     }
     const row = parsed.data;
-    const cycleDetected = readSqlBoolean(row.cycleDetected, "cycleDetected");
-    if (cycleDetected) {
+    if (row.cycleDetected) {
       throw new ContainerKekTargetError(
         `Container parent cycle detected at container ${row.id}`,
         409,

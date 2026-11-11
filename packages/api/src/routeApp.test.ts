@@ -168,11 +168,11 @@ describe("createRouteApp", () => {
     expect(await res.json()).toEqual({ error: "blocked by injected auth" });
   });
 
-  test("maps transient libSQL transport and lock failures to 503", async () => {
+  test("maps transient database connection failures to 503", async () => {
     const errorLog = spyOn(console, "error").mockImplementation(() => {});
 
     try {
-      for (const code of ["HRANA_WEBSOCKET_ERROR", "SQLITE_BUSY"]) {
+      for (const code of ["PG_CONNECT_TIMEOUT", "PG_POOL_TIMEOUT"]) {
         const driverError = Object.assign(new Error("database unavailable"), {
           code,
         });

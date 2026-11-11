@@ -1,7 +1,6 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { blobs } from "@tearleads/api-shared/schema";
 import { asc, inArray } from "drizzle-orm";
-import { lockRowForUpdate } from "../../../utils/sqlDialect";
 
 export function planBlobMutationLockIds(blobIds: readonly string[]): string[] {
   return [...new Set(blobIds)].sort((left, right) => left.localeCompare(right));
@@ -26,5 +25,5 @@ export async function lockBlobMutationRows(input: {
     .from(blobs)
     .where(inArray(blobs.id, blobIds))
     .orderBy(asc(blobs.id));
-  await lockRowForUpdate(query);
+  await query.for("update");
 }
