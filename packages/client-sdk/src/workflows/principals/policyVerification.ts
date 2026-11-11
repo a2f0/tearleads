@@ -1,8 +1,9 @@
 import type { PrincipalPolicySignerPublicKey } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { assertPrincipalIdentityCommitments } from "../../data/principals/principalIdentityCommitments";
+import { withUnauthenticatedPolicyIdentities } from "../../data/principals/principalIdentityCommitments";
 import {
   requireTrustedUserIdentityResolver,
+  type StagedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "../../data/trustedUserIdentity";
 
@@ -29,33 +30,31 @@ function signerCacheKey(input: {
   return `${input.signerUserId}:${input.signingFingerprint}`;
 }
 
+/** A signer refusal ends collection before any commitment is compared. */
+class SignerLoadRefusal {
+  constructor(readonly code: PrincipalPolicySignerPublicKeyLoadErrorCode) {}
+}
+
 async function loadTrustedSignerPublicKey(input: {
-  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly resolve: StagedUserIdentityResolver;
   readonly state: PrincipalPolicyBundleResponse["currentState"];
-}): Promise<
-  | { readonly signerPublicKey: PrincipalPolicySignerPublicKey }
-  | { readonly error: PrincipalPolicySignerPublicKeyLoadErrorCode }
-> {
-  const signerKey = await input.resolveTrustedUserIdentity(
-    input.state.signerUserId,
-  );
+}): Promise<PrincipalPolicySignerPublicKey> {
+  const signerKey = await input.resolve(input.state.signerUserId);
 
   if (!signerKey) {
-    return { error: "not-found" };
+    throw new SignerLoadRefusal("not-found");
   }
 
   if (
     signerKey.signingKeyFingerprint !== input.state.signerUserKeyFingerprint
   ) {
-    return { error: "fingerprint-mismatch" };
+    throw new SignerLoadRefusal("fingerprint-mismatch");
   }
 
   return {
-    signerPublicKey: {
-      userId: input.state.signerUserId,
-      signingKeyFingerprint: input.state.signerUserKeyFingerprint,
-      signingPublicKey: signerKey.signingPublicKey,
-    },
+    userId: input.state.signerUserId,
+    signingKeyFingerprint: input.state.signerUserKeyFingerprint,
+    signingPublicKey: signerKey.signingPublicKey,
   };
 }
 
@@ -69,44 +68,46 @@ export async function collectPrincipalPolicySignerPublicKeys(input: {
   | { readonly signerPublicKeys: PrincipalPolicySignerPublicKey[] }
   | { readonly error: PrincipalPolicySignerPublicKeyLoadErrorCode }
 > {
-  const resolveTrustedUserIdentity = requireTrustedUserIdentityResolver(
-    input.resolveTrustedUserIdentity,
-  );
-  const signerPublicKeysByKey = new Map<
-    string,
-    PrincipalPolicySignerPublicKey
-  >();
-
-  for (const state of principalPolicyStates(input.bundle)) {
-    const cacheKey = signerCacheKey({
-      signerUserId: state.signerUserId,
-      signingFingerprint: state.signerUserKeyFingerprint,
-    });
-    if (signerPublicKeysByKey.has(cacheKey)) {
-      continue;
-    }
-
-    const remoteSignerPublicKey = await loadTrustedSignerPublicKey({
-      resolveTrustedUserIdentity,
-      state,
-    });
-    if ("error" in remoteSignerPublicKey) {
-      return { error: remoteSignerPublicKey.error };
-    }
-
-    signerPublicKeysByKey.set(cacheKey, remoteSignerPublicKey.signerPublicKey);
+  const states = principalPolicyStates(input.bundle);
+  try {
+    // Signatures are checked after collection: first-sight signers and
+    // members are compared, but only a verified selection pins them.
+    return await withUnauthenticatedPolicyIdentities(
+      {
+        signerUserIds: states.map((state) => state.signerUserId),
+        projections: [
+          ...input.bundle.previousStates.map((entry) => entry.projection),
+          input.bundle.currentProjection,
+        ],
+        resolveTrustedUserIdentity: requireTrustedUserIdentityResolver(
+          input.resolveTrustedUserIdentity,
+        ),
+      },
+      async (resolve) => {
+        const signerPublicKeysByKey = new Map<
+          string,
+          PrincipalPolicySignerPublicKey
+        >();
+        for (const state of states) {
+          const cacheKey = signerCacheKey({
+            signerUserId: state.signerUserId,
+            signingFingerprint: state.signerUserKeyFingerprint,
+          });
+          if (signerPublicKeysByKey.has(cacheKey)) {
+            continue;
+          }
+          signerPublicKeysByKey.set(
+            cacheKey,
+            await loadTrustedSignerPublicKey({ resolve, state }),
+          );
+        }
+        return {
+          signerPublicKeys: Array.from(signerPublicKeysByKey.values()),
+        };
+      },
+    );
+  } catch (error) {
+    if (error instanceof SignerLoadRefusal) return { error: error.code };
+    throw error;
   }
-
-  // Signatures are checked after collection: compare, but pin nothing yet.
-  await assertPrincipalIdentityCommitments({
-    authenticated: false,
-    projections: [
-      ...input.bundle.previousStates.map((entry) => entry.projection),
-      input.bundle.currentProjection,
-    ],
-    resolveTrustedUserIdentity,
-  });
-  return {
-    signerPublicKeys: Array.from(signerPublicKeysByKey.values()),
-  };
 }

@@ -37,6 +37,42 @@ export async function assertPrincipalIdentityCommitments(input: {
 }
 
 /**
+ * Resolve a policy's signers and compare its members' commitments before any
+ * signature is checked, pinning nothing: a signer or member seen for the
+ * first time stays staged, so a refused bundle leaves no durable pin to block
+ * a corrected retry or the honest identity link. Existing pins are used as
+ * they are. Verified selections publish members' first sights afterwards.
+ */
+export function withUnauthenticatedPolicyIdentities<T>(
+  input: {
+    readonly signerUserIds: readonly string[];
+    readonly projections: readonly (readonly PrincipalProjectionMember[])[];
+    readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  },
+  resolveSigners: (resolve: StagedUserIdentityResolver) => Promise<T>,
+): Promise<T> {
+  const check = async (resolve: StagedUserIdentityResolver) => {
+    const signers = await resolveSigners(resolve);
+    await compareCommitments(input.projections, resolve);
+    return signers;
+  };
+  const resolver = input.resolveTrustedUserIdentity;
+  if (!resolver.withPinnedIdentities) return check(resolver);
+  return resolver.withPinnedIdentities(
+    [
+      ...new Set([
+        ...input.signerUserIds,
+        ...input.projections.flatMap((projection) =>
+          projection.map((member) => member.userId),
+        ),
+      ]),
+    ],
+    check,
+    { publish: false },
+  );
+}
+
+/**
  * Check every projection a verified selection hands to authorization, on
  * fresh and restored history alike: a restored prefix reads no page, so this
  * is the only commitment check its members get. Selections are already

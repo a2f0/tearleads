@@ -10,7 +10,10 @@ import {
   verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import type { TrustedUserIdentityResolver } from "../trustedUserIdentity";
+import type {
+  StagedUserIdentityResolver,
+  TrustedUserIdentityResolver,
+} from "../trustedUserIdentity";
 
 export function principalPolicyReferenceFromBundle(
   bundle: Pick<PrincipalPolicyBundleResponse, "currentState">,
@@ -131,7 +134,8 @@ export async function verifyPrincipalPolicyBundleWithExternalOrganizationAdmins(
  * cannot be authorized by any evidence (for example a non-admin signer with
  * no external citation), so its refusal is a real verification failure
  * rather than missing evidence. The optimistic authority is never trusted
- * for anything else: the caller caches nothing either way.
+ * for anything else: the caller caches nothing either way, and no signer it
+ * resolves is pinned.
  */
 export async function externalAuthorityCouldAuthorize(input: {
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
@@ -144,6 +148,21 @@ export async function externalAuthorityCouldAuthorize(input: {
     input.bundle.currentState,
     ...input.bundle.previousStates.map((entry) => entry.state),
   ];
+  const resolver = input.resolveTrustedUserIdentity;
+  if (!resolver.withPinnedIdentities)
+    return optimisticAuthorityVerifies(input, states, resolver);
+  return resolver.withPinnedIdentities(
+    [...new Set(states.map((state) => state.signerUserId))],
+    (resolve) => optimisticAuthorityVerifies(input, states, resolve),
+    { publish: false },
+  );
+}
+
+async function optimisticAuthorityVerifies(
+  input: Parameters<typeof externalAuthorityCouldAuthorize>[0],
+  states: readonly PrincipalPolicyBundleResponse["currentState"][],
+  resolve: StagedUserIdentityResolver,
+): Promise<boolean> {
   const optimistic = new Map<
     string,
     PrincipalPolicyExternalAuthority["states"][number]
@@ -160,7 +179,7 @@ export async function externalAuthorityCouldAuthorize(input: {
       head.keyFingerprint,
     ]);
     const projection = optimistic.get(key)?.projection ?? [];
-    const identity = await input.resolveTrustedUserIdentity(state.signerUserId);
+    const identity = await resolve(state.signerUserId);
     if (!identity) return false;
     const identityBundleFingerprint =
       await computeUserIdentityBundleFingerprint(identity);

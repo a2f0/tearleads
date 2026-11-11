@@ -8,6 +8,7 @@ import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import { Tearleads } from "../../Tearleads";
+import { collectPrincipalPolicySignerPublicKeys } from "../../workflows/principals/policyVerification";
 import { createRuntime } from "./workflowRuntime";
 
 async function runtimeFixture() {
@@ -43,6 +44,7 @@ async function runtimeFixture() {
     ...fixture,
     sdk,
     incidents,
+    runtimeResolver: () => runtime.workflowInput(),
     verify,
     close() {
       sdk.dispose();
@@ -62,6 +64,40 @@ test("runtime preserves the read-only batch capability", async () => {
       pinSelects: 1,
       requests: 0,
       writes: 0,
+    });
+  } finally {
+    fixture.close();
+  }
+});
+
+test("runtime signer resolution stages a refused substitution", async () => {
+  const fixture = await runtimeFixture();
+  try {
+    const [signer, member] = fixture.members;
+    if (!signer || !member) throw new Error("Missing identities");
+    fixture.responses.set(signer.identity.userId, {
+      ...signer.response,
+      encapsulationPublicKey: member.response.encapsulationPublicKey,
+      encapsulationKeyFingerprint: member.response.encapsulationKeyFingerprint,
+    });
+    // Every runtime resolver adapter must forward staging: without it the
+    // signer lookup pins the substitute on first sight.
+    const collect = () =>
+      collectPrincipalPolicySignerPublicKeys({
+        bundle: fixture.bundle,
+        resolveTrustedUserIdentity:
+          fixture.runtimeResolver().resolveTrustedUserIdentity,
+      });
+    await expect(collect()).rejects.toMatchObject({ code: "hash_mismatch" });
+    expect(
+      await fixture.execSql(
+        "SELECT provenance FROM trusted_user_identity_pins WHERE user_id = ?",
+        [signer.identity.userId],
+      ),
+    ).toEqual([]);
+    fixture.responses.set(signer.identity.userId, signer.response);
+    await expect(collect()).resolves.toMatchObject({
+      signerPublicKeys: [{ userId: signer.identity.userId }],
     });
   } finally {
     fixture.close();

@@ -88,9 +88,10 @@ that reaches an independent pin. This is transitive trust in every vouching
 admin, not protection against a careless or malicious admin's false binding.
 New or disabled Members enrollment, contacts, and roster profiles still need
 direct `self`/`link` trust. Chain admission never upgrades pin
-[provenance](../developer/trusted-user-identity.md#provenance). Signer resolution
-still pins on first sight; without an independent anchor, a self-consistent
-chain does not authenticate those keys or prove currentness.
+[provenance](../developer/trusted-user-identity.md#provenance). Policy signers
+are staged with their members until the signed state verifies; access-event and
+document-writer signers still pin on first sight. Without an independent anchor,
+a self-consistent chain does not authenticate those keys or prove currentness.
 
 All group and organization projections, including genesis, require
 `identityBundleFingerprint`: the lowercase SHA-256 of the complete identity-link

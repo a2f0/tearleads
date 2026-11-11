@@ -322,7 +322,7 @@ Public founding-policy builders, `createOrganizationGroup`, and
 `registerIdentity` require canonical `identityTrustDomain`; runtime services
 supply it. [Identity contracts](../../../../docs/developer/client-sdk/public-api.md#principal-identity-contracts)
 define full commitments, scoped pin reads (never admission), bounded vouching,
-and reset-only deployment. Helpers stay private; signer resolution is unchanged.
+and reset-only deployment. Helpers stay private; policy signers stay staged.
 
 Trust-boundary failures are terminal and feed the client-owned
 `tearleads.securityIncidents` ledger. Workflow runtimes receive only its

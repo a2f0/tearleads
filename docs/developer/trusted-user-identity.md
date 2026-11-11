@@ -45,8 +45,10 @@ Each pin records how it was established:
   member being verified, or a roster entry being displayed. Signature
   verification keeps pinning on first sight so that it never
   [fails closed](../glossary/access.md#fail-closed) for users the device has not
-  met. A group member's first answer is pinned only once its signed projection
-  verifies and the answer matches that member's committed bundle.
+  met. Policy signers and group members are resolved before signatures are
+  checked, so their first answers stay in memory: a member's is pinned only
+  once its signed projection verifies and the answer matches that member's
+  committed bundle, and policy signer resolution alone pins nothing.
 
 Only `self` and `link` admit a user, apart from
 [roster vouching](#roster-vouching), which never changes a pin. Verifying a
@@ -277,8 +279,12 @@ projection commitment. A member without a pin is compared using the identity
 endpoint's validated candidate, held in memory. The gateway pins those
 candidates as `observed` only when `verify` succeeds and the caller set
 `publish`, which it does only after the projection's signed state verified.
-Signer collection checks commitments before signatures, so it never publishes:
-a forged projection or a refused candidate leaves no pin. Any answer a scope
+Signer collection resolves signers and checks commitments in one such scope
+before signatures, so it never publishes: a forged projection, a refused
+member, or a refused signer (for example one whose served encapsulation key
+contradicts its committed bundle) leaves no pin to block the corrected retry
+or the honest identity link. The external-authority refusal classifier
+likewise resolves signers without pinning them. Any answer a scope
 did not publish, even one its check accepted, is evicted from the endpoint
 cache, because the caller's signature check may still refuse it: a retry or a
 later signer lookup reads the endpoint again. Public and private
@@ -293,9 +299,10 @@ pins an unsigned member on first sight. The current user
 always rechecks authoritative local keys. Database, account, or
 runtime-generation changes invalidate the operation. The callback's resolver
 is not a persistent cache.
-Ordinary resolution and signer resolution still fetch and compare candidates
-with durable pins; this optimization neither changes that conflict detection
-nor promotes an `observed` pin to an admission anchor.
+Ordinary resolution, including access-event and document-writer signer
+lookups, still fetches and compares candidates with durable pins. Inside a
+scope, an existing pin is used as stored, so a conflicting served answer cannot
+replace it. Neither path promotes an `observed` pin to an admission anchor.
 
 This is a [reset-only format change](greenfield-reset.md#identity-bound-principal-format),
 not a migration or fingerprint backfill. Accepting it does not authorize

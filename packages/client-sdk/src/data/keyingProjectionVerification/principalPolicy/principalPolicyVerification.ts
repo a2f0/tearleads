@@ -15,7 +15,10 @@ import {
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
 } from "../../principals/organizationAuthorityDescriptor";
-import { assertPrincipalIdentityCommitments } from "../../principals/principalIdentityCommitments";
+import {
+  assertPrincipalIdentityCommitments,
+  withUnauthenticatedPolicyIdentities,
+} from "../../principals/principalIdentityCommitments";
 import {
   organizationAdminExternalAuthority,
   principalPolicyReferenceFromBundle,
@@ -85,51 +88,46 @@ async function collectPrincipalPolicySignerPublicKeys(input: {
   label: string;
   resolveUserKey: ProjectionUserKeyResolver;
 }): Promise<PrincipalPolicySignerPublicKey[]> {
-  const signerPublicKeysByKey = new Map<
-    string,
-    PrincipalPolicySignerPublicKey
-  >();
-
-  for (const state of principalPolicyBundleStates(input.bundle)) {
-    const cacheKey = `${state.signerUserId}:${state.signerUserKeyFingerprint}`;
-    if (signerPublicKeysByKey.has(cacheKey)) {
-      continue;
-    }
-
-    const signerKey = await input.resolveUserKey(state.signerUserId);
-    if (!signerKey) {
-      throw new ProjectionDependencyUnavailableError(
-        `${input.label} signer key could not be resolved for ${state.signerUserId}`,
-      );
-    }
-
-    const signingKeyFingerprint = await toFingerprint(
-      signerKey.signingPublicKey,
-    );
-    if (signingKeyFingerprint !== state.signerUserKeyFingerprint) {
-      throw new KeyingVerificationError(
-        "signer_mismatch",
-        `${input.label} signer key fingerprint mismatch`,
-      );
-    }
-
-    signerPublicKeysByKey.set(cacheKey, {
-      userId: state.signerUserId,
-      signingKeyFingerprint,
-      signingPublicKey: signerKey.signingPublicKey,
-    });
-  }
-
+  const states = principalPolicyBundleStates(input.bundle);
   // Signatures are checked after collection: compare, but pin nothing yet.
-  await assertPrincipalIdentityCommitments({
-    authenticated: false,
-    projections: [
-      ...input.bundle.previousStates.map((entry) => entry.projection),
-      input.bundle.currentProjection,
-    ],
-    resolveTrustedUserIdentity: input.resolveUserKey,
-  });
-  return [...signerPublicKeysByKey.values()];
+  return withUnauthenticatedPolicyIdentities(
+    {
+      signerUserIds: states.map((state) => state.signerUserId),
+      projections: [
+        ...input.bundle.previousStates.map((entry) => entry.projection),
+        input.bundle.currentProjection,
+      ],
+      resolveTrustedUserIdentity: input.resolveUserKey,
+    },
+    async (resolve) => {
+      const signers = new Map<string, PrincipalPolicySignerPublicKey>();
+      for (const state of states) {
+        const cacheKey = `${state.signerUserId}:${state.signerUserKeyFingerprint}`;
+        if (signers.has(cacheKey)) continue;
+        const signerKey = await resolve(state.signerUserId);
+        if (!signerKey) {
+          throw new ProjectionDependencyUnavailableError(
+            `${input.label} signer key could not be resolved for ${state.signerUserId}`,
+          );
+        }
+        const signingKeyFingerprint = await toFingerprint(
+          signerKey.signingPublicKey,
+        );
+        if (signingKeyFingerprint !== state.signerUserKeyFingerprint) {
+          throw new KeyingVerificationError(
+            "signer_mismatch",
+            `${input.label} signer key fingerprint mismatch`,
+          );
+        }
+        signers.set(cacheKey, {
+          userId: state.signerUserId,
+          signingKeyFingerprint,
+          signingPublicKey: signerKey.signingPublicKey,
+        });
+      }
+      return [...signers.values()];
+    },
+  );
 }
 
 type OrganizationAdminPolicyInput = {

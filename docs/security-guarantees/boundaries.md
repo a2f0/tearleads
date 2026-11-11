@@ -51,8 +51,10 @@ still exercising the cold-start rollback limit above.
 
 ### First-Contact Identity-Key Substitution
 
-Signer lookups and other verification of users that signed state references
-pin on first sight (`observed`), which cannot authenticate a stranger's keys.
+Access-event and document-writer signer lookups, and members of verified
+policies, pin on first sight (`observed`), which cannot authenticate a
+stranger's keys. Policy signers are resolved before signatures are checked, so
+a refused policy pins none of them.
 
 An independently exchanged
 [identity link](../developer/trusted-user-identity.md#identity-links) binds the

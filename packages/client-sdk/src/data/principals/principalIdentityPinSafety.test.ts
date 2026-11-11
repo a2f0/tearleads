@@ -184,9 +184,11 @@ test("signer diagnostics precede member commitment failures through the adapted 
         resolveTrustedUserIdentity: adapted,
       }),
     ).resolves.toHaveProperty("signerPublicKeys");
+    // Signers and members share one staged scope over the existing pins.
     expect(fixture.counts()).toMatchObject({
-      transactions: 2,
-      pinSelects: 2,
+      transactions: 1,
+      pinSelects: 1,
+      requests: 0,
       writes: 0,
     });
     const malformed = {
