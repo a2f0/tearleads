@@ -26,10 +26,14 @@ export interface FirstSightIdentitySteps {
     userId: string,
     identityTrustDomain: string,
   ) => Promise<ValidatedUserIdentityCandidate | null>;
-  /** Compare-or-insert one candidate as an `observed` pin. */
+  /**
+   * Compare-or-insert one candidate as an `observed` pin; `assertCurrent`
+   * runs inside its write transaction so a stale operation commits nothing.
+   */
   readonly pinObserved: (
     execSql: ExecSql,
     identity: ValidatedUserIdentityCandidate,
+    assertCurrent: () => void,
   ) => Promise<unknown>;
 }
 
@@ -156,7 +160,11 @@ export function withPinnedIdentityResolution(
         if (options.publish)
           for (const candidate of staged.values()) {
             scope.assertCurrent();
-            await firstSight.pinObserved(scope.execSql, candidate);
+            await firstSight.pinObserved(
+              scope.execSql,
+              candidate,
+              scope.assertCurrent,
+            );
           }
         scope.assertCurrent();
         return result;

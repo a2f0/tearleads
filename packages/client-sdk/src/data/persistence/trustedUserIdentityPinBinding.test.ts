@@ -7,10 +7,10 @@ import {
 } from "../sqlite/schema/trustedUserIdentityPinSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { createExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import { loadTrustedUserIdForSigningKey } from "./identity/trustedUserIdentitySigningKeyBinding";
 import {
   compareOrInsertTrustedUserIdentityPin,
   loadTrustedUserIdentityPin,
-  loadTrustedUserIdForSigningKey,
 } from "./trustedUserIdentityPinPersistence";
 
 test("a retained signing fingerprint cannot bind another user in the same trust domain", async () => {

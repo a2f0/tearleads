@@ -3,6 +3,7 @@ import {
   trustedUserIdentityPins,
   trustedUserIdentityPinTables,
 } from "../sqlite/schema/trustedUserIdentityPinSchema";
+import { registerClientSQLiteCommitGuard } from "../sqlite/sqliteCommitGuards";
 import {
   type ClientSQLiteDatabase,
   type ClientSQLiteTransactionScope,
@@ -343,35 +344,6 @@ export async function loadTrustedUserIdentityPin(input: {
 }
 
 /**
- * The user a signing key is already bound to in this trust domain, if any.
- * Each key has at most one such user: the reverse binding is unique.
- */
-export async function loadTrustedUserIdForSigningKey(input: {
-  readonly execSql: ExecSql;
-  readonly identityTrustDomain: string;
-  readonly signingKeyFingerprint: string;
-}): Promise<string | null> {
-  await ensureSqlTables(input.execSql, trustedUserIdentityPinTables);
-  const rows = await getClientSQLitePersistenceRuntime(input.execSql)
-    .db.select({ userId: trustedUserIdentityPins.userId })
-    .from(trustedUserIdentityPins)
-    .where(
-      and(
-        eq(
-          trustedUserIdentityPins.identityTrustDomain,
-          input.identityTrustDomain,
-        ),
-        eq(
-          trustedUserIdentityPins.signingKeyFingerprint,
-          input.signingKeyFingerprint,
-        ),
-      ),
-    )
-    .limit(1);
-  return rows[0]?.userId ?? null;
-}
-
-/**
  * One read answers an exact repeat of a pin that alone holds its
  * key and ranks at or above the candidate; anything else returns null for the
  * write transaction. Pins are never deleted, keys never change, and
@@ -413,12 +385,17 @@ async function matchingPin(
  * this function returns. When the keys match and the candidate's provenance
  * ranks higher (an identity link confirming an observed pin), only the
  * provenance is raised; it is never lowered.
+ *
+ * `assertCurrent` is the caller's lifetime check. It guards the write
+ * transaction's COMMIT, so an operation whose account or database changed
+ * while it awaited SQLite rolls its pin back instead of committing it.
  */
 export async function compareOrInsertTrustedUserIdentityPin(input: {
+  readonly assertCurrent?: (() => void) | undefined;
   readonly execSql: ExecSql;
   readonly pin: TrustedUserIdentityPin;
 }): Promise<TrustedUserIdentityPin> {
-  const { pin } = input;
+  const { assertCurrent = () => {}, pin } = input;
   assertCandidatePin(pin);
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   return runTrustedUserIdentityPinTransaction(async () => {
@@ -429,6 +406,7 @@ export async function compareOrInsertTrustedUserIdentityPin(input: {
     if (pinned) return pinned;
     return runtime.transaction(
       async (tx) => {
+        registerClientSQLiteCommitGuard(input.execSql, assertCurrent);
         const aliases = await tx
           .select()
           .from(pins)

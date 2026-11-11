@@ -1,8 +1,8 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { loadTrustedUserIdForSigningKey } from "../persistence/identity/trustedUserIdentitySigningKeyBinding";
 import {
   compareOrInsertTrustedUserIdentityPin,
-  loadTrustedUserIdForSigningKey,
   TrustedUserIdentityPinCorruptError,
   TrustedUserIdentityPinMismatchError,
   type TrustedUserIdentityPinProvenance,
@@ -65,6 +65,7 @@ function requireTrustStore(
 }
 
 async function compareWithDurablePin(input: {
+  readonly assertCurrent?: (() => void) | undefined;
   readonly execSql: NonNullable<
     ReturnType<TrustedUserIdentityServiceDependencies["getExecSql"]>
   >;
@@ -74,6 +75,7 @@ async function compareWithDurablePin(input: {
 }): Promise<void> {
   try {
     await compareOrInsertTrustedUserIdentityPin({
+      assertCurrent: input.assertCurrent,
       execSql: input.execSql,
       pin: {
         encapsulationKeyFingerprint: input.identity.encapsulationKeyFingerprint,
@@ -187,6 +189,8 @@ function assertResolutionScope(
 }
 
 async function pinIdentity(input: {
+  /** Checked inside the pin's write transaction, before it commits. */
+  readonly assertCurrent?: (() => void) | undefined;
   readonly dependencies: TrustedUserIdentityServiceDependencies;
   readonly execSql: NonNullable<
     ReturnType<TrustedUserIdentityServiceDependencies["getExecSql"]>
@@ -195,6 +199,7 @@ async function pinIdentity(input: {
   readonly provenance: TrustedUserIdentityPinProvenance;
 }): Promise<TrustedUserIdentity> {
   await compareWithDurablePin({
+    assertCurrent: input.assertCurrent,
     execSql: input.execSql,
     firstSeenAt: (input.dependencies.now?.() ?? new Date()).toISOString(),
     identity: input.identity,
@@ -225,12 +230,15 @@ async function verifyIdentityLink(
     if (!candidate)
       throw new Error("The identity in this link is unavailable.");
     await assertIdentityLinkMatches(expectation, candidate.identity);
-    assertResolutionScope(
-      dependencies,
-      { execSql, localUserId },
-      "The active identity changed. Open the identity link again.",
-    );
+    const assertCurrent = () =>
+      assertResolutionScope(
+        dependencies,
+        { execSql, localUserId },
+        "The active identity changed. Open the identity link again.",
+      );
+    assertCurrent();
     return await pinIdentity({
+      assertCurrent,
       dependencies,
       execSql,
       identity: candidate.identity,
@@ -372,12 +380,15 @@ export function createTrustedUserIdentityService(
           if (!candidate) {
             return null;
           }
-          assertResolutionScope(
-            dependencies,
-            { execSql, localUserId },
-            "The active identity changed while resolving this user.",
-          );
+          const assertCurrent = () =>
+            assertResolutionScope(
+              dependencies,
+              { execSql, localUserId },
+              "The active identity changed while resolving this user.",
+            );
+          assertCurrent();
           return await pinIdentity({
+            assertCurrent,
             dependencies,
             execSql,
             identity: candidate.identity,
@@ -391,8 +402,9 @@ export function createTrustedUserIdentityService(
       {
         loadCandidate: (userId, identityTrustDomain) =>
           loadRemoteCandidate(dependencies, userId, identityTrustDomain),
-        pinObserved: (execSql, identity) =>
+        pinObserved: (execSql, identity, assertCurrent) =>
           pinIdentity({
+            assertCurrent,
             dependencies,
             execSql,
             identity,
