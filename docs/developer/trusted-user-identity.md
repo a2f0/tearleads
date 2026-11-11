@@ -202,10 +202,13 @@ retry finds the user absent, automatic enrollment rechecks direct `self`/`link`
 admission. The demo's dual panes publish each pane's identity link and verify
 the peer's when available.
 
-If Members advances after a roster proof but before its mutation, the SDK
-refuses with retryable `ProjectionDependencyUnavailableError`, not a demand
-for another identity link. A new caller attempt must prove admission against
-the new head; the SDK does not silently reuse the stale proof.
+If Members advances after a group-add roster proof but before its mutation,
+the SDK refuses with retryable `ProjectionDependencyUnavailableError`, not a
+demand for another identity link. A new caller attempt must prove admission
+against the new head; the SDK does not silently reuse the stale proof. Share
+admission is not head-bound: it authenticates the recipient against the
+Members head current when admission runs, and the share does not recheck that
+head before writing or on retry.
 
 The v1 URL is `/app/contacts/import/<token>`. The token is unpadded canonical
 base64url of the UTF-8 JSON array `[1, identityTrustDomain, userId, fingerprint]`.

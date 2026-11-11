@@ -281,9 +281,11 @@ bounds, self-admission, cycles, and forward-only chains cannot establish trust.
 
 An otherwise valid but unauthenticated target raises
 `UnverifiedUserIdentityError` before the mutation; availability errors propagate
-separately. Members advancing between proof and mutation raises retryable
-`ProjectionDependencyUnavailableError`; the caller must retry against the new
-head. Bundle and current or signed-root-verified historical envelope
+separately. For group adds, Members advancing between proof and mutation
+raises retryable `ProjectionDependencyUnavailableError`; the caller must retry
+against the new head. Share admission is checked against the head current at
+admission and is not rechecked before the share. Bundle and current or
+signed-root-verified historical envelope
 contradictions raise `hash_mismatch`. Signer-pin conflicts remain hard
 verification failures; policy verification may reject them earlier as
 `signer_mismatch`. Chain admission never promotes a pin to `self` or `link`:
