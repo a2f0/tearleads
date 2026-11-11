@@ -200,3 +200,18 @@ export async function pin(
 export const VERIFIED_ADMIN_A = {
   "admin-a": await pin("admin-a", true, "c".repeat(64)),
 };
+
+/** The identity endpoint's answer for the keys `pin` committed for a user. */
+export async function identityResponse(userId: string, keyLabel = GOOD_KEY) {
+  await pin(userId, false, keyLabel);
+  const signing = signingKeys.get(userId);
+  const kem = encryptionKeys.get(`${userId}:${keyLabel}`);
+  if (!signing || !kem) throw new Error("Missing fixture keys");
+  return {
+    userId,
+    signingPublicKey: bytesToBase64(signing.signingPublicKey),
+    signingKeyFingerprint: await toFingerprint(signing.signingPublicKey),
+    encapsulationPublicKey: bytesToBase64(kem.publicKey),
+    encapsulationKeyFingerprint: await toFingerprint(kem.publicKey),
+  };
+}

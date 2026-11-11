@@ -300,7 +300,11 @@ resetting a deployed environment.
 The [recipient-admission gate](../../packages/client-sdk/src/client/organizations/recipientAdmission.ts)
 first accepts a direct `self`/`link` pin. Otherwise it asks the
 [Members-chain verifier](../../packages/client-sdk/src/workflows/organizations/memberships/rosterVouchedAdmission.ts)
-to authenticate the target's full pinned bundle:
+to authenticate the target's full bundle. Without a pin, it checks the
+identity endpoint's answer staged in memory, and pins it as `observed` only
+once the chain authenticates that exact bundle, so a substituted answer leaves
+no pin and a corrected retry or the honest link still succeeds. The verifier
+checks:
 
 1. The verified current Members projection must contain the target's exact
    bundle commitment, and its envelope must name the pinned encapsulation key.

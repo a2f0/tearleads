@@ -2,6 +2,7 @@ import type {
   ContainerAccessLevel,
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
+import { computeUserIdentityBundleFingerprint } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
@@ -9,10 +10,15 @@ import { principalHeadMatchesReference } from "../../data/principals/organizatio
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
-import { UnverifiedUserIdentityError } from "../../data/trustedUserIdentity";
+import {
+  type StagedUserIdentityResolver,
+  type TrustedUserIdentityResolver,
+  UnverifiedUserIdentityError,
+} from "../../data/trustedUserIdentity";
 import {
   isRosterVouchedRecipient,
   type RosterAdmissionEvidence,
+  type RosterAdmissionPin,
 } from "../../workflows/organizations/memberships/rosterVouchedAdmission";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { currentOrganizationMutation } from "./principalMutationScope";
@@ -25,18 +31,70 @@ type AdmissionRuntimeService = Pick<
   "identityLinks" | "sessionGeneration" | "workflowInput"
 >;
 
+/** Thrown inside the staged scope so a refused recipient publishes nothing. */
+class RecipientNotVouched extends Error {}
+
+async function stagedPin(
+  candidate: NonNullable<Awaited<ReturnType<StagedUserIdentityResolver>>>,
+): Promise<RosterAdmissionPin> {
+  return {
+    encapsulationKeyFingerprint: candidate.encapsulationKeyFingerprint,
+    identityBundleFingerprint:
+      await computeUserIdentityBundleFingerprint(candidate),
+    signingKeyFingerprint: candidate.signingKeyFingerprint,
+    verified: false,
+  };
+}
+
 /**
- * Whether the signed roster vouches for `userId` on this device. First sight
- * pins the keys the server serves as observed, and the roster must then vouch
- * for exactly that domain-scoped signing and encapsulation identity bundle.
- * Served material that fails verification is
- * recorded as a security incident before the error propagates.
+ * Admit against the server's first answer without pinning it: the answer is
+ * staged, and pinned as observed only once the signed roster vouches for that
+ * exact identity bundle. A substituted answer leaves no pin, so a corrected
+ * retry or the honest identity link still succeeds.
+ */
+async function isStagedRosterVouchedRecipient(
+  userId: string,
+  evidence: RosterAdmissionEvidence,
+  resolver: TrustedUserIdentityResolver,
+): Promise<boolean> {
+  // Without staging, admit only a durable pin: never pin before the roster.
+  if (!resolver.withPinnedIdentities)
+    return isRosterVouchedRecipient(userId, evidence);
+  try {
+    return await resolver.withPinnedIdentities(
+      [userId],
+      async (resolve) => {
+        const candidate = await resolve(userId);
+        const vouched =
+          candidate !== null &&
+          (await isRosterVouchedRecipient(userId, {
+            ...evidence,
+            loadPin: async (id) =>
+              (await evidence.loadPin(id)) ??
+              (id === userId ? stagedPin(candidate) : null),
+          }));
+        if (!vouched) throw new RecipientNotVouched();
+        return true;
+      },
+      { publish: true },
+    );
+  } catch (error) {
+    if (error instanceof RecipientNotVouched) return false;
+    throw error;
+  }
+}
+
+/**
+ * Whether the signed roster vouches for `userId` on this device, for exactly
+ * the domain-scoped signing and encapsulation identity bundle the server
+ * serves. Served material that fails verification is recorded as a security
+ * incident before the error propagates.
  */
 export function isReportedRosterVouchedRecipient(input: {
   readonly evidence: RosterAdmissionEvidence;
   readonly organizationId: string;
   readonly reportSecurityIncident: SecurityIncidentReporter;
-  readonly resolveTrustedUserIdentity: (userId: string) => Promise<unknown>;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly userId: string;
 }): Promise<boolean> {
   const { evidence, userId } = input;
@@ -48,9 +106,12 @@ export function isReportedRosterVouchedRecipient(input: {
       operation: "container.share.roster_vouch",
       organizationId: input.organizationId,
     },
-    async () =>
-      Boolean(await input.resolveTrustedUserIdentity(userId)) &&
-      isRosterVouchedRecipient(userId, evidence),
+    () =>
+      isStagedRosterVouchedRecipient(
+        userId,
+        evidence,
+        input.resolveTrustedUserIdentity,
+      ),
   );
 }
 
