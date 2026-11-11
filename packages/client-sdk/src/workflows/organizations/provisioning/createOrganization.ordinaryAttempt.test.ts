@@ -219,6 +219,50 @@ test("pending ordinary attempts are scoped by the whole creation intent and user
   }
 });
 
+test("acknowledgement binds an unprovisioned device-first root", async () => {
+  const connection = await openConnection(`/${crypto.randomUUID()}.db`);
+  try {
+    const response = await createOrganization({
+      ...identity(),
+      dbClient: connection.dbClient,
+      apiClient: {
+        createOrganization: async (request: CreateOrganizationRequest) => {
+          await sqlContainerContentsPersistence.ensureSchema(
+            connection.execSql,
+          );
+          await sqlContainerContentsPersistence.saveContainer(
+            connection.execSql,
+            {
+              id: request.rootContainerId,
+              organizationId: "",
+              parentId: null,
+              metadataDocumentId: null,
+              name: "/",
+              icon: null,
+              effectiveAccessLevel: "admin",
+            },
+            null,
+          );
+          return respondToOrganizationProvisioning(request);
+        },
+      },
+    });
+    if (!response) throw new Error("Expected acknowledged creation");
+    const root =
+      await sqlContainerContentsPersistence.loadContainerMetadataState(
+        connection.execSql,
+        response.rootContainerId,
+      );
+    expect(root?.container).toMatchObject({
+      organizationId: response.organizationId,
+      metadataDocumentId: response.rootMetadataDocumentId,
+    });
+    expect(root?.record?.documentId).toBe(response.rootMetadataDocumentId);
+  } finally {
+    connection.close();
+  }
+});
+
 test("ordinary adoption preserves later metadata and fills only missing bootstrap state", async () => {
   const connection = await openConnection(`/${crypto.randomUUID()}.db`);
   const requests: CreateOrganizationRequest[] = [];

@@ -72,7 +72,7 @@ async function discoverOrganizations(device: Device) {
   return device.sdk.organizations.listLocalOrganizations();
 }
 
-/** All setup runs outside test.failing, so a broken fixture cannot satisfy it. */
+/** Real commit, response loss, discovery and retry, outside assertion callbacks. */
 export async function observeLostOrganizationCreate(
   world: World,
   restartBeforeRetry: boolean,

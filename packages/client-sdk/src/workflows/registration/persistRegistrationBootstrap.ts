@@ -138,11 +138,18 @@ async function persistMissingContainerBootstrap(
     typeof sqlContainerContentsPersistence.saveContainer
   >
 ): Promise<void> {
-  const existing =
+  let existing =
     await sqlContainerContentsPersistence.loadContainerMetadataState(
       execSql,
       container.id,
     );
+  // An unbound device-first placeholder is not discovered organization state.
+  if (
+    existing?.container.organizationId === "" &&
+    existing.container.metadataDocumentId === null &&
+    !existing.record
+  )
+    existing = null;
   if (existing?.record) return;
   await sqlContainerContentsPersistence.saveContainer(
     execSql,
