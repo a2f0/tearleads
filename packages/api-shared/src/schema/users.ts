@@ -1,5 +1,12 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp, uuid } from "./columns";
+import {
+  boolean,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 /**
  * Registered human users and their long-lived public key material.

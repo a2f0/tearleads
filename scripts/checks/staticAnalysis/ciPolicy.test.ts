@@ -197,14 +197,13 @@ test("each long suite runs in exactly one CI job and every shard runs", async ()
   expect(suites.length).toBeGreaterThan(0);
   expect(excluded.toSorted()).toEqual(suites.toSorted());
 
-  // A split suite must still run every file on every backend exactly once:
-  // each backend's shards are 1/N through N/N, and a backend-narrowed API
-  // suite covers both backends.
+  // A split suite must still run every file exactly once: its shards are 1/N
+  // through N/N.
   const lanes = new Map<string, string[]>();
   for (const { filter, args = "" } of entries) {
     const words = args.split(" ").filter(Boolean);
     const shard = words.find((word) => word.startsWith("--shard="));
-    const lane = `${filter} ${words.filter((word) => word.startsWith("--database=")).join(" ")}`;
+    const lane = filter ?? "";
     lanes.set(lane, [...(lanes.get(lane) ?? []), shard ?? "whole"]);
   }
   for (const [lane, shards] of lanes) {
@@ -219,15 +218,6 @@ test("each long suite runs in exactly one CI job and every shard runs", async ()
         (_, index) => `--shard=${index + 1}/${total}`,
       ).toSorted(),
     );
-  }
-  const apiLanes = [...lanes.keys()].filter((lane) =>
-    lane.startsWith("@tearleads/api "),
-  );
-  if (apiLanes.some((lane) => lane.includes("--database="))) {
-    expect(apiLanes.toSorted()).toEqual([
-      "@tearleads/api --database=memory",
-      "@tearleads/api --database=sqlite",
-    ]);
   }
 });
 

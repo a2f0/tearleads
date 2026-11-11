@@ -19,8 +19,8 @@ const scopes = new AsyncLocalStorage<CounterScope>();
 
 /**
  * Count executed ORM statements without retaining SQL text or parameters.
- * PostgreSQL and SQLite include explicit transaction controls. PGlite's native
- * transaction method and Turso's transport setup are outside the ORM logger.
+ * PostgreSQL includes explicit transaction controls. PGlite's native
+ * transaction method is outside the ORM logger.
  */
 export function withDatabaseStatementCounter<T>(
   counter: DatabaseStatementCounter,

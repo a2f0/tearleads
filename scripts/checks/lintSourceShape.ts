@@ -68,8 +68,6 @@ const ignoredPathPatterns = [
   /^packages\/[^/]+\/test-results\//,
   /^packages\/api-shared\/drizzle\/[^/]+\.sql$/,
   /^packages\/api-shared\/drizzle\/meta\/[^/]+\.json$/,
-  /^packages\/api-shared\/drizzle-sqlite\/[^/]+\.sql$/,
-  /^packages\/api-shared\/drizzle-sqlite\/meta\/[^/]+\.json$/,
   /^packages\/website\/\.astro\//,
   // Generated or tool-owned files, each kept current by its own generator or
   // drift check rather than edited by hand.

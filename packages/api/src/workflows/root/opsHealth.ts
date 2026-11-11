@@ -276,8 +276,7 @@ async function listPurgesDue(executor: DatabaseSession, now: Date) {
 /**
  * Cross-organization billing maintenance health. PostgreSQL reads every
  * section from one repeatable-read snapshot, so an organization moving between
- * states mid-report appears in at most one; SQLite and Turso already run each
- * transaction alone.
+ * states mid-report appears in at most one.
  */
 export async function loadRootOpsHealthReport(
   db: ApiDatabase,

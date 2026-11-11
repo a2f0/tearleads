@@ -2,7 +2,7 @@ import { expect, setSystemTime, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { blobAuditObjects, blobs } from "@tearleads/api-shared/schema";
 import { eq, sql } from "drizzle-orm";
-import { wallClockNowExpression } from "../../../utils/sqlDialect";
+import { wallClockNowExpression } from "../../../utils/postgresSql";
 import { lockBlobMutationRows } from "../mutations/blobMutationLocks";
 import {
   deferFailedBlobReclaim,

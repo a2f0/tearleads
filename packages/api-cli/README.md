@@ -27,19 +27,16 @@ prints only `Unknown command: <name>` — no usage — and exits `1`. `-h` /
 
 ### `migrate`
 
-Initializes the current Drizzle baseline for the API's Postgres, local SQLite,
-or remote Turso database. Defaults `API_DATABASE` to `postgres` when unset,
-then calls `initializeApiDatabase` from `@tearleads/api-shared/postgres`. Turso
-uses the SQLite migration bundle.
+Initializes the current Drizzle baseline for the API's Postgres database.
+Defaults `API_DATABASE` to `postgres` when unset, then calls
+`initializeApiDatabase` from `@tearleads/api-shared/postgres`.
 
-In the compiled executable both dialects' migration files are **embedded** — the
-build bundles SQL and JSON files under
-[`packages/api-shared/drizzle`](../api-shared/drizzle/) and
-[`packages/api-shared/drizzle-sqlite`](../api-shared/drizzle-sqlite/) as
-assets. The command materializes only the selected dialect into a temp directory
-(`tearleads-api-migrations-*`), passes it as `migrationsFolder`, and removes it
-afterwards. Run from source, no files are embedded and `initializeApiDatabase`
-uses its own dialect-specific default folder.
+In the compiled executable the migration files are **embedded**: the build
+bundles the SQL and JSON files under
+[`packages/api-shared/drizzle`](../api-shared/drizzle/) as assets. The command
+materializes them into a temp directory (`tearleads-api-migrations-*`), passes
+it as `migrationsFolder`, and removes it afterwards. Run from source, no files
+are embedded and `initializeApiDatabase` uses its own default folder.
 
 Once the migration starts, both the success and failure paths attempt to close
 the database and remove the temp folder; each attempt is guarded, so a failing
@@ -167,5 +164,7 @@ defaults to `packages/api-cli/dist/tearleads-api-cli`.
 
 The explicit repository build root preserves the embedded schema asset paths.
 The compiled CLI test runs from outside the checkout and initializes a fresh
-SQLite database twice, so it exercises packaging and idempotent initialization.
+Postgres database twice, so it exercises packaging and idempotent
+initialization. It needs a server (`DATABASE_URL`), so it runs in the Postgres
+concurrency lane and is skipped elsewhere.
 Nothing deploys the executable; the Workers deployment runs the CLI from source.

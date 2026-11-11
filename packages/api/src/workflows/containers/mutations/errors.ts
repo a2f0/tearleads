@@ -7,8 +7,6 @@ import {
 import { keyingVerificationHttpStatus } from "../../../keyingProjectionRecords";
 import {
   errorCauseChain,
-  isLibsqlTransactionContention,
-  isLockContention,
   isSerializationFailure,
   isUniqueViolation,
 } from "../../../utils/databaseErrors";
@@ -140,31 +138,21 @@ export function toMutationError(error: unknown): ContainerMutationError | null {
     );
   }
 
-  if (isLibsqlTransactionContention(error)) {
-    return mutationStateStale(
-      "Container mutation transaction conflicted; retry",
-    );
-  }
-
   return null;
 }
 
 const PREDECESSOR_SUCCESSOR_CONSTRAINT = "container_key_epochs_predecessor_idx";
-const SQLITE_PREDECESSOR_SUCCESSOR_CONSTRAINT =
-  "UNIQUE constraint failed: container_key_epochs.predecessor_container_key_epoch_id";
 
 function hasPredecessorSuccessorConstraint(error: unknown): boolean {
   return errorCauseChain(error).some(
     (candidate) =>
-      Reflect.get(candidate, "constraint") ===
-        PREDECESSOR_SUCCESSOR_CONSTRAINT ||
-      candidate.message === SQLITE_PREDECESSOR_SUCCESSOR_CONSTRAINT,
+      Reflect.get(candidate, "constraint") === PREDECESSOR_SUCCESSOR_CONSTRAINT,
   );
 }
 
 /**
  * Converts concurrent-write database failures (unique-constraint races,
- * serialization failures, lock contention) into retriable 409s. Anything
+ * serialization failures, deadlocks) into retriable 409s. Anything
  * unclassified is a programming error and propagates to the 500 handler.
  */
 export async function runConflictBoundary<T>(
@@ -186,12 +174,7 @@ export async function runConflictBoundary<T>(
       );
     }
 
-    if (
-      isUniqueViolation(error) ||
-      isLibsqlTransactionContention(error) ||
-      isSerializationFailure(error) ||
-      isLockContention(error)
-    ) {
+    if (isUniqueViolation(error) || isSerializationFailure(error)) {
       throw mutationStateStale(
         error instanceof Error ? error.message : String(error),
       );

@@ -7,7 +7,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import {
   jsonByteFloorExpression as jsonBytes,
   textByteLengthExpression as textBytes,
-} from "../utils/sqlDialect";
+} from "../utils/postgresSql";
 
 function readByteCount(value: unknown): number {
   const count = typeof value === "string" ? Number(value) : value;

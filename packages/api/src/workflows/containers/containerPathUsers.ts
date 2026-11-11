@@ -7,7 +7,7 @@ import type {
 } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
-import { uuidValue } from "../../utils/sqlDialect";
+import { uuidValue } from "../../utils/postgresSql";
 
 interface ContainerPathUserIds {
   readonly allUserIds: readonly string[];

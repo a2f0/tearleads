@@ -46,8 +46,7 @@ function lockedMemo(
  * writer of a principal's states (and organization purge, for an organization
  * and its groups) takes that lock first, so reads made from here on stay
  * current until this transaction writes them itself. Call only once the lock
- * is granted; on SQLite every API write transaction begins immediate, which
- * already serializes it. The memo is keyed by the transaction object and dies
+ * is granted. The memo is keyed by the transaction object and dies
  * with it; the root executor never records anything.
  */
 export function notePrincipalMutationLocked(

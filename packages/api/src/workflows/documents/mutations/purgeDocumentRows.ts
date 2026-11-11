@@ -17,7 +17,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { forgetTransactionAccessManifestBundles } from "../../../access/write/accessManifestStore";
-import { wallClockNowExpression } from "../../../utils/sqlDialect";
+import { wallClockNowExpression } from "../../../utils/postgresSql";
 import { DocumentMutationError } from "./errors";
 
 // Content-key targets reference documentContentKeyEpochs(id); the loro update

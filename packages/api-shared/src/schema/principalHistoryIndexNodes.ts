@@ -1,4 +1,4 @@
-import { pgTable, text } from "./columns";
+import { pgTable, text } from "drizzle-orm/pg-core";
 
 /** Untrusted proof material; only a locally verified root grants authority. */
 export const principalHistoryIndexNodes = pgTable(

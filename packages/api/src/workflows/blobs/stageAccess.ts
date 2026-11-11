@@ -1,7 +1,6 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { blobStages } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, lte } from "drizzle-orm";
-import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { assertBlobStorageKeyOrganization } from "./storageKeys";
 
 type BlobStageAccessStatus = 403 | 404 | 409;
@@ -42,7 +41,7 @@ export async function loadOwnedActiveBlobStage(
     .from(blobStages)
     .where(eq(blobStages.id, input.stageId))
     .limit(1);
-  const [stage] = await (input.lockForUpdate ? lockRowForUpdate(query) : query);
+  const [stage] = await (input.lockForUpdate ? query.for("update") : query);
 
   if (!stage) {
     throw input.error("Blob stage not found", 404);

@@ -13,13 +13,10 @@ import {
   createPostgresPoolConfig,
   isEnabled,
   readPostgresStreamConfig,
-  readSqlitePath,
 } from "./postgresConfig";
 import { PostgresPool } from "./postgresPool";
 import { createRequestScopedDatabaseRuntime } from "./requestScopedDatabase";
-import { createSqliteApiDatabase } from "./sqliteAdapter";
 import { withDatabaseTransactionCompletion } from "./transactionCompletion";
-import { createTursoApiDatabase } from "./tursoAdapter";
 import type {
   ApiDatabase,
   ApiDatabaseKind,
@@ -48,9 +45,6 @@ export type {
 // it never migrates, so resolving at import time would throw there.
 function postgresMigrationsFolder(): string {
   return fileURLToPath(new URL("../../drizzle", import.meta.url));
-}
-function sqliteMigrationsFolder(): string {
-  return fileURLToPath(new URL("../../drizzle-sqlite", import.meta.url));
 }
 
 function createMemoryApiDatabase(): ManagedApiDatabase {
@@ -109,15 +103,6 @@ export function createDefaultManagedApiDatabase(
   const kind = readApiDatabaseKind(env);
   if (kind === "memory") {
     return createMemoryApiDatabase();
-  }
-  if (kind === "sqlite") {
-    return createSqliteApiDatabase({
-      sqlitePath: readSqlitePath(env),
-      migrationsFolder: sqliteMigrationsFolder(),
-    });
-  }
-  if (kind === "turso") {
-    return createTursoApiDatabase(env, sqliteMigrationsFolder());
   }
 
   return createPostgresApiDatabase(env);

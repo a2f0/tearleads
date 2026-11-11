@@ -8,8 +8,7 @@ import type {
   VerifiedAttachmentBinding,
   VerifiedAttachmentDetach,
 } from "@tearleads/crypto";
-import { and, eq, isNull } from "drizzle-orm";
-import { nowExpression } from "../../../utils/sqlDialect";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { storeVerifiedAccessEventInTransaction } from "./accessManifestStore";
 import { assertCanonicalStoredUuid } from "./canonicalStoredUuid";
 
@@ -138,7 +137,7 @@ export async function storeVerifiedAttachmentDetachInTransaction(
 
   const [detachedRow] = await executor
     .update(attachmentBindings)
-    .set({ detachedAt: nowExpression() })
+    .set({ detachedAt: sql`now()` })
     .where(
       and(
         eq(attachmentBindings.id, detach.bindingId),

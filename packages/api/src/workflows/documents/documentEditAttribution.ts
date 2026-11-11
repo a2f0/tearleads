@@ -15,7 +15,7 @@ import {
   type DocumentEditAttributionSegment,
   resolveEditAttribution,
 } from "../../documents/documentEditAttribution";
-import { booleanExpression, jsonTextProperty } from "../../utils/sqlDialect";
+import { booleanExpression, jsonTextProperty } from "../../utils/postgresSql";
 import {
   KeyingReadAccessError,
   resolveReadableDocumentAccess,

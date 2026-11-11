@@ -16,7 +16,6 @@ import {
 } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import { sha256Hex } from "../../utils/sha256";
-import { lockRowForUpdate } from "../../utils/sqlDialect";
 import {
   assertOrganizationCanSync,
   OrganizationSyncDisabledError,
@@ -96,7 +95,7 @@ async function assertReplacementReady(
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, replacedOrganizationId))
     .limit(1);
-  const [billing] = await lockRowForUpdate(billingQuery);
+  const [billing] = await billingQuery.for("update");
   if (billing?.status !== "purged") {
     throw new OrganizationProvisioningError(
       "The replaced organization's remote data purge is not complete",
@@ -108,7 +107,7 @@ async function assertReplacementReady(
     .from(users)
     .where(eq(users.id, input.userId))
     .limit(1);
-  const [user] = await lockRowForUpdate(userQuery);
+  const [user] = await userQuery.for("update");
   if (billing.replacementOrganizationId !== null) {
     const response = billing.replacementProvisioningResponse;
     if (

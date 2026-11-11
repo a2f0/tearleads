@@ -2,7 +2,6 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { groups } from "@tearleads/api-shared/schema";
 import { inArray, sql } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
-import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import {
   acquireTransactionLock,
   advisoryLockKey,
@@ -36,7 +35,6 @@ export async function deriveGroupReferenceLockKeys(
 export async function lockGroupPolicyRematerializationInTransaction(
   tx: DatabaseTransaction,
 ): Promise<void> {
-  if (isSqliteApiDatabase()) return;
   const keys = await deriveLockKeys("group-reference:policy-rematerialization");
   const [firstKey, secondKey] = keys;
   await acquireTransactionLock(tx, advisoryLockKey(keys), "exclusive", () =>
@@ -51,7 +49,6 @@ async function lockGroupReferenceInTransaction(
 ): Promise<void> {
   const keys = await deriveGroupReferenceLockKeys(groupId);
   const [firstKey, secondKey] = keys;
-  if (isSqliteApiDatabase()) return;
   await acquireTransactionLock(tx, advisoryLockKey(keys), mode, () =>
     mode === "shared"
       ? tx.execute(

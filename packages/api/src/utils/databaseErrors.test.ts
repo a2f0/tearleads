@@ -1,83 +1,37 @@
 import { expect, test } from "bun:test";
 import {
-  isLibsqlTransactionContention,
-  isLockContention,
+  isSerializationFailure,
   isTransientDatabaseFailure,
+  isUniqueViolation,
 } from "./databaseErrors";
 
-test("classifies libSQL transaction interruption as transient, not conflict", () => {
-  for (const code of ["STREAM_EXPIRED", "TRANSACTION_TIMEOUT"]) {
-    const driverError = Object.assign(new Error("transaction interrupted"), {
-      code,
-    });
-    const wrappedError = new Error("Failed query", { cause: driverError });
+function wrapped(code: string): Error {
+  const driverError = Object.assign(new Error("driver failure"), { code });
+  return new Error("Failed query", { cause: driverError });
+}
 
-    expect(isLockContention(wrappedError)).toBe(false);
-    expect(isLibsqlTransactionContention(wrappedError)).toBe(true);
-    expect(isTransientDatabaseFailure(wrappedError)).toBe(true);
-  }
+test("classifies Postgres SQLSTATEs through the cause chain", () => {
+  expect(isUniqueViolation(wrapped("23505"))).toBe(true);
+  expect(isUniqueViolation(wrapped("23503"))).toBe(false);
+  expect(isSerializationFailure(wrapped("40001"))).toBe(true);
+  expect(isSerializationFailure(wrapped("40P01"))).toBe(true);
+  expect(isSerializationFailure(wrapped("23505"))).toBe(false);
 });
 
-test("classifies remote SQLite lock contention as transient", () => {
-  for (const code of ["SQLITE_BUSY", "SQLITE_BUSY_TIMEOUT", "SQLITE_LOCKED"]) {
-    const driverError = Object.assign(new Error("database is busy"), { code });
-    const wrappedError = new Error("Failed query", { cause: driverError });
-
-    expect(isLockContention(wrappedError)).toBe(true);
-    expect(isTransientDatabaseFailure(wrappedError)).toBe(true);
-  }
-});
-
-test("classifies transient libSQL transport failures without masking config errors", () => {
+test("treats only connection failures as transient", () => {
   for (const code of [
-    "HRANA_CLOSED_ERROR",
-    "HRANA_PROTO_ERROR",
+    "PG_CONNECT_TIMEOUT",
+    "PG_POOL_TIMEOUT",
+    "PG_CONNECTION_UNAVAILABLE",
+  ]) {
+    expect(isTransientDatabaseFailure(wrapped(code))).toBe(true);
+  }
+  for (const code of [
+    "23505",
+    "40001",
+    "SQLITE_BUSY",
     "HRANA_WEBSOCKET_ERROR",
   ]) {
-    expect(
-      isTransientDatabaseFailure(
-        Object.assign(new Error("remote database unavailable"), { code }),
-      ),
-    ).toBe(true);
-  }
-
-  expect(
-    isTransientDatabaseFailure(
-      Object.assign(new Error("invalid database URL"), {
-        code: "URL_INVALID",
-      }),
-    ),
-  ).toBe(false);
-});
-
-test("retries only transient libSQL HTTP server statuses", () => {
-  for (const status of [408, 429, 500, 503]) {
-    const httpError = Object.assign(new Error("HTTP request failed"), {
-      status,
-    });
-    const serverError = Object.assign(
-      new Error("Remote database request failed", { cause: httpError }),
-      { code: "SERVER_ERROR" },
-    );
-
-    expect(isTransientDatabaseFailure(serverError)).toBe(true);
-  }
-
-  for (const status of [400, 401, 403, 404]) {
-    const httpError = Object.assign(new Error("HTTP request failed"), {
-      status,
-    });
-    const serverError = Object.assign(
-      new Error("Remote database request failed", { cause: httpError }),
-      { code: "SERVER_ERROR" },
-    );
-
-    expect(isTransientDatabaseFailure(serverError)).toBe(false);
-
-    const unrelatedStatusWrapper = Object.assign(
-      new Error("Application request failed", { cause: serverError }),
-      { status: 503 },
-    );
-    expect(isTransientDatabaseFailure(unrelatedStatusWrapper)).toBe(false);
+    expect(isTransientDatabaseFailure(wrapped(code))).toBe(false);
   }
 });

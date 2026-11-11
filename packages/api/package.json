@@ -10,14 +10,13 @@
   "scripts": {
     "sentry:cli": "sentry-cli",
     "db:generate": "bun run --cwd ../api-shared db:generate",
-    "db:generate:sqlite": "bun run --cwd ../api-shared db:generate:sqlite",
     "db:migrate": "bun run --cwd ../api-cli migrate",
     "deploy": "wrangler deploy",
     "dev": "bun --hot src/index.ts",
     "dev:postgres": "API_DATABASE=postgres bun --hot src/index.ts",
     "start": "bun src/index.ts",
-    "test": "bun scripts/testAllDatabases.ts",
-    "test:principal-history": "bun scripts/testPrincipalHistory.ts"
+    "test": "API_DATABASE=memory bun test src --max-concurrency=4 --parallel=2 --no-isolate --timeout=15000",
+    "test:principal-history": "bun test ./test/slow/principalHistoryAvailability.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1161.0",

@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uuid } from "./columns";
+import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * Every action a root audit row can record. The API's response contract lists

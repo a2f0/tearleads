@@ -6,7 +6,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "./columns";
+} from "drizzle-orm/pg-core";
 
 export type OrganizationBillingLifecycleEventType =
   | "free_trial_initialized"

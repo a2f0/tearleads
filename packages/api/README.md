@@ -38,7 +38,7 @@ operation contracts.
 
 ```sh
 bun run --filter=@tearleads/api dev   # http://127.0.0.1:3001, in-memory PGlite
-sh scripts/dev/runApi.sh --help       # Postgres, SQLite, and Turso modes
+sh scripts/dev/runApi.sh --help       # PGlite and Postgres modes
 ```
 
 [API persistence](../../docs/developer/api-persistence.md) describes each
@@ -85,7 +85,8 @@ bun run check:package @tearleads/api
 
 That builds the client SDK first; the API's tests resolve it from
 `packages/client-sdk/dist` and pass against a stale build. `bun run test` in
-this package runs the suite once per database (`memory` and `sqlite`);
-`--database=<name>` narrows it.
+this package runs the suite on in-memory PGlite; the multi-connection races in
+`*.pg.test.ts` run against a real server in the Postgres concurrency lane
+(`bun run test:postgres-concurrency`).
 
 [file-1]: ../../scripts/deploy/deployProduction.sh

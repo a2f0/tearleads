@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uuid } from "./columns";
+import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /** Exact policy and group lifecycle acknowledgements survive later principal heads. */
 export const principalPolicyCommits = pgTable(

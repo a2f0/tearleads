@@ -6,7 +6,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "./columns";
+} from "drizzle-orm/pg-core";
 
 /** Immutable compound container acknowledgements retained for exact retries. */
 export const principalPolicyMutationAcknowledgements = pgTable(

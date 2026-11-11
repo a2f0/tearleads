@@ -8,7 +8,6 @@ import {
   type SyncBillingTier,
 } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
-import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { isSameBillingPeriod } from "./stripePeriodMatch";
 import {
@@ -182,13 +181,12 @@ export async function runAbandonStripePlanChangeWorkflow(
 ): Promise<void> {
   const now = input.now ?? new Date();
   await db.transaction(async (tx) => {
-    await lockRowForUpdate(
-      tx
-        .select({ id: organizationBilling.organizationId })
-        .from(organizationBilling)
-        .where(eq(organizationBilling.organizationId, input.organizationId))
-        .limit(1),
-    );
+    await tx
+      .select({ id: organizationBilling.organizationId })
+      .from(organizationBilling)
+      .where(eq(organizationBilling.organizationId, input.organizationId))
+      .limit(1)
+      .for("update");
     const seats = await readStripeSeats(tx, input.organizationId);
     if (seats?.leaseId !== input.leaseId) {
       return;

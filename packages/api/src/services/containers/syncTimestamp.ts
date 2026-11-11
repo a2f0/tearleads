@@ -1,5 +1,4 @@
 import { type SQL, sql } from "drizzle-orm";
-import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 
 /** Keep PostgreSQL microseconds in discovery ordering and opaque cursors. */
 export function normalizeSyncTimestamp(value: string): string | null {
@@ -18,23 +17,17 @@ export function normalizeSyncTimestamp(value: string): string | null {
 }
 
 export function readSyncTimestamp(value: unknown): string {
-  // SQLite stores integer milliseconds; PostgreSQL SELECT produces UTC text.
-  const timestamp =
-    typeof value === "number"
-      ? new Date(value).toISOString()
-      : value instanceof Date
-        ? value.toISOString()
-        : String(value);
+  // A PostgreSQL SELECT produces UTC text; a driver may parse it to a Date.
+  const timestamp = value instanceof Date ? value.toISOString() : String(value);
   const normalized = normalizeSyncTimestamp(timestamp);
   if (normalized === null) throw new Error("Invalid discovery timestamp");
   return normalized;
 }
 
 export function syncTimestampExpression(expression: SQL): SQL<string> {
-  const timestamp = isSqliteApiDatabase()
-    ? expression
-    : sql`to_char(${expression}, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
-  return timestamp.mapWith(readSyncTimestamp);
+  return sql`to_char(${expression}, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`.mapWith(
+    readSyncTimestamp,
+  );
 }
 
 /** Inputs are normalized UTC discovery timestamps with 3 or 6 fractional digits. */

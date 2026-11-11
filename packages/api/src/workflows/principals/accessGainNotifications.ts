@@ -4,7 +4,7 @@ import {
   accessManifestHeads,
 } from "@tearleads/api-shared/schema";
 import { sql } from "drizzle-orm";
-import { uuidValue } from "../../utils/sqlDialect";
+import { uuidValue } from "../../utils/postgresSql";
 
 type ManagedPrincipalType = "group" | "organization";
 

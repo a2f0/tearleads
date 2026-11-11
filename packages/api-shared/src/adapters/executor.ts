@@ -7,9 +7,8 @@ import type { DatabaseSession, DatabaseTransaction } from "./types";
  * Drizzle pins a transaction to a single pooled connection, so every query it
  * issues multiplexes onto one `pg` client. The root database, by contrast,
  * hands each query its own pooled connection. We detect a transaction via
- * the managed adapter's completion scope, including SQLite's asynchronous
- * bridge. For an unwrapped Drizzle transaction, `rollback` distinguishes it
- * from the root database surface.
+ * the managed adapter's completion scope. For an unwrapped Drizzle
+ * transaction, `rollback` distinguishes it from the root database surface.
  */
 export function isDatabaseTransaction(
   executor: DatabaseSession,

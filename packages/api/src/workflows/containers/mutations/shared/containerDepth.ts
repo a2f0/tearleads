@@ -3,7 +3,7 @@ import { containers } from "@tearleads/api-shared/schema";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
-import { intExpression, uuidValue } from "../../../../utils/sqlDialect";
+import { intExpression, uuidValue } from "../../../../utils/postgresSql";
 import { ContainerMutationError, containerPathTooDeep } from "../errors";
 
 const subtreeHeightRowSchema = z.object({

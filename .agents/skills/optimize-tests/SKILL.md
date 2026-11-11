@@ -34,13 +34,13 @@ requests. Shipping is separate: use `ship-pr` only when requested. Read
    `gh run view <run> --job <job> --log` to save timings locally. Distinguish
    checkout/install/build time from test execution, and cached log replay from
    a fresh run. Retain the run URL and source revision.
-3. Rank test cases and files by reported duration, grouped by package and API
-   backend. Bun logs include `(pass) ... [duration]` and file headers. CI logs
-   can add timestamps, Turbo prefixes, and `::group::` or `##[group]` markers;
-   API output interleaves `[memory]` and `[sqlite]`, so track each stream's
-   current file separately. Report unparsed/missing timings rather than treating
-   them as zero. File sums identify leads, not elapsed time: hooks, module
-   initialization, parallel execution, and subprocesses can change the total.
+3. Rank test cases and files by reported duration, grouped by package. Bun logs
+   include `(pass) ... [duration]` and file headers. CI logs can add timestamps,
+   Turbo prefixes, and `::group::` or `##[group]` markers; parallel workers
+   interleave output, so track each worker's current file separately. Report
+   unparsed/missing timings rather than treating them as zero. File sums
+   identify leads, not elapsed time: hooks, module initialization, parallel
+   execution, and subprocesses can change the total.
 4. Reproduce the top candidates locally before changing them. Refresh installed
    dependencies with `bun run agent:run --label test-install -- bun install --frozen-lockfile`
    before building; package builds do not refresh stale installed Git dependencies.
@@ -53,8 +53,8 @@ requests. Shipping is separate: use `ship-pr` only when requested. Read
    passing cases, so add `--reporter=junit --reporter-outfile=<evidence path>`
    for case durations. Record user CPU beside wall time, for example with
    `/usr/bin/time -p`.
-5. Measure API candidates on both `API_DATABASE=memory` (PGlite) and
-   `API_DATABASE=sqlite`. Run comparisons sequentially with the same flags,
+5. Measure API candidates on PGlite (`API_DATABASE=memory`, the suite's
+   database). Run comparisons sequentially with the same flags,
    concurrency, and machine load. Avoid launching competing heavy checks or
    builds during measurements. On a shared host, record unavoidable contention
    and qualify timing claims. Include setup/teardown in process wall

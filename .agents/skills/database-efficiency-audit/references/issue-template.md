@@ -57,7 +57,7 @@ Write the rest of the body in this order:
    - the statement-budget, plan, and concurrency tests, docs, and formal
      models that change with it, and the security findings it touches;
    - its implementation path: Drizzle query builder, builder plus a short
-     `sql` fragment (`excluded.<column>`, a `sqlDialect.ts` helper), or an
+     `sql` fragment (`excluded.<column>`, a `postgresSql.ts` helper), or an
      edit to an existing raw `sql` statement, named as such;
    - whether deploying it needs a database reset (any change to an API
      baseline does, including an index drop);

@@ -1,9 +1,6 @@
-import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import { drizzle as sqliteDrizzle } from "drizzle-orm/bun-sqlite";
-import { migrate as migrateSqlite } from "drizzle-orm/bun-sqlite/migrator";
 import { drizzle as postgresDrizzle } from "drizzle-orm/pglite";
 import { migrate as migratePostgres } from "drizzle-orm/pglite/migrator";
 
@@ -59,70 +56,5 @@ test("Postgres baseline initializes all tables without application data", async 
     );
   } finally {
     await client.close();
-  }
-});
-
-test("SQLite baseline initializes all tables without application data", () => {
-  const client = new Database(":memory:");
-  try {
-    client.exec("PRAGMA foreign_keys = ON");
-    const db = sqliteDrizzle(client);
-    const options = {
-      migrationsFolder: fileURLToPath(
-        new URL("../drizzle-sqlite", import.meta.url),
-      ),
-    };
-    migrateSqlite(db, options);
-    migrateSqlite(db, options);
-    const rows = client
-      .query<{ name: string }, []>(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations'",
-      )
-      .all();
-    expect(rows).toHaveLength(50);
-    const identityColumns = client
-      .query<{ name: string; notnull: number }, []>(
-        "PRAGMA table_info('principal_membership_projection')",
-      )
-      .all();
-    expect(
-      identityColumns.find(
-        (column) => column.name === "identity_bundle_fingerprint",
-      )?.notnull,
-    ).toBe(1);
-    for (const table of ["groups", "organizations"]) {
-      const columns = client
-        .query<{ name: string }, []>(`PRAGMA table_info('${table}')`)
-        .all();
-      expect(columns.some((column) => column.name === "name")).toBe(false);
-    }
-    for (const { name } of rows) {
-      const result = client
-        .query<{ count: number }, []>(
-          `SELECT count(*) AS count FROM "${name.replaceAll('"', '""')}"`,
-        )
-        .get();
-      expect(result?.count).toBe(0);
-    }
-    expect(
-      client.query("SELECT id FROM __drizzle_migrations").all(),
-    ).toHaveLength(1);
-    expect(client.query("PRAGMA foreign_key_check").all()).toEqual([]);
-    const insertRoot = (id: string, slot: string | null) =>
-      client
-        .query(
-          "INSERT INTO containers (id, organization_id, system_slot) VALUES (?, ?, ?)",
-        )
-        .run(id, ROOT_ORGANIZATION_ID, slot);
-    insertRoot(PERSONAL_ROOT_ID, null);
-    insertRoot(METADATA_ROOT_ID, METADATA_SLOT);
-    expect(() => insertRoot(DUPLICATE_ROOT_ID, null)).toThrow(
-      "UNIQUE constraint failed",
-    );
-    expect(() => insertRoot(DUPLICATE_ROOT_ID, METADATA_SLOT)).toThrow(
-      "UNIQUE constraint failed",
-    );
-  } finally {
-    client.close();
   }
 });

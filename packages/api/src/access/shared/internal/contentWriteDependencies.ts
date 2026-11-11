@@ -6,12 +6,10 @@ import {
 } from "@tearleads/api-shared/schema";
 import { type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
-import { isSqliteApiDatabase, uuidValue } from "../../../utils/sqlDialect";
+import { uuidValue } from "../../../utils/postgresSql";
 
 function dependencyValues(header: SQL): SQL {
-  return isSqliteApiDatabase()
-    ? sql`json_each(${header}, '$.dependencyManifestHashes') as dependency`
-    : sql`jsonb_array_elements_text(${header}->'dependencyManifestHashes') as dependency(value)`;
+  return sql`jsonb_array_elements_text(${header}->'dependencyManifestHashes') as dependency(value)`;
 }
 
 const dependencyHashRowSchema = z.object({ hash: z.string() });

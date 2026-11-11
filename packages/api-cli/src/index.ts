@@ -1,11 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import {
-  type ApiMigrationDialect,
-  embeddedMigrationPath,
-  migrationDialectForDatabase,
-} from "./migrationAssets";
+import { embeddedMigrationPath } from "./migrationAssets";
 
 const apiDatabaseEnvKey = "API_DATABASE";
 
@@ -33,15 +29,13 @@ function embeddedFileName(file: Blob): string | undefined {
   return typeof file.name === "string" ? file.name : undefined;
 }
 
-async function materializeEmbeddedMigrations(
-  dialect: ApiMigrationDialect,
-): Promise<string | undefined> {
+async function materializeEmbeddedMigrations(): Promise<string | undefined> {
   const migrationFiles = Bun.embeddedFiles
     .map((file) => {
       const name = embeddedFileName(file);
       return {
         file,
-        path: name ? embeddedMigrationPath(name, dialect) : undefined,
+        path: name ? embeddedMigrationPath(name) : undefined,
       };
     })
     .filter((entry) => entry.path !== undefined);
@@ -100,11 +94,7 @@ async function cleanupApiDatabase(
 async function runMigrations(): Promise<void> {
   process.env[apiDatabaseEnvKey] ??= "postgres";
 
-  const migrationDialect = migrationDialectForDatabase(
-    process.env[apiDatabaseEnvKey],
-  );
-  const migrationsFolder =
-    await materializeEmbeddedMigrations(migrationDialect);
+  const migrationsFolder = await materializeEmbeddedMigrations();
   const { closeApiDatabase, initializeApiDatabase } = await import(
     "@tearleads/api-shared/postgres"
   );

@@ -9,7 +9,6 @@ import {
 } from "@tearleads/api-shared/schema";
 import { and, asc, eq, isNotNull, isNull, lte, notLike, or } from "drizzle-orm";
 import { normalizeStripeSeatQuantity } from "../../billing/stripeSeatQuantity";
-import { isSqliteApiDatabase, lockRowForUpdate } from "../../utils/sqlDialect";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { hasActiveStripeBinding } from "./stripeBindingPolicy";
 import { isSameBillingPeriod } from "./stripePeriodMatch";
@@ -185,9 +184,9 @@ export async function claimOrganizationStripeSeatSync(
   return db.transaction(async (tx) => {
     const availableLease = availableSeatLease(now);
     const candidateQuery = selectDueStripeSeatSync(tx, now);
-    const [candidate] = isSqliteApiDatabase()
-      ? await candidateQuery
-      : await candidateQuery.for("update", { of: organizationBilling });
+    const [candidate] = await candidateQuery.for("update", {
+      of: organizationBilling,
+    });
     if (!candidate) {
       return null;
     }
@@ -397,19 +396,16 @@ export async function runCompleteOrganizationStripeSeatSyncWorkflow(
   input: CompleteStripeSeatSyncInput,
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    const [billing] = await lockRowForUpdate(
-      tx
-        .select({
-          currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
-          seatCount: organizationBilling.seatCount,
-          status: organizationBilling.status,
-        })
-        .from(organizationBilling)
-        .where(
-          eq(organizationBilling.organizationId, input.claim.organizationId),
-        )
-        .limit(1),
-    );
+    const [billing] = await tx
+      .select({
+        currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
+        seatCount: organizationBilling.seatCount,
+        status: organizationBilling.status,
+      })
+      .from(organizationBilling)
+      .where(eq(organizationBilling.organizationId, input.claim.organizationId))
+      .limit(1)
+      .for("update");
     const appliedPaidCapacity = await completeOrganizationStripeSeatSync(
       tx,
       input,

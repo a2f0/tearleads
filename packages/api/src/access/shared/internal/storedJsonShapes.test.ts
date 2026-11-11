@@ -159,7 +159,7 @@ function closureRow(): Record<string, unknown> {
     objectId: "container-id",
     state: baseState(),
     depth: 0,
-    cycleDetected: 0,
+    cycleDetected: false,
   };
 }
 
@@ -183,6 +183,11 @@ describe("loadCurrentContainerManifestTargetClosure stored rows", () => {
     [
       "a string cycle flag",
       { ...closureRow(), cycleDetected: "false" },
+      "Unexpected row shape from container ancestor KEK closure",
+    ],
+    [
+      "a numeric cycle flag",
+      { ...closureRow(), cycleDetected: 0 },
       "Unexpected row shape from container ancestor KEK closure",
     ],
     [
@@ -288,8 +293,7 @@ describe("raw query rows", () => {
   });
 
   test("the Postgres commit LSN must be a non-empty string", async () => {
-    const read = (rows: unknown[]) =>
-      readCurrentCommitLsn(rowsExecutor(rows), "postgres");
+    const read = (rows: unknown[]) => readCurrentCommitLsn(rowsExecutor(rows));
     expect(await read([{ commitLsn: "0/16B3748" }])).toBe("0/16B3748");
     for (const rows of [[], [null], [{ commitLsn: "" }], [{ commitLsn: 1 }]]) {
       expect(await rejection(() => read(rows))).toBe(

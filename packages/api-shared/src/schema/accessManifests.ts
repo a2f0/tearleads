@@ -16,7 +16,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "./columns";
+} from "drizzle-orm/pg-core";
 
 /**
  * Content-addressed access manifests for containers and document link sets.

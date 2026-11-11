@@ -1,7 +1,6 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { sql } from "drizzle-orm";
 import { notePrincipalMutationLocked } from "../../access/write/principalStateStore";
-import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import {
   acquireTransactionLock,
   advisoryLockKey,
@@ -11,8 +10,8 @@ type LockablePrincipalType = "group" | "organization";
 
 /**
  * Serialize principal writes and organization-scope association by type + UUID.
- * SQLite transactions already begin immediate; Postgres uses a transaction-
- * scoped advisory lock derived from a collision-resistant full-ID digest.
+ * It takes a transaction-scoped advisory lock derived from a collision-resistant
+ * full-ID digest.
  * Once held, the transaction may reuse its current-state and organization
  * descriptor reads for that principal (`notePrincipalMutationLocked`).
  */
@@ -26,11 +25,9 @@ export async function lockPrincipalMutationInTransaction(
     principalId,
   );
   const [firstKey, secondKey] = keys;
-  if (!isSqliteApiDatabase()) {
-    await acquireTransactionLock(tx, advisoryLockKey(keys), "exclusive", () =>
-      tx.execute(sql`select pg_advisory_xact_lock(${firstKey}, ${secondKey})`),
-    );
-  }
+  await acquireTransactionLock(tx, advisoryLockKey(keys), "exclusive", () =>
+    tx.execute(sql`select pg_advisory_xact_lock(${firstKey}, ${secondKey})`),
+  );
   notePrincipalMutationLocked(tx, principalType, principalId);
 }
 

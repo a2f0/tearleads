@@ -177,7 +177,7 @@ test("an exact policy replay succeeds after the signer removes themself", async 
     "expected successor compound policy bundle",
   );
   // One acknowledged `createdAt` stands for the state and its payload, so both
-  // rows must carry it exactly, including where SQLite evaluates each default.
+  // rows must carry it exactly.
   for (const policy of [
     successorBundle.groupPolicy,
     successorBundle.organizationPolicy,

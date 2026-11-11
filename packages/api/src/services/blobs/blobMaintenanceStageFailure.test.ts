@@ -69,13 +69,8 @@ async function assertFailedStageCleanup(
 }
 
 test("failed expired-stage cleanup fails the maintenance run", async () => {
-  const { API_DATABASE: apiDatabase } = process.env;
-  const databaseKind = apiDatabase === "sqlite" ? "sqlite" : "memory";
   const managedDatabase = createDefaultManagedApiDatabase({
-    API_DATABASE: databaseKind,
-    ...(databaseKind === "sqlite"
-      ? { API_SQLITE_PATH: ":memory:", SQLITE_PATH: ":memory:" }
-      : {}),
+    API_DATABASE: "memory",
   });
   try {
     await managedDatabase.migrate();

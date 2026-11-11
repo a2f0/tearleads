@@ -1,4 +1,10 @@
-import { pgTable, text, timestamp, uniqueIndex, uuid } from "./columns";
+import {
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 /** Durable idempotency markers for document syncs that apply inline rekeys. */
 export const documentInlineRekeyCommits = pgTable(

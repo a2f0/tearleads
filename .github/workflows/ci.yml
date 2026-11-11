@@ -244,8 +244,8 @@ jobs:
         run: bun run --cwd packages/app-web build
 
   # One runner per long suite: sharing two Turbo slots serialized them into a
-  # 40-55 minute job. The API and app suites split further into Bun shards (and
-  # the API into one backend per runner) so no shard holds the critical path.
+  # 40-55 minute job. The API and app suites split further into Bun shards so
+  # no shard holds the critical path.
   # Each API shard keeps the default two workers: four PGlite workers on one
   # runner pushed a near-limit test past Bun's 5 s timeout.
   # Turbo hashes the passed arguments, so each shard whose inputs match an
@@ -259,24 +259,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - suite: api memory 1/3
+          - suite: api 1/3
             filter: "@tearleads/api"
-            args: --database=memory --shard=1/3
-          - suite: api memory 2/3
+            args: --shard=1/3
+          - suite: api 2/3
             filter: "@tearleads/api"
-            args: --database=memory --shard=2/3
-          - suite: api memory 3/3
+            args: --shard=2/3
+          - suite: api 3/3
             filter: "@tearleads/api"
-            args: --database=memory --shard=3/3
-          - suite: api sqlite 1/3
-            filter: "@tearleads/api"
-            args: --database=sqlite --shard=1/3
-          - suite: api sqlite 2/3
-            filter: "@tearleads/api"
-            args: --database=sqlite --shard=2/3
-          - suite: api sqlite 3/3
-            filter: "@tearleads/api"
-            args: --database=sqlite --shard=3/3
+            args: --shard=3/3
           - suite: app 1/2
             filter: app
             args: --shard=1/2
