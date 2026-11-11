@@ -1,7 +1,11 @@
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import {
+  sqlDocumentContainerProjectionPersistence as links,
+  replaceDocumentLinksInTransaction,
+} from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+
+import { enqueueDocumentPlacementIntentInTransaction } from "../../../data/persistence/container-contents/documentPlacementIntentEnqueue";
 import { defaultDocumentsPersistence } from "../../documents";
 import type {
   DocumentStructuralMutationHost,
@@ -43,14 +47,18 @@ export async function addDocumentLinkLocally<TRuntime>(input: {
         note.containerId,
         targetContainerId,
       ]);
-      await sqlDocumentMoveIntentPersistence.enqueueLinkIntent(execSql, {
-        id: intentId,
-        documentId: note.documentId,
-        localId: note.id,
-        sourceContainerId: note.containerId,
-        targetContainerId,
-      });
-      await links.replaceDocumentLinks(
+      await enqueueDocumentPlacementIntentInTransaction(
+        execSql,
+        {
+          id: intentId,
+          documentId: note.documentId,
+          localId: note.id,
+          sourceContainerId: note.containerId,
+          targetContainerId,
+        },
+        "link",
+      );
+      await replaceDocumentLinksInTransaction(
         execSql,
         note.documentId,
         linkedContainerIds,
@@ -103,7 +111,7 @@ export async function removeDocumentLinkLocally<TRuntime>(
       ).filter((id) => id !== removedContainerId);
       if (!linkedContainerIds.includes(nextContainerId))
         throw new Error("Document placement changed before unlink");
-      await sqlDocumentMoveIntentPersistence.enqueueUnlinkIntent(
+      await enqueueDocumentPlacementIntentInTransaction(
         transactionExecSql,
         {
           id: intentId,
@@ -112,8 +120,9 @@ export async function removeDocumentLinkLocally<TRuntime>(
           removedContainerId,
           targetContainerId: nextContainerId,
         },
+        "unlink",
       );
-      await links.replaceDocumentLinks(
+      await replaceDocumentLinksInTransaction(
         transactionExecSql,
         note.documentId,
         linkedContainerIds,

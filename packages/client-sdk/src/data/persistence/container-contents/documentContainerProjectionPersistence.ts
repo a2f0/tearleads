@@ -185,6 +185,80 @@ export async function deleteDocumentPlacementIntentsInTransaction(
   await tx.delete(localIntents).where(placementIntent).run();
 }
 
+async function ensureDocumentLinksSchema(execSql: ExecSql): Promise<void> {
+  await ensureSqlTables(execSql, [
+    ...documentContainerProjectionTables,
+    ...documentPlacementIntentTables,
+    ...documentTables,
+  ]);
+}
+
+async function replaceDocumentLinkRows(
+  tx: ClientSQLiteTransactionScope,
+  latest: ReadonlyMap<string, DocumentPlacementInput>,
+  options?: DocumentPlacementWriteOptions,
+): Promise<void> {
+  const writable = await filterWritableDocumentPlacements(
+    tx,
+    [...latest.values()],
+    options,
+  );
+  if (writable.length === 0) return;
+  // A placement the writer re-asserts is no longer tombstoned: a
+  // listing that links it again, or a local move that owns it, releases
+  // the hold so the document is not hidden until the next retry.
+  if (options?.moveIntentId) {
+    await deleteContainerDocumentTombstoneHoldsForDocuments(
+      tx,
+      writable.map((input) => input.documentId),
+    );
+  } else {
+    await deleteContainerDocumentTombstoneHoldRowsForLinks(tx, writable);
+  }
+  await tx
+    .delete(documentContainerProjection)
+    .where(
+      inArray(
+        documentContainerProjection.documentId,
+        writable.map((input) => input.documentId),
+      ),
+    )
+    .run();
+  const updatedAt = new Date().toISOString();
+  const rows = writable.flatMap((input) =>
+    Array.from(new Set(input.containerIds))
+      .sort()
+      .map((containerId) => ({
+        documentId: input.documentId,
+        containerId,
+        updatedAt,
+      })),
+  );
+  // A lane page of multi-link documents can carry more link rows than
+  // one statement may bind.
+  for (let index = 0; index < rows.length; index += LINK_INSERT_BATCH_SIZE) {
+    await tx
+      .insert(documentContainerProjection)
+      .values(rows.slice(index, index + LINK_INSERT_BATCH_SIZE))
+      .run();
+  }
+}
+
+/** The caller owns the open document commit and must propagate every failure. */
+export async function replaceDocumentLinksInTransaction(
+  transactionExecSql: ExecSql,
+  documentId: string,
+  containerIds: readonly string[],
+  options?: Omit<DocumentPlacementWriteOptions, "stillCurrent">,
+): Promise<void> {
+  await ensureDocumentLinksSchema(transactionExecSql);
+  await replaceDocumentLinkRows(
+    getClientSQLitePersistenceRuntime(transactionExecSql).db,
+    new Map([[documentId, { documentId, containerIds }]]),
+    options,
+  );
+}
+
 export const sqlDocumentContainerProjectionPersistence: DocumentContainerProjectionPersistence =
   {
     async ensureSchema(execSql) {
@@ -263,64 +337,12 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
       );
     },
     async replaceDocumentLinksBatch(execSql, inputs, options) {
-      await ensureSqlTables(execSql, [
-        ...documentContainerProjectionTables,
-        ...documentPlacementIntentTables,
-        ...documentTables,
-      ]);
+      await ensureDocumentLinksSchema(execSql);
       const latest = new Map(inputs.map((input) => [input.documentId, input]));
       if (latest.size === 0) return;
       const runtime = getClientSQLitePersistenceRuntime(execSql);
-      const replace = async (tx: ClientSQLiteTransactionScope) => {
-        const writable = await filterWritableDocumentPlacements(
-          tx,
-          [...latest.values()],
-          options,
-        );
-        if (writable.length === 0) return;
-        // A placement the writer re-asserts is no longer tombstoned: a
-        // listing that links it again, or a local move that owns it, releases
-        // the hold so the document is not hidden until the next retry.
-        if (options?.moveIntentId) {
-          await deleteContainerDocumentTombstoneHoldsForDocuments(
-            tx,
-            writable.map((input) => input.documentId),
-          );
-        } else {
-          await deleteContainerDocumentTombstoneHoldRowsForLinks(tx, writable);
-        }
-        await tx
-          .delete(documentContainerProjection)
-          .where(
-            inArray(
-              documentContainerProjection.documentId,
-              writable.map((input) => input.documentId),
-            ),
-          )
-          .run();
-        const updatedAt = new Date().toISOString();
-        const rows = writable.flatMap((input) =>
-          Array.from(new Set(input.containerIds))
-            .sort()
-            .map((containerId) => ({
-              documentId: input.documentId,
-              containerId,
-              updatedAt,
-            })),
-        );
-        // A lane page of multi-link documents can carry more link rows than
-        // one statement may bind.
-        for (
-          let index = 0;
-          index < rows.length;
-          index += LINK_INSERT_BATCH_SIZE
-        ) {
-          await tx
-            .insert(documentContainerProjection)
-            .values(rows.slice(index, index + LINK_INSERT_BATCH_SIZE))
-            .run();
-        }
-      };
+      const replace = (tx: ClientSQLiteTransactionScope) =>
+        replaceDocumentLinkRows(tx, latest, options);
       if (options?.stillCurrent) {
         await runtime.guardedTransaction(replace, options.stillCurrent);
         return;
